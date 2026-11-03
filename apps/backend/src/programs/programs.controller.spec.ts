@@ -11,7 +11,8 @@ import { ProgramEditorService } from './program-editor.service';
 import { ProgramsModule } from './programs.module';
 import { ProgramLifecycleService } from './program-lifecycle.service';
 import { ValidationPipe } from '@nestjs/common';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { ProgramActivityService } from './program-activity.service';
@@ -558,7 +559,7 @@ describe('ProgramsController read boundaries', () => {
     }
   });
 
-  it('프로그램 상세의 명시적 운영 전환만 viewer에 전달한다', async () => {
+  it('기존 operations query를 허용하되 viewer 권한 입력으로 전달하지 않는다', async () => {
     viewers.fromGithubId.mockResolvedValue({
       githubId: 101n,
       userId: 'student-1',
@@ -570,7 +571,7 @@ describe('ProgramsController read boundaries', () => {
       { sessionGithubId: 101n },
       { view: 'operations' },
     );
-    expect(viewers.fromGithubId).toHaveBeenCalledWith(101n, 'program-1', true);
+    expect(viewers.fromGithubId).toHaveBeenCalledWith(101n);
   });
 
   it('viewer 상세와 활동 조회는 전역 인증 가드 뒤에서만 private viewer를 해석한다', async () => {

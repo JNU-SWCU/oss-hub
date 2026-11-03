@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramTemplatesService } from './program-templates.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
@@ -44,6 +45,7 @@ export const editor = new ProgramEditorService(
     new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
+  new UserProfileService(),
 );
 export const publicCovers = new ProgramCoverRepository(
   prisma,
@@ -148,8 +150,14 @@ beforeEach(async () => {
       id: ACTOR,
       githubId: GITHUB_ID,
       nickname: 'synthetic-cover-staff',
-      hasStaffAccess: true,
       accountStatus: 'ACTIVE',
+      type: 'STAFF',
+      approvalStatus: 'APPROVED',
+      name: 'Synthetic staff',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      departmentType: 'DEPARTMENT',
     },
   });
 });

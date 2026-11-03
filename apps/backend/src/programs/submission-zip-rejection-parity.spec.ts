@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
@@ -112,6 +113,16 @@ function milestoneDocumentService() {
       id: 'user-opaque',
       hasStaffAccess: false,
       hasAdminAccess: false,
+      type: 'STUDENT',
+      approvalStatus: 'NOT_REQUIRED',
+      accountStatus: 'ACTIVE',
+      name: 'Synthetic viewer',
+      department: 'Synthetic department',
+      studentId: '123456',
+      departmentType: 'DEPARTMENT',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      admin: null,
     }),
     findDocumentContext: jest.fn().mockResolvedValue({
       id: 'document-opaque',
@@ -139,6 +150,7 @@ function milestoneDocumentService() {
     new MilestoneDocumentFileNameService(),
     new SubmissionFileAdmissionService(),
     new DownloadResponseService(),
+    new UserProfileService(),
   );
 }
 

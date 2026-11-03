@@ -33,12 +33,13 @@ beforeAll(async () => {
       id: ADMIN_ID,
       githubId: ADMIN_GITHUB_ID,
       nickname: 'synthetic-system-status-admin',
-      hasAdminAccess: true,
+      admin: { create: { origin: 'BOOTSTRAP' } },
       accountStatus: 'ACTIVE',
     },
   });
 });
 afterAll(async () => {
+  await prisma.admin.deleteMany({ where: { userId: ADMIN_ID } });
   await prisma.user.deleteMany({ where: { id: ADMIN_ID } });
 });
 

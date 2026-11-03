@@ -1,10 +1,11 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from './prisma.service';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditLogService } from './audit-log.service';
 import { ACCESS_AUDIT_EVENT_KINDS } from './audit-log-metadata.config';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { AuditLogReadService } from './audit-log-read.service';
 
 const auditLogMetadataService = new AuditLogMetadataService();
 
@@ -22,7 +23,7 @@ describe('Audit log integration', () => {
   const prisma = new PrismaService();
   const service = new AuditLogService(
     new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
+    new AuditLogReadService(new AuditLogMetadataService()),
   );
 
   beforeAll(async () => {
@@ -33,14 +34,11 @@ describe('Audit log integration', () => {
           id: `${TEST_PREFIX}admin`,
           githubId: ADMIN_GITHUB_ID,
           nickname: 'synthetic-132-admin',
-          hasAdminAccess: true,
         },
         {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
           nickname: 'synthetic-132-staff',
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
         },
       ],
     });

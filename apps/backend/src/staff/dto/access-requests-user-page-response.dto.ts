@@ -1,9 +1,13 @@
+import type {
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '../../users/user-contract.config';
 import type { AuthorityLabel } from '../../users/authority-label.types';
 import type {
   AccountStatus,
+  AdminOrigin,
+  ApprovalStatus,
   LoginHistoryEvent,
-  MemberKind,
-  StaffAccessRequestStatus,
 } from '@prisma/client';
 import type {
   AdminAccessFacets,
@@ -13,6 +17,12 @@ import type {
   AdminAccessUserPage,
   AdminAccessUserHistory,
 } from '../../users/admin-access-read-ordering.repository';
+
+const ADMIN_GRANT_TIME_MEANINGS = {
+  MIGRATION: 'MIGRATED_QUALIFICATION_CREATED',
+  ADMIN: 'GRANTED',
+  BOOTSTRAP: 'GRANTED',
+} as const satisfies Readonly<Record<AdminOrigin, string>>;
 
 class StaffAccessRequestHistoryItemResponseDto {
   declare readonly id: string;
@@ -113,6 +123,8 @@ export class AccessRequestsUserResponseDto {
   declare readonly githubLogin: string;
   declare readonly name: string | null;
   declare readonly role: AuthorityLabel | null;
+  declare readonly approvalStatus: ApprovalStatus;
+  declare readonly approvalRequestId: string | null;
   declare readonly accountStatus: AccountStatus;
   declare readonly isSelf: boolean;
   declare readonly isProfileComplete: boolean;
@@ -126,6 +138,8 @@ export class AccessRequestsUserResponseDto {
       githubLogin: user.githubLogin,
       name: user.name,
       role: user.role,
+      approvalStatus: user.approvalStatus,
+      approvalRequestId: user.approvalRequestId,
       accountStatus: user.accountStatus,
       isSelf: user.isSelf,
       isProfileComplete: user.isProfileComplete,
@@ -176,6 +190,8 @@ export class AccessRequestsUserDetailResponseDto {
   declare readonly memberKind: MemberKind | null;
   declare readonly hasStaffAccess: boolean;
   declare readonly hasAdminAccess: boolean;
+  declare readonly approvalStatus: ApprovalStatus;
+  declare readonly approvalRequestId: string | null;
   declare readonly accountStatus: AccountStatus;
   declare readonly isSelf: boolean;
   declare readonly isProfileComplete: boolean;
@@ -183,6 +199,11 @@ export class AccessRequestsUserDetailResponseDto {
   declare readonly pendingRequest: PendingRequestResponseDto | null;
   declare readonly lastLoginAt: string | null;
   declare readonly profile: AdminAccessUserDetail['profile'];
+  declare readonly adminGrant: {
+    readonly origin: AdminOrigin;
+    readonly grantedAt: string;
+    readonly grantTimeMeaning: (typeof ADMIN_GRANT_TIME_MEANINGS)[AdminOrigin];
+  } | null;
 
   static from(
     user: AdminAccessUserDetail,
@@ -195,6 +216,8 @@ export class AccessRequestsUserDetailResponseDto {
       memberKind: user.memberKind,
       hasStaffAccess: user.hasStaffAccess,
       hasAdminAccess: user.hasAdminAccess,
+      approvalStatus: user.approvalStatus,
+      approvalRequestId: user.approvalRequestId,
       accountStatus: user.accountStatus,
       isSelf: user.isSelf,
       isProfileComplete: user.isProfileComplete,
@@ -202,6 +225,13 @@ export class AccessRequestsUserDetailResponseDto {
       pendingRequest: toPendingRequest(user.pendingRequest),
       lastLoginAt: user.lastLoginAt?.toISOString() ?? null,
       profile: user.profile,
+      adminGrant: user.adminGrant
+        ? {
+            origin: user.adminGrant.origin,
+            grantedAt: user.adminGrant.grantedAt.toISOString(),
+            grantTimeMeaning: ADMIN_GRANT_TIME_MEANINGS[user.adminGrant.origin],
+          }
+        : null,
     };
   }
 }

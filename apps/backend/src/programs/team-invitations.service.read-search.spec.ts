@@ -229,8 +229,12 @@ describe('TeamInvitationsService.searchCandidates', () => {
 
 const activeStaff = {
   accountStatus: AccountStatus.ACTIVE,
-  hasStaffAccess: true,
-  hasAdminAccess: false,
+  type: 'STAFF',
+  approvalStatus: 'APPROVED',
+  profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  name: 'Synthetic staff',
+  department: 'Synthetic department',
+  admin: null,
 };
 
 describe('교직원의 초대 관리 권한', () => {
@@ -269,12 +273,16 @@ describe('교직원의 초대 관리 권한', () => {
   it.each([
     [
       '관리자 권한만 있는 활성 계정',
-      { hasStaffAccess: false, hasAdminAccess: true },
-      true,
+      {
+        type: 'STUDENT',
+        approvalStatus: 'NOT_REQUIRED',
+        admin: { userId: 'admin-1' },
+      },
+      false,
     ],
     [
       '권한 없는 활성 계정',
-      { hasStaffAccess: false, hasAdminAccess: false },
+      { type: 'STUDENT', approvalStatus: 'NOT_REQUIRED', admin: null },
       false,
     ],
     ['비활성화된 교직원', { accountStatus: AccountStatus.DEACTIVATED }, false],

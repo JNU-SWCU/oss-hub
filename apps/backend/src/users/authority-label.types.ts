@@ -1,4 +1,4 @@
-import type { MemberKind } from '@prisma/client';
+import { type MemberKind } from './user-contract.config';
 
 export type AuthorityLabel = 'STUDENT' | 'STAFF' | 'ADMIN';
 

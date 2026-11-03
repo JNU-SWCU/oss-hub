@@ -1,11 +1,13 @@
+import type { ApprovalStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from './user-contract.config';
 import type { AuthorityLabel } from './authority-label.types';
 import {
   MissingAdminAccessTransitionError,
   InvalidAdminAccessAuditError,
   PendingRequestDecisionConflict,
 } from './admin-access-mutation.error';
-import { StaffAccessRequestStatus, AccountStatus } from '@prisma/client';
-import type { AuditLogService } from '../platform/audit-log.service';
+import { AccountStatus } from '@prisma/client';
+import type { UserHistoryRepository } from './user-history.repository';
 import { RolesErrorCode, ROLES_ERROR_CODES } from './roles-error-code.error';
 import type {
   AdminAccessRepositoryPort,
@@ -76,6 +78,8 @@ type AdminAccessDecidedRequest = {
 };
 
 export type AdminAccessMutationResult = AdminAccessCasProjection & {
+  readonly approvalStatus: ApprovalStatus;
+  readonly approvalRequestId: string | null;
   readonly decidedRequest: AdminAccessDecidedRequest | null;
 };
 
@@ -87,7 +91,7 @@ type AccessAuthority = {
 function accessAuthorityOfRole(role: AuthorityLabel | null): AccessAuthority {
   switch (role) {
     case 'ADMIN':
-      return { hasStaffAccess: true, hasAdminAccess: true };
+      return { hasStaffAccess: false, hasAdminAccess: true };
     case 'STAFF':
       return { hasStaffAccess: true, hasAdminAccess: false };
     case 'STUDENT':
@@ -478,7 +482,7 @@ function assertNeverForAdminAccessMutation(value: never): never {
 
 type MutationDependencies = {
   readonly repository: AdminAccessRepositoryPort;
-  readonly auditLog: AuditLogService;
+  readonly auditLog: Pick<UserHistoryRepository, 'record'>;
 };
 
 type MutationInput = {
@@ -527,23 +531,22 @@ export class AdminAccessMutationService {
           input.userId,
           input.command,
         );
-
         const activeAdminCount = this.isAdminActor(unlockedActor)
           ? await store.lockActiveAdmins()
           : Number.MAX_SAFE_INTEGER;
+        const lockedActor = await store.findActorByGithubId(
+          input.actorGithubId,
+          true,
+        );
         const actor = this.isAdminActor(unlockedActor)
-          ? this.requireActiveAdmin(
-              await store.findActorByGithubId(input.actorGithubId),
-            )
-          : this.requireActiveStaffOrAdmin(
-              await store.findActorByGithubId(input.actorGithubId),
-            );
+          ? this.requireActiveAdmin(lockedActor)
+          : this.requireActiveStaffOrAdmin(lockedActor);
         this.assertAccessMutationAllowed(actor, input.userId, input.command);
         const beforeRow = await store.findUserForUpdate(input.userId);
         const before = beforeRow
           ? this.toAdminAccessUserRecord(beforeRow)
           : null;
-        if (!before) {
+        if (!before || !beforeRow) {
           throw this.roleError(RolesErrorCode.USER_NOT_FOUND);
         }
         if (!this.matchesExpectedAccessState(before, input.command)) {
@@ -580,14 +583,25 @@ export class AdminAccessMutationService {
           input.command,
           transition.outcome.requestEffect,
         );
+        if (authority.hasStaffAccess && !before.hasStaffAccess) {
+          if (!before.isProfileComplete)
+            throw new DomainException(
+              USERS_ERROR_CODES[UsersErrorCode.PROFILE_INCOMPLETE],
+            );
+        }
         const userUpdated = await store.compareAndSwapAccess({
           userId: input.userId,
+          actorId: actor.id,
+          expectedType: beforeRow.memberKind ?? 'UNSELECTED',
+          expectedApprovalStatus: beforeRow.approvalStatus,
+          expectedApprovalRequestId: beforeRow.approvalRequestId,
           expectedHasStaffAccess:
             input.command.expectedHasStaffAccess ?? before.hasStaffAccess,
           expectedHasAdminAccess:
             input.command.expectedHasAdminAccess ?? before.hasAdminAccess,
           expectedAccountStatus: input.command.expectedAccountStatus,
           desiredAccountStatus: input.command.desiredAccountStatus,
+          decidesPendingRequest: input.command.requestDecision !== undefined,
           desiredHasStaffAccess: authority.hasStaffAccess,
           desiredHasAdminAccess: authority.hasAdminAccess,
         });
@@ -753,14 +767,17 @@ export class AdminAccessMutationService {
     const { selectedMemberKind, studentId, department, ...record } = row;
     return {
       ...record,
-      role: this.userProfileService.authorityLabel(row),
+      hasStaffAccess: this.userProfileService.hasStaffAccess(row),
+      role: this.userProfileService.authorityLabel({
+        ...row,
+        hasStaffAccess: this.userProfileService.hasStaffAccess(row),
+      }),
       isProfileComplete: this.userProfileService.isCompleteUserProfile({
-        id: row.id,
+        profileCreatedAt: row.profileCreatedAt,
         name: row.name,
         studentId,
         department,
         memberKind: row.memberKind,
-        hasPendingStaffRequest: row.pendingRequest !== null,
         selectedMemberKind,
       }),
     };
@@ -773,6 +790,7 @@ export class AdminAccessMutationService {
     const record = this.toAdminAccessUserRecord(user);
     return {
       ...record,
+      adminGrant: row.adminGrant,
       profile: {
         name: row.name,
         studentId: row.studentId,
@@ -849,13 +867,15 @@ export class AdminAccessMutationService {
       }
       case ADMIN_ACCESS_REQUEST_EFFECTS.REVOKED: {
         const decidedRequest = input.result.decidedRequest;
-        if (decidedRequest?.status !== StaffAccessRequestStatus.REVOKED) {
+        if (
+          decidedRequest !== null &&
+          decidedRequest.status !== StaffAccessRequestStatus.REVOKED
+        )
           throw new InvalidAdminAccessAuditError();
-        }
         return {
           action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REVOKED,
-          targetType: 'ROLE_REQUEST',
-          targetId: decidedRequest.id,
+          targetType: decidedRequest === null ? 'USER' : 'ROLE_REQUEST',
+          targetId: decidedRequest?.id ?? input.before.id,
           metadata: this.auditLogMetadataService.createAccessAuditMetadata({
             ...common,
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REVOKED,
@@ -936,7 +956,9 @@ export class AdminAccessMutationService {
     return entry;
   }
 
-  requireActiveAdmin<T extends AdminAccessPrincipal>(actor: T | null): T {
+  requireActiveAdmin<
+    T extends Pick<AdminAccessPrincipal, 'accountStatus' | 'hasAdminAccess'>,
+  >(actor: T | null): T {
     if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
       throw new DomainException(
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
@@ -948,7 +970,7 @@ export class AdminAccessMutationService {
     return actor;
   }
 
-  requireActiveStaffOrAdmin<T extends AdminAccessPrincipal>(
+  requireActiveStaffOrAdmin<T extends AdminAccessPrincipal | AdminAccessActor>(
     actor: T | null,
   ): T {
     if (!actor || actor.accountStatus !== AccountStatus.ACTIVE) {
@@ -956,13 +978,17 @@ export class AdminAccessMutationService {
         AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED],
       );
     }
-    if (!actor.hasStaffAccess && !actor.hasAdminAccess) {
+    const staffEligible =
+      'approvalStatus' in actor
+        ? this.userProfileService.hasStaffAccess(actor)
+        : this.userProfileService.isStaffEligible(actor);
+    if (!staffEligible && !actor.hasAdminAccess) {
       throw new DomainException(ROLES_ERROR_CODES[RolesErrorCode.ADMIN_ONLY]);
     }
     return actor;
   }
 
-  isAdminActor(actor: AdminAccessPrincipal): boolean {
+  isAdminActor(actor: Pick<AdminAccessPrincipal, 'hasAdminAccess'>): boolean {
     return actor.hasAdminAccess;
   }
 
@@ -1133,11 +1159,16 @@ export class AdminAccessMutationService {
       command,
       this.toAdminAccessRequestWrite(before, requestEffect),
     );
+    const updatedRow = await store.findUserForUpdate(before.id);
+    if (!updatedRow) throw this.roleError(RolesErrorCode.USER_NOT_FOUND);
+    const updated = this.toAdminAccessUserRecord(updatedRow);
     return {
-      id: before.id,
-      role: command.desiredRole,
-      accountStatus: command.desiredAccountStatus,
-      pendingRequest: decidedRequest ? null : before.pendingRequest,
+      id: updated.id,
+      role: updated.role,
+      accountStatus: updated.accountStatus,
+      approvalStatus: updated.approvalStatus,
+      approvalRequestId: updated.approvalRequestId,
+      pendingRequest: updated.pendingRequest,
       decidedRequest,
     };
   }
@@ -1176,7 +1207,9 @@ async function applyRequestWrite(
         actorId: actor.id,
         decidedAt: new Date(),
       });
-      return { id: inserted.id, status: StaffAccessRequestStatus.REVOKED };
+      return inserted.id === before.id
+        ? null
+        : { id: inserted.id, status: StaffAccessRequestStatus.REVOKED };
     }
     default:
       return assertNever(write);

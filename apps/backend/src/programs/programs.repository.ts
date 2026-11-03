@@ -1,3 +1,4 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   type Program,
@@ -5,7 +6,6 @@ import {
   MilestoneDocumentKind,
   Prisma,
   ProgramCategory,
-  StaffAccessRequestStatus,
   type ProgramTrackType,
   type ProgramLifecycle,
 } from '@prisma/client';
@@ -329,7 +329,7 @@ export class ProgramsRepository {
           applicant: {
             githubId: repository.application!.applicant.githubId,
             nickname: repository.application!.applicant.nickname,
-            name: repository.application!.applicant.profile?.name ?? null,
+            name: repository.application!.applicant.name ?? null,
           },
           team: repository.application!.team,
         },
@@ -367,14 +367,7 @@ export class ProgramsRepository {
       select: {
         id: true,
         accountStatus: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        profile: { select: { memberKind: true } },
-        staffAccessRequests: {
-          where: { status: StaffAccessRequestStatus.PENDING },
-          select: { id: true },
-          take: 1,
-        },
+        ...USER_AUTHORITY_SELECT,
       },
     });
   }

@@ -1,4 +1,8 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { writeApprovalFixture } from './user-history.integration-fixture';
+
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import { StaffAccessRequestStatus } from './user-contract.config';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -6,11 +10,11 @@ import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import {
   AccountStatus,
   LoginHistoryEvent,
-  StaffAccessRequestStatus,
+  PrismaClient,
+  type Prisma,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -21,26 +25,20 @@ import {
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const service = new AdminAccessService(
   new AdminAccessRepository(
     prisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(
-      new AdminAccessReadOrderingRepository(),
-      new PlatformRepository(),
-    ),
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminRepository(prisma),
+    new UserTransitionRepository(),
   ),
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
@@ -48,16 +46,26 @@ const service = new AdminAccessService(
 );
 const prefix = 'test:pr03:admin-access-read:';
 const queryFragment = 'synthetic-access-read';
-let actor: { readonly id: string; readonly githubId: bigint };
+let actor: {
+  readonly id: string;
+  readonly githubId: bigint;
+};
 const adminPrincipal = () => ({
   githubId: actor.githubId,
+  memberKind: null,
+  isProfileComplete: false,
   hasStaffAccess: false,
   hasAdminAccess: true,
   accountStatus: AccountStatus.ACTIVE,
 });
-let studentPending: { readonly id: string; readonly githubId: bigint };
-let studentPlain: { readonly id: string; readonly githubId: bigint };
-
+let studentPending: {
+  readonly id: string;
+  readonly githubId: bigint;
+};
+let studentPlain: {
+  readonly id: string;
+  readonly githubId: bigint;
+};
 beforeAll(async () => {
   await prisma.$connect();
   actor = await createUser('actor', 1n, 'ADMIN', AccountStatus.ACTIVE);
@@ -80,39 +88,37 @@ beforeAll(async () => {
     'STUDENT',
     AccountStatus.ACTIVE,
   );
-  await prisma.staffAccessRequest.createMany({
-    data: [
+  await createUser('unassigned-plain', 6n, null, AccountStatus.ACTIVE);
+  await (async () => {
+    for (const request of [
       pendingRequest(`${prefix}student-pending`),
       pendingRequest(`${prefix}staff-pending`),
       pendingRequest(`${prefix}student-deactivated-pending`),
-    ],
-  });
+    ])
+      await writeApprovalFixture(prisma, request);
+  })();
 });
-
 afterAll(async () => {
   await prisma.$disconnect();
 });
-
 it('uses DB pagination and computes each facet against the other active filters', async () => {
   const page = await service.list(adminPrincipal(), {
     query: queryFragment,
-    role: ADMIN_ACCESS_ROLE_FILTERS.STUDENT,
+    role: ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED,
     accountStatus: AccountStatus.ACTIVE,
     pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
     page: 1,
     limit: 1,
   });
-
   expect(page.items).toHaveLength(1);
-  expect(page.items[0]?.id).toBe(studentPending.id);
-  expect(page.total).toBe(1);
+  expect(page.items[0]?.id).toBe(`${prefix}staff-pending`);
+  expect(page.total).toBe(2);
   expect(page.facets).toEqual({
-    roles: { unassigned: 0, student: 1, staff: 1, admin: 0 },
-    accountStatuses: { active: 1, deactivated: 1 },
-    pendingRequests: { none: 1, pending: 1 },
+    roles: { unassigned: 2, student: 0, staff: 0, admin: 0 },
+    accountStatuses: { active: 2, deactivated: 1 },
+    pendingRequests: { none: 1, pending: 2 },
   });
 });
-
 it('derives lastLoginAt from the latest successful LOGIN and preserves null', async () => {
   const firstLogin = new Date('2026-07-29T00:00:00.000Z');
   const latestLogin = new Date('2026-07-30T00:00:00.000Z');
@@ -148,20 +154,17 @@ it('derives lastLoginAt from the latest successful LOGIN and preserves null', as
       ),
     ],
   });
-
   const [withLogin, withoutLogin] = await Promise.all([
     service.get(adminPrincipal(), studentPending.id),
     service.get(adminPrincipal(), studentPlain.id),
   ]);
-
   expect(withLogin.lastLoginAt).toEqual(latestLogin);
   expect(withoutLogin.lastLoginAt).toBeNull();
 });
-
-it('returns separately bounded stable history pages using matching deployed indexes', async () => {
+it('preserves history response pages and explains the actual reader SQL', async () => {
   const createdAt = new Date('2026-07-28T00:00:00.000Z');
-  await prisma.staffAccessRequest.createMany({
-    data: [1, 2, 3].map((value) => ({
+  await (async () => {
+    for (const request of [1, 2, 3].map((value) => ({
       id: `${prefix}history-request:${value}`,
       userId: studentPlain.id,
       status: StaffAccessRequestStatus.REJECTED,
@@ -169,8 +172,9 @@ it('returns separately bounded stable history pages using matching deployed inde
       decidedById: actor.id,
       decidedAt: createdAt,
       createdAt,
-    })),
-  });
+    })))
+      await writeApprovalFixture(prisma, request);
+  })();
   await prisma.loginHistory.createMany({
     data: [1, 2, 3].map((value) =>
       login(
@@ -182,18 +186,20 @@ it('returns separately bounded stable history pages using matching deployed inde
       ),
     ),
   });
-
   const history = await service.getHistory(adminPrincipal(), studentPlain.id, {
     staffAccessRequests: { page: 2, limit: 1 },
     loginHistory: { page: 1, limit: 2 },
   });
-  const indexes = await prisma.$queryRaw<readonly { indexname: string }[]>`
+  const indexes = await prisma.$queryRaw<
+    readonly {
+      indexname: string;
+    }[]
+  >`
     SELECT indexname
     FROM pg_indexes
     WHERE schemaname = 'public'
       AND indexname IN (
-        'StaffAccessRequest_userId_createdAt_id_idx',
-        'StaffAccessRequest_userId_status_createdAt_id_idx',
+        'UserHistory_userId_occurredAt_id_idx',
         'LoginHistory_userId_provider_loginAt_id_idx',
         'LoginHistory_userId_provider_event_success_loginAt_id_idx'
       )
@@ -201,7 +207,6 @@ it('returns separately bounded stable history pages using matching deployed inde
   const [staffAccessRequestPlan, loginHistoryPlan] = await historyQueryPlans(
     studentPlain.id,
   );
-
   expect(history.staffAccessRequests).toMatchObject({
     page: 2,
     limit: 1,
@@ -213,54 +218,74 @@ it('returns separately bounded stable history pages using matching deployed inde
   expect(indexes.map((index) => index.indexname).sort()).toEqual([
     'LoginHistory_userId_provider_event_success_loginAt_id_idx',
     'LoginHistory_userId_provider_loginAt_id_idx',
-    'StaffAccessRequest_userId_createdAt_id_idx',
-    'StaffAccessRequest_userId_status_createdAt_id_idx',
+    'UserHistory_userId_occurredAt_id_idx',
   ]);
-  expect(queryPlanText(staffAccessRequestPlan)).toContain(
-    'StaffAccessRequest_userId_createdAt_id_idx',
-  );
-  expect(queryPlanText(loginHistoryPlan)).toContain(
-    'LoginHistory_userId_provider_loginAt_id_idx',
-  );
+  expect(
+    staffAccessRequestPlan[0]?.['QUERY PLAN'][0]?.Plan['Actual Rows'],
+  ).toBe(3);
+  expect(loginHistoryPlan[0]?.['QUERY PLAN'][0]?.Plan['Actual Rows']).toBe(2);
 });
-
-type QueryPlanRow = { readonly 'QUERY PLAN': string };
-
+type QueryPlanRow = {
+  readonly 'QUERY PLAN': readonly {
+    readonly Plan: { readonly 'Actual Rows': number };
+  }[];
+};
 async function historyQueryPlans(
   userId: string,
 ): Promise<readonly [readonly QueryPlanRow[], readonly QueryPlanRow[]]> {
-  return prisma.$transaction(async (transaction) => {
-    await transaction.$executeRaw`SET LOCAL enable_seqscan = off`;
-    await transaction.$executeRaw`SET LOCAL enable_bitmapscan = off`;
-    const staffAccessRequestPlan = await transaction.$queryRaw<
-      readonly QueryPlanRow[]
-    >`
-      EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
-      SELECT id
-      FROM "StaffAccessRequest"
-      WHERE "userId" = ${userId}
-      ORDER BY "createdAt" DESC, id DESC
-      LIMIT 2
-    `;
-    const loginHistoryPlan = await transaction.$queryRaw<
-      readonly QueryPlanRow[]
-    >`
-      EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
-      SELECT id
-      FROM "LoginHistory"
-      WHERE "userId" = ${userId}
-        AND provider = 'github'
-      ORDER BY "loginAt" DESC, id DESC
-      LIMIT 2
-    `;
-    return [staffAccessRequestPlan, loginHistoryPlan];
+  const reader = new PrismaClient({ log: [{ emit: 'event', level: 'query' }] });
+  const queries: Prisma.QueryEvent[] = [];
+  reader.$on('query', (event) => {
+    if (event.query.startsWith('SELECT')) queries.push(event);
   });
+  try {
+    const repository = new AdminAccessHistoryRepository();
+    await repository.listAdminAccessStaffAccessRequestHistory(reader, userId, {
+      page: 2,
+      limit: 1,
+    });
+    await repository.listAdminAccessLoginHistory(reader, userId, {
+      page: 1,
+      limit: 2,
+    });
+    const requestQuery = queries.find((event) =>
+      event.query.includes('FROM "public"."UserHistory"'),
+    );
+    const loginQuery = queries.find(
+      (event) =>
+        event.query.includes('FROM "public"."LoginHistory"') &&
+        !event.query.includes('COUNT('),
+    );
+    if (!requestQuery || !loginQuery) {
+      throw new Error('Actual history reader SELECT queries were not captured');
+    }
+    return [
+      await explainReaderQuery(reader, requestQuery),
+      await explainReaderQuery(reader, loginQuery),
+    ];
+  } finally {
+    await reader.$disconnect();
+  }
 }
-
-function queryPlanText(plan: readonly QueryPlanRow[]): string {
-  return plan.map((row) => row['QUERY PLAN']).join('\n');
+async function explainReaderQuery(
+  reader: Pick<PrismaClient, '$queryRawUnsafe'>,
+  event: Prisma.QueryEvent,
+): Promise<readonly QueryPlanRow[]> {
+  const parameters: unknown = JSON.parse(event.params);
+  if (
+    !Array.isArray(parameters) ||
+    !parameters.every(
+      (value: unknown) =>
+        typeof value === 'string' || typeof value === 'number',
+    )
+  ) {
+    throw new Error('Unexpected history reader SQL parameters');
+  }
+  return reader.$queryRawUnsafe<readonly QueryPlanRow[]>(
+    `EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF, FORMAT JSON) ${event.query}`,
+    ...parameters,
+  );
 }
-
 function createUser(
   label: string,
   suffix: bigint,
@@ -270,14 +295,13 @@ function createUser(
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {
       id: `${prefix}${label}`,
-      githubId: 9_003_800_000n + suffix,
+      githubId: 9003800000n + suffix,
       nickname: `${queryFragment}-${label}`,
       accountStatus,
     }),
     select: { id: true, githubId: true },
   });
 }
-
 function pendingRequest(userId: string) {
   return {
     id: `${userId}:pending`,
@@ -285,7 +309,6 @@ function pendingRequest(userId: string) {
     status: StaffAccessRequestStatus.PENDING,
   };
 }
-
 function login(
   userId: string,
   label: string,

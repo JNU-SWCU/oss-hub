@@ -1,4 +1,5 @@
-import type { StaffAccessRequestStatus } from '@prisma/client';
+import { type StaffAccessRequestStatus } from '../user-contract.config';
+
 import type { StaffAccessRequestRecord } from '../member-onboarding.repository';
 
 export class RoleRequestResponseDto {

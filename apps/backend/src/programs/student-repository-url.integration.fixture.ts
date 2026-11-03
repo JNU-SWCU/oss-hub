@@ -1,3 +1,4 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -5,12 +6,11 @@ import { ReviewHistoryWriterRepository } from './review-history-writer.repositor
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
-  AffiliationKind,
   ApplicationStatus,
-  MemberKind,
   ProgramCategory,
   RepositorySource,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -46,7 +46,7 @@ const applications = new ApplicationsRepository(
 );
 const audit = new AuditLogService(
   new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
+  new AuditLogReadService(new AuditLogMetadataService()),
 );
 const resolver = {
   resolve: jest.fn().mockResolvedValue({
@@ -85,17 +85,14 @@ beforeAll(async () => {
       id: userId,
       githubId,
       nickname: 'synthetic-relink-user',
-      selectedMemberKind: MemberKind.STUDENT,
-      profile: {
-        create: {
-          name: 'Synthetic user',
-          studentId: (githubIdBase / 1000n).toString().padStart(10, '0'),
-          department: 'Synthetic',
-          memberKind: MemberKind.STUDENT,
-          affiliationKind: AffiliationKind.DEPARTMENT,
-          affiliationName: 'Synthetic',
-        },
-      },
+      name: 'Synthetic user',
+      studentId: (githubIdBase / 1000n).toString().padStart(10, '0'),
+      department: 'Synthetic',
+      type: MemberKind.STUDENT,
+      departmentType: AffiliationKind.DEPARTMENT,
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
 });

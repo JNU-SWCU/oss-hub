@@ -1,3 +1,4 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, type ApplicationStatus } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
@@ -42,8 +43,7 @@ export class StudentRepositoryUrlContextRepository {
       select: {
         id: true,
         nickname: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
       },
     });
     if (!actor) return null;
@@ -66,7 +66,12 @@ export class StudentRepositoryUrlContextRepository {
       editor: {
         nickname: actor.nickname,
         isLeader: leads === 1,
-        isStaff: actor.hasStaffAccess || actor.hasAdminAccess,
+        isStaff:
+          actor.type === 'STAFF' &&
+          actor.approvalStatus === 'APPROVED' &&
+          actor.profileCreatedAt !== null &&
+          actor.name !== null &&
+          actor.department !== null,
       },
     };
   }

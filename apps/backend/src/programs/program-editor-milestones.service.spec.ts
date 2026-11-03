@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
@@ -25,6 +26,7 @@ const programEditorService = new ProgramEditorService(
     new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
+  new UserProfileService(),
 );
 
 describe('ProgramEditorService milestones', () => {

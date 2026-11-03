@@ -1,7 +1,5 @@
 import {
   AccountStatus,
-  AffiliationKind,
-  MemberKind,
   ApplicationStatus,
   MilestoneSubmissionType,
   ProgramCategory,
@@ -136,120 +134,16 @@ export class E2eProgramAuthoringFixture {
   }
 
   async ensure(): Promise<void> {
+    await this.ensureActors();
     await this.prisma.$transaction(async (transaction) => {
-      await transaction.user.upsert({
+      await transaction.user.update({
         where: { id: E2E_STAFF_ID },
-        create: {
-          id: E2E_STAFF_ID,
-          githubId: E2E_STAFF_GITHUB_ID,
-          nickname: 'e2e-program-authoring-staff',
+        data: {
           notificationEmail: null,
           notifyEnabled: false,
-          accountStatus: AccountStatus.ACTIVE,
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
-
-          profile: {
-            create: {
-              name: 'E2E Staff',
-              studentId: null,
-              department: 'E2E Program Office',
-              memberKind: MemberKind.STAFF,
-              affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-              affiliationName: 'E2E Program Office',
-            },
-          },
-        },
-        update: {
-          nickname: 'e2e-program-authoring-staff',
-          notificationEmail: null,
-          notifyEnabled: false,
-          accountStatus: AccountStatus.ACTIVE,
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
-          profile: {
-            upsert: {
-              create: {
-                name: 'E2E Staff',
-                studentId: null,
-                department: 'E2E Program Office',
-                memberKind: MemberKind.STAFF,
-                affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-                affiliationName: 'E2E Program Office',
-              },
-              update: {
-                name: 'E2E Staff',
-                studentId: null,
-                department: 'E2E Program Office',
-                memberKind: MemberKind.STAFF,
-                affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-                affiliationName: 'E2E Program Office',
-              },
-            },
-          },
         },
       });
-      await transaction.user.upsert({
-        where: { id: E2E_STUDENT_ID },
-        create: {
-          id: E2E_STUDENT_ID,
-          githubId: E2E_STUDENT_GITHUB_ID,
-          nickname: 'e2e-program-authoring-student',
-          notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
-          notifyEnabled: true,
-          accountStatus: AccountStatus.ACTIVE,
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: 'E2E Student',
-              studentId: '260001',
-              department: 'E2E Department',
-              memberKind: MemberKind.STUDENT,
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: 'E2E Department',
-            },
-          },
-        },
-        update: {
-          nickname: 'e2e-program-authoring-student',
-          notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
-          notifyEnabled: true,
-          accountStatus: AccountStatus.ACTIVE,
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-      });
-      await transaction.user.upsert({
-        where: { id: E2E_FOREIGN_STUDENT_ID },
-        create: {
-          id: E2E_FOREIGN_STUDENT_ID,
-          githubId: E2E_FOREIGN_STUDENT_GITHUB_ID,
-          nickname: 'e2e-program-authoring-foreign-student',
-          notificationEmail:
-            'e2e-program-authoring-foreign-student@fixture.invalid',
-          notifyEnabled: true,
-          accountStatus: AccountStatus.ACTIVE,
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: 'E2E Foreign Student',
-              studentId: '260002',
-              department: 'E2E Department',
-              memberKind: MemberKind.STUDENT,
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: 'E2E Department',
-            },
-          },
-        },
-        update: {
-          nickname: 'e2e-program-authoring-foreign-student',
-          notificationEmail:
-            'e2e-program-authoring-foreign-student@fixture.invalid',
-          notifyEnabled: true,
-          accountStatus: AccountStatus.ACTIVE,
-          selectedMemberKind: MemberKind.STUDENT,
-        },
-      });
-      await transaction.consent.createMany({
+      await transaction.userPolicy.createMany({
         data: [E2E_STAFF_ID, E2E_STUDENT_ID, E2E_FOREIGN_STUDENT_ID].map(
           (userId) => ({ userId, policyVersion: CONSENT_POLICY_VERSION }),
         ),
@@ -316,11 +210,19 @@ export class E2eProgramAuthoringFixture {
       PREFIX,
     );
     await this.prisma.user.updateMany({
-      where: { hasStaffAccess: true },
+      where: { type: 'STAFF', approvalStatus: 'APPROVED' },
       data: { notifyEnabled: false },
     });
     const author = await this.prisma.user.updateMany({
-      where: { githubId: authorGithubId, hasStaffAccess: true },
+      where: {
+        githubId: authorGithubId,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        accountStatus: AccountStatus.ACTIVE,
+        profileCreatedAt: { not: null },
+        name: { not: null },
+        department: { not: null },
+      },
       data: {
         notificationEmail: 'e2e-program-authoring-author@fixture.invalid',
         notifyEnabled: true,

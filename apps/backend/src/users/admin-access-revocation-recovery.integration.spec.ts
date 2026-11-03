@@ -1,4 +1,5 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -11,35 +12,28 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(
   prisma,
   new AdminAccessHistoryRepository(),
-  new AdminAccessReadRepository(
-    new AdminAccessReadOrderingRepository(),
-    new PlatformRepository(),
-  ),
+  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+  new AdminRepository(prisma),
+  new UserTransitionRepository(),
 );
 const service = new AdminAccessService(
   repository,
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
@@ -47,15 +41,12 @@ const service = new AdminAccessService(
 );
 const TEST_PREFIX = 'test:pr04h:admin-access-revocation-recovery:';
 let sequence = 0;
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
 afterAll(async () => {
   await prisma.$disconnect();
 });
-
 describe('Admin access account status transitions (PR04H, formerly StaffAccessRequestsService.decide)', () => {
   it('DEACTIVATED 전환은 STAFF 역할과 연결 자산을 보존하고 계정만 비활성화하며, 재활성화도 동일하게 보존한다', async () => {
     sequence += 1;
@@ -63,7 +54,6 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
     const actor = await createUser('ADMIN', `${prefix}admin`);
     const target = await createUser('STAFF', `${prefix}staff`);
     await createPreservedAssets(prefix, target.id);
-
     const deactivated = await service.patchAccess(actor.githubId, target.id, {
       expectedRole: 'STAFF',
       desiredRole: 'STAFF',
@@ -71,17 +61,19 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
       desiredAccountStatus: AccountStatus.DEACTIVATED,
       expectedPendingRequest: null,
     });
-
     expect(deactivated).toMatchObject({
       role: 'STAFF',
       accountStatus: AccountStatus.DEACTIVATED,
       decidedRequest: null,
     });
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      approvalStatus: 'APPROVED',
+      admin: null,
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(countPreservedAssets(prefix, target.id)).resolves.toEqual({
@@ -91,7 +83,6 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
       applications: 1,
       repositories: 1,
     });
-
     const reactivated = await service.patchAccess(actor.githubId, target.id, {
       expectedRole: 'STAFF',
       desiredRole: 'STAFF',
@@ -99,17 +90,19 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
     });
-
     expect(reactivated).toMatchObject({
       role: 'STAFF',
       accountStatus: AccountStatus.ACTIVE,
       decidedRequest: null,
     });
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      approvalStatus: 'APPROVED',
+      admin: null,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(countPreservedAssets(prefix, target.id)).resolves.toEqual({
@@ -121,7 +114,6 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
     });
   });
 });
-
 async function createUser(
   role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
   label: string,
@@ -130,19 +122,18 @@ async function createUser(
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {
       id: `${label}:user`,
-      githubId: 9_004_800_000n + BigInt(sequence),
+      githubId: 9004800000n + BigInt(sequence),
       nickname: `synthetic-pr04h-${sequence}`,
     }),
     select: { id: true, githubId: true },
   });
 }
-
 async function createPreservedAssets(
   prefix: string,
   staffId: string,
 ): Promise<void> {
   await Promise.all([
-    prisma.consent.create({
+    prisma.userPolicy.create({
       data: {
         id: `${prefix}consent`,
         userId: staffId,
@@ -204,13 +195,12 @@ async function createPreservedAssets(
       id: `${prefix}repository`,
       applicationId: application.id,
       programId: program.id,
-      githubRepositoryId: 9_004_800_000n + BigInt(sequence),
+      githubRepositoryId: 9004800000n + BigInt(sequence),
       nameWithOwner: `synthetic-org/synthetic-pr04h-repository-${sequence}`,
       source: RepositorySource.ORG_PROVISIONED,
     },
   });
 }
-
 async function countPreservedAssets(
   prefix: string,
   staffId: string,
@@ -223,7 +213,7 @@ async function countPreservedAssets(
 }> {
   const [consents, loginHistories, programs, applications, repositories] =
     await Promise.all([
-      prisma.consent.count({ where: { userId: staffId } }),
+      prisma.userPolicy.count({ where: { userId: staffId } }),
       prisma.loginHistory.count({ where: { userId: staffId } }),
       prisma.program.count({ where: { id: `${prefix}program` } }),
       prisma.application.count({ where: { applicantId: staffId } }),

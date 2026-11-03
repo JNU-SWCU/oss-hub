@@ -1,13 +1,21 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { userAuditRows } from './user-history.integration-fixture';
+import {
+  deferred,
+  backendPid,
+  pidCapturingPrisma,
+  waitUntilBlockedBy,
+} from './admin-actor-toctou.integration-support';
+import { flatProfileFixture } from './canonical-user-fixture';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
 import {
@@ -22,33 +30,22 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const TEST_PREFIX = 'test:687:admin-actor-toctou:';
-
-const BLOCKING_OBSERVATION_TIMEOUT_MS = 20_000;
-
-const GITHUB_ID_BASE = 9_006_871_000n;
-
+const BLOCKING_OBSERVATION_TIMEOUT_MS = 20000;
+const GITHUB_ID_BASE = 9006871000n;
 const prisma = new PrismaService();
-const auditLog = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
-);
+const auditLog = new UserHistoryRepository(new UserTransitionRepository());
 let sequence = 0;
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
 afterAll(async () => {
   await prisma.$disconnect();
 });
-
 it(
   '권한 변경: actor를 강등하는 트랜잭션과 겹치면 ROL_004로 거부하고 아무것도 쓰지 않는다',
   async () => {
@@ -56,16 +53,16 @@ it(
     const target = await createUser('reject-target', 'STUDENT');
     const demotion = startHeldDemotion(actor.id);
     await demotion.applied;
-
     const mutationBackend = backendPid();
     const service = new AdminAccessService(
       new AdminAccessRepository(
-        pidCapturingPrisma(mutationBackend.capture),
+        pidCapturingPrisma(prisma, mutationBackend.capture),
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminRepository(
+          pidCapturingPrisma(prisma, mutationBackend.capture),
         ),
+        new UserTransitionRepository(),
       ),
       auditLog,
       new AdminAccessMutationService(
@@ -73,7 +70,6 @@ it(
         new UserProfileService(),
       ),
     );
-
     const mutation = service.patchAccess(actor.githubId, target.id, {
       expectedRole: 'STUDENT',
       desiredRole: 'STAFF',
@@ -81,32 +77,34 @@ it(
       desiredAccountStatus: AccountStatus.ACTIVE,
       expectedPendingRequest: null,
     });
-
-    await waitUntilBlockedBy(
-      await mutationBackend.pid,
-      await demotion.pid,
-      '권한 변경이 강등에 막힌 상태',
-    );
+    await waitUntilBlockedBy(prisma, {
+      waiterPid: await mutationBackend.pid,
+      blockerPid: await demotion.pid,
+      description: '권한 변경이 강등에 막힌 상태',
+    });
     demotion.commit();
     await demotion.done;
-
     await expect(mutation).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
     });
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      approvalStatus: 'NOT_REQUIRED',
+      admin: null,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(
-      prisma.auditLog.count({ where: { targetId: target.id } }),
+      userAuditRows(prisma, { targetId: target.id }).then(
+        (rows) => rows.length,
+      ),
     ).resolves.toBe(0);
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
-
 it(
   '권한 변경: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다',
   async () => {
@@ -118,12 +116,15 @@ it(
     const service = new AdminAccessService(
       new PausingActorReadAdminAccessRepository(
         new AdminAccessRepository(
-          pidCapturingPrisma(mutationBackend.capture),
+          pidCapturingPrisma(prisma, mutationBackend.capture),
           new AdminAccessHistoryRepository(),
           new AdminAccessReadRepository(
             new AdminAccessReadOrderingRepository(),
-            new PlatformRepository(),
           ),
+          new AdminRepository(
+            pidCapturingPrisma(prisma, mutationBackend.capture),
+          ),
+          new UserTransitionRepository(),
         ),
         async () => {
           reachedActorRead.resolve();
@@ -136,7 +137,6 @@ it(
         new UserProfileService(),
       ),
     );
-
     const mutation = service.patchAccess(actor.githubId, target.id, {
       expectedRole: 'STUDENT',
       desiredRole: 'STAFF',
@@ -146,13 +146,12 @@ it(
     });
     await reachedActorRead.promise;
     const demotion = startHeldDemotion(actor.id);
-
     try {
-      await waitUntilBlockedBy(
-        await demotion.pid,
-        await mutationBackend.pid,
-        '강등이 진행 중인 권한 변경에 막힌 상태',
-      );
+      await waitUntilBlockedBy(prisma, {
+        waiterPid: await demotion.pid,
+        blockerPid: await mutationBackend.pid,
+        description: '강등이 진행 중인 권한 변경에 막힌 상태',
+      });
     } finally {
       releaseMutation.resolve();
       demotion.commit();
@@ -160,15 +159,17 @@ it(
     await expect(mutation).resolves.toMatchObject({ role: 'STAFF' });
     await demotion.done;
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      approvalStatus: 'APPROVED',
+      admin: null,
     });
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
-
 it(
   '프로필 대리 수정: actor를 읽은 뒤에는 actor 행이 잠겨 있어 강등이 끼어들지 못한다',
   async () => {
@@ -180,17 +181,20 @@ it(
     const service = new AdminProfileService(
       new PausingActorReadAdminProfileRepository(
         new AdminProfileRepository(
-          pidCapturingPrisma(mutationBackend.capture),
+          pidCapturingPrisma(prisma, mutationBackend.capture),
           new AdminAccessRepository(
-            pidCapturingPrisma(mutationBackend.capture),
+            pidCapturingPrisma(prisma, mutationBackend.capture),
             new AdminAccessHistoryRepository(),
             new AdminAccessReadRepository(
               new AdminAccessReadOrderingRepository(),
-              new PlatformRepository(),
             ),
+            new AdminRepository(
+              pidCapturingPrisma(prisma, mutationBackend.capture),
+            ),
+            new UserTransitionRepository(),
           ),
           new PrismaSerializationRetryRepository(),
-          new PlatformRepository(),
+          new UserTransitionRepository(),
         ),
         async () => {
           reachedActorRead.resolve();
@@ -211,19 +215,17 @@ it(
         new UserProfileService(),
       ),
     );
-
     const mutation = service.patchProfile(actor.githubId, target.id, {
       name: '합성 새 이름',
     });
     await reachedActorRead.promise;
     const demotion = startHeldDemotion(actor.id);
-
     try {
-      await waitUntilBlockedBy(
-        await demotion.pid,
-        await mutationBackend.pid,
-        '강등이 진행 중인 프로필 수정에 막힌 상태',
-      );
+      await waitUntilBlockedBy(prisma, {
+        waiterPid: await demotion.pid,
+        blockerPid: await mutationBackend.pid,
+        description: '강등이 진행 중인 프로필 수정에 막힌 상태',
+      });
     } finally {
       releaseMutation.resolve();
       demotion.commit();
@@ -231,19 +233,23 @@ it(
     await expect(mutation).resolves.toMatchObject({ name: '합성 새 이름' });
     await demotion.done;
     await expect(
-      prisma.userProfile.findUniqueOrThrow({ where: { userId: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.toMatchObject({ name: '합성 새 이름' });
-
     await expect(
-      prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: actor.id },
+      }),
     ).resolves.toMatchObject({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+      approvalStatus: 'APPROVED',
+      admin: null,
     });
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
-
 it(
   '프로필 대리 수정: actor를 강등하는 트랜잭션과 겹치면 ROL_004로 거부하고 아무것도 쓰지 않는다',
   async () => {
@@ -251,21 +257,23 @@ it(
     const target = await createUser('profile-reject-target', 'STUDENT');
     const demotion = startHeldDemotion(actor.id);
     await demotion.applied;
-
     const mutationBackend = backendPid();
     const service = new AdminProfileService(
       new AdminProfileRepository(
-        pidCapturingPrisma(mutationBackend.capture),
+        pidCapturingPrisma(prisma, mutationBackend.capture),
         new AdminAccessRepository(
-          pidCapturingPrisma(mutationBackend.capture),
+          pidCapturingPrisma(prisma, mutationBackend.capture),
           new AdminAccessHistoryRepository(),
           new AdminAccessReadRepository(
             new AdminAccessReadOrderingRepository(),
-            new PlatformRepository(),
           ),
+          new AdminRepository(
+            pidCapturingPrisma(prisma, mutationBackend.capture),
+          ),
+          new UserTransitionRepository(),
         ),
         new PrismaSerializationRetryRepository(),
-        new PlatformRepository(),
+        new UserTransitionRepository(),
       ),
       auditLog,
       new AdminProfileMutationService(
@@ -281,32 +289,33 @@ it(
         new UserProfileService(),
       ),
     );
-
     const mutation = service.patchProfile(actor.githubId, target.id, {
       name: '합성 거부될 이름',
     });
-
-    await waitUntilBlockedBy(
-      await mutationBackend.pid,
-      await demotion.pid,
-      '프로필 수정이 강등에 막힌 상태',
-    );
+    await waitUntilBlockedBy(prisma, {
+      waiterPid: await mutationBackend.pid,
+      blockerPid: await demotion.pid,
+      description: '프로필 수정이 강등에 막힌 상태',
+    });
     demotion.commit();
     await demotion.done;
-
     await expect(mutation).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
     });
     await expect(
-      prisma.userProfile.findUniqueOrThrow({ where: { userId: target.id } }),
+      prisma.user.findUniqueOrThrow({
+        include: { admin: true },
+        where: { id: target.id },
+      }),
     ).resolves.not.toMatchObject({ name: '합성 거부될 이름' });
     await expect(
-      prisma.auditLog.count({ where: { targetId: target.id } }),
+      userAuditRows(prisma, { targetId: target.id }).then(
+        (rows) => rows.length,
+      ),
     ).resolves.toBe(0);
   },
   BLOCKING_OBSERVATION_TIMEOUT_MS,
 );
-
 function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
@@ -319,7 +328,6 @@ function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
     select: { id: true, githubId: true },
   });
 }
-
 function startHeldDemotion(userId: string): {
   readonly pid: Promise<number>;
   readonly applied: Promise<void>;
@@ -332,21 +340,29 @@ function startHeldDemotion(userId: string): {
   const done = prisma.$transaction(
     async (transaction) => {
       const [row] = await transaction.$queryRaw<
-        readonly { readonly pid: number }[]
+        readonly {
+          readonly pid: number;
+        }[]
       >`SELECT pg_backend_pid()::int AS pid`;
       backend.capture(row?.pid ?? 0);
       await transaction.user.update({
         where: { id: userId },
         data: {
-          hasAdminAccess: false,
-          hasStaffAccess: true,
-          selectedMemberKind: MemberKind.STAFF,
+          ...flatProfileFixture({
+            name: '합성 강등 교직원',
+            studentId: null,
+            department: '합성 사업단',
+            memberKind: 'STAFF',
+            affiliationKind: 'PROGRAM_OFFICE',
+          }),
+          approvalStatus: 'APPROVED',
+          admin: { delete: true },
         },
       });
       applied.resolve();
       await release.promise;
     },
-    { timeout: 60_000, maxWait: 20_000 },
+    { timeout: 60000, maxWait: 20000 },
   );
   return {
     pid: backend.pid,
@@ -354,75 +370,4 @@ function startHeldDemotion(userId: string): {
     commit: release.resolve,
     done,
   };
-}
-
-function deferred(): {
-  readonly promise: Promise<void>;
-  readonly resolve: () => void;
-} {
-  let resolve: () => void = () => undefined;
-  const promise = new Promise<void>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve: () => resolve() };
-}
-
-function backendPid(): {
-  readonly pid: Promise<number>;
-  readonly capture: (pid: number) => void;
-} {
-  let capture: (pid: number) => void = () => undefined;
-  const pid = new Promise<number>((resolve) => {
-    capture = resolve;
-  });
-  return { pid, capture: (value: number) => capture(value) };
-}
-
-function pidCapturingPrisma(capture: (pid: number) => void): PrismaService {
-  return new Proxy(prisma, {
-    get(target, property, receiver) {
-      if (property === '$transaction') {
-        return <T>(
-          operation: (client: PrismaService) => Promise<T>,
-          options?: Readonly<Record<string, unknown>>,
-        ): Promise<T> =>
-          prisma.$transaction(
-            async (transaction) => {
-              const [row] = await transaction.$queryRaw<
-                readonly { readonly pid: number }[]
-              >`SELECT pg_backend_pid()::int AS pid`;
-              capture(row?.pid ?? 0);
-              return operation(transaction as unknown as PrismaService);
-            },
-            { maxWait: 20_000, timeout: 60_000, ...options },
-          );
-      }
-      const value: unknown = Reflect.get(target, property, receiver);
-
-      return typeof value === 'function'
-        ? (value as (...args: readonly unknown[]) => unknown).bind(target)
-        : value;
-    },
-  });
-}
-
-async function waitUntilBlockedBy(
-  blockedPid: number,
-  blockerPid: number,
-  description: string,
-): Promise<void> {
-  for (let attempt = 0; attempt < 250; attempt += 1) {
-    const [row] = await prisma.$queryRaw<
-      readonly { readonly blocked: boolean }[]
-    >`
-      SELECT ${blockerPid}::int = ANY(pg_blocking_pids(${blockedPid}::int)) AS blocked
-    `;
-    if (row?.blocked === true) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-  throw new Error(
-    `${description}를 관측하지 못했다 — 백엔드 ${blockedPid}가 ${blockerPid}에 막혀 있지 않다.`,
-  );
 }

@@ -1,12 +1,19 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import {
+  deferred,
+  backendPid,
+  pidCapturingPrisma,
+  waitUntilBlockedBy,
+} from './admin-actor-toctou.integration-support';
+import { flatProfileFixture } from './canonical-user-fixture';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
 import { PausingActorRevalidationAdminAccessRepository } from './admin-access.integration-support';
@@ -15,37 +22,28 @@ import { AdminAccessService } from './admin-access.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const repository = new AdminAccessRepository(
   prisma,
   new AdminAccessHistoryRepository(),
-  new AdminAccessReadRepository(
-    new AdminAccessReadOrderingRepository(),
-    new PlatformRepository(),
-  ),
+  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+  new AdminRepository(prisma),
+  new UserTransitionRepository(),
 );
-const auditLog = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
-);
+const auditLog = new UserHistoryRepository(new UserTransitionRepository());
 const TEST_PREFIX = 'test:687:admin-access-actor-toctou:';
-const GITHUB_ID_BASE = 9_006_870_000n;
+const GITHUB_ID_BASE = 9006870000n;
 let sequence = 0;
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
 afterAll(async () => {
   await prisma.$disconnect();
 });
-
 it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등을 보고 뮤테이션이 실패한다', async () => {
   const actor = await createUser('actor-a', 'ADMIN');
   const target = await createUser('target-a', 'STUDENT');
@@ -64,7 +62,6 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
       new UserProfileService(),
     ),
   );
-
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STUDENT',
     desiredRole: 'STAFF',
@@ -73,36 +70,45 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
     expectedPendingRequest: null,
   });
   await reachedPauseBeforeLock.promise;
-
   await prisma.user.update({
     where: { id: actor.id },
     data: {
-      hasAdminAccess: false,
-      hasStaffAccess: true,
-      selectedMemberKind: MemberKind.STAFF,
+      ...flatProfileFixture({
+        name: '합성 강등 교직원',
+        studentId: null,
+        department: '합성 사업단',
+        memberKind: 'STAFF',
+        affiliationKind: 'PROGRAM_OFFICE',
+      }),
+      approvalStatus: 'APPROVED',
+      admin: { delete: true },
     },
   });
   releasePauseBeforeLock.resolve();
-
   await expect(mutation).rejects.toMatchObject({
     errorCode: { code: RolesErrorCode.ADMIN_ONLY, status: 403 },
   });
   await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    prisma.user.findUniqueOrThrow({
+      include: { admin: true },
+      where: { id: target.id },
+    }),
   ).resolves.toMatchObject({
-    hasStaffAccess: false,
-    hasAdminAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
+    admin: null,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
+    prisma.user.findUniqueOrThrow({
+      include: { admin: true },
+      where: { id: actor.id },
+    }),
   ).resolves.toMatchObject({
-    hasStaffAccess: true,
-    hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    admin: null,
     accountStatus: AccountStatus.ACTIVE,
   });
 });
-
 it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테이션이 커밋된 뒤에야 풀린다', async () => {
   const actor = await createUser('actor-b', 'ADMIN');
   const target = await createUser('target-b', 'STUDENT');
@@ -113,12 +119,13 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
   const pausedService = new AdminAccessService(
     new PausingActorRevalidationAdminAccessRepository(
       new AdminAccessRepository(
-        pidCapturingPrisma(mutationBackend.capture),
+        pidCapturingPrisma(prisma, mutationBackend.capture),
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminRepository(
+          pidCapturingPrisma(prisma, mutationBackend.capture),
         ),
+        new UserTransitionRepository(),
       ),
       {
         onAfterLock: async () => {
@@ -133,7 +140,6 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
       new UserProfileService(),
     ),
   );
-
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STUDENT',
     desiredRole: 'STAFF',
@@ -142,42 +148,53 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
     expectedPendingRequest: null,
   });
   await reachedPauseAfterLock.promise;
-  const demotion = pidCapturingPrisma(demotionBackend.capture).$transaction(
-    (transaction) =>
-      transaction.user.update({
-        where: { id: actor.id },
-        data: {
-          hasAdminAccess: false,
-          hasStaffAccess: true,
-          selectedMemberKind: MemberKind.STAFF,
-        },
-      }),
+  const demotion = pidCapturingPrisma(
+    prisma,
+    demotionBackend.capture,
+  ).$transaction((transaction) =>
+    transaction.user.update({
+      where: { id: actor.id },
+      data: {
+        ...flatProfileFixture({
+          name: '합성 강등 교직원',
+          studentId: null,
+          department: '합성 사업단',
+          memberKind: 'STAFF',
+          affiliationKind: 'PROGRAM_OFFICE',
+        }),
+        approvalStatus: 'APPROVED',
+        admin: { delete: true },
+      },
+    }),
   );
-
-  await waitUntilBlockedBy(
-    await demotionBackend.pid,
-    await mutationBackend.pid,
-  );
+  await waitUntilBlockedBy(prisma, {
+    waiterPid: await demotionBackend.pid,
+    blockerPid: await mutationBackend.pid,
+  });
   releasePauseAfterLock.resolve();
   const [result] = await Promise.all([mutation, demotion]);
-
   expect(result.role).toBe('STAFF');
   await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    prisma.user.findUniqueOrThrow({
+      include: { admin: true },
+      where: { id: target.id },
+    }),
   ).resolves.toMatchObject({
-    hasStaffAccess: true,
-    hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    admin: null,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: actor.id } }),
+    prisma.user.findUniqueOrThrow({
+      include: { admin: true },
+      where: { id: actor.id },
+    }),
   ).resolves.toMatchObject({
-    hasStaffAccess: true,
-    hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    admin: null,
     accountStatus: AccountStatus.ACTIVE,
   });
 });
-
 function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
   sequence += 1;
   return prisma.user.create({
@@ -189,69 +206,4 @@ function createUser(label: string, role: 'STUDENT' | 'STAFF' | 'ADMIN' | null) {
     }),
     select: { id: true, githubId: true },
   });
-}
-
-function deferred(): {
-  readonly promise: Promise<void>;
-  readonly resolve: () => void;
-} {
-  let resolve: () => void = () => undefined;
-  const promise = new Promise<void>((resolvePromise) => {
-    resolve = resolvePromise;
-  });
-  return { promise, resolve: () => resolve() };
-}
-
-function pidCapturingPrisma(capture: (pid: number) => void): PrismaService {
-  return new Proxy(prisma, {
-    get(target, property, receiver) {
-      if (property === '$transaction') {
-        return <T>(
-          operation: (client: PrismaService) => Promise<T>,
-        ): Promise<T> =>
-          prisma.$transaction(async (transaction) => {
-            const [row] = await transaction.$queryRaw<
-              readonly { readonly pid: number }[]
-            >`SELECT pg_backend_pid()::int AS pid`;
-            capture(row?.pid ?? 0);
-            return operation(transaction as unknown as PrismaService);
-          });
-      }
-      const value: unknown = Reflect.get(target, property, receiver);
-      return typeof value === 'function'
-        ? (value as (...args: readonly unknown[]) => unknown).bind(target)
-        : value;
-    },
-  });
-}
-
-function backendPid(): {
-  readonly pid: Promise<number>;
-  readonly capture: (pid: number) => void;
-} {
-  let capture: (pid: number) => void = () => undefined;
-  const pid = new Promise<number>((resolve) => {
-    capture = resolve;
-  });
-  return { pid, capture: (value: number) => capture(value) };
-}
-
-async function waitUntilBlockedBy(
-  waiterPid: number,
-  blockerPid: number,
-): Promise<void> {
-  for (let attempt = 0; attempt < 200; attempt += 1) {
-    const [row] = await prisma.$queryRaw<
-      readonly { readonly blocked: boolean }[]
-    >`
-      SELECT ${blockerPid}::int = ANY(pg_blocking_pids(${waiterPid}::int)) AS blocked
-    `;
-    if (row?.blocked === true) {
-      return;
-    }
-    await new Promise((resolve) => setTimeout(resolve, 20));
-  }
-  throw new Error(
-    `백엔드(${waiterPid})가 백엔드(${blockerPid})에 막혀 있는 상태를 관측하지 못했다.`,
-  );
 }

@@ -1,24 +1,21 @@
+import { StaffAccessRequestStatus } from './user-contract.config';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { StaffAccessRequestStatus } from '@prisma/client';
 import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { RoleRequestsController } from './role-requests.controller';
 import type { MemberOnboardingService } from './member-onboarding.service';
 import { type StaffAccessRequestRecord } from './member-onboarding.repository';
-
 const REQUEST: Pick<AuthenticatedRequest, 'sessionGithubId'> = {
   sessionGithubId: 424242n,
 };
 const REQUESTED_AT = new Date('2026-01-01T00:00:00.000Z');
 const DECIDED_AT = new Date('2026-01-02T00:00:00.000Z');
-
 class MissingHandlerMetadataError extends Error {
   constructor(propertyKey: string) {
     super(`Missing handler metadata: ${propertyKey}`);
     this.name = 'MissingHandlerMetadataError';
   }
 }
-
 function readGuards(target: object, propertyKey: string): readonly unknown[] {
   const handler: unknown = Object.getOwnPropertyDescriptor(
     target,
@@ -33,14 +30,12 @@ function readGuards(target: object, propertyKey: string): readonly unknown[] {
   }
   return metadata;
 }
-
 function createStaffAccessRequestsController(
   getMyRequest: MemberOnboardingService['getMyRequest'],
   retryStaffRequest: MemberOnboardingService['retryStaffRequest'],
 ): RoleRequestsController {
   return new RoleRequestsController({ getMyRequest, retryStaffRequest });
 }
-
 const rejectedRequest: StaffAccessRequestRecord = {
   id: 'synthetic-request',
   userId: 'synthetic-user',
@@ -49,27 +44,21 @@ const rejectedRequest: StaffAccessRequestRecord = {
   decidedAt: DECIDED_AT,
   createdAt: REQUESTED_AT,
 };
-
 describe('RoleRequestsController', () => {
   it('요청이 없으면 GET /me에서 NONE 상태와 request null을 반환한다', async () => {
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(null),
       jest.fn(),
     );
-
     const result = await controller.getMe(REQUEST);
-
     expect(result).toEqual({ status: 'NONE', request: null });
   });
-
   it('최근 요청의 상태와 ISO 날짜 응답 계약을 함께 반환한다', async () => {
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue(rejectedRequest),
       jest.fn(),
     );
-
     const result = await controller.getMe(REQUEST);
-
     expect(result).toEqual({
       status: StaffAccessRequestStatus.REJECTED,
       request: {
@@ -81,7 +70,6 @@ describe('RoleRequestsController', () => {
       },
     });
   });
-
   it('대기 중인 요청은 PENDING 상태로 반환한다', async () => {
     const controller = createStaffAccessRequestsController(
       jest.fn().mockResolvedValue({
@@ -92,9 +80,7 @@ describe('RoleRequestsController', () => {
       }),
       jest.fn(),
     );
-
     const result = await controller.getMe(REQUEST);
-
     expect(result).toEqual({
       status: StaffAccessRequestStatus.PENDING,
       request: {
@@ -106,7 +92,6 @@ describe('RoleRequestsController', () => {
       },
     });
   });
-
   it('재요청 결과도 같은 StaffAccessRequest 응답 계약으로 반환한다', async () => {
     const pendingRequest = {
       ...rejectedRequest,
@@ -118,9 +103,7 @@ describe('RoleRequestsController', () => {
       jest.fn(),
       jest.fn().mockResolvedValue(pendingRequest),
     );
-
     const result = await controller.retry(REQUEST);
-
     expect(result).toEqual({
       requestedRole: 'STAFF',
       status: StaffAccessRequestStatus.PENDING,
@@ -129,10 +112,8 @@ describe('RoleRequestsController', () => {
       rejectionReason: null,
     });
   });
-
   it('조회는 로컬 guard 없이 전역 인증 가드에 맡기고, 재요청은 Origin guard를 적용한다', () => {
     const target = RoleRequestsController.prototype;
-
     expect(() => readGuards(target, 'getMe')).toThrow(
       MissingHandlerMetadataError,
     );

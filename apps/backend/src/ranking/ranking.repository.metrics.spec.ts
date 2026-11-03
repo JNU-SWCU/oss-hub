@@ -31,8 +31,22 @@ function repositoryWith(rows: readonly ActivityRow[]): RankingRepository {
   const prisma = {
     user: {
       findMany: jest.fn().mockResolvedValue([
-        { githubId: 1n, nickname: 'with-private', profile: null },
-        { githubId: 2n, nickname: 'public-only', profile: null },
+        {
+          githubId: 1n,
+          nickname: 'with-private',
+          name: null,
+          department: null,
+          type: 'UNSELECTED',
+          profileCreatedAt: null,
+        },
+        {
+          githubId: 2n,
+          nickname: 'public-only',
+          name: null,
+          department: null,
+          type: 'UNSELECTED',
+          profileCreatedAt: null,
+        },
       ]),
     },
     githubUserActivityHistory: {

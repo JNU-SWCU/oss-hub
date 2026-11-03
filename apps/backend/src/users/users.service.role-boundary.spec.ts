@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { MemberKind } from './user-contract.config';
 import type {
   ProfileCompletionOutcome,
   UsersRepositoryPort,
@@ -6,11 +6,9 @@ import type {
 import { UsersService, type PatchUserProfileInput } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
 >;
-
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
 const input: PatchUserProfileInput = {
@@ -19,7 +17,6 @@ const input: PatchUserProfileInput = {
   department: '인공지능학부',
   phone: '1'.repeat(11),
 };
-
 type StoredUser = {
   readonly id: string;
   readonly name: string | null;
@@ -32,7 +29,6 @@ type StoredUser = {
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
 };
-
 function buildService(
   overrides: {
     readonly user?: StoredUser | null;
@@ -89,7 +85,6 @@ function buildService(
     updateProfileFields,
   };
 }
-
 describe('역할 변경 경계', () => {
   it('학생이 교직원이 되어도 학번은 남고 프로필은 완료로 유지된다', async () => {
     const { service } = buildService({
@@ -104,7 +99,6 @@ describe('역할 변경 경계', () => {
         memberKind: MemberKind.STUDENT,
       },
     });
-
     await expect(service.getMyProfile(githubId)).resolves.toEqual({
       name: input.name,
       studentId,
@@ -117,7 +111,6 @@ describe('역할 변경 경계', () => {
       service.requireCompleteProfile(githubId),
     ).resolves.toBeUndefined();
   });
-
   it('학번 없는 교직원이 학생으로 바뀌면 미완료가 되고 학번을 다시 받는다', async () => {
     const { service, completeProfileIfUnchanged } = buildService({
       user: {
@@ -131,12 +124,10 @@ describe('역할 변경 경계', () => {
         memberKind: MemberKind.STUDENT,
       },
     });
-
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
     const profile = await service.completeMyProfile(githubId, input);
-
     expect(profile).toEqual({
       ...input,
       staffNumber: null,
@@ -152,14 +143,11 @@ describe('역할 변경 경계', () => {
         memberKind: MemberKind.STUDENT,
         affiliationKind: 'DEPARTMENT',
         affiliationName: input.department,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
         requestsStaffAccess: false,
       },
       expect.any(Function),
     );
   });
-
   it('이름만 있는 관리자가 교직원이 되면 학과만 추가로 받는다', async () => {
     const { service, completeProfileIfUnchanged } = buildService({
       user: {
@@ -173,7 +161,6 @@ describe('역할 변경 경계', () => {
         memberKind: MemberKind.STAFF,
       },
     });
-
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
@@ -181,7 +168,6 @@ describe('역할 변경 경계', () => {
       name: input.name,
       department: input.department,
     });
-
     expect(profile).toEqual({
       name: input.name,
       studentId: null,
@@ -199,8 +185,6 @@ describe('역할 변경 경계', () => {
         memberKind: MemberKind.STAFF,
         affiliationKind: 'DEPARTMENT',
         affiliationName: input.department,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
         requestsStaffAccess: true,
       },
       expect.any(Function),

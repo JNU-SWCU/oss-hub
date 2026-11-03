@@ -1,3 +1,8 @@
+import { MemberKindProfileService } from './member-kind-profile.service';
+import { AdminRepository } from './admin.repository';
+import { UserHistoryRepository } from './user-history.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import { UserPolicyRepository } from './user-policy.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -19,10 +24,7 @@ import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 import { UserProfileService } from './user-profile.service';
 import { ConsentsController } from './consents.controller';
-import {
-  ConsentsRepository,
-  MemberOnboardingRepository,
-} from './member-onboarding.repository';
+import { MemberOnboardingRepository } from './member-onboarding.repository';
 import { ConsentsService } from './consents.service';
 import { MemberOnboardingService } from './member-onboarding.service';
 import { OnboardingController } from './onboarding.controller';
@@ -41,6 +43,10 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     ConsentsController,
   ],
   providers: [
+    AdminRepository,
+    UserPolicyRepository,
+    UserHistoryRepository,
+    UserTransitionRepository,
     AdminAccessReadOrderingRepository,
     AdminAccessReadRepository,
     AdminAccessHistoryRepository,
@@ -53,13 +59,13 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     IndependentAuthorityService,
     MemberKindRepository,
     MemberKindService,
+    MemberKindProfileService,
     AdminProfileRepository,
     AdminProfileMutationService,
     AdminProfileService,
     UsersRepository,
     UsersService,
     ConsentsService,
-    ConsentsRepository,
     MemberOnboardingRepository,
     MemberOnboardingService,
     UserProfileService,

@@ -1,15 +1,17 @@
-import { PlatformRepository } from '../platform/platform.repository';
-import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
-import { AdminAccessReadRepository } from './admin-access-read.repository';
-import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { requestHistory } from './user-history.integration-fixture';
+
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 import {
-  AccountStatus,
   AffiliationKind,
   MemberKind,
   StaffAccessRequestStatus,
-} from '@prisma/client';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+} from './user-contract.config';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { AccountStatus } from '@prisma/client';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
@@ -18,15 +20,11 @@ import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 export const compatibilityPrisma = new PrismaService();
 export const compatibilityUsers = new UsersService(
-  new UsersRepository(compatibilityPrisma, new PlatformRepository()),
+  new UsersRepository(compatibilityPrisma, new UserTransitionRepository()),
   { requireCurrent: () => Promise.resolve(undefined) },
-  new AuditLogService(
-    new AuditLogRepository(compatibilityPrisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AuditLogMetadataService(),
   new UserProfileService(),
 );
@@ -34,37 +32,31 @@ export const compatibilityAccess = new AdminAccessService(
   new AdminAccessRepository(
     compatibilityPrisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(
-      new AdminAccessReadOrderingRepository(),
-      new PlatformRepository(),
-    ),
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminRepository(compatibilityPrisma),
+    new UserTransitionRepository(),
   ),
-  new AuditLogService(
-    new AuditLogRepository(compatibilityPrisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
   ),
 );
-
 const TEST_PREFIX = 'test:task8:member-authority:';
 let sequence = 0;
-
 export async function createOnboardingUser(label: string, kind: MemberKind) {
   sequence += 1;
   return compatibilityPrisma.user.create({
     data: {
       id: `${TEST_PREFIX}${label}:${sequence}`,
-      githubId: 9_008_000_000n + BigInt(sequence),
+      githubId: 9008000000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      selectedMemberKind: kind,
+      type: kind,
+      approvalStatus: kind === 'STAFF' ? 'PENDING' : 'NOT_REQUIRED',
     },
     select: { id: true, githubId: true },
   });
 }
-
 export async function completeStaff(label: string) {
   const user = await createOnboardingUser(label, MemberKind.STAFF);
   await compatibilityUsers.completeMyProfile(user.githubId, {
@@ -74,34 +66,35 @@ export async function completeStaff(label: string) {
   });
   return user;
 }
-
 export async function createAdmin(label: string) {
   sequence += 1;
   return compatibilityPrisma.user.create({
     data: {
       id: `${TEST_PREFIX}${label}:${sequence}`,
-      githubId: 9_008_000_000n + BigInt(sequence),
+      githubId: 9008000000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
-      hasStaffAccess: false,
-      hasAdminAccess: true,
+      admin: { create: { origin: 'BOOTSTRAP' } },
     },
     select: { id: true, githubId: true },
   });
 }
-
 export function pendingRequest(userId: string) {
-  return compatibilityPrisma.staffAccessRequest.findFirstOrThrow({
-    where: { userId, status: StaffAccessRequestStatus.PENDING },
-  });
+  return requestHistory(compatibilityPrisma, userId)
+    .then((rows) =>
+      rows.filter((row) => row.status === StaffAccessRequestStatus.PENDING),
+    )
+    .then((rows) => {
+      const row = rows[0];
+      if (!row) throw new TypeError('Expected request history fixture');
+      return row;
+    });
 }
-
 export function storedMember(userId: string) {
   return compatibilityPrisma.user.findUniqueOrThrow({
+    include: { admin: true },
     where: { id: userId },
-    include: { profile: true },
   });
 }
-
 export const ACTIVE_ACCESS_STATE = {
   expectedAccountStatus: AccountStatus.ACTIVE,
   desiredAccountStatus: AccountStatus.ACTIVE,

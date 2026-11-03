@@ -43,6 +43,7 @@ const milestoneDocumentsService = new MilestoneDocumentsService(
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
   {} as never,
+  new UserProfileService(),
 );
 const programDocumentChangeRequestsService =
   new ProgramDocumentChangeRequestsService(

@@ -1,3 +1,4 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -8,7 +9,6 @@ import {
   ApplicationStatus,
   BoardPostCategory,
   CollectionStreamType,
-  MemberKind,
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
@@ -29,6 +29,7 @@ import {
   TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
@@ -66,7 +67,7 @@ const prisma = new PrismaService();
 const concurrentPrisma = new PrismaService();
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
+  new AuditLogReadService(new AuditLogMetadataService()),
 );
 const lifecycle = new ProgramLifecycleService(
   new ProgramLifecycleRepository(prisma, new ProgramDeletionScopeRepository()),
@@ -281,6 +282,14 @@ async function cleanup(): Promise<void> {
   });
   await prisma.program.deleteMany({ where: { id: { startsWith: PREFIX } } });
 
+  await prisma.admin.deleteMany({
+    where: {
+      user: {
+        id: { startsWith: PREFIX },
+        NOT: { id: { startsWith: `${PREFIX}global:` } },
+      },
+    },
+  });
   await prisma.user.deleteMany({
     where: {
       id: { startsWith: PREFIX },
@@ -303,8 +312,8 @@ async function ensureGlobalActors(): Promise<void> {
       id: `${PREFIX}global:admin`,
       githubId: ADMIN_GITHUB_ID,
       nickname: 'synthetic-purge7-admin',
-      hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
+      ...{ admin: { create: { origin: 'MIGRATION' as const } } },
     },
   });
   await prisma.user.upsert({
@@ -314,9 +323,14 @@ async function ensureGlobalActors(): Promise<void> {
       id: `${PREFIX}global:staff`,
       githubId: STAFF_GITHUB_ID,
       nickname: 'synthetic-purge7-staff',
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
       accountStatus: AccountStatus.ACTIVE,
+      type: MemberKind.STAFF,
+      approvalStatus: 'APPROVED',
+      name: 'Synthetic staff',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      departmentType: 'DEPARTMENT',
     },
   });
   await prisma.user.upsert({
@@ -326,8 +340,9 @@ async function ensureGlobalActors(): Promise<void> {
       id: `${PREFIX}global:student`,
       githubId: STUDENT_GITHUB_ID,
       nickname: 'synthetic-purge7-student',
-      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
 }
@@ -367,30 +382,38 @@ async function seedFullChildGraph(
         id: applicantId,
         githubId: 9_875_100_000n + ordinal,
         nickname: `synthetic-purge7-applicant-${label}`,
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
       {
         id: leaderId,
         githubId: 9_875_200_000n + ordinal,
         nickname: `synthetic-purge7-leader-${label}`,
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
       {
         id: publishedApplicantId,
         githubId: 9_875_900_000n + ordinal,
         nickname: `synthetic-purge7-published-applicant-${label}`,
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
       {
         id: staffId,
         githubId: 9_875_300_000n + ordinal,
         nickname: `synthetic-purge7-staff-${label}`,
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
         accountStatus: AccountStatus.ACTIVE,
+        type: MemberKind.STAFF,
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
     ],
     skipDuplicates: true,

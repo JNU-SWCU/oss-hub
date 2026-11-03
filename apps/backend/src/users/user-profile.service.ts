@@ -1,10 +1,13 @@
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from './user-contract.config';
 import type {
   AuthorityLabel,
   AuthorityLabelSource,
 } from './authority-label.types';
-import { MemberKind } from '@prisma/client';
+
 import {
   ProfileFieldRequirement,
+  UserApprovalProfile,
   USER_NAME_MAX_LENGTH,
   USER_DEPARTMENT_MAX_LENGTH,
   UserProfileFields,
@@ -14,6 +17,32 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class UserProfileService {
+  hasStaffAccess(source: UserApprovalProfile): boolean {
+    return (
+      source.memberKind === MemberKind.STAFF &&
+      source.approvalStatus === 'APPROVED' &&
+      source.profileCreatedAt !== null &&
+      this.isCompleteProfileFields(
+        { ...source, studentId: null },
+        MemberKind.STAFF,
+      )
+    );
+  }
+
+  isStaffEligible(source: {
+    readonly accountStatus: AccountStatus;
+    readonly memberKind: MemberKind | null;
+    readonly hasStaffAccess: boolean;
+    readonly isProfileComplete: boolean;
+  }): boolean {
+    return (
+      source.accountStatus === AccountStatus.ACTIVE &&
+      source.memberKind === MemberKind.STAFF &&
+      source.hasStaffAccess &&
+      source.isProfileComplete
+    );
+  }
+
   profileFieldRequirement(
     memberKind: MemberKind | null | undefined,
   ): ProfileFieldRequirement {
@@ -79,9 +108,6 @@ export class UserProfileService {
     if (record.memberKind) {
       return record.memberKind;
     }
-    if (record.hasPendingStaffRequest) {
-      return 'STAFF';
-    }
     return record.selectedMemberKind ?? null;
   }
 
@@ -93,10 +119,24 @@ export class UserProfileService {
     return PHONE_PATTERN.test(phone);
   }
 
-  isCompleteUserProfile(record: UserProfileRecord): boolean {
-    return this.isCompleteProfileFields(
-      record,
-      this.effectiveProfileMemberKind(record),
+  isCompleteUserProfile(
+    record: Pick<
+      UserProfileRecord,
+      | 'name'
+      | 'studentId'
+      | 'department'
+      | 'memberKind'
+      | 'selectedMemberKind'
+      | 'profileCreatedAt'
+    >,
+  ): boolean {
+    return (
+      record.profileCreatedAt !== null &&
+      this.effectiveProfileMemberKind(record) !== null &&
+      this.isCompleteProfileFields(
+        record,
+        this.effectiveProfileMemberKind(record),
+      )
     );
   }
 

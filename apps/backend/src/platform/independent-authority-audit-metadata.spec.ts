@@ -1,4 +1,5 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import type { IndependentAuthorityUserRecord } from '../users/independent-authority.repository';
 import { INDEPENDENT_AUTHORITY_AUDIT_COMMANDS } from './audit-log-metadata.config';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
@@ -203,7 +204,10 @@ function createStoredMetadata(
       githubLogin: 'synthetic-admin',
       hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
-      hasStaffAccess: true,
+      memberKind: MemberKind.STAFF,
+      approvalStatus: 'APPROVED',
+      profileCreatedAt: new Date('2026-07-19T00:00:00.000Z'),
+      department: 'Synthetic department',
     },
     before,
     after: { ...before, ...after },
@@ -224,6 +228,8 @@ function targetUser(): IndependentAuthorityUserRecord {
     role: 'STUDENT',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
     hasStaffAccess: false,
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,

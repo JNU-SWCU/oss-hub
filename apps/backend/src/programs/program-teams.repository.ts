@@ -1,3 +1,4 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   ProgramTeamRepositoryEvidenceRepository,
@@ -207,7 +208,7 @@ export class ProgramTeamsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: user.profile?.name ?? null,
+          name: user.name ?? null,
         }
       : null;
   }
@@ -219,15 +220,19 @@ export class ProgramTeamsRepository {
       where: { githubId },
       select: {
         id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
         accountStatus: true,
       },
     });
     if (user?.accountStatus !== AccountStatus.ACTIVE) return null;
     return {
       id: user.id,
-      isStaff: user.hasStaffAccess || user.hasAdminAccess,
+      isStaff:
+        user.type === 'STAFF' &&
+        user.approvalStatus === 'APPROVED' &&
+        user.profileCreatedAt !== null &&
+        user.name !== null &&
+        user.department !== null,
     };
   }
 
@@ -251,7 +256,28 @@ export class ProgramTeamsRepository {
         },
       });
       if (!team || team.programId !== programId) return 'not-found';
-      if (!actor.isStaff && team.leaderId !== actor.id) return 'forbidden';
+      const currentActor = await tx.user.findFirst({
+        where: {
+          id: actor.id,
+          accountStatus: AccountStatus.ACTIVE,
+          OR: [
+            STUDENT_MEMBER_WHERE,
+            {
+              type: 'STAFF',
+              approvalStatus: 'APPROVED',
+              profileCreatedAt: { not: null },
+              name: { not: null },
+              department: { not: null },
+            },
+          ],
+        },
+        select: { type: true },
+      });
+      if (
+        currentActor === null ||
+        (currentActor.type !== 'STAFF' && team.leaderId !== actor.id)
+      )
+        return 'forbidden';
       if (team.name === name) return 'renamed';
 
       await tx.team.update({ where: { id: teamId }, data: { name } });
@@ -331,7 +357,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: member.user.profile?.name ?? null,
+        name: member.user.name ?? null,
       })),
     };
   }
@@ -365,7 +391,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: member.user.profile?.name ?? null,
+        name: member.user.name ?? null,
       })),
     }));
   }
@@ -470,7 +496,7 @@ export class ProgramTeamsRepository {
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
-        name: member.user.profile?.name ?? null,
+        name: member.user.name ?? null,
       })),
       application: applicationRow,
       repositoryContributions: application
@@ -852,13 +878,18 @@ async function isActiveStaff(
   const user = await tx.user.findUnique({
     where: { id: userId },
     select: {
-      hasStaffAccess: true,
-      hasAdminAccess: true,
+      ...USER_AUTHORITY_SELECT,
       accountStatus: true,
     },
   });
   if (user?.accountStatus !== AccountStatus.ACTIVE) return false;
-  return user.hasStaffAccess || user.hasAdminAccess;
+  return (
+    user.type === 'STAFF' &&
+    user.approvalStatus === 'APPROVED' &&
+    user.profileCreatedAt !== null &&
+    user.name !== null &&
+    user.department !== null
+  );
 }
 
 const TEAM_MEMBERSHIP_CONTEXT_SELECT = {

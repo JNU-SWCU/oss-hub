@@ -34,7 +34,21 @@ const prisma = {
   application: { findFirst: jest.fn<Promise<{ id: string } | null>, []>() },
 };
 const repository = {
-  findAccessActor: jest.fn(() => prisma.user.findUnique()),
+  findAccessActor: jest.fn(async () => {
+    const user = await prisma.user.findUnique();
+    return user === null
+      ? null
+      : {
+          id: user.id,
+          accountStatus: user.accountStatus,
+          type: user.hasStaffAccess ? 'STAFF' : 'STUDENT',
+          approvalStatus: user.hasStaffAccess ? 'APPROVED' : 'NOT_REQUIRED',
+          name: 'Synthetic actor',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          admin: user.hasAdminAccess ? { userId: user.id } : null,
+        };
+  }),
   isApprovedParticipant: jest.fn(
     async () => (await prisma.application.findFirst()) !== null,
   ),
@@ -95,7 +109,7 @@ describe('board authorization HTTP characterization', () => {
     ['STUDENT', false, false, AccountStatus.ACTIVE, false, 403],
     ['inactive STAFF', true, false, AccountStatus.DEACTIVATED, false, 403],
     ['STAFF', true, false, AccountStatus.ACTIVE, false, 200],
-    ['ADMIN', false, true, AccountStatus.ACTIVE, false, 200],
+    ['ADMIN', false, true, AccountStatus.ACTIVE, false, 403],
     ['approved participant', false, false, AccountStatus.ACTIVE, true, 200],
     ['unapproved participant', false, false, AccountStatus.ACTIVE, false, 403],
   ] as const)(

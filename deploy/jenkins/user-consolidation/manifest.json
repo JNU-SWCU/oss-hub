@@ -1,0 +1,12 @@
+{
+  "version": 1,
+  "migrationId": "20261102160000_consolidate_user_domain",
+  "previousMigrationId": "20261101000000_add_github_user_activity_monthly",
+  "sha256": {
+    "migration": "6106b9385614b106f5c6c132ba5c14a2d3f6953834b1933a595c299a831dc616",
+    "preflight": "e86124612e19c1eff589d7a0095106bd635b019ea17ff852dd2bb779d92eb820",
+    "reconcile": "1581398cf2cd2900ad22c182326d8e6547a44c98b1d45daa255f9c00df2c7920",
+    "rollback": "5488d17c97f0e916afbe0dd9f4f2ac16f1cf1b7ceaa8a6c4531c58a35f915c53",
+    "open": "88f9a24ceba9c1463d4160b33d1e87491f7c8e06bc698bac9f2981c48120d4cf"
+  }
+}

@@ -820,7 +820,7 @@ describe('ProgramsService list', () => {
     });
   });
 
-  it('ADMIN 뷰어도 교직원과 동일하게 지원 집계를 받는다', async () => {
+  it('ADMIN 표시 역할만으로 지원 집계를 조회하지 않는다', async () => {
     const items = [listRecord({ id: 'program-1' })];
     const countApplicationsByProgram = jest
       .fn()
@@ -848,11 +848,9 @@ describe('ProgramsService list', () => {
       viewer,
     );
 
-    expect(page.items[0]).toMatchObject({
-      applicationCount: 5,
-      pendingApplicationCount: 0,
-      note: { text: '지원 5건' },
-    });
+    expect(page.items[0]).not.toHaveProperty('applicationCount');
+    expect(page.items[0]).not.toHaveProperty('pendingApplicationCount');
+    expect(countApplicationsByProgram).not.toHaveBeenCalled();
   });
 
   it('PENDING 역할은 어느 개인화 조회도 트리거하지 않는다', async () => {

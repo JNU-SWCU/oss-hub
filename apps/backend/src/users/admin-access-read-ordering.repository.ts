@@ -1,12 +1,8 @@
+import type { Admin, ApprovalStatus } from '@prisma/client';
+import { StaffAccessRequestStatus, MemberKind } from './user-contract.config';
 import { Injectable } from '@nestjs/common';
 import type { AuthorityLabel } from './authority-label.types';
-import {
-  AccountStatus,
-  LoginHistoryEvent,
-  Prisma,
-  StaffAccessRequestStatus,
-  MemberKind,
-} from '@prisma/client';
+import { AccountStatus, LoginHistoryEvent, Prisma } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import {
   ADMIN_ACCESS_SORT_FIELDS,
@@ -62,6 +58,8 @@ export type AdminAccessUser = {
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
+  readonly approvalStatus: ApprovalStatus;
+  readonly approvalRequestId: string | null;
   readonly accountStatus: AccountStatus;
   readonly isSelf: boolean;
   readonly isProfileComplete: boolean;
@@ -99,6 +97,7 @@ export type AdminAccessUserDetail = AdminAccessUser & {
   readonly memberKind: MemberKind | null;
   readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
+  readonly adminGrant: Pick<Admin, 'origin' | 'grantedAt'> | null;
   readonly profile: AdminAccessProfile;
 };
 
@@ -167,7 +166,6 @@ export class AdminAccessReadOrderingRepository {
     return prisma.$queryRaw<readonly OrderedAdminAccessUserId[]>(Prisma.sql`
     SELECT u."id"
     FROM "User" AS u
-    LEFT JOIN "UserProfile" AS p ON p."userId" = u."id"
     ${where}
     ORDER BY ${orderBy}
     LIMIT ${query.limit}
@@ -185,7 +183,7 @@ function adminAccessOrderBy(
   const directionSql = ORDER_DIRECTIONS[direction];
   const orderings = {
     [ADMIN_ACCESS_SORT_FIELDS.NAME]: Prisma.sql`
-      p."name" ${directionSql} NULLS LAST,
+      u."name" ${directionSql} NULLS LAST,
       u."login" ${directionSql},
       u."id" ${directionSql}
     `,
@@ -207,9 +205,9 @@ function adminAccessOrderBy(
     `,
     [ADMIN_ACCESS_SORT_FIELDS.ROLE]: Prisma.sql`
       CASE
-        WHEN u."hasAdminAccess" THEN 3
-        WHEN u."hasStaffAccess" THEN 2
-        WHEN p."memberKind" = 'STUDENT'::"MemberKind" THEN 1
+        WHEN EXISTS (SELECT 1 FROM "Admin" a WHERE a."userId" = u."id") THEN 3
+        WHEN (u."type" = 'STAFF' AND u."approvalStatus" = 'APPROVED' AND u."profileCreatedAt" IS NOT NULL AND u."name" IS NOT NULL AND u."department" IS NOT NULL) THEN 2
+        WHEN u."type" = 'STUDENT'::"UserType" THEN 1
         ELSE 0
       END ${directionSql},
       u."id" ${directionSql}
@@ -233,14 +231,7 @@ function adminAccessCreatedAtSortExpression(
     case 'directory':
       return Prisma.sql`u."createdAt"`;
     case 'requestQueue':
-      return Prisma.sql`(
-        SELECT r."createdAt"
-        FROM "StaffAccessRequest" AS r
-        WHERE r."userId" = u."id"
-          AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
-        ORDER BY r."createdAt" DESC, r."id" DESC
-        LIMIT 1
-      )`;
+      return Prisma.sql`u."approvalRequestedAt"`;
   }
 }
 
@@ -250,7 +241,7 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
     const contains = `%${query.query}%`;
     conditions.push(Prisma.sql`
       (
-        p."name" ILIKE ${contains}
+        u."name" ILIKE ${contains}
         OR u."login" ILIKE ${contains}
       )
     `);
@@ -267,20 +258,10 @@ function adminAccessSqlWhere(query: AdminAccessListQuery): Prisma.Sql {
     conditions.push(
       query.pendingRequest === ADMIN_ACCESS_PENDING_FILTERS.PENDING
         ? Prisma.sql`
-            EXISTS (
-              SELECT 1
-              FROM "StaffAccessRequest" AS r
-              WHERE r."userId" = u."id"
-                AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
-            )
+            (u."type" = 'STAFF' AND u."approvalStatus" = 'PENDING' AND u."approvalRequestId" IS NOT NULL)
           `
         : Prisma.sql`
-            NOT EXISTS (
-              SELECT 1
-              FROM "StaffAccessRequest" AS r
-              WHERE r."userId" = u."id"
-                AND r."status" = ${StaffAccessRequestStatus.PENDING}::"StaffAccessRequestStatus"
-            )
+            NOT (u."type" = 'STAFF' AND u."approvalStatus" = 'PENDING' AND u."approvalRequestId" IS NOT NULL)
           `,
     );
   }
@@ -294,20 +275,20 @@ function adminAccessRoleFilterSql(
 ): Prisma.Sql {
   switch (filter) {
     case ADMIN_ACCESS_ROLE_FILTERS.ADMIN:
-      return Prisma.sql`u."hasAdminAccess"`;
+      return Prisma.sql`EXISTS (SELECT 1 FROM "Admin" a WHERE a."userId" = u."id")`;
     case ADMIN_ACCESS_ROLE_FILTERS.STAFF:
-      return Prisma.sql`(u."hasStaffAccess" AND NOT u."hasAdminAccess")`;
+      return Prisma.sql`((u."type" = 'STAFF' AND u."approvalStatus" = 'APPROVED' AND u."profileCreatedAt" IS NOT NULL AND u."name" IS NOT NULL AND u."department" IS NOT NULL) AND NOT EXISTS (SELECT 1 FROM "Admin" a WHERE a."userId" = u."id"))`;
     case ADMIN_ACCESS_ROLE_FILTERS.STUDENT:
       return Prisma.sql`(
-        NOT u."hasStaffAccess"
-        AND NOT u."hasAdminAccess"
-        AND p."memberKind" = 'STUDENT'::"MemberKind"
+        NOT (u."type" = 'STAFF' AND u."approvalStatus" = 'APPROVED' AND u."profileCreatedAt" IS NOT NULL AND u."name" IS NOT NULL AND u."department" IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM "Admin" a WHERE a."userId" = u."id")
+        AND u."type" = 'STUDENT'::"UserType"
       )`;
     case ADMIN_ACCESS_ROLE_FILTERS.UNASSIGNED:
       return Prisma.sql`(
-        NOT u."hasStaffAccess"
-        AND NOT u."hasAdminAccess"
-        AND (p."memberKind" IS NULL OR p."memberKind" <> 'STUDENT'::"MemberKind")
+        NOT (u."type" = 'STAFF' AND u."approvalStatus" = 'APPROVED' AND u."profileCreatedAt" IS NOT NULL AND u."name" IS NOT NULL AND u."department" IS NOT NULL)
+        AND NOT EXISTS (SELECT 1 FROM "Admin" a WHERE a."userId" = u."id")
+        AND (u."type" IS NULL OR u."type" <> 'STUDENT'::"UserType")
       )`;
   }
 }

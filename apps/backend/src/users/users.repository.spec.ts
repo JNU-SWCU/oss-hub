@@ -1,109 +1,71 @@
-import { usersRepositoryHarness as harness } from './users.repository.spec-support';
+import { usersRepositoryHarness } from './users.repository.spec-support';
+import { profileRecord } from './member-authority-test-fixtures';
 
-describe('UsersRepository canonical profile reads', () => {
-  const syntheticPhone = '1'.repeat(11);
-
-  it('프로필 행의 값을 그대로 읽는다', async () => {
-    const { findUnique, repository } = harness();
-    findUnique.mockResolvedValue({
-      id: 'user-profile-first',
-      githubId: 9_600_000_000_153_101n,
-      nickname: 'synthetic-profile-first',
-      phone: syntheticPhone,
-      selectedMemberKind: 'STUDENT',
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      staffAccessRequests: [],
-      profile: {
+describe('UsersRepository flat profile reads', () => {
+  it('reads canonical User fields and the current approval tuple', async () => {
+    const marker = new Date('2026-01-01');
+    const { repository } = usersRepositoryHarness(
+      profileRecord('profile', {
         name: 'Profile Name',
         studentId: '222222',
-        staffNumber: 'SYNTHETIC-42',
         department: 'Profile Department',
+        staffNumber: 'SYNTHETIC-42',
+        phone: '11111111111',
         memberKind: 'STUDENT',
+        selectedMemberKind: 'STUDENT',
         affiliationKind: 'DEPARTMENT',
         affiliationName: 'Profile Department',
-      },
-    });
-
-    const result = await repository.findByGithubId(9_600_000_000_153_101n);
-
-    expect(result).toEqual({
-      id: 'user-profile-first',
-      githubId: 9_600_000_000_153_101n,
-      githubLogin: 'synthetic-profile-first',
-      selectedMemberKind: 'STUDENT',
-      memberKind: 'STUDENT',
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: 'Profile Department',
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      hasPendingStaffRequest: false,
-      name: 'Profile Name',
-      studentId: '222222',
-      staffNumber: 'SYNTHETIC-42',
-      department: 'Profile Department',
-      phone: syntheticPhone,
-    });
-  });
-
-  it('프로필 행이 없으면 세 칸이 모두 비어 있다', async () => {
-    const { findUnique, repository } = harness();
-    findUnique.mockResolvedValue({
-      id: 'user-without-profile',
-      githubId: 9_600_000_000_153_102n,
-      nickname: 'synthetic-without-profile',
-      phone: null,
-      selectedMemberKind: null,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      staffAccessRequests: [],
-      profile: null,
-    });
-
-    const result = await repository.findByGithubId(9_600_000_000_153_102n);
-
-    expect(result).toEqual({
-      id: 'user-without-profile',
-      githubId: 9_600_000_000_153_102n,
-      githubLogin: 'synthetic-without-profile',
-      selectedMemberKind: null,
-      memberKind: null,
-      affiliationKind: null,
-      affiliationName: null,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      hasPendingStaffRequest: false,
-      name: null,
-      studentId: null,
-      staffNumber: null,
-      department: null,
-      phone: null,
-    });
-  });
-
-  it('완료 판정에 쓰이도록 승인 대기 요청을 함께 조회한다', async () => {
-    const { findUnique, repository } = harness();
-    findUnique.mockResolvedValue({
-      id: 'user-pending-staff',
-      githubId: 9_600_000_000_153_103n,
-      nickname: 'synthetic-pending-staff',
-      phone: null,
-      selectedMemberKind: 'STAFF',
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      staffAccessRequests: [{ id: 'synthetic-pending-request' }],
-      profile: null,
-    });
-
-    const result = await repository.findByGithubId(9_600_000_000_153_103n);
-
-    expect(findUnique).toHaveBeenCalledWith(
-      expect.objectContaining({
-        select: expect.objectContaining({
-          staffAccessRequests: expect.anything() as unknown,
-        }) as unknown,
+        profileCreatedAt: marker,
       }),
     );
-    expect(result).toMatchObject({ hasPendingStaffRequest: true });
+    expect(await repository.findByGithubId(4242n)).toMatchObject({
+      id: 'profile',
+      name: 'Profile Name',
+      studentId: '222222',
+      department: 'Profile Department',
+      staffNumber: 'SYNTHETIC-42',
+      phone: '11111111111',
+      memberKind: 'STUDENT',
+      selectedMemberKind: 'STUDENT',
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      profileCreatedAt: marker,
+    });
   });
+  it('preserves an unselected account separately from a missing profile', async () => {
+    const { repository } = usersRepositoryHarness(
+      profileRecord('unselected', {
+        memberKind: null,
+        selectedMemberKind: null,
+      }),
+    );
+    expect(await repository.findByGithubId(4242n)).toMatchObject({
+      memberKind: null,
+      selectedMemberKind: null,
+      name: null,
+      studentId: null,
+      department: null,
+      profileCreatedAt: null,
+      approvalStatus: 'NOT_REQUIRED',
+    });
+  });
+  it.each([null, 'submitted-request'] as const)(
+    'only projects a submitted pending request when id=%s',
+    async (approvalRequestId) => {
+      const { repository } = usersRepositoryHarness(
+        profileRecord('pending', {
+          memberKind: 'STAFF',
+          selectedMemberKind: 'STAFF',
+          approvalStatus: 'PENDING',
+          approvalRequestId,
+        }),
+      );
+      expect(await repository.findByGithubId(4242n)).toMatchObject({
+        memberKind: 'STAFF',
+        selectedMemberKind: 'STAFF',
+        hasPendingStaffRequest: approvalRequestId !== null,
+        profileCreatedAt: null,
+      });
+    },
+  );
 });

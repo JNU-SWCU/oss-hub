@@ -1,3 +1,4 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -77,7 +78,7 @@ const repository = new ProgramTeamsRepository(
 );
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
+  new AuditLogReadService(new AuditLogMetadataService()),
 );
 const service = new ProgramTeamsService(
   repository,

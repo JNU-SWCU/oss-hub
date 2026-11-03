@@ -155,7 +155,19 @@ export class ProgramOverviewService {
     const viewer = await this.repository.findViewerIdentity(viewerGithubId);
     const identity = viewer && {
       ...viewer,
-      role: this.userProfileService.authorityLabel(viewer),
+      role: this.userProfileService.authorityLabel({
+        ...viewer,
+        hasAdminAccess: false,
+        hasStaffAccess: this.userProfileService.isStaffEligible({
+          ...viewer,
+          isProfileComplete:
+            viewer.profileCreatedAt !== null &&
+            this.userProfileService.isCompleteProfileFields(
+              { ...viewer, studentId: null },
+              'STAFF',
+            ),
+        }),
+      }),
     };
     if (!identity || identity.role === null) {
       return { ...EMPTY_VIEWER_STATS, role: identity?.role ?? null };
@@ -172,8 +184,8 @@ export class ProgramOverviewService {
     ) {
       return this.resolveStudentStats(programId, identity.userId);
     }
-    if (identity.role === 'STAFF' || identity.role === 'ADMIN') {
-      return this.resolveStaffStats(programId, identity.role, teamCount);
+    if (identity.hasStaffAccess) {
+      return this.resolveStaffStats(programId, 'STAFF', teamCount);
     }
     return { ...EMPTY_VIEWER_STATS, role: identity.role };
   }
@@ -226,7 +238,7 @@ export class ProgramOverviewService {
 
   private async resolveStaffStats(
     programId: string,
-    role: 'STAFF' | 'ADMIN',
+    role: 'STAFF',
     teamCount: number,
   ): Promise<ProgramOverviewViewerStats> {
     const milestone = await this.repository.findCurrentSubmissionMilestone(

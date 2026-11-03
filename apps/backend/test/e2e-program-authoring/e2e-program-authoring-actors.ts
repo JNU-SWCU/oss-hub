@@ -1,5 +1,6 @@
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { PrismaService } from '../../src/platform/prisma.service';
+import { canonicalUserCreate } from '../../src/users/canonical-user-fixture';
 
 export type E2eProgramAuthoringActors = {
   readonly staffId: string;
@@ -19,83 +20,75 @@ export async function ensureE2eProgramAuthoringActors(
     await transaction.user.upsert({
       where: { id: actors.staffId },
       create: {
-        id: actors.staffId,
-        githubId: actors.staffGithubId,
-        nickname: 'e2e-program-authoring-staff',
+        ...canonicalUserCreate({
+          id: actors.staffId,
+          githubId: actors.staffGithubId,
+          nickname: 'e2e-program-authoring-staff',
+          name: 'E2E Staff',
+          department: 'E2E Program Office',
+          memberKind: 'STAFF',
+          hasStaffAccess: true,
+        }),
         notificationEmail: 'e2e-program-authoring-staff@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
-        profile: {
-          create: {
-            name: 'E2E Staff',
-            studentId: null,
-            department: 'E2E Program Office',
-            memberKind: MemberKind.STAFF,
-            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-            affiliationName: 'E2E Program Office',
-          },
-        },
       },
       update: {
         nickname: 'e2e-program-authoring-staff',
         notificationEmail: 'e2e-program-authoring-staff@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        name: 'E2E Staff',
+        studentId: null,
+        department: 'E2E Program Office',
+        departmentType: 'PROGRAM_OFFICE',
+        profileCreatedAt: new Date(),
+        profileUpdatedAt: new Date(),
       },
     });
     await transaction.user.upsert({
       where: { id: actors.studentId },
       create: {
-        id: actors.studentId,
-        githubId: actors.studentGithubId,
-        nickname: 'e2e-program-authoring-student',
+        ...canonicalUserCreate({
+          id: actors.studentId,
+          githubId: actors.studentGithubId,
+          nickname: 'e2e-program-authoring-student',
+          name: 'E2E Student',
+          studentId: '260001',
+          department: 'E2E Department',
+          memberKind: 'STUDENT',
+        }),
         notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
-        selectedMemberKind: MemberKind.STUDENT,
-        profile: {
-          create: {
-            name: 'E2E Student',
-            studentId: '260001',
-            department: 'E2E Department',
-            memberKind: MemberKind.STUDENT,
-            affiliationKind: AffiliationKind.DEPARTMENT,
-            affiliationName: 'E2E Department',
-          },
-        },
       },
       update: {
         nickname: 'e2e-program-authoring-student',
         notificationEmail: 'e2e-program-authoring-student@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
+        type: 'STUDENT',
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
     await transaction.user.upsert({
       where: { id: actors.foreignStudentId },
       create: {
-        id: actors.foreignStudentId,
-        githubId: actors.foreignStudentGithubId,
-        nickname: 'e2e-program-authoring-foreign-student',
+        ...canonicalUserCreate({
+          id: actors.foreignStudentId,
+          githubId: actors.foreignStudentGithubId,
+          nickname: 'e2e-program-authoring-foreign-student',
+          name: 'E2E Foreign Student',
+          studentId: '260002',
+          department: 'E2E Department',
+          memberKind: 'STUDENT',
+        }),
         notificationEmail:
           'e2e-program-authoring-foreign-student@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
-        selectedMemberKind: MemberKind.STUDENT,
-        profile: {
-          create: {
-            name: 'E2E Foreign Student',
-            studentId: '260002',
-            department: 'E2E Department',
-            memberKind: MemberKind.STUDENT,
-            affiliationKind: AffiliationKind.DEPARTMENT,
-            affiliationName: 'E2E Department',
-          },
-        },
       },
       update: {
         nickname: 'e2e-program-authoring-foreign-student',
@@ -103,6 +96,8 @@ export async function ensureE2eProgramAuthoringActors(
           'e2e-program-authoring-foreign-student@fixture.invalid',
         notifyEnabled: true,
         accountStatus: AccountStatus.ACTIVE,
+        type: 'STUDENT',
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
   });

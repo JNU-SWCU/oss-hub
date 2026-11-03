@@ -1,420 +1,300 @@
-import { PlatformRepository } from '../platform/platform.repository';
-import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
-import { AdminAccessReadRepository } from './admin-access-read.repository';
-import { AdminAccessHistoryRepository } from './admin-access-history.repository';
-import {
-  AccountStatus,
-  MemberKind,
-  Prisma,
-  AffiliationKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import { AccountStatus, Prisma } from '@prisma/client';
+import { PrismaService } from '../platform/prisma.service';
+import { AdminRepository } from './admin.repository';
 import { AdminAccessRepository } from './admin-access.repository';
-import type { PrismaService } from '../platform/prisma.service';
-import {
-  ADMIN_ACCESS_PENDING_FILTERS,
-  ADMIN_ACCESS_ROLE_FILTERS,
-} from './admin-access-query.config';
+import { AdminAccessReadRepository } from './admin-access-read.repository';
+import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
+import { AdminAccessHistoryRepository } from './admin-access-history.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 import { UserProfileService } from './user-profile.service';
 
-describe('admin-actor-locks.repository', () => {
-  type ActorRow = Parameters<AdminAccessRepository['toAdminActor']>[0];
+type Row = Parameters<AdminAccessReadRepository['toAdminAccessUserRow']>[0];
+const at = new Date('2026-01-01');
+function row(overrides: Partial<Row> = {}): Row {
+  return {
+    id: 'target',
+    githubId: 9140000001n,
+    nickname: 'synthetic-target',
+    name: 'Name',
+    studentId: '123456',
+    department: 'Department',
+    departmentType: 'DEPARTMENT',
+    staffNumber: null,
+    type: 'STUDENT',
+    profileCreatedAt: at,
+    profileUpdatedAt: at,
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
+    approvalRequestedAt: null,
+    approvalDecidedAt: null,
+    approvalDecidedById: null,
+    approvalReason: null,
+    admin: null,
+    accountStatus: 'ACTIVE',
+    createdAt: at,
+    loginHistories: [],
+    ...overrides,
+  };
+}
+function repository(prisma: PrismaService) {
+  return new AdminAccessRepository(
+    prisma,
+    new AdminAccessHistoryRepository(),
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminRepository(prisma),
+    new UserTransitionRepository(),
+  );
+}
 
-  function actorRow(overrides: Partial<ActorRow> = {}): ActorRow {
-    return {
-      id: 'actor',
-      githubId: 9_140_000_001n,
-      nickname: 'synthetic-actor',
-      selectedMemberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-      accountStatus: AccountStatus.ACTIVE,
-      profile: null,
-      ...overrides,
-    };
-  }
-
-  describe('toAdminActor', () => {
-    it('takes canonical access columns as the source of truth', () => {
-      const row = actorRow({
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-      });
-
-      const actor = new AdminAccessRepository(
-        {} as PrismaService,
-        new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
-        ),
-      ).toAdminActor(row);
-
-      expect(actor.hasStaffAccess).toBe(true);
-      expect(actor.hasAdminAccess).toBe(true);
-    });
-
-    it('does not imply staff access from admin access', () => {
-      const row = actorRow({ hasAdminAccess: true, hasStaffAccess: false });
-
-      const actor = new AdminAccessRepository(
-        {} as PrismaService,
-        new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
-        ),
-      ).toAdminActor(row);
-
-      expect(actor.hasStaffAccess).toBe(false);
-      expect(actor.hasAdminAccess).toBe(true);
-    });
-
-    it.each([
-      [MemberKind.STUDENT, false, false, 'STUDENT'],
-      [MemberKind.STUDENT, false, true, 'ADMIN'],
-      [MemberKind.STAFF, true, false, 'STAFF'],
-      [null, false, false, null],
-    ] as const)(
-      'folds (%s, staff=%s, admin=%s) into the display role %s',
-      (selectedMemberKind, hasStaffAccess, hasAdminAccess, expected) => {
-        expect(
-          new UserProfileService().authorityLabel({
-            memberKind: selectedMemberKind,
-            hasStaffAccess,
-            hasAdminAccess,
-          }),
-        ).toBe(expected);
-      },
+describe('administrator actor projection and locks', () => {
+  it('returns raw approval and independent Admin existence for the service policy boundary', () => {
+    const actor = repository(new PrismaService()).toAdminActor(
+      row({
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        admin: { userId: 'target' },
+      }),
     );
+    expect(actor).toMatchObject({
+      memberKind: 'STAFF',
+      approvalStatus: 'APPROVED',
+      hasAdminAccess: true,
+    });
+    expect(new UserProfileService().hasStaffAccess(actor)).toBe(true);
   });
-
-  describe('lockActiveAdminRows', () => {
-    it('counts active admins by the canonical hasAdminAccess column', async () => {
-      const queries: Prisma.Sql[] = [];
-      const transaction = {
-        $queryRaw: (query: Prisma.Sql) => {
-          queries.push(query);
-          return Promise.resolve([{ id: 'admin-a' }, { id: 'admin-b' }]);
-        },
-      } as unknown as Prisma.TransactionClient;
-
-      const count = await new AdminAccessRepository(
-        {} as PrismaService,
-        new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
-        ),
-      ).lockActiveAdminRows(transaction);
-
-      expect(count).toBe(2);
-      expect(queries).toHaveLength(1);
-      const query = queries.at(0);
-      if (!query) {
-        throw new Error('expected the lock to issue exactly one query');
-      }
-      const sql = query.sql.replace(/\s+/g, ' ');
-      expect(sql).toContain('"hasAdminAccess" = TRUE');
-      expect(sql).not.toContain('role');
-      expect(sql).toContain('FOR UPDATE');
-      expect(query.values).toContain(AccountStatus.ACTIVE);
+  it('does not imply staff approval from an Admin relation', () => {
+    const actor = repository(new PrismaService()).toAdminActor(
+      row({ admin: { userId: 'target' } }),
+    );
+    expect(actor.hasAdminAccess).toBe(true);
+    expect(new UserProfileService().hasStaffAccess(actor)).toBe(false);
+  });
+  it.each([
+    ['STUDENT', false, false, 'STUDENT'],
+    ['STUDENT', false, true, 'ADMIN'],
+    ['STAFF', true, false, 'STAFF'],
+    [null, false, false, null],
+  ] as const)(
+    'folds compatibility label for %s/%s/%s',
+    (memberKind, hasStaffAccess, hasAdminAccess, expected) => {
+      expect(
+        new UserProfileService().authorityLabel({
+          memberKind,
+          hasStaffAccess,
+          hasAdminAccess,
+        }),
+      ).toBe(expected);
+    },
+  );
+  it('locks deterministic User rows and counts current active Admin relations after locking', async () => {
+    const queries: Prisma.Sql[] = [];
+    const count = jest.fn().mockResolvedValue(1);
+    const prisma = Object.assign(new PrismaService(), {
+      $queryRaw: jest.fn().mockImplementation((sql: Prisma.Sql) => {
+        queries.push(sql);
+        return Promise.resolve([{ id: 'admin-a' }, { id: 'admin-b' }]);
+      }),
+      admin: { count },
+    });
+    expect(await repository(prisma).lockActiveAdminRows(prisma)).toBe(1);
+    expect(queries[0]?.sql).toContain('JOIN "Admin" a');
+    expect(queries[0]?.sql).toContain('ORDER BY u."id" FOR UPDATE OF u, a');
+    expect(count).toHaveBeenCalledWith({
+      where: { user: { accountStatus: AccountStatus.ACTIVE } },
     });
   });
 });
-
-describe('AdminAccessRepository', () => {
-  it('builds the paged access read model and search-scoped facets', async () => {
-    const queryRaw = jest.fn().mockResolvedValue([{ id: 'student' }]);
-    const findMany = jest.fn().mockResolvedValue([
-      userRow({
-        id: 'student',
-        role: 'STUDENT',
-        profile: {
-          name: '가나다 학생',
-          studentId: '123456',
-          department: '소프트웨어공학과',
-        },
-        pendingRequest: {
-          id: 'request-pending',
-          status: StaffAccessRequestStatus.PENDING,
-          createdAt: new Date('2026-07-20T00:00:00.000Z'),
-        },
-        lastLoginAt: new Date('2026-07-22T00:00:00.000Z'),
-      }),
-    ]);
-    const count = jest
-      .fn()
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(0)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(1)
-      .mockResolvedValueOnce(2)
-      .mockResolvedValueOnce(1);
-    const repository = new AdminAccessRepository(
-      {
-        $queryRaw: queryRaw,
-        user: { findMany, count },
-      } as unknown as PrismaService,
-      new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(
-        new AdminAccessReadOrderingRepository(),
-        new PlatformRepository(),
-      ),
-    );
-
-    const result = await repository.list({
-      query: 'synthetic',
-      role: ADMIN_ACCESS_ROLE_FILTERS.STUDENT,
-      accountStatus: AccountStatus.ACTIVE,
-      pendingRequest: ADMIN_ACCESS_PENDING_FILTERS.PENDING,
-      page: 1,
-      limit: 1,
-    });
-
-    expect(result).toEqual({
-      items: [
-        expect.objectContaining({
-          id: 'student',
-          name: '가나다 학생',
-          studentId: '123456',
-          department: '소프트웨어공학과',
-          lastLoginAt: new Date('2026-07-22T00:00:00.000Z'),
-        }),
-      ],
-      page: 1,
-      limit: 1,
-      total: 1,
-      facets: {
-        roles: { unassigned: 1, student: 1, staff: 0, admin: 1 },
-        accountStatuses: { active: 2, deactivated: 1 },
-        pendingRequests: { none: 2, pending: 1 },
-      },
-    });
-    expect(result.items[0]?.pendingRequest).toMatchObject({
-      id: 'request-pending',
-    });
-    expect(queryRaw).toHaveBeenCalledTimes(1);
-    expect(queryRaw).toHaveBeenCalledWith(
-      expect.objectContaining({
-        values: [
-          '%synthetic%',
-          '%synthetic%',
-          AccountStatus.ACTIVE,
-          StaffAccessRequestStatus.PENDING,
-          1,
-          0,
-        ],
-      }),
-    );
-    const studentPendingWhere = {
-      AND: [
-        { OR: syntheticSearchConditions() },
-        {
-          hasStaffAccess: false,
-          hasAdminAccess: false,
-          profile: { is: { memberKind: MemberKind.STUDENT } },
-        },
-        { accountStatus: AccountStatus.ACTIVE },
-        {
-          staffAccessRequests: {
-            some: { status: StaffAccessRequestStatus.PENDING },
-          },
-        },
-      ],
-    };
-    expect(findMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: {
-          AND: [studentPendingWhere, { id: { in: ['student'] } }],
-        },
-      }),
-    );
-    expect(count).toHaveBeenCalledTimes(9);
-
-    expect(count).toHaveBeenNthCalledWith(1, {
-      where: studentPendingWhere,
-    });
-    expect(count).toHaveBeenNthCalledWith(6, {
-      where: {
-        AND: [
-          { OR: syntheticSearchConditions() },
-          {
-            hasStaffAccess: false,
-            hasAdminAccess: false,
-            profile: { is: { memberKind: MemberKind.STUDENT } },
-          },
-          {
-            staffAccessRequests: {
-              some: { status: StaffAccessRequestStatus.PENDING },
-            },
-          },
-        ],
-        accountStatus: AccountStatus.ACTIVE,
-      },
-    });
-    expect(count).toHaveBeenNthCalledWith(8, {
-      where: {
-        AND: [
-          { OR: syntheticSearchConditions() },
-          {
-            hasStaffAccess: false,
-            hasAdminAccess: false,
-            profile: { is: { memberKind: MemberKind.STUDENT } },
-          },
-          { accountStatus: AccountStatus.ACTIVE },
-        ],
-        staffAccessRequests: {
-          none: { status: StaffAccessRequestStatus.PENDING },
-        },
-      },
-    });
+it('builds paged user output and search-scoped facets from current approval predicates', async () => {
+  const queryRaw = jest.fn().mockResolvedValue([{ id: 'pending' }]);
+  const findMany = jest.fn().mockResolvedValue([
+    row({
+      id: 'pending',
+      type: 'STAFF',
+      studentId: null,
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'request',
+      approvalRequestedAt: at,
+      loginHistories: [{ loginAt: at }],
+    }),
+  ]);
+  const counts = [1, 1, 1, 0, 1, 2, 1, 2, 1];
+  const count = jest
+    .fn()
+    .mockImplementation(() => Promise.resolve(counts.shift()));
+  const prisma = Object.assign(new PrismaService(), {
+    $queryRaw: queryRaw,
+    user: { findMany, count },
   });
-
-  it('maps detail and stable role-request/login histories', async () => {
-    const detail = userRow({ id: 'target', role: 'STAFF' });
-    const staffAccessRequestFindMany = jest.fn().mockResolvedValue([
+  const result = await repository(prisma).list({
+    query: 'synthetic',
+    role: 'UNASSIGNED',
+    accountStatus: 'ACTIVE',
+    pendingRequest: 'PENDING',
+    page: 1,
+    limit: 1,
+  });
+  expect(result).toEqual({
+    items: [
+      expect.objectContaining({
+        id: 'pending',
+        name: 'Name',
+        studentId: null,
+        department: 'Department',
+        pendingRequest: { id: 'request', status: 'PENDING', createdAt: at },
+        lastLoginAt: at,
+      }),
+    ],
+    page: 1,
+    limit: 1,
+    total: 1,
+    facets: {
+      roles: { unassigned: 1, student: 1, staff: 0, admin: 1 },
+      accountStatuses: { active: 2, deactivated: 1 },
+      pendingRequests: { none: 2, pending: 1 },
+    },
+  });
+  const where = {
+    AND: [
       {
-        id: 'request-2',
-        status: StaffAccessRequestStatus.REJECTED,
-        rejectionReason: '합성 반려 사유',
-        decidedAt: new Date('2026-07-22T00:00:00.000Z'),
-        decidedBy: { nickname: 'synthetic-admin' },
-        createdAt: new Date('2026-07-21T00:00:00.000Z'),
+        OR: [
+          { name: { contains: 'synthetic', mode: 'insensitive' } },
+          { nickname: { contains: 'synthetic', mode: 'insensitive' } },
+        ],
       },
+      {
+        admin: { is: null },
+        NOT: {
+          OR: [
+            { type: 'STUDENT' },
+            {
+              type: 'STAFF',
+              approvalStatus: 'APPROVED',
+              profileCreatedAt: { not: null },
+              name: { not: null },
+              department: { not: null },
+            },
+          ],
+        },
+      },
+      { accountStatus: 'ACTIVE' },
+      {
+        type: 'STAFF',
+        approvalStatus: 'PENDING',
+        approvalRequestId: { not: null },
+      },
+    ],
+  };
+  expect(findMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: { AND: [where, { id: { in: ['pending'] } }] },
+    }),
+  );
+  expect(count).toHaveBeenNthCalledWith(1, { where });
+  expect(count).toHaveBeenCalledTimes(9);
+  expect(queryRaw).toHaveBeenCalledWith(
+    expect.objectContaining({
+      values: ['%synthetic%', '%synthetic%', 'ACTIVE', 1, 0],
+    }),
+  );
+});
+it('folds request transitions to one row per request before stable pagination and keeps login history bounded', async () => {
+  const request = (
+    id: string,
+    createdAt: string,
+    status: 'PENDING' | 'REJECTED',
+  ) => ({
+    schemaVersion: 1,
+    recordKind: 'REQUEST_TRANSITION',
+    request: {
+      id,
+      userId: 'target',
+      status,
+      createdAt,
+      decidedAt: status === 'REJECTED' ? '2026-03-01T00:00:00.000Z' : null,
+      decidedById: status === 'REJECTED' ? 'actor' : null,
+      rejectionReason: status === 'REJECTED' ? 'Reason' : null,
+    },
+  });
+  const loginFindMany = jest
+    .fn()
+    .mockResolvedValue([
+      { id: 'login-2', event: 'LOGIN', success: true, loginAt: at },
     ]);
-    const loginFindMany = jest.fn().mockResolvedValue([
+  const prisma = Object.assign(new PrismaService(), {
+    user: {
+      findUnique: jest.fn().mockResolvedValue(row()),
+      findMany: jest
+        .fn()
+        .mockResolvedValue([{ id: 'actor', nickname: 'synthetic-admin' }]),
+    },
+    userHistory: {
+      findMany: jest.fn().mockResolvedValue([
+        {
+          event: 'APPROVAL_REQUESTED',
+          data: request('request-1', '2026-01-01T00:00:00.000Z', 'PENDING'),
+        },
+        {
+          event: 'APPROVAL_REQUESTED',
+          data: request('request-2', '2026-02-01T00:00:00.000Z', 'PENDING'),
+        },
+        {
+          event: 'REJECTED',
+          data: request('request-1', '2026-01-01T00:00:00.000Z', 'REJECTED'),
+        },
+      ]),
+    },
+    loginHistory: {
+      findMany: loginFindMany,
+      count: jest.fn().mockResolvedValue(2),
+    },
+  });
+  const repo = repository(prisma);
+  const [detail, requests, logins] = await Promise.all([
+    repo.findById('target'),
+    repo.listStaffAccessRequestHistory('target', { page: 2, limit: 1 }),
+    repo.listLoginHistory('target', { page: 2, limit: 1 }),
+  ]);
+  expect(detail).toMatchObject({
+    id: 'target',
+    name: 'Name',
+    studentId: '123456',
+    staffNumber: null,
+    department: 'Department',
+  });
+  expect(requests).toEqual({
+    items: [
+      {
+        id: 'request-1',
+        status: 'REJECTED',
+        rejectionReason: 'Reason',
+        decidedAt: new Date('2026-03-01'),
+        decidedBy: 'synthetic-admin',
+        createdAt: at,
+      },
+    ],
+    page: 2,
+    limit: 1,
+    total: 2,
+  });
+  expect(logins).toEqual({
+    items: [
       {
         id: 'login-2',
         event: 'LOGIN',
         provider: 'github',
         success: true,
-        loginAt: new Date('2026-07-23T00:00:00.000Z'),
+        loginAt: at,
       },
-    ]);
-    const repository = new AdminAccessRepository(
-      {
-        user: { findUnique: jest.fn().mockResolvedValue(detail) },
-        staffAccessRequest: {
-          findMany: staffAccessRequestFindMany,
-          count: jest.fn().mockResolvedValue(1),
-        },
-        loginHistory: {
-          findMany: loginFindMany,
-          count: jest.fn().mockResolvedValue(1),
-        },
-      } as unknown as PrismaService,
-      new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(
-        new AdminAccessReadOrderingRepository(),
-        new PlatformRepository(),
-      ),
-    );
-
-    const [user, staffAccessRequests, logins] = await Promise.all([
-      repository.findById('target'),
-      repository.listStaffAccessRequestHistory('target', {
-        page: 2,
-        limit: 10,
-      }),
-      repository.listLoginHistory('target', { page: 2, limit: 10 }),
-    ]);
-
-    expect(user).toEqual(
-      expect.objectContaining({
-        id: 'target',
-
-        name: null,
-        studentId: null,
-        staffNumber: null,
-        department: null,
-      }),
-    );
-    expect(staffAccessRequests).toEqual({
-      items: [
-        expect.objectContaining({
-          id: 'request-2',
-          decidedBy: 'synthetic-admin',
-        }),
-      ],
-      page: 2,
-      limit: 10,
-      total: 1,
-    });
-    expect(logins).toEqual({
-      items: [expect.objectContaining({ id: 'login-2', provider: 'github' })],
-      page: 2,
-      limit: 10,
-      total: 1,
-    });
-    expect(staffAccessRequestFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        skip: 10,
-        take: 10,
-      }),
-    );
-    expect(loginFindMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        orderBy: [{ loginAt: 'desc' }, { id: 'desc' }],
-        skip: 10,
-        take: 10,
-      }),
-    );
+    ],
+    page: 2,
+    limit: 1,
+    total: 2,
   });
+  expect(loginFindMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      orderBy: [{ loginAt: 'desc' }, { id: 'desc' }],
+      skip: 1,
+      take: 1,
+    }),
+  );
 });
-
-function syntheticSearchConditions() {
-  const contains = { contains: 'synthetic', mode: 'insensitive' as const };
-
-  return [{ profile: { is: { name: contains } } }, { nickname: contains }];
-}
-
-type UserRowOptions = {
-  readonly id: string;
-  readonly role?: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
-  readonly accountStatus?: AccountStatus;
-  readonly nickname?: string;
-  readonly profile?: {
-    readonly name: string;
-    readonly studentId: string | null;
-    readonly department: string;
-    readonly memberKind?: MemberKind;
-    readonly affiliationKind?: AffiliationKind;
-    readonly affiliationName?: string;
-  } | null;
-  readonly pendingRequest?: {
-    readonly id: string;
-    readonly status: StaffAccessRequestStatus;
-    readonly createdAt: Date;
-  } | null;
-  readonly lastLoginAt?: Date | null;
-};
-
-function userRow(options: UserRowOptions) {
-  return {
-    id: options.id,
-    githubId: BigInt(`91${options.id.length}000001`),
-    nickname: options.nickname ?? `synthetic-${options.id}`,
-    profile: options.profile
-      ? {
-          memberKind: MemberKind.STUDENT,
-          affiliationKind: AffiliationKind.DEPARTMENT,
-          affiliationName: options.profile.department,
-          ...options.profile,
-        }
-      : null,
-    selectedMemberKind:
-      options.role === 'ADMIN' ? null : (options.role ?? MemberKind.STUDENT),
-    hasStaffAccess: options.role === 'STAFF',
-    hasAdminAccess: options.role === 'ADMIN',
-    accountStatus: options.accountStatus ?? AccountStatus.ACTIVE,
-    staffAccessRequests: options.pendingRequest ? [options.pendingRequest] : [],
-    loginHistories: options.lastLoginAt
-      ? [{ loginAt: options.lastLoginAt }]
-      : [],
-  };
-}

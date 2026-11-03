@@ -1,9 +1,8 @@
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { profileRecord } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 const usersService = new UsersService(
   undefined as never,
   undefined as never,
@@ -11,13 +10,11 @@ const usersService = new UsersService(
   new AuditLogMetadataService(),
   new UserProfileService(),
 );
-
 const staffInput = {
   name: '합성 교직원',
   affiliationKind: AffiliationKind.PROGRAM_OFFICE,
   affiliationName: '합성 사업단',
 } as const;
-
 describe('가입 마치기의 교직원 접근 승인 요청 판단', () => {
   it.each([
     ['교직원 접근이 없는 교직원', MemberKind.STAFF, false, true],
@@ -29,17 +26,14 @@ describe('가입 마치기의 교직원 접근 승인 요청 판단', () => {
         selectedMemberKind: memberKind,
         hasStaffAccess,
       });
-
       expect(
         usersService.buildProfileCompletion(user, staffInput)
           .requestsStaffAccess,
       ).toBe(expected);
     },
   );
-
   it('학생은 승인 요청을 만들지 않는다', () => {
     const user = profileRecord('synthetic-student-request');
-
     expect(
       usersService.buildProfileCompletion(user, {
         name: '합성 학생',

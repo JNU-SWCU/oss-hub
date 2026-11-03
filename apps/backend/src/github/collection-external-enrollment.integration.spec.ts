@@ -1,5 +1,5 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ConsentsRepository } from '../users/member-onboarding.repository';
+import { UserPolicyRepository } from '../users/user-policy.repository';
 import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
@@ -34,7 +34,7 @@ describe('external repository enrollment integration', () => {
     await prisma.githubRepository.deleteMany({
       where: { githubRepositoryId: { in: [...REPOSITORY_IDS] } },
     });
-    await prisma.consent.deleteMany({
+    await prisma.userPolicy.deleteMany({
       where: { userId: { in: [MEMBER_USER_ID, CONSENT_USER_ID] } },
     });
     await prisma.user.deleteMany({
@@ -440,7 +440,7 @@ describe('external repository enrollment integration', () => {
         nickname: 'synthetic-own-enrollment-consent-user',
       },
     });
-    const consents = new ConsentsService(new ConsentsRepository(prisma));
+    const consents = new ConsentsService(new UserPolicyRepository(prisma));
     const service = new RepositoryOwnEnrollmentService(consents, enrollment);
     const input = {
       applicantGithubId: CONSENT_GITHUB_ID,
@@ -461,7 +461,7 @@ describe('external repository enrollment integration', () => {
     ).resolves.toBe(0);
 
     const current = await consents.getCurrent(CONSENT_GITHUB_ID);
-    await prisma.consent.create({
+    await prisma.userPolicy.create({
       data: {
         userId: CONSENT_USER_ID,
         policyVersion: current.policy.policyVersion,

@@ -108,7 +108,7 @@ export const SUBMISSIONS_ERROR_CODES: Readonly<
   [SubmissionsErrorCode.STAFF_ONLY]: {
     code: SubmissionsErrorCode.STAFF_ONLY,
     status: 403,
-    message: '승인된 교직원 또는 관리자만 제출 현황을 조회할 수 있습니다.',
+    message: '승인된 교직원만 제출 현황을 조회할 수 있습니다.',
   },
   [SubmissionsErrorCode.PROGRAM_NOT_FOUND]: {
     code: SubmissionsErrorCode.PROGRAM_NOT_FOUND,

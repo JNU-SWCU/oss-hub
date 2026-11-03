@@ -1,3 +1,4 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -5,16 +6,15 @@ import { RepositoryProvisionGenerationRepository } from '../platform/repository-
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
-  AffiliationKind,
   ApplicationStatus,
   CollectionRepositoryPresence,
-  MemberKind,
   ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
@@ -82,7 +82,7 @@ const github = {
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
 const auditLogService = new AuditLogService(
   new AuditLogRepository(prisma),
-  new AuditLogMetadataService(),
+  new AuditLogReadService(new AuditLogMetadataService()),
 );
 const repositoriesRepository = new RepositoriesRepository(
   prisma,
@@ -163,15 +163,14 @@ function canonicalStudentFields(name: string, department: string) {
   studentIdSequence += 1;
   const studentId = String(studentIdSequence);
   return {
-    profile: {
-      create: {
-        name,
-        studentId,
-        department,
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: department,
-      },
+    ...{
+      name,
+      studentId,
+      department,
+      type: MemberKind.STUDENT,
+      departmentType: AffiliationKind.DEPARTMENT,
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
     },
   };
 }
@@ -212,9 +211,9 @@ async function createScenario(params: {
       id: applicantId,
       githubId: nextGithubId(),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
-      selectedMemberKind: MemberKind.STUDENT,
-
       ...applicantProfileFields(params.key),
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
 
@@ -328,8 +327,9 @@ async function seedContributors(
         id: `${PREFIX}-contributor-${githubId.toString()}`,
         githubId,
         nickname,
-        selectedMemberKind: MemberKind.STUDENT,
         ...contributorProfileFields(githubId),
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
   }
@@ -411,7 +411,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         id: REVIEWER_ID,
         githubId: REVIEWER_GITHUB_ID,
         nickname: `${PREFIX}-reviewer-login`,
-        hasAdminAccess: true,
+        ...{ admin: { create: { origin: 'MIGRATION' as const } } },
       },
     });
 
@@ -570,6 +570,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         where: { id: { startsWith: `${PREFIX}-` } },
       });
 
+      await prisma.admin.deleteMany({
+        where: {
+          user: { id: { startsWith: `${PREFIX}-` }, NOT: { id: REVIEWER_ID } },
+        },
+      });
       await prisma.user.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` }, NOT: { id: REVIEWER_ID } },
       });
@@ -917,18 +922,14 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         id: bystanderId,
         githubId: nextGithubId(),
         nickname: `${PREFIX}-outcome-9-bystander-login`,
-        selectedMemberKind: MemberKind.STUDENT,
-
-        profile: {
-          create: {
-            name: 'synthetic-forbidden-real-name',
-            studentId: '990009',
-            department: 'synthetic-forbidden-department',
-            memberKind: MemberKind.STUDENT,
-            affiliationKind: AffiliationKind.DEPARTMENT,
-            affiliationName: 'synthetic-forbidden-department',
-          },
-        },
+        name: 'synthetic-forbidden-real-name',
+        studentId: '990009',
+        department: 'synthetic-forbidden-department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
 
@@ -1008,7 +1009,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         expect(serialized).not.toContain(forbiddenKey);
       }
     } finally {
-      await prisma.userProfile.deleteMany({ where: { userId: bystanderId } });
+      await prisma.admin.deleteMany({ where: { user: { id: bystanderId } } });
       await prisma.user.delete({ where: { id: bystanderId } });
     }
   });

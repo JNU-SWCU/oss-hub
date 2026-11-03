@@ -1,8 +1,9 @@
-import { PlatformRepository } from '../platform/platform.repository';
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { userAuditRows } from './user-history.integration-fixture';
+
+import { UserTransitionRepository } from './user-transition.repository';
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
@@ -13,27 +14,24 @@ import {
 } from './users.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 const userProfileService = new UserProfileService();
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const userId = 'test:users:profile';
-const githubId = 9_600_000_000_153_001n;
+const githubId = 9600000000153001n;
 const otherUserId = 'test:users:profile:other';
 const staffNumberSetUserId = 'test:users:profile:staff-number:set';
-const staffNumberSetGithubId = 9_600_000_000_153_201n;
+const staffNumberSetGithubId = 9600000000153201n;
 const staffNumberReplaceUserId = 'test:users:profile:staff-number:replace';
-const staffNumberReplaceGithubId = 9_600_000_000_153_102n;
+const staffNumberReplaceGithubId = 9600000000153102n;
 const staffNumberClearUserId = 'test:users:profile:staff-number:clear';
-const staffNumberClearGithubId = 9_600_000_000_153_103n;
+const staffNumberClearGithubId = 9600000000153103n;
 const staffNumberOmittedUserId = 'test:users:profile:staff-number:omitted';
-const staffNumberOmittedGithubId = 9_600_000_000_153_104n;
+const staffNumberOmittedGithubId = 9600000000153104n;
 const staffNumberNoopUserId = 'test:users:profile:staff-number:noop';
-const staffNumberNoopGithubId = 9_600_000_000_153_105n;
+const staffNumberNoopGithubId = 9600000000153105n;
 const firstProfile = {
   name: '합성 최초 사용자',
   studentId: '1'.repeat(6),
@@ -48,23 +46,18 @@ type StoredProfileFields = {
   readonly affiliationKind: AffiliationKind;
   readonly affiliationName: string;
 };
-
 type PhoneAuditCallback = Parameters<
   UsersRepositoryPort['completeProfileIfUnchanged']
 >[2];
 type StaffNumberAuditCallback = Parameters<
   UsersRepositoryPort['updateProfileFields']
 >[2];
-
 const prisma = new PrismaService();
-const repository = new UsersRepository(prisma, new PlatformRepository());
+const repository = new UsersRepository(prisma, new UserTransitionRepository());
 const service = new UsersService(
   repository,
   { requireCurrent: () => Promise.resolve() },
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AuditLogMetadataService(),
   new UserProfileService(),
 );
@@ -74,14 +67,6 @@ const recordPhoneAudit = jest
 const recordStaffNumberAudit = jest
   .fn<Promise<void>, Parameters<StaffNumberAuditCallback>>()
   .mockResolvedValue(undefined);
-
-const profileTarget = {
-  id: userId,
-  name: null,
-  studentId: null,
-  department: null,
-};
-
 async function completeProfileFor(
   profileGithubId: bigint,
   profile: {
@@ -102,7 +87,6 @@ async function completeProfileFor(
     recordPhoneAudit,
   );
 }
-
 async function completeCurrentProfile(
   profile: {
     readonly name: string;
@@ -114,31 +98,35 @@ async function completeCurrentProfile(
 ): Promise<ProfileCompletionOutcome> {
   return completeProfileFor(githubId, profile, memberKind, affiliationKind);
 }
-
+async function currentStoredProfile(id: bigint) {
+  const current = await repository.findByGithubId(id);
+  if (!current) throw new TypeError('Expected current profile fixture');
+  return current;
+}
 function readProfileRow(
   profileUserId = userId,
 ): Promise<StoredProfileFields[]> {
   return prisma.$queryRaw<StoredProfileFields[]>`
     SELECT "name", "studentId", "staffNumber", "department",
-           "memberKind", "affiliationKind", "affiliationName"
-    FROM "UserProfile"
-    WHERE "userId" = ${profileUserId}
+           "type" AS "memberKind", "departmentType" AS "affiliationKind", "department" AS "affiliationName"
+    FROM "User"
+    WHERE "id" = ${profileUserId} AND "profileCreatedAt" IS NOT NULL
   `;
 }
-
 function readStaffNumberAudits(profileUserId: string) {
-  return prisma.auditLog.findMany({
-    where: {
-      actorId: profileUserId,
-      targetType: 'USER',
-      targetId: profileUserId,
-      action: 'USER_PROFILE_UPDATED',
-    },
-    orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
-    select: { action: true, targetId: true, metadata: true },
-  });
+  return userAuditRows(prisma, {
+    actorId: profileUserId,
+    targetId: profileUserId,
+    action: 'USER_PROFILE_UPDATED',
+    field: 'staffNumber',
+  }).then((rows) =>
+    rows.map(({ action, targetId, metadata }) => ({
+      action,
+      targetId,
+      metadata,
+    })),
+  );
 }
-
 async function createStaffNumberUser(
   profileUserId: string,
   profileGithubId: bigint,
@@ -148,53 +136,95 @@ async function createStaffNumberUser(
       id: profileUserId,
       githubId: profileGithubId,
       nickname: profileUserId,
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      type: MemberKind.STAFF,
+      approvalStatus: 'PENDING',
     },
   });
 }
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
 beforeEach(async () => {
   recordPhoneAudit.mockClear();
   recordStaffNumberAudit.mockClear();
-  await prisma.staffAccessRequest.deleteMany({
-    where: { userId: { in: [userId, otherUserId] } },
-  });
-  await prisma.user.deleteMany({
+  await prisma.user.updateMany({
     where: { id: { in: [userId, otherUserId] } },
-  });
-  await prisma.user.create({
     data: {
+      name: null,
+      studentId: null,
+      staffNumber: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
+      phone: null,
+      type: 'UNSELECTED',
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+    },
+  });
+  await prisma.user.upsert({
+    where: { id: userId },
+    create: {
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
       id: userId,
       githubId,
       nickname: 'synthetic-profile-user',
-      selectedMemberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
+    },
+    update: {
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+      id: userId,
+      githubId,
+      nickname: 'synthetic-profile-user',
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
 });
-
 afterAll(async () => {
-  await prisma.staffAccessRequest.deleteMany({
-    where: { userId: { in: [userId, otherUserId] } },
-  });
-  await prisma.user.deleteMany({
+  await prisma.user.updateMany({
     where: { id: { in: [userId, otherUserId] } },
+    data: {
+      name: null,
+      studentId: null,
+      staffNumber: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
+      phone: null,
+      type: 'UNSELECTED',
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+    },
   });
   await prisma.$disconnect();
 });
-
-it('학번·학과를 UserProfile에 저장하고 다시 조회한다', async () => {
+it('학번·학과를 User에 저장하고 다시 조회한다', async () => {
   await expect(completeCurrentProfile(firstProfile)).resolves.toBe('completed');
-
+  const profileCreatedAt: unknown = expect.any(Date);
   await expect(repository.findByGithubId(githubId)).resolves.toEqual({
     id: userId,
+    profileCreatedAt,
+    approvalRequestId: null,
     githubId,
     githubLogin: 'synthetic-profile-user',
     phone: null,
@@ -203,23 +233,17 @@ it('학번·학과를 UserProfile에 저장하고 다시 조회한다', async ()
     memberKind: MemberKind.STUDENT,
     affiliationKind: AffiliationKind.DEPARTMENT,
     affiliationName: firstProfile.department,
-    hasStaffAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
     hasAdminAccess: false,
     hasPendingStaffRequest: false,
     ...firstProfile,
   });
 });
-
-it('학번 없는 교직원 프로필은 UserProfile 행으로 저장된다', async () => {
+it('학번 없는 교직원 프로필은 User 행으로 저장된다', async () => {
   await prisma.user.update({
     where: { id: userId },
-    data: {
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    },
+    data: { type: MemberKind.STAFF, approvalStatus: 'PENDING' },
   });
-
   await expect(
     completeCurrentProfile(
       {
@@ -231,7 +255,6 @@ it('학번 없는 교직원 프로필은 UserProfile 행으로 저장된다', as
       AffiliationKind.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
-
   await expect(readProfileRow()).resolves.toEqual([
     {
       name: '합성 교직원',
@@ -250,20 +273,15 @@ it('학번 없는 교직원 프로필은 UserProfile 행으로 저장된다', as
     affiliationName: '인공지능학부',
     studentId: null,
     department: '인공지능학부',
-    hasStaffAccess: false,
+    approvalStatus: 'PENDING',
     hasAdminAccess: false,
     hasPendingStaffRequest: true,
   });
 });
-
 it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => {
   await prisma.user.update({
     where: { id: userId },
-    data: {
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: false,
-      hasAdminAccess: false,
-    },
+    data: { type: MemberKind.STAFF, approvalStatus: 'PENDING' },
   });
   await expect(
     completeCurrentProfile(
@@ -276,9 +294,8 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
       AffiliationKind.PROGRAM_OFFICE,
     ),
   ).resolves.toBe('completed');
-
   await repository.updateProfileFields(
-    profileTarget,
+    await currentStoredProfile(githubId),
     {
       name: '합성 수정 교직원',
       department: '소프트웨어공학과',
@@ -288,7 +305,6 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
     recordStaffNumberAudit,
     recordPhoneAudit,
   );
-
   await expect(readProfileRow()).resolves.toEqual([
     {
       name: '합성 수정 교직원',
@@ -301,12 +317,9 @@ it('완료된 프로필의 이름·소속을 갱신할 수 있다', async () => 
     },
   ]);
 });
-
-it('프로필 저장은 UserProfile 한 행에 canonical 사실을 남긴다', async () => {
+it('프로필 저장은 User 한 행에 canonical 사실을 남긴다', async () => {
   const expected = firstProfile;
-
   await expect(completeCurrentProfile(expected)).resolves.toBe('completed');
-
   await expect(readProfileRow()).resolves.toEqual([
     {
       ...expected,
@@ -317,16 +330,14 @@ it('프로필 저장은 UserProfile 한 행에 canonical 사실을 남긴다', a
     },
   ]);
 });
-
-it('완료 후 이름·학과 수정도 UserProfile만 갱신한다', async () => {
+it('완료 후 이름·학과 수정도 User만 갱신한다', async () => {
   await expect(completeCurrentProfile(firstProfile)).resolves.toBe('completed');
   const mutableFields = {
     name: '합성 수정 사용자',
     department: '컴퓨터공학과',
   };
-
   await repository.updateProfileFields(
-    profileTarget,
+    await currentStoredProfile(githubId),
     {
       ...mutableFields,
       affiliationKind: AffiliationKind.DEPARTMENT,
@@ -335,7 +346,6 @@ it('완료 후 이름·학과 수정도 UserProfile만 갱신한다', async () =
     recordStaffNumberAudit,
     recordPhoneAudit,
   );
-
   await expect(readProfileRow()).resolves.toEqual([
     {
       ...firstProfile,
@@ -347,7 +357,6 @@ it('완료 후 이름·학과 수정도 UserProfile만 갱신한다', async () =
     },
   ]);
 });
-
 it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상태를 보존한다', async () => {
   const profile = {
     name: '번호 설정 학생',
@@ -365,19 +374,17 @@ it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상
   ).resolves.toBe('completed');
   await prisma.user.update({
     where: { id: staffNumberSetUserId },
-    data: { hasAdminAccess: true },
+    data: { admin: { create: { origin: 'BOOTSTRAP' } } },
   });
-
   const current = await repository.findByGithubId(staffNumberSetGithubId);
-  if (!current) {
+  if (!current || current.name === null || current.department === null) {
     throw new Error('번호 설정 합성 사용자가 존재해야 합니다.');
   }
   await service.patchMyProfile(staffNumberSetGithubId, {
-    name: current.name!,
-    department: current.department!,
+    name: current.name,
+    department: current.department,
     staffNumber: '교직원-😀',
   });
-
   await expect(readProfileRow(staffNumberSetUserId)).resolves.toEqual([
     {
       ...profile,
@@ -393,12 +400,12 @@ it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상
     studentId: null,
     selectedMemberKind: MemberKind.STAFF,
     memberKind: MemberKind.STAFF,
-    hasStaffAccess: false,
+    approvalStatus: 'PENDING',
     hasAdminAccess: true,
     hasPendingStaffRequest: true,
   });
-  expect(after).not.toBeNull();
-  expect(userProfileService.isCompleteUserProfile(after!)).toBe(true);
+  if (!after) throw new TypeError('Expected saved profile fixture');
+  expect(userProfileService.isCompleteUserProfile(after)).toBe(true);
   await expect(
     readStaffNumberAudits(staffNumberSetUserId),
   ).resolves.toMatchObject([
@@ -411,7 +418,6 @@ it('교직원 번호를 설정해도 학번·회원 유형·권한과 완료 상
     },
   ]);
 });
-
 it('교직원 번호 교체 감사는 잠긴 현재값을 before로 남긴다', async () => {
   const profile = {
     name: '번호 교체 교직원',
@@ -431,36 +437,34 @@ it('교직원 번호 교체 감사는 잠긴 현재값을 before로 남긴다', 
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberReplaceGithubId);
-  if (!initial) {
+  if (!initial || initial.name === null || initial.department === null) {
     throw new Error('번호 교체 합성 사용자가 존재해야 합니다.');
   }
   await service.patchMyProfile(staffNumberReplaceGithubId, {
-    name: initial.name!,
-    department: initial.department!,
+    name: initial.name,
+    department: initial.department,
     staffNumber: '기존-번호',
   });
   const stale = await repository.findByGithubId(staffNumberReplaceGithubId);
-  if (!stale) {
+  if (!stale || stale.name === null || stale.department === null) {
     throw new Error('번호 교체 합성 스냅샷이 존재해야 합니다.');
   }
-  await prisma.userProfile.update({
-    where: { userId: staffNumberReplaceUserId },
+  await prisma.user.update({
+    where: { id: staffNumberReplaceUserId },
     data: { staffNumber: '잠금-직전-번호' },
   });
-
   const staleRead = jest
     .spyOn(repository, 'findByGithubId')
     .mockResolvedValueOnce(stale);
   try {
     await service.patchMyProfile(staffNumberReplaceGithubId, {
-      name: stale.name!,
-      department: stale.department!,
+      name: stale.name,
+      department: stale.department,
       staffNumber: '교체-번호',
     });
   } finally {
     staleRead.mockRestore();
   }
-
   await expect(readProfileRow(staffNumberReplaceUserId)).resolves.toEqual([
     {
       ...profile,
@@ -507,7 +511,6 @@ it('교직원 번호 교체 감사는 잠긴 현재값을 before로 남긴다', 
     ]),
   );
 });
-
 it('교직원 번호를 null로 보내면 canonical 값을 지우고 감사한다', async () => {
   const profile = {
     name: '번호 삭제 교직원',
@@ -524,25 +527,23 @@ it('교직원 번호를 null로 보내면 canonical 값을 지우고 감사한�
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberClearGithubId);
-  if (!initial) {
+  if (!initial || initial.name === null || initial.department === null) {
     throw new Error('번호 삭제 합성 사용자가 존재해야 합니다.');
   }
   await service.patchMyProfile(staffNumberClearGithubId, {
-    name: initial.name!,
-    department: initial.department!,
+    name: initial.name,
+    department: initial.department,
     staffNumber: '지울-번호',
   });
   const current = await repository.findByGithubId(staffNumberClearGithubId);
-  if (!current) {
+  if (!current || current.name === null || current.department === null) {
     throw new Error('번호 삭제 현재 프로필이 존재해야 합니다.');
   }
-
   await service.patchMyProfile(staffNumberClearGithubId, {
-    name: current.name!,
-    department: current.department!,
+    name: current.name,
+    department: current.department,
     staffNumber: null,
   });
-
   await expect(readProfileRow(staffNumberClearUserId)).resolves.toEqual([
     {
       ...profile,
@@ -583,7 +584,6 @@ it('교직원 번호를 null로 보내면 canonical 값을 지우고 감사한�
     ]),
   );
 });
-
 it('교직원 번호를 생략하면 기존 canonical 값과 감사 이력을 보존한다', async () => {
   const profile = {
     name: '번호 생략 교직원',
@@ -603,24 +603,22 @@ it('교직원 번호를 생략하면 기존 canonical 값과 감사 이력을 �
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberOmittedGithubId);
-  if (!initial) {
+  if (!initial || initial.name === null || initial.department === null) {
     throw new Error('번호 생략 합성 사용자가 존재해야 합니다.');
   }
   await service.patchMyProfile(staffNumberOmittedGithubId, {
-    name: initial.name!,
-    department: initial.department!,
+    name: initial.name,
+    department: initial.department,
     staffNumber: '보존-번호',
   });
   const current = await repository.findByGithubId(staffNumberOmittedGithubId);
-  if (!current) {
+  if (!current || current.name === null || current.department === null) {
     throw new Error('번호 생략 현재 프로필이 존재해야 합니다.');
   }
-
   await service.patchMyProfile(staffNumberOmittedGithubId, {
-    name: current.name!,
-    department: current.department!,
+    name: current.name,
+    department: current.department,
   });
-
   await expect(readProfileRow(staffNumberOmittedUserId)).resolves.toEqual([
     {
       ...profile,
@@ -634,7 +632,6 @@ it('교직원 번호를 생략하면 기존 canonical 값과 감사 이력을 �
     readStaffNumberAudits(staffNumberOmittedUserId),
   ).resolves.toHaveLength(1);
 });
-
 it('교직원 번호 no-op은 canonical 값을 유지하고 새 감사 없이 끝난다', async () => {
   const profile = {
     name: '번호 재전송 교직원',
@@ -651,25 +648,23 @@ it('교직원 번호 no-op은 canonical 값을 유지하고 새 감사 없이 �
     ),
   ).resolves.toBe('completed');
   const initial = await repository.findByGithubId(staffNumberNoopGithubId);
-  if (!initial) {
+  if (!initial || initial.name === null || initial.department === null) {
     throw new Error('번호 no-op 합성 사용자가 존재해야 합니다.');
   }
   await service.patchMyProfile(staffNumberNoopGithubId, {
-    name: initial.name!,
-    department: initial.department!,
+    name: initial.name,
+    department: initial.department,
     staffNumber: '같은-번호',
   });
   const current = await repository.findByGithubId(staffNumberNoopGithubId);
-  if (!current) {
+  if (!current || current.name === null || current.department === null) {
     throw new Error('번호 no-op 현재 프로필이 존재해야 합니다.');
   }
-
   await service.patchMyProfile(staffNumberNoopGithubId, {
-    name: current.name!,
-    department: current.department!,
+    name: current.name,
+    department: current.department,
     staffNumber: '같은-번호',
   });
-
   await expect(readProfileRow(staffNumberNoopUserId)).resolves.toEqual([
     {
       ...profile,
@@ -683,10 +678,9 @@ it('교직원 번호 no-op은 canonical 값을 유지하고 새 감사 없이 �
     readStaffNumberAudits(staffNumberNoopUserId),
   ).resolves.toHaveLength(1);
 });
-
 it('사번 감사 기록이 실패하면 프로필 변경도 롤백한다', async () => {
   const id = 'test:users:profile:staff-number:rollback';
-  const rollbackGithubId = 9_600_000_000_153_106n;
+  const rollbackGithubId = 9600000000153106n;
   const profile = {
     name: '합성 롤백 교직원',
     studentId: null,
@@ -718,10 +712,9 @@ it('사번 감사 기록이 실패하면 프로필 변경도 롤백한다', asyn
   await expect(readProfileRow(id)).resolves.toEqual(before);
   await expect(readStaffNumberAudits(id)).resolves.toEqual([]);
 });
-
 it('읽은 뒤 학생으로 바뀐 계정은 잠긴 현재 회원 유형으로 사번 수정을 거부한다', async () => {
   const id = 'test:users:profile:staff-number:stale-kind';
-  const staleGithubId = 9_600_000_000_153_107n;
+  const staleGithubId = 9600000000153107n;
   const profile = {
     name: '합성 유형 변경 사용자',
     studentId: null,
@@ -736,12 +729,18 @@ it('읽은 뒤 학생으로 바뀐 계정은 잠긴 현재 회원 유형으로 �
   );
   const stale = await repository.findByGithubId(staleGithubId);
   if (!stale) throw new Error('합성 유형 변경 프로필이 존재해야 합니다.');
-  await prisma.userProfile.update({
-    where: { userId: id },
+  await prisma.user.update({
+    where: { id: id },
     data: {
-      memberKind: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+      type: MemberKind.STUDENT,
       studentId: '953107',
-      affiliationKind: AffiliationKind.DEPARTMENT,
+      departmentType: AffiliationKind.DEPARTMENT,
     },
   });
   const before = await readProfileRow(id);

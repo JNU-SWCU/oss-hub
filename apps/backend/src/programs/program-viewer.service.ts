@@ -1,8 +1,8 @@
+import { UserProfileService } from '../users/user-profile.service';
 import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus, UserType } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
-import { UserProfileService } from '../users/user-profile.service';
 
 export type ProgramViewerRole = AuthorityLabel | 'PENDING' | null;
 
@@ -24,34 +24,39 @@ export class ProgramViewerService {
     private readonly userProfileService: UserProfileService,
   ) {}
 
-  async fromGithubId(
-    githubId: bigint | null,
-    programId?: string,
-    operationsView = false,
-  ): Promise<ProgramViewer> {
+  async fromGithubId(githubId: bigint | null): Promise<ProgramViewer> {
     if (githubId === null) return { githubId: null, userId: null, role: null };
 
     const user = await this.repository.findViewer(githubId);
     if (!user || user.accountStatus !== AccountStatus.ACTIVE)
       return { githubId, userId: null, role: null };
 
-    let role: ProgramViewerRole =
-      this.userProfileService.authorityLabel({
-        memberKind: user.profile?.memberKind ?? null,
-        hasStaffAccess: user.hasStaffAccess,
-        hasAdminAccess: user.hasAdminAccess,
-      }) ?? (user.staffAccessRequests.length > 0 ? 'PENDING' : null);
-    if (
-      programId !== undefined &&
-      !operationsView &&
-      user.profile?.memberKind === MemberKind.STUDENT &&
-      (role === 'STAFF' || role === 'ADMIN')
-    ) {
-      const application = await this.repository.findStudentApplication(
-        programId,
-        user.id,
-      );
-      if (application?.status === 'APPROVED') role = 'STUDENT';
+    let role: ProgramViewerRole = null;
+    switch (user.type) {
+      case UserType.STUDENT:
+        role = 'STUDENT';
+        break;
+      case UserType.STAFF:
+        role = this.userProfileService.isStaffEligible({
+          accountStatus: user.accountStatus,
+          memberKind: user.type,
+          hasStaffAccess: user.approvalStatus === 'APPROVED',
+          isProfileComplete:
+            user.profileCreatedAt !== null &&
+            this.userProfileService.isCompleteProfileFields(
+              { ...user, studentId: null },
+              'STAFF',
+            ),
+        })
+          ? 'STAFF'
+          : user.approvalStatus === 'PENDING'
+            ? 'PENDING'
+            : null;
+        break;
+      case UserType.UNSELECTED:
+        break;
+      default:
+        return assertNever(user.type);
     }
     return { githubId, userId: user.id, role };
   }
@@ -61,8 +66,12 @@ export class ProgramViewerService {
   ): Promise<ProgramStudentViewer | null> {
     const user = await this.repository.findViewer(githubId);
     return user?.accountStatus === AccountStatus.ACTIVE &&
-      user.profile?.memberKind === MemberKind.STUDENT
+      user.type === UserType.STUDENT
       ? { githubId, userId: user.id }
       : null;
   }
+}
+
+function assertNever(value: never): never {
+  throw new TypeError(`Unsupported user type: ${String(value)}`);
 }

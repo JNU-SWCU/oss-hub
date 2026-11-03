@@ -1,12 +1,12 @@
+import { MemberKind } from '../users/user-contract.config';
 import { AuthFlowService } from './auth-flow.service';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import type { Request, Response } from 'express';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthController } from './auth.controller';
 import { AuthService, LoginHistoryService } from './auth.service';
 import { AuthUser } from './http-auth.types';
 import { AuthSessionService } from '../platform/auth-session.service';
-
 export const syntheticUser: AuthUser = {
   id: 'synthetic-id',
   githubId: 424242n,
@@ -20,15 +20,12 @@ export const syntheticUser: AuthUser = {
   hasAdminAccess: false,
   isProfileComplete: false,
 };
-
 export const syntheticOnboardedUser: AuthUser = {
   ...syntheticUser,
   memberKind: MemberKind.STUDENT,
   isProfileComplete: true,
 };
-
 export const recordLogin = jest.fn();
-
 export function createResponse(): Response & {
   setHeader: jest.Mock;
   redirect: jest.Mock;
@@ -36,9 +33,11 @@ export function createResponse(): Response & {
   return {
     setHeader: jest.fn(),
     redirect: jest.fn(),
-  } as unknown as Response & { setHeader: jest.Mock; redirect: jest.Mock };
+  } as unknown as Response & {
+    setHeader: jest.Mock;
+    redirect: jest.Mock;
+  };
 }
-
 export function createController(
   serviceOverrides: Partial<AuthService> = {},
 ): AuthController {
@@ -64,7 +63,6 @@ export function createController(
     ),
   );
 }
-
 export function requestWithCookie(cookie?: string): Request {
   return {
     headers: { cookie },

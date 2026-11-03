@@ -1,4 +1,5 @@
-import { MemberKind } from '@prisma/client';
+import { profileRecord } from './member-authority-test-fixtures';
+import { MemberKind } from './user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { UsersErrorCode } from './users-error-code.error';
 import type {
@@ -8,11 +9,9 @@ import type {
 import { UsersService, type PatchUserProfileInput } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
 >;
-
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
 const input: PatchUserProfileInput = {
@@ -21,7 +20,6 @@ const input: PatchUserProfileInput = {
   department: '인공지능학부',
   phone: '7'.repeat(10),
 };
-
 type StoredUser = {
   readonly id: string;
   readonly name: string | null;
@@ -34,7 +32,6 @@ type StoredUser = {
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
 };
-
 function buildService(
   overrides: {
     readonly user?: StoredUser | null;
@@ -46,7 +43,7 @@ function buildService(
   const requireCurrent = overrides.consentError
     ? jest.fn().mockRejectedValue(overrides.consentError)
     : jest.fn().mockResolvedValue(undefined);
-  const findByGithubId = jest.fn().mockResolvedValue(
+  const stored: StoredUser | null =
     overrides.user === undefined
       ? {
           id: 'synthetic-user',
@@ -55,12 +52,29 @@ function buildService(
           staffNumber: null,
           department: null,
           phone: null,
-          role: null,
           selectedMemberKind: MemberKind.STUDENT,
-          memberKind: null,
+          memberKind: MemberKind.STUDENT,
           hasAdminAccess: false,
         }
-      : overrides.user,
+      : overrides.user;
+  const kind =
+    stored === null
+      ? null
+      : (stored.memberKind ??
+        stored.selectedMemberKind ??
+        (stored.role === undefined || stored.role === 'STUDENT'
+          ? MemberKind.STUDENT
+          : stored.role === 'STAFF'
+            ? MemberKind.STAFF
+            : null));
+  const findByGithubId = jest.fn().mockResolvedValue(
+    stored === null
+      ? null
+      : profileRecord(stored.id, {
+          ...stored,
+          memberKind: kind,
+          selectedMemberKind: kind,
+        }),
   );
   const completeProfileIfUnchanged = jest
     .fn()
@@ -93,7 +107,6 @@ function buildService(
     updateProfileFields,
   };
 }
-
 async function captureDomainException(
   operation: () => Promise<unknown>,
 ): Promise<DomainException> {
@@ -107,7 +120,6 @@ async function captureDomainException(
   }
   throw new Error('Expected DomainException');
 }
-
 it('완료된 프로필은 이름·학과만 갱신한다', async () => {
   const existingUser = {
     id: 'synthetic-user',
@@ -122,7 +134,6 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
     buildService({
       user: existingUser,
     });
-
   await expect(
     service.patchMyProfile(githubId, {
       name: '수정된 이름',
@@ -137,17 +148,22 @@ it('완료된 프로필은 이름·학과만 갱신한다', async () => {
     isComplete: true,
   });
   expect(updateProfileFields).toHaveBeenCalledWith(
-    existingUser,
+    profileRecord(existingUser.id, {
+      ...existingUser,
+      memberKind: MemberKind.STUDENT,
+      selectedMemberKind: MemberKind.STUDENT,
+    }),
     {
       name: '수정된 이름',
       department: '소프트웨어공학과',
+      affiliationKind: 'DEPARTMENT',
+      affiliationName: '소프트웨어공학과',
     },
     expect.any(Function),
     expect.any(Function),
   );
   expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
 });
-
 describe('본인 교직원 번호 수정', () => {
   const staff: StoredUser = {
     id: 'synthetic-staff',
@@ -165,7 +181,6 @@ describe('본인 교직원 번호 수정', () => {
     name: '합성 교직원',
     department: '인공지능학부',
   };
-
   it.each([
     [' É-42 ', 'É-42'],
     [null, null],
@@ -185,7 +200,6 @@ describe('본인 교직원 번호 수정', () => {
       expect(fields).toHaveProperty('staffNumber', expected);
     }
   });
-
   it('학생 관리자는 사번을 수정할 수 없다', async () => {
     const { service, updateProfileFields } = buildService({
       user: { ...staff, memberKind: MemberKind.STUDENT },
@@ -196,7 +210,6 @@ describe('본인 교직원 번호 수정', () => {
     expect(error.errorCode.status).toBe(400);
     expect(updateProfileFields).not.toHaveBeenCalled();
   });
-
   it('가입 완료 요청의 사번을 조용히 버리지 않고 거절한다', async () => {
     const { service, completeProfileIfUnchanged } = buildService();
     const error = await captureDomainException(() =>
@@ -206,17 +219,13 @@ describe('본인 교직원 번호 수정', () => {
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
   });
 });
-
 it('동시 저장에서 선점에 실패하면 덮어쓰지 않고 409로 거부한다', async () => {
   const { service } = buildService({ completed: 'conflict' });
-
   const error = await captureDomainException(() =>
     service.completeMyProfile(githubId, input),
   );
-
   expect(error.errorCode.code).toBe(UsersErrorCode.PROFILE_ALREADY_COMPLETE);
 });
-
 it('완료된 프로필은 역할 선택 가능 상태로 확인한다', async () => {
   const { service } = buildService({
     user: {
@@ -227,12 +236,10 @@ it('완료된 프로필은 역할 선택 가능 상태로 확인한다', async (
       role: 'STUDENT',
     },
   });
-
   await expect(
     service.requireCompleteProfile(githubId),
   ).resolves.toBeUndefined();
 });
-
 it.each([
   ['공백 이름', '   ', studentId, input.department ?? ''],
   ['빈 학번', input.name, '', input.department ?? ''],
@@ -250,11 +257,9 @@ it.each([
         role: 'STUDENT',
       },
     });
-
     const error = await captureDomainException(() =>
       service.requireCompleteProfile(githubId),
     );
-
     expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
   },
 );

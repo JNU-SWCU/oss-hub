@@ -7,14 +7,55 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-enum MemberKind {
+enum UserType {
+  UNSELECTED
   STUDENT
   STAFF
 }
 
-enum AffiliationKind {
+enum DepartmentType {
   DEPARTMENT
   PROGRAM_OFFICE
+}
+
+enum ApprovalStatus {
+  NOT_REQUIRED
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+enum AdminOrigin {
+  ADMIN
+  BOOTSTRAP
+  MIGRATION
+}
+
+enum HistorySource {
+  APPLICATION
+  BOOTSTRAP
+  MIGRATION
+}
+
+enum UserHistoryEvent {
+  SIGNED_UP
+  APPROVAL_REQUESTED
+  APPROVED
+  REJECTED
+  REVOKED
+  REQUEST_SUPERSEDED
+  TYPE_CHANGED
+  PROFILE_UPDATED
+  PHONE_UPDATED
+  ACCOUNT_STATUS_CHANGED
+  LEGACY_IMPORT
+}
+
+enum AdminHistoryEvent {
+  GRANTED
+  REVOKED
+  LEGACY_IMPORT
 }
 
 enum AccountStatus {
@@ -32,15 +73,32 @@ model User {
   sessionVersion     Int           @default(0)
   notificationEmail  String?
   notifyEnabled      Boolean       @default(false)
-  selectedMemberKind MemberKind?
-  hasStaffAccess     Boolean       @default(false)
-  hasAdminAccess     Boolean       @default(false)
+  type               UserType      @default(UNSELECTED)
+  name               String?
+  studentId          String?       @unique
+  staffNumber        String?
+  department         String?
+  departmentType     DepartmentType?
+  profileCreatedAt   DateTime?
+  profileUpdatedAt   DateTime?
+  approvalStatus      ApprovalStatus @default(NOT_REQUIRED)
+  approvalRequestId   String?        @unique
+  approvalRequestedAt DateTime?
+  approvalDecidedAt    DateTime?
+  approvalDecidedById  String?
+  approvalReason      String?
   createdAt          DateTime      @default(now())
   updatedAt          DateTime      @updatedAt
 
-  staffAccessRequests                    StaffAccessRequest[]                 @relation("StaffAccessRequestUser")
-  decidedStaffAccessRequests             StaffAccessRequest[]                 @relation("StaffAccessRequestDecidedBy")
-  consents                               Consent[]
+  approvalDecidedBy                      User?          @relation("UserApprovalDecider", fields: [approvalDecidedById], references: [id], onDelete: Restrict)
+  approvalDecisions                      User[]         @relation("UserApprovalDecider")
+  admin                                  Admin?         @relation("AdminUser")
+  adminGrants                            Admin[]        @relation("AdminGrantor")
+  userHistories                          UserHistory[]  @relation("UserHistorySubject")
+  actedUserHistories                     UserHistory[]  @relation("UserHistoryActor")
+  adminHistories                         AdminHistory[] @relation("AdminHistorySubject")
+  actedAdminHistories                    AdminHistory[] @relation("AdminHistoryActor")
+  policies                               UserPolicy[]
   applications                           Application[]                        @relation("ApplicationApplicant")
   processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
   applicationPreparations                ApplicationPreparation[]
@@ -62,24 +120,55 @@ model User {
   notifications                          Notification[]
   auditLogs                              AuditLog[]
   loginHistories                         LoginHistory[]
-  profile                                UserProfile?
 }
 
-model UserProfile {
+model Admin {
   userId String @id
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user User @relation("AdminUser", fields: [userId], references: [id], onDelete: Restrict)
+  grantedAt DateTime @default(now())
+  grantedById String?
+  grantedBy User? @relation("AdminGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+  origin AdminOrigin
+}
 
-  name        String
-  studentId   String? @unique
-  staffNumber String?
-  department  String
+model UserHistory {
+  id String @id @default(cuid())
+  userId String
+  user User @relation("UserHistorySubject", fields: [userId], references: [id], onDelete: Restrict)
+  actorId String?
+  actor User? @relation("UserHistoryActor", fields: [actorId], references: [id], onDelete: Restrict)
+  event UserHistoryEvent
+  occurredAt DateTime @default(now())
+  recordedAt DateTime @default(now())
+  source HistorySource
+  sourceTable String?
+  sourceId String?
+  sourcePart String? @default("whole")
+  data Json
 
-  memberKind      MemberKind
-  affiliationKind AffiliationKind
-  affiliationName String
+  @@unique([sourceTable, sourceId, sourcePart])
+  @@index([userId, occurredAt, id])
+  @@index([actorId, occurredAt, id])
+}
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+model AdminHistory {
+  id String @id @default(cuid())
+  userId String
+  user User @relation("AdminHistorySubject", fields: [userId], references: [id], onDelete: Restrict)
+  actorId String?
+  actor User? @relation("AdminHistoryActor", fields: [actorId], references: [id], onDelete: Restrict)
+  event AdminHistoryEvent
+  occurredAt DateTime @default(now())
+  recordedAt DateTime @default(now())
+  source HistorySource
+  sourceTable String?
+  sourceId String?
+  sourcePart String? @default("whole")
+  data Json
+
+  @@unique([sourceTable, sourceId, sourcePart])
+  @@index([userId, occurredAt, id])
+  @@index([actorId, occurredAt, id])
 }
 
 enum LoginHistoryEvent {
@@ -102,35 +191,7 @@ model LoginHistory {
   @@index([userId, provider, loginAt, id])
 }
 
-enum StaffAccessRequestStatus {
-  PENDING
-  APPROVED
-  REJECTED
-  REVOKED
-}
-
-model StaffAccessRequest {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation("StaffAccessRequestUser", fields: [userId], references: [id])
-
-  status          StaffAccessRequestStatus @default(PENDING)
-  rejectionReason String?
-
-  decidedById String?
-  decidedBy   User?     @relation("StaffAccessRequestDecidedBy", fields: [decidedById], references: [id])
-  decidedAt   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  @@index([userId])
-  @@index([status])
-  @@index([userId, status, createdAt, id])
-  @@index([userId, createdAt, id])
-}
-
-model Consent {
+model UserPolicy {
   id     String @id @default(cuid())
   userId String
   user   User   @relation(fields: [userId], references: [id])

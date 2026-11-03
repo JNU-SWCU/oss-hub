@@ -1,7 +1,11 @@
-import { MemberKind, type AffiliationKind } from '@prisma/client';
+import type { ApprovalStatus } from '@prisma/client';
+import { MemberKind, type AffiliationKind } from './user-contract.config';
 
 export interface UserProfileRecord {
   readonly id: string;
+  readonly profileCreatedAt: Date | null;
+  readonly approvalStatus: ApprovalStatus;
+  readonly approvalRequestId: string | null;
   readonly githubId?: bigint;
   readonly githubLogin?: string;
   readonly name: string | null;
@@ -13,11 +17,10 @@ export interface UserProfileRecord {
 
   readonly hasPendingStaffRequest?: boolean;
 
-  readonly selectedMemberKind?: MemberKind | null;
-  readonly memberKind?: MemberKind | null;
+  readonly selectedMemberKind: MemberKind | null;
+  readonly memberKind: MemberKind | null;
   readonly affiliationKind?: AffiliationKind | null;
   readonly affiliationName?: string | null;
-  readonly hasStaffAccess?: boolean;
   readonly hasAdminAccess?: boolean;
 }
 
@@ -36,3 +39,11 @@ export interface ProfileFieldRequirement {
   readonly studentId: boolean;
   readonly department: boolean;
 }
+
+export type UserApprovalProfile = {
+  readonly memberKind: MemberKind | null;
+  readonly approvalStatus: ApprovalStatus;
+  readonly profileCreatedAt: Date | null;
+  readonly name: string | null;
+  readonly department: string | null;
+};

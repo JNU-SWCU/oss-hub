@@ -3,7 +3,7 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -29,7 +29,8 @@ export class AccountDeactivationService {
   constructor(
     @Inject(AccountDeactivationRepository)
     private readonly repository: AccountDeactivationRepositoryPort,
-    private readonly auditLog: AuditLogService,
+    @Inject(UserHistoryRepository)
+    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly userProfileService: UserProfileService,
     private readonly authConfig: AuthConfig,
@@ -81,7 +82,13 @@ export class AccountDeactivationService {
         displayName: account.displayName,
         githubLogin: account.githubLogin,
       };
-      const role = this.userProfileService.authorityLabel(account);
+      const role = this.userProfileService.authorityLabel({
+        ...account,
+        hasStaffAccess: this.userProfileService.hasStaffAccess({
+          ...account,
+          name: account.displayName,
+        }),
+      });
       await this.auditLog.record(
         {
           actorGithubId: githubId,

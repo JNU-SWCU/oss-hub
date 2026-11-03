@@ -1,6 +1,5 @@
 import { SubmissionsRepository } from './programs/submissions.repository';
 import { PlatformRepository } from './platform/platform.repository';
-import { MemberKind } from '@prisma/client';
 import { NestFactory } from '@nestjs/core';
 import { AuditLogService } from './platform/audit-log.service';
 import { PrismaService } from './platform/prisma.service';
@@ -8,6 +7,8 @@ import { SubmissionFileCleanupRetryService } from './programs/submission-file-cl
 import { SubmissionFilesRepository } from './programs/submission-files.repository';
 import { retrySubmissionFileCleanup } from './cli';
 import { AuditLogMetadataService } from './platform/audit-log-metadata.service';
+import { AuditLogRepository } from './platform/audit-log.repository';
+import { AuditLogReadService } from './platform/audit-log-read.service';
 
 jest.mock('@nestjs/core', () => ({
   NestFactory: { createApplicationContext: jest.fn() },
@@ -30,32 +31,28 @@ function installContext(): Harness {
   const updateMany = jest.fn().mockResolvedValue({ count: 1 });
   const findUnique = jest.fn().mockResolvedValue({
     githubId: 4242n,
-    hasAdminAccess: true,
+    admin: { userId: OPERATOR_ID },
     accountStatus: 'ACTIVE',
   });
   const close = jest.fn().mockResolvedValue(undefined);
+  const prisma = new PrismaService();
+  jest.spyOn(prisma.user, 'findUnique').mockImplementation(findUnique);
+  jest
+    .spyOn(prisma.submissionFile, 'updateMany')
+    .mockImplementation(updateMany);
   const files = new SubmissionFilesRepository(
-    {
-      user: { findUnique },
-      submissionFile: { updateMany },
-    } as unknown as PrismaService,
+    prisma,
     new PlatformRepository(),
-    new SubmissionsRepository(
-      {
-        user: { findUnique },
-        submissionFile: { updateMany },
-      } as unknown as PrismaService,
-      new PlatformRepository(),
-    ),
+    new SubmissionsRepository(prisma, new PlatformRepository()),
   );
   const resetDeleteAttempts = jest.spyOn(files, 'resetDeleteAttempts');
-  const retry = new SubmissionFileCleanupRetryService(
-    files,
-    {
-      record,
-    } as unknown as AuditLogService,
-    new AuditLogMetadataService(),
+  const metadata = new AuditLogMetadataService();
+  const audit = new AuditLogService(
+    new AuditLogRepository(prisma),
+    new AuditLogReadService(metadata),
   );
+  jest.spyOn(audit, 'record').mockImplementation(record);
+  const retry = new SubmissionFileCleanupRetryService(files, audit, metadata);
   const context = {
     close,
     get: (token: unknown): unknown => {
@@ -63,9 +60,9 @@ function installContext(): Harness {
       throw new Error('unexpected provider token');
     },
   };
-  (
-    NestFactory.createApplicationContext as unknown as jest.Mock
-  ).mockResolvedValue(context);
+  jest
+    .spyOn(NestFactory, 'createApplicationContext')
+    .mockImplementation(jest.fn().mockResolvedValue(context));
   return { record, resetDeleteAttempts, updateMany, findUnique, close };
 }
 
@@ -92,20 +89,24 @@ describe('submissions:retry-file-cleanup CLI — #547 감사 기록', () => {
 
     expect(harness.findUnique).toHaveBeenCalledWith({
       where: { id: OPERATOR_ID },
-      select: { githubId: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        githubId: true,
+        admin: { select: { userId: true } },
+        accountStatus: true,
+      },
     });
     expect(harness.resetDeleteAttempts).toHaveBeenCalledWith(
       FILE_ID,
       expect.any(Date),
     );
+    const nextDeleteAttemptAt: unknown = expect.any(Date);
+    const where: unknown = expect.objectContaining({ id: FILE_ID });
+    const data: unknown = expect.objectContaining({
+      deleteAttemptCount: 0,
+      nextDeleteAttemptAt,
+    });
     expect(harness.updateMany).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: expect.objectContaining({ id: FILE_ID }) as unknown,
-        data: expect.objectContaining({
-          deleteAttemptCount: 0,
-          nextDeleteAttemptAt: expect.any(Date) as unknown,
-        }) as unknown,
-      }),
+      expect.objectContaining({ where, data }),
     );
     expect(harness.record).toHaveBeenCalledWith({
       actorGithubId: 4242n,
@@ -136,8 +137,7 @@ describe('submissions:retry-file-cleanup CLI — #547 감사 기록', () => {
     const harness = installContext();
     harness.findUnique.mockResolvedValue({
       githubId: 4242n,
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
+      admin: null,
       accountStatus: 'ACTIVE',
     });
 

@@ -1,29 +1,26 @@
-import { PlatformRepository } from '../platform/platform.repository';
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { flatProfileFixture } from './canonical-user-fixture';
+import { UserTransitionRepository } from './user-transition.repository';
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../platform/error-code.error';
-import { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogRepository } from '../platform/audit-log.repository';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { UsersErrorCode } from './users-error-code.error';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const LEGACY_STUDENT_ID = '9'.repeat(9);
 const NEW_ONBOARDING_PHONE = '80000999999';
 const NEW_STUDENT_ID = '1'.repeat(6);
 const userId = 'test:users:legacy-student-id';
-const githubId = 9_600_000_000_153_101n;
+const githubId = 9600000000153101n;
 const name = '합성 재학생';
 const department = '인공지능학부';
-
 type StoredProfileFields = {
   readonly name: string;
   readonly studentId: string | null;
@@ -32,31 +29,24 @@ type StoredProfileFields = {
   readonly affiliationKind: AffiliationKind;
   readonly affiliationName: string;
 };
-
 const prisma = new PrismaService();
-
 const service = new UsersService(
-  new UsersRepository(prisma, new PlatformRepository()),
+  new UsersRepository(prisma, new UserTransitionRepository()),
   {
     requireCurrent: () => Promise.resolve(),
   },
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AuditLogMetadataService(),
   new UserProfileService(),
 );
-
 function readProfileRow(): Promise<StoredProfileFields[]> {
   return prisma.$queryRaw<StoredProfileFields[]>`
     SELECT "name", "studentId", "department",
-           "memberKind", "affiliationKind", "affiliationName"
-    FROM "UserProfile"
-    WHERE "userId" = ${userId}
+           "type" AS "memberKind", "departmentType" AS "affiliationKind", "department" AS "affiliationName"
+    FROM "User"
+    WHERE "id" = ${userId} AND "profileCreatedAt" IS NOT NULL
   `;
 }
-
 async function captureDomainException(
   operation: () => Promise<unknown>,
 ): Promise<DomainException> {
@@ -70,29 +60,33 @@ async function captureDomainException(
   }
   throw new Error('DomainException이 발생해야 합니다.');
 }
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
 async function resetLegacyStudent(): Promise<void> {
-  await prisma.userProfile.deleteMany({ where: { userId } });
-
-  const identity = {
-    selectedMemberKind: MemberKind.STUDENT,
-    hasStaffAccess: false,
-    hasAdminAccess: false,
-    phone: null,
-    profile: {
-      create: {
-        name,
-        studentId: LEGACY_STUDENT_ID,
-        department,
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: department,
-      },
+  await prisma.user.updateMany({
+    where: { id: userId },
+    data: {
+      name: null,
+      studentId: null,
+      staffNumber: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
+      phone: null,
     },
+  });
+  const identity = {
+    approvalStatus: 'NOT_REQUIRED' as const,
+    phone: null,
+    ...flatProfileFixture({
+      name,
+      studentId: LEGACY_STUDENT_ID,
+      department,
+      memberKind: MemberKind.STUDENT,
+      affiliationKind: AffiliationKind.DEPARTMENT,
+    }),
   };
   await prisma.user.upsert({
     where: { id: userId },
@@ -105,14 +99,23 @@ async function resetLegacyStudent(): Promise<void> {
     },
   });
 }
-
 beforeEach(resetLegacyStudent);
-
 afterAll(async () => {
-  await prisma.userProfile.deleteMany({ where: { userId } });
+  await prisma.user.updateMany({
+    where: { id: userId },
+    data: {
+      name: null,
+      studentId: null,
+      staffNumber: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
+      phone: null,
+    },
+  });
   await prisma.$disconnect();
 });
-
 it('예전 형식 학번으로 가입을 마친 학생은 완료된 프로필로 읽힌다', async () => {
   await expect(service.getMyProfile(githubId)).resolves.toEqual({
     name,
@@ -123,7 +126,6 @@ it('예전 형식 학번으로 가입을 마친 학생은 완료된 프로필로
     isComplete: true,
   });
 });
-
 it('학번을 싣지 않은 저장은 예전 형식 학번을 건드리지 않고 통과한다', async () => {
   await expect(
     service.patchMyProfile(githubId, {
@@ -134,7 +136,6 @@ it('학번을 싣지 않은 저장은 예전 형식 학번을 건드리지 않�
     studentId: LEGACY_STUDENT_ID,
     isComplete: true,
   });
-
   await expect(readProfileRow()).resolves.toEqual([
     {
       name: '합성 재학생2',
@@ -146,7 +147,6 @@ it('학번을 싣지 않은 저장은 예전 형식 학번을 건드리지 않�
     },
   ]);
 });
-
 it('학번을 6자리로 바꾸려는 저장은 거절하고 데이터를 그대로 둔다', async () => {
   const exception = await captureDomainException(() =>
     service.patchMyProfile(githubId, {
@@ -155,9 +155,7 @@ it('학번을 6자리로 바꾸려는 저장은 거절하고 데이터를 그대
       department,
     }),
   );
-
   expect(exception.errorCode.code).toBe(UsersErrorCode.STUDENT_ID_IMMUTABLE);
-
   await expect(readProfileRow()).resolves.toEqual([
     {
       name,
@@ -169,20 +167,28 @@ it('학번을 6자리로 바꾸려는 저장은 거절하고 데이터를 그대
     },
   ]);
 });
-
 describe('학번이 없는 학생', () => {
   const NEW_ONBOARDING_STUDENT_ID = '2'.repeat(6);
-
   beforeEach(async () => {
-    await prisma.userProfile.deleteMany({ where: { userId } });
+    await prisma.user.updateMany({
+      where: { id: userId },
+      data: {
+        name: null,
+        studentId: null,
+        staffNumber: null,
+        department: null,
+        departmentType: null,
+        profileCreatedAt: null,
+        profileUpdatedAt: null,
+        phone: null,
+      },
+    });
   });
-
   it('미완료로 읽히고 새 6자리 학번으로 가입을 마친다', async () => {
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       studentId: null,
       isComplete: false,
     });
-
     await expect(
       service.completeMyProfile(githubId, {
         name,
@@ -194,7 +200,6 @@ describe('학번이 없는 학생', () => {
       studentId: NEW_ONBOARDING_STUDENT_ID,
       isComplete: true,
     });
-
     await expect(readProfileRow()).resolves.toEqual([
       {
         name,
@@ -206,7 +211,6 @@ describe('학번이 없는 학생', () => {
       },
     ]);
   });
-
   it('형식이 틀린 새 학번은 400으로 거부한다', async () => {
     const exception = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
@@ -215,7 +219,6 @@ describe('학번이 없는 학생', () => {
         department,
       }),
     );
-
     expect(exception.errorCode.status).toBe(400);
     await expect(readProfileRow()).resolves.toEqual([]);
   });

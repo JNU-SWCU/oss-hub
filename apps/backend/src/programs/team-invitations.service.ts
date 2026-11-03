@@ -1,5 +1,6 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { Injectable } from '@nestjs/common';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus, UserType } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
@@ -24,6 +25,7 @@ export class TeamInvitationsService {
     private readonly repository: TeamInvitationsRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async listReceived(
@@ -216,7 +218,18 @@ export class TeamInvitationsService {
   private isActiveStaff(account: StaffAuthorityRow | null): boolean {
     return (
       account?.accountStatus === AccountStatus.ACTIVE &&
-      (account.hasStaffAccess || account.hasAdminAccess)
+      this.userProfileService.isStaffEligible({
+        accountStatus: account.accountStatus,
+        memberKind: account.type === 'UNSELECTED' ? null : account.type,
+        hasStaffAccess:
+          account.type === 'STAFF' && account.approvalStatus === 'APPROVED',
+        isProfileComplete:
+          account.profileCreatedAt !== null &&
+          this.userProfileService.isCompleteProfileFields(
+            { ...account, studentId: null },
+            'STAFF',
+          ),
+      })
     );
   }
 
@@ -228,7 +241,7 @@ export class TeamInvitationsService {
     account: InviteeAccountRow | null,
   ): 'eligible' | 'not-found' | 'not-eligible' {
     if (account === null) return 'not-found';
-    return account.profile?.memberKind === MemberKind.STUDENT &&
+    return account.type === UserType.STUDENT &&
       account.accountStatus === AccountStatus.ACTIVE
       ? 'eligible'
       : 'not-eligible';

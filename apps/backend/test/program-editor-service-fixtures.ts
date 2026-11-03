@@ -1,3 +1,4 @@
+import { UserProfileService } from '../src/users/user-profile.service';
 import { ProgramScheduleService } from '../src/programs/program-schedule.service';
 import { SubmissionFileAdmissionService } from '../src/programs/submission-file-admission.service';
 import { ProgramAuthoringUploadService } from '../src/programs/program-authoring-upload.service';
@@ -106,10 +107,16 @@ export function createProgramEditorServiceHarness(): {
   };
   store.findUserAuthorityByGithubId.mockResolvedValue({
     id: 'staff-1',
-    hasStaffAccess: true,
-    hasAdminAccess: false,
+    type: 'STAFF',
+    approvalStatus: 'APPROVED',
+    name: 'Staff',
+    studentId: null,
+    department: 'Department',
+    departmentType: 'DEPARTMENT',
+    profileCreatedAt: new Date('2026-01-01'),
+    profileUpdatedAt: new Date('2026-01-01'),
+    admin: null,
     accountStatus: AccountStatus.ACTIVE,
-    staffAccessRequests: [],
   });
   return {
     service: new ProgramEditorService(
@@ -122,6 +129,7 @@ export function createProgramEditorServiceHarness(): {
         new SubmissionFileAdmissionService(),
         new ProgramNoticeFetchClient(),
       ),
+      new UserProfileService(),
     ),
     store,
     withTransaction,

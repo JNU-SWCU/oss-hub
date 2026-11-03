@@ -1,8 +1,9 @@
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { PlatformModule } from '../platform/platform.module';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
+import { AccountStatus } from '@prisma/client';
+import { UserHistoryRepository } from './user-history.repository';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
@@ -19,13 +20,10 @@ import { AuthModule } from '../auth/auth.module';
 import { UsersModule } from './users.module';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { AuthSessionService } from '../platform/auth-session.service';
-
 const authSessionService = new AuthSessionService();
-
-const ADMIN_GITHUB_ID = 9_700_600_001n;
+const ADMIN_GITHUB_ID = 9700600001n;
 const sessionSecret = new Uint8Array(32).fill(41);
 const allowedOrigin = 'http://frontend.test';
-
 class HttpMemberKindRepository
   implements MemberKindRepositoryPort, MemberKindTransactionStore
 {
@@ -33,70 +31,64 @@ class HttpMemberKindRepository
   actor: AdminAccessActor = adminActor();
   target: MemberKindTargetRecord = studentTarget();
   readonly updates: MemberKindProfileUpdate[] = [];
-
   withTransaction<T>(
     operation: (store: MemberKindTransactionStore) => Promise<T>,
   ): Promise<T> {
     return operation(this);
   }
-
   lockActiveAdmins(): Promise<void> {
     return Promise.resolve();
   }
-
   findActorByGithubId(): Promise<AdminAccessActor> {
     return Promise.resolve(this.actor);
   }
-
   findTargetForUpdate(): Promise<MemberKindTargetRecord> {
     return Promise.resolve(this.target);
   }
-
-  updateMemberKind(
-    _userId: string,
-    hasStaffAccess: boolean,
-    selectedMemberKind: MemberKind,
-    profilePatch: MemberKindProfileUpdate,
-  ): Promise<'updated'> {
+  updateMemberKind: MemberKindTransactionStore['updateMemberKind'] = (
+    before,
+    _actorId,
+    profilePatch,
+  ) => {
     this.updates.push(profilePatch);
+    const approvalStatus =
+      profilePatch.memberKind === 'STAFF' ? 'APPROVED' : 'NOT_REQUIRED';
+    const approvalRequestId =
+      profilePatch.memberKind === 'STAFF' ? 'replacement-request' : null;
     this.target = {
-      ...this.target,
-      selectedMemberKind,
-      memberKind: selectedMemberKind,
-      hasStaffAccess,
-      profile: this.target.profile
-        ? { ...this.target.profile, ...profilePatch }
-        : null,
+      ...before,
+      selectedMemberKind: profilePatch.memberKind,
+      memberKind: profilePatch.memberKind,
+      approvalStatus,
+      approvalRequestId,
+      pendingRequest: null,
+      profile: before.profile ? { ...before.profile, ...profilePatch } : null,
     };
-    return Promise.resolve('updated');
-  }
-
-  insertRevokedRequest(): Promise<{ readonly id: string }> {
-    return Promise.resolve({ id: 'synthetic-revoked' });
-  }
-
+    return Promise.resolve({
+      kind: 'updated',
+      approvalStatus,
+      approvalRequestId,
+    });
+  };
   reset(): void {
     this.actor = adminActor();
     this.target = studentTarget();
     this.updates.length = 0;
   }
 }
-
 describe('PATCH /users/:id/member-kind HTTP contract', () => {
   const repository = new HttpMemberKindRepository();
   const audit = { record: jest.fn().mockResolvedValue({}) };
   let application: INestApplication;
   let baseUrl = '';
-
   beforeAll(async () => {
     const moduleBuilder = Test.createTestingModule({
       imports: [PlatformModule, AuthModule, UsersModule],
       controllers: [UserAccessController],
     }).useMocker((token) => (token === Function ? undefined : {}));
-
     moduleBuilder.overrideProvider(PrismaService).useValue({});
     moduleBuilder.overrideProvider(MemberKindRepository).useValue(repository);
-    moduleBuilder.overrideProvider(AuditLogService).useValue(audit);
+    moduleBuilder.overrideProvider(UserHistoryRepository).useValue(audit);
     moduleBuilder.overrideProvider(AuthConfig).useValue({
       sessionSecret,
       allowedOrigin,
@@ -118,16 +110,13 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
   });
-
   beforeEach(() => {
     repository.reset();
     audit.record.mockClear();
   });
-
   afterAll(async () => {
     await application.close();
   });
-
   it('returns the independent authority result and normalizes the staff number', async () => {
     const response = await request({
       memberKind: 'STAFF',
@@ -135,12 +124,12 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
       expectedHasStaffAccess: false,
       staffNumber: ' 직원-A7 ',
     });
-
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toMatchObject({
       id: 'target',
       role: 'STAFF',
       memberKind: 'STAFF',
+      approvalStatus: 'APPROVED',
       hasStaffAccess: true,
       hasAdminAccess: false,
     });
@@ -149,7 +138,22 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
       staffNumber: '직원-A7',
     });
   });
-
+  it('accepts the exact pending request tuple and returns the new approved request identity', async () => {
+    repository.target = pendingTarget();
+    const response = await request({
+      memberKind: 'STAFF',
+      expectedMemberKind: 'STAFF',
+      expectedHasStaffAccess: false,
+      expectedApprovalStatus: 'PENDING',
+      expectedApprovalRequestId: 'pending',
+    });
+    expect(response.status).toBe(200);
+    await expect(response.json()).resolves.toMatchObject({
+      approvalStatus: 'APPROVED',
+      approvalRequestId: 'replacement-request',
+      hasStaffAccess: true,
+    });
+  });
   it('rejects invalid payload fields at the HTTP validation boundary', async () => {
     const response = await request({
       memberKind: 'STAFF',
@@ -157,27 +161,23 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
       expectedHasStaffAccess: false,
       staffNumber: 'x'.repeat(101),
     });
-
     await expectProblem(response, 400, 'SYS_003');
     expect(repository.updates).toHaveLength(0);
   });
-
   it('rejects anonymous and non-admin actors before changing state', async () => {
     const anonymous = await request(validStaffBody(), null);
     await expectProblem(anonymous, 401, 'AUT_003');
-
     repository.actor = adminActor({
       hasAdminAccess: false,
-      hasStaffAccess: true,
+      approvalStatus: 'APPROVED',
     });
     const nonAdmin = await request(validStaffBody());
     await expectProblem(nonAdmin, 403, 'ROL_004');
     expect(repository.updates).toHaveLength(0);
   });
-
   it.each([
     ['missing canonical profile', () => missingProfileTarget(), 'USR_002'],
-    ['pending request', () => pendingTarget(), 'ROL_015'],
+    ['pending request', () => pendingTarget(), 'ROL_013'],
     ['stale expected state', () => studentTarget(), 'ROL_013'],
   ] as const)(
     'rejects %s with the public problem contract',
@@ -191,14 +191,11 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
               expectedHasStaffAccess: true,
             }
           : validStaffBody();
-
       const response = await request(body);
-
       await expectProblem(response, 409, code);
       expect(repository.updates).toHaveLength(0);
     },
   );
-
   async function request(
     body: Readonly<Record<string, unknown>>,
     githubId: bigint | null = ADMIN_GITHUB_ID,
@@ -208,11 +205,7 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
       'content-type': 'application/json',
     };
     if (githubId !== null) {
-      headers.cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
-        sessionSecret,
-        githubId,
-        0,
-      )}`;
+      headers.cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, githubId, 0)}`;
     }
     return fetch(`${baseUrl}/api/v1/users/target/member-kind`, {
       method: 'PATCH',
@@ -220,7 +213,6 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
       body: JSON.stringify(body),
     });
   }
-
   async function expectProblem(
     response: Response,
     status: number,
@@ -233,7 +225,6 @@ describe('PATCH /users/:id/member-kind HTTP contract', () => {
     await expect(response.json()).resolves.toMatchObject({ status, code });
   }
 });
-
 function validStaffBody(): Readonly<Record<string, unknown>> {
   return {
     memberKind: 'STAFF',
@@ -241,7 +232,6 @@ function validStaffBody(): Readonly<Record<string, unknown>> {
     expectedHasStaffAccess: false,
   };
 }
-
 function adminActor(
   overrides: Partial<AdminAccessActor> = {},
 ): AdminAccessActor {
@@ -250,13 +240,15 @@ function adminActor(
     githubId: ADMIN_GITHUB_ID,
     githubLogin: 'synthetic-admin',
     name: '합성 관리자',
-    hasStaffAccess: true,
+    memberKind: 'STAFF',
+    approvalStatus: 'APPROVED',
+    profileCreatedAt: new Date('2026-01-01'),
+    department: 'Department',
     hasAdminAccess: true,
     accountStatus: AccountStatus.ACTIVE,
     ...overrides,
   };
 }
-
 function profile(
   overrides: Partial<NonNullable<MemberKindTargetRecord['profile']>> = {},
 ): NonNullable<MemberKindTargetRecord['profile']> {
@@ -271,18 +263,19 @@ function profile(
     ...overrides,
   };
 }
-
 function studentTarget(
   overrides: Partial<MemberKindTargetRecord> = {},
 ): MemberKindTargetRecord {
   return {
     id: 'target',
-    githubId: 9_700_600_002n,
+    githubId: 9700600002n,
     githubLogin: 'synthetic-target',
     name: '합성 사용자',
     selectedMemberKind: MemberKind.STUDENT,
     memberKind: MemberKind.STUDENT,
-    hasStaffAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
+    profileCreatedAt: new Date('2026-01-01'),
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     profile: profile(),
@@ -290,7 +283,6 @@ function studentTarget(
     ...overrides,
   };
 }
-
 function missingProfileTarget(): MemberKindTargetRecord {
   return studentTarget({
     selectedMemberKind: null,
@@ -298,9 +290,12 @@ function missingProfileTarget(): MemberKindTargetRecord {
     profile: null,
   });
 }
-
 function pendingTarget(): MemberKindTargetRecord {
   return studentTarget({
+    memberKind: MemberKind.STAFF,
+    selectedMemberKind: MemberKind.STAFF,
+    approvalStatus: 'PENDING',
+    approvalRequestId: 'pending',
     pendingRequest: {
       id: 'pending',
       status: 'PENDING',

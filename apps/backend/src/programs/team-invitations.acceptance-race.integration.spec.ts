@@ -2,12 +2,11 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import {
   AccountStatus,
-  AffiliationKind,
-  MemberKind,
   ProgramCategory,
   ProgramTrackType,
   TeamInvitationStatus,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamsRepository } from './program-teams.repository';
@@ -112,9 +111,7 @@ async function cleanup(): Promise<void> {
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
-  await prisma.userProfile.deleteMany({
-    where: { userId: { startsWith: TEST_PREFIX } },
-  });
+
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
 }
 
@@ -204,17 +201,13 @@ describe('Team invitation acceptance transaction races', () => {
     [
       '역할 변경 트랜잭션',
       {
-        hasStaffAccess: true,
-        selectedMemberKind: MemberKind.STAFF,
-        profile: {
-          update: {
-            memberKind: MemberKind.STAFF,
-            studentId: null,
-            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-            department: 'Synthetic program office',
-            affiliationName: 'Synthetic program office',
-          },
-        },
+        type: MemberKind.STAFF,
+        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        department: 'Synthetic program office',
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     ],
     ['계정 비활성화 트랜잭션', { accountStatus: AccountStatus.DEACTIVATED }],

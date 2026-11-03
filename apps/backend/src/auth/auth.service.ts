@@ -154,13 +154,24 @@ export class AuthService {
   }
 
   private toAuthUser(record: AuthUserRecord): AuthUser {
-    const { selectedMemberKind, studentId, department, ...user } = record;
     return {
-      ...user,
-      isProfileComplete: this.userProfileService.isCompleteProfileFields(
-        { name: record.name, studentId, department },
-        record.memberKind ?? selectedMemberKind,
-      ),
+      id: record.id,
+      githubId: record.githubId,
+      nickname: record.nickname,
+      name: record.name,
+      avatarUrl: record.avatarUrl,
+      accountStatus: record.accountStatus,
+      sessionVersion: record.sessionVersion,
+      memberKind: record.memberKind,
+      hasAdminAccess: record.hasAdminAccess,
+      hasStaffAccess: this.userProfileService.hasStaffAccess(record),
+      isProfileComplete:
+        record.profileCreatedAt !== null &&
+        record.memberKind !== null &&
+        this.userProfileService.isCompleteProfileFields(
+          record,
+          record.memberKind,
+        ),
     };
   }
 

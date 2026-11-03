@@ -1,9 +1,9 @@
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
   AccountStatus,
-  AffiliationKind,
+  DepartmentType,
   ApplicationStatus,
-  MemberKind,
+  UserType,
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
@@ -11,20 +11,15 @@ import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   ReviewDecision,
-  StaffAccessRequestStatus,
+  ApprovalStatus,
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile, runTeardown } from './seed';
 import { AUTH_SCENARIOS } from './seeds/auth';
-import {
-  prisma,
-  seedGithubId,
-  seedId,
-  SeedStats,
-  upsertSeedUser,
-} from './seeds/helpers';
-import { AuthConfig } from '../src/platform/auth.config';
+import { prisma, seedGithubId, seedId, SeedStats } from './seeds/helpers';
+import { upsertSeedUser } from './seeds/user';
 import { AuthRepository } from '../src/auth/auth.repository';
+import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.repository';
 import { PrismaService } from '../src/platform/prisma.service';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
 import { S3ObjectStorageClient } from '../src/platform/s3-object-storage.client';
@@ -154,22 +149,34 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
 > = [
   ['User', () => prisma.user.count({ where: { id: { startsWith: 'seed:' } } })],
   [
-    'UserProfile',
+    'Admin',
+    () => prisma.admin.count({ where: { userId: { startsWith: 'seed:' } } }),
+  ],
+  [
+    'User.profile',
     () =>
-      prisma.userProfile.count({
-        where: { userId: { startsWith: 'seed:' } },
+      prisma.user.count({
+        where: { id: { startsWith: 'seed:' }, profileCreatedAt: { not: null } },
       }),
   ],
   [
-    'StaffAccessRequest',
-    () =>
-      prisma.staffAccessRequest.count({
-        where: { id: { startsWith: 'seed:' } },
-      }),
+    'ApprovalRequest',
+    async () =>
+      (
+        await prisma.userHistory.findMany({
+          where: {
+            userId: { startsWith: 'seed:' },
+            sourceTable: 'SeedRequest',
+          },
+          distinct: ['sourceId'],
+          select: { sourceId: true },
+        })
+      ).length,
   ],
   [
-    'Consent',
-    () => prisma.consent.count({ where: { userId: { startsWith: 'seed:' } } }),
+    'UserPolicy',
+    () =>
+      prisma.userPolicy.count({ where: { userId: { startsWith: 'seed:' } } }),
   ],
   [
     'Program',
@@ -310,6 +317,7 @@ async function deleteAllSeeded(): Promise<void> {
     notificationUsers,
     loginHistoryUsers,
     submissionFileUploaders,
+    historyUsers,
   ] = await Promise.all([
     prisma.submissionFile.findMany({
       where: { applicationId: { startsWith: seedPrefix } },
@@ -341,6 +349,21 @@ async function deleteAllSeeded(): Promise<void> {
       select: { uploaderId: true },
       distinct: ['uploaderId'],
     }),
+    prisma.user.findMany({
+      where: {
+        id: { startsWith: seedPrefix },
+        OR: [
+          { userHistories: { some: {} } },
+          { actedUserHistories: { some: {} } },
+          { adminHistories: { some: {} } },
+          { actedAdminHistories: { some: {} } },
+          { admin: { isNot: null } },
+          { adminGrants: { some: {} } },
+          { approvalDecisions: { some: {} } },
+        ],
+      },
+      select: { id: true },
+    }),
   ]);
 
   const protectedApplicationIds = new Set(
@@ -358,6 +381,7 @@ async function deleteAllSeeded(): Promise<void> {
     ...notificationUsers.map((row) => row.userId),
     ...loginHistoryUsers.map((row) => row.userId),
     ...submissionFileUploaders.map((row) => row.uploaderId),
+    ...historyUsers.map((row) => row.id),
   ]);
 
   const excluding = (protectedIds: Set<string>) =>
@@ -384,11 +408,10 @@ async function deleteAllSeeded(): Promise<void> {
   });
   await prisma.team.deleteMany({ where: seedIdFilter });
   await prisma.program.deleteMany({ where: seedIdFilter });
-  await prisma.staffAccessRequest.deleteMany({ where: seedIdFilter });
-  await prisma.consent.deleteMany({
+  await prisma.userPolicy.deleteMany({
     where: { userId: { startsWith: seedPrefix } },
   });
-  await prisma.userProfile.deleteMany({
+  await prisma.admin.deleteMany({
     where: { userId: { startsWith: seedPrefix } },
   });
   await prisma.user.deleteMany({
@@ -461,6 +484,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
       ] = await Promise.all([
         prisma.user.findUniqueOrThrow({
           where: { id: AUTH_SCENARIOS['admin-confirmed'] },
+          include: { admin: true },
         }),
         prisma.user.findUniqueOrThrow({
           where: { id: AUTH_SCENARIOS['staff-approved'] },
@@ -471,7 +495,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.user.findMany({
           where: { githubId: { in: OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS } },
           orderBy: { githubId: 'asc' },
-          include: { profile: true },
+          include: { admin: true },
         }),
         prisma.program.findUniqueOrThrow({
           where: { id: OSS_HUB_PROGRAM_ID },
@@ -532,7 +556,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.repositoryProvisionJob.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_PROVISION_JOB_ID },
         }),
-        prisma.consent.count({
+        prisma.userPolicy.count({
           where: {
             userId: { in: OSS_HUB_TEAM_ACCOUNT_USER_IDS },
             policyVersion: CONSENT_POLICY_VERSION,
@@ -570,19 +594,20 @@ describe('seed profile=oss-hub contract (integration)', () => {
 
       expect(countsAfterSecondRun).toEqual(countsAfterFirstRun);
 
-      expect(syntheticAdmin.hasAdminAccess).toBe(true);
-      expect(syntheticStaff.hasStaffAccess).toBe(true);
-      expect(syntheticStudent.selectedMemberKind).toBe(MemberKind.STUDENT);
+      expect(syntheticAdmin.admin).not.toBeNull();
+      expect(syntheticStaff).toMatchObject({
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+      });
+      expect(syntheticStudent.type).toBe(UserType.STUDENT);
       expect(configuredUsers).toHaveLength(4);
       expect(
-        configuredUsers.map(
-          ({ id, nickname, hasAdminAccess, accountStatus }) => ({
-            id,
-            nickname,
-            hasAdminAccess,
-            accountStatus,
-          }),
-        ),
+        configuredUsers.map(({ id, nickname, admin, accountStatus }) => ({
+          id,
+          nickname,
+          hasAdminAccess: admin !== null,
+          accountStatus,
+        })),
       ).toEqual([
         {
           id: seedId('oss-hub', 'user', '9800000000000001'),
@@ -610,20 +635,20 @@ describe('seed profile=oss-hub contract (integration)', () => {
         },
       ]);
 
-      expect(configuredUsers.map((user) => user.profile?.name)).toEqual([
+      expect(configuredUsers.map((user) => user.name)).toEqual([
         '시드운영자알파',
         '시드운영자베타',
         '시드운영자감마',
         '시드운영자델타',
       ]);
       for (const configuredUser of configuredUsers) {
-        expect(configuredUser.hasAdminAccess).toBe(true);
-        expect(configuredUser.hasStaffAccess).toBe(false);
+        expect(configuredUser.admin).not.toBeNull();
+        expect(configuredUser.approvalStatus).toBe('PENDING');
 
-        expect(configuredUser.profile).toMatchObject({
-          memberKind: MemberKind.STAFF,
-          affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-          affiliationName: '오픈소스 SW 개발 사업단',
+        expect(configuredUser).toMatchObject({
+          type: UserType.STAFF,
+          departmentType: DepartmentType.PROGRAM_OFFICE,
+          department: '오픈소스 SW 개발 사업단',
           studentId: null,
         });
       }
@@ -999,10 +1024,7 @@ describe('seed profile=demo 계약 (integration)', () => {
     await prisma.application.deleteMany({ where: seedIdFilter });
     await prisma.team.deleteMany({ where: seedIdFilter });
     await prisma.program.deleteMany({ where: seedIdFilter });
-    await prisma.consent.deleteMany({
-      where: { userId: { startsWith: seedDemoPrefix } },
-    });
-    await prisma.userProfile.deleteMany({
+    await prisma.userPolicy.deleteMany({
       where: { userId: { startsWith: seedDemoPrefix } },
     });
     await prisma.user.deleteMany({ where: seedIdFilter });
@@ -1064,16 +1086,14 @@ describe('seed profile=demo 계약 (integration)', () => {
         where: { id: { startsWith: seedDemoPrefix } },
         select: {
           notificationEmail: true,
-          profile: { select: { name: true } },
+          name: true,
         },
       });
       expect(demoUsers.length).toBeGreaterThan(0);
       for (const user of demoUsers) {
         expect(user.notificationEmail).toMatch(/@demo\.invalid$/);
       }
-      expect(demoUsers.some((user) => user.profile?.name === '김도윤')).toBe(
-        true,
-      );
+      expect(demoUsers.some((user) => user.name === '김도윤')).toBe(true);
 
       const demoPrograms = await prisma.program.findMany({
         where: { id: { startsWith: seedDemoPrefix } },
@@ -1357,7 +1377,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           id: survivorUserId,
           githubId: seedGithubId(survivorUserId),
           nickname: 'demo-teardown-guard',
-          selectedMemberKind: MemberKind.STUDENT,
+          type: UserType.STUDENT,
           accountStatus: AccountStatus.ACTIVE,
         },
       });
@@ -1645,7 +1665,7 @@ describe('issue-99 auth seed contract', () => {
   }, DATABASE_CONNECTION_TIMEOUT_MS);
 
   afterAll(async () => {
-    await prisma.consent.deleteMany({
+    await prisma.userPolicy.deleteMany({
       where: {
         userId: { in: [consentRequiredUserId, roleUnselectedUserId] },
       },
@@ -1665,12 +1685,12 @@ describe('issue-99 auth seed contract', () => {
         id: roleUnselectedUserId,
         role: null,
       });
-      await prisma.consent.deleteMany({
+      await prisma.userPolicy.deleteMany({
         where: {
           userId: { in: [consentRequiredUserId, roleUnselectedUserId] },
         },
       });
-      const olderConsent = await prisma.consent.create({
+      const olderConsent = await prisma.userPolicy.create({
         data: {
           userId: roleUnselectedUserId,
           policyVersion: ISSUE99_OLDER_POLICY_VERSION,
@@ -1678,7 +1698,7 @@ describe('issue-99 auth seed contract', () => {
       });
 
       await runProfile('auth', new SeedStats());
-      const firstCurrent = await prisma.consent.findUnique({
+      const firstCurrent = await prisma.userPolicy.findUnique({
         where: {
           userId_policyVersion: {
             userId: roleUnselectedUserId,
@@ -1697,22 +1717,22 @@ describe('issue-99 auth seed contract', () => {
         staffRejected,
         staffRevoked,
       ] = await Promise.all([
-        prisma.consent.count({ where: { userId: consentRequiredUserId } }),
-        prisma.consent.findMany({
+        prisma.userPolicy.count({ where: { userId: consentRequiredUserId } }),
+        prisma.userPolicy.findMany({
           where: { userId: roleUnselectedUserId },
           orderBy: { policyVersion: 'asc' },
         }),
-        prisma.userProfile.findUniqueOrThrow({
-          where: { userId: profileCompleteUserId },
+        prisma.user.findUniqueOrThrow({
+          where: { id: profileCompleteUserId },
         }),
-        prisma.userProfile.findUniqueOrThrow({
-          where: { userId: staffPendingUserId },
+        prisma.user.findUniqueOrThrow({
+          where: { id: staffPendingUserId },
         }),
-        prisma.userProfile.findUniqueOrThrow({
-          where: { userId: staffPendingSecondUserId },
+        prisma.user.findUniqueOrThrow({
+          where: { id: staffPendingSecondUserId },
         }),
-        prisma.userProfile.findUniqueOrThrow({
-          where: { userId: staffRejectedUserId },
+        prisma.user.findUniqueOrThrow({
+          where: { id: staffRejectedUserId },
         }),
         prisma.user.findUniqueOrThrow({ where: { id: staffRevokedUserId } }),
       ]);
@@ -1735,23 +1755,23 @@ describe('issue-99 auth seed contract', () => {
       });
 
       expect(staffPending).toMatchObject({
-        memberKind: MemberKind.STAFF,
+        type: UserType.STAFF,
         studentId: null,
         department: '인공지능학부',
       });
       expect(staffPendingSecond).toMatchObject({
-        memberKind: MemberKind.STAFF,
+        type: UserType.STAFF,
         studentId: null,
         department: '소프트웨어공학과',
       });
       expect(staffRejected).toMatchObject({
-        memberKind: MemberKind.STAFF,
+        type: UserType.STAFF,
         studentId: null,
         department: '컴퓨터공학과',
       });
       expect(staffRevoked).toMatchObject({
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
+        type: UserType.STAFF,
+        approvalStatus: ApprovalStatus.APPROVED,
         accountStatus: AccountStatus.DEACTIVATED,
       });
     },
@@ -1762,9 +1782,7 @@ describe('issue-99 auth seed contract', () => {
 describe('#184 관리자 e2e 페르소나 (integration)', () => {
   const authPrisma = new PrismaService();
 
-  const authRepository = new AuthRepository(authPrisma, {
-    resolveInitialRole: () => null,
-  } as unknown as AuthConfig);
+  const authRepository = new AuthRepository(authPrisma);
 
   beforeAll(async () => {
     await prisma.$connect();
@@ -1798,19 +1816,19 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
       expect(isProfileComplete(adminSecond)).toBe(true);
 
       const [adminRow, adminSecondRow] = await Promise.all([
-        prisma.userProfile.findUniqueOrThrow({
-          where: { userId: adminConfirmedUserId },
+        prisma.user.findUniqueOrThrow({
+          where: { id: adminConfirmedUserId },
         }),
-        prisma.userProfile.findUniqueOrThrow({
-          where: { userId: adminSecondUserId },
+        prisma.user.findUniqueOrThrow({
+          where: { id: adminSecondUserId },
         }),
       ]);
       expect(adminRow.name).toBe('합성 관리자');
       expect(adminSecondRow.name).toBe('합성 두 번째 관리자');
 
       expect(adminRow.studentId).toBeNull();
-      expect(adminRow.memberKind).toBe(MemberKind.STAFF);
-      expect(adminRow.affiliationKind).toBe(AffiliationKind.PROGRAM_OFFICE);
+      expect(adminRow.type).toBe(UserType.STAFF);
+      expect(adminRow.departmentType).toBe(DepartmentType.PROGRAM_OFFICE);
     },
     SEED_RUN_TIMEOUT_MS,
   );
@@ -1824,23 +1842,29 @@ describe('#184 관리자 e2e 페르소나 (integration)', () => {
         seedGithubId(staffRevocableUserId),
       );
       expect(revocable?.id).toBe(staffRevocableUserId);
-      expect(revocable?.hasStaffAccess).toBe(true);
+      expect(revocable?.memberKind).toBe('STAFF');
+      expect(revocable?.approvalStatus).toBe('APPROVED');
       expect(revocable?.accountStatus).toBe(AccountStatus.ACTIVE);
       expect(isProfileComplete(revocable)).toBe(true);
 
-      const requests = await prisma.staffAccessRequest.findMany({
-        where: { userId: staffRevocableUserId },
-        orderBy: { createdAt: 'asc' },
-      });
+      const { items: requests } =
+        await new AdminAccessHistoryRepository().listAdminAccessStaffAccessRequestHistory(
+          prisma,
+          staffRevocableUserId,
+          { page: 1, limit: 10 },
+        );
       expect(requests.length).toBe(1);
-      expect(requests[0]?.status).toBe(StaffAccessRequestStatus.APPROVED);
-      expect(requests[0]?.decidedById).toBe(adminConfirmedUserId);
+      expect(requests[0]?.status).toBe(ApprovalStatus.APPROVED);
+      expect(requests[0]?.decidedBy).toBe('seed-auth-admin-confirmed');
 
       const revoked = await prisma.user.findUniqueOrThrow({
         where: { id: staffRevokedUserId },
       });
       expect(revoked.accountStatus).toBe(AccountStatus.DEACTIVATED);
-      expect(revoked.hasStaffAccess).toBe(true);
+      expect(revoked).toMatchObject({
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+      });
     },
     SEED_RUN_TIMEOUT_MS,
   );
