@@ -23,13 +23,13 @@ import Verified from '~/components/Verified.astro';
 <Shot src="student/activity-year.webp" alt="내 활동 화면을 연도별로 본 모습. ①이 선택된 연도별 칩을 가리킵니다." caption="① 연도별" />
 <Shot src="student/activity-programs.webp" alt="내 활동 화면 위쪽. 연도별 참여 프로그램 목록이 있습니다." caption="참여 프로그램" />
 
-이 화면의 활동 합계는 Commit, Pull Request, Release를 더한 값이고, Issue는 따로 셉니다. 랭킹 합계와는 계산법이 다릅니다. 팀 단위 활동은 `우리 팀`의 `우리 팀 활동`에서도 보입니다.
+이 화면의 활동 합계는 Commit, Pull Request, Release를 더한 값이고, Issue는 따로 셉니다. 그래서 랭킹 합계와는 계산법이 다릅니다. 팀 단위 활동은 `우리 팀`의 `우리 팀 활동`에서도 보입니다.
 
 <Shot src="student/team-activity.webp" alt="우리 팀 화면의 우리 팀 활동 영역." caption="우리 팀 활동" />
 
 ## 랭킹
 
-위쪽 `랭킹`은 로그인하지 않아도 볼 수 있습니다. Commit, PR, Issue, Repo, Star를 합산한 순위입니다. Star는 두 가지를 누적한 값입니다. 본인 공개 저장소의 Star, 그리고 소속 조직 공개 저장소 중 그해 직접 커밋하거나 PR을 낸 저장소의 Star입니다.
+위쪽 `랭킹`은 로그인하지 않아도 볼 수 있습니다. Commit, PR, Issue, Repo, Star를 합산한 순위입니다. Star는 두 가지를 누적한 값입니다. 하나는 본인 공개 저장소의 Star이고, 다른 하나는 소속 조직의 공개 저장소 가운데 그해 직접 커밋하거나 PR을 낸 저장소의 Star입니다.
 
 <Shot src="intro/ranking.webp" alt="랭킹 화면. 연도별 목록 옆에 월별 순위 변화 그래프가 있습니다." caption="랭킹" />
 <Shot src="intro/ranking-table.webp" alt="랭킹 표. 순위, 참여자, Commit, PR, Issue, Repo, Star, 합계 열이 있습니다." caption="랭킹 표" />
