@@ -111,30 +111,18 @@ test('계열이 없으면 행도 없다', () => {
   expect(chart.legend).toEqual([]);
 });
 
-test('순위 변화는 직전 지점과 비교해 올림·내림·유지·신규로 갈리고, 비교할 지점이 없으면 말하지 않는다', () => {
-  const changes = rankingRankChanges(
-    timelineOf([
-      { githubLogin: 'climber', ranks: [5, 2], totals: [1, 9] },
-      { githubLogin: 'faller', ranks: [1, 4], totals: [9, 9] },
-      { githubLogin: 'steady', ranks: [3, 3], totals: [5, 6] },
-      { githubLogin: 'rookie', ranks: [null, 6], totals: [null, 2] },
-      { githubLogin: 'dropped', ranks: [2, null], totals: [4, null] },
-    ]),
-  );
+test('순위 변화는 직전 수집 순위와 비교해 올림·내림·유지로 갈리고, 직전 수집에 없던 사람은 NEW다', () => {
+  const changes = rankingRankChanges([
+    { githubLogin: 'climber', previousRank: 5, rank: 2 },
+    { githubLogin: 'faller', previousRank: 1, rank: 4 },
+    { githubLogin: 'steady', previousRank: 3, rank: 3 },
+    { githubLogin: 'unseen', previousRank: null, rank: 6 },
+  ]);
 
   expect(changeText(changes, 'climber')).toBe('▲3');
   expect(changeText(changes, 'faller')).toBe('▼3');
   expect(changeText(changes, 'steady')).toBe('–');
-  expect(changeText(changes, 'rookie')).toBe('NEW');
-  expect(changeText(changes, 'dropped')).toBe('');
-  expect(changeText(changes, 'stranger')).toBe('MISSING');
-
-  expect(
-    rankingRankChanges(
-      timelineOf([{ githubLogin: 'mina', ranks: [1], totals: [10] }], 1),
-    ).size,
-  ).toBe(0);
-  expect(rankingRankChanges(null).size).toBe(0);
+  expect(changeText(changes, 'unseen')).toBe('NEW');
 });
 
 test('기록이 한 달뿐인 계열은 선이 그려지지 않으므로 점으로 보여 준다', () => {

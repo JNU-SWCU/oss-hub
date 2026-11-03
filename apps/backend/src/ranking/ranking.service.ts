@@ -3,7 +3,7 @@ import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { Injectable } from '@nestjs/common';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
-import { RankingRepository } from './ranking.repository';
+import { RankingRepository, type RankingMetricRow } from './ranking.repository';
 import {
   RankingYearService,
   RankingYear,
@@ -29,6 +29,7 @@ interface RankingMetrics {
 
 export interface RankingEntry extends RankingMetrics {
   readonly rank: number;
+  readonly previousRank: number | null;
 
   readonly displayName: string;
   readonly githubLogin: string;
@@ -167,9 +168,26 @@ export class RankingService {
   private async buildPublicEntries(
     year: RankingYear,
   ): Promise<readonly RankedPublicEntry[]> {
-    const activity = await this.ranking.findMetrics(
-      year === RANKING_YEAR_ALL ? {} : { currentYear: year },
+    const query = year === RANKING_YEAR_ALL ? {} : { currentYear: year };
+    const [activity, previousActivity] = await Promise.all([
+      this.ranking.findMetrics(query),
+      this.ranking.findPreviousCycleMetrics(query),
+    ]);
+    const previousRanks = new Map(
+      this.rankRows(previousActivity).map((row, index) => [
+        row.githubId,
+        index + 1,
+      ]),
     );
+    return this.rankRows(activity).map((entry, index) => ({
+      ...entry,
+      rank: index + 1,
+      previousRank: previousRanks.get(entry.githubId) ?? null,
+      displayName: entry.githubLogin,
+    }));
+  }
+
+  private rankRows(activity: readonly RankingMetricRow[]) {
     const candidates = activity.map((row) => ({
       githubId: row.githubId,
       githubLogin: row.githubLogin,
@@ -182,21 +200,9 @@ export class RankingService {
       total: this.rankingYearService.activityTotal(row),
     }));
 
-    return [...candidates]
-      .sort((left, right) => this.rankingYearService.compareRanked(left, right))
-      .map((entry, index) => ({
-        githubId: entry.githubId,
-        rank: index + 1,
-        displayName: entry.githubLogin,
-        githubLogin: entry.githubLogin,
-        department: entry.department,
-        commitCount: entry.commitCount,
-        pullRequestCount: entry.pullRequestCount,
-        issueCount: entry.issueCount,
-        repositoryCount: entry.repositoryCount,
-        starCount: entry.starCount,
-        total: entry.total,
-      }));
+    return candidates.sort((left, right) =>
+      this.rankingYearService.compareRanked(left, right),
+    );
   }
 
   private async attachStaffNames(
@@ -215,6 +221,7 @@ export class RankingService {
 function toPublicEntry(entry: RankedPublicEntry): RankingEntry {
   return {
     rank: entry.rank,
+    previousRank: entry.previousRank,
     displayName: entry.githubLogin,
     githubLogin: entry.githubLogin,
     department: entry.department,

@@ -101,6 +101,7 @@ test('모바일 레이아웃을 명시하고 기간 토글 버튼을 렌더하�
           items: [
             {
               rank: 1,
+              previousRank: null,
               githubLogin,
               commitCount: 3,
               pullRequestCount: 2,
@@ -151,6 +152,7 @@ test('표 캡션을 렌더하지 않는다', () => {
           items: [
             {
               rank: 1,
+              previousRank: null,
               githubLogin: 'mina',
               commitCount: 1,
               pullRequestCount: 0,
@@ -234,6 +236,7 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
           items: [
             {
               rank: 1,
+              previousRank: null,
               githubLogin: 'same-login',
               commitCount: 3,
               pullRequestCount: 2,
@@ -244,6 +247,7 @@ test('GitHub 로그인이 같아도 순위가 다른 행에 고유 키를 사용
             },
             {
               rank: 2,
+              previousRank: null,
               githubLogin: 'same-login',
               commitCount: 2,
               pullRequestCount: 1,
@@ -287,6 +291,7 @@ test('outcome-1: 발행 전 프로젝트의 기여자는 다른 참여자가 랭
           items: [
             {
               rank: 1,
+              previousRank: null,
               githubLogin: 'synthetic-outcome2-owner-login',
               commitCount: 5,
               pullRequestCount: 2,
@@ -323,6 +328,7 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
           items: [
             {
               rank: 1,
+              previousRank: null,
               githubLogin: 'synthetic-outcome2-owner-login',
               commitCount: 5,
               pullRequestCount: 2,
@@ -333,6 +339,7 @@ test('outcome-2: 발행 후 관측된 저장소의 기여자 2명이 각자의 �
             },
             {
               rank: 2,
+              previousRank: null,
               githubLogin: 'synthetic-outcome2-other-login',
               commitCount: 3,
               pullRequestCount: 1,
@@ -375,6 +382,7 @@ test('outcome-4: 발행 이전 stale 관측 때문에 프로젝트에는 여전�
           items: [
             {
               rank: 1,
+              previousRank: null,
               githubLogin: 'synthetic-outcome2-other-login',
               commitCount: 3,
               pullRequestCount: 1,
@@ -411,6 +419,7 @@ test('outcome-5: 발행 후 비공개로 전환(회수)된 기여자는 이전�
           items: [
             {
               rank: 1,
+              previousRank: null,
               githubLogin: 'synthetic-outcome5-applicant-login',
               commitCount: 3,
               pullRequestCount: 1,
@@ -511,6 +520,7 @@ const personAxisItem = (
   overrides: Partial<StaffRankingItem> = {},
 ): StaffRankingItem => ({
   rank: 1,
+  previousRank: null,
   displayName: 'synthetic-top',
   githubLogin: 'synthetic-top',
   name: null,
@@ -528,6 +538,7 @@ const publicPersonAxisItem = (
   overrides: Partial<PublicRankingItem> = {},
 ): PublicRankingItem => ({
   rank: 1,
+  previousRank: null,
   githubLogin: 'synthetic-top',
   commitCount: 128,
   pullRequestCount: 24,
@@ -635,6 +646,7 @@ test('활동이 0인 가입자도 목록에서 0으로 남는다 — 빠지지 �
       publicPersonAxisItem(),
       publicPersonAxisItem({
         rank: 2,
+        previousRank: null,
         githubLogin: 'synthetic-newcomer',
         commitCount: 0,
         pullRequestCount: 0,
@@ -667,6 +679,7 @@ test('비로그인 화면 DOM 에는 실명 같은 비공개 값이 없다', () 
       publicPersonAxisItem(),
       publicPersonAxisItem({
         rank: 2,
+        previousRank: null,
         githubLogin: 'synthetic-second',
       }),
     ],
@@ -737,6 +750,7 @@ test('한 명이라도 활동이 있으면 대기 안내를 띄우지 않는다'
       publicPersonAxisItem(),
       publicPersonAxisItem({
         rank: 2,
+        previousRank: null,
         githubLogin: 'synthetic-newcomer',
         commitCount: 0,
         pullRequestCount: 0,
@@ -925,6 +939,7 @@ test('권한 열이 붙어도 5종 지표·star 누적 문구·수집 안내는 
       staffTierRow(),
       personAxisItem({
         rank: 2,
+        previousRank: null,
         displayName: 'synthetic-zero',
         githubLogin: 'synthetic-zero',
         name: 'synthetic-zero-name',

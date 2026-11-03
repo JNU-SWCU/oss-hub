@@ -13,6 +13,7 @@ export type RankingViewerClass =
 
 export interface PublicRankingItem {
   readonly rank: number;
+  readonly previousRank: number | null;
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -24,6 +25,7 @@ export interface PublicRankingItem {
 
 export interface StaffRankingItem {
   readonly rank: number;
+  readonly previousRank: number | null;
   readonly displayName: string;
   readonly githubLogin: string;
   readonly name: string | null;

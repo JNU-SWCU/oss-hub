@@ -42,6 +42,28 @@ const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
   profile: { is: { memberKind: MemberKind.STUDENT } },
 };
 
+const ACTIVITY_SELECT = {
+  githubId: true,
+  year: true,
+  visibility: true,
+  commitCount: true,
+  pullRequestCount: true,
+  issueCount: true,
+  repositoryCount: true,
+  starCount: true,
+} as const;
+
+type ActivityRow = Prisma.GithubUserActivityHistoryGetPayload<{
+  select: typeof ACTIVITY_SELECT;
+}>;
+
+function activityArgs(query: RankingMetricsQuery) {
+  return {
+    where: query.currentYear === undefined ? {} : { year: query.currentYear },
+    select: ACTIVITY_SELECT,
+  };
+}
+
 @Injectable()
 export class RankingRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -72,6 +94,23 @@ export class RankingRepository {
   async findMetrics(
     query: RankingMetricsQuery,
   ): Promise<readonly RankingMetricRow[]> {
+    return this.foldMetrics(
+      this.prisma.githubUserActivityHistory.findMany(activityArgs(query)),
+    );
+  }
+
+  async findPreviousCycleMetrics(
+    query: RankingMetricsQuery,
+  ): Promise<readonly RankingMetricRow[]> {
+    const rows = await this.prisma.githubUserActivityCycleSnapshot.findMany(
+      activityArgs(query),
+    );
+    return rows.length === 0 ? [] : this.foldMetrics(Promise.resolve(rows));
+  }
+
+  private async foldMetrics(
+    activity: Promise<readonly ActivityRow[]>,
+  ): Promise<readonly RankingMetricRow[]> {
     const [users, activityRows] = await Promise.all([
       this.prisma.user.findMany({
         where: RANKING_ELIGIBLE_MEMBER,
@@ -81,20 +120,7 @@ export class RankingRepository {
           ...USER_PROFILE_DEPARTMENT_SELECT,
         },
       }),
-      this.prisma.githubUserActivityHistory.findMany({
-        where:
-          query.currentYear === undefined ? {} : { year: query.currentYear },
-        select: {
-          githubId: true,
-          year: true,
-          visibility: true,
-          commitCount: true,
-          pullRequestCount: true,
-          issueCount: true,
-          repositoryCount: true,
-          starCount: true,
-        },
-      }),
+      activity,
     ]);
 
     const folded = new Map<

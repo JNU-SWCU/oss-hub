@@ -1,4 +1,8 @@
-import type { RankingTimeline, RankingTimelineSeries } from '../types';
+import type {
+  PublicRankingItem,
+  RankingTimeline,
+  RankingTimelineSeries,
+} from '../types';
 
 const LEGEND_LIMIT = 10;
 const LEAD_LIMIT = 3;
@@ -100,14 +104,17 @@ function lineTotalsOf(line: RankingHistoryLine): readonly number[] {
 }
 
 export function rankingRankChanges(
-  timeline: RankingTimeline | null,
+  items: readonly Pick<
+    PublicRankingItem,
+    'githubLogin' | 'rank' | 'previousRank'
+  >[],
 ): ReadonlyMap<string, RankingRankChange> {
-  const changes = new Map<string, RankingRankChange>();
-  if (timeline === null || timeline.months.length < 2) return changes;
-  for (const series of timeline.series) {
-    changes.set(series.githubLogin, changeOf(series.ranks));
-  }
-  return changes;
+  return new Map(
+    items.map(({ githubLogin, rank, previousRank }) => [
+      githubLogin,
+      changeOf(previousRank, rank),
+    ]),
+  );
 }
 
 export function formatRankChange(change: RankingRankChange): string {
@@ -125,11 +132,8 @@ export function formatRankChange(change: RankingRankChange): string {
   }
 }
 
-function changeOf(ranks: readonly (number | null)[]): RankingRankChange {
-  const current = ranks.at(-1);
-  if (current === undefined || current === null) return { kind: 'unknown' };
-  const previous = ranks.at(-2);
-  if (previous === undefined || previous === null) return { kind: 'new' };
+function changeOf(previous: number | null, current: number): RankingRankChange {
+  if (previous === null) return { kind: 'new' };
   if (previous === current) return { kind: 'same' };
   return previous > current
     ? { kind: 'up', delta: previous - current }

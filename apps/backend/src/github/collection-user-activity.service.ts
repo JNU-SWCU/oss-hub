@@ -117,6 +117,15 @@ export class CollectionUserActivityService {
     const currentYear = seoulYearOf(startedAt);
     const targetYears = years === undefined ? [currentYear] : [...years];
 
+    try {
+      await this.repository.snapshotCycle();
+    } catch (error) {
+      this.logger.warn({
+        event: 'collection.user_activity.snapshot_failed',
+        errorName: error instanceof Error ? error.name : 'UnknownError',
+      });
+    }
+
     const users = await this.repository.listActiveUsers();
 
     let upsertedRowCount = 0;

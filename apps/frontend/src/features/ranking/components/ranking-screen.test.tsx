@@ -64,6 +64,7 @@ const staffPage: RankingPage = {
   items: [
     {
       rank: 1,
+      previousRank: null,
       displayName: 'synthetic-top',
       githubLogin: 'synthetic-top',
       name: 'synthetic-staff-name',
@@ -130,6 +131,7 @@ describe('RankingScreen', () => {
     const firstPageItems = Array.from({ length: 100 }, (_, index) => ({
       ...staffPage.items[0],
       rank: index + 1,
+      previousRank: null,
       githubLogin: `synthetic-${index + 1}`,
     }));
     const pageTwo = {

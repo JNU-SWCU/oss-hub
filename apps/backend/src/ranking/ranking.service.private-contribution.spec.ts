@@ -43,6 +43,9 @@ function serviceWith(rows: readonly ActivityRow[]): RankingService {
       findMany: jest.fn().mockResolvedValue(rows),
       aggregate: jest.fn().mockResolvedValue({ _max: { observedAt: null } }),
     },
+    githubUserActivityCycleSnapshot: {
+      findMany: jest.fn().mockResolvedValue([]),
+    },
   } as unknown as PrismaService;
   return new RankingService(
     new RankingRepository(prisma),

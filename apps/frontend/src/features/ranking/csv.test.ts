@@ -11,6 +11,7 @@ const staffRow = (
   overrides: Partial<StaffRankingItem> = {},
 ): StaffRankingItem => ({
   rank: 1,
+  previousRank: null,
   displayName: 'synthetic-top',
   githubLogin: 'synthetic-top',
   name: 'synthetic-staff-name',
@@ -40,6 +41,7 @@ test('CSV is UTF-8 BOM + RFC 4180 columns and never includes studentId or github
     staffRow(),
     staffRow({
       rank: 2,
+      previousRank: null,
       githubLogin: 'synthetic-quoted',
       name: 'Name, "quoted"',
       department: null,

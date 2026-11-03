@@ -65,6 +65,10 @@ function readOptionalName(value: unknown): string | null | undefined {
   return trimmed.length > 0 ? trimmed : null;
 }
 
+function readPreviousRank(value: unknown): number | null {
+  return isPositiveInteger(value) ? value : null;
+}
+
 function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
   if (!isRecord(value)) {
     return null;
@@ -95,6 +99,7 @@ function parsePublicRankingItem(value: unknown): PublicRankingItem | null {
 
   return {
     rank: value.rank,
+    previousRank: readPreviousRank(value.previousRank),
     githubLogin: value.githubLogin,
     commitCount: value.commitCount,
     pullRequestCount: value.pullRequestCount,
@@ -138,6 +143,7 @@ function parseStaffRankingItem(value: unknown): StaffRankingItem | null {
 
   return {
     rank: value.rank,
+    previousRank: readPreviousRank(value.previousRank),
     displayName:
       typeof value.displayName === 'string'
         ? value.displayName
