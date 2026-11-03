@@ -153,7 +153,7 @@ describe('대기 중인 요청 결정 카드 — 접근 변경 카드 위에 조
     );
     expect(html).toContain('대기 중인 요청');
     expect(html).toContain('신청됨');
-    expect(html).toContain('대기 중인 요청을 먼저 처리해 주세요.');
+    expect(html).not.toContain('대기 중인 요청을 먼저 처리해 주세요.');
   });
 
   it('가입 신청 상세는 승인·반려만 두고 역할 변경 컨트롤은 숨긴다', () => {

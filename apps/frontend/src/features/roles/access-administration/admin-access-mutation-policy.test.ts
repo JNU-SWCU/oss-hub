@@ -26,6 +26,8 @@ function detail(
     memberKind: 'STUDENT',
     hasStaffAccess: false,
     hasAdminAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -75,6 +77,8 @@ describe('independent authority mutation policy', () => {
       memberKind: 'STAFF',
       expectedMemberKind: 'STUDENT',
       expectedHasStaffAccess: false,
+      expectedApprovalStatus: 'NOT_REQUIRED',
+      expectedApprovalRequestId: null,
       staffNumber: 'staff-42',
     });
   });
@@ -87,6 +91,26 @@ describe('independent authority mutation policy', () => {
       ),
     ).toThrow('existing canonical member kind');
   });
+
+  it.each(['PENDING', 'APPROVED', 'REJECTED', 'REVOKED'] as const)(
+    'carries the observed %s request even when it is not in the pending queue',
+    (approvalStatus) => {
+      const source = detail({
+        memberKind: 'STAFF',
+        approvalStatus,
+        approvalRequestId: 'observed-request',
+        pendingRequest: null,
+      });
+
+      expect(
+        buildMemberKindMutationRequest('SET_MEMBER_STUDENT', source),
+      ).toMatchObject({
+        expectedMemberKind: 'STAFF',
+        expectedApprovalStatus: approvalStatus,
+        expectedApprovalRequestId: 'observed-request',
+      });
+    },
+  );
 
   it('keeps account status on the legacy CAS resource', () => {
     expect(

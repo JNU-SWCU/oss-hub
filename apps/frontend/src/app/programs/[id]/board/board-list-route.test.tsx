@@ -6,7 +6,11 @@ import {
 } from '../../../../../test-support/list-screen-root';
 
 const mocks = vi.hoisted(() => ({
-  session: { hasStaffAccess: false, hasAdminAccess: false },
+  session: {
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+  },
   listBoardPosts: vi.fn(),
 }));
 
@@ -64,12 +68,16 @@ describe('BoardListRoute staff treatment', () => {
 
   it.each([
     ['학생', false, false, '질문 쓰기', '프로그램 공지와 질문'],
-    ['학생+관리자', false, true, '공지 쓰기', '프로그램 공지와 학생 질문'],
+    ['학생+관리자', false, true, '질문 쓰기', '프로그램 공지와 질문'],
     ['교직원', true, false, '공지 쓰기', '프로그램 공지와 학생 질문'],
   ])(
     '%s 계정은 백엔드 분류와 같은 쓰기 버튼을 본다',
     async (_, hasStaffAccess, hasAdminAccess, button, subtitle) => {
-      mocks.session = { hasStaffAccess, hasAdminAccess };
+      mocks.session = {
+        memberKind: hasStaffAccess ? 'STAFF' : 'STUDENT',
+        hasStaffAccess,
+        hasAdminAccess,
+      };
 
       await act(async () => {
         root.render(<BoardListRoute programId="program-1" />);

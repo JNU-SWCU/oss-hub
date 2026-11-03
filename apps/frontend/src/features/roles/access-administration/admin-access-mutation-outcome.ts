@@ -1,4 +1,5 @@
 import { ApiError } from '@/lib/api-client';
+import { invalidateSession } from '@/lib/session-invalidation';
 import {
   parseAdminAccessConflictProjection,
   type AdminAccessConflictProjection,
@@ -49,6 +50,8 @@ export async function runAdminAccessMutation({
           memberKindFields,
         )
       : await executeAdminAccessMutation(userId, action, detail, reason);
+    if (detail.isSelf && isMemberKindMutationAction(action))
+      invalidateSession();
     return { kind: 'success', result };
   } catch (error) {
     if (

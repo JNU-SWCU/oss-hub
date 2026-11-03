@@ -1,5 +1,10 @@
 import { apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
+import type {
+  AdminApprovalState,
+  AdminApprovalStatus,
+} from './admin-access-api-types';
+import { hasAdminApprovalState } from './admin-access-response-guards';
 import {
   AdminAccessResponseError,
   parseAdminAccessDetail,
@@ -22,6 +27,8 @@ export interface MemberKindMutationRequest extends MemberKindMutationFields {
   readonly memberKind: AdminMemberKind;
   readonly expectedMemberKind: AdminMemberKind;
   readonly expectedHasStaffAccess: boolean;
+  readonly expectedApprovalStatus: AdminApprovalStatus;
+  readonly expectedApprovalRequestId: string | null;
 }
 
 interface IndependentAuthority {
@@ -31,12 +38,14 @@ interface IndependentAuthority {
 }
 
 export type AdminAccessDirectoryItem = AdminAccessListItem &
-  IndependentAuthority;
+  IndependentAuthority &
+  AdminApprovalState;
 
 export function isAdminAccessDirectoryItem(
   item: AdminAccessListItem,
 ): item is AdminAccessDirectoryItem {
   return (
+    hasAdminApprovalState(item) &&
     'memberKind' in item &&
     (item.memberKind === null || isMemberKind(item.memberKind)) &&
     'hasStaffAccess' in item &&
@@ -51,11 +60,15 @@ export type CanonicalAdminAccessProfile = AdminAccessDetail['profile'] & {
 };
 
 export interface CanonicalAdminAccessDetail
-  extends Omit<AdminAccessDetail, 'profile'>, IndependentAuthority {
+  extends
+    Omit<AdminAccessDetail, 'profile'>,
+    IndependentAuthority,
+    AdminApprovalState {
   readonly profile: CanonicalAdminAccessProfile;
 }
 
-export interface IndependentAuthorityMutationResponse extends IndependentAuthority {
+export interface IndependentAuthorityMutationResponse
+  extends IndependentAuthority, AdminApprovalState {
   readonly id: string;
   readonly role: AdminAccessRole | null;
 }
@@ -86,6 +99,7 @@ export function parseCanonicalAdminAccessDetail(
   const detail = parseAdminAccessDetail(value);
   if (
     !isRecord(value) ||
+    !hasAdminApprovalState(value) ||
     !isRecord(value.profile) ||
     !(
       value.profile.staffNumber === null ||
@@ -96,6 +110,8 @@ export function parseCanonicalAdminAccessDetail(
   }
   return {
     ...detail,
+    approvalStatus: value.approvalStatus,
+    approvalRequestId: value.approvalRequestId,
     profile: {
       ...detail.profile,
       staffNumber: value.profile.staffNumber,
@@ -109,6 +125,7 @@ function parseIndependentAuthorityMutationResponse(
 ): IndependentAuthorityMutationResponse {
   if (
     !isRecord(value) ||
+    !hasAdminApprovalState(value) ||
     typeof value.id !== 'string' ||
     value.id.length === 0 ||
     !(
@@ -123,6 +140,8 @@ function parseIndependentAuthorityMutationResponse(
   return {
     id: value.id,
     role: value.role,
+    approvalStatus: value.approvalStatus,
+    approvalRequestId: value.approvalRequestId,
     ...parseAuthority(value),
   };
 }

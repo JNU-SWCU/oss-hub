@@ -41,6 +41,8 @@ function directoryItem(
     memberKind: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    approvalRequestId: null,
     ...overrides,
   };
 }

@@ -197,7 +197,6 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
-        '/dashboard/insights',
         '/dashboard/applicants',
       ],
     ],
@@ -220,7 +219,6 @@ describe('sidebarGroupsFor (context)', () => {
         '/dashboard/users',
         '/dashboard/audit-logs',
         '/dashboard/system-status',
-        '/dashboard/insights',
         '/dashboard/applicants',
       ],
     ],
@@ -680,10 +678,11 @@ describe('programScopeSidebarGroups', () => {
     ]);
   });
 
-  it('ADMIN viewer is treated as staff view', () => {
+  it('admin identity alone exposes no staff workspace', () => {
     const groups = programScopeSidebarGroups({ ...base, viewerRole: 'ADMIN' });
-    expect(groups[0]?.items.some((i) => i.label === '팀 관리')).toBe(true);
-    expect(groups[1]?.items[0]?.label).toBe('서류 현황');
+    expect(
+      groups.flatMap((group) => group.items.map((item) => item.href)),
+    ).toEqual(['/programs/prog-1']);
   });
 
   it('no milestone documents means parent-only, no children', () => {
@@ -811,15 +810,10 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
       viewerHasAdminAccess: true,
     } as const;
 
-    it('게시판은 남는다 — 관리자 접근만으로 열리는 화면이다', () => {
+    it('관리자 권한은 학생의 참여 요건을 우회하지 않는다', () => {
       const groups = programScopeSidebarGroups(studentAdmin);
-
-      expect(labels(groups)).toContain('게시판');
-      expect(groups.at(-1)?.items[0]).toMatchObject({
-        label: '게시판',
-        href: '/programs/prog-1/board',
-        count: '3',
-      });
+      expect(groups).toEqual(programScopeSidebarGroups(notParticipant));
+      expect(labels(groups)).not.toContain('게시판');
     });
 
     it('내 제출물은 그대로 사라진다 — 관리자 권한은 승인된 신청을 대신하지 못한다', () => {
@@ -828,10 +822,7 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
       expect(labels(groups)).not.toContain('내 제출물');
 
       expect(labels(groups)).not.toContain('1차 계획서');
-      expect(groups.map((group) => group.label)).toEqual([
-        '프로그램',
-        '게시판',
-      ]);
+      expect(groups.map((group) => group.label)).toEqual(['프로그램']);
     });
 
     it('학생 면은 그대로다 — 신청자 메뉴가 생기거나 서류 현황으로 바뀌지 않는다', () => {
@@ -996,7 +987,7 @@ describe('isProgramScopedWorkspacePath', () => {
   });
 });
 
-it('학생 운영자는 개인 대시보드와 운영 대시보드를 구분한다', () => {
+it('학생의 오래된 교직원 flag는 운영 대시보드를 열지 않는다', () => {
   const groups = sidebarGroupsFor('dashboard', {
     memberKind: 'STUDENT',
     hasStaffAccess: true,
@@ -1004,12 +995,10 @@ it('학생 운영자는 개인 대시보드와 운영 대시보드를 구분한�
   });
   const items = groups.flatMap((group) => group.items);
   expect(items.find((item) => item.label === '내 대시보드')).toMatchObject({
-    href: '/dashboard/personal',
+    href: '/dashboard',
     icon: 'home',
   });
-  expect(items.find((item) => item.label === '운영 대시보드')?.href).toBe(
-    '/dashboard',
-  );
+  expect(items.find((item) => item.label === '운영 대시보드')).toBeUndefined();
   expect(isCurrentSidebarItem('/dashboard', '/dashboard/personal')).toBe(false);
   expect(isCurrentSidebarItem('/dashboard/personal', '/dashboard')).toBe(false);
 });

@@ -98,20 +98,21 @@ describe('AccountSlot', () => {
   it('복합 권한은 좁은 헤더에서 요약하고 전체 이름을 계정 메뉴로 전달한다', () => {
     mocks.usePathname.mockReturnValue('/dashboard/personal');
     mockSession({
-      role: 'STUDENT',
+      role: 'STAFF',
       isProfileComplete: true,
       hasStaffAccess: true,
       hasAdminAccess: true,
     });
     const html = renderToStaticMarkup(<AccountSlot />);
-    expect(html).toContain('권한 3개');
+    expect(html).toContain('권한 2개');
     expect(html).toMatch(
-      /data-breakpoint-visibility="mobile"[^>]*aria-label="학생 · 교직원 · 관리자 권한"/,
+      /data-breakpoint-visibility="mobile"[^>]*aria-label="교직원 · 관리자 권한"/,
     );
-    expect(html.match(/data-breakpoint-visibility="desktop"/g)).toHaveLength(3);
-    expect(html).toContain('data-account-roles="학생 · 교직원 · 관리자"');
-    expect(html).toContain('aria-label="학생 · 교직원 · 관리자 권한"');
-    for (const role of ['학생', '교직원', '관리자'])
+    expect(html.match(/data-breakpoint-visibility="desktop"/g)).toHaveLength(2);
+    expect(html).toContain('data-account-roles="교직원 · 관리자"');
+    expect(html).toContain('aria-label="교직원 · 관리자 권한"');
+    expect(html).not.toContain('aria-label="학생 권한"');
+    for (const role of ['교직원', '관리자'])
       expect(html).toContain(`aria-label="${role} 권한"`);
   });
 
@@ -175,25 +176,26 @@ describe('AccountSlot', () => {
     expect(html).not.toContain('data-testid="team-invitation-notifications"');
   });
 
-  it('학생 면이 있는 다중 역할 회원에게는 팀 초대 알림을 붙인다', () => {
+  it('관리자 권한이 있는 학생에게는 팀 초대 알림을 붙인다', () => {
     mocks.usePathname.mockReturnValue('/programs');
     mockSession({
       status: 'assigned',
       role: 'STUDENT',
       isProfileComplete: true,
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-      nickname: 'student-staff',
+      hasStaffAccess: false,
+      hasAdminAccess: true,
+      nickname: 'student-admin',
     });
 
     const html = renderToStaticMarkup(<AccountSlot />);
 
     expect(html).toContain('data-testid="team-invitation-notifications"');
-    expect(html).toContain('data-identity="student-staff"');
+    expect(html).toContain('data-identity="student-admin"');
     expect(html).toContain('학생');
-    expect(html).toContain('교직원');
+    expect(html).toContain('관리자');
+    expect(html).not.toContain('교직원');
     expect(html).toContain('권한 2개');
-    expect(html).toContain('data-account-roles="학생 · 교직원"');
+    expect(html).toContain('data-account-roles="학생 · 관리자"');
   });
 
   it('비로그인 상태에서는 역할칩 없이 기존 로그인 진입만 유지한다', () => {

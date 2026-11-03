@@ -6,6 +6,7 @@ import type {
   AdminAccessDecidedRequest,
   AdminAccessDetail,
   AdminAccessHistory,
+  AdminAccessMutationResponse,
   AdminAccessPatchRequest,
 } from './admin-access-api';
 import type {
@@ -86,6 +87,8 @@ export function buildMemberKindMutationRequest(
         : 'STAFF',
     expectedMemberKind: detail.memberKind,
     expectedHasStaffAccess: detail.hasStaffAccess,
+    expectedApprovalStatus: detail.approvalStatus,
+    expectedApprovalRequestId: detail.approvalRequestId,
     ...fields,
   };
 }
@@ -138,13 +141,19 @@ export function buildAdminAccessPatchRequest(
 
 export function applyAdminAccessConflictProjection<T extends AdminAccessDetail>(
   detail: T,
-  projection: AdminAccessConflictProjection,
+  projection: AdminAccessConflictProjection | AdminAccessMutationResponse,
 ): T {
   return {
     ...detail,
     role: projection.role,
     accountStatus: projection.accountStatus,
     pendingRequest: projection.pendingRequest,
+    ...('approvalStatus' in projection
+      ? {
+          approvalStatus: projection.approvalStatus,
+          approvalRequestId: projection.approvalRequestId,
+        }
+      : {}),
   };
 }
 

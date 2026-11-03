@@ -15,6 +15,9 @@ interface SyntheticAuthorityFields {
 }
 
 export interface SyntheticAdminUserRow extends SyntheticAuthorityFields {
+  readonly approvalStatus:
+    'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
+  readonly approvalRequestId: string | null;
   readonly id: string;
   readonly githubLogin: string;
   readonly name: string | null;
@@ -92,7 +95,7 @@ function row(seed: RowSeed): SyntheticAdminUserRow {
     id: `synthetic-id-${pad(seed.n)}`,
     githubLogin: `synthetic-user-${pad(seed.n)}`,
     name: seed.nameless ? null : `합성 사용자 ${pad(seed.n)}`,
-    role: seed.role,
+    role: seed.pendingRequestAt ? null : seed.role,
     accountStatus: seed.accountStatus ?? 'ACTIVE',
     isSelf: false,
     isProfileComplete: seed.isProfileComplete ?? true,
@@ -106,6 +109,17 @@ function row(seed: RowSeed): SyntheticAdminUserRow {
       : null,
     lastLoginAt: seed.lastLoginAt,
     ...authorityFor(seed.role),
+    ...(seed.pendingRequestAt
+      ? { memberKind: 'STAFF' as const, hasStaffAccess: false }
+      : {}),
+    approvalStatus: seed.pendingRequestAt
+      ? 'PENDING'
+      : seed.role === 'STAFF' || seed.role === 'ADMIN'
+        ? 'APPROVED'
+        : 'NOT_REQUIRED',
+    approvalRequestId: seed.pendingRequestAt
+      ? `synthetic-request-${pad(seed.n)}`
+      : null,
   };
 }
 
@@ -121,6 +135,8 @@ const SELF_ROW: SyntheticAdminUserRow = {
   pendingRequest: null,
   lastLoginAt: '2026-10-31T07:45:00.000Z',
   ...authorityFor('ADMIN'),
+  approvalStatus: 'APPROVED',
+  approvalRequestId: null,
 };
 
 export const adminUsersPage1Rows: readonly SyntheticAdminUserRow[] = [

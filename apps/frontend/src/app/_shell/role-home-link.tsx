@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { useSessionRole, type SessionStatus } from './use-session-role';
-import type { MemberAccess } from './member-access';
+import { hasStaffAudience, type MemberAccess } from './member-access';
 import { ADMIN_SYSTEM_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 
 const STUDENT_HOME: SessionEntry = {
@@ -53,7 +53,7 @@ export function resolveSessionEntry(
         return CONTINUE_SIGNUP;
       }
 
-      if (access?.hasStaffAccess) return STAFF_HOME;
+      if (access && hasStaffAudience(access)) return STAFF_HOME;
       if (access?.memberKind === 'STUDENT') return STUDENT_HOME;
       return access?.hasAdminAccess ? ADMIN_HOME : null;
     default: {

@@ -72,6 +72,9 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
       if (controller.signal.aborted) return;
       if (
         detail.memberKind !== item.memberKind ||
+        detail.hasStaffAccess !== item.hasStaffAccess ||
+        detail.approvalStatus !== item.approvalStatus ||
+        detail.approvalRequestId !== item.approvalRequestId ||
         detail.hasAdminAccess !== item.hasAdminAccess ||
         detail.accountStatus !== item.accountStatus ||
         detail.pendingRequest?.id !== item.pendingRequest?.id
@@ -136,6 +139,10 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
         case 'error':
           setDialogError(outcome.message);
           break;
+        default: {
+          const exhaustive: never = outcome;
+          return exhaustive;
+        }
       }
       onChanged();
     } finally {

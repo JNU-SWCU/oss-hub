@@ -25,6 +25,8 @@ function detail(
     memberKind: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    approvalRequestId: null,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -391,7 +393,7 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
     ]);
   });
 
-  it('대기 중인 요청이 있으면 회원 유형만 잠기고 안내문이 뜬다', () => {
+  it('대기 요청이 있어도 관리자는 명시적으로 회원 유형을 변경할 수 있다', () => {
     act(() => {
       root.render(
         <AdminAccessMutationActions
@@ -408,14 +410,14 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
       );
     });
 
-    expect(container.textContent).toContain(
+    expect(container.textContent).not.toContain(
       '대기 중인 요청을 먼저 처리해 주세요.',
     );
     expect(
       Array.from(container.querySelectorAll('[role="combobox"]')).map(
         (trigger) => (trigger as HTMLButtonElement).disabled,
       ),
-    ).toEqual([true, false, false]);
+    ).toEqual([false, false, false]);
   });
 
   it('프로필이 미완료면 회원 유형 변경이 막히고 이유를 설명한다', () => {
@@ -441,7 +443,7 @@ describe('AdminAccessMutationActions — 회원 유형/관리자 접근/계정 �
     });
 
     expect(container.textContent).toContain(
-      '프로필(이름·학과·학번) 완성 후 회원 유형을 적용할 수 있습니다.',
+      '프로필 완성 후 회원 유형을 적용할 수 있습니다.',
     );
     expect(control(MEMBER_KIND).disabled).toBe(true);
     expect(optionsOf(ADMIN)).toEqual([

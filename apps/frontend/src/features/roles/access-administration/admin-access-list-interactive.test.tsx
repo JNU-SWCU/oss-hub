@@ -55,6 +55,8 @@ function directoryItem(
     memberKind: 'STAFF',
     hasStaffAccess: true,
     hasAdminAccess: false,
+    approvalStatus: 'APPROVED',
+    approvalRequestId: null,
     ...overrides,
   };
 }
@@ -556,6 +558,8 @@ describe('AdminAccessScreen — 행 인라인 변경', () => {
     return jsonResponse({
       id: 'synthetic-user',
       role: 'STAFF',
+      approvalStatus: 'APPROVED',
+      approvalRequestId: null,
       accountStatus: 'DEACTIVATED',
       pendingRequest: null,
       decidedRequest: null,

@@ -1,6 +1,4 @@
 import type { NavItem } from '@/components';
-import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
-import { programHref } from '@/features/programs/program-paths';
 import {
   PROGRAM_LIST_STATUSES,
   type ProgramListStatus,
@@ -14,12 +12,7 @@ import {
 } from '@/features/ranking/types';
 import type { MemberAccess, MemberSurface } from './member-access';
 import { memberSurfaces } from './member-access';
-import {
-  ADMIN_SYSTEM_MENU,
-  STAFF_MENU,
-  STAFF_OPERATIONS_MENU,
-  STUDENT_MENU,
-} from './role-menus';
+import { ADMIN_MENU, STAFF_MENU, STUDENT_MENU } from './role-menus';
 import {
   facetSectionFromHrefPath,
   SECTION_FACETS,
@@ -103,247 +96,6 @@ export function programSidebarGroup(
   return { label: '프로그램 메뉴', items };
 }
 
-export interface ProgramScopeSidebarItem {
-  readonly label: string;
-  readonly isViewSwitch?: {
-    readonly programId: string;
-    readonly operationsView: boolean;
-  };
-  readonly href: string;
-  readonly icon: ShellIconName;
-  readonly depth?: 0 | 1;
-
-  readonly count?: string;
-}
-
-export interface ProgramScopeSidebarGroup {
-  readonly label: string;
-  readonly items: readonly ProgramScopeSidebarItem[];
-}
-
-export type ProgramScopeViewerRole = 'GUEST' | 'STUDENT' | 'STAFF' | 'ADMIN';
-
-export function programScopeBackHref(): string {
-  return '/programs';
-}
-
-interface ProgramScopeMilestoneDocsSummary {
-  readonly milestoneId: string;
-  readonly title: string;
-
-  readonly completed: number;
-
-  readonly total: number;
-}
-
-interface ProgramScopeMilestoneNavigation {
-  readonly milestoneId: string;
-  readonly title: string;
-
-  readonly submissionEnabled: boolean;
-}
-
-export interface ProgramScopeSidebarInput {
-  readonly programId: string;
-  readonly viewerRole: ProgramScopeViewerRole;
-  readonly teamCount: number;
-  readonly boardPostCount: number;
-
-  readonly viewerDocuments?: {
-    readonly completed: number;
-    readonly total: number;
-  };
-
-  readonly viewerParticipant?: boolean;
-  readonly canSwitchView?: boolean;
-  readonly operationsView?: boolean;
-
-  readonly viewerHasAdminAccess?: boolean;
-
-  readonly milestones?: readonly ProgramScopeMilestoneNavigation[];
-
-  readonly milestoneDocuments?: readonly ProgramScopeMilestoneDocsSummary[];
-}
-
-export function programScopeSidebarGroups(
-  input: ProgramScopeSidebarInput,
-): readonly ProgramScopeSidebarGroup[] {
-  const {
-    programId,
-    viewerRole,
-    teamCount,
-    boardPostCount,
-    viewerDocuments,
-    viewerParticipant,
-    canSwitchView = false,
-    operationsView = false,
-    viewerHasAdminAccess,
-    milestones,
-    milestoneDocuments = [],
-  } = input;
-
-  if (viewerRole === 'GUEST') {
-    return [
-      {
-        label: '프로그램',
-        items: [
-          {
-            label: '프로그램 개요',
-            href: programHref(programId),
-            icon: 'home',
-            depth: 0,
-          },
-        ],
-      },
-    ];
-  }
-
-  const isStaffView = viewerRole !== 'STUDENT';
-
-  const overviewItems: ProgramScopeSidebarItem[] = [
-    {
-      label: '프로그램 개요',
-      href: programHref(programId),
-      icon: 'home',
-      depth: 0,
-    },
-  ];
-
-  if (viewerRole === 'STUDENT') {
-    overviewItems.push({
-      label: '우리 팀',
-      href: programMyTeamHref(programId),
-
-      icon: 'building',
-      depth: 0,
-    });
-  }
-
-  overviewItems.push({
-    label: isStaffView ? '팀 관리' : '참여 팀',
-    href: programHref(programId, '/teams'),
-    icon: 'people',
-    depth: 0,
-    count: String(teamCount),
-  });
-
-  const overviewGroup: ProgramScopeSidebarGroup = {
-    label: '프로그램',
-    items: overviewItems,
-  };
-
-  const notParticipantStudent =
-    viewerRole === 'STUDENT' && viewerParticipant === false;
-
-  const documentsLocked = notParticipantStudent;
-
-  const boardLocked = notParticipantStudent && viewerHasAdminAccess !== true;
-
-  const fallbackMilestones: readonly ProgramScopeMilestoneNavigation[] =
-    milestoneDocuments.map((milestone) => ({
-      milestoneId: milestone.milestoneId,
-      title: milestone.title,
-      submissionEnabled: true,
-    }));
-  const navigationMilestones = (
-    milestones ?? (isStaffView ? fallbackMilestones : [])
-  ).filter((milestone) => isStaffView || milestone.submissionEnabled);
-  const documentSummaryByMilestone = new Map(
-    milestoneDocuments.map((milestone) => [milestone.milestoneId, milestone]),
-  );
-
-  const documentsParent: ProgramScopeSidebarItem = isStaffView
-    ? {
-        label: '서류 현황',
-        href: programDocumentsHref(programId),
-        icon: 'inbox',
-        depth: 0,
-      }
-    : {
-        label: '내 제출물',
-        href: programDocumentsHref(programId),
-        icon: 'inbox',
-        depth: 0,
-        count: viewerDocuments
-          ? `${viewerDocuments.completed}/${viewerDocuments.total}`
-          : undefined,
-      };
-
-  const allStagesItem: readonly ProgramScopeSidebarItem[] =
-    isStaffView && navigationMilestones.length > 0
-      ? [
-          {
-            label: '모든 단계',
-            href: programDocumentsHref(programId),
-            icon: 'inbox',
-            depth: 1,
-            count: `${teamCount}팀`,
-          },
-        ]
-      : [];
-  const milestoneItems: readonly ProgramScopeSidebarItem[] =
-    navigationMilestones.map((milestone) => {
-      const summary = documentSummaryByMilestone.get(milestone.milestoneId);
-      return {
-        label: milestone.title,
-        href: programDocumentsHref(programId, milestone.milestoneId),
-        icon: 'inbox',
-        depth: 1,
-        count: summary
-          ? isStaffView
-            ? `${summary.completed}/${teamCount}팀`
-            : `${summary.completed}/${summary.total}`
-          : undefined,
-      };
-    });
-  const documentsChildren = [...allStagesItem, ...milestoneItems];
-
-  const documentsGroup: ProgramScopeSidebarGroup = {
-    label: documentsParent.label,
-    items: [documentsParent, ...documentsChildren],
-  };
-
-  const boardGroup: ProgramScopeSidebarGroup = {
-    label: '게시판',
-    items: [
-      {
-        label: '게시판',
-        href: programHref(programId, '/board'),
-        icon: 'megaphone',
-        depth: 0,
-        count: String(boardPostCount),
-      },
-    ],
-  };
-
-  const groups = [
-    overviewGroup,
-    ...(documentsLocked ? [] : [documentsGroup]),
-    ...(boardLocked ? [] : [boardGroup]),
-  ];
-  return [
-    ...groups,
-    ...(canSwitchView
-      ? [
-          {
-            label: '화면 전환',
-            items: [
-              {
-                isViewSwitch: { programId, operationsView: !operationsView },
-                label: operationsView
-                  ? '학생 화면으로 전환'
-                  : '운영 도구로 전환',
-                href: programHref(programId),
-                icon: 'home' as const,
-                depth: 0 as const,
-              },
-            ],
-          },
-        ]
-      : []),
-  ];
-}
-
 export function rankingSidebarGroup(
   years: readonly number[] = [],
   counts?: Partial<Record<'all' | number, number>>,
@@ -377,17 +129,8 @@ const SURFACE_GROUPS: Readonly<
 > = {
   student: { label: '대시보드', menu: STUDENT_MENU },
   staff: { label: '교직원', menu: STAFF_MENU },
-  admin: { label: '관리자', menu: ADMIN_SYSTEM_MENU },
+  admin: { label: '관리자', menu: ADMIN_MENU },
 };
-
-function surfaceMenu(
-  surface: MemberSurface,
-  access: MemberAccess,
-): readonly NavItem[] {
-  return surface === 'admin' && !access.hasStaffAccess
-    ? [...ADMIN_SYSTEM_MENU, ...STAFF_OPERATIONS_MENU]
-    : SURFACE_GROUPS[surface].menu;
-}
 
 export function sidebarBrandTitle(
   section: ShellSection,
@@ -426,17 +169,15 @@ export function sidebarGroupsFor(
 ): readonly SidebarGroup[] {
   if (section === 'dashboard') {
     if (access === null) return [];
+    const seen = new Set<string>();
     return memberSurfaces(access).map((surface) => ({
       label: SURFACE_GROUPS[surface].label,
       items: withIcons(
-        surfaceMenu(surface, access).map((item) =>
-          surface === 'student' &&
-          access.hasStaffAccess &&
-          item.href === '/dashboard'
-            ? { ...item, href: '/dashboard/personal' }
-            : item,
-        ),
-        0,
+        SURFACE_GROUPS[surface].menu.filter((item) => {
+          if (seen.has(item.href)) return false;
+          seen.add(item.href);
+          return true;
+        }),
       ),
     }));
   }
@@ -488,3 +229,13 @@ export function isCurrentSidebarItem(
   }
   return pathname.startsWith(`${hrefPath}/`);
 }
+
+export {
+  programScopeBackHref,
+  programScopeSidebarGroups,
+} from './program-scope-menu';
+export type {
+  ProgramScopeSidebarItem,
+  ProgramScopeSidebarGroup,
+  ProgramScopeViewerRole,
+} from './program-scope-menu';

@@ -142,12 +142,12 @@ describe('getProgramListHeading', () => {
 });
 
 describe('getProgramListSubtitle', () => {
-  it('shows the staff copy for STAFF and ADMIN', () => {
+  it('shows the staff copy only for STAFF', () => {
     expect(getProgramListSubtitle('STAFF')).toBe(
       '내가 운영하는 프로그램과 전체 프로그램입니다',
     );
     expect(getProgramListSubtitle('ADMIN')).toBe(
-      '내가 운영하는 프로그램과 전체 프로그램입니다',
+      '지금 참여 중이거나 지원할 수 있는 프로그램입니다',
     );
   });
 

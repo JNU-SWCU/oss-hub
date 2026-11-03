@@ -35,7 +35,6 @@ const ADMIN_SESSION = {
 } as const;
 const CONFLICT_NOTICE =
   '다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.';
-const PENDING_REQUEST_REASON = '대기 중인 요청을 먼저 처리해 주세요.';
 const LG_BREAKPOINT = 1024;
 const DESKTOP = { width: 1440, height: 900 } as const;
 const MOBILE = { width: 390, height: 844 } as const;
@@ -159,12 +158,15 @@ function applyPatch(
       throw new TypeError(`unexpected memberKind: ${String(memberKind)}`);
     }
     const hasStaffAccess = memberKind === 'STAFF';
-    const hasAdminAccess = hasStaffAccess && row.hasAdminAccess;
+    const hasAdminAccess = row.hasAdminAccess;
     return {
       ...row,
       memberKind,
       hasStaffAccess,
       hasAdminAccess,
+      approvalStatus: hasStaffAccess ? 'APPROVED' : 'NOT_REQUIRED',
+      approvalRequestId: hasStaffAccess ? `${row.id}-type-change` : null,
+      pendingRequest: null,
       role: roleOf(memberKind, hasStaffAccess, hasAdminAccess),
     };
   }
@@ -208,6 +210,20 @@ async function handlePatch(
   }
   const current = store.rows.find((row) => row.id === id);
   if (!current) throw new Error(`unknown synthetic user: ${id}`);
+  if (
+    kind === 'member-kind' &&
+    (body.expectedMemberKind !== current.memberKind ||
+      body.expectedHasStaffAccess !== current.hasStaffAccess ||
+      body.expectedApprovalStatus !== current.approvalStatus ||
+      body.expectedApprovalRequestId !== current.approvalRequestId)
+  ) {
+    await fulfillJson(
+      route,
+      problem(409, 'Approval state changed', route.request().url(), 'ROL_013'),
+      409,
+    );
+    return;
+  }
   const next = applyPatch(current, kind, body);
   store.rows = store.rows.map((row) => (row.id === id ? next : row));
   store.details[id] = { ...store.details[id], ...next };
@@ -218,6 +234,8 @@ async function handlePatch(
           id,
           role: next.role,
           accountStatus: next.accountStatus,
+          approvalStatus: next.approvalStatus,
+          approvalRequestId: next.approvalRequestId,
           pendingRequest: next.pendingRequest,
           decidedRequest: null,
         }
@@ -227,6 +245,8 @@ async function handlePatch(
           memberKind: next.memberKind,
           hasStaffAccess: next.hasStaffAccess,
           hasAdminAccess: next.hasAdminAccess,
+          approvalStatus: next.approvalStatus,
+          approvalRequestId: next.approvalRequestId,
         },
   );
 }
@@ -384,6 +404,8 @@ test('행에서 학생을 교직원으로 바꾸면 확인 후 PATCH 하고 목�
         memberKind: 'STAFF',
         expectedMemberKind: 'STUDENT',
         expectedHasStaffAccess: false,
+        expectedApprovalStatus: 'NOT_REQUIRED',
+        expectedApprovalRequestId: null,
         staffNumber: null,
       },
     },
@@ -439,6 +461,8 @@ test('교직원을 학생으로 바꿀 때 저장된 학과는 읽기 전용이�
         memberKind: 'STUDENT',
         expectedMemberKind: 'STAFF',
         expectedHasStaffAccess: true,
+        expectedApprovalStatus: 'APPROVED',
+        expectedApprovalRequestId: null,
         studentId: '123456',
         department: '소프트웨어공학과',
       },
@@ -583,7 +607,7 @@ test('드롭다운을 열고 닫아도 상세가 열리지 않고 드롭다운 �
   audit.assertClean();
 });
 
-test('자기 행과 대기 요청 행은 막힌 선택지를 비활성으로 보여 주고 사유를 툴팁으로 알린다 (1280px)', async ({
+test('자기 권한 회수는 막고 대기 신청자의 명시적 신분 변경은 허용한다 (1280px)', async ({
   page,
 }) => {
   const audit = installBrowserAudit(page);
@@ -603,17 +627,8 @@ test('자기 행과 대기 요청 행은 막힌 선택지를 비활성으로 보
   await expect(page.getByRole('listbox')).toHaveCount(0);
 
   const pendingKind = cellControl(page, '합성 사용자 05', '회원 유형');
-  await expect(pendingKind).toBeDisabled();
-  const pendingReason = page.getByRole('tooltip', {
-    name: PENDING_REQUEST_REASON,
-    exact: true,
-  });
-  await pendingKind.hover();
-  await expect(pendingReason).toBeVisible();
-  await page.keyboard.press('Escape');
-  await expect(pendingReason).toBeHidden();
-  await pendingKind.locator('xpath=..').focus();
-  await expect(pendingReason).toBeVisible();
+  await expect(pendingKind).toBeEnabled();
+  await expect(pendingKind).toHaveText('교직원');
 
   expect(store.detailGets).toBe(0);
   expect(store.patches).toEqual([]);

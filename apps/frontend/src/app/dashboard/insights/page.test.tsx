@@ -19,10 +19,10 @@ vi.mock('@/features/staff-insights/staff-insights-screen', () => ({
 import Page from './page';
 
 describe('StaffInsightsPage access contract', () => {
-  it('백엔드 audience와 같이 교직원과 관리자를 허용한다', async () => {
+  it('백엔드 audience와 같이 승인된 교직원을 허용한다', async () => {
     const html = renderToStaticMarkup(<Page />);
 
-    expect(html).toContain('data-allow="staff,admin"');
+    expect(html).toContain('data-allow="staff"');
     expect(html).toContain('insights screen');
   });
 });

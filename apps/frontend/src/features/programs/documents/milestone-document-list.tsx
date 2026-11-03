@@ -68,8 +68,8 @@ export type MilestoneDocumentSectionState =
       readonly fileUpload: MilestoneDocumentUploadPolicy;
     };
 
-function isStaffRole(role: ViewerRole): role is 'STAFF' | 'ADMIN' {
-  return role === 'STAFF' || role === 'ADMIN';
+function isStaffRole(role: ViewerRole): role is 'STAFF' {
+  return role === 'STAFF';
 }
 
 const MILESTONE_DOCUMENT_BLOCK_CLASS = 'grid px-6 pt-1 pb-5';

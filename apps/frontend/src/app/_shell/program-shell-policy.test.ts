@@ -1,77 +1,57 @@
 import { describe, expect, it } from 'vitest';
-import {
-  programScopeViewerRole,
-  resolveProgramOperationsView,
-} from './program-shell-policy';
+import { programScopeViewerRole } from './program-shell-policy';
 
-describe('resolveProgramOperationsView without a resolved program view', () => {
-  it.each([
-    [null, false, true, true],
-    ['STAFF', true, false, true],
-    ['STUDENT', false, true, null],
-    ['STUDENT', false, false, false],
-    ['STAFF', false, false, false],
-  ] as const)(
-    'memberKind=%s staff=%s admin=%s -> %s',
-    (memberKind, hasStaffAccess, hasAdminAccess, expected) => {
-      expect(
-        resolveProgramOperationsView(null, {
-          memberKind,
-          hasStaffAccess,
-          hasAdminAccess,
-        }),
-      ).toBe(expected);
-    },
-  );
-});
+const identities = [
+  {
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: false,
+    viewerRole: 'STUDENT',
+  },
+  {
+    memberKind: 'STUDENT',
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+    viewerRole: 'STUDENT',
+  },
+  {
+    memberKind: 'STUDENT',
+    hasStaffAccess: true,
+    hasAdminAccess: true,
+    viewerRole: 'STUDENT',
+  },
+  {
+    memberKind: 'STAFF',
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+    viewerRole: 'GUEST',
+  },
+  {
+    memberKind: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: false,
+    viewerRole: 'STAFF',
+  },
+  {
+    memberKind: 'STAFF',
+    hasStaffAccess: true,
+    hasAdminAccess: true,
+    viewerRole: 'STAFF',
+  },
+  {
+    memberKind: null,
+    hasStaffAccess: false,
+    hasAdminAccess: true,
+    viewerRole: 'GUEST',
+  },
+] as const;
 
-describe('programScopeViewerRole participation resolution', () => {
-  describe.each([
-    [
-      { memberKind: 'STUDENT', hasStaffAccess: true, hasAdminAccess: false },
-      'STAFF',
-    ],
-    [
-      { memberKind: 'STUDENT', hasStaffAccess: false, hasAdminAccess: true },
-      'ADMIN',
-    ],
-    [
-      { memberKind: 'STUDENT', hasStaffAccess: true, hasAdminAccess: true },
-      'ADMIN',
-    ],
-  ] as const)('%s', (authority, role) => {
-    it.each([undefined, false])(
-      'keeps the operations role until participation is confirmed: %s',
-      (participant) => {
-        expect(programScopeViewerRole(true, authority, participant)).toBe(role);
-      },
-    );
+describe.each(identities)('program access for %j', (authority) => {
+  it('uses the actual identity for the program workspace', () => {
+    expect(programScopeViewerRole(true, authority)).toBe(authority.viewerRole);
   });
 
-  it('defaults to the student view only after participation is confirmed', () => {
-    const authority = {
-      memberKind: 'STUDENT',
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-    } as const;
-    expect(programScopeViewerRole(true, authority, true)).toBe('STUDENT');
-    expect(programScopeViewerRole(true, authority, true, true)).toBe('ADMIN');
+  it('does not open member tools to an inactive session', () => {
+    expect(programScopeViewerRole(false, authority)).toBe('GUEST');
   });
-
-  it.each([undefined, false, true])(
-    'preserves ordinary student access: %s',
-    (participant) => {
-      expect(
-        programScopeViewerRole(
-          true,
-          {
-            memberKind: 'STUDENT',
-            hasStaffAccess: false,
-            hasAdminAccess: false,
-          },
-          participant,
-        ),
-      ).toBe('STUDENT');
-    },
-  );
 });

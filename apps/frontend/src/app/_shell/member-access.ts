@@ -16,15 +16,15 @@ export const EMPTY_MEMBER_ACCESS: MemberAccess = {
 export function memberSurfaces(access: MemberAccess): readonly MemberSurface[] {
   const surfaces: MemberSurface[] = [];
   if (access.memberKind === 'STUDENT') surfaces.push('student');
-  if (access.hasStaffAccess) surfaces.push('staff');
+  if (hasStaffAudience(access)) surfaces.push('staff');
   if (access.hasAdminAccess) surfaces.push('admin');
   return surfaces;
 }
 
 export function hasStaffAudience(
-  access: Pick<MemberAccess, 'hasStaffAccess' | 'hasAdminAccess'>,
+  access: Pick<MemberAccess, 'memberKind' | 'hasStaffAccess'>,
 ): boolean {
-  return access.hasStaffAccess || access.hasAdminAccess;
+  return access.memberKind === 'STAFF' && access.hasStaffAccess;
 }
 
 export function hasMemberSurface(

@@ -36,7 +36,7 @@ export default function ProgramStaffTeamDetailRoute({
   const { id, teamId } = use(params);
 
   return (
-    <RolePanelShell allow={['staff', 'admin']}>
+    <RolePanelShell allow={['staff']}>
       <ProgramStaffTeamDetailWorkspace
         programId={decodeRouteProgramId(id)}
         teamId={decodeRouteProgramId(teamId)}
