@@ -2,10 +2,10 @@ import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   ApplicationStatus,
-  MemberKind,
   Prisma,
   RepositoryConnectionMode,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
 import {
   type AcceptInvitationOnOk,
@@ -48,7 +48,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     readonly invitee?: {
       readonly id: string;
       readonly accountStatus: AccountStatus;
-      readonly profile: { readonly memberKind: MemberKind } | null;
+      readonly type: MemberKind | 'UNSELECTED';
     } | null;
     readonly membership?: { readonly userId: string } | null;
     readonly memberCount?: number;
@@ -94,7 +94,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
             ? {
                 id: syntheticInviteeId,
                 accountStatus: AccountStatus.ACTIVE,
-                profile: { memberKind: MemberKind.STUDENT },
+                type: MemberKind.STUDENT,
               }
             : options.invitee,
         ),
@@ -363,7 +363,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       invitee: {
         id: syntheticInviteeId,
         accountStatus: AccountStatus.ACTIVE,
-        profile: { memberKind: MemberKind.STAFF },
+        type: MemberKind.STAFF,
       },
     });
 
@@ -376,7 +376,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       invitee: {
         id: syntheticInviteeId,
         accountStatus: AccountStatus.DEACTIVATED,
-        profile: { memberKind: MemberKind.STUDENT },
+        type: MemberKind.STUDENT,
       },
     });
 

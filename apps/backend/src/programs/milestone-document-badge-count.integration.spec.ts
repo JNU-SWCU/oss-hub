@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import {
   type MilestoneDocumentCollectionQuery,
   MilestoneDocumentCollectionService,
@@ -8,7 +9,8 @@ import { MilestoneDocumentCollectionReadRepository } from './milestone-document-
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { AccountStatus, ApplicationStatus, MemberKind } from '@prisma/client';
+import { AccountStatus, ApplicationStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -41,6 +43,7 @@ const service = new MilestoneDocumentsService(
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
   new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new UserProfileService(),
 );
 
 const collectionQuery: MilestoneDocumentCollectionQuery = {
@@ -79,8 +82,9 @@ async function createTeams(teams: readonly TeamFixture[]): Promise<void> {
         id: userId,
         githubId: githubSeed,
         nickname: `${prefix}-${team.key}`,
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
     const teamId = `${prefix}-${team.key}-team`;
@@ -174,9 +178,14 @@ describe('교직원 서류 제출 카운트 — 배지와 수합 표 합계', ()
         id: staffId,
         githubId: staffGithubId,
         nickname: `${prefix}-staff`,
-        selectedMemberKind: MemberKind.STAFF,
         accountStatus: AccountStatus.ACTIVE,
-        hasStaffAccess: true,
+        type: MemberKind.STAFF,
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
     });
     await prisma.program.create({

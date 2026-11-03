@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
@@ -114,6 +115,16 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       id: syntheticUserId,
       hasStaffAccess: false,
       hasAdminAccess: false,
+      type: 'STUDENT',
+      approvalStatus: 'NOT_REQUIRED',
+      accountStatus: 'ACTIVE',
+      name: 'Synthetic viewer',
+      department: 'Synthetic department',
+      studentId: '123456',
+      departmentType: 'DEPARTMENT',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      admin: null,
     }),
     findActiveStudentByGithubId: jest
       .fn()
@@ -215,6 +226,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -241,6 +253,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
     const tooLarge: MilestoneDocumentFileUpload = {
       ...pdfFile,
@@ -278,6 +291,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -304,6 +318,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
     const forged: MilestoneDocumentFileUpload = {
       ...pdfFile,
@@ -337,6 +352,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -372,6 +388,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -412,6 +429,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -442,6 +460,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -475,6 +494,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -514,6 +534,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -551,6 +572,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -587,6 +609,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -621,6 +644,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -660,6 +684,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -693,6 +718,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -728,6 +754,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         new MilestoneDocumentFileNameService(),
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
+        new UserProfileService(),
       );
 
       await expect(
@@ -767,6 +794,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await service.upload(
@@ -801,6 +829,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     const result = await service.upload(
@@ -839,6 +868,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -871,6 +901,7 @@ describe('MilestoneDocumentFilesService.check (학생, 제출 전 판정)', () =
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
     const callCount = () =>
       [repositoryMocks, submissionFileMocks, storageMocks]
@@ -958,6 +989,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
         new MilestoneDocumentFileNameService(),
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
+        new UserProfileService(),
       );
       const candidate = {
         ...pdfFile,
@@ -1005,6 +1037,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1032,6 +1065,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     const result = await service.uploadTemplate(
@@ -1065,6 +1099,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await service.uploadTemplate(
@@ -1109,6 +1144,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1138,6 +1174,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1166,6 +1203,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
     const mojibake = Buffer.from('제출-양식.pdf', 'utf8').toString('latin1');
 
@@ -1201,6 +1239,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1216,6 +1255,16 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
         id: 'staff-1',
         hasStaffAccess: true,
         hasAdminAccess: false,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        admin: null,
       }),
       findStudentApplication: jest.fn(),
     });
@@ -1229,6 +1278,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await service.downloadTemplate(
@@ -1254,6 +1304,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1277,6 +1328,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1299,6 +1351,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     const result = await service.downloadTemplate(
@@ -1337,6 +1390,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1366,6 +1420,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1397,6 +1452,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1429,6 +1485,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1460,6 +1517,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -1488,6 +1546,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await service.downloadSubmissionFile(
@@ -1516,6 +1575,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     const result = await service.downloadSubmissionFile(
@@ -1549,6 +1609,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     const result = await service.downloadSubmissionFile(
@@ -1574,6 +1635,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     const result = await service.downloadSubmissionFile(
@@ -1617,6 +1679,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     const result = await service.downloadSubmissionFile(
@@ -1644,6 +1707,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(

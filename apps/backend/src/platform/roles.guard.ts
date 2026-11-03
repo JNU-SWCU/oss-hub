@@ -13,7 +13,7 @@ const ROLE = {
 
 export type Role = (typeof ROLE)[keyof typeof ROLE];
 
-export const STAFF_AUDIENCE: readonly Role[] = [ROLE.STAFF, ROLE.ADMIN];
+export const STAFF_AUDIENCE: readonly Role[] = [ROLE.STAFF];
 
 export const ADMIN_AUDIENCE: readonly Role[] = [ROLE.ADMIN];
 

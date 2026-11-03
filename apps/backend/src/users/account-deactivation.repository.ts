@@ -1,13 +1,14 @@
+import type { ApprovalStatus } from '@prisma/client';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
+import {
+  StaffAccessRequestStatus,
+  type MemberKind,
+} from './user-contract.config';
 import { AdminAccessRepository } from './admin-access.repository';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  Prisma,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
+import { AccountStatus, Prisma } from '@prisma/client';
+import type { UserHistoryTransaction } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
-import type { MemberKind } from '@prisma/client';
 
 interface AccountDeactivationTarget {
   readonly id: string;
@@ -16,14 +17,16 @@ interface AccountDeactivationTarget {
   readonly displayName: string | null;
 
   readonly memberKind: MemberKind | null;
-  readonly hasStaffAccess: boolean;
+  readonly approvalStatus: ApprovalStatus;
+  readonly profileCreatedAt: Date | null;
+  readonly department: string | null;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
   readonly requestStatus: StaffAccessRequestStatus | null;
 }
 
 export interface AccountDeactivationTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly auditLogWriter: UserHistoryTransaction;
   findForUpdate(githubId: bigint): Promise<AccountDeactivationTarget | null>;
   lockActiveAdmins(): Promise<number>;
   deactivate(userId: string): Promise<boolean>;
@@ -40,14 +43,8 @@ const ACCOUNT_DEACTIVATION_TARGET_SELECT = {
   githubId: true,
   nickname: true,
   accountStatus: true,
-  hasStaffAccess: true,
-  hasAdminAccess: true,
-  staffAccessRequests: {
-    where: { status: StaffAccessRequestStatus.PENDING },
-    select: { status: true },
-    take: 1,
-  },
-  profile: { select: { name: true, memberKind: true } },
+  ...USER_AUTHORITY_SELECT,
+  approvalRequestId: true,
 } as const satisfies Prisma.UserSelect;
 
 type PrismaAccountDeactivationTarget = Prisma.UserGetPayload<{
@@ -124,11 +121,16 @@ function toAccountDeactivationTarget(
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    displayName: user.profile?.name ?? null,
-    memberKind: user.profile?.memberKind ?? null,
-    hasStaffAccess: user.hasStaffAccess,
-    hasAdminAccess: user.hasAdminAccess,
+    displayName: user.name,
+    memberKind: user.type === 'UNSELECTED' ? null : user.type,
+    approvalStatus: user.approvalStatus,
+    profileCreatedAt: user.profileCreatedAt,
+    department: user.department,
+    hasAdminAccess: user.admin !== null,
     accountStatus: user.accountStatus,
-    requestStatus: user.staffAccessRequests[0]?.status ?? null,
+    requestStatus:
+      user.approvalStatus === 'PENDING' && user.approvalRequestId !== null
+        ? 'PENDING'
+        : null,
   };
 }

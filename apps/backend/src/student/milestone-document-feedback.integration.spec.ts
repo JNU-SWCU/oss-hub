@@ -4,11 +4,11 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
 import {
   ApplicationStatus,
-  MemberKind,
   MilestoneDocumentKind,
   ProgramCategory,
   ReviewDecision,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
@@ -166,19 +166,27 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
           id: users.student,
           githubId: studentGithubId,
           nickname: users.student,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
         {
           id: users.other,
           githubId: studentGithubId + 1n,
           nickname: users.other,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
         {
           id: users.staff,
           githubId: studentGithubId + 2n,
           nickname: users.staff,
-          hasStaffAccess: true,
+          type: 'STAFF',
+          approvalStatus: 'APPROVED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
         },
       ],
     });

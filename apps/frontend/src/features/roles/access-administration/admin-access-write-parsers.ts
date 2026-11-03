@@ -8,6 +8,7 @@ import type {
 } from './admin-access-api-types';
 import {
   AdminAccessResponseError,
+  hasAdminApprovalState,
   isAdminAccessAccountStatus,
   isAdminAccessRole,
   isNonEmptyString,
@@ -33,6 +34,7 @@ export function parseAdminAccessMutationResponse(
 ): AdminAccessMutationResponse {
   if (
     !isRecord(value) ||
+    !hasAdminApprovalState(value) ||
     !isNonEmptyString(value.id) ||
     !(value.role === null || isAdminAccessRole(value.role)) ||
     !isAdminAccessAccountStatus(value.accountStatus) ||
@@ -46,6 +48,8 @@ export function parseAdminAccessMutationResponse(
   }
   return {
     id: value.id,
+    approvalStatus: value.approvalStatus,
+    approvalRequestId: value.approvalRequestId,
     role: value.role,
     accountStatus: value.accountStatus,
     pendingRequest: value.pendingRequest,

@@ -4,12 +4,13 @@ import { redirect } from 'next/navigation';
 import { StudentDashboardScreen } from '@/features/dashboard';
 import { StaffDashboardPage } from '@/features/programs/staff-dashboard/staff-dashboard-page';
 import { useSharedSessionRole } from '../_shell/session-role-context';
+import { hasStaffAudience } from '../_shell/member-access';
 
 export function DashboardHome() {
-  const { memberKind, hasStaffAccess, hasAdminAccess } = useSharedSessionRole();
+  const session = useSharedSessionRole();
 
-  if (hasStaffAccess) return <StaffDashboardPage />;
-  if (memberKind === 'STUDENT') return <StudentDashboardScreen />;
-  if (hasAdminAccess) redirect('/dashboard/users');
+  if (hasStaffAudience(session)) return <StaffDashboardPage />;
+  if (session.memberKind === 'STUDENT') return <StudentDashboardScreen />;
+  if (session.hasAdminAccess) redirect('/dashboard/users');
   return null;
 }

@@ -1,11 +1,9 @@
-import { Consent as PrismaConsent, Prisma } from '@prisma/client';
+import { UserPolicyRepository } from './user-policy.repository';
+import { UserPolicy as PrismaConsent, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { ConsentsRepository } from './member-onboarding.repository';
-
 describe('consents.repository', () => {
   const syntheticUserId = 'cuid-synthetic-consent-user';
   const syntheticVersion = 'privacy-activity-consent-v1';
-
   function buildRow(overrides: Partial<PrismaConsent> = {}): PrismaConsent {
     return {
       id: 'cuid-synthetic-consent',
@@ -15,7 +13,6 @@ describe('consents.repository', () => {
       ...overrides,
     };
   }
-
   function uniqueViolation(): Prisma.PrismaClientKnownRequestError {
     return new Prisma.PrismaClientKnownRequestError(
       'Unique constraint failed',
@@ -25,19 +22,16 @@ describe('consents.repository', () => {
       },
     );
   }
-
-  describe('ConsentsRepository.createConsent', () => {
+  describe('UserPolicyRepository.createConsent', () => {
     it('생성 결과를 Prisma row가 아닌 도메인 필드만으로 반환한다', async () => {
       const create = jest.fn().mockResolvedValue(buildRow());
       const prisma = {
-        consent: { create },
+        userPolicy: { create },
       } as unknown as PrismaService;
-
-      const record = await new ConsentsRepository(prisma).createConsent(
+      const record = await new UserPolicyRepository(prisma).createConsent(
         syntheticUserId,
         syntheticVersion,
       );
-
       expect(record).toEqual({
         policyVersion: syntheticVersion,
         consentedAt: new Date('2026-07-19T01:00:00.000Z'),
@@ -46,19 +40,16 @@ describe('consents.repository', () => {
         data: { userId: syntheticUserId, policyVersion: syntheticVersion },
       });
     });
-
     it('unique 충돌(P2002)은 기존 행으로 수렴한다 — 중복 레코드를 만들지 않는다', async () => {
       const create = jest.fn().mockRejectedValue(uniqueViolation());
       const findUnique = jest.fn().mockResolvedValue(buildRow());
       const prisma = {
-        consent: { create, findUnique },
+        userPolicy: { create, findUnique },
       } as unknown as PrismaService;
-
-      const record = await new ConsentsRepository(prisma).createConsent(
+      const record = await new UserPolicyRepository(prisma).createConsent(
         syntheticUserId,
         syntheticVersion,
       );
-
       expect(record.policyVersion).toBe(syntheticVersion);
       expect(findUnique).toHaveBeenCalledWith({
         where: {
@@ -69,15 +60,13 @@ describe('consents.repository', () => {
         },
       });
     });
-
     it('P2002 외의 오류는 그대로 던진다', async () => {
       const create = jest.fn().mockRejectedValue(new Error('connection lost'));
       const prisma = {
-        consent: { create },
+        userPolicy: { create },
       } as unknown as PrismaService;
-
       await expect(
-        new ConsentsRepository(prisma).createConsent(
+        new UserPolicyRepository(prisma).createConsent(
           syntheticUserId,
           syntheticVersion,
         ),

@@ -34,9 +34,30 @@ function serviceWith(rows: readonly ActivityRow[]): RankingService {
   const prisma = {
     user: {
       findMany: jest.fn().mockResolvedValue([
-        { githubId: 1n, nickname: 'leader', profile: null },
-        { githubId: 2n, nickname: 'climber', profile: null },
-        { githubId: 3n, nickname: 'public-only', profile: null },
+        {
+          githubId: 1n,
+          nickname: 'leader',
+          name: null,
+          department: null,
+          type: 'UNSELECTED',
+          profileCreatedAt: null,
+        },
+        {
+          githubId: 2n,
+          nickname: 'climber',
+          name: null,
+          department: null,
+          type: 'UNSELECTED',
+          profileCreatedAt: null,
+        },
+        {
+          githubId: 3n,
+          nickname: 'public-only',
+          name: null,
+          department: null,
+          type: 'UNSELECTED',
+          profileCreatedAt: null,
+        },
       ]),
     },
     githubUserActivityHistory: {

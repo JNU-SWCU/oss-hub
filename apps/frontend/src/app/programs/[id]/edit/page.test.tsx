@@ -21,14 +21,14 @@ vi.mock('./program-edit-route', () => ({
 import ProgramEditPageRoute from './page';
 
 describe('ProgramEditPageRoute access contract', () => {
-  it('allows STAFF and ADMIN to edit by canonical program id', async () => {
+  it('allows approved STAFF to edit by canonical program id', async () => {
     const html = renderToStaticMarkup(
       await ProgramEditPageRoute({
         params: Promise.resolve({ id: 'program-canonical-id' }),
       }),
     );
 
-    expect(html).toContain('data-allow="staff,admin"');
+    expect(html).toContain('data-allow="staff"');
     expect(html).toContain('data-program-id="program-canonical-id"');
     expect(html).not.toContain('STUDENT');
   });

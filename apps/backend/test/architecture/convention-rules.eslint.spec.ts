@@ -1152,7 +1152,6 @@ for (const word of [
   'utils',
   'util',
   'common',
-  'policy',
   'misc',
   'shared',
 ]) {
@@ -1174,6 +1173,7 @@ for (const word of [
 }
 for (const [name, filename] of [
   ['a concept-named service', 'src/programs/program-schedule.service.ts'],
+  ['a policy domain repository', 'src/users/user-policy.repository.ts'],
   [
     'a generic word inside a longer word',
     'src/programs/program-ruleset-sharedness.service.ts',

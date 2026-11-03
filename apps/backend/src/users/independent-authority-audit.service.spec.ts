@@ -1,5 +1,6 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
-import type { AuditLogService } from '../platform/audit-log.service';
+import { MemberKind } from './user-contract.config';
+import { AccountStatus } from '@prisma/client';
+import type { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   type IndependentAuthorityRepositoryPort,
@@ -16,9 +17,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import type { AdminAccessUserRow } from './admin-access-read.repository';
-
-const actorGithubId = 9_700_600_001n;
-
+const actorGithubId = 9700600001n;
 class AuditAuthorityStore
   implements
     IndependentAuthorityRepositoryPort,
@@ -31,7 +30,6 @@ class AuditAuthorityStore
   updates: IndependentAuthorityTransition[] = [];
   updateError: Error | null = null;
   rolledBack = false;
-
   async withTransaction<T>(
     operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
   ): Promise<T> {
@@ -44,7 +42,6 @@ class AuditAuthorityStore
       throw error;
     }
   }
-
   findActorByGithubId(): Promise<AdminAccessActor> {
     this.events.push('actor');
     return Promise.resolve({
@@ -54,39 +51,45 @@ class AuditAuthorityStore
       name: null,
       role: 'STUDENT',
       hasAdminAccess: true,
-      hasStaffAccess: true,
+      memberKind: 'STAFF',
+      approvalStatus: 'APPROVED',
+      profileCreatedAt: new Date('2026-01-01'),
+      department: 'Department',
       accountStatus: AccountStatus.ACTIVE,
     });
   }
-
   lockActiveAdmins(): Promise<number> {
     this.events.push('lock');
     return Promise.resolve(this.activeAdminCount);
   }
-
   findUserForUpdate(): Promise<AdminAccessUserRow> {
     this.events.push('target');
     return Promise.resolve(this.target);
   }
-
   updateAuthority(
     _userId: string,
     transition: IndependentAuthorityTransition,
-  ): Promise<void> {
+  ): Promise<{
+    approvalStatus: AdminAccessUserRow['approvalStatus'];
+    approvalRequestId: string | null;
+  }> {
     this.events.push('update');
     if (this.updateError) {
       return Promise.reject(this.updateError);
     }
     this.updates.push(transition);
-    return Promise.resolve();
+    return Promise.resolve({
+      approvalStatus: this.target.approvalStatus,
+      approvalRequestId: this.target.approvalRequestId,
+    });
   }
-
-  insertRevokedRequest(): Promise<{ readonly id: string }> {
+  insertRevokedRequest(): Promise<{
+    readonly id: string;
+  }> {
     this.events.push('revoked-request');
     return Promise.resolve({ id: 'synthetic-revoked-request' });
   }
 }
-
 it.each([
   ['staff', STAFF_ACCESS_COMMANDS.GRANT, 'STAFF', true, false],
   ['admin', ADMIN_ACCESS_COMMANDS.GRANT, 'ADMIN', false, true],
@@ -96,26 +99,14 @@ it.each([
     const store = new AuditAuthorityStore();
     const record = jest
       .fn<
-        ReturnType<AuditLogService['record']>,
-        Parameters<AuditLogService['record']>
+        ReturnType<UserHistoryRepository['record']>,
+        Parameters<UserHistoryRepository['record']>
       >()
-      .mockImplementation((input) => {
+      .mockImplementation(() => {
         store.events.push('audit');
-        return Promise.resolve({
-          id: 'synthetic-audit',
-          actor: 'synthetic-admin',
-          actorHandle: 'synthetic-admin',
-          action: input.action,
-          targetType: input.targetType,
-          targetId: input.targetId ?? 'target',
-          target: 'synthetic-target',
-          targetHandle: 'synthetic-target',
-          occurredAt: new Date(0),
-          legacy: true,
-          metadata: null,
-        });
+        return Promise.resolve();
       });
-    const auditLog = { record } satisfies Pick<AuditLogService, 'record'>;
+    const auditLog = { record } satisfies Pick<UserHistoryRepository, 'record'>;
     const service = new IndependentAuthorityService(
       store,
       auditLog,
@@ -126,13 +117,11 @@ it.each([
       ),
       new UserProfileService(),
     );
-
     if (family === 'staff') {
       await service.patchStaffAccess(actorGithubId, 'target', { command });
     } else {
       await service.patchAdminAccess(actorGithubId, 'target', { command });
     }
-
     expect(store.updates).toHaveLength(1);
     expect(store.events).toEqual([
       'lock',
@@ -153,14 +142,14 @@ it.each([
         actor: { githubLogin: 'synthetic-admin' },
         target: { githubLogin: 'synthetic-target' },
         before: {
-          memberKind: MemberKind.STUDENT,
+          memberKind: MemberKind.STAFF,
           hasStaffAccess: false,
           hasAdminAccess: false,
-          role: 'STUDENT',
+          role: null,
           accountStatus: AccountStatus.ACTIVE,
         },
         after: {
-          memberKind: MemberKind.STUDENT,
+          memberKind: MemberKind.STAFF,
           hasStaffAccess,
           hasAdminAccess,
           role,
@@ -170,7 +159,6 @@ it.each([
     });
   },
 );
-
 it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭션에서 회수 이력을 남긴다', async () => {
   const store = new AuditAuthorityStore();
   store.target = targetUser({ hasStaffAccess: true });
@@ -188,11 +176,9 @@ it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭�
     ),
     new UserProfileService(),
   );
-
   await service.patchStaffAccess(actorGithubId, 'target', {
     command: STAFF_ACCESS_COMMANDS.REVOKE,
   });
-
   expect(store.events).toEqual([
     'lock',
     'actor',
@@ -202,7 +188,6 @@ it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭�
     'audit',
   ]);
 });
-
 it('does not write a phantom audit for a same-state command it rejects', async () => {
   const store = new AuditAuthorityStore();
   store.target = targetUser({ hasAdminAccess: true });
@@ -217,17 +202,14 @@ it('does not write a phantom audit for a same-state command it rejects', async (
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
       command: ADMIN_ACCESS_COMMANDS.GRANT,
     }),
   ).rejects.toMatchObject({ errorCode: { status: 409 } });
-
   expect(store.updates).toHaveLength(0);
   expect(record).not.toHaveBeenCalled();
 });
-
 it('propagates audit failure so the authority transaction rolls back', async () => {
   const store = new AuditAuthorityStore();
   const auditFailure = new Error('synthetic audit failure');
@@ -243,7 +225,6 @@ it('propagates audit failure so the authority transaction rolls back', async () 
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchStaffAccess(actorGithubId, 'target', {
       command: STAFF_ACCESS_COMMANDS.GRANT,
@@ -253,7 +234,6 @@ it('propagates audit failure so the authority transaction rolls back', async () 
   expect(store.events).toContain('update');
   expect(store.rolledBack).toBe(true);
 });
-
 it('does not update or audit when the final-admin guard fails', async () => {
   const store = new AuditAuthorityStore();
   store.activeAdminCount = 1;
@@ -269,7 +249,6 @@ it('does not update or audit when the final-admin guard fails', async () => {
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
       command: ADMIN_ACCESS_COMMANDS.REVOKE,
@@ -279,7 +258,6 @@ it('does not update or audit when the final-admin guard fails', async () => {
   expect(record).not.toHaveBeenCalled();
   expect(store.rolledBack).toBe(true);
 });
-
 it('does not audit when the authority update fails', async () => {
   const store = new AuditAuthorityStore();
   const updateFailure = new Error('synthetic update failure');
@@ -295,7 +273,6 @@ it('does not audit when the authority update fails', async () => {
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
       command: ADMIN_ACCESS_COMMANDS.GRANT,
@@ -304,25 +281,34 @@ it('does not audit when the authority update fails', async () => {
   expect(record).not.toHaveBeenCalled();
   expect(store.rolledBack).toBe(true);
 });
-
 function targetUser(
-  overrides: Partial<AdminAccessUserRow> = {},
+  overrides: Partial<AdminAccessUserRow> & {
+    readonly hasStaffAccess?: boolean;
+  } = {},
 ): AdminAccessUserRow {
+  const { hasStaffAccess = false, ...raw } = overrides;
+  const memberKind = raw.memberKind ?? 'STAFF';
   return {
     id: 'target',
-    githubId: 9_700_600_002n,
+    githubId: 9700600002n,
     githubLogin: 'synthetic-target',
-    name: null,
-    studentId: null,
-    department: null,
-    selectedMemberKind: MemberKind.STUDENT,
-    memberKind: MemberKind.STUDENT,
-    hasStaffAccess: false,
+    name: 'Target',
+    studentId: memberKind === 'STUDENT' ? '123456' : null,
+    department: 'Department',
+    selectedMemberKind: memberKind,
+    memberKind,
+    approvalStatus: hasStaffAccess
+      ? 'APPROVED'
+      : memberKind === 'STAFF'
+        ? 'REVOKED'
+        : 'NOT_REQUIRED',
+    approvalRequestId: null,
+    profileCreatedAt: new Date('2026-01-01'),
     hasAdminAccess: false,
     accountStatus: AccountStatus.ACTIVE,
     createdAt: new Date('2026-07-19T00:00:00.000Z'),
     pendingRequest: null,
     lastLoginAt: null,
-    ...overrides,
+    ...raw,
   };
 }

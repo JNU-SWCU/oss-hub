@@ -6,14 +6,15 @@ export const STUDENT_MENU: NavItem[] = [
   { label: '내 활동', href: '/dashboard/activity' },
 ];
 
-export const STAFF_OPERATIONS_MENU: NavItem[] = [
-  { label: '학생 활성', href: '/dashboard/insights' },
-  { label: '가입 신청', href: '/dashboard/applicants' },
-];
+const ACCESS_REQUEST_MENU: NavItem = {
+  label: '가입 신청',
+  href: '/dashboard/applicants',
+};
 
 export const STAFF_MENU: NavItem[] = [
   { label: '운영 대시보드', href: '/dashboard' },
-  ...STAFF_OPERATIONS_MENU,
+  { label: '학생 활성', href: '/dashboard/insights' },
+  ACCESS_REQUEST_MENU,
 ];
 
 export const ADMIN_SYSTEM_MENU: NavItem[] = [
@@ -22,4 +23,7 @@ export const ADMIN_SYSTEM_MENU: NavItem[] = [
   { label: '시스템 상태', href: '/dashboard/system-status' },
 ];
 
-export const ADMIN_MENU: NavItem[] = [...STAFF_MENU, ...ADMIN_SYSTEM_MENU];
+export const ADMIN_MENU: NavItem[] = [
+  ...ADMIN_SYSTEM_MENU,
+  ACCESS_REQUEST_MENU,
+];

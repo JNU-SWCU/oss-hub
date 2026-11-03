@@ -52,7 +52,7 @@ function MilestoneHeadText({
   nameId,
   viewerRole,
 }: Pick<MilestoneRowProps, 'milestone' | 'nameId' | 'viewerRole'>) {
-  const staff = viewerRole === 'STAFF' || viewerRole === 'ADMIN';
+  const staff = viewerRole === 'STAFF';
   return (
     <span className="grid min-w-0 flex-1 gap-1 text-left">
       <span
@@ -204,7 +204,7 @@ export function MilestoneRow({
               <ChevronDown aria-hidden className={DISCLOSURE_CHEVRON_CLASS} />
             </CollapsibleTrigger>
           )}
-          {viewerRole === 'STAFF' || viewerRole === 'ADMIN' ? (
+          {viewerRole === 'STAFF' ? (
             <>
               {milestone.submissionType === null ? (
                 <p className="text-small font-semibold text-muted-foreground">

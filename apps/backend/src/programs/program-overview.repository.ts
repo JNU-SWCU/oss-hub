@@ -1,8 +1,9 @@
+import type { MemberKind } from '../users/user-contract.config';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
-  MemberKind,
   MilestoneDocumentKind,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -41,6 +42,11 @@ export interface CurrentSubmissionMilestone {
 }
 
 export interface ViewerIdentity {
+  readonly accountStatus: AccountStatus;
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+  readonly profileCreatedAt: Date | null;
   userId: string;
   memberKind: MemberKind | null;
   hasStaffAccess: boolean;
@@ -158,19 +164,20 @@ export class ProgramOverviewRepository {
       where: { githubId, accountStatus: AccountStatus.ACTIVE },
       select: {
         id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        profile: { select: { memberKind: true } },
+        accountStatus: true,
+        ...USER_AUTHORITY_SELECT,
       },
     });
     if (user === null) {
       return null;
     }
     return {
+      ...user,
       userId: user.id,
-      memberKind: user.profile?.memberKind ?? null,
-      hasStaffAccess: user.hasStaffAccess,
-      hasAdminAccess: user.hasAdminAccess,
+      memberKind: user.type === 'UNSELECTED' ? null : user.type,
+      hasStaffAccess:
+        user.type === 'STAFF' && user.approvalStatus === 'APPROVED',
+      hasAdminAccess: user.admin !== null,
     };
   }
 

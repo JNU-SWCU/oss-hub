@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
 import {
@@ -172,6 +173,7 @@ export class ProgramEditorService {
     private readonly programCoverUrlService: ProgramCoverUrlService,
     private readonly programScheduleService: ProgramScheduleService,
     private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   private toEditableProgramView(row: EditableProgramRow): EditableProgramView {
@@ -640,7 +642,7 @@ export class ProgramEditorService {
     githubId: bigint,
   ): Promise<ProgramAuthority> {
     const authority = await store.findUserAuthorityByGithubId(githubId);
-    const errorCode = editorPermissionError(authority);
+    const errorCode = editorPermissionError(authority, this.userProfileService);
     if (errorCode !== null) this.fail(errorCode);
     if (authority === null) this.fail(ProgramErrorCode.FORBIDDEN);
     return authority;
@@ -803,14 +805,28 @@ function uploadTokenFieldErrors(
 
 function editorPermissionError(
   authority: ProgramAuthority | null,
+  userProfileService: UserProfileService,
 ): ProgramErrorCode | null {
   if (authority?.accountStatus !== AccountStatus.ACTIVE) {
     return ProgramErrorCode.FORBIDDEN;
   }
-  if (authority.hasStaffAccess || authority.hasAdminAccess) {
+  if (
+    userProfileService.isStaffEligible({
+      accountStatus: authority.accountStatus,
+      memberKind: authority.type === 'UNSELECTED' ? null : authority.type,
+      hasStaffAccess:
+        authority.type === 'STAFF' && authority.approvalStatus === 'APPROVED',
+      isProfileComplete:
+        authority.profileCreatedAt !== null &&
+        userProfileService.isCompleteProfileFields(
+          { ...authority, studentId: null },
+          'STAFF',
+        ),
+    })
+  ) {
     return null;
   }
-  if (authority.staffAccessRequests.length > 0) {
+  if (authority.type === 'STAFF' && authority.approvalStatus === 'PENDING') {
     return ProgramErrorCode.STAFF_APPROVAL_REQUIRED;
   }
   return ProgramErrorCode.FORBIDDEN;

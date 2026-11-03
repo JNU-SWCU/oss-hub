@@ -92,7 +92,7 @@ it('미제출 신청과 제외 사유를 식별자 없이 집계한다', async (
     optedOutCount: 1,
     noEmailCount: 0,
 
-    staffRecipientCount: 2,
+    staffRecipientCount: 1,
   });
   expect(Object.keys(preview.studentPreviews[0] ?? {}).sort()).toEqual([
     'displayName',
@@ -104,15 +104,13 @@ it('미제출 신청과 제외 사유를 식별자 없이 집계한다', async (
   expect(JSON.stringify(preview)).not.toContain(DIGEST_FIXTURE.staffOn);
 });
 
-it('교직원 요약 수신자는 수신 동의한 활성 STAFF/ADMIN만이다', async () => {
+it('교직원 요약 수신자는 수신 동의한 활성 승인 STAFF만이다', async () => {
   const staff = await harness.repository.findNotifiableStaff();
 
   expect(staff.map((recipient) => recipient.id)).toEqual([
-    DIGEST_FIXTURE.adminOn,
     DIGEST_FIXTURE.staffOn,
   ]);
   expect(staff.map((recipient) => recipient.notificationEmail)).toEqual([
-    'admin-on@example.com',
     'staff-on@example.com',
   ]);
 });

@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
@@ -7,7 +8,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MemberKind } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { updateInput } from '../../test/program-editor-service-fixtures';
 import { DomainException } from '../platform/error-code.error';
@@ -50,16 +51,22 @@ describe('ProgramEditorService integration', () => {
           id: `${TEST_PREFIX}staff`,
           githubId: STAFF_GITHUB_ID,
           nickname: 'issue101-staff',
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
           accountStatus: 'ACTIVE',
+          type: MemberKind.STAFF,
+          approvalStatus: 'APPROVED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
         },
         {
           id: `${TEST_PREFIX}applicant`,
           githubId: 9_101_000_002n,
           nickname: 'issue101-applicant',
-          selectedMemberKind: MemberKind.STUDENT,
           accountStatus: 'ACTIVE',
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
       ],
     });
@@ -99,6 +106,7 @@ describe('ProgramEditorService integration', () => {
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
       new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new UserProfileService(),
     );
     const results = await runTogether(
       () =>

@@ -51,9 +51,25 @@ function syntheticPostDetail() {
 
 function buildRepository(overrides: Partial<BoardRepository> = {}) {
   const mocks = {
-    findAccessActor: jest.fn((session: bigint) =>
-      Promise.resolve(actors.get(session) ?? null),
-    ),
+    findAccessActor: jest.fn((session: bigint) => {
+      const actor = actors.get(session);
+      return Promise.resolve(
+        actor === undefined
+          ? null
+          : {
+              id: actor.id,
+              accountStatus: actor.accountStatus,
+              type: actor.hasStaffAccess ? 'STAFF' : 'STUDENT',
+              approvalStatus: actor.hasStaffAccess
+                ? 'APPROVED'
+                : 'NOT_REQUIRED',
+              name: 'Synthetic actor',
+              department: 'Synthetic department',
+              profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+              admin: actor.hasAdminAccess ? { userId: actor.id } : null,
+            },
+      );
+    }),
     isApprovedParticipant: jest.fn().mockResolvedValue(true),
     findByProgramId: jest.fn(),
     findDetailById: jest.fn(),
@@ -71,6 +87,48 @@ function buildRepository(overrides: Partial<BoardRepository> = {}) {
 }
 
 describe('BoardService', () => {
+  it.each([false, true])(
+    'keeps historical participation read-only after switching to pending staff (write=%s)',
+    async (write) => {
+      const { repository, mocks } = buildRepository({
+        findAccessActor: jest.fn().mockResolvedValue({
+          id: syntheticAuthorId,
+          accountStatus: AccountStatus.ACTIVE,
+          type: 'STAFF',
+          approvalStatus: 'PENDING',
+          admin: null,
+          name: 'Synthetic former student',
+          department: 'Synthetic department',
+          studentId: '123456',
+          departmentType: 'DEPARTMENT',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        }),
+        findDetailById: jest.fn().mockResolvedValue(syntheticPostDetail()),
+        create: jest.fn().mockResolvedValue(syntheticPostDetail()),
+      });
+      const service = new BoardService(repository, new UserProfileService());
+      if (!write) {
+        await expect(
+          service.getPostDetail(syntheticProgramId, syntheticPostId, 1n),
+        ).resolves.toMatchObject({
+          id: syntheticPostId,
+          canEdit: false,
+          canDelete: false,
+        });
+      } else {
+        await expect(
+          service.createPost(syntheticProgramId, 1n, {
+            title: 'New question',
+            body: 'New body',
+          }),
+        ).rejects.toMatchObject({
+          errorCode: { code: BoardErrorCode.ACCESS_FORBIDDEN },
+        });
+        expect(mocks.create).not.toHaveBeenCalled();
+      }
+    },
+  );
   it.each(['missing', 'inactive', 'nonparticipant'] as const)(
     'rejects %s actors before post lookup',
     async (kind) => {
@@ -399,7 +457,7 @@ describe('BoardService', () => {
         label: '관리자',
         hasStaffAccess: false,
         hasAdminAccess: true,
-        canDelete: true,
+        canDelete: false,
       },
       {
         label: '학생',

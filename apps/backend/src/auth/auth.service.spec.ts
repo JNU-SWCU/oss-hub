@@ -1,3 +1,4 @@
+import { MemberKind } from '../users/user-contract.config';
 import { type LoginHistoryPage, type AuthUser } from './http-auth.types';
 import { LOGIN_HISTORY_EVENTS, AuthConfig } from '../platform/auth.config';
 import {
@@ -6,7 +7,7 @@ import {
   type AuthTransactionStore,
 } from './auth.repository';
 import { LoginHistoryService, AuthService } from './auth.service';
-import { AccountStatus, ActivityVisibility, MemberKind } from '@prisma/client';
+import { AccountStatus, ActivityVisibility } from '@prisma/client';
 import { decodeJwt } from 'jose';
 import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -22,9 +23,7 @@ import { PlatformModule } from '../platform/platform.module';
 import { AuthModule } from './auth.module';
 import { UserProfileService } from '../users/user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
-
 const authSessionService = new AuthSessionService();
-
 describe('login-history.service', () => {
   const emptyPage: LoginHistoryPage = {
     items: [],
@@ -32,7 +31,6 @@ describe('login-history.service', () => {
     size: 20,
     total: 0,
   };
-
   describe('LoginHistoryService', () => {
     const create = jest.fn();
     const findPage = jest.fn();
@@ -40,41 +38,33 @@ describe('login-history.service', () => {
       create,
       findPage,
     } as unknown as LoginHistoryRepository);
-
     beforeEach(() => {
       create.mockReset();
       create.mockResolvedValue(undefined);
       findPage.mockReset();
       findPage.mockResolvedValue(emptyPage);
     });
-
     it('로그인 성공을 GitHub provider의 LOGIN 이벤트로 기록한다', async () => {
       await service.recordLogin('synthetic-user-id');
-
       expect(create).toHaveBeenCalledWith(
         'synthetic-user-id',
         LOGIN_HISTORY_EVENTS.LOGIN,
       );
     });
-
     it('로그아웃을 LOGOUT 이벤트로 기록한다', async () => {
       await service.recordLogout('synthetic-user-id');
-
       expect(create).toHaveBeenCalledWith(
         'synthetic-user-id',
         LOGIN_HISTORY_EVENTS.LOGOUT,
       );
     });
-
     it('본인 이력 조회의 페이지 조건을 저장소에 전달한다', async () => {
       const result = await service.findMine('synthetic-user-id', 2, 10);
-
       expect(findPage).toHaveBeenCalledWith('synthetic-user-id', 2, 10);
       expect(result).toBe(emptyPage);
     });
   });
 });
-
 const syntheticUser: AuthUser = {
   id: 'cuid-synthetic',
   githubId: 424242n,
@@ -88,7 +78,6 @@ const syntheticUser: AuthUser = {
   hasAdminAccess: false,
   isProfileComplete: false,
 };
-
 function buildConfig(): AuthConfig {
   return new AuthConfig(
     loadRuntimeConfig({
@@ -101,7 +90,6 @@ function buildConfig(): AuthConfig {
     }),
   );
 }
-
 function jsonResponse(status: number, body: unknown): Response {
   return {
     ok: status >= 200 && status < 300,
@@ -109,7 +97,6 @@ function jsonResponse(status: number, body: unknown): Response {
     json: () => Promise.resolve(body),
   } as Response;
 }
-
 describe('AuthService', () => {
   const upsertUser = jest.fn();
   const withTransaction = jest
@@ -126,7 +113,6 @@ describe('AuthService', () => {
   let service: AuthService;
   let fetchMock: jest.SpyInstance<Promise<Response>, Parameters<typeof fetch>>;
   let activityDb: PrismaService;
-
   beforeEach(() => {
     jest.clearAllMocks();
     upsertUser.mockResolvedValue({ user: syntheticUser, isNew: true });
@@ -146,12 +132,10 @@ describe('AuthService', () => {
       ),
     );
   });
-
   afterEach(async () => {
     fetchMock.mockRestore();
     await activityDb.$disconnect();
   });
-
   it('인증 모듈이 비공개 수집 의존성을 실제로 조립한다', async () => {
     const module = await Test.createTestingModule({
       imports: [PlatformModule, AuthModule],
@@ -159,7 +143,6 @@ describe('AuthService', () => {
       .overrideProvider(AuthConfig)
       .useValue(buildConfig())
       .compile();
-
     try {
       expect(module.get(AuthService)).toBeInstanceOf(AuthService);
       expect(module.get(CollectionUserActivityService)).toBeInstanceOf(
@@ -170,7 +153,6 @@ describe('AuthService', () => {
       await module.close();
     }
   });
-
   it('authorize redirect에 PKCE·state 파라미터가 전부 들어간다', () => {
     const redirect = service.buildAuthorizeRedirect();
     const url = new URL(redirect.url);
@@ -184,12 +166,10 @@ describe('AuthService', () => {
       /^[A-Za-z0-9_-]{43}$/,
     );
     expect(url.searchParams.get('state')).toMatch(/^[A-Za-z0-9_-]{43}$/);
-
     expect(redirect.flowCookieValue.split('.')[0]).toBe(
       url.searchParams.get('state'),
     );
   });
-
   it('happy path: code 교환 → 프로필·이메일 조회 → upsert, 토큰은 반환값에 없다', async () => {
     const observePrivate = jest
       .spyOn(CollectionUserActivityService.prototype, 'observePrivate')
@@ -211,13 +191,11 @@ describe('AuthService', () => {
           },
         ]),
       );
-
     const login = await service.completeLogin({
       code: 'synthetic-code',
       state: flow.state,
       flowCookie: authSessionService.encodeFlowCookie(flow),
     });
-
     expect(login).toEqual({ user: syntheticUser, isNew: true });
     expect(upsertUser).toHaveBeenCalledWith({
       githubId: 424242n,
@@ -231,7 +209,6 @@ describe('AuthService', () => {
     const emailCall = fetchMock.mock.calls[2] as
       [string, RequestInit] | undefined;
     expect(emailCall?.[0]).toBe('https://api.github.com/user/emails');
-
     const [, exchangeInit] = fetchMock.mock.calls[0] as [string, RequestInit];
     const exchangeBody = JSON.parse(exchangeInit.body as string) as Record<
       string,
@@ -240,7 +217,6 @@ describe('AuthService', () => {
     expect(exchangeBody.code_verifier).toBe(flow.verifier);
     observePrivate.mockRestore();
   });
-
   it.each([
     ['flow 쿠키 없음', undefined, 'any-state'],
     [
@@ -262,7 +238,6 @@ describe('AuthService', () => {
       expect(upsertUser).not.toHaveBeenCalled();
     },
   );
-
   it('code 교환 응답에 access_token이 없으면 실패한다 (DB 쓰기 없음)', async () => {
     const flow = authSessionService.createFlowState();
     fetchMock.mockResolvedValueOnce(jsonResponse(200, { error: 'bad_code' }));
@@ -276,7 +251,6 @@ describe('AuthService', () => {
     expect(withTransaction).not.toHaveBeenCalled();
     expect(upsertUser).not.toHaveBeenCalled();
   });
-
   describe('로그인 후 비공개 기여', () => {
     const token = 'synthetic-private-access-token';
     const observedAt = new Date('2026-12-31T15:00:01.000Z');
@@ -284,7 +258,6 @@ describe('AuthService', () => {
     let databaseUpsert: jest.SpyInstance;
     let warn: jest.SpyInstance;
     let otherLogs: jest.SpyInstance[];
-
     const flushPromises = () =>
       new Promise<void>((resolve) => setImmediate(resolve));
     const metricsResponse = (own: boolean) =>
@@ -307,7 +280,6 @@ describe('AuthService', () => {
           },
         },
       });
-
     function prepareLogin() {
       const flow = authSessionService.createFlowState();
       fetchMock
@@ -322,7 +294,6 @@ describe('AuthService', () => {
         flowCookie: authSessionService.encodeFlowCookie(flow),
       };
     }
-
     function expectNoTokenInRepositoriesOrLogs() {
       const calls: unknown = [
         withTransaction.mock.calls,
@@ -338,7 +309,6 @@ describe('AuthService', () => {
       );
       expect(serialized).not.toContain(token);
     }
-
     beforeEach(() => {
       jest.useFakeTimers({
         now: observedAt,
@@ -371,13 +341,11 @@ describe('AuthService', () => {
           jest.spyOn(Logger.prototype, method).mockImplementation(() => {}),
       );
     });
-
     afterEach(async () => {
       await flushPromises();
       jest.useRealTimers();
       jest.restoreAllMocks();
     });
-
     it('동일한 서울 연도 구간을 조회해 필드별 차이를 PRIVATE으로 저장한다', async () => {
       const input = prepareLogin();
       fetchMock.mockImplementation((_url, init) => {
@@ -389,10 +357,8 @@ describe('AuthService', () => {
           ),
         );
       });
-
       const login = await service.completeLogin(input);
       await flushPromises();
-
       expect(login).toEqual({ user: syntheticUser, isNew: true });
       expect(privateUpsert).toHaveBeenCalledTimes(1);
       expect(privateUpsert).toHaveBeenCalledWith({
@@ -456,7 +422,6 @@ describe('AuthService', () => {
       expect(warn).not.toHaveBeenCalled();
       expectNoTokenInRepositoriesOrLogs();
     });
-
     it.each([
       ['401', 'AUTH'],
       ['network', 'UPSTREAM'],
@@ -477,10 +442,8 @@ describe('AuthService', () => {
             new Error(`network response containing ${token}`),
           );
         });
-
         const login = await service.completeLogin(input);
         await flushPromises();
-
         expect(login).toEqual({ user: syntheticUser, isNew: true });
         expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(5);
         expect(privateUpsert).not.toHaveBeenCalled();
@@ -489,22 +452,18 @@ describe('AuthService', () => {
         expectNoTokenInRepositoriesOrLogs();
       },
     );
-
     it('저장 실패도 로그인에 전파하지 않고 오류 내용을 로그에 남기지 않는다', async () => {
       const input = prepareLogin();
       fetchMock.mockResolvedValue(metricsResponse(true));
       databaseUpsert.mockRejectedValue(new Error(`database failure ${token}`));
-
       const login = await service.completeLogin(input);
       await flushPromises();
-
       expect(login.user).toEqual(syntheticUser);
       expect(databaseUpsert).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledWith({ kind: 'UNKNOWN' });
       expectNoTokenInRepositoriesOrLogs();
     });
-
     it('GitHub 기여 조회가 미완료여도 로그인 응답을 반환한다', async () => {
       const input = prepareLogin();
       let finishQuery: (response: Response) => void = () => {
@@ -514,10 +473,8 @@ describe('AuthService', () => {
         finishQuery = resolve;
       });
       fetchMock.mockReturnValue(pendingQuery);
-
       const login = await service.completeLogin(input);
       await flushPromises();
-
       expect(login.user).toEqual(syntheticUser);
       expect(fetchMock).toHaveBeenCalledTimes(5);
       expect(privateUpsert).not.toHaveBeenCalled();
@@ -527,32 +484,34 @@ describe('AuthService', () => {
       expectNoTokenInRepositoriesOrLogs();
     });
   });
-
   it('getMe는 DB의 현재 active 계정·권한을 principal로 반환한다', async () => {
     const staffUser: AuthUser = {
       ...syntheticUser,
       memberKind: 'STAFF',
       hasStaffAccess: true,
+      name: 'Staff',
+      isProfileComplete: true,
     };
-    findByGithubId.mockResolvedValueOnce(staffUser);
-
+    findByGithubId.mockResolvedValueOnce({
+      ...staffUser,
+      selectedMemberKind: 'STAFF',
+      approvalStatus: 'APPROVED',
+      profileCreatedAt: new Date('2026-01-01'),
+      studentId: null,
+      department: 'Department',
+    });
     const principal = await service.getMe(staffUser.githubId);
-
     expect(principal).toEqual(staffUser);
     expect(principal.accountStatus).toBe(AccountStatus.ACTIVE);
   });
-
   it('새 세션은 persisted sessionVersion을 JWT에 싣는다', async () => {
     const token = await service.issueSession(syntheticUser);
-
     expect(decodeJwt(token).sessionVersion).toBe(syntheticUser.sessionVersion);
   });
-
   it('getMe: 사용자 없으면 AUT_003', async () => {
     findByGithubId.mockResolvedValueOnce(null);
     await expect(service.getMe(1n)).rejects.toBeInstanceOf(DomainException);
   });
-
   it('비활성 계정은 기존 세션 조회와 새 세션 발급을 모두 AUT_003으로 거부한다', async () => {
     const deactivatedUser: AuthUser = {
       ...syntheticUser,
@@ -561,7 +520,6 @@ describe('AuthService', () => {
       accountStatus: AccountStatus.DEACTIVATED,
     };
     findByGithubId.mockResolvedValueOnce(deactivatedUser);
-
     await expect(service.getMe(deactivatedUser.githubId)).rejects.toMatchObject(
       { errorCode: { code: AuthErrorCode.UNAUTHENTICATED } },
     );

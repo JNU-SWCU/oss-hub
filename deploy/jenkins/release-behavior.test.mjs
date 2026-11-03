@@ -10,12 +10,14 @@ import {
   realpathSync,
   symlinkSync,
   statSync,
+  chmodSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import test from 'node:test';
 import { createServer } from 'node:http';
+import { createHash } from 'node:crypto';
 
 const helpers = dirname(fileURLToPath(import.meta.url));
 const oldId = `sha256:${'1'.repeat(64)}`;
@@ -43,18 +45,24 @@ else if (a[0] === 'inspect') {
     output(format.includes('.Id') ? image.Id : image.Config.Labels[format.includes('version') ? 'org.opencontainers.image.version' : 'org.opencontainers.image.revision']);
   } else output([image]);
 } else if (a[0] === 'compose') {
-  if (a[1] !== '-p' || a[2] !== 'oss-hub' || a[3] !== '-f' || a[5] !== '--env-file') process.exit(43);
-  const compose = a[4], op = a[7], tag = process.env.IMAGE_TAG, candidate = tag === 'v1.1.0';
+  if (a[1] !== '-p' || a[2] !== 'oss-hub' || a[3] !== '-f') process.exit(43);
+  const files = [a[4]];
+  let index = 5;
+  if (a[index] === '-f') { files.push(a[index+1]); index += 2; }
+  if (a[index] !== '--env-file') process.exit(43);
+  const compose = files[0], op = a[index+2], tag = process.env.IMAGE_TAG, candidate = tag === 'v1.1.0';
   if (op === 'up') {
     if (!a.includes('--force-recreate') || !a.includes('--no-deps')) process.exit(44);
     if (!candidate && state.failure === 'recovery') process.exit(45);
     if (!candidate && state.failure === 'recovery-key-drift') fs.writeFileSync(path.join(root,'secrets/old/collection.pem'), 'synthetic changed during recovery');
-    const image = state.images['oss-hub-backend:'+tag];
+    const reference = files.length === 2 ? JSON.parse(fs.readFileSync(files[1])).services.backend.image : 'oss-hub-backend:'+tag;
+    const image = state.images[reference] ?? Object.values(state.images).find(image => image.Id === reference);
+    if (!image) process.exit(42);
     const be = state.containers.backend, ng = state.containers.nginx;
-    be.Image = image.Id; be.Config.Image = 'oss-hub-backend:'+tag;
+    be.Image = image.Id; be.Config.Image = reference;
     Object.assign(be.Config.Labels, image.Config.Labels);
     for (const c of (candidate && state.failure === 'partial-up' ? [be] : [be,ng])) {
-      c.Config.Labels['com.docker.compose.project.config_files'] = compose;
+      c.Config.Labels['com.docker.compose.project.config_files'] = files.join(',');
       c.Config.Labels['com.docker.compose.project.working_dir'] = path.dirname(compose);
     }
     for (const role of ['collection','operations']) {
@@ -67,6 +75,7 @@ else if (a[0] === 'inspect') {
     if (!(candidate && state.failure === 'partial-up')) ng.Mounts[0].Source = path.join(path.dirname(compose),'deploy/nginx');
     state.active = candidate ? 'candidate' : 'previous';
     save();
+    if (candidate && state.failure === 'recovery-overlay-drift') { fs.appendFileSync(state.previousOverlay, '\n'); process.exit(46); }
     if (candidate && state.failure === 'recovery-image-drift') { state.images['oss-hub-backend:v1.0.0'].Id = image.Id; save(); process.exit(46); }
     if (candidate && state.failure === 'old-key-drift') { fs.writeFileSync(path.join(root,'secrets/old/collection.pem'), 'synthetic replaced old key'); process.exit(46); }
     if (candidate && state.failure === 'diagnostic-hang') { console.error('CANDIDATE_UP_FAILED'); process.exit(46); }
@@ -364,6 +373,309 @@ function fixture(t) {
     activate: () => invoke('bash', [join(helpers, 'activate-release.sh')]),
   };
 }
+
+function pinPrevious(f, target = 'candidate') {
+  const directory = join(f.root, 'run.unique', target);
+  cpSync(f.previous, directory, { recursive: true });
+  const compose = join(directory, 'compose.yml');
+  const overlay = join(dirname(directory), `${target}-image.json`);
+  writeFileSync(
+    overlay,
+    JSON.stringify({ services: { backend: { image: oldId } } }, null, 2),
+    { mode: 0o600 },
+  );
+  f.change((s) => {
+    s.containers.backend.Config.Image = oldId;
+    for (const service of ['backend', 'nginx']) {
+      const labels = s.containers[service].Config.Labels;
+      labels['com.docker.compose.project.config_files'] =
+        `${compose},${overlay}`;
+      labels['com.docker.compose.project.working_dir'] = directory;
+    }
+    s.containers.nginx.Mounts[0].Source = join(directory, 'deploy/nginx');
+    s.previousOverlay = overlay;
+  });
+  return { directory, compose, overlay };
+}
+
+test('pinned image returns noop after exact-image migration', (t) => {
+  const f = fixture(t);
+  pinPrevious(f);
+  const r = f.probe('v1.0.0', f.previousSha);
+  assert.equal(r.status, 0, r.stderr);
+  assert.equal(JSON.parse(r.stdout).decision, 'noop');
+  assert.equal(JSON.parse(r.stdout).imageId, oldId);
+});
+
+for (const target of ['candidate', 'previous'])
+  test(`pinned ${target} configuration captures and verifies both compose files`, (t) => {
+    const f = fixture(t);
+    const pinned = pinPrevious(f, target);
+    f.capture();
+    const captured = JSON.parse(readFileSync(f.env.PREVIOUS_STATE, 'utf8'));
+    assert.equal(captured.compose, pinned.compose);
+    assert.deepEqual(captured.imageOverlay, {
+      path: pinned.overlay,
+      hash: createHash('sha256')
+        .update(readFileSync(pinned.overlay))
+        .digest('hex'),
+    });
+    const r = f.probe(
+      'v1.0.0',
+      f.previousSha,
+      '--verify',
+      f.env.PREVIOUS_STATE,
+      f.secrets,
+    );
+    assert.equal(r.status, 0, r.stderr);
+  });
+
+const invalidPinnedConfigurations = {
+  'different container reference': (f) =>
+    f.change((s) => {
+      s.containers.backend.Config.Image = newId;
+    }),
+  'moved tag': (f) =>
+    f.change((s) => {
+      s.images['oss-hub-backend:v1.0.0'].Id = newId;
+    }),
+  'changed tag labels': (f) =>
+    f.change((s) => {
+      s.images['oss-hub-backend:v1.0.0'].Config.Labels[
+        'org.opencontainers.image.revision'
+      ] = f.candidateSha;
+    }),
+  'different overlay image': (f, p) =>
+    writeFileSync(
+      p.overlay,
+      JSON.stringify({
+        services: { backend: { image: newId } },
+      }),
+    ),
+  'tag instead of pinned image': (f, p) =>
+    writeFileSync(
+      p.overlay,
+      JSON.stringify({
+        services: { backend: { image: 'oss-hub-backend:v1.0.0' } },
+      }),
+    ),
+  'environment override': (f, p) =>
+    writeFileSync(
+      p.overlay,
+      JSON.stringify({
+        services: {
+          backend: { image: oldId, environment: { NODE_OPTIONS: '--inspect' } },
+        },
+      }),
+    ),
+  'service override': (f, p) =>
+    writeFileSync(
+      p.overlay,
+      JSON.stringify({
+        services: { backend: { image: oldId }, nginx: { image: 'unapproved' } },
+      }),
+    ),
+  'extra compose options': (f, p) =>
+    writeFileSync(
+      p.overlay,
+      JSON.stringify({
+        services: { backend: { image: oldId } },
+        include: ['unapproved.yml'],
+      }),
+    ),
+  'mismatched service files': (f, p) =>
+    f.change((s) => {
+      s.containers.nginx.Config.Labels[
+        'com.docker.compose.project.config_files'
+      ] = p.compose;
+    }),
+  'reordered service files': (f, p) =>
+    f.change((s) => {
+      s.containers.nginx.Config.Labels[
+        'com.docker.compose.project.config_files'
+      ] = `${p.overlay},${p.compose}`;
+    }),
+  'extra overlay': (f, p) =>
+    f.change((s) => {
+      for (const service of ['backend', 'nginx'])
+        s.containers[service].Config.Labels[
+          'com.docker.compose.project.config_files'
+        ] += `,${p.overlay}`;
+    }),
+  'noncanonical overlay path': (f, p) =>
+    f.change((s) => {
+      for (const service of ['backend', 'nginx'])
+        s.containers[service].Config.Labels[
+          'com.docker.compose.project.config_files'
+        ] = `${p.compose},${dirname(p.overlay)}/./candidate-image.json`;
+    }),
+  'arbitrary overlay path': (f, p) => {
+    const other = join(f.root, 'arbitrary.json');
+    cpSync(p.overlay, other);
+    f.change((s) => {
+      for (const service of ['backend', 'nginx'])
+        s.containers[service].Config.Labels[
+          'com.docker.compose.project.config_files'
+        ] = `${p.compose},${other}`;
+    });
+  },
+  'symlink overlay': (f, p) => {
+    const other = join(f.root, 'other.json');
+    cpSync(p.overlay, other);
+    rmSync(p.overlay);
+    symlinkSync(other, p.overlay);
+  },
+  'changed base compose': (f, p) =>
+    writeFileSync(p.compose, 'services: changed\n'),
+  'changed nginx config': (f, p) =>
+    writeFileSync(
+      join(p.directory, 'deploy/nginx/default.conf'),
+      'unapproved\n',
+    ),
+};
+for (const [name, mutate] of Object.entries({
+  'group-writable': (path) => chmodSync(path, 0o620),
+  'world-writable': (path) => chmodSync(path, 0o602),
+  directory: (path) => {
+    rmSync(path);
+    mkdirSync(path);
+  },
+}))
+  test(`pinned capture rejects untrusted ${name} overlay`, (t) => {
+    const f = fixture(t);
+    const pinned = pinPrevious(f);
+    mutate(pinned.overlay);
+    const r = f.probe(
+      'v1.1.0',
+      f.candidateSha,
+      '--capture',
+      f.source,
+      f.secrets,
+    );
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /untrusted image overlay/);
+    assert.equal(r.stdout, '');
+  });
+
+test('pinned capture rejects untrusted foreign-owned overlay', (t) => {
+  const f = fixture(t);
+  const pinned = pinPrevious(f);
+  // An unprivileged fixture cannot chown to another uid. Override only the
+  // overlay's lstat uid; use real metadata and filesystem operations otherwise.
+  const preload = join(f.root, 'foreign-owner.cjs');
+  writeFileSync(
+    preload,
+    `const fs = require('node:fs');
+const lstat = fs.lstatSync;
+fs.lstatSync = (...args) => {
+  const metadata = lstat(...args);
+  if (args[0] === ${JSON.stringify(pinned.overlay)}) metadata.uid += 1;
+  return metadata;
+};
+require('node:module').syncBuiltinESMExports();
+`,
+  );
+  const r = f.invoke(process.execPath, [
+    '--require',
+    preload,
+    join(helpers, 'probe-release-state.mjs'),
+    'v1.1.0',
+    f.candidateSha,
+    '--capture',
+    f.source,
+    f.secrets,
+  ]);
+  assert.equal(r.status, 1);
+  assert.match(r.stderr, /untrusted image overlay/);
+  assert.equal(r.stdout, '');
+});
+
+for (const [name, mutate] of Object.entries(invalidPinnedConfigurations))
+  test(`pinned capture rejects ${name}`, (t) => {
+    const f = fixture(t);
+    const pinned = pinPrevious(f);
+    mutate(f, pinned);
+    const r = f.probe(
+      'v1.1.0',
+      f.candidateSha,
+      '--capture',
+      f.source,
+      f.secrets,
+    );
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /FAIL_CLOSED/);
+    assert.equal(r.stdout, '');
+  });
+
+for (const drift of ['hash', 'path'])
+  test(`pinned verify rejects changed overlay ${drift}`, (t) => {
+    const f = fixture(t);
+    const pinned = pinPrevious(f);
+    f.capture();
+    if (drift === 'hash') {
+      writeFileSync(
+        pinned.overlay,
+        JSON.stringify({ services: { backend: { image: oldId } } }),
+      );
+    } else {
+      pinPrevious(f, 'previous');
+    }
+    const r = f.probe(
+      'v1.0.0',
+      f.previousSha,
+      '--verify',
+      f.env.PREVIOUS_STATE,
+      f.secrets,
+    );
+    assert.equal(r.status, 1);
+    assert.match(r.stderr, /recovery .* mismatch/);
+  });
+
+test('pinned previous configuration survives generic failed activation recovery', (t) => {
+  const f = fixture(t);
+  const pinned = pinPrevious(f);
+  f.capture();
+  f.change((s) => {
+    s.failure = 'partial-up';
+  });
+  const r = f.activate();
+  assert.equal(r.status, 46, r.stderr);
+  assert.match(r.stderr, /RECOVERY=ok/);
+  const s = f.state();
+  assert.equal(s.containers.backend.Config.Image, oldId);
+  assert.equal(s.containers.backend.Image, oldId);
+  for (const service of ['backend', 'nginx'])
+    assert.equal(
+      s.containers[service].Config.Labels[
+        'com.docker.compose.project.config_files'
+      ],
+      `${pinned.compose},${pinned.overlay}`,
+    );
+  assert.equal(
+    realpathSync(join(f.secrets, 'current')),
+    join(f.secrets, 'old'),
+  );
+  assert.equal(s.mountedKeys.collection, 'synthetic old collection');
+  assert.equal(s.mountedKeys.operations, 'synthetic old operations');
+  assert.equal(
+    s.containers.nginx.Mounts[0].Source,
+    join(pinned.directory, 'deploy/nginx'),
+  );
+});
+
+test('pinned recovery rejects overlay byte drift before previous compose up', (t) => {
+  const f = fixture(t);
+  pinPrevious(f);
+  f.capture();
+  f.change((s) => {
+    s.failure = 'recovery-overlay-drift';
+  });
+  const r = f.activate();
+  assert.equal(r.status, 46, r.stderr);
+  assert.match(r.stderr, /RECOVERY_FAILED/);
+  assert.doesNotMatch(r.stderr, /RECOVERY=ok/);
+  assert.equal(f.ledger().filter((c) => c.args?.includes('up')).length, 1);
+});
 
 for (const degraded of [false, true])
   test(`image-only preflight ignores ${degraded ? 'unhealthy and missing' : 'healthy'} containers`, (t) => {

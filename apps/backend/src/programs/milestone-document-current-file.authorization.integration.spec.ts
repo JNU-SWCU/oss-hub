@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
@@ -16,13 +17,12 @@ import { buffer } from 'node:stream/consumers';
 import { Test } from '@nestjs/testing';
 import {
   AccountStatus,
-  AffiliationKind,
   ApplicationStatus,
-  MemberKind,
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionFileLifecycle,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -145,6 +145,7 @@ const documentsService = new MilestoneDocumentsService(
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
   new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new UserProfileService(),
 );
 
 const storage: ObjectStoragePort = {
@@ -208,6 +209,9 @@ async function cleanup(): Promise<void> {
   });
   await prisma.program.deleteMany({
     where: { id: { in: [programId, outsideProgramId] } },
+  });
+  await prisma.admin.deleteMany({
+    where: { user: { id: { startsWith: prefix } } },
   });
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
 }
@@ -407,6 +411,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await cleanup();
@@ -416,24 +421,36 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         id: user.id,
         githubId: user.githubId,
         nickname: `${prefix}-${key}`,
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus:
           'accountStatus' in user ? user.accountStatus : AccountStatus.ACTIVE,
-        hasStaffAccess: 'hasStaffAccess' in user ? user.hasStaffAccess : false,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       })),
     });
 
-    await prisma.userProfile.createMany({
-      data: Object.entries(users).map(([key, user], index) => ({
-        userId: user.id,
-        name: `합성 ${key}`,
-        studentId: key === 'staff' ? null : String(997000 + index),
-        department: '합성학과',
-        memberKind: key === 'staff' ? MemberKind.STAFF : MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '합성학과',
-      })),
-    });
+    await Promise.all(
+      Object.entries(users)
+        .map(([key, user], index) => ({
+          userId: user.id,
+          name: `합성 ${key}`,
+          studentId: key === 'staff' ? null : String(997000 + index),
+          department: '합성학과',
+          type: key === 'staff' ? MemberKind.STAFF : MemberKind.STUDENT,
+          approvalStatus:
+            key === 'staff' ? ('APPROVED' as const) : ('NOT_REQUIRED' as const),
+          departmentType: AffiliationKind.DEPARTMENT,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        }))
+        .map(({ userId, ...profile }) =>
+          prisma.user.update({ where: { id: userId }, data: profile }),
+        ),
+    );
 
     await createProgram(programId, [milestoneId, otherMilestoneId]);
     await createProgram(outsideProgramId, [outsideMilestoneId]);
@@ -954,7 +971,15 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     async (access) => {
       await prisma.user.update({
         where: { id: users.staffTeammate.id },
-        data: access,
+        data: {
+          ...(access.hasAdminAccess
+            ? {
+                admin: {
+                  upsert: { create: { origin: 'MIGRATION' }, update: {} },
+                },
+              }
+            : {}),
+        },
       });
       const documents = await documentsService.listForViewer(
         users.staffTeammate.githubId,

@@ -1,9 +1,8 @@
-import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
-import {
-  AccountStatus,
-  Prisma,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import { randomUUID } from 'node:crypto';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import { Prisma } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -28,11 +27,9 @@ const ADMIN_ACTOR_SELECT = {
   id: true,
   githubId: true,
   nickname: true,
-  selectedMemberKind: true,
-  hasStaffAccess: true,
-  hasAdminAccess: true,
   accountStatus: true,
-  ...USER_PROFILE_NAME_SELECT,
+  approvalRequestId: true,
+  ...USER_AUTHORITY_SELECT,
 } as const satisfies Prisma.UserSelect;
 
 type PrismaAdminActor = Prisma.UserGetPayload<{
@@ -47,6 +44,8 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly adminAccessHistoryRepository: AdminAccessHistoryRepository,
     private readonly adminAccessReadRepository: AdminAccessReadRepository,
+    private readonly admins: AdminRepository,
+    private readonly transitions: UserTransitionRepository,
   ) {}
 
   withTransaction<T>(
@@ -111,17 +110,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
   async lockActiveAdminRows(
     transaction: Prisma.TransactionClient,
   ): Promise<number> {
-    const rows = await transaction.$queryRaw<readonly LockedUserRow[]>(
-      Prisma.sql`
-        SELECT id
-        FROM "User"
-        WHERE "hasAdminAccess" = TRUE
-          AND "accountStatus" = ${AccountStatus.ACTIVE}::"AccountStatus"
-        ORDER BY id
-        FOR UPDATE
-      `,
-    );
-    return rows.length;
+    return this.admins.lockActiveRows(transaction);
   }
 
   async findAdminActorByGithubId(
@@ -140,9 +129,12 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
       id: user.id,
       githubId: user.githubId,
       githubLogin: user.nickname,
-      name: user.profile?.name ?? null,
-      hasStaffAccess: user.hasStaffAccess,
-      hasAdminAccess: user.hasAdminAccess,
+      name: user.name,
+      memberKind: user.type === 'UNSELECTED' ? null : user.type,
+      approvalStatus: user.approvalStatus,
+      profileCreatedAt: user.profileCreatedAt,
+      department: user.department,
+      hasAdminAccess: user.admin !== null,
       accountStatus: user.accountStatus,
     };
   }
@@ -151,16 +143,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     transaction: Prisma.TransactionClient,
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
-    const created = await transaction.staffAccessRequest.create({
-      data: {
-        userId: input.userId,
-        status: StaffAccessRequestStatus.REVOKED,
-        decidedById: input.actorId,
-        decidedAt: input.decidedAt,
-      },
-      select: { id: true },
-    });
-    return { id: created.id };
+    return this.transitions.revoke(transaction, input);
   }
 
   private adminAccessTransactionStore(
@@ -177,10 +160,15 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     };
   }
 
-  private findActorByGithubIdIn(
+  private async findActorByGithubIdIn(
     transaction: Prisma.TransactionClient,
     githubId: bigint,
+    forUpdate = false,
   ): Promise<AdminAccessActor | null> {
+    if (forUpdate)
+      await transaction.$queryRaw(
+        Prisma.sql`SELECT "id" FROM "User" WHERE "githubId" = ${githubId} FOR UPDATE`,
+      );
     return this.findAdminActorByGithubId(transaction, githubId);
   }
 
@@ -213,33 +201,80 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     transaction: Prisma.TransactionClient,
     input: AdminAccessUserUpdate,
   ): Promise<boolean> {
-    const result = await transaction.user.updateMany({
-      where: {
-        id: input.userId,
-        hasStaffAccess: input.expectedHasStaffAccess,
-        hasAdminAccess: input.expectedHasAdminAccess,
-        accountStatus: input.expectedAccountStatus,
-      },
+    const before = await transaction.user.findUniqueOrThrow({
+      where: { id: input.userId },
+      select: ADMIN_ACTOR_SELECT,
+    });
+    if (
+      before.type !== input.expectedType ||
+      before.approvalStatus !== input.expectedApprovalStatus ||
+      before.approvalRequestId !== input.expectedApprovalRequestId ||
+      (before.admin !== null) !== input.expectedHasAdminAccess ||
+      before.accountStatus !== input.expectedAccountStatus
+    )
+      return false;
+    if (
+      input.desiredHasStaffAccess &&
+      !input.expectedHasStaffAccess &&
+      !input.decidesPendingRequest &&
+      before.type !== 'STAFF'
+    ) {
+      const changed = await this.transitions.changeType(transaction, {
+        userId: input.userId,
+        actorId: input.actorId,
+        expected: {
+          type: input.expectedType,
+          approvalStatus: input.expectedApprovalStatus,
+          approvalRequestId: input.expectedApprovalRequestId,
+        },
+        profile: { memberKind: 'STAFF' },
+      });
+      if (changed === null) return false;
+    }
+    if (input.desiredHasAdminAccess !== input.expectedHasAdminAccess) {
+      await this.admins.setAuthority(transaction, {
+        userId: input.userId,
+        actorId: input.actorId,
+        enabled: input.desiredHasAdminAccess,
+      });
+    }
+    await transaction.user.update({
+      where: { id: input.userId },
       data: {
         accountStatus: input.desiredAccountStatus,
-        hasStaffAccess: input.desiredHasStaffAccess,
-        hasAdminAccess: input.desiredHasAdminAccess,
+        ...(before.type === 'STAFF' &&
+        input.desiredHasStaffAccess &&
+        !input.expectedHasStaffAccess &&
+        !input.decidesPendingRequest
+          ? {
+              approvalStatus: 'APPROVED',
+              approvalRequestId: randomUUID(),
+              approvalRequestedAt: new Date(),
+              approvalDecidedAt: new Date(),
+              approvalDecidedById: input.actorId,
+              approvalReason: null,
+            }
+          : {}),
       },
     });
-    return result.count === 1;
+    return true;
   }
 
   private async decidePendingRequestIn(
     transaction: Prisma.TransactionClient,
     input: AdminAccessPendingDecisionUpdate,
   ): Promise<boolean> {
-    const result = await transaction.staffAccessRequest.updateMany({
-      where: { id: input.requestId, status: StaffAccessRequestStatus.PENDING },
+    const result = await transaction.user.updateMany({
+      where: {
+        type: 'STAFF',
+        approvalRequestId: input.requestId,
+        approvalStatus: 'PENDING',
+      },
       data: {
-        status: input.nextStatus,
-        rejectionReason: input.rejectionReason,
-        decidedById: input.actorId,
-        decidedAt: input.decidedAt,
+        approvalStatus: input.nextStatus,
+        approvalReason: input.rejectionReason,
+        approvalDecidedById: input.actorId,
+        approvalDecidedAt: input.decidedAt,
       },
     });
     return result.count === 1;

@@ -1,12 +1,14 @@
 import {
   RepositoryConnectionMode,
   AccountStatus,
-  StaffAccessRequestStatus,
   ApplicationStatus,
-  MemberKind,
   RepositoryVisibility,
   ProgramLifecycle,
 } from '@prisma/client';
+import {
+  StaffAccessRequestStatus,
+  MemberKind,
+} from '../users/user-contract.config';
 import {
   ApplicationRepositoryUrlAuditMetadataView,
   RepositoryConnectionAuditMetadata,

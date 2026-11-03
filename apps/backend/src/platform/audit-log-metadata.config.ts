@@ -1,12 +1,15 @@
 import type { AuthorityLabel } from '../users/authority-label.types';
 import {
   AccountStatus,
-  StaffAccessRequestStatus,
   ApplicationStatus,
-  MemberKind,
   RepositoryVisibility,
   ProgramLifecycle,
 } from '@prisma/client';
+import type {
+  StaffAccessRequestStatus,
+  MemberKind,
+} from '../users/user-contract.config';
+import type { HistoryAuditMetadataView } from './audit-log-history-metadata.config';
 import {
   type ApplicationRepositoryUrlAuditMetadataView,
   type RepositoryConnectionAuditMetadataView,
@@ -398,6 +401,7 @@ export type TeamDeletedAuditMetadata = {
 export type TeamDeletedAuditMetadataView = TeamDeletedAuditMetadata;
 
 export type AuditLogMetadataView =
+  | HistoryAuditMetadataView
   | ApplicationRepositoryUrlAuditMetadataView
   | AccessAuditMetadataView
   | IndependentAuthorityAuditMetadataView
@@ -437,11 +441,6 @@ export const APPLICATION_DECISION_AUDIT_ACTIONS = {
 
 export const REPOSITORY_PUBLISH_AUDIT_ACTIONS = {
   REPOSITORY_PUBLISHED: 'REPOSITORY_PUBLISHED',
-} as const;
-
-export const PROGRAM_LIFECYCLE_AUDIT_ACTIONS = {
-  PROGRAM_ARCHIVED: 'PROGRAM_ARCHIVED',
-  PROGRAM_RESTORED: 'PROGRAM_RESTORED',
 } as const;
 
 export const PROGRAM_DELETION_AUDIT_ACTIONS = {

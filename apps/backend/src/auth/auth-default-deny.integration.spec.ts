@@ -1,3 +1,4 @@
+import { MemberKind } from '../users/user-contract.config';
 import { randomBytes } from 'node:crypto';
 import { PlatformModule } from '../platform/platform.module';
 import {
@@ -12,7 +13,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import type { Request } from 'express';
 import { AuthModule } from './auth.module';
 import { AuthConfig } from '../platform/auth.config';
@@ -21,9 +22,7 @@ import type { AuthUser } from './http-auth.types';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { OptionalSession, Public } from './auth-route.decorator';
 import { AuthSessionService } from '../platform/auth-session.service';
-
 const authSessionService = new AuthSessionService();
-
 const sessionSecret = new Uint8Array(randomBytes(32));
 const githubId = 424242n;
 const activeUser: AuthUser = {
@@ -39,9 +38,10 @@ const activeUser: AuthUser = {
   hasAdminAccess: false,
   isProfileComplete: true,
 };
-
-type PrincipalRequest = Request & Readonly<{ principal: AuthUser }>;
-
+type PrincipalRequest = Request &
+  Readonly<{
+    principal: AuthUser;
+  }>;
 @Injectable()
 class PrincipalProbeService {
   read(principal: AuthUser): Readonly<{
@@ -60,7 +60,6 @@ class PrincipalProbeService {
     };
   }
 }
-
 @Injectable()
 class StaffFixtureGuard implements CanActivate {
   canActivate(context: ExecutionContext): boolean {
@@ -71,43 +70,43 @@ class StaffFixtureGuard implements CanActivate {
     return true;
   }
 }
-
 @Controller('auth-boundary-fixture')
 class AuthBoundaryFixtureController {
   constructor(private readonly probe: PrincipalProbeService) {}
-
   @Get('public')
   @Public()
-  publicRoute(): Readonly<{ access: 'public' }> {
+  publicRoute(): Readonly<{
+    access: 'public';
+  }> {
     return { access: 'public' };
   }
-
   @Get('optional')
   @OptionalSession()
-  optionalRoute(): Readonly<{ access: 'optional' }> {
+  optionalRoute(): Readonly<{
+    access: 'optional';
+  }> {
     return { access: 'optional' };
   }
-
   @Get('unannotated')
   unannotated(
-    @Req() request: PrincipalRequest,
+    @Req()
+    request: PrincipalRequest,
   ): ReturnType<PrincipalProbeService['read']> {
     return this.probe.read(request.principal);
   }
-
   @Get('staff')
   @UseGuards(StaffFixtureGuard)
-  staffRoute(): Readonly<{ access: 'staff' }> {
+  staffRoute(): Readonly<{
+    access: 'staff';
+  }> {
     return { access: 'staff' };
   }
 }
-
 describe('global default-deny authentication boundary', () => {
   let application: INestApplication;
   let baseUrl: string;
   let sessionCookie: string;
   let currentUser: AuthUser = activeUser;
-
   beforeAll(async () => {
     const authService = {
       findActivePrincipal: jest
@@ -131,64 +130,48 @@ describe('global default-deny authentication boundary', () => {
       .overrideProvider(AuthService)
       .useValue(authService)
       .compile();
-
     application = moduleRef.createNestApplication();
     application.setGlobalPrefix('api/v1');
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
-      sessionSecret,
-      githubId,
-      0,
-    )}`;
+    sessionCookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, githubId, 0)}`;
   });
-
   afterAll(async () => {
     await application.close();
   });
-
   beforeEach(() => {
     currentUser = activeUser;
   });
-
   it('returns 401 when an unannotated route is anonymous', async () => {
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/unannotated`,
     );
-
     expect(response.status).toBe(401);
   });
-
   it('honors public metadata for an anonymous request', async () => {
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/public`,
     );
-
     expect(response.status).toBe(200);
   });
-
   it('honors optional-session metadata for an anonymous request', async () => {
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/optional`,
     );
-
     expect(response.status).toBe(200);
     expect(response.headers.get('cache-control')).toBe('private, no-store');
   });
-
   it('passes a database-backed active principal to a representative service', async () => {
     currentUser = {
       ...activeUser,
       memberKind: MemberKind.STAFF,
       hasStaffAccess: true,
     };
-
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/unannotated`,
       { headers: { cookie: sessionCookie } },
     );
-
     expect(response.status).toBe(200);
     await expect(response.json()).resolves.toEqual({
       userId: activeUser.id,
@@ -198,13 +181,11 @@ describe('global default-deny authentication boundary', () => {
       hasAdminAccess: false,
     });
   });
-
   it('returns 403 when an authenticated principal lacks route authority', async () => {
     const response = await fetch(
       `${baseUrl}/api/v1/auth-boundary-fixture/staff`,
       { headers: { cookie: sessionCookie } },
     );
-
     expect(response.status).toBe(403);
   });
 });

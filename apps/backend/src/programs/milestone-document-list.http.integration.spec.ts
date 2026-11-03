@@ -1,6 +1,7 @@
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
-import { AccountStatus, MemberKind, ProgramCategory } from '@prisma/client';
+import { AccountStatus, ProgramCategory } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -139,7 +140,8 @@ describe('authenticated milestone document list filename contract', () => {
         id: userId,
         githubId,
         nickname: 'synthetic-list-user',
-        selectedMemberKind: MemberKind.STUDENT,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
     await prisma.program.create({

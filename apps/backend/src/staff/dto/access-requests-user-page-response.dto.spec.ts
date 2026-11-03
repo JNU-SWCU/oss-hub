@@ -1,8 +1,5 @@
-import {
-  AccountStatus,
-  LoginHistoryEvent,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import { AccountStatus, LoginHistoryEvent } from '@prisma/client';
+import { StaffAccessRequestStatus } from '../../users/user-contract.config';
 import {
   AccessRequestsFacetsResponseDto,
   AccessRequestsUserDetailResponseDto,
@@ -23,10 +20,12 @@ describe('access request response DTO allowlists', () => {
           phone: 'redacted-synthetic-phone',
           githubLogin: 'synthetic-target',
           name: '합성 사용자',
-          role: 'STUDENT' as const,
-          memberKind: 'STUDENT' as const,
+          role: null,
+          memberKind: 'STAFF' as const,
           hasStaffAccess: false,
           hasAdminAccess: false,
+          approvalStatus: 'PENDING' as const,
+          approvalRequestId: 'request-pending',
           accountStatus: AccountStatus.ACTIVE,
           isSelf: false,
           isProfileComplete: true,
@@ -50,7 +49,9 @@ describe('access request response DTO allowlists', () => {
       id: 'target',
       githubLogin: 'synthetic-target',
       name: '합성 사용자',
-      role: 'STUDENT',
+      role: null,
+      approvalStatus: 'PENDING' as const,
+      approvalRequestId: 'request-pending',
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,
@@ -68,6 +69,10 @@ describe('access request response DTO allowlists', () => {
 
   it('maps detail, separate histories, and facets through explicit DTOs', () => {
     const detail = AccessRequestsUserDetailResponseDto.from({
+      adminGrant: {
+        origin: 'ADMIN',
+        grantedAt: ACCOUNT_CREATED_AT,
+      },
       id: 'target',
       githubLogin: 'synthetic-target',
       name: '합성 사용자',
@@ -75,6 +80,8 @@ describe('access request response DTO allowlists', () => {
       memberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: true,
+      approvalStatus: 'APPROVED' as const,
+      approvalRequestId: null,
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,

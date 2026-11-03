@@ -1,5 +1,6 @@
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import {
   USER_PROFILE_AUDIT_ACTIONS,
   USER_PHONE_AUDIT_TRANSITIONS,
@@ -19,7 +20,7 @@ import {
   type UpdateProfileFieldsInput,
 } from './users.repository';
 import { type UserProfileRecord } from './profile-validation.config';
-import { AffiliationKind, MemberKind } from '@prisma/client';
+
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
 
@@ -56,6 +57,7 @@ function nextProfileRecord(
 ): NormalizedProfileRecord {
   return {
     ...user,
+    profileCreatedAt: user.profileCreatedAt ?? new Date(),
     name: input.name,
     studentId: input.studentId,
     department: input.department,
@@ -63,8 +65,6 @@ function nextProfileRecord(
     memberKind: input.memberKind,
     affiliationKind: input.affiliationKind,
     affiliationName: input.affiliationName,
-    hasStaffAccess: input.hasStaffAccess,
-    hasAdminAccess: input.hasAdminAccess,
   };
 }
 
@@ -113,8 +113,8 @@ export class UsersService {
     private readonly repository: UsersRepositoryPort,
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
-    @Inject(AuditLogService)
-    private readonly auditLog: Pick<AuditLogService, 'record'>,
+    @Inject(UserHistoryRepository)
+    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly userProfileService: UserProfileService,
   ) {}
@@ -552,7 +552,7 @@ export class UsersService {
         if (input.studentId !== undefined) {
           throw invalidProfile('학번은 학생만 저장할 수 있습니다.');
         }
-        return null;
+        return user.studentId;
     }
   }
 
@@ -573,8 +573,8 @@ export class UsersService {
     }
     const affiliation = this.resolveAffiliation(user, input);
     requireAllowedAffiliation(memberKind, affiliation.kind);
-    const hasStaffAccess =
-      memberKind === MemberKind.STAFF ? (user.hasStaffAccess ?? false) : false;
+    const isApprovedStaff =
+      memberKind === MemberKind.STAFF && user.approvalStatus === 'APPROVED';
 
     return {
       name,
@@ -584,9 +584,7 @@ export class UsersService {
       memberKind,
       affiliationKind: affiliation.kind,
       affiliationName: affiliation.name,
-      hasStaffAccess,
-      hasAdminAccess: user.hasAdminAccess ?? false,
-      requestsStaffAccess: memberKind === MemberKind.STAFF && !hasStaffAccess,
+      requestsStaffAccess: memberKind === MemberKind.STAFF && !isApprovedStaff,
     };
   }
 }

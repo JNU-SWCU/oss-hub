@@ -14,7 +14,7 @@ export default function ProgramsPage() {
   const viewerRole =
     session.status !== 'assigned'
       ? null
-      : session.hasStaffAccess
+      : hasStaffAudience(session)
         ? 'STAFF'
         : session.memberKind === 'STUDENT'
           ? 'STUDENT'

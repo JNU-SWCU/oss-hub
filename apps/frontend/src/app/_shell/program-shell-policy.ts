@@ -10,26 +10,6 @@ export const ProgramViewContext = createContext<ProgramScopeViewerRole | null>(
   null,
 );
 
-export function resolveProgramOperationsView(
-  programView: ProgramScopeViewerRole | null,
-  session: {
-    readonly memberKind: 'STUDENT' | 'STAFF' | null;
-    readonly hasStaffAccess: boolean;
-    readonly hasAdminAccess: boolean;
-  },
-): boolean | null {
-  if (programView !== null) {
-    return programView === 'STAFF' || programView === 'ADMIN';
-  }
-  if (
-    session.memberKind === 'STUDENT' &&
-    (session.hasStaffAccess || session.hasAdminAccess)
-  ) {
-    return null;
-  }
-  return hasStaffAudience(session);
-}
-
 export function isProgramOperationsPath(pathname: string): boolean {
   return /^\/programs\/[^/]+\/(?:edit|milestones\/[^/]+\/documents|submissions\/[^/]+\/review|teams\/[^/]+)\/?$/.test(
     pathname,
@@ -73,14 +53,8 @@ export function programScopeViewerRole(
     readonly hasStaffAccess: boolean;
     readonly hasAdminAccess?: boolean;
   },
-  participant?: boolean,
-  operationsView = false,
 ): ProgramScopeViewerRole {
   if (!member) return 'GUEST';
-  if (authority.memberKind === 'STUDENT' && participant === true) {
-    if (!operationsView) return 'STUDENT';
-  }
-  if (authority.hasAdminAccess) return 'ADMIN';
-  if (authority.hasStaffAccess) return 'STAFF';
+  if (hasStaffAudience(authority)) return 'STAFF';
   return authority.memberKind === 'STUDENT' ? 'STUDENT' : 'GUEST';
 }

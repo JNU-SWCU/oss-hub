@@ -43,8 +43,14 @@ export class ProgramArchiveIntegrationFixture {
       data: {
         id: archiveId('user'),
         githubId: 960000001135099n,
-        hasStaffAccess: true,
         nickname: archiveId('user'),
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
     });
     for (const suffix of ['a', 'b']) {

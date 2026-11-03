@@ -32,6 +32,8 @@ describe('runAdminAccessMutation', () => {
     const result: AdminAccessMutationResponse = {
       id: 'user-1',
       role: 'STAFF',
+      approvalStatus: 'APPROVED',
+      approvalRequestId: 'approved-request',
       accountStatus: 'ACTIVE',
       pendingRequest: null,
       decidedRequest: null,

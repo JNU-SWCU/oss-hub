@@ -1,42 +1,32 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
-import {
-  AccountStatus,
-  AffiliationKind,
-  LoginHistoryEvent,
-  MemberKind,
-} from '@prisma/client';
+import { AccountStatus, LoginHistoryEvent } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const service = new AdminAccessService(
   new AdminAccessRepository(
     prisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(
-      new AdminAccessReadOrderingRepository(),
-      new PlatformRepository(),
-    ),
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminRepository(prisma),
+    new UserTransitionRepository(),
   ),
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
@@ -81,18 +71,37 @@ const expectedLastLoginAtById: ReadonlyMap<string, Date | null> = new Map([
 let actorGithubId: bigint;
 const adminPrincipal = () => ({
   githubId: actorGithubId,
+  memberKind: null,
+  isProfileComplete: false,
   hasStaffAccess: false,
   hasAdminAccess: true,
   accountStatus: AccountStatus.ACTIVE,
 });
-
 async function cleanup(): Promise<void> {
   await prisma.loginHistory.deleteMany({
     where: { userId: { startsWith: prefix } },
   });
-  await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
+  await prisma.user.updateMany({
+    where: { id: { startsWith: prefix } },
+    data: {
+      name: null,
+      studentId: null,
+      staffNumber: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
+      phone: null,
+      type: 'UNSELECTED',
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+    },
+  });
 }
-
 beforeAll(async () => {
   await prisma.$connect();
   await cleanup();
@@ -100,10 +109,10 @@ beforeAll(async () => {
     await prisma.user.create({
       data: {
         id: `${prefix}actor`,
-        githubId: 8_004_000_001_001n,
+        githubId: 8004000001001n,
         nickname: 'synthetic-pr04a-admin',
-        hasAdminAccess: true,
         accountStatus: AccountStatus.ACTIVE,
+        admin: { create: { origin: 'BOOTSTRAP' } },
       },
       select: { githubId: true },
     })
@@ -111,7 +120,7 @@ beforeAll(async () => {
   await Promise.all([
     createSortingUser({
       id: ids.alpha,
-      githubId: 8_004_000_001_002n,
+      githubId: 8004000001002n,
       legacyName: `Alpha ${queryFragment}`,
       profileName: `Alpha ${queryFragment}`,
       createdAt: createdAt.first,
@@ -121,7 +130,7 @@ beforeAll(async () => {
     }),
     createSortingUser({
       id: ids.bravoProfile,
-      githubId: 8_004_000_001_003n,
+      githubId: 8004000001003n,
       legacyName: `Zulu ${queryFragment}`,
       profileName: `Bravo ${queryFragment}`,
       createdAt: createdAt.tied,
@@ -131,7 +140,7 @@ beforeAll(async () => {
     }),
     createSortingUser({
       id: ids.bravoLegacy,
-      githubId: 8_004_000_001_004n,
+      githubId: 8004000001004n,
       legacyName: `Bravo ${queryFragment}`,
       profileName: `Bravo ${queryFragment}`,
       createdAt: createdAt.tied,
@@ -141,7 +150,7 @@ beforeAll(async () => {
     }),
     createSortingUser({
       id: ids.unnamedWithLogin,
-      githubId: 8_004_000_001_005n,
+      githubId: 8004000001005n,
       legacyName: null,
       profileName: null,
       createdAt: createdAt.third,
@@ -151,7 +160,7 @@ beforeAll(async () => {
     }),
     createSortingUser({
       id: ids.unnamedWithoutLogin,
-      githubId: 8_004_000_001_006n,
+      githubId: 8004000001006n,
       legacyName: null,
       profileName: null,
       createdAt: createdAt.fourth,
@@ -161,12 +170,10 @@ beforeAll(async () => {
     }),
   ]);
 });
-
 afterAll(async () => {
   await cleanup();
   await prisma.$disconnect();
 });
-
 it.each([
   ['name asc', 'name', 'asc', 'abcde'],
   ['name desc', 'name', 'desc', 'cbaed'],
@@ -180,7 +187,6 @@ it.each([
     const expectedIds = [...expectedOrder].map(
       (suffix) => `${prefix}${suffix}`,
     );
-
     const pages = await Promise.all(
       [1, 2, 3].map((page) =>
         service.list(adminPrincipal(), {
@@ -194,7 +200,6 @@ it.each([
     );
     const returnedItems = pages.flatMap((page) => page.items);
     const returnedIds = returnedItems.map((item) => item.id);
-
     expect(pages.map((page) => page.total)).toEqual([5, 5, 5]);
     expect(returnedIds).toEqual(expectedIds);
     expect(new Set(returnedIds).size).toBe(expectedIds.length);
@@ -215,7 +220,6 @@ it.each([
     });
   },
 );
-
 type SortingUserInput = {
   readonly id: string;
   readonly githubId: bigint;
@@ -226,36 +230,37 @@ type SortingUserInput = {
   readonly olderSuccessfulLoginAt: Date | null;
   readonly studentId: string;
 };
-
 function createSortingUser(input: SortingUserInput) {
   const department = 'Synthetic department';
   return prisma.user.create({
     data: {
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
       id: input.id,
       githubId: input.githubId,
       nickname: `${queryFragment}-${input.id.at(-1)}`,
       createdAt: input.createdAt,
-      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: AccountStatus.ACTIVE,
       ...(input.profileName === null
         ? {}
         : {
-            profile: {
-              create: {
-                name: input.profileName,
-                studentId: input.studentId,
-                department,
-                memberKind: MemberKind.STUDENT,
-                affiliationKind: AffiliationKind.DEPARTMENT,
-                affiliationName: department,
-              },
-            },
+            name: input.profileName,
+            studentId: input.studentId,
+            department,
+            type: MemberKind.STUDENT,
+            departmentType: AffiliationKind.DEPARTMENT,
+            profileCreatedAt: new Date(),
+            profileUpdatedAt: new Date(),
           }),
       loginHistories: { create: loginHistoryFixtures(input) },
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
 }
-
 function loginHistoryFixtures(input: SortingUserInput) {
   const selected = input.lastLoginAt;
   const older = input.olderSuccessfulLoginAt;

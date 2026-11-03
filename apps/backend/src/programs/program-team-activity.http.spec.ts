@@ -41,8 +41,12 @@ const findUnique = jest.fn(
     return Promise.resolve(
       actor && {
         id: actor.id,
-        hasStaffAccess: actor.staff,
-        hasAdminAccess: false,
+        type: actor.staff ? 'STAFF' : 'STUDENT',
+        approvalStatus: actor.staff ? 'APPROVED' : 'NOT_REQUIRED',
+        profileCreatedAt: new Date('2026-07-01T00:00:00.000Z'),
+        name: actor.id,
+        department: 'synthetic-department',
+        admin: null,
         accountStatus: AccountStatus.ACTIVE,
       },
     );

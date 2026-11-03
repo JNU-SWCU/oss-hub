@@ -166,7 +166,11 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
   async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {
     const staff = await this.prisma.user.findMany({
       where: {
-        OR: [{ hasStaffAccess: true }, { hasAdminAccess: true }],
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        profileCreatedAt: { not: null },
+        name: { not: null },
+        department: { not: null },
         accountStatus: AccountStatus.ACTIVE,
         notifyEnabled: true,
         notificationEmail: { not: null },
@@ -242,14 +246,10 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
       select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        admin: { select: { userId: true } },
         accountStatus: true,
       },
     });
-    return (
-      user?.hasAdminAccess === true &&
-      user.accountStatus === AccountStatus.ACTIVE
-    );
+    return user?.accountStatus === AccountStatus.ACTIVE && user.admin !== null;
   }
 }

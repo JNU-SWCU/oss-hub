@@ -23,6 +23,7 @@ const captured = vi.hoisted(() => ({
 
 vi.mock('../../../_shell/session-role-context', () => ({
   useSharedSessionRole: () => ({
+    memberKind: session.hasStaffAccess ? 'STAFF' : 'STUDENT',
     hasStaffAccess: session.hasStaffAccess,
     hasAdminAccess: session.hasAdminAccess,
   }),
@@ -53,7 +54,7 @@ describe('ProgramEditRoute', () => {
     container.remove();
   });
 
-  it('관리자 접근이 있으면 canDeleteProgram=true를 ProgramEditPage로 넘긴다', async () => {
+  it('학생 관리자는 프로그램 삭제를 할 수 없다', async () => {
     session.hasStaffAccess = false;
     session.hasAdminAccess = true;
 
@@ -63,7 +64,7 @@ describe('ProgramEditRoute', () => {
 
     expect(captured.props).toEqual({
       programId: 'program-1',
-      canDeleteProgram: true,
+      canDeleteProgram: false,
     });
   });
 

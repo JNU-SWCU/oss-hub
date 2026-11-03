@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
@@ -13,11 +14,11 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
-  MemberKind,
   MilestoneDocumentKind,
   ProgramAuthoringUploadLifecycle,
   Prisma,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { Readable } from 'node:stream';
 import type { UnwrapTuple } from '@prisma/client/runtime/library';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -70,9 +71,14 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         id: `${TEST_PREFIX}staff`,
         githubId: STAFF_GITHUB_ID,
         nickname: 'aggregate-staff',
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
         accountStatus: 'ACTIVE',
+        type: MemberKind.STAFF,
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
     });
   });
@@ -282,6 +288,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     ).uploadTemplate(
       `${TEST_PREFIX}staff`,
       milestoneId,
@@ -431,6 +438,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
 
     await expect(
@@ -488,6 +496,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
     const direct = files.uploadTemplate(
       `${TEST_PREFIX}staff`,
@@ -650,6 +659,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new MilestoneDocumentFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
+      new UserProfileService(),
     );
     await expect(
       files.uploadTemplate(
@@ -1169,8 +1179,9 @@ async function createSubmissionApplication(programId: string) {
       id: studentId,
       githubId: 9_102_000_000n + BigInt(++studentSequence),
       nickname: `student-${studentId.slice(-8)}`,
-      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: 'ACTIVE',
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
   await prisma.team.create({
@@ -1314,6 +1325,7 @@ function createFaultingEditor(
       new SubmissionFileAdmissionService(),
       new ProgramNoticeFetchClient(),
     ),
+    new UserProfileService(),
   );
 }
 
@@ -1390,6 +1402,7 @@ function pausingAggregateEditorAt(
       new SubmissionFileAdmissionService(),
       new ProgramNoticeFetchClient(),
     ),
+    new UserProfileService(),
   );
 }
 

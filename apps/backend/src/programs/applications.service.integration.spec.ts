@@ -1,17 +1,17 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
-  AffiliationKind,
   ApplicationStatus,
-  MemberKind,
   ProgramCategory,
   ProgramLifecycle,
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.error';
@@ -44,7 +44,7 @@ const service = new ApplicationsService(
   repository,
   new AuditLogService(
     new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
+    new AuditLogReadService(new AuditLogMetadataService()),
   ),
   new ApplicationJoinCodeService(
     {
@@ -144,8 +144,13 @@ describe('ApplicationsService integration', () => {
           id: ACTOR_ID,
           githubId: 8_000_000_000_001n,
           nickname: 'Synthetic-Staff',
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
+          type: MemberKind.STAFF,
+          approvalStatus: 'APPROVED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
         },
         {
           id: 'synthetic-decision-member',
@@ -156,35 +161,41 @@ describe('ApplicationsService integration', () => {
           id: APPLICANT_ID,
           githubId: APPLICANT_GITHUB_ID,
           nickname: 'Synthetic-Applicant',
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
       ],
     });
-    await prisma.userProfile.createMany({
-      data: [
+    await Promise.all(
+      [
         {
           userId: ACTOR_ID,
           name: 'Synthetic user',
           studentId: null,
           department: 'Synthetic program office',
-          memberKind: MemberKind.STAFF,
-          affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-          affiliationName: 'Synthetic program office',
+          type: MemberKind.STAFF,
+          departmentType: AffiliationKind.PROGRAM_OFFICE,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
         },
         {
           userId: APPLICANT_ID,
           name: 'Synthetic user',
           studentId: '800002',
           department: 'Synthetic department',
-          memberKind: MemberKind.STUDENT,
-          affiliationKind: AffiliationKind.DEPARTMENT,
-          affiliationName: 'Synthetic department',
+          type: MemberKind.STUDENT,
+          departmentType: AffiliationKind.DEPARTMENT,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
         },
-      ],
-    });
+      ].map(({ userId, ...profile }) =>
+        prisma.user.update({ where: { id: userId }, data: profile }),
+      ),
+    );
   });
 
   afterEach(async () => {
+    await prisma.admin.deleteMany({ where: { userId: ACTOR_ID } });
     await prisma.notification.deleteMany({
       where: { type: 'APPLICATION_DECISION' },
     });
@@ -263,8 +274,16 @@ describe('ApplicationsService integration', () => {
       await prisma.user.update({
         where: { id: ACTOR_ID },
         data: {
-          hasStaffAccess: role === 'staff',
-          hasAdminAccess: role === 'admin',
+          type: role === 'staff' ? 'STAFF' : 'STUDENT',
+          approvalStatus: role === 'staff' ? 'APPROVED' : 'NOT_REQUIRED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
+          ...(role === 'admin'
+            ? { admin: { create: { origin: 'MIGRATION' as const } } }
+            : {}),
         },
       });
       await prisma.teamMember.create({
@@ -320,7 +339,15 @@ describe('ApplicationsService integration', () => {
       ).resolves.toBe(0);
       await prisma.user.update({
         where: { id: ACTOR_ID },
-        data: { hasStaffAccess: true, hasAdminAccess: false },
+        data: {
+          type: 'STAFF',
+          approvalStatus: 'APPROVED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
+        },
       });
     },
   );
@@ -387,7 +414,7 @@ describe('ApplicationsService integration', () => {
         ),
         new AuditLogService(
           new AuditLogRepository(applicantPrisma),
-          new AuditLogMetadataService(),
+          new AuditLogReadService(new AuditLogMetadataService()),
         ),
         new ApplicationJoinCodeService(
           {

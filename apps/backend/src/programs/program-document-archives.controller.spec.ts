@@ -177,14 +177,14 @@ it.each([
     type: 'about:blank',
     title: 'FORBIDDEN',
     status: 403,
-    detail: '승인된 교직원 또는 관리자만 사용할 수 있습니다.',
+    detail: '승인된 교직원만 사용할 수 있습니다.',
     instance: '/api/v1/programs/synthetic-program/documents/collection/archive',
     code: 'MSD_001',
   });
   expect(archiveForProgramStaff).not.toHaveBeenCalled();
 });
 
-it('allows an active administrator without staff access', async () => {
+it('denies an active administrator without staff access', async () => {
   findUser.mockResolvedValue({
     id: 'synthetic-admin',
     hasStaffAccess: false,
@@ -194,8 +194,8 @@ it('allows an active administrator without staff access', async () => {
   const response = await fetch(`${url}?scope=PROGRAM`, {
     headers: await headers(),
   });
-  expect(response.status).toBe(200);
-  await response.arrayBuffer();
+  expect(response.status).toBe(403);
+  expect(archiveForProgramStaff).not.toHaveBeenCalled();
 });
 
 it.each([AccountStatus.ACTIVE, AccountStatus.DEACTIVATED])(

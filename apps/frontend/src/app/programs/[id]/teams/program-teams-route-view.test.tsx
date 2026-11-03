@@ -60,7 +60,7 @@ describe('ProgramTeamsRouteView', () => {
   }
 
   it.each(['STUDENT', 'STAFF'] as const)(
-    '복수권한 참여자의 팀 화면은 선택한 %s 화면을 따른다',
+    '학생은 저장된 %s 보기와 무관하게 학생 팀 화면을 본다',
     (view) => {
       act(() =>
         root.render(
@@ -73,9 +73,8 @@ describe('ProgramTeamsRouteView', () => {
           </SessionRoleProvider>,
         ),
       );
-      expect(container.textContent).toContain(
-        view === 'STUDENT' ? '학생 팀 구성 화면' : '교직원 참여 팀 목록',
-      );
+      expect(container.textContent).toContain('학생 팀 구성 화면');
+      expect(container.textContent).not.toContain('교직원 참여 팀 목록');
     },
   );
 
@@ -83,7 +82,7 @@ describe('ProgramTeamsRouteView', () => {
     ['교직원 접근', { hasStaffAccess: true, hasAdminAccess: false }],
     ['관리자 접근', { hasStaffAccess: false, hasAdminAccess: true }],
   ])(
-    '%s이 있는 학생은 보기가 정해지기 전에 어느 팀 화면도 띄우지 않는다',
+    '%s이 있어도 학생은 보기를 기다리지 않고 학생 팀 화면을 본다',
     (_label, access) => {
       act(() =>
         root.render(
@@ -95,7 +94,7 @@ describe('ProgramTeamsRouteView', () => {
         ),
       );
 
-      expect(container.textContent).toBe('');
+      expect(container.textContent).toContain('학생 팀 구성 화면');
     },
   );
 

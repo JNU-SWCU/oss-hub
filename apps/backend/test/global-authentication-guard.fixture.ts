@@ -1,3 +1,12 @@
+import type { PrismaService } from '../src/platform/prisma.service';
+import type { ActiveAccountPrincipal } from '../src/auth/http-auth.types';
+import { USER_AUTHORITY_SELECT } from '../src/platform/user-profile-read.config';
+import { UserProfileService } from '../src/users/user-profile.service';
+import { DomainException } from '../src/platform/error-code.error';
+import {
+  AUTH_ERROR_CODES,
+  AuthErrorCode,
+} from '../src/auth/auth-error-code.error';
 import type { CanActivate, ExecutionContext, Provider } from '@nestjs/common';
 import { APP_GUARD, Reflector } from '@nestjs/core';
 import { AccountStatus } from '@prisma/client';
@@ -60,29 +69,39 @@ export const SYNTHETIC_STAFF_PRINCIPAL = sessionPrincipal({
 });
 
 export async function databaseSessionPrincipal(
-  prisma: {
-    readonly user: {
-      findUnique(args: {
-        where: { githubId: bigint };
-        select: {
-          id: true;
-          hasStaffAccess: true;
-          hasAdminAccess: true;
-          accountStatus: true;
-        };
-      }): PromiseLike<Omit<SessionActorFacts, 'githubId'> | null>;
-    };
-  },
+  prisma: Pick<PrismaService, 'user'>,
   githubId: bigint,
-) {
+): Promise<ActiveAccountPrincipal> {
   const user = await prisma.user.findUnique({
     where: { githubId },
     select: {
       id: true,
-      hasStaffAccess: true,
-      hasAdminAccess: true,
+      githubId: true,
+      nickname: true,
+      avatarUrl: true,
       accountStatus: true,
+      sessionVersion: true,
+      ...USER_AUTHORITY_SELECT,
     },
   });
-  return sessionPrincipal(user === null ? null : { ...user, githubId });
+  if (user === null || user.accountStatus !== AccountStatus.ACTIVE)
+    throw new DomainException(AUTH_ERROR_CODES[AuthErrorCode.UNAUTHENTICATED]);
+  const profileService = new UserProfileService();
+  const memberKind = user.type === 'UNSELECTED' ? null : user.type;
+  return {
+    id: user.id,
+    githubId: user.githubId,
+    nickname: user.nickname,
+    name: user.name,
+    avatarUrl: user.avatarUrl,
+    accountStatus: AccountStatus.ACTIVE,
+    sessionVersion: user.sessionVersion,
+    memberKind,
+    hasAdminAccess: user.admin !== null,
+    hasStaffAccess: profileService.hasStaffAccess({ ...user, memberKind }),
+    isProfileComplete:
+      user.profileCreatedAt !== null &&
+      memberKind !== null &&
+      profileService.isCompleteProfileFields(user, memberKind),
+  };
 }

@@ -1,13 +1,9 @@
 'use client';
 
-import { useContext } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { invalidateProgram } from '@/features/programs/catalog/queries';
 import { useRouter, useSearchParams } from 'next/navigation';
-import {
-  ProgramViewContext,
-  resolveProgramOperationsView,
-} from '../../../_shell/program-shell-policy';
+import { hasStaffAudience } from '../../../_shell/member-access';
 import { PageBody } from '@/components/page-body';
 import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
@@ -33,15 +29,12 @@ function withMilestoneQuery(
 
 export function DocumentsRoute({ programId }: { readonly programId: string }) {
   const session = useSharedSessionRole();
-  const programView = useContext(ProgramViewContext);
   const router = useRouter();
   const searchParams = useSearchParams();
   const selectedMilestoneId = searchParams.get('milestoneId');
   const queryClient = useQueryClient();
 
-  const operationsView = resolveProgramOperationsView(programView, session);
-  if (operationsView === null) return null;
-  if (operationsView) {
+  if (hasStaffAudience(session)) {
     return (
       <SubmissionMatrixScreen
         programId={programId}

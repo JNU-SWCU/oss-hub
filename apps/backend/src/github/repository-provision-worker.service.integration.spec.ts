@@ -1,7 +1,7 @@
+import { ApprovalStatus, DepartmentType } from '@prisma/client';
 import {
   ApplicationStatus,
   CollectionRepositoryPresence,
-  MemberKind,
   OutboxEventStatus,
   ProgramCategory,
   RepositoryInvitationStatus,
@@ -11,6 +11,7 @@ import {
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -35,7 +36,7 @@ import {
 } from './repository-provision-state.config';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 
-import { ConsentsRepository } from '../users/member-onboarding.repository';
+import { UserPolicyRepository } from '../users/user-policy.repository';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './repositories.service';
@@ -138,7 +139,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
         id: APPLICANT_ID,
         githubId: APPLICANT_GITHUB_ID,
         nickname: APPLICANT_LOGIN,
-        selectedMemberKind: MemberKind.STUDENT,
+        type: MemberKind.STUDENT,
+        approvalStatus: ApprovalStatus.NOT_REQUIRED,
       },
     });
     await prisma.user.createMany({
@@ -147,22 +149,28 @@ describe('RepositoryProvisionWorkerService integration', () => {
           id: user.id,
           githubId: user.githubId,
           nickname: user.nickname,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: ApprovalStatus.NOT_REQUIRED,
         })),
         {
           id: CONNECTION_ACTOR_ID,
           githubId: CONNECTION_ACTOR_GITHUB_ID,
           nickname: 'synthetic-worker-connection-staff',
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
+          type: MemberKind.STAFF,
+          approvalStatus: ApprovalStatus.APPROVED,
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: DepartmentType.DEPARTMENT,
         },
       ],
     });
 
     const { policy } = await new ConsentsService(
-      new ConsentsRepository(prisma),
+      new UserPolicyRepository(prisma),
     ).getCurrent(APPLICANT_GITHUB_ID);
-    await prisma.consent.create({
+    await prisma.userPolicy.create({
       data: {
         userId: APPLICANT_ID,
         policyVersion: policy.policyVersion,
@@ -233,7 +241,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
   });
 
   afterAll(async () => {
-    await prisma.consent.deleteMany({ where: { userId: APPLICANT_ID } });
+    await prisma.userPolicy.deleteMany({ where: { userId: APPLICANT_ID } });
 
     await prisma.user.deleteMany({
       where: { id: { in: [APPLICANT_ID, MEMBER_USER.id, GHOST_USER.id] } },
@@ -1478,7 +1486,7 @@ function programId(applicationId: string): string {
 
 function ownEnrollment(): RepositoryOwnEnrollmentService {
   return new RepositoryOwnEnrollmentService(
-    new ConsentsService(new ConsentsRepository(prisma)),
+    new ConsentsService(new UserPolicyRepository(prisma)),
     new CollectionIncrementalRepository(prisma),
   );
 }

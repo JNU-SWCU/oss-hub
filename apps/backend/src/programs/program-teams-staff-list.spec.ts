@@ -250,15 +250,27 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
         members: [
           {
             userId: 'user-a',
-            user: { nickname: 'login-a', profile: { name: '프로필 이름' } },
+            user: { nickname: 'login-a', name: '프로필 이름' },
           },
           {
             userId: 'user-b',
-            user: { nickname: 'login-b', profile: null },
+            user: {
+              nickname: 'login-b',
+              name: null,
+              department: null,
+              type: 'UNSELECTED',
+              profileCreatedAt: null,
+            },
           },
           {
             userId: 'user-c',
-            user: { nickname: 'login-c', name: null, profile: null },
+            user: {
+              nickname: 'login-c',
+              name: null,
+              department: null,
+              type: 'UNSELECTED',
+              profileCreatedAt: null,
+            },
           },
         ],
       },

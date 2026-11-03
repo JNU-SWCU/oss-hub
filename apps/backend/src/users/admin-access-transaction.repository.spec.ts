@@ -1,160 +1,158 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { Prisma, type ApprovalStatus } from '@prisma/client';
+import { PrismaService } from '../platform/prisma.service';
+import { buildRow } from '../auth/auth.repository.spec-support';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
-import {
-  AccountStatus,
-  AffiliationKind,
-  MemberKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
-import type { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 
-describe('AdminAccessRepository transaction store', () => {
-  it('locks active admins deterministically before exposing CAS primitives', async () => {
-    const operations: string[] = [];
-    const updateUser = jest.fn().mockResolvedValue({ count: 1 });
-    const updateRequest = jest.fn().mockResolvedValue({ count: 1 });
-    const createRequest = jest
-      .fn()
-      .mockResolvedValue({ id: 'request-revoked' });
-    const transaction = {
-      $queryRaw: <T>(query: unknown): Promise<T> => {
-        const sql = sqlText(query);
-        operations.push(sql);
-        const rows = sql.includes('"hasAdminAccess" = TRUE')
-          ? [{ id: 'admin-a' }, { id: 'admin-b' }]
-          : [{ id: 'target' }];
-        return Promise.resolve(rows as T);
-      },
-      user: {
-        findUnique: jest.fn().mockResolvedValue({
-          id: 'target',
-          githubId: 9_131_000_002n,
-          nickname: 'synthetic-target',
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: '합성 사용자',
-              studentId: '123456',
-              department: '소프트웨어공학과',
-              memberKind: MemberKind.STUDENT,
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: '소프트웨어공학과',
-            },
-          },
-          accountStatus: AccountStatus.ACTIVE,
-          staffAccessRequests: [],
-          loginHistories: [],
-        }),
-        updateMany: updateUser,
-      },
-      staffAccessRequest: {
-        updateMany: updateRequest,
-        create: createRequest,
-      },
-      auditLog: { create: jest.fn() },
-    };
-    const repository = new AdminAccessRepository(
-      {
-        $transaction: <T>(
-          operation: (store: typeof transaction) => Promise<T>,
-        ): Promise<T> => operation(transaction),
-      } as unknown as PrismaService,
+function harness() {
+  let current = {
+    ...buildRow({
+      id: 'target',
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'request',
+      approvalRequestedAt: new Date('2026-01-01'),
+      name: 'Name',
+      department: 'Department',
+      departmentType: 'DEPARTMENT',
+      profileCreatedAt: new Date('2026-01-01'),
+    }),
+    loginHistories: [],
+  };
+  const queries: Prisma.Sql[] = [];
+  const update = jest
+    .fn()
+    .mockImplementation((args: { data: Partial<typeof current> }) => {
+      current = { ...current, ...args.data };
+      return Promise.resolve(current);
+    });
+  const updateMany = jest.fn().mockImplementation(
+    (args: {
+      where: {
+        approvalRequestId?: string;
+        approvalStatus?: ApprovalStatus;
+        type?: string;
+      };
+      data: Partial<typeof current>;
+    }) => {
+      const matches =
+        (args.where.approvalRequestId === undefined ||
+          args.where.approvalRequestId === current.approvalRequestId) &&
+        (args.where.approvalStatus === undefined ||
+          args.where.approvalStatus === current.approvalStatus) &&
+        (args.where.type === undefined || args.where.type === current.type);
+      if (matches) current = { ...current, ...args.data };
+      return Promise.resolve({ count: matches ? 1 : 0 });
+    },
+  );
+  const prisma = Object.assign(new PrismaService(), {
+    $queryRaw: jest.fn().mockImplementation((sql: Prisma.Sql) => {
+      queries.push(sql);
+      return Promise.resolve([{ id: 'target' }]);
+    }),
+    admin: { count: jest.fn().mockResolvedValue(2) },
+    user: {
+      findUnique: jest.fn().mockImplementation(() => Promise.resolve(current)),
+      findUniqueOrThrow: jest
+        .fn()
+        .mockImplementation(() => Promise.resolve(current)),
+      update,
+      updateMany,
+    },
+  });
+  Object.assign(prisma, {
+    $transaction: <T>(operation: (client: PrismaService) => Promise<T>) =>
+      operation(prisma),
+  });
+  return {
+    repository: new AdminAccessRepository(
+      prisma,
       new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(
-        new AdminAccessReadOrderingRepository(),
-        new PlatformRepository(),
-      ),
-    );
-    const decidedAt = new Date('2026-07-24T00:00:00.000Z');
-
-    const result = await repository.withTransaction(async (store) => ({
-      activeAdminCount: await store.lockActiveAdmins(),
-      target: await store.findUserForUpdate('target'),
-      userUpdated: await store.compareAndSwapAccess({
-        userId: 'target',
-        expectedHasStaffAccess: false,
-        expectedHasAdminAccess: false,
-        expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredAccountStatus: AccountStatus.ACTIVE,
-        desiredHasStaffAccess: true,
-        desiredHasAdminAccess: false,
-      }),
-      requestUpdated: await store.decidePendingRequest({
-        requestId: 'request-pending',
-        actorId: 'admin-a',
-        nextStatus: StaffAccessRequestStatus.APPROVED,
-        rejectionReason: null,
-        decidedAt,
-      }),
-      revokedRequest: await store.insertRevokedRequest({
-        userId: 'target',
-        actorId: 'admin-a',
-        decidedAt,
-      }),
-      auditWriter: store.auditLogWriter,
-    }));
-
-    expect(result).toMatchObject({
-      activeAdminCount: 2,
-      target: { id: 'target' },
-      userUpdated: true,
-      requestUpdated: true,
-      revokedRequest: { id: 'request-revoked' },
-      auditWriter: transaction,
-    });
-    expect(operations[0]).toContain('FROM "User"');
-    expect(operations[0]).toContain('ORDER BY id');
-    expect(operations[0]).toContain('FOR UPDATE');
-    expect(operations[1]).toContain('WHERE id =');
-    expect(operations[1]).toContain('FOR UPDATE');
-    expect(updateUser).toHaveBeenCalledWith({
-      where: {
-        id: 'target',
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.ACTIVE,
-      },
-      data: {
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-        accountStatus: AccountStatus.ACTIVE,
-      },
-    });
-    expect(updateRequest).toHaveBeenCalledWith({
-      where: {
-        id: 'request-pending',
-        status: StaffAccessRequestStatus.PENDING,
-      },
-      data: {
-        status: StaffAccessRequestStatus.APPROVED,
-        rejectionReason: null,
-        decidedById: 'admin-a',
-        decidedAt,
-      },
-    });
-
-    expect(createRequest).toHaveBeenCalledWith({
-      data: {
-        userId: 'target',
-        status: StaffAccessRequestStatus.REVOKED,
-        decidedById: 'admin-a',
-        decidedAt,
-      },
-      select: { id: true },
-    });
-    expect(updateRequest).toHaveBeenCalledTimes(1);
+      new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+      new AdminRepository(prisma),
+      new UserTransitionRepository(),
+    ),
+    prisma,
+    queries,
+    update,
+    updateMany,
+    current: () => current,
+  };
+}
+it('locks User rows before returning raw current state and the same history writer', async () => {
+  const h = harness();
+  const result = await h.repository.withTransaction(async (store) => ({
+    count: await store.lockActiveAdmins(),
+    target: await store.findUserForUpdate('target'),
+    writer: store.auditLogWriter,
+  }));
+  expect(result).toMatchObject({
+    count: 2,
+    target: {
+      id: 'target',
+      memberKind: 'STAFF',
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'request',
+    },
+  });
+  expect(result.writer).toBe(h.prisma);
+  expect(h.queries[0]?.sql).toContain('ORDER BY u."id" FOR UPDATE OF u, a');
+  expect(h.queries[1]?.sql).toContain('FOR UPDATE');
+});
+it('decides exactly one matching PENDING request using the User approval tuple', async () => {
+  const h = harness();
+  const input = {
+    requestId: 'request',
+    actorId: 'admin',
+    nextStatus: 'APPROVED' as const,
+    rejectionReason: null,
+    decidedAt: new Date('2026-02-01'),
+  };
+  await h.repository.withTransaction(async (store) => {
+    expect(await store.decidePendingRequest(input)).toBe(true);
+    expect(await store.decidePendingRequest(input)).toBe(false);
+  });
+  expect(h.current()).toMatchObject({
+    approvalStatus: 'APPROVED',
+    approvalRequestId: 'request',
+    approvalDecidedById: 'admin',
+  });
+  expect(h.updateMany).toHaveBeenCalledWith({
+    where: {
+      type: 'STAFF',
+      approvalRequestId: 'request',
+      approvalStatus: 'PENDING',
+    },
+    data: {
+      approvalStatus: 'APPROVED',
+      approvalReason: null,
+      approvalDecidedById: 'admin',
+      approvalDecidedAt: input.decidedAt,
+    },
   });
 });
-
-function sqlText(value: unknown): string {
-  if (typeof value === 'object' && value !== null) {
-    const strings: unknown = Reflect.get(value, 'strings');
-    if (Array.isArray(strings)) {
-      return strings.join('');
-    }
-  }
-  return String(value);
-}
+it('rejects a stale current request before any account or authority write', async () => {
+  const h = harness();
+  const updated = await h.repository.withTransaction((store) =>
+    store.compareAndSwapAccess({
+      userId: 'target',
+      actorId: 'admin',
+      expectedType: 'STAFF',
+      expectedApprovalStatus: 'PENDING',
+      expectedApprovalRequestId: 'old',
+      expectedHasStaffAccess: false,
+      expectedHasAdminAccess: false,
+      expectedAccountStatus: 'ACTIVE',
+      desiredAccountStatus: 'DEACTIVATED',
+      desiredHasStaffAccess: false,
+      desiredHasAdminAccess: false,
+      decidesPendingRequest: false,
+    }),
+  );
+  expect(updated).toBe(false);
+  expect(h.update).not.toHaveBeenCalled();
+});

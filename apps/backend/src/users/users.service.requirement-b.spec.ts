@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { MemberKind } from './user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { UsersErrorCode } from './users-error-code.error';
@@ -9,11 +9,9 @@ import type {
 import { UsersService, type PatchUserProfileInput } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { UserProfileService } from './user-profile.service';
-
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
 >;
-
 const githubId = 4242n;
 const studentId = '1'.repeat(6);
 const input: PatchUserProfileInput = {
@@ -21,7 +19,6 @@ const input: PatchUserProfileInput = {
   studentId,
   department: '인공지능학부',
 };
-
 type StoredUser = {
   readonly id: string;
   readonly name: string | null;
@@ -32,7 +29,6 @@ type StoredUser = {
   readonly memberKind?: MemberKind | null;
   readonly hasAdminAccess?: boolean;
 };
-
 function buildService(
   overrides: {
     readonly user?: StoredUser | null;
@@ -87,7 +83,6 @@ function buildService(
     updateProfileFields,
   };
 }
-
 function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
   const selectedMemberKind =
     role === 'STUDENT'
@@ -106,7 +101,6 @@ function emptyUser(role: 'STUDENT' | 'STAFF' | 'ADMIN' | null): StoredUser {
     hasAdminAccess: role === 'ADMIN',
   };
 }
-
 async function captureDomainException(
   operation: () => Promise<unknown>,
 ): Promise<DomainException> {
@@ -120,31 +114,26 @@ async function captureDomainException(
   }
   throw new Error('Expected DomainException');
 }
-
 describe('역할별 필수 항목 후속', () => {
   it('미완료 프로필을 PATCH하면 USR_010으로 거부한다', async () => {
     const { service, completeProfileIfUnchanged, updateProfileFields } =
       buildService({ user: { ...emptyUser('ADMIN'), name: null } });
-
     const error = await captureDomainException(() =>
       service.patchMyProfile(githubId, {
         name: input.name,
         department: input.department,
       }),
     );
-
     expect(error.errorCode.code).toBe(
       UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST,
     );
     expect(completeProfileIfUnchanged).not.toHaveBeenCalled();
     expect(updateProfileFields).not.toHaveBeenCalled();
   });
-
   it('회원 유형이 없는 관리자는 아직 완료가 아니다', async () => {
     const { service, updateProfileFields } = buildService({
       user: emptyUser('ADMIN'),
     });
-
     await expect(service.getMyProfile(githubId)).resolves.toMatchObject({
       isComplete: false,
     });
@@ -154,45 +143,37 @@ describe('역할별 필수 항목 후속', () => {
         department: input.department,
       }),
     );
-
     expect(error.errorCode.code).toBe(
       UsersErrorCode.PROFILE_COMPLETE_REQUIRES_POST,
     );
     expect(updateProfileFields).not.toHaveBeenCalled();
   });
-
   it('학생은 학번과 학과가 모두 있어야 완료된다', async () => {
     const { service } = buildService({ user: emptyUser('STUDENT') });
-
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
         department: input.department,
       }),
     );
-
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
     });
   });
-
   it('역할이 없는 사용자는 학생 기준으로 학번까지 요구한다', async () => {
     const { service } = buildService({ user: emptyUser(null) });
-
     const error = await captureDomainException(() =>
       service.completeMyProfile(githubId, {
         name: input.name,
         department: input.department,
       }),
     );
-
     expect(error.errorCode).toMatchObject({
       code: SystemErrorCode.VALIDATION_FAILED,
       status: 400,
     });
   });
-
   it('역할을 조회하지 않은 기록도 학생 기준으로 판정한다', async () => {
     const { service } = buildService({
       user: {
@@ -202,11 +183,9 @@ describe('역할별 필수 항목 후속', () => {
         department: input.department ?? null,
       },
     });
-
     const error = await captureDomainException(() =>
       service.requireCompleteProfile(githubId),
     );
-
     expect(error.errorCode).toMatchObject({ code: 'USR_002', status: 409 });
   });
 });

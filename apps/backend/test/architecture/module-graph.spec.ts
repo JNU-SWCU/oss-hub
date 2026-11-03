@@ -4,6 +4,7 @@ import { readdirSync } from 'node:fs';
 import * as path from 'node:path';
 import { AppModule } from '../../src/app.module';
 import { AuthModule } from '../../src/auth/auth.module';
+import { MaintenanceModule } from '../../src/github/maintenance.module';
 import { UsersModule } from '../../src/users/users.module';
 
 const SOURCE_ROOT = path.resolve(__dirname, '../../src');
@@ -77,13 +78,23 @@ describe('Nest module graph', () => {
     expect(findCycle(AppModule)).toBeNull();
   });
 
-  it('keeps exactly one module named after each top-level src folder', () => {
+  it('keeps one domain module per folder plus the isolated maintenance context', () => {
     const modules = moduleFilesByFolder();
     const expected = Object.fromEntries(
-      Object.keys(modules).map((folder) => [folder, [`${folder}.module.ts`]]),
+      Object.keys(modules).map((folder) => [
+        folder,
+        folder === 'github'
+          ? ['github.module.ts', 'maintenance.module.ts']
+          : [`${folder}.module.ts`],
+      ]),
     );
 
     expect(modules).toEqual(expected);
+  });
+
+  it('keeps maintenance verification outside the application module graph', () => {
+    expect(reachable(AppModule).has(MaintenanceModule)).toBe(false);
+    expect(moduleImports(MaintenanceModule)).toEqual([]);
   });
 
   it('lets auth depend on users without users reaching auth', () => {

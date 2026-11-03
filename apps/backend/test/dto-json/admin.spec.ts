@@ -32,6 +32,8 @@ const userWithPending: AdminAccessUser = {
   memberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
+  approvalStatus: 'PENDING',
+  approvalRequestId: 'request-1',
   accountStatus: 'ACTIVE',
   isSelf: false,
   isProfileComplete: true,
@@ -47,6 +49,8 @@ const userWithPending: AdminAccessUser = {
 const userWithoutPending: AdminAccessUser = {
   ...userWithPending,
   id: 'user-2',
+  approvalStatus: 'NOT_REQUIRED',
+  approvalRequestId: null,
   name: null,
   role: null,
   isSelf: true,
@@ -57,6 +61,8 @@ const userWithoutPending: AdminAccessUser = {
 const mutation: AdminAccessMutationResult = {
   id: 'user-1',
   role: 'STAFF',
+  approvalStatus: 'APPROVED',
+  approvalRequestId: 'request-1',
   accountStatus: 'ACTIVE',
   pendingRequest: null,
   decidedRequest: {
@@ -179,6 +185,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       AdminAccessMutationResponseDto.from({
         ...mutation,
+        approvalStatus: 'PENDING',
         pendingRequest: userWithPending.pendingRequest,
         decidedRequest: null,
       }),
@@ -192,6 +199,8 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         memberKind: 'STAFF',
         hasStaffAccess: true,
         hasAdminAccess: true,
+        approvalStatus: 'APPROVED',
+        approvalRequestId: null,
       }),
   ],
   [

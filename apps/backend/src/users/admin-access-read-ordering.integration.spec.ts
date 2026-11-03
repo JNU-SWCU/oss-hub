@@ -1,37 +1,34 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { writeApprovalFixture } from './user-history.integration-fixture';
+
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import { AffiliationKind, MemberKind } from './user-contract.config';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const service = new AdminAccessService(
   new AdminAccessRepository(
     prisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(
-      new AdminAccessReadOrderingRepository(),
-      new PlatformRepository(),
-    ),
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminRepository(prisma),
+    new UserTransitionRepository(),
   ),
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
@@ -64,18 +61,38 @@ const expectedUserIds = [
 let actorGithubId: bigint;
 const adminPrincipal = () => ({
   githubId: actorGithubId,
+  memberKind: null,
+  isProfileComplete: false,
   hasStaffAccess: false,
   hasAdminAccess: true,
   accountStatus: AccountStatus.ACTIVE,
 });
-
 beforeAll(async () => {
   await prisma.$connect();
-  await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
+  await prisma.user.updateMany({
+    where: { id: { startsWith: prefix } },
+    data: {
+      name: null,
+      studentId: null,
+      staffNumber: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
+      phone: null,
+      type: 'UNSELECTED',
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+    },
+  });
   actorGithubId = (
     await createUser({
       id: `${prefix}actor`,
-      githubId: 8_003_900_001_001n,
+      githubId: 8003900001001n,
       nickname: 'synthetic-admin',
       profileName: null,
       role: 'ADMIN',
@@ -84,71 +101,85 @@ beforeAll(async () => {
   await Promise.all([
     createUser({
       id: orderingUserIds.legacyAlpha,
-      githubId: 8_003_900_001_002n,
+      githubId: 8003900001002n,
       nickname: 'legacy-alpha',
       profileName: `Alpha ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileBravo,
-      githubId: 8_003_900_001_003n,
+      githubId: 8003900001003n,
       nickname: 'profile-bravo',
       profileName: `Bravo ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.legacyCharlie,
-      githubId: 8_003_900_001_004n,
+      githubId: 8003900001004n,
       nickname: 'legacy-charlie',
       profileName: `Charlie ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileDelta,
-      githubId: 8_003_900_001_005n,
+      githubId: 8003900001005n,
       nickname: 'profile-delta',
       profileName: `Delta ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoLogin,
-      githubId: 8_003_900_001_006n,
+      githubId: 8003900001006n,
       nickname: 'a-login',
       profileName: `Echo ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoIdA,
-      githubId: 8_003_900_001_007n,
+      githubId: 8003900001007n,
       nickname: 'same-login',
       profileName: `Echo ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileEchoIdB,
-      githubId: 8_003_900_001_008n,
+      githubId: 8003900001008n,
       nickname: 'same-login',
       profileName: `Echo ${queryFragment}`,
       role: 'STUDENT',
     }),
     createUser({
       id: orderingUserIds.profileZulu,
-      githubId: 8_003_900_001_009n,
+      githubId: 8003900001009n,
       nickname: 'profile-zulu',
       profileName: `Zulu ${queryFragment}`,
       role: 'STUDENT',
     }),
   ]);
 });
-
 afterAll(async () => {
-  await prisma.staffAccessRequest.deleteMany({
-    where: { userId: { startsWith: prefix } },
+  await prisma.user.updateMany({
+    where: { id: { startsWith: prefix } },
+    data: {
+      name: null,
+      studentId: null,
+      staffNumber: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
+      phone: null,
+      type: 'UNSELECTED',
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      approvalRequestedAt: null,
+      approvalDecidedAt: null,
+      approvalDecidedById: null,
+      approvalReason: null,
+    },
   });
-  await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
   await prisma.$disconnect();
 });
-
 it('orders profile and legacy display names across bounded pages without gaps or duplicates', async () => {
   const pages = await Promise.all(
     [1, 2, 3, 4].map((page) =>
@@ -159,20 +190,17 @@ it('orders profile and legacy display names across bounded pages without gaps or
       }),
     ),
   );
-
   const returnedIds = pages.flatMap((page) =>
     page.items.map((item) => item.id),
   );
-
   expect(pages.map((page) => page.total)).toEqual([8, 8, 8, 8]);
   expect(returnedIds).toEqual(expectedUserIds);
   expect(new Set(returnedIds).size).toBe(expectedUserIds.length);
 });
-
 it('orders the pending request queue by request creation time, not account creation time', async () => {
   const olderAccountNewerRequest = await createUser({
     id: `${prefix}request-sort-older-account`,
-    githubId: 8_003_900_001_010n,
+    githubId: 8003900001010n,
     nickname: `older-account-${requestSortFragment}`,
     profileName: `Older account ${requestSortFragment}`,
     role: 'STUDENT',
@@ -180,29 +208,29 @@ it('orders the pending request queue by request creation time, not account creat
   });
   const newerAccountOlderRequest = await createUser({
     id: `${prefix}request-sort-newer-account`,
-    githubId: 8_003_900_001_011n,
+    githubId: 8003900001011n,
     nickname: `newer-account-${requestSortFragment}`,
     profileName: `Newer account ${requestSortFragment}`,
     role: 'STUDENT',
     createdAt: new Date('2026-07-31T00:00:00.000Z'),
   });
-  await prisma.staffAccessRequest.createMany({
-    data: [
+  await (async () => {
+    for (const request of [
       {
         id: `${olderAccountNewerRequest.id}:pending`,
         userId: olderAccountNewerRequest.id,
-        status: 'PENDING',
+        status: 'PENDING' as const,
         createdAt: new Date('2026-08-02T00:00:00.000Z'),
       },
       {
         id: `${newerAccountOlderRequest.id}:pending`,
         userId: newerAccountOlderRequest.id,
-        status: 'PENDING',
+        status: 'PENDING' as const,
         createdAt: new Date('2026-08-01T00:00:00.000Z'),
       },
-    ],
-  });
-
+    ])
+      await writeApprovalFixture(prisma, request);
+  })();
   const page = await service.listRequests(adminPrincipal(), {
     query: requestSortFragment,
     sort: 'createdAt',
@@ -210,7 +238,6 @@ it('orders the pending request queue by request creation time, not account creat
     page: 1,
     limit: 2,
   });
-
   expect(page.items.map((item) => item.id)).toEqual([
     olderAccountNewerRequest.id,
     newerAccountOlderRequest.id,
@@ -224,19 +251,16 @@ it('orders the pending request queue by request creation time, not account creat
     new Date('2026-08-01T00:00:00.000Z'),
   ]);
 });
-
 type SyntheticUser = {
   readonly id: string;
   readonly githubId: bigint;
   readonly nickname: string;
-
   readonly profileName: string | null;
   readonly role: 'STUDENT' | 'STAFF' | 'ADMIN' | null;
   readonly createdAt?: Date;
 };
-
 function createUser(input: SyntheticUser) {
-  const profileStudentId = String(input.githubId % 1_000_000n).padStart(6, '0');
+  const profileStudentId = String(input.githubId % 1000000n).padStart(6, '0');
   const profileDepartment = 'Synthetic department';
   return prisma.user.create({
     data: {
@@ -245,28 +269,27 @@ function createUser(input: SyntheticUser) {
       nickname: input.nickname,
       accountStatus: AccountStatus.ACTIVE,
       ...(input.createdAt ? { createdAt: input.createdAt } : {}),
-      selectedMemberKind:
+      ...(input.profileName === null
+        ? {}
+        : {
+            name: input.profileName,
+            studentId: profileStudentId,
+            department: profileDepartment,
+            type: MemberKind.STUDENT,
+            departmentType: AffiliationKind.DEPARTMENT,
+            profileCreatedAt: new Date(),
+            profileUpdatedAt: new Date(),
+          }),
+      type:
         input.role === 'STUDENT'
           ? MemberKind.STUDENT
           : input.role === 'STAFF'
             ? MemberKind.STAFF
-            : null,
-      hasStaffAccess: input.role === 'STAFF',
-      hasAdminAccess: input.role === 'ADMIN',
-      ...(input.profileName === null
-        ? {}
-        : {
-            profile: {
-              create: {
-                name: input.profileName,
-                studentId: profileStudentId,
-                department: profileDepartment,
-                memberKind: MemberKind.STUDENT,
-                affiliationKind: AffiliationKind.DEPARTMENT,
-                affiliationName: profileDepartment,
-              },
-            },
-          }),
+            : 'UNSELECTED',
+      approvalStatus: input.role === 'STAFF' ? 'APPROVED' : 'NOT_REQUIRED',
+      ...(input.role === 'ADMIN'
+        ? { admin: { create: { origin: 'BOOTSTRAP' as const } } }
+        : {}),
     },
     select: { id: true, githubId: true },
   });

@@ -92,6 +92,9 @@ export function createDeadlineDigestIntegrationHarness() {
         },
       },
     });
+    await prisma.admin.deleteMany({
+      where: { userId: { in: DIGEST_USER_IDS } },
+    });
     await prisma.user.deleteMany({ where: { id: { in: DIGEST_USER_IDS } } });
   }
 
@@ -220,8 +223,11 @@ export function createDeadlineDigestIntegrationHarness() {
       await seed();
     },
     disconnect: async () => {
-      await cleanup();
-      await prisma.$disconnect();
+      try {
+        await cleanup();
+      } finally {
+        await prisma.$disconnect();
+      }
     },
     service: (mailSender: MailSender) =>
       new DeadlineDigestService(

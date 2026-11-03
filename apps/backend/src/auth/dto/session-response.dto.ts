@@ -1,4 +1,5 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { MemberKind } from '../../users/user-contract.config';
+import { AccountStatus } from '@prisma/client';
 import { AuthUser } from '../http-auth.types';
 
 export class MeResponseDto {

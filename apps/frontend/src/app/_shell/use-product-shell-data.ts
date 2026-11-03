@@ -55,26 +55,11 @@ export function useProductShellData({
       : null,
   );
   const scopeParticipant = participation.data;
-  const scopeViewerRole = programScopeViewerRole(
-    member,
-    authority,
-    scopeParticipant,
-    operationsView ?? false,
-  );
-  const scopeViewReady =
-    operationsView !== null &&
-    !(
-      scopedProgramId !== null &&
-      authority.memberKind === 'STUDENT' &&
-      (authority.hasStaffAccess || authority.hasAdminAccess) &&
-      !operationsView &&
-      participation.isPending
-    );
+  const scopeViewerRole = programScopeViewerRole(member, authority);
+  const scopeViewReady = operationsView !== null;
   const overview = useProgramOverviewQuery(
     scopedProgramId,
-    scopeViewReady
-      ? scopeViewerRole === 'STAFF' || scopeViewerRole === 'ADMIN'
-      : null,
+    scopeViewReady ? scopeViewerRole === 'STAFF' : null,
   );
   const milestones = useProgramNavigationMilestonesQuery(scopedProgramId);
   const facetLoader =

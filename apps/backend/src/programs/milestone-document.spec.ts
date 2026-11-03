@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
@@ -18,6 +19,7 @@ const milestoneDocumentsService = new MilestoneDocumentsService(
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
   {} as never,
+  new UserProfileService(),
 );
 const milestoneDocumentReviewsService = new MilestoneDocumentReviewsService(
   {} as never,

@@ -5,15 +5,14 @@ import { SubmissionInputService } from './submission-input.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { createHash } from 'node:crypto';
 import {
-  AffiliationKind,
   ApplicationStatus,
-  MemberKind,
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
   offsetDays,
@@ -71,29 +70,34 @@ describe('SubmissionsService integration', () => {
           id: NON_STUDENT_USER_ID,
           githubId: seedGithubId(NON_STUDENT_USER_ID),
           nickname: 'synthetic-submission-non-student',
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
+          type: MemberKind.STAFF,
+          approvalStatus: 'APPROVED',
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: 'DEPARTMENT',
         },
         {
           id: UNAPPROVED_USER_ID,
           githubId: seedGithubId(UNAPPROVED_USER_ID),
           nickname: 'synthetic-submission-unapproved-student',
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
       ],
       skipDuplicates: true,
     });
-    await prisma.userProfile.upsert({
-      where: { userId: UNAPPROVED_USER_ID },
-      update: {},
-      create: {
-        userId: UNAPPROVED_USER_ID,
+    await prisma.user.update({
+      where: { id: UNAPPROVED_USER_ID },
+      data: {
         name: '합성 미승인 학생',
         studentId: '261099',
         department: '합성 학과',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '합성 학과',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
     const unapprovedTeamId = `${UNAPPROVED_APPLICATION_ID}-team`;

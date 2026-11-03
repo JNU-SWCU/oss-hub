@@ -1,10 +1,6 @@
 import { CollectionScheduleService } from '../github/collection-schedule.service';
-import {
-  AccountStatus,
-  ActivityVisibility,
-  AffiliationKind,
-  MemberKind,
-} from '@prisma/client';
+import { AccountStatus, ActivityVisibility } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RankingService } from './ranking.service';
@@ -97,28 +93,28 @@ async function seed(member: SyntheticMember): Promise<void> {
       githubId: member.githubId,
       nickname: login(member),
       accountStatus: AccountStatus.ACTIVE,
-      selectedMemberKind:
-        member.memberKind === 'no-profile' ? null : member.memberKind,
-      hasStaffAccess: member.memberKind === MemberKind.STAFF,
-      hasAdminAccess: member.hasAdminAccess ?? false,
-
+      type:
+        member.memberKind === 'no-profile' || member.memberKind === null
+          ? 'UNSELECTED'
+          : member.memberKind,
+      approvalStatus:
+        member.memberKind === MemberKind.STAFF ? 'APPROVED' : 'NOT_REQUIRED',
       ...(member.memberKind === 'no-profile' || member.memberKind === null
         ? {}
         : {
-            profile: {
-              create: {
-                name,
-                studentId: member.studentId,
-                department,
-                memberKind: member.memberKind,
-                affiliationKind:
-                  member.memberKind === MemberKind.STAFF
-                    ? AffiliationKind.PROGRAM_OFFICE
-                    : AffiliationKind.DEPARTMENT,
-                affiliationName: department,
-              },
-            },
+            name,
+            studentId: member.studentId,
+            department,
+            departmentType:
+              member.memberKind === MemberKind.STAFF
+                ? AffiliationKind.PROGRAM_OFFICE
+                : AffiliationKind.DEPARTMENT,
+            profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+            profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
           }),
+      ...(member.hasAdminAccess
+        ? { admin: { create: { origin: 'MIGRATION' } } }
+        : {}),
     },
   });
   await prisma.githubUserActivityHistory.create({
@@ -140,6 +136,9 @@ async function purge(): Promise<void> {
   const githubIds = MEMBERS.map((member) => member.githubId);
   await prisma.githubUserActivityHistory.deleteMany({
     where: { githubId: { in: githubIds } },
+  });
+  await prisma.admin.deleteMany({
+    where: { user: { githubId: { in: githubIds } } },
   });
   await prisma.user.deleteMany({ where: { githubId: { in: githubIds } } });
 }

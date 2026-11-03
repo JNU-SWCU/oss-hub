@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import {
@@ -25,10 +25,10 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());
 
-  it('교직원·관리자 권한을 함께 가진 학생 팀원은 자기 팀 서류를 낸다', async () => {
+  it('관리자 자격이 있는 학생 팀원은 자기 팀 서류를 낸다', async () => {
     await fixture.prisma.user.update({
       where: { id: flowIds.student },
-      data: { hasStaffAccess: true, hasAdminAccess: true },
+      data: { admin: { create: { origin: 'MIGRATION' } } },
     });
 
     expect((await fixture.submit('여러 권한 학생의 제출')).status).toBe(201);
@@ -53,14 +53,16 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
   });
 
   it('학생 유형인 교직원도 자기가 속하지 않은 팀의 서류는 내지 못한다', async () => {
-    await fixture.prisma.userProfile.create({
+    await fixture.prisma.user.update({
+      where: { id: flowIds.staff },
       data: {
-        userId: flowIds.staff,
         name: '합성 여러 권한 학생',
         department: '합성 학과',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '합성 학과',
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
 

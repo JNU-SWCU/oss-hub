@@ -2,14 +2,16 @@ import {
   AccountStatus,
   ApplicationStatus,
   CollectionRepositoryPresence,
-  MemberKind,
   ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  StaffAccessRequestStatus,
   ProgramTrackType,
 } from '@prisma/client';
+import {
+  MemberKind,
+  StaffAccessRequestStatus,
+} from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http.integration-support';
 import {
@@ -108,7 +110,8 @@ async function createRepositoryFixture(params: {
       id: applicantId,
       githubId: 8_940_000_000_000n + BigInt(hashKey(params.key)),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
-      selectedMemberKind: MemberKind.STUDENT,
+      type: MemberKind.STUDENT,
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
   const applicationId = `${PREFIX}-${params.key}-application`;
@@ -256,12 +259,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.user.update({
       where: { id: studentPersona.id },
       data: {
-        profile: {
-          update: {
-            name: NAMED_PERSONA_REAL_NAME,
-            department: NAMED_PERSONA_DEPARTMENT,
-            affiliationName: NAMED_PERSONA_DEPARTMENT,
-          },
+        ...{
+          name: NAMED_PERSONA_REAL_NAME,
+          department: NAMED_PERSONA_DEPARTMENT,
         },
       },
     });
@@ -414,10 +414,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       allBodies.push(listBody, detailBody, profileBody);
       if (githubId === undefined) {
         publicClassRankingItemLists.push(ranking.items);
-      } else if (githubId === studentPersona.githubId) {
-        memberClassRankingItemLists.push(ranking.items);
-      } else {
+      } else if (githubId === staffPersona.githubId) {
         staffClassRankingItemLists.push(ranking.items);
+      } else {
+        memberClassRankingItemLists.push(ranking.items);
       }
 
       expect(listBody.items).toEqual(
@@ -563,7 +563,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(memberRankingSerialized).not.toContain(NAMED_PERSONA_REAL_NAME);
   });
 
-  it('같은 /ranking URL 이 계층별로 다른 표기를 내린다 — 교직원·관리자만 실명을 본다 (todo 15)', async () => {
+  it('같은 /ranking URL 이 계층별로 다른 표기를 내린다 — 승인된 교직원만 실명을 본다 (todo 15)', async () => {
     const path = `/ranking?year=${RANKING_FIXTURE_YEAR}`;
     const [anonymous, student, staff, admin] = await Promise.all([
       fetchRankingPages(path, undefined),
@@ -631,7 +631,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(studentEntry).not.toHaveProperty('displayName');
     expect(JSON.stringify(student.items)).toBe(JSON.stringify(anonymous.items));
 
-    for (const staffClassItems of [staff.items, admin.items]) {
+    for (const staffClassItems of [staff.items]) {
       const entry = staffClassItems.find(
         (item) => item.githubLogin === studentPersona.nickname,
       );
@@ -643,10 +643,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       });
     }
 
-    expect(JSON.stringify(admin.items)).toBe(JSON.stringify(staff.items));
+    expect(JSON.stringify(admin.items)).toBe(JSON.stringify(student.items));
 
-    const canonicalOnlyProfile = await harness.prisma.userProfile.findUnique({
-      where: { userId: canonicalOnlyStudentPersona.id },
+    const canonicalOnlyProfile = await harness.prisma.user.findUnique({
+      where: { id: canonicalOnlyStudentPersona.id },
       select: { name: true },
     });
     const canonicalOnlyEntry = staff.items.find(
@@ -707,7 +707,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     });
   });
 
-  it('POST /repositories/:id/publish — 익명은 401, STUDENT는 403, STAFF/ADMIN은 200이다(실제 전역 인증 가드+UsersAuthorityService)', async () => {
+  it('POST /repositories/:id/publish — 익명은 401, STUDENT/ADMIN은 403, STAFF는 200이다(실제 전역 인증 가드+UsersAuthorityService)', async () => {
     const anonymous = await harness.request(
       'POST',
       `/repositories/${gateRepoForStaff.repositoryId}/publish`,
@@ -760,10 +760,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       adminPersona.githubId,
       { isConfirmed: true },
     );
-    expect(admin.status).toBe(200);
+    expect(admin.status).toBe(403);
     await expect(admin.json()).resolves.toMatchObject({
-      repositoryId: gateRepoForAdmin.repositoryId,
-      visibility: RepositoryVisibility.PUBLIC,
+      code: 'SUB_002',
     });
 
     const wrongOrigin = await harness.request(
@@ -776,6 +775,28 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(wrongOrigin.status).toBe(403);
     await expect(wrongOrigin.json()).resolves.toMatchObject({
       code: 'AUT_002',
+    });
+
+    expect(
+      await harness.prisma.auditLog.count({
+        where: {
+          targetType: 'REPOSITORY',
+          action: 'REPOSITORY_PUBLISHED',
+          targetId: gateRepoForAdmin.repositoryId,
+        },
+      }),
+    ).toBe(0);
+
+    const staffPublishesSecondRepository = await harness.request(
+      'POST',
+      `/repositories/${gateRepoForAdmin.repositoryId}/publish`,
+      staffPersona.githubId,
+      { isConfirmed: true },
+    );
+    expect(staffPublishesSecondRepository.status).toBe(200);
+    await expect(staffPublishesSecondRepository.json()).resolves.toMatchObject({
+      repositoryId: gateRepoForAdmin.repositoryId,
+      visibility: RepositoryVisibility.PUBLIC,
     });
 
     const auditRows = await harness.prisma.auditLog.findMany({
@@ -815,9 +836,13 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         id: FOREIGN_SUITE_ACTOR_ID,
         githubId: 8_970_000_000_001n,
         nickname: `${FOREIGN_SUITE_ACTOR_ID}-login`,
-
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
+        type: MemberKind.STAFF,
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
     });
     await harness.prisma.auditLog.create({

@@ -1,8 +1,8 @@
+import { AccountStatus } from '@prisma/client';
 import {
-  AccountStatus,
   MemberKind,
   StaffAccessRequestStatus,
-} from '@prisma/client';
+} from '../../users/user-contract.config';
 import {
   AdminAccessFacetsResponseDto,
   AdminAccessMutationResponseDto,
@@ -22,10 +22,12 @@ describe('admin access response DTO allowlists', () => {
           phone: 'redacted-synthetic-phone',
           githubLogin: 'synthetic-target',
           name: '합성 사용자',
-          role: 'STUDENT' as const,
-          memberKind: MemberKind.STUDENT,
+          role: null,
+          memberKind: MemberKind.STAFF,
           hasStaffAccess: false,
           hasAdminAccess: false,
+          approvalStatus: 'PENDING' as const,
+          approvalRequestId: 'request-pending',
           accountStatus: AccountStatus.ACTIVE,
           isSelf: false,
           isProfileComplete: true,
@@ -49,10 +51,12 @@ describe('admin access response DTO allowlists', () => {
       id: 'target',
       githubLogin: 'synthetic-target',
       name: '합성 사용자',
-      role: 'STUDENT',
-      memberKind: MemberKind.STUDENT,
+      role: null,
+      memberKind: MemberKind.STAFF,
       hasStaffAccess: false,
       hasAdminAccess: false,
+      approvalStatus: 'PENDING' as const,
+      approvalRequestId: 'request-pending',
       accountStatus: AccountStatus.ACTIVE,
       isSelf: false,
       isProfileComplete: true,
@@ -72,6 +76,8 @@ describe('admin access response DTO allowlists', () => {
     const mutation = AdminAccessMutationResponseDto.from({
       id: 'target',
       role: 'STAFF',
+      approvalStatus: 'APPROVED' as const,
+      approvalRequestId: 'request-1',
       accountStatus: AccountStatus.ACTIVE,
       pendingRequest: null,
       decidedRequest: {

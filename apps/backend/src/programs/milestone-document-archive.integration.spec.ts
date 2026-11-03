@@ -107,14 +107,24 @@ it('requires authenticated active staff on the real endpoint', async () => {
   expect((await http.request({ kind: 'PROGRAM' }, false)).status).toBe(401);
   await fixture.prisma.user.update({
     where: { id: archiveId('user') },
-    data: { hasStaffAccess: false },
+    data: {
+      approvalStatus: 'REVOKED',
+    },
   });
   try {
     expect((await http.request({ kind: 'PROGRAM' })).status).toBe(403);
   } finally {
     await fixture.prisma.user.update({
       where: { id: archiveId('user') },
-      data: { hasStaffAccess: true },
+      data: {
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
+      },
     });
   }
 });

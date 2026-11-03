@@ -1,3 +1,4 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -5,14 +6,13 @@ import { ReviewHistoryWriterRepository } from './review-history-writer.repositor
 import {
   ApplicationReviewEventKind,
   ApplicationStatus,
-  MemberKind,
   ProgramCategory,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
-  StaffAccessRequestStatus,
   ProgramTrackType,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import {
   canonicalUserCreate,
   canonicalUserCreateFromLabel,
@@ -25,7 +25,7 @@ import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { ConsentsRepository } from '../users/member-onboarding.repository';
+import { UserPolicyRepository } from '../users/user-policy.repository';
 import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
 import type {
@@ -66,7 +66,7 @@ const service = new ApplicationsService(
   repository,
   new AuditLogService(
     new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
+    new AuditLogReadService(new AuditLogMetadataService()),
   ),
   new ApplicationJoinCodeService(
     {
@@ -214,12 +214,9 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           name: 'Synthetic Own Chain Staff',
           department: 'Synthetic Program Office',
         }),
-        staffAccessRequests: {
-          create: {
-            id: `${STAFF_ACTOR_ID}:access`,
-            status: StaffAccessRequestStatus.APPROVED,
-          },
-        },
+        approvalStatus: 'APPROVED',
+        approvalRequestId: `${STAFF_ACTOR_ID}:access`,
+        approvalRequestedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
     await Promise.all(
@@ -264,12 +261,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     );
 
     const { policy } = await new ConsentsService(
-      new ConsentsRepository(prisma),
+      new UserPolicyRepository(prisma),
     ).getCurrent(APPLICANT_GITHUB_ID);
-    await prisma.consent.create({
+    await prisma.userPolicy.create({
       data: { userId: APPLICANT_ID, policyVersion: policy.policyVersion },
     });
-    await prisma.consent.create({
+    await prisma.userPolicy.create({
       data: {
         userId: ORG_OWNER_EXTERNAL_APPLICANT_ID,
         policyVersion: policy.policyVersion,
@@ -334,7 +331,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
   });
 
   afterAll(async () => {
-    await prisma.consent.deleteMany({
+    await prisma.userPolicy.deleteMany({
       where: {
         userId: { in: [APPLICANT_ID, ORG_OWNER_EXTERNAL_APPLICANT_ID] },
       },
@@ -714,10 +711,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         github as unknown as GithubAppClient,
         new RepositoryProvisionGithubService(new RepositoryUrlService()),
       ),
-      new ConsentsService(new ConsentsRepository(prisma)),
+      new ConsentsService(new UserPolicyRepository(prisma)),
       new AuditLogService(
         new AuditLogRepository(prisma),
-        new AuditLogMetadataService(),
+        new AuditLogReadService(new AuditLogMetadataService()),
       ),
       { collectRepository: jest.fn() },
       new RepositoryProvisionEventService(),
@@ -885,7 +882,7 @@ async function createOwnApplication(
 
 function ownEnrollment(): RepositoryOwnEnrollmentService {
   return new RepositoryOwnEnrollmentService(
-    new ConsentsService(new ConsentsRepository(prisma)),
+    new ConsentsService(new UserPolicyRepository(prisma)),
     new CollectionIncrementalRepository(prisma),
   );
 }
