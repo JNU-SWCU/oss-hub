@@ -8,7 +8,7 @@ import {
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
@@ -84,7 +84,7 @@ describe('PublicProjectsService.findProfile integration', () => {
         studentId: '880001',
         department: 'synthetic-department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
         approvalStatus: 'NOT_REQUIRED',

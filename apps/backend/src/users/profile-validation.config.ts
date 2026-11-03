@@ -1,5 +1,5 @@
 import type { ApprovalStatus } from '@prisma/client';
-import { MemberKind, type AffiliationKind } from './user-contract.config';
+import { MemberKind, type DepartmentType } from './user-contract.config';
 
 export interface UserProfileRecord {
   readonly id: string;
@@ -19,8 +19,7 @@ export interface UserProfileRecord {
 
   readonly selectedMemberKind: MemberKind | null;
   readonly memberKind: MemberKind | null;
-  readonly affiliationKind?: AffiliationKind | null;
-  readonly affiliationName?: string | null;
+  readonly departmentType?: DepartmentType | null;
   readonly hasAdminAccess?: boolean;
 }
 

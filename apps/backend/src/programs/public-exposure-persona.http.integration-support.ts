@@ -8,7 +8,7 @@ import { PublicEligibilityRepository } from './public-eligibility.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../admin/audit-log.controller';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -255,8 +255,8 @@ export class PublicExposurePersonaHttpHarness {
                     : 'NOT_REQUIRED',
                 departmentType:
                   memberKind === MemberKind.STUDENT
-                    ? AffiliationKind.DEPARTMENT
-                    : AffiliationKind.PROGRAM_OFFICE,
+                    ? DepartmentType.DEPARTMENT
+                    : DepartmentType.PROGRAM_OFFICE,
                 profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
                 profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
               },

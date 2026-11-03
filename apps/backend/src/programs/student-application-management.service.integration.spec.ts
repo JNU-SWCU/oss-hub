@@ -2,7 +2,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { ProgramCategory } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -135,7 +135,7 @@ describe('StudentApplicationManagementService integration races', () => {
           studentId: student.studentId,
           department: 'Synthetic department',
           type: MemberKind.STUDENT,
-          departmentType: AffiliationKind.DEPARTMENT,
+          departmentType: DepartmentType.DEPARTMENT,
           profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
           approvalStatus: 'NOT_REQUIRED',
@@ -355,7 +355,7 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
           studentId: student.studentId,
           department: 'Synthetic department',
           type: MemberKind.STUDENT,
-          departmentType: AffiliationKind.DEPARTMENT,
+          departmentType: DepartmentType.DEPARTMENT,
           profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
           approvalStatus: 'NOT_REQUIRED',

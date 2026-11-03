@@ -2,7 +2,7 @@ import { userAuditRows } from './user-history.integration-fixture';
 
 import { AdminRepository } from './admin.repository';
 import { UserTransitionRepository } from './user-transition.repository';
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
@@ -61,7 +61,7 @@ async function createTargetUser(): Promise<string> {
       studentId: `${920000 + sequence}`,
       department: '합성 학과',
       type: MemberKind.STUDENT,
-      departmentType: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
       profileCreatedAt: new Date(),
       profileUpdatedAt: new Date(),
     },

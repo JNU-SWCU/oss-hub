@@ -51,6 +51,10 @@ export class UpdateMyProfileRequestDto {
   @IsProfileText('isValidDepartment')
   declare readonly department?: string;
 
+  @IsOptional()
+  @IsString()
+  declare readonly departmentType?: string;
+
   @ValidateIf(
     (request: UpdateMyProfileRequestDto) => request.department === undefined,
   )

@@ -8,7 +8,7 @@ import { flatProfileFixture } from './canonical-user-fixture';
 import { AdminRepository } from './admin.repository';
 import { UserTransitionRepository } from './user-transition.repository';
 import {
-  AffiliationKind,
+  DepartmentType,
   MemberKind,
   StaffAccessRequestStatus,
 } from './user-contract.config';
@@ -64,8 +64,7 @@ describe('Admin access atomic request decisions', () => {
       studentId: `${9100000 + sequence}`,
       department: '소프트웨어공학과',
       memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '소프트웨어공학과',
+      departmentType: DepartmentType.DEPARTMENT,
     };
     await prisma.user.update({
       where: { id: target.id },

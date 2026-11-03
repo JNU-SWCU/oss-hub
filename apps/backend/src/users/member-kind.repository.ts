@@ -6,7 +6,7 @@ import {
 } from '@prisma/client';
 import {
   MemberKind,
-  AffiliationKind,
+  DepartmentType,
   StaffAccessRequestStatus,
 } from './user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
@@ -25,8 +25,7 @@ type MemberKindTargetProfile = {
   readonly department: string;
   readonly staffNumber: string | null;
   readonly memberKind: MemberKind;
-  readonly affiliationKind: AffiliationKind;
-  readonly affiliationName: string;
+  readonly departmentType: DepartmentType;
 };
 
 type MemberKindPendingRequest = {
@@ -55,8 +54,7 @@ export type MemberKindProfileUpdate = {
   readonly memberKind: MemberKind;
   readonly studentId?: string;
   readonly department?: string;
-  readonly affiliationKind?: AffiliationKind;
-  readonly affiliationName?: string;
+  readonly departmentType?: DepartmentType;
   readonly staffNumber?: string | null;
 };
 
@@ -184,8 +182,7 @@ function toTarget(user: TargetRow): MemberKindTargetRecord {
           department: user.department,
           staffNumber: user.staffNumber,
           memberKind,
-          affiliationKind: user.departmentType,
-          affiliationName: user.department,
+          departmentType: user.departmentType,
         }
       : null;
   return {

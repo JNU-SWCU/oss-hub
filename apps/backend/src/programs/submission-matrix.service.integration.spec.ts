@@ -6,7 +6,7 @@ import {
   ApplicationStatus,
   SubmissionStatus,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -158,7 +158,7 @@ describe('SubmissionMatrixService integration', () => {
         studentId: '261097',
         department: '합성 학과',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },

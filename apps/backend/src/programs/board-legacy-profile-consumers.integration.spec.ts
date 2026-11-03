@@ -5,7 +5,7 @@ import {
   BoardPostCategory,
   ProgramCategory,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { StaffInsightsRepository } from '../staff/staff-insights.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -74,7 +74,7 @@ beforeEach(async () => {
         studentId: '100001',
         department: 'canonical-department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
@@ -84,7 +84,7 @@ beforeEach(async () => {
         studentId: '100002',
         department: 'legacy-only-department',
         type: MemberKind.STUDENT,
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },

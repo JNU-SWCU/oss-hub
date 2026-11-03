@@ -1,5 +1,5 @@
 import { UserTransitionRepository } from './user-transition.repository';
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalCompletion } from './member-authority-test-fixtures';
@@ -22,8 +22,7 @@ type StoredProfileFields = {
   readonly studentId: string | null;
   readonly department: string;
   readonly memberKind: MemberKind;
-  readonly affiliationKind: AffiliationKind;
-  readonly affiliationName: string;
+  readonly departmentType: DepartmentType;
 };
 type PhoneAuditCallback = Parameters<
   UsersRepositoryPort['completeProfileIfUnchanged']
@@ -156,7 +155,7 @@ describe('학번 최초 저장의 유일성', () => {
     expect(outcome).toBe('completed');
     const profileRows = await prisma.$queryRaw<StoredProfileFields[]>`
       SELECT "name", "studentId", "department",
-             "type" AS "memberKind", "departmentType" AS "affiliationKind", "department" AS "affiliationName"
+             "type" AS "memberKind", "departmentType" AS "departmentType", "department" AS "department"
       FROM "User"
       WHERE "id" = ${userId} AND "profileCreatedAt" IS NOT NULL
     `;
@@ -164,8 +163,8 @@ describe('학번 최초 저장의 유일성', () => {
       {
         ...studentProfile,
         memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: studentProfile.department,
+        departmentType: DepartmentType.DEPARTMENT,
+        department: studentProfile.department,
       },
     ]);
     await expect(repository.findByGithubId(githubId)).resolves.toMatchObject({

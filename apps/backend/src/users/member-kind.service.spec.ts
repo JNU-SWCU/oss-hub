@@ -81,7 +81,7 @@ describe('MemberKindService identity transitions', () => {
     expect(store.target?.profile).toMatchObject({
       studentId: '123456',
       department: 'New department',
-      affiliationKind: 'DEPARTMENT',
+      departmentType: 'DEPARTMENT',
     });
   });
   it('allows an administrator own pending STAFF identity command to supersede exactly the matched request', async () => {

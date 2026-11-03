@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import {
@@ -60,7 +60,7 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
         department: '합성 학과',
         type: MemberKind.STUDENT,
         approvalStatus: 'NOT_REQUIRED',
-        departmentType: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },

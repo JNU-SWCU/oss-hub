@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { UserProfileService } from './user-profile.service';
 import { DomainException } from '../platform/error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
@@ -59,8 +59,7 @@ export class MemberKindProfileService {
         memberKind: MemberKind.STUDENT,
         ...(studentId !== profile.studentId ? { studentId } : {}),
         department: providedDepartment,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: providedDepartment,
+        departmentType: DepartmentType.DEPARTMENT,
         ...(providedStaffNumber !== undefined
           ? { staffNumber: providedStaffNumber }
           : {}),
@@ -77,8 +76,7 @@ export class MemberKindProfileService {
       const changed =
         authorityChanged ||
         profileChanges.length > 0 ||
-        profile.affiliationKind !== AffiliationKind.DEPARTMENT ||
-        profile.affiliationName !== providedDepartment;
+        profile.departmentType !== DepartmentType.DEPARTMENT;
       return {
         changed,
         authorityChanged,
@@ -103,8 +101,7 @@ export class MemberKindProfileService {
     }
     if (
       providedDepartment !== undefined &&
-      (providedDepartment !== profile.department ||
-        providedDepartment !== profile.affiliationName)
+      providedDepartment !== profile.department
     ) {
       throw validationError(
         '교직원 전환에서는 기존 소속을 변경할 수 없습니다.',

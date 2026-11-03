@@ -8,7 +8,7 @@ import {
   ApplicationStatus,
   ProgramCategory,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -119,7 +119,7 @@ async function createStudent(
       studentId: `${900000 + Number(githubId % 1000n)}`,
       department: '합성 학과',
       type: MemberKind.STUDENT,
-      departmentType: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
       profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       approvalStatus: 'NOT_REQUIRED',
@@ -138,7 +138,7 @@ async function seed(): Promise<void> {
       studentId: null,
       department: '합성 지원단',
       type: MemberKind.STAFF,
-      departmentType: AffiliationKind.PROGRAM_OFFICE,
+      departmentType: DepartmentType.PROGRAM_OFFICE,
       profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       approvalStatus: 'APPROVED',

@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import type { PrismaService } from '../platform/prisma.service';
 
 const prefix = 'qa152-document-flow';
@@ -48,7 +48,7 @@ export async function seedMilestoneDocumentFlow(
       name: '합성 학생',
       department: '합성 학과',
       type: MemberKind.STUDENT,
-      departmentType: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
       profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
     },

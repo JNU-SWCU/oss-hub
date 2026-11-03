@@ -11,7 +11,7 @@ import {
   RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.error';
@@ -174,7 +174,7 @@ describe('ApplicationsService integration', () => {
           studentId: null,
           department: 'Synthetic program office',
           type: MemberKind.STAFF,
-          departmentType: AffiliationKind.PROGRAM_OFFICE,
+          departmentType: DepartmentType.PROGRAM_OFFICE,
           profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
         },
@@ -184,7 +184,7 @@ describe('ApplicationsService integration', () => {
           studentId: '800002',
           department: 'Synthetic department',
           type: MemberKind.STUDENT,
-          departmentType: AffiliationKind.DEPARTMENT,
+          departmentType: DepartmentType.DEPARTMENT,
           profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
         },

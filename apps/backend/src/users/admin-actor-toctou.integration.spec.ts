@@ -353,7 +353,7 @@ function startHeldDemotion(userId: string): {
             studentId: null,
             department: '합성 사업단',
             memberKind: 'STAFF',
-            affiliationKind: 'PROGRAM_OFFICE',
+            departmentType: 'PROGRAM_OFFICE',
           }),
           approvalStatus: 'APPROVED',
           admin: { delete: true },

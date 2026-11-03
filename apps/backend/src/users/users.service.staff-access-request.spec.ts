@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { profileRecord } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -12,8 +12,8 @@ const usersService = new UsersService(
 );
 const staffInput = {
   name: '합성 교직원',
-  affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-  affiliationName: '합성 사업단',
+  departmentType: DepartmentType.PROGRAM_OFFICE,
+  department: '합성 사업단',
 } as const;
 describe('가입 마치기의 교직원 접근 승인 요청 판단', () => {
   it.each([

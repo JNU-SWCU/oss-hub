@@ -13,8 +13,7 @@ describe('UsersRepository flat profile reads', () => {
         phone: '11111111111',
         memberKind: 'STUDENT',
         selectedMemberKind: 'STUDENT',
-        affiliationKind: 'DEPARTMENT',
-        affiliationName: 'Profile Department',
+        departmentType: 'DEPARTMENT',
         profileCreatedAt: marker,
       }),
     );

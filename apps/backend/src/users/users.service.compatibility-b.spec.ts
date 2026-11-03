@@ -204,8 +204,7 @@ describe('기존 데이터 호환 후속', () => {
       {
         name: '수정된 이름',
         department: input.department,
-        affiliationKind: 'DEPARTMENT',
-        affiliationName: input.department,
+        departmentType: 'DEPARTMENT',
       },
       expect.any(Function),
       expect.any(Function),

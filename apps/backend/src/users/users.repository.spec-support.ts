@@ -123,7 +123,7 @@ function toRow(record: UserProfileRecord): Row {
     name: record.name,
     studentId: record.studentId,
     department: record.department,
-    departmentType: record.affiliationKind ?? null,
+    departmentType: record.departmentType ?? null,
     type,
     profileCreatedAt: record.profileCreatedAt,
     profileUpdatedAt: record.profileCreatedAt,

@@ -10,7 +10,7 @@ import {
   ProgramCategory,
   RepositorySource,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -89,7 +89,7 @@ beforeAll(async () => {
       studentId: (githubIdBase / 1000n).toString().padStart(10, '0'),
       department: 'Synthetic',
       type: MemberKind.STUDENT,
-      departmentType: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
       profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       approvalStatus: 'NOT_REQUIRED',

@@ -1,5 +1,5 @@
 import {
-  AffiliationKind,
+  DepartmentType,
   MemberKind,
   StaffAccessRequestStatus,
 } from './user-contract.config';
@@ -412,8 +412,8 @@ function userRow(options: UserRowOptions): AdminAccessUserDetailSource {
     type,
     departmentType:
       type === 'STUDENT'
-        ? AffiliationKind.DEPARTMENT
-        : AffiliationKind.PROGRAM_OFFICE,
+        ? DepartmentType.DEPARTMENT
+        : DepartmentType.PROGRAM_OFFICE,
     profileCreatedAt: hasProfile ? at : null,
     profileUpdatedAt: hasProfile ? at : null,
     approvalStatus: options.pendingRequest

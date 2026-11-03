@@ -1,4 +1,4 @@
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { profileRecord } from './member-authority-test-fixtures';
@@ -43,7 +43,7 @@ describe('member authority completion negative contract', () => {
       {
         name: '합성 학생',
         studentId: '801021',
-        affiliationKind: AffiliationKind.DEPARTMENT,
+        departmentType: DepartmentType.DEPARTMENT,
       },
     ],
     [
@@ -51,7 +51,7 @@ describe('member authority completion negative contract', () => {
       {
         name: '합성 학생',
         studentId: '801022',
-        affiliationName: '인공지능학부',
+        department: '인공지능학부',
       },
     ],
   ] satisfies readonly (readonly [string, PatchUserProfileInput])[])(

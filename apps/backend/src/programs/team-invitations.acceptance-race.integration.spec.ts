@@ -6,7 +6,7 @@ import {
   ProgramTrackType,
   TeamInvitationStatus,
 } from '@prisma/client';
-import { AffiliationKind, MemberKind } from '../users/user-contract.config';
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamsRepository } from './program-teams.repository';
@@ -202,7 +202,7 @@ describe('Team invitation acceptance transaction races', () => {
       '역할 변경 트랜잭션',
       {
         type: MemberKind.STAFF,
-        departmentType: AffiliationKind.PROGRAM_OFFICE,
+        departmentType: DepartmentType.PROGRAM_OFFICE,
         department: 'Synthetic program office',
         approvalStatus: 'APPROVED',
         name: 'Synthetic staff',

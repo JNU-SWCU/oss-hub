@@ -2,7 +2,7 @@ import { writeApprovalFixture } from './user-history.integration-fixture';
 
 import { AdminRepository } from './admin.repository';
 import { UserTransitionRepository } from './user-transition.repository';
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -276,7 +276,7 @@ function createUser(input: SyntheticUser) {
             studentId: profileStudentId,
             department: profileDepartment,
             type: MemberKind.STUDENT,
-            departmentType: AffiliationKind.DEPARTMENT,
+            departmentType: DepartmentType.DEPARTMENT,
             profileCreatedAt: new Date(),
             profileUpdatedAt: new Date(),
           }),

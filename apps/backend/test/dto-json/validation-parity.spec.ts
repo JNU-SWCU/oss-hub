@@ -305,6 +305,11 @@ parityCases(
       affiliationKind: 'DEPARTMENT',
       affiliationName: ' 학과 ',
     },
+    'department with type': {
+      name: '홍길동',
+      department: ' 사업단 ',
+      departmentType: 'PROGRAM_OFFICE',
+    },
     'unknown affiliation': {
       name: '홍길동',
       affiliationKind: 'NOPE',

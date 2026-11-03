@@ -1,6 +1,6 @@
 import { flatProfileFixture } from './canonical-user-fixture';
 import { UserTransitionRepository } from './user-transition.repository';
-import { AffiliationKind, MemberKind } from './user-contract.config';
+import { DepartmentType, MemberKind } from './user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../platform/error-code.error';
 import { UserHistoryRepository } from './user-history.repository';
@@ -26,8 +26,7 @@ type StoredProfileFields = {
   readonly studentId: string | null;
   readonly department: string;
   readonly memberKind: MemberKind;
-  readonly affiliationKind: AffiliationKind;
-  readonly affiliationName: string;
+  readonly departmentType: DepartmentType;
 };
 const prisma = new PrismaService();
 const service = new UsersService(
@@ -42,7 +41,7 @@ const service = new UsersService(
 function readProfileRow(): Promise<StoredProfileFields[]> {
   return prisma.$queryRaw<StoredProfileFields[]>`
     SELECT "name", "studentId", "department",
-           "type" AS "memberKind", "departmentType" AS "affiliationKind", "department" AS "affiliationName"
+           "type" AS "memberKind", "departmentType" AS "departmentType", "department" AS "department"
     FROM "User"
     WHERE "id" = ${userId} AND "profileCreatedAt" IS NOT NULL
   `;
@@ -85,7 +84,7 @@ async function resetLegacyStudent(): Promise<void> {
       studentId: LEGACY_STUDENT_ID,
       department,
       memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
+      departmentType: DepartmentType.DEPARTMENT,
     }),
   };
   await prisma.user.upsert({
@@ -142,8 +141,7 @@ it('학번을 싣지 않은 저장은 예전 형식 학번을 건드리지 않�
       studentId: LEGACY_STUDENT_ID,
       department: '소프트웨어공학과',
       memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '소프트웨어공학과',
+      departmentType: DepartmentType.DEPARTMENT,
     },
   ]);
 });
@@ -162,8 +160,7 @@ it('학번을 6자리로 바꾸려는 저장은 거절하고 데이터를 그대
       studentId: LEGACY_STUDENT_ID,
       department,
       memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: department,
+      departmentType: DepartmentType.DEPARTMENT,
     },
   ]);
 });
@@ -206,8 +203,7 @@ describe('학번이 없는 학생', () => {
         studentId: NEW_ONBOARDING_STUDENT_ID,
         department,
         memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: department,
+        departmentType: DepartmentType.DEPARTMENT,
       },
     ]);
   });
