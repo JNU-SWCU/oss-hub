@@ -42,9 +42,20 @@ else if(command==='curl'){
   out(s.ingress==='closed'?'503':'200');
 }
 else if(command==='docker'){
-  if(a[0]==='image'){
+  if(a[0]==='build'){
+    s.candidateImageId='sha256:'+'9'.repeat(64);save();
+  }else if(a[0]==='image'){
+    event('image-checked');
     const old=a.at(-1).includes('v1.0.0');
-    out(a.join(' ').includes('revision')?'b'.repeat(40):'sha256:'+(old?'1':'2').repeat(64));
+    if(!old&&s.missingCandidate)fail();
+    if(a.join(' ').includes('revision'))out(s.candidateRevision||'b'.repeat(40));
+    else if(a.join(' ').includes('version'))out(s.candidateVersion||'v1.1.0');
+    else out(old?'sha256:'+'1'.repeat(64):s.candidateImageId||'sha256:'+'2'.repeat(64));
+    if(s.moveTagAfterOpenCheck&&opened()){
+      if(old)s.previousImageId='sha256:'+'9'.repeat(64);
+      else s.candidateImageId='sha256:'+'9'.repeat(64);
+      save();
+    }
   }else if(a[0]==='ps'){
     const filters=a.filter((x,i)=>a[i-1]==='--filter');
     const matches=['backend',...s.containers].map(describe).filter(c=>
@@ -65,10 +76,14 @@ else if(command==='docker'){
   else if(a[0]==='compose'){
     const op=a.find(x=>['run','up','pull','exec'].includes(x));
     const target=a[a.indexOf('--env-file')+1].includes('previous')?'old':'new';
+    let image=target==='old'?s.previousImageId||'sha256:'+'1'.repeat(64):s.candidateImageId||'sha256:'+'2'.repeat(64);
+    for(const config of a.filter((x,i)=>a[i-1]==='-f'&&x.endsWith('.json'))){
+      image=JSON.parse(fs.readFileSync(config)).services.backend.image;
+    }
     if(op==='pull')process.exit(0);
     if(op==='up'){
       if(!opened()||s.schema!==target||(target==='new'&&s.dbPhase!=='OPEN_COMMITTED'))fail();
-      s.backend=target;s.writes.push(target+'-scheduled-write');event('writer-started');save();
+      s.backend=target;s.backendImageId=image;s.writes.push(target+'-scheduled-write');event('writer-started');save();
     }else if(op==='exec'){
       if(a.includes('curl')&&s.failure==='open-health'&&s.backend==='new')fail();
       if(!a.includes('-d')&&!a.includes('--interactive=false'))process.stdin.resume();
@@ -78,12 +93,17 @@ else if(command==='docker'){
       if(a.includes('sha256sum'))out(crypto.createHash('sha256').update(s.imageSql).digest('hex')+'  migration.sql');
       else if(a.includes('verify-maintenance-capability')){if(s.failure==='capability'||!a.includes('dist/src/cli.js'))fail();}
       else if(name==='oss-hub-uc-migrate'){
+        s.containerImages??={};s.containerImages[name]=image;s.migrationImageId=image;
         s.containers.push(name);s.owners??={};s.owners[name]=a.find(x=>x.startsWith('oss-hub.user-consolidation.run='))?.split('=').slice(1).join('=')||'';save();out(describe(name).Id);
       }
       else if(name==='oss-hub-uc-candidate'){
         if(!a.includes('OSS_HUB_MAINTENANCE=1')||!a.includes('PORT=4000')||!a.includes('dist/src/main.js')||!a.some(x=>x.startsWith('DATABASE_URL=')&&x.endsWith('/oss_hub_uc_verification')))fail();
+        s.containerImages??={};s.containerImages[name]=image;
         s.containers.push(name);s.owners??={};s.owners[name]=a.find(x=>x.startsWith('oss-hub.user-consolidation.run='))?.split('=').slice(1).join('=')||'';
         s.candidateIsolated=true;s.candidateReady=false;save();out(describe(name).Id);
+      }
+      else if(name==='oss-hub-uc-nginx-check'&&s.moveAfterArtifacts){
+        s.candidateImageId='sha256:'+'9'.repeat(64);save();
       }
       // Foreground Compose run attaches stdin by default, even after producing output.
       process.once('exit',code=>{if(code===0)event('oneoff-completed:'+name);});

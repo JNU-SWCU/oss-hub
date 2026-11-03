@@ -160,7 +160,15 @@ p.on('exit',(code)=>{clearTimeout(timer);process.exit(timedOut?124:code??1);});
   );
   writeFileSync(
     join(run, 'rehearsal.json'),
-    JSON.stringify({ writerUnits: ['external-writer.service'] }),
+    JSON.stringify({
+      releaseSha: context.RELEASE_SHA,
+      previousImageId: `sha256:${'1'.repeat(64)}`,
+      candidateImageId: `sha256:${'2'.repeat(64)}`,
+      restoreValidated: true,
+      exclusiveWriters: true,
+      writerUnits: ['external-writer.service'],
+      recoverySeconds: 300,
+    }),
   );
   writeFileSync(
     join(run, 'candidate.env'),

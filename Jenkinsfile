@@ -173,6 +173,23 @@ printf '%s/compose.yml' "$snapshot"
         }
       }
     }
+    stage('사용자 통합 migration 감지와 사전 이미지 검증') {
+      when { expression { env.DEPLOY_NOOP == 'false' } }
+      steps {
+        script {
+          env.USER_CONSOLIDATION = sh(script: '''#!/usr/bin/env bash
+set -euo pipefail
+bash "$CONTROLLER_DIR/deploy/jenkins/user-consolidation-migrate.sh" --detect
+''', returnStdout: true).trim()
+          if (!(env.USER_CONSOLIDATION in ['ordinary', 'required'])) {
+            error('사용자 통합 migration 상태를 확인하지 못했습니다.')
+          }
+          if (env.USER_CONSOLIDATION == 'required') {
+            sh 'bash "$CONTROLLER_DIR/deploy/jenkins/user-consolidation-migrate.sh" --verify-prebuilt'
+          }
+        }
+      }
+    }
     stage('deploy credential 검증과 키 staging') {
       when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
@@ -204,7 +221,7 @@ printf '%s' "$generation"
       }
     }
     stage('Buildx 캐시 상한') {
-      when { expression { env.DEPLOY_NOOP == 'false' } }
+      when { expression { env.DEPLOY_NOOP == 'false' && env.USER_CONSOLIDATION == 'ordinary' } }
       steps {
         sh '''#!/usr/bin/env bash
 set -euo pipefail
@@ -309,7 +326,7 @@ docker exec "$PREV_POSTGRES_ID" sh -c 'pg_isready -U "$POSTGRES_USER" -d "$POSTG
       }
     }
     stage('exact release 이미지 빌드') {
-      when { expression { env.DEPLOY_NOOP == 'false' } }
+      when { expression { env.DEPLOY_NOOP == 'false' && env.USER_CONSOLIDATION == 'ordinary' } }
       steps {
         dir("${env.RELEASE_SOURCE}") {
           sh '''#!/usr/bin/env bash
@@ -319,17 +336,10 @@ docker build --file apps/backend/Dockerfile --tag "oss-hub-backend:${IMAGE_TAG}"
         }
       }
     }
-    stage('사용자 통합 migration 감지와 fenced 전환') {
+    stage('사용자 통합 migration fenced 전환') {
       when { expression { env.DEPLOY_NOOP == 'false' } }
       steps {
         script {
-          env.USER_CONSOLIDATION = sh(script: '''#!/usr/bin/env bash
-set -euo pipefail
-bash "$CONTROLLER_DIR/deploy/jenkins/user-consolidation-migrate.sh" --detect
-''', returnStdout: true).trim()
-          if (!(env.USER_CONSOLIDATION in ['ordinary', 'required'])) {
-            error('사용자 통합 migration 상태를 확인하지 못했습니다.')
-          }
           if (env.USER_CONSOLIDATION == 'required') {
             withCredentials([
               file(credentialsId: 'oss-hub-production-env', variable: 'OSS_HUB_ENV_FILE'),
@@ -420,7 +430,9 @@ while IFS="$(printf '\t')" read -r repo tag image_id; do
   docker image rm "${repo}:${tag}"
 done < "$images_inventory"
 
-docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
+if [ "$USER_CONSOLIDATION" = 'ordinary' ]; then
+  docker buildx prune --all --force --max-used-space "$BUILD_CACHE_MAX_SPACE"
+fi
 
 bash "$CONTROLLER_DIR/deploy/jenkins/prune-deploy-backups.sh" "$BACKUP_DIR" "$BACKUP_RETENTION_N"
 bash "$CONTROLLER_DIR/deploy/jenkins/prune-deploy-backups.sh" "$BACKUP_DIR/objects" "$BACKUP_RETENTION_N" --objects

@@ -16,7 +16,7 @@ compose_for() {
   if [[ "$target" == previous ]]; then generation="$previous_generation"; export IMAGE_TAG="$previous_tag"; fi
   export GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE="$generation/collection.pem"
   export GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE="$generation/operations.pem"
-  compose=(docker compose -p oss-hub -f "$run/$target/compose.yml" --env-file "$run/$target.env")
+  compose=(docker compose -p oss-hub -f "$run/$target/compose.yml" -f "$run/$target-image.json" --env-file "$run/$target.env")
 }
 sql() {
   local options="-c statement_timeout=60000 -c lock_timeout=5000 -c application_name=uc-maintenance"
@@ -119,7 +119,9 @@ case "$action" in
     old_id="$(jq -er .imageId "$run/previous-state.json")"
     [[ "$(docker image inspect --format '{{.Id}}' "oss-hub-backend:$previous_tag")" == "$old_id" ]]
     new_id="$(docker image inspect --format '{{.Id}}' "oss-hub-backend:$RELEASE_TAG")"
+    [[ "$new_id" == "$(jq -er .candidateImageId "$run/rehearsal.json")" ]]
     [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$new_id")" == "$RELEASE_SHA" ]]
+    [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$new_id")" == "$RELEASE_TAG" ]]
     jq -n --arg image "$old_id" '{services:{backend:{image:$image}}}' >"$run/previous-image.json"
     jq -n --arg image "$new_id" '{services:{backend:{image:$image}}}' >"$run/candidate-image.json"
     backend_inventory
@@ -142,6 +144,7 @@ case "$action" in
     [[ "${image_hash%% *}" == "$(jq -er .sha256.migration "$run/sql/manifest.json")" ]]
     "${compose[@]}" run -T --interactive=false --rm --no-deps --name oss-hub-uc-capability -e OSS_HUB_MAINTENANCE=1 backend node dist/src/cli.js verify-maintenance-capability
     "${compose[@]}" run -T --interactive=false --rm --no-deps --name oss-hub-uc-nginx-check nginx nginx -t
+    [[ "$(docker image inspect --format '{{.Id}}' "oss-hub-backend:$RELEASE_TAG")" == "$new_id" ]]
     ;;
   fence)
     awk '/server_name origin.jnu-oss-hub.com;/{print; print "    return 503;"; next} {print}' "$run/host-nginx.conf" >"$run/maintenance.conf"

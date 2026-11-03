@@ -30,6 +30,30 @@ detect() {
   node "$state_tool" classify "$RELEASE_SOURCE" "$ledger"
 }
 
+verify_prebuilt() {
+  local rehearsal_file="${1:-${UC_REHEARSAL_RECEIPT:-/etc/oss-hub/user-consolidation-rehearsal.json}}"
+  local previous_state="${2:-${PREVIOUS_STATE:?}}" previous_image candidate_id image_id
+  : "${RELEASE_SHA:?}" "${RELEASE_TAG:?}"
+  [[ -f "$rehearsal_file" && ! -L "$rehearsal_file" ]] || fail missing-rehearsal
+  [[ "$(stat -c %u "$rehearsal_file")" == 0 ]] || fail untrusted-rehearsal
+  [[ $((8#$(stat -c %a "$rehearsal_file") & 8#022)) == 0 ]] || fail writable-rehearsal
+  previous_image="$(jq -er '.imageId | select(test("^sha256:[a-f0-9]{64}$"))' "$previous_state")" || fail rehearsal-required
+  jq -e --arg sha "$RELEASE_SHA" --arg image "$previous_image" \
+    '.releaseSha == $sha and .previousImageId == $image and
+     (.candidateImageId | type == "string" and test("^sha256:[a-f0-9]{64}$")) and
+     .restoreValidated == true and .exclusiveWriters == true and
+     (.writerUnits | type == "array") and
+     all(.writerUnits[]; test("^[a-zA-Z0-9@_.-]+\\.(service|timer)$") and
+       (startswith("oss-hub-user-consolidation-") | not) and
+       . != "docker.service" and . != "nginx.service")' "$rehearsal_file" >/dev/null || fail rehearsal-required
+  candidate_id="$(jq -er .candidateImageId "$rehearsal_file")" || fail rehearsal-required
+  image_id="$(docker image inspect --format '{{.Id}}' "oss-hub-backend:$RELEASE_TAG")" || fail candidate-image-required
+  [[ "$image_id" == "$candidate_id" ]] || fail candidate-image-mismatch
+  [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.revision"}}' "$image_id")" == "$RELEASE_SHA" ]] || fail candidate-revision-mismatch
+  [[ "$(docker image inspect --format '{{index .Config.Labels "org.opencontainers.image.version"}}' "$image_id")" == "$RELEASE_TAG" ]] || fail candidate-version-mismatch
+  printf '%s\n' "$candidate_id"
+}
+
 load_run() {
   run="$(cd -P "${1:?durable run directory required}" && pwd -P)"
   [[ "$run" == "$root"/* ]] || fail untrusted-run
@@ -123,6 +147,8 @@ prepare() {
   for command in systemctl systemd-run systemd-id128 timeout flock node jq docker nginx; do
     command -v "$command" >/dev/null || fail "missing:$command"
   done
+  local candidate_id rehearsal_file="${UC_REHEARSAL_RECEIPT:-/etc/oss-hub/user-consolidation-rehearsal.json}" bound
+  candidate_id="$(verify_prebuilt)"
   mkdir -p "$root"
   chmod 700 "$root"
   exec 9>"$root/migration.lock"
@@ -134,15 +160,6 @@ prepare() {
   [[ "$(systemctl show "$watchdog_unit" -p Type --value)" == notify ]] || fail notify-watchdog-required
   [[ "$(systemctl show "$watchdog_unit" -p KillMode --value)" == control-group ]] || fail watchdog-cgroup-required
   systemctl show "$watchdog_unit" -p ExecStart --value | grep -F "$root/watchdog.sh --watch $root" >/dev/null || fail watchdog-exec-mismatch
-  local rehearsal_file="${UC_REHEARSAL_RECEIPT:-/etc/oss-hub/user-consolidation-rehearsal.json}" bound
-  [[ "$(stat -c %u "$rehearsal_file")" == 0 ]] || fail untrusted-rehearsal
-  [[ $((8#$(stat -c %a "$rehearsal_file") & 8#022)) == 0 ]] || fail writable-rehearsal
-  jq -e --arg sha "$RELEASE_SHA" --arg image "$(jq -er .imageId "$PREVIOUS_STATE")" \
-    '.releaseSha == $sha and .previousImageId == $image and .restoreValidated == true and
-     .exclusiveWriters == true and (.writerUnits | type == "array") and
-     all(.writerUnits[]; test("^[a-zA-Z0-9@_.-]+\\.(service|timer)$") and
-       (startswith("oss-hub-user-consolidation-") | not) and
-       . != "docker.service" and . != "nginx.service")' "$rehearsal_file" >/dev/null || fail rehearsal-required
   bound="$(jq -er .recoverySeconds "$rehearsal_file")"
   run="$(mktemp -d "$root/run.XXXXXXXX")"
   mkdir "$run/helpers" "$run/sql" "$run/candidate" "$run/previous"
@@ -168,6 +185,8 @@ prepare() {
       printf 'PREPARE_CLEANUP_FAILED: inspect named preparation containers\n' >&2
     fail preparation-failed-before-fence
   fi
+  [[ "$(verify_prebuilt "$run/rehearsal.json" "$run/previous-state.json")" == "$candidate_id" ]] || fail candidate-image-mismatch
+  [[ "$(jq -er .services.backend.image "$run/candidate-image.json")" == "$candidate_id" ]] || fail candidate-image-mismatch
   node "$state_tool" init "$run" "$(systemd-id128 boot-id)" "$bound" \
     "$(jq -n --slurpfile old "$PREVIOUS_STATE" --slurpfile manifest "$run/sql/manifest.json" --slurpfile image "$run/candidate-image.json" --arg sha "$RELEASE_SHA" '{previous:$old[0],manifest:$manifest[0],candidateSha:$sha,candidateImageId:$image[0].services.backend.image}')"
   sync -f "$run"
@@ -189,6 +208,7 @@ prepare() {
 case "${1:-}" in
   --guard) guard ;;
   --detect) guard; detect ;;
+  --verify-prebuilt) verify_prebuilt ;;
   --start)
     [[ "$root" == /var/lib/oss-hub/user-consolidation ]] || fail production-state-root
     prepare ;;
@@ -205,5 +225,5 @@ case "${1:-}" in
     else
       node "$state_tool" phase "$run" RECOVERY_FAILED
     fi ;;
-  *) fail 'usage: --guard|--detect|--start|--rehearsal|--execute RUN|--recover RUN' ;;
+  *) fail 'usage: --guard|--detect|--verify-prebuilt|--start|--rehearsal|--execute RUN|--recover RUN' ;;
 esac

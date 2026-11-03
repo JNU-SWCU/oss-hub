@@ -8,6 +8,8 @@ previous_generation="$(jq -er .generation "$PREVIOUS_STATE")"
 previous_tag="$(jq -er .tag "$PREVIOUS_STATE")"
 previous_sha="$(jq -er .sha "$PREVIOUS_STATE")"
 previous_id="$(jq -er .imageId "$PREVIOUS_STATE")"
+previous_overlay="$(jq -r '.imageOverlay.path // empty' "$PREVIOUS_STATE")"
+previous_overlay_hash="$(jq -r '.imageOverlay.hash // empty' "$PREVIOUS_STATE")"
 export SUBMISSION_FILE_S3_ACCESS_KEY_ID="${R2_STORAGE_ACCESS_KEY_ID:?}"
 export SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="${R2_STORAGE_SECRET_ACCESS_KEY:?}"
 export GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE="$SECRETS_DIR/current/collection.pem"
@@ -55,8 +57,15 @@ recover() {
     node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-keys "$PREVIOUS_KEY_IDENTITY" "$previous_generation" || exit $?
     switch_keys "$previous_generation" || exit $?
     export IMAGE_TAG="$previous_tag"
-    compose=(docker compose -p oss-hub -f "$previous_compose" --env-file "$OSS_HUB_ENV_FILE")
+    compose=(docker compose -p oss-hub -f "$previous_compose")
     node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify-image "$previous_id" || exit $?
+    if [[ -n "$previous_overlay" ]]; then
+      [[ "$(readlink -f "$previous_overlay")" == "$previous_overlay" ]] || exit 1
+      overlay_digest="$(sha256sum "$previous_overlay")" || exit $?
+      [[ "${overlay_digest%% *}" == "$previous_overlay_hash" ]] || { echo 'FAIL_CLOSED previous image overlay bytes changed' >&2; exit 1; }
+      compose+=(-f "$previous_overlay")
+    fi
+    compose+=(--env-file "$OSS_HUB_ENV_FILE")
     "${compose[@]}" up -d --no-build --force-recreate --no-deps --wait --wait-timeout 180 backend nginx || exit $?
     node "$controller_dir/deploy/jenkins/probe-release-state.mjs" "$previous_tag" "$previous_sha" --verify "$PREVIOUS_STATE" "$SECRETS_DIR" >/dev/null || exit $?
     check_serving "$PREVIOUS_KEY_IDENTITY"
