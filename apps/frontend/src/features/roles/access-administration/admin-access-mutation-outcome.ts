@@ -1,5 +1,3 @@
-import { ApiError } from '@/lib/api-client';
-import { invalidateSession } from '@/lib/session-invalidation';
 import {
   parseAdminAccessConflictProjection,
   type AdminAccessConflictProjection,
@@ -11,10 +9,7 @@ import {
   isMemberKindMutationAction,
   type AdminAccessMutationAction,
 } from './admin-access-mutation-policy';
-import type {
-  CanonicalAdminAccessDetail,
-  MemberKindMutationFields,
-} from './independent-authority-api';
+import type { CanonicalAdminAccessDetail } from './independent-authority-api';
 
 export type AdminAccessMutationOutcome =
   | {
@@ -32,35 +27,23 @@ export async function runAdminAccessMutation({
   action,
   detail,
   reason,
-  memberKindFields,
 }: {
   readonly userId: string;
   readonly action: AdminAccessMutationAction;
   readonly detail: CanonicalAdminAccessDetail;
   readonly reason: string;
-  readonly memberKindFields?: MemberKindMutationFields;
 }): Promise<AdminAccessMutationOutcome> {
   try {
-    const result = isMemberKindMutationAction(action)
-      ? await executeAdminAccessMutation(
-          userId,
-          action,
-          detail,
-          reason,
-          memberKindFields,
-        )
-      : await executeAdminAccessMutation(userId, action, detail, reason);
-    if (detail.isSelf && isMemberKindMutationAction(action))
-      invalidateSession();
+    const result = await executeAdminAccessMutation(
+      userId,
+      action,
+      detail,
+      reason,
+    );
     return { kind: 'success', result };
   } catch (error) {
-    if (
-      isMemberKindMutationAction(action) &&
-      error instanceof ApiError &&
-      error.problem.status === 409
-    ) {
-      return { kind: 'conflict', projection: null };
-    }
+    if (isMemberKindMutationAction(action))
+      return { kind: 'error', message: adminAccessMutationErrorMessage(error) };
     const projection = parseAdminAccessConflictProjection(error);
     if (projection) return { kind: 'conflict', projection };
     return { kind: 'error', message: adminAccessMutationErrorMessage(error) };

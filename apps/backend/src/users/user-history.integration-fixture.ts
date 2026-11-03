@@ -30,6 +30,7 @@ export async function writeApprovalFixture(
       where: { id: input.userId },
       data: {
         type: 'STAFF',
+        studentId: null,
         approvalStatus: request.status,
         approvalRequestId: request.id,
         approvalRequestedAt: request.createdAt,

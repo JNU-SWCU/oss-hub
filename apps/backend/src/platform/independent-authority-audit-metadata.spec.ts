@@ -95,41 +95,47 @@ it.each([
   },
 );
 
-it('round-trips a member-kind command with every canonical state field', () => {
-  const stored =
-    auditLogMetadataService.createIndependentAuthorityAuditMetadata({
-      command: INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
-      actor: {
-        displayName: '합성 관리자',
-        githubLogin: 'synthetic-admin',
-      },
-      target: {
-        displayName: '합성 학생',
-        githubLogin: 'synthetic-target',
-      },
-      before: {
-        memberKind: MemberKind.STUDENT,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-        role: 'STUDENT',
-        accountStatus: AccountStatus.ACTIVE,
-      },
-      after: {
-        memberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
-        hasAdminAccess: false,
-        role: 'STAFF',
-        accountStatus: AccountStatus.ACTIVE,
-      },
-    });
+it.each([
+  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
+  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.RESET_MEMBER_KIND,
+])(
+  'round-trips membership command %s with every canonical state field',
+  (command) => {
+    const stored =
+      auditLogMetadataService.createIndependentAuthorityAuditMetadata({
+        command,
+        actor: {
+          displayName: '합성 관리자',
+          githubLogin: 'synthetic-admin',
+        },
+        target: {
+          displayName: '합성 학생',
+          githubLogin: 'synthetic-target',
+        },
+        before: {
+          memberKind: MemberKind.STUDENT,
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+          role: 'STUDENT',
+          accountStatus: AccountStatus.ACTIVE,
+        },
+        after: {
+          memberKind: MemberKind.STAFF,
+          hasStaffAccess: true,
+          hasAdminAccess: false,
+          role: 'STAFF',
+          accountStatus: AccountStatus.ACTIVE,
+        },
+      });
 
-  expect(
-    auditLogMetadataService.parseAuditLogMetadata(storageRoundTrip(stored)),
-  ).toEqual({
-    legacy: false,
-    metadata: stored,
-  });
-});
+    expect(
+      auditLogMetadataService.parseAuditLogMetadata(storageRoundTrip(stored)),
+    ).toEqual({
+      legacy: false,
+      metadata: stored,
+    });
+  },
+);
 
 it.each([
   ['missing command', (metadata: MetadataFixture) => omit(metadata, 'command')],

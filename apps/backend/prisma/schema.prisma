@@ -75,6 +75,7 @@ model User {
   notifyEnabled      Boolean       @default(false)
   type               UserType      @default(UNSELECTED)
   name               String?
+  /// CHECK User_studentId_requires_student_check: non-null only for STUDENT.
   studentId          String?       @unique
   staffNumber        String?
   department         String?

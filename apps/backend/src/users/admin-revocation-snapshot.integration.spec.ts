@@ -19,9 +19,8 @@ import { AdminProfileService } from './admin-profile.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { MemberKindRepository } from './member-kind.repository';
-import { MemberKindService } from './member-kind.service';
-import { MemberKindProfileService } from './member-kind-profile.service';
+import { MemberRegistrationResetRepository } from './member-registration-reset.repository';
+import { MemberRegistrationResetService } from './member-registration-reset.service';
 import { UserProfileService } from './user-profile.service';
 import { UserHistoryRepository } from './user-history.repository';
 import { UserTransitionRepository } from './user-transition.repository';
@@ -150,8 +149,8 @@ it.each(['profile', 'kind'] as const)(
           break;
         case 'kind':
           mutation = observe(
-            new MemberKindService(
-              new MemberKindRepository(
+            new MemberRegistrationResetService(
+              new MemberRegistrationResetRepository(
                 mutationClient,
                 accessRepository(mutationClient),
                 new PrismaSerializationRetryRepository(),
@@ -161,11 +160,8 @@ it.each(['profile', 'kind'] as const)(
               metadata,
               profiles,
               mutations,
-              new MemberKindProfileService(profiles),
-            ).patchMemberKind(actor.githubId, target.id, {
-              memberKind: 'STAFF',
+            ).resetFromRequest(actor.githubId, target.id, {
               expectedMemberKind: 'STUDENT',
-              expectedHasStaffAccess: false,
               expectedApprovalStatus: 'NOT_REQUIRED',
               expectedApprovalRequestId: null,
             }),

@@ -34,6 +34,7 @@ export class UserHistoryRepository {
     const data = {
       schemaVersion: 1,
       recordKind: 'DOMAIN_EVENT',
+      ...(input.beforeProfile ? { beforeProfile: input.beforeProfile } : {}),
       action: input.action,
       targetType: input.targetType,
       targetId: input.targetId,

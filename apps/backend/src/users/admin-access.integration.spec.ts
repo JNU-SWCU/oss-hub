@@ -130,9 +130,9 @@ describe('Admin access real PostgreSQL transactions', () => {
     await expect(
       service.patchAccess(actor.githubId, target.id, {
         expectedRole: 'STUDENT',
-        desiredRole: 'STAFF',
+        desiredRole: 'STUDENT',
         expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.DEACTIVATED,
         expectedPendingRequest: null,
       }),
     ).rejects.toThrow(AUDIT_FAILURE_MESSAGE);
@@ -157,7 +157,7 @@ describe('Admin access real PostgreSQL transactions', () => {
     const target = await createUser('STUDENT', 'stale-target');
     await prisma.user.update({
       where: { id: target.id },
-      data: { type: 'STAFF', approvalStatus: 'APPROVED' },
+      data: { type: 'STAFF', studentId: null, approvalStatus: 'APPROVED' },
     });
     const body = {
       expectedRole: 'STUDENT',

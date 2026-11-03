@@ -186,14 +186,12 @@ function AdminAccessDetailContent({
       {confirmDialog ? (
         <AdminAccessMutationConfirmDialog
           key={`${detail.id}-${confirmDialog.action}`}
-          action={confirmDialog.action}
           title={confirmDialog.title}
           description={confirmDialog.description}
           confirmLabel={confirmDialog.confirmLabel}
           destructive={confirmDialog.destructive}
           isProcessing={mutation.processingAction === confirmDialog.action}
           errorMessage={mutation.dialogError}
-          profile={detail.profile}
           onCancel={mutation.onCancel}
           onConfirm={mutation.onConfirm}
         />

@@ -64,9 +64,9 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
   );
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STUDENT',
-    desiredRole: 'STAFF',
+    desiredRole: 'STUDENT',
     expectedAccountStatus: AccountStatus.ACTIVE,
-    desiredAccountStatus: AccountStatus.ACTIVE,
+    desiredAccountStatus: AccountStatus.DEACTIVATED,
     expectedPendingRequest: null,
   });
   await reachedPauseBeforeLock.promise;
@@ -142,7 +142,7 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
   );
   const mutation = pausedService.patchAccess(actor.githubId, target.id, {
     expectedRole: 'STUDENT',
-    desiredRole: 'STAFF',
+    desiredRole: 'ADMIN',
     expectedAccountStatus: AccountStatus.ACTIVE,
     desiredAccountStatus: AccountStatus.ACTIVE,
     expectedPendingRequest: null,
@@ -173,15 +173,15 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
   });
   releasePauseAfterLock.resolve();
   const [result] = await Promise.all([mutation, demotion]);
-  expect(result.role).toBe('STAFF');
+  expect(result.role).toBe('ADMIN');
   await expect(
     prisma.user.findUniqueOrThrow({
       include: { admin: true },
       where: { id: target.id },
     }),
   ).resolves.toMatchObject({
-    approvalStatus: 'APPROVED',
-    admin: null,
+    approvalStatus: 'NOT_REQUIRED',
+    admin: { userId: target.id },
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(

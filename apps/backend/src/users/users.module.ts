@@ -1,4 +1,3 @@
-import { MemberKindProfileService } from './member-kind-profile.service';
 import { AdminRepository } from './admin.repository';
 import { UserHistoryRepository } from './user-history.repository';
 import { UserTransitionRepository } from './user-transition.repository';
@@ -17,8 +16,8 @@ import { AccountDeactivationRepository } from './account-deactivation.repository
 import { AccountDeactivationService } from './account-deactivation.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { MemberKindRepository } from './member-kind.repository';
-import { MemberKindService } from './member-kind.service';
+import { MemberRegistrationResetRepository } from './member-registration-reset.repository';
+import { MemberRegistrationResetService } from './member-registration-reset.service';
 import { UsersController } from './users.controller';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
@@ -57,9 +56,8 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     AdminAccessService,
     IndependentAuthorityRepository,
     IndependentAuthorityService,
-    MemberKindRepository,
-    MemberKindService,
-    MemberKindProfileService,
+    MemberRegistrationResetRepository,
+    MemberRegistrationResetService,
     AdminProfileRepository,
     AdminProfileMutationService,
     AdminProfileService,
@@ -77,7 +75,7 @@ import { AdminProfileMutationService } from './admin-profile-mutation.service';
     AdminAccessService,
     AdminProfileService,
     IndependentAuthorityService,
-    MemberKindService,
+    MemberRegistrationResetService,
     UserProfileService,
   ],
 })

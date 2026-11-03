@@ -76,6 +76,7 @@ export async function upsertSeedUser(
     accountStatus,
     type,
     approvalStatus: approvals[type],
+    studentId: type === 'STUDENT' ? undefined : null,
     approvalRequestId: null,
     approvalRequestedAt: null,
     approvalDecidedAt: null,
@@ -149,7 +150,7 @@ export async function upsertSeedProfile(params: {
     where: { id: params.userId },
     data: {
       name: params.name,
-      studentId: params.studentId,
+      studentId: params.type === 'STUDENT' ? params.studentId : null,
       department: params.department,
       type: params.type,
       departmentType: params.departmentType ?? departments[params.type],

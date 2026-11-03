@@ -17,7 +17,7 @@ export type RequestSnapshot = {
   readonly rejectionReason: string | null;
 };
 
-export type ApprovalState = {
+type ApprovalState = {
   readonly type: UserType;
   readonly approvalStatus: ApprovalStatus;
   readonly approvalRequestId: string | null;
@@ -38,6 +38,7 @@ type UserAuditMetadata =
   | UserPhoneAuditMetadata;
 
 export type UserAuditInput = {
+  readonly beforeProfile?: Readonly<Record<string, string | null>>;
   readonly actorGithubId: bigint;
   readonly action: string;
   readonly targetType: string;

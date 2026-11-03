@@ -184,30 +184,6 @@ exports[`PatchIndependentAuthorityRequestDto validation parity revoke 1`] = `"{"
 
 exports[`PatchIndependentAuthorityRequestDto validation parity unknown 1`] = `"{"ok":true,"value":{"command":"NOPE"},"thrown":{"name":"DomainException","message":"요청 처리 결과와 원하는 접근 상태가 일치하지 않습니다.","errorCode":{"code":"ROL_016","status":400,"message":"요청 처리 결과와 원하는 접근 상태가 일치하지 않습니다."},"extensions":{}}}"`;
 
-exports[`PatchMemberKindRequestDto validation parity bad student id 1`] = `"{"ok":false,"response":{"message":["학번은 숫자 6자리로 입력해 주세요."],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity blank department 1`] = `"{"ok":false,"response":{"message":[""],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity blank staff number 1`] = `"{"ok":false,"response":{"message":[""],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity digit staff number 1`] = `"{"ok":true,"value":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":"1234567"},"command":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":"1234567"}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity long staff number 1`] = `"{"ok":true,"value":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":"ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"},"command":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":"ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss"}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["memberKind should not be null or undefined","memberKind must be a string","expectedMemberKind should not be null or undefined","expectedMemberKind must be a string","expectedHasStaffAccess should not be null or undefined","expectedHasStaffAccess must be a boolean value"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity non-boolean access 1`] = `"{"ok":false,"response":{"message":["expectedHasStaffAccess must be a boolean value"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity null staff number 1`] = `"{"ok":true,"value":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":null},"command":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":null}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity unknown member kind 1`] = `"{"ok":true,"value":{"memberKind":"NOPE","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false},"thrown":{"name":"DomainException","message":"지원하지 않는 회원 유형입니다.","errorCode":{"code":"SYS_003","status":400,"message":"지원하지 않는 회원 유형입니다."},"extensions":{}}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity valid 1`] = `"{"ok":true,"value":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false},"command":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity with staff number 1`] = `"{"ok":true,"value":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":"A-1234"},"command":{"memberKind":"STAFF","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"staffNumber":"A-1234"}}"`;
-
-exports[`PatchMemberKindRequestDto validation parity with student fields 1`] = `"{"ok":true,"value":{"memberKind":"STUDENT","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"studentId":"123456","department":"학과"},"command":{"memberKind":"STUDENT","expectedMemberKind":"STUDENT","expectedHasStaffAccess":false,"studentId":"123456","department":"학과"}}"`;
-
 exports[`ProgramDocumentChangeRequestTargetsRequestDto validation parity bad scope 1`] = `"{"ok":false,"response":{"message":["scope must be one of the following values: PROGRAM, TEAM"],"error":"Bad Request","statusCode":400}}"`;
 
 exports[`ProgramDocumentChangeRequestTargetsRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["scope must be one of the following values: PROGRAM, TEAM"],"error":"Bad Request","statusCode":400}}"`;
@@ -237,6 +213,18 @@ exports[`RankingRequestDto validation parity period all 1`] = `"{"ok":true,"valu
 exports[`RankingRequestDto validation parity period this year 1`] = `"{"ok":true,"value":{"period":"THIS_YEAR","page":1,"pageSize":20},"command":2026}"`;
 
 exports[`RankingRequestDto validation parity year 1`] = `"{"ok":true,"value":{"year":"2024","page":1,"pageSize":20},"command":2024}"`;
+
+exports[`ResetMemberRegistrationRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["expectedMemberKind should not be null or undefined","expectedMemberKind must be one of the following values: STUDENT, STAFF","expectedApprovalStatus should not be null or undefined","expectedApprovalStatus must be one of the following values: NOT_REQUIRED, PENDING, APPROVED, REJECTED, REVOKED","expectedApprovalRequestId should not be null or undefined","expectedApprovalRequestId must be a string",""],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`ResetMemberRegistrationRequestDto validation parity missing request id 1`] = `"{"ok":false,"response":{"message":["expectedApprovalRequestId should not be null or undefined","expectedApprovalRequestId must be a string",""],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`ResetMemberRegistrationRequestDto validation parity pending 1`] = `"{"ok":true,"value":{"expectedMemberKind":"STAFF","expectedApprovalStatus":"PENDING","expectedApprovalRequestId":"synthetic-request"}}"`;
+
+exports[`ResetMemberRegistrationRequestDto validation parity unknown kind 1`] = `"{"ok":false,"response":{"message":["expectedMemberKind must be one of the following values: STUDENT, STAFF"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`ResetMemberRegistrationRequestDto validation parity unknown status 1`] = `"{"ok":false,"response":{"message":["expectedApprovalStatus must be one of the following values: NOT_REQUIRED, PENDING, APPROVED, REJECTED, REVOKED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`ResetMemberRegistrationRequestDto validation parity valid 1`] = `"{"ok":true,"value":{"expectedMemberKind":"STUDENT","expectedApprovalStatus":"NOT_REQUIRED","expectedApprovalRequestId":null}}"`;
 
 exports[`UpdateBoardPostRequestDto validation parity empty object 1`] = `"{"ok":false,"response":{"message":["title must be shorter than or equal to 200 characters","title should not be empty","title must be a string","body must be shorter than or equal to 10000 characters","body should not be empty","body must be a string"],"error":"Bad Request","statusCode":400}}"`;
 

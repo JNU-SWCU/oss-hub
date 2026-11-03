@@ -186,6 +186,7 @@ export class UsersRepository implements UsersRepositoryPort {
         });
         if (
           current.studentId !== null ||
+          current.type !== 'STUDENT' ||
           current.type !== (input.expected.memberKind ?? 'UNSELECTED')
         )
           return 'conflict';

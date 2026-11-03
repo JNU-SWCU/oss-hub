@@ -11,15 +11,13 @@ import type {
 } from './admin-access-api';
 import type {
   CanonicalAdminAccessDetail,
-  MemberKindMutationFields,
   MemberKindMutationRequest,
 } from './independent-authority-api';
 
 export const ADMIN_ACCESS_MUTATION_ACTIONS = {
   APPROVE: 'APPROVE',
   REJECT: 'REJECT',
-  SET_MEMBER_STUDENT: 'SET_MEMBER_STUDENT',
-  SET_MEMBER_STAFF: 'SET_MEMBER_STAFF',
+  RESET_MEMBER_KIND: 'RESET_MEMBER_KIND',
   GRANT_ADMIN_ACCESS: 'GRANT_ADMIN_ACCESS',
   REVOKE_ADMIN_ACCESS: 'REVOKE_ADMIN_ACCESS',
   SET_STATUS_ACTIVE: 'SET_STATUS_ACTIVE',
@@ -34,8 +32,7 @@ export type IndependentAuthorityMutationAction =
   | typeof ADMIN_ACCESS_MUTATION_ACTIONS.REVOKE_ADMIN_ACCESS;
 
 export type MemberKindMutationAction =
-  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STUDENT
-  | typeof ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STAFF;
+  typeof ADMIN_ACCESS_MUTATION_ACTIONS.RESET_MEMBER_KIND;
 
 export type AdminAccessLegacyMutationAction = Exclude<
   AdminAccessMutationAction,
@@ -55,7 +52,7 @@ export function isIndependentAuthorityMutationAction(
 export function isMemberKindMutationAction(
   action: AdminAccessMutationAction,
 ): action is MemberKindMutationAction {
-  return action === 'SET_MEMBER_STUDENT' || action === 'SET_MEMBER_STAFF';
+  return action === 'RESET_MEMBER_KIND';
 }
 
 export function actionForAccountStatus(
@@ -71,9 +68,7 @@ export interface AdminAccessMutationExtra {
 }
 
 export function buildMemberKindMutationRequest(
-  action: MemberKindMutationAction,
   detail: CanonicalAdminAccessDetail,
-  fields: MemberKindMutationFields = {},
 ): MemberKindMutationRequest {
   if (!detail.memberKind) {
     throw new TypeError(
@@ -81,15 +76,9 @@ export function buildMemberKindMutationRequest(
     );
   }
   return {
-    memberKind:
-      action === ADMIN_ACCESS_MUTATION_ACTIONS.SET_MEMBER_STUDENT
-        ? 'STUDENT'
-        : 'STAFF',
     expectedMemberKind: detail.memberKind,
-    expectedHasStaffAccess: detail.hasStaffAccess,
     expectedApprovalStatus: detail.approvalStatus,
     expectedApprovalRequestId: detail.approvalRequestId,
-    ...fields,
   };
 }
 
@@ -183,8 +172,7 @@ export function adminAccessMutationErrorMessage(error: unknown): string {
 const ACTION_SUCCESS_LABEL: Record<AdminAccessMutationAction, string> = {
   APPROVE: '요청 승인',
   REJECT: '요청 반려',
-  SET_MEMBER_STUDENT: '학생 유형 적용',
-  SET_MEMBER_STAFF: '교직원 유형 적용',
+  RESET_MEMBER_KIND: '가입 유형 되돌리기',
   GRANT_ADMIN_ACCESS: '관리자 접근 허용',
   REVOKE_ADMIN_ACCESS: '관리자 접근 회수',
   SET_STATUS_ACTIVE: '계정 재활성화',

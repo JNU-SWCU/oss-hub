@@ -11,9 +11,8 @@ import {
 } from './admin-access-mutation-policy';
 import {
   patchAdminAuthority,
-  patchMemberKind,
+  resetMemberKind,
   type CanonicalAdminAccessDetail,
-  type MemberKindMutationFields,
 } from './independent-authority-api';
 
 export async function executeAdminAccessMutation(
@@ -21,13 +20,9 @@ export async function executeAdminAccessMutation(
   action: AdminAccessMutationAction,
   detail: CanonicalAdminAccessDetail,
   reason: string,
-  memberKindFields?: MemberKindMutationFields,
 ): Promise<AdminAccessMutationResponse | null> {
   if (isMemberKindMutationAction(action)) {
-    await patchMemberKind(
-      userId,
-      buildMemberKindMutationRequest(action, detail, memberKindFields),
-    );
+    await resetMemberKind(userId, buildMemberKindMutationRequest(detail));
     return null;
   }
   if (isIndependentAuthorityMutationAction(action)) {

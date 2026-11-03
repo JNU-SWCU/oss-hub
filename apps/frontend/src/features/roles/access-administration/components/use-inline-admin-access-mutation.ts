@@ -12,12 +12,11 @@ import {
   fetchCanonicalAdminAccessDetail,
   type AdminAccessDirectoryItem,
   type CanonicalAdminAccessDetail,
-  type MemberKindMutationFields,
 } from '../independent-authority-api';
 
 export type InlineAdminAccessMutationAction = Exclude<
   AdminAccessMutationAction,
-  'APPROVE' | 'REJECT'
+  'APPROVE' | 'REJECT' | 'RESET_MEMBER_KIND'
 >;
 
 const conflictMessage =
@@ -101,7 +100,7 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
     setDialogError(null);
   };
 
-  const confirm = async (fields?: MemberKindMutationFields) => {
+  const confirm = async () => {
     const controller = lifetime.current;
     if (
       !pending ||
@@ -120,7 +119,6 @@ export function useInlineAdminAccessMutation(onChanged: () => void) {
         action,
         detail,
         reason: '',
-        memberKindFields: fields,
       });
       if (controller.signal.aborted) return;
       if (outcome.kind !== 'error') {

@@ -171,17 +171,15 @@ export function AdminAccessScreen({
       {pendingDialog ? (
         <AdminAccessMutationConfirmDialog
           key={`${pendingDialog.detail.id}-${pendingDialog.action}`}
-          action={pendingDialog.action}
           title={pendingDialog.title}
           description={pendingDialog.description}
           confirmLabel={pendingDialog.confirmLabel}
           destructive={pendingDialog.destructive}
           isProcessing={inline.isProcessing}
           errorMessage={inline.dialogError}
-          profile={pendingDialog.detail.profile}
           returnFocusTo={pendingDialog.returnFocusTo}
           onCancel={inline.cancel}
-          onConfirm={(fields) => void inline.confirm(fields)}
+          onConfirm={() => void inline.confirm()}
         />
       ) : null}
     </>

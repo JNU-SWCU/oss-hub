@@ -13,10 +13,7 @@ import {
   type AdminAccessMutationAction,
 } from '../admin-access-mutation-policy';
 import { runAdminAccessMutation } from '../admin-access-mutation-outcome';
-import type {
-  CanonicalAdminAccessDetail,
-  MemberKindMutationFields,
-} from '../independent-authority-api';
+import type { CanonicalAdminAccessDetail } from '../independent-authority-api';
 import { useAdminAccessDetailState } from './use-admin-access-detail-state';
 import { AdminAccessDetailContentForState } from './admin-access-detail-content';
 import type { AdminAccessDetailLayoutContext } from './admin-access-detail-layout';
@@ -59,9 +56,7 @@ function AdminAccessDetailScreenForUser({
     setDialogError(null);
   };
 
-  const confirmMutation = async (
-    memberKindFields?: MemberKindMutationFields,
-  ) => {
+  const confirmMutation = async () => {
     if (state.kind !== 'ready' || !confirmation) return;
     const { action, detail } = confirmation;
     setProcessingAction(action);
@@ -73,7 +68,6 @@ function AdminAccessDetailScreenForUser({
         action,
         detail,
         reason: rejectReason,
-        memberKindFields,
       });
       if (outcome.kind === 'success') {
         const { result } = outcome;
@@ -160,7 +154,7 @@ function AdminAccessDetailScreenForUser({
       setSuccessMessage(null);
     },
     onCancel: cancelAction,
-    onConfirm: (fields) => void confirmMutation(fields),
+    onConfirm: () => void confirmMutation(),
     onReasonChange: setRejectReason,
   };
 
