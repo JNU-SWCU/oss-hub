@@ -96,8 +96,6 @@ export interface UpdateMyProfileRequest {
   readonly staffNumber?: string | null;
   readonly department?: string;
   readonly departmentType?: string;
-  readonly affiliationKind?: string;
-  readonly affiliationName?: string;
 }
 
 @Injectable()
@@ -121,35 +119,19 @@ export class UsersService {
       ...(typeof request.studentId === 'string'
         ? { studentId: request.studentId }
         : {}),
-      ...this.requestedDepartment(request),
+      ...(typeof request.department === 'string'
+        ? { department: request.department }
+        : {}),
+      ...(typeof request.departmentType === 'string'
+        ? {
+            departmentType: this.parseRequestedDepartmentType(
+              request.departmentType,
+            ),
+          }
+        : {}),
       ...(typeof request.phone === 'string' ? { phone: request.phone } : {}),
       ...(request.staffNumber !== undefined
         ? { staffNumber: request.staffNumber }
-        : {}),
-    };
-  }
-
-  private requestedDepartment(
-    request: UpdateMyProfileRequest,
-  ): Pick<PatchUserProfileInput, 'department' | 'departmentType'> {
-    const hasLegacyKind = typeof request.affiliationKind === 'string';
-    const hasLegacyName = typeof request.affiliationName === 'string';
-    const hasCurrent =
-      typeof request.department === 'string' ||
-      typeof request.departmentType === 'string';
-    if (hasLegacyKind !== hasLegacyName || (hasLegacyKind && hasCurrent)) {
-      throw invalidProfile('소속 유형과 이름을 하나의 형식으로 보내 주세요.');
-    }
-    const department = hasLegacyName
-      ? request.affiliationName
-      : request.department;
-    const departmentType = hasLegacyKind
-      ? request.affiliationKind
-      : request.departmentType;
-    return {
-      ...(typeof department === 'string' ? { department } : {}),
-      ...(typeof departmentType === 'string'
-        ? { departmentType: this.parseRequestedDepartmentType(departmentType) }
         : {}),
     };
   }

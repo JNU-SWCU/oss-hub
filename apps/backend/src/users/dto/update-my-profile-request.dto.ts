@@ -41,11 +41,6 @@ export class UpdateMyProfileRequestDto {
   @IsProfileText('isValidStaffNumber')
   declare readonly staffNumber?: string | null;
 
-  @ValidateIf(
-    (request: UpdateMyProfileRequestDto) =>
-      request.affiliationKind === undefined &&
-      request.affiliationName === undefined,
-  )
   @Transform(transformProfileText)
   @IsString()
   @IsProfileText('isValidDepartment')
@@ -54,20 +49,6 @@ export class UpdateMyProfileRequestDto {
   @IsOptional()
   @IsString()
   declare readonly departmentType?: string;
-
-  @ValidateIf(
-    (request: UpdateMyProfileRequestDto) => request.department === undefined,
-  )
-  @IsString()
-  declare readonly affiliationKind?: string;
-
-  @ValidateIf(
-    (request: UpdateMyProfileRequestDto) => request.department === undefined,
-  )
-  @Transform(transformProfileText)
-  @IsString()
-  @IsProfileText('isValidAffiliationName')
-  declare readonly affiliationName?: string;
 }
 
 function transformStaffNumber({ value }: { value: unknown }): unknown {
