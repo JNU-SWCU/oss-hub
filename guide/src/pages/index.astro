@@ -1,5 +1,5 @@
 ---
-import { Image } from 'astro:assets';
+import { getImage, Image } from 'astro:assets';
 import '~/styles/tokens.css';
 import Shot from '~/components/Shot.astro';
 import SiteNote from '~/components/SiteNote.astro';
@@ -13,10 +13,8 @@ const images = import.meta.glob<{ default: ImageMetadata }>(
 );
 const shot = (name: string) => images[`/src/assets/shots/landing/${name}.webp`]?.default;
 
-const hero = {
-  name: 'hero',
-  alt: '교직원 운영 대시보드. 모집중·진행중·종료 프로그램 수와 프로그램별 신청, 활동, 제출 현황이 보입니다.',
-};
+const heroAlt = '교직원 운영 대시보드. 모집중, 진행중, 종료 프로그램 수가 보입니다.';
+const heroMobile = await getImage({ src: shot('hero-mobile'), width: 780 });
 
 const flow = [
   {
@@ -164,14 +162,17 @@ const nav = [
             <a class="btn primary" href={`${base}/start/`}>시작하기</a>
             <a class="btn" href={serviceUrl}>OSS Hub 열기</a>
           </div>
+          <nav class="hero-roles" aria-label="역할별 가이드">
+            <span>역할별 가이드</span>
+            {roles.map((r) => <a href={r.href}>{r.name}</a>)}
+          </nav>
           </div>
         </div>
         <div class="wrap">
-          <div class="frame frame-hero">
-            {shot(hero.name)
-              ? <Image src={shot(hero.name)} alt={hero.alt} widths={[960, 1440, 2000]} sizes="(min-width: 1200px) 1120px, (min-width: 48rem) 92vw, 220vw" loading="eager" />
-              : <span class="empty">화면 준비 중</span>}
-          </div>
+          <picture class="frame frame-hero">
+            <source media="(max-width: 47.99rem)" srcset={heroMobile.src} width="780" height="1480" />
+            <Image src={shot('hero')} alt={heroAlt} widths={[960, 1440, 2000]} sizes="(min-width: 1200px) 1120px, 92vw" loading="eager" />
+          </picture>
         </div>
       </section>
 
@@ -345,6 +346,10 @@ const nav = [
   .btn:hover { background: var(--sl-color-gray-6); }
   .btn.primary { background: var(--guide-brand); border-color: var(--guide-brand); color: var(--sl-color-black); }
   .btn.primary:hover { filter: brightness(1.1); }
+  .hero-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 1.25rem; font-size: 0.9375rem; }
+  .hero-roles span { margin-right: 0.25rem; color: var(--sl-color-gray-3); }
+  .hero-roles a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 600; color: var(--sl-color-white); text-decoration: underline; text-decoration-color: var(--guide-brand); text-decoration-thickness: 2px; text-underline-offset: 0.3em; }
+  .hero-roles a:hover { color: var(--guide-brand); }
 
   .frame {
     overflow: hidden;
@@ -352,19 +357,13 @@ const nav = [
     outline: 1px solid var(--guide-line); outline-offset: -1px; box-shadow: var(--guide-shadow);
   }
   .frame img { display: block; width: 100%; height: auto; }
-  .frame-hero { margin-top: clamp(2.5rem, 6vw, 4.5rem); aspect-ratio: 4 / 5; box-shadow: var(--guide-shadow), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
-  .frame-hero img { width: 220%; max-width: none; margin: -9.5% 0 0 -42.5%; mask-image: linear-gradient(#000 80%, transparent); }
+  .frame-hero { display: block; width: min(19.5rem, 100%); margin: clamp(2.5rem, 6vw, 4.5rem) auto 0; border-radius: 1.5rem; box-shadow: var(--guide-shadow), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
   @media (min-width: 48rem) {
-    .frame-hero { aspect-ratio: 16 / 10; }
-    .frame-hero img { width: 100%; max-width: 100%; margin: 0; }
+    .frame-hero { width: auto; aspect-ratio: 16 / 10; border-radius: 0.9rem; }
+    .frame-hero img { mask-image: linear-gradient(#000 80%, transparent); }
   }
   html[data-theme='dark'] .frame img, html[data-theme='dark'] .shot img { filter: brightness(0.95); }
   html[data-theme='dark'] .frame-hero { box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
-  .empty {
-    aspect-ratio: 16 / 10; display: grid; place-items: center;
-    font-size: 0.875rem; color: var(--sl-color-gray-4);
-    background: linear-gradient(135deg, var(--sl-color-gray-7), var(--sl-color-gray-6));
-  }
 
   .band { margin-top: clamp(4rem, 9vw, 8rem); border-block: 1px solid var(--guide-line); background: var(--sl-color-gray-7); }
   .about { display: grid; gap: 1.25rem; padding-block: clamp(3rem, 6vw, 5rem); }
