@@ -119,7 +119,6 @@ beforeAll(async () => {
       id: teamId,
       programId,
       name: 'Synthetic team',
-      joinCodeDigest: prefix,
       leaderId: people.leader.id,
     },
   });

@@ -255,7 +255,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       'synthetic-leader',
       'synthetic-student',
     ]);
-    await addTeamMember(applicationId, MEMBER_USER.id, 'current-member');
+    await addTeamMember(applicationId, MEMBER_USER.id);
     await outbox.consumeNext('outbox-worker-a', NOW);
     const requestId = (
       await prisma.repositoryProvisionJob.findUniqueOrThrow({
@@ -789,7 +789,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       'synthetic-leader',
       'synthetic-student',
     ]);
-    await addTeamMember(applicationId, MEMBER_USER.id, 'current-member');
+    await addTeamMember(applicationId, MEMBER_USER.id);
     await outbox.consumeNext('outbox-worker-b', NOW);
     const github = githubClient();
     github.ensureCollaborator
@@ -1087,8 +1087,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
   it('부여→탈퇴 회수→재합류를 같은 행에서 이력을 남기며 수렴한다', async () => {
     const applicationId = 'synthetic-worker-revoke-lifecycle';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
-    await addTeamMember(applicationId, MEMBER_USER.id, 'member');
-    await addTeamMember(applicationId, GHOST_USER.id, 'ghost');
+    await addTeamMember(applicationId, MEMBER_USER.id);
+    await addTeamMember(applicationId, GHOST_USER.id);
     await outbox.consumeNext('outbox-worker-revoke', NOW);
     const repositoryId = await createProvisionedRepository(applicationId);
     const job = await claimJobFor(applicationId, 'state-worker-revoke');
@@ -1159,7 +1159,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       repositoryId,
     );
 
-    await addTeamMember(applicationId, MEMBER_USER.id, 'member-rejoin');
+    await addTeamMember(applicationId, MEMBER_USER.id);
     const afterRejoin = await state.loadContext(
       job.id,
       'state-worker-revoke',
@@ -1216,7 +1216,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
   it('작업 중 멤버십이 바뀌었으면 job을 닫지 않고 재무장한다', async () => {
     const applicationId = 'synthetic-worker-stale-membership';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
-    await addTeamMember(applicationId, MEMBER_USER.id, 'member');
+    await addTeamMember(applicationId, MEMBER_USER.id);
     await outbox.consumeNext('outbox-worker-stale', NOW);
     const repositoryId = await createProvisionedRepository(applicationId);
     const job = await claimJobFor(applicationId, 'state-worker-stale');
@@ -1282,7 +1282,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
   it('멤버십이 바뀐 뒤의 최종 실패는 job을 닫지 않고 재무장한다', async () => {
     const applicationId = 'synthetic-worker-final-failure-rearm';
     await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
-    await addTeamMember(applicationId, MEMBER_USER.id, 'member');
+    await addTeamMember(applicationId, MEMBER_USER.id);
     await outbox.consumeNext('outbox-worker-final-failure', NOW);
     const job = await claimJobFor(applicationId, 'state-worker-final');
     const context = await state.loadContext(
@@ -1389,11 +1389,9 @@ describe('RepositoryProvisionWorkerService integration', () => {
 async function addTeamMember(
   applicationId: string,
   userId: string,
-  suffix: string,
 ): Promise<void> {
   await prisma.teamMember.create({
     data: {
-      id: `${applicationId}-team-member-${suffix}`,
       teamId: teamIdFor(applicationId),
       programId: programId(applicationId),
       userId,
@@ -1533,6 +1531,11 @@ async function createApplicationAndEvent(
   const teamId = teamIdFor(applicationId);
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: program,
       name: 'Synthetic Program',
       organizer: 'synthetic-organizer',
@@ -1551,13 +1554,11 @@ async function createApplicationAndEvent(
       id: teamId,
       programId: program,
       name: `${applicationId}-team`,
-      joinCodeDigest: `${applicationId}-team-digest`,
       leaderId: APPLICANT_ID,
     },
   });
   await prisma.teamMember.create({
     data: {
-      id: `${applicationId}-team-member`,
       teamId,
       programId: program,
       userId: APPLICANT_ID,

@@ -120,6 +120,8 @@ beforeEach(async () => {
   });
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01'),
+
       id: programId,
       name: 'Synthetic relink program',
       organizer: 'Synthetic',
@@ -137,7 +139,6 @@ beforeEach(async () => {
       id: teamId,
       programId,
       name: 'Synthetic team',
-      joinCodeDigest: `${teamId}-digest`,
       leaderId: userId,
     },
   });

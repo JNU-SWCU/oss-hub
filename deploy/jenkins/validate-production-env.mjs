@@ -174,7 +174,6 @@ function validate(environment) {
   }
 
   requireStrongSecret(environment, 'SESSION_SECRET');
-  requireStrongSecret(environment, 'TEAM_JOIN_CODE_SECRET');
   requireFrontendUrl(environment);
 
   const storageMode = required(environment, 'SUBMISSION_FILE_STORAGE_MODE');

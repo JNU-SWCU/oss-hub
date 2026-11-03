@@ -7,9 +7,6 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertSeedUser } from './user';
-import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
-
-const joinCodeSecretService = new JoinCodeSecretService();
 
 function placeholderAnswers(scenarioId: string): Prisma.InputJsonObject {
   return {
@@ -110,14 +107,11 @@ async function upsertApplication(
         id: seedId('intake', params.scenarioId, 'solo-team'),
         programId: params.programId,
         name: `${params.scenarioId} 1인 팀`,
-
-        joinCode: `SEED-SOLO-${params.scenarioId.toUpperCase()}`,
         leaderId: params.applicantId,
       })
     ).id;
   if (!params.teamId) {
     await upsertTeamMember(stats, {
-      id: seedId('intake', params.scenarioId, 'solo-team-member'),
       teamId,
       programId: params.programId,
       userId: params.applicantId,
@@ -158,14 +152,9 @@ async function upsertTeam(
     id: string;
     programId: string;
     name: string;
-    joinCode: string;
     leaderId: string;
   },
 ) {
-  const joinCodeDigest = joinCodeSecretService.computeJoinCodeDigest(
-    params.joinCode,
-    joinCodeSecretService.resolveJoinCodeSecret(),
-  );
   return upsertTracked(
     stats,
     'Team',
@@ -173,12 +162,11 @@ async function upsertTeam(
     () =>
       prisma.team.upsert({
         where: { id: params.id },
-        update: { name: params.name, joinCodeDigest },
+        update: { name: params.name },
         create: {
           id: params.id,
           programId: params.programId,
           name: params.name,
-          joinCodeDigest,
           leaderId: params.leaderId,
         },
       }),
@@ -187,18 +175,24 @@ async function upsertTeam(
 
 async function upsertTeamMember(
   stats: SeedStats,
-  params: { id: string; teamId: string; programId: string; userId: string },
+  params: { teamId: string; programId: string; userId: string },
 ) {
   await upsertTracked(
     stats,
     'TeamMember',
-    () => prisma.teamMember.findUnique({ where: { id: params.id } }),
+    () =>
+      prisma.teamMember.findUnique({
+        where: {
+          teamId_userId: { teamId: params.teamId, userId: params.userId },
+        },
+      }),
     () =>
       prisma.teamMember.upsert({
-        where: { id: params.id },
+        where: {
+          teamId_userId: { teamId: params.teamId, userId: params.userId },
+        },
         update: {},
         create: {
-          id: params.id,
           teamId: params.teamId,
           programId: params.programId,
           userId: params.userId,
@@ -221,18 +215,15 @@ async function createTeamWithApplication(
     id: teamId,
     programId: params.programId,
     name: `seed-${params.scenarioId}-team`,
-    joinCode: `SEED-${params.scenarioId.toUpperCase()}`,
     leaderId: params.leaderId,
   });
   await upsertTeamMember(stats, {
-    id: seedId('intake', params.scenarioId, 'team-member', 'leader'),
     teamId,
     programId: params.programId,
     userId: params.leaderId,
   });
-  for (const [index, memberId] of params.memberIds.entries()) {
+  for (const memberId of params.memberIds) {
     await upsertTeamMember(stats, {
-      id: seedId('intake', params.scenarioId, 'team-member', String(index)),
       teamId,
       programId: params.programId,
       userId: memberId,
@@ -397,18 +388,15 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
     id: teamFullId,
     programId: PROGRAM_TEAM_TRACK_ID,
     name: 'seed-team-full',
-    joinCode: 'SEED-TEAM-FULL',
     leaderId: teamLeaderFull.id,
   });
   await upsertTeamMember(stats, {
-    id: seedId('intake', 'team-full', 'team-member', 'leader'),
     teamId: teamFullId,
     programId: PROGRAM_TEAM_TRACK_ID,
     userId: teamLeaderFull.id,
   });
-  for (const [index, member] of teamFullMembers.entries()) {
+  for (const member of teamFullMembers) {
     await upsertTeamMember(stats, {
-      id: seedId('intake', 'team-full', 'team-member', String(index)),
       teamId: teamFullId,
       programId: PROGRAM_TEAM_TRACK_ID,
       userId: member.id,

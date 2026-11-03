@@ -11,9 +11,8 @@ export class UpsertMilestoneRequestDto implements UpsertMilestoneCommand {
   @IsNotEmpty()
   declare name: string;
 
-  @IsOptional()
   @IsDateString({ strict: true, strictSeparator: true })
-  declare startAt?: string;
+  declare startAt: string;
 
   @IsString()
   declare dueAt: string;

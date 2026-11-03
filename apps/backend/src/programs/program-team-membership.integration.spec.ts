@@ -110,7 +110,6 @@ const invitations = new TeamInvitationsRepository(
 interface MemberSeed {
   readonly userId: string;
 
-  readonly memberRowId: string;
   readonly createdAt: Date;
 }
 
@@ -151,6 +150,11 @@ async function seedDurableFixturesOnce(): Promise<void> {
     where: { id: PROGRAM_ID },
     update: {},
     create: {
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: PROGRAM_ID,
       name: 'Team membership program',
       organizer: 'Synthetic organizer',
@@ -170,6 +174,8 @@ async function seedDurableFixturesOnce(): Promise<void> {
     where: { id: MILESTONE_ID },
     update: {},
     create: {
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+
       id: MILESTONE_ID,
       programId: PROGRAM_ID,
       name: 'Synthetic milestone',
@@ -199,14 +205,12 @@ async function seedTeam(
       id: teamId,
       programId: PROGRAM_ID,
       name: `Team ${teamId}`,
-      joinCodeDigest: `${teamId}:digest`,
       leaderId,
     },
   });
   for (const member of members) {
     await prisma.teamMember.create({
       data: {
-        id: member.memberRowId,
         teamId,
         programId: PROGRAM_ID,
         userId: member.userId,
@@ -355,17 +359,14 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
       {
         userId: MEMBER_B_ID,
-        memberRowId: `${teamId}:row-0002`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -382,22 +383,19 @@ describe('program team membership transactions integration', () => {
     await expectLeaderInsideMembership(teamId);
   });
 
-  it('promotes the earliest joiner even when its member row id sorts last', async () => {
+  it('promotes the earliest joiner even when its user ID sorts last', async () => {
     const teamId = `${RUN_PREFIX}team-order`;
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_B_ID,
-        memberRowId: `${teamId}:row-0009`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0002`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -418,12 +416,10 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -455,12 +451,10 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -498,12 +492,10 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -581,7 +573,6 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
     ]);
@@ -623,7 +614,6 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
     ]);
@@ -659,12 +649,10 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -691,12 +679,10 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -717,17 +703,14 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
       {
         userId: MEMBER_B_ID,
-        memberRowId: `${teamId}:row-0002`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -758,12 +741,10 @@ describe('program team membership transactions integration', () => {
     await seedTeam(teamId, LEADER_ID, [
       {
         userId: LEADER_ID,
-        memberRowId: `${teamId}:row-0000`,
         createdAt: JOINED_FIRST,
       },
       {
         userId: MEMBER_A_ID,
-        memberRowId: `${teamId}:row-0001`,
         createdAt: JOINED_SECOND,
       },
     ]);
@@ -824,12 +805,10 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_FIRST,
         },
         {
           userId: MEMBER_A_ID,
-          memberRowId: `${teamId}:2`,
           createdAt: JOINED_SECOND,
         },
       ]);
@@ -857,17 +836,14 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_SECOND,
         },
         {
           userId: MEMBER_A_ID,
-          memberRowId: `${teamId}:2`,
           createdAt: JOINED_FIRST,
         },
         {
           userId: MEMBER_B_ID,
-          memberRowId: `${teamId}:3`,
           createdAt: JOINED_SECOND,
         },
       ]);
@@ -896,7 +872,6 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_FIRST,
         },
       ]);
@@ -921,12 +896,10 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_FIRST,
         },
         {
           userId: MEMBER_A_ID,
-          memberRowId: `${teamId}:2`,
           createdAt: JOINED_SECOND,
         },
       ]);
@@ -950,12 +923,10 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_FIRST,
         },
         {
           userId: MEMBER_A_ID,
-          memberRowId: `${teamId}:2`,
           createdAt: JOINED_SECOND,
         },
       ]);
@@ -983,7 +954,6 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_FIRST,
         },
       ]);
@@ -1010,7 +980,6 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_FIRST,
         },
       ]);
@@ -1037,12 +1006,10 @@ describe('program team membership transactions integration', () => {
       await seedTeam(teamId, LEADER_ID, [
         {
           userId: LEADER_ID,
-          memberRowId: `${teamId}:1`,
           createdAt: JOINED_FIRST,
         },
         {
           userId: MEMBER_A_ID,
-          memberRowId: `${teamId}:2`,
           createdAt: JOINED_SECOND,
         },
       ]);

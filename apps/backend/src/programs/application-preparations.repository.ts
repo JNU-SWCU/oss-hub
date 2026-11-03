@@ -124,7 +124,7 @@ async function assertAvailable(
   const [official, accepted] = await Promise.all([
     tx.teamMember.findUnique({
       where: { programId_userId: { programId, userId } },
-      select: { id: true },
+      select: { userId: true },
     }),
     tx.applicationPreparationParticipant.findFirst({
       where: { programId, userId, status: 'ACCEPTED' },

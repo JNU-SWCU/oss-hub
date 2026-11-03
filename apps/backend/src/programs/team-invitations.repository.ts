@@ -137,7 +137,7 @@ const SENT_TEAM_INVITATION_SELECT = {
   inviteeId: true,
   invitedById: true,
   status: true,
-  invitedAt: true,
+  createdAt: true,
   respondedAt: true,
   invitee: { select: TEAM_INVITEE_SELECT },
 } as const satisfies Prisma.TeamInvitationSelect;
@@ -156,7 +156,7 @@ function toSentTeamInvitationRecord(
     inviteeId: invitation.inviteeId,
     invitedById: invitation.invitedById,
     status: invitation.status,
-    invitedAt: invitation.invitedAt,
+    invitedAt: invitation.createdAt,
     respondedAt: invitation.respondedAt,
     invitee: {
       id: invitation.invitee.id,
@@ -200,7 +200,7 @@ export class TeamInvitationsRepository {
   ): Promise<ReceivedTeamInvitationRecord[]> {
     const invitations = await this.prisma.teamInvitation.findMany({
       where: { inviteeId },
-      orderBy: { invitedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       include: {
         team: {
           select: {
@@ -222,7 +222,7 @@ export class TeamInvitationsRepository {
       inviteeId: invitation.inviteeId,
       invitedById: invitation.invitedById,
       status: invitation.status,
-      invitedAt: invitation.invitedAt,
+      invitedAt: invitation.createdAt,
       respondedAt: invitation.respondedAt,
       teamName: invitation.team.name,
       programName: invitation.team.program.name,
@@ -290,7 +290,7 @@ export class TeamInvitationsRepository {
   async findByTeamId(teamId: string): Promise<SentTeamInvitationRecord[]> {
     const invitations = await this.prisma.teamInvitation.findMany({
       where: { teamId },
-      orderBy: { invitedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
     });
     return invitations.map(toSentTeamInvitationRecord);
@@ -417,7 +417,7 @@ export class TeamInvitationsRepository {
             programId: team.programId,
             inviteeId: input.inviteeId,
             invitedById: input.actorId,
-            invitedAt: now,
+            createdAt: now,
           },
           select: SENT_TEAM_INVITATION_SELECT,
         });

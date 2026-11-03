@@ -27,9 +27,8 @@ export class CreateProgramRequestDto implements CreateProgramCommand {
   @IsString()
   declare applicationEndAt: string;
 
-  @IsOptional()
   @IsDateString({ strict: true, strictSeparator: true })
-  declare startAt?: string;
+  declare startAt: string;
 
   @IsDateString({ strict: true, strictSeparator: true })
   declare endAt: string;

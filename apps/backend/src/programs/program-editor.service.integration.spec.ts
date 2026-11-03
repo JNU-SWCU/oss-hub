@@ -35,7 +35,10 @@ const UNDECIDED_END_AT = '9999-12-31T23:59:59.999Z';
 
 async function createUndecidedEndProgram(programId: string): Promise<void> {
   await createProgram(programId, false);
-  await prisma.$executeRaw`UPDATE "Program" SET "endAt" = DEFAULT WHERE "id" = ${programId}`;
+  await prisma.program.update({
+    where: { id: programId },
+    data: { endAt: new Date(UNDECIDED_END_AT) },
+  });
 }
 
 describe('ProgramEditorService integration', () => {

@@ -201,9 +201,8 @@ export class UpdateProgramRequestDto
   @IsString()
   declare applicationEndAt: string;
 
-  @IsOptional()
   @IsDateString({ strict: true, strictSeparator: true })
-  declare startAt?: string;
+  declare startAt: string;
 
   @IsOptional()
   @IsString()

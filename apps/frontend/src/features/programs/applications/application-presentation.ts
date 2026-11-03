@@ -31,6 +31,8 @@ export const PROVISIONING_LABELS: Readonly<
   PENDING: '대기 중',
   PROCESSING: '생성 중',
   SUCCEEDED: '생성 완료',
+  FAILED_RETRYABLE: '재시도 대기',
+  FAILED_FINAL: '생성 실패',
   RETRYABLE_FAILED: '재시도 대기',
   FAILED: '생성 실패',
   ANOMALOUS: '확인 필요',

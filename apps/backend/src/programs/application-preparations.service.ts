@@ -1,7 +1,4 @@
-import { randomBytes } from 'node:crypto';
-import { Inject, Injectable } from '@nestjs/common';
-import type { RuntimeConfig } from '../platform/runtime-config.config';
-import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
+import { Injectable } from '@nestjs/common';
 import { DomainException, type ErrorCode } from '../platform/error-code.error';
 import {
   ApplicationPreparationsRepository,
@@ -11,32 +8,6 @@ import {
   PreparationConflict,
   type PreparationFailure,
 } from './application-preparation.error';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
-
-@Injectable()
-export class ApplicationJoinCodeService {
-  private readonly joinCodeSecret: string;
-
-  constructor(
-    @Inject(RUNTIME_CONFIG)
-    runtimeConfig: Pick<RuntimeConfig, 'TEAM_JOIN_CODE_SECRET'>,
-    private readonly joinCodeSecretService: JoinCodeSecretService,
-  ) {
-    this.joinCodeSecret =
-      this.joinCodeSecretService.resolveJoinCodeSecretFromConfig(runtimeConfig);
-  }
-
-  generateJoinCode(): string {
-    return randomBytes(6).toString('base64url').toUpperCase().slice(0, 10);
-  }
-
-  computeJoinCodeDigest(joinCode: string): string {
-    return this.joinCodeSecretService.computeJoinCodeDigest(
-      joinCode,
-      this.joinCodeSecret,
-    );
-  }
-}
 
 const ERRORS = {
   'not-found': {

@@ -338,7 +338,7 @@ export class ProgramTeamsRepository {
                   },
                 },
               },
-              orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+              orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
             },
           },
         },
@@ -546,7 +546,7 @@ export class ProgramTeamsRepository {
         leaderId: true,
         program: { select: { startAt: true, endAt: true } },
         members: {
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
           select: {
             userId: true,
             user: { select: { githubId: true, nickname: true } },
@@ -633,7 +633,7 @@ export class ProgramTeamsRepository {
       if (previousLeaderId === userId) {
         const successor = await tx.teamMember.findFirst({
           where: { teamId, userId: { not: userId } },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
           select: { userId: true },
         });
         if (!successor) {
@@ -787,7 +787,7 @@ export class ProgramTeamsRepository {
       if (previousLeaderId === targetUserId) {
         const successor = await tx.teamMember.findFirst({
           where: { teamId, userId: { not: targetUserId } },
-          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
           select: { userId: true },
         });
         if (!successor) {

@@ -19,8 +19,6 @@ import { ApplicationsService } from './applications.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ApplicationJoinCodeService } from './application-preparations.service';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
@@ -64,10 +62,6 @@ const service = new ApplicationsService(
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogReadService(new AuditLogMetadataService()),
-  ),
-  new ApplicationJoinCodeService(
-    { TEAM_JOIN_CODE_SECRET: 'synthetic-staff-read-paths-secret' },
-    new JoinCodeSecretService(),
   ),
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
@@ -146,6 +140,11 @@ async function seed(): Promise<void> {
   });
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: PROGRAM_ID,
       name: '교직원 읽기 경로 검증 프로그램',
       organizer: 'OSS Center',
@@ -174,7 +173,6 @@ async function seed(): Promise<void> {
         id: teamId,
         programId: PROGRAM_ID,
         name: `팀 ${fixture.key}`,
-        joinCodeDigest: `${teamId}-digest`,
         leaderId,
       },
     });
@@ -439,6 +437,11 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
     );
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: otherProgramId,
         name: '다른 프로그램',
         organizer: 'OSS Center',
@@ -455,7 +458,6 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
         id: `${PREFIX}team-other`,
         programId: otherProgramId,
         name: '팀 z',
-        joinCodeDigest: `${PREFIX}team-other-digest`,
         leaderId: otherLeaderId,
       },
     });

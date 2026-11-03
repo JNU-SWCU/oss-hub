@@ -168,6 +168,9 @@ it('removes detached fixture repository facts while preserving a neighboring pro
   const neighborId = `${E2E_PROGRAM_ID}-repository-neighbor`;
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01Z'),
+      endAt: new Date(new Date('2026-01-31Z').getTime() + 365 * 86_400_000),
+
       id: neighborId,
       name: 'Synthetic neighboring program',
       organizer: 'Synthetic',
@@ -237,7 +240,6 @@ it('seeds current observations idempotently without reassigning detached facts',
       id: teamId,
       programId: E2E_PROGRAM_ID,
       name: 'Synthetic evidence team',
-      joinCodeDigest: teamId,
       leaderId: E2E_STUDENT_ID,
     },
   });

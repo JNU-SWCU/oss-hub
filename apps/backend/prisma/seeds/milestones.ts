@@ -16,9 +16,6 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertSeedProfile, upsertSeedUser } from './user';
-import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
-
-const joinCodeSecretService = new JoinCodeSecretService();
 
 const PROGRAM_ID = seedId('milestones', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');
@@ -339,20 +336,11 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     () =>
       prisma.team.upsert({
         where: { id: personalTeamId },
-        update: {
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-MILESTONES-SOLO',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
-        },
+        update: {},
         create: {
           id: personalTeamId,
           programId: PROGRAM_ID,
           name: '마일스톤 개인 참여 1인 팀',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-MILESTONES-SOLO',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: applicantPersonal.id,
         },
       }),
@@ -379,7 +367,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         },
         update: {},
         create: {
-          id: seedId('milestones', 'application-personal', 'team-member'),
           teamId: personalTeamId,
           programId: PROGRAM_ID,
           userId: applicantPersonal.id,
@@ -415,20 +402,11 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     () =>
       prisma.team.upsert({
         where: { id: TEAM_ID },
-        update: {
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-MILESTONES-TEAM',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
-        },
+        update: {},
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'seed-milestones-team',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-MILESTONES-TEAM',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: teamLeader.id,
         },
       }),
@@ -438,14 +416,13 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     'TeamMember',
     () =>
       prisma.teamMember.findUnique({
-        where: { id: seedId('milestones', 'team-member', 'leader') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: teamLeader.id } },
       }),
     () =>
       prisma.teamMember.upsert({
-        where: { id: seedId('milestones', 'team-member', 'leader') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: teamLeader.id } },
         update: {},
         create: {
-          id: seedId('milestones', 'team-member', 'leader'),
           teamId: TEAM_ID,
           programId: PROGRAM_ID,
           userId: teamLeader.id,
@@ -457,14 +434,13 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     'TeamMember',
     () =>
       prisma.teamMember.findUnique({
-        where: { id: seedId('milestones', 'team-member', 'member') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: teamMember.id } },
       }),
     () =>
       prisma.teamMember.upsert({
-        where: { id: seedId('milestones', 'team-member', 'member') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: teamMember.id } },
         update: {},
         create: {
-          id: seedId('milestones', 'team-member', 'member'),
           teamId: TEAM_ID,
           programId: PROGRAM_ID,
           userId: teamMember.id,

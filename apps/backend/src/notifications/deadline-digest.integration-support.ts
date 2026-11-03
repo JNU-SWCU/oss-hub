@@ -104,6 +104,11 @@ export function createDeadlineDigestIntegrationHarness() {
         [DIGEST_FIXTURE.notifyProgram, true],
         [DIGEST_FIXTURE.silentProgram, false],
       ].map(([id, notifyOnDeadline]) => ({
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: String(id),
         name: `synthetic ${id}`,
         organizer: 'synthetic-center',
@@ -132,6 +137,7 @@ export function createDeadlineDigestIntegrationHarness() {
         },
       ].map((milestone) => ({
         ...milestone,
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
         dueAt: DIGEST_FIXTURE.dueSoon,
         submissionType: MilestoneSubmissionType.TEXT,
       })),
@@ -180,13 +186,11 @@ export function createDeadlineDigestIntegrationHarness() {
         id: `${applicationId}-team`,
         programId: DIGEST_FIXTURE.notifyProgram,
         name: `${applicationId}-team`,
-        joinCodeDigest: `${applicationId}-digest`,
         leaderId: applicantId,
       })),
     });
     await prisma.teamMember.createMany({
       data: DIGEST_APPLICATION_FIXTURES.map(([applicationId, applicantId]) => ({
-        id: `${applicationId}-member`,
         teamId: `${applicationId}-team`,
         programId: DIGEST_FIXTURE.notifyProgram,
         userId: applicantId,

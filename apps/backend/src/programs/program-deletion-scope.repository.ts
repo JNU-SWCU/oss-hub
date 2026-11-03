@@ -88,7 +88,7 @@ export class ProgramDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT('Team:', id) FROM "Team" WHERE "programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('TeamMember:', id) FROM "TeamMember" WHERE "programId" = ${programId}
+            SELECT CONCAT('TeamMember:', JSONB_BUILD_ARRAY("teamId", "userId")::text) FROM "TeamMember" WHERE "programId" = ${programId}
             UNION ALL
             SELECT CONCAT('TeamInvitation:', id) FROM "TeamInvitation" WHERE "programId" = ${programId}
             UNION ALL

@@ -158,7 +158,6 @@ async function seed(): Promise<void> {
             id: teamId,
             programId,
             name: `Team ${team}`,
-            joinCodeDigest: id(`digest-${team}`),
             leaderId,
             members: {
               create: [0, 1].map((member) => ({

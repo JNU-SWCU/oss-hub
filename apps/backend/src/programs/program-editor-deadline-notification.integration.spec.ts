@@ -91,6 +91,7 @@ function updateRequest(notifyOnDeadline: boolean) {
     category: ProgramCategory.BASIC,
     applicationStartAt: '2026-08-01T00:00:00.000Z',
     applicationEndAt: '2026-08-15T00:00:00.000Z',
+    startAt: '2026-08-16T00:00:00.000Z',
     endAt: '2026-08-31T00:00:00.000Z',
     repositoryProvisioningEnabled: false,
     notifyOnDeadline,
@@ -204,7 +205,6 @@ async function seed(): Promise<void> {
       id: TEAM_ID,
       programId: PROGRAM_ID,
       name: '검증 팀',
-      joinCodeDigest: `${TEST_PREFIX}join-code-digest`,
       leaderId: LEADER_ID,
     },
   });

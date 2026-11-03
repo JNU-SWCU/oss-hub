@@ -236,8 +236,8 @@ model Program {
 
   applicationStartAt DateTime
   applicationEndAt   DateTime
-  startAt            DateTime @default(dbgenerated("'0001-01-01 00:00:00'::timestamp without time zone"))
-  endAt              DateTime @default(dbgenerated("'9999-12-31 23:59:59.999'::timestamp without time zone"))
+  startAt            DateTime
+  endAt              DateTime
 
   teamMinSize Int @default(1)
   teamMaxSize Int @default(1)
@@ -287,7 +287,7 @@ model Milestone {
   program   Program @relation(fields: [programId], references: [id])
 
   name           String
-  startAt        DateTime                 @default(dbgenerated("'0001-01-01 00:00:00'::timestamp without time zone"))
+  startAt        DateTime
   dueAt          DateTime
   submissionType MilestoneSubmissionType?
   instructions   String?
@@ -479,8 +479,7 @@ model Team {
   programId String
   program   Program @relation(fields: [programId], references: [id])
 
-  name           String
-  joinCodeDigest String @unique
+  name String
 
   leaderId String
   leader   User   @relation("TeamLeader", fields: [leaderId], references: [id])
@@ -498,20 +497,15 @@ model Team {
 }
 
 model TeamMember {
-  id        String @id @default(cuid())
   teamId    String
   programId String
   team      Team   @relation(fields: [teamId, programId], references: [id, programId])
   userId    String
   user      User   @relation(fields: [userId], references: [id])
 
-  department String?
-  name       String?
-  email      String?
-
   createdAt DateTime @default(now())
 
-  @@unique([teamId, userId])
+  @@id([teamId, userId])
   @@unique([programId, userId])
   @@index([userId])
 }
@@ -538,7 +532,6 @@ model TeamInvitation {
 
   status TeamInvitationStatus @default(PENDING)
 
-  invitedAt   DateTime  @default(now())
   respondedAt DateTime?
 
   createdAt DateTime @default(now())
@@ -616,7 +609,7 @@ model SubmissionFile {
   milestoneId String?
   milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
 
-  storageKey       String
+  storageKey       String @unique
   originalFileName String
   mimeType         String
   sizeBytes        Int
@@ -677,7 +670,7 @@ model MilestoneDocumentTemplateFile {
   milestoneDocumentId String            @unique
   milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])
 
-  storageKey       String
+  storageKey       String @unique
   originalFileName String
   mimeType         String
   sizeBytes        Int

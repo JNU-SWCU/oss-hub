@@ -54,7 +54,6 @@ beforeAll(async () => {
       id: ids.team,
       programId: ids.program,
       name: 'Synthetic team',
-      joinCodeDigest: scope,
       leaderId: ids.member,
     },
   });

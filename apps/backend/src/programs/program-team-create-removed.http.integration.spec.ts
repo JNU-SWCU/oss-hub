@@ -133,6 +133,9 @@ beforeEach(async () => {
   });
   await prisma.program.create({
     data: {
+      startAt: new Date('2000-01-01'),
+      endAt: new Date(new Date('2099-12-31').getTime() + 365 * 86_400_000),
+
       id: programId,
       name: 'Synthetic open program',
       organizer: 'Synthetic organizer',
@@ -193,7 +196,6 @@ it('기존 공식 팀은 학생의 팀 조회 경로에서 계속 반환한다',
       programId,
       name: 'Synthetic existing team',
       leaderId: userId,
-      joinCodeDigest: `${prefix}existing-team`,
       members: { create: { userId } },
     },
   });

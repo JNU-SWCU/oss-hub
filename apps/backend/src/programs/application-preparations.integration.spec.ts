@@ -12,14 +12,10 @@ import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationPreparationsRepository } from './application-preparations.repository';
-import {
-  ApplicationPreparationsService,
-  ApplicationJoinCodeService,
-} from './application-preparations.service';
+import { ApplicationPreparationsService } from './application-preparations.service';
 import { ApplicationsService } from './applications.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
@@ -43,12 +39,6 @@ const applications = new ApplicationsService(
     new PlatformRepository(),
   ),
   audit,
-  new ApplicationJoinCodeService(
-    {
-      TEAM_JOIN_CODE_SECRET: 'synthetic-preparation-secret',
-    },
-    new JoinCodeSecretService(),
-  ),
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
@@ -120,6 +110,9 @@ describe('application preparation integration', () => {
     programId = `synthetic-preparation-program-${++sequence}`;
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01'),
+        endAt: new Date(new Date('2026-12-31').getTime() + 365 * 86_400_000),
+
         id: programId,
         name: programId,
         organizer: 'synthetic',

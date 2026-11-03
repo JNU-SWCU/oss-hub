@@ -66,6 +66,11 @@ function programData(
   teamMaxSize: number,
 ): Prisma.ProgramCreateManyInput {
   return {
+    startAt: new Date('2026-08-01T00:00:00.000Z'),
+    endAt: new Date(
+      new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+    ),
+
     id,
     name,
     organizer: 'Synthetic organizer',
@@ -142,14 +147,12 @@ async function seed(): Promise<void> {
         id: TEAM_A_ID,
         programId: PROGRAM_A_ID,
         name: TEAM_A_NAME,
-        joinCodeDigest: `${TEST_PREFIX}digest-a`,
         leaderId: NAMED_LEADER_ID,
       },
       {
         id: TEAM_B_ID,
         programId: PROGRAM_B_ID,
         name: TEAM_B_NAME,
-        joinCodeDigest: `${TEST_PREFIX}digest-b`,
         leaderId: HANDLE_ONLY_LEADER_ID,
       },
     ],
@@ -175,7 +178,7 @@ async function seed(): Promise<void> {
         inviteeId: INVITEE_ID,
         invitedById: LEGACY_LEADER_ID,
         status: TeamInvitationStatus.DECLINED,
-        invitedAt: new Date('2026-08-01T00:00:00.000Z'),
+        createdAt: new Date('2026-08-01T00:00:00.000Z'),
         respondedAt: new Date('2026-08-02T00:00:00.000Z'),
       },
       {
@@ -184,7 +187,7 @@ async function seed(): Promise<void> {
         programId: PROGRAM_B_ID,
         inviteeId: INVITEE_ID,
         invitedById: HANDLE_ONLY_LEADER_ID,
-        invitedAt: new Date('2026-08-03T00:00:00.000Z'),
+        createdAt: new Date('2026-08-03T00:00:00.000Z'),
       },
       {
         id: PENDING_A_ID,
@@ -192,7 +195,7 @@ async function seed(): Promise<void> {
         programId: PROGRAM_A_ID,
         inviteeId: INVITEE_ID,
         invitedById: NAMED_LEADER_ID,
-        invitedAt: new Date('2026-08-04T00:00:00.000Z'),
+        createdAt: new Date('2026-08-04T00:00:00.000Z'),
       },
     ],
   });

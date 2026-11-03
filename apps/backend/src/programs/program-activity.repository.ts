@@ -105,7 +105,7 @@ export class ProgramActivityRepository {
           select: {
             name: true,
             members: {
-              orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+              orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
               select: { user: { select: { githubId: true, nickname: true } } },
             },
           },

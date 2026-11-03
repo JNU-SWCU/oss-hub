@@ -22,9 +22,6 @@ import {
   upsertTracked,
 } from './helpers';
 import { setSeedAdmin, upsertConsent, upsertSeedProfile } from './user';
-import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
-
-const joinCodeSecretService = new JoinCodeSecretService();
 
 const PROGRAM_ID = seedId('oss-hub', 'program');
 const TEAM_ID = seedId('oss-hub', 'team');
@@ -182,20 +179,12 @@ export async function seedOssHub(
         where: { id: TEAM_ID },
         update: {
           name: 'oss-hub',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-OSS-HUB',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: users[0]!.id,
         },
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'oss-hub',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-OSS-HUB',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: users[0]!.id,
         },
       }),
@@ -356,28 +345,26 @@ export async function seedOssHub(
   }
   const [awsStagingMilestone, intakeFreezeMilestone] = milestones;
 
-  const memberIds = accounts.map((account) =>
-    seedId('oss-hub', 'team-member', account.githubId.toString()),
-  );
   await prisma.teamMember.deleteMany({
-    where: { teamId: TEAM_ID, id: { notIn: memberIds } },
+    where: { teamId: TEAM_ID, userId: { notIn: users.map((user) => user.id) } },
   });
-  for (const [index, user] of users.entries()) {
-    const id = memberIds[index]!;
+  for (const user of users) {
     await upsertTracked(
       stats,
       'TeamMember',
-      () => prisma.teamMember.findUnique({ where: { id } }),
+      () =>
+        prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId: TEAM_ID, userId: user.id } },
+        }),
       () =>
         prisma.teamMember.upsert({
-          where: { id },
+          where: { teamId_userId: { teamId: TEAM_ID, userId: user.id } },
           update: {
             teamId: TEAM_ID,
             programId: PROGRAM_ID,
             userId: user.id,
           },
           create: {
-            id,
             teamId: TEAM_ID,
             programId: PROGRAM_ID,
             userId: user.id,
@@ -728,44 +715,38 @@ export async function seedOssHub(
         where: { id: PRACTICE_TEAM_ID },
         update: {
           name: 'oss-hub-practice',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-OSS-HUB-PRACTICE',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: users[0]!.id,
         },
         create: {
           id: PRACTICE_TEAM_ID,
           programId: PRACTICE_PROGRAM_ID,
           name: 'oss-hub-practice',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-OSS-HUB-PRACTICE',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: users[0]!.id,
         },
       }),
   );
 
-  const practiceMemberIds = accounts.map((account) =>
-    seedId('oss-hub-practice', 'team-member', account.githubId.toString()),
-  );
-  for (const [index, user] of users.entries()) {
-    const id = practiceMemberIds[index]!;
+  for (const user of users) {
     await upsertTracked(
       stats,
       'TeamMember',
-      () => prisma.teamMember.findUnique({ where: { id } }),
+      () =>
+        prisma.teamMember.findUnique({
+          where: {
+            teamId_userId: { teamId: PRACTICE_TEAM_ID, userId: user.id },
+          },
+        }),
       () =>
         prisma.teamMember.upsert({
-          where: { id },
+          where: {
+            teamId_userId: { teamId: PRACTICE_TEAM_ID, userId: user.id },
+          },
           update: {
             teamId: PRACTICE_TEAM_ID,
             programId: PRACTICE_PROGRAM_ID,
             userId: user.id,
           },
           create: {
-            id,
             teamId: PRACTICE_TEAM_ID,
             programId: PRACTICE_PROGRAM_ID,
             userId: user.id,

@@ -103,7 +103,6 @@ integration_storage_endpoint="http://127.0.0.1:${object_storage_port}"
     SUBMISSION_FILE_S3_ACCESS_KEY_ID="$OBJECT_STORAGE_ACCESS_KEY_ID" \
     SUBMISSION_FILE_S3_SECRET_ACCESS_KEY="$OBJECT_STORAGE_SECRET_ACCESS_KEY" \
     SUBMISSION_FILE_S3_FORCE_PATH_STYLE=true \
-    TEAM_JOIN_CODE_SECRET=synthetic-integration-join-code-secret \
     pnpm exec jest \
     --runInBand \
     --testPathPattern="$test_pattern"

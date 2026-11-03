@@ -142,7 +142,6 @@ pnpm install
 
 cp .envrc.example .envrc
 echo "export SESSION_SECRET=$(openssl rand -hex 32)" >> .envrc
-echo "export TEAM_JOIN_CODE_SECRET=$(openssl rand -hex 32)" >> .envrc
 source .envrc
 
 pnpm dev
@@ -187,7 +186,7 @@ pnpm --filter backend exec prisma db seed -- --profile demo --teardown
 <details>
 <summary><b><code>pnpm dev</code>가 하는 일과 종료 방법</b></summary>
 
-`pnpm dev`는 필수 환경 변수 6개(`DATABASE_URL`, `SESSION_SECRET`, `TEAM_JOIN_CODE_SECRET`, `FRONTEND_URL`, `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`)와 포트 3000·4000을 확인합니다. 이어서 Docker로 PostgreSQL과 S3 호환 모의 파일 저장소를 띄우고, 마이그레이션을 적용한 뒤 프런트엔드와 백엔드를 시작합니다. 시드는 자동으로 넣지 않습니다.
+`pnpm dev`는 필수 환경 변수 5개(`DATABASE_URL`, `SESSION_SECRET`, `FRONTEND_URL`, `GITHUB_OAUTH_CLIENT_ID`, `GITHUB_OAUTH_CLIENT_SECRET`)와 포트 3000·4000을 확인합니다. 이어서 Docker로 PostgreSQL과 S3 호환 모의 파일 저장소를 띄우고, 마이그레이션을 적용한 뒤 프런트엔드와 백엔드를 시작합니다. 시드는 자동으로 넣지 않습니다.
 
 앱은 Docker가 아니라 호스트에서 hot reload로 돕니다. 프런트엔드와 백엔드 중 하나가 끝나면 나머지도 함께 멈춥니다. Prisma Client는 `pnpm install`이 생성합니다. `.envrc.example`의 `MAIL_MODE=dry-run`은 메일을 보내지 않고 로그만 남깁니다. [compose.dev.yml](compose.dev.yml)은 로컬 인프라, [compose.yml](compose.yml)은 운영 런타임입니다.
 

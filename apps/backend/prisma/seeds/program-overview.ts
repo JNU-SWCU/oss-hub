@@ -15,9 +15,6 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertSeedUser } from './user';
-import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
-
-const joinCodeSecretService = new JoinCodeSecretService();
 
 const PROGRAM_ID = seedId('program-overview', 'program');
 const STAFF_ID = seedId('program-overview', 'user', 'staff');
@@ -368,20 +365,11 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     () =>
       prisma.team.upsert({
         where: { id: TEAM_ID },
-        update: {
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-PROGRAM-OVERVIEW-TEAM',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
-        },
+        update: {},
         create: {
           id: TEAM_ID,
           programId: PROGRAM_ID,
           name: 'seed-program-overview-team',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            'SEED-PROGRAM-OVERVIEW-TEAM',
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: leader.id,
         },
       }),
@@ -392,14 +380,13 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     'TeamMember',
     () =>
       prisma.teamMember.findUnique({
-        where: { id: seedId('program-overview', 'team-member', 'leader') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: leader.id } },
       }),
     () =>
       prisma.teamMember.upsert({
-        where: { id: seedId('program-overview', 'team-member', 'leader') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: leader.id } },
         update: {},
         create: {
-          id: seedId('program-overview', 'team-member', 'leader'),
           teamId: TEAM_ID,
           programId: PROGRAM_ID,
           userId: leader.id,
@@ -411,14 +398,13 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     'TeamMember',
     () =>
       prisma.teamMember.findUnique({
-        where: { id: seedId('program-overview', 'team-member', 'member') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: member.id } },
       }),
     () =>
       prisma.teamMember.upsert({
-        where: { id: seedId('program-overview', 'team-member', 'member') },
+        where: { teamId_userId: { teamId: TEAM_ID, userId: member.id } },
         update: {},
         create: {
-          id: seedId('program-overview', 'team-member', 'member'),
           teamId: TEAM_ID,
           programId: PROGRAM_ID,
           userId: member.id,
@@ -470,7 +456,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
           inviteeId: INVITEE_ID,
           invitedById: leader.id,
           status: TeamInvitationStatus.PENDING,
-          invitedAt: offsetDays(-3),
+          createdAt: offsetDays(-3),
         },
       }),
   );

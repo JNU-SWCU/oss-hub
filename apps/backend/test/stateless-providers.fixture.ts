@@ -11,7 +11,6 @@ import { AdminAccessReadRepository } from '../src/users/admin-access-read.reposi
 import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
 import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
 import { UserProfileService } from '../src/users/user-profile.service';
-import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';
 import { RepositoryPublishService } from '../src/github/repository-publish.service';
@@ -45,7 +44,6 @@ export const STATELESS_PROVIDERS = [
   ProgramNoticeFetchClient,
   AuditLogMetadataService,
   UserProfileService,
-  JoinCodeSecretService,
   RepositoryUrlService,
   RepositoryProvisionEventService,
   RepositoryPublishService,

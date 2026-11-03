@@ -1189,14 +1189,12 @@ async function createSubmissionApplication(programId: string) {
       id: teamId,
       programId,
       name: 'Submission team',
-      joinCodeDigest: crypto.randomUUID(),
       leaderId: studentId,
     },
   });
 
   await prisma.teamMember.create({
     data: {
-      id: `${TEST_PREFIX}team-member:${crypto.randomUUID()}`,
       teamId,
       programId,
       userId: studentId,

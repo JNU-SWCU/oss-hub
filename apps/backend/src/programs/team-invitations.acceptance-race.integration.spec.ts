@@ -53,6 +53,11 @@ async function seedFixture(): Promise<void> {
   }
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: PROGRAM_ID,
       name: 'Invitation acceptance race program',
       organizer: 'Synthetic organizer',
@@ -73,7 +78,6 @@ async function seedFixture(): Promise<void> {
       id: TEAM_ID,
       programId: PROGRAM_ID,
       name: 'Acceptance race team',
-      joinCodeDigest: `${TEST_PREFIX}digest`,
       leaderId: LEADER_ID,
     },
   });

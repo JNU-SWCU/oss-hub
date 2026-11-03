@@ -83,6 +83,11 @@ const programs = new ProgramsService(
 
 function programRow(programId: string) {
   return {
+    startAt: new Date('2026-08-01T00:00:00.000Z'),
+    endAt: new Date(
+      new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+    ),
+
     id: programId,
     name: `synthetic ${programId}`,
     organizer: 'synthetic-center',
@@ -167,6 +172,8 @@ async function seed(): Promise<void> {
   await prisma.milestone.createMany({
     data: [
       {
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+
         id: DOCUMENT_MILESTONE_FIRST,
         programId: DOCUMENT_PROGRAM,
         name: '서류 1차',
@@ -174,6 +181,8 @@ async function seed(): Promise<void> {
         submissionType: null,
       },
       {
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+
         id: DOCUMENT_MILESTONE_SECOND,
         programId: DOCUMENT_PROGRAM,
         name: '서류 2차',
@@ -182,6 +191,8 @@ async function seed(): Promise<void> {
       },
 
       {
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+
         id: LEGACY_MILESTONE,
         programId: LEGACY_PROGRAM,
         name: '옛 단일 제출',
@@ -190,6 +201,8 @@ async function seed(): Promise<void> {
       },
 
       {
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+
         id: MIXED_MILESTONE,
         programId: LEGACY_PROGRAM,
         name: '두 축 혼재',
@@ -224,13 +237,11 @@ async function seed(): Promise<void> {
       id: `${applicationId}-team`,
       programId: PROGRAM_IDS[index] ?? DOCUMENT_PROGRAM,
       name: `${applicationId}-team`,
-      joinCodeDigest: `${applicationId}-digest`,
       leaderId: STUDENT_ID,
     })),
   });
   await prisma.teamMember.createMany({
     data: APPLICATION_IDS.map((applicationId, index) => ({
-      id: `${applicationId}-member`,
       teamId: `${applicationId}-team`,
       programId: PROGRAM_IDS[index] ?? DOCUMENT_PROGRAM,
       userId: STUDENT_ID,

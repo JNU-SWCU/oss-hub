@@ -1,12 +1,5 @@
-import { JoinCodeSecretError } from '../platform/join-code-secret.config';
-import {
-  ApplicationJoinCodeService,
-  ApplicationPreparationsService,
-} from './application-preparations.service';
+import { ApplicationPreparationsService } from './application-preparations.service';
 import type { ApplicationPreparationsRepository } from './application-preparations.repository';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
-
-const joinCodeSecretService = new JoinCodeSecretService();
 
 describe('ApplicationPreparationsService.get', () => {
   function serviceWith(found: unknown) {
@@ -30,61 +23,5 @@ describe('ApplicationPreparationsService.get', () => {
     const { service } = serviceWith(preparation);
 
     await expect(service.get(4242n, 'program-1')).resolves.toBe(preparation);
-  });
-});
-
-describe('application-join-code.service', () => {
-  describe('ApplicationJoinCodeService', () => {
-    it.each([undefined, '', '   '])(
-      'TEAM_JOIN_CODE_SECRET이 %p이면 생성 시점에 실패한다',
-      (secret) => {
-        expect(
-          () =>
-            new ApplicationJoinCodeService(
-              { TEAM_JOIN_CODE_SECRET: secret },
-              new JoinCodeSecretService(),
-            ),
-        ).toThrow(JoinCodeSecretError);
-      },
-    );
-
-    it('설정된 secret으로 참여코드 digest를 만든다', () => {
-      const service = new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-secret-a',
-        },
-        new JoinCodeSecretService(),
-      );
-
-      expect(service.computeJoinCodeDigest('SYNTHETIC-CODE')).toBe(
-        joinCodeSecretService.computeJoinCodeDigest(
-          'SYNTHETIC-CODE',
-          'synthetic-secret-a',
-        ),
-      );
-      expect(service.computeJoinCodeDigest('SYNTHETIC-CODE')).not.toBe(
-        joinCodeSecretService.computeJoinCodeDigest(
-          'SYNTHETIC-CODE',
-          'synthetic-secret-b',
-        ),
-      );
-    });
-
-    it('8자 대문자 base64url 참여코드를 매번 새로 만든다', () => {
-      const service = new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-secret-a',
-        },
-        new JoinCodeSecretService(),
-      );
-      const codes = Array.from({ length: 20 }, () =>
-        service.generateJoinCode(),
-      );
-
-      for (const code of codes) {
-        expect(code).toMatch(/^[A-Z0-9_-]{8}$/);
-      }
-      expect(new Set(codes).size).toBe(codes.length);
-    });
   });
 });

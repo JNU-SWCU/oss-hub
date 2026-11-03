@@ -93,13 +93,11 @@ async function createTeams(teams: readonly TeamFixture[]): Promise<void> {
         id: teamId,
         programId,
         name: `synthetic ${team.key} 팀`,
-        joinCodeDigest: `digest:${prefix}:${team.key}`,
         leaderId: userId,
       },
     });
     await prisma.teamMember.create({
       data: {
-        id: `${prefix}-${team.key}-member`,
         teamId,
         programId,
         userId,
@@ -203,6 +201,8 @@ describe('교직원 서류 제출 카운트 — 배지와 수합 표 합계', ()
         description: 'synthetic integration fixture',
         milestones: {
           create: {
+            startAt: new Date('2026-01-02'),
+
             id: milestoneId,
             name: 'synthetic milestone',
             dueAt: new Date('2026-11-01'),

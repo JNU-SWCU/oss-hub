@@ -97,7 +97,6 @@ it('projects only linked repository facts inside the program window while retain
       id: teamId,
       programId,
       name: 'Synthetic team',
-      joinCodeDigest: prefix,
       leaderId: memberId,
     },
   });
@@ -274,7 +273,6 @@ it('shows the outsider totals only while they were counted for this program wind
       id: scoped.team,
       programId: scoped.program,
       name: 'Synthetic team',
-      joinCodeDigest: scope,
       leaderId: scoped.member,
     },
   });
@@ -365,6 +363,9 @@ it('reads contributions of a program that never set an end date', async () => {
   });
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-07-31Z'),
+      endAt: new Date('9999-12-31T23:59:59.999Z'),
+
       id: scopedProgramId,
       name: 'Synthetic program',
       organizer: 'Synthetic',
@@ -381,7 +382,6 @@ it('reads contributions of a program that never set an end date', async () => {
       id: scopedTeamId,
       programId: scopedProgramId,
       name: 'Synthetic team',
-      joinCodeDigest: scope,
       leaderId: `${scope}-member`,
     },
   });
@@ -495,7 +495,6 @@ it('counts issues for team members, so an issue-only member has observations', a
       id: scopedTeamId,
       programId: scopedProgramId,
       name: 'Synthetic team',
-      joinCodeDigest: scope,
       leaderId: activeId,
     },
   });

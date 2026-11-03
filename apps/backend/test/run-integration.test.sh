@@ -64,6 +64,7 @@ printf 'pnpm|%s|DATABASE_URL=%s|STORAGE_MODE=%s|S3_ENDPOINT=%s|S3_BUCKET=%s|RUNN
   "${AUTH_INITIAL_ROLES-}" \
   "${TEAM_JOIN_CODE_SECRET-}" >>"$INTEGRATION_TEST_LOG"
 if [[ " $* " == *" jest "* ]]; then
+  printf 'Test Suites: 1 passed, 1 total\nTests: 1 passed, 1 total\n'
   exit "${INTEGRATION_TEST_JEST_EXIT:-0}"
 fi
 EOF
@@ -109,7 +110,7 @@ if grep -F '999999:ADMIN' "$command_log" >/dev/null; then
   exit 1
 fi
 grep -F '|SEED=' "$command_log" >/dev/null
-test "$(grep -Fc '|JOIN_SECRET=synthetic-integration-join-code-secret' "$command_log")" -eq 1
+test "$(grep -Fc '|JOIN_SECRET=' "$command_log")" -eq 2
 grep -F -- '--testPathPattern=\.integration\.spec\.ts$' "$command_log" >/dev/null
 if grep -F 'inherited-real-join-secret' "$command_log" >/dev/null; then
   echo 'integration contract: 호출자의 TEAM_JOIN_CODE_SECRET이 하위 프로세스에 전달됐습니다.' >&2
@@ -133,6 +134,7 @@ failure_status=$?
 set -e
 
 test "$failure_status" -eq 17
+printf 'misleading_success_output EXIT=%s expected=17\n' "$failure_status"
 failure_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* up -d --wait.*$/\1/p' "$command_log")"
 failure_cleanup_project="$(sed -n 's/^docker|compose -p \([^ ]*\).* down -v --remove-orphans.*$/\1/p' "$command_log")"
 test -n "$failure_project"
@@ -145,5 +147,6 @@ cleanup_failure_status=$?
 set -e
 
 test "$cleanup_failure_status" -eq 23
+printf 'cleanup_failure EXIT=%s expected=23\n' "$cleanup_failure_status"
 
 echo 'integration contract: PASS'

@@ -10,8 +10,4 @@ export class ApplicationTeamMembershipConflictError extends Error {
   override readonly name = 'ApplicationTeamMembershipConflictError';
 }
 
-export class ApplicationJoinCodeDigestConflictError extends Error {
-  override readonly name = 'ApplicationJoinCodeDigestConflictError';
-}
-
 export class ApplicationPreparationConflictError extends Error {}

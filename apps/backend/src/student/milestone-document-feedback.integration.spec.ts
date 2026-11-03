@@ -42,7 +42,7 @@ async function cleanup(): Promise<void> {
   });
   await prisma.milestoneDocumentSubmission.deleteMany({ where: { id: owned } });
   await prisma.application.deleteMany({ where: { id: owned } });
-  await prisma.teamMember.deleteMany({ where: { id: owned } });
+  await prisma.teamMember.deleteMany({ where: { teamId: owned } });
   await prisma.team.deleteMany({ where: { id: owned } });
   await prisma.milestoneDocument.deleteMany({ where: { id: owned } });
   await prisma.milestone.deleteMany({ where: { id: owned } });
@@ -53,6 +53,9 @@ async function cleanup(): Promise<void> {
 async function createProgram(key: string, name: string): Promise<void> {
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01'),
+      endAt: new Date(new Date('2026-01-02').getTime() + 365 * 86_400_000),
+
       id: `${prefix}-${key}-program`,
       name,
       organizer: 'OSS Hub',
@@ -64,6 +67,8 @@ async function createProgram(key: string, name: string): Promise<void> {
       description: 'synthetic dashboard feedback fixture',
       milestones: {
         create: {
+          startAt: new Date('2026-01-01'),
+
           id: `${prefix}-${key}-milestone`,
           name: milestoneName,
           dueAt: new Date('2026-12-31'),
@@ -104,13 +109,12 @@ async function createApplication(input: {
       id: teamId,
       programId,
       name: `합성 ${input.key} 팀`,
-      joinCodeDigest: `digest:${prefix}:${input.key}`,
       leaderId: input.members[0] ?? input.applicant,
     },
   });
   for (const userId of input.members) {
     await prisma.teamMember.create({
-      data: { id: `${teamId}-${userId}`, teamId, programId, userId },
+      data: { teamId, programId, userId },
     });
   }
   await prisma.application.create({

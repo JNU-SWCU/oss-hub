@@ -16,10 +16,8 @@ import {
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
@@ -113,7 +111,6 @@ function mapItem(source: ApplicationListSource | null | undefined) {
     ? new ApplicationsService(
         undefined as never,
         undefined as never,
-        undefined as never,
         new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
@@ -132,12 +129,6 @@ describe('ApplicationsService.getForStaff', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-        },
-        new JoinCodeSecretService(),
-      ),
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
@@ -166,12 +157,6 @@ describe('ApplicationsService.getForStaff', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-        },
-        new JoinCodeSecretService(),
-      ),
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
@@ -200,12 +185,6 @@ describe('ApplicationsService.getForStaff', () => {
     const service = new ApplicationsService(
       repository,
       noopAuditLog,
-      new ApplicationJoinCodeService(
-        {
-          TEAM_JOIN_CODE_SECRET: 'synthetic-detail-secret',
-        },
-        new JoinCodeSecretService(),
-      ),
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),

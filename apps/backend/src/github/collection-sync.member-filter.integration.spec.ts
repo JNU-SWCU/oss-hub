@@ -184,6 +184,11 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
   const seed = async (): Promise<void> => {
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-12-31T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: PROGRAM_ID,
         name: 'synthetic member filter program',
         organizer: 'synthetic',
@@ -208,7 +213,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         id: TEAM_ID,
         programId: PROGRAM_ID,
         name: 'synthetic member filter team',
-        joinCodeDigest: `${SEED_PREFIX}-join-code-digest`,
         leaderId: MEMBER_USER_ID,
       },
     });

@@ -48,6 +48,11 @@ const NOW = new Date('2026-07-15T00:00:00.000Z');
 async function seedApplication(): Promise<void> {
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-07-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-07-31T23:59:59.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: PROGRAM_ID,
       name: 'Student application race program',
       organizer: 'Synthetic organizer',
@@ -64,7 +69,6 @@ async function seedApplication(): Promise<void> {
       id: `${APPLICATION_ID}-team`,
       programId: PROGRAM_ID,
       name: 'student-application-race-team',
-      joinCodeDigest: 'student-application-race-team-digest',
       leaderId: STUDENT_ID,
     },
   });

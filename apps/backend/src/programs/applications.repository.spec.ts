@@ -64,7 +64,7 @@ describe('PrismaApplicationCreateStore.lockTeamForApply', () => {
     expect(sql.values).toContain(TEAM_ID);
     expect(teamMemberFindUnique).toHaveBeenCalledWith({
       where: { teamId_userId: { teamId: TEAM_ID, userId: LEADER_ID } },
-      select: { id: true },
+      select: { userId: true },
     });
   });
 

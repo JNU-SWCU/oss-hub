@@ -122,13 +122,11 @@ async function createFreshPrivateRepository(): Promise<{
       id: teamId,
       programId: REPOSITORIES_PROGRAM_ID,
       name: `${scenarioId} 1인 팀`,
-      joinCodeDigest: `digest:${scenarioId}`,
       leaderId: applicantId,
     },
   });
   await prisma.teamMember.create({
     data: {
-      id: seedId('repositories', scenarioId, 'team-member'),
       teamId,
       programId: REPOSITORIES_PROGRAM_ID,
       userId: applicantId,
