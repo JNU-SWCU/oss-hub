@@ -35,6 +35,7 @@ const cssWidth = Math.round(file.default.width / 2);
       <button class="shot-close" aria-label="닫기">닫기</button>
     </form>
     <Image src={file.default} alt={alt} widths={[1440, 2400]} sizes="96vw" loading="lazy" />
+    <p class="shot-hint" aria-hidden="true">좌우로 밀어서 보기</p>
   </dialog>
 </figure>
 
@@ -90,6 +91,9 @@ const cssWidth = Math.round(file.default.width / 2);
     border-radius: 0.75rem;
     background: var(--sl-color-black);
     overflow: auto;
+  }
+  .shot-hint {
+    display: none;
   }
   .shot-dialog:focus {
     outline: none;
@@ -156,6 +160,22 @@ const cssWidth = Math.round(file.default.width / 2);
       width: max(100%, min(1100px, calc(var(--shot-w) * 2)));
       max-width: none;
       margin-block: auto;
+    }
+    .shot-hint {
+      display: block;
+      position: fixed;
+      left: 50%;
+      bottom: 1rem;
+      margin: 0;
+      padding: 0.4rem 0.9rem;
+      transform: translateX(-50%);
+      border-radius: 999px;
+      background: rgb(15 18 25 / 0.82);
+      box-shadow: 0 0 0 1px rgb(255 255 255 / 0.16);
+      color: #fff;
+      font-size: 0.8125rem;
+      font-weight: 600;
+      white-space: nowrap;
     }
     .shot-close {
       position: fixed;
