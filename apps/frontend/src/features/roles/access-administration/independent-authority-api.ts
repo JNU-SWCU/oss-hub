@@ -47,7 +47,7 @@ export function isAdminAccessDirectoryItem(
   );
 }
 
-export type CanonicalAdminAccessProfile = AdminAccessDetail['profile'] & {
+type CanonicalAdminAccessProfile = AdminAccessDetail['profile'] & {
   readonly staffNumber: string | null;
 };
 

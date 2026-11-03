@@ -17,7 +17,7 @@ export type RequestSnapshot = {
   readonly rejectionReason: string | null;
 };
 
-export type ApprovalState = {
+type ApprovalState = {
   readonly type: UserType;
   readonly approvalStatus: ApprovalStatus;
   readonly approvalRequestId: string | null;
