@@ -119,7 +119,7 @@ h1#_top {
   font-weight: 600;
   letter-spacing: inherit;
   color: var(--sl-color-white);
-  overflow-wrap: anywhere;
+  overflow-wrap: break-word;
 }
 
 .sl-markdown-content ul,
