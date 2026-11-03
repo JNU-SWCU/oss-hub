@@ -77,3 +77,7 @@
 - [How we built our multi-agent research system](https://www.anthropic.com/engineering/multi-agent-research-system): 약 15배 토큰, 결과를 외부에 두고 참조만 돌려주기, 3~5개 병렬.
 - [Effective context engineering for AI agents](https://www.anthropic.com/engineering/effective-context-engineering-for-ai-agents): 1,000~2,000토큰 요약, 필요할 때 불러오기.
 - [Code execution with MCP](https://www.anthropic.com/engineering/code-execution-with-mcp): 큰 결과를 코드로 거르기.
+- [Extend Claude with skills](https://code.claude.com/docs/en/skills): `argument-hint`, `$ARGUMENTS`. `update`와 `low` 같은 인자의 형식입니다.
+- [Claude Code power user tips](https://support.claude.com/en/articles/14554000-claude-code-power-user-tips): 어제 이후 올라간 PR을 보고 문서를 고치는 작업의 예. `update`의 근거입니다.
+
+범위와 강도를 나눠 문서를 다시 만드는 방법을 다룬 공식 글은 찾지 못했습니다. `update`와 `full`, `low`, `mid`, `high`의 구분은 위 문서에서 끌어낸 이 스킬의 판단입니다.
