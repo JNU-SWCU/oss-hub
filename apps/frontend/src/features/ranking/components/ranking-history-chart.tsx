@@ -3,12 +3,17 @@
 import { useMemo, useState } from 'react';
 import {
   CartesianGrid,
+  DefaultZIndexes,
   Line,
   LineChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
   YAxis,
+  ZIndexLayer,
+  usePlotArea,
+  useXAxisScale,
+  useYAxisScale,
   type TooltipContentProps,
 } from 'recharts';
 import { Button } from '@/components/ui/button';
@@ -17,11 +22,13 @@ import type { RankingTimeline } from '../types';
 import { comicNeue } from './comic-font';
 import {
   buildRankingHistoryChart,
+  rankingHistoryAvatarSlots,
   RANKING_HISTORY_COMPACT_LEGEND_LIMIT,
   rankingHistoryLogRows,
   rankingHistoryLogTicks,
   type RankingHistoryChart as HistoryChart,
   type RankingHistoryLine,
+  type RankingHistoryRow,
 } from './ranking-history-model';
 import styles from './ranking-history-chart.module.css';
 
@@ -35,7 +42,7 @@ const CURSOR = {
   stroke: 'var(--muted-foreground)',
   strokeDasharray: '4 4',
 } as const;
-const MARGIN = { top: 8, right: 16, left: 0, bottom: 0 } as const;
+const MARGIN = { top: 12, right: 36, left: 0, bottom: 0 } as const;
 const FADED_OPACITY = 0.28;
 
 function Note(props: { readonly state: string; readonly text: string }) {
@@ -82,6 +89,7 @@ export function RankingHistoryChart({
     if (focused !== null) return focused === line.githubLogin ? 1 : 0.12;
     return line.faded ? FADED_OPACITY : 1;
   };
+  const rows = logScale ? rankingHistoryLogRows(chart.rows) : chart.rows;
   if (chart.lines.length === 0) {
     return <Note state="empty" text="아직 그릴 활동 기록이 없습니다." />;
   }
@@ -151,12 +159,7 @@ export function RankingHistoryChart({
         aria-label={summaryOf(timeline, chart)}
       >
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart
-            data={[
-              ...(logScale ? rankingHistoryLogRows(chart.rows) : chart.rows),
-            ]}
-            margin={MARGIN}
-          >
+          <LineChart data={[...rows]} margin={MARGIN}>
             <CartesianGrid
               stroke="var(--border)"
               strokeDasharray="3 5"
@@ -203,7 +206,6 @@ export function RankingHistoryChart({
                 name={line.githubLogin}
                 stroke={line.color}
                 strokeWidth={line.strokeWidth}
-                strokeDasharray={line.dash}
                 strokeOpacity={opacityOf(line)}
                 hide={hidden.has(line.githubLogin)}
                 onMouseEnter={() => setFocused(line.githubLogin)}
@@ -215,6 +217,13 @@ export function RankingHistoryChart({
                 isAnimationActive={false}
               />
             ))}
+            <LineAvatars
+              lines={chart.lines.filter(
+                (line) => !line.faded && !hidden.has(line.githubLogin),
+              )}
+              rows={rows}
+              opacityOf={opacityOf}
+            />
           </LineChart>
         </ResponsiveContainer>
       </div>
@@ -253,6 +262,79 @@ function WobbleDefs() {
   );
 }
 
+const AVATAR_SIZE = 22;
+const AVATAR_RING = 2;
+const AVATAR_OFFSET = 10;
+
+function LineAvatars({
+  lines,
+  rows,
+  opacityOf,
+}: {
+  readonly lines: readonly RankingHistoryLine[];
+  readonly rows: readonly RankingHistoryRow[];
+  readonly opacityOf: (line: RankingHistoryLine) => number;
+}) {
+  const xScale = useXAxisScale();
+  const yScale = useYAxisScale();
+  const plot = usePlotArea();
+  if (xScale === undefined || yScale === undefined || plot === undefined) {
+    return null;
+  }
+  const r = AVATAR_SIZE / 2;
+  const tips = lines.flatMap((line) => {
+    const row = rows[line.tipIndex];
+    const value = row?.[line.key];
+    const x = xScale(row?.label, { position: 'middle' });
+    const y = typeof value === 'number' ? yScale(value) : undefined;
+    return x === undefined || y === undefined ? [] : [{ line, x, y }];
+  });
+  const slots = rankingHistoryAvatarSlots(
+    tips.map((tip) => tip.y),
+    AVATAR_SIZE + AVATAR_RING,
+    plot.y + r,
+    plot.y + plot.height - r,
+  );
+
+  return (
+    <ZIndexLayer zIndex={DefaultZIndexes.label}>
+      {tips.map(({ line, x, y }, index) => {
+        const cx = x + AVATAR_OFFSET + r;
+        const cy = slots[index] ?? y;
+        const clipId = `ranking-avatar-${line.key}`;
+        return (
+          <g
+            key={line.key}
+            data-line-avatar={line.githubLogin}
+            opacity={opacityOf(line)}
+          >
+            <line
+              x1={x}
+              y1={y}
+              x2={cx - r}
+              y2={cy}
+              stroke={line.color}
+              strokeWidth={1.5}
+            />
+            <clipPath id={clipId}>
+              <circle cx={cx} cy={cy} r={r} />
+            </clipPath>
+            <circle cx={cx} cy={cy} r={r + AVATAR_RING} fill={line.color} />
+            <image
+              href={`https://github.com/${line.githubLogin}.png?size=${String(AVATAR_SIZE * 2)}`}
+              x={cx - r}
+              y={cy - r}
+              width={AVATAR_SIZE}
+              height={AVATAR_SIZE}
+              clipPath={`url(#${clipId})`}
+            />
+          </g>
+        );
+      })}
+    </ZIndexLayer>
+  );
+}
+
 function Swatch({ line }: { readonly line: RankingHistoryLine }) {
   return (
     <svg
@@ -261,15 +343,7 @@ function Swatch({ line }: { readonly line: RankingHistoryLine }) {
       viewBox="0 0 16 4"
       opacity={line.faded ? FADED_OPACITY : 1}
     >
-      <line
-        x1={0}
-        y1={2}
-        x2={16}
-        y2={2}
-        stroke={line.color}
-        strokeWidth={3}
-        strokeDasharray={line.dash}
-      />
+      <line x1={0} y1={2} x2={16} y2={2} stroke={line.color} strokeWidth={3} />
     </svg>
   );
 }
