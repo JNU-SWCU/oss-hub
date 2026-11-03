@@ -220,10 +220,6 @@ h1#_top {
   }
 }
 
-starlight-theme-select label {
-  --sl-select-width: 6.5rem !important;
-}
-
 .pagination-links a {
   padding: 0.875rem 1rem;
   border-radius: 0.625rem;
