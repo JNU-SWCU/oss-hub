@@ -45,6 +45,10 @@ export function setupRankingService(): {
     Promise<readonly RankingMetricRow[]>,
     [{ currentYear?: number }]
   >;
+  readonly findPreviousCycleMetrics: jest.Mock<
+    Promise<readonly RankingMetricRow[]>,
+    [{ currentYear?: number }]
+  >;
   readonly listYears: jest.Mock<Promise<readonly number[]>, []>;
   readonly findDataAsOf: jest.Mock<Promise<Date | null>, []>;
   readonly findViewerClass: jest.Mock<
@@ -64,6 +68,11 @@ export function setupRankingService(): {
     [{ currentYear?: number }]
   >();
   findMetrics.mockResolvedValue([]);
+  const findPreviousCycleMetrics = jest.fn<
+    Promise<readonly RankingMetricRow[]>,
+    [{ currentYear?: number }]
+  >();
+  findPreviousCycleMetrics.mockResolvedValue([]);
   const listYears = jest.fn<Promise<readonly number[]>, []>();
   listYears.mockResolvedValue([]);
   const findDataAsOf = jest.fn<Promise<Date | null>, []>();
@@ -82,6 +91,7 @@ export function setupRankingService(): {
 
   const ranking = {
     findMetrics,
+    findPreviousCycleMetrics,
     listYears,
     findDataAsOf,
     findViewerClass,
@@ -95,6 +105,7 @@ export function setupRankingService(): {
       collectionSchedule,
     ),
     findMetrics,
+    findPreviousCycleMetrics,
     listYears,
     findDataAsOf,
     findViewerClass,

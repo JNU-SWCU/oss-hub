@@ -55,6 +55,14 @@ export class CollectionUserActivityRepository {
     });
   }
 
+  async snapshotCycle(): Promise<void> {
+    await this.db.$transaction([
+      this.db.githubUserActivityCycleSnapshot.deleteMany(),
+      this.db
+        .$executeRaw`INSERT INTO "GithubUserActivityCycleSnapshot" ("githubId", "githubLogin", "year", "visibility", "commitCount", "pullRequestCount", "issueCount", "repositoryCount", "starCount", "observedAt") SELECT "githubId", "githubLogin", "year", "visibility", "commitCount", "pullRequestCount", "issueCount", "repositoryCount", "starCount", "observedAt" FROM "GithubUserActivityHistory"`,
+    ]);
+  }
+
   async hasObservation(githubId: bigint, year: number): Promise<boolean> {
     const existing = await this.db.githubUserActivityHistory.findUnique({
       where: {

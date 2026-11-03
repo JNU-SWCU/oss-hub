@@ -11,6 +11,7 @@ import type {
 
 class PublicRankingEntryResponseDto {
   declare readonly rank: number;
+  declare readonly previousRank: number | null;
   declare readonly githubLogin: string;
   declare readonly commitCount: number;
   declare readonly pullRequestCount: number;
@@ -22,6 +23,7 @@ class PublicRankingEntryResponseDto {
   static from(entry: RankingEntry): PublicRankingEntryResponseDto {
     return {
       rank: entry.rank,
+      previousRank: entry.previousRank,
       githubLogin: entry.githubLogin,
       commitCount: entry.commitCount,
       pullRequestCount: entry.pullRequestCount,
@@ -35,6 +37,7 @@ class PublicRankingEntryResponseDto {
 
 class StaffRankingEntryResponseDto {
   declare readonly rank: number;
+  declare readonly previousRank: number | null;
   declare readonly displayName: string;
   declare readonly githubLogin: string;
   declare readonly department: string | null;
@@ -49,6 +52,7 @@ class StaffRankingEntryResponseDto {
   static from(entry: RankingEntry): StaffRankingEntryResponseDto {
     return {
       rank: entry.rank,
+      previousRank: entry.previousRank,
       displayName: entry.displayName,
       githubLogin: entry.githubLogin,
       department: entry.department,

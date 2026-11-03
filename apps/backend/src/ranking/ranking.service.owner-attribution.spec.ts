@@ -25,6 +25,7 @@ describe('RankingService canonical actor attribution', () => {
     expect(result.items).toEqual([
       {
         rank: 1,
+        previousRank: null,
         displayName: 'issue-author',
         githubLogin: 'issue-author',
         department: null,

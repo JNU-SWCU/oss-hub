@@ -112,7 +112,7 @@ export function RankingScreen({
       page={page}
       filters={filters}
       chart={chart}
-      rankChanges={rankingRankChanges(timeline.data ?? null)}
+      rankChanges={rankingRankChanges(query.data?.items ?? [])}
       state={state}
       onPageChange={(nextPage) => navigate({ page: nextPage })}
       onRetry={() => void query.refetch()}

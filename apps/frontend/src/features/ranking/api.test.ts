@@ -67,6 +67,7 @@ test('모르는 필드가 섞여도 파싱한다 — 봉투와 항목 양쪽', (
 
   expect(page.items[0]).toEqual({
     rank: 1,
+    previousRank: null,
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
@@ -124,6 +125,7 @@ test('공개 허용 목록 밖 구식 지표는 읽지 않는다', () => {
 
   expect(page.items[0]).toEqual({
     rank: 1,
+    previousRank: null,
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
@@ -149,6 +151,7 @@ test('member 항목은 지표 여덟 칸을 읽고 빠진 지표는 0 으로 떨
   expect(full.viewerClass).toBe('member');
   expect(full.items[0]).toEqual({
     rank: 1,
+    previousRank: null,
     githubLogin: 'mina',
     commitCount: 2,
     pullRequestCount: 1,
@@ -332,7 +335,7 @@ test('viewerClass 가 public|member|staff 가 아니면 거부한다', () => {
   ).toThrow(RankingResponseError);
 });
 
-test('public 항목은 지표 여덟 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
+test('public 항목은 지표 아홉 키만 남기고 staff 항목은 richer shape을 유지한다', () => {
   const base = rankingPage(2026);
   const publicPage = parseRankingPage(base);
   const staffPage = parseRankingPage({
@@ -345,6 +348,7 @@ test('public 항목은 지표 여덟 키만 남기고 staff 항목은 richer sha
     'commitCount',
     'githubLogin',
     'issueCount',
+    'previousRank',
     'pullRequestCount',
     'rank',
     'repositoryCount',
@@ -357,6 +361,7 @@ test('public 항목은 지표 여덟 키만 남기고 staff 항목은 richer sha
   }
   expect(staffPage.items[0]).toEqual({
     rank: 1,
+    previousRank: null,
     displayName: 'mina',
     githubLogin: 'mina',
     name: 'synthetic-staff-name',

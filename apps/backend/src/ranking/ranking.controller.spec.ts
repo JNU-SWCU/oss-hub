@@ -90,7 +90,7 @@ describe('RankingController', () => {
     ).toBeUndefined();
   });
 
-  it('public 항목도 지표 여덟 키를 싣고 신원만 빠진다', async () => {
+  it('public 항목도 지표 아홉 키를 싣고 신원만 빠진다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
       items: [
@@ -135,6 +135,7 @@ describe('RankingController', () => {
       'commitCount',
       'githubLogin',
       'issueCount',
+      'previousRank',
       'pullRequestCount',
       'rank',
       'repositoryCount',
@@ -155,7 +156,7 @@ describe('RankingController', () => {
     expect(findPage).toHaveBeenCalledWith(2026, 1, 20, null);
   });
 
-  it('member 항목은 지표 여덟 키를 싣고 신원은 계속 뺀다', async () => {
+  it('member 항목은 지표 아홉 키를 싣고 신원은 계속 뺀다', async () => {
     findPage.mockResolvedValue({
       year: 2026,
       items: [
@@ -191,6 +192,7 @@ describe('RankingController', () => {
       'commitCount',
       'githubLogin',
       'issueCount',
+      'previousRank',
       'pullRequestCount',
       'rank',
       'repositoryCount',

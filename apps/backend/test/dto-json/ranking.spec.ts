@@ -11,6 +11,7 @@ const at = (iso: string): Date => new Date(iso);
 
 const entry: RankingEntry = {
   rank: 1,
+  previousRank: 3,
   displayName: 'Octo Cat',
   githubLogin: 'octo',
   department: 'Computer Science',
