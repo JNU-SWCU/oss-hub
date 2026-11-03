@@ -1,0 +1,44 @@
+Todo 3 이관 점검 스크립트 증거 (2026-11-03)
+
+브랜치: feat/program-simplification-3-migration-checks
+기준 origin/main SHA: 2366e1833
+범위: deploy/jenkins/program-migration/ 추가, CI와 knip 항목 추가.
+제품 스키마, user-consolidation 스크립트, 운영 환경 변경 없음. VM 이미지 빌드 없음.
+사용자 화면과 동작이 변하지 않으므로 guide 갱신은 해당 없음.
+
+대상 DB: postgres:17-alpine 격리 컨테이너, tmpfs 데이터, 합성 픽스처. 운영 덤프를 쓰지 않았다.
+
+실행과 실제 종료 코드:
+bun test deploy/jenkins/program-migration
+EXIT=0, 42 pass, 0 fail
+node --test deploy/jenkins/program-migration/*.test.mjs
+EXIT=0, tests 42, pass 42, fail 0
+bun test deploy/jenkins
+EXIT=1, 275 pass, 11 fail, 1 error. 새 테스트 42건은 모두 통과.
+실패 11건과 error 1건은 기존 테스트이며 bun 기본 제한 5초 초과가 원인이다.
+새 파일 추가 전 기준선도 같은 테스트 파일에서 232 pass, 12 fail, 1 error로 실패했다.
+CI가 쓰는 경로로 기존 테스트를 돌린 결과:
+node --test deploy/jenkins/release-behavior.test.mjs deploy/jenkins/user-consolidation*.test.mjs deploy/jenkins/validate-production-env.test.mjs deploy/jenkins/validate-github-app-credentials.test.mjs
+EXIT=0, tests 269, pass 269, fail 0
+
+shellcheck (koalaman/shellcheck:stable, CI와 같은 digest)
+shellcheck -x -P SCRIPTDIR deploy/jenkins/program-migration/*.sh
+EXIT=0. 일부러 잘못 쓴 스크립트에서는 경고 4건을 보고해 도구 동작을 확인했다.
+
+로컬 게이트:
+corepack pnpm exec prettier --check . EXIT=0
+pnpm lint:structure EXIT=0
+pnpm --filter backend exec tsc -p ../../scripts/tsconfig.json EXIT=0
+
+테스트가 증명한 실패 경로:
+misleading_success_output: 빈 파일, 결과 없는 문장, 비정수 출력, 두 줄 출력, 앞 문장 오류, 쓰기 시도, RAISE EXCEPTION이 세 점검 중 가운데 있어도 exit 1이고 OK 줄이 없다.
+hung_commands: 느린 쿼리, 멈춘 psql, 멈춘 docker 클라이언트, 멈춘 pg_dump, 멈춘 객체 복사, 멈춘 이전 이미지 확인이 제한 시간 안에 exit 1로 끝난다. 멈춘 psql은 컨테이너에 남지 않는다.
+stale_state: 기존 백업을 덮어쓰지 않는다. 영수증과 다른 덤프나 객체는 재검증에서 실패한다. 원장 머리가 다른 덤프는 첫 단계 전에 멈춘다. 남은 리허설 DB가 있으면 시작하지 않는다. 실패와 SIGTERM 중단 뒤 리허설 DB와 훅 프로세스가 남지 않는다.
+비밀 노출: 모든 테스트 실행의 stdout과 stderr에서 DB 비밀번호와 저장소 키 표지값이 나오지 않는다. 훅이 키를 출력해도 로그에 남지 않는다. SQL 오류의 행 값도 남지 않는다.
+
+변이 검사 (결함을 넣고 해당 테스트만 실행, 전부 EXIT=1, 확인 후 원복):
+ON_ERROR_STOP 제거 / 점검 실패 무시 / 잘린 덤프 검사 제거 / 객체 복사 출력 차단 제거 / 격리 라벨 검사 제거 / 복원 건수 비교 무시
+
+아직 증명하지 못한 것:
+실제 운영 덤프와 실제 이전 이미지로 돌린 리허설은 없다. heavy slot 승인과 각 Todo의 매니페스트가 필요하다.
+scripts/check-pr-body.sh는 현재 트리에 없어 실행할 수 없다. 공개 안전 검사는 .github/check-public-safe.sh로 실행했다.
