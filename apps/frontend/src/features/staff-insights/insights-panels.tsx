@@ -82,6 +82,7 @@ export function ActivityPanel({
         <div className="h-80 w-full" aria-hidden="true">
           <ResponsiveContainer width="100%" height="100%">
             <BarChart
+              accessibilityLayer={false}
               data={data}
               margin={{ top: 8, right: 8, left: -12, bottom: 0 }}
             >
