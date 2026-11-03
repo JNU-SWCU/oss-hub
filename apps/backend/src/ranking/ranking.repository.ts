@@ -1,8 +1,9 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ActivityVisibility,
-  MemberKind,
+  UserType,
   type Prisma,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -39,7 +40,7 @@ export interface RankingMetricsQuery {
 }
 
 const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
-  profile: { is: { memberKind: MemberKind.STUDENT } },
+  type: UserType.STUDENT,
 };
 
 @Injectable()
@@ -55,15 +56,20 @@ export class RankingRepository {
     const actor = await this.prisma.user.findUnique({
       where: { githubId },
       select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
         accountStatus: true,
       },
     });
     if (actor === null || actor.accountStatus !== AccountStatus.ACTIVE) {
       return 'public';
     }
-    if (actor.hasStaffAccess || actor.hasAdminAccess) {
+    if (
+      actor.type === 'STAFF' &&
+      actor.approvalStatus === 'APPROVED' &&
+      actor.profileCreatedAt !== null &&
+      actor.name !== null &&
+      actor.department !== null
+    ) {
       return 'staff';
     }
     return 'member';
@@ -141,7 +147,7 @@ export class RankingRepository {
         return {
           githubId: user.githubId,
           githubLogin: user.nickname,
-          department: user.profile?.department ?? null,
+          department: user.department ?? null,
           commitCount: totals?.commitCount ?? 0,
           pullRequestCount: totals?.pullRequestCount ?? 0,
           issueCount: totals?.issueCount ?? 0,
@@ -182,9 +188,7 @@ export class RankingRepository {
         ...USER_PROFILE_NAME_SELECT,
       },
     });
-    return new Map(
-      users.map((user) => [user.githubId, user.profile?.name ?? null]),
-    );
+    return new Map(users.map((user) => [user.githubId, user.name ?? null]));
   }
 
   async listYears(): Promise<readonly number[]> {

@@ -1,6 +1,7 @@
+import { MemberKind } from './user-contract.config';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
@@ -17,10 +18,8 @@ import { UserProfileService } from './user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
-
 const authSessionService = new AuthSessionService();
-
-const githubId = 9_700_500_001n;
+const githubId = 9700500001n;
 const sessionSecret = new Uint8Array(32).fill(31);
 const allowedOrigin = 'http://frontend.test';
 const authorityRoutes = [
@@ -52,11 +51,9 @@ const detail = {
     isComplete: true,
   },
 };
-
 function createPatchBody(command: string): string {
   return JSON.stringify({ command });
 }
-
 describe('canonical authority routes in the auth manifest HTTP surface', () => {
   let application: INestApplication;
   let baseUrl = '';
@@ -93,7 +90,6 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
       }),
     },
   );
-
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
       controllers: [UserAccessController, AccessRequestsController],
@@ -134,15 +130,9 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
     baseUrl = await application.getUrl();
-    cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
-      sessionSecret,
-      githubId,
-      0,
-    )}`;
+    cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, githubId, 0)}`;
   });
-
   afterAll(async () => application.close());
-
   it.each(authorityRoutes)(
     '%s %s denies anonymous access',
     async (method, path) => {
@@ -159,7 +149,6 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
       expect(response.status).toBe(401);
     },
   );
-
   it('keeps authenticated detail and admin mutation contracts available', async () => {
     const detailResponse = await fetch(
       `${baseUrl}/api/v1/users/target/access`,
@@ -176,7 +165,6 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
         body: createPatchBody(ADMIN_ACCESS_COMMANDS.REVOKE),
       },
     );
-
     expect([detailResponse.status, mutationResponse.status]).toEqual([
       200, 200,
     ]);

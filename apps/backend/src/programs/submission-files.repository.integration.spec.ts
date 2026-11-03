@@ -2,14 +2,14 @@ import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
-  AffiliationKind,
-  MemberKind,
+  type Prisma,
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -63,36 +63,35 @@ const USER_RECORDS = [
   {
     id: UNRELATED_STUDENT_USER_ID,
     githubId: UNRELATED_STUDENT_GITHUB_ID,
-    selectedMemberKind: MemberKind.STUDENT,
     accountStatus: AccountStatus.ACTIVE,
+    type: MemberKind.STUDENT,
+    approvalStatus: 'NOT_REQUIRED',
   },
   {
     id: STAFF_USER_ID,
     githubId: STAFF_GITHUB_ID,
-    selectedMemberKind: MemberKind.STAFF,
-    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
+    type: MemberKind.STAFF,
+    approvalStatus: 'APPROVED',
+    name: 'Synthetic staff',
+    department: 'Synthetic department',
+    profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    departmentType: 'DEPARTMENT',
   },
   {
     id: ADMIN_USER_ID,
     githubId: ADMIN_GITHUB_ID,
-    hasAdminAccess: true,
+    admin: { create: { origin: 'MIGRATION' } },
     accountStatus: AccountStatus.ACTIVE,
   },
   {
     id: INACTIVE_USER_ID,
     githubId: INACTIVE_GITHUB_ID,
-    hasAdminAccess: true,
+    admin: { create: { origin: 'MIGRATION' } },
     accountStatus: AccountStatus.DEACTIVATED,
   },
-] satisfies readonly {
-  readonly id: string;
-  readonly githubId: bigint;
-  readonly selectedMemberKind?: MemberKind;
-  readonly hasStaffAccess?: boolean;
-  readonly hasAdminAccess?: boolean;
-  readonly accountStatus: AccountStatus;
-}[];
+] satisfies readonly Omit<Prisma.UserCreateInput, 'nickname'>[];
 const FILE_IDS: string[] = [
   DOWNLOADABLE_FILE_ID,
   PENDING_FILE_ID,
@@ -114,9 +113,13 @@ const AUTHORIZED_DOWNLOADS = [
     githubId: TEAM_MEMBER_GITHUB_ID,
   },
   { scenario: 'allows active STAFF', githubId: STAFF_GITHUB_ID },
-  { scenario: 'allows active ADMIN', githubId: ADMIN_GITHUB_ID },
 ] satisfies readonly { readonly scenario: string; readonly githubId: bigint }[];
 const DENIED_DOWNLOADS = [
+  {
+    scenario: 'denies admin without staff or participation',
+    githubId: ADMIN_GITHUB_ID,
+    fileId: DOWNLOADABLE_FILE_ID,
+  },
   {
     scenario: 'denies an unrelated active student',
     githubId: UNRELATED_STUDENT_GITHUB_ID,
@@ -155,6 +158,9 @@ async function deleteIssue342Rows(): Promise<void> {
     where: { id: MILESTONE_DOCUMENT_ID },
   });
   await prisma.milestone.deleteMany({ where: { id: MILESTONE_ID } });
+  await prisma.admin.deleteMany({
+    where: { userId: { in: USER_RECORDS.map((user) => user.id) } },
+  });
   await prisma.user.deleteMany({
     where: { id: { in: USER_RECORDS.map((user) => user.id) } },
   });
@@ -165,18 +171,21 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
     await runProfile('milestones', new SeedStats());
     await deleteIssue342Rows();
-    await prisma.user.createMany({
-      data: USER_RECORDS.map((user) => ({ ...user, nickname: user.id })),
-    });
-    await prisma.userProfile.create({
+    await Promise.all(
+      USER_RECORDS.map((user) => ({ ...user, nickname: user.id })).map((data) =>
+        prisma.user.create({ data }),
+      ),
+    );
+    await prisma.user.update({
+      where: { id: UNRELATED_STUDENT_USER_ID },
       data: {
-        userId: UNRELATED_STUDENT_USER_ID,
         name: '합성 무관 학생',
         studentId: '342002',
         department: '합성 학과',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '합성 학과',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
     await prisma.milestone.create({

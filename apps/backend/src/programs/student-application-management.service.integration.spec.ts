@@ -1,7 +1,8 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
-import { AffiliationKind, MemberKind, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -130,17 +131,14 @@ describe('StudentApplicationManagementService integration races', () => {
           id: student.id,
           githubId: student.githubId,
           nickname: student.nickname,
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: 'Synthetic user',
-              studentId: student.studentId,
-              department: 'Synthetic department',
-              memberKind: MemberKind.STUDENT,
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: 'Synthetic department',
-            },
-          },
+          name: 'Synthetic user',
+          studentId: student.studentId,
+          department: 'Synthetic department',
+          type: MemberKind.STUDENT,
+          departmentType: AffiliationKind.DEPARTMENT,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          approvalStatus: 'NOT_REQUIRED',
         },
       });
     }
@@ -353,17 +351,14 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
           id: student.id,
           githubId: student.githubId,
           nickname: student.nickname,
-          selectedMemberKind: MemberKind.STUDENT,
-          profile: {
-            create: {
-              name: 'Synthetic user',
-              studentId: student.studentId,
-              department: 'Synthetic department',
-              memberKind: MemberKind.STUDENT,
-              affiliationKind: AffiliationKind.DEPARTMENT,
-              affiliationName: 'Synthetic department',
-            },
-          },
+          name: 'Synthetic user',
+          studentId: student.studentId,
+          department: 'Synthetic department',
+          type: MemberKind.STUDENT,
+          departmentType: AffiliationKind.DEPARTMENT,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          approvalStatus: 'NOT_REQUIRED',
         },
       });
     }

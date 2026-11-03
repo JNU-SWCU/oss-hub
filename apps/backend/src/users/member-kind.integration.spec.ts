@@ -1,628 +1,412 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { Prisma } from '@prisma/client';
+import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { PrismaService } from '../platform/prisma.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AdminRepository } from './admin.repository';
+import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
-import { AdminAccessRepository } from './admin-access.repository';
-import {
-  AccountStatus,
-  AffiliationKind,
-  MemberKind,
-  Prisma,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import {
-  USER_PROFILE_AUDIT_ACTIONS,
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.config';
-import { AuditLogService } from '../platform/audit-log.service';
-import { PrismaService } from '../platform/prisma.service';
+import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { MemberKindRepository } from './member-kind.repository';
 import { MemberKindService } from './member-kind.service';
-import { UsersErrorCode } from './users-error-code.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { MemberKindProfileService } from './member-kind-profile.service';
 import { UserProfileService } from './user-profile.service';
-import { AdminAccessMutationService } from './admin-access-mutation.service';
+import { UserTransitionRepository } from './user-transition.repository';
+import { UserHistoryRepository } from './user-history.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
-const FIXTURE_PREFIX = 'test:member-kind:';
 const prisma = new PrismaService();
+const transitions = new UserTransitionRepository();
+const profiles = new UserProfileService();
+const access = new AdminAccessRepository(
+  prisma,
+  new AdminAccessHistoryRepository(),
+  new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+  new AdminRepository(prisma),
+  transitions,
+);
+const repository = new MemberKindRepository(
+  prisma,
+  access,
+  new PrismaSerializationRetryRepository(),
+  transitions,
+);
+const audit = new UserHistoryRepository(transitions);
 const service = new MemberKindService(
-  new MemberKindRepository(
-    prisma,
-    new AdminAccessRepository(
-      prisma,
-      new AdminAccessHistoryRepository(),
-      new AdminAccessReadRepository(
-        new AdminAccessReadOrderingRepository(),
-        new PlatformRepository(),
-      ),
-    ),
-    new PrismaSerializationRetryRepository(),
-  ),
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
-  ),
+  repository,
+  audit,
   new AuditLogMetadataService(),
-  new UserProfileService(),
-  new AdminAccessMutationService(
-    new AuditLogMetadataService(),
-    new UserProfileService(),
-  ),
+  profiles,
+  new AdminAccessMutationService(new AuditLogMetadataService(), profiles),
+  new MemberKindProfileService(profiles),
 );
 let sequence = 0;
+const at = new Date('2026-01-01T00:00:00.000Z');
+beforeAll(() => prisma.$connect());
+afterAll(() => prisma.$disconnect());
 
-beforeAll(async () => {
-  await prisma.$connect();
-});
+async function create(
+  data: Omit<Prisma.UserCreateInput, 'id' | 'githubId' | 'nickname'> = {},
+) {
+  sequence++;
+  return prisma.user.create({
+    data: {
+      id: 'test:member-kind:new:' + sequence,
+      githubId: 9700700000n + BigInt(sequence),
+      nickname: 'synthetic-' + sequence,
+      type: 'STUDENT',
+      name: 'Name',
+      studentId: String(968600 + sequence),
+      department: 'Department',
+      departmentType: 'DEPARTMENT',
+      profileCreatedAt: at,
+      profileUpdatedAt: at,
+      ...data,
+    },
+    include: { admin: true },
+  });
+}
+async function actor() {
+  return create({ admin: { create: { origin: 'BOOTSTRAP' } } });
+}
+function expectState(user: {
+  type: 'UNSELECTED' | 'STUDENT' | 'STAFF';
+  approvalStatus:
+    'NOT_REQUIRED' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'REVOKED';
+  approvalRequestId: string | null;
+}) {
+  if (user.type === 'UNSELECTED')
+    throw new TypeError('This test requires a selected type');
+  return {
+    expectedMemberKind: user.type,
+    expectedHasStaffAccess:
+      user.type === 'STAFF' && user.approvalStatus === 'APPROVED',
+    expectedApprovalStatus: user.approvalStatus,
+    expectedApprovalRequestId: user.approvalRequestId,
+  };
+}
 
-afterAll(async () => {
-  try {
-    await prisma.userProfile.deleteMany({
-      where: { userId: { startsWith: FIXTURE_PREFIX } },
+describe('new User identity and approval persistence', () => {
+  it('allows self STAFF approval, closes matched pending request, and keeps independent Admin', async () => {
+    const user = await create({
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'self-pending',
+      approvalRequestedAt: at,
+      admin: { create: { origin: 'BOOTSTRAP' } },
     });
-  } finally {
-    await prisma.$disconnect();
-  }
-});
-
-describe('member-kind persistence contract', () => {
-  it('maps STAFF to access=true, preserves studentId, and saves/clears opaque staffNumber', async () => {
-    const actor = await createUser('staff-number-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
+    const result = await service.patchMemberKind(user.githubId, user.id, {
+      memberKind: 'STAFF',
+      ...expectState(user),
     });
-    const target = await createUser('staff-number-target', {
-      memberKind: MemberKind.STUDENT,
-      studentId: '968600',
+    const stored = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: { admin: true },
     });
-
-    await expect(
-      service.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STAFF,
-        expectedMemberKind: MemberKind.STUDENT,
-        expectedHasStaffAccess: false,
-        staffNumber: ' 직원-A7 ',
-      }),
-    ).resolves.toMatchObject({
-      role: 'STAFF',
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      hasAdminAccess: false,
+    expect(stored).toMatchObject({
+      id: user.id,
+      type: 'STAFF',
+      approvalStatus: 'APPROVED',
+      approvalDecidedById: user.id,
+      studentId: user.studentId,
+      profileUpdatedAt: at,
+      admin: { userId: user.id },
     });
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-      profile: {
-        studentId: '968600',
-        memberKind: MemberKind.STAFF,
-        staffNumber: '직원-A7',
+    expect(result.approvalRequestId).not.toBe('self-pending');
+    const events = await prisma.userHistory.findMany({
+      where: { userId: user.id },
+      orderBy: { event: 'asc' },
+    });
+    expect(events.map((event) => event.event)).toEqual([
+      'APPROVED',
+      'REQUEST_SUPERSEDED',
+      'TYPE_CHANGED',
+    ]);
+    expect(
+      events.find((event) => event.event === 'REQUEST_SUPERSEDED')?.data,
+    ).toMatchObject({
+      cause: 'SUPERSEDED',
+      replacementRequestId: result.approvalRequestId,
+      request: {
+        id: 'self-pending',
+        status: 'REVOKED',
+        createdAt: at.toISOString(),
       },
     });
-
-    await expect(
-      service.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STAFF,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        staffNumber: null,
-      }),
-    ).resolves.toMatchObject({ hasStaffAccess: true });
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      profile: { studentId: '968600', staffNumber: null },
-    });
-    await expect(
-      prisma.auditLog.count({
-        where: {
-          targetId: target.id,
-          action: INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.SET_MEMBER_KIND,
-        },
-      }),
-    ).resolves.toBe(1);
-    await expect(
-      prisma.auditLog.count({
-        where: {
-          targetId: target.id,
-          action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
-        },
-      }),
-    ).resolves.toBe(2);
   });
-
-  it('maps STAFF to STUDENT while retaining a legacy studentId and normalizing department affinity', async () => {
-    const actor = await createUser('student-transition-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
+  it('rejects a stale replaced request without changing current state or writing history', async () => {
+    const admin = await actor();
+    const user = await create({
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'new-request',
+      approvalRequestedAt: at,
     });
-    const target = await createUser('student-transition-target', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
+    await expect(
+      service.patchMemberKind(admin.githubId, user.id, {
+        memberKind: 'STAFF',
+        ...expectState(user),
+        expectedApprovalRequestId: 'old-request',
+      }),
+    ).rejects.toMatchObject({ errorCode: { code: 'ROL_013', status: 409 } });
+    expect(await prisma.userHistory.count({ where: { userId: user.id } })).toBe(
+      0,
+    );
+    expect(
+      await prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
+    ).toMatchObject({
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'new-request',
+    });
+  });
+  it('permits one of two concurrent decisions and rolls the stale transaction back', async () => {
+    const admin = await actor();
+    const user = await create({
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'race-request',
+      approvalRequestedAt: at,
+    });
+    const command = { memberKind: 'STAFF' as const, ...expectState(user) };
+    const results = await Promise.allSettled([
+      service.patchMemberKind(admin.githubId, user.id, command),
+      service.patchMemberKind(admin.githubId, user.id, command),
+    ]);
+    expect(
+      results.filter((result) => result.status === 'fulfilled'),
+    ).toHaveLength(1);
+    expect(
+      results.filter((result) => result.status === 'rejected'),
+    ).toHaveLength(1);
+    expect(await prisma.userHistory.count({ where: { userId: user.id } })).toBe(
+      3,
+    );
+  });
+  it('round-trips STUDENT to approved STAFF to STUDENT, preserving identity, legacy studentId and Admin', async () => {
+    const admin = await actor();
+    const user = await create({
       studentId: '9686001234',
-      department: '기존 소속',
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
+      admin: { create: { origin: 'BOOTSTRAP' } },
     });
-
-    await expect(
-      service.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        department: '  소프트웨어공학과  ',
-      }),
-    ).resolves.toMatchObject({
-      role: 'STUDENT',
-      memberKind: MemberKind.STUDENT,
-      hasStaffAccess: false,
+    await service.patchMemberKind(admin.githubId, user.id, {
+      memberKind: 'STAFF',
+      ...expectState(user),
+      staffNumber: ' staff-A7 ',
     });
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      hasStaffAccess: false,
-      profile: {
-        name: '합성 student-transition-target',
-        studentId: '9686001234',
-        department: '소프트웨어공학과',
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '소프트웨어공학과',
-      },
+    const staff = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
     });
-    await expect(
-      prisma.auditLog.count({
-        where: {
-          targetId: target.id,
-          action: INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.SET_MEMBER_KIND,
-        },
-      }),
-    ).resolves.toBe(1);
-    await expect(
-      prisma.auditLog.count({
-        where: {
-          targetId: target.id,
-          action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
-        },
-      }),
-    ).resolves.toBe(1);
-  });
-
-  it('rejects a supplied studentId that replaces an existing studentId without writes', async () => {
-    const actor = await createUser('student-id-replacement-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
+    expect(staff).toMatchObject({
+      studentId: '9686001234',
+      staffNumber: 'staff-A7',
+      approvalStatus: 'APPROVED',
     });
-    const target = await createUser('student-id-replacement-target', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      studentId: '968610',
+    await service.patchMemberKind(admin.githubId, user.id, {
+      memberKind: 'STUDENT',
+      ...expectState(staff),
+      department: ' New department ',
     });
-
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        studentId: '968611',
-        department: '소프트웨어공학과',
-      }),
-      'SYS_003',
-      400,
-    );
-
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      profile: {
-        memberKind: MemberKind.STAFF,
-        studentId: '968610',
-        department: '합성 학과',
-      },
+    const student = await prisma.user.findUniqueOrThrow({
+      where: { id: user.id },
+      include: { admin: true },
     });
-    await expect(
-      prisma.staffAccessRequest.count({ where: { userId: target.id } }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.auditLog.count({ where: { targetId: target.id } }),
-    ).resolves.toBe(0);
-  });
-
-  it('rejects a missing stored studentId, a missing department, and an invalid new studentId', async () => {
-    const actor = await createUser('student-validation-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
+    expect(student).toMatchObject({
+      type: 'STUDENT',
+      studentId: '9686001234',
+      department: 'New department',
+      departmentType: 'DEPARTMENT',
+      approvalStatus: 'NOT_REQUIRED',
+      approvalRequestId: null,
+      approvalDecidedAt: null,
+      admin: { userId: user.id },
     });
-    const missingId = await createUser('student-validation-missing-id', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      studentId: null,
-    });
-    const missingDepartment = await createUser(
-      'student-validation-missing-department',
-      {
-        memberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
-        studentId: '968601',
-      },
-    );
-    const invalidNewId = await createUser('student-validation-invalid-id', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      studentId: '968602',
-    });
-
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, missingId.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        department: '소프트웨어공학과',
-      }),
-      UsersErrorCode.PROFILE_INCOMPLETE,
-      409,
-    );
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, missingDepartment.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-      }),
-      UsersErrorCode.STUDENT_ID_NEEDS_DEPARTMENT,
-      400,
-    );
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, invalidNewId.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        studentId: 'not-a-student-id',
-        department: '소프트웨어공학과',
-      }),
-      'SYS_003',
-      400,
-    );
-
-    await expect(readUser(missingId.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      profile: { memberKind: MemberKind.STAFF, studentId: null },
-    });
-    await expect(readUser(missingDepartment.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      profile: { memberKind: MemberKind.STAFF, studentId: '968601' },
-    });
-    await expect(readUser(invalidNewId.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      profile: { memberKind: MemberKind.STAFF, studentId: '968602' },
-    });
-  });
-
-  it('rejects a canonical profile that is incomplete under the current profile policy', async () => {
-    const actor = await createUser('incomplete-profile-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
-    });
-    const target = await createUser('incomplete-profile-target', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      name: String.fromCodePoint(0xa0),
-    });
-
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        department: '소프트웨어공학과',
-      }),
-      UsersErrorCode.PROFILE_INCOMPLETE,
-      409,
-    );
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      profile: {
-        name: String.fromCodePoint(0xa0),
-        memberKind: MemberKind.STAFF,
-      },
-    });
-  });
-
-  it('maps a duplicate studentId to 409 and rolls back the attempted transition', async () => {
-    const actor = await createUser('duplicate-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
-    });
-    const owner = await createUser('duplicate-owner', {
-      memberKind: MemberKind.STUDENT,
-      studentId: '968603',
-    });
-    const target = await createUser('duplicate-target', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      studentId: null,
-    });
-
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        studentId: '968603',
-        department: '소프트웨어공학과',
-      }),
-      UsersErrorCode.STUDENT_ID_TAKEN_BY_ADMIN,
-      409,
-    );
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      hasStaffAccess: true,
-      profile: { memberKind: MemberKind.STAFF, studentId: null },
-    });
-    await expect(readUser(owner.id)).resolves.toMatchObject({
-      profile: { memberKind: MemberKind.STUDENT, studentId: '968603' },
-    });
-    await expect(
-      prisma.auditLog.count({ where: { targetId: target.id } }),
-    ).resolves.toBe(0);
-  });
-
-  it('preserves name, admin access, and account status independently of member kind', async () => {
-    const actor = await createUser('independent-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
-    });
-    const target = await createUser('independent-target', {
-      memberKind: MemberKind.STUDENT,
-      hasAdminAccess: true,
-      accountStatus: AccountStatus.DEACTIVATED,
-      name: '합성 보존 이름',
-      studentId: '968605',
-      department: '합성 학과',
-    });
-
-    await expect(
-      service.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STAFF,
-        expectedMemberKind: MemberKind.STUDENT,
-        expectedHasStaffAccess: false,
-        staffNumber: '교직원-A7',
-      }),
-    ).resolves.toMatchObject({
-      role: 'ADMIN',
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      hasAdminAccess: true,
-    });
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      accountStatus: AccountStatus.DEACTIVATED,
-      hasAdminAccess: true,
-      hasStaffAccess: true,
-      profile: {
-        name: '합성 보존 이름',
-        studentId: '968605',
-        department: '합성 학과',
-        staffNumber: '교직원-A7',
-      },
-    });
-  });
-
-  it('rolls back user, profile, history, and audit state when the audit writer fails', async () => {
-    const actor = await createUser('audit-failure-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
-    });
-    const target = await createUser('audit-failure-target', {
-      memberKind: MemberKind.STUDENT,
-      studentId: '968606',
-    });
-    const failingService = new MemberKindService(
-      new MemberKindRepository(
+    const history =
+      await new AdminAccessHistoryRepository().listAdminAccessStaffAccessRequestHistory(
         prisma,
-        new AdminAccessRepository(
-          prisma,
-          new AdminAccessHistoryRepository(),
-          new AdminAccessReadRepository(
-            new AdminAccessReadOrderingRepository(),
-            new PlatformRepository(),
-          ),
-        ),
-        new PrismaSerializationRetryRepository(),
-      ),
+        user.id,
+        { page: 1, limit: 20 },
+      );
+    expect(history.total).toBe(1);
+    expect(history.items[0]).toMatchObject({
+      id: staff.approvalRequestId,
+      status: 'REVOKED',
+    });
+  });
+  it('clears staffNumber while retaining the same approved request', async () => {
+    const admin = await actor();
+    const user = await create({
+      type: 'STAFF',
+      approvalStatus: 'APPROVED',
+      approvalRequestId: 'approved-number',
+      approvalRequestedAt: at,
+      staffNumber: 'staff-A7',
+    });
+    await service.patchMemberKind(admin.githubId, user.id, {
+      memberKind: 'STAFF',
+      ...expectState(user),
+      staffNumber: null,
+    });
+    expect(
+      await prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
+    ).toMatchObject({
+      staffNumber: null,
+      approvalRequestId: 'approved-number',
+      approvalStatus: 'APPROVED',
+    });
+    expect(
+      await prisma.userHistory.count({
+        where: { userId: user.id, event: 'PROFILE_UPDATED' },
+      }),
+    ).toBe(1);
+    expect(
+      await prisma.userHistory.count({
+        where: { userId: user.id, event: 'APPROVED' },
+      }),
+    ).toBe(0);
+  });
+  it.each([
+    ['replacement', '654321', 'SYS_003'],
+    ['invalid', 'bad-id', 'SYS_003'],
+  ] as const)(
+    'rejects %s studentId without writes',
+    async (_label, studentId, code) => {
+      const admin = await actor();
+      const user = await create({ type: 'STAFF', approvalStatus: 'APPROVED' });
+      await expect(
+        service.patchMemberKind(admin.githubId, user.id, {
+          memberKind: 'STUDENT',
+          ...expectState(user),
+          studentId,
+          department: 'Department',
+        }),
+      ).rejects.toMatchObject({ errorCode: { code } });
+      expect(
+        await prisma.userHistory.count({ where: { userId: user.id } }),
+      ).toBe(0);
+      expect(
+        (await prisma.user.findUniqueOrThrow({ where: { id: user.id } }))
+          .studentId,
+      ).toBe(user.studentId);
+    },
+  );
+  it('rejects missing stored studentId and missing department', async () => {
+    const admin = await actor();
+    const user = await create({
+      type: 'STAFF',
+      approvalStatus: 'APPROVED',
+      studentId: null,
+    });
+    await expect(
+      service.patchMemberKind(admin.githubId, user.id, {
+        memberKind: 'STUDENT',
+        ...expectState(user),
+        department: 'Department',
+      }),
+    ).rejects.toMatchObject({ errorCode: { code: 'USR_002' } });
+    await expect(
+      service.patchMemberKind(admin.githubId, user.id, {
+        memberKind: 'STUDENT',
+        ...expectState(user),
+        studentId: '968999',
+      }),
+    ).rejects.toMatchObject({ errorCode: { code: 'USR_005' } });
+  });
+  it('maps duplicate studentId to a domain conflict and rolls back identity and histories', async () => {
+    const admin = await actor();
+    const owner = await create();
+    const user = await create({
+      type: 'STAFF',
+      approvalStatus: 'APPROVED',
+      studentId: null,
+    });
+    if (owner.studentId === null)
+      throw new TypeError('Missing fixture student ID');
+    await expect(
+      service.patchMemberKind(admin.githubId, user.id, {
+        memberKind: 'STUDENT',
+        ...expectState(user),
+        studentId: owner.studentId,
+        department: 'Department',
+      }),
+    ).rejects.toMatchObject({ errorCode: { code: 'USR_008' } });
+    expect(
+      await prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
+    ).toMatchObject({ type: 'STAFF', studentId: null });
+    expect(await prisma.userHistory.count({ where: { userId: user.id } })).toBe(
+      0,
+    );
+  });
+  it('rolls back profile, approval and request supersession when history writing fails', async () => {
+    const admin = await actor();
+    const user = await create({
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'fail-request',
+      approvalRequestedAt: at,
+    });
+    const failing = new MemberKindService(
+      repository,
       {
         record: jest
           .fn()
-          .mockRejectedValue(new Error('synthetic audit failure')),
+          .mockRejectedValue(new Error('synthetic history failure')),
       },
       new AuditLogMetadataService(),
-      new UserProfileService(),
-      new AdminAccessMutationService(
-        new AuditLogMetadataService(),
-        new UserProfileService(),
-      ),
+      profiles,
+      new AdminAccessMutationService(new AuditLogMetadataService(), profiles),
+      new MemberKindProfileService(profiles),
     );
-
     await expect(
-      failingService.patchMemberKind(actor.githubId, target.id, {
-        memberKind: MemberKind.STAFF,
-        expectedMemberKind: MemberKind.STUDENT,
-        expectedHasStaffAccess: false,
-        staffNumber: '교직원-실패',
+      failing.patchMemberKind(admin.githubId, user.id, {
+        memberKind: 'STAFF',
+        ...expectState(user),
+        staffNumber: 'new',
       }),
-    ).rejects.toThrow('synthetic audit failure');
-
-    await expect(readUser(target.id)).resolves.toMatchObject({
-      hasStaffAccess: false,
-      profile: {
-        memberKind: MemberKind.STUDENT,
-        studentId: '968606',
-        staffNumber: null,
-      },
+    ).rejects.toThrow('synthetic history failure');
+    expect(
+      await prisma.user.findUniqueOrThrow({ where: { id: user.id } }),
+    ).toMatchObject({
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'fail-request',
+      staffNumber: null,
     });
-    await expect(
-      prisma.staffAccessRequest.count({ where: { userId: target.id } }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.auditLog.count({ where: { targetId: target.id } }),
-    ).resolves.toBe(0);
+    expect(await prisma.userHistory.count({ where: { userId: user.id } })).toBe(
+      0,
+    );
   });
-
-  it('blocks pending requests and absent canonical profiles before any database write', async () => {
-    const actor = await createUser('blocked-state-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
+  it('rejects absent and incomplete profiles and safely rejects legacy pending supersession', async () => {
+    const admin = await actor();
+    const absent = await create({
+      name: null,
+      studentId: null,
+      department: null,
+      departmentType: null,
+      profileCreatedAt: null,
+      profileUpdatedAt: null,
     });
-    const absent = await createUser('blocked-absent-profile', {
-      memberKind: null,
+    await expect(
+      service.patchMemberKind(admin.githubId, absent.id, {
+        memberKind: 'STAFF',
+        ...expectState(absent),
+      }),
+    ).rejects.toMatchObject({ errorCode: { code: 'USR_002' } });
+    const pending = await create({
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      approvalRequestId: 'legacy-pending',
+      approvalRequestedAt: at,
     });
-    const pending = await createUser('blocked-pending-profile', {
-      memberKind: MemberKind.STUDENT,
-      studentId: '968607',
-    });
-    await prisma.staffAccessRequest.create({
-      data: {
-        id: `${pending.id}:pending`,
-        userId: pending.id,
-        status: StaffAccessRequestStatus.PENDING,
-      },
-    });
-
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, absent.id, {
-        memberKind: MemberKind.STAFF,
-        expectedMemberKind: MemberKind.STUDENT,
+    await expect(
+      service.patchMemberKind(admin.githubId, pending.id, {
+        memberKind: 'STAFF',
+        expectedMemberKind: 'STAFF',
         expectedHasStaffAccess: false,
       }),
-      UsersErrorCode.PROFILE_INCOMPLETE,
-      409,
-    );
-    await expectProblem(
-      service.patchMemberKind(actor.githubId, pending.id, {
-        memberKind: MemberKind.STAFF,
-        expectedMemberKind: MemberKind.STUDENT,
-        expectedHasStaffAccess: false,
-      }),
-      'ROL_015',
-      409,
-    );
-    await expect(readUser(pending.id)).resolves.toMatchObject({
-      hasStaffAccess: false,
-      profile: { memberKind: MemberKind.STUDENT, studentId: '968607' },
-    });
-  });
-
-  it('records one REVOKED request for true-to-false staff revocation and repairs same-kind flags without history', async () => {
-    const actor = await createUser('revocation-actor', {
-      memberKind: null,
-      hasAdminAccess: true,
-    });
-    const revoked = await createUser('revocation-target', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
-      studentId: '968608',
-    });
-    const repair = await createUser('repair-target', {
-      memberKind: MemberKind.STAFF,
-      hasStaffAccess: false,
-      studentId: '968609',
-    });
-
-    await expect(
-      service.patchMemberKind(actor.githubId, revoked.id, {
-        memberKind: MemberKind.STUDENT,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: true,
-        department: '소프트웨어공학과',
-      }),
-    ).resolves.toMatchObject({ hasStaffAccess: false });
-    await expect(
-      prisma.staffAccessRequest.findMany({
-        where: { userId: revoked.id },
-        orderBy: { id: 'asc' },
-      }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        status: StaffAccessRequestStatus.REVOKED,
-        decidedById: actor.id,
-      }),
-    ]);
-
-    await expect(
-      service.patchMemberKind(actor.githubId, repair.id, {
-        memberKind: MemberKind.STAFF,
-        expectedMemberKind: MemberKind.STAFF,
-        expectedHasStaffAccess: false,
-      }),
-    ).resolves.toMatchObject({ hasStaffAccess: true });
-    await expect(
-      prisma.staffAccessRequest.count({ where: { userId: repair.id } }),
-    ).resolves.toBe(0);
+    ).rejects.toMatchObject({ errorCode: { code: 'ROL_013' } });
   });
 });
-
-async function createUser(
-  label: string,
-  options: {
-    readonly memberKind: MemberKind | null;
-    readonly hasStaffAccess?: boolean;
-    readonly hasAdminAccess?: boolean;
-    readonly accountStatus?: AccountStatus;
-    readonly name?: string;
-    readonly studentId?: string | null;
-    readonly department?: string;
-    readonly affiliationKind?: AffiliationKind;
-  },
-): Promise<{ readonly id: string; readonly githubId: bigint }> {
-  sequence += 1;
-  const id = `${FIXTURE_PREFIX}${label}:${sequence}`;
-  const githubId = 9_700_700_000n + BigInt(sequence);
-  const data = {
-    id,
-    githubId,
-    nickname: `synthetic-${label}-${sequence}`,
-    accountStatus: options.accountStatus ?? AccountStatus.ACTIVE,
-    selectedMemberKind: options.memberKind,
-    hasStaffAccess:
-      options.hasStaffAccess ?? options.memberKind === MemberKind.STAFF,
-    hasAdminAccess: options.hasAdminAccess ?? false,
-    ...(options.memberKind === null
-      ? {}
-      : {
-          profile: {
-            create: {
-              name: options.name ?? `합성 ${label}`,
-              studentId:
-                options.studentId === undefined
-                  ? options.memberKind === MemberKind.STUDENT
-                    ? '968600'
-                    : null
-                  : options.studentId,
-              department: options.department ?? '합성 학과',
-              staffNumber: null,
-              memberKind: options.memberKind,
-              affiliationKind:
-                options.affiliationKind ?? AffiliationKind.DEPARTMENT,
-              affiliationName: options.department ?? '합성 학과',
-            },
-          },
-        }),
-  } satisfies Prisma.UserCreateInput;
-  await prisma.user.create({ data });
-  return { id, githubId };
-}
-
-function readUser(userId: string) {
-  return prisma.user.findUniqueOrThrow({
-    where: { id: userId },
-    include: { profile: true },
-  });
-}
-
-async function expectProblem(
-  operation: Promise<unknown>,
-  code: UsersErrorCode | string,
-  status: number,
-): Promise<void> {
-  await expect(operation).rejects.toMatchObject({
-    errorCode: { code, status },
-  });
-}

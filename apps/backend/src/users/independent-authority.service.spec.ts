@@ -1,4 +1,5 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { MemberKind } from './user-contract.config';
+import { AccountStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
 import {
@@ -20,9 +21,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import type { AdminAccessUserRow } from './admin-access-read.repository';
-
-const actorGithubId = 9_700_100_001n;
-
+const actorGithubId = 9700100001n;
 class AuthorityStore
   implements
     IndependentAuthorityRepositoryPort,
@@ -35,40 +34,44 @@ class AuthorityStore
     githubId: actorGithubId,
     githubLogin: 'synthetic-admin',
     hasAdminAccess: true,
-    hasStaffAccess: true,
+    memberKind: 'STAFF',
+    approvalStatus: 'APPROVED',
+    profileCreatedAt: new Date('2026-01-01'),
+    department: 'Department',
     accountStatus: AccountStatus.ACTIVE,
   };
   target: AdminAccessUserRow | null = target();
   activeAdminCount = 2;
   updates: IndependentAuthorityTransition[] = [];
   revokedInserts: AdminAccessRevokedRequestInsert[] = [];
-
   withTransaction<T>(
     operation: (store: IndependentAuthorityTransactionStore) => Promise<T>,
   ): Promise<T> {
     return operation(this);
   }
-
   findActorByGithubId(): Promise<AdminAccessActor | null> {
     return Promise.resolve(this.actor);
   }
-
   lockActiveAdmins(): Promise<number> {
     return Promise.resolve(this.activeAdminCount);
   }
-
   findUserForUpdate(): Promise<AdminAccessUserRow | null> {
     return Promise.resolve(this.target);
   }
-
   updateAuthority(
     _userId: string,
     transition: IndependentAuthorityTransition,
-  ): Promise<void> {
+  ): Promise<{
+    approvalStatus: AdminAccessUserRow['approvalStatus'];
+    approvalRequestId: string | null;
+  }> {
     this.updates.push(transition);
-    return Promise.resolve();
+    if (!this.target) throw new TypeError('Missing target');
+    return Promise.resolve({
+      approvalStatus: this.target.approvalStatus,
+      approvalRequestId: this.target.approvalRequestId,
+    });
   }
-
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
   ): Promise<AdminAccessInsertedRequest> {
@@ -76,7 +79,6 @@ class AuthorityStore
     return Promise.resolve({ id: `revoked-${this.revokedInserts.length}` });
   }
 }
-
 it.each([
   [STAFF_ACCESS_COMMANDS.REVOKE, false, true],
   [ADMIN_ACCESS_COMMANDS.REVOKE, true, false],
@@ -95,21 +97,18 @@ it.each([
       ),
       new UserProfileService(),
     );
-
     const result =
       command === STAFF_ACCESS_COMMANDS.REVOKE
         ? await service.patchStaffAccess(actorGithubId, 'target', { command })
         : await service.patchAdminAccess(actorGithubId, 'target', { command });
-
     expect(result).toMatchObject({
-      memberKind: MemberKind.STUDENT,
+      memberKind: MemberKind.STAFF,
       hasStaffAccess,
       hasAdminAccess,
     });
     expect(store.updates).toHaveLength(1);
   },
 );
-
 it.each([
   [
     '이미 켜진 관리자 접근에 다시 보낸 부여',
@@ -136,12 +135,10 @@ it.each([
       ),
       new UserProfileService(),
     );
-
     const request =
       command === ADMIN_ACCESS_COMMANDS.GRANT
         ? service.patchAdminAccess(actorGithubId, 'target', { command })
         : service.patchStaffAccess(actorGithubId, 'target', { command });
-
     await expect(request).rejects.toMatchObject({
       errorCode: { code: RolesErrorCode.ACCESS_STATE_MISMATCH, status: 409 },
       extensions: { currentAccess: { id: before.id } },
@@ -150,12 +147,14 @@ it.each([
     expect(store.revokedInserts).toEqual([]);
   },
 );
-
 it('rejects a non-admin actor before writing', async () => {
   const store = new AuthorityStore();
   store.actor = {
     name: null,
-    hasStaffAccess: false,
+    memberKind: 'STAFF',
+    approvalStatus: 'REVOKED',
+    profileCreatedAt: new Date('2026-01-01'),
+    department: 'Department',
     id: 'staff-actor',
     githubId: actorGithubId,
     githubLogin: 'synthetic-staff',
@@ -172,7 +171,6 @@ it('rejects a non-admin actor before writing', async () => {
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchStaffAccess(actorGithubId, 'target', {
       command: STAFF_ACCESS_COMMANDS.GRANT,
@@ -182,7 +180,6 @@ it('rejects a non-admin actor before writing', async () => {
   });
   expect(store.updates).toHaveLength(0);
 });
-
 it('rejects revoking the final active admin', async () => {
   const store = new AuthorityStore();
   store.activeAdminCount = 1;
@@ -197,7 +194,6 @@ it('rejects revoking the final active admin', async () => {
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchAdminAccess(actorGithubId, 'target', {
       command: ADMIN_ACCESS_COMMANDS.REVOKE,
@@ -207,7 +203,6 @@ it('rejects revoking the final active admin', async () => {
   });
   expect(store.updates).toHaveLength(0);
 });
-
 it('교직원 접근을 회수하면 행위자와 시각이 적힌 회수 이력 한 행을 남긴다', async () => {
   const store = new AuthorityStore();
   store.target = target({ hasStaffAccess: true });
@@ -221,11 +216,9 @@ it('교직원 접근을 회수하면 행위자와 시각이 적힌 회수 이력
     ),
     new UserProfileService(),
   );
-
   await service.patchStaffAccess(actorGithubId, 'target', {
     command: STAFF_ACCESS_COMMANDS.REVOKE,
   });
-
   expect(store.revokedInserts).toHaveLength(1);
   expect(store.revokedInserts[0]).toMatchObject({
     userId: 'target',
@@ -233,7 +226,6 @@ it('교직원 접근을 회수하면 행위자와 시각이 적힌 회수 이력
   });
   expect(store.revokedInserts[0]?.decidedAt).toBeInstanceOf(Date);
 });
-
 it.each([
   ['교직원 접근을 켜는 전이', STAFF_ACCESS_COMMANDS.GRANT, target({})],
   [
@@ -256,18 +248,15 @@ it.each([
       ),
       new UserProfileService(),
     );
-
     if (command === ADMIN_ACCESS_COMMANDS.REVOKE) {
       await service.patchAdminAccess(actorGithubId, 'target', { command });
     } else {
       await service.patchStaffAccess(actorGithubId, 'target', { command });
     }
-
     expect(store.updates).toHaveLength(1);
     expect(store.revokedInserts).toEqual([]);
   },
 );
-
 it('rejects revoking the actor own admin access', async () => {
   const store = new AuthorityStore();
   store.activeAdminCount = 3;
@@ -286,7 +275,6 @@ it('rejects revoking the actor own admin access', async () => {
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchAdminAccess(actorGithubId, 'actor', {
       command: ADMIN_ACCESS_COMMANDS.REVOKE,
@@ -299,7 +287,6 @@ it('rejects revoking the actor own admin access', async () => {
   });
   expect(store.updates).toHaveLength(0);
 });
-
 it('still allows the actor to revoke their own staff access', async () => {
   const store = new AuthorityStore();
   store.activeAdminCount = 3;
@@ -318,7 +305,6 @@ it('still allows the actor to revoke their own staff access', async () => {
     ),
     new UserProfileService(),
   );
-
   await expect(
     service.patchStaffAccess(actorGithubId, 'actor', {
       command: STAFF_ACCESS_COMMANDS.REVOKE,
@@ -326,29 +312,32 @@ it('still allows the actor to revoke their own staff access', async () => {
   ).resolves.toMatchObject({ hasStaffAccess: false, hasAdminAccess: true });
   expect(store.updates).toHaveLength(1);
 });
-
 function noopAuditLog() {
   return { record: jest.fn().mockResolvedValue({}) };
 }
-
 function target(
-  overrides: Partial<AdminAccessUserRow> = {},
+  overrides: Partial<AdminAccessUserRow> & {
+    readonly hasStaffAccess?: boolean;
+  } = {},
 ): AdminAccessUserRow {
+  const { hasStaffAccess = false, ...raw } = overrides;
   return {
     id: 'target',
-    githubId: 9_700_100_002n,
+    githubId: 9700100002n,
     githubLogin: 'synthetic-target',
-    name: null,
+    name: 'Target',
     studentId: null,
-    department: null,
-    selectedMemberKind: MemberKind.STUDENT,
-    memberKind: MemberKind.STUDENT,
-    hasStaffAccess: false,
+    department: 'Department',
+    selectedMemberKind: 'STAFF',
+    memberKind: 'STAFF',
+    approvalStatus: hasStaffAccess ? 'APPROVED' : 'REVOKED',
+    approvalRequestId: null,
+    profileCreatedAt: new Date('2026-01-01'),
     hasAdminAccess: false,
-    accountStatus: AccountStatus.ACTIVE,
-    createdAt: new Date('2026-07-19T00:00:00.000Z'),
+    accountStatus: 'ACTIVE',
+    createdAt: new Date('2026-01-01'),
     pendingRequest: null,
     lastLoginAt: null,
-    ...overrides,
+    ...raw,
   };
 }

@@ -23,6 +23,12 @@ import type {
 } from './programs/storage-orphan-reconciliation.service';
 import { PROCESS_RUNTIME_CONFIG } from './platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from './platform/runtime-config.config';
+import { MaintenanceModule } from './github/maintenance.module';
+import { MAINTENANCE_STATE_COMMANDS } from './platform/maintenance-state.config';
+import {
+  MaintenanceConfig,
+  MaintenanceVerificationError,
+} from './github/maintenance.config';
 
 const ENABLED_VALUE = '1';
 
@@ -175,11 +181,50 @@ async function sendDeadlineDigest(): Promise<void> {
 }
 
 interface CliCommand {
+  readonly maintenanceSafe?: true;
   run(args: readonly string[]): Promise<void>;
   failureMessage(error: unknown): string;
 }
 
+async function bootstrapAdmin(args: readonly string[]): Promise<void> {
+  const [githubId, operatorReceipt] = args;
+  if (
+    args.length !== 2 ||
+    githubId === undefined ||
+    !/^\d{1,19}$/.test(githubId) ||
+    operatorReceipt === undefined ||
+    !/^[A-Za-z0-9][A-Za-z0-9:._/-]{0,127}$/.test(operatorReceipt)
+  ) {
+    throw new Error(
+      'bootstrap-admin requires a GitHub numeric ID and an operator authorization receipt.',
+    );
+  }
+  const { PrismaService } = await import('./platform/prisma.service');
+  const { AdminRepository } = await import('./users/admin.repository');
+  const prisma = new PrismaService();
+  try {
+    const result = await new AdminRepository(prisma).bootstrap({
+      githubId: BigInt(githubId),
+      operatorReceipt,
+    });
+    process.stdout.write(
+      `${JSON.stringify({ event: 'admin.bootstrap.completed', ...result })}\n`,
+    );
+  } finally {
+    await prisma.$disconnect();
+  }
+}
+
 const COMMANDS = new Map<string, CliCommand>([
+  ...MaintenanceModule.commands,
+  ...MAINTENANCE_STATE_COMMANDS,
+  [
+    'bootstrap-admin',
+    {
+      run: bootstrapAdmin,
+      failureMessage: () => 'Administrator bootstrap failed.',
+    },
+  ],
   [
     'retry-submission-file-cleanup',
     {
@@ -219,6 +264,11 @@ export async function runCli(
     return;
   }
   try {
+    if (MaintenanceConfig.enabled() && !command.maintenanceSafe) {
+      throw new MaintenanceVerificationError(
+        'writing CLI commands are disabled',
+      );
+    }
     await command.run(args);
   } catch (error) {
     process.stderr.write(`${command.failureMessage(error)}\n`);

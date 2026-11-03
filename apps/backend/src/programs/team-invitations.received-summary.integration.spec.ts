@@ -1,12 +1,11 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import {
-  AffiliationKind,
-  MemberKind,
   ProgramCategory,
   TeamInvitationStatus,
   ProgramTrackType,
   type Prisma,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -105,28 +104,32 @@ async function seed(): Promise<void> {
     ],
   });
 
-  await prisma.userProfile.createMany({
-    data: [
+  await Promise.all(
+    [
       {
         userId: NAMED_LEADER_ID,
         name: NAMED_LEADER_PROFILE_NAME,
         studentId: '920001',
         department: 'Synthetic department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'Synthetic department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
       {
         userId: LEGACY_LEADER_ID,
         name: LEGACY_LEADER_NAME,
         studentId: '920005',
         department: 'Synthetic department',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: 'Synthetic department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
-    ],
-  });
+    ].map(({ userId, ...profile }) =>
+      prisma.user.update({ where: { id: userId }, data: profile }),
+    ),
+  );
   await prisma.program.createMany({
     data: [
       programData(PROGRAM_A_ID, PROGRAM_A_NAME, 4),

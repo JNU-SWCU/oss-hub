@@ -1,4 +1,5 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { PlatformModule } from '../platform/platform.module';
 import { PublicProjectsService } from './public-projects.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
@@ -167,14 +168,23 @@ export class MilestoneDocumentFlowFixture {
     });
     await this.prisma.team.deleteMany({ where: { id: flowIds.team } });
     await this.prisma.program.deleteMany({ where: { id: flowIds.program } });
+    await this.prisma.admin.deleteMany({
+      where: { userId: { in: [flowIds.student, flowIds.staff] } },
+    });
     await this.prisma.user.deleteMany({
       where: { id: { in: [flowIds.student, flowIds.staff] } },
     });
   }
 
   async stop(): Promise<void> {
-    await this.clear();
-    await this.app?.close();
-    await this.prisma.$disconnect();
+    try {
+      await this.clear();
+    } finally {
+      try {
+        await this.app?.close();
+      } finally {
+        await this.prisma.$disconnect();
+      }
+    }
   }
 }

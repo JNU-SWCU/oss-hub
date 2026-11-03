@@ -1,10 +1,7 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import {
-  ApplicationReviewEventKind,
-  MemberKind,
-  ProgramCategory,
-} from '@prisma/client';
+import { ApplicationReviewEventKind, ProgramCategory } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ApplicationsRepository } from './applications.repository';
@@ -57,24 +54,31 @@ async function seed(): Promise<void> {
         id: ACTOR_ID,
         githubId: 9_320_000_001n,
         nickname: 'review-history-actor',
-        selectedMemberKind: MemberKind.STAFF,
-        hasStaffAccess: true,
         accountStatus: 'ACTIVE',
+        type: MemberKind.STAFF,
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
       },
 
       {
         id: APPLICANT_A_ID,
         githubId: 9_320_000_002n,
         nickname: 'review-history-applicant-a',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
       {
         id: APPLICANT_B_ID,
         githubId: 9_320_000_003n,
         nickname: 'review-history-applicant-b',
-        selectedMemberKind: MemberKind.STUDENT,
         accountStatus: 'ACTIVE',
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     ],
   });

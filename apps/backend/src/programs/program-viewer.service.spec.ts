@@ -1,10 +1,12 @@
+import { UserProfileService } from '../users/user-profile.service';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import type { PrismaService } from '../platform/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsRepository } from './programs.repository';
-import { UserProfileService } from '../users/user-profile.service';
 
 const githubId = 424242n;
 
@@ -30,16 +32,22 @@ function viewerRecord(fields: {
   return {
     id: 'user-1',
     accountStatus: fields.accountStatus ?? AccountStatus.ACTIVE,
-    hasStaffAccess: fields.hasStaffAccess,
-    hasAdminAccess: fields.hasAdminAccess,
-    profile:
-      fields.memberKind === null ? null : { memberKind: fields.memberKind },
-    staffAccessRequests: [],
+    type: fields.memberKind ?? 'UNSELECTED',
+    approvalStatus:
+      fields.memberKind === 'STAFF'
+        ? fields.hasStaffAccess
+          ? 'APPROVED'
+          : 'PENDING'
+        : 'NOT_REQUIRED',
+    name: 'Synthetic viewer',
+    department: 'Synthetic department',
+    profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    admin: fields.hasAdminAccess ? { userId: 'user-1' } : null,
   };
 }
 
 describe('ProgramViewerService', () => {
-  it('운영 권한 없는 학생은 operations 요청으로 권한이 올라가지 않는다', async () => {
+  it('운영 권한 없는 학생은 학생으로 조회한다', async () => {
     const service = serviceFor(
       viewerRecord({
         memberKind: MemberKind.STUDENT,
@@ -47,9 +55,9 @@ describe('ProgramViewerService', () => {
         hasAdminAccess: false,
       }),
     );
-    await expect(
-      service.fromGithubId(githubId, 'program-1', true),
-    ).resolves.toMatchObject({ role: 'STUDENT' });
+    await expect(service.fromGithubId(githubId)).resolves.toMatchObject({
+      role: 'STUDENT',
+    });
   });
 
   it('학생 유형이 아닌 운영자는 참여와 무관하게 운영 화면을 유지한다', async () => {
@@ -67,15 +75,15 @@ describe('ProgramViewerService', () => {
       } as unknown as ProgramsRepository,
       new UserProfileService(),
     );
-    await expect(
-      service.fromGithubId(githubId, 'program-1'),
-    ).resolves.toMatchObject({ role: 'STAFF' });
+    await expect(service.fromGithubId(githubId)).resolves.toMatchObject({
+      role: 'STAFF',
+    });
     expect(findStudentApplication).not.toHaveBeenCalled();
   });
 
   it.each([false, true])(
-    '참여 학생의 기본 상세는 학생이고 운영 전환=%s에서는 원래 권한을 쓴다',
-    async (operations) => {
+    '학생은 관리자 권한=%s에서도 학생 업무로 조회한다',
+    async (hasAdminAccess) => {
       const findStudentApplication = jest
         .fn()
         .mockResolvedValue({ status: 'APPROVED' });
@@ -85,7 +93,7 @@ describe('ProgramViewerService', () => {
             viewerRecord({
               memberKind: MemberKind.STUDENT,
               hasStaffAccess: true,
-              hasAdminAccess: true,
+              hasAdminAccess,
             }),
           ),
           findStudentApplication,
@@ -93,14 +101,14 @@ describe('ProgramViewerService', () => {
         new UserProfileService(),
       );
 
-      await expect(
-        service.fromGithubId(githubId, 'program-1', operations),
-      ).resolves.toMatchObject({ role: operations ? 'ADMIN' : 'STUDENT' });
+      await expect(service.fromGithubId(githubId)).resolves.toMatchObject({
+        role: 'STUDENT',
+      });
     },
   );
 
   it.each([null, { status: 'SUBMITTED' }])(
-    '미참여·미승인 학생 운영자는 운영 화면을 유지한다 (%s)',
+    '미참여·미승인 학생에게 운영 권한을 만들지 않는다 (%s)',
     async (application) => {
       const service = new ProgramViewerService(
         {
@@ -115,20 +123,21 @@ describe('ProgramViewerService', () => {
         } as unknown as ProgramsRepository,
         new UserProfileService(),
       );
-      await expect(
-        service.fromGithubId(githubId, 'program-1'),
-      ).resolves.toMatchObject({ role: 'STAFF' });
+      await expect(service.fromGithubId(githubId)).resolves.toMatchObject({
+        role: 'STUDENT',
+      });
     },
   );
 
   it('비활성 교직원은 비공개 조회 권한을 얻지 못한다', async () => {
-    const findUnique = jest.fn().mockResolvedValue({
-      id: 'staff-1',
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-      accountStatus: AccountStatus.DEACTIVATED,
-      staffAccessRequests: [],
-    });
+    const findUnique = jest.fn().mockResolvedValue(
+      viewerRecord({
+        memberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
+        hasAdminAccess: false,
+        accountStatus: AccountStatus.DEACTIVATED,
+      }),
+    );
     const prisma = { user: { findUnique } } as unknown as PrismaService;
     const service = new ProgramViewerService(
       new ProgramsRepository(
@@ -147,14 +156,7 @@ describe('ProgramViewerService', () => {
       select: {
         id: true,
         accountStatus: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
-        profile: { select: { memberKind: true } },
-        staffAccessRequests: {
-          where: { status: 'PENDING' },
-          select: { id: true },
-          take: 1,
-        },
+        ...USER_AUTHORITY_SELECT,
       },
     });
   });
@@ -169,7 +171,7 @@ describe('ProgramViewerService', () => {
     );
 
     await expect(service.fromGithubId(githubId)).resolves.toMatchObject({
-      role: 'ADMIN',
+      role: 'STUDENT',
     });
     await expect(service.studentFromGithubId(githubId)).resolves.toEqual({
       githubId,

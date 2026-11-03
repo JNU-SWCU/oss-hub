@@ -36,7 +36,7 @@ export const SUBMISSION_REVIEWS_ERROR_CODES: Record<
   [SubmissionReviewsErrorCode.STAFF_APPROVAL_REQUIRED]: {
     code: SubmissionReviewsErrorCode.STAFF_APPROVAL_REQUIRED,
     status: 403,
-    message: '승인된 교직원 또는 관리자만 제출을 검토할 수 있습니다.',
+    message: '승인된 교직원만 제출을 검토할 수 있습니다.',
   },
   [SubmissionReviewsErrorCode.STALE_REVISION]: {
     code: SubmissionReviewsErrorCode.STALE_REVISION,

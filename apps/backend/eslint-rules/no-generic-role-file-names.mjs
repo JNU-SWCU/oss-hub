@@ -9,7 +9,6 @@ const genericWords = new Set([
   'utils',
   'util',
   'common',
-  'policy',
   'misc',
   'shared',
 ]);

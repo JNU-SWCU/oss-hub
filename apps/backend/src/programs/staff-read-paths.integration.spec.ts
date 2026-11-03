@@ -1,14 +1,14 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
-  AffiliationKind,
   ApplicationReviewEventKind,
   ApplicationStatus,
-  MemberKind,
   ProgramCategory,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -63,7 +63,7 @@ const service = new ApplicationsService(
   repository,
   new AuditLogService(
     new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
+    new AuditLogReadService(new AuditLogMetadataService()),
   ),
   new ApplicationJoinCodeService(
     { TEAM_JOIN_CODE_SECRET: 'synthetic-staff-read-paths-secret' },
@@ -99,9 +99,7 @@ async function cleanup(): Promise<void> {
   });
   await prisma.team.deleteMany({ where: { id: { startsWith: PREFIX } } });
   await prisma.program.deleteMany({ where: { id: { startsWith: PREFIX } } });
-  await prisma.userProfile.deleteMany({
-    where: { userId: { startsWith: PREFIX } },
-  });
+
   await prisma.user.deleteMany({ where: { id: { startsWith: PREFIX } } });
 }
 
@@ -116,18 +114,15 @@ async function createStudent(
       id,
       githubId,
       nickname,
-      selectedMemberKind: MemberKind.STUDENT,
       accountStatus: 'ACTIVE',
-      profile: {
-        create: {
-          name,
-          studentId: `${900000 + Number(githubId % 1000n)}`,
-          department: '합성 학과',
-          memberKind: MemberKind.STUDENT,
-          affiliationKind: AffiliationKind.DEPARTMENT,
-          affiliationName: '합성 학과',
-        },
-      },
+      name,
+      studentId: `${900000 + Number(githubId % 1000n)}`,
+      department: '합성 학과',
+      type: MemberKind.STUDENT,
+      departmentType: AffiliationKind.DEPARTMENT,
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      approvalStatus: 'NOT_REQUIRED',
     },
   });
 }
@@ -138,19 +133,15 @@ async function seed(): Promise<void> {
       id: STAFF_ID,
       githubId: STAFF_GITHUB_ID,
       nickname: 'staff-reviewer',
-      selectedMemberKind: MemberKind.STAFF,
-      hasStaffAccess: true,
       accountStatus: 'ACTIVE',
-      profile: {
-        create: {
-          name: '합성 교직원',
-          studentId: null,
-          department: '합성 지원단',
-          memberKind: MemberKind.STAFF,
-          affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-          affiliationName: '합성 지원단',
-        },
-      },
+      name: '합성 교직원',
+      studentId: null,
+      department: '합성 지원단',
+      type: MemberKind.STAFF,
+      departmentType: AffiliationKind.PROGRAM_OFFICE,
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      approvalStatus: 'APPROVED',
     },
   });
   await prisma.program.create({

@@ -1,3 +1,7 @@
+import type { ApprovalStatus } from '@prisma/client';
+import { AdminRepository } from './admin.repository';
+import { randomUUID } from 'node:crypto';
+import { MemberKind } from './user-contract.config';
 import {
   AdminAccessReadRepository,
   type AdminAccessUserRecord,
@@ -10,8 +14,8 @@ import { AdminAccessRepository } from './admin-access.repository';
 import type { AuthorityLabel } from './authority-label.types';
 import { Inject, Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
-import { Prisma, MemberKind } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
+import { Prisma } from '@prisma/client';
+import type { UserHistoryTransaction } from './user-history.repository';
 import {
   ADMIN_ACCESS_COMMANDS,
   STAFF_ACCESS_COMMANDS,
@@ -41,6 +45,8 @@ export type AdminAuthorityMutationCommand =
   GrantAdminAccessCommand | RevokeAdminAccessCommand;
 
 export type IndependentAuthorityMutationResult = {
+  readonly approvalStatus: ApprovalStatus;
+  readonly approvalRequestId: string | null;
   readonly id: string;
   readonly role: AuthorityLabel | null;
   readonly memberKind: MemberKind | null;
@@ -67,14 +73,19 @@ export type IndependentAuthorityTransition = IndependentAuthorityState & {
 };
 
 export interface IndependentAuthorityTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly auditLogWriter: UserHistoryTransaction;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   lockActiveAdmins(): Promise<number>;
   findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null>;
   updateAuthority(
     userId: string,
-    transition: IndependentAuthorityTransition,
-  ): Promise<void>;
+    transition: IndependentAuthorityTransition & { readonly actorId: string },
+  ): Promise<
+    Pick<
+      IndependentAuthorityMutationResult,
+      'approvalStatus' | 'approvalRequestId'
+    >
+  >;
 
   insertRevokedRequest(
     input: AdminAccessRevokedRequestInsert,
@@ -95,6 +106,7 @@ export class IndependentAuthorityRepository implements IndependentAuthorityRepos
     @Inject(PrismaService) private readonly prisma: PrismaService,
     private readonly adminAccessReadRepository: AdminAccessReadRepository,
     private readonly adminAccessRepository: AdminAccessRepository,
+    private readonly admins: AdminRepository,
   ) {}
 
   withTransaction<T>(
@@ -156,16 +168,48 @@ export class IndependentAuthorityRepository implements IndependentAuthorityRepos
   private async updateAuthorityIn(
     transaction: Prisma.TransactionClient,
     userId: string,
-    transition: IndependentAuthorityTransition,
-  ): Promise<void> {
-    await transaction.user.update({
+    transition: IndependentAuthorityTransition & { readonly actorId: string },
+  ): Promise<
+    Pick<
+      IndependentAuthorityMutationResult,
+      'approvalStatus' | 'approvalRequestId'
+    >
+  > {
+    const current = await transaction.user.findUniqueOrThrow({
       where: { id: userId },
-      data: {
-        selectedMemberKind: transition.selectedMemberKind,
-        hasStaffAccess: transition.hasStaffAccess,
-        hasAdminAccess: transition.hasAdminAccess,
+      select: {
+        type: true,
+        approvalStatus: true,
+        approvalRequestId: true,
+        admin: { select: { userId: true } },
       },
     });
+    if ((current.admin !== null) !== transition.hasAdminAccess) {
+      await this.admins.setAuthority(transaction, {
+        userId,
+        actorId: transition.actorId,
+        enabled: transition.hasAdminAccess,
+      });
+    }
+    if (transition.hasStaffAccess && current.approvalStatus !== 'APPROVED') {
+      const now = new Date();
+      return transaction.user.update({
+        where: { id: userId },
+        data: {
+          approvalStatus: 'APPROVED',
+          approvalRequestId: randomUUID(),
+          approvalRequestedAt: now,
+          approvalDecidedAt: now,
+          approvalDecidedById: transition.actorId,
+          approvalReason: null,
+        },
+        select: { approvalStatus: true, approvalRequestId: true },
+      });
+    }
+    return {
+      approvalStatus: current.approvalStatus,
+      approvalRequestId: current.approvalRequestId,
+    };
   }
 
   private insertRevokedRequestIn(

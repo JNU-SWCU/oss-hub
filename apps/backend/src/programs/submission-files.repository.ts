@@ -1,3 +1,4 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
@@ -114,24 +115,31 @@ export class SubmissionFilesRepository {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
       select: {
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
         accountStatus: true,
       },
     });
-    return (
-      user?.hasAdminAccess === true &&
-      user.accountStatus === AccountStatus.ACTIVE
-    );
+    return user?.accountStatus === AccountStatus.ACTIVE && user.admin !== null;
   }
 
-  findCleanupOperator(
+  async findCleanupOperator(
     operatorId: string,
   ): Promise<SubmissionFileCleanupOperator | null> {
-    return this.prisma.user.findUnique({
+    const user = await this.prisma.user.findUnique({
       where: { id: operatorId },
-      select: { githubId: true, hasAdminAccess: true, accountStatus: true },
+      select: {
+        githubId: true,
+        admin: { select: { userId: true } },
+        accountStatus: true,
+      },
     });
+    return user === null
+      ? null
+      : {
+          githubId: user.githubId,
+          hasAdminAccess: user.admin !== null,
+          accountStatus: user.accountStatus,
+        };
   }
 
   findExhaustedCleanups(): Promise<ExhaustedSubmissionFileCleanup[]> {
@@ -159,14 +167,19 @@ export class SubmissionFilesRepository {
       where: { githubId },
       select: {
         id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
         accountStatus: true,
       },
     });
     if (user?.accountStatus !== AccountStatus.ACTIVE) return null;
 
-    if (user.hasStaffAccess || user.hasAdminAccess) {
+    if (
+      user.type === 'STAFF' &&
+      user.approvalStatus === 'APPROVED' &&
+      user.profileCreatedAt !== null &&
+      user.name !== null &&
+      user.department !== null
+    ) {
       return this.findAuthorizedDownloadableFile({
         ...downloadableFileWhere(fileId, now),
       });

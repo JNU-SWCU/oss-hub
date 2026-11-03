@@ -85,7 +85,7 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   [MilestoneDocumentsErrorCode.STAFF_ONLY]: {
     code: MilestoneDocumentsErrorCode.STAFF_ONLY,
     status: 403,
-    message: '승인된 교직원 또는 관리자만 사용할 수 있습니다.',
+    message: '승인된 교직원만 사용할 수 있습니다.',
   },
   [MilestoneDocumentsErrorCode.STUDENT_ONLY]: {
     code: MilestoneDocumentsErrorCode.STUDENT_ONLY,

@@ -1,5 +1,7 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -18,7 +20,7 @@ describe('팀 초대 대상 자격', () => {
     [
       '활성 학생',
       {
-        profile: { memberKind: MemberKind.STUDENT },
+        type: MemberKind.STUDENT,
         accountStatus: AccountStatus.ACTIVE,
       },
       'eligible',
@@ -26,7 +28,7 @@ describe('팀 초대 대상 자격', () => {
     [
       '교직원',
       {
-        profile: { memberKind: MemberKind.STAFF },
+        type: MemberKind.STAFF,
         accountStatus: AccountStatus.ACTIVE,
       },
       'not-eligible',
@@ -34,21 +36,46 @@ describe('팀 초대 대상 자격', () => {
     [
       '비활성 학생',
       {
-        profile: { memberKind: MemberKind.STUDENT },
+        type: MemberKind.STUDENT,
         accountStatus: AccountStatus.DEACTIVATED,
       },
       'not-eligible',
     ],
     [
       '가입을 마치지 않은 계정',
-      { profile: null, accountStatus: AccountStatus.ACTIVE },
+      {
+        name: null,
+        department: null,
+        type: 'UNSELECTED',
+        profileCreatedAt: null,
+        accountStatus: AccountStatus.ACTIVE,
+      },
       'not-eligible',
     ],
   ] as const)('%s의 초대 자격을 판정한다', async (_, user, expected) => {
     const repository = Object.assign(
       new TeamInvitationsRepository(
         {
-          user: { findUnique: jest.fn().mockResolvedValue(user) },
+          user: {
+            findUnique: jest.fn(({ where }: { where: { id: string } }) =>
+              Promise.resolve(
+                where.id === leaderId
+                  ? {
+                      type: 'STUDENT',
+                      approvalStatus: 'NOT_REQUIRED',
+                      accountStatus: AccountStatus.ACTIVE,
+                      name: 'Synthetic leader',
+                      department: 'Synthetic department',
+                      studentId: '123456',
+                      departmentType: 'DEPARTMENT',
+                      admin: null,
+                      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+                      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+                    }
+                  : user,
+              ),
+            ),
+          },
         } as unknown as PrismaService,
         new PlatformRepository(),
       ),
@@ -67,6 +94,7 @@ describe('팀 초대 대상 자격', () => {
       repository,
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     const invitation = service.create(leaderGithubId, teamId, inviteeId);
@@ -99,7 +127,7 @@ describe('팀 초대 대상 자격', () => {
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
         where: expect.objectContaining({
-          profile: { is: { memberKind: MemberKind.STUDENT } },
+          type: MemberKind.STUDENT,
           accountStatus: AccountStatus.ACTIVE,
         }) as unknown,
       }),
@@ -117,7 +145,7 @@ describe('팀 초대 대상 자격', () => {
       }),
       findInviteeAccount: jest.fn().mockResolvedValue({
         accountStatus: AccountStatus.ACTIVE,
-        profile: { memberKind: MemberKind.STAFF },
+        type: MemberKind.STAFF,
       }),
       findStaffAuthority: jest.fn().mockResolvedValue(null),
       isUserInProgramTeam: jest.fn().mockResolvedValue(false),
@@ -128,6 +156,7 @@ describe('팀 초대 대상 자격', () => {
       repository as unknown as TeamInvitationsRepository,
       { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     );
 
     const invitation = service.create(leaderGithubId, teamId, inviteeId);
@@ -179,7 +208,7 @@ describe('팀 초대 대상 자격', () => {
       where: { id: inviteeId },
       select: {
         id: true,
-        profile: { select: { memberKind: true } },
+        type: true,
         accountStatus: true,
       },
     });

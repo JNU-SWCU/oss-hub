@@ -5,6 +5,7 @@ import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import { Global, Module } from '@nestjs/common';
 import { AuditLogRepository } from './audit-log.repository';
 import { AuditLogService } from './audit-log.service';
+import { AuditLogReadService } from './audit-log-read.service';
 import { AuthConfig } from './auth.config';
 import { AuthSessionService } from './auth-session.service';
 import { HealthController } from './health.controller';
@@ -49,6 +50,7 @@ import { RolesGuard } from './roles.guard';
     AuditLogMetadataService,
     JoinCodeSecretService,
     AuditLogService,
+    AuditLogReadService,
     RolesGuard,
     AuthConfig,
     AuthSessionService,

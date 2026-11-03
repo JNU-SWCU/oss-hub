@@ -140,7 +140,7 @@ it.each([
   },
 );
 
-it.each(['staff', 'admin'])(
+it.each(['staff'])(
   'stages a private image for an authorized %s without changing the program',
   async (role) => {
     staff = role === 'staff';
@@ -163,17 +163,20 @@ it.each(['staff', 'admin'])(
   },
 );
 
-it.each(['anonymous', 'student', 'origin'])(
+it.each(['anonymous', 'student', 'admin', 'origin'])(
   'rejects %s upload before storing bytes',
   async (reason) => {
     authenticated = reason !== 'anonymous';
-    staff = reason !== 'student';
+    staff = reason !== 'student' && reason !== 'admin';
+    admin = reason === 'admin';
     originAllowed = reason !== 'origin';
     const response = await fetch(`${baseUrl}/program-authoring/cover-uploads`, {
       method: 'POST',
       body: body(),
     });
-    expect(response.status).toBe(reason === 'student' ? 409 : 403);
+    expect(response.status).toBe(
+      reason === 'student' || reason === 'admin' ? 409 : 403,
+    );
     expect(pending).not.toHaveBeenCalled();
     expect(put).not.toHaveBeenCalled();
   },

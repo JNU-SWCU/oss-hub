@@ -891,7 +891,7 @@ export class ApplicationsService {
       applicant: {
         id: row.applicant.id,
         nickname: row.applicant.nickname,
-        name: row.applicant.profile?.name ?? null,
+        name: row.applicant.name ?? null,
       },
       team,
       answers: parseListAnswers(row.answers),

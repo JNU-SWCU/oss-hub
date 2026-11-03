@@ -7,6 +7,7 @@ import {
 import { AuditLogService } from './audit-log.service';
 import { ACCESS_AUDIT_EVENT_KINDS } from './audit-log-metadata.config';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { AuditLogReadService } from './audit-log-read.service';
 
 const auditLogMetadataService = new AuditLogMetadataService();
 
@@ -70,7 +71,7 @@ describe('AuditLogService', () => {
     const repository = createRepository();
     const service = new AuditLogService(
       repository,
-      new AuditLogMetadataService(),
+      new AuditLogReadService(new AuditLogMetadataService()),
     );
     const query = {
       actor: 'synthetic-admin',
@@ -91,7 +92,7 @@ describe('AuditLogService', () => {
   it('시작일이 종료일보다 늦으면 400으로 거부한다', async () => {
     const service = new AuditLogService(
       createRepository(),
-      new AuditLogMetadataService(),
+      new AuditLogReadService(new AuditLogMetadataService()),
     );
 
     await expect(
@@ -110,7 +111,7 @@ describe('AuditLogService', () => {
     const repository = createRepository();
     const service = new AuditLogService(
       repository,
-      new AuditLogMetadataService(),
+      new AuditLogReadService(new AuditLogMetadataService()),
     );
     const input: AuditLogRecordInput = {
       actorGithubId: ADMIN_GITHUB_ID,

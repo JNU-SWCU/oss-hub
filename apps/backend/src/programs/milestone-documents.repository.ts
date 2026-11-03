@@ -1,3 +1,4 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
   MilestoneDocumentCollectionReadRepository,
   type MilestoneDocumentReviewRecord,
@@ -34,11 +35,9 @@ import {
 } from './milestone-document-submission.repository';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 
-export interface MilestoneDocumentViewer {
-  readonly id: string;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-}
+export type MilestoneDocumentViewer = Prisma.UserGetPayload<{
+  select: typeof USER_AUTHORITY_SELECT & { id: true; accountStatus: true };
+}> & { readonly hasStaffAccess: boolean; readonly hasAdminAccess: boolean };
 
 export interface MilestoneDocumentContext {
   readonly id: string;
@@ -413,10 +412,18 @@ export class MilestoneDocumentsRepository {
   async findActiveUser(
     githubId: bigint,
   ): Promise<MilestoneDocumentViewer | null> {
-    return this.prisma.user.findFirst({
+    const user = await this.prisma.user.findFirst({
       where: { githubId, accountStatus: AccountStatus.ACTIVE },
-      select: { id: true, hasStaffAccess: true, hasAdminAccess: true },
+      select: { id: true, accountStatus: true, ...USER_AUTHORITY_SELECT },
     });
+    return user === null
+      ? null
+      : {
+          ...user,
+          hasStaffAccess:
+            user.type === 'STAFF' && user.approvalStatus === 'APPROVED',
+          hasAdminAccess: user.admin !== null,
+        };
   }
 
   async findActiveStudentByGithubId(
@@ -715,7 +722,7 @@ export class MilestoneDocumentsRepository {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: application.applicant.profile?.name ?? null,
+      applicantName: application.applicant.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),
@@ -1519,7 +1526,7 @@ export class MilestoneDocumentsRepository {
     return applications.map((application) => ({
       applicationId: application.id,
       teamName: application.team.name,
-      applicantName: application.applicant.profile?.name ?? null,
+      applicantName: application.applicant.name ?? null,
       memberNicknames: application.team.members.map(
         (member) => member.user.nickname,
       ),

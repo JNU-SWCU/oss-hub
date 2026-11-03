@@ -1,8 +1,9 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
@@ -30,6 +31,7 @@ const programEditorService = new ProgramEditorService(
     new SubmissionFileAdmissionService(),
     new ProgramNoticeFetchClient(),
   ),
+  new UserProfileService(),
 );
 
 describe('ProgramEditorService authority', () => {
@@ -51,10 +53,16 @@ describe('ProgramEditorService authority', () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
       id: 'staff-1',
-      hasAdminAccess: false,
-      hasStaffAccess: true,
       accountStatus: AccountStatus.DEACTIVATED,
-      staffAccessRequests: [],
+      type: 'STAFF',
+      approvalStatus: 'APPROVED',
+      name: 'Synthetic user',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: null,
+      departmentType: null,
+      studentId: null,
+      admin: null,
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<
@@ -69,10 +77,16 @@ describe('ProgramEditorService authority', () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
       id: 'staff-1',
-      hasStaffAccess: false,
-      hasAdminAccess: false,
       accountStatus: AccountStatus.ACTIVE,
-      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      name: 'Synthetic user',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: null,
+      departmentType: null,
+      studentId: null,
+      admin: null,
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<
@@ -87,10 +101,16 @@ describe('ProgramEditorService authority', () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findUserAuthorityByGithubId.mockResolvedValue({
       id: 'staff-1',
-      hasStaffAccess: false,
-      hasAdminAccess: false,
       accountStatus: AccountStatus.DEACTIVATED,
-      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      name: 'Synthetic user',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: null,
+      departmentType: null,
+      studentId: null,
+      admin: null,
     });
 
     await expect(service.getProgram(101n, 'program-1')).rejects.toMatchObject<

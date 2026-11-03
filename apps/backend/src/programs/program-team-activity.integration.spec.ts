@@ -1,3 +1,4 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -30,7 +31,7 @@ const service = new ProgramTeamsService(
   ),
   new AuditLogService(
     new AuditLogRepository(prisma),
-    new AuditLogMetadataService(),
+    new AuditLogReadService(new AuditLogMetadataService()),
   ),
   new ProgramTeamDeletionRepository(
     prisma,
@@ -83,7 +84,18 @@ beforeAll(async () => {
   await prisma.user.createMany({
     data: Object.values(people).map((person) => ({
       ...person,
-      hasStaffAccess: person === people.staff,
+      type: person === people.staff ? 'STAFF' : 'STUDENT',
+      approvalStatus:
+        (person === people.staff ? 'STAFF' : 'STUDENT') === 'STAFF'
+          ? person === people.staff
+            ? 'APPROVED'
+            : 'PENDING'
+          : 'NOT_REQUIRED',
+      name: 'Synthetic staff',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      departmentType: 'DEPARTMENT',
     })),
   });
   await prisma.program.create({

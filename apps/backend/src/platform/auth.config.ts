@@ -1,4 +1,4 @@
-import { MemberKind } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { Inject, Injectable } from '@nestjs/common';
 import type { RuntimeConfig } from './runtime-config.config';
 import { RUNTIME_CONFIG } from './runtime-config-instance.config';
@@ -13,7 +13,7 @@ export type InitialAccountSeedMap = ReadonlyMap<bigint, InitialAccountSeed>;
 
 const ENTRY_RE = /^([1-9][0-9]*):(ADMIN|STAFF|STUDENT)$/;
 
-export const INITIAL_ACCOUNT_SEEDS: Record<
+const INITIAL_ACCOUNT_SEEDS: Record<
   'ADMIN' | 'STAFF' | 'STUDENT',
   InitialAccountSeed
 > = {

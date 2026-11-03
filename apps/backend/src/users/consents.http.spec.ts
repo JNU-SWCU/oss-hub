@@ -1,3 +1,4 @@
+import { UserPolicyRepository } from './user-policy.repository';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -7,7 +8,6 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ConsentsController } from './consents.controller';
 import {
-  ConsentsRepository,
   type ConsentRecord,
   type ConsentUser,
 } from './member-onboarding.repository';
@@ -15,9 +15,7 @@ import { ConsentsService } from './consents.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
-
 const authSessionService = new AuthSessionService();
-
 const expectedPolicyVersion = '2026-11-01';
 const allowedOrigin = 'http://frontend.test';
 const syntheticGithubId = 424242n;
@@ -29,7 +27,6 @@ const requiredItems = [
   'ORG_REPOSITORY_TERMS',
 ] as const;
 const sessionSecret = new Uint8Array(32).fill(7);
-
 const findUserByGithubId = jest
   .fn<Promise<ConsentUser | null>, [githubId: bigint]>()
   .mockResolvedValue({
@@ -42,37 +39,31 @@ const findConsent = jest
 const createConsent = jest
   .fn<Promise<ConsentRecord>, [userId: string, policyVersion: string]>()
   .mockResolvedValue({ policyVersion: expectedPolicyVersion, consentedAt });
-
 const repository = {
   findUserByGithubId,
   findConsent,
   createConsent,
 } satisfies Pick<
-  ConsentsRepository,
+  UserPolicyRepository,
   'findUserByGithubId' | 'findConsent' | 'createConsent'
 >;
-
 interface ConsentRequestBody {
   readonly policyVersion: string;
   readonly acceptedItems: readonly string[];
   readonly programId?: string;
 }
-
 interface ProblemExpectation {
   readonly status: number;
   readonly code: string;
   readonly instance: string;
 }
-
 let application: INestApplication | undefined;
 let baseUrl = '';
 let sessionCookie = '';
-
 async function readJson(response: Response): Promise<unknown> {
   const body: unknown = JSON.parse(await response.text());
   return body;
 }
-
 async function postConsent(
   body: ConsentRequestBody,
   origin = allowedOrigin,
@@ -88,7 +79,6 @@ async function postConsent(
     body: JSON.stringify(body),
   });
 }
-
 async function expectProblemDetail(
   response: Response,
   expected: ProblemExpectation,
@@ -107,7 +97,6 @@ async function expectProblemDetail(
   expect(problem).toHaveProperty('title');
   expect(problem).toHaveProperty('detail');
 }
-
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ConsentsController],
@@ -133,10 +122,9 @@ beforeAll(async () => {
           useSecureCookies: false,
         },
       },
-      { provide: ConsentsRepository, useValue: repository },
+      { provide: UserPolicyRepository, useValue: repository },
     ],
   }).compile();
-
   application = moduleRef.createNestApplication();
   application.setGlobalPrefix('api/v1');
   application.useGlobalPipes(
@@ -157,35 +145,29 @@ beforeAll(async () => {
   sessionCookie = `${authSessionService.sessionCookieName(false)}=${token}`;
   process.stdout.write(`issue99_http_listener=${baseUrl}\n`);
 });
-
 beforeEach(() => {
   jest.clearAllMocks();
 });
-
 afterAll(async () => {
   if (application !== undefined) {
     await application.close();
     process.stdout.write('issue99_http_cleanup=app-closed\n');
   }
 });
-
 it('returns 401 AUT_003 ProblemDetail for an unauthenticated GET', async () => {
   const response = await fetch(`${baseUrl}/api/v1/consents/current`, {
     headers: { connection: 'close' },
   });
-
   await expectProblemDetail(response, {
     status: 401,
     code: 'AUT_003',
     instance: '/api/v1/consents/current',
   });
 });
-
 it('returns exact issue-99 metadata and URLs for an authenticated GET', async () => {
   const response = await fetch(`${baseUrl}/api/v1/consents/current`, {
     headers: { connection: 'close', cookie: sessionCookie },
   });
-
   expect(response.status).toBe(200);
   expect(await readJson(response)).toEqual({
     policyVersion: expectedPolicyVersion,
@@ -211,13 +193,11 @@ it('returns exact issue-99 metadata and URLs for an authenticated GET', async ()
     nextUrl: '/onboarding/role',
   });
 });
-
 it('returns 200 and exact issue-99 metadata for a valid POST', async () => {
   const response = await postConsent({
     policyVersion: expectedPolicyVersion,
     acceptedItems: requiredItems,
   });
-
   expect(response.status).toBe(200);
   expect(await readJson(response)).toEqual({
     policyVersion: expectedPolicyVersion,
@@ -226,7 +206,6 @@ it('returns 200 and exact issue-99 metadata for a valid POST', async () => {
   });
   expect(createConsent).toHaveBeenCalledTimes(1);
 });
-
 it.each([
   {
     name: 'returns stale 409 CON_002 before validating accepted items',
@@ -269,10 +248,12 @@ it.each([
   readonly name: string;
   readonly body: ConsentRequestBody;
   readonly origin: string;
-  readonly expected: { readonly status: number; readonly code: string };
+  readonly expected: {
+    readonly status: number;
+    readonly code: string;
+  };
 }[])('$name', async ({ body, origin, expected }) => {
   const response = await postConsent(body, origin);
-
   await expectProblemDetail(response, {
     ...expected,
     instance: '/api/v1/consents',

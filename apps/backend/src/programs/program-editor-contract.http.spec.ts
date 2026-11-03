@@ -166,10 +166,16 @@ beforeEach(() => {
   }
   store.findUserAuthorityByGithubId.mockResolvedValue({
     id: 'staff-1',
-    hasAdminAccess: false,
-    hasStaffAccess: true,
     accountStatus: AccountStatus.ACTIVE,
-    staffAccessRequests: [],
+    type: 'STAFF',
+    approvalStatus: 'APPROVED',
+    name: 'Synthetic user',
+    department: 'Synthetic department',
+    profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    profileUpdatedAt: null,
+    departmentType: null,
+    studentId: null,
+    admin: null,
   });
   store.findEditableProgramForUpdate.mockResolvedValue(editableProgram);
   const editSnapshot = {

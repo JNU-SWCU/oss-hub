@@ -35,7 +35,7 @@ describe('RolesGuard', () => {
 
   it.each([
     ['staff', true, false, true, false],
-    ['admin without staff', false, true, true, true],
+    ['admin without staff', false, true, false, true],
     ['admin with staff', true, true, true, true],
     ['student', false, false, false, false],
   ])(

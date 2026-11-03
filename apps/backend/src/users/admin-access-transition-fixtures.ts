@@ -8,14 +8,12 @@ import {
   type AdminAccessTableDesiredState,
   type AdminAccessTransitionOutcome,
 } from './admin-access-mutation.service';
-
 export type AdminAccessTransitionFixture = {
   readonly name: string;
   readonly current: AdminAccessTableCurrentState;
   readonly desired: AdminAccessTableDesiredState;
   readonly expected: AdminAccessTransitionOutcome;
 };
-
 export const ADMIN_ACCESS_TRANSITION_FIXTURES = [
   {
     name: 'unchanged access without a request is rejected',

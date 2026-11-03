@@ -119,7 +119,7 @@ const actors: readonly Actor[] = [
       hasAdminAccess: true,
       accountStatus: AccountStatus.ACTIVE,
     },
-    allowed: true,
+    allowed: false,
   },
 ];
 
@@ -221,7 +221,10 @@ const listItemSource: ApplicationListSource = {
     applicant: {
       id: 'cuid-synthetic-applicant',
       nickname: 'synthetic-applicant',
-      profile: null,
+      name: null,
+      department: null,
+      type: 'UNSELECTED',
+      profileCreatedAt: null,
     },
     team: { id: 'synthetic-team', name: '합성 팀', _count: { members: 3 } },
     answers: listItem.answers,

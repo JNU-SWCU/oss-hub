@@ -1,12 +1,14 @@
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
-import { authorityFactsFor } from '../users/canonical-user-fixture';
+import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../admin/audit-log.controller';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -114,7 +116,7 @@ export class PublicExposurePersonaHttpHarness {
     } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
     const auditLogService = new AuditLogService(
       new AuditLogRepository(this.prisma),
-      new AuditLogMetadataService(),
+      new AuditLogReadService(new AuditLogMetadataService()),
     );
     const repositoriesRepository = new RepositoriesRepository(
       this.prisma,
@@ -231,27 +233,32 @@ export class PublicExposurePersonaHttpHarness {
         : null;
     return this.prisma.user.create({
       data: {
-        id: `${this.fixtureNamespace}-http-${label}-${this.sequence}`,
-        githubId,
-
-        nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,
-        ...authorityFactsFor(role),
-        accountStatus: 'ACTIVE',
+        ...canonicalUserCreateFromLabel(role, {
+          id: `${this.fixtureNamespace}-http-${label}-${this.sequence}`,
+          githubId,
+          nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,
+          accountStatus: 'ACTIVE',
+        }),
         ...(memberKind === undefined
           ? {}
           : {
-              profile: {
-                create: {
-                  name: canonicalName,
-                  studentId: canonicalStudentId,
-                  department: canonicalDepartment,
-                  memberKind,
-                  affiliationKind:
-                    memberKind === MemberKind.STUDENT
-                      ? AffiliationKind.DEPARTMENT
-                      : AffiliationKind.PROGRAM_OFFICE,
-                  affiliationName: canonicalDepartment,
-                },
+              ...{
+                name: canonicalName,
+                studentId: canonicalStudentId,
+                department: canonicalDepartment,
+                type: memberKind,
+                approvalStatus:
+                  memberKind === MemberKind.STAFF
+                    ? role === 'STAFF'
+                      ? 'APPROVED'
+                      : 'PENDING'
+                    : 'NOT_REQUIRED',
+                departmentType:
+                  memberKind === MemberKind.STUDENT
+                    ? AffiliationKind.DEPARTMENT
+                    : AffiliationKind.PROGRAM_OFFICE,
+                profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+                profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
               },
             }),
       },

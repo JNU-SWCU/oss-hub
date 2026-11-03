@@ -47,6 +47,8 @@ const user: AdminAccessUser = {
   memberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
+  approvalStatus: 'PENDING',
+  approvalRequestId: 'request-1',
   accountStatus: 'ACTIVE',
   isSelf: false,
   isProfileComplete: true,
@@ -61,6 +63,7 @@ const user: AdminAccessUser = {
 
 const detail: AdminAccessUserDetail = {
   ...user,
+  adminGrant: null,
   memberKind: 'STUDENT',
   hasStaffAccess: false,
   hasAdminAccess: false,
@@ -202,6 +205,8 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         ...user,
         name: null,
         role: null,
+        approvalStatus: 'NOT_REQUIRED',
+        approvalRequestId: null,
         pendingRequest: null,
         lastLoginAt: null,
       }),

@@ -1,20 +1,24 @@
-import { AdminAccessRepository } from './admin-access.repository';
-import { type AdminAccessActor } from './admin-access-read.repository';
-import { Inject, Injectable } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import {
-  AffiliationKind,
-  AccountStatus,
-  MemberKind,
   Prisma,
-  StaffAccessRequestStatus,
+  type ApprovalStatus,
+  type AccountStatus,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import { DomainException } from '../platform/error-code.error';
-import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import {
+  MemberKind,
+  AffiliationKind,
+  StaffAccessRequestStatus,
+} from './user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
-
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { DomainException } from '../platform/error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-
+import { AdminAccessRepository } from './admin-access.repository';
+import type { AdminAccessActor } from './admin-access-read.repository';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
+import { USER_APPROVAL_SELECT } from './user-history.config';
+import type { UserHistoryTransaction } from './user-history.repository';
+import { UserTransitionRepository } from './user-transition.repository';
 type MemberKindTargetProfile = {
   readonly name: string;
   readonly studentId: string | null;
@@ -37,8 +41,10 @@ export type MemberKindTargetRecord = {
   readonly githubLogin: string;
   readonly name: string | null;
   readonly selectedMemberKind: MemberKind | null;
+  readonly profileCreatedAt: Date | null;
+  readonly approvalStatus: ApprovalStatus;
+  readonly approvalRequestId: string | null;
   readonly memberKind: MemberKind | null;
-  readonly hasStaffAccess: boolean;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
   readonly profile: MemberKindTargetProfile | null;
@@ -54,24 +60,25 @@ export type MemberKindProfileUpdate = {
   readonly staffNumber?: string | null;
 };
 
-type MemberKindUpdateOutcome = 'updated' | 'studentIdTaken';
+type MemberKindUpdateOutcome =
+  | {
+      readonly kind: 'updated';
+      readonly approvalStatus: ApprovalStatus;
+      readonly approvalRequestId: string | null;
+    }
+  | 'studentIdTaken'
+  | 'conflict';
 
 export interface MemberKindTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly auditLogWriter: UserHistoryTransaction;
   lockActiveAdmins(): Promise<void>;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   findTargetForUpdate(userId: string): Promise<MemberKindTargetRecord | null>;
   updateMemberKind(
-    userId: string,
-    hasStaffAccess: boolean,
-    selectedMemberKind: MemberKind,
+    target: MemberKindTargetRecord,
+    actorId: string,
     profile: MemberKindProfileUpdate,
   ): Promise<MemberKindUpdateOutcome>;
-  insertRevokedRequest(input: {
-    readonly userId: string;
-    readonly actorId: string;
-    readonly decidedAt: Date;
-  }): Promise<{ readonly id: string }>;
 }
 
 export interface MemberKindRepositoryPort {
@@ -80,55 +87,78 @@ export interface MemberKindRepositoryPort {
   ): Promise<T>;
 }
 
-const MEMBER_KIND_TARGET_SELECT = {
+const TARGET_SELECT = {
   id: true,
   githubId: true,
   nickname: true,
-  selectedMemberKind: true,
-  hasStaffAccess: true,
-  hasAdminAccess: true,
   accountStatus: true,
-  profile: {
-    select: {
-      name: true,
-      studentId: true,
-      department: true,
-      staffNumber: true,
-      memberKind: true,
-      affiliationKind: true,
-      affiliationName: true,
-    },
-  },
-  staffAccessRequests: {
-    where: { status: StaffAccessRequestStatus.PENDING },
-    orderBy: [{ createdAt: 'desc' as const }, { id: 'desc' as const }],
-    take: 1,
-    select: { id: true, status: true, createdAt: true },
-  },
+  staffNumber: true,
+  ...USER_AUTHORITY_SELECT,
+  ...USER_APPROVAL_SELECT,
 } as const satisfies Prisma.UserSelect;
-
-type PrismaMemberKindTarget = Prisma.UserGetPayload<{
-  select: typeof MEMBER_KIND_TARGET_SELECT;
-}>;
-
-type LockedRow = Readonly<{ id: string }>;
-
+type TargetRow = Prisma.UserGetPayload<{ select: typeof TARGET_SELECT }>;
 @Injectable()
 export class MemberKindRepository implements MemberKindRepositoryPort {
   constructor(
-    @Inject(PrismaService) private readonly prisma: PrismaService,
-    private readonly adminAccessRepository: AdminAccessRepository,
-    private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
+    private readonly prisma: PrismaService,
+    private readonly access: AdminAccessRepository,
+    private readonly retry: PrismaSerializationRetryRepository,
+    private readonly transitions: UserTransitionRepository,
   ) {}
-
   withTransaction<T>(
     operation: (store: MemberKindTransactionStore) => Promise<T>,
   ): Promise<T> {
-    return this.prismaSerializationRetryRepository.withSerializationRetry(
+    return this.retry.withSerializationRetry(
       () =>
         this.prisma.$transaction(
           (transaction) =>
-            operation(this.memberKindTransactionStore(transaction)),
+            operation({
+              auditLogWriter: transaction,
+              lockActiveAdmins: async () => {
+                await this.access.lockActiveAdminRows(transaction);
+              },
+              findActorByGithubId: (githubId) =>
+                this.access.findAdminActorByGithubId(transaction, githubId),
+              findTargetForUpdate: async (userId) => {
+                await this.transitions.lock(transaction, userId);
+                const user = await transaction.user.findUnique({
+                  where: { id: userId },
+                  select: TARGET_SELECT,
+                });
+                return user ? toTarget(user) : null;
+              },
+              updateMemberKind: async (target, actorId, profile) => {
+                try {
+                  const updated = await this.transitions.changeType(
+                    transaction,
+                    {
+                      userId: target.id,
+                      actorId,
+                      expected: {
+                        type: target.memberKind ?? 'UNSELECTED',
+                        approvalStatus: target.approvalStatus,
+                        approvalRequestId: target.approvalRequestId,
+                      },
+                      profile,
+                    },
+                  );
+                  return updated
+                    ? {
+                        kind: 'updated',
+                        approvalStatus: updated.approvalStatus,
+                        approvalRequestId: updated.approvalRequestId,
+                      }
+                    : 'conflict';
+                } catch (error) {
+                  if (
+                    error instanceof Prisma.PrismaClientKnownRequestError &&
+                    error.code === 'P2002'
+                  )
+                    return 'studentIdTaken';
+                  throw error;
+                }
+              },
+            }),
           { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
         ),
       {
@@ -139,133 +169,47 @@ export class MemberKindRepository implements MemberKindRepositoryPort {
       },
     );
   }
-
-  private memberKindTransactionStore(
-    transaction: Prisma.TransactionClient,
-  ): MemberKindTransactionStore {
-    return {
-      auditLogWriter: transaction,
-      lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
-      findActorByGithubId: this.findActorByGithubIdIn.bind(this, transaction),
-      findTargetForUpdate: this.findTargetForUpdateIn.bind(this, transaction),
-      updateMemberKind: this.updateMemberKindIn.bind(this, transaction),
-      insertRevokedRequest: this.insertRevokedRequestIn.bind(this, transaction),
-    };
-  }
-
-  private async lockActiveAdminsIn(
-    transaction: Prisma.TransactionClient,
-  ): Promise<void> {
-    await this.adminAccessRepository.lockActiveAdminRows(transaction);
-  }
-
-  private findActorByGithubIdIn(
-    transaction: Prisma.TransactionClient,
-    githubId: bigint,
-  ): Promise<AdminAccessActor | null> {
-    return this.adminAccessRepository.findAdminActorByGithubId(
-      transaction,
-      githubId,
-    );
-  }
-
-  private async findTargetForUpdateIn(
-    transaction: Prisma.TransactionClient,
-    userId: string,
-  ): Promise<MemberKindTargetRecord | null> {
-    const userRows = await transaction.$queryRaw<readonly LockedRow[]>(
-      Prisma.sql`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`,
-    );
-    if (userRows.length !== 1) {
-      return null;
-    }
-
-    await transaction.$queryRaw(
-      Prisma.sql`SELECT "userId" FROM "UserProfile" WHERE "userId" = ${userId} FOR UPDATE`,
-    );
-    const user = await transaction.user.findUnique({
-      where: { id: userId },
-      select: MEMBER_KIND_TARGET_SELECT,
-    });
-    return user ? toMemberKindTargetRecord(user) : null;
-  }
-
-  private async updateMemberKindIn(
-    transaction: Prisma.TransactionClient,
-    userId: string,
-    hasStaffAccess: boolean,
-    selectedMemberKind: MemberKind,
-    profile: MemberKindProfileUpdate,
-  ): Promise<MemberKindUpdateOutcome> {
-    try {
-      await transaction.user.update({
-        where: { id: userId },
-        data: { selectedMemberKind, hasStaffAccess },
-      });
-      await transaction.userProfile.update({
-        where: { userId },
-        data: profile,
-      });
-      return 'updated';
-    } catch (error: unknown) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        return 'studentIdTaken';
-      }
-      throw error;
-    }
-  }
-
-  private insertRevokedRequestIn(
-    transaction: Prisma.TransactionClient,
-    input: {
-      readonly userId: string;
-      readonly actorId: string;
-      readonly decidedAt: Date;
-    },
-  ): Promise<{ readonly id: string }> {
-    return this.adminAccessRepository.insertRevokedStaffAccessRequest(
-      transaction,
-      input,
-    );
-  }
 }
-
-function toMemberKindTargetRecord(
-  user: PrismaMemberKindTarget,
-): MemberKindTargetRecord {
-  const profile = user.profile;
-  const memberKind = profile?.memberKind ?? null;
-  const pendingRequest = user.staffAccessRequests[0];
+function toTarget(user: TargetRow): MemberKindTargetRecord {
+  const memberKind = user.type === 'UNSELECTED' ? null : user.type;
+  const profile =
+    user.profileCreatedAt !== null &&
+    user.name !== null &&
+    user.department !== null &&
+    user.departmentType !== null &&
+    memberKind !== null
+      ? {
+          name: user.name,
+          studentId: user.studentId,
+          department: user.department,
+          staffNumber: user.staffNumber,
+          memberKind,
+          affiliationKind: user.departmentType,
+          affiliationName: user.department,
+        }
+      : null;
   return {
     id: user.id,
     githubId: user.githubId,
     githubLogin: user.nickname,
-    name: profile?.name ?? null,
-    selectedMemberKind: user.selectedMemberKind,
+    name: user.name,
+    selectedMemberKind: memberKind,
     memberKind,
-    hasStaffAccess: user.hasStaffAccess,
-    hasAdminAccess: user.hasAdminAccess,
+    hasAdminAccess: user.admin !== null,
     accountStatus: user.accountStatus,
-    profile: profile
-      ? {
-          name: profile.name,
-          studentId: profile.studentId,
-          department: profile.department,
-          staffNumber: profile.staffNumber,
-          memberKind: profile.memberKind,
-          affiliationKind: profile.affiliationKind,
-          affiliationName: profile.affiliationName,
-        }
-      : null,
-    pendingRequest: pendingRequest
-      ? {
-          id: pendingRequest.id,
-          status: StaffAccessRequestStatus.PENDING,
-          createdAt: pendingRequest.createdAt,
-        }
-      : null,
+    profile,
+    profileCreatedAt: user.profileCreatedAt,
+    approvalStatus: user.approvalStatus,
+    approvalRequestId: user.approvalRequestId,
+    pendingRequest:
+      user.approvalStatus === 'PENDING' &&
+      user.approvalRequestId !== null &&
+      user.approvalRequestedAt !== null
+        ? {
+            id: user.approvalRequestId,
+            status: 'PENDING',
+            createdAt: user.approvalRequestedAt,
+          }
+        : null,
   };
 }

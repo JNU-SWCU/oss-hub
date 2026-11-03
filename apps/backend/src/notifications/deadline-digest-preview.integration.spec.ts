@@ -122,7 +122,10 @@ it('renders, confirms, and sends separate escaped guidance through the real HTTP
   const response = await post('send', preview);
 
   expect(response.status).toBe(201);
-  expect(sender.sent).toHaveLength(3);
+  expect(sender.sent.map((mail) => mail.to).sort()).toEqual([
+    'staff-on@example.com',
+    'student-missing@example.com',
+  ]);
   const student = sender.sent.find(
     (mail) => mail.to === 'student-missing@example.com',
   );
@@ -218,7 +221,10 @@ it('retains same-day deduplication across automatic and guided manual sends', as
   expect(first.status).toBe(201);
   expect(await first.json()).toMatchObject({ sentCount: 0, duplicateCount: 1 });
   expect(repeated.status).toBe(201);
-  expect(sender.sent).toHaveLength(3);
+  expect(sender.sent.map((mail) => mail.to).sort()).toEqual([
+    'staff-on@example.com',
+    'student-missing@example.com',
+  ]);
   expect(
     sender.sent.filter((mail) => mail.to === 'student-missing@example.com'),
   ).toHaveLength(1);

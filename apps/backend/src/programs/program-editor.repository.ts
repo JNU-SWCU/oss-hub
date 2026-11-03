@@ -1,3 +1,4 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
   ProgramCoverRepository,
   type ProgramCoverChange,
@@ -5,10 +6,8 @@ import {
 import { Injectable } from '@nestjs/common';
 import {
   MilestoneDocumentKind,
-  StaffAccessRequestStatus,
   SubmissionFileLifecycle,
   type Prisma as PrismaTypes,
-  type AccountStatus,
   type MilestoneSubmissionType,
   type ProgramTrackType,
   type ProgramLifecycle,
@@ -27,15 +26,9 @@ import {
 import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
 
-export type ProgramAuthority = {
-  readonly id: string;
-  readonly hasStaffAccess: boolean;
-  readonly hasAdminAccess: boolean;
-  readonly accountStatus: AccountStatus;
-  readonly staffAccessRequests: readonly {
-    readonly status: StaffAccessRequestStatus;
-  }[];
-};
+export type ProgramAuthority = PrismaTypes.UserGetPayload<{
+  select: typeof USER_AUTHORITY_SELECT & { id: true; accountStatus: true };
+}>;
 
 export type ProgramMilestoneView = {
   readonly id: string;
@@ -313,14 +306,8 @@ export class ProgramEditorRepository {
       where: { githubId },
       select: {
         id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
+        ...USER_AUTHORITY_SELECT,
         accountStatus: true,
-        staffAccessRequests: {
-          where: { status: StaffAccessRequestStatus.PENDING },
-          select: { status: true },
-          take: 1,
-        },
       },
     });
   }

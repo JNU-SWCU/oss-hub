@@ -1,17 +1,24 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import {
+  userAuditRows,
+  writeApprovalFixture,
+  requestHistory,
+} from './user-history.integration-fixture';
+
+import { flatProfileFixture } from './canonical-user-fixture';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+import {
+  AffiliationKind,
+  MemberKind,
+  StaffAccessRequestStatus,
+} from './user-contract.config';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
-import {
-  AccountStatus,
-  AffiliationKind,
-  MemberKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { RolesErrorCode } from './roles-error-code.error';
 import { FailingDecisionAdminAccessRepository } from './admin-access.integration-support';
@@ -21,38 +28,22 @@ import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 let sequence = 0;
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
-afterAll(async () => {
-  await prisma.$transaction([
-    prisma.userProfile.deleteMany({
-      where: { userId: { startsWith: 'test:pr03:admin-access-rollback:' } },
-    }),
-    prisma.user.updateMany({
-      where: { id: { startsWith: 'test:pr03:admin-access-rollback:' } },
-      data: { hasAdminAccess: false, hasStaffAccess: false },
-    }),
-  ]);
-  await prisma.$disconnect();
-});
-
+afterAll(() => prisma.$disconnect());
 it('rolls back the user CAS when the pending-request CAS fails second', async () => {
   const actor = await createUser('ADMIN', 'actor');
   const target = await createUser(null, 'target');
   const profile = {
     name: '합성 롤백 대상',
-    studentId: `${810_000 + sequence}`,
+    studentId: `${810000 + sequence}`,
     department: '소프트웨어공학과',
     memberKind: MemberKind.STUDENT,
     affiliationKind: AffiliationKind.DEPARTMENT,
@@ -60,31 +51,31 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
   };
   await prisma.user.update({
     where: { id: target.id },
-    data: { profile: { create: profile } },
+    data: {
+      ...flatProfileFixture(profile),
+      profileCreatedAt: new Date(),
+      profileUpdatedAt: new Date(),
+    },
   });
-  const request = await prisma.staffAccessRequest.create({
-    data: { id: `${target.id}:request`, userId: target.id },
+  const request = await writeApprovalFixture(prisma, {
+    id: `${target.id}:request`,
+    userId: target.id,
   });
   const realRepository = new AdminAccessRepository(
     prisma,
     new AdminAccessHistoryRepository(),
-    new AdminAccessReadRepository(
-      new AdminAccessReadOrderingRepository(),
-      new PlatformRepository(),
-    ),
+    new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+    new AdminRepository(prisma),
+    new UserTransitionRepository(),
   );
   const service = new AdminAccessService(
     new FailingDecisionAdminAccessRepository(realRepository),
-    new AuditLogService(
-      new AuditLogRepository(prisma),
-      new AuditLogMetadataService(),
-    ),
+    new UserHistoryRepository(new UserTransitionRepository()),
     new AdminAccessMutationService(
       new AuditLogMetadataService(),
       new UserProfileService(),
     ),
   );
-
   await expect(
     service.patchAccess(actor.githubId, target.id, {
       expectedRole: null,
@@ -103,23 +94,31 @@ it('rolls back the user CAS when the pending-request CAS fails second', async ()
     errorCode: { code: RolesErrorCode.ACCESS_STATE_MISMATCH, status: 409 },
   });
   await expect(
-    prisma.user.findUniqueOrThrow({ where: { id: target.id } }),
+    prisma.user.findUniqueOrThrow({
+      include: { admin: true },
+      where: { id: target.id },
+    }),
   ).resolves.toMatchObject({
-    hasStaffAccess: false,
-    hasAdminAccess: false,
+    approvalStatus: 'PENDING',
+    admin: null,
     accountStatus: AccountStatus.ACTIVE,
   });
   await expect(
-    prisma.staffAccessRequest.findUniqueOrThrow({ where: { id: request.id } }),
+    requestHistory(prisma)
+      .then((rows) => rows.filter((row) => row.id === request.id))
+      .then((rows) => {
+        const row = rows[0];
+        if (!row) throw new TypeError('Expected request history fixture');
+        return row;
+      }),
   ).resolves.toMatchObject({
     status: StaffAccessRequestStatus.PENDING,
     decidedById: null,
   });
   await expect(
-    prisma.auditLog.count({ where: { targetId: request.id } }),
+    userAuditRows(prisma, { targetId: request.id }).then((rows) => rows.length),
   ).resolves.toBe(0);
 });
-
 async function createUser(
   role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
   label: string,
@@ -128,7 +127,7 @@ async function createUser(
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {
       id: `test:pr03:admin-access-rollback:${label}:${sequence}`,
-      githubId: 9_003_700_000n + BigInt(sequence),
+      githubId: 9003700000n + BigInt(sequence),
       nickname: `synthetic-${label}-${sequence}`,
     }),
     select: { id: true, githubId: true },

@@ -100,6 +100,11 @@ describe('ProgramOverviewService', () => {
             hasAdminAccess: true,
             hasStaffAccess: false,
             memberKind: 'STUDENT',
+            accountStatus: 'ACTIVE',
+            name: 'Synthetic viewer',
+            department: 'Synthetic department',
+            studentId: '123456',
+            profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           }),
           findApprovedViewerApplicationId: jest
             .fn()
@@ -123,10 +128,8 @@ describe('ProgramOverviewService', () => {
           repository,
           new UserProfileService(),
         ).getOverview(syntheticProgramId, syntheticGithubId, operationsView);
-        expect(result.viewer.role).toBe(operationsView ? 'ADMIN' : 'STUDENT');
-        expect(result.viewer.myDocumentsCompleted).toBe(
-          operationsView ? null : 1,
-        );
+        expect(result.viewer.role).toBe('STUDENT');
+        expect(result.viewer.myDocumentsCompleted).toBe(1);
       },
     );
 
@@ -153,6 +156,11 @@ describe('ProgramOverviewService', () => {
         memberKind: 'STUDENT',
         hasStaffAccess: false,
         hasAdminAccess: false,
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       });
       const findCurrentSubmissionMilestone = jest
         .fn()
@@ -223,6 +231,11 @@ describe('ProgramOverviewService', () => {
         memberKind: 'STUDENT',
         hasStaffAccess: false,
         hasAdminAccess: false,
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       });
       const findCurrentSubmissionMilestone = jest
         .fn()
@@ -282,6 +295,11 @@ describe('ProgramOverviewService', () => {
         memberKind: 'STUDENT',
         hasStaffAccess: false,
         hasAdminAccess: false,
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       });
       const findCurrentSubmissionMilestone = jest.fn().mockResolvedValue(null);
       const findViewerApplicationId = jest.fn();
@@ -323,6 +341,11 @@ describe('ProgramOverviewService', () => {
         memberKind: 'STAFF',
         hasStaffAccess: true,
         hasAdminAccess: false,
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       });
       const findCurrentSubmissionMilestone = jest
         .fn()
@@ -386,13 +409,18 @@ describe('ProgramOverviewService', () => {
       });
     });
 
-    it('ADMIN도 교직원과 같은 제출률·분해 경로를 탄다', async () => {
+    it('ADMIN 단독 자격으로 교직원 제출률을 읽지 못한다', async () => {
       const findByProgramId = jest.fn().mockResolvedValue(baseOverview);
       const findViewerIdentity = jest.fn().mockResolvedValue({
         userId: syntheticUserId,
         memberKind: null,
         hasStaffAccess: false,
         hasAdminAccess: true,
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       });
       const findCurrentSubmissionMilestone = jest
         .fn()
@@ -426,22 +454,10 @@ describe('ProgramOverviewService', () => {
         syntheticGithubId,
       );
 
-      expect(result.viewer.role).toBe('ADMIN');
-      expect(result.viewer.fullySubmittedParticipantCount).toBe(10);
-      expect(result.viewer.milestoneDocuments).toEqual([
-        {
-          milestoneId: currentMilestone.milestoneId,
-          title: 'seed-program-overview-milestone-3',
-          completed: 9,
-          total: 47,
-        },
-        {
-          milestoneId: 'cuid-synthetic-milestone-4',
-          title: 'seed-program-overview-milestone-4',
-          completed: 0,
-          total: 47,
-        },
-      ]);
+      expect(result.viewer.role).toBeNull();
+      expect(result.viewer.fullySubmittedParticipantCount).toBeNull();
+      expect(result.viewer.milestoneDocuments).toEqual([]);
+      expect(findMilestoneDocumentCatalog).not.toHaveBeenCalled();
     });
 
     it('역할이 확정되지 않은 뷰어는 viewer 수치가 전부 null/빈 배열이다', async () => {
@@ -451,6 +467,11 @@ describe('ProgramOverviewService', () => {
         memberKind: null,
         hasStaffAccess: false,
         hasAdminAccess: false,
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
       });
       const findCurrentSubmissionMilestone = jest.fn();
       const findMilestoneSchedules = jest.fn().mockResolvedValue([]);
@@ -501,6 +522,11 @@ describe('ProgramOverviewService', () => {
             memberKind: null,
             hasStaffAccess: false,
             hasAdminAccess: false,
+            accountStatus: 'ACTIVE',
+            name: 'Synthetic viewer',
+            department: 'Synthetic department',
+            studentId: '123456',
+            profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
           }),
           findMilestoneSchedules: jest.fn().mockResolvedValue(schedules),
         } as unknown as ProgramOverviewRepository;

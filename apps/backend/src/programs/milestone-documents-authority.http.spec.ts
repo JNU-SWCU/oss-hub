@@ -38,7 +38,7 @@ const actors = [
   ['student', 1n, false, false, AccountStatus.ACTIVE, 403],
   ['inactive staff', 2n, true, false, AccountStatus.DEACTIVATED, 403],
   ['staff', 3n, true, false, AccountStatus.ACTIVE, 200],
-  ['admin', 4n, false, true, AccountStatus.ACTIVE, 200],
+  ['admin', 4n, false, true, AccountStatus.ACTIVE, 403],
 ] as const;
 const routes = [
   [
@@ -179,7 +179,7 @@ it.each(actors)(
           detail:
             expectedStatus === 401
               ? '로그인이 필요합니다.'
-              : '승인된 교직원 또는 관리자만 사용할 수 있습니다.',
+              : '승인된 교직원만 사용할 수 있습니다.',
           instance: `/api/v1/milestones/milestone/documents${path}`,
           code: expectedStatus === 401 ? 'AUT_003' : 'MSD_001',
         });

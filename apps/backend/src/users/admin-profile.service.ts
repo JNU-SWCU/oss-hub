@@ -1,6 +1,6 @@
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { Inject, Injectable } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import { UserHistoryRepository } from './user-history.repository';
 import {
   AdminProfileMutationService,
   type AdminProfileUpdateCommand,
@@ -16,7 +16,8 @@ export class AdminProfileService {
   constructor(
     @Inject(AdminProfileRepository)
     private readonly profileRepository: AdminProfileRepositoryPort,
-    private readonly auditLog: AuditLogService,
+    @Inject(UserHistoryRepository)
+    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
     private readonly adminProfileMutationService: AdminProfileMutationService,
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}

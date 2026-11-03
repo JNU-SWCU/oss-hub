@@ -1,3 +1,4 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -137,7 +138,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
         findMany: jest.fn().mockResolvedValue([
           {
             id: syntheticApplicationId,
-            applicant: { profile: { name: '합성 신청자' } },
+            applicant: { name: '합성 신청자' },
             team: { name: '가나다팀', members: [] },
           },
         ]),
@@ -301,7 +302,7 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
 
     expect(findFirst).toHaveBeenCalledWith({
       where: { githubId: 9001n, accountStatus: AccountStatus.ACTIVE },
-      select: { id: true, hasStaffAccess: true, hasAdminAccess: true },
+      select: { id: true, accountStatus: true, ...USER_AUTHORITY_SELECT },
     });
   });
 });
@@ -326,7 +327,7 @@ describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
       where: {
         githubId: 9001n,
         accountStatus: AccountStatus.ACTIVE,
-        profile: { is: { memberKind: 'STUDENT' } },
+        type: 'STUDENT',
       },
       select: { id: true },
     });
@@ -1794,7 +1795,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         id: syntheticApplicationId,
-        applicant: { profile: { name: '합성 신청자' } },
+        applicant: { name: '합성 신청자' },
         team: {
           name: '가나다팀',
           members: [
@@ -1860,7 +1861,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         id: syntheticApplicationId,
-        applicant: { name: '옛 이름', profile: { name: '프로필 이름' } },
+        applicant: { name: '프로필 이름' },
         team: { name: '가나다팀', members: [] },
       },
     ]);

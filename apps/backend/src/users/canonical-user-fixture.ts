@@ -1,10 +1,5 @@
-import {
-  AccountStatus,
-  AffiliationKind,
-  MemberKind,
-  type Prisma,
-} from '@prisma/client';
-
+import { AffiliationKind, MemberKind } from './user-contract.config';
+import { AccountStatus, type Prisma } from '@prisma/client';
 export type CanonicalUserFixture = {
   readonly id: string;
   readonly githubId: bigint;
@@ -17,10 +12,8 @@ export type CanonicalUserFixture = {
   readonly studentId?: string | null;
   readonly department?: string;
 };
-
 const DEFAULT_STUDENT_DEPARTMENT = '합성 학과';
 const DEFAULT_STAFF_DEPARTMENT = '합성 사업단';
-
 export function canonicalUserCreate(
   fixture: CanonicalUserFixture,
 ): Prisma.UserCreateInput {
@@ -30,44 +23,41 @@ export function canonicalUserCreate(
     githubId: fixture.githubId,
     nickname: fixture.nickname,
     accountStatus: fixture.accountStatus ?? AccountStatus.ACTIVE,
-    selectedMemberKind: fixture.memberKind === null ? null : memberKind,
-    hasStaffAccess: fixture.hasStaffAccess ?? false,
-    hasAdminAccess: fixture.hasAdminAccess ?? false,
+    type: fixture.memberKind === null ? 'UNSELECTED' : memberKind,
+    approvalStatus:
+      fixture.memberKind === null || memberKind === 'STUDENT'
+        ? 'NOT_REQUIRED'
+        : fixture.hasStaffAccess
+          ? 'APPROVED'
+          : 'PENDING',
+    ...(fixture.hasAdminAccess
+      ? { admin: { create: { origin: 'BOOTSTRAP' as const } } }
+      : {}),
   } satisfies Prisma.UserCreateInput;
-
   if (fixture.memberKind === null) {
     return base;
   }
-
   const isStudent = memberKind === MemberKind.STUDENT;
   const department =
     fixture.department ??
     (isStudent ? DEFAULT_STUDENT_DEPARTMENT : DEFAULT_STAFF_DEPARTMENT);
   return {
     ...base,
-    profile: {
-      create: {
-        name: fixture.name ?? `합성 ${fixture.nickname}`,
-
-        studentId: isStudent
-          ? (fixture.studentId ?? syntheticStudentId(fixture.githubId))
-          : null,
-        department,
-        memberKind,
-        affiliationKind: isStudent
-          ? AffiliationKind.DEPARTMENT
-          : AffiliationKind.PROGRAM_OFFICE,
-
-        affiliationName: department,
-      },
-    },
+    profileCreatedAt: new Date(),
+    profileUpdatedAt: new Date(),
+    name: fixture.name ?? `합성 ${fixture.nickname}`,
+    studentId: isStudent
+      ? (fixture.studentId ?? syntheticStudentId(fixture.githubId))
+      : null,
+    department,
+    departmentType: isStudent
+      ? AffiliationKind.DEPARTMENT
+      : AffiliationKind.PROGRAM_OFFICE,
   };
 }
-
 function syntheticStudentId(githubId: bigint): string {
-  return String(githubId % 10_000_000_000n).padStart(6, '0');
+  return String(githubId % 10000000000n).padStart(6, '0');
 }
-
 export function canonicalUserCreateFromLabel(
   label: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
   fixture: Omit<
@@ -83,7 +73,6 @@ export function canonicalUserCreateFromLabel(
     hasAdminAccess: facts.hasAdminAccess,
   });
 }
-
 export function authorityFactsFor(
   label: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
 ): {
@@ -117,4 +106,26 @@ export function authorityFactsFor(
         hasAdminAccess: false,
       };
   }
+}
+
+export function flatProfileFixture(profile: {
+  readonly name: string;
+  readonly studentId: string | null;
+  readonly department: string;
+  readonly memberKind: MemberKind;
+  readonly affiliationKind: AffiliationKind;
+  readonly staffNumber?: string | null;
+}) {
+  return {
+    name: profile.name,
+    studentId: profile.studentId,
+    department: profile.department,
+    type: profile.memberKind,
+    departmentType: profile.affiliationKind,
+    ...(profile.staffNumber === undefined
+      ? {}
+      : { staffNumber: profile.staffNumber }),
+    profileCreatedAt: new Date(),
+    profileUpdatedAt: new Date(),
+  };
 }

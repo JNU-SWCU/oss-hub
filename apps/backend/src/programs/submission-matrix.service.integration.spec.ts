@@ -1,13 +1,12 @@
+import { ApprovalStatus, DepartmentType, UserType } from '@prisma/client';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
-  AffiliationKind,
   ApplicationStatus,
-  MemberKind,
-  StaffAccessRequestStatus,
   SubmissionStatus,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
   prisma as seedPrisma,
@@ -90,70 +89,87 @@ describe('SubmissionMatrixService integration', () => {
   beforeAll(async () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
     await runProfile('milestones', new SeedStats());
-    await prisma.user.createMany({
-      data: [
+    await Promise.all(
+      [
         {
           id: STAFF_VIEWER_ID,
           githubId: seedGithubId(STAFF_VIEWER_ID),
           nickname: STAFF_VIEWER_ID,
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
+          type: MemberKind.STAFF,
+          approvalStatus: ApprovalStatus.APPROVED,
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: DepartmentType.DEPARTMENT,
         },
         {
           id: ADMIN_VIEWER_ID,
           githubId: seedGithubId(ADMIN_VIEWER_ID),
           nickname: ADMIN_VIEWER_ID,
-          hasAdminAccess: true,
+          ...{ admin: { create: { origin: 'MIGRATION' as const } } },
         },
         {
           id: STUDENT_VIEWER_ID,
           githubId: seedGithubId(STUDENT_VIEWER_ID),
           nickname: STUDENT_VIEWER_ID,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: ApprovalStatus.NOT_REQUIRED,
         },
         {
           id: PENDING_STAFF_ID,
           githubId: seedGithubId(PENDING_STAFF_ID),
           nickname: PENDING_STAFF_ID,
-          selectedMemberKind: null,
+          type: UserType.UNSELECTED,
+          approvalStatus: ApprovalStatus.NOT_REQUIRED,
         },
         {
           id: DEACTIVATED_STAFF_ID,
           githubId: seedGithubId(DEACTIVATED_STAFF_ID),
           nickname: DEACTIVATED_STAFF_ID,
-          selectedMemberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
           accountStatus: AccountStatus.DEACTIVATED,
+          type: MemberKind.STAFF,
+          approvalStatus: ApprovalStatus.APPROVED,
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: DepartmentType.DEPARTMENT,
         },
         {
           id: ROWHOLDER_ID,
           githubId: seedGithubId(ROWHOLDER_ID),
           nickname: ROWHOLDER_ID,
-          selectedMemberKind: MemberKind.STUDENT,
+          type: MemberKind.STUDENT,
+          approvalStatus: ApprovalStatus.NOT_REQUIRED,
         },
-      ],
-      skipDuplicates: true,
-    });
-    await prisma.userProfile.upsert({
-      where: { userId: ROWHOLDER_ID },
-      update: {},
-      create: {
-        userId: ROWHOLDER_ID,
+      ].map((data) =>
+        prisma.user.upsert({
+          where: { id: data.id },
+          update: {},
+          create: data,
+        }),
+      ),
+    );
+    await prisma.user.update({
+      where: { id: ROWHOLDER_ID },
+      data: {
         name: 'Synthetic Nameholder',
         studentId: '261097',
         department: '합성 학과',
-        memberKind: MemberKind.STUDENT,
-        affiliationKind: AffiliationKind.DEPARTMENT,
-        affiliationName: '합성 학과',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
-    await prisma.staffAccessRequest.upsert({
-      where: { id: PENDING_REQUEST_ID },
-      update: { status: StaffAccessRequestStatus.PENDING },
-      create: {
-        id: PENDING_REQUEST_ID,
-        userId: PENDING_STAFF_ID,
-        status: StaffAccessRequestStatus.PENDING,
+    await prisma.user.update({
+      where: { id: PENDING_STAFF_ID },
+      data: {
+        type: UserType.STAFF,
+        approvalStatus: ApprovalStatus.PENDING,
+        approvalRequestId: PENDING_REQUEST_ID,
+        approvalRequestedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
     const unsubmittedTeamId = `${UNSUBMITTED_APPLICATION_ID}-team`;
@@ -208,9 +224,7 @@ describe('SubmissionMatrixService integration', () => {
     await prisma.team.deleteMany({
       where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },
     });
-    await prisma.staffAccessRequest.deleteMany({
-      where: { id: PENDING_REQUEST_ID },
-    });
+    await prisma.admin.deleteMany({ where: { userId: ADMIN_VIEWER_ID } });
     await prisma.user.deleteMany({
       where: {
         id: {

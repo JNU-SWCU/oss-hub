@@ -1,4 +1,5 @@
-import { AccountStatus, AffiliationKind, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { CollectionUserActivityRepository } from '../github/repository-provision-job.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -56,17 +57,14 @@ beforeAll(async () => {
         githubId: member.githubId,
         nickname: member.githubLogin,
         accountStatus: AccountStatus.ACTIVE,
-        selectedMemberKind: MemberKind.STUDENT,
-        profile: {
-          create: {
-            name: '합성',
-            studentId: member.githubId.toString(),
-            department: PREFIX,
-            memberKind: MemberKind.STUDENT,
-            affiliationKind: AffiliationKind.DEPARTMENT,
-            affiliationName: PREFIX,
-          },
-        },
+        name: '합성',
+        studentId: member.githubId.toString(),
+        department: PREFIX,
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
   }

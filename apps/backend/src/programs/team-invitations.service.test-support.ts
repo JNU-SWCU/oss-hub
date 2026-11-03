@@ -1,4 +1,6 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { UserProfileService } from '../users/user-profile.service';
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { TeamInvitationStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
@@ -79,7 +81,7 @@ export function buildService(
     findStaffAuthority: jest.fn().mockResolvedValue(null),
     findInviteeAccount: jest.fn().mockResolvedValue({
       accountStatus: AccountStatus.ACTIVE,
-      profile: { memberKind: MemberKind.STUDENT },
+      type: MemberKind.STUDENT,
     }),
     searchCandidates: jest.fn().mockResolvedValue([]),
     createInvitation: jest
@@ -123,6 +125,7 @@ export function buildService(
       repository,
       resolvedAuditLog as AuditLogService,
       new AuditLogMetadataService(),
+      new UserProfileService(),
     ),
     repository,
     auditLog: resolvedAuditLog,

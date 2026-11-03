@@ -1,6 +1,5 @@
 import {
   ApplicationStatus,
-  MemberKind,
   OutboxEventStatus,
   ProgramCategory,
   RepositoryConnectionMode,
@@ -9,6 +8,7 @@ import {
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
@@ -58,7 +58,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
         id: APPLICANT_ID,
         githubId: 8_200_000_000_001n,
         nickname: 'synthetic-provision-job-applicant',
-        selectedMemberKind: MemberKind.STUDENT,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
   });

@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
@@ -41,6 +42,7 @@ const legacyService = new MilestoneDocumentsService(
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
   new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new UserProfileService(),
 );
 const query = { filter: 'ALL', page: 1, pageSize: 20 } as const;
 const late = new Date(fixture.dueSoon.getTime() + 1);

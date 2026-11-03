@@ -21,6 +21,11 @@ async function completedTeamsByMilestone(
       memberKind: 'STAFF',
       hasStaffAccess: true,
       hasAdminAccess: false,
+      accountStatus: 'ACTIVE',
+      name: 'Synthetic viewer',
+      department: 'Synthetic department',
+      studentId: '123456',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
     }),
     findCurrentSubmissionMilestone: jest.fn().mockResolvedValue({
       milestoneId: 'synthetic-current',

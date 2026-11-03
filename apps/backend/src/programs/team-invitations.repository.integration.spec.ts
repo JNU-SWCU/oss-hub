@@ -50,9 +50,7 @@ async function cleanup(): Promise<void> {
   });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
-  await prisma.userProfile.deleteMany({
-    where: { userId: { startsWith: TEST_PREFIX } },
-  });
+
   await prisma.user.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });

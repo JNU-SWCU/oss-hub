@@ -1,141 +1,71 @@
-import { AccountStatus, StaffAccessRequestStatus } from '@prisma/client';
-import { Logger } from '@nestjs/common';
 import {
-  buildAuthConfig,
   buildProfile,
   buildRepository,
   buildRow,
   upsertUser,
 } from './auth.repository.spec-support';
-import { INITIAL_ACCOUNT_SEEDS } from '../platform/auth.config';
 
-describe('AuthRepository.upsertUser', () => {
-  it('미설정 시 부팅 가능한 빈 설정은 역할 시드를 적용하지 않는다', async () => {
-    const config = buildAuthConfig();
-    const { repository, updateMany } = buildRepository(buildRow(), null);
-
-    expect(config.resolveInitialRole(424_242n)).toBeNull();
-    const result = await upsertUser(repository, buildProfile());
-
-    expect(result.user.memberKind).toBeNull();
-    expect(updateMany).not.toHaveBeenCalled();
-  });
-  it('환경에 설정된 초기 역할을 githubId로 조회한다', () => {
-    const config = buildAuthConfig({
-      AUTH_INITIAL_ROLES: '424242:STAFF',
-    });
-
-    expect(config.resolveInitialRole(424_242n)).toEqual({
-      memberKind: 'STAFF',
-      hasStaffAccess: true,
-      hasAdminAccess: false,
-    });
-  });
-
-  it('이미 확정된 사실이 있는 계정은 초기 시드와 무관하게 유지한다', async () => {
-    const { repository, updateMany } = buildRepository(
-      buildRow({ hasStaffAccess: true }),
-      INITIAL_ACCOUNT_SEEDS.ADMIN,
-    );
-
-    const result = await upsertUser(repository, buildProfile());
-
-    expect(result.user.hasAdminAccess).toBe(false);
-    expect(updateMany).not.toHaveBeenCalled();
-  });
-
-  it('확정된 사실이 없는 활성 계정만 조건부 갱신으로 초기 시드를 적용한다', async () => {
-    const { repository, updateMany } = buildRepository(
+describe('AuthRepository OAuth account synchronization', () => {
+  it('records a new signup without selecting a type or granting authority', async () => {
+    const { repository, historyCreate, adminCreate } = buildRepository(
       buildRow(),
-      INITIAL_ACCOUNT_SEEDS.ADMIN,
+      { isNew: true },
     );
-    const transactionResult = repository.withTransaction(async (store) => {
-      const result = await store.upsertUser(buildProfile());
-      return result;
-    });
-    await transactionResult;
-
-    expect(updateMany).toHaveBeenCalledWith({
-      where: {
-        id: 'cuid-synthetic',
-        accountStatus: AccountStatus.ACTIVE,
-        hasStaffAccess: false,
+    const result = await upsertUser(repository, buildProfile());
+    expect(result).toMatchObject({
+      isNew: true,
+      user: {
+        memberKind: null,
+        approvalStatus: 'NOT_REQUIRED',
         hasAdminAccess: false,
-        profile: { is: null },
-        staffAccessRequests: {
-          none: { status: StaffAccessRequestStatus.REVOKED },
-        },
-      },
-      data: {
-        selectedMemberKind: null,
-        hasStaffAccess: false,
-        hasAdminAccess: true,
       },
     });
-  });
-
-  it('회수 이력이 있는 계정은 조건부 갱신에서 제외한다', async () => {
-    const { repository, updateMany } = buildRepository(
-      buildRow(),
-      INITIAL_ACCOUNT_SEEDS.STAFF,
-    );
-
-    await upsertUser(repository, buildProfile());
-
-    const promoteArgs = updateMany.mock.calls[0]?.[0];
-    expect(promoteArgs?.where).toMatchObject({
-      staffAccessRequests: {
-        none: { status: StaffAccessRequestStatus.REVOKED },
-      },
+    const signupData: unknown = expect.objectContaining({
+      userId: 'cuid-synthetic',
+      event: 'SIGNED_UP',
+      source: 'APPLICATION',
     });
+    expect(historyCreate).toHaveBeenCalledWith({ data: signupData });
+    expect(adminCreate).not.toHaveBeenCalled();
   });
-
-  it('회수된 계정이라 시드가 적용되지 않은 것은 경고가 아니라 debug로 남긴다', async () => {
-    const warn = jest
-      .spyOn(Logger.prototype, 'warn')
-      .mockImplementation(() => undefined);
-    const debug = jest
-      .spyOn(Logger.prototype, 'debug')
-      .mockImplementation(() => undefined);
-    const { repository } = buildRepository(
-      buildRow(),
-      INITIAL_ACCOUNT_SEEDS.STAFF,
-      {
-        casCount: 0,
-        revokedRequest: { id: 'revoked-request' },
-      },
+  it('updates GitHub metadata without replacing the locally supplied name', async () => {
+    const { repository, historyCreate } = buildRepository(
+      buildRow({ name: 'Local name', type: 'STUDENT' }),
     );
-
-    await upsertUser(repository, buildProfile());
-
-    expect(debug).toHaveBeenCalledWith(expect.stringContaining('회수된 계정'));
-    expect(warn).not.toHaveBeenCalled();
-    warn.mockRestore();
-    debug.mockRestore();
+    const result = await upsertUser(
+      repository,
+      buildProfile({ name: 'GitHub name', login: 'new-login' }),
+    );
+    expect(result.user).toMatchObject({
+      name: 'Local name',
+      nickname: 'new-login',
+      memberKind: 'STUDENT',
+    });
+    expect(historyCreate).not.toHaveBeenCalled();
   });
-
-  it('회수 이력 없이 시드가 적용되지 않은 것은 CAS 경합이라 경고로 남긴다', async () => {
-    const warn = jest
-      .spyOn(Logger.prototype, 'warn')
-      .mockImplementation(() => undefined);
-    const debug = jest
-      .spyOn(Logger.prototype, 'debug')
-      .mockImplementation(() => undefined);
-    const { repository } = buildRepository(
-      buildRow(),
-      INITIAL_ACCOUNT_SEEDS.STAFF,
-      {
-        casCount: 0,
-      },
+  it('fills an absent notification email but preserves an existing user choice', async () => {
+    const missing = buildRepository(buildRow());
+    await upsertUser(
+      missing.repository,
+      buildProfile({ email: 'new@example.test' }),
     );
-
-    await upsertUser(repository, buildProfile());
-
-    expect(warn).toHaveBeenCalledWith(
-      expect.stringContaining('다른 트랜잭션이 먼저 결정했다'),
+    const notificationData: unknown = expect.objectContaining({
+      notificationEmail: 'new@example.test',
+    });
+    expect(missing.update).toHaveBeenCalledWith(
+      expect.objectContaining({ data: notificationData }),
     );
-    expect(debug).not.toHaveBeenCalled();
-    warn.mockRestore();
-    debug.mockRestore();
+    const existing = buildRepository(
+      buildRow({ notificationEmail: 'chosen@example.test' }),
+    );
+    await upsertUser(
+      existing.repository,
+      buildProfile({ email: 'new@example.test' }),
+    );
+    expect(existing.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: { nickname: 'synthetic-login', avatarUrl: null },
+      }),
+    );
   });
 });

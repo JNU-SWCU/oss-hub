@@ -1,25 +1,21 @@
-import { Injectable, Logger } from '@nestjs/common';
+import type { ApprovalStatus } from '@prisma/client';
+import { Injectable } from '@nestjs/common';
 import {
   type LoginHistory as PrismaLoginHistory,
-  AccountStatus,
-  StaffAccessRequestStatus,
   type Prisma,
 } from '@prisma/client';
+import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  type LoginHistory,
-  type LoginHistoryEvent,
-  type LoginHistoryPage,
-  type AuthUser,
-  type GithubProfile,
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
+import { LOGIN_HISTORY_PROVIDER } from '../platform/auth.config';
+import type {
+  LoginHistory,
+  LoginHistoryEvent,
+  LoginHistoryPage,
+  AuthUser,
+  GithubProfile,
 } from './http-auth.types';
-import {
-  LOGIN_HISTORY_PROVIDER,
-  AuthConfig,
-  type InitialAccountSeed,
-} from '../platform/auth.config';
-import { StaffAccessRequestSeedConflictError } from './auth.error';
-import type { MemberKind } from '@prisma/client';
+import type { MemberKind } from '../users/user-contract.config';
 
 @Injectable()
 export class LoginHistoryRepository {
@@ -77,23 +73,9 @@ const AUTH_USER_SELECT = {
   notificationEmail: true,
   accountStatus: true,
   sessionVersion: true,
-  selectedMemberKind: true,
-  hasStaffAccess: true,
-  hasAdminAccess: true,
-
-  profile: {
-    select: {
-      name: true,
-      studentId: true,
-      department: true,
-      memberKind: true,
-    },
-  },
+  ...USER_AUTHORITY_SELECT,
 } as const satisfies Prisma.UserSelect;
-
-type AuthUserRow = Prisma.UserGetPayload<{
-  select: typeof AUTH_USER_SELECT;
-}>;
+type AuthUserRow = Prisma.UserGetPayload<{ select: typeof AUTH_USER_SELECT }>;
 
 export interface AuthTransactionStore {
   upsertUser(profile: GithubProfile): Promise<AuthLoginRow>;
@@ -101,18 +83,15 @@ export interface AuthTransactionStore {
 
 @Injectable()
 export class AuthRepository {
-  private readonly logger = new Logger(AuthRepository.name);
-
-  constructor(
-    private readonly prisma: PrismaService,
-    private readonly config: AuthConfig,
-  ) {}
+  constructor(private readonly prisma: PrismaService) {}
 
   withTransaction<T>(
     operation: (store: AuthTransactionStore) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) =>
-      operation(this.authTransactionStore(transaction)),
+      operation({
+        upsertUser: (profile) => this.upsertUserIn(transaction, profile),
+      }),
     );
   }
 
@@ -132,142 +111,48 @@ export class AuthRepository {
     });
   }
 
-  private authTransactionStore(
-    transaction: Prisma.TransactionClient,
-  ): AuthTransactionStore {
-    return {
-      upsertUser: this.upsertUserIn.bind(this, transaction),
-    };
-  }
-
   private async upsertUserIn(
     transaction: Prisma.TransactionClient,
     profile: GithubProfile,
   ): Promise<AuthLoginRow> {
-    const initialRole = this.config.resolveInitialRole(profile.githubId);
     const created = await transaction.user.createMany({
       data: {
         githubId: profile.githubId,
         nickname: profile.login,
         avatarUrl: profile.avatarUrl,
-        ...(profile.email !== null ? { notificationEmail: profile.email } : {}),
+        ...(profile.email === null ? {} : { notificationEmail: profile.email }),
       },
       skipDuplicates: true,
     });
-    let user: AuthUserRow;
+    const current = await transaction.user.findUniqueOrThrow({
+      where: { githubId: profile.githubId },
+      select: AUTH_USER_SELECT,
+    });
     if (created.count === 1) {
-      user = await transaction.user.findUniqueOrThrow({
-        where: { githubId: profile.githubId },
-        select: AUTH_USER_SELECT,
-      });
-    } else {
-      const current = await transaction.user.findUniqueOrThrow({
-        where: { githubId: profile.githubId },
-        select: AUTH_USER_SELECT,
-      });
-      user = await transaction.user.update({
-        where: { githubId: profile.githubId },
+      await transaction.userHistory.create({
         data: {
-          nickname: profile.login,
-          avatarUrl: profile.avatarUrl,
-          ...(profile.email !== null && current.notificationEmail === null
-            ? { notificationEmail: profile.email }
-            : {}),
-        },
-        select: AUTH_USER_SELECT,
-      });
-    }
-
-    if (
-      initialRole &&
-      user.accountStatus === AccountStatus.ACTIVE &&
-      !hasSeededAuthority(user)
-    ) {
-      const promoted = await transaction.user.updateMany({
-        where: {
-          id: user.id,
-          accountStatus: AccountStatus.ACTIVE,
-          hasStaffAccess: false,
-          hasAdminAccess: false,
-          profile: { is: null },
-
-          staffAccessRequests: {
-            none: { status: StaffAccessRequestStatus.REVOKED },
-          },
-        },
-        data: {
-          selectedMemberKind: initialRole.memberKind,
-          hasStaffAccess: initialRole.hasStaffAccess,
-          hasAdminAccess: initialRole.hasAdminAccess,
+          id: 'user:' + randomUUID(),
+          userId: current.id,
+          actorId: current.id,
+          event: 'SIGNED_UP',
+          source: 'APPLICATION',
+          data: { schemaVersion: 1, recordKind: 'SIGNUP' },
         },
       });
-      if (promoted.count === 1) {
-        if (initialRole.hasStaffAccess) {
-          const pendingRequest = await transaction.staffAccessRequest.findFirst(
-            {
-              where: {
-                userId: user.id,
-                status: StaffAccessRequestStatus.PENDING,
-              },
-            },
-          );
-          if (pendingRequest) {
-            const transitioned =
-              await transaction.staffAccessRequest.updateMany({
-                where: {
-                  id: pendingRequest.id,
-                  status: StaffAccessRequestStatus.PENDING,
-                },
-                data: {
-                  status: StaffAccessRequestStatus.APPROVED,
-                  decidedById: null,
-                  decidedAt: new Date(),
-                  rejectionReason: null,
-                },
-              });
-            if (transitioned.count !== 1) {
-              throw new StaffAccessRequestSeedConflictError();
-            }
-          } else {
-            await transaction.staffAccessRequest.create({
-              data: {
-                userId: user.id,
-                status: StaffAccessRequestStatus.APPROVED,
-                decidedById: null,
-                decidedAt: new Date(),
-              },
-            });
-          }
-          this.logger.log(
-            `초기 시드 적용: ${describeSeed(initialRole)}, pendingStaffAccessRequest=${pendingRequest !== null}`,
-          );
-        } else {
-          this.logger.log(`초기 시드 적용: ${describeSeed(initialRole)}`);
-        }
-        user = await transaction.user.findUniqueOrThrow({
-          where: { id: user.id },
-          select: AUTH_USER_SELECT,
-        });
-      } else {
-        const revokedRequest = await transaction.staffAccessRequest.findFirst({
-          where: {
-            userId: user.id,
-            status: StaffAccessRequestStatus.REVOKED,
-          },
-          select: { id: true },
-        });
-        if (revokedRequest) {
-          this.logger.debug(
-            `초기 시드 미적용: ${describeSeed(initialRole)} — 회수된 계정이다.`,
-          );
-        } else {
-          this.logger.warn(
-            `초기 시드 미적용: ${describeSeed(initialRole)} — 다른 트랜잭션이 먼저 결정했다.`,
-          );
-        }
-      }
+      return { user: toDomain(current), isNew: true };
     }
-    return { user: toDomain(user), isNew: created.count === 1 };
+    const user = await transaction.user.update({
+      where: { githubId: profile.githubId },
+      data: {
+        nickname: profile.login,
+        avatarUrl: profile.avatarUrl,
+        ...(profile.email !== null && current.notificationEmail === null
+          ? { notificationEmail: profile.email }
+          : {}),
+      },
+      select: AUTH_USER_SELECT,
+    });
+    return { user: toDomain(user), isNew: false };
   }
 }
 
@@ -275,37 +160,31 @@ export interface AuthLoginRow {
   readonly user: AuthUserRecord;
   readonly isNew: boolean;
 }
-
-export type AuthUserRecord = Omit<AuthUser, 'isProfileComplete'> & {
+export type AuthUserRecord = Omit<
+  AuthUser,
+  'isProfileComplete' | 'hasStaffAccess'
+> & {
   readonly selectedMemberKind: MemberKind | null;
   readonly studentId: string | null;
   readonly department: string | null;
+  readonly profileCreatedAt: Date | null;
+  readonly approvalStatus: ApprovalStatus;
 };
-
 function toDomain(user: AuthUserRow): AuthUserRecord {
-  const profile = user.profile;
-  const memberKind = profile?.memberKind ?? null;
   return {
     id: user.id,
     githubId: user.githubId,
     nickname: user.nickname,
-    name: profile?.name ?? null,
+    name: user.name,
     avatarUrl: user.avatarUrl,
     accountStatus: user.accountStatus,
     sessionVersion: user.sessionVersion,
-    memberKind,
-    hasStaffAccess: user.hasStaffAccess,
-    hasAdminAccess: user.hasAdminAccess,
-    selectedMemberKind: user.selectedMemberKind,
-    studentId: profile?.studentId ?? null,
-    department: profile?.department ?? null,
+    memberKind: user.type === 'UNSELECTED' ? null : user.type,
+    selectedMemberKind: user.type === 'UNSELECTED' ? null : user.type,
+    approvalStatus: user.approvalStatus,
+    hasAdminAccess: user.admin !== null,
+    studentId: user.studentId,
+    department: user.department,
+    profileCreatedAt: user.profileCreatedAt,
   };
-}
-
-function hasSeededAuthority(user: AuthUserRow): boolean {
-  return user.profile !== null || user.hasStaffAccess || user.hasAdminAccess;
-}
-
-function describeSeed(seed: InitialAccountSeed): string {
-  return `memberKind=${seed.memberKind ?? 'none'} staff=${seed.hasStaffAccess} admin=${seed.hasAdminAccess}`;
 }

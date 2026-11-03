@@ -1,915 +1,458 @@
-import { AffiliationKind, MemberKind } from '@prisma/client';
+import { Prisma } from '@prisma/client';
+import type { UserProfileRecord } from './profile-validation.config';
 import {
   canonicalCompletion,
   profileRecord,
 } from './member-authority-test-fixtures';
-import {
-  callOrder,
-  usersRepositoryHarness as harness,
-} from './users.repository.spec-support';
+import { usersRepositoryHarness } from './users.repository.spec-support';
 
-describe('UsersRepository profile completion writes', () => {
-  const expected = profileRecord('user-complete');
-  const phoneDigits = '6'.repeat(10);
+const fields = { name: 'Name', department: 'Department' };
+async function fixture(
+  kind: 'STUDENT' | 'STAFF' = 'STUDENT',
+  overrides: Partial<UserProfileRecord> = {},
+) {
+  const h = usersRepositoryHarness(
+    profileRecord('user', {
+      ...fields,
+      studentId: kind === 'STUDENT' ? '123456' : null,
+      memberKind: kind,
+      selectedMemberKind: kind,
+      affiliationKind: kind === 'STAFF' ? 'PROGRAM_OFFICE' : 'DEPARTMENT',
+      affiliationName: fields.department,
+      profileCreatedAt: new Date('2026-01-01'),
+      ...overrides,
+    }),
+  );
+  const expected = await h.repository.findByGithubId(4242n);
+  if (!expected) throw new TypeError('Missing fixture user');
+  return { h, expected };
+}
 
-  it('학생 완료는 canonical UserProfile과 rollback mirror를 같은 트랜잭션에 쓴다', async () => {
-    const {
-      repository,
-      userUpdateMany,
-      userProfileUpsert,
-      userUpdate,
-      recordPhoneAudit,
-    } = harness(expected);
-    const completion = canonicalCompletion({
-      name: '합성 사용자',
-      studentId: '153401',
-      department: '인공지능학부',
-    });
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      expected,
-      completion,
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('completed');
-    const profileData = {
-      name: completion.name,
-      studentId: completion.studentId,
-      department: completion.department,
-      memberKind: completion.memberKind,
-      affiliationKind: completion.affiliationKind,
-      affiliationName: completion.affiliationName,
-    };
-    expect(userProfileUpsert).toHaveBeenCalledWith({
-      where: { userId: expected.id },
-      update: profileData,
-      create: { userId: expected.id, ...profileData },
-    });
-
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: expected.id },
-      data: {
-        selectedMemberKind: MemberKind.STUDENT,
-        hasStaffAccess: false,
-        hasAdminAccess: false,
-      },
-    });
-    expect(userUpdateMany).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('교직원 완료도 null 학번 canonical UserProfile을 만든다', async () => {
-    const staff = profileRecord('user-complete-staff', {
-      selectedMemberKind: MemberKind.STAFF,
-    });
-    const { repository, userProfileUpsert, recordPhoneAudit } = harness(staff);
-    const completion = canonicalCompletion(
-      {
-        name: '합성 교직원',
+describe('flat User profile completion writes', () => {
+  it.each(['STUDENT', 'STAFF'] as const)(
+    'completes %s without changing independent Admin',
+    async (kind) => {
+      const { h, expected } = await fixture(kind, {
+        name: null,
+        department: null,
         studentId: null,
-        department: '인공지능학부',
-      },
-      MemberKind.STAFF,
-      AffiliationKind.PROGRAM_OFFICE,
-    );
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      staff,
-      completion,
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('completed');
-    const profileData = {
-      name: completion.name,
+        profileCreatedAt: null,
+        hasAdminAccess: true,
+      });
+      const input = canonicalCompletion(
+        { ...fields, studentId: kind === 'STUDENT' ? '123456' : null },
+        kind,
+      );
+      expect(
+        await h.repository.completeProfileIfUnchanged(
+          expected,
+          input,
+          h.recordPhoneAudit,
+        ),
+      ).toBe('completed');
+      const profileCreatedAt: unknown = expect.any(Date);
+      expect(h.current()).toMatchObject({
+        ...fields,
+        studentId: input.studentId,
+        type: kind,
+        admin: { userId: 'user' },
+        profileCreatedAt,
+      });
+    },
+  );
+  it('audits the first phone with the same transaction writer', async () => {
+    const { h, expected } = await fixture('STUDENT', {
+      name: null,
+      department: null,
       studentId: null,
-      department: completion.department,
-      memberKind: MemberKind.STAFF,
-      affiliationKind: completion.affiliationKind,
-      affiliationName: completion.affiliationName,
-    };
-    expect(userProfileUpsert).toHaveBeenCalledWith({
-      where: { userId: staff.id },
-      update: profileData,
-      create: { userId: staff.id, ...profileData },
+      profileCreatedAt: null,
     });
-  });
-
-  it('완료가 연락처를 저장하면 같은 트랜잭션 writer로 set 전이를 넘긴다', async () => {
-    const completing = profileRecord('user-complete-phone');
-    const {
-      repository,
-      userUpdate,
-      recordPhoneAudit,
-      transaction,
-      auditLogCreate,
-    } = harness(completing);
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      completing,
+    await h.repository.completeProfileIfUnchanged(
+      expected,
       {
-        ...canonicalCompletion({
-          name: '합성 사용자',
-          studentId: '153403',
-          department: '인공지능학부',
+        ...canonicalCompletion({ ...fields, studentId: '123456' }),
+        phone: '00012345678',
+      },
+      h.recordPhoneAudit,
+    );
+    const user: unknown = expect.objectContaining({ id: 'user' });
+    expect(h.recordPhoneAudit).toHaveBeenCalledWith(
+      { auditLogWriter: h.transaction },
+      { user, transition: 'set' },
+    );
+  });
+  it('rejects a changed completion snapshot before any write', async () => {
+    const { h, expected } = await fixture('STUDENT', {
+      name: null,
+      department: null,
+      profileCreatedAt: null,
+    });
+    h.replaceCurrent({ name: 'Concurrent' });
+    expect(
+      await h.repository.completeProfileIfUnchanged(
+        expected,
+        canonicalCompletion({ ...fields, studentId: '123456' }),
+        h.recordPhoneAudit,
+      ),
+    ).toBe('conflict');
+    expect(h.userUpdate).not.toHaveBeenCalled();
+  });
+});
+
+describe('profile and phone updates', () => {
+  it('updates the single stored department and retains its discriminator', async () => {
+    const { h, expected } = await fixture();
+    await h.repository.updateProfileFields(
+      expected,
+      {
+        name: 'New name',
+        department: 'New department',
+        affiliationKind: 'DEPARTMENT',
+      },
+      h.recordStaffNumberAudit,
+      h.recordPhoneAudit,
+    );
+    expect(h.current()).toMatchObject({
+      name: 'New name',
+      department: 'New department',
+      departmentType: 'DEPARTMENT',
+    });
+    expect(h.histories).toHaveLength(1);
+  });
+  it('uses the locked canonical identity rather than incomplete caller audit metadata', async () => {
+    const { h, expected } = await fixture();
+    await h.repository.updateProfileFields(
+      { ...expected, githubId: undefined, githubLogin: undefined },
+      { ...fields, phone: '00012345678' },
+      h.recordStaffNumberAudit,
+      h.recordPhoneAudit,
+    );
+    const user: unknown = expect.objectContaining({
+      githubId: 4242n,
+      githubLogin: 'user',
+    });
+    expect(h.recordPhoneAudit).toHaveBeenCalledWith(
+      { auditLogWriter: h.transaction },
+      {
+        user,
+        transition: 'set',
+      },
+    );
+  });
+  it('does not write or audit after the locked account disappears', async () => {
+    const { h, expected } = await fixture();
+    h.replaceCurrent(null);
+    await expect(
+      h.repository.updateProfileFields(
+        expected,
+        { ...fields, phone: '00012345678' },
+        h.recordStaffNumberAudit,
+        h.recordPhoneAudit,
+      ),
+    ).rejects.toThrow('Missing user');
+    expect(h.userUpdate).not.toHaveBeenCalled();
+    expect(h.recordPhoneAudit).not.toHaveBeenCalled();
+  });
+  it.each([
+    [null, 'set'],
+    ['00000000000', 'replaced'],
+  ] as const)(
+    'audits phone replacement from %s using latest locked value',
+    async (phone, transition) => {
+      const { h, expected } = await fixture();
+      h.replaceCurrent({ phone });
+      await h.repository.updateProfileFields(
+        expected,
+        { ...fields, phone: '00012345678' },
+        h.recordStaffNumberAudit,
+        h.recordPhoneAudit,
+      );
+      expect(h.current()?.phone).toBe('00012345678');
+      const user: unknown = expect.objectContaining({ phone });
+      expect(h.recordPhoneAudit).toHaveBeenCalledWith(
+        { auditLogWriter: h.transaction },
+        { user, transition },
+      );
+    },
+  );
+  it('does not write or audit an identical profile and phone', async () => {
+    const { h, expected } = await fixture('STUDENT', { phone: '00012345678' });
+    await h.repository.updateProfileFields(
+      expected,
+      { ...fields, phone: '00012345678' },
+      h.recordStaffNumberAudit,
+      h.recordPhoneAudit,
+    );
+    expect(h.userUpdate).not.toHaveBeenCalled();
+    expect(h.recordPhoneAudit).not.toHaveBeenCalled();
+  });
+  it('rolls back both profile and phone when phone auditing fails', async () => {
+    const { h, expected } = await fixture();
+    h.recordPhoneAudit.mockRejectedValue(new Error('phone audit failure'));
+    await expect(
+      h.repository.updateProfileFields(
+        expected,
+        { name: 'Changed', department: 'Changed', phone: '00012345678' },
+        h.recordStaffNumberAudit,
+        h.recordPhoneAudit,
+      ),
+    ).rejects.toThrow('phone audit failure');
+    expect(h.current()).toMatchObject({ ...fields, phone: null });
+    expect(h.histories).toHaveLength(0);
+  });
+});
+
+describe('locked staffNumber updates', () => {
+  it('does not allow a student to save staffNumber', async () => {
+    const { h, expected } = await fixture();
+    await expect(
+      h.repository.updateProfileFields(
+        expected,
+        { ...fields, staffNumber: 'staff-number' },
+        h.recordStaffNumberAudit,
+        h.recordPhoneAudit,
+      ),
+    ).rejects.toMatchObject({ errorCode: { code: 'SYS_003' } });
+    expect(h.userUpdate).not.toHaveBeenCalled();
+  });
+  it.each(['next-number', null] as const)(
+    'stores %s and audits the locked prior number',
+    async (staffNumber) => {
+      const { h, expected } = await fixture('STAFF', {
+        staffNumber: 'old-number',
+      });
+      await h.repository.updateProfileFields(
+        expected,
+        { ...fields, staffNumber },
+        h.recordStaffNumberAudit,
+        h.recordPhoneAudit,
+      );
+      expect(h.current()?.staffNumber).toBe(staffNumber);
+      const user: unknown = expect.objectContaining({ id: 'user' });
+      expect(h.recordStaffNumberAudit).toHaveBeenCalledWith(
+        { auditLogWriter: h.transaction },
+        {
+          user,
+          before: 'old-number',
+          after: staffNumber,
+        },
+      );
+    },
+  );
+  it('uses a concurrent locked staff number as the audit before value', async () => {
+    const { h, expected } = await fixture('STAFF', { staffNumber: 'snapshot' });
+    h.replaceCurrent({ staffNumber: 'concurrent' });
+    await h.repository.updateProfileFields(
+      expected,
+      { ...fields, staffNumber: 'next' },
+      h.recordStaffNumberAudit,
+      h.recordPhoneAudit,
+    );
+    expect(h.recordStaffNumberAudit).toHaveBeenCalledWith(
+      { auditLogWriter: h.transaction },
+      expect.objectContaining({ before: 'concurrent', after: 'next' }),
+    );
+  });
+  it('audits staff number before phone in the same transaction', async () => {
+    const { h, expected } = await fixture('STAFF');
+    const order: string[] = [];
+    h.recordStaffNumberAudit.mockImplementation(
+      (store) =>
+        new Promise<void>((resolve) => {
+          expect(store.auditLogWriter).toBe(h.transaction);
+          order.push('staff');
+          resolve();
         }),
-        phone: phoneDigits,
-      },
-      recordPhoneAudit,
     );
-
-    expect(outcome).toBe('completed');
-    expect(userUpdate).toHaveBeenNthCalledWith(2, {
-      where: { id: completing.id },
-      data: { phone: phoneDigits },
-    });
-    const [store, change] = recordPhoneAudit.mock.calls[0] ?? [];
-    expect(store?.auditLogWriter).toBe(transaction);
-    expect(change).toEqual({ user: completing, transition: 'set' });
-    expect(change?.user).toBe(completing);
-    expect(callOrder(userUpdate, 1)).toBeLessThan(callOrder(recordPhoneAudit));
-    expect(auditLogCreate).not.toHaveBeenCalled();
-  });
-
-  it('잠금 뒤 읽은 상태가 달라지면 conflict로 멈춘다', async () => {
-    const {
-      repository,
-      transactionFindUnique,
-      userProfileUpsert,
-      recordPhoneAudit,
-    } = harness(expected);
-    transactionFindUnique.mockResolvedValue(null);
-
-    const outcome = await repository.completeProfileIfUnchanged(
-      expected,
-      {
-        ...canonicalCompletion({
-          name: '합성 사용자',
-          studentId: '153402',
-          department: '인공지능학부',
+    h.recordPhoneAudit.mockImplementation(
+      (store) =>
+        new Promise<void>((resolve) => {
+          expect(store.auditLogWriter).toBe(h.transaction);
+          order.push('phone');
+          resolve();
         }),
-        phone: phoneDigits,
-      },
-      recordPhoneAudit,
     );
-
-    expect(outcome).toBe('conflict');
-    expect(userProfileUpsert).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
+    await h.repository.updateProfileFields(
+      expected,
+      { ...fields, staffNumber: 'next', phone: '00012345678' },
+      h.recordStaffNumberAudit,
+      h.recordPhoneAudit,
+    );
+    expect(order).toEqual(['staff', 'phone']);
+  });
+  it.each([undefined, 'existing'] as const)(
+    'preserves the number without audit when supplied value is %s',
+    async (staffNumber) => {
+      const { h, expected } = await fixture('STAFF', {
+        staffNumber: 'existing',
+      });
+      await h.repository.updateProfileFields(
+        expected,
+        { ...fields, staffNumber },
+        h.recordStaffNumberAudit,
+        h.recordPhoneAudit,
+      );
+      expect(h.current()?.staffNumber).toBe('existing');
+      expect(h.recordStaffNumberAudit).not.toHaveBeenCalled();
+    },
+  );
+  it('uses canonical audit identity for a number change', async () => {
+    const { h, expected } = await fixture('STAFF');
+    await h.repository.updateProfileFields(
+      { ...expected, githubId: undefined, githubLogin: undefined },
+      { ...fields, staffNumber: 'next' },
+      h.recordStaffNumberAudit,
+      h.recordPhoneAudit,
+    );
+    const user: unknown = expect.objectContaining({
+      githubId: 4242n,
+      githubLogin: 'user',
+    });
+    expect(h.recordStaffNumberAudit).toHaveBeenCalledWith(
+      { auditLogWriter: h.transaction },
+      expect.objectContaining({ user }),
+    );
+  });
+  it('rolls back profile changes when staff number auditing fails', async () => {
+    const { h, expected } = await fixture('STAFF');
+    h.recordStaffNumberAudit.mockRejectedValue(
+      new Error('staff audit failure'),
+    );
+    await expect(
+      h.repository.updateProfileFields(
+        expected,
+        { name: 'Changed', department: 'Changed', staffNumber: 'next' },
+        h.recordStaffNumberAudit,
+        h.recordPhoneAudit,
+      ),
+    ).rejects.toThrow('staff audit failure');
+    expect(h.current()).toMatchObject({ ...fields, staffNumber: null });
   });
 });
 
-describe('UsersRepository profile field updates', () => {
-  const phoneDigits = '7'.repeat(10);
-  const replacementPhoneDigits = '8'.repeat(10);
-
-  const withoutAuditIdentity = {
-    id: 'user-legacy-only',
-    name: null,
-    studentId: null,
-    department: null,
-    phone: null,
-  };
-
-  it('프로필 행 하나만 갱신하고 소속 사본을 함께 옺긴다', async () => {
-    const {
-      repository,
-      userProfileUpdate,
-      userUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    } = harness();
-
-    await repository.updateProfileFields(
-      withoutAuditIdentity,
-      {
-        name: '수정된 이름',
-        department: '인공지능학부',
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(userProfileUpdate).toHaveBeenCalledWith({
-      where: { userId: 'user-legacy-only' },
-      data: {
-        name: '수정된 이름',
-        department: '인공지능학부',
-        affiliationName: '인공지능학부',
-      },
+describe('initial studentId fill', () => {
+  it('stores a missing studentId on the existing User without inventing a profile record', async () => {
+    const { h, expected } = await fixture('STAFF', {
+      studentId: null,
+      profileCreatedAt: null,
     });
-    expect(userUpdate).not.toHaveBeenCalled();
-    expect(recordStaffNumberAudit).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('감사 신원이 없는 기록으로는 연락처를 쓰지 않는다', async () => {
-    const { repository, userUpdate, recordStaffNumberAudit, recordPhoneAudit } =
-      harness();
-
-    await expect(
-      repository.updateProfileFields(
-        withoutAuditIdentity,
-        {
-          name: '수정된 이름',
-          department: '인공지능학부',
-          phone: phoneDigits,
-        },
-        recordStaffNumberAudit,
-        recordPhoneAudit,
+    expect(
+      await h.repository.fillStudentId(
+        { expected, studentId: '654321' },
+        h.recordPhoneAudit,
       ),
-    ).rejects.toThrow('full user profile record');
-    expect(userUpdate).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
+    ).toBe('filled');
+    expect(h.current()).toMatchObject({
+      studentId: '654321',
+      profileCreatedAt: null,
+    });
   });
-
-  it('잠근 사용자 행이 없으면 연락처 콜백도 부르지 않고 멈춘다', async () => {
-    const current = profileRecord('user-phone-missing-row');
-    const {
-      repository,
-      userUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(current);
-    transaction.$queryRaw.mockResolvedValue([]);
-
-    await expect(
-      repository.updateProfileFields(
-        current,
-        {
-          name: '수정된 이름',
-          department: '인공지능학부',
-          phone: phoneDigits,
-        },
-        recordStaffNumberAudit,
-        recordPhoneAudit,
+  it('fills studentId and phone in one transaction', async () => {
+    const { h, expected } = await fixture('STUDENT', { studentId: null });
+    expect(
+      await h.repository.fillStudentId(
+        { expected, studentId: '654321', phone: '00012345678' },
+        h.recordPhoneAudit,
       ),
-    ).rejects.toThrow('Phone updates require an existing user row.');
-    expect(userUpdate).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
+    ).toBe('filled');
+    expect(h.current()).toMatchObject({
+      studentId: '654321',
+      phone: '00012345678',
+    });
+    expect(h.recordPhoneAudit).toHaveBeenCalledTimes(1);
   });
-
-  it('연락처를 처음 저장하면 같은 트랜잭션 writer로 set 전이를 넘긴다', async () => {
-    const expected = profileRecord('user-phone-set', {
-      name: '기존 이름',
-      phone: null,
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '인공지능학부',
-    });
-    const {
-      repository,
-      userUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-      auditLogCreate,
-    } = harness(expected);
-
-    await repository.updateProfileFields(
-      expected,
-      {
-        name: '수정된 이름',
-        department: '인공지능학부',
-        phone: phoneDigits,
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: expected.id },
-      data: { phone: phoneDigits },
-    });
-    const [store, change] = recordPhoneAudit.mock.calls[0] ?? [];
-    expect(store?.auditLogWriter).toBe(transaction);
-    expect(change).toEqual({ user: expected, transition: 'set' });
-    expect(change?.user).toBe(expected);
-    expect(recordPhoneAudit).toHaveBeenCalledTimes(1);
-    expect(callOrder(userUpdate)).toBeLessThan(callOrder(recordPhoneAudit));
-    expect(auditLogCreate).not.toHaveBeenCalled();
-    expect(recordStaffNumberAudit).not.toHaveBeenCalled();
-  });
-
-  it('잠금 직전에 다른 요청이 연락처를 채웠으면 replaced 전이로 넘긴다', async () => {
-    const expected = profileRecord('user-phone-concurrent', {
-      name: '기존 이름',
-      phone: null,
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '인공지능학부',
-    });
-    const {
-      repository,
-      userUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(expected);
-    transaction.$queryRaw.mockResolvedValue([{ phone: phoneDigits }]);
-
-    await repository.updateProfileFields(
-      expected,
-      {
-        name: '수정된 이름',
-        department: '인공지능학부',
-        phone: replacementPhoneDigits,
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: expected.id },
-      data: { phone: replacementPhoneDigits },
-    });
-    expect(recordPhoneAudit).toHaveBeenCalledWith(
-      { auditLogWriter: transaction },
-      { user: expected, transition: 'replaced' },
-    );
-  });
-
-  it('잠근 행이 이미 같은 연락처면 쓰기도 감사도 하지 않는다', async () => {
-    const expected = profileRecord('user-phone-noop', {
-      name: '기존 이름',
-      phone: null,
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '인공지능학부',
-    });
-    const {
-      repository,
-      userUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(expected);
-    transaction.$queryRaw.mockResolvedValue([{ phone: phoneDigits }]);
-
-    await repository.updateProfileFields(
-      expected,
-      {
-        name: '수정된 이름',
-        department: '인공지능학부',
-        phone: phoneDigits,
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(userUpdate).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('연락처 감사 콜백이 실패하면 프로필 갱신 트랜잭션도 실패한다', async () => {
-    const expected = profileRecord('user-phone-rollback', {
-      name: '기존 이름',
-      phone: phoneDigits,
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '인공지능학부',
-    });
-    const {
-      repository,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(expected);
-    const failure = new Error('synthetic audit failure');
-    recordPhoneAudit.mockRejectedValue(failure);
-
-    await expect(
-      repository.updateProfileFields(
-        expected,
-        {
-          name: '수정된 이름',
-          department: '인공지능학부',
-          phone: replacementPhoneDigits,
-        },
-        recordStaffNumberAudit,
-        recordPhoneAudit,
+  it('does not write phone when studentId was already filled', async () => {
+    const { h, expected } = await fixture();
+    expect(
+      await h.repository.fillStudentId(
+        { expected, studentId: '654321', phone: '00012345678' },
+        h.recordPhoneAudit,
       ),
-    ).rejects.toBe(failure);
-
-    expect(recordPhoneAudit).toHaveBeenCalledWith(
-      { auditLogWriter: transaction },
-      { user: expected, transition: 'replaced' },
-    );
+    ).toBe('conflict');
+    expect(h.recordPhoneAudit).not.toHaveBeenCalled();
+    expect(h.userUpdate).not.toHaveBeenCalled();
+  });
+  it('rolls back studentId when phone audit fails', async () => {
+    const { h, expected } = await fixture('STUDENT', { studentId: null });
+    h.recordPhoneAudit.mockRejectedValue(new Error('phone audit failure'));
+    await expect(
+      h.repository.fillStudentId(
+        { expected, studentId: '654321', phone: '00012345678' },
+        h.recordPhoneAudit,
+      ),
+    ).rejects.toThrow('phone audit failure');
+    expect(h.current()).toMatchObject({ studentId: null, phone: null });
+  });
+  it('returns taken without writing when another account owns the studentId', async () => {
+    const { h, expected } = await fixture('STUDENT', { studentId: null });
+    h.takeStudentId('654321');
+    expect(
+      await h.repository.fillStudentId(
+        { expected, studentId: '654321' },
+        h.recordPhoneAudit,
+      ),
+    ).toBe('taken');
+    expect(h.userUpdate).not.toHaveBeenCalled();
   });
 });
 
-describe('UsersRepository staff number updates', () => {
-  const phoneDigits = '7'.repeat(10);
-  const expected = profileRecord('user-staff-number', {
-    name: '기존 이름',
-    selectedMemberKind: MemberKind.STAFF,
-    studentId: null,
-    memberKind: MemberKind.STAFF,
-    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-    affiliationName: '인공지능학부',
-    department: '인공지능학부',
-    staffNumber: null,
-  });
-
-  it('학생 canonical 프로필은 교직원 번호를 수정할 수 없다', async () => {
-    const student = profileRecord('user-staff-number-student', {
-      name: '학생',
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '인공지능학부',
-      department: '인공지능학부',
-    });
-    const {
-      repository,
-      userProfileUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    } = harness(student);
-
-    await expect(
-      repository.updateProfileFields(
-        student,
-        {
-          name: student.name!,
-          department: student.department!,
-          staffNumber: '접근-불가',
-        },
-        recordStaffNumberAudit,
-        recordPhoneAudit,
-      ),
-    ).rejects.toMatchObject({
-      errorCode: { code: 'SYS_003', status: 400 },
-    });
-    expect(userProfileUpdate).not.toHaveBeenCalled();
-    expect(recordStaffNumberAudit).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('현재 UserProfile 값을 잠근 뒤 번호를 저장하고 같은 writer로 감사한다', async () => {
-    const {
-      repository,
-      userProfileUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-      auditLogCreate,
-    } = harness(expected);
-
-    await repository.updateProfileFields(
-      expected,
-      {
-        name: expected.name!,
-        department: expected.department!,
-        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-        affiliationName: expected.department!,
-        staffNumber: '교직원-𐐀',
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(userProfileUpdate).toHaveBeenCalledWith({
-      where: { userId: expected.id },
-      data: {
-        name: expected.name,
-        department: expected.department,
-        affiliationName: expected.department,
-        affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-        staffNumber: '교직원-𐐀',
-      },
-    });
-    const [store, change] = recordStaffNumberAudit.mock.calls[0] ?? [];
-    expect(store?.auditLogWriter).toBe(transaction);
-    expect(change).toEqual({
-      user: expected,
-      before: null,
-      after: '교직원-𐐀',
-    });
-    expect(change?.user).toBe(expected);
-    expect(callOrder(transaction.$queryRaw)).toBeLessThan(
-      callOrder(userProfileUpdate),
-    );
-    expect(callOrder(userProfileUpdate)).toBeLessThan(
-      callOrder(recordStaffNumberAudit),
-    );
-    expect(auditLogCreate).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('번호를 null로 바꾸면 현재 값을 before로 감사한다', async () => {
-    const current = profileRecord('user-staff-number-clear', {
-      name: '기존 이름',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
-      staffNumber: '현재-번호',
-    });
-    const {
-      repository,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(current);
-
-    await repository.updateProfileFields(
-      current,
-      {
-        name: current.name!,
-        department: current.department!,
-        staffNumber: null,
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(recordStaffNumberAudit.mock.calls).toEqual([
-      [
-        { auditLogWriter: transaction },
-        { user: current, before: '현재-번호', after: null },
-      ],
-    ]);
-  });
-
-  it('호출자 스냅샷보다 잠긴 현재 값을 감사 before로 사용한다', async () => {
-    const current = profileRecord('user-staff-number-concurrent', {
-      name: '기존 이름',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
-      staffNumber: '현재-번호',
-    });
-    const stale = { ...current, staffNumber: '오래된-스냅샷' };
-    const {
-      repository,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(current);
-    transaction.$queryRaw
-      .mockResolvedValueOnce([{ id: current.id }])
-      .mockResolvedValueOnce([
-        {
-          staffNumber: '잠금-직전-번호',
-          memberKind: MemberKind.STAFF,
-        },
-      ]);
-
-    await repository.updateProfileFields(
-      stale,
-      {
-        name: current.name!,
-        department: current.department!,
-        staffNumber: '새-번호',
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(recordStaffNumberAudit).toHaveBeenCalledWith(
-      { auditLogWriter: transaction },
-      { user: stale, before: '잠금-직전-번호', after: '새-번호' },
-    );
-  });
-
-  it('번호와 연락처를 같이 바꾸면 번호 감사를 연락처 감사보다 먼저 부른다', async () => {
-    const current = profileRecord('user-staff-number-and-phone', {
-      name: '기존 이름',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
-      staffNumber: '기존-번호',
-      phone: null,
-    });
-    const {
-      repository,
-      userProfileUpdate,
-      userUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(current);
-
-    await repository.updateProfileFields(
-      current,
-      {
-        name: current.name!,
-        department: current.department!,
-        staffNumber: '새-번호',
-        phone: phoneDigits,
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(recordStaffNumberAudit).toHaveBeenCalledWith(
-      { auditLogWriter: transaction },
-      { user: current, before: '기존-번호', after: '새-번호' },
-    );
-    expect(recordPhoneAudit).toHaveBeenCalledWith(
-      { auditLogWriter: transaction },
-      { user: current, transition: 'set' },
-    );
-    expect(callOrder(userProfileUpdate)).toBeLessThan(
-      callOrder(recordStaffNumberAudit),
-    );
-    expect(callOrder(recordStaffNumberAudit)).toBeLessThan(
-      callOrder(userUpdate),
-    );
-    expect(callOrder(userUpdate)).toBeLessThan(callOrder(recordPhoneAudit));
-  });
-
-  it('번호를 생략하면 기존 값을 보존하고 감사하지 않는다', async () => {
-    const current = profileRecord('user-staff-number-omitted', {
-      name: '기존 이름',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
-      staffNumber: '기존-번호',
-    });
-    const {
-      repository,
-      userProfileUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(current);
-
-    await repository.updateProfileFields(
-      current,
-      {
-        name: current.name!,
-        department: current.department!,
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(userProfileUpdate).toHaveBeenCalledWith({
-      where: { userId: current.id },
-      data: {
-        name: current.name,
-        department: current.department,
-        affiliationName: current.department,
-      },
-    });
-    expect(recordStaffNumberAudit).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-    expect(transaction.$queryRaw).not.toHaveBeenCalled();
-  });
-
-  it('같은 번호를 다시 보내면 감사하지 않는다', async () => {
-    const current = profileRecord('user-staff-number-noop', {
-      name: '기존 이름',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
-      staffNumber: '같은-번호',
-    });
-    const { repository, recordStaffNumberAudit, recordPhoneAudit } =
-      harness(current);
-
-    await repository.updateProfileFields(
-      current,
-      {
-        name: current.name!,
-        department: current.department!,
-        staffNumber: '같은-번호',
-      },
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    );
-
-    expect(recordStaffNumberAudit).not.toHaveBeenCalled();
-  });
-
-  it('감사 신원이 없는 기록으로는 번호 감사 콜백을 부르지 않는다', async () => {
-    const current = profileRecord('user-staff-number-legacy', {
-      name: '기존 이름',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
-      staffNumber: '기존-번호',
-    });
-    const {
-      repository,
-      userProfileUpdate,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-    } = harness(current);
-
-    await expect(
-      repository.updateProfileFields(
-        {
-          id: current.id,
-          name: current.name,
-          studentId: null,
-          department: current.department,
-        },
-        {
-          name: current.name!,
-          department: current.department!,
-          staffNumber: '새-번호',
-        },
-        recordStaffNumberAudit,
-        recordPhoneAudit,
-      ),
-    ).rejects.toThrow(
-      'Staff number updates require a full user profile record',
-    );
-    expect(userProfileUpdate).toHaveBeenCalledTimes(1);
-    expect(recordStaffNumberAudit).not.toHaveBeenCalled();
-  });
-
-  it('번호 감사 콜백 실패는 프로필 갱신 트랜잭션도 실패시킨다', async () => {
-    const current = profileRecord('user-staff-number-rollback', {
-      name: '기존 이름',
-      department: '인공지능학부',
-      memberKind: MemberKind.STAFF,
-      affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-      affiliationName: '인공지능학부',
-      staffNumber: '기존-번호',
-    });
-    const {
-      repository,
-      recordStaffNumberAudit,
-      recordPhoneAudit,
-      transaction,
-    } = harness(current);
-    const failure = new Error('synthetic audit failure');
-    recordStaffNumberAudit.mockRejectedValue(failure);
-
-    await expect(
-      repository.updateProfileFields(
-        current,
-        {
-          name: current.name!,
-          department: current.department!,
-          staffNumber: '새-번호',
-        },
-        recordStaffNumberAudit,
-        recordPhoneAudit,
-      ),
-    ).rejects.toBe(failure);
-
-    expect(recordStaffNumberAudit).toHaveBeenCalledWith(
-      { auditLogWriter: transaction },
-      { user: current, before: '기존-번호', after: '새-번호' },
-    );
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
+it('maps a concurrent studentId unique violation to taken at the current User writer', async () => {
+  const { h, expected } = await fixture('STUDENT', { studentId: null });
+  h.userUpdate.mockRejectedValueOnce(
+    new Prisma.PrismaClientKnownRequestError('Duplicate studentId', {
+      code: 'P2002',
+      clientVersion: 'synthetic',
+    }),
+  );
+  expect(
+    await h.repository.fillStudentId(
+      { expected, studentId: '654321' },
+      h.recordPhoneAudit,
+    ),
+  ).toBe('taken');
+  expect(h.current()?.studentId).toBeNull();
+});
+it('propagates non-unique studentId storage errors without recording a success', async () => {
+  const { h, expected } = await fixture('STUDENT', { studentId: null });
+  const failure = new TypeError('synthetic profile update failure');
+  h.userUpdate.mockRejectedValueOnce(failure);
+  await expect(
+    h.repository.fillStudentId(
+      { expected, studentId: '654321' },
+      h.recordPhoneAudit,
+    ),
+  ).rejects.toBe(failure);
+  expect(h.current()?.studentId).toBeNull();
+});
+it('rejects a studentId fill when the same account was concurrently filled after the snapshot', async () => {
+  const { h, expected } = await fixture('STUDENT', { studentId: null });
+  h.replaceCurrent({ studentId: '654321' });
+  expect(
+    await h.repository.fillStudentId(
+      { expected, studentId: '654321' },
+      h.recordPhoneAudit,
+    ),
+  ).toBe('conflict');
+  expect(h.userUpdate).not.toHaveBeenCalled();
 });
 
-describe('UsersRepository 학번 최초 저장', () => {
-  const phoneDigits = '9'.repeat(11);
-  const expected = {
-    id: 'user-legacy-only',
-    role: 'STAFF' as const,
-    name: '합성 교직원',
-    studentId: null,
-    department: '인공지능학부',
-    memberKind: MemberKind.STAFF,
-    affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-    affiliationName: '인공지능학부',
-  };
-  const profile = {
-    name: '합성 교직원',
-    studentId: '153406',
-    department: '인공지능학부',
-    memberKind: MemberKind.STUDENT,
-    affiliationKind: AffiliationKind.DEPARTMENT,
-    affiliationName: '인공지능학부',
-  };
-
-  it('UserProfile 행이 없던 교직원도 행을 만들어 제약 아래 학번을 넣는다', async () => {
-    const { repository, userProfileUpdateMany, recordPhoneAudit } = harness();
-    userProfileUpdateMany.mockResolvedValue({ count: 1 });
-
-    const outcome = await repository.fillStudentId(
-      {
-        expected,
-        studentId: profile.studentId,
-      },
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('filled');
-    expect(userProfileUpdateMany).toHaveBeenCalledWith({
-      where: { userId: expected.id, studentId: null },
-      data: { studentId: profile.studentId },
-    });
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
+it('preserves SYS_003 when the locked account changed from STAFF to STUDENT before a staffNumber write', async () => {
+  const { h, expected } = await fixture('STAFF', { studentId: '123456' });
+  h.replaceCurrent({
+    type: 'STUDENT',
+    departmentType: 'DEPARTMENT',
+    approvalStatus: 'NOT_REQUIRED',
   });
-
-  it('학번을 처음 채울 때 연락처도 같은 트랜잭션에서 저장하고 감사한다', async () => {
-    const expected = profileRecord('user-fill-student-id-with-phone', {
-      name: '합성 학생',
-      phone: null,
-      memberKind: MemberKind.STUDENT,
-      affiliationKind: AffiliationKind.DEPARTMENT,
-      affiliationName: '인공지능학부',
-    });
-    const {
-      repository,
-      userProfileUpdateMany,
-      userUpdate,
-      recordPhoneAudit,
-      transaction,
-      auditLogCreate,
-    } = harness(expected);
-    userProfileUpdateMany.mockResolvedValue({ count: 1 });
-
-    const outcome = await repository.fillStudentId(
-      {
-        expected,
-        studentId: profile.studentId,
-        phone: phoneDigits,
-      },
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('filled');
-    expect(userUpdate).toHaveBeenCalledWith({
-      where: { id: expected.id },
-      data: { phone: phoneDigits },
-    });
-    const [store, change] = recordPhoneAudit.mock.calls[0] ?? [];
-    expect(store?.auditLogWriter).toBe(transaction);
-    expect(change).toEqual({ user: expected, transition: 'set' });
-    expect(change?.user).toBe(expected);
-    expect(callOrder(userProfileUpdateMany)).toBeLessThan(
-      callOrder(userUpdate),
-    );
-    expect(callOrder(userUpdate)).toBeLessThan(callOrder(recordPhoneAudit));
-    expect(auditLogCreate).not.toHaveBeenCalled();
-  });
-
-  it('학번을 채우지 못하면 연락처도 저장하지 않고 감사도 하지 않는다', async () => {
-    const { repository, userProfileUpdateMany, userUpdate, recordPhoneAudit } =
-      harness();
-    userProfileUpdateMany.mockResolvedValue({ count: 0 });
-
-    const outcome = await repository.fillStudentId(
-      {
-        expected,
-        studentId: profile.studentId,
-        phone: phoneDigits,
-      },
-      recordPhoneAudit,
-    );
-
-    expect(outcome).toBe('conflict');
-    expect(userUpdate).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
-
-  it('연락처 감사 콜백 실패는 학번 저장 트랜잭션도 실패시킨다', async () => {
-    const current = profileRecord('user-fill-student-id-rollback', {
-      name: '합성 학생',
-      phone: null,
-    });
-    const { repository, userProfileUpdateMany, recordPhoneAudit } =
-      harness(current);
-    userProfileUpdateMany.mockResolvedValue({ count: 1 });
-    const failure = new Error('synthetic audit failure');
-    recordPhoneAudit.mockRejectedValue(failure);
-
-    await expect(
-      repository.fillStudentId(
-        {
-          expected: current,
-          studentId: profile.studentId,
-          phone: phoneDigits,
-        },
-        recordPhoneAudit,
-      ),
-    ).rejects.toBe(failure);
-    expect(recordPhoneAudit).toHaveBeenCalledTimes(1);
-  });
-
-  it('다른 계정이 소유한 학번은 쓰지 않고 taken을 돌려준다', async () => {
-    const {
-      repository,
-      userProfileFindUnique,
-      userProfileUpdateMany,
-      recordPhoneAudit,
-    } = harness();
-    userProfileFindUnique.mockResolvedValue({ userId: 'other-user' });
-
-    await expect(
-      repository.fillStudentId(
-        { expected, studentId: profile.studentId },
-        recordPhoneAudit,
-      ),
-    ).resolves.toBe('taken');
-    expect(userProfileUpdateMany).not.toHaveBeenCalled();
-    expect(recordPhoneAudit).not.toHaveBeenCalled();
-  });
+  await expect(
+    h.repository.updateProfileFields(
+      expected,
+      { ...fields, staffNumber: 'forbidden' },
+      h.recordStaffNumberAudit,
+      h.recordPhoneAudit,
+    ),
+  ).rejects.toMatchObject({ errorCode: { code: 'SYS_003', status: 400 } });
+  expect(h.userUpdate).not.toHaveBeenCalled();
+  expect(h.histories).toHaveLength(0);
+  expect(h.recordStaffNumberAudit).not.toHaveBeenCalled();
+  expect(h.recordPhoneAudit).not.toHaveBeenCalled();
 });

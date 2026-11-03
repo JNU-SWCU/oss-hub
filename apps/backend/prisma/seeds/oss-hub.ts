@@ -1,8 +1,6 @@
 import {
   AccountStatus,
-  AffiliationKind,
   ApplicationStatus,
-  MemberKind,
   MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
@@ -12,7 +10,7 @@ import {
   RepositoryVisibility,
   ReviewDecision,
   SubmissionStatus,
-  User,
+  type User,
 } from '@prisma/client';
 import { AUTH_SCENARIOS } from './auth';
 import {
@@ -21,9 +19,9 @@ import {
   prisma,
   seedId,
   SeedStats,
-  upsertConsent,
   upsertTracked,
 } from './helpers';
+import { setSeedAdmin, upsertConsent, upsertSeedProfile } from './user';
 import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
 
 const joinCodeSecretService = new JoinCodeSecretService();
@@ -75,52 +73,36 @@ async function upsertConfiguredUser(
     'User',
     () => prisma.user.findUnique({ where: { githubId: account.githubId } }),
     () =>
-      prisma.user.upsert({
-        where: { githubId: account.githubId },
-        update: {
-          nickname: account.login,
-          accountStatus: AccountStatus.ACTIVE,
-          hasAdminAccess: true,
-        },
-        create: {
-          id,
-          githubId: account.githubId,
-          nickname: account.login,
-          accountStatus: AccountStatus.ACTIVE,
-          hasAdminAccess: true,
-        },
+      prisma.$transaction(async (transaction) => {
+        const seeded = await transaction.user.upsert({
+          where: { githubId: account.githubId },
+          update: {
+            nickname: account.login,
+            accountStatus: AccountStatus.ACTIVE,
+          },
+          create: {
+            id,
+            githubId: account.githubId,
+            nickname: account.login,
+            accountStatus: AccountStatus.ACTIVE,
+          },
+        });
+        await setSeedAdmin(transaction, seeded.id, true);
+        return seeded;
       }),
   );
 
   const displayName = account.displayName;
   if (displayName !== undefined) {
-    const affiliationName = '오픈소스 SW 개발 사업단';
-    await upsertTracked(
-      stats,
-      'UserProfile',
-      () => prisma.userProfile.findUnique({ where: { userId: user.id } }),
-      () =>
-        prisma.userProfile.upsert({
-          where: { userId: user.id },
-
-          update: {
-            name: displayName,
-            memberKind: MemberKind.STAFF,
-            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-            affiliationName,
-            department: affiliationName,
-          },
-          create: {
-            userId: user.id,
-            name: displayName,
-            department: affiliationName,
-
-            memberKind: MemberKind.STAFF,
-            affiliationKind: AffiliationKind.PROGRAM_OFFICE,
-            affiliationName,
-          },
-        }),
-    );
+    await upsertSeedProfile({
+      userId: user.id,
+      name: displayName,
+      studentId: user.studentId,
+      department: '오픈소스 SW 개발 사업단',
+      type: 'STAFF',
+    });
+    if (user.profileCreatedAt === null) stats.created('User.profile');
+    else stats.updated('User.profile');
   }
   await upsertConsent(stats, user.id);
   return user;

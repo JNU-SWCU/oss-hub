@@ -1,6 +1,5 @@
 import {
   ApplicationStatus,
-  MemberKind,
   Prisma,
   OutboxEventStatus,
   ProgramCategory,
@@ -8,6 +7,7 @@ import {
   RepositoryProvisionJobStatus,
   ProgramTrackType,
 } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -169,7 +169,8 @@ describe('RepositoryOutboxConsumerService integration', () => {
         id: APPLICANT_ID,
         githubId: 8_100_000_000_001n,
         nickname: 'synthetic-applicant',
-        selectedMemberKind: MemberKind.STUDENT,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
   });

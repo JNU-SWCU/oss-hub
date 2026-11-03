@@ -1,3 +1,4 @@
+import { UserProfileService } from '../users/user-profile.service';
 import type { Response } from 'express';
 import { DownloadResponseService } from './download-response.service';
 import { Inject, Injectable, StreamableFile } from '@nestjs/common';
@@ -72,6 +73,7 @@ export class MilestoneDocumentFilesService {
     private readonly milestoneDocumentFileNameService: MilestoneDocumentFileNameService,
     private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
     private readonly downloadResponseService: DownloadResponseService,
+    private readonly userProfileService: UserProfileService,
   ) {}
 
   async downloadTemplateTo(
@@ -304,7 +306,20 @@ export class MilestoneDocumentFilesService {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
-    if (!viewer.hasStaffAccess && !viewer.hasAdminAccess) {
+    if (
+      !this.userProfileService.isStaffEligible({
+        accountStatus: viewer.accountStatus,
+        memberKind: viewer.type === 'UNSELECTED' ? null : viewer.type,
+        hasStaffAccess:
+          viewer.type === 'STAFF' && viewer.approvalStatus === 'APPROVED',
+        isProfileComplete:
+          viewer.profileCreatedAt !== null &&
+          this.userProfileService.isCompleteProfileFields(
+            { ...viewer, studentId: null },
+            'STAFF',
+          ),
+      })
+    ) {
       const application = await this.repository.findStudentApplication(
         viewer.id,
         documentContext.programId,

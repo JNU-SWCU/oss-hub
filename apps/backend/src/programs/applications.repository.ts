@@ -262,7 +262,7 @@ export type ApplicationListRow = {
   readonly applicant: {
     readonly id: string;
     readonly nickname: string;
-    readonly profile: { readonly name: string } | null;
+    readonly name: string | null;
   };
   readonly team: {
     readonly id: string;
@@ -575,7 +575,7 @@ export class ApplicationsRepository {
       ? {
           id: user.id,
           nickname: user.nickname,
-          name: user.profile?.name ?? null,
+          name: user.name ?? null,
         }
       : null;
   }
@@ -743,7 +743,7 @@ export class ApplicationsRepository {
       occurredAt: row.occurredAt,
       rejectionReason: row.rejectionReason,
       actor: {
-        name: row.actor.profile?.name ?? null,
+        name: row.actor.name ?? null,
         nickname: row.actor.nickname,
       },
     }));
@@ -1513,7 +1513,7 @@ function toTeamManagementListItem(
     rejectionReason: row.rejectionReason,
     applicant: {
       id: row.applicant.id,
-      name: row.applicant.profile?.name ?? null,
+      name: row.applicant.name ?? null,
       nickname: row.applicant.nickname,
     },
     team:
@@ -1525,7 +1525,7 @@ function toTeamManagementListItem(
             memberCount: row.team._count.members,
             members: row.team.members.map((member) => ({
               id: member.user.id,
-              name: member.user.profile?.name ?? null,
+              name: member.user.name ?? null,
               nickname: member.user.nickname,
             })),
           },

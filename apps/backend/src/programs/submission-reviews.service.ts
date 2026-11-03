@@ -144,7 +144,7 @@ export class SubmissionReviewsService {
             : APPLICATION_MODES.TEAM,
         displayName:
           row.application.team?.name ??
-          row.application.applicant.profile?.name ??
+          row.application.applicant.name ??
           row.application.applicant.nickname,
       },
       milestone: row.milestoneDocument.milestone,

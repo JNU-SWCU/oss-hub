@@ -1,4 +1,4 @@
-import { StaffAccessRequestStatus } from '@prisma/client';
+import { StaffAccessRequestStatus } from './user-contract.config';
 
 export const ADMIN_ACCESS_ROLE_FILTERS = {
   UNASSIGNED: 'UNASSIGNED',

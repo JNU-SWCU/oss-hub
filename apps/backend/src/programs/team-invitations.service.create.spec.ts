@@ -1,4 +1,5 @@
-import { AccountStatus, MemberKind } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
+import { MemberKind } from '../users/user-contract.config';
 import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
 import {
   buildService,
@@ -147,7 +148,7 @@ describe('TeamInvitationsService.create', () => {
     const { service, repository } = leaderService({
       findInviteeAccount: jest.fn().mockResolvedValue({
         accountStatus: AccountStatus.ACTIVE,
-        profile: { memberKind: MemberKind.STAFF },
+        type: MemberKind.STAFF,
       }),
       createInvitation: jest.fn(),
     });

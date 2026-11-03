@@ -1,10 +1,18 @@
-import { AccountStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  type UserType,
+  type ApprovalStatus,
+} from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 
 type Actor = {
-  hasStaffAccess: boolean;
-  hasAdminAccess: boolean;
+  type: UserType;
+  approvalStatus: ApprovalStatus;
+  profileCreatedAt: Date | null;
+  name: string | null;
+  department: string | null;
+  admin: { userId: string } | null;
   accountStatus: AccountStatus;
 } | null;
 
@@ -16,10 +24,14 @@ function repositoryWithActor(actor: Actor): RankingRepository {
 }
 
 const member = {
-  hasStaffAccess: false,
-  hasAdminAccess: false,
+  type: 'STUDENT',
+  approvalStatus: 'NOT_REQUIRED',
+  profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+  name: 'Synthetic member',
+  department: 'Synthetic department',
+  admin: null,
   accountStatus: AccountStatus.ACTIVE,
-};
+} satisfies NonNullable<Actor>;
 
 describe('RankingRepository.findViewerClass', () => {
   it('세션이 없으면 public 이다', async () => {
@@ -34,18 +46,41 @@ describe('RankingRepository.findViewerClass', () => {
     );
   });
 
-  it('ACTIVE staff·admin 은 staff 다', async () => {
-    await expect(
-      repositoryWithActor({ ...member, hasStaffAccess: true }).findViewerClass(
-        1n,
-      ),
-    ).resolves.toBe('staff');
-    await expect(
-      repositoryWithActor({ ...member, hasAdminAccess: true }).findViewerClass(
-        1n,
-      ),
-    ).resolves.toBe('staff');
-  });
+  it.each([
+    [
+      'approved staff',
+      { ...member, type: 'STAFF', approvalStatus: 'APPROVED' },
+      'staff',
+    ],
+    ['student admin', { ...member, admin: { userId: 'admin-1' } }, 'member'],
+    [
+      'pending staff admin',
+      {
+        ...member,
+        type: 'STAFF',
+        approvalStatus: 'PENDING',
+        admin: { userId: 'admin-1' },
+      },
+      'member',
+    ],
+    [
+      'incomplete approved staff',
+      {
+        ...member,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        profileCreatedAt: null,
+      },
+      'member',
+    ],
+  ] satisfies readonly (readonly [string, NonNullable<Actor>, string])[])(
+    '%s has the correct private-data audience',
+    async (_label, actor, expected) => {
+      await expect(
+        repositoryWithActor(actor).findViewerClass(1n),
+      ).resolves.toBe(expected);
+    },
+  );
 
   it('ACTIVE 가 아니면 권한이 있어도 public 으로 떨어진다', async () => {
     for (const accountStatus of Object.values(AccountStatus).filter(
@@ -57,7 +92,8 @@ describe('RankingRepository.findViewerClass', () => {
       await expect(
         repositoryWithActor({
           ...member,
-          hasStaffAccess: true,
+          type: 'STAFF',
+          approvalStatus: 'APPROVED',
           accountStatus,
         }).findViewerClass(1n),
       ).resolves.toBe('public');

@@ -1,15 +1,14 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
-  AffiliationKind,
   ApplicationStatus,
   CollectionRepositoryPresence,
-  MemberKind,
   ProgramCategory,
   RepositorySource,
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
+import { AffiliationKind, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
@@ -81,17 +80,14 @@ describe('PublicProjectsService.findProfile integration', () => {
         githubId: OWNER_GITHUB_ID,
         nickname: `${PREFIX}-owner-login`,
         avatarUrl: `https://avatars.githubusercontent.com/u/${PREFIX}-owner-avatar`,
-        selectedMemberKind: MemberKind.STUDENT,
-        profile: {
-          create: {
-            name: 'synthetic-real-name',
-            studentId: '880001',
-            department: 'synthetic-department',
-            memberKind: MemberKind.STUDENT,
-            affiliationKind: AffiliationKind.DEPARTMENT,
-            affiliationName: 'synthetic-department',
-          },
-        },
+        name: 'synthetic-real-name',
+        studentId: '880001',
+        department: 'synthetic-department',
+        type: MemberKind.STUDENT,
+        departmentType: AffiliationKind.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
 
@@ -102,7 +98,8 @@ describe('PublicProjectsService.findProfile integration', () => {
         id: `${PREFIX}-applicant-${key}`,
         githubId: 8_800_000_001_000n + BigInt(index),
         nickname: `${PREFIX}-applicant-${key}`,
-        selectedMemberKind: MemberKind.STUDENT,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       })),
     });
     const applicationIds = repoKeys.map(
@@ -248,7 +245,7 @@ describe('PublicProjectsService.findProfile integration', () => {
       await prisma.team.deleteMany({
         where: { programId: PROGRAM_ID },
       });
-      await prisma.userProfile.deleteMany({ where: { userId: OWNER_ID } });
+
       await prisma.user.deleteMany({
         where: { id: { startsWith: PREFIX } },
       });
@@ -357,7 +354,8 @@ describe('PublicProjectsService.findProfile integration', () => {
         id: bystanderId,
         githubId: 8_800_999_000_001n,
         nickname: `${PREFIX}-bystander-login`,
-        selectedMemberKind: MemberKind.STUDENT,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
       },
     });
     try {

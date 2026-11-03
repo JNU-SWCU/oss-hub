@@ -1,6 +1,6 @@
 import { CollectionScheduleService } from './collection-schedule.service';
 import { Module } from '@nestjs/common';
-import { ScheduleModule } from '@nestjs/schedule';
+import { APPLICATION_SCHEDULE_MODULE } from './maintenance.config';
 import { PlatformModule } from '../platform/platform.module';
 import { UsersModule } from '../users/users.module';
 import { CollectionAdminService } from './collection-admin.service';
@@ -33,7 +33,7 @@ import { RepositoryUrlService } from './repository-url.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 
 @Module({
-  imports: [ScheduleModule.forRoot(), PlatformModule, UsersModule],
+  imports: [APPLICATION_SCHEDULE_MODULE, PlatformModule, UsersModule],
   providers: [
     CollectionScheduleService,
     CollectionAdminService,

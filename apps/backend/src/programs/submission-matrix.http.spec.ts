@@ -227,20 +227,13 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
   });
 });
 
-it('ADMIN 세션도 200으로 조회하고 query 기본값·trim을 적용한다', async () => {
+it('ADMIN 단독 세션은 매트릭스를 조회하지 못한다', async () => {
   const response = await fetch(
     `${baseUrl}${MATRIX_URL_PATH}?q=%20%EA%B8%B0%ED%9A%8D%20`,
     { headers: { cookie: await cookie(ADMIN_GITHUB_ID) } },
   );
-
-  expect(response.status).toBe(200);
-  await expect(response.json()).resolves.toMatchObject({
-    page: 1,
-    pageSize: 20,
-  });
-  expect(pageCalls).toEqual([
-    { q: '기획', applicationMode: null, skip: 0, take: 20 },
-  ]);
+  expect(response.status).toBe(403);
+  expect(pageCalls).toHaveLength(0);
 });
 
 it('없는 프로그램은 404 SUB_016으로 끝난다', async () => {

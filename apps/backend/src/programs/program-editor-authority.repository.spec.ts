@@ -1,12 +1,9 @@
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import {
-  ProgramCategory,
-  StaffAccessRequestStatus,
-  ProgramTrackType,
-} from '@prisma/client';
+import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
@@ -14,10 +11,16 @@ describe('ProgramEditorRepository authority', () => {
   it('loads pending staff-role requests with editor authority', async () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'staff-101',
-      hasStaffAccess: false,
-      hasAdminAccess: false,
       accountStatus: 'ACTIVE',
-      staffAccessRequests: [{ status: StaffAccessRequestStatus.PENDING }],
+      type: 'STAFF',
+      approvalStatus: 'PENDING',
+      name: 'Synthetic user',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: null,
+      departmentType: null,
+      studentId: null,
+      admin: null,
     });
     const transaction = { user: { findUnique } };
     const prisma = {
@@ -40,21 +43,13 @@ describe('ProgramEditorRepository authority', () => {
     );
 
     expect(result?.id).toBe('staff-101');
-    expect(result?.staffAccessRequests).toEqual([
-      { status: StaffAccessRequestStatus.PENDING },
-    ]);
+    expect(result?.approvalStatus).toBe('PENDING');
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 101n },
       select: {
         id: true,
-        hasStaffAccess: true,
-        hasAdminAccess: true,
         accountStatus: true,
-        staffAccessRequests: {
-          where: { status: StaffAccessRequestStatus.PENDING },
-          select: { status: true },
-          take: 1,
-        },
+        ...USER_AUTHORITY_SELECT,
       },
     });
   });

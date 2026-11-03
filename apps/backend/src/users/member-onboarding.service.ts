@@ -1,9 +1,6 @@
+import { MemberKind, StaffAccessRequestStatus } from './user-contract.config';
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  MemberKind,
-  StaffAccessRequestStatus,
-} from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { ConsentsService } from './consents.service';
@@ -68,7 +65,7 @@ export class MemberOnboardingService {
 
       if (
         selectedMemberKind === MemberKind.STAFF &&
-        !recorded.hasStaffAccess &&
+        recorded.approvalStatus !== 'APPROVED' &&
         this.userProfileService.isCompleteProfileFields(
           recorded.profile,
           selectedMemberKind,
@@ -108,7 +105,10 @@ export class MemberOnboardingService {
 
     return this.repository.withTransaction(async (store) => {
       const user = await this.requireUser(store, githubId);
-      if (user.hasStaffAccess || user.memberKind === MemberKind.STUDENT) {
+      if (
+        user.approvalStatus === 'APPROVED' ||
+        user.memberKind === MemberKind.STUDENT
+      ) {
         throw new DomainException(
           ROLES_ERROR_CODES[RolesErrorCode.ROLE_ALREADY_CONFIRMED],
         );
@@ -147,7 +147,16 @@ export class MemberOnboardingService {
     selectedMemberKind: SelectableMemberKind,
   ): void {
     const isHarmlessRepeat = user.memberKind === selectedMemberKind;
-    if (user.memberKind !== null && !isHarmlessRepeat) {
+    if (
+      user.memberKind !== null &&
+      !isHarmlessRepeat &&
+      (user.approvalStatus === 'APPROVED' ||
+        (user.profileCreatedAt !== null &&
+          this.userProfileService.isCompleteProfileFields(
+            user.profile,
+            user.memberKind,
+          )))
+    ) {
       throw new DomainException(
         ROLES_ERROR_CODES[RolesErrorCode.ROLE_ALREADY_CONFIRMED],
       );

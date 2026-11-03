@@ -1,52 +1,45 @@
-import { AccountStatus } from '@prisma/client';
 import { AuthRepository } from './auth.repository';
-import {
-  buildAuthConfig,
-  buildRow,
-  prismaServiceWith,
-} from './auth.repository.spec-support';
+import { buildRow, prismaServiceWith } from './auth.repository.spec-support';
 
-describe('AuthRepository.findByGithubId', () => {
-  it('DB role·accountStatus를 그대로 도메인 객체에 실어 반환한다', async () => {
-    const findUnique = jest
-      .fn()
-      .mockResolvedValue(buildRow({ hasStaffAccess: true }));
-    const prisma = prismaServiceWith({ user: { findUnique } });
-    const config = buildAuthConfig();
-    const repository = new AuthRepository(prisma, config);
-
-    expect(await repository.findByGithubId(424_242n)).toMatchObject({
-      hasStaffAccess: true,
-      accountStatus: AccountStatus.ACTIVE,
+describe('AuthRepository raw principal projection', () => {
+  it('returns stored approval rather than making an operational staff decision', async () => {
+    const repository = new AuthRepository(
+      prismaServiceWith({
+        user: {
+          findUnique: jest
+            .fn()
+            .mockResolvedValue(
+              buildRow({ type: 'STAFF', approvalStatus: 'APPROVED' }),
+            ),
+        },
+      }),
+    );
+    expect(await repository.findByGithubId(424242n)).toMatchObject({
+      memberKind: 'STAFF',
+      approvalStatus: 'APPROVED',
+      profileCreatedAt: null,
     });
   });
-
-  it('canonical principal keeps student membership and independent admin authority', async () => {
-    const findUnique = jest.fn().mockResolvedValue({
-      ...buildRow({
-        hasAdminAccess: true,
-        hasStaffAccess: false,
-      }),
-      selectedMemberKind: 'STUDENT',
-      profile: {
-        name: '합성 학생 관리자',
-        studentId: '801030',
-        department: '인공지능학부',
-        memberKind: 'STUDENT',
-        affiliationKind: 'DEPARTMENT',
-        affiliationName: '인공지능학부',
-      },
-    });
+  it('keeps student identity independent from an administrator grant', async () => {
     const repository = new AuthRepository(
-      prismaServiceWith({ user: { findUnique } }),
-      buildAuthConfig(),
+      prismaServiceWith({
+        user: {
+          findUnique: jest.fn().mockResolvedValue(
+            buildRow({
+              type: 'STUDENT',
+              admin: { userId: 'cuid-synthetic' },
+              name: 'Student',
+              studentId: '801030',
+              department: 'Department',
+              profileCreatedAt: new Date('2026-01-01'),
+            }),
+          ),
+        },
+      }),
     );
-
-    const principal = await repository.findByGithubId(424_242n);
-
-    expect(principal).toMatchObject({
+    expect(await repository.findByGithubId(424242n)).toMatchObject({
       memberKind: 'STUDENT',
-      hasStaffAccess: false,
+      approvalStatus: 'NOT_REQUIRED',
       hasAdminAccess: true,
     });
   });

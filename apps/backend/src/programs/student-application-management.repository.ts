@@ -100,7 +100,7 @@ function toOwnedStudentApplication(
     teamLeaderId: team.leaderId,
     applicant: {
       id: row.applicant.id,
-      name: row.applicant.profile?.name ?? null,
+      name: row.applicant.name ?? null,
       nickname: row.applicant.nickname,
     },
   };

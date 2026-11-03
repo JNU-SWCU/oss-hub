@@ -1,4 +1,6 @@
-import { PlatformRepository } from '../platform/platform.repository';
+import { AdminRepository } from './admin.repository';
+import { UserTransitionRepository } from './user-transition.repository';
+
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
 import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.repository';
@@ -9,14 +11,12 @@ import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-
 function serializationFailure(): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError(
     'could not serialize access due to concurrent update',
     { code: 'P2034', clientVersion: 'test' },
   );
 }
-
 describe('AdminProfileRepository.withTransaction', () => {
   it('P2034로 한 번 실패한 뒤 재시도에서 성공하면 콜백을 새 트랜잭션으로 다시 실행한 결과를 돌려준다', async () => {
     const transaction = jest
@@ -29,23 +29,19 @@ describe('AdminProfileRepository.withTransaction', () => {
       new AdminAccessRepository(
         prisma as unknown as PrismaService,
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
-        ),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminRepository(prisma as unknown as PrismaService),
+        new UserTransitionRepository(),
       ),
       new PrismaSerializationRetryRepository(),
-      new PlatformRepository(),
+      new UserTransitionRepository(),
     );
     const operation = jest.fn().mockResolvedValue('result');
-
     const result = await repository.withTransaction(operation);
-
     expect(result).toBe('result');
     expect(transaction).toHaveBeenCalledTimes(2);
     expect(operation).toHaveBeenCalledTimes(1);
   });
-
   it('P2034 재시도를 모두 소진하면 원시 Prisma 에러 대신 409 PROFILE_UPDATE_CONFLICT를 던진다', async () => {
     const transaction = jest.fn().mockRejectedValue(serializationFailure());
     const prisma = { $transaction: transaction };
@@ -54,15 +50,13 @@ describe('AdminProfileRepository.withTransaction', () => {
       new AdminAccessRepository(
         prisma as unknown as PrismaService,
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
-        ),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminRepository(prisma as unknown as PrismaService),
+        new UserTransitionRepository(),
       ),
       new PrismaSerializationRetryRepository(),
-      new PlatformRepository(),
+      new UserTransitionRepository(),
     );
-
     const rejection = repository.withTransaction(() =>
       Promise.resolve('unused'),
     );
@@ -70,12 +64,10 @@ describe('AdminProfileRepository.withTransaction', () => {
     await expect(rejection).rejects.toMatchObject({
       errorCode: USERS_ERROR_CODES[UsersErrorCode.PROFILE_UPDATE_CONFLICT],
     });
-
     await expect(rejection).rejects.not.toBeInstanceOf(
       Prisma.PrismaClientKnownRequestError,
     );
   });
-
   it('P2034가 아닌 에러는 재시도 없이 그대로 다시 던진다', async () => {
     const notFound = new Prisma.PrismaClientKnownRequestError(
       'unique constraint failed',
@@ -88,15 +80,13 @@ describe('AdminProfileRepository.withTransaction', () => {
       new AdminAccessRepository(
         prisma as unknown as PrismaService,
         new AdminAccessHistoryRepository(),
-        new AdminAccessReadRepository(
-          new AdminAccessReadOrderingRepository(),
-          new PlatformRepository(),
-        ),
+        new AdminAccessReadRepository(new AdminAccessReadOrderingRepository()),
+        new AdminRepository(prisma as unknown as PrismaService),
+        new UserTransitionRepository(),
       ),
       new PrismaSerializationRetryRepository(),
-      new PlatformRepository(),
+      new UserTransitionRepository(),
     );
-
     await expect(
       repository.withTransaction(() => Promise.resolve('unused')),
     ).rejects.toBe(notFound);

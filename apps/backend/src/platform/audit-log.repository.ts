@@ -1,8 +1,9 @@
 import type { AuditLogTransactionWriter } from './audit-log-transaction-writer.types';
 import { Injectable } from '@nestjs/common';
-import { type Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from './prisma.service';
 import type { AuditLogListQuery } from './audit-log-query.types';
+import { AUDIT_LOG_FEED_CTE } from './audit-log-feed.config';
 
 import {
   type ApplicationRepositoryUrlAuditMetadata,
@@ -145,9 +146,18 @@ const auditLogSelect = {
   occurredAt: true,
 } satisfies Prisma.AuditLogSelect;
 
-export type AuditLogRow = Prisma.AuditLogGetPayload<{
-  select: typeof auditLogSelect;
-}>;
+export type AuditLogRow = Omit<
+  Prisma.AuditLogGetPayload<{ select: typeof auditLogSelect }>,
+  'actor'
+> & {
+  readonly actor: { readonly nickname: string } | null;
+  readonly legacySource?: boolean;
+  readonly historyKind?: string | null;
+};
+
+type AuditLogQueryRow =
+  | (AuditLogRow & { readonly total: number })
+  | { readonly id: null; readonly total: number };
 
 export type AuditLogRowPage = {
   readonly rows: readonly AuditLogRow[];
@@ -159,34 +169,43 @@ export class AuditLogRepository {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(query: AuditLogListQuery): Promise<AuditLogRowPage> {
-    const where: Prisma.AuditLogWhereInput = {
-      actor: query.actor
-        ? { nickname: { contains: query.actor, mode: 'insensitive' } }
-        : undefined,
-      action: query.action || undefined,
-      occurredAt:
-        query.from || query.to
-          ? {
-              gte: query.from
-                ? new Date(`${query.from}T00:00:00.000+09:00`)
-                : undefined,
-              lte: query.to
-                ? new Date(`${query.to}T23:59:59.999+09:00`)
-                : undefined,
-            }
-          : undefined,
+    const predicates: Prisma.Sql[] = [];
+    if (query.actor)
+      predicates.push(Prisma.sql`actor."login" ILIKE ${`%${query.actor}%`}`);
+    if (query.action)
+      predicates.push(Prisma.sql`event."action" = ${query.action}`);
+    if (query.from)
+      predicates.push(
+        Prisma.sql`event."occurredAt" >= ${new Date(`${query.from}T00:00:00.000+09:00`)}`,
+      );
+    if (query.to)
+      predicates.push(
+        Prisma.sql`event."occurredAt" <= ${new Date(`${query.to}T23:59:59.999+09:00`)}`,
+      );
+    const where = predicates.length
+      ? Prisma.sql`WHERE ${Prisma.join(predicates, ' AND ')}`
+      : Prisma.empty;
+    const result = await this.prisma.$queryRaw<AuditLogQueryRow[]>`
+      ${Prisma.raw(AUDIT_LOG_FEED_CTE)}, filtered AS (
+        SELECT event."id", event."occurredAt", event."action", event."targetType",
+          event."targetId", event."metadata", event."legacySource", event."historyKind",
+          CASE WHEN actor."id" IS NULL THEN NULL
+            ELSE jsonb_build_object('nickname', actor."login") END AS "actor"
+        FROM events event LEFT JOIN "User" actor ON actor."id" = event."actorId"
+        ${where}
+      )
+      SELECT totals."total", page.*
+      FROM (SELECT count(*)::integer AS "total" FROM filtered) totals
+      LEFT JOIN LATERAL (
+        SELECT * FROM filtered ORDER BY "occurredAt" DESC, "id" DESC
+        OFFSET ${(query.page - 1) * query.limit} LIMIT ${query.limit}
+      ) page ON true
+      ORDER BY page."occurredAt" DESC, page."id" DESC
+    `;
+    return {
+      rows: result.flatMap((row) => (row.id === null ? [] : [row])),
+      total: result[0]?.total ?? 0,
     };
-    const [rows, total] = await Promise.all([
-      this.prisma.auditLog.findMany({
-        where,
-        select: auditLogSelect,
-        orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-        skip: (query.page - 1) * query.limit,
-        take: query.limit,
-      }),
-      this.prisma.auditLog.count({ where }),
-    ]);
-    return { rows, total };
   }
 
   findProgramNames(ids: readonly string[]) {
