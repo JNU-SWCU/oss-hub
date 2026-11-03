@@ -3,6 +3,7 @@ import type { RankingTimeline, RankingTimelineSeries } from '../types';
 import {
   buildRankingHistoryChart,
   formatRankChange,
+  rankingHistoryAvatarSlots,
   rankingHistoryLogRows,
   rankingHistoryLogTicks,
   rankingRankChanges,
@@ -79,28 +80,15 @@ test('범례는 상위 10명과 열람자만 담고, 열람자 선은 전용 색
   );
 });
 
-test('상위 10명은 색·선모양 조합이 서로 겹치지 않는다', () => {
+test('상위 10명은 색이 모두 다르다', () => {
   const chart = buildRankingHistoryChart(timelineOf(rankedSeries(12)), null);
-  const identities = chart.legend.map(
-    (line) => `${line.color}|${String(line.dash)}`,
-  );
+  const colors = chart.legend.map((line) => line.color);
 
-  expect(chart.legend.find((line) => line.finalRank === 1)?.color).toBe(
-    'var(--chart-1)',
-  );
-  expect(
-    chart.legend.find((line) => line.finalRank === 1)?.dash,
-  ).toBeUndefined();
-  expect(chart.legend.find((line) => line.finalRank === 4)?.dash).toBe('7 5');
   expect(chart.legend.map((line) => line.strokeWidth)).toEqual([
     2.8, 2.8, 2.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8, 1.8,
   ]);
-  expect(
-    new Set(
-      chart.legend.filter((line) => !line.isViewer).map((line) => line.color),
-    ),
-  ).toEqual(new Set(['var(--chart-1)', 'var(--chart-2)']));
-  expect(new Set(identities).size).toBe(identities.length);
+  expect(new Set(colors).size).toBe(10);
+  expect(colors).not.toContain('var(--chart-3)');
 });
 
 test('계열이 없으면 행도 없다', () => {
@@ -156,4 +144,15 @@ test('로그 보기는 0점을 1로 올리고 빈 달은 비워 두며, 눈금�
     { label: '2월', s0: 1200, s1: 40 },
   ]);
   expect(rankingHistoryLogTicks(chart.lines)).toEqual([1, 10, 100, 1000]);
+});
+
+test('선 끝 아바타는 겹치지 않게 벌리고 플롯 안에 머문다', () => {
+  expect(rankingHistoryAvatarSlots([50, 52, 200], 20, 0, 300)).toEqual([
+    50, 70, 200,
+  ]);
+  expect(rankingHistoryAvatarSlots([295, 300], 20, 0, 300)).toEqual([280, 300]);
+  expect(rankingHistoryAvatarSlots([0, 0, 0], 20, 10, 30)).toEqual([
+    10, 20, 30,
+  ]);
+  expect(rankingHistoryAvatarSlots([], 20, 0, 300)).toEqual([]);
 });

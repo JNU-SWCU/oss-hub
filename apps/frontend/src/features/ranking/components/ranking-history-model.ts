@@ -6,11 +6,12 @@ import type {
 
 const LEGEND_LIMIT = 10;
 const LEAD_LIMIT = 3;
-const SERIES_COLORS = ['var(--chart-1)', 'var(--chart-2)'] as const;
+const SERIES_COLORS = [25, 260, 145, 330, 200, 50, 290, 175, 0, 115].map(
+  (hue) => `oklch(0.64 0.17 ${String(hue)})`,
+);
 const VIEWER_COLOR = 'var(--chart-3)';
 const REST_COLOR =
   'color-mix(in oklch, var(--muted-foreground) 55%, var(--card))';
-const DASH_PATTERNS = [undefined, '7 5', '2 4', '8 3 2 3', '1 6'] as const;
 export const RANKING_HISTORY_COMPACT_LEGEND_LIMIT = 5;
 
 const RANKING_HISTORY_STROKE = {
@@ -26,14 +27,14 @@ export interface RankingHistoryLine {
   readonly totals: readonly (number | null)[];
   readonly ranks: readonly (number | null)[];
   readonly color: string;
-  readonly dash: string | undefined;
   readonly strokeWidth: number;
   readonly faded: boolean;
   readonly isViewer: boolean;
   readonly showDot: boolean;
+  readonly tipIndex: number;
 }
 
-interface RankingHistoryRow {
+export interface RankingHistoryRow {
   readonly label: string;
   readonly [seriesKey: string]: number | string | null;
 }
@@ -148,7 +149,6 @@ function lineOf(
   const finalRank = series.ranks.at(-1) ?? order + 1;
   const isViewer = series.githubLogin === viewerGithubLogin;
   const ranked = finalRank <= LEGEND_LIMIT;
-  const style = isViewer || !ranked ? 0 : styleIndexOf(finalRank);
   return {
     key: `s${String(order)}`,
     githubLogin: series.githubLogin,
@@ -156,17 +156,13 @@ function lineOf(
     totals: series.totals,
     ranks: series.ranks,
     color: colorOf(finalRank, isViewer, ranked),
-    dash: DASH_PATTERNS[style],
     strokeWidth: rankingHistoryStrokeWidth(finalRank, isViewer),
     faded: !isViewer && !ranked,
     isViewer,
     showDot:
       isViewer || series.totals.filter((total) => total !== null).length === 1,
+    tipIndex: series.totals.findLastIndex((total) => total !== null),
   };
-}
-
-function styleIndexOf(finalRank: number): number {
-  return Math.floor((finalRank - 1) / SERIES_COLORS.length);
 }
 
 function colorOf(
@@ -176,7 +172,7 @@ function colorOf(
 ): string {
   if (isViewer) return VIEWER_COLOR;
   if (!ranked) return REST_COLOR;
-  return SERIES_COLORS[(finalRank - 1) % SERIES_COLORS.length] ?? REST_COLOR;
+  return SERIES_COLORS[finalRank - 1] ?? REST_COLOR;
 }
 
 function byPaintOrder(
@@ -192,4 +188,36 @@ function byPaintOrder(
 function paintPriorityOf(line: RankingHistoryLine): number {
   if (line.isViewer) return 2;
   return line.finalRank <= LEGEND_LIMIT ? 1 : 0;
+}
+
+export function rankingHistoryAvatarSlots(
+  tips: readonly number[],
+  gap: number,
+  top: number,
+  bottom: number,
+): readonly number[] {
+  const order = tips
+    .map((_tip, index) => index)
+    .sort((a, b) => (tips[a] ?? 0) - (tips[b] ?? 0));
+  const step = Math.min(gap, (bottom - top) / Math.max(1, order.length - 1));
+  const slots = order.map((index) => tips[index] ?? 0);
+  for (let i = 0; i < slots.length; i += 1) {
+    slots[i] = Math.max(
+      slots[i] ?? 0,
+      top,
+      i === 0 ? top : (slots[i - 1] ?? 0) + step,
+    );
+  }
+  for (let i = slots.length - 1; i >= 0; i -= 1) {
+    slots[i] = Math.min(
+      slots[i] ?? 0,
+      bottom,
+      i === slots.length - 1 ? bottom : (slots[i + 1] ?? 0) - step,
+    );
+  }
+  const placed = new Array<number>(tips.length);
+  order.forEach((index, rank) => {
+    placed[index] = slots[rank] ?? 0;
+  });
+  return placed;
 }
