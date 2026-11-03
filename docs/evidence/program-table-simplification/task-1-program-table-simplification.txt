@@ -1,125 +1,96 @@
-Todo 1 완료 증거 (2026-11-03)
+Todo 1 재검증 증거 (2026-11-03)
 
-작업 위치: /Users/beomsu/Documents/01_Project/oss-hub-wt/program-simplification-1
 브랜치: refactor/program-simplification-1-baseline
-기준 커밋: de5814c99
-범위: 기준선 테스트, 기준선 JSON, 파일 원장, 원장 검사기, 검사기 테스트와 정적 검사 설정.
-제품 코드/Prisma schema/마이그레이션/프론트엔드 변경: 없음.
-main checkout 수정, 운영 접근, push, PR 생성, merge: 없음.
+기준 origin/main SHA: 449aedd0a7c83afb95d24b080fecd21941bbc30a
+리베이스된 기존 구현 SHA: 4d19b7321
+범위: 기준선 테스트·JSON, 파일 원장과 검사기. 이번 보완은 문서와 측정 JSON만 변경.
+제품 코드, schema, migration, frontend, guide 변경 없음. 운영 접근 및 merge 없음.
+사용자 화면·동작이 변하지 않으므로 guide 갱신은 해당 없음.
 
-산출물:
-- apps/backend/prisma/program-read-baseline.integration.spec.ts
-- apps/backend/test/architecture/file-ledger.spec.ts
-- scripts/check-file-ledger.ts
-- scripts/tsconfig.json
-- scripts/eslint.config.mjs
-- docs/evidence/program-table-simplification/file-ledger.md
-- docs/evidence/program-table-simplification/program-read-baseline.json
-- 이 증거 파일
+원장:
+.omo/는 .gitignore:35에서 제외되므로 추적 원장은 docs/evidence/program-table-simplification/file-ledger.md에 둔다.
+programs 제품 파일: 245개 / 37919줄, 전후 동일.
+별도 platform/audit-log* 제품 파일: 10개 / 2279줄, 전후 동일.
+전체 255경로 present. 전체 의도: merge 102 / delete 18 / keep 135.
+programs만의 의도: merge 101 / delete 9 / keep 135.
+Application 인벤토리: backend 593줄 / frontend 115줄.
+AuditLog 인벤토리: backend 339줄 / frontend 157줄.
+새 base에서 FK 줄 번호와 전체 참조 목록을 재생성했다.
+기존 인벤토리의 누락된 SQL 테이블명·식별자 참조도 포함했다.
+Application 검색식과 테스트/fixture/support 제외 기준은 원장에 명시했다.
 
-원장 위치 이탈:
-.gitignore:35의 .omo/ 규칙 때문에 계획 경로는 추적되지 않는다.
-CI에서 읽을 추적 사본을 docs/evidence/program-table-simplification/file-ledger.md에 두었다.
-검사기는 이 사본을 기본으로 읽는다. ignore 규칙은 변경하지 않았다.
-프로그램 제품 파일은 DTO 포함 245개, 37,919줄이며 Todo 1 전후 동일하다.
-별도 platform/audit-log* 제품 파일은 10개, 2,277줄이다.
-원장의 255개 원본 경로는 모두 현재 present이며 최종 delete/merge/keep 의도와 구별한다.
-참조 인벤토리: backend Application ID 494줄, frontend 115줄,
-backend AuditLog 332줄, frontend 157줄. FK와 FK 없는 저장 참조를 별도로 적었다.
-
-커밋 기준선 (PostgreSQL 17.11, synthetic fixture, warmup 1회 + 순차 20 sample):
-program-overview: p50 1.4953124999999545 ms, SQL 3
-submission-matrix: p50 8.034291500000108 ms, SQL 12
-document-collection: p50 12.475687999999991 ms, SQL 19
-staff-team-detail: p50 9.641978999999992 ms, SQL 16
-
-총 277행 시드:
-Program 1, User 20, Team 10, TeamMember 20, Application 10,
-Milestone 2, MilestoneDocument 4, MilestoneDocumentSubmission 40,
-MilestoneDocumentSubmissionHistory 40, SubmissionFile 40,
-MilestoneDocumentReviewHistory 40, GithubRepository 10,
-RepositoryProvisionJob 10, OutboxEvent 10, AuditLog 10, Contribution 10.
-두 마일스톤 모두 DOCUMENT 항목이다. 레거시 제출 조회 결과는 0건이다.
-실제 repository를 호출하며 output assertion 비용과 팀 상세 evidence SQL을 포함한다.
-document-collection은 repeatable-read 트랜잭션 제어 SQL도 포함한다.
-HTTP 전체 응답 시간이나 운영 크기 성능을 의미하지 않는다. p50 임계값 assert는 없다.
-
-통합 실행 (cwd=apps/backend):
-COMPOSE_PROGRESS=plain BACKEND_INTEGRATION_TEST_PATTERN='prisma/program-read-baseline.integration.spec.ts' bash test/run-integration.sh
-결과: PASS, 1 suite / 1 test, exit 0. 4개 경로와 80 sample JSON 생성 확인.
-실행기는 migrate deploy 후 pnpm exec jest --runInBand --testPathPattern=<pattern>을 호출한다.
-이는 pnpm --filter backend exec jest --runInBand prisma/program-read-baseline.integration.spec.ts의 동일 스펙 선택이다.
-실행기가 임시 DB 환경을 소유하므로 DB URL을 별도로 재사용하거나 실행기를 변경하지 않았다.
-
-COMPOSE_PROGRESS=plain PROGRAM_READ_BASELINE_UNSEEDED=1 BACKEND_INTEGRATION_TEST_PATTERN='prisma/program-read-baseline.integration.spec.ts' bash test/run-integration.sh
-결과: 기대한 exit 1.
-UnseededProgramBaselineError: PROGRAM_READ_BASELINE_UNSEEDED: expected complete program baseline fixture
-실패 후 이전 실행의 JSON이 남아 있지 않음을 확인했다.
-
+실행 a (cwd=apps/backend):
 COMPOSE_PROGRESS=plain BACKEND_INTEGRATION_TEST_PATTERN='(prisma/program-read-baseline.integration.spec.ts|test/architecture/file-ledger.spec.ts)' bash test/run-integration.sh
-결과: PASS, 2 suites / 6 tests, exit 0.
-깨끗한 DB에서 재생성한 JSON의 schemaVersion, clock, DB version, seedSize,
-경로 이름/메서드, sample 수/필드, SQL 수가 커밋 기준선과 모두 같았다.
-재생성 p50(ms): overview 1.8576255000000401, matrix 9.232083499999817,
-collection 12.646124999999984, team detail 9.445187500000202.
-SQL 수는 각각 3 / 12 / 19 / 16으로 같았다.
-이 재실행은 stale_state 검증과 앞서 발견한 SQL 이벤트 지연의 수정 검증이다.
-성능값 변동을 제품 회귀로 판정하지 않았고 시간 임계값 테스트도 추가하지 않았다.
+원본 로그 마지막 줄은 실제 쉘 종료 코드를 기록한 EXIT=0이다.
+공개 요약 (Jest 출력 유지):
+PASS prisma/program-read-baseline.integration.spec.ts
+PASS test/architecture/file-ledger.spec.ts
+Test Suites: 2 passed, 2 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        3.588 s, estimated 4 s
+Ran all test suites matching /(prisma\/program-read-baseline.integration.spec.ts|test\/architecture\/file-ledger.spec.ts)/i.
+EXIT=0
 
-개발 중 실패와 수정:
-통합 실행 7회 = 개발 중 실패 4회 + 성공 2회 + 의도한 비시드 실패 1회.
-1. User_profile_presence_check와 AuditLog append-only 정리 제약을 시드/정리에 반영.
-2. TeamMember nested create에 중복된 programId를 제거.
-3. SubmissionFile의 필수 milestoneId를 추가. 검사기 테스트의 child-process 오류를 구조적으로 좁힘.
-4. Prisma query 로그 이벤트가 promise 완료보다 늦게 도착하여 SQL 수가 3/2/4로 보이는 문제를 재현.
-   정확한 SQL 장벽 이벤트를 실행 전에 구독하고 bounded timeout으로 기다리도록 수정.
-   고정 sleep/폴링 없음. 장벽 SQL과 장벽 시간은 측정에서 제외.
-성공할 때까지 동일 코드를 무작정 재시도하지 않았다.
+실행 b (cwd=apps/backend, 실행 a 종료 후 별도 격리 DB):
+COMPOSE_PROGRESS=plain PROGRAM_READ_BASELINE_UNSEEDED=1 BACKEND_INTEGRATION_TEST_PATTERN='prisma/program-read-baseline.integration.spec.ts' bash test/run-integration.sh
+원본 로그 마지막 줄은 실제 쉘 종료 코드를 기록한 EXIT=1이다.
+공개 요약 (Jest 출력 유지):
+FAIL prisma/program-read-baseline.integration.spec.ts
+    UnseededProgramBaselineError: PROGRAM_READ_BASELINE_UNSEEDED: expected complete program baseline fixture
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        2.172 s, estimated 4 s
+Ran all test suites matching /prisma\/program-read-baseline.integration.spec.ts/i.
+EXIT=1
+미시드 실패 후 생성 JSON이 남지 않았음을 확인했다. 실행 a의 JSON을 먼저 커밋 경로에 반영했다.
+원장 테스트 5건은 성공 상태와 없는 파일, 삭제 상태 모순을 실제 Bun CLI로 검사한다.
 
-원장 검사 (cwd=repo root):
-bun scripts/check-file-ledger.ts
-결과: FILE_LEDGER_OK 255 paths, exit 0.
-
-bun scripts/check-file-ledger.ts .omo/evidence/program-table-simplification/invalid-ledger.md
-결과: Missing ledger path: file-ledger-nonexistent-probe.ts, exit 1.
-주입 파일은 정상 경로 1개에 존재하지 않는 루트 경로를 추가한 원장이었다.
-이 임시 원장은 검증 후 삭제했다.
-5개 Jest 사례가 present/삭제 완료 성공, nonexistent 실패,
-삭제 표시지만 실존하는 파일 실패, keep+deleted 모순 실패를 실제 Bun CLI로 확인했다.
+측정: PostgreSQL 17.11, 합성 fixture 277행, 경로별 warmup 1회 + 순차 20 sample.
+program-overview: p50 1.619479000000183 ms / SQL 3
+submission-matrix: p50 7.884958000000097 ms / SQL 12
+document-collection: p50 12.177478999999721 ms / SQL 19
+staff-team-detail: p50 9.093228999999837 ms / SQL 16
+총 4개 경로, 80 sample. 시드 크기와 전체 sample은 program-read-baseline.json에 보존.
+두 마일스톤은 DOCUMENT 항목만 가지며 레거시 제출 결과는 0건이다.
+실제 repository와 결과 assertion, 트랜잭션 제어 SQL, 팀 evidence SQL을 포함한다.
+HTTP 전체 지연이 아니다. 합성 277행 기준선이며 운영 성능이나 속도 개선을 증명하지 않는다.
 
 정적 검사 (cwd=repo root, 순차 실행):
+bun scripts/check-file-ledger.ts
+FILE_LEDGER_OK 255 paths
+EXIT=0
 pnpm --filter backend typecheck
-결과: exit 0.
+EXIT=0
 pnpm --filter backend exec tsc -p ../../scripts/tsconfig.json
-결과: exit 0.
+EXIT=0
 pnpm --filter backend exec eslint prisma/program-read-baseline.integration.spec.ts test/architecture/file-ledger.spec.ts
-결과: exit 0, 파일 진단 없음. 기존 boundaries 플러그인의 mode 옵션 deprecation 메시지 1건.
+EXIT=0
 apps/backend/node_modules/.bin/eslint --max-warnings=0 --config scripts/eslint.config.mjs scripts/check-file-ledger.ts scripts/eslint.config.mjs
-결과: exit 0, 0 errors / 0 warnings.
-pnpm exec prettier --check apps/backend/prisma/program-read-baseline.integration.spec.ts apps/backend/test/architecture/file-ledger.spec.ts scripts/check-file-ledger.ts scripts/eslint.config.mjs scripts/tsconfig.json docs/evidence/program-table-simplification/program-read-baseline.json
-결과: All matched files use Prettier code style!, exit 0.
-최초 스크립트 lint 호출은 backend cwd 때문에 outside-of-base-path 경고로 파일을 무시했다.
-위 repo-root 호출로 두 스크립트 파일이 실제 lint되도록 바로잡았다.
-에디터에 지정된 biome LSP는 설치되어 있지 않아 tsc와 ESLint 결과를 사용했다.
+EXIT=0
+corepack pnpm exec prettier --check .
+All matched files use Prettier code style!
+EXIT=0
+리베이스 후 최초 typecheck는 stale Prisma Client의 snapshotAt 누락으로 EXIT=2였다.
+pnpm --filter backend exec prisma generate (EXIT=0)로 의존 산출물을 재생성한 후 위 검사를 통과했다.
+제품 소스 수정 없음. 기존 Prisma package.json 설정·boundaries mode의 deprecation 안내만 있었다.
+Biome LSP는 설치되지 않아 TypeScript/ESLint와 JSON 포맷 검사로 검증했다.
 
-Adversarial probes:
-- stale_state: PASS. 새 격리 DB에서 동일 JSON 구조와 시드 크기 및 SQL 수.
-- misleading_success_output: PASS. 잘못된 경로가 실제 exit 1이고 성공 sentinel이 아님.
-- dirty_worktree: PASS. 시작은 clean. 마지막 커밋 전 상태에는 의도한 8개 추가 파일만 있음.
-- flaky_tests: PASS after fix. SQL 이벤트 지연을 정확한 이벤트 장벽으로 수정하고 새 DB에서 재검증.
-- 나머지 probe: 해당 없음. UI/인증/배포/외부 서비스 계약/제품 동작 변경 없음.
+공개 안전:
+원본 Docker 로그의 로컬 경로, 격리 DB URL, 임시 자격증명과 포트는 공개 요약에서 제외했다.
+현재 트리에는 scripts/check-pr-body.sh와 scripts/check-public-safe.sh가 없다.
+보관된 before-source의 같은 이름 검사기와 현행 .github/check-public-safe.sh를 PR 단계에서 실행한다.
+PR 본문은 현행 submit-pr-evidence 템플릿을 적용하며 보관 검사기의 체크박스 4개 요구도 충족한다.
 
 정리 영수증:
-- 무거운 실행은 순차 진행. pnpm dev, 추가 웹 서버, VM/image build, 브라우저를 시작하지 않음.
-- 실행기의 EXIT trap으로 임시 PostgreSQL/object-storage 컨테이너·볼륨·네트워크 정리.
-- worktree compose.dev.yml 라벨로 docker ps -a 조회 결과 0개.
-- oss-hub-file-ledger-* 임시 디렉터리 0개.
-- .omo의 생성 JSON/오류 주입 원장과 빈 디렉터리를 제거.
-- typecheck가 만든 apps/backend/dist/tsconfig.tsbuildinfo와 빈 dist 디렉터리를 제거.
-- 제공된 worktree와 설치한 node_modules는 재현/검토를 위해 유지.
-- 제품 경로 git diff --quiet HEAD 결과 exit 0.
+두 통합 실행은 한 번에 하나씩 수행했고 각 EXIT trap이 컨테이너·볼륨·네트워크를 제거했다.
+해당 compose 파일 라벨의 잔여 컨테이너 0개, Compose 볼륨 0개, Compose 네트워크 0개.
+oss-hub-file-ledger-* 임시 디렉터리 0개. 미시드 실행 후 생성 JSON 없음.
+타입체크 build-info와 실행 원본 로그, 임시 PR 본문은 전달 완료 후 제거한다.
+서버, 브라우저, VM, 이미지 빌드 및 운영 접근을 시작하지 않았다.
+제공된 worktree와 node_modules는 보존한다.
 
-남은 판단:
-운영 데이터와 성능은 검증하지 않았다. 작은 합성 데이터의 p50은 호스트 부하에 따라 달라진다.
-다른 작업으로 origin/main이 실행 중 9커밋 전진했다. 이 브랜치의 기준선은 de5814c99에 고정되어 있다.
-rebase/push/PR/merge는 orchestrator가 담당하므로 실행하지 않았다.
+한계:
+운영 크기 성능, HTTP 지연과 배포는 검증하지 않았다. merge와 운영 접근은 요청 범위 밖이다.
+수치는 이 합성 fixture·호스트의 관측값이며 후속 비교의 출발점이다.
