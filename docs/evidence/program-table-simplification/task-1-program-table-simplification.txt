@@ -1,0 +1,96 @@
+Todo 1 재검증 증거 (2026-11-03)
+
+브랜치: refactor/program-simplification-1-baseline
+기준 origin/main SHA: 449aedd0a7c83afb95d24b080fecd21941bbc30a
+리베이스된 기존 구현 SHA: 4d19b7321
+범위: 기준선 테스트·JSON, 파일 원장과 검사기. 이번 보완은 문서와 측정 JSON만 변경.
+제품 코드, schema, migration, frontend, guide 변경 없음. 운영 접근 및 merge 없음.
+사용자 화면·동작이 변하지 않으므로 guide 갱신은 해당 없음.
+
+원장:
+.omo/는 .gitignore:35에서 제외되므로 추적 원장은 docs/evidence/program-table-simplification/file-ledger.md에 둔다.
+programs 제품 파일: 245개 / 37919줄, 전후 동일.
+별도 platform/audit-log* 제품 파일: 10개 / 2279줄, 전후 동일.
+전체 255경로 present. 전체 의도: merge 102 / delete 18 / keep 135.
+programs만의 의도: merge 101 / delete 9 / keep 135.
+Application 인벤토리: backend 593줄 / frontend 115줄.
+AuditLog 인벤토리: backend 339줄 / frontend 157줄.
+새 base에서 FK 줄 번호와 전체 참조 목록을 재생성했다.
+기존 인벤토리의 누락된 SQL 테이블명·식별자 참조도 포함했다.
+Application 검색식과 테스트/fixture/support 제외 기준은 원장에 명시했다.
+
+실행 a (cwd=apps/backend):
+COMPOSE_PROGRESS=plain BACKEND_INTEGRATION_TEST_PATTERN='(prisma/program-read-baseline.integration.spec.ts|test/architecture/file-ledger.spec.ts)' bash test/run-integration.sh
+원본 로그 마지막 줄은 실제 쉘 종료 코드를 기록한 EXIT=0이다.
+공개 요약 (Jest 출력 유지):
+PASS prisma/program-read-baseline.integration.spec.ts
+PASS test/architecture/file-ledger.spec.ts
+Test Suites: 2 passed, 2 total
+Tests:       6 passed, 6 total
+Snapshots:   0 total
+Time:        3.588 s, estimated 4 s
+Ran all test suites matching /(prisma\/program-read-baseline.integration.spec.ts|test\/architecture\/file-ledger.spec.ts)/i.
+EXIT=0
+
+실행 b (cwd=apps/backend, 실행 a 종료 후 별도 격리 DB):
+COMPOSE_PROGRESS=plain PROGRAM_READ_BASELINE_UNSEEDED=1 BACKEND_INTEGRATION_TEST_PATTERN='prisma/program-read-baseline.integration.spec.ts' bash test/run-integration.sh
+원본 로그 마지막 줄은 실제 쉘 종료 코드를 기록한 EXIT=1이다.
+공개 요약 (Jest 출력 유지):
+FAIL prisma/program-read-baseline.integration.spec.ts
+    UnseededProgramBaselineError: PROGRAM_READ_BASELINE_UNSEEDED: expected complete program baseline fixture
+Test Suites: 1 failed, 1 total
+Tests:       1 failed, 1 total
+Snapshots:   0 total
+Time:        2.172 s, estimated 4 s
+Ran all test suites matching /prisma\/program-read-baseline.integration.spec.ts/i.
+EXIT=1
+미시드 실패 후 생성 JSON이 남지 않았음을 확인했다. 실행 a의 JSON을 먼저 커밋 경로에 반영했다.
+원장 테스트 5건은 성공 상태와 없는 파일, 삭제 상태 모순을 실제 Bun CLI로 검사한다.
+
+측정: PostgreSQL 17.11, 합성 fixture 277행, 경로별 warmup 1회 + 순차 20 sample.
+program-overview: p50 1.619479000000183 ms / SQL 3
+submission-matrix: p50 7.884958000000097 ms / SQL 12
+document-collection: p50 12.177478999999721 ms / SQL 19
+staff-team-detail: p50 9.093228999999837 ms / SQL 16
+총 4개 경로, 80 sample. 시드 크기와 전체 sample은 program-read-baseline.json에 보존.
+두 마일스톤은 DOCUMENT 항목만 가지며 레거시 제출 결과는 0건이다.
+실제 repository와 결과 assertion, 트랜잭션 제어 SQL, 팀 evidence SQL을 포함한다.
+HTTP 전체 지연이 아니다. 합성 277행 기준선이며 운영 성능이나 속도 개선을 증명하지 않는다.
+
+정적 검사 (cwd=repo root, 순차 실행):
+bun scripts/check-file-ledger.ts
+FILE_LEDGER_OK 255 paths
+EXIT=0
+pnpm --filter backend typecheck
+EXIT=0
+pnpm --filter backend exec tsc -p ../../scripts/tsconfig.json
+EXIT=0
+pnpm --filter backend exec eslint prisma/program-read-baseline.integration.spec.ts test/architecture/file-ledger.spec.ts
+EXIT=0
+apps/backend/node_modules/.bin/eslint --max-warnings=0 --config scripts/eslint.config.mjs scripts/check-file-ledger.ts scripts/eslint.config.mjs
+EXIT=0
+corepack pnpm exec prettier --check .
+All matched files use Prettier code style!
+EXIT=0
+리베이스 후 최초 typecheck는 stale Prisma Client의 snapshotAt 누락으로 EXIT=2였다.
+pnpm --filter backend exec prisma generate (EXIT=0)로 의존 산출물을 재생성한 후 위 검사를 통과했다.
+제품 소스 수정 없음. 기존 Prisma package.json 설정·boundaries mode의 deprecation 안내만 있었다.
+Biome LSP는 설치되지 않아 TypeScript/ESLint와 JSON 포맷 검사로 검증했다.
+
+공개 안전:
+원본 Docker 로그의 로컬 경로, 격리 DB URL, 임시 자격증명과 포트는 공개 요약에서 제외했다.
+현재 트리에는 scripts/check-pr-body.sh와 scripts/check-public-safe.sh가 없다.
+보관된 before-source의 같은 이름 검사기와 현행 .github/check-public-safe.sh를 PR 단계에서 실행한다.
+PR 본문은 현행 submit-pr-evidence 템플릿을 적용하며 보관 검사기의 체크박스 4개 요구도 충족한다.
+
+정리 영수증:
+두 통합 실행은 한 번에 하나씩 수행했고 각 EXIT trap이 컨테이너·볼륨·네트워크를 제거했다.
+해당 compose 파일 라벨의 잔여 컨테이너 0개, Compose 볼륨 0개, Compose 네트워크 0개.
+oss-hub-file-ledger-* 임시 디렉터리 0개. 미시드 실행 후 생성 JSON 없음.
+타입체크 build-info와 실행 원본 로그, 임시 PR 본문은 전달 완료 후 제거한다.
+서버, 브라우저, VM, 이미지 빌드 및 운영 접근을 시작하지 않았다.
+제공된 worktree와 node_modules는 보존한다.
+
+한계:
+운영 크기 성능, HTTP 지연과 배포는 검증하지 않았다. merge와 운영 접근은 요청 범위 밖이다.
+수치는 이 합성 fixture·호스트의 관측값이며 후속 비교의 출발점이다.

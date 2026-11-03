@@ -1,0 +1,380 @@
+{
+  "schemaVersion": 1,
+  "surface": "real repositories; includes output assertions, transaction control SQL and team evidence SQL; not HTTP latency",
+  "clock": "2026-06-15T12:00:00.000Z",
+  "database": "PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "seedSize": {
+    "programs": 1,
+    "users": 20,
+    "teams": 10,
+    "members": 20,
+    "applications": 10,
+    "milestones": 2,
+    "documents": 4,
+    "submissions": 40,
+    "histories": 40,
+    "files": 40,
+    "reviews": 40,
+    "repositories": 10,
+    "provisionJobs": 10,
+    "outboxEvents": 10,
+    "auditLogs": 10,
+    "contributions": 10
+  },
+  "warmups": 1,
+  "sampleCount": 20,
+  "measurements": [
+    {
+      "name": "program-overview",
+      "method": "ProgramOverviewRepository.findByProgramId",
+      "p50Ms": 1.619479000000183,
+      "sqlCount": 3,
+      "samples": [
+        {
+          "milliseconds": 2.785334000000148,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9381249999996726,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.4822500000000218,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6457080000000133,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6792919999998048,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9494589999999334,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.3053749999999127,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.628791000000092,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6400830000002316,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5750410000000556,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5105419999999867,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.4649170000002414,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.4504170000000158,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.467333999999937,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8078749999999673,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.3922910000001139,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6756669999999758,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.3840000000000146,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.3928750000000036,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6101670000002741,
+          "sqlCount": 3
+        }
+      ]
+    },
+    {
+      "name": "submission-matrix",
+      "method": "SubmissionMatrixRepository.findMilestones/findApprovedApplications/findCurrentSubmissions/findDocumentFirstSubmissions/findDocumentChangeRequests",
+      "p50Ms": 7.884958000000097,
+      "sqlCount": 12,
+      "samples": [
+        {
+          "milliseconds": 12.702374999999847,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.236499999999978,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.917541000000256,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.852374999999938,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.5856659999999465,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.7697079999998095,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.80008399999997,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.965875000000324,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.193125000000236,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.211166000000048,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.900874999999814,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.238957999999911,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.945582999999715,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.656582999999955,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.3745420000000195,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.496874999999818,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.348624999999629,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.55724999999984,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.231667000000016,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.418374999999742,
+          "sqlCount": 12
+        }
+      ]
+    },
+    {
+      "name": "document-collection",
+      "method": "MilestoneDocumentCollectionReadRepository.withSnapshot + findMilestone/findDocuments/findApplications/findCoordinates/findDetails",
+      "p50Ms": 12.177478999999721,
+      "sqlCount": 19,
+      "samples": [
+        {
+          "milliseconds": 12.325250000000324,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.449208999999883,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.976708000000144,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.4252919999999,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.472499999999854,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.891708999999992,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.85308299999997,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.034165999999914,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.045750000000226,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.214124999999967,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.44275000000016,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.190374999999676,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.561125000000175,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.164582999999766,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.19504199999983,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.81229200000007,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.59816600000022,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.748999999999796,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.786041000000296,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.78570800000034,
+          "sqlCount": 19
+        }
+      ]
+    },
+    {
+      "name": "staff-team-detail",
+      "method": "ProgramTeamsRepository.findStaffTeamDetail (including evidence queries)",
+      "p50Ms": 9.093228999999837,
+      "sqlCount": 16,
+      "samples": [
+        {
+          "milliseconds": 14.37145799999962,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.469708999999966,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.229792000000089,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.76608299999998,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.140707999999904,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.305332999999791,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.981458000000202,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.74725000000035,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.04574999999977,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.773458000000119,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 13.187458000000333,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.909167000000252,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.829999999999927,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.822499999999764,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.738957999999911,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.325874999999996,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.624750000000404,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.003625000000284,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.594874999999774,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.595166000000063,
+          "sqlCount": 16
+        }
+      ]
+    }
+  ]
+}

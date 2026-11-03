@@ -18,6 +18,7 @@
         "deploy/jenkins/user-consolidation-watchdog-access.mjs",
         "deploy/jenkins/user-consolidation-watchdog-state.mjs",
         "eslint.shared.mjs",
+        "scripts/eslint.config.mjs",
         "eslint-rules/no-comments.mjs",
         ".design-sync/compile-css.mjs",
         ".design-sync/emit-types.mjs",
