@@ -47,8 +47,7 @@ const detail: CanonicalAdminAccessDetail = {
     isComplete: true,
   },
 };
-const action = 'SET_MEMBER_STUDENT';
-const fields = { studentId: '123456', department: '소프트웨어공학과' };
+const action = 'RESET_MEMBER_KIND';
 let container: HTMLDivElement;
 let root: Root;
 let current: ReturnType<typeof useInlineAdminAccessMutation>;
@@ -183,8 +182,8 @@ describe('useInlineAdminAccessMutation', () => {
     vi.mocked(runAdminAccessMutation).mockReturnValueOnce(mutation.promise);
 
     act(() => {
-      void current.confirm(fields);
-      void current.confirm(fields);
+      void current.confirm();
+      void current.confirm();
       void current.request(detail, action, null);
       current.cancel();
     });
@@ -196,7 +195,6 @@ describe('useInlineAdminAccessMutation', () => {
       action,
       detail,
       reason: '',
-      memberKindFields: fields,
     });
     expect(fetchCanonicalAdminAccessDetail).toHaveBeenCalledTimes(1);
     await act(async () => mutation.resolve({ kind: 'success', result: null }));
@@ -255,7 +253,7 @@ describe('useInlineAdminAccessMutation', () => {
       message: 'synthetic-error',
     });
 
-    await act(async () => current.confirm(fields));
+    await act(async () => current.confirm());
 
     expect(current.pending).toEqual({ action, detail, returnFocusTo: null });
     expect(current.dialogError).toBe('synthetic-error');

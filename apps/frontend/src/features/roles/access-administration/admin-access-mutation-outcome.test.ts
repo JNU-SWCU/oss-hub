@@ -50,16 +50,16 @@ describe('runAdminAccessMutation', () => {
     expect(execute).toHaveBeenCalledWith('user-1', 'APPROVE', detail, '');
   });
 
-  it('classifies a member-kind 409 as conflict without projection', async () => {
+  it('keeps a reset 409 as an error displayed in the dialog', async () => {
     execute.mockRejectedValueOnce(problem(409, 'ANY'));
     await expect(
       runAdminAccessMutation({
         userId: 'user-1',
-        action: 'SET_MEMBER_STAFF',
+        action: 'RESET_MEMBER_KIND',
         detail,
         reason: '',
       }),
-    ).resolves.toEqual({ kind: 'conflict', projection: null });
+    ).resolves.toEqual({ kind: 'error', message: '서버 문구 409' });
   });
 
   it('classifies a state-mismatch 409 as conflict with projection', async () => {

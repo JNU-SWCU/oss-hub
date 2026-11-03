@@ -53,7 +53,7 @@ describe('independent authority mutation policy', () => {
     },
   );
 
-  it.each(['SET_MEMBER_STUDENT', 'SET_MEMBER_STAFF'] as const)(
+  it.each(['RESET_MEMBER_KIND'] as const)(
     'classifies member-kind action %s separately from admin authority',
     (action) => {
       expect(isMemberKindMutationAction(action)).toBe(true);
@@ -69,26 +69,16 @@ describe('independent authority mutation policy', () => {
   );
 
   it('builds a member-kind payload from canonical fields only', () => {
-    expect(
-      buildMemberKindMutationRequest('SET_MEMBER_STAFF', detail(), {
-        staffNumber: 'staff-42',
-      }),
-    ).toEqual({
-      memberKind: 'STAFF',
+    expect(buildMemberKindMutationRequest(detail())).toEqual({
       expectedMemberKind: 'STUDENT',
-      expectedHasStaffAccess: false,
       expectedApprovalStatus: 'NOT_REQUIRED',
       expectedApprovalRequestId: null,
-      staffNumber: 'staff-42',
     });
   });
 
   it('requires an explicit canonical member kind instead of inferring from role', () => {
     expect(() =>
-      buildMemberKindMutationRequest(
-        'SET_MEMBER_STUDENT',
-        detail({ memberKind: null }),
-      ),
+      buildMemberKindMutationRequest(detail({ memberKind: null })),
     ).toThrow('existing canonical member kind');
   });
 
@@ -102,9 +92,7 @@ describe('independent authority mutation policy', () => {
         pendingRequest: null,
       });
 
-      expect(
-        buildMemberKindMutationRequest('SET_MEMBER_STUDENT', source),
-      ).toMatchObject({
+      expect(buildMemberKindMutationRequest(source)).toMatchObject({
         expectedMemberKind: 'STAFF',
         expectedApprovalStatus: approvalStatus,
         expectedApprovalRequestId: 'observed-request',
@@ -147,8 +135,11 @@ describe('independent authority mutation policy', () => {
 
   it('uses independent authority success copy', () => {
     expect(
-      adminAccessMutationSuccessMessage('SET_MEMBER_STAFF', 'synthetic-target'),
-    ).toContain('교직원 유형 적용');
+      adminAccessMutationSuccessMessage(
+        'RESET_MEMBER_KIND',
+        'synthetic-target',
+      ),
+    ).toContain('가입 유형 되돌리기');
   });
 });
 

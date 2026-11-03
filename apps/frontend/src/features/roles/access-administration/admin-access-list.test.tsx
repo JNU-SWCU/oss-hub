@@ -415,7 +415,7 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
     expect(html).not.toContain('필터 초기화');
   });
 
-  it('권한 필드가 있는 행은 세 드롭다운을 렌더링하고 역할 정렬은 회원 유형 머리글에 붙는다', () => {
+  it('권한 필드가 있는 행은 회원 유형을 읽기 전용으로 표시하고 역할 정렬을 유지한다', () => {
     const html = renderToStaticMarkup(
       <AdminAccessView
         {...baseViewProps}
@@ -425,7 +425,9 @@ describe('AdminAccessView — 읽기 전용 사용자 목록 화면', () => {
       />,
     );
 
-    expect(html).toContain('aria-label="합성 사용자 회원 유형"');
+    expect(html).not.toContain('aria-label="합성 사용자 회원 유형"');
+    expect(html).toContain('<output');
+    expect(html).toContain('가입 유형 되돌리기');
     expect(html).toContain('aria-label="합성 사용자 관리자 접근"');
     expect(html).toContain('aria-label="합성 사용자 계정 상태"');
     expect(html).toMatch(

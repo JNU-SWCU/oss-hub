@@ -130,9 +130,9 @@ describe('Admin access real PostgreSQL transactions', () => {
     await expect(
       service.patchAccess(actor.githubId, target.id, {
         expectedRole: 'STUDENT',
-        desiredRole: 'STAFF',
+        desiredRole: 'STUDENT',
         expectedAccountStatus: AccountStatus.ACTIVE,
-        desiredAccountStatus: AccountStatus.ACTIVE,
+        desiredAccountStatus: AccountStatus.DEACTIVATED,
         expectedPendingRequest: null,
       }),
     ).rejects.toThrow(AUDIT_FAILURE_MESSAGE);

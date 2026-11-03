@@ -99,13 +99,16 @@ it('executes PATCH /users/:id/access through the real transaction and audit path
     'PATCH',
     `/users/${target.id}/access`,
     actor.githubId,
-    accessBody({ desiredRole: 'STAFF' }),
+    accessBody({
+      desiredRole: 'STUDENT',
+      desiredAccountStatus: AccountStatus.DEACTIVATED,
+    }),
   );
   expect(response.status).toBe(200);
   await expect(response.json()).resolves.toMatchObject({
     id: target.id,
-    role: 'STAFF',
-    accountStatus: AccountStatus.ACTIVE,
+    role: 'STUDENT',
+    accountStatus: AccountStatus.DEACTIVATED,
   });
   await expect(
     userAuditRows(harness.prisma, { targetId: target.id }).then(

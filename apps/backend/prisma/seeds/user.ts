@@ -76,6 +76,7 @@ export async function upsertSeedUser(
     accountStatus,
     type,
     approvalStatus: approvals[type],
+    studentId: type === 'STUDENT' ? (existing?.studentId ?? null) : null,
     approvalRequestId: null,
     approvalRequestedAt: null,
     approvalDecidedAt: null,
