@@ -1,0 +1,2 @@
+-- AlterTable
+ALTER TABLE "GithubUserActivityCycleSnapshot" ADD COLUMN "snapshotAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;

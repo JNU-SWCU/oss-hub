@@ -1070,6 +1070,7 @@ model GithubUserActivityCycleSnapshot {
   starCount        Int @default(0)
 
   observedAt DateTime
+  snapshotAt DateTime @default(now())
 
   @@id([githubId, year, visibility])
   @@index([year])
