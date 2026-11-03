@@ -26,7 +26,7 @@ it.each([
     let exit = 0;
     let stdout = '';
     try {
-      ({ stdout } = await run('bun', ['scripts/check-file-ledger.ts', ledger], {
+      ({ stdout } = await run('pnpm', ['run', 'check:file-ledger', ledger], {
         cwd: root,
         timeout: 10_000,
       }));

@@ -8,7 +8,9 @@
   "scripts": {
     "build": "pnpm -r build",
     "lint": "pnpm -r lint && pnpm lint:structure",
-    "lint:structure": "knip",
+    "lint:structure": "knip && pnpm lint:scripts",
+    "lint:scripts": "apps/backend/node_modules/.bin/eslint --max-warnings=0 --config scripts/eslint.config.mjs scripts/check-file-ledger.ts scripts/eslint.config.mjs",
+    "check:file-ledger": "node scripts/check-file-ledger.ts",
     "typecheck": "pnpm -r typecheck",
     "test": "pnpm -r test",
     "commitlint": "commitlint --config commitlint.config.cjs",
