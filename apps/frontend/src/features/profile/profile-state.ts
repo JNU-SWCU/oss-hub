@@ -41,8 +41,8 @@ export function createInitialProfileForm(
     phone: profile.phone ?? '',
 
     savedStudentId: profile.studentId ?? '',
-    affiliationKind: 'DEPARTMENT',
-    affiliationName: '',
+    departmentType: 'DEPARTMENT',
+    programOfficeName: '',
     departmentOption: isListed
       ? department
       : department
@@ -60,18 +60,18 @@ export function resolveDepartment(
     : values.departmentOption;
 }
 
-function resolveAffiliationName(
+function resolveRequestedDepartment(
   values: Pick<
     ProfileFormValues,
-    | 'affiliationKind'
-    | 'affiliationName'
+    | 'departmentType'
+    | 'programOfficeName'
     | 'departmentOption'
     | 'otherDepartment'
   >,
 ): string {
-  return values.affiliationKind === 'DEPARTMENT'
+  return values.departmentType === 'DEPARTMENT'
     ? resolveDepartment(values)
-    : values.affiliationName;
+    : values.programOfficeName;
 }
 
 function nameError(name: string): string | null {
@@ -122,11 +122,11 @@ export function validateProfileForm(
   memberKind: ProfileRole | null,
 ): ProfileFormErrors {
   const requirement = profileFieldRequirement(memberKind);
-  const affiliationError =
-    memberKind === 'STUDENT' && values.affiliationKind !== 'DEPARTMENT'
+  const requestedDepartmentError =
+    memberKind === 'STUDENT' && values.departmentType !== 'DEPARTMENT'
       ? '학생은 학과 소속을 선택해 주세요.'
       : departmentError(
-          resolveAffiliationName(values),
+          resolveRequestedDepartment(values),
           profileFieldRequirement(memberKind).department,
         );
   return {
@@ -135,7 +135,7 @@ export function validateProfileForm(
       ? null
       : studentIdError(values.studentId.trim(), requirement.studentId),
     phone: phoneError(values.phone, requirement.phone),
-    department: affiliationError,
+    department: requestedDepartmentError,
   };
 }
 
@@ -157,8 +157,8 @@ export function toCompleteProfileRequest(
     name: normalizeProfileText(values.name),
     ...(studentId ? { studentId } : {}),
     ...(values.phone ? { phone: values.phone } : {}),
-    affiliationKind: values.affiliationKind,
-    affiliationName: normalizeProfileText(resolveAffiliationName(values)),
+    departmentType: values.departmentType,
+    department: normalizeProfileText(resolveRequestedDepartment(values)),
   };
 }
 

@@ -22,14 +22,14 @@ const completeRequest = {
   name: '합성 사용자',
   studentId: '1'.repeat(6),
   phone: TEN_DIGIT_PHONE,
-  affiliationKind: 'DEPARTMENT' as const,
-  affiliationName: '인공지능학부',
+  departmentType: 'DEPARTMENT' as const,
+  department: '인공지능학부',
 };
 const completeProfile = {
   name: completeRequest.name,
   studentId: completeRequest.studentId,
   staffNumber: null,
-  department: completeRequest.affiliationName,
+  department: completeRequest.department,
   phone: completeRequest.phone,
 };
 

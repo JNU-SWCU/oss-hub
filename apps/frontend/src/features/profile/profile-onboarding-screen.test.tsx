@@ -208,8 +208,8 @@ describe('프로필 온보딩 화면', () => {
     expect(savedRequest()?.body).toEqual({
       name: '합성 학생',
       phone: TEN_DIGIT_PHONE,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: '인공지능학부',
+      departmentType: 'DEPARTMENT',
+      department: '인공지능학부',
     });
     expect(mocks.assign).toHaveBeenCalledWith(NEXT_PATH);
   });
@@ -239,8 +239,8 @@ describe('프로필 온보딩 화면', () => {
       name: '합성 학생',
       studentId: '1'.repeat(6),
       phone: TEN_DIGIT_PHONE,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: '인공지능학부',
+      departmentType: 'DEPARTMENT',
+      department: '인공지능학부',
     });
   });
 

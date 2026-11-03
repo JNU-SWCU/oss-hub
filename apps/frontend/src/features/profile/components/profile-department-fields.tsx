@@ -10,50 +10,50 @@ import type { ProfileFormValues } from '../types';
 
 const AFFILIATION_ERROR_ID = 'profile-department-error';
 
-interface ProfileAffiliationFieldsProps {
+interface ProfileDepartmentFieldsProps {
   readonly memberKind: ProfileMemberKind;
   readonly values: ProfileFormValues;
   readonly showError: boolean;
   readonly error: string | null;
   readonly departmentRef: RefObject<HTMLSelectElement | null>;
-  readonly affiliationNameRef: RefObject<HTMLInputElement | null>;
+  readonly programOfficeNameRef: RefObject<HTMLInputElement | null>;
   readonly onChange: (patch: Partial<ProfileFormValues>) => void;
 }
 
-export function ProfileAffiliationFields({
+export function ProfileDepartmentFields({
   memberKind,
   values,
   showError,
   error,
   departmentRef,
-  affiliationNameRef,
+  programOfficeNameRef,
   onChange,
-}: ProfileAffiliationFieldsProps) {
-  const isDepartment = values.affiliationKind === 'DEPARTMENT';
+}: ProfileDepartmentFieldsProps) {
+  const isDepartment = values.departmentType === 'DEPARTMENT';
   return (
     <>
       {memberKind === 'STAFF' ? (
         <Field>
-          <FieldLabel htmlFor="profile-affiliation-kind">
+          <FieldLabel htmlFor="profile-department-type">
             소속 유형
             <RequiredMark />
           </FieldLabel>
           <Select
-            id="profile-affiliation-kind"
-            name="affiliationKind"
+            id="profile-department-type"
+            name="departmentType"
 
             className={cn(
               '[&_optgroup]:bg-popover [&_optgroup]:text-popover-foreground',
               '[&_option]:bg-popover [&_option]:text-popover-foreground',
             )}
-            value={values.affiliationKind}
+            value={values.departmentType}
             onChange={(event) =>
               onChange({
-                affiliationKind:
+                departmentType:
                   event.target.value === 'PROGRAM_OFFICE'
                     ? 'PROGRAM_OFFICE'
                     : 'DEPARTMENT',
-                affiliationName: '',
+                programOfficeName: '',
                 departmentOption: '',
                 otherDepartment: '',
               })
@@ -68,7 +68,7 @@ export function ProfileAffiliationFields({
       <Field data-invalid={showError || undefined}>
         <FieldLabel
           htmlFor={
-            isDepartment ? 'profile-department' : 'profile-affiliation-name'
+            isDepartment ? 'profile-department' : 'profile-program-office-name'
           }
         >
           {isDepartment ? '학과' : '사업단'}
@@ -78,7 +78,7 @@ export function ProfileAffiliationFields({
           <>
             <Select
               id="profile-department"
-              name="affiliationName"
+              name="department"
               ref={departmentRef}
               aria-required="true"
               className={cn(
@@ -112,16 +112,16 @@ export function ProfileAffiliationFields({
           </>
         ) : (
           <Input
-            id="profile-affiliation-name"
-            name="affiliationName"
-            ref={affiliationNameRef}
+            id="profile-program-office-name"
+            name="programOfficeName"
+            ref={programOfficeNameRef}
             placeholder="소속 사업단을 입력해 주세요"
             maxLength={PROFILE_DEPARTMENT_MAX_LENGTH}
-            value={values.affiliationName}
+            value={values.programOfficeName}
             aria-invalid={showError}
             aria-describedby={showError ? AFFILIATION_ERROR_ID : undefined}
             onChange={(event) =>
-              onChange({ affiliationName: event.target.value })
+              onChange({ programOfficeName: event.target.value })
             }
           />
         )}

@@ -21,8 +21,8 @@ function formWithoutStudentId() {
     studentId: '',
     savedStudentId: '',
     phone: '',
-    affiliationKind: 'DEPARTMENT' as const,
-    affiliationName: '',
+    departmentType: 'DEPARTMENT' as const,
+    programOfficeName: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
   };
@@ -66,8 +66,8 @@ describe('새 교직원 가입 동선', () => {
     expect(isProfileFormValid(errors)).toBe(true);
     expect(request).toEqual({
       name: '합성 조교',
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: '인공지능학부',
+      departmentType: 'DEPARTMENT',
+      department: '인공지능학부',
     });
   });
 
@@ -86,8 +86,8 @@ describe('legacy 관리자 호환', () => {
       studentId: '',
       savedStudentId: '',
       phone: '',
-      affiliationKind: 'DEPARTMENT' as const,
-      affiliationName: '',
+      departmentType: 'DEPARTMENT' as const,
+      programOfficeName: '',
       departmentOption: '인공지능학부',
       otherDepartment: '',
     };

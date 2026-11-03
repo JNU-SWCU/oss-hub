@@ -201,7 +201,7 @@ describe('unicode name and student-id contract', () => {
     }
   });
 
-  it('rejects blank names and affiliation after trim', () => {
+  it('rejects blank names and department after trim', () => {
     expect(isValidProfileName(PROFILE_UNICODE_CONTRACT.blank)).toBe(false);
     expect(isValidDepartment(PROFILE_UNICODE_CONTRACT.blank)).toBe(false);
     expect(isValidProfileName('')).toBe(false);

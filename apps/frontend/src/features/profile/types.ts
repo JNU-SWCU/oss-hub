@@ -1,4 +1,4 @@
-type AffiliationKind = 'DEPARTMENT' | 'PROGRAM_OFFICE';
+type DepartmentType = 'DEPARTMENT' | 'PROGRAM_OFFICE';
 
 export interface UserProfile {
   readonly name: string;
@@ -13,8 +13,8 @@ export interface CompleteProfileRequest {
   readonly name: string;
   readonly studentId?: string;
   readonly phone?: string;
-  readonly affiliationKind: AffiliationKind;
-  readonly affiliationName: string;
+  readonly departmentType: DepartmentType;
+  readonly department: string;
 }
 
 export interface UpdateProfileRequest {
@@ -32,8 +32,8 @@ export interface ProfileFormValues {
   readonly phone: string;
 
   readonly savedStudentId: string;
-  readonly affiliationKind: AffiliationKind;
-  readonly affiliationName: string;
+  readonly departmentType: DepartmentType;
+  readonly programOfficeName: string;
   readonly departmentOption: string;
   readonly otherDepartment: string;
 }

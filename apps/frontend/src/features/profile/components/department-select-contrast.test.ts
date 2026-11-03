@@ -8,7 +8,7 @@ const css = readFileSync(
   'utf-8',
 );
 const screenSource = readFileSync(
-  path.resolve(__dirname, './profile-affiliation-fields.tsx'),
+  path.resolve(__dirname, './profile-department-fields.tsx'),
   'utf-8',
 );
 const appFrameSource = readFileSync(
@@ -139,7 +139,7 @@ function readSelects(): ReadonlyArray<{
     const id = /\bid="([^"]+)"/.exec(tag)?.[1];
     if (!id) {
       throw new Error(
-        'profile-affiliation-fields.tsx에 id 없는 <Select>가 있습니다',
+        'profile-department-fields.tsx에 id 없는 <Select>가 있습니다',
       );
     }
     selects.push({ id, className: classNameOf(tag) });
@@ -183,8 +183,8 @@ function optionHex(
 
 it('가입 프로필의 선택 상자를 모두 읽는다(학과·소속 유형)', () => {
   expect(selects.map((select) => select.id).sort()).toEqual([
-    'profile-affiliation-kind',
     'profile-department',
+    'profile-department-type',
   ]);
 });
 
