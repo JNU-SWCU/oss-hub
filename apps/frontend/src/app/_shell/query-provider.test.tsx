@@ -13,6 +13,7 @@ import {
   subscribeSession,
 } from '@/features/auth/session-store';
 import { featureKey, programFeatureKey, programKey } from '@/lib/query-keys';
+import { invalidateSession } from '@/lib/session-invalidation';
 import { fetchSession } from '@/features/auth/api';
 import { getProgramOverview } from '@/features/programs/catalog/program-overview-api';
 import {
@@ -139,7 +140,7 @@ describe('QueryProvider', () => {
       response.isAuthenticated ? 'authenticated' : 'anonymous',
     );
     await act(async () => {
-      refreshSession();
+      invalidateSession();
       await ready;
     });
   }
@@ -193,6 +194,21 @@ describe('QueryProvider', () => {
 
     expect(client.getQueryCache().getAll()).toHaveLength(0);
     expect(client.getMutationCache().getAll()).toHaveLength(0);
+  });
+
+  it('권한 변경 후에도 마운트된 조회 구독을 유지한다', async () => {
+    vi.mocked(getProgramOverview).mockResolvedValue(overview);
+    await mount(<Overview />);
+    const activeQuery = client.getQueryCache().find({ queryKey: overviewKey });
+    expect(activeQuery?.getObserversCount()).toBe(1);
+
+    await changeSession(session({ ...user, memberKind: 'STAFF' }));
+
+    expect(client.getQueryCache().find({ queryKey: overviewKey })).toBe(
+      activeQuery,
+    );
+    expect(activeQuery?.getObserversCount()).toBe(1);
+    expect(getProgramOverview).toHaveBeenCalledTimes(2);
   });
 
   it('같은 anonymous 갱신은 유지하고 로그인 전환은 캐시를 비운다', async () => {

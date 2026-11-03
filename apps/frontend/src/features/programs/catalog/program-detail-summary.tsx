@@ -83,10 +83,7 @@ export function ProgramFactBar({
       k: '내 제출',
       v: `${overview.viewerDocumentsCompleted ?? 0} / ${overview.viewerDocumentsTotal ?? 0} 서류`,
     });
-  } else if (
-    overview.viewerRole === 'STAFF' ||
-    overview.viewerRole === 'ADMIN'
-  ) {
+  } else if (overview.viewerRole === 'STAFF') {
     const denominator = overview.participantCount;
     const numerator = overview.fullySubmittedParticipantCount ?? 0;
     const rate =

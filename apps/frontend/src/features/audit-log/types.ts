@@ -16,7 +16,13 @@ export interface AuditLogRecord {
   readonly teamPreviousName?: string;
   readonly occurredAt: string;
   readonly phoneTransition?: UserPhoneAuditTransition;
+  readonly typeSelection?: {
+    readonly before: AuditUserType;
+    readonly after: AuditUserType;
+  };
 }
+
+export type AuditUserType = 'UNSELECTED' | 'STUDENT' | 'STAFF';
 
 export type TeamMembershipOperation = 'LEAVE' | 'REMOVE';
 
@@ -31,6 +37,15 @@ export interface TeamMembershipChangeSummary {
 export type UserPhoneAuditTransition = 'SET' | 'REPLACED';
 
 export const AUDIT_LOG_ACTION_LABELS = {
+  SIGNED_UP: '회원 가입',
+  APPROVAL_REQUESTED: '교직원 승인 신청',
+  REQUEST_SUPERSEDED: '이전 신청 종료',
+  APPROVED: '교직원 승인',
+  REVOKED: '교직원 승인 회수',
+  GRANT_STAFF_ACCESS: '교직원 접근 허용',
+  REVOKE_STAFF_ACCESS: '교직원 접근 회수',
+  GRANT_ADMIN_ACCESS: '관리자 권한 부여',
+  REVOKE_ADMIN_ACCESS: '관리자 권한 회수',
   STAFF_ROLE_REQUEST_APPROVED: '승인',
   STAFF_ROLE_REQUEST_REJECTED: '반려',
   STAFF_ROLE_REQUEST_REVOKED: '회수',

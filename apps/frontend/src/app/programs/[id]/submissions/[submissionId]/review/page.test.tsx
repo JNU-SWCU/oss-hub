@@ -94,7 +94,7 @@ describe('ProgramSubmissionReviewPage access contract', () => {
     },
   );
 
-  it('STAFF와 ADMIN만 요청한 submission 검토 화면에 허용한다', async () => {
+  it('승인된 STAFF만 요청한 submission 검토 화면에 허용한다', async () => {
     const params = Promise.resolve({
       id: 'program-existing',
       submissionId: 'submission-existing',
@@ -103,7 +103,7 @@ describe('ProgramSubmissionReviewPage access contract', () => {
     const page = await ProgramSubmissionReviewPage({ params });
     const html = renderToStaticMarkup(page);
 
-    expect(html).toContain('data-allow="staff,admin"');
+    expect(html).toContain('data-allow="staff"');
     expect(html).toContain('data-submission-id="submission-existing"');
     expect(html).toContain('data-program-id="program-existing"');
     expect(html).not.toContain('STUDENT');

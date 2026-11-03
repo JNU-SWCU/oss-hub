@@ -64,10 +64,9 @@ export function AdminAccessControl({
   const guards = deriveAdminAccessGuards(target);
   const isField = layout === 'field';
   const memberReason =
-    guards.controlBlockedReason ??
-    (guards.elevatedRoleBlockedReason === null
+    guards.elevatedRoleBlockedReason === null
       ? null
-      : '프로필(이름·학과·학번) 완성 후 회원 유형을 적용할 수 있습니다.');
+      : '프로필 완성 후 회원 유형을 적용할 수 있습니다.';
   const controls = {
     memberKind: {
       id: 'member-kind-control',

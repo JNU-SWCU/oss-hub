@@ -38,11 +38,7 @@ export function ProgramDetailScreen({
       session={session}
       renderSignInApply={renderSignInApplyEntry}
       onProgramName={onProgramName}
-      operationsView={
-        programView === null
-          ? null
-          : programView === 'STAFF' || programView === 'ADMIN'
-      }
+      operationsView={programView === null ? null : programView === 'STAFF'}
     />
   );
 }

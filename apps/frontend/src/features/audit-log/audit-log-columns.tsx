@@ -69,7 +69,10 @@ function renderTargetCell(record: AuditLogRecord) {
 
 function renderContentCell(record: AuditLogRecord) {
   const { sentence } = describeAuditLog(record);
-  const { label, variant } = resolveAuditLogActionBadge(record.action);
+  const { label, variant } = resolveAuditLogActionBadge(
+    record.action,
+    record.typeSelection,
+  );
   const hideTargetReference =
     isFallbackTarget(record) &&
     TARGETLESS_FALLBACK_TARGET_TYPES.has(record.targetType);

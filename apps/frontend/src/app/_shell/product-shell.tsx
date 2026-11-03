@@ -229,12 +229,6 @@ export function ProductShell({
         viewerDocuments,
 
         viewerParticipant: scopeParticipant,
-        viewerHasAdminAccess: session.hasAdminAccess,
-        canSwitchView:
-          scopeParticipant === true &&
-          session.memberKind === 'STUDENT' &&
-          (session.hasStaffAccess || session.hasAdminAccess),
-        operationsView: operationsView ?? false,
         milestones: scopeMilestones,
 
         milestoneDocuments: scopeOverview?.milestoneDocuments,

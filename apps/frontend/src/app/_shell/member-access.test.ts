@@ -1,11 +1,22 @@
 import { describe, expect, it } from 'vitest';
 import {
+  hasStaffAudience,
   memberSurfaces,
   type MemberAccess,
   type MemberSurface,
 } from './member-access';
 
 const MATRIX: readonly [string, MemberAccess, readonly MemberSurface[]][] = [
+  [
+    'pending staff-admin',
+    { memberKind: 'STAFF', hasStaffAccess: false, hasAdminAccess: true },
+    ['admin'],
+  ],
+  [
+    'student with a stale staff flag',
+    { memberKind: 'STUDENT', hasStaffAccess: true, hasAdminAccess: true },
+    ['student', 'admin'],
+  ],
   [
     'STUDENT',
     { memberKind: 'STUDENT', hasStaffAccess: false, hasAdminAccess: false },
@@ -60,6 +71,7 @@ describe('member access surface matrix', () => {
       const actual = memberSurfaces(access);
 
       expect(actual).toEqual(expected);
+      expect(hasStaffAudience(access)).toBe(expected.includes('staff'));
     },
   );
 

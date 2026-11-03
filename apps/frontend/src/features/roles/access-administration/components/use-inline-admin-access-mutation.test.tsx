@@ -31,6 +31,8 @@ const detail: CanonicalAdminAccessDetail = {
   memberKind: 'STAFF',
   hasStaffAccess: true,
   hasAdminAccess: false,
+  approvalStatus: 'APPROVED',
+  approvalRequestId: 'observed-request',
   accountStatus: 'ACTIVE',
   isSelf: false,
   isProfileComplete: true,
@@ -115,6 +117,10 @@ describe('useInlineAdminAccessMutation', () => {
   it.each([
     { memberKind: 'STUDENT' as const },
     { hasAdminAccess: true },
+    { hasStaffAccess: false },
+    { approvalStatus: 'REVOKED' as const },
+    { approvalRequestId: 'replacement-request' },
+    { approvalRequestId: null },
     { accountStatus: 'DEACTIVATED' as const },
     {
       pendingRequest: {
@@ -138,6 +144,8 @@ describe('useInlineAdminAccessMutation', () => {
       expect(current.successMessage).toBeNull();
       expect(runAdminAccessMutation).not.toHaveBeenCalled();
       expect(onChanged).toHaveBeenCalledTimes(1);
+      await act(async () => current.confirm());
+      expect(runAdminAccessMutation).not.toHaveBeenCalled();
     },
   );
 
@@ -233,6 +241,8 @@ describe('useInlineAdminAccessMutation', () => {
       expect(current.dialogError).toBeNull();
       expect(current.successMessage).toBeNull();
       expect(onChanged).toHaveBeenCalledTimes(1);
+      await act(async () => current.confirm());
+      expect(runAdminAccessMutation).toHaveBeenCalledTimes(1);
       await open();
       expect(current.conflictNotice).toBeNull();
     },

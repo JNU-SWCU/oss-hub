@@ -164,24 +164,21 @@ describe('DocumentsRoute role boundary', () => {
   it.each([
     ['교직원 접근', { hasStaffAccess: true, hasAdminAccess: false }],
     ['관리자 접근', { hasStaffAccess: false, hasAdminAccess: true }],
-  ])(
-    '%s이 있는 학생은 보기가 정해지기 전에 어느 화면도 마운트하지 않는다',
-    async (_label, access) => {
-      state.session = { ...STUDENT, ...access };
-      await act(async () => {
-        root.render(
-          <ProgramViewContext.Provider value={null}>
-            <DocumentsRoute programId="program:basic" />
-          </ProgramViewContext.Provider>,
-        );
-      });
+  ])('%s이 있어도 학생은 자기 제출물만 본다', async (_label, access) => {
+    state.session = { ...STUDENT, ...access };
+    await act(async () => {
+      root.render(
+        <ProgramViewContext.Provider value={null}>
+          <DocumentsRoute programId="program:basic" />
+        </ProgramViewContext.Provider>,
+      );
+    });
 
-      expect(state.checklistProps).toBeNull();
-      expect(state.matrixProps).toBeNull();
-    },
-  );
+    expect(state.checklistProps?.programId).toBe('program:basic');
+    expect(state.matrixProps).toBeNull();
+  });
 
-  it('운영 화면으로 전환하면 안내 문구 없이 운영 매트릭스를 연다', async () => {
+  it('저장된 운영 화면 선택은 학생에게 교직원 업무를 열지 않는다', async () => {
     state.session = { ...STUDENT, hasStaffAccess: true };
     state.searchParams = new URLSearchParams('view=operations');
     await act(async () =>
@@ -191,11 +188,8 @@ describe('DocumentsRoute role boundary', () => {
         </ProgramViewContext.Provider>,
       ),
     );
-    expect(container.textContent).toContain('staff matrix');
-    expect(container.textContent).not.toContain(
-      '우리 팀 서류는 다른 운영자가 검토합니다.',
-    );
-    expect(state.checklistProps).toBeNull();
+    expect(container.textContent).toContain('student checklist');
+    expect(state.matrixProps).toBeNull();
   });
 
   it('교직원 단계 선택은 documents 주소의 milestoneId만 바꾼다', async () => {

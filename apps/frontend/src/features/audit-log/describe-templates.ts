@@ -123,6 +123,55 @@ function teamMembershipClause(
 export const SENTENCE_TEMPLATES: Readonly<
   Record<AuditLogAction, SentenceTemplate>
 > = {
+  SIGNED_UP: (record) => [targetSegment(record), text('님이 가입했습니다')],
+  APPROVAL_REQUESTED: (record) =>
+    handleTargetSentence(
+      record,
+      '의 교직원 승인을 신청했습니다',
+      '님의 교직원 승인을 신청했습니다',
+    ),
+  REQUEST_SUPERSEDED: (record) =>
+    handleTargetSentence(
+      record,
+      '을(를) 대체하여 종료했습니다',
+      '님의 이전 신청을 대체하여 종료했습니다',
+    ),
+  APPROVED: (record) =>
+    handleTargetSentence(
+      record,
+      '을(를) 승인했습니다',
+      '님의 교직원 신분을 승인했습니다',
+    ),
+  REVOKED: (record) =>
+    handleTargetSentence(
+      record,
+      '의 승인을 회수했습니다',
+      '님의 교직원 승인을 회수했습니다',
+    ),
+  GRANT_STAFF_ACCESS: (record) =>
+    handleTargetSentence(
+      record,
+      '의 교직원 접근을 허용했습니다',
+      '님의 교직원 접근을 허용했습니다',
+    ),
+  REVOKE_STAFF_ACCESS: (record) =>
+    handleTargetSentence(
+      record,
+      '의 교직원 접근을 회수했습니다',
+      '님의 교직원 접근을 회수했습니다',
+    ),
+  GRANT_ADMIN_ACCESS: (record) =>
+    handleTargetSentence(
+      record,
+      '에 관리자 권한을 부여했습니다',
+      '님에게 관리자 권한을 부여했습니다',
+    ),
+  REVOKE_ADMIN_ACCESS: (record) =>
+    handleTargetSentence(
+      record,
+      '의 관리자 권한을 회수했습니다',
+      '님의 관리자 권한을 회수했습니다',
+    ),
   STAFF_ROLE_REQUEST_APPROVED: (record) =>
     handleTargetSentence(
       record,
@@ -150,8 +199,12 @@ export const SENTENCE_TEMPLATES: Readonly<
   USER_ROLE_CHANGED: (record) =>
     handleTargetSentence(
       record,
-      '의 역할을 변경했습니다',
-      '님의 역할을 변경했습니다',
+      record.typeSelection
+        ? '의 신분을 선택했습니다'
+        : '의 역할을 변경했습니다',
+      record.typeSelection
+        ? '님의 신분을 선택했습니다'
+        : '님의 역할을 변경했습니다',
     ),
   USER_ACCOUNT_STATUS_CHANGED: (record) =>
     handleTargetSentence(

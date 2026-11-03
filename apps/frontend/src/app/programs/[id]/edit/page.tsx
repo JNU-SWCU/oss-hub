@@ -9,7 +9,7 @@ export default async function ProgramEditPageRoute({
 }) {
   const { id } = await params;
   return (
-    <RolePanelShell allow={['staff', 'admin']}>
+    <RolePanelShell allow={['staff']}>
       <ProgramEditRoute programId={decodeRouteProgramId(id)} />
     </RolePanelShell>
   );

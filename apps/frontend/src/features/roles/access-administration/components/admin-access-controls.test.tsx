@@ -30,6 +30,8 @@ function item(
     memberKind: 'STUDENT',
     hasStaffAccess: false,
     hasAdminAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
@@ -157,10 +159,8 @@ function fieldMemberKindReason(target: AdminAccessDirectoryItem): string {
 function expectMemberKindReasonTooltips(layout: 'cell' | 'stacked') {
   const pending = item({ pendingRequest: PENDING_REQUEST });
   renderAll(pending, layout);
-  expect(memberKindTrigger(layout).disabled).toBe(true);
-  expect(blockedReasonTooltip(memberKindTrigger(layout))).toBe(
-    deriveAdminAccessGuards(pending).controlBlockedReason,
-  );
+  expect(memberKindTrigger(layout).disabled).toBe(false);
+  expect(blockedReasonTooltip(memberKindTrigger(layout))).toBeNull();
 
   const incomplete = item({ isProfileComplete: false });
   const fieldReason = fieldMemberKindReason(incomplete);
@@ -252,9 +252,8 @@ describe('cell 레이아웃', () => {
     expectMemberKindReasonTooltips('cell');
   });
 
-  it('대기 요청, 프로필 미완료, memberKind null이면 회원 유형이 비활성이다', () => {
+  it('프로필 미완료, memberKind null이면 회원 유형이 비활성이다', () => {
     const cases: Partial<AdminAccessDirectoryItem>[] = [
-      { pendingRequest: PENDING_REQUEST },
       { isProfileComplete: false },
       { memberKind: null },
     ];

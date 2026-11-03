@@ -186,6 +186,8 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       vi.mocked(apiClient).mockResolvedValue({
         id: 'target',
         role: 'STAFF',
+        approvalStatus: 'APPROVED',
+        approvalRequestId: 'request-1',
         accountStatus: 'ACTIVE',
         pendingRequest: null,
         decidedRequest: { id: 'request-1', status: 'APPROVED' },
@@ -217,6 +219,8 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       vi.mocked(apiClient).mockResolvedValue({
         id: 'target',
         role: null,
+        approvalStatus: 'NOT_REQUIRED',
+        approvalRequestId: null,
         accountStatus: 'DEACTIVATED',
         pendingRequest: null,
         decidedRequest: null,
@@ -311,11 +315,15 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       const result = parseAdminAccessMutationResponse({
         id: 'target',
         role: 'ADMIN',
+        approvalStatus: 'APPROVED',
+        approvalRequestId: 'approved-request',
         accountStatus: 'ACTIVE',
         pendingRequest: null,
         decidedRequest: null,
       });
       expect(result.role).toBe('ADMIN');
+      expect(result.approvalStatus).toBe('APPROVED');
+      expect(result.approvalRequestId).toBe('approved-request');
     });
   });
 
@@ -397,6 +405,8 @@ describe('관리자 접근 통합 API 클라이언트', () => {
       expect(() =>
         parseAdminAccessMutationResponse({
           role: 'ADMIN',
+          approvalStatus: 'APPROVED',
+          approvalRequestId: null,
           accountStatus: 'ACTIVE',
           pendingRequest: null,
           decidedRequest: null,

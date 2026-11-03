@@ -2,6 +2,7 @@ import { isRecord } from '@/lib/is-record';
 import type {
   AuditLogPage,
   AuditLogRecord,
+  AuditUserType,
   TeamMembershipChangeSummary,
   TeamMembershipOperation,
   UserPhoneAuditTransition,
@@ -33,6 +34,10 @@ function hasExactKeys(
 
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
+}
+
+function isUserType(value: unknown): value is AuditUserType {
+  return value === 'UNSELECTED' || value === 'STUDENT' || value === 'STAFF';
 }
 
 function nonEmptyString(value: unknown): string {
@@ -170,6 +175,18 @@ function auditLogRecord(value: unknown): AuditLogRecord {
   const parsedPhoneTransition = isRecord(wireMetadata)
     ? phoneTransition(action, wireMetadata)
     : undefined;
+  let typeSelection: AuditLogRecord['typeSelection'];
+  if (isRecord(wireMetadata) && wireMetadata.recordKind === 'TYPE_SELECTION') {
+    if (
+      action !== 'USER_ROLE_CHANGED' ||
+      wireMetadata.schemaVersion !== 1 ||
+      !isUserType(wireMetadata.before) ||
+      !isUserType(wireMetadata.after)
+    ) {
+      return invalidResponse();
+    }
+    typeSelection = { before: wireMetadata.before, after: wireMetadata.after };
+  }
 
   return {
     id: nonEmptyString(value.id),
@@ -187,6 +204,7 @@ function auditLogRecord(value: unknown): AuditLogRecord {
     ...(parsedPhoneTransition
       ? { phoneTransition: parsedPhoneTransition }
       : {}),
+    ...(typeSelection ? { typeSelection } : {}),
   };
 }
 

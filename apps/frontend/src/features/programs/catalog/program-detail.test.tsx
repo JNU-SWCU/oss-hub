@@ -449,7 +449,7 @@ describe('ProgramDetailPage states', () => {
     },
   );
 
-  it.each(['STAFF', 'ADMIN'] as const)(
+  it.each(['STAFF'] as const)(
     '%s에게 제목 옆 프로그램 편집 입구만 노출하고 신청자 목록·미구현 #124 경로는 숨긴다',
     (role) => {
       const html = renderToStaticMarkup(
@@ -481,6 +481,7 @@ describe('ProgramDetailPage states', () => {
       applicationStatus: null,
     },
     { role: null, applicationStatus: null },
+    { role: 'ADMIN' as const, applicationStatus: null },
   ])(
     '$role 에게는 프로그램 편집 입구를 숨긴다',
     ({ role, applicationStatus }) => {

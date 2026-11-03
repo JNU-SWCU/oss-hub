@@ -340,8 +340,7 @@ export function ProgramMilestones({
         <EmptyState
           title="아직 등록된 마일스톤이 없습니다"
           action={
-            program.viewer.role === 'STAFF' ||
-            program.viewer.role === 'ADMIN' ? (
+            program.viewer.role === 'STAFF' ? (
               <Button asChild variant="outline">
                 <Link href={`${programEditHref(program.id)}#milestones`}>
                   마일스톤 설정
@@ -362,7 +361,6 @@ export function ProgramMilestones({
 
               defaultOpen={
                 program.viewer.role === 'STAFF' ||
-                program.viewer.role === 'ADMIN' ||
                 milestone.id === openMilestoneId
               }
             />
@@ -415,8 +413,7 @@ export function ProgramDetailReadyState({
             }
             actions={
               <>
-                {program.viewer.role === 'STAFF' ||
-                program.viewer.role === 'ADMIN' ? (
+                {program.viewer.role === 'STAFF' ? (
                   <ProgramEditAction programId={program.id} />
                 ) : null}
                 <ProgramActions

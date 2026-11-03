@@ -31,6 +31,8 @@ function detail(
     memberKind: 'STUDENT',
     hasStaffAccess: false,
     hasAdminAccess: false,
+    approvalStatus: 'NOT_REQUIRED',
+    approvalRequestId: null,
     accountStatus: 'ACTIVE',
     isSelf: false,
     isProfileComplete: true,
