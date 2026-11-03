@@ -25,8 +25,8 @@ function validValues(
     phone: TEN_DIGIT_PHONE,
 
     savedStudentId: '',
-    affiliationKind: 'DEPARTMENT',
-    affiliationName: '',
+    departmentType: 'DEPARTMENT',
+    programOfficeName: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
     ...overrides,
@@ -91,8 +91,8 @@ describe('profile onboarding state', () => {
       name: '합성 사용자',
       studentId: '1'.repeat(6),
       phone: TEN_DIGIT_PHONE,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: '합성 융합전공',
+      departmentType: 'DEPARTMENT',
+      department: '합성 융합전공',
     });
   });
 
@@ -151,8 +151,8 @@ describe('profile onboarding state', () => {
     expect(validateProfileForm(values, 'STAFF').phone).toBeNull();
     expect(toCompleteProfileRequest(values, 'STAFF')).toEqual({
       name: '합성 사용자',
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: '인공지능학부',
+      departmentType: 'DEPARTMENT',
+      department: '인공지능학부',
     });
     expect(toCompleteProfileRequest(values, 'STAFF')).not.toHaveProperty(
       'studentId',

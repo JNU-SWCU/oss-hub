@@ -10,15 +10,15 @@ function values(patch: Partial<ProfileFormValues> = {}): ProfileFormValues {
     studentId: '',
     phone: '',
     savedStudentId: '',
-    affiliationKind: 'DEPARTMENT',
-    affiliationName: '',
+    departmentType: 'DEPARTMENT',
+    programOfficeName: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
     ...patch,
   };
 }
 
-describe('member affiliation completion', () => {
+describe('member department completion', () => {
   it('builds a STUDENT completion with department affiliation and student ID', () => {
     const form = values({ studentId: '260821', phone: TEN_DIGIT_PHONE });
 
@@ -28,15 +28,15 @@ describe('member affiliation completion', () => {
       name: '합성 회원',
       studentId: '260821',
       phone: TEN_DIGIT_PHONE,
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: '인공지능학부',
+      departmentType: 'DEPARTMENT',
+      department: '인공지능학부',
     });
   });
 
-  it('builds a STAFF completion with program-office affiliation and no student ID', () => {
+  it('builds a STAFF completion with program office and no student ID', () => {
     const form = values({
-      affiliationKind: 'PROGRAM_OFFICE',
-      affiliationName: '  합성 사업단  ',
+      departmentType: 'PROGRAM_OFFICE',
+      programOfficeName: '  합성 사업단  ',
       departmentOption: '',
     });
 
@@ -44,16 +44,16 @@ describe('member affiliation completion', () => {
 
     expect(request).toEqual({
       name: '합성 회원',
-      affiliationKind: 'PROGRAM_OFFICE',
-      affiliationName: '합성 사업단',
+      departmentType: 'PROGRAM_OFFICE',
+      department: '합성 사업단',
     });
   });
 
-  it('rejects a student program-office affiliation', () => {
+  it('rejects a student program office', () => {
     const form = values({
       studentId: '260821',
-      affiliationKind: 'PROGRAM_OFFICE',
-      affiliationName: '합성 사업단',
+      departmentType: 'PROGRAM_OFFICE',
+      programOfficeName: '합성 사업단',
       departmentOption: '',
     });
 

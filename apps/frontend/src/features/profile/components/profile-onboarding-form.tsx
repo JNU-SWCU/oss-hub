@@ -18,7 +18,7 @@ import { Input } from '@/components/ui/input';
 import type { ProfileMemberKind } from '../profile-requirements';
 import { isProfileFormValid, PROFILE_NAME_MAX_LENGTH } from '../profile-state';
 import type { ProfileFormErrors, ProfileFormValues } from '../types';
-import { ProfileAffiliationFields } from './profile-affiliation-fields';
+import { ProfileDepartmentFields } from './profile-department-fields';
 
 const NAME_ERROR_ID = 'profile-name-error';
 const STUDENT_ID_ERROR_ID = 'profile-student-id-error';
@@ -51,7 +51,7 @@ export function ProfileOnboardingForm({
   const studentIdRef = useRef<HTMLInputElement>(null);
   const phoneRef = useRef<HTMLInputElement>(null);
   const departmentRef = useRef<HTMLSelectElement>(null);
-  const affiliationNameRef = useRef<HTMLInputElement>(null);
+  const programOfficeNameRef = useRef<HTMLInputElement>(null);
 
   const isStudent = memberKind === 'STUDENT';
   const showNameError = showRequiredErrors && errors.name !== null;
@@ -62,15 +62,15 @@ export function ProfileOnboardingForm({
     isStudent &&
     errors.phone !== null &&
     (showRequiredErrors || values.phone.length > 0);
-  const showAffiliationError = showRequiredErrors && errors.department !== null;
+  const showDepartmentError = showRequiredErrors && errors.department !== null;
   const isValid = isProfileFormValid(errors);
 
   function firstInvalidControl(): HTMLElement | null {
     if (errors.name !== null) return nameRef.current;
     if (errors.studentId !== null) return studentIdRef.current;
     if (isStudent && errors.phone !== null) return phoneRef.current;
-    if (values.affiliationKind === 'PROGRAM_OFFICE') {
-      return affiliationNameRef.current;
+    if (values.departmentType === 'PROGRAM_OFFICE') {
+      return programOfficeNameRef.current;
     }
     return departmentRef.current;
   }
@@ -186,13 +186,13 @@ export function ProfileOnboardingForm({
             </Field>
           ) : null}
 
-          <ProfileAffiliationFields
+          <ProfileDepartmentFields
             memberKind={memberKind}
             values={values}
-            showError={showAffiliationError}
+            showError={showDepartmentError}
             error={errors.department}
             departmentRef={departmentRef}
-            affiliationNameRef={affiliationNameRef}
+            programOfficeNameRef={programOfficeNameRef}
             onChange={onChange}
           />
         </FormSection>

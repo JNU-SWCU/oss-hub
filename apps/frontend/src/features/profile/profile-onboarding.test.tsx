@@ -18,8 +18,8 @@ function values(overrides: Partial<ProfileFormValues> = {}): ProfileFormValues {
     studentId: '1'.repeat(6),
     phone: TEN_DIGIT_PHONE,
     savedStudentId: '',
-    affiliationKind: 'DEPARTMENT',
-    affiliationName: '',
+    departmentType: 'DEPARTMENT',
+    programOfficeName: '',
     departmentOption: '인공지능학부',
     otherDepartment: '',
     ...overrides,
@@ -129,8 +129,8 @@ describe('profile onboarding view', () => {
     const html = renderForm(
       values({
         studentId: '',
-        affiliationKind: 'PROGRAM_OFFICE',
-        affiliationName: '합성 사업단',
+        departmentType: 'PROGRAM_OFFICE',
+        programOfficeName: '합성 사업단',
         departmentOption: '',
       }),
       { memberKind: 'STAFF', showRequiredErrors: true },
@@ -138,7 +138,7 @@ describe('profile onboarding view', () => {
 
     expect(html).not.toContain('profile-student-id');
     expect(html).not.toContain('profile-phone');
-    expect(html).toContain('profile-affiliation-kind');
+    expect(html).toContain('profile-department-type');
     expect(html).toContain('합성 사업단');
   });
 
