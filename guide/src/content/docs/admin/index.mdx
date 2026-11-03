@@ -8,7 +8,7 @@ sidebar:
 import { Steps } from '@astrojs/starlight/components';
 import Verified from '~/components/Verified.astro';
 
-`관리자`는 OSS Hub 계정의 권한과 상태를 관리하고, 서비스가 정상으로 돌아가는지 살피며, 교직원 권한 요청도 처리하는 역할입니다. 프로그램 운영 화면도 열 수 있지만, 그 일은 `교직원`과 같은 화면에서 합니다.
+`관리자`는 OSS Hub 계정의 권한과 상태를 관리하고, 서비스가 정상으로 돌아가는지 살피며, 교직원 권한 요청도 처리하는 역할입니다. 프로그램 운영 화면은 승인된 `교직원`만 열 수 있으며, 관리자 접근만으로는 열리지 않습니다.
 
 ## 관리자가 하는 일
 
@@ -18,7 +18,6 @@ import Verified from '~/components/Verified.astro';
 | 회원 유형, 관리자 접근, 계정 상태 변경 | 회원 유형이 바뀌었거나 계정을 비활성화해야 할 때 맞춥니다. |
 | 감사 로그 확인 | 누가 언제 무엇을 바꿨는지 되짚습니다. |
 | 시스템 상태 확인 | GitHub 활동 수집이 멈췄는지 살핍니다. |
-| 프로그램 삭제 | 잘못 만든 프로그램을 데이터까지 지웁니다. |
 
 ## 5분 안에 시작하기
 
@@ -41,12 +40,12 @@ import Verified from '~/components/Verified.astro';
 - [계정 비활성화와 재활성화](/oss-hub/admin/deactivate/): 계정을 비활성화하고 되살립니다.
 - [감사 로그 보기](/oss-hub/admin/audit-log/): 관리 작업 이력을 찾습니다.
 - [시스템 상태 확인하기](/oss-hub/admin/system-status/): 수집 상태를 읽고 `지금 수집 실행`을 쓰는 법입니다.
-- [학생 활성 보기](/oss-hub/admin/insights/): 전공별 활동과 참여 현황을 봅니다.
-- [프로그램 삭제하기](/oss-hub/admin/delete-program/): 되돌릴 수 없는 삭제를 다룹니다.
+- [학생 활성 보기](/oss-hub/admin/insights/): 승인된 교직원이 전공별 활동과 참여 현황을 봅니다.
+- [프로그램 삭제하기](/oss-hub/admin/delete-program/): 승인된 교직원이 쓰는, 되돌릴 수 없는 삭제를 다룹니다.
 - [내 설정과 알림](/oss-hub/admin/my-settings/): 알림 수신을 정하고 본인 계정을 비활성화하는 법입니다.
 
 ## 헷갈리기 쉬운 점
 
 `가입 신청`은 `교직원` 역할을 달라는 요청을 처리하는 곳입니다. 프로그램에 신청한 학생을 심사하는 일과 다릅니다. 프로그램 신청자 심사는 프로그램 안의 `팀 관리`에서 합니다.
 
-교직원 권한은 프로그램별로 나뉘지 않습니다. 교직원과 관리자는 모든 프로그램의 운영 화면을 열 수 있습니다. <Verified status="policy" />
+교직원 권한은 프로그램별로 나뉘지 않습니다. 승인된 교직원은 모든 프로그램의 운영 화면을 열 수 있습니다. 관리자 접근만 있는 계정은 열 수 없습니다. <Verified status="policy" />
