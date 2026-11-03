@@ -470,15 +470,13 @@ async function seedFullChildGraph(
       id: teamId,
       programId,
       name: `합성 팀 ${label}`,
-      joinCodeDigest: `digest:${p('team')}`,
       leaderId,
     },
   });
   await prisma.teamMember.createMany({
     data: [
-      { id: p('team-member-leader'), teamId, programId, userId: leaderId },
+      { teamId, programId, userId: leaderId },
       {
-        id: p('team-member-applicant'),
         teamId,
         programId,
         userId: applicantId,
@@ -516,13 +514,11 @@ async function seedFullChildGraph(
       id: p('published-team'),
       programId,
       name: `합성 단독 팀 ${label}`,
-      joinCodeDigest: `digest:${p('published-team')}`,
       leaderId: publishedApplicantId,
     },
   });
   await prisma.teamMember.create({
     data: {
-      id: p('published-team-member-leader'),
       teamId: p('published-team'),
       programId,
       userId: publishedApplicantId,
@@ -1103,6 +1099,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const storageKey = `${COVER_OBJECT_PREFIX}-cover-delete`;
     await prisma.program.create({
       data: {
+        startAt: NOW,
+        endAt: new Date(NOW.getTime() + 365 * 86_400_000),
+
         id: programId,
         name: '합성 표지 삭제 프로그램',
         organizer: 'Synthetic OSS Center',
@@ -1995,7 +1994,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
             id: raceId,
             programId: fixture.programId,
             name: 'Committed team during purge',
-            joinCodeDigest: `digest:${raceId}`,
             leaderId: applicant.applicantId,
           },
         });
@@ -2014,7 +2012,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
             id: raceTeamId,
             programId: fixture.programId,
             name: 'Committed application team during purge',
-            joinCodeDigest: `digest:${raceTeamId}`,
             leaderId: applicant.applicantId,
           },
         });

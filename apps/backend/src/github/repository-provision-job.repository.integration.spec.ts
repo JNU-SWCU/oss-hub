@@ -93,7 +93,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       where: { id: { in: [...APPLICATION_IDS] } },
     });
     await prisma.teamMember.deleteMany({
-      where: { id: { in: APPLICATION_IDS.map((id) => `${id}-team-member`) } },
+      where: { teamId: { in: APPLICATION_IDS.map(teamIdFor) } },
     });
     await prisma.team.deleteMany({
       where: { id: { in: APPLICATION_IDS.map(teamIdFor) } },
@@ -504,6 +504,11 @@ async function createJob(
   const requestId = requestIdFor(applicationId);
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: program,
       name: `program-${applicationId}`,
       organizer: 'synthetic-organizer',
@@ -522,13 +527,11 @@ async function createJob(
       id: teamId,
       programId: program,
       name: `${applicationId}-team`,
-      joinCodeDigest: `${applicationId}-team-digest`,
       leaderId: APPLICANT_ID,
     },
   });
   await prisma.teamMember.create({
     data: {
-      id: `${applicationId}-team-member`,
       teamId,
       programId: program,
       userId: APPLICANT_ID,

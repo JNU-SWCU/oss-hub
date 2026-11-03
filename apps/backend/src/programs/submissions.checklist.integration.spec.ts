@@ -149,16 +149,23 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       },
     });
 
+    const program = await prisma.program.findUniqueOrThrow({
+      where: { id: MILESTONES_PROGRAM_ID },
+    });
     await prisma.milestone.createMany({
       data: [
         {
+          startAt: program.startAt,
+
           id: OVERDUE_TEXT_MILESTONE_ID,
           programId: MILESTONES_PROGRAM_ID,
           name: '합성 마감 지난 텍스트 제출',
-          dueAt: new Date('2020-01-01T00:00:00.000Z'),
+          dueAt: new Date(program.startAt.getTime() + 86_400_000),
           submissionType: MilestoneSubmissionType.TEXT,
         },
         {
+          startAt: program.startAt,
+
           id: FILE_METADATA_MILESTONE_ID,
           programId: MILESTONES_PROGRAM_ID,
           name: '합성 파일 메타데이터 제출',

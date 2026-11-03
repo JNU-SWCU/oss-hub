@@ -77,6 +77,8 @@ export class ProgramArchiveIntegrationFixture {
     ] as const) {
       await this.prisma.milestone.create({
         data: {
+          startAt: new Date('2026-02-02'),
+
           id: archiveId(stage),
           programId: archiveId(program),
           name: `단계 ${stage}`,
@@ -109,7 +111,6 @@ export class ProgramArchiveIntegrationFixture {
           id: archiveId(`team-${index}`),
           programId,
           name: `합성 팀 ${index}`,
-          joinCodeDigest: archiveId(`digest-${index}`),
           leaderId: archiveId('user'),
         },
       });

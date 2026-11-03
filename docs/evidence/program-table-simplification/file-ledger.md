@@ -1,6 +1,6 @@
 # 프로그램 테이블 단순화 파일 원장
 
-기준 커밋: `449aedd0a7c83afb95d24b080fecd21941bbc30a` (origin/main, 2026-11-03). 계약 16과 목표 코드 구조의 Todo 1 기준선이다. 제품 파일은 아직 변경하지 않았다.
+기준 커밋: `449aedd0a7c83afb95d24b080fecd21941bbc30a` (origin/main, 2026-11-03). 계약 16과 목표 코드 구조의 Todo 1 기준선이다. Todo 2는 `2366e1833`에서 시작하며 아래 단계별 변경을 추가한다.
 
 ## 위치와 검사 계약
 
@@ -18,6 +18,31 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 | platform/audit-log* 제품 파일 (별도 범위) | 10 | 2279 | 10 | 2279 |
 
 최종 감소 목표 수치는 두지 않는다. Action 집계: {"merge":101,"delete":9,"keep":135}. 이후 단계의 after 값은 각 Todo가 실제 변경한 뒤에만 기록한다.
+
+## Todo 2: 컬럼 사용 중단 릴리스
+
+계약 15(c)에 따라 물리 컬럼 삭제는 다음 릴리스다. 첫 릴리스는 Prisma 모델과 앱에서 `TeamMember.id/name/email/department`, `Team.joinCodeDigest`, `TeamInvitation.invitedAt` 사용을 중단한다. DB의 옛 `id`와 `joinCodeDigest`에는 임시 UUID 기본값을 주어 앱 교체 직전의 기존 앱과 교체 뒤 앱 모두 INSERT할 수 있다. Prisma의 복합키 조회는 기존 `(teamId, userId)` UNIQUE를 사용하며, 물리 PK 교체는 두 번째 릴리스에서 한다.
+
+첫 릴리스의 프론트는 `RETRYABLE_FAILED`/`FAILED`와 `FAILED_RETRYABLE`/`FAILED_FINAL`을 모두 표시한다. 백엔드 응답 전환은 이 프론트가 배포된 다음 릴리스다. `TeamInvitation`의 공개 `invitedAt` 응답 키는 유지하고 `createdAt`에서 읽는다. 기존 초대 시각은 마이그레이션에서 보존한다. 재초대 시각이 의미 있는 `ApplicationPreparationParticipant.invitedAt`은 Todo 8 소유이므로 유지한다.
+
+| 범위 | Before files | Before lines | Todo 2 준비 after files | Todo 2 준비 after lines |
+| ------------------------------- | -----------: | -----------: | ----------------------: | ----------------------: |
+| programs 제품 파일 (DTO 포함) | 245 | 37919 | 245 | 37832 |
+| 별도 join-code-secret 제품 파일 | 2 | 36 | 0 | 0 |
+
+### 삭제 전 호출부 목록
+
+아래 줄 번호는 시작 커밋 `2366e1833` 기준이다. 생성된 Prisma Client의 기본 SELECT도 컬럼 사용이므로 모델에서 먼저 없앴다.
+
+- `TeamMember.id`: `applications.repository.ts:967,1299`, `application-preparations.repository.ts:127`의 존재 확인 SELECT를 `userId`로 바꾼다. `program-teams.repository.ts:341,636,790`과 `program-activity.repository.ts:108`의 동률 정렬은 `userId`로 바꾼다.
+- 원시 SQL: `program-deletion-scope.repository.ts:91`, `team-deletion-scope.repository.ts:128`의 삭제 지문은 `(teamId, userId)` JSON 배열을 사용한다. 문자열 단순 연결로 키 충돌을 만들지 않는다.
+- 시드: `prisma/seeds/{demo,intake,milestones,oss-hub,program-overview,repositories}.ts`의 TeamMember 생성·upsert·정리를 복합키로 바꾼다. 대리키를 가정한 통합 fixture와 불변식 SQL도 함께 바꾼다.
+- `TeamMember.name/email/department`: 사용자 표시 정보는 이미 `member.user`에서 읽는다. 중복 스냅샷은 Prisma 모델 외 제품 사용이 없다.
+- `joinCodeDigest`: `applications.service.ts:296-301`, `applications.repository.ts:1313,1337`, `ApplicationJoinCodeService`와 `JoinCodeSecretService`, 시드 생성 및 DI 등록을 제거한다. 환경설정·로컬 실행·배포 환경 검증에서도 비밀값 요구를 제거한다. 과거 마이그레이션과 감사 메타데이터의 비밀값 차단 목록은 유지한다.
+- `TeamInvitation.invitedAt`: `team-invitations.repository.ts`의 SELECT·정렬·INSERT와 시드를 `createdAt`으로 전환한다. DTO의 공개 필드명은 유지한다.
+- `Program`·`Milestone`: sentinel 기본값과 쓰기 보정 트리거를 없애고 명시적 날짜와 기존 마일스톤 기간 경계 검증을 사용한다. 기존 fixture의 생략 날짜도 명시한다. 시작일 sentinel이나 중복 저장 키가 있으면 자동 추정·정리 없이 마이그레이션이 중단한다. 과거 종료일 미정 값의 읽기 계약은 유지하며 새 종료일로 보내는 요청은 기존 서비스 검증이 거부한다. 프로그램 갱신의 새 역방향 트리거는 추가하지 않는다.
+
+학생·교직원의 표시 문구와 화면 구성은 바꾸지 않아 `guide/` 갱신은 없다. 개발 환경설정 변경은 README에 반영한다. 운영 접근·머지·배포는 이 작업에 포함하지 않는다.
 
 ## 파일별 의도와 상태
 
@@ -280,6 +305,8 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/platform/audit-log-transaction-writer.types.ts` | delete | - | 10 | present | 3 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
 | `apps/backend/src/platform/audit-log.repository.ts` | delete | - | 10 | present | 250 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
 | `apps/backend/src/platform/audit-log.service.ts` | delete | - | 10 | present | 146 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
+| `apps/backend/src/platform/join-code-secret.service.ts` | delete | - | 2 | deleted | 28 | 사용하지 않는 참여 코드 digest 생성과 비밀값 의존 제거 |
+| `apps/backend/src/platform/join-code-secret.config.ts` | delete | - | 2 | deleted | 8 | 참여 코드 서비스 전용 오류 제거 |
 
 ## Application ID 참조 인벤토리
 

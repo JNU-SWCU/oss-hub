@@ -1,5 +1,5 @@
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import { Injectable, Inject, Logger } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import {
   ApplicationStatus,
   OutboxEventStatus,
@@ -12,7 +12,6 @@ import {
   RepositoryEventAlreadyExistsError,
   ApplicationDuplicateError,
   ApplicationTeamMembershipConflictError,
-  ApplicationJoinCodeDigestConflictError,
   ApplicationPreparationConflictError,
 } from './applications.error';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
@@ -46,7 +45,6 @@ import {
   APPLICATION_SUBMITTED_AUDIT_ACTIONS,
   TEAM_CREATED_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
-import { ApplicationJoinCodeService } from './application-preparations.service';
 import {
   DomainException,
   type ProblemDetailExtensions,
@@ -120,8 +118,6 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
   readonly teamMinSize: number;
 }
 
-const JOIN_CODE_ATTEMPTS = 5;
-
 export interface CreateApplicationRequest {
   readonly answers: Readonly<Record<string, unknown>>;
   readonly teamName?: string | null;
@@ -136,11 +132,6 @@ export class ApplicationsService {
   constructor(
     private readonly repository: ApplicationsRepository,
     private readonly auditLog: AuditLogService,
-    @Inject(ApplicationJoinCodeService)
-    private readonly joinCodes: Pick<
-      ApplicationJoinCodeService,
-      'generateJoinCode' | 'computeJoinCodeDigest'
-    >,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly applicationAnswersService: ApplicationAnswersService,
@@ -283,40 +274,14 @@ export class ApplicationsService {
           );
         }
 
-        let createdTeam: { readonly id: string; readonly name: string } | null =
-          null;
-        for (
-          let attempt = 0;
-          createdTeam === null &&
-          existingTeam === null &&
-          attempt < JOIN_CODE_ATTEMPTS;
-          attempt += 1
-        ) {
-          const joinCode = this.joinCodes.generateJoinCode();
-          const joinCodeDigest = this.joinCodes.computeJoinCodeDigest(joinCode);
-          try {
-            createdTeam = await store.createTeamWithLeader({
-              programId,
-              name: preparation?.name ?? teamName,
-              joinCodeDigest,
-              leaderId: student.id,
-              memberIds: preparation?.memberIds,
-            });
-            break;
-          } catch (error) {
-            if (error instanceof ApplicationJoinCodeDigestConflictError) {
-              continue;
-            }
-            if (error instanceof ApplicationTeamMembershipConflictError) {
-              throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
-            }
-            throw error;
-          }
-        }
-        const applicationTeam = existingTeam ?? createdTeam;
-        if (applicationTeam === null) {
-          throw new Error('join code digest collision retries exhausted');
-        }
+        const applicationTeam =
+          existingTeam ??
+          (await store.createTeamWithLeader({
+            programId,
+            name: preparation?.name ?? teamName,
+            leaderId: student.id,
+            memberIds: preparation?.memberIds,
+          }));
 
         const application = await store.createApplication({
           programId,
@@ -338,17 +303,17 @@ export class ApplicationsService {
           rejectionReason: null,
         });
 
-        if (createdTeam !== null) {
+        if (existingTeam === null) {
           await this.auditLog.record(
             {
               actorGithubId: githubId,
               action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
               targetType: 'TEAM',
-              targetId: createdTeam.id,
+              targetId: applicationTeam.id,
               metadata:
                 this.auditLogMetadataService.createTeamCreatedAuditMetadata({
                   programName: program.name,
-                  teamName: createdTeam.name,
+                  teamName: applicationTeam.name,
                 }),
             },
             store.auditLogWriter,

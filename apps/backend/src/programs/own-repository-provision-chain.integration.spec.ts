@@ -41,12 +41,10 @@ import { PROVISION_ERROR_CODES } from '../github/repository-provision-state.conf
 import { RepositoryOutboxConsumerService } from '../github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../github/repository-provision-worker.service';
 import { RepositoryOwnEnrollmentService } from '../github/repositories.service';
-import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryProvisionGithubService } from '../github/repository-provision-github.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { ApplicationAnswersService } from './application-answers.service';
 import { RepositoryProvisionStateService } from '../github/repository-provision-state.service';
 
@@ -67,12 +65,6 @@ const service = new ApplicationsService(
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogReadService(new AuditLogMetadataService()),
-  ),
-  new ApplicationJoinCodeService(
-    {
-      TEAM_JOIN_CODE_SECRET: 'synthetic-own-provision-chain-secret',
-    },
-    new JoinCodeSecretService(),
   ),
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
@@ -320,7 +312,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       where: { id: { in: [...APPLICATION_IDS] } },
     });
     await prisma.teamMember.deleteMany({
-      where: { id: { in: APPLICATION_IDS.map((id) => `${id}-team-member`) } },
+      where: { teamId: { in: APPLICATION_IDS.map(teamIdFor) } },
     });
     await prisma.team.deleteMany({
       where: { id: { in: APPLICATION_IDS.map(teamIdFor) } },
@@ -836,6 +828,11 @@ async function createOwnApplication(
   const teamId = teamIdFor(applicationId);
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: programId,
       name: `program-${applicationId}`,
       organizer: 'synthetic-organizer',
@@ -854,13 +851,11 @@ async function createOwnApplication(
       id: teamId,
       programId,
       name: `team-${applicationId}`,
-      joinCodeDigest: `digest-${applicationId}`,
       leaderId: applicantId,
     },
   });
   await prisma.teamMember.create({
     data: {
-      id: `${applicationId}-team-member`,
       teamId,
       programId,
       userId: applicantId,

@@ -18,7 +18,6 @@ import { ApplicationsService } from './applications.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
   ApplicationDuplicateError,
-  ApplicationJoinCodeDigestConflictError,
   ApplicationTeamMembershipConflictError,
 } from './applications.error';
 import {
@@ -73,7 +72,6 @@ function buildService(overrides: {
   readonly store?: Partial<ApplicationCreateStore>;
   readonly createThrows?: Error;
   readonly createTeamThrows?: Error | readonly Error[];
-  readonly joinCodes?: readonly string[];
 }) {
   const createApplication = jest.fn().mockImplementation((input: unknown) => {
     if (overrides.createThrows) {
@@ -135,18 +133,6 @@ function buildService(overrides: {
     ...overrides.store,
   };
 
-  let joinCodeCall = 0;
-  const joinCodes = overrides.joinCodes ?? ['JOINCODE01'];
-  const joinCodeService = {
-    generateJoinCode: jest.fn().mockImplementation(() => {
-      const code = joinCodes[joinCodeCall] ?? `JOINCODE0${joinCodeCall + 1}`;
-      joinCodeCall += 1;
-      return code;
-    }),
-    computeJoinCodeDigest: jest
-      .fn()
-      .mockImplementation((joinCode: string) => `digest:${joinCode}`),
-  };
   const repository = {
     findActiveStudentByGithubId: jest
       .fn()
@@ -170,7 +156,6 @@ function buildService(overrides: {
     service: new ApplicationsService(
       repository,
       { record } as unknown as AuditLogService,
-      joinCodeService,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
@@ -303,7 +288,6 @@ describe('ApplicationsService.create', () => {
     expect(createTeamWithLeader).toHaveBeenCalledWith({
       programId: PROGRAM_ID,
       name: 'synthetic-login의 팀',
-      joinCodeDigest: 'digest:JOINCODE01',
       leaderId: STUDENT.id,
     });
     expect(createApplication).toHaveBeenCalledWith({
@@ -505,23 +489,6 @@ describe('ApplicationsService.create', () => {
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
     });
-  });
-
-  it('joinCodeDigest 충돌 시 재시도 후 성공한다', async () => {
-    const { service, createTeamWithLeader } = buildService({
-      createTeamThrows: [
-        new ApplicationJoinCodeDigestConflictError(),
-        undefined as unknown as Error,
-      ],
-      joinCodes: ['CODEAAAAAA', 'CODEBBBBBB'],
-    });
-
-    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
-
-    expect(createTeamWithLeader).toHaveBeenCalledTimes(2);
-    expect(createTeamWithLeader).toHaveBeenLastCalledWith(
-      expect.objectContaining({ joinCodeDigest: 'digest:CODEBBBBBB' }),
-    );
   });
 
   it('P2002 레이스는 APP_011 로 매핑한다', async () => {

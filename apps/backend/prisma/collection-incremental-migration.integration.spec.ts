@@ -33,7 +33,7 @@ async function cleanFixtures(): Promise<void> {
     where: { id: { startsWith: TEST_PREFIX } },
   });
   await prisma.teamMember.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } },
+    where: { teamId: { startsWith: TEST_PREFIX } },
   });
   await prisma.team.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
@@ -223,6 +223,11 @@ describe('collection incremental migration — DB invariants', () => {
     });
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-08-01T00:00:00Z'),
+        endAt: new Date(
+          new Date('2026-08-02T00:00:00Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: `${TEST_PREFIX}program`,
         name: 'p',
         organizer: 'org',
@@ -241,14 +246,12 @@ describe('collection incremental migration — DB invariants', () => {
           id: `${TEST_PREFIX}team:default`,
           programId: `${TEST_PREFIX}program`,
           name: `${TEST_PREFIX}team-default`,
-          joinCodeDigest: `${TEST_PREFIX}digest-default`,
           leaderId: `${TEST_PREFIX}user`,
         },
         {
           id: `${TEST_PREFIX}team:explicit-false`,
           programId: `${TEST_PREFIX}program`,
           name: `${TEST_PREFIX}team-explicit-false`,
-          joinCodeDigest: `${TEST_PREFIX}digest-explicit-false`,
           leaderId: `${TEST_PREFIX}user:second`,
         },
       ],
@@ -256,13 +259,11 @@ describe('collection incremental migration — DB invariants', () => {
     await prisma.teamMember.createMany({
       data: [
         {
-          id: `${TEST_PREFIX}member:default`,
           teamId: `${TEST_PREFIX}team:default`,
           programId: `${TEST_PREFIX}program`,
           userId: `${TEST_PREFIX}user`,
         },
         {
-          id: `${TEST_PREFIX}member:explicit-false`,
           teamId: `${TEST_PREFIX}team:explicit-false`,
           programId: `${TEST_PREFIX}program`,
           userId: `${TEST_PREFIX}user:second`,

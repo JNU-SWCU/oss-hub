@@ -44,7 +44,7 @@ export type UpdateProgramCommand = Omit<CreateProgramCommand, 'endAt'> & {
 
 export type UpsertMilestoneCommand = {
   readonly name: string;
-  readonly startAt?: string;
+  readonly startAt: string;
   readonly dueAt: string;
   readonly instructions?: string | null;
 };
@@ -211,7 +211,7 @@ export class ProgramEditorService {
       const description = input.description.trim();
       const applicationStartAt = new Date(input.applicationStartAt);
       const applicationEndAt = new Date(input.applicationEndAt);
-      const startAt = new Date(input.startAt ?? existing.startAt.toISOString());
+      const startAt = new Date(input.startAt);
       const requestedEndAt =
         input.endAt === undefined ? existing.endAt : input.endAt;
       const endAt =
@@ -655,7 +655,7 @@ export class ProgramEditorService {
     existingSubmissionType: ProgramMilestoneInput['submissionType'] = null,
   ): ProgramMilestoneInput {
     const name = input.name.trim();
-    const startAt = input.startAt ? new Date(input.startAt) : programStartAt;
+    const startAt = new Date(input.startAt);
     const dueAt = new Date(input.dueAt);
     const milestoneFieldErrors: {
       field: string;

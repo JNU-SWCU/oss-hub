@@ -35,7 +35,6 @@ import {
   RepositoryEventAlreadyExistsError,
   ApplicationDuplicateError,
   ApplicationTeamMembershipConflictError,
-  ApplicationJoinCodeDigestConflictError,
   ApplicationPreparationConflictError,
 } from './applications.error';
 import {
@@ -475,7 +474,6 @@ export interface ApplyProgramRecord {
 interface CreateTeamForApplicationInput {
   readonly programId: string;
   readonly name: string;
-  readonly joinCodeDigest: string;
   readonly leaderId: string;
   readonly memberIds?: readonly string[];
 }
@@ -966,7 +964,7 @@ export class ApplicationsRepository {
     return (
       (await transaction.teamMember.findUnique({
         where: { teamId_userId: { teamId, userId } },
-        select: { id: true },
+        select: { userId: true },
       })) !== null
     );
   }
@@ -1296,7 +1294,7 @@ export class ApplicationsRepository {
 
     const membership = await database.teamMember.findUnique({
       where: { teamId_userId: { teamId, userId } },
-      select: { id: true },
+      select: { userId: true },
     });
     return membership !== null;
   }
@@ -1310,7 +1308,6 @@ export class ApplicationsRepository {
         data: {
           programId: input.programId,
           name: input.name,
-          joinCodeDigest: input.joinCodeDigest,
           leaderId: input.leaderId,
         },
         select: { id: true, name: true },
@@ -1328,15 +1325,6 @@ export class ApplicationsRepository {
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
       ) {
-        const target = error.meta?.target;
-        const fields = Array.isArray(target)
-          ? target.map(String)
-          : typeof target === 'string'
-            ? [target]
-            : [];
-        if (fields.some((field) => field.includes('joinCodeDigest'))) {
-          throw new ApplicationJoinCodeDigestConflictError();
-        }
         throw new ApplicationTeamMembershipConflictError();
       }
       throw error;

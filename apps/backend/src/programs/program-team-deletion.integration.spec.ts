@@ -191,6 +191,11 @@ async function seedDurableFixturesOnce(): Promise<void> {
       where: { id: programId },
       update: {},
       create: {
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: programId,
         name: `Team deletion program ${programId}`,
         organizer: 'Synthetic organizer',
@@ -210,6 +215,8 @@ async function seedDurableFixturesOnce(): Promise<void> {
     where: { id: MILESTONE_ID },
     update: {},
     create: {
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+
       id: MILESTONE_ID,
       programId: PROGRAM_ID,
       name: 'Synthetic milestone',
@@ -246,7 +253,6 @@ async function seedApprovedTeam(
       id: teamId,
       programId,
       name: `Team ${teamSequence}`,
-      joinCodeDigest: `${teamId}:digest`,
       leaderId: LEADER_ID,
     },
   });

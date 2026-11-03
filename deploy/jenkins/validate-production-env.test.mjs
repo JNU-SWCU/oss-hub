@@ -15,9 +15,6 @@ const R2_ENDPOINT =
 const sessionSecret = Buffer.from('0123456789abcdef0123456789abcdef').toString(
   'base64url',
 );
-const joinCodeSecret = Buffer.from('fedcba9876543210fedcba9876543210').toString(
-  'base64url',
-);
 const shortSecret = Buffer.alloc(31, 7).toString('base64url');
 
 const baseEnvironment = Object.freeze({
@@ -27,7 +24,6 @@ const baseEnvironment = Object.freeze({
   DATABASE_URL:
     'postgresql://oss_hub:postgres-password-synthetic@postgres:5432/oss_hub',
   SESSION_SECRET: sessionSecret,
-  TEAM_JOIN_CODE_SECRET: joinCodeSecret,
   FRONTEND_URL: 'https://oss-hub.example.test',
   GITHUB_OAUTH_CLIENT_ID: 'oauth-client-id-synthetic',
   GITHUB_OAUTH_CLIENT_SECRET: 'oauth-client-secret-synthetic',
@@ -51,7 +47,6 @@ const baseEnvironment = Object.freeze({
 const syntheticSecrets = Object.freeze([
   baseEnvironment.POSTGRES_PASSWORD,
   sessionSecret,
-  joinCodeSecret,
   baseEnvironment.GITHUB_OAUTH_CLIENT_SECRET,
   baseEnvironment.GMAIL_OAUTH_CLIENT_SECRET,
   baseEnvironment.GMAIL_OAUTH_REFRESH_TOKEN,
@@ -207,21 +202,21 @@ const parserRejects = [
     'braced dotenv interpolation',
     replaceAssignment(
       renderEnvironment(),
-      'TEAM_JOIN_CODE_SECRET',
-      'TEAM_JOIN_CODE_SECRET=${SESSION_SECRET}',
+      'SESSION_SECRET',
+      'SESSION_SECRET=${OTHER_SECRET}',
     ),
-    'TEAM_JOIN_CODE_SECRET',
-    ['${SESSION_SECRET}'],
+    'SESSION_SECRET',
+    ['${OTHER_SECRET}'],
   ),
   rawReject(
     'bare dollar interpolation',
     replaceAssignment(
       renderEnvironment(),
-      'TEAM_JOIN_CODE_SECRET',
-      'TEAM_JOIN_CODE_SECRET=$SESSION_SECRET',
+      'SESSION_SECRET',
+      'SESSION_SECRET=$OTHER_SECRET',
     ),
-    'TEAM_JOIN_CODE_SECRET',
-    ['$SESSION_SECRET'],
+    'SESSION_SECRET',
+    ['$OTHER_SECRET'],
   ),
   rawReject(
     'command substitution',
@@ -265,19 +260,6 @@ const valueRejects = [
   reject('short session secret', 'SESSION_SECRET', shortSecret),
   reject('non-base64url session secret', 'SESSION_SECRET', 'not+base64/value='),
   reject('obviously weak session secret', 'SESSION_SECRET', 'change-me'),
-  removed('missing join-code secret', 'TEAM_JOIN_CODE_SECRET'),
-  reject('blank join-code secret', 'TEAM_JOIN_CODE_SECRET', ''),
-  reject('short join-code secret', 'TEAM_JOIN_CODE_SECRET', shortSecret),
-  reject(
-    'non-base64url join-code secret',
-    'TEAM_JOIN_CODE_SECRET',
-    'not+base64/value=',
-  ),
-  reject(
-    'obviously weak join-code secret',
-    'TEAM_JOIN_CODE_SECRET',
-    'change-me',
-  ),
 
   reject('HTTP frontend origin', 'FRONTEND_URL', 'http://oss-hub.example.test'),
   reject(

@@ -29,10 +29,8 @@ import { KNOWN_STORAGE_PREFIXES } from '../src/programs/storage-orphan-reconcili
 import type { AuthUserRecord } from '../src/auth/auth.repository';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
-import { JoinCodeSecretService } from '../src/platform/join-code-secret.service';
 
 const repositoryUrlService = new RepositoryUrlService();
-const joinCodeSecretService = new JoinCodeSecretService();
 
 function isProfileComplete(user: AuthUserRecord | null): boolean {
   return (
@@ -193,7 +191,8 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   ['Team', () => prisma.team.count({ where: { id: { startsWith: 'seed:' } } })],
   [
     'TeamMember',
-    () => prisma.teamMember.count({ where: { id: { startsWith: 'seed:' } } }),
+    () =>
+      prisma.teamMember.count({ where: { teamId: { startsWith: 'seed:' } } }),
   ],
   [
     'MilestoneDocumentSubmission',
@@ -399,7 +398,7 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.boardComment.deleteMany({ where: seedIdFilter });
   await prisma.boardPost.deleteMany({ where: seedIdFilter });
   await prisma.teamInvitation.deleteMany({ where: seedIdFilter });
-  await prisma.teamMember.deleteMany({ where: seedIdFilter });
+  await prisma.teamMember.deleteMany({ where: { teamId: seedIdFilter.id } });
   await prisma.milestone.deleteMany({
     where: { ...seedIdFilter, ...excluding(protectedMilestoneIds) },
   });
@@ -503,7 +502,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         }),
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_TEAM_ID },
-          include: { members: { orderBy: { id: 'asc' } } },
+          include: { members: { orderBy: { userId: 'asc' } } },
         }),
         prisma.application.findUniqueOrThrow({
           where: { id: OSS_HUB_APPLICATION_ID },
@@ -545,7 +544,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         }),
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_TEAM_ID },
-          include: { members: { orderBy: { id: 'asc' } } },
+          include: { members: { orderBy: { userId: 'asc' } } },
         }),
         prisma.application.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_APPLICATION_ID },
@@ -567,7 +566,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         }),
         prisma.team.count({ where: { id: { startsWith: 'seed:oss-hub:' } } }),
         prisma.teamMember.count({
-          where: { id: { startsWith: 'seed:oss-hub:' } },
+          where: { teamId: { startsWith: 'seed:oss-hub:' } },
         }),
         prisma.milestone.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
@@ -690,9 +689,8 @@ describe('seed profile=oss-hub contract (integration)', () => {
         expect(milestone.dueAt.getTime()).toBeLessThan(program.endAt.getTime());
       }
       expect(team.leaderId).toBe(configuredUsers[0]?.id);
-      expect(team.members.map(({ id, userId }) => ({ id, userId }))).toEqual(
+      expect(team.members.map(({ userId }) => ({ userId }))).toEqual(
         configuredUsers.map((user) => ({
-          id: seedId('oss-hub', 'team-member', user.githubId.toString()),
           userId: user.id,
         })),
       );
@@ -746,15 +744,8 @@ describe('seed profile=oss-hub contract (integration)', () => {
 
       expect(practiceProgram.repositoryProvisioningEnabled).toBe(true);
       expect(practiceTeam.leaderId).toBe(configuredUsers[0]?.id);
-      expect(
-        practiceTeam.members.map(({ id, userId }) => ({ id, userId })),
-      ).toEqual(
+      expect(practiceTeam.members.map(({ userId }) => ({ userId }))).toEqual(
         configuredUsers.map((user) => ({
-          id: seedId(
-            'oss-hub-practice',
-            'team-member',
-            user.githubId.toString(),
-          ),
           userId: user.id,
         })),
       );
@@ -791,12 +782,17 @@ describe('seed profile=oss-hub contract (integration)', () => {
     async () => {
       await runProfile('oss-hub', new SeedStats());
       const staleMilestoneId = seedId('oss-hub', 'milestone', 'obsolete-plan');
+      const program = await prisma.program.findUniqueOrThrow({
+        where: { id: OSS_HUB_PROGRAM_ID },
+      });
       await prisma.milestone.create({
         data: {
+          startAt: program.startAt,
+
           id: staleMilestoneId,
           programId: OSS_HUB_PROGRAM_ID,
           name: '구버전 계획서 제출',
-          dueAt: new Date('2026-01-01T00:00:00+09:00'),
+          dueAt: new Date(program.startAt.getTime() + 86_400_000),
           submissionType: MilestoneSubmissionType.TEXT,
           instructions: '정리 테스트용 구버전 마일스톤(obsolete-plan).',
         },
@@ -931,7 +927,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       prisma.program.count({ where: { id: { startsWith: seedDemoPrefix } } }),
       prisma.team.count({ where: { id: { startsWith: seedDemoPrefix } } }),
       prisma.teamMember.count({
-        where: { id: { startsWith: seedDemoPrefix } },
+        where: { teamId: { startsWith: seedDemoPrefix } },
       }),
       prisma.application.count({
         where: { id: { startsWith: seedDemoPrefix } },
@@ -1019,7 +1015,7 @@ describe('seed profile=demo 계약 (integration)', () => {
     await prisma.milestoneDocument.deleteMany({ where: seedIdFilter });
     await prisma.boardComment.deleteMany({ where: seedIdFilter });
     await prisma.boardPost.deleteMany({ where: seedIdFilter });
-    await prisma.teamMember.deleteMany({ where: seedIdFilter });
+    await prisma.teamMember.deleteMany({ where: { teamId: seedIdFilter.id } });
     await prisma.milestone.deleteMany({ where: seedIdFilter });
     await prisma.application.deleteMany({ where: seedIdFilter });
     await prisma.team.deleteMany({ where: seedIdFilter });
@@ -1383,6 +1379,11 @@ describe('seed profile=demo 계약 (integration)', () => {
       });
       await prisma.program.create({
         data: {
+          startAt: new Date('2020-01-01T00:00:00Z'),
+          endAt: new Date(
+            new Date('2020-01-02T00:00:00Z').getTime() + 365 * 86_400_000,
+          ),
+
           id: survivorProgramId,
           name: 'teardown guard 비-demo 프로그램(fixture)',
           organizer: 'teardown guard fixture',
@@ -1400,16 +1401,11 @@ describe('seed profile=demo 계약 (integration)', () => {
           id: survivorTeamId,
           programId: survivorProgramId,
           name: 'teardown guard 팀',
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            `TEARDOWN-GUARD-${survivorTeamId}`,
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: survivorUserId,
         },
       });
       await prisma.teamMember.create({
         data: {
-          id: 'seed:demo-teardown-guard:team-member',
           teamId: survivorTeamId,
           programId: survivorProgramId,
           userId: survivorUserId,

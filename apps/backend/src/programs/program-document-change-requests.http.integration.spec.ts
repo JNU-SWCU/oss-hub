@@ -51,7 +51,6 @@ async function seedSecondTeam(): Promise<void> {
       id: extra.team,
       programId: flowIds.program,
       name: '합성 팀 나',
-      joinCodeDigest: `${extra.team}-digest`,
       leaderId: extra.student,
       members: { create: { userId: extra.student } },
     },

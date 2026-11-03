@@ -235,6 +235,8 @@ async function createProgram(
       description: 'synthetic integration fixture',
       milestones: {
         create: milestoneIds.map((each) => ({
+          startAt: new Date('2026-01-02'),
+
           id: each,
           name: `synthetic ${each}`,
           dueAt: new Date('2026-11-01'),
@@ -255,14 +257,12 @@ async function createTeamWithApplication(
       id: teamId,
       programId: programIdOfTeam,
       name: `synthetic ${team.key} 팀`,
-      joinCodeDigest: `digest:${prefix}:${team.key}`,
       leaderId: team.leaderId,
     },
   });
   for (const userId of team.memberIds) {
     await prisma.teamMember.create({
       data: {
-        id: `${prefix}-${team.key}-${userId}`,
         teamId,
         programId: programIdOfTeam,
         userId,
@@ -665,7 +665,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       milestoneIdOfFile: milestoneId,
     });
     await prisma.teamMember.delete({
-      where: { id: `${prefix}-former-${users.formerUploader.id}` },
+      where: {
+        teamId_userId: {
+          teamId: `${prefix}-former-team`,
+          userId: users.formerUploader.id,
+        },
+      },
     });
   });
 

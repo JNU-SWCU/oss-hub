@@ -74,6 +74,11 @@ async function seedPendingInvitation(): Promise<void> {
   }
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: PROGRAM_ID,
       name: 'Invitation atomicity program',
       organizer: 'Synthetic organizer',
@@ -93,7 +98,6 @@ async function seedPendingInvitation(): Promise<void> {
       id: TARGET_TEAM_ID,
       programId: PROGRAM_ID,
       name: 'Target team',
-      joinCodeDigest: `${TEST_PREFIX}target-digest`,
       leaderId: LEADER_ID,
     },
   });
@@ -293,7 +297,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         id: OTHER_TEAM_ID,
         programId: PROGRAM_ID,
         name: 'Other team',
-        joinCodeDigest: `${TEST_PREFIX}other-digest`,
         leaderId: OUTSIDER_ID,
       },
     });
@@ -361,7 +364,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         id: OTHER_TEAM_ID,
         programId: PROGRAM_ID,
         name: 'Other team',
-        joinCodeDigest: `${TEST_PREFIX}other-digest`,
         leaderId: INVITEE_ID,
       },
     });
@@ -629,7 +631,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
           id: OTHER_TEAM_ID,
           programId: PROGRAM_ID,
           name: 'Other team',
-          joinCodeDigest: `${TEST_PREFIX}other-digest`,
           leaderId: INVITEE_ID,
         },
       });

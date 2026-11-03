@@ -16,7 +16,7 @@ const SENT_TEAM_INVITATION_SELECT = {
   inviteeId: true,
   invitedById: true,
   status: true,
-  invitedAt: true,
+  createdAt: true,
   respondedAt: true,
   invitee: {
     select: {
@@ -35,7 +35,7 @@ const selectedInvitationRow = {
   inviteeId: syntheticInviteeId,
   invitedById: syntheticLeaderId,
   status: TeamInvitationStatus.PENDING,
-  invitedAt,
+  createdAt: invitedAt,
   respondedAt: null,
   invitee: {
     id: syntheticInviteeId,
@@ -114,7 +114,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
 
     expect(findMany).toHaveBeenCalledWith({
       where: { teamId: syntheticTeamId },
-      orderBy: { invitedAt: 'desc' },
+      orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
     });
     expect(result).toEqual([
@@ -243,7 +243,7 @@ describe('TeamInvitationsRepository.createInvitation', () => {
         programId: syntheticProgramId,
         inviteeId: syntheticInviteeId,
         invitedById: syntheticLeaderId,
-        invitedAt,
+        createdAt: invitedAt,
       },
       select: SENT_TEAM_INVITATION_SELECT,
     });

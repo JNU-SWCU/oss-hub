@@ -94,6 +94,11 @@ beforeEach(async () => {
   );
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: programId,
       name: 'Synthetic compatibility program',
       organizer: 'Synthetic organizer',

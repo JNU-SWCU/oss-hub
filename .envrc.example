@@ -15,7 +15,6 @@ export PORT=4000
 export MAIL_MODE=dry-run
 
 export SESSION_SECRET=
-export TEAM_JOIN_CODE_SECRET=
 
 export GITHUB_OAUTH_CLIENT_ID=dev-oauth-client-id-placeholder
 export GITHUB_OAUTH_CLIENT_SECRET=dev-oauth-client-secret-placeholder

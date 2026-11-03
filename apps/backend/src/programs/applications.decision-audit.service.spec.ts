@@ -14,10 +14,8 @@ import {
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsService } from './applications.service';
-import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
 const APPLICATION_ID = 'synthetic-application';
@@ -113,12 +111,6 @@ function createHarness(
   const service = new ApplicationsService(
     repository,
     { record } as unknown as AuditLogService,
-    new ApplicationJoinCodeService(
-      {
-        TEAM_JOIN_CODE_SECRET: 'synthetic-join-code-secret',
-      },
-      new JoinCodeSecretService(),
-    ),
     new AuditLogMetadataService(),
     new RepositoryUrlService(),
     new ApplicationAnswersService(),

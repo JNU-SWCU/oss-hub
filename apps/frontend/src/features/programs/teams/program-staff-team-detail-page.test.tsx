@@ -246,6 +246,33 @@ describe('ProgramStaffTeamDetailPage', () => {
     });
   }
 
+  it.each([
+    ['RETRYABLE_FAILED', '재시도 대기'],
+    ['FAILED_RETRYABLE', '재시도 대기'],
+    ['FAILED', '생성 실패'],
+    ['FAILED_FINAL', '생성 실패'],
+  ] as const)(
+    'renders provisioning failure %s during a rolling release',
+    async (jobStatus, label) => {
+      const application = withApplication.application;
+      if (application === null) throw new Error('Missing application fixture');
+      getStaffProgramTeamDetailMock.mockResolvedValue({
+        ...withApplication,
+        application: {
+          ...application,
+          repositoryProvisioning: {
+            ...application.repositoryProvisioning,
+            jobStatus,
+          },
+        },
+      });
+
+      await render();
+
+      expect(container.textContent).toContain(`저장소 발급 ${label}`);
+    },
+  );
+
   function reviewHistoryTrigger(): HTMLButtonElement | undefined {
     return [
       ...container.querySelectorAll<HTMLButtonElement>(

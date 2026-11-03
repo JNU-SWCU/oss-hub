@@ -28,7 +28,6 @@ async function createApplication(status: ApplicationStatus): Promise<void> {
       id: 'synthetic-notice-team',
       name: '합성 팀',
       programId: PROGRAM_ID,
-      joinCodeDigest: 'synthetic-notice-digest',
       leaderId: USER_IDS[0],
     },
   });
@@ -86,6 +85,11 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
     });
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: PROGRAM_ID,
         name: '합성 프로그램',
         organizer: '합성 조직',

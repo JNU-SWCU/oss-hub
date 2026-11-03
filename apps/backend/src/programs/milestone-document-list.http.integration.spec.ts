@@ -160,6 +160,8 @@ describe('authenticated milestone document list filename contract', () => {
         description: 'synthetic integration fixture',
         milestones: {
           create: {
+            startAt: new Date('2026-01-02'),
+
             id: milestoneId,
             name: 'synthetic milestone',
             dueAt: new Date('2026-11-01'),

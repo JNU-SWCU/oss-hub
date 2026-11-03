@@ -81,9 +81,9 @@ async function createTeam(
 ): Promise<void> {
   await prisma.$executeRaw`
     INSERT INTO "Team" (
-      "id", "programId", "name", "joinCodeDigest", "leaderId", "createdAt", "updatedAt"
+      "id", "programId", "name", "leaderId", "createdAt", "updatedAt"
     ) VALUES (
-      ${id}, ${programId}, ${id}, ${`digest:${id}`}, ${leaderId}, NOW(), NOW()
+      ${id}, ${programId}, ${id}, ${leaderId}, NOW(), NOW()
     )
   `;
 }
@@ -93,7 +93,7 @@ async function cleanFixtures(): Promise<void> {
     where: { id: { startsWith: TEST_PREFIX } },
   });
   await prisma.teamMember.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } },
+    where: { teamId: { startsWith: TEST_PREFIX } },
   });
   await prisma.team.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
   await prisma.program.deleteMany({
@@ -170,13 +170,13 @@ describe('core schema invariants integration', () => {
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
     await createTeam(TEAM_B_ID, PROGRAM_ID, USER_B_ID);
     await prisma.$executeRaw`
-      INSERT INTO "TeamMember" ("id", "teamId", "programId", "userId", "createdAt")
-      VALUES (${`${TEST_PREFIX}member:first`}, ${TEAM_A_ID}, ${PROGRAM_ID}, ${USER_C_ID}, NOW())
+      INSERT INTO "TeamMember" ("teamId", "programId", "userId", "createdAt")
+      VALUES (${TEAM_A_ID}, ${PROGRAM_ID}, ${USER_C_ID}, NOW())
     `;
 
     const duplicateInsert = prisma.$executeRaw`
-      INSERT INTO "TeamMember" ("id", "teamId", "programId", "userId", "createdAt")
-      VALUES (${`${TEST_PREFIX}member:second`}, ${TEAM_B_ID}, ${PROGRAM_ID}, ${USER_C_ID}, NOW())
+      INSERT INTO "TeamMember" ("teamId", "programId", "userId", "createdAt")
+      VALUES (${TEAM_B_ID}, ${PROGRAM_ID}, ${USER_C_ID}, NOW())
     `;
 
     await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2010' });
@@ -188,8 +188,8 @@ describe('core schema invariants integration', () => {
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
 
     const mismatchedInsert = prisma.$executeRaw`
-      INSERT INTO "TeamMember" ("id", "teamId", "programId", "userId", "createdAt")
-      VALUES (${`${TEST_PREFIX}member:mismatch`}, ${TEAM_A_ID}, ${SECOND_PROGRAM_ID}, ${USER_C_ID}, NOW())
+      INSERT INTO "TeamMember" ("teamId", "programId", "userId", "createdAt")
+      VALUES (${TEAM_A_ID}, ${SECOND_PROGRAM_ID}, ${USER_C_ID}, NOW())
     `;
 
     await expect(mismatchedInsert).rejects.toMatchObject({ code: 'P2010' });

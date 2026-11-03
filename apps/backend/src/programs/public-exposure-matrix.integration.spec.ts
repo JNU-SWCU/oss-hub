@@ -224,13 +224,11 @@ async function createScenario(params: {
       id: teamId,
       programId: params.programId,
       name: `${PREFIX}-${params.key}-team`,
-      joinCodeDigest: `${PREFIX}-${params.key}-team-digest`,
       leaderId: applicantId,
     },
   });
   await prisma.teamMember.create({
     data: {
-      id: `${PREFIX}-${params.key}-team-member`,
       teamId,
       programId: params.programId,
       userId: applicantId,
@@ -564,7 +562,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await prisma.teamMember.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
+        where: { teamId: { startsWith: `${PREFIX}-` } },
       });
       await prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },

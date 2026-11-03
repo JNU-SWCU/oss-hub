@@ -270,9 +270,10 @@ it('returns field errors for an invalid team range through the API ProblemDetail
   expect(store.updateProgram.mock.calls).toHaveLength(0);
 });
 
-it('accepts the legacy partial metadata body without selecting aggregate validation', async () => {
+it('accepts metadata with explicit dates without selecting aggregate validation', async () => {
   const response = await patchMilestone({
     name: 'Updated milestone',
+    startAt: '2026-08-16T00:00:00.000Z',
     dueAt: '2026-08-20T00:00:00.000Z',
   });
 

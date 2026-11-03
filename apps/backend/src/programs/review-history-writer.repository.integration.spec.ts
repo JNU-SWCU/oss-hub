@@ -84,6 +84,11 @@ async function seed(): Promise<void> {
   });
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: PROGRAM_ID,
       name: '이력 writer 검증 프로그램',
       organizer: 'OSS Center',
@@ -104,7 +109,6 @@ async function seed(): Promise<void> {
         id: teamId,
         programId: PROGRAM_ID,
         name: `팀 ${teamId}`,
-        joinCodeDigest: `${teamId}-digest`,
         leaderId: applicantId,
       },
     });

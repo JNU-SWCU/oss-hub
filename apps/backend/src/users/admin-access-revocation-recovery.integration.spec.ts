@@ -151,6 +151,11 @@ async function createPreservedAssets(
   ]);
   const program = await prisma.program.create({
     data: {
+      startAt: new Date('2026-07-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-07-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: `${prefix}program`,
       name: 'Synthetic PR04H Program',
       organizer: 'Synthetic Organizer',
@@ -168,13 +173,11 @@ async function createPreservedAssets(
       id: `${prefix}team`,
       programId: program.id,
       name: `${prefix}team`,
-      joinCodeDigest: `${prefix}team-digest`,
       leaderId: staffId,
     },
   });
   await prisma.teamMember.create({
     data: {
-      id: `${prefix}team-member`,
       teamId: team.id,
       programId: program.id,
       userId: staffId,

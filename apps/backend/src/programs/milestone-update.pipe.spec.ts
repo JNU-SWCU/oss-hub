@@ -12,15 +12,17 @@ const aggregate = {
   expectedFingerprint: 'a'.repeat(64),
 };
 
-it('preserves legacy omitted dates and whitespace until application validation', async () => {
-  const command = await pipe.transform(legacy);
-  expect(command).toEqual({ kind: 'legacy', input: legacy });
-  expect(command.input).not.toHaveProperty('startAt');
+it('rejects metadata without an explicit start date', async () => {
+  await expect(pipe.transform(legacy)).rejects.toBeInstanceOf(
+    BadRequestException,
+  );
 });
 
-it('preserves the legacy null date accepted by IsOptional', async () => {
+it('rejects a null metadata start date', async () => {
   const input = { ...legacy, startAt: null, instructions: null };
-  expect(await pipe.transform(input)).toEqual({ kind: 'legacy', input });
+  await expect(pipe.transform(input)).rejects.toBeInstanceOf(
+    BadRequestException,
+  );
 });
 
 it('uses the aggregate DTO transforms before creating its command', async () => {

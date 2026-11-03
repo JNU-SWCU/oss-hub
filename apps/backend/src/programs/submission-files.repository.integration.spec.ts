@@ -188,12 +188,17 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
       },
     });
+    const program = await prisma.program.findUniqueOrThrow({
+      where: { id: PROGRAM_ID },
+    });
     await prisma.milestone.create({
       data: {
+        startAt: program.startAt,
+
         id: MILESTONE_ID,
         programId: PROGRAM_ID,
         name: 'Issue 342 file authorization',
-        dueAt: new Date('2026-08-31T00:00:00.000Z'),
+        dueAt: new Date(program.startAt.getTime() + 86_400_000),
         submissionType: MilestoneSubmissionType.FILE,
       },
     });

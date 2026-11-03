@@ -121,13 +121,11 @@ async function createRepositoryFixture(params: {
       id: teamId,
       programId: PROGRAM_ID,
       name: `${PREFIX}-${params.key}-team`,
-      joinCodeDigest: `${PREFIX}-${params.key}-team-digest`,
       leaderId: applicantId,
     },
   });
   await harness.prisma.teamMember.create({
     data: {
-      id: `${PREFIX}-${params.key}-team-member`,
       teamId,
       programId: PROGRAM_ID,
       userId: applicantId,
@@ -188,6 +186,8 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
 
     await harness.prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
@@ -322,7 +322,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await harness.prisma.teamMember.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
+        where: { teamId: { startsWith: `${PREFIX}-` } },
       });
       await harness.prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },

@@ -84,6 +84,11 @@ describe('MilestoneDocumentsService durable document order', () => {
     });
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-08-02T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: PROGRAM_ID,
         name: 'Synthetic document ordering',
         organizer: 'OSS',
@@ -96,6 +101,8 @@ describe('MilestoneDocumentsService durable document order', () => {
         milestones: {
           create: [
             {
+              startAt: new Date('2026-08-01T00:00:00.000Z'),
+
               id: MILESTONE_ID,
               name: 'Ordered documents',
               dueAt: new Date('2026-08-20T00:00:00.000Z'),
@@ -109,6 +116,8 @@ describe('MilestoneDocumentsService durable document order', () => {
               },
             },
             {
+              startAt: new Date('2026-08-01T00:00:00.000Z'),
+
               id: OTHER_MILESTONE_ID,
               name: 'Other milestone',
               dueAt: new Date('2026-08-20T00:00:00.000Z'),

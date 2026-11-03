@@ -62,7 +62,6 @@ async function ensureMissingSubmission(): Promise<void> {
     data: {
       programId: E2E_PROGRAM_ID,
       name: 'synthetic-reset-team',
-      joinCodeDigest: 'synthetic-reset-team-digest',
       leaderId: E2E_STUDENT_ID,
       members: {
         create: { userId: E2E_STUDENT_ID },

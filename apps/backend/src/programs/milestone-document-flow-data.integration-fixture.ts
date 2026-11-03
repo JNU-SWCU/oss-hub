@@ -68,6 +68,8 @@ export async function seedMilestoneDocumentFlow(
       description: 'synthetic integration fixture',
       milestones: {
         create: {
+          startAt: new Date('2000-01-03'),
+
           id: flowIds.milestone,
           name: '합성 제출 단계',
           dueAt: new Date('2099-01-01'),
@@ -89,7 +91,6 @@ export async function seedMilestoneDocumentFlow(
       id: flowIds.team,
       programId: flowIds.program,
       name: '합성 팀',
-      joinCodeDigest: `${prefix}-digest`,
       leaderId: flowIds.student,
       members: { create: { userId: flowIds.student } },
     },

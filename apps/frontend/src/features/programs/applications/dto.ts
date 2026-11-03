@@ -142,6 +142,8 @@ export type RepositoryProvisioningJobStatus =
   | 'PENDING'
   | 'PROCESSING'
   | 'SUCCEEDED'
+  | 'FAILED_RETRYABLE'
+  | 'FAILED_FINAL'
   | 'RETRYABLE_FAILED'
   | 'FAILED'
   | 'ANOMALOUS';

@@ -347,7 +347,7 @@ describe('ProgramTeamsRepository.leave', () => {
     expect(result).toBe('removed');
     expect(findFirstMember).toHaveBeenCalledWith({
       where: { teamId: syntheticTeamId, userId: { not: syntheticLeaderId } },
-      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
       select: { userId: true },
     });
     expect(teamUpdate).toHaveBeenCalledWith({
@@ -364,7 +364,7 @@ describe('ProgramTeamsRepository.leave', () => {
     });
   });
 
-  it('같은 createdAt 이면 id 오름차순 정렬이 승계를 결정한다', async () => {
+  it('같은 createdAt 이면 userId 오름차순 정렬이 승계를 결정한다', async () => {
     const { tx, findFirstMember, teamUpdate, recordAudit } = buildTx(
       syntheticLeaderId,
       {
@@ -382,7 +382,7 @@ describe('ProgramTeamsRepository.leave', () => {
     const [args] = findFirstMember.mock.calls.at(0) as [
       { orderBy: readonly unknown[] },
     ];
-    expect(args.orderBy).toEqual([{ createdAt: 'asc' }, { id: 'asc' }]);
+    expect(args.orderBy).toEqual([{ createdAt: 'asc' }, { userId: 'asc' }]);
     expect(teamUpdate).toHaveBeenCalledWith({
       where: { id: syntheticTeamId },
       data: { leaderId: syntheticSecondMemberId },

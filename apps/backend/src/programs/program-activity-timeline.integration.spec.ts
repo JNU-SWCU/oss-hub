@@ -36,6 +36,9 @@ it('counts only current linked activity and never substitutes detached or unrela
   });
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-07-01Z'),
+      endAt: new Date(new Date('2026-07-31Z').getTime() + 365 * 86_400_000),
+
       id: programId,
       name: 'Synthetic program',
       organizer: 'Synthetic',
@@ -52,7 +55,6 @@ it('counts only current linked activity and never substitutes detached or unrela
       id: teamId,
       programId,
       name: 'Synthetic team',
-      joinCodeDigest: prefix,
       leaderId: studentId,
     },
   });

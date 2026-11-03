@@ -83,6 +83,11 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     });
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
@@ -102,35 +107,30 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           id: PERSONAL_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-personal-team`,
-          joinCodeDigest: `${PREFIX}-personal-team-digest`,
           leaderId: CURRENT_USER_ID,
         },
         {
           id: LEADER_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-leader-team`,
-          joinCodeDigest: `${PREFIX}-leader-team-digest`,
           leaderId: CURRENT_USER_ID,
         },
         {
           id: MEMBER_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-member-team`,
-          joinCodeDigest: `${PREFIX}-member-team-digest`,
           leaderId: OTHER_USER_ID,
         },
         {
           id: UNRELATED_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-unrelated-team`,
-          joinCodeDigest: `${PREFIX}-unrelated-team-digest`,
           leaderId: OTHER_USER_ID,
         },
         {
           id: UNAPPROVED_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-unapproved-team`,
-          joinCodeDigest: `${PREFIX}-unapproved-team-digest`,
           leaderId: CURRENT_USER_ID,
         },
       ],
@@ -317,6 +317,11 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     try {
       await prisma.program.create({
         data: {
+          startAt: new Date('2026-01-01T00:00:00.000Z'),
+          endAt: new Date(
+            new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          ),
+
           id: tiedProgramId,
           name: `${PREFIX}-tied-program`,
           organizer: 'synthetic-organizer',
@@ -335,7 +340,6 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           id: tiedTeamId,
           programId: tiedProgramId,
           name: `${PREFIX}-tied-team`,
-          joinCodeDigest: `${PREFIX}-tied-team-digest`,
           leaderId: CURRENT_USER_ID,
         },
       });

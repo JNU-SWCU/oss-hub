@@ -9,7 +9,6 @@ import { AuditLogReadService } from '../../src/platform/audit-log-read.service';
 import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
 import { ApplicationsRepository } from '../../src/programs/applications.repository';
 import { StaffInsightsRepository } from '../../src/staff/staff-insights.repository';
-import { ApplicationJoinCodeService } from '../../src/programs/application-preparations.service';
 import { ApplicationsService } from '../../src/programs/applications.service';
 import { StaffDashboardService } from '../../src/staff/staff-dashboard.service';
 import { StaffInsightsService } from '../../src/staff/staff-insights.service';
@@ -294,7 +293,6 @@ describe('Audience authorization HTTP characterization', () => {
         StaffDashboardService,
         StaffInsightsService,
         ApplicationsService,
-        ApplicationJoinCodeService,
         ProgramActivitySummaryService,
         SubmissionDashboardSummaryService,
         AdminAccessService,

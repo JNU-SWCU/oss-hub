@@ -104,6 +104,9 @@ describe('official and preparation membership exclusion', () => {
     }
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01'),
+        endAt: new Date(new Date('2026-12-31').getTime() + 365 * 86_400_000),
+
         id: programId,
         name: 'Synthetic membership race',
         organizer: 'Synthetic organizer',
@@ -123,7 +126,6 @@ describe('official and preparation membership exclusion', () => {
         programId,
         name: 'Synthetic existing team',
         leaderId: teamLeaderId,
-        joinCodeDigest: `${prefix}existing-digest`,
         members: { create: { userId: teamLeaderId } },
       },
     });

@@ -18,9 +18,6 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertConsent, upsertSeedProfile, upsertSeedUser } from './user';
-import { JoinCodeSecretService } from '../../src/platform/join-code-secret.service';
-
-const joinCodeSecretService = new JoinCodeSecretService();
 
 const DEMO_SUBMISSION_FILE_STORAGE_PREFIX = 'submission-files/seed-demo/';
 
@@ -222,41 +219,30 @@ async function upsertDemoTeam(
         where: { id: teamId },
         update: {
           name: params.teamName,
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            `SEED-DEMO-${params.teamSlug.toUpperCase()}`,
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: leaderUserId,
         },
         create: {
           id: teamId,
           programId,
           name: params.teamName,
-          joinCodeDigest: joinCodeSecretService.computeJoinCodeDigest(
-            `SEED-DEMO-${params.teamSlug.toUpperCase()}`,
-            joinCodeSecretService.resolveJoinCodeSecret(),
-          ),
           leaderId: leaderUserId,
         },
       }),
   );
 
   for (const memberUserId of memberUserIds) {
-    const memberId = seedId(
-      'demo',
-      'team-member',
-      params.teamSlug,
-      memberUserId,
-    );
     await upsertTracked(
       stats,
       'TeamMember',
-      () => prisma.teamMember.findUnique({ where: { id: memberId } }),
+      () =>
+        prisma.teamMember.findUnique({
+          where: { teamId_userId: { teamId: teamId, userId: memberUserId } },
+        }),
       () =>
         prisma.teamMember.upsert({
-          where: { id: memberId },
+          where: { teamId_userId: { teamId: teamId, userId: memberUserId } },
           update: { teamId, programId, userId: memberUserId },
-          create: { id: memberId, teamId, programId, userId: memberUserId },
+          create: { teamId, programId, userId: memberUserId },
         }),
     );
   }
@@ -1416,7 +1402,7 @@ export async function teardownDemo(
     prisma.boardPost.deleteMany({ where: seedIdFilter }),
   );
   await countAndDelete('TeamMember', () =>
-    prisma.teamMember.deleteMany({ where: seedIdFilter }),
+    prisma.teamMember.deleteMany({ where: { teamId: seedIdFilter.id } }),
   );
   await countAndDelete('Milestone', () =>
     prisma.milestone.deleteMany({ where: seedIdFilter }),

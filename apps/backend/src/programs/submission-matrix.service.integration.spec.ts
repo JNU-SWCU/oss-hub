@@ -180,7 +180,6 @@ describe('SubmissionMatrixService integration', () => {
         id: unsubmittedTeamId,
         programId: PROGRAM_ID,
         name: `${UNSUBMITTED_APPLICATION_ID}-team`,
-        joinCodeDigest: `${UNSUBMITTED_APPLICATION_ID}-team-digest`,
         leaderId: ROWHOLDER_ID,
       },
     });
@@ -193,7 +192,6 @@ describe('SubmissionMatrixService integration', () => {
       },
       update: {},
       create: {
-        id: `${UNSUBMITTED_APPLICATION_ID}-team-member`,
         teamId: unsubmittedTeamId,
         programId: PROGRAM_ID,
         userId: ROWHOLDER_ID,
@@ -219,7 +217,7 @@ describe('SubmissionMatrixService integration', () => {
       where: { id: UNSUBMITTED_APPLICATION_ID },
     });
     await prisma.teamMember.deleteMany({
-      where: { id: `${UNSUBMITTED_APPLICATION_ID}-team-member` },
+      where: { teamId: `${UNSUBMITTED_APPLICATION_ID}-team` },
     });
     await prisma.team.deleteMany({
       where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },

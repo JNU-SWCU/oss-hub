@@ -63,6 +63,9 @@ async function givenOtherTeam() {
   };
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01'),
+      endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86_400_000),
+
       id: other.programId,
       name: 'Synthetic other program',
       organizer: 'Synthetic',
@@ -79,7 +82,6 @@ async function givenOtherTeam() {
       id: other.teamId,
       programId: other.programId,
       name: 'Synthetic other team',
-      joinCodeDigest: `${other.teamId}-digest`,
       leaderId: staffId,
     },
   });
@@ -250,7 +252,6 @@ it.each([
           id: lonely,
           programId,
           name: 'Synthetic lonely team',
-          joinCodeDigest: `${lonely}-digest`,
           leaderId: staffId,
         },
       });

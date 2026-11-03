@@ -28,7 +28,6 @@ import { PlatformModule } from './platform.module';
 import { PrismaService } from './prisma.service';
 import { RUNTIME_CONFIG } from './runtime-config-instance.config';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
-import { JoinCodeSecretService } from './join-code-secret.service';
 import { OriginGuard } from './origin.guard';
 import { loadRuntimeConfig } from './runtime-config.config';
 
@@ -115,7 +114,6 @@ describe('PlatformModule', () => {
       OBJECT_STORAGE,
       OBJECT_INVENTORY,
       AuditLogMetadataService,
-      JoinCodeSecretService,
       AuditLogService,
       RolesGuard,
       PlatformRepository,

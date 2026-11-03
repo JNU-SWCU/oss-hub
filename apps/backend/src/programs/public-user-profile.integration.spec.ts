@@ -61,6 +61,11 @@ describe('PublicProjectsService.findProfile integration', () => {
     await prisma.$connect();
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-02-01T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
@@ -110,13 +115,11 @@ describe('PublicProjectsService.findProfile integration', () => {
         id: `${PREFIX}-application-team-${key}`,
         programId: PROGRAM_ID,
         name: `${PREFIX}-application-team-${key}`,
-        joinCodeDigest: `${PREFIX}-application-team-digest-${key}`,
         leaderId: applicantIds[index]!,
       })),
     });
     await prisma.teamMember.createMany({
       data: repoKeys.map((key, index) => ({
-        id: `${PREFIX}-application-team-member-${key}`,
         teamId: `${PREFIX}-application-team-${key}`,
         programId: PROGRAM_ID,
         userId: applicantIds[index]!,
@@ -178,7 +181,6 @@ describe('PublicProjectsService.findProfile integration', () => {
           id: `${PREFIX}-team-${key}`,
           programId: PROGRAM_ID,
           name: `${PREFIX}-team-${key}`,
-          joinCodeDigest: `${PREFIX}-join-code-digest-${key}`,
           leaderId: OWNER_ID,
           repositories: { connect: { id: `${PREFIX}-repository-${key}` } },
         },
@@ -323,7 +325,6 @@ describe('PublicProjectsService.findProfile integration', () => {
         id: `${PREFIX}-team-c`,
         programId: PROGRAM_ID,
         name: `${PREFIX}-team-c`,
-        joinCodeDigest: `${PREFIX}-join-code-digest-c`,
         leaderId: OWNER_ID,
         repositories: { connect: { id: `${PREFIX}-repository-c` } },
       },

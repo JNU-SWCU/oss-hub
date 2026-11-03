@@ -24,7 +24,6 @@ import {
 } from './runtime-config-instance.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { AuditLogMetadataService } from './audit-log-metadata.service';
-import { JoinCodeSecretService } from './join-code-secret.service';
 import { OriginGuard } from './origin.guard';
 import { RolesGuard } from './roles.guard';
 
@@ -48,7 +47,6 @@ import { RolesGuard } from './roles.guard';
     HealthService,
     AuditLogRepository,
     AuditLogMetadataService,
-    JoinCodeSecretService,
     AuditLogService,
     AuditLogReadService,
     RolesGuard,
@@ -63,7 +61,6 @@ import { RolesGuard } from './roles.guard';
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
     AuditLogMetadataService,
-    JoinCodeSecretService,
     AuditLogService,
     RolesGuard,
     PlatformRepository,

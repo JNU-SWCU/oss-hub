@@ -22,10 +22,8 @@ import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { StudentApplicationManagementRepository } from './student-application-management.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
-import { ApplicationJoinCodeService } from './application-preparations.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
 assertIsolatedIntegrationDatabase({
@@ -45,12 +43,6 @@ const service = new ApplicationsService(
   new AuditLogService(
     new AuditLogRepository(prisma),
     new AuditLogReadService(new AuditLogMetadataService()),
-  ),
-  new ApplicationJoinCodeService(
-    {
-      TEAM_JOIN_CODE_SECRET: 'synthetic-applications-integration-secret',
-    },
-    new JoinCodeSecretService(),
   ),
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
@@ -95,6 +87,11 @@ async function createApplication(
   const teamId = `${applicationId}-team`;
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      ),
+
       id: programId,
       name: `program-${applicationId}`,
       organizer: 'synthetic-organizer',
@@ -112,7 +109,6 @@ async function createApplication(
       id: teamId,
       programId,
       name: `team-${applicationId}`,
-      joinCodeDigest: `digest-${applicationId}`,
       leaderId: APPLICANT_ID,
     },
   });
@@ -388,6 +384,11 @@ describe('ApplicationsService integration', () => {
     async ({ policy, submittedVersion, errorCode }) => {
       await prisma.program.create({
         data: {
+          startAt: new Date('2026-07-01T00:00:00.000Z'),
+          endAt: new Date(
+            new Date('2026-07-31T23:59:59.000Z').getTime() + 365 * 86_400_000,
+          ),
+
           id: CREATE_PROGRAM_ID,
           name: 'synthetic-policy-program',
           organizer: 'synthetic-organizer',
@@ -415,12 +416,6 @@ describe('ApplicationsService integration', () => {
         new AuditLogService(
           new AuditLogRepository(applicantPrisma),
           new AuditLogReadService(new AuditLogMetadataService()),
-        ),
-        new ApplicationJoinCodeService(
-          {
-            TEAM_JOIN_CODE_SECRET: 'synthetic-policy-integration-secret',
-          },
-          new JoinCodeSecretService(),
         ),
         new AuditLogMetadataService(),
         new RepositoryUrlService(),
@@ -559,6 +554,11 @@ describe('ApplicationsService integration', () => {
   it('프로그램 최소 인원이 1보다 크면 1인 팀 자동 생성 신청을 거절한다', async () => {
     await prisma.program.create({
       data: {
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+        endAt: new Date(
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        ),
+
         id: CREATE_PROGRAM_ID,
         name: 'synthetic-create-program',
         organizer: 'synthetic-organizer',

@@ -66,10 +66,7 @@ import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
 import { ApplicationPreparationsController } from './application-preparations.controller';
-import {
-  ApplicationPreparationsService,
-  ApplicationJoinCodeService,
-} from './application-preparations.service';
+import { ApplicationPreparationsService } from './application-preparations.service';
 import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsRepository } from './applications.repository';
@@ -221,7 +218,6 @@ import { SubmissionInputService } from './submission-input.service';
     StudentRepositoryUrlService,
     StudentRepositoryUrlRepository,
     ApplicationsRepository,
-    ApplicationJoinCodeService,
     ApplicationsService,
     StudentApplicationManagementRepository,
     ReviewHistoryWriterRepository,

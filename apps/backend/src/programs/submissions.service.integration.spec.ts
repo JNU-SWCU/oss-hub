@@ -108,7 +108,6 @@ describe('SubmissionsService integration', () => {
         id: unapprovedTeamId,
         programId: MILESTONES_PROGRAM_ID,
         name: `${UNAPPROVED_APPLICATION_ID}-team`,
-        joinCodeDigest: `${UNAPPROVED_APPLICATION_ID}-team-digest`,
         leaderId: UNAPPROVED_USER_ID,
       },
     });
@@ -121,7 +120,6 @@ describe('SubmissionsService integration', () => {
       },
       update: {},
       create: {
-        id: `${UNAPPROVED_APPLICATION_ID}-team-member`,
         teamId: unapprovedTeamId,
         programId: MILESTONES_PROGRAM_ID,
         userId: UNAPPROVED_USER_ID,
@@ -140,9 +138,14 @@ describe('SubmissionsService integration', () => {
         status: ApplicationStatus.SUBMITTED,
       },
     });
+    const program = await prisma.program.findUniqueOrThrow({
+      where: { id: MILESTONES_PROGRAM_ID },
+    });
     await prisma.milestone.createMany({
       data: [
         {
+          startAt: program.startAt,
+
           id: FILE_MILESTONE_ID,
           programId: MILESTONES_PROGRAM_ID,
           name: '합성 파일 제출',
@@ -208,7 +211,7 @@ describe('SubmissionsService integration', () => {
       where: { id: UNAPPROVED_APPLICATION_ID },
     });
     await prisma.teamMember.deleteMany({
-      where: { id: `${UNAPPROVED_APPLICATION_ID}-team-member` },
+      where: { teamId: `${UNAPPROVED_APPLICATION_ID}-team` },
     });
     await prisma.team.deleteMany({
       where: { id: `${UNAPPROVED_APPLICATION_ID}-team` },

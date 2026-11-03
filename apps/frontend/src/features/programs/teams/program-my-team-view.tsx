@@ -24,26 +24,7 @@ import { TeamRepositoryPanel } from './team-repository-panel';
 import type { ProgramDetail } from '../catalog/dto';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 
-export type MyTeamApplicationStage =
-  'draft' | 'submitted' | 'approved' | 'rejected';
-
-function myTeamApplicationStage(
-  application: StudentApplication | null,
-): MyTeamApplicationStage {
-  if (application === null) return 'draft';
-  switch (application.status) {
-    case 'APPROVED':
-      return 'approved';
-    case 'REJECTED':
-      return 'rejected';
-    case 'SUBMITTED':
-      return 'submitted';
-    default: {
-      const exhaustive: never = application.status;
-      return exhaustive;
-    }
-  }
-}
+type MyTeamApplicationStage = 'DRAFT' | StudentApplication['status'];
 
 interface StageBadge {
   readonly label: string;
@@ -53,10 +34,10 @@ interface StageBadge {
 const STAGE_BADGES: Readonly<
   Record<MyTeamApplicationStage, StageBadge | null>
 > = {
-  draft: null,
-  submitted: { label: '신청', variant: 'pending' },
-  approved: { label: '신청', variant: 'approved' },
-  rejected: { label: '반려', variant: 'rejected' },
+  DRAFT: null,
+  SUBMITTED: { label: '신청', variant: 'pending' },
+  APPROVED: { label: '신청', variant: 'approved' },
+  REJECTED: { label: '반려', variant: 'rejected' },
 };
 
 export interface ProgramMyTeamViewProps {
@@ -90,7 +71,7 @@ function stageBody({
   readonly team: ProgramTeam;
   readonly application: StudentApplication | null;
 }): ReactNode {
-  if (stage === 'draft') {
+  if (stage === 'DRAFT') {
     if (!team.isLeader) {
       return (
         <p className="text-body break-keep">
@@ -113,7 +94,7 @@ function stageBody({
     );
   }
 
-  if (stage === 'submitted' && application !== null) {
+  if (stage === 'SUBMITTED' && application !== null) {
     return (
       <>
         <p className="text-body break-keep">
@@ -130,7 +111,7 @@ function stageBody({
     );
   }
 
-  if (stage === 'rejected' && application !== null) {
+  if (stage === 'REJECTED' && application !== null) {
     return (
       <Alert variant="destructive">
         <AlertTitle>반려 사유</AlertTitle>
@@ -193,7 +174,7 @@ export function ProgramMyTeamView({
   onMembersChanged,
   onDeparted,
 }: ProgramMyTeamViewProps) {
-  const stage = myTeamApplicationStage(application);
+  const stage = application?.status ?? 'DRAFT';
   const badge = STAGE_BADGES[stage];
 
   return (
@@ -247,7 +228,7 @@ export function ProgramMyTeamView({
         />
       ) : null}
 
-      {application !== null && stage === 'approved' ? (
+      {application !== null && stage === 'APPROVED' ? (
         <TeamRepositoryPanel
           programId={programId}
           teamId={team.id}
@@ -259,7 +240,7 @@ export function ProgramMyTeamView({
         />
       ) : null}
 
-      {stage === 'approved' ? submissionContent : null}
+      {stage === 'APPROVED' ? submissionContent : null}
 
       <ApplicationTeamDeparture
         programId={programId}

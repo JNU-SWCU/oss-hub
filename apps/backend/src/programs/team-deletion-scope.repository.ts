@@ -125,7 +125,7 @@ export class TeamDeletionScopeRepository {
           FROM (
             SELECT CONCAT('Application:', id) AS "key" FROM team_application
             UNION ALL
-            SELECT CONCAT('TeamMember:', id) FROM "TeamMember" WHERE "teamId" = ${teamId}
+            SELECT CONCAT('TeamMember:', JSONB_BUILD_ARRAY("teamId", "userId")::text) FROM "TeamMember" WHERE "teamId" = ${teamId}
             UNION ALL
             SELECT CONCAT('TeamInvitation:', id) FROM "TeamInvitation" WHERE "teamId" = ${teamId}
             UNION ALL

@@ -26,8 +26,6 @@ import {
 } from './student-repository-url.integration.fixture';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { ApplicationsService } from './applications.service';
-import { ApplicationJoinCodeService } from './application-preparations.service';
-import { JoinCodeSecretService } from '../platform/join-code-secret.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './application-answers.service';
 
@@ -38,10 +36,6 @@ const auditLogMetadataService = new AuditLogMetadataService();
 const applicationsService = new ApplicationsService(
   applications,
   audit,
-  new ApplicationJoinCodeService(
-    { TEAM_JOIN_CODE_SECRET: 'synthetic-url-relink-secret' },
-    new JoinCodeSecretService(),
-  ),
   auditLogMetadataService,
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
@@ -337,6 +331,9 @@ it('rejects a repository carrying another program history without detaching the 
   const otherProgramId = `${programId}-foreign`;
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01'),
+      endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86_400_000),
+
       id: otherProgramId,
       name: 'Synthetic foreign program',
       organizer: 'Synthetic',
@@ -371,6 +368,9 @@ it('rejects another team history that lands on the target after it was read', as
   });
   await prisma.program.create({
     data: {
+      startAt: new Date('2026-01-01'),
+      endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86_400_000),
+
       id: otherProgramId,
       name: 'Synthetic race program',
       organizer: 'Synthetic',
@@ -387,7 +387,6 @@ it('rejects another team history that lands on the target after it was read', as
       id: otherTeamId,
       programId: otherProgramId,
       name: 'Synthetic race team',
-      joinCodeDigest: `${otherTeamId}-digest`,
       leaderId,
     },
   });

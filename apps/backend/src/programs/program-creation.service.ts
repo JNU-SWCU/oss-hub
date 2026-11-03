@@ -36,7 +36,7 @@ export type CreateProgramCommand = {
   readonly trackType: ProgramTrackType;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
-  readonly startAt?: string;
+  readonly startAt: string;
   readonly endAt: string;
   readonly teamMinSize?: number | null;
   readonly teamMaxSize?: number | null;
@@ -108,7 +108,7 @@ export class ProgramCreationService {
     const description = input.description.trim();
     const applicationStartAt = new Date(input.applicationStartAt);
     const applicationEndAt = new Date(input.applicationEndAt);
-    const startAt = new Date(input.startAt ?? input.applicationEndAt);
+    const startAt = new Date(input.startAt);
     const endAt = new Date(input.endAt);
     const template = this.programTemplatesService.getProgramTemplate(
       ProgramCategory.BASIC,
