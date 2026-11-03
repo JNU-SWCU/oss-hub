@@ -300,20 +300,15 @@ parityCases(
   {
     valid: { name: ' 홍길동 ', department: ' 학과 ' },
     missing: {},
-    affiliation: {
-      name: '홍길동',
-      affiliationKind: 'DEPARTMENT',
-      affiliationName: ' 학과 ',
-    },
     'department with type': {
       name: '홍길동',
       department: ' 사업단 ',
       departmentType: 'PROGRAM_OFFICE',
     },
-    'unknown affiliation': {
+    'unknown department type': {
       name: '홍길동',
-      affiliationKind: 'NOPE',
-      affiliationName: '학과',
+      department: '학과',
+      departmentType: 'NOPE',
     },
     'bad phone': { name: '홍길동', department: '학과', phone: '12' },
     'blank staff number': {
