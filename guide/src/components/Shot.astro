@@ -30,7 +30,7 @@ const cssWidth = Math.round(file.default.width / 2);
     />
   </button>
   {caption && <figcaption>{caption}</figcaption>}
-  <dialog class="shot-dialog" aria-label={alt}>
+  <dialog class="shot-dialog" aria-label={alt} autofocus>
     <form method="dialog">
       <button class="shot-close" aria-label="닫기">닫기</button>
     </form>
@@ -82,35 +82,47 @@ const cssWidth = Math.round(file.default.width / 2);
     color: var(--sl-color-gray-3);
   }
   .shot-dialog {
-    width: min(96vw, calc(var(--shot-w) * 2));
-    max-height: 94vh;
+    width: min(92vw, calc(var(--shot-w) * 2));
+    max-height: 90vh;
+    margin: auto;
     padding: 0;
     border: 0;
     border-radius: 0.75rem;
     background: var(--sl-color-black);
     overflow: auto;
   }
+  .shot-dialog:focus {
+    outline: none;
+  }
   .shot-dialog::backdrop {
     background: rgb(0 0 0 / 0.72);
+    backdrop-filter: blur(4px);
   }
   .shot-dialog img {
+    margin: 0;
     box-shadow: none;
     border-radius: 0;
   }
-  .shot-close {
+  .shot-dialog form {
     position: sticky;
     top: 0.5rem;
-    float: right;
-    margin: 0.5rem 0.5rem 0 0;
-    padding: 0.35rem 0.8rem;
-    border: 1px solid var(--guide-line);
+    z-index: 1;
+    height: 0;
+    margin: 0;
+    padding-inline-end: 0.5rem;
+    text-align: end;
+  }
+  .shot-close {
+    padding: 0.4rem 0.9rem;
+    border: 0;
     border-radius: 999px;
-    background: var(--sl-color-black);
-    color: var(--sl-color-white);
+    background: var(--sl-color-white);
+    color: var(--sl-color-black);
     font: inherit;
     font-size: 0.8125rem;
+    font-weight: 600;
+    box-shadow: var(--guide-shadow);
     cursor: pointer;
-    z-index: 1;
   }
   @media (max-width: 50rem) {
     .shot-dialog {
@@ -131,7 +143,6 @@ const cssWidth = Math.round(file.default.width / 2);
       position: fixed;
       top: 0.75rem;
       right: 0.75rem;
-      float: none;
       margin: 0;
     }
   }
