@@ -116,6 +116,8 @@ function buildService(overrides: {
   const store: ApplicationCreateStore = {
     validateApplicationParticipants: jest.fn().mockResolvedValue('ok'),
     createApplicationInvitations: jest.fn().mockResolvedValue(undefined),
+    findPreparationForApply: jest.fn().mockResolvedValue(null),
+    deletePreparation: jest.fn().mockResolvedValue(undefined),
     auditLogWriter,
     appendReviewHistory,
     lockProgramForApply: jest.fn().mockResolvedValue(

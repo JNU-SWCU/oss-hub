@@ -385,19 +385,12 @@ describe('Team invitation acceptance transaction races', () => {
     await expect(
       invitations.cancelPendingInvitationAsLeader(INVITATION_ID, MEMBER_ID),
     ).resolves.toEqual({ kind: 'ok' });
-    const cancelled = await prisma.teamInvitation.findUnique({
+    const cancelled = await prisma.teamInvitation.findUniqueOrThrow({
       where: { id: INVITATION_ID },
       select: { status: true, respondedAt: true },
     });
-    expect(cancelled).toBeNull();
-    await expect(
-      prisma.teamHistory.findMany({ where: { sourceId: INVITATION_ID } }),
-    ).resolves.toEqual([
-      expect.objectContaining({
-        event: 'INVITATION_CANCELLED',
-        actorId: MEMBER_ID,
-      }),
-    ]);
+    expect(cancelled.status).toBe(TeamInvitationStatus.DECLINED);
+    expect(cancelled.respondedAt).not.toBeNull();
   });
 
   it('마지막 한 자리를 두고 동시에 수락하면 정확히 한 명만 합류한다', async () => {
@@ -439,13 +432,11 @@ describe('Team invitation acceptance transaction races', () => {
       select: { inviteeId: true, status: true },
       orderBy: { id: 'asc' },
     });
-    const accepted = await prisma.teamHistory.findMany({
-      where: { teamId: TEAM_ID, event: 'INVITATION_ACCEPTED' },
-    });
+    const accepted = invitations.filter(
+      (invitation) => invitation.status === TeamInvitationStatus.ACCEPTED,
+    );
     expect(accepted).toHaveLength(1);
-    expect(accepted[0]?.data).toMatchObject({
-      invitation: { inviteeId: joined[0] },
-    });
+    expect(accepted[0]!.inviteeId).toBe(joined[0]);
     expect(
       invitations.filter(
         (invitation) => invitation.status === TeamInvitationStatus.PENDING,

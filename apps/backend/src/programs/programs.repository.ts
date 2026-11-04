@@ -511,6 +511,12 @@ export class ProgramDeletionScopeRepository {
             SELECT CONCAT('Application:', id) AS "key"
             FROM "Application" WHERE "programId" = ${programId}
             UNION ALL
+            SELECT CONCAT('ApplicationPreparation:', id)
+            FROM "ApplicationPreparation" WHERE "programId" = ${programId}
+            UNION ALL
+            SELECT CONCAT('ApplicationPreparationParticipant:', id)
+            FROM "ApplicationPreparationParticipant" WHERE "programId" = ${programId}
+            UNION ALL
             SELECT CONCAT('Team:', id) FROM "Team" WHERE "programId" = ${programId}
             UNION ALL
             SELECT CONCAT('TeamMember:', JSONB_BUILD_ARRAY("teamId", "userId")::text) FROM "TeamMember" WHERE "programId" = ${programId}

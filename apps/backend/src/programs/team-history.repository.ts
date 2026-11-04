@@ -18,7 +18,7 @@ export class TeamHistoryRepository {
     event: TeamHistoryEvent,
     actorId: string,
     occurredAt: Date,
-    reason?: 'JOINED_ANOTHER_TEAM',
+    reason?: 'JOINED_ANOTHER_TEAM' | 'TEAM_DELETED',
   ): Promise<void> {
     await transaction.teamHistory.create({
       data: {

@@ -1,3 +1,20 @@
+export type PreparationFailure =
+  | 'not-found'
+  | 'leader-required'
+  | 'member-required'
+  | 'period-closed'
+  | 'membership-conflict'
+  | 'full'
+  | 'not-pending'
+  | 'ineligible'
+  | 'self-invite';
+
+export class PreparationConflict extends Error {
+  constructor(readonly reason: PreparationFailure) {
+    super(reason);
+  }
+}
+
 export interface PreparationView {
   readonly id: string;
   readonly name: string;

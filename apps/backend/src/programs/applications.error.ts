@@ -9,3 +9,5 @@ export class ApplicationDuplicateError extends Error {
 export class ApplicationTeamMembershipConflictError extends Error {
   override readonly name = 'ApplicationTeamMembershipConflictError';
 }
+
+export class ApplicationPreparationConflictError extends Error {}

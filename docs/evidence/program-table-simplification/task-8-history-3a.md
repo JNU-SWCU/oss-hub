@@ -1,57 +1,48 @@
-# Todo 8 3a: 새 초대 종료 이력
+# Todo 8 3a: 초대 종료 이중 기록
 
-## 범위와 배포 순서
+## 게이트 수정과 범위
 
-3a → 3a 운영 확인 후 3b → 별도 승인한 물리 DROP 순서다. 이번 변경은 3a뿐이다. 기존 종료 초대의 이관·삭제, status 제거, Preparation 테이블 DROP은 포함하지 않는다. 시작 main은 `e40766704`다.
+후보 `8917ffe6b`는 늦은 Preparation 쓰기의 읽기 손실, 구 앱의 등록 초기화 활동 판정 손실, 교직원 팀 삭제의 초대별 이력 누락으로 거절됐다. 이번 수정은 소유자의 B1·B2·B3 판정을 따른다. 배포 파이프라인은 변경하지 않는다.
 
-TeamHistory는 teamId, programId, actorId, event, occurredAt, recordedAt, source와 data를 갖는다. 팀·프로그램·행위자 ID는 역사적 스냅샷이며 팀 삭제에 cascade하지 않는다. 현재 사건은 INVITATION_ACCEPTED, INVITATION_DECLINED, INVITATION_CANCELLED다. data.schemaVersion은 1이고 초대 ID·대상·초대자·생성 시각을 보존한다. 다른 팀에 합류하며 닫히는 초대는 CANCELLED와 JOINED_ANOTHER_TEAM 사유를 기록한다. sourceTable/sourceId 유니크가 동일 초대의 중복 종료 이력을 막는다.
+3a는 TeamHistory 추가와 기존 초대 종료의 이중 기록 단계다. 기존·신규 terminal invitation 행을 일반 종료 경로에서 삭제하지 않는다. Preparation 읽기·소비 경로와 status 읽기를 복원했다. 프론트 제품·E2E 변경, 요청 DTO 제거, history-aware 등록 초기화는 PR에서 거뒀다. 현재 rollback 기준은 `v0.24.42` (`6b7a0d42029bc760eb5985f916a5b3027e8fb024`)다.
 
-종료는 권한·대기 상태를 확인한 뒤 조건부 삭제와 이력 INSERT를 같은 트랜잭션에 둔다. 수락의 구성원 생성, 저장소 권한 동기화 outbox, 감사 기록도 같은 커밋이다. 이력 INSERT 실패와 후속 감사 실패가 삭제·가입을 모두 되돌린다. 기존 Program → Team → User 잠금 순서와 삭제된 프로그램의 쓰기 거부를 유지한다.
+## B1: Preparation writer만 중단
 
-기존 종료 초대와 구 앱이 추가한 종료 행은 그대로 두되 송신·수신 목록은 PENDING만 읽는다. status, respondedAt, enum과 기본값은 유지한다. 응답의 status=PENDING, respondedAt=null, invitedAt 필드도 유지하여 구 프론트가 그대로 처리한다.
+Preparation의 생성·초대·수락·거절·취소·구성원 제외·탈퇴 요청은 인증 확인 뒤 `APP_036 / 410`으로 거부한다. 현재 앱이 새 Preparation 상태를 만들거나 변경하지 않게 하는 서버 경계다. 라우트와 요청 DTO는 보존하므로 이전 페이지에도 명시적인 중단 응답을 보낸다.
 
-## Preparation과 배포 전제
+조회·송신 목록·검색·받은 초대 통합, 신청의 기존 Preparation 소비, 소속·자격 검사, 등록 초기화 활동 검사, 삭제 지문은 유지한다. 기존 신청 소비 트랜잭션의 Preparation 정리도 기존 동작대로 유지한다. 이는 새 준비 데이터를 만드는 writer와 달리 이미 존재하는 준비를 공식 팀·신청으로 옮기는 소비 경로다.
 
-Preparation 저장소, mutation 경로, 신청 전환·검색·수락·등록 초기화·삭제 지문의 테이블 접근을 중단한다. 구 프론트가 팀이 없을 때 호출하는 보호 GET `/api/v1/application-preparations/programs/:programId/me`는 활성 학생에게 `{"membership":"NONE"}`을 반환한다. 이전 mutation·검색·송신 목록 9개 경로는 404다. 물리 테이블과 FK, 사용하지 않는 이전 DTO 선언은 남는다.
+migration의 0건 검사 뒤 구 v0.24.42 writer가 데이터를 기록하더라도 새 앱에서 읽고 기존 신청에 소비할 수 있다. 0건을 가정해 NONE을 반환하지 않는다. 3a가 유일한 live 앱이 된 뒤에만 새 writer가 멈췄다고 판단할 수 있다. 따라서 drain/recheck를 새 파이프라인 단계로 추가하거나 문서상의 수동 조치에 안전성을 의존하지 않는다.
 
-기존 Preparation 생성·수락·최종 제출·상호 배제 테스트는 폐기한 API 계약을 검증하므로 제거했다. 대체 증거는 기존 신청·지명·최소 인원·수락 경합 테스트, 실제 HTTP의 구 GET 응답과 폐기 경로 9개, Preparation 두 테이블 각각의 비어 있지 않은 migration 거부 테스트다. 실패를 숨기기 위한 skip이나 기대값 완화는 없다.
+`application-preparations-v02442.fixture.ts`는 v0.24.42 서비스 blob `a8164191988e19f4896e2e7bdb1feed566512584`에서 클래스명만 바꾼 테스트용 구 writer다. 현재 Preparation repository는 같은 태그의 구현을 보존한다. 기존 수명·소비·상호 배제 테스트를 복원했고, 늦은 구 writer의 결과를 현재 reader로 읽고 현재 신청 서비스가 두 구성원을 소비하는 회귀를 추가했다.
 
-migration은 Preparation 중 하나라도 비어 있지 않으면 DDL 전에 실패한다. 다만 migration은 구 앱이 살아 있는 동안 실행된다. **migration 시점의 0건만으로 이후 구 앱의 쓰기가 없음을 보장하지 않는다.** 배포 담당자는 기존 Preparation 요청을 끝내고 구 backend writer를 종료한 뒤 같은 preflight를 다시 확인해야 한다. 늦은 행이 있으면 3a 활성화를 중단하고 기존 앱으로 보존·처리한다. 임시 trigger나 운영 데이터 삭제는 추가하지 않았다.
+## B2: terminal 행과 기존 rollback 의미 보존
 
-롤백 중에는 구 앱이 Preparation을 다시 만들 수 있다. 3a migration은 이미 적용됐으므로 재배포 시 자동으로 재실행되지 않는다. 따라서 3a를 다시 활성화할 때도 `migration-checks/team-history/preflight.sql`을 별도로 실행해야 한다. 이 전제를 자동 배포가 충족했다고 주장하지 않는다.
+수락은 기존 행을 ACCEPTED로, 거절·취소는 DECLINED로 바꾸면서 respondedAt을 기록한다. 같은 트랜잭션에 TeamHistory INSERT를 추가한다. 일반 종료 경로의 행 삭제는 없다. 이미 처리한 ID는 기존처럼 not-pending이며 목록·프론트 필터·status enum·기본값을 보존한다.
 
-## 운영 읽기 전용 집계
+수락의 TeamMember 생성, 다른 대기 초대 종결, 저장소 권한 outbox, 감사 기록은 같은 트랜잭션이다. 다른 팀 합류로 종결한 초대는 INVITATION_CANCELLED와 JOINED_ANOTHER_TEAM 사유를 추가하되 기존 행은 DECLINED로 남긴다. 이력 INSERT나 후속 감사 실패는 status와 가입을 되돌린다.
 
-2026-11-04의 읽기 전용 집계는 EXIT=0이다.
+등록 초기화 repository와 service는 v0.24.42와 동일하다. 실제 DB 회귀는 새 3a 거절 후 구 활동 조회가 true이고, 실제 등록 초기화 서비스가 ROL_025를 반환하며 학생 정보가 보존되는 것을 확인한다. TeamHistory를 읽어야만 얻을 수 있는 보호에 의존하지 않는다. v0.24.42는 이력을 읽거나 기록하지 않지만 legacy 행으로 기존 의미를 유지한다. 전체 구 컨테이너 부팅이나 다른 도메인의 rollback 검증을 수행한 것은 아니다.
 
-| 항목                       | 건수 |
-| -------------------------- | ---: |
-| Preparation                |    0 |
-| PreparationParticipant     |    0 |
-| PENDING 초대               |    3 |
-| ACCEPTED 초대              |   20 |
-| DECLINED 초대              |    5 |
-| 팀이 없는 종료 초대        |    0 |
-| 응답 시각이 없는 종료 초대 |    0 |
-| 응답 시각이 있는 대기 초대 |    0 |
-| 중복 대기 초대 그룹        |    0 |
+## B3: 교직원 팀 삭제의 이력 원자성
 
-이번 migration의 기존 행 이관·삭제는 각각 0건이다. 종료 25건은 후속 3b 대상으로 보존한다. 실제 3b 실행 전에 다시 집계해야 한다.
+권한 확인을 통과한 교직원의 내부 user ID를 기존 팀 삭제 트랜잭션에 전달한다. Team 잠금과 scope fingerprint 확인 뒤 대기 초대마다 INVITATION_CANCELLED, TEAM_DELETED 사유, 교직원 actorId와 동일 삭제 시각을 기록한다. 원래 terminal 행에 새 cancellation을 만들지 않는다.
 
-## 운영 서버 내부 리허설
+기존 Serializable 격리, 삭제 범위 검사, 파일 tombstone·레포 정리·알림·감사는 유지한다. 기존 팀 삭제 작업 자체의 하위 행 삭제는 바꾸지 않았다. 새 TeamHistory는 팀 FK가 없으므로 그 삭제 뒤에도 남는다. 두 번째 초대의 이력 INSERT를 실패시킨 회귀는 첫 번째 새 이력과 알림까지 되돌리고 팀·초대·신청·파일 상태가 보존되는지 확인한다.
 
-운영에는 읽기 전용 dump만 수행했다. dump와 복원 데이터는 운영 서버 안에만 두었다. 공식 `deploy/jenkins/program-migration/rehearse.sh`로 baseline → prepare → 대조 → 별도 DB 백업 복원을 실행했다. 기준 migration은 `20261104130000_retire_teamless_github_repositories`다.
+## SQL과 기존 서버 리허설
 
-- SQL SHA-256: `668e6260dcc0c176003c8897fe6e65b2e9a347e534feee187b0bf1a4212ec286`.
-- 시작 /tmp 여유 8,033,708 KiB, dump 3,590,252 bytes.
-- 운영 PostgreSQL 17 이미지 재사용, network none, 공개 포트 없음, CPU 0.5, 메모리·swap 합계 512 MiB, 데이터 디렉터리 tmpfs 256 MiB, nice 19.
-- 원본 초대와 구성원의 전체 행 JSON digest가 prepare 전후 동일했다. TeamHistory는 0건이며 기존 종료 초대는 이동하지 않았다.
+migration·preflight·reconcile·Prisma schema는 `8917ffe6b` 때와 동일하다. SQL diff 검사 EXIT=0이고 migration SHA-256은 `668e6260dcc0c176003c8897fe6e65b2e9a347e534feee187b0bf1a4212ec286`이다. 소유자 지시에 따라 서버 리허설은 다시 실행하지 않았다.
 
-| 백업 전 / 복원 후 |  전 |  후 |
-| ----------------- | --: | --: |
-| 초대              |  28 |  28 |
-| 구성원            |  72 |  72 |
-| Preparation 합계  |   0 |   0 |
+기존 2026-11-04 리허설은 운영 서버 내부의 격리 PostgreSQL에서 공식 도구로 baseline → prepare → 대조 → 백업 복원을 수행했다. dump는 서버 밖으로 옮기지 않았다. network none, 공개 포트 없음, CPU 0.5, 메모리·swap 합계 512 MiB, 데이터 tmpfs 256 MiB, nice 19였다.
+
+| 기존 리허설의 백업 전 / 복원 후 | 전 | 후 |
+| --- | ---: | ---: |
+| 초대 | 28 | 28 |
+| 구성원 | 72 | 72 |
+| Preparation 합계 | 0 | 0 |
+
+초대와 구성원의 전체 행 digest 불일치는 0이었다. 새 TeamHistory는 0건이었다.
 
 ```text
 REHEARSAL_OK name=team-history-3a stages=2 counts=3
@@ -60,42 +51,27 @@ SOURCE_CLEANUP=0
 STAGE3A_SERVER_EXIT=0
 ```
 
-컨테이너는 --rm 및 docker rm -fv, 데이터는 tmpfs를 사용했다. dump·백업·임시 DB·소스 디렉터리를 정리했다. 이 리허설 백업을 실제 배포용 보존 백업으로 주장하지 않는다.
+기존 읽기 전용 집계는 Preparation 0, PreparationParticipant 0, PENDING 3, ACCEPTED 20, DECLINED 5였다. 이번 수정에서 새 운영 집계를 했다는 뜻이 아니며 3b의 승인 근거로 재사용하지 않는다. migration의 기존 행 이관·삭제는 각각 0건이다.
 
-## v0.24.36 롤백 증거와 한계
+## 3b 계획과 rollback 하한
 
-실제 태그 `8e7edf3a9bece95d54ef6da9f533ec04c934a2d5`에서 초대 repository 소스를 추출해 새 schema에 실행했다. 소스 blob은 `8457ee34949ab778a0a8965916c84fce065312b8`이다. 생성한 임시 fixture는 검증 후 제거했다.
+1. 소유자가 3a 운영을 확인하고 3a가 유일한 writer임을 확인한 뒤 두 Preparation 테이블을 읽기 전용으로 재집계한다. 하나라도 0이 아니면 reader·consumer 제거를 중단한다. 기존 소비 또는 별도 승인한 처리를 거친 뒤 다시 확인하며 자동 폐기하지 않는다.
+2. 0건이 확인되면 Preparation reader·consumer·소속/초기화/삭제 지문 참조와 이전 API·DTO를 제거한다. 동시에 등록 초기화를 TeamHistory의 행위자·초대 대상·초대자까지 인식하도록 준비한다.
+3. **row 삭제보다 먼저** history-aware reset과 terminal 행의 신규 생성을 중단하는 호환 코드가 실제 운영돼야 한다. 그때까지 pending status 필터를 유지한다. migration이 구 앱보다 먼저 실행되는 현재 배포에서 이 선행 코드와 row 삭제를 같은 배포에 묶지 않는다.
+4. 선행 앱만 live인 상태에서 종료 행과 TeamHistory를 대조한다. 기존 이력이 없는 종료 행은 원본 사실을 보존해 멱등 이관하고, 상태·시간·sourceId·건수 대조와 별도 승인을 거쳐 종료 행을 삭제한다. 그 뒤 초대 테이블이 PENDING-only임을 확인하고 status 읽기를 중단한다. 구 writer가 남아 있으면 이 정리를 시작하지 않는다.
+5. 3b에서 첫 row 삭제를 허용한 순간부터 rollback 하한은 **TeamHistory-aware reset과 pending-only 계약을 이해하는 선행 3b 호환 릴리스**다. 3a나 v0.24.42로 직접 image rollback하지 않는다. 필요하면 삭제 전 백업 복원과 별도 승인 절차로 다룬다.
+6. 물리 status/respondedAt 컬럼과 Preparation 테이블 DROP은 그 다음 별도 승인한 릴리스다. 그 DROP 뒤에는 제거한 컬럼·테이블을 참조하지 않는 최종 3b 앱이 rollback 하한이다. 이번 PR에는 3b 구현이나 DROP을 넣지 않는다.
 
-- 3a 수락·거절·취소 뒤 구 앱 송신·수신 조회가 정상 반환한다.
-- 이미 삭제된 ID의 구 앱 수락·거절·취소 재시도는 not-found다. 과거 status 변경 방식의 not-pending과 오류 종류가 다르며, 이력을 초대로 복구하지 않는다.
-- 3a 수락으로 생성한 TeamMember는 롤백 뒤에도 그대로 남는다.
-- 3a 거절 후 구 앱이 재초대하고 ACCEPTED/DECLINED를 기록하는 세 경로가 동작한다. 새 앱으로 다시 읽으면 해당 종료 행은 목록에서 제외한다.
-- 이 여섯 시나리오와 삭제 프로그램 쓰기 경계 재검증 51개가 함께 통과했다. `STAGE3A_ROLLBACK_EXIT=0`.
+3b 내부의 호환 코드 배포와 데이터 정리 경계를 실행 전에 분리해 확정해야 한다. 단순히 rollback 하한을 문서에 적는 것으로 구 앱이 live인 동안의 안전성 문제가 해결되지는 않는다.
 
-이는 실제 구 repository 코드와 현재 생성 Prisma Client로 확인한 도메인 호환 증거다. v0.24.36 전체 컨테이너 이미지의 부팅·전체 앱 회귀를 실행한 것은 아니다. 구 앱은 TeamHistory를 조회하거나 새 이력을 기록하지 않으며, 롤백 중 생성되는 종료 행은 이후 3b가 이관해야 한다. 다른 병합 작업의 전체 이미지 롤백 호환까지 보장하지 않는다.
+## 검증 범위와 화면
 
-## 소비 화면
+B2·B3 회귀의 최초 실행은 5 failed / 49 passed였다. Preparation writer 중단 회귀는 8 failed / 9 passed였다. 이후 기존 Preparation 경합 fixture의 새 이력 정리 누락을 수정했다. 실패 테스트를 삭제하거나 skip하지 않았다.
 
-프론트 제품 코드는 바꾸지 않았다. 운영 번들을 headless Chrome으로 열고 API만 합성 응답으로 가로챘다. Before는 legacy 종료 행과 PENDING을 함께 반환하고, After는 PENDING만 반환한다. 같은 학생·팀·고정 시각에서 목록에 대기 초대가 한 개만 나타나고 취소 후 사라지는 동작을 1440×1000과 390×844에서 확인했다. 종료 행을 이미 필터하던 화면이어서 모습은 같다.
+프론트 제품과 기존 E2E를 baseline으로 돌렸다. 현재 사용자 가이드는 이미 지명 신청 흐름을 설명하므로 문구·화면 변경이 없다. PR의 기존 Chrome 캡처는 대기·취소 후 화면이 같다는 소비 화면 참고로만 재사용하며 이번 수정에서 새로 촬영했다고 하지 않는다. 이전 후보의 PENDING-only mock을 현재 API 계약의 증거로 사용하지 않는다.
 
-첫 하네스 실행은 개요 API와 동의 필수 항목이 빠져 실패했다. 실제 계약을 읽고 두 응답을 고쳤으며, 최종 네 시나리오가 통과했다. 모바일은 내부 스크롤 때문에 취소 버튼이 캡처 밖에 있어 컨트롤을 중앙으로 이동한 두 캡처를 추가로 만들었다. 스크린샷은 실제 Chrome 출력이고 합성 이미지로 고치지 않았다. 대기·취소 후 여덟 장을 직접 확인했으며 PNG 텍스트·EXIF 메타데이터는 없다.
+수정된 코드의 타깃 테스트·타입·lint·원장·push 영수증은 PR 본문의 검증 절에 기록한다. 전체 스위트·독립 gate·merge·release는 root 소유다.
 
-서버는 띄우지 않았고 page.route가 모든 API 요청을 가로채므로 운영 쓰기는 없다. 화면 증거는 소비 호환만 증명한다. 이력 저장과 트랜잭션은 별도 실제 PostgreSQL 테스트와 서버 내부 리허설로 검증했다. 안내 문구·제품 화면이 같아 guide 갱신은 없다.
+이번 수정의 타깃 DB 검증은 중복 실행을 제외한 14 suites / 230 tests가 최종 통과했다. 핵심 5 suites의 첫 실행에서 기존 경합 fixture 정리 누락 1건을 확인했고, 수정 후 인접 10 suites / 152 tests가 통과했다. 두 번째 이력 INSERT 실패를 포함한 팀 삭제 suite는 22 tests로 다시 통과했다.
 
-## 실행 영수증과 검토
-
-| 검사                                        | 결과                                     |
-| ------------------------------------------- | ---------------------------------------- |
-| 초대·신청·호환 HTTP·등록 초기화·라우트 단위 | 12 suites / 196 tests 통과               |
-| 관련 DB 통합                                | 11 suites / 172개 고유 테스트 최종 통과  |
-| migration 경계                              | 1 suite / 4 tests 통과                   |
-| v0.24.36 실제 repository                    | 6개 rollback 시나리오 통과               |
-| 소비 화면                                   | 4개 시나리오와 최종 모바일 캡처 2개 통과 |
-| backend / frontend typecheck                | 각각 EXIT=0                              |
-| knip / 파일 원장                            | EXIT=0 / FILE_LEDGER_OK 259 paths        |
-
-관련 DB 통합의 최초 최종 묶음은 171 passed / 1 failed였다. 실패는 동시 수락·제외 테스트가 삭제된 초대를 findUniqueOrThrow로 읽던 이전 저장 계약이었다. 가입·리더·지원서·제출 보존 단언을 유지하고 초대 부재와 ACCEPTED 이력 단언으로 바꾼 뒤 해당 suite 19개를 다시 통과했다. 앞선 삭제 경계 fixture에는 새 이력 정리를 추가하여 테스트 ID 재사용 충돌을 해결했다.
-
-이력 INSERT의 P2002가 기존 가입 충돌 catch에 잡히는 문제는 실패 테스트로 재현했다. TeamMember 충돌만 가입 충돌로 바꾸며 이력 실패는 전파하고 트랜잭션을 롤백한다. 서비스의 직접 Prisma 접근과 static repository는 저장소 lint 규칙에 맞춰 기존 학생 조회 repository와 명시적인 TeamHistoryRepository 생성자 주입으로 바꿨다. 관련 테스트 생성 지점도 같은 의존성을 주입한다. 오류 억제·검사 제외는 추가하지 않았다.
-
-변경 파일 lint는 커밋 훅에서 수행한다. 전체 test suite, 새 build, 독립 gate 승인은 이 worker에서 실행하지 않았다. root의 최종 gate·merge·release 대상으로 인계한다. 이력 수집·Preparation 중단과 무관한 서비스 통합, 추가 파일 분리, UI 개선은 하지 않았다.
+단위·HTTP는 13 suites / 242 tests가 최종 통과했다. HTTP harness에 운영의 ProblemDetailFilter가 빠져 410 대신 500을 내던 7개 실패는 `configureHttpApp`과 올바른 DTO 본문으로 고쳤고 해당 suite 12개를 다시 통과했다. backend typecheck, knip, 파일 원장도 EXIT=0이며 `FILE_LEDGER_OK 259 paths`다. 변경 파일 lint는 커밋 훅에서 수행한다. SQL이 같으므로 기존 서버 리허설을 재실행하거나 새 결과로 표시하지 않았다.

@@ -12,6 +12,7 @@ import {
   RepositoryEventAlreadyExistsError,
   ApplicationDuplicateError,
   ApplicationTeamMembershipConflictError,
+  ApplicationPreparationConflictError,
 } from './applications.error';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import {
@@ -258,9 +259,15 @@ export class ApplicationsService {
             throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
           }
         }
+        const preparation =
+          existingTeam === null
+            ? await store.findPreparationForApply(programId, student.id)
+            : null;
+        if (preparation !== null && preparation.leaderId !== student.id)
+          throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
         const acceptedCount = existingTeam
           ? await store.countTeamMembers(existingTeam.id)
-          : 1;
+          : (preparation?.memberIds.length ?? 1);
         const memberCount = acceptedCount + inviteeIds.length;
         if (memberCount < lockedProgram.teamMinSize) {
           const extensions: TeamMinimumExtensions = {
@@ -280,11 +287,14 @@ export class ApplicationsService {
         const participants = await store.validateApplicationParticipants({
           programId,
           actorId: student.id,
+          preparationMemberIds: preparation?.memberIds ?? [],
           inviteeIds,
         });
         switch (participants) {
           case 'student-ineligible':
             throw this.error(ApplicationsErrorCode.STUDENT_ONLY);
+          case 'preparation-changed':
+            throw this.error(ApplicationsErrorCode.PREPARATION_CHANGED);
           case 'invitee-ineligible':
             throw this.error(ApplicationsErrorCode.INVITEE_NOT_ELIGIBLE);
           case 'invitee-unavailable':
@@ -300,8 +310,9 @@ export class ApplicationsService {
           existingTeam ??
           (await store.createTeamWithLeader({
             programId,
-            name: teamName,
+            name: preparation?.name ?? teamName,
             leaderId: student.id,
+            memberIds: preparation?.memberIds,
           }));
 
         const application = await store.createApplication({
@@ -321,6 +332,7 @@ export class ApplicationsService {
           actorId: student.id,
           inviteeIds,
         });
+        if (preparation !== null) await store.deletePreparation(preparation.id);
         await store.appendReviewHistory({
           applicationId: application.id,
           eventKind: ApplicationReviewEventKind.SUBMITTED,
@@ -365,6 +377,8 @@ export class ApplicationsService {
       });
     } catch (error) {
       if (error instanceof DomainException) throw error;
+      if (error instanceof ApplicationPreparationConflictError)
+        throw this.error(ApplicationsErrorCode.PREPARATION_CHANGED);
       if (error instanceof ApplicationDuplicateError) {
         throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
       }

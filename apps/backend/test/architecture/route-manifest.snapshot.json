@@ -5,8 +5,53 @@
     "access": "PROTECTED"
   },
   {
+    "method": "POST",
+    "path": "/api/v1/application-preparations/:preparationId/invitations",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/application-preparations/:preparationId/search",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/application-preparations/:preparationId/sent",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/application-preparations/invitations/:invitationId/accept",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/application-preparations/invitations/:invitationId/cancel",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/application-preparations/invitations/:invitationId/decline",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/application-preparations/programs/:programId",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/application-preparations/programs/:programId/me",
+    "access": "PROTECTED"
+  },
+  {
     "method": "GET",
     "path": "/api/v1/application-preparations/programs/:programId/me",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "DELETE",
+    "path": "/api/v1/application-preparations/programs/:programId/members/:userId",
     "access": "PROTECTED"
   },
   {

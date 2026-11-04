@@ -9,6 +9,7 @@ import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
+import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
@@ -39,7 +40,9 @@ const invitations = new TeamInvitationsRepository(
   prisma,
   platform,
 );
+const preparations = new ApplicationPreparationsRepository(prisma, platform);
 const teamDeletion = new ProgramTeamDeletionRepository(
+  new TeamHistoryRepository(),
   prisma,
   new TeamDeletionScopeRepository(),
   new PrismaSerializationRetryRepository(),
@@ -313,12 +316,36 @@ describe.each([
     }
   });
 
+  it.each(['decline', 'cancel', 'remove'] as const)(
+    'preparation %s',
+    async (action) => {
+      const before = await snapshot();
+      const run = () =>
+        action === 'remove'
+          ? preparations.remove(programId, leaderId, memberId)
+          : preparations.respond(
+              preparationInvitationId,
+              action === 'cancel' ? leaderId : inviteeId,
+              action,
+              new Date(),
+            );
+      if (lifecycle === ProgramLifecycle.DELETED) {
+        await expect(run()).rejects.toMatchObject({ reason: 'not-found' });
+        expect(await snapshot()).toEqual(before);
+      } else {
+        await run();
+        expect(await snapshot()).not.toEqual(before);
+      }
+    },
+  );
+
   it('delete team', async () => {
     const before = await snapshot();
     const scope = await teamDeletion.readScopeCounts(teamId);
     const result = await teamDeletion.deleteTeam(
       programId,
       teamId,
+      staffId,
       scope,
       recordAudit,
       recordAudit,

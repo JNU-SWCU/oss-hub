@@ -1,11 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { configureHttpApp } from '../configure-http-app';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ApplicationPreparationsController } from './application-preparations.controller';
 import { ApplicationPreparationsService } from './application-preparations.service';
-import { ApplicationsRepository } from './applications.repository';
+import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -29,8 +30,17 @@ const APPLICATION = {
   isManager: true,
   canManage: false,
 };
+const PREPARATION = {
+  id: 'team-1',
+  name: '합성 팀',
+  memberCount: 1,
+  minMembers: 1,
+  maxMembers: 4,
+  isLeader: true,
+  members: [{ userId: 'user-1', nickname: 'octo', name: null, isLeader: true }],
+};
 const getMine = jest.fn();
-const findActor = jest.fn().mockResolvedValue({ id: 'student' });
+const getPreparation = jest.fn();
 let app: INestApplication;
 let baseUrl: string;
 let cookie: string;
@@ -49,8 +59,11 @@ beforeAll(async () => {
         useValue: { getMine },
       },
       {
-        provide: ApplicationsRepository,
-        useValue: { findActiveStudentByGithubId: findActor },
+        provide: ApplicationPreparationsRepository,
+        useValue: {
+          findActor: jest.fn().mockResolvedValue('user-1'),
+          get: getPreparation,
+        },
       },
       ApplicationPreparationsService,
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
@@ -74,7 +87,7 @@ beforeAll(async () => {
     ],
   }).compile();
   app = module.createNestApplication();
-  app.setGlobalPrefix('api/v1');
+  configureHttpApp(app);
   await app.listen(0, '127.0.0.1');
   baseUrl = await app.getUrl();
   cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, 1133n, 0)}`;
@@ -133,32 +146,80 @@ describe('GET programs/:programId/applications/me', () => {
 
 describe('GET application-preparations/programs/:programId/me', () => {
   const path = 'application-preparations/programs/program-1/me';
-  it('구 프론트의 fallback에 NONE 소속 JSON을 보낸다', async () => {
+  const body = {
+    ...PREPARATION,
+    preparation: true,
+    hasApplication: false,
+    canInvite: true,
+    canRemoveMembers: true,
+    canLeave: false,
+  };
+
+  it('지원 준비가 없으면 빈 본문 대신 NONE 소속 JSON을 보낸다', async () => {
+    getPreparation.mockResolvedValueOnce(null);
+
     const response = await getJson(path);
 
     expect(response.status).toBe(200);
     expect(response.text).toBe('{"membership":"NONE"}');
   });
 
-  it.each([
-    ['POST', 'programs/program-1'],
-    ['DELETE', 'programs/program-1/me'],
-    ['DELETE', 'programs/program-1/members/user-1'],
-    ['GET', 'preparation-1/sent'],
-    ['GET', 'preparation-1/search'],
-    ['POST', 'preparation-1/invitations'],
-    ['POST', 'invitations/invitation-1/accept'],
-    ['POST', 'invitations/invitation-1/decline'],
-    ['POST', 'invitations/invitation-1/cancel'],
-  ])('폐기한 %s %s 경로는 재활성화되지 않는다', async (method, suffix) => {
-    const response = await fetch(
-      `${baseUrl}/api/v1/application-preparations/${suffix}`,
-      {
-        method,
-        headers: { connection: 'close', cookie, origin },
+  it('팀장이면 LEADER 소속과 기존 본문을 preparation 아래에 보낸다', async () => {
+    getPreparation.mockResolvedValueOnce(PREPARATION);
+
+    const response = await getJson(path);
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.text)).toEqual({
+      membership: 'LEADER',
+      preparation: body,
+    });
+  });
+
+  it('팀원이면 MEMBER 소속으로 보낸다', async () => {
+    getPreparation.mockResolvedValueOnce({ ...PREPARATION, isLeader: false });
+
+    const response = await getJson(path);
+
+    expect(response.status).toBe(200);
+    expect(JSON.parse(response.text)).toMatchObject({
+      membership: 'MEMBER',
+      preparation: { id: 'team-1', isLeader: false, canLeave: true },
+    });
+  });
+});
+
+it.each([
+  ['POST', 'programs/program-1'],
+  ['POST', 'preparation-1/invitations'],
+  ['POST', 'invitations/invitation-1/accept'],
+  ['POST', 'invitations/invitation-1/decline'],
+  ['POST', 'invitations/invitation-1/cancel'],
+  ['DELETE', 'programs/program-1/me'],
+  ['DELETE', 'programs/program-1/members/user-2'],
+])('3a rejects Preparation writer %s %s with 410', async (method, suffix) => {
+  const body =
+    suffix === 'programs/program-1'
+      ? { name: 'Synthetic' }
+      : suffix === 'preparation-1/invitations'
+        ? { inviteeUserId: 'user-2' }
+        : null;
+  const response = await fetch(
+    `${baseUrl}/api/v1/application-preparations/${suffix}`,
+    {
+      method,
+      headers: {
+        connection: 'close',
+        cookie,
+        origin,
+        'content-type': 'application/json',
       },
-    );
-    expect(response.status).toBe(404);
-    await response.text();
+      ...(body === null ? {} : { body: JSON.stringify(body) }),
+    },
+  );
+  expect(response.status).toBe(410);
+  await expect(response.json()).resolves.toMatchObject({
+    code: 'APP_036',
+    status: 410,
   });
 });

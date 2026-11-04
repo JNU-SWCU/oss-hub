@@ -376,6 +376,7 @@ export class ProgramTeamsService {
     const result = await this.deletionRepository.deleteTeam(
       programId,
       teamId,
+      actor.id,
       expectedScope,
       (store, event) => this.recordDeletionAudit(githubId, store, event),
       (store, event) =>

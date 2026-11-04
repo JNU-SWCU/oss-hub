@@ -89,17 +89,6 @@ export class MemberRegistrationResetRepository implements MemberRegistrationRese
     transaction: Prisma.TransactionClient,
     userId: string,
   ): Promise<boolean> {
-    const history = await transaction.teamHistory.findFirst({
-      where: {
-        OR: [
-          { actorId: userId },
-          { data: { path: ['invitation', 'inviteeId'], equals: userId } },
-          { data: { path: ['invitation', 'invitedById'], equals: userId } },
-        ],
-      },
-      select: { id: true },
-    });
-    if (history) return true;
     return (
       (await transaction.user.count({
         where: {
@@ -112,6 +101,8 @@ export class MemberRegistrationResetRepository implements MemberRegistrationRese
             { teamMemberships: { some: {} } },
             { receivedTeamInvitations: { some: {} } },
             { sentTeamInvitations: { some: {} } },
+            { applicationPreparations: { some: {} } },
+            { preparationParticipants: { some: {} } },
             { uploadedFiles: { some: {} } },
             { milestoneDocumentSubmissions: { some: {} } },
             { milestoneDocumentSubmissionHistories: { some: {} } },

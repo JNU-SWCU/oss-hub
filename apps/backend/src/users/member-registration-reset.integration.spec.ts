@@ -19,6 +19,9 @@ import { MemberRegistrationResetService } from './member-registration-reset.serv
 import { UserProfileService } from './user-profile.service';
 import { UserTransitionRepository } from './user-transition.repository';
 import { UserHistoryRepository } from './user-history.repository';
+import { TeamInvitationsRepository } from '../programs/team-invitations.repository';
+import { TeamHistoryRepository } from '../programs/team-history.repository';
+import { PlatformRepository } from '../platform/platform.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -96,37 +99,65 @@ function expectState(user: {
 }
 
 describe('registration reset persistence', () => {
-  it.each(['actorId', 'inviteeId', 'invitedById'] as const)(
-    'keeps a closed invitation as activity through %s',
-    async (field) => {
-      const user = await create();
-      const history = await prisma.teamHistory.create({
-        data: {
-          teamId: 'deleted-team',
-          programId: 'deleted-program',
-          actorId: field === 'actorId' ? user.id : 'other-actor',
-          event: 'INVITATION_CANCELLED',
-          source: 'APPLICATION',
-          data: {
-            schemaVersion: 1,
-            invitation: {
-              id: `closed-${user.id}`,
-              inviteeId: field === 'inviteeId' ? user.id : 'other-invitee',
-              invitedById: field === 'invitedById' ? user.id : 'other-inviter',
-              createdAt: at.toISOString(),
-            },
-          },
-        },
-      });
-      try {
-        await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(
-          true,
-        );
-      } finally {
-        await prisma.teamHistory.delete({ where: { id: history.id } });
-      }
-    },
-  );
+  it('keeps the v0.24.42 activity guard after a 3a invitation decline', async () => {
+    const admin = await actor();
+    const user = await create();
+    const programId = `${user.id}:program`;
+    const teamId = `${user.id}:team`;
+    const invitationId = `${user.id}:invitation`;
+    await prisma.program.create({
+      data: {
+        id: programId,
+        name: 'Synthetic rollback program',
+        organizer: 'Synthetic',
+        category: 'BASIC',
+        applicationTemplateKey: 'basic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: at,
+        applicationEndAt: new Date('2027-01-01'),
+        startAt: at,
+        endAt: new Date('2027-01-01'),
+        description: 'Synthetic',
+        teamMinSize: 1,
+        teamMaxSize: 3,
+      },
+    });
+    await prisma.team.create({
+      data: { id: teamId, programId, name: 'Synthetic', leaderId: admin.id },
+    });
+    await prisma.teamInvitation.create({
+      data: {
+        id: invitationId,
+        teamId,
+        programId,
+        inviteeId: user.id,
+        invitedById: admin.id,
+      },
+    });
+    const invitations = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
+      prisma,
+      new PlatformRepository(),
+    );
+
+    await expect(
+      invitations.declinePendingInvitationAsInvitee(invitationId, user.id, at),
+    ).resolves.toEqual({ kind: 'ok' });
+
+    await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(true);
+    await expect(
+      service.resetFromRequest(admin.githubId, user.id, expectState(user)),
+    ).rejects.toMatchObject({ errorCode: { code: 'ROL_025' } });
+    await expect(
+      prisma.user.findUnique({ where: { id: user.id } }),
+    ).resolves.toMatchObject({ type: 'STUDENT', studentId: user.studentId });
+    await expect(
+      prisma.teamInvitation.findUnique({ where: { id: invitationId } }),
+    ).resolves.toMatchObject({ status: 'DECLINED', respondedAt: at });
+    await expect(
+      prisma.teamHistory.count({ where: { sourceId: invitationId } }),
+    ).resolves.toBe(1);
+  });
 
   it('keeps the session identity, clears membership and returns staff re-registration to normal approval', async () => {
     const admin = await actor();

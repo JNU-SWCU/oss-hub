@@ -206,7 +206,7 @@ export class TeamInvitationsRepository {
     inviteeId: string,
   ): Promise<ReceivedTeamInvitationRecord[]> {
     const invitations = await this.prisma.teamInvitation.findMany({
-      where: { inviteeId, status: TeamInvitationStatus.PENDING },
+      where: { inviteeId },
       orderBy: { createdAt: 'desc' },
       include: {
         team: {
@@ -222,7 +222,7 @@ export class TeamInvitationsRepository {
       },
     });
 
-    return invitations.map((invitation) => ({
+    const official = invitations.map((invitation) => ({
       id: invitation.id,
       teamId: invitation.teamId,
       programId: invitation.programId,
@@ -239,11 +239,64 @@ export class TeamInvitationsRepository {
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
     }));
+    const preparations =
+      await this.prisma.applicationPreparationParticipant.findMany({
+        where: {
+          userId: inviteeId,
+          status: 'PENDING',
+          preparation: { leaderId: { not: inviteeId } },
+        },
+        select: {
+          id: true,
+          programId: true,
+          userId: true,
+          status: true,
+          invitedAt: true,
+          respondedAt: true,
+          preparation: {
+            select: {
+              id: true,
+              name: true,
+              leaderId: true,
+              leader: {
+                select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
+              },
+              program: { select: { name: true, teamMaxSize: true } },
+              _count: {
+                select: { participants: { where: { status: 'ACCEPTED' } } },
+              },
+            },
+          },
+        },
+      });
+    const temporary: ReceivedTeamInvitationRecord[] = preparations.map(
+      (row) => ({
+        preparation: true,
+        id: row.id,
+        programId: row.programId,
+        teamId: row.preparation.id,
+        inviteeId: row.userId,
+        invitedById: row.preparation.leaderId,
+        status: row.status,
+        invitedAt: row.invitedAt,
+        respondedAt: row.respondedAt,
+        teamName: row.preparation.name,
+        programName: row.preparation.program.name,
+        invitedByDisplayName:
+          row.preparation.leader.name?.trim() ||
+          row.preparation.leader.nickname,
+        memberCount: row.preparation._count.participants,
+        teamMaxSize: row.preparation.program.teamMaxSize,
+      }),
+    );
+    return [...official, ...temporary].sort(
+      (left, right) => right.invitedAt.getTime() - left.invitedAt.getTime(),
+    );
   }
 
   async findByTeamId(teamId: string): Promise<SentTeamInvitationRecord[]> {
     const invitations = await this.prisma.teamInvitation.findMany({
-      where: { teamId, status: TeamInvitationStatus.PENDING },
+      where: { teamId },
       orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
     });
@@ -437,8 +490,9 @@ export class TeamInvitationsRepository {
         return { kind: 'not-pending' };
       }
 
-      const closed = await tx.teamInvitation.deleteMany({
+      const closed = await tx.teamInvitation.updateMany({
         where: { id: invitationId, status: TeamInvitationStatus.PENDING },
+        data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
       });
       if (closed.count === 0) return { kind: 'not-pending' };
       await this.history.recordInvitationClosed(
@@ -464,12 +518,13 @@ export class TeamInvitationsRepository {
       if (!invitation) return { kind: 'not-found' };
       if ((await lockTeamRow(tx, invitation.teamId)).length === 0)
         return { kind: 'not-found' };
-      const closed = await tx.teamInvitation.deleteMany({
+      const closed = await tx.teamInvitation.updateMany({
         where: {
           id: invitationId,
           inviteeId,
           status: TeamInvitationStatus.PENDING,
         },
+        data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
       });
       if (closed.count === 0) {
         const own = await tx.teamInvitation.findUnique({
@@ -519,6 +574,7 @@ export class TeamInvitationsRepository {
           this.platformRepository.userProfileNameWhere(query),
         ],
         teamMemberships: { none: { programId } },
+        preparationParticipants: { none: { programId, status: 'ACCEPTED' } },
       },
       select: {
         id: true,
@@ -610,12 +666,23 @@ export class TeamInvitationsRepository {
           select: { userId: true },
         });
         if (existingMembership) return { kind: 'already-in-team' };
+        const preparation =
+          await tx.applicationPreparationParticipant.findFirst({
+            where: {
+              programId,
+              userId: inviteeId,
+              status: TeamInvitationStatus.ACCEPTED,
+            },
+            select: { id: true },
+          });
+        if (preparation !== null) return { kind: 'already-in-team' };
         const maxSize = invitation.team.program.teamMaxSize;
         const memberCount = await tx.teamMember.count({ where: { teamId } });
         if (memberCount >= maxSize) return { kind: 'team-full' };
 
-        const updated = await tx.teamInvitation.deleteMany({
+        const updated = await tx.teamInvitation.updateMany({
           where: { id: invitationId, status: TeamInvitationStatus.PENDING },
+          data: { status: TeamInvitationStatus.ACCEPTED, respondedAt: now },
         });
         if (updated.count === 0) return { kind: 'not-pending' };
         await this.history.recordInvitationClosed(
@@ -640,8 +707,9 @@ export class TeamInvitationsRepository {
           orderBy: { id: 'asc' },
         });
         for (const other of otherInvitations) {
-          const closed = await tx.teamInvitation.deleteMany({
+          const closed = await tx.teamInvitation.updateMany({
             where: { id: other.id, status: TeamInvitationStatus.PENDING },
+            data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
           });
           if (closed.count === 1)
             await this.history.recordInvitationClosed(
