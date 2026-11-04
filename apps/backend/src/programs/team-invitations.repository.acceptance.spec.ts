@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
@@ -26,6 +27,7 @@ function knownRequestError(code: string): Prisma.PrismaClientKnownRequestError {
   return new Prisma.PrismaClientKnownRequestError('conflict', {
     code,
     clientVersion: 'test',
+    meta: { modelName: 'TeamMember' },
   });
 }
 
@@ -35,6 +37,8 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     teamId: syntheticTeamId,
     programId: syntheticProgramId,
     inviteeId: syntheticInviteeId,
+    invitedById: 'synthetic-inviter',
+    createdAt: new Date('2026-08-01'),
     team: {
       name: syntheticTeamName,
       program: { teamMaxSize: 4, name: syntheticProgramName },
@@ -74,6 +78,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     return {
       teamInvitation: {
         findUnique,
+        findMany: jest.fn().mockResolvedValue([]),
         updateMany: jest
           .fn()
           .mockResolvedValueOnce({ count: options.acceptedCount ?? 1 })
@@ -84,6 +89,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
         count: jest.fn().mockResolvedValue(options.memberCount ?? 1),
         create: options.create ?? jest.fn().mockResolvedValue(undefined),
       },
+      teamHistory: { create: jest.fn().mockResolvedValue({}) },
       applicationPreparationParticipant: {
         findFirst: jest.fn().mockResolvedValue(null),
       },
@@ -114,6 +120,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
 
   function buildRepository(tx: object) {
     return new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       {
         $transaction: <T>(operation: (transaction: never) => Promise<T>) =>
           operation(tx as never),
@@ -204,21 +211,21 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(tx.team.update).not.toHaveBeenCalled();
   });
 
-  it('합류 뒤 같은 프로그램의 남은 PENDING 초대만 DECLINED로 종결한다', async () => {
+  it('합류 뒤 같은 프로그램의 남은 PENDING 초대만 조회한다', async () => {
     const tx = buildTx();
 
     await accept(tx);
 
-    expect(tx.teamInvitation.updateMany).toHaveBeenNthCalledWith(2, {
+    expect(tx.teamInvitation.findMany).toHaveBeenCalledWith({
       where: {
         programId: syntheticProgramId,
         inviteeId: syntheticInviteeId,
         status: 'PENDING',
         id: { not: syntheticInvitationId },
       },
-      data: { status: 'DECLINED', respondedAt: acceptedAt },
+      orderBy: { id: 'asc' },
     });
-    const [terminalize] = tx.teamInvitation.updateMany.mock.calls[1] as [
+    const [terminalize] = tx.teamInvitation.findMany.mock.calls[0] as [
       { where: Record<string, unknown> },
     ];
     expect(terminalize.where.programId).toBe(syntheticProgramId);
@@ -437,5 +444,17 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     const tx = buildTx({ create: jest.fn().mockRejectedValue(boom) });
 
     await expect(accept(tx)).rejects.toBe(boom);
+  });
+
+  it('이력의 유니크 충돌을 이미 가입된 사용자로 잘못 보고하지 않는다', async () => {
+    const boom = new Prisma.PrismaClientKnownRequestError('history conflict', {
+      code: 'P2002',
+      clientVersion: 'test',
+      meta: { modelName: 'TeamHistory' },
+    });
+    const tx = buildTx();
+    tx.teamHistory.create.mockRejectedValueOnce(boom);
+    await expect(accept(tx)).rejects.toBe(boom);
+    expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 });

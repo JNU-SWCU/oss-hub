@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -64,6 +65,7 @@ beforeAll(async () => {
       new AuditLogReadService(new AuditLogMetadataService()),
     ),
     new ProgramTeamDeletionRepository(
+      new TeamHistoryRepository(),
       prisma,
       new TeamDeletionScopeRepository(),
       new PrismaSerializationRetryRepository(),

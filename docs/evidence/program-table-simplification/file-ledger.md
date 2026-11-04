@@ -99,6 +99,18 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 ## 파일별 의도와 상태
 
+### Todo 8 3a: 이력 이중 기록과 신규 Preparation 생성 중단
+
+최신 main `c653d0235`를 병합했다. TeamHistory 관련 rollback 계약은 `v0.24.42`다. 닫힌 B2·B3에 따라 기존 초대 status 갱신과 이력을 이중 기록한다. terminal 행과 respondedAt, 목록 조회와 등록 초기화 검사를 보존하고, 교직원 팀 삭제의 대기 취소 이력을 같은 트랜잭션에 기록한다.
+
+R1 판정에 따라 새 Preparation 생성만 410으로 중단한다. 기존 준비의 초대·수락·거절·취소·구성원 제외·탈퇴·준비 삭제와 reader·소비는 유지한다. 자신의 기존 준비를 여는 멱등 생성 요청도 새 행 없이 반환한다. capability는 실제 허용된 기존 조작과 일치한다. 3a만 live인 상태에서 두 테이블이 0임을 확인하기 전에는 reader를 제거하지 않는다. 나머지 3b와 물리 DROP 경계는 유지한다.
+
+| 범위 | 3a before files | 3a before lines | 3a after files | 3a after lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 249 | 39038 | 249 | 39145 |
+
+등록 초기화는 v0.24.42와 같은 legacy 행을 보므로 3a rollback에서 보호가 사라지지 않는다. 3b는 이력 기반 판정과 terminal writer 중단을 먼저 배포한 뒤 row를 삭제해야 하며, 그 시점부터 rollback 하한은 해당 3b 호환 릴리스다. 상세 경계는 `task-8-history-3a.md`에 기록한다.
+
 ### Todo 8 A/B 배포 경계
 
 A는 지원 시 본인과 지명 인원을 최소 이상·최대 이하로 검사하고, 팀·팀장 구성원·지원서·대기 초대를 원자적으로 만든다. 승인 시에는 실제 수락 인원을 검사한다. 최소 2명 이상 프로그램의 혼자 지원은 거부한다. 기존 준비팀 지원 경로와 구 프론트는 유지한다. B는 A가 실제 운영 백엔드에 반영된 뒤에만 배포하는 후속 draft다. Vercel release 배포는 Jenkins 완료를 기다리지 않는다.
@@ -130,9 +142,10 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | --- | --- | --- | ---: | --- | ---: | --- |
 | `apps/backend/src/programs/application-answers.service.ts` | merge | `team-application.service.ts` | 9 | present | 159 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침 |
 | `apps/backend/src/programs/application-preparation.error.ts` | delete | - | 8 | present | 52 | 준비팀 API·모델 제거 |
-| `apps/backend/src/programs/application-preparations.controller.ts` | delete | - | 8 | present | 153 | 준비팀 API·모델 제거 |
-| `apps/backend/src/programs/application-preparations.repository.ts` | delete | - | 8 | present | 397 | 준비팀 API·모델 제거 |
-| `apps/backend/src/programs/application-preparations.service.ts` | delete | - | 8 | present | 190 | 준비팀 API·모델 제거 |
+| `apps/backend/src/programs/application-preparations.controller.ts` | delete | - | 8 | present | 153 | 3a는 기존 준비 조작 유지, 신규 생성만 중단; 제거는 3b |
+| `apps/backend/src/programs/application-preparations.repository.ts` | delete | - | 8 | present | 397 | 3a는 reader·consumer 보존; 0건 확인 후 3b에서 제거 |
+| `apps/backend/src/programs/application-preparations.service.ts` | delete | - | 8 | present | 190 | 3a는 신규 생성만 410으로 거부하고 기존 준비 복구 경로 보존 |
+| `apps/backend/src/programs/team-history.repository.ts` | keep | - | 8 | present | 0 | 범용 TeamHistory의 초대 종료 사건 기록 |
 | `apps/backend/src/programs/application-templates.controller.ts` | merge | `teams.controller.ts` | 9 | present | 19 | 팀 경로로 전환 |
 | `apps/backend/src/programs/applications-error-code.error.ts` | merge | `teams.error.ts` | 11 | present | 184 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/applications.config.ts` | merge | `team-application.service.ts` | 9 | present | 14 | 지원 상태 어휘를 팀 지원에 통합 |
@@ -155,7 +168,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/dto/board-post-pin-response.dto.ts` | keep | `dto/board-post-pin-response.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/board-post-response.dto.ts` | keep | `dto/board-post-response.dto.ts` | 11 | present | 111 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/confirm-repository-publish-request.dto.ts` | keep | `dto/confirm-repository-publish-request.dto.ts` | 11 | present | 6 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-application-preparation-request.dto.ts` | delete | - | 8 | present | 12 | 준비팀 API·모델 제거 |
+| `apps/backend/src/programs/dto/create-application-preparation-request.dto.ts` | delete | - | 8 | deleted | 12 | R1에서 새 이름 입력을 사용하지 않는 생성 차단·멱등 조회로 전환 |
 | `apps/backend/src/programs/dto/create-application-request.dto.ts` | keep | `dto/create-application-request.dto.ts` | 9 | present | 29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/create-application-response.dto.ts` | keep | `dto/create-application-response.dto.ts` | 9 | present | 30 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/create-board-comment-request.dto.ts` | keep | `dto/create-board-comment-request.dto.ts` | 11 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
@@ -173,7 +186,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/dto/deleted-response.dto.ts` | keep | `dto/deleted-response.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/editable-program-response.dto.ts` | keep | `dto/editable-program-response.dto.ts` | 11 | present | 150 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/invitation-candidate-response.dto.ts` | keep | `dto/invitation-candidate-response.dto.ts` | 11 | present | 19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/invite-application-preparation-request.dto.ts` | delete | - | 8 | present | 7 | 준비팀 API·모델 제거 |
+| `apps/backend/src/programs/dto/invite-application-preparation-request.dto.ts` | delete | - | 8 | present | 7 | 3a의 기존 요청 계약 유지; 제거는 3b |
 | `apps/backend/src/programs/dto/milestone-document-archive-request.dto.ts` | keep | `dto/milestone-document-archive-request.dto.ts` | 4 | present | 23 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/milestone-document-collection-request.dto.ts` | keep | `dto/milestone-document-collection-request.dto.ts` | 4 | present | 50 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/milestone-document-collection-response.dto.ts` | keep | `dto/milestone-document-collection-response.dto.ts` | 4 | present | 298 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
@@ -214,7 +227,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/dto/received-team-invitation-response.dto.ts` | keep | `dto/received-team-invitation-response.dto.ts` | 9 | present | 38 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/rename-team-request.dto.ts` | keep | `dto/rename-team-request.dto.ts` | 9 | present | 14 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/repository-url-history-request.dto.ts` | keep | `dto/repository-url-history-request.dto.ts` | 9 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/search-application-preparation-request.dto.ts` | delete | - | 8 | present | 7 | 준비팀 API·모델 제거 |
+| `apps/backend/src/programs/dto/search-application-preparation-request.dto.ts` | delete | - | 8 | present | 7 | 3a의 기존 검색 계약 유지; 제거는 3b |
 | `apps/backend/src/programs/dto/search-invitation-candidates-request.dto.ts` | keep | `dto/search-invitation-candidates-request.dto.ts` | 11 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/set-board-post-pinned-request.dto.ts` | keep | `dto/set-board-post-pinned-request.dto.ts` | 11 | present | 6 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/staff-team-detail-response.dto.ts` | keep | `dto/staff-team-detail-response.dto.ts` | 9 | present | 70 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |

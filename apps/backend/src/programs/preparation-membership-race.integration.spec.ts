@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma, ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -34,6 +35,7 @@ async function cleanup() {
   await Promise.allSettled(operations);
   releases.length = 0;
   operations.length = 0;
+  await prisma.teamHistory.deleteMany({ where: { programId } });
   await prisma.teamInvitation.deleteMany({ where: { programId } });
   await prisma.applicationPreparation.deleteMany({ where: { programId } });
   await prisma.teamMember.deleteMany({ where: { programId } });
@@ -174,6 +176,7 @@ describe('official and preparation membership exclusion', () => {
         first === 'preparation'
           ? preparation(firstClient, preparationPath)
           : new TeamInvitationsRepository(
+              new TeamHistoryRepository(),
               firstClient,
               new PlatformRepository(),
             ).withAcceptTransaction(invitationId, actorId, now);
@@ -182,6 +185,7 @@ describe('official and preparation membership exclusion', () => {
       const secondOperation =
         first === 'preparation'
           ? new TeamInvitationsRepository(
+              new TeamHistoryRepository(),
               secondClient,
               new PlatformRepository(),
             ).withAcceptTransaction(invitationId, actorId, now)

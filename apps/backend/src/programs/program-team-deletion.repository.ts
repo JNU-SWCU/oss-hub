@@ -6,6 +6,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
+import { TeamHistoryRepository } from './team-history.repository';
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
 
@@ -74,6 +75,7 @@ export type TeamDeletionResult =
 @Injectable()
 export class ProgramTeamDeletionRepository {
   constructor(
+    private readonly history: TeamHistoryRepository,
     private readonly prisma: PrismaService,
     private readonly teamDeletionScope: TeamDeletionScopeRepository,
     private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
@@ -88,6 +90,7 @@ export class ProgramTeamDeletionRepository {
   async deleteTeam(
     programId: string,
     teamId: string,
+    actorId: string,
     expectedScope: TeamDeletionScopeCounts,
     recordAudit: RecordTeamDeletionAudit,
     recordNotification: RecordTeamDeletionNotification,
@@ -133,6 +136,7 @@ export class ProgramTeamDeletionRepository {
             where: { teamId },
             select: { userId: true },
           });
+          const deletedAt = new Date();
           await recordNotification(
             {
               async createTeamDeletedNotifications(notifications) {
@@ -148,10 +152,24 @@ export class ProgramTeamDeletionRepository {
               programId,
               programName: team.program.name,
               recipientUserIds: recipients.map((recipient) => recipient.userId),
-              deletedAt: new Date(),
+              deletedAt,
             },
           );
 
+          const invitations = await tx.teamInvitation.findMany({
+            where: { teamId, status: 'PENDING' },
+            orderBy: { id: 'asc' },
+          });
+          for (const invitation of invitations) {
+            await this.history.recordInvitationClosed(
+              tx,
+              invitation,
+              'INVITATION_CANCELLED',
+              actorId,
+              deletedAt,
+              'TEAM_DELETED',
+            );
+          }
           const deletedCounts = await deleteTeamTree(tx, teamId);
           if (
             !this.teamDeletionScope.sameCountValues(

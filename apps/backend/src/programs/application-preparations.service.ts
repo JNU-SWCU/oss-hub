@@ -10,6 +10,12 @@ import {
 } from './application-preparation.error';
 
 const ERRORS = {
+  'creation-disabled': {
+    code: 'APP_036',
+    status: 410,
+    message:
+      '새 신청 준비를 만들 수 없습니다. 프로그램 신청 화면에서 바로 신청해 주세요. 기존 신청 준비는 계속 사용할 수 있습니다.',
+  },
   'not-found': {
     code: 'APP_030',
     status: 404,
@@ -55,7 +61,10 @@ const ERRORS = {
     status: 422,
     message: '자기 자신을 초대할 수 없습니다.',
   },
-} as const satisfies Record<PreparationFailure, ErrorCode>;
+} as const satisfies Record<
+  PreparationFailure | 'creation-disabled',
+  ErrorCode
+>;
 
 @Injectable()
 export class ApplicationPreparationsService {
@@ -100,10 +109,12 @@ export class ApplicationPreparationsService {
       this.repository.get(programId, actorId),
     );
   }
-  create(githubId: bigint, programId: string, name: string, now = new Date()) {
-    return this.run(githubId, (actorId) =>
-      this.repository.create(programId, actorId, name.trim(), now),
-    );
+  create(githubId: bigint, programId: string) {
+    return this.run(githubId, async (actorId) => {
+      const existing = await this.repository.get(programId, actorId);
+      if (existing?.isLeader) return existing;
+      throw new DomainException(ERRORS['creation-disabled']);
+    });
   }
   listSent(githubId: bigint, preparationId: string) {
     return this.run(githubId, (actorId) =>

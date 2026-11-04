@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ProgramCategory,
@@ -40,6 +41,7 @@ const PROGRAM_B_NAME = '초대 요약 프로그램 B';
 
 const prisma = new PrismaService();
 const repository = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
   prisma,
   new PlatformRepository(),
 );

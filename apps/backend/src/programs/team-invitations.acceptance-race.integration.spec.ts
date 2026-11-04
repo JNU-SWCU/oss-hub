@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import {
@@ -108,6 +109,7 @@ async function seedFixture(): Promise<void> {
 }
 
 async function cleanup(): Promise<void> {
+  await prisma.teamHistory.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamInvitation.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
@@ -239,6 +241,7 @@ describe('Team invitation acceptance transaction races', () => {
       await updated.promise;
 
       const acceptance = new TeamInvitationsRepository(
+        new TeamHistoryRepository(),
         pidCapturingPrisma(prisma, acceptBackend.capture),
         new PlatformRepository(),
       ).withAcceptTransaction(INVITATION_ID, INVITEE_ID);
@@ -262,6 +265,7 @@ describe('Team invitation acceptance transaction races', () => {
     const acceptBackend = backendPid();
 
     const acceptance = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       pidCapturingPrisma(prisma, acceptBackend.capture),
       new PlatformRepository(),
     ).withAcceptTransaction(INVITATION_ID, INVITEE_ID);
@@ -309,6 +313,7 @@ describe('Team invitation acceptance transaction races', () => {
     const inviteBackend = backendPid();
 
     const invitation = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       pidCapturingPrisma(prisma, inviteBackend.capture),
       new PlatformRepository(),
     ).createInvitation({
@@ -346,11 +351,13 @@ describe('Team invitation acceptance transaction races', () => {
     await leave.paused;
     const cancelBackend = backendPid();
     const invitations = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       prisma,
       new PlatformRepository(),
     );
 
     const staleCancel = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       pidCapturingPrisma(prisma, cancelBackend.capture),
       new PlatformRepository(),
     ).cancelPendingInvitationAsLeader(INVITATION_ID, LEADER_ID);
@@ -388,10 +395,12 @@ describe('Team invitation acceptance transaction races', () => {
 
   it('마지막 한 자리를 두고 동시에 수락하면 정확히 한 명만 합류한다', async () => {
     const first = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       prisma,
       new PlatformRepository(),
     );
     const second = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       prisma,
       new PlatformRepository(),
     );

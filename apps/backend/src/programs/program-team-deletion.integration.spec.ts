@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -53,6 +54,7 @@ const STAFF_ID = `${TEST_PREFIX}staff`;
 const LEADER_ID = `${TEST_PREFIX}leader`;
 const MEMBER_ID = `${TEST_PREFIX}member`;
 const INVITEE_ID = `${TEST_PREFIX}invitee`;
+const SECOND_INVITEE_ID = `${TEST_PREFIX}second-invitee`;
 
 const STAFF_GITHUB_ID = 9_460_000_001n;
 const LEADER_GITHUB_ID = 9_460_000_002n;
@@ -64,12 +66,14 @@ const GITHUB_ID_BY_USER: ReadonlyMap<string, bigint> = new Map([
   [LEADER_ID, LEADER_GITHUB_ID],
   [MEMBER_ID, MEMBER_GITHUB_ID],
   [INVITEE_ID, INVITEE_GITHUB_ID],
+  [SECOND_INVITEE_ID, 9_460_000_005n],
 ]);
 
 const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const prisma = new PrismaService();
 const deletionRepository = new ProgramTeamDeletionRepository(
+  new TeamHistoryRepository(),
   prisma,
   new TeamDeletionScopeRepository(),
   new PrismaSerializationRetryRepository(),
@@ -130,6 +134,9 @@ beforeEach(async () => {
 });
 
 async function cleanupTeamScope(): Promise<void> {
+  await prisma.teamHistory.deleteMany({
+    where: { teamId: { startsWith: TEST_PREFIX } },
+  });
   await prisma.notification.deleteMany({
     where: { userId: { startsWith: TEST_PREFIX } },
   });
@@ -421,6 +428,113 @@ async function seedApprovedTeam(
 function currentScope(teamId: string) {
   return deletionRepository.readScopeCounts(teamId);
 }
+
+it('3a staff deletion records every pending cancellation with the staff actor', async () => {
+  const fixture = await seedApprovedTeam();
+  await prisma.teamInvitation.createMany({
+    data: [
+      {
+        id: `${fixture.teamId}:second`,
+        teamId: fixture.teamId,
+        programId: PROGRAM_ID,
+        invitedById: LEADER_ID,
+        inviteeId: SECOND_INVITEE_ID,
+      },
+      {
+        id: `${fixture.teamId}:expired`,
+        teamId: fixture.teamId,
+        programId: PROGRAM_ID,
+        invitedById: LEADER_ID,
+        inviteeId: MEMBER_ID,
+        status: 'EXPIRED',
+      },
+    ],
+  });
+  const scope = await currentScope(fixture.teamId);
+
+  await service.deleteForStaff(
+    STAFF_GITHUB_ID,
+    PROGRAM_ID,
+    fixture.teamId,
+    scope,
+  );
+
+  const events = await prisma.teamHistory.findMany({
+    where: { teamId: fixture.teamId },
+    orderBy: { sourceId: 'asc' },
+  });
+  expect(events.map((event) => event.sourceId)).toEqual([
+    `${fixture.teamId}:invitation`,
+    `${fixture.teamId}:second`,
+  ]);
+  for (const event of events) {
+    expect(event).toMatchObject({
+      actorId: STAFF_ID,
+      event: 'INVITATION_CANCELLED',
+      source: 'APPLICATION',
+      data: { reason: 'TEAM_DELETED' },
+    });
+  }
+  await expect(
+    prisma.team.findUnique({ where: { id: fixture.teamId } }),
+  ).resolves.toBeNull();
+});
+
+it('3a history failure rolls back staff deletion and its notifications', async () => {
+  const fixture = await seedApprovedTeam();
+  await prisma.teamInvitation.create({
+    data: {
+      id: `${fixture.teamId}:second`,
+      teamId: fixture.teamId,
+      programId: PROGRAM_ID,
+      invitedById: LEADER_ID,
+      inviteeId: SECOND_INVITEE_ID,
+    },
+  });
+  await prisma.teamHistory.create({
+    data: {
+      teamId: fixture.teamId,
+      programId: PROGRAM_ID,
+      actorId: STAFF_ID,
+      event: 'INVITATION_CANCELLED',
+      source: 'APPLICATION',
+      sourceTable: 'TeamInvitation',
+      sourceId: `${fixture.teamId}:second`,
+      data: {
+        schemaVersion: 1,
+        invitation: {
+          id: `${fixture.teamId}:second`,
+          inviteeId: SECOND_INVITEE_ID,
+          invitedById: LEADER_ID,
+          createdAt: '2026-08-01T00:00:00.000Z',
+        },
+      },
+    },
+  });
+  const scope = await currentScope(fixture.teamId);
+  const notifications = await prisma.notification.count();
+  const audits = await prisma.auditLog.count();
+
+  await expect(
+    service.deleteForStaff(STAFF_GITHUB_ID, PROGRAM_ID, fixture.teamId, scope),
+  ).rejects.toMatchObject({
+    code: 'P2002',
+    meta: { modelName: 'TeamHistory' },
+  });
+
+  await expect(currentScope(fixture.teamId)).resolves.toEqual(scope);
+  await expect(prisma.notification.count()).resolves.toBe(notifications);
+  await expect(prisma.auditLog.count()).resolves.toBe(audits);
+  await expect(
+    prisma.teamHistory.findMany({
+      where: { teamId: fixture.teamId },
+      select: { sourceId: true },
+    }),
+  ).resolves.toEqual([{ sourceId: `${fixture.teamId}:second` }]);
+  await expect(
+    prisma.submissionFile.findUnique({ where: { id: fixture.fileId } }),
+  ).resolves.toMatchObject({ lifecycle: 'ATTACHED' });
+});
 
 it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 사라진다', async () => {
   const fixture = await seedApprovedTeam();
@@ -949,6 +1063,7 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
     .deleteTeam(
       PROGRAM_ID,
       fixture.teamId,
+      STAFF_ID,
       expectedScope,
       async (store, event) => {
         await auditLog.record(

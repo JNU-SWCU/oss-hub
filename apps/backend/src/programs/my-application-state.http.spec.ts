@@ -1,10 +1,12 @@
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
+import { configureHttpApp } from '../configure-http-app';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ApplicationPreparationsController } from './application-preparations.controller';
 import { ApplicationPreparationsService } from './application-preparations.service';
+import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -57,9 +59,13 @@ beforeAll(async () => {
         useValue: { getMine },
       },
       {
-        provide: ApplicationPreparationsService,
-        useValue: { get: getPreparation },
+        provide: ApplicationPreparationsRepository,
+        useValue: {
+          findActor: jest.fn().mockResolvedValue('user-1'),
+          get: getPreparation,
+        },
       },
+      ApplicationPreparationsService,
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {
@@ -81,7 +87,7 @@ beforeAll(async () => {
     ],
   }).compile();
   app = module.createNestApplication();
-  app.setGlobalPrefix('api/v1');
+  configureHttpApp(app);
   await app.listen(0, '127.0.0.1');
   baseUrl = await app.getUrl();
   cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, 1133n, 0)}`;
@@ -180,5 +186,51 @@ describe('GET application-preparations/programs/:programId/me', () => {
       membership: 'MEMBER',
       preparation: { id: 'team-1', isLeader: false, canLeave: true },
     });
+  });
+});
+
+it('R1 rejects new Preparation creation with 410', async () => {
+  getPreparation.mockResolvedValueOnce(null);
+  const response = await fetch(
+    `${baseUrl}/api/v1/application-preparations/programs/program-1`,
+    {
+      method: 'POST',
+      headers: {
+        connection: 'close',
+        cookie,
+        origin,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Synthetic' }),
+    },
+  );
+  expect(response.status).toBe(410);
+  await expect(response.json()).resolves.toMatchObject({
+    code: 'APP_036',
+    status: 410,
+  });
+});
+
+it('R1 returns the existing preparation without applying a replacement name', async () => {
+  getPreparation.mockResolvedValueOnce(PREPARATION);
+  const response = await fetch(
+    `${baseUrl}/api/v1/application-preparations/programs/program-1`,
+    {
+      method: 'POST',
+      headers: {
+        connection: 'close',
+        cookie,
+        origin,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Replacement' }),
+    },
+  );
+  expect(response.status).toBe(201);
+  await expect(response.json()).resolves.toMatchObject({
+    id: PREPARATION.id,
+    name: PREPARATION.name,
+    canInvite: true,
+    canRemoveMembers: true,
   });
 });

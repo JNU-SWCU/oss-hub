@@ -333,6 +333,7 @@ it('확인한 범위를 그대로 보내면 200 과 지운 수치를 받는다',
   expect(repositoryDeleteTeam).toHaveBeenCalledWith(
     PROGRAM_ID,
     TEAM_ID,
+    STAFF_AUTHORITY.id,
     EXPECTED_SCOPE,
     expect.any(Function),
     expect.any(Function),

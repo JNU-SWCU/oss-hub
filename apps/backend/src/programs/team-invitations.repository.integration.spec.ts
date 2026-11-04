@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
@@ -35,11 +36,13 @@ const OUTSIDER_ID = `${TEST_PREFIX}outsider`;
 const RESPONDED_AT = new Date('2026-08-10T00:00:00.000Z');
 const prisma = new PrismaService();
 const repository = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
   prisma,
   new PlatformRepository(),
 );
 
 async function cleanup(): Promise<void> {
+  await prisma.teamHistory.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.outboxEvent.deleteMany({
     where: { aggregateId: { startsWith: TEST_PREFIX } },
   });
@@ -183,6 +186,250 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
   afterAll(async () => {
     await cleanup();
     await prisma.$disconnect();
+  });
+
+  it.each(['accept', 'decline', 'cancel'] as const)(
+    '3a retains the legacy terminal row and records history after %s',
+    async (action) => {
+      const result =
+        action === 'accept'
+          ? await repository.withAcceptTransaction(
+              INVITATION_ID,
+              INVITEE_ID,
+              RESPONDED_AT,
+            )
+          : action === 'decline'
+            ? await repository.declinePendingInvitationAsInvitee(
+                INVITATION_ID,
+                INVITEE_ID,
+                RESPONDED_AT,
+              )
+            : await repository.cancelPendingInvitationAsLeader(
+                INVITATION_ID,
+                LEADER_ID,
+                RESPONDED_AT,
+              );
+      expect(result.kind).toBe('ok');
+      await expect(
+        prisma.teamInvitation.findUnique({ where: { id: INVITATION_ID } }),
+      ).resolves.toMatchObject({
+        status: action === 'accept' ? 'ACCEPTED' : 'DECLINED',
+        respondedAt: RESPONDED_AT,
+      });
+      const histories = await prisma.teamHistory.findMany({
+        where: { sourceTable: 'TeamInvitation', sourceId: INVITATION_ID },
+      });
+      expect(histories).toHaveLength(1);
+      expect(histories[0]).toMatchObject({
+        teamId: TARGET_TEAM_ID,
+        programId: PROGRAM_ID,
+        actorId: action === 'cancel' ? LEADER_ID : INVITEE_ID,
+        event: {
+          accept: 'INVITATION_ACCEPTED',
+          decline: 'INVITATION_DECLINED',
+          cancel: 'INVITATION_CANCELLED',
+        }[action],
+        occurredAt: RESPONDED_AT,
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          invitation: {
+            id: INVITATION_ID,
+            inviteeId: INVITEE_ID,
+            invitedById: LEADER_ID,
+          },
+        },
+      });
+    },
+  );
+
+  it('3a retains the legacy closed-row read contract', async () => {
+    await prisma.teamInvitation.update({
+      where: { id: INVITATION_ID },
+      data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
+    });
+    expect(
+      (await repository.findByTeamId(TARGET_TEAM_ID)).map((row) => row.status),
+    ).toEqual(['DECLINED']);
+    expect(
+      (await repository.findByInviteeId(INVITEE_ID)).map((row) => row.status),
+    ).toEqual(['DECLINED']);
+    await expect(
+      prisma.teamInvitation.count({ where: { id: INVITATION_ID } }),
+    ).resolves.toBe(1);
+  });
+
+  it('3a rolls back the close, history and membership when the transaction fails', async () => {
+    await expect(
+      repository.withAcceptTransaction(
+        INVITATION_ID,
+        INVITEE_ID,
+        RESPONDED_AT,
+        () => Promise.reject(new Error('synthetic failure after history')),
+      ),
+    ).rejects.toThrow('synthetic failure after history');
+    const [invitation, membership] =
+      await storedInvitationAndTargetMembership();
+    expect(invitation).toMatchObject({ status: 'PENDING', respondedAt: null });
+    expect(membership).toBeNull();
+    await expect(
+      prisma.teamHistory.count({ where: { programId: PROGRAM_ID } }),
+    ).resolves.toBe(0);
+  });
+
+  it('3a records exactly one winner across acceptance, decline and cancellation', async () => {
+    const outcomes = await Promise.all([
+      repository.withAcceptTransaction(INVITATION_ID, INVITEE_ID, RESPONDED_AT),
+      repository.declinePendingInvitationAsInvitee(
+        INVITATION_ID,
+        INVITEE_ID,
+        RESPONDED_AT,
+      ),
+      repository.cancelPendingInvitationAsLeader(
+        INVITATION_ID,
+        LEADER_ID,
+        RESPONDED_AT,
+      ),
+    ]);
+    expect(outcomes.filter((outcome) => outcome.kind === 'ok')).toHaveLength(1);
+    const histories = await prisma.teamHistory.findMany({
+      where: { sourceId: INVITATION_ID },
+    });
+    expect(histories).toHaveLength(1);
+    const [invitation, membership] =
+      await storedInvitationAndTargetMembership();
+    expect(invitation.status).toBe(
+      histories[0]?.event === 'INVITATION_ACCEPTED' ? 'ACCEPTED' : 'DECLINED',
+    );
+    expect(membership !== null).toBe(
+      histories[0]?.event === 'INVITATION_ACCEPTED',
+    );
+  });
+
+  it('3a closes other pending invitations with an explicit automatic cancellation reason', async () => {
+    await prisma.team.create({
+      data: {
+        id: OTHER_TEAM_ID,
+        programId: PROGRAM_ID,
+        name: 'Other',
+        leaderId: OUTSIDER_ID,
+      },
+    });
+    await prisma.teamInvitation.create({
+      data: {
+        id: `${INVITATION_ID}:other`,
+        programId: PROGRAM_ID,
+        teamId: OTHER_TEAM_ID,
+        inviteeId: INVITEE_ID,
+        invitedById: OUTSIDER_ID,
+      },
+    });
+    await expect(
+      repository.withAcceptTransaction(INVITATION_ID, INVITEE_ID, RESPONDED_AT),
+    ).resolves.toMatchObject({ kind: 'ok' });
+    await expect(
+      prisma.teamInvitation.count({ where: { programId: PROGRAM_ID } }),
+    ).resolves.toBe(2);
+    const histories = await prisma.teamHistory.findMany({
+      where: { sourceId: `${INVITATION_ID}:other` },
+    });
+    expect(histories).toHaveLength(1);
+    expect(histories[0]).toMatchObject({
+      event: 'INVITATION_CANCELLED',
+      actorId: INVITEE_ID,
+      data: { reason: 'JOINED_ANOTHER_TEAM' },
+    });
+  });
+
+  it('3a keeps history after the team is physically deleted', async () => {
+    await repository.declinePendingInvitationAsInvitee(
+      INVITATION_ID,
+      INVITEE_ID,
+      RESPONDED_AT,
+    );
+    await prisma.teamInvitation.deleteMany({
+      where: { teamId: TARGET_TEAM_ID },
+    });
+    await prisma.teamMember.deleteMany({ where: { teamId: TARGET_TEAM_ID } });
+    await prisma.team.delete({ where: { id: TARGET_TEAM_ID } });
+    await expect(
+      prisma.teamHistory.count({ where: { teamId: TARGET_TEAM_ID } }),
+    ).resolves.toBe(1);
+  });
+
+  it('3a rolls back invitation status when the history insert fails', async () => {
+    await prisma.teamHistory.create({
+      data: {
+        teamId: TARGET_TEAM_ID,
+        programId: PROGRAM_ID,
+        actorId: INVITEE_ID,
+        event: 'INVITATION_DECLINED',
+        source: 'APPLICATION',
+        sourceTable: 'TeamInvitation',
+        sourceId: INVITATION_ID,
+        data: {
+          schemaVersion: 1,
+          invitation: {
+            id: INVITATION_ID,
+            inviteeId: INVITEE_ID,
+            invitedById: LEADER_ID,
+            createdAt: RESPONDED_AT.toISOString(),
+          },
+        },
+      },
+    });
+    await expect(
+      repository.withAcceptTransaction(INVITATION_ID, INVITEE_ID, RESPONDED_AT),
+    ).rejects.toMatchObject({
+      code: 'P2002',
+      meta: { modelName: 'TeamHistory' },
+    });
+    const [invitation, membership] =
+      await storedInvitationAndTargetMembership();
+    expect(invitation).toMatchObject({ status: 'PENDING', respondedAt: null });
+    expect(membership).toBeNull();
+    await expect(
+      prisma.teamHistory.count({ where: { sourceId: INVITATION_ID } }),
+    ).resolves.toBe(1);
+  });
+
+  it('3a preserves old status writes and permits reinvitation after a new decline', async () => {
+    await repository.declinePendingInvitationAsInvitee(
+      INVITATION_ID,
+      INVITEE_ID,
+      RESPONDED_AT,
+    );
+    await expect(
+      prisma.teamInvitation.findUnique({ where: { id: INVITATION_ID } }),
+    ).resolves.toMatchObject({ status: 'DECLINED', respondedAt: RESPONDED_AT });
+    await expect(
+      prisma.teamInvitation.updateMany({
+        where: { id: INVITATION_ID, status: 'PENDING' },
+        data: { status: 'ACCEPTED', respondedAt: RESPONDED_AT },
+      }),
+    ).resolves.toEqual({ count: 0 });
+    const next = await prisma.teamInvitation.create({
+      data: {
+        teamId: TARGET_TEAM_ID,
+        programId: PROGRAM_ID,
+        inviteeId: INVITEE_ID,
+        invitedById: LEADER_ID,
+      },
+    });
+    expect(next.status).toBe('PENDING');
+    await prisma.teamInvitation.updateMany({
+      where: { id: next.id, status: 'PENDING' },
+      data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
+    });
+    expect(
+      (await repository.findByInviteeId(INVITEE_ID)).map((row) => row.status),
+    ).toEqual(['DECLINED', 'DECLINED']);
+    await expect(
+      prisma.teamInvitation.findUnique({ where: { id: next.id } }),
+    ).resolves.toMatchObject({ status: 'DECLINED' });
+    await expect(
+      prisma.teamHistory.count({ where: { programId: PROGRAM_ID } }),
+    ).resolves.toBe(1);
   });
 
   it('projects only the allowlisted invitee fields on sent invitations', async () => {

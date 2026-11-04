@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramLifecycle } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -34,9 +35,14 @@ const teams = new ProgramTeamsRepository(
   new ProgramTeamRepositoryEvidenceRepository(prisma),
   platform,
 );
-const invitations = new TeamInvitationsRepository(prisma, platform);
+const invitations = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
+  prisma,
+  platform,
+);
 const preparations = new ApplicationPreparationsRepository(prisma, platform);
 const teamDeletion = new ProgramTeamDeletionRepository(
+  new TeamHistoryRepository(),
   prisma,
   new TeamDeletionScopeRepository(),
   new PrismaSerializationRetryRepository(),
@@ -57,6 +63,7 @@ const staffGithubId = 9_878_100_004n;
 const recordAudit = jest.fn(async () => {});
 
 async function cleanup(): Promise<void> {
+  await prisma.teamHistory.deleteMany({ where: { programId } });
   await prisma.githubRepository.deleteMany({ where: { programId } });
   await prisma.application.deleteMany({ where: { programId } });
   await prisma.milestone.deleteMany({ where: { programId } });
@@ -338,6 +345,7 @@ describe.each([
     const result = await teamDeletion.deleteTeam(
       programId,
       teamId,
+      staffId,
       scope,
       recordAudit,
       recordAudit,

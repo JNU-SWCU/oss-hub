@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -622,6 +623,7 @@ describe('ApplicationsService integration', () => {
       }),
     ).toEqual({ status: ApplicationStatus.SUBMITTED });
     const invitations = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       prisma,
       new PlatformRepository(),
     );
@@ -721,6 +723,7 @@ describe('ApplicationsService integration', () => {
                 },
               });
               return new TeamInvitationsRepository(
+                new TeamHistoryRepository(),
                 prisma,
                 new PlatformRepository(),
               ).withAcceptTransaction(

@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -73,6 +74,7 @@ describe('team invitation without legacy team columns', () => {
       },
     });
     const repository = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       prisma,
       new PlatformRepository(),
     );

@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -84,6 +85,7 @@ const service = new ProgramTeamsService(
   repository,
   auditLog,
   new ProgramTeamDeletionRepository(
+    new TeamHistoryRepository(),
     prisma,
     new TeamDeletionScopeRepository(),
     new PrismaSerializationRetryRepository(),
@@ -103,6 +105,7 @@ const service = new ProgramTeamsService(
   ),
 );
 const invitations = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
   prisma,
   new PlatformRepository(),
 );
@@ -114,6 +117,7 @@ interface MemberSeed {
 }
 
 async function cleanupTeamScope(): Promise<void> {
+  await prisma.teamHistory.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.submissionFile.deleteMany({
     where: { uploaderId: { startsWith: TEST_PREFIX } },
   });
