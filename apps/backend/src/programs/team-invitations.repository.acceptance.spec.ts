@@ -79,7 +79,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       teamInvitation: {
         findUnique,
         findMany: jest.fn().mockResolvedValue([]),
-        deleteMany: jest
+        updateMany: jest
           .fn()
           .mockResolvedValueOnce({ count: options.acceptedCount ?? 1 })
           .mockResolvedValue({ count: 0 }),
@@ -174,8 +174,9 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       where: { id: syntheticInvitationId },
       select: { status: true },
     });
-    expect(tx.teamInvitation.deleteMany).toHaveBeenNthCalledWith(1, {
+    expect(tx.teamInvitation.updateMany).toHaveBeenNthCalledWith(1, {
       where: { id: syntheticInvitationId, status: 'PENDING' },
+      data: { status: 'ACCEPTED', respondedAt: acceptedAt },
     });
     expect(outcome).toEqual({
       kind: 'ok',
@@ -341,7 +342,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     const outcome = await accept(tx);
 
     expect(outcome).toEqual({ kind: 'not-pending' });
-    expect(tx.teamInvitation.deleteMany).not.toHaveBeenCalled();
+    expect(tx.teamInvitation.updateMany).not.toHaveBeenCalled();
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
@@ -352,7 +353,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
-  it('deleteMany count가 0이면 not-pending을 반환하고 멤버를 만들지 않는다', async () => {
+  it('updateMany count가 0이면 not-pending을 반환하고 멤버를 만들지 않는다', async () => {
     const tx = buildTx({ acceptedCount: 0 });
 
     const outcome = await accept(tx);
@@ -384,7 +385,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     });
 
     await expect(accept(tx)).resolves.toEqual({ kind: 'invitee-not-eligible' });
-    expect(tx.teamInvitation.deleteMany).not.toHaveBeenCalled();
+    expect(tx.teamInvitation.updateMany).not.toHaveBeenCalled();
   });
 
   it('이미 같은 프로그램 팀에 소속돼 있으면 already-in-team을 반환한다', async () => {

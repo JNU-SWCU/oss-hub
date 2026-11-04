@@ -189,7 +189,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
   });
 
   it.each(['accept', 'decline', 'cancel'] as const)(
-    '3b removes a newly closed row and keeps its history after %s',
+    '3b retains the terminal row and history for image rollback after %s',
     async (action) => {
       const result =
         action === 'accept'
@@ -212,7 +212,14 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       expect(result.kind).toBe('ok');
       await expect(
         prisma.teamInvitation.findUnique({ where: { id: INVITATION_ID } }),
-      ).resolves.toBeNull();
+      ).resolves.toMatchObject({
+        status: action === 'accept' ? 'ACCEPTED' : 'DECLINED',
+        respondedAt: RESPONDED_AT,
+      });
+      await expect(repository.findByTeamId(TARGET_TEAM_ID)).resolves.toEqual(
+        [],
+      );
+      await expect(repository.findByInviteeId(INVITEE_ID)).resolves.toEqual([]);
       const histories = await prisma.teamHistory.findMany({
         where: { sourceTable: 'TeamInvitation', sourceId: INVITATION_ID },
       });
@@ -291,7 +298,11 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     expect(histories).toHaveLength(1);
     const [invitation, membership] =
       await storedInvitationAndTargetMembership();
-    expect(invitation).toBeNull();
+    expect(invitation).toMatchObject({
+      status:
+        histories[0]?.event === 'INVITATION_ACCEPTED' ? 'ACCEPTED' : 'DECLINED',
+      respondedAt: RESPONDED_AT,
+    });
     expect(membership !== null).toBe(
       histories[0]?.event === 'INVITATION_ACCEPTED',
     );
@@ -319,8 +330,19 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       repository.withAcceptTransaction(INVITATION_ID, INVITEE_ID, RESPONDED_AT),
     ).resolves.toMatchObject({ kind: 'ok' });
     await expect(
-      prisma.teamInvitation.count({ where: { programId: PROGRAM_ID } }),
-    ).resolves.toBe(0);
+      prisma.teamInvitation.findMany({
+        where: { programId: PROGRAM_ID },
+        orderBy: { id: 'asc' },
+        select: { id: true, status: true, respondedAt: true },
+      }),
+    ).resolves.toEqual([
+      { id: INVITATION_ID, status: 'ACCEPTED', respondedAt: RESPONDED_AT },
+      {
+        id: `${INVITATION_ID}:other`,
+        status: 'DECLINED',
+        respondedAt: RESPONDED_AT,
+      },
+    ]);
     const histories = await prisma.teamHistory.findMany({
       where: { sourceId: `${INVITATION_ID}:other` },
     });
@@ -339,6 +361,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       RESPONDED_AT,
     );
     await prisma.teamMember.deleteMany({ where: { teamId: TARGET_TEAM_ID } });
+    await prisma.teamInvitation.deleteMany({
+      where: { teamId: TARGET_TEAM_ID },
+    });
     await prisma.team.delete({ where: { id: TARGET_TEAM_ID } });
     await expect(
       prisma.teamHistory.count({ where: { teamId: TARGET_TEAM_ID } }),
@@ -389,7 +414,10 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     );
     await expect(
       prisma.teamInvitation.findUnique({ where: { id: INVITATION_ID } }),
-    ).resolves.toBeNull();
+    ).resolves.toMatchObject({
+      status: 'DECLINED',
+      respondedAt: RESPONDED_AT,
+    });
     await expect(
       prisma.teamInvitation.updateMany({
         where: { id: INVITATION_ID, status: 'PENDING' },
@@ -636,7 +664,10 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       teamId: TARGET_TEAM_ID,
       programId: PROGRAM_ID,
     });
-    expect(invitation).toBeNull();
+    expect(invitation).toMatchObject({
+      status: 'ACCEPTED',
+      respondedAt: RESPONDED_AT,
+    });
     expect(membership).toMatchObject({
       teamId: TARGET_TEAM_ID,
       programId: PROGRAM_ID,
@@ -667,7 +698,10 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       teamId: TARGET_TEAM_ID,
       programId: PROGRAM_ID,
     });
-    expect(invitation).toBeNull();
+    expect(invitation).toMatchObject({
+      status: 'ACCEPTED',
+      respondedAt: RESPONDED_AT,
+    });
     expect(membership).not.toBeNull();
 
     await expect(
@@ -699,7 +733,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     ).resolves.toBe(1);
   });
 
-  it('serializes duplicate concurrent acceptance into one success and one missing invitation', async () => {
+  it('serializes duplicate concurrent acceptance into one success and one non-pending invitation', async () => {
     const outcomes = await Promise.all([
       repository.withAcceptTransaction(INVITATION_ID, INVITEE_ID, RESPONDED_AT),
       repository.withAcceptTransaction(INVITATION_ID, INVITEE_ID, RESPONDED_AT),
@@ -708,10 +742,13 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     const [invitation, membership] =
       await storedInvitationAndTargetMembership();
     expect(outcomes.map((outcome) => outcome.kind).sort()).toEqual([
-      'not-found',
+      'not-pending',
       'ok',
     ]);
-    expect(invitation).toBeNull();
+    expect(invitation).toMatchObject({
+      status: 'ACCEPTED',
+      respondedAt: RESPONDED_AT,
+    });
     await expect(
       prisma.teamHistory.count({ where: { sourceId: INVITATION_ID } }),
     ).resolves.toBe(1);
@@ -904,7 +941,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       ]);
 
       expect(outcomes.map((outcome) => outcome.kind).sort()).toEqual([
-        'not-found',
+        'not-pending',
         'ok',
       ]);
       await expect(storedAccessSyncEvents()).resolves.toHaveLength(1);
