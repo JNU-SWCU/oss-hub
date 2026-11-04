@@ -45,6 +45,7 @@ const milestoneDocument: MilestoneDocument = {
   name: '기획서',
   required: true,
   sortOrder: 0,
+  submissionType: 'FILE_OR_TEXT' as const,
   hasTemplateFile: false,
   templateFileName: null,
 };
@@ -231,7 +232,7 @@ describe('MilestoneDocumentSection response recovery', () => {
     expect(queryClient.getQueryState(overviewKey)?.isInvalidated).toBe(false);
     expect(
       queryClient.getQueryData(
-        milestoneDocumentsKey('program-1', 'milestone-1'),
+        milestoneDocumentsKey('program-1', 'milestone-1', 'all'),
       ),
     ).toEqual(documentListBody([milestoneDocument]));
   });
@@ -1480,51 +1481,15 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
     );
   }
 
-  it('안내와 「수정」 버튼이 스스로 잠긴다', () => {
-    renderRow();
-
-    expect(editButton().disabled).toBe(false);
-    expect(dueText()).toContain('까지');
-
-    act(() => {
-      vi.advanceTimersByTime(1001);
-    });
-
-    expect(editButton().disabled).toBe(true);
-    expect(dueText()).toContain('지났습니다');
-  });
-
-  it('브라우저 최대 대기 시간을 두 번 넘겨도 기한 뒤에는 수정이 잠긴다', () => {
-    const maxDelay = 2_147_483_647;
-    vi.setSystemTime(
-      new Date(Date.parse(resubmissionDueAt) - maxDelay * 2 - 1000),
-    );
+  it('keeps a changes request open after an obsolete expiry passes', () => {
     renderRow();
     expect(editButton().disabled).toBe(false);
-
-    act(() => {
-      vi.advanceTimersByTime(maxDelay);
-    });
-    act(() => {
-      vi.advanceTimersByTime(maxDelay);
-    });
+    expect(dueText()).toBe('');
     act(() => {
       vi.advanceTimersByTime(1001);
     });
-
-    expect(editButton().disabled).toBe(true);
-  });
-
-  it('기한을 겨냥한 타이머 하나만 걸고, 지나면 스스로 걷힌다', () => {
-    renderRow();
-
-    expect(vi.getTimerCount()).toBe(1);
-
-    act(() => {
-      vi.advanceTimersByTime(1001);
-    });
-
-    expect(vi.getTimerCount()).toBe(0);
+    expect(editButton().disabled).toBe(false);
+    expect(dueText()).toBe('');
   });
 });
 

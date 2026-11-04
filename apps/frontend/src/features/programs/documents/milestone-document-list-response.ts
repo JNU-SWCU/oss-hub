@@ -37,6 +37,13 @@ export function requireMilestoneDocumentList(
       throw new TypeError('Invalid milestone document response');
     const document = value as Record<string, unknown>;
     if (
+      document.submissionType !== 'FILE' &&
+      document.submissionType !== 'TEXT' &&
+      document.submissionType !== 'FILE_OR_TEXT'
+    ) {
+      throw new TypeError('Invalid requirement submission type');
+    }
+    if (
       document.graceDueAt != null &&
       (typeof document.graceDueAt !== 'string' ||
         !Number.isFinite(Date.parse(document.graceDueAt)))

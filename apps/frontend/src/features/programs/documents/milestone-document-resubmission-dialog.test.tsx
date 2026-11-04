@@ -21,7 +21,6 @@ it.each(['previous.pdf', null])(
         root.render(
           <MilestoneDocumentResubmissionDialog
             documentName="계획서"
-            resubmissionDueAt="2099-12-31T00:00:00.000Z"
             removedFileName={removedFileName}
             submitting={false}
             onCancel={onCancel}

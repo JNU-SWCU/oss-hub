@@ -74,8 +74,8 @@ vi.mock('@/features/submissions/components/submission-matrix-screen', () => ({
   },
 }));
 
-vi.mock('@/features/submissions/submission-checklist-page', () => ({
-  SubmissionChecklistPage: (props: ChecklistProps) => {
+vi.mock('../requirement-checklist', () => ({
+  RequirementChecklistPage: (props: ChecklistProps) => {
     state.checklistProps = props;
     return <div>student checklist</div>;
   },

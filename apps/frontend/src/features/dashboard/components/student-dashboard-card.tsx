@@ -290,7 +290,6 @@ export function ActiveProgramCard({
         ) : null}
         <ProgramFeedback
           items={feedback}
-          now={now}
           className="col-span-full mt-1 border-t border-border pt-3"
         />
       </CardContent>
@@ -316,7 +315,6 @@ export function ActiveProgramCard({
 
 export function ProgramCompactRow({
   item,
-  now,
   feedback,
 }: {
   readonly item: DashboardItem;
@@ -398,7 +396,6 @@ export function ProgramCompactRow({
       ) : null}
       <ProgramFeedback
         items={feedback}
-        now={now}
         className="basis-full rounded-md bg-muted/50 p-3"
       />
     </ListRow>

@@ -172,6 +172,80 @@ const VIEWPORTS = [
   { name: 'phone', width: 390, height: 844 },
 ] as const;
 
+test('requirement feedback uses an optional reason and no separate expiry', async ({
+  page,
+}, testInfo) => {
+  const before = process.env.REQUIREMENT_SWITCH_PHASE === 'before';
+  await page.clock.setFixedTime(new Date('2026-08-20T10:00:00+09:00'));
+  await installSyntheticAuthority(
+    page,
+    {
+      role: 'STUDENT',
+      memberKind: 'STUDENT',
+      hasStaffAccess: false,
+      hasAdminAccess: false,
+    },
+    {
+      'GET /api/v1/consents/current': (route) =>
+        fulfillJson(route, {
+          policyVersion: '2026-11-01',
+          requiredItems: [
+            {
+              key: 'privacy',
+              label: '개인정보 수집·이용',
+              documentUrl: '/policies/privacy',
+            },
+          ],
+          acceptedPolicyVersion: '2026-11-01',
+          consented: true,
+          nextUrl: '/dashboard',
+        }),
+      'GET /api/v1/dashboard/student': (route) =>
+        fulfillJson(route, { items: ITEMS }),
+      'GET /api/v1/dashboard/student/feedback': (route) =>
+        fulfillJson(route, { items: FEEDBACK }),
+      'GET /api/v1/users/me/notifications/application-decisions': (route) =>
+        fulfillJson(route, []),
+      'GET /api/v1/users/me/notifications/team-deletions': (route) =>
+        fulfillJson(route, []),
+      'GET /api/v1/team-invitations/received': (route) =>
+        fulfillJson(route, []),
+    },
+  );
+  await page.goto('/dashboard');
+  const dashboard = page.locator('main').filter({
+    has: page.getByRole('heading', { name: '내 대시보드', exact: true }),
+  });
+  await expect(dashboard).toBeVisible();
+  if (!before) {
+    await expect(
+      dashboard.getByText('사유 없이 저장되었습니다.', { exact: true }).first(),
+    ).toBeVisible();
+    await expect(dashboard.getByText(/재제출 기한/)).toHaveCount(0);
+  }
+  for (const width of [1440, 390]) {
+    await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+    const feedback = dashboard.locator('[data-slot="card"]').filter({
+      has: page.getByRole('heading', { name: /^2026 합성 오픈소스/ }),
+    });
+    await expect(feedback).toBeVisible();
+    await page.addStyleTag({
+      content: 'nextjs-portal { display: none !important; }',
+    });
+    await feedback.screenshot({
+      path: testInfo.outputPath(
+        `${before ? 'before' : 'after'}-feedback-${width}-element.png`,
+      ),
+    });
+    await page.screenshot({
+      path: testInfo.outputPath(
+        `${before ? 'before' : 'after'}-feedback-${width}-page.png`,
+      ),
+      fullPage: true,
+    });
+  }
+});
+
 async function expectContained(dashboard: Locator): Promise<void> {
   const result = await dashboard.evaluate((root) => {
     const escaped: string[] = [];

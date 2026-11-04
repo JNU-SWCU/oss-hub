@@ -39,8 +39,6 @@ import {
   isMilestoneDocumentResubmissionFinal,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
-  milestoneDocumentResubmissionDueNotice,
-  milestoneDocumentResubmissionDueTickDelay,
   milestoneDocumentReviewNoticeTone,
   milestoneDocumentViewerDisplay,
   type MilestoneDocumentReviewDisplay,
@@ -57,6 +55,7 @@ import { MilestoneDocumentSubmissionForm } from './milestone-document-submission
 import { isMilestoneDocumentArchiveErrorCode } from './milestone-document-upload-policy';
 import type { ViewerRole } from '../program-contract';
 import { MilestoneDocumentGraceEditor } from './milestone-document-grace-editor';
+import { SubmissionFileUploadCache } from '@/lib/submission-file-upload-cache';
 
 export type MilestoneDocumentSectionState =
   | { readonly kind: 'loading' }
@@ -94,6 +93,7 @@ export function MilestoneDocumentSectionBody({
   closed,
   dueAt,
   submissionAccess,
+  onBusyChange,
   conflictNotice,
   onRetry,
   onRefresh = () => Promise.resolve(true),
@@ -107,6 +107,7 @@ export function MilestoneDocumentSectionBody({
   readonly dueAt?: string;
 
   readonly submissionAccess: MilestoneSubmissionAccess;
+  readonly onBusyChange?: (busy: boolean) => void;
 
   readonly conflictNotice: string | null;
   readonly onRetry: () => void;
@@ -173,6 +174,7 @@ export function MilestoneDocumentSectionBody({
               closed={closed}
               dueAt={dueAt}
               submissionAccess={submissionAccess}
+              onBusyChange={onBusyChange}
               onRefresh={onRefresh}
               onSubmitConflict={onSubmitConflict}
               onSubmitted={onSubmitted}
@@ -191,6 +193,7 @@ export function MilestoneDocumentSection({
   closed,
   dueAt,
   submissionAccess,
+  onBusyChange,
 }: {
   readonly programId: string;
   readonly milestoneId: string;
@@ -199,12 +202,15 @@ export function MilestoneDocumentSection({
   readonly dueAt?: string;
 
   readonly submissionAccess: MilestoneSubmissionAccess;
+  readonly onBusyChange?: (busy: boolean) => void;
 }) {
   const queryClient = useQueryClient();
+  const scope = viewerRole === 'STAFF' ? undefined : 'all';
   const result = useMilestoneDocumentsQuery(
     programId,
     milestoneId,
     viewerRole !== null && viewerRole !== 'PENDING',
+    scope,
   );
   const [loadFailed, setLoadFailed] = useState(false);
   const state: MilestoneDocumentSectionState =
@@ -246,7 +252,9 @@ export function MilestoneDocumentSection({
           type: 'active',
           predicate: (query) =>
             !matchQuery(
-              { queryKey: milestoneDocumentsKey(programId, milestoneId) },
+              {
+                queryKey: milestoneDocumentsKey(programId, milestoneId, scope),
+              },
               query,
             ),
         });
@@ -256,6 +264,7 @@ export function MilestoneDocumentSection({
       closed={closed}
       dueAt={dueAt}
       submissionAccess={submissionAccess}
+      onBusyChange={onBusyChange}
       conflictNotice={conflictNotice}
       onRetry={() => {
         setConflictNotice(null);
@@ -264,7 +273,7 @@ export function MilestoneDocumentSection({
       onDocumentChange={(updated) => {
         setConflictNotice(null);
         queryClient.setQueryData(
-          milestoneDocumentsKey(programId, milestoneId),
+          milestoneDocumentsKey(programId, milestoneId, scope),
           result.data === undefined
             ? undefined
             : {
@@ -353,18 +362,12 @@ function StudentReviewNotice({
   display,
   tone,
   review,
-  dueNotice,
 }: {
   readonly display: MilestoneDocumentReviewDisplay;
   readonly tone: MilestoneDocumentReviewNoticeTone;
   readonly review: NonNullable<
     NonNullable<MilestoneDocument['viewerSubmission']>['review']
   >;
-
-  readonly dueNotice: {
-    readonly kind: 'open' | 'passed';
-    readonly dueAt: string;
-  } | null;
 }) {
   return (
     <Alert
@@ -379,17 +382,6 @@ function StudentReviewNotice({
         <span className="break-keep whitespace-pre-wrap">
           {review.comment ?? '사유 없이 저장되었습니다.'}
         </span>
-
-        {dueNotice === null ? null : (
-          <span
-            data-testid="milestone-document-resubmission-due"
-            className="break-keep font-semibold"
-          >
-            {dueNotice.kind === 'open'
-              ? `재제출 기한 ${formatSeoulDate(dueNotice.dueAt)}까지 · 한 번 다시 내면 검토가 끝날 때까지 바꿀 수 없습니다`
-              : `재제출 기한 ${formatSeoulDate(dueNotice.dueAt)}이 지났습니다 · 담당 교직원에게 문의해 주세요`}
-          </span>
-        )}
       </AlertDescription>
     </Alert>
   );
@@ -437,6 +429,7 @@ function StudentDocumentRow({
   closed,
   dueAt,
   submissionAccess,
+  onBusyChange,
   onRefresh,
   onSubmitConflict,
   onSubmitted,
@@ -447,16 +440,25 @@ function StudentDocumentRow({
   readonly closed: boolean;
   readonly dueAt?: string;
   readonly submissionAccess: MilestoneSubmissionAccess;
+  readonly onBusyChange?: (busy: boolean) => void;
   readonly onRefresh: () => Promise<boolean>;
   readonly onSubmitConflict: (document: MilestoneDocument) => void;
   readonly onSubmitted: () => void;
 }) {
   const [editing, setEditing] = useState(false);
+  const [expectedRevision, setExpectedRevision] = useState(0);
+  const uploadedFile = useRef(new SubmissionFileUploadCache());
   const [submitting, setSubmitting] = useState(false);
+  useEffect(() => {
+    if (!submitting || onBusyChange === undefined) return;
+    onBusyChange(true);
+    return () => onBusyChange(false);
+  }, [submitting, onBusyChange]);
 
   const [pendingDraft, setPendingDraft] = useState<{
     readonly text: string | null;
     readonly file: File | null;
+    readonly comment?: string;
   } | null>(null);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -513,17 +515,8 @@ function StudentDocumentRow({
     viewerSubmission,
   );
 
-  const dueNotice = milestoneDocumentResubmissionDueNotice(
-    viewerSubmission,
-    now,
-  );
-
   const historyMetadata = viewerSubmission?.history;
 
-  const dueTickDelay = milestoneDocumentResubmissionDueTickDelay(
-    viewerSubmission,
-    now,
-  );
   const nextDeadline = Math.min(
     ...[dueAt, document.graceDueAt]
       .map((value) => (value == null ? Number.NaN : Date.parse(value)))
@@ -537,11 +530,6 @@ function StudentDocumentRow({
     );
     return () => clearTimeout(timer);
   }, [nextDeadline, now]);
-  useEffect(() => {
-    if (dueTickDelay === null) return;
-    const timer = setTimeout(() => setNow(Date.now()), dueTickDelay);
-    return () => clearTimeout(timer);
-  }, [dueTickDelay, now]);
 
   const refreshDocument = useCallback(async (): Promise<boolean> => {
     setSyncing(true);
@@ -565,7 +553,10 @@ function StudentDocumentRow({
       : historyResult.refetch();
 
   const finish = useCallback(
-    async (content: MilestoneDocumentSubmissionContent): Promise<boolean> => {
+    async (
+      content: MilestoneDocumentSubmissionContent,
+      comment?: string,
+    ): Promise<boolean> => {
       setSubmitting(true);
       setError(null);
       setSyncNotice(null);
@@ -574,44 +565,63 @@ function StudentDocumentRow({
           document.milestoneId,
           document.id,
           content,
+          { expectedRevision, ...(comment === undefined ? {} : { comment }) },
         );
+        uploadedFile.current.discard();
         onSubmitted();
         setEditing(false);
         await refreshDocument();
         return true;
       } catch (submitError: unknown) {
         if (isMilestoneDocumentSubmitReviewChanged(submitError)) {
+          setEditing(false);
+          uploadedFile.current.discard();
           onSubmitConflict(document);
           return false;
         }
+        if (
+          submitError instanceof ApiError &&
+          ['MSD_009', 'MSD_014'].includes(submitError.problem.code)
+        )
+          uploadedFile.current.discard();
         setError(submitErrorMessage(submitError, '제출에 실패했습니다.'));
         return false;
       } finally {
         setSubmitting(false);
       }
     },
-    [document, onSubmitConflict, onSubmitted, refreshDocument],
+    [
+      document,
+      expectedRevision,
+      onSubmitConflict,
+      onSubmitted,
+      refreshDocument,
+    ],
   );
 
   const send = useCallback(
     async (input: {
       readonly text: string | null;
       readonly file: File | null;
+      readonly comment?: string;
     }): Promise<boolean> => {
       setSubmitting(true);
       setError(null);
       setFileRejection(null);
       setSyncNotice(null);
       try {
-        const uploaded =
-          input.file === null
+        const file = input.file;
+        const fileId =
+          file === null
             ? null
-            : await uploadMilestoneDocumentFile(
-                document.milestoneId,
-                document.id,
-                input.file,
+            : await uploadedFile.current.resolve(file, () =>
+                uploadMilestoneDocumentFile(
+                  document.milestoneId,
+                  document.id,
+                  file,
+                ),
               );
-        return finish({ text: input.text, fileId: uploaded?.fileId ?? null });
+        return finish({ text: input.text, fileId }, input.comment);
       } catch (uploadError: unknown) {
         if (
           input.file !== null &&
@@ -637,6 +647,7 @@ function StudentDocumentRow({
   async function submitDraft(input: {
     readonly text: string | null;
     readonly file: File | null;
+    readonly comment?: string;
   }): Promise<boolean> {
     if (resubmissionIsFinal) {
       setPendingDraft(input);
@@ -701,7 +712,11 @@ function StudentDocumentRow({
             type="button"
             size="sm"
             variant={submitted ? 'ghost' : 'default'}
-            onClick={() => setEditing((value) => !value)}
+            onClick={() => {
+              if (!editing)
+                setExpectedRevision(viewerSubmission?.revision ?? 0);
+              setEditing((value) => !value);
+            }}
           >
             {actionIcon} {actionLabel}
           </Button>
@@ -721,7 +736,6 @@ function StudentDocumentRow({
           display={display}
           tone={reviewNoticeTone}
           review={review}
-          dueNotice={dueNotice}
         />
       )}
       {history.length === 0 && historyIsComplete ? null : (
@@ -793,6 +807,7 @@ function StudentDocumentRow({
         <MilestoneDocumentSubmissionForm
           documentName={document.name}
           documentId={document.id}
+          submissionType={document.submissionType}
           fileUpload={fileUpload}
           currentFileName={viewerSubmission?.currentFileName ?? null}
           isResubmission={submitted}
@@ -806,7 +821,6 @@ function StudentDocumentRow({
       {pendingDraft === null ? null : (
         <MilestoneDocumentResubmissionDialog
           documentName={document.name}
-          resubmissionDueAt={review?.resubmissionDueAt ?? null}
           removedFileName={
             pendingDraft.file === null
               ? (viewerSubmission?.currentFileName ?? null)

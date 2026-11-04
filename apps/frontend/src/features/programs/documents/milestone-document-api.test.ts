@@ -18,6 +18,7 @@ const document: MilestoneDocument = {
   name: '기획서',
   required: true,
   sortOrder: 0,
+  submissionType: 'FILE_OR_TEXT' as const,
   hasTemplateFile: false,
   templateFileName: null,
 };
@@ -193,10 +194,15 @@ describe('submitMilestoneDocument', () => {
     vi.stubGlobal('fetch', fetchMock);
 
     await expect(
-      submitMilestoneDocument('milestone-1', 'document-1', {
-        text: '설명',
-        fileId: 'file-1',
-      }),
+      submitMilestoneDocument(
+        'milestone-1',
+        'document-1',
+        {
+          text: '설명',
+          fileId: 'file-1',
+        },
+        { expectedRevision: 3, comment: '수정 설명' },
+      ),
     ).resolves.toEqual(submission);
 
     expect(fetchMock).toHaveBeenCalledWith(
@@ -206,6 +212,8 @@ describe('submitMilestoneDocument', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           content: { text: '설명', fileId: 'file-1' },
+          expectedRevision: 3,
+          comment: '수정 설명',
         }),
       },
     );
