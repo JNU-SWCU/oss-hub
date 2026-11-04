@@ -100,6 +100,12 @@ describe('reviews api', () => {
   it.each([
     { documents: [] },
     { documents: [document, { ...document, id: 'ambiguous' }] },
+    {
+      documents: [
+        document,
+        { ...document, id: 'ambiguous-file', submissionType: 'FILE' },
+      ],
+    },
   ])(
     'does not guess a missing or ambiguous requirement',
     async ({ documents }) => {
@@ -110,6 +116,74 @@ describe('reviews api', () => {
       vi.stubGlobal('fetch', fetchMock);
       await expect(getReviewContext(context.submissionId)).rejects.toThrow(
         TypeError,
+      );
+    },
+  );
+  it.each([true, false])(
+    'loads and reviews a legacy null-content FILE submission with downloadable file=%s',
+    async (hasDownloadableFile) => {
+      const files = hasDownloadableFile
+        ? [
+            {
+              fileId: 'legacy-file',
+              fileName: 'report.pdf',
+              contentType: 'application/pdf',
+              size: 128,
+              expiresAt: '2099-01-01T00:00:00Z',
+              downloadUrl: 'https://files.example.test/report.pdf',
+            },
+          ]
+        : [];
+      const wireContext = {
+        submissionId: context.submissionId,
+        application: context.application,
+        milestone: context.milestone,
+        currentRevision: { ...context.currentRevision, content: null, files },
+        history: [],
+        repository: null,
+      };
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(json(wireContext))
+        .mockResolvedValueOnce(
+          json({
+            documents: [
+              { ...document, id: 'ordinary', submissionType: 'FILE_OR_TEXT' },
+              { ...document, id: 'legacy-file-item', submissionType: 'FILE' },
+            ],
+            fileUpload,
+          }),
+        )
+        .mockResolvedValueOnce(
+          json({
+            id: 'review-new',
+            decision: 'REJECTED',
+            comment: null,
+            reviewedAt: '2026-09-29T00:00:00Z',
+            resubmissionDueAt: null,
+            reviewerNickname: 'synthetic-staff',
+          }),
+        );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const loaded = await getReviewContext(context.submissionId);
+      expect(loaded.requirementId).toBe('legacy-file-item');
+      expect(loaded.currentRevision.content).toBeNull();
+      await createReview(loaded, { revision: 2, decision: 'REJECTED' });
+
+      expect(fetchMock).toHaveBeenLastCalledWith(
+        apiPath(
+          'milestones/milestone-final/documents/legacy-file-item/applications/application-personal/reviews',
+        ),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            decision: 'REJECTED',
+            expectedRevision: 2,
+            expectedLatestReviewId: 'previous-review',
+          }),
+        },
       );
     },
   );

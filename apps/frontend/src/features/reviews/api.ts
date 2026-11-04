@@ -24,7 +24,7 @@ export async function getReviewContext(
   );
   const [requirement, ...otherMatches] = documents.filter(
     (document) =>
-      document.submissionType === context.currentRevision.content.type,
+      document.submissionType === 'FILE' || document.submissionType === 'TEXT',
   );
   if (requirement === undefined || otherMatches.length !== 0)
     throw new TypeError('Invalid requirement for legacy review link');
