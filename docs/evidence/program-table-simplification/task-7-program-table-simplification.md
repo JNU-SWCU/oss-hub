@@ -4,13 +4,15 @@
 
 준비 릴리스는 조직 설치 목록에서 레포를 자동 등록하는 경로를 없애고, 이미 연결된 조직·외부 레포의 메타데이터와 기여만 수집한다. 팀 삭제와 URL 교체는 OSS Hub의 레포 행과 수집 기록을 삭제한다. GitHub 원본 레포를 삭제하는 API는 호출하지 않는다.
 
-준비 릴리스에서도 새 프론트엔드의 삭제 안내를 먼저 확인한 뒤 백엔드를 전환한다. 옛 화면의 “연결만 해제” 안내가 남은 상태에서 수집 기록 삭제 동작을 켜지 않는다.
+선행 frontend PR #1730은 팀 삭제만 안내하고 저장소 행·수집 기록의 보존이나 삭제를 약속하지 않는다. 이 중립 안내가 운영에 반영된 뒤 backend 전용 준비 PR #1726을 배포한다. 기존 backend에서 행·fact가 보존되든 새 backend에서 삭제되든 중립 문구는 사실이다.
+
+정확한 저장소 삭제 안내와 guide는 준비 backend가 운영에서 검증된 뒤 별도 frontend draft로 적용한다. 이 backend PR은 #1730을 기준으로 `apps/frontend/`와 `guide/` diff가 없다. 앞선 게이트가 지적한 “삭제 안내 frontend 먼저” 순서만으로는 기존 backend와의 불일치를 해결할 수 없었으므로 사용하지 않는다.
 
 다음 릴리스의 별도 마이그레이션이 승인된 12개 레포를 정리하고 `Application.teamId`를 백필한 뒤 `GithubRepository.teamId` 부분 유니크를 추가한다. 마이그레이션은 앱 교체보다 먼저 실행되므로, 두 릴리스를 합치면 옛 조직 인벤토리가 삭제한 행을 다시 만들 수 있다. 준비 코드를 먼저 배포해야 한다.
 
 다른 단위가 소유한 프로그램 물리 purge의 연결 해제 경로도 남지 않아야 하므로 Todo 5의 purge 중단 준비 릴리스를 데이터 정리 전에 배포한다. `public-projects.repository.ts`와 `program-lifecycle.config.ts`는 이 단위에서 수정하지 않았다.
 
-`applicationId`와 `programId` 컬럼 제거는 Todo 9의 Application 전환 소유다. 이번 단계에서는 삭제하지 않는다. 팀 삭제 응답의 `detachedRepositories` 키는 배포 시차 호환을 위해 유지하며 표시 문구는 저장소 등록 삭제로 바꾼다.
+`applicationId`와 `programId` 컬럼 제거는 Todo 9의 Application 전환 소유다. 이번 단계에서는 삭제하지 않는다. 팀 삭제 응답의 `detachedRepositories` 키는 wire 호환을 위해 유지한다. 중립 frontend는 그 값을 저장소 처리 약속으로 표시하지 않고, 정확한 “저장소 등록 삭제” 표시는 후속 frontend에 둔다.
 
 ## 운영 읽기 전용 재집계
 
@@ -70,6 +72,8 @@ TeamHistory가 아직 없으므로 경쟁 테이블을 만들지 않는다. 수�
 
 ## 검증 기록
 
+아래는 최초 통합 head `e337dce1b`와 retire 후보를 함께 검증한 기록이다. 현재 backend 전용 PR의 exact-head 실행과 구별한다. 당시 화면 캡처의 정확한 삭제 안내는 후속 frontend draft로 이동했으며, 운영 선행 화면은 #1730의 중립 안내다.
+
 - 조직 설치 목록의 미등록 레포가 생성되는 기존 구현에서 새 회귀 테스트가 실패했다.
 - 팀 삭제가 레포·기여를 남기던 기존 구현에서 실 DB 회귀 테스트가 실패했다.
 - 교체 삭제를 누락하는 변이를 넣으면 옛 레포 잔존으로 회귀 테스트가 실패했다. 삭제 구현을 복원했다.
@@ -86,3 +90,15 @@ TeamHistory가 아직 없으므로 경쟁 테이블을 만들지 않는다. 수�
 - DOM 점검에서 중복 사실과 한 문장 내 숫자 반복은 0건이고 상태 선택 그룹은 없었다. 두 버튼은 각각 77.65625×44 CSS px였다.
 
 양쪽 lint·typecheck, structure, format, 파일 원장은 `EXIT=0`이다. frontend lint에는 변경하지 않은 테스트의 `<a>` 링크 경고 4건이 있다. 기존 boundaries 설정의 mode 폐기 예정 알림과 파일 원장 실행의 Node 모듈 타입 알림도 숨기지 않았다. 공개 안전 검사와 PR 주소는 최종 전달에 기록한다. 운영 데이터 삭제·머지·릴리스는 수행하지 않았다.
+
+## 게이트 B1 수정과 URL 교체 랭킹 실측
+
+선행 PR #1730은 중립 안내와 그 가이드 증거를 담당한다. 기존 backend의 실제 팀 삭제 통합 20개 테스트, 중립 UI 54개 테스트, desktop·mobile 브라우저 4개 경우가 통과했다. UI의 저장소 결과 약속을 제거하고 동일한 API 응답을 처리하므로 기존·후속 backend 어느 쪽과도 안내가 모순되지 않는다. 서로 다른 backend 두 개를 브라우저에 연결한 E2E로 보고하지 않으며 backend DB 계약과 frontend 동작을 각각 검증했다.
+
+`student-repository-url.ranking.integration.spec.ts`는 실제 `StudentRepositoryUrlService.updateMine`을 실행한다. 이전 레포·Contribution의 삭제와 새 연결을 확인한 뒤 실제 RankingService·RankingRepository의 공개·회원·교직원 × 현재 연도·전체 기간 6개 응답을 교체 전 값과 비교한다. 현재 활동의 공개·비공개 값, 이전 주기 순위, 교직원 이름 표시, 월별 값이 있는 fixture를 사용하며 빈 결과끼리 비교하지 않는다. 시계에서만 계산하는 `nextCycleAt`을 제외한 응답과 월별 값은 같았다. 최초 직접 비교는 1 suite·1 test, EXIT=0이며 제품 코드에서 랭킹 값 변화는 없었다.
+
+회귀 검증용으로 삭제 repository가 옛 레포 기여자의 `GithubUserActivityHistory`까지 지우는 변이를 잠시 넣었다. 실제 응답의 연간 total 33·전체 total 39가 0으로 바뀌며 새 테스트가 실패했고, 의도한 실패 EXIT=1을 확인했다. 변이는 원본 바이트로 복원했다. 이 변화는 제품에서 발견된 랭킹 회귀가 아니라 테스트가 잘못된 삭제를 잡는다는 증거다.
+
+`program-team-repository-evidence`와 `program-team-activity`의 두 테스트 이름은 현재 연결 레포와 무관한 레포의 읽기 격리를 설명하도록 고쳤다. 기존 기대값은 유지하며 교체 후 옛 fact 보존을 약속하지 않는다.
+
+세 변경 파일만 지정한 공식 통합 실행은 3 suites·12 tests, EXIT=0이다. 전체 통합·단위 재실행은 최신 속도 지시에 따라 중단했으며 완료 검증으로 세지 않는다. 중단한 실행의 자체 컨테이너·볼륨·네트워크도 제거했다.
