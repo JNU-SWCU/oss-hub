@@ -16,7 +16,7 @@ import {
   type ProgramDocumentChangeRequestScope,
 } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { createHash } from 'node:crypto';
 
 @Injectable()
@@ -69,31 +69,15 @@ export class ProgramDocumentChangeRequestsService {
     readonly scope: ProgramDocumentChangeRequestScope['kind'];
     readonly teamId?: string | null;
     readonly includeFinalDecisions: boolean;
-    readonly comment: string;
-    readonly resubmissionDueAt: string;
+    readonly comment?: string;
+    readonly resubmissionDueAt?: unknown;
     readonly expectedVersion: string;
   }): ProgramDocumentChangeRequestInput {
-    const comment = body.comment.trim();
-    if (comment === '') {
-      throw new DomainException(
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED
-        ],
-      );
-    }
-    const resubmissionDueAt = new Date(body.resubmissionDueAt);
-    if (Number.isNaN(resubmissionDueAt.getTime())) {
-      throw new DomainException(
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED
-        ],
-      );
-    }
+    const comment = body.comment?.trim() || null;
     return {
       scope: this.toProgramDocumentChangeRequestScope(body.scope, body.teamId),
       includeFinalDecisions: body.includeFinalDecisions,
       comment,
-      resubmissionDueAt,
       expectedVersion: body.expectedVersion,
     };
   }
@@ -155,15 +139,13 @@ export class ProgramDocumentChangeRequestsService {
     input: ProgramDocumentChangeRequestInput,
     now: () => Date = () => new Date(),
   ): Promise<{ readonly requestedCount: number }> {
-    if (input.resubmissionDueAt.getTime() <= now().getTime()) {
-      throw this.error(
-        MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
-      );
-    }
     await this.assertProgram(programId);
 
     const requestedCount = await this.repository.withTransaction(
       async (store) => {
+        if (!(await store.lockProgramForReview(programId))) {
+          throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+        }
         const documentIds = await store.lockProgramDocumentIds(programId);
         const applicationIds = await store.lockApprovedApplicationIds(
           programId,
@@ -198,11 +180,6 @@ export class ProgramDocumentChangeRequestsService {
               now(),
               submission.latestHistoryCreatedAt,
             );
-          if (input.resubmissionDueAt.getTime() <= reviewedAt.getTime()) {
-            throw this.error(
-              MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
-            );
-          }
           await store.createReview({
             milestoneDocumentSubmissionId: submission.id,
             submissionHistoryId: submission.submissionHistoryId,
@@ -210,7 +187,6 @@ export class ProgramDocumentChangeRequestsService {
             reviewerId,
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: input.comment,
-            resubmissionDueAt: input.resubmissionDueAt,
             reviewedAt,
           });
           await store.updateSubmissionStatus(

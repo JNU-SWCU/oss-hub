@@ -10,11 +10,11 @@ import {
 } from './application-preparation.error';
 
 const ERRORS = {
-  'read-only': {
+  'creation-disabled': {
     code: 'APP_036',
     status: 410,
     message:
-      '신청 준비 변경 기능이 종료되었습니다. 프로그램 신청 화면을 새로 열어 주세요.',
+      '새 신청 준비를 만들 수 없습니다. 프로그램 신청 화면에서 바로 신청해 주세요. 기존 신청 준비는 계속 사용할 수 있습니다.',
   },
   'not-found': {
     code: 'APP_030',
@@ -61,7 +61,10 @@ const ERRORS = {
     status: 422,
     message: '자기 자신을 초대할 수 없습니다.',
   },
-} as const satisfies Record<PreparationFailure | 'read-only', ErrorCode>;
+} as const satisfies Record<
+  PreparationFailure | 'creation-disabled',
+  ErrorCode
+>;
 
 @Injectable()
 export class ApplicationPreparationsService {
@@ -84,7 +87,6 @@ export class ApplicationPreparationsService {
   private async run<T>(
     githubId: bigint,
     operation: (actorId: string) => Promise<T>,
-    write = false,
   ): Promise<T> {
     const actorId = await this.repository.findActor(githubId);
     if (actorId === null)
@@ -93,7 +95,6 @@ export class ApplicationPreparationsService {
         status: 403,
         message: '활성 계정으로 로그인해 주세요.',
       });
-    if (write) throw new DomainException(ERRORS['read-only']);
     try {
       return await operation(actorId);
     } catch (error) {
@@ -108,12 +109,12 @@ export class ApplicationPreparationsService {
       this.repository.get(programId, actorId),
     );
   }
-  create(githubId: bigint, programId: string, name: string, now = new Date()) {
-    return this.run(
-      githubId,
-      (actorId) => this.repository.create(programId, actorId, name.trim(), now),
-      true,
-    );
+  create(githubId: bigint, programId: string) {
+    return this.run(githubId, async (actorId) => {
+      const existing = await this.repository.get(programId, actorId);
+      if (existing?.isLeader) return existing;
+      throw new DomainException(ERRORS['creation-disabled']);
+    });
   }
   listSent(githubId: bigint, preparationId: string) {
     return this.run(githubId, (actorId) =>
@@ -135,20 +136,17 @@ export class ApplicationPreparationsService {
     inviteeId: string,
     now = new Date(),
   ) {
-    return this.run(
-      githubId,
-      (actorId) =>
-        this.authorizedPreparation(preparationId, actorId, true).then(
-          (preparation) =>
-            this.repository.invite(
-              preparationId,
-              preparation.programId,
-              actorId,
-              inviteeId,
-              now,
-            ),
-        ),
-      true,
+    return this.run(githubId, (actorId) =>
+      this.authorizedPreparation(preparationId, actorId, true).then(
+        (preparation) =>
+          this.repository.invite(
+            preparationId,
+            preparation.programId,
+            actorId,
+            inviteeId,
+            now,
+          ),
+      ),
     );
   }
   respond(
@@ -157,24 +155,18 @@ export class ApplicationPreparationsService {
     action: 'accept' | 'decline' | 'cancel',
     now = new Date(),
   ) {
-    return this.run(
-      githubId,
-      (actorId) => this.repository.respond(invitationId, actorId, action, now),
-      true,
+    return this.run(githubId, (actorId) =>
+      this.repository.respond(invitationId, actorId, action, now),
     );
   }
   remove(githubId: bigint, programId: string, memberId: string) {
-    return this.run(
-      githubId,
-      (actorId) => this.repository.remove(programId, actorId, memberId),
-      true,
+    return this.run(githubId, (actorId) =>
+      this.repository.remove(programId, actorId, memberId),
     );
   }
   leave(githubId: bigint, programId: string) {
-    return this.run(
-      githubId,
-      (actorId) => this.repository.remove(programId, actorId, actorId),
-      true,
+    return this.run(githubId, (actorId) =>
+      this.repository.remove(programId, actorId, actorId),
     );
   }
 }

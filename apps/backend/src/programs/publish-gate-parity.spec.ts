@@ -37,8 +37,7 @@ type ReviewRepository = NonNullable<ReviewApplication['repository']>;
 
 function eligibleRow(): ReviewContextRow {
   return {
-    id: 'milestone-document-submission-1',
-    legacySubmissionId: 'submission-1',
+    id: 'submission-1',
     revision: 1,
     application: {
       id: 'application-1',
@@ -82,12 +81,12 @@ function eligibleRow(): ReviewContextRow {
     histories: [
       {
         id: 'submission-history-1',
+        event: 'SUBMITTED',
         revision: 1,
         content: { url: 'https://example.com/revision-1' },
         comment: null,
         createdAt: NOW,
         files: [],
-        reviewHistories: [],
       },
     ],
   };

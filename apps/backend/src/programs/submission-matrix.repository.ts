@@ -262,7 +262,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       },
       select: {
         id: true,
-        legacySubmissionId: true,
         applicationId: true,
         status: true,
         revision: true,
@@ -271,7 +270,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       },
     });
     return submissions.map((submission) => ({
-      id: submission.legacySubmissionId ?? submission.id,
+      id: submission.id,
       applicationId: submission.applicationId,
       milestoneId: submission.milestoneDocument.milestoneId,
       status: submission.status,

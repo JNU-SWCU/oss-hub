@@ -1,0 +1,3388 @@
+{
+  "schemaVersion": 1,
+  "surface": "real repositories; includes output assertions, transaction control SQL and team evidence SQL; not HTTP latency",
+  "clock": "2026-06-15T12:00:00.000Z",
+  "database": "PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "seedSize": {
+    "programs": 1,
+    "users": 20,
+    "teams": 10,
+    "members": 20,
+    "applications": 10,
+    "milestones": 2,
+    "documents": 4,
+    "submissions": 40,
+    "histories": 80,
+    "files": 40,
+    "reviews": 40,
+    "repositories": 10,
+    "provisionJobs": 10,
+    "outboxEvents": 10,
+    "auditLogs": 10,
+    "contributions": 10
+  },
+  "warmups": 5,
+  "sampleCount": 100,
+  "measurements": [
+    {
+      "name": "program-overview",
+      "arm": "base",
+      "p50Ms": 2.155104500000107,
+      "sqlCount": 3,
+      "samples": [
+        {
+          "milliseconds": 2.166124999999738,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.263332999999875,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.5576660000006086,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9115419999998267,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7285839999995005,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8974170000001322,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9856659999995827,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8896249999997963,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5931250000003274,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.213999999999942,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.028957999999875,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.402541999999812,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.074166999999761,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0815840000004755,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8558330000005299,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 5.153082999999242,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0544159999999465,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.1624590000001263,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.028041999999914,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 9.895040999999765,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.248666999999841,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.6443749999998545,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.6907920000003287,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.4173329999994166,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.1825419999995574,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.271582999999737,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.308375000000524,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.3980830000000424,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.241667000000234,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.9118749999997817,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.565415999999459,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.983749999999418,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.343707999999424,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.6390419999997903,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.9221669999997175,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.4848339999998643,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.2575839999999516,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.373874999999316,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.358582999999271,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9848750000001019,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6149579999992056,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5166250000002037,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5648330000003625,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8673750000007203,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.43841699999939,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.4966250000006767,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8827500000006694,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8169589999997697,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.51470800000061,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8202089999995223,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.637416999999914,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8762909999995827,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7564580000007481,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7108340000004318,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.662833999999748,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.214208999999755,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7148329999999987,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0391660000004777,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7090410000000702,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9944169999998849,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7744169999996302,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 5.3567919999995866,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.6225420000000668,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.6140000000004875,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.2083339999999225,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.084250000000793,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.3307080000004134,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 5.302042000000256,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 5.024375000000873,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.612749999999323,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.1777499999998327,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.34466699999939,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.119083000000501,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.1624999999994543,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.016249999999673,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.1587090000002718,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.452957999999853,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.268583000000035,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.1477500000000873,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0722500000001673,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.3131670000002487,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.218792000000576,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8753750000005311,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7694579999997586,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5968330000005153,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8147079999998823,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.109667000000627,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.2466250000006767,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9308340000006865,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8198749999992287,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.789292000000387,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.3597920000001977,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7165839999997843,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.022208000000319,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.474833000000217,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9652080000005299,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.030499999999847,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0167499999997744,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9939999999996871,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.259791999999834,
+          "sqlCount": 3
+        }
+      ]
+    },
+    {
+      "name": "program-overview",
+      "arm": "candidate",
+      "p50Ms": 2.160666499999934,
+      "sqlCount": 3,
+      "samples": [
+        {
+          "milliseconds": 2.087749999999687,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.4220409999998083,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.302875000000313,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.078082999999424,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7616250000000946,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 5.250208999999813,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9335000000000946,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5652920000002268,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7870829999992566,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.840041999999812,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.1708330000001297,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.3414169999996375,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.6282920000003287,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9313750000001164,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.510250000000269,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.989709000000403,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.6307080000005953,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.2347499999996217,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.4341660000000047,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.538875000000189,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.899749999999585,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 5.351208000000042,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.735458000000108,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.164708000000246,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.8187090000001263,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.2378749999998035,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.356667000000016,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.36395900000025,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.598500000000058,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.523084000000381,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.9582500000005894,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.5645830000003116,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.478541999999834,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.4111669999992955,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.312667000000147,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.5588330000000497,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.9105829999998605,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.514874999999847,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.104374999999891,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6520829999999478,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5763749999996435,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.528874999999971,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.4943750000002183,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5928750000002765,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6011249999992287,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.38220900000033,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8734999999996944,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.4061249999995198,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9772499999999127,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9160000000001673,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.345209000000068,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.962333000000399,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9877089999999953,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9995829999998023,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9650830000000497,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8013750000000073,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.065084000000752,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8633340000005774,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.940458000000035,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.270999999999731,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.3127089999998134,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 13.565416000000369,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.084165999999641,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.728667000000314,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.89325000000008,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.164167000000816,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.4970420000008744,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 6.8935410000003685,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.5937910000002375,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.2277909999993426,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.1588339999998425,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.143583000000035,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.6698749999995925,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.7669999999998254,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.292833999999857,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 4.395792000000256,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 7.416583999999602,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 3.2670829999997295,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0447079999994457,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7776249999997162,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.1045420000000377,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.940958999999566,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0866669999995793,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6540829999994457,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7650839999996606,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6520000000000437,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7797920000002705,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.6759159999992335,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.5547919999999067,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.4362499999997453,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.150499999999738,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.573250000000371,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.819499999999607,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.7772500000000946,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.995999999999185,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.8282909999998083,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.915832999999111,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 1.9426659999999174,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.0251250000001164,
+          "sqlCount": 3
+        },
+        {
+          "milliseconds": 2.317707999999584,
+          "sqlCount": 3
+        }
+      ]
+    },
+    {
+      "name": "submission-matrix",
+      "arm": "base",
+      "p50Ms": 9.788124500000322,
+      "sqlCount": 12,
+      "samples": [
+        {
+          "milliseconds": 9.13354100000015,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.150417000000743,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.775958000000173,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.376749999999447,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.975791999999274,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.297125000000051,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.499249999999847,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.796959000000243,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 13.734749999999622,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.914583000000675,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.80029100000047,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.742792000000009,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.101416999999856,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.608374999999796,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.717375000000175,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 25.227125000000342,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.547207999999955,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 17.83520899999985,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 16.204499999999825,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.356667000000016,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.274207999999817,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.105457999999999,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.521208999999544,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.141417000000729,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.46349999999984,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.319083000000319,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.767125000000306,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.076332999999977,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 19.979207999999744,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 15.591625000000022,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.665124999999534,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 14.118917000000692,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 13.196083000000726,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 13.232250000000022,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 14.511916000000383,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.162500000000364,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.332416999999623,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 14.617333000000144,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 16.517041999999492,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 25.435709000000315,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 16.582290999999714,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.259624999999687,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.753583000000617,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.902540999999474,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.47125000000051,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.011042000000089,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.781582999999955,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.655874999999469,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.608916000000136,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.830165999999736,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.855999999999767,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.840833999999631,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.058582999999999,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.323040999999648,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.749249999999847,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.19733400000041,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.272750000000087,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.904083000000355,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.707374999999956,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.516834000000017,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.23004200000014,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.95562500000051,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.690333000000464,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.342458000000079,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.65929099999994,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.212416000000303,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.533417000000554,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.53741700000046,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.553333000000748,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.747749999999542,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.7882079999999405,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.590917000000445,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.249833000000763,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.072707999999693,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.674082999999882,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.83166700000038,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.09979199999998,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.298999999999978,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.071582999999919,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.061749999999847,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.611541000000216,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.395457999999962,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 14.110874999999396,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.686500000000706,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.4145410000001,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.12304100000074,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.05724999999984,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.192957999999635,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.68133299999954,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.358624999999847,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.56629200000043,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.889417000000321,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.592208000000028,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.11712499999976,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 13.965290999999525,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.88983399999961,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.864166000000296,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 13.500042000000576,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.09595900000022,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.914875000000393,
+          "sqlCount": 12
+        }
+      ]
+    },
+    {
+      "name": "submission-matrix",
+      "arm": "candidate",
+      "p50Ms": 9.42929200000026,
+      "sqlCount": 12,
+      "samples": [
+        {
+          "milliseconds": 9.690749999999753,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.735582999999679,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.876207999999679,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.699666999999863,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.852334000000155,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.034042000000227,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.322457999999642,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.429000000000087,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.364417000000685,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.005290999999488,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.621125000000575,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.717749999999796,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 16.059917000000496,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.131333000000268,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.996875000000728,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 19.04266699999971,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.28466599999956,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 15.628832999999759,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 18.951874999999745,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.832124999999905,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.2212499999996,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.255709000000024,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.080332999999882,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.691917000000103,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.20049999999992,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.004167000000052,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.133208000000195,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.682334000000083,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 19.249832999999853,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 16.43104200000016,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.429584000000432,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.857957999999599,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.250457999999526,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 13.51050000000032,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.71875,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.68041699999958,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.230209000000286,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.009541999999783,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.835040999999364,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 14.62329200000022,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 17.204208000000108,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.484291999999186,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.082916999999725,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.66254200000003,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.628000000000611,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.150958000000173,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.387917000000016,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.75104199999987,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.914375000000291,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.74670900000001,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.437791000000288,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.767958000000363,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.292000000000371,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.413542000000234,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.457666999999674,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.72241699999995,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.166541999999936,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.885583000000224,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.280542000000423,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.843708000000333,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.2465830000001,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.370374999999513,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.64654100000007,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.436832999999751,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.288916999999856,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.539499999999862,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.988750000000437,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.044666999999208,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.9627080000000205,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.618165999999292,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.700708000000304,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.601124999999229,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.185707999999977,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.16754200000014,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 7.957833000000392,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.183375000000524,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.453583000000435,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.338083000000552,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.646083000000544,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.46929100000034,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.373875000000226,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.766999999999825,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.791333000000122,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.541791999999987,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.360042000000249,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.160292000000481,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 9.692708999999923,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.296708000000763,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.11474999999973,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.011375000000044,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.105500000000575,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 11.165332999999919,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 16.545084000000315,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 10.042999999999665,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 21.09491700000035,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.03058400000009,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.567000000000007,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.40808399999969,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 8.214708999999857,
+          "sqlCount": 12
+        },
+        {
+          "milliseconds": 12.930749999999534,
+          "sqlCount": 12
+        }
+      ]
+    },
+    {
+      "name": "document-collection",
+      "arm": "base",
+      "p50Ms": 19.65589600000112,
+      "sqlCount": 19,
+      "samples": [
+        {
+          "milliseconds": 29.4331659999998,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 33.72475000000031,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 61.797333000000435,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 28.50841700000001,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 32.76762500000041,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 25.558874999999716,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 24.849333000000115,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 30.68829200000073,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 20.747207999999773,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 37.82704100000046,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 41.26233299999967,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 33.08824999999888,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 37.26691700000083,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 17.547334000000774,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 17.079374999999345,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 18.919291000000158,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 21.597250000000713,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 25.36737499999981,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 28.64929200000006,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 27.778666999998677,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 28.715125000000626,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.06879200000003,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.423374999998487,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.074125000001004,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.331833999998707,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.430125000000771,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.940500000000611,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.408583000000363,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.366374999999607,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 14.788792000001195,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 18.886791999999332,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.496125000001484,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.763332999998966,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 22.140458999998373,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 23.911833000000115,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 21.68958300000122,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 27.035375000001295,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 36.19237499999872,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 37.658957999999984,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 20.776208000001134,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 22.988000000001193,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.140416000000187,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.136499999998705,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 17.181249999999636,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.578541999999288,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 14.076250000000073,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 32.61458300000049,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 25.028082999999242,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 27.428499999999985,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 16.631917000000612,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 18.944750000000568,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 14.691249999999854,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.472583999999188,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 24.05145900000025,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 23.734207999999853,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 25.84862500000054,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 28.753749999999854,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 32.69791699999951,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 32.096582999998645,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 42.024749999998676,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 39.482874999999694,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 20.659083000000464,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.305875000000015,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.781707999998616,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.604416000000128,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.817125000001397,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.840249999999287,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 19.83637500000077,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 16.79583300000013,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.265125000001717,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.46808300000157,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.634958999999071,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.75316600000042,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.831333999998606,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.483417000001282,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 14.67670900000121,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.878083999999944,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 19.47541700000147,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 25.357500000000073,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 14.141665999999532,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.1143749999992,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.60174999999981,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.77337500000067,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 15.032250000000204,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 13.514166999999361,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.467040999999881,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.665541999998823,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 11.973625000000538,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 12.229957999999897,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 20.84124999999949,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 18.653917000001456,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 25.427208000000974,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 31.80962499999987,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 24.43116700000064,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 22.64812499999971,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 26.216583999999784,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 27.186250000000655,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 33.479042000000845,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 26.16937499999949,
+          "sqlCount": 19
+        },
+        {
+          "milliseconds": 27.21374999999898,
+          "sqlCount": 19
+        }
+      ]
+    },
+    {
+      "name": "document-collection",
+      "arm": "candidate",
+      "p50Ms": 18.255207999999584,
+      "sqlCount": 18,
+      "samples": [
+        {
+          "milliseconds": 34.20137500000055,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 33.11545800000022,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 47.351292000000285,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 29.779874999999265,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 28.515916999999718,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 24.087999999999738,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 25.88783400000011,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 31.0556660000002,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 33.3130000000001,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 29.64720799999941,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 27.85991699999977,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 29.003249999999753,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 46.710541999998895,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 21.046291999999085,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 17.558583,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 18.000332999999955,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 20.882458000000042,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 21.734458000000814,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 26.98408399999971,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 31.64587500000016,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 28.93712500000038,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 15.61345799999981,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.639290999999503,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.254125000001295,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.468791999999667,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.23241699999926,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.835332999999082,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.71166599999924,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.864707999999155,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 15.523917000000438,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 17.43395799999962,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 26.446459000000687,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 19.02324999999837,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 18.547209000000294,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 22.712874999999258,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 21.9582500000015,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 28.88391700000102,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 31.02008299999943,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 31.836083000000144,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 38.98516700000073,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 21.987542000000758,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 17.950125000001208,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 15.318583000000217,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 16.867207999999664,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.655624999999418,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.319875000001048,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 21.90008399999897,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 21.133583000000726,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 18.510082999999213,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.193208000000595,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.871499999999287,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.306916999999885,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 17.97979099999975,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.229583000000275,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 20.987750000000233,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 20.56908300000032,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 24.653457999998864,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 24.505166999999346,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 29.28241699999853,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 27.556290999998964,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 54.74945800000023,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 36.13329199999862,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.587916000000405,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 11.267665999999736,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.004291999999623,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.185832999999548,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 15.007708999999522,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.77008300000125,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.392916000000696,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.181291999999303,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 11.430540999999721,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 11.002666999998837,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 11.7868750000016,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 11.735625000001164,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.32287499999984,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.314665999998397,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.46233299999949,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.915333999999348,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.314291000000594,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.050374999998894,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.820416000000478,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.582415999999284,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.087916000000405,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 13.190542000000278,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 14.569041999999172,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.3248339999991,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 12.101792000001296,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 11.149334000001545,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 11.651541999999608,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 16.314292000000933,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 22.360500000000684,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 23.065875000000233,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 33.61529100000007,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 36.127792000001136,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 26.20666700000038,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 27.740708999999697,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 38.34441699999843,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 31.683208000000377,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 29.800833999999668,
+          "sqlCount": 18
+        },
+        {
+          "milliseconds": 34.747167000001355,
+          "sqlCount": 18
+        }
+      ]
+    },
+    {
+      "name": "staff-team-detail",
+      "arm": "base",
+      "p50Ms": 9.861416500000814,
+      "sqlCount": 16,
+      "samples": [
+        {
+          "milliseconds": 35.693624999999884,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 24.51904099999956,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 18.528957999998966,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 39.38979199999994,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 21.838958000000275,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.958290999999008,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.846333000001323,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.900832999999693,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.343709000000672,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.604167000001326,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.354999999999563,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.547957999999198,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.21112499999981,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.79804200000035,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.612874999998894,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.607458000000406,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.337000000001353,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.843457999999373,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.784707999999227,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.452916999998706,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 15.52691600000071,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.085292000001573,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.48870899999929,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.813290999998571,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.040333000000828,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.456167000000278,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.301041999999143,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.486542000000554,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.20495800000026,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.472791000000143,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.979499999999462,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.54833299999882,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.154624999999214,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.05554200000006,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.687708999999813,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.009165999999823,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.257500000001528,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.8354589999999,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.936250000000655,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.90204199999971,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.395583000001352,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.426875000001019,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.471540999998979,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.393458000000464,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.740458999998737,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.169707999999446,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.73962500000016,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.185041000000638,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.786916999999448,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.924541000000318,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.249916000000667,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.237209000000803,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.804791000000478,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.776083999999173,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.886083999999755,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.971541999999317,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.884874999999738,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.876334000000497,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.122707999998966,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.931625000001077,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.981165999999575,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.820750000000771,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.04370899999958,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.222458000000188,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.29412500000035,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.089249999999083,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.639250000000175,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.013375000000451,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.943791999998211,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.143625000000611,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.67212500000096,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.648290999999517,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.84520799999882,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.724541999999929,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.876500000000306,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.41387499999837,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.453334000001632,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.641750000000684,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.672207999999955,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.220124999999825,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.834333000000697,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.471083000000363,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.441041000000041,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.51733299999978,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.321458000000348,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.97674999999981,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 12.506000000001222,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 18.4512909999994,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 16.543250000000626,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 18.394207999999708,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 17.502416999999696,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 19.13574999999946,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 19.54412499999853,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 21.53108400000019,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 19.153458000000683,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 16.28887499999837,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 13.182708999998795,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.55933399999958,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.017750000000888,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 12.068665999999212,
+          "sqlCount": 16
+        }
+      ]
+    },
+    {
+      "name": "staff-team-detail",
+      "arm": "candidate",
+      "p50Ms": 9.969207999999526,
+      "sqlCount": 16,
+      "samples": [
+        {
+          "milliseconds": 43.702541999999085,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 33.60499999999956,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 32.94549999999981,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 23.070874999999432,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 16.528041999999914,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 12.531291999999667,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.186750000000757,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.869458000001032,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 14.268332999999984,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 13.067124999999578,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.599249999999302,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.16491700000006,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.454084000000876,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.842415999999503,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.850333000000319,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.493290999998862,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.008250000000771,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.07220800000141,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.872999999999593,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.83745899999849,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.799542000000656,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 12.483041999999841,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.284874999999374,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.180000000000291,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.85491699999875,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.703208000000814,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.593457999999373,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.48162500000035,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.463541999999507,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.177042000001165,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.15191699999923,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.883708000001207,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.252166999998735,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.556416999999783,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.97925000000032,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.208416999999827,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.488374999998996,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.752291000000696,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.03716600000007,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.911667000000307,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.119584000000032,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.575166999999055,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.099292000000787,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 15.51141700000153,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 15.705916999999317,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 17.212499999999636,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.484208999998373,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.540584000000308,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.768707999999606,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.112458999999944,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.575917000000118,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.099167000000307,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.015790999999808,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 11.567707999998674,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.333959000001414,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.082625000000917,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.536832999998296,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.495874999998705,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.703166000001147,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.666083000000071,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.577416000000085,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.45208299999831,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.903374999999869,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.632667000001675,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.67279199999939,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.795415999999022,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.837832999999591,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.163375000000087,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.919209000001501,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.206125000000611,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.876333999998678,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 8.689540999999736,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.549082999999882,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.169332999999824,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.518333000001803,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.064624999999069,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.389917000000423,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.067166000000725,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.507666999999856,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.362499999999272,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.743583999999828,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.430666000000201,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.250292000000627,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.296124999998938,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 17.664958000001207,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.280958000001192,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 14.02612500000032,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 14.001792000000933,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 14.438749999999345,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 16.895416999999725,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 18.675750000000335,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 12.816666000000623,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 20.89245800000026,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 20.941375000000335,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 24.99695900000006,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 18.24804199999926,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.82825000000048,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 9.922624999999243,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.839249999999083,
+          "sqlCount": 16
+        },
+        {
+          "milliseconds": 10.784874999999374,
+          "sqlCount": 16
+        }
+      ]
+    }
+  ],
+  "sources": {
+    "baseGitSha": "baed7d753",
+    "candidateSha256": {
+      "apps/backend/prisma/schema.prisma": "9d769cc40792fb7a8c4faf7065f15471dd8a44efa425742dccb494f56d51e653",
+      "apps/backend/src/programs/program-overview.repository.ts": "32bef157a224c1a60f8be6f6c342baf26edf158ac2c3774cadc0b2ac2355f7a0",
+      "apps/backend/src/programs/submission-matrix.repository.ts": "e537c8ed30ada708aedf214ae057c3a5c67d2724756d9daf7e476eeabf9c4136",
+      "apps/backend/src/programs/milestone-document-collection-read.repository.ts": "6bc01eb6d7174f670ad4cadd5c4fb44b5a7f06633fe95ed56674e8679f613bb1",
+      "apps/backend/src/programs/program-teams.repository.ts": "c5ed60679d852c4f7f32b4492aef3e0e75b06f1adf1692fda2417371224280ad",
+      "apps/backend/src/programs/program-team-repository-evidence.repository.ts": "ca7a7d7afb8eaf3f227012b803c281ab9244f947522e52c581c67ff7c3277a0a",
+      "apps/backend/src/platform/platform.repository.ts": "bd5113566d9b204905e2f12f0eef906a089d37f49d575b97a9982266a7b4c2c9",
+      "apps/backend/src/programs/submission-history.config.ts": "c42d7abd9379a85f3e695b67f04328e54be640a744c3318f19a304aebb570f79"
+    }
+  },
+  "summaries": [
+    {
+      "name": "program-overview",
+      "medianMs": 2.155104500000107,
+      "p25Ms": 1.8644895000006727,
+      "p75Ms": 2.6280002500000137,
+      "p95Ms": 4.634518750000505,
+      "sqlCount": 3,
+      "n": 100,
+      "arm": "base"
+    },
+    {
+      "name": "program-overview",
+      "medianMs": 2.160666499999934,
+      "p25Ms": 1.857511000000386,
+      "p75Ms": 2.9224997500000427,
+      "p95Ms": 5.002734000000372,
+      "sqlCount": 3,
+      "n": 100,
+      "arm": "candidate"
+    },
+    {
+      "name": "submission-matrix",
+      "medianMs": 9.788124500000322,
+      "p25Ms": 8.773499749999928,
+      "p75Ms": 11.89570850000041,
+      "p95Ms": 16.520304449999504,
+      "sqlCount": 12,
+      "n": 100,
+      "arm": "base"
+    },
+    {
+      "name": "submission-matrix",
+      "medianMs": 9.42929200000026,
+      "p25Ms": 8.687051750000364,
+      "p75Ms": 10.68329199999971,
+      "p95Ms": 16.578040200000302,
+      "sqlCount": 12,
+      "n": 100,
+      "arm": "candidate"
+    },
+    {
+      "name": "document-collection",
+      "medianMs": 19.65589600000112,
+      "p25Ms": 14.02670850000004,
+      "p75Ms": 27.193125000000236,
+      "p95Ms": 37.66736215000001,
+      "sqlCount": 19,
+      "n": 100,
+      "arm": "base"
+    },
+    {
+      "name": "document-collection",
+      "medianMs": 18.255207999999584,
+      "p25Ms": 13.220489250000355,
+      "p75Ms": 28.023916999999756,
+      "p95Ms": 36.24384824999861,
+      "sqlCount": 18,
+      "n": 100,
+      "arm": "candidate"
+    },
+    {
+      "name": "staff-team-detail",
+      "medianMs": 9.861416500000814,
+      "p25Ms": 9.114343499998995,
+      "p75Ms": 11.106396000001041,
+      "p95Ms": 19.643472949998607,
+      "sqlCount": 16,
+      "n": 100,
+      "arm": "base"
+    },
+    {
+      "name": "staff-team-detail",
+      "medianMs": 9.969207999999526,
+      "p25Ms": 9.168228999999883,
+      "p75Ms": 11.62566649999917,
+      "p95Ms": 21.047850000000285,
+      "sqlCount": 16,
+      "n": 100,
+      "arm": "candidate"
+    }
+  ],
+  "comparisonRule": "One fixed final run, 5 warmups and 100 measured samples per arm per path. Same database and balanced alternating order. No favorable run selection."
+}

@@ -715,7 +715,6 @@ async function seedFullChildGraph(
       content: {},
       revision: 1,
       submittedById: applicantId,
-      legacySubmissionId: null,
     },
   });
   await prisma.milestoneDocumentSubmissionHistory.create({
@@ -2058,7 +2057,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         await concurrentPrisma.milestoneDocumentSubmission.create({
           data: {
             id: raceId,
-            legacySubmissionId: null,
             milestoneDocumentId: raceDocumentId,
             applicationId: fixture.applicationId,
             status: SubmissionStatus.SUBMITTED,

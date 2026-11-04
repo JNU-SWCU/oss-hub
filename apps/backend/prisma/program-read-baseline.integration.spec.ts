@@ -85,9 +85,9 @@ const seedSize = {
   milestones: 2,
   documents: 4,
   submissions: 40,
-  histories: 40,
+  histories: 80,
   files: 40,
-  reviews: 40,
+  reviews: 0,
   repositories: 10,
   provisionJobs: 10,
   outboxEvents: 10,
@@ -266,14 +266,14 @@ async function seed(): Promise<void> {
               expiresAt: endAt,
             },
           });
-          await tx.milestoneDocumentReviewHistory.create({
+          await tx.milestoneDocumentSubmissionHistory.create({
             data: {
               id: id(`review-${team}-${document}`),
               milestoneDocumentSubmissionId: submissionId,
-              submissionHistoryId: historyId,
-              reviewerId: leaderId,
-              decision: 'APPROVED',
-              reviewedAt: now,
+              revision: 1,
+              actorId: leaderId,
+              event: 'APPROVED',
+              createdAt: now,
             },
           });
         }

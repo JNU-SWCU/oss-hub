@@ -189,37 +189,48 @@ describe('GET application-preparations/programs/:programId/me', () => {
   });
 });
 
-it.each([
-  ['POST', 'programs/program-1'],
-  ['POST', 'preparation-1/invitations'],
-  ['POST', 'invitations/invitation-1/accept'],
-  ['POST', 'invitations/invitation-1/decline'],
-  ['POST', 'invitations/invitation-1/cancel'],
-  ['DELETE', 'programs/program-1/me'],
-  ['DELETE', 'programs/program-1/members/user-2'],
-])('3a rejects Preparation writer %s %s with 410', async (method, suffix) => {
-  const body =
-    suffix === 'programs/program-1'
-      ? { name: 'Synthetic' }
-      : suffix === 'preparation-1/invitations'
-        ? { inviteeUserId: 'user-2' }
-        : null;
+it('R1 rejects new Preparation creation with 410', async () => {
+  getPreparation.mockResolvedValueOnce(null);
   const response = await fetch(
-    `${baseUrl}/api/v1/application-preparations/${suffix}`,
+    `${baseUrl}/api/v1/application-preparations/programs/program-1`,
     {
-      method,
+      method: 'POST',
       headers: {
         connection: 'close',
         cookie,
         origin,
         'content-type': 'application/json',
       },
-      ...(body === null ? {} : { body: JSON.stringify(body) }),
+      body: JSON.stringify({ name: 'Synthetic' }),
     },
   );
   expect(response.status).toBe(410);
   await expect(response.json()).resolves.toMatchObject({
     code: 'APP_036',
     status: 410,
+  });
+});
+
+it('R1 returns the existing preparation without applying a replacement name', async () => {
+  getPreparation.mockResolvedValueOnce(PREPARATION);
+  const response = await fetch(
+    `${baseUrl}/api/v1/application-preparations/programs/program-1`,
+    {
+      method: 'POST',
+      headers: {
+        connection: 'close',
+        cookie,
+        origin,
+        'content-type': 'application/json',
+      },
+      body: JSON.stringify({ name: 'Replacement' }),
+    },
+  );
+  expect(response.status).toBe(201);
+  await expect(response.json()).resolves.toMatchObject({
+    id: PREPARATION.id,
+    name: PREPARATION.name,
+    canInvite: true,
+    canRemoveMembers: true,
   });
 });

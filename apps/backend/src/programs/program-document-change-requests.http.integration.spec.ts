@@ -242,7 +242,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(review).toEqual({
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '양식을 바꿔 다시 내 주세요.',
-      resubmissionDueAt: new Date(dueAt),
+      resubmissionDueAt: null,
     });
     await expect(
       fixture.prisma.milestoneDocumentSubmissionHistory.count({

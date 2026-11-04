@@ -1,7 +1,7 @@
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
@@ -78,10 +78,6 @@ async function review(
         comment: '합성 검토 사유',
         expectedRevision: 1,
         expectedLatestReviewId: null,
-        resubmissionDueAt:
-          decision === ReviewDecision.CHANGES_REQUESTED
-            ? new Date('2099-12-31T00:00:00.000Z')
-            : null,
       },
     );
   }
@@ -227,12 +223,15 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
           where: { applicationId: flowIds.application },
           select: {
             status: true,
-            reviewHistories: { select: { reviewerId: true } },
+            histories: {
+              where: { event: 'APPROVED' },
+              select: { actorId: true },
+            },
           },
         }),
       ).resolves.toEqual({
         status: SubmissionStatus.APPROVED,
-        reviewHistories: [{ reviewerId: flowIds.staff }],
+        histories: [{ actorId: flowIds.staff }],
       });
     },
   );

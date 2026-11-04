@@ -130,6 +130,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       .fn()
       .mockResolvedValue({ id: syntheticUserId }),
     findDocumentContext: jest.fn().mockResolvedValue({
+      submissionType: 'FILE_OR_TEXT',
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
       programId: syntheticProgramId,
@@ -371,6 +372,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('서류 항목이 이 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
     const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: 'cuid-other-milestone',
         programId: syntheticProgramId,
@@ -407,6 +409,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('기존 본문 제출이 있어도 파일을 추가로 올릴 수 있다', async () => {
     const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -515,6 +518,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('마감 후에는 첫 파일 업로드를 만들지 않는다', async () => {
     const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -1372,6 +1376,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
   it('서류 항목이 이 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
     const { mocks, repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: 'cuid-synthetic-other-milestone',
         programId: syntheticProgramId,
@@ -1654,6 +1659,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
   it('이름은 서류 항목의 이름과 제출 팀의 이름으로 만든다(순서가 뒤바뀌지 않는다)', async () => {
     const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,

@@ -34,6 +34,7 @@ import { MilestoneDocumentHistoryRequestDto } from './dto/milestone-document-his
 import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import { UpdateMilestoneDocumentGraceRequestDto } from './dto/update-milestone-document-grace-request.dto';
+import { MilestoneDocumentListRequestDto } from './dto/milestone-document-list-request.dto';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -74,10 +75,15 @@ export class MilestoneDocumentsController {
   async list(
     @Req() request: ViewerRequest,
     @Param('milestoneId') milestoneId: string,
+    @Query() query: MilestoneDocumentListRequestDto,
   ): Promise<MilestoneDocumentListResponseDto> {
     return MilestoneDocumentListResponseDto.from(
       (
-        await this.service.listForViewer(request.sessionGithubId, milestoneId)
+        await this.service.listForViewerFromRequest(
+          request.sessionGithubId,
+          milestoneId,
+          query,
+        )
       ).map((result) => MilestoneDocumentResponseDto.from(result)),
     );
   }

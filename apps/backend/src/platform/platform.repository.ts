@@ -3,7 +3,7 @@ import {
   Prisma,
   ApplicationStatus,
   RepositoryConnectionMode,
-  type ReviewDecision,
+  ReviewDecision,
 } from '@prisma/client';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.config';
 
@@ -105,40 +105,14 @@ export class PlatformRepository {
     return current !== null;
   }
 
-  appendSubmissionReview<
-    TSelect extends Prisma.MilestoneDocumentReviewHistorySelect,
-  >(
+  async appendSubmissionReviewEvent(
     transaction: Pick<
       Prisma.TransactionClient,
-      'milestoneDocumentReviewHistory'
-    >,
-    input: SubmissionReviewRecordInput,
-    select: TSelect,
-  ) {
-    return transaction.milestoneDocumentReviewHistory.create({
-      data: {
-        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-        submissionHistoryId: input.submissionHistoryId,
-        reviewerId: input.reviewerId,
-        decision: input.decision,
-        comment: input.comment,
-        ...(input.resubmissionDueAt === undefined
-          ? {}
-          : { resubmissionDueAt: input.resubmissionDueAt }),
-        reviewedAt: input.reviewedAt,
-      },
-      select,
-    });
-  }
-
-  appendSubmissionReviewEvent(
-    transaction: Pick<
-      Prisma.TransactionClient,
-      'milestoneDocumentSubmissionHistory'
+      'milestoneDocumentSubmissionHistory' | 'milestoneDocumentReviewHistory'
     >,
     input: SubmissionReviewEventInput,
   ) {
-    return transaction.milestoneDocumentSubmissionHistory.create({
+    const event = await transaction.milestoneDocumentSubmissionHistory.create({
       data: {
         milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
         event: input.decision,
@@ -147,8 +121,27 @@ export class PlatformRepository {
         actorId: input.reviewerId,
         createdAt: input.reviewedAt,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        event: true,
+        comment: true,
+        createdAt: true,
+        actor: { select: { nickname: true } },
+      },
     });
+    await transaction.milestoneDocumentReviewHistory.create({
+      data: {
+        id: event.id,
+        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
+        submissionHistoryId: input.submissionHistoryId,
+        reviewerId: input.reviewerId,
+        decision: input.decision,
+        comment: input.comment,
+        reviewedAt: input.reviewedAt,
+        resubmissionDueAt: null,
+      },
+    });
+    return event;
   }
 }
 
@@ -156,17 +149,8 @@ type LockedRow = Readonly<{ id: string }>;
 
 type ApplicationCoordinates = Readonly<{ programId: string; teamId: string }>;
 
-interface SubmissionReviewRecordInput {
-  readonly milestoneDocumentSubmissionId: string;
-  readonly submissionHistoryId: string;
-  readonly reviewerId: string;
-  readonly decision: ReviewDecision;
-  readonly comment: string | null;
-  readonly reviewedAt: Date;
-  readonly resubmissionDueAt?: Date | null;
-}
-
 interface SubmissionReviewEventInput {
+  readonly submissionHistoryId: string;
   readonly milestoneDocumentSubmissionId: string;
   readonly revision: number;
   readonly reviewerId: string;

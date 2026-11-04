@@ -14,6 +14,7 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { ApplicationPreparationsService } from './application-preparations.service';
+import { ApplicationPreparationResponseDto } from './dto/application-preparation-response.dto';
 import { LegacyApplicationPreparationsService } from './application-preparations-v02442.fixture';
 import { ApplicationsService } from './applications.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -38,12 +39,10 @@ const preparationRepository = new ApplicationPreparationsRepository(
   prisma,
   new PlatformRepository(),
 );
-const preparations = new LegacyApplicationPreparationsService(
+const legacyPreparations = new LegacyApplicationPreparationsService(
   preparationRepository,
 );
-const currentPreparations = new ApplicationPreparationsService(
-  preparationRepository,
-);
+const preparations = new ApplicationPreparationsService(preparationRepository);
 const applications = new ApplicationsService(
   new ApplicationsRepository(
     prisma,
@@ -75,7 +74,7 @@ async function prepare(minimum = 2) {
     where: { id: programId },
     data: { teamMinSize: minimum },
   });
-  return preparations.create(
+  return legacyPreparations.create(
     leader.githubId,
     programId,
     'synthetic preparation',
@@ -155,22 +154,43 @@ describe('application preparation integration', () => {
     await prisma.$disconnect();
   });
 
-  it('3a reads preparation committed by the old writer after the empty migration check', async () => {
+  it('R1 completes a late undersized preparation by accepting the pending invite', async () => {
     await expect(
       prisma.applicationPreparation.count({ where: { programId } }),
     ).resolves.toBe(0);
     const preparation = await prepare();
-    await inviteAndAccept(preparation.id);
-
+    const invitation = await legacyPreparations.invite(
+      leader.githubId,
+      preparation.id,
+      member.id,
+      now,
+    );
     await expect(
-      currentPreparations.get(member.githubId, programId),
-    ).resolves.toMatchObject({
+      applications.create(leader.githubId, programId, input, now),
+    ).rejects.toMatchObject({ errorCode: { code: 'APP_019' } });
+
+    await preparations.respond(member.githubId, invitation.id, 'accept', now);
+
+    const memberPreparation = await preparations.get(
+      member.githubId,
+      programId,
+    );
+    if (memberPreparation === null)
+      throw new Error('Accepted preparation is missing');
+    expect(
+      ApplicationPreparationResponseDto.from(memberPreparation),
+    ).toMatchObject({
+      canInvite: false,
+      canRemoveMembers: false,
+      canLeave: true,
+    });
+    expect(memberPreparation).toMatchObject({
       id: preparation.id,
       memberCount: 2,
       isLeader: false,
     });
     await expect(
-      currentPreparations.listSent(leader.githubId, preparation.id),
+      preparations.listSent(leader.githubId, preparation.id),
     ).resolves.toEqual([expect.objectContaining({ status: 'ACCEPTED' })]);
     const application = await applications.create(
       leader.githubId,
@@ -186,82 +206,47 @@ describe('application preparation integration', () => {
     ).resolves.toBe(0);
   });
 
-  it.each([
-    'create',
-    'invite',
-    'accept',
-    'decline',
-    'cancel',
-    'remove',
-    'leave',
-  ] as const)(
-    '3a stops Preparation %s writes without changing old rows',
-    async (action) => {
-      const preparation = await prepare();
-      const invitation = await preparations.invite(
-        leader.githubId,
-        preparation.id,
-        member.id,
-        now,
-      );
-      const before = await prisma.applicationPreparation.findUniqueOrThrow({
-        where: { id: preparation.id },
-        include: { participants: { orderBy: { id: 'asc' } } },
-      });
-      const write = () => {
-        switch (action) {
-          case 'create':
-            return currentPreparations.create(
-              leader.githubId,
-              programId,
-              'new',
-              now,
-            );
-          case 'invite':
-            return currentPreparations.invite(
-              leader.githubId,
-              preparation.id,
-              other.id,
-              now,
-            );
-          case 'accept':
-          case 'decline':
-            return currentPreparations.respond(
-              member.githubId,
-              invitation.id,
-              action,
-              now,
-            );
-          case 'cancel':
-            return currentPreparations.respond(
-              leader.githubId,
-              invitation.id,
-              action,
-              now,
-            );
-          case 'remove':
-            return currentPreparations.remove(
-              leader.githubId,
-              programId,
-              member.id,
-            );
-          case 'leave':
-            return currentPreparations.leave(leader.githubId, programId);
-        }
-      };
+  it('R1 rejects only new Preparation creation without creating rows', async () => {
+    await expect(
+      preparations.create(leader.githubId, programId),
+    ).rejects.toMatchObject({ errorCode: { code: 'APP_036', status: 410 } });
+    await expect(
+      prisma.applicationPreparation.count({ where: { programId } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.applicationPreparationParticipant.count({ where: { programId } }),
+    ).resolves.toBe(0);
+  });
 
-      await expect(write()).rejects.toMatchObject({
-        errorCode: { status: 410 },
-      });
+  it('R1 preserves an existing leader preparation on an idempotent create request', async () => {
+    const preparation = await prepare();
+    await expect(
+      preparations.create(leader.githubId, programId),
+    ).resolves.toMatchObject({ id: preparation.id, name: preparation.name });
+    await expect(
+      prisma.applicationPreparation.count({ where: { programId } }),
+    ).resolves.toBe(1);
+  });
 
-      await expect(
-        prisma.applicationPreparation.findUniqueOrThrow({
-          where: { id: preparation.id },
-          include: { participants: { orderBy: { id: 'asc' } } },
-        }),
-      ).resolves.toEqual(before);
-    },
-  );
+  it('R1 lets the leader abandon an undersized preparation with a pending invite', async () => {
+    const preparation = await prepare();
+    await preparations.invite(leader.githubId, preparation.id, member.id, now);
+    expect(ApplicationPreparationResponseDto.from(preparation)).toMatchObject({
+      canInvite: true,
+      canRemoveMembers: true,
+      canLeave: false,
+    });
+
+    await preparations.leave(leader.githubId, programId);
+
+    await expect(
+      preparations.get(leader.githubId, programId),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.applicationPreparationParticipant.count({ where: { programId } }),
+    ).resolves.toBe(0);
+    await expectNoOfficialRows();
+  });
 
   it('keeps accepted invitations temporary until one atomic final application', async () => {
     const preparation = await prepare();
@@ -423,7 +408,7 @@ describe('application preparation integration', () => {
     const preparation = await prepare(1);
     await inviteAndAccept(preparation.id);
     await expect(
-      preparations.create(member.githubId, programId, 'second', now),
+      legacyPreparations.create(member.githubId, programId, 'second', now),
     ).rejects.toMatchObject({ errorCode: { code: 'TIV_007' } });
     const submitted = await applications.create(
       leader.githubId,
@@ -432,7 +417,7 @@ describe('application preparation integration', () => {
       now,
     );
     await expect(
-      preparations.create(member.githubId, programId, 'second', now),
+      legacyPreparations.create(member.githubId, programId, 'second', now),
     ).rejects.toMatchObject({ errorCode: { code: 'TIV_007' } });
     await expect(
       prisma.team.findUnique({ where: { id: submitted.teamId } }),
@@ -461,7 +446,7 @@ describe('application preparation integration', () => {
 
   it('accepts only one of two concurrent preparation invitations in a program', async () => {
     const first = await prepare();
-    const second = await preparations.create(
+    const second = await legacyPreparations.create(
       other.githubId,
       programId,
       'synthetic second preparation',

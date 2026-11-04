@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "name": "submission-axis-prepare",
+  "expectedHeadMigration": "20261104130000_retire_teamless_github_repositories",
+  "preflight": ["check-before.sql"],
+  "stages": [
+    {
+      "id": "prepare",
+      "apply": [
+        "../../../../apps/backend/prisma/migrations/20261104140000_prepare_submission_axis/migration.sql"
+      ],
+      "reconcile": ["check-prepare.sql"]
+    }
+  ],
+  "backupBeforeStage": "prepare",
+  "counts": [
+    { "name": "submissions", "file": "count-submissions.sql" },
+    { "name": "histories", "file": "count-histories.sql" },
+    { "name": "reviews", "file": "count-reviews.sql" },
+    { "name": "files", "file": "count-files.sql" },
+    { "name": "requirements", "file": "count-requirements.sql" }
+  ]
+}

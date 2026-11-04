@@ -166,6 +166,7 @@ export class SubmissionFilesService {
       uploaderId,
       applicationId: normalizedApplicationId,
       milestoneId: normalizedMilestoneId,
+      milestoneDocumentId: authorization.milestoneDocumentId,
       storageKey: objectKey,
       originalFileName: originalName,
       mimeType: file.mimetype,

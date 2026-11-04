@@ -8,7 +8,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  ReviewDecision,
   SubmissionStatus,
   type User,
 } from '@prisma/client';
@@ -398,12 +397,6 @@ export async function seedOssHub(
     'aws-staging',
     'revision-1',
   );
-  const awsStagingApprovedHistoryId = seedId(
-    'oss-hub',
-    'milestone-document-submission-history',
-    'aws-staging',
-    'approved',
-  );
   const awsStagingReviewId = seedId(
     'oss-hub',
     'milestone-document-review-history',
@@ -485,44 +478,19 @@ export async function seedOssHub(
     'MilestoneDocumentSubmissionHistory',
     () =>
       prisma.milestoneDocumentSubmissionHistory.findUnique({
-        where: { id: awsStagingApprovedHistoryId },
+        where: { id: awsStagingReviewId },
       }),
     () =>
       prisma.milestoneDocumentSubmissionHistory.upsert({
-        where: { id: awsStagingApprovedHistoryId },
+        where: { id: awsStagingReviewId },
         update: { comment: awsStagingReviewComment },
         create: {
-          id: awsStagingApprovedHistoryId,
+          id: awsStagingReviewId,
           milestoneDocumentSubmissionId: awsStagingSubmissionId,
           event: MilestoneDocumentSubmissionHistoryEvent.APPROVED,
           revision: 1,
           comment: awsStagingReviewComment,
           actorId: AUTH_SCENARIOS['staff-approved'],
-        },
-      }),
-  );
-  await upsertTracked(
-    stats,
-    'MilestoneDocumentReviewHistory',
-    () =>
-      prisma.milestoneDocumentReviewHistory.findUnique({
-        where: { id: awsStagingReviewId },
-      }),
-    () =>
-      prisma.milestoneDocumentReviewHistory.upsert({
-        where: { id: awsStagingReviewId },
-        update: {
-          decision: ReviewDecision.APPROVED,
-          comment: awsStagingReviewComment,
-          submissionHistoryId: awsStagingHistoryId,
-        },
-        create: {
-          id: awsStagingReviewId,
-          milestoneDocumentSubmissionId: awsStagingSubmissionId,
-          submissionHistoryId: awsStagingHistoryId,
-          reviewerId: AUTH_SCENARIOS['staff-approved'],
-          decision: ReviewDecision.APPROVED,
-          comment: awsStagingReviewComment,
         },
       }),
   );

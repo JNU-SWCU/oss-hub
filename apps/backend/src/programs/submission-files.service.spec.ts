@@ -49,6 +49,7 @@ function authorization(
     uploaderId: 'student-opaque',
     applicationId: 'application-opaque',
     milestoneId: 'milestone-opaque',
+    milestoneDocumentId: 'requirement-opaque',
     applicationApproved: true,
     submissionType: MilestoneSubmissionType.FILE,
     dueAt: new Date('2026-07-26T00:00:00.000Z'),

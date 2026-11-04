@@ -6,14 +6,14 @@ import { SubmissionPublicIdCollisionError } from './submissions.error';
 
 describe('submission-public-id', () => {
   describe('submission public identity', () => {
-    it('builds the permanent dual-key predicate', () => {
+    it('looks up the preserved public ID as the primary key', () => {
       expect(
         new SubmissionsRepository(
           {} as PrismaService,
           new PlatformRepository(),
         ).submissionPublicIdWhere('submission-id'),
       ).toEqual({
-        OR: [{ id: 'submission-id' }, { legacySubmissionId: 'submission-id' }],
+        id: 'submission-id',
       });
     });
 

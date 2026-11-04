@@ -99,15 +99,15 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 ## 파일별 의도와 상태
 
-### Todo 8 3a: 이력 이중 기록과 Preparation writer 중단
+### Todo 8 3a: 이력 이중 기록과 신규 Preparation 생성 중단
 
-기준은 `e40766704`, rollback 계약은 `v0.24.42`다. 게이트 B1·B2·B3에 따라 3a는 TeamHistory 추가와 기존 초대 status 갱신의 이중 기록만 한다. terminal 행과 respondedAt, 기존 목록 조회와 등록 초기화 활동 검사를 보존한다. 교직원 팀 삭제는 대기 초대별 cancellation을 교직원 actorId로 같은 삭제 트랜잭션에 기록한다.
+최신 main `c653d0235`를 병합했다. TeamHistory 관련 rollback 계약은 `v0.24.42`다. 닫힌 B2·B3에 따라 기존 초대 status 갱신과 이력을 이중 기록한다. terminal 행과 respondedAt, 목록 조회와 등록 초기화 검사를 보존하고, 교직원 팀 삭제의 대기 취소 이력을 같은 트랜잭션에 기록한다.
 
-Preparation 변경 요청은 410으로 중단한다. reader와 기존 신청 소비·정리, 소속·자격·등록 초기화·삭제 지문은 유지한다. 3a 운영 확인과 이후 읽기 전용 0건 재집계 전에는 제거하지 않는다. reader 제거, history-aware reset, row 삭제, status 읽기 중단은 3b 계획에 두고 물리 DROP은 별도 승인 후 진행한다.
+R1 판정에 따라 새 Preparation 생성만 410으로 중단한다. 기존 준비의 초대·수락·거절·취소·구성원 제외·탈퇴·준비 삭제와 reader·소비는 유지한다. 자신의 기존 준비를 여는 멱등 생성 요청도 새 행 없이 반환한다. capability는 실제 허용된 기존 조작과 일치한다. 3a만 live인 상태에서 두 테이블이 0임을 확인하기 전에는 reader를 제거하지 않는다. 나머지 3b와 물리 DROP 경계는 유지한다.
 
 | 범위 | 3a before files | 3a before lines | 3a after files | 3a after lines |
 | --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 248 | 38968 | 249 | 39097 |
+| programs 제품 파일 (DTO 포함) | 249 | 39038 | 249 | 39145 |
 
 등록 초기화는 v0.24.42와 같은 legacy 행을 보므로 3a rollback에서 보호가 사라지지 않는다. 3b는 이력 기반 판정과 terminal writer 중단을 먼저 배포한 뒤 row를 삭제해야 하며, 그 시점부터 rollback 하한은 해당 3b 호환 릴리스다. 상세 경계는 `task-8-history-3a.md`에 기록한다.
 
@@ -142,9 +142,9 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | --- | --- | --- | ---: | --- | ---: | --- |
 | `apps/backend/src/programs/application-answers.service.ts` | merge | `team-application.service.ts` | 9 | present | 159 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침 |
 | `apps/backend/src/programs/application-preparation.error.ts` | delete | - | 8 | present | 52 | 준비팀 API·모델 제거 |
-| `apps/backend/src/programs/application-preparations.controller.ts` | delete | - | 8 | present | 153 | 3a는 기존 읽기와 mutation 중단 응답 유지; 제거는 3b |
+| `apps/backend/src/programs/application-preparations.controller.ts` | delete | - | 8 | present | 153 | 3a는 기존 준비 조작 유지, 신규 생성만 중단; 제거는 3b |
 | `apps/backend/src/programs/application-preparations.repository.ts` | delete | - | 8 | present | 397 | 3a는 reader·consumer 보존; 0건 확인 후 3b에서 제거 |
-| `apps/backend/src/programs/application-preparations.service.ts` | delete | - | 8 | present | 190 | 3a는 쓰기 요청만 410으로 거부 |
+| `apps/backend/src/programs/application-preparations.service.ts` | delete | - | 8 | present | 190 | 3a는 신규 생성만 410으로 거부하고 기존 준비 복구 경로 보존 |
 | `apps/backend/src/programs/team-history.repository.ts` | keep | - | 8 | present | 0 | 범용 TeamHistory의 초대 종료 사건 기록 |
 | `apps/backend/src/programs/application-templates.controller.ts` | merge | `teams.controller.ts` | 9 | present | 19 | 팀 경로로 전환 |
 | `apps/backend/src/programs/applications-error-code.error.ts` | merge | `teams.error.ts` | 11 | present | 184 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
@@ -168,7 +168,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/dto/board-post-pin-response.dto.ts` | keep | `dto/board-post-pin-response.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/board-post-response.dto.ts` | keep | `dto/board-post-response.dto.ts` | 11 | present | 111 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/confirm-repository-publish-request.dto.ts` | keep | `dto/confirm-repository-publish-request.dto.ts` | 11 | present | 6 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-application-preparation-request.dto.ts` | delete | - | 8 | present | 12 | 3a의 기존 요청 계약 유지; 제거는 3b |
+| `apps/backend/src/programs/dto/create-application-preparation-request.dto.ts` | delete | - | 8 | deleted | 12 | R1에서 새 이름 입력을 사용하지 않는 생성 차단·멱등 조회로 전환 |
 | `apps/backend/src/programs/dto/create-application-request.dto.ts` | keep | `dto/create-application-request.dto.ts` | 9 | present | 29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/create-application-response.dto.ts` | keep | `dto/create-application-response.dto.ts` | 9 | present | 30 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/create-board-comment-request.dto.ts` | keep | `dto/create-board-comment-request.dto.ts` | 11 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
@@ -263,7 +263,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/milestone-document-reviews.service.ts` | merge | `submissions.service.ts` | 4 | present | 198 | 제출 입력·심사 통합 |
 | `apps/backend/src/programs/milestone-document-submission-window.service.ts` | merge | `submissions.service.ts` | 4 | present | 128 | 제출 기간 판정 통합 |
 | `apps/backend/src/programs/milestone-document-submission.error.ts` | merge | `submissions.error.ts` | 11 | present | 19 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/milestone-document-submission.repository.ts` | merge | `submissions.repository.ts` | 4 | present | 258 | 제출·심사·행렬의 레거시 축 제거 |
+| `apps/backend/src/programs/milestone-document-submission.repository.ts` | merge | `submissions.repository.ts` | 4 | deleted | 258 | 준비 단계에서 제출 트랜잭션을 submissions.repository로 병합; 기존 DI 계약은 이전 API와 함께 후속 단계까지 유지 |
 | `apps/backend/src/programs/milestone-documents-error-code.error.ts` | merge | `submissions.error.ts` | 11 | present | 339 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/milestone-documents.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 267 | 항목 이름과 경로 전환 |
 | `apps/backend/src/programs/milestone-documents.error.ts` | merge | `submissions.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
@@ -352,6 +352,8 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/student-repository-url.error.ts` | merge | `teams.error.ts` | 9 | present | 31 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
 | `apps/backend/src/programs/student-repository-url.service.ts` | merge | `team-application.service.ts` | 9 | present | 254 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
 | `apps/backend/src/programs/submission-completion.config.ts` | keep | `submission-completion.config.ts` | 4 | present | 29 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
+| `apps/backend/src/programs/submission-history.config.ts` | keep | `submission-history.config.ts` | 4 | present | 0 | 통합 이력의 심사 이벤트 선택과 공개 판정 값 변환 |
+| `apps/backend/src/programs/dto/milestone-document-list-request.dto.ts` | keep | `dto/milestone-document-list-request.dto.ts` | 4 | present | 0 | 준비 단계의 전체 항목 opt-in 조회 계약 |
 | `apps/backend/src/programs/submission-dashboard-summary.error.ts` | merge | `submissions.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/submission-dashboard-summary.repository.ts` | merge | `submissions.repository.ts` | 4 | present | 242 | 제출 요약 읽기 |
 | `apps/backend/src/programs/submission-dashboard-summary.service.ts` | merge | `submission-matrix.service.ts` | 4 | present | 244 | 제출 현황 집계 |
@@ -642,3 +644,13 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 네 실제 저장소 경로마다 warmup 1회와 순차 sample 20회를 기록한다. SQL 이벤트는 구독한 query 장벽으로 배출하고 장벽 SQL 자체는 수에서 제외한다. 장벽 시간은 p50에서 제외한다. 성능 수치에는 결과 검증 비용이 포함되며 HTTP·권한·직렬화 전체 지연은 아니다. 트랜잭션 제어 SQL과 팀 상세의 evidence SQL은 포함한다. 임계값 assert는 없다. p50은 10번째와 11번째 정렬 sample의 평균이다. 생성 결과는 `.omo/evidence/program-table-simplification/program-read-baseline.json`, 커밋 기준선은 이 디렉터리의 `program-read-baseline.json`이다.
 
 테스트 시드는 소규모 합성 데이터이며 운영 성능을 대표하지 않는다. 두 마일스톤 모두 DOCUMENT 항목만 가지므로 레거시 제출 결과는 0건이다. 후속 단계는 동일 fixture·호스트 조건으로 재측정하고 운영 크기의 별도 검증 없이 속도 개선을 주장하지 않는다.
+
+## Todo 4: 백엔드 준비 단계
+
+비교 기준은 `baed7d753`이다. 레거시 경로를 유지하는 준비 릴리스이므로 최종 코드 감소를 주장하지 않는다.
+
+| 범위 | Before files | Before lines | 준비 후 files | 준비 후 lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (같은 제외 규칙) | 245 | 37779 | 246 | 37817 |
+
+`milestone-document-submission.repository.ts`의 구현은 `submissions.repository.ts`로 병합했고 원본 파일을 삭제했다. 기존 API와 주입 계약을 유지하기 위해 준비 단계에서는 두 저장소 클래스를 같은 파일에 둔다. 목록의 opt-in 범위 DTO와 심사 이벤트 상수 파일이 추가되어 파일 수는 순증 1개다. 레거시 API·판별 분기·물리 컬럼 및 심사 테이블 삭제는 후속 단계다.

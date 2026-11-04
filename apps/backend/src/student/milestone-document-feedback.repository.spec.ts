@@ -9,7 +9,6 @@ import type { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
 
 const REVIEWED_AT = new Date('2026-09-20T01:00:00.000Z');
-const DUE_AT = new Date('2026-09-27T14:59:00.000Z');
 const REVIEWED_SINCE = new Date('2026-09-12T15:00:00.000Z');
 
 function repositoryWith(
@@ -20,7 +19,7 @@ function repositoryWith(
   const findMany = jest.fn().mockResolvedValue(rows);
   const prisma = {
     user: { findUnique },
-    milestoneDocumentReviewHistory: { findMany },
+    milestoneDocumentSubmissionHistory: { findMany },
   } as unknown as PrismaService;
   return {
     repository: new MilestoneDocumentFeedbackRepository(
@@ -39,11 +38,11 @@ describe('MilestoneDocumentFeedbackRepository', () => {
       [
         {
           id: 'review-1',
-          decision: ReviewDecision.CHANGES_REQUESTED,
+          event: ReviewDecision.CHANGES_REQUESTED,
           comment: '표지를 보완해 주세요.',
-          reviewedAt: REVIEWED_AT,
-          resubmissionDueAt: DUE_AT,
-          milestoneDocumentSubmission: {
+          createdAt: REVIEWED_AT,
+          resubmissionDueAt: null,
+          submission: {
             id: 'submission-1',
             status: SubmissionStatus.CHANGES_REQUESTED,
             applicationId: 'application-1',
@@ -79,8 +78,9 @@ describe('MilestoneDocumentFeedbackRepository', () => {
       },
     ];
     expect(args.where).toEqual({
-      reviewedAt: { gte: REVIEWED_SINCE },
-      milestoneDocumentSubmission: {
+      createdAt: { gte: REVIEWED_SINCE },
+      event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
+      submission: {
         is: {
           application: {
             is: {
@@ -91,7 +91,7 @@ describe('MilestoneDocumentFeedbackRepository', () => {
         },
       },
     });
-    expect(args.orderBy).toEqual([{ reviewedAt: 'desc' }, { id: 'desc' }]);
+    expect(args.orderBy).toEqual([{ createdAt: 'desc' }, { id: 'desc' }]);
     expect(args.take).toBe(50);
     expect(JSON.stringify(args.select)).not.toContain('reviewer');
     expect(reviews).toEqual([
@@ -100,7 +100,7 @@ describe('MilestoneDocumentFeedbackRepository', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '표지를 보완해 주세요.',
         reviewedAt: REVIEWED_AT,
-        resubmissionDueAt: DUE_AT,
+        resubmissionDueAt: null,
         applicationId: 'application-1',
         programId: 'program-1',
         milestoneId: 'milestone-1',

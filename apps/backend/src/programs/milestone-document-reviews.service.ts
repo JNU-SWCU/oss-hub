@@ -10,12 +10,12 @@ import {
   type CreatedMilestoneDocumentReview,
 } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 
 export interface MilestoneDocumentReviewRequest {
   readonly decision: ReviewDecision;
   readonly comment?: string;
-  readonly resubmissionDueAt?: string;
+  readonly resubmissionDueAt?: unknown;
   readonly expectedRevision: number;
   readonly expectedLatestReviewId: string | null;
 }
@@ -41,53 +41,12 @@ export class MilestoneDocumentReviewsService {
   reviewInputFromRequest(
     request: MilestoneDocumentReviewRequest,
   ): CreateMilestoneDocumentReviewInput {
-    const comment = request.comment?.trim() || null;
-    const version = {
+    return {
+      decision: request.decision,
+      comment: request.comment?.trim() || null,
       expectedRevision: request.expectedRevision,
       expectedLatestReviewId: request.expectedLatestReviewId,
     };
-    switch (request.decision) {
-      case ReviewDecision.APPROVED:
-        return {
-          decision: request.decision,
-          comment,
-          resubmissionDueAt: null,
-          ...version,
-        };
-      case ReviewDecision.CHANGES_REQUESTED:
-      case ReviewDecision.REJECTED: {
-        if (comment === null) {
-          throw this.error(MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED);
-        }
-        if (request.decision === ReviewDecision.REJECTED) {
-          return {
-            decision: request.decision,
-            comment,
-            resubmissionDueAt: null,
-            ...version,
-          };
-        }
-
-        const resubmissionDueAt =
-          request.resubmissionDueAt === undefined
-            ? null
-            : new Date(request.resubmissionDueAt);
-        if (
-          resubmissionDueAt === null ||
-          Number.isNaN(resubmissionDueAt.getTime())
-        ) {
-          throw this.error(
-            MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED,
-          );
-        }
-        return {
-          decision: request.decision,
-          comment,
-          resubmissionDueAt,
-          ...version,
-        };
-      }
-    }
   }
 
   reviewFromRequest(
@@ -130,6 +89,9 @@ export class MilestoneDocumentReviewsService {
     }
 
     const created = await this.repository.withTransaction(async (store) => {
+      if (!(await store.lockProgramForReview(documentContext.programId))) {
+        throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+      }
       const locked = await store.lockDocument(documentId);
 
       if (locked === null || locked.milestoneId !== milestoneId) {
@@ -163,15 +125,6 @@ export class MilestoneDocumentReviewsService {
           submission.latestHistoryCreatedAt,
         );
 
-      if (
-        input.resubmissionDueAt !== null &&
-        input.resubmissionDueAt.getTime() <= reviewedAt.getTime()
-      ) {
-        throw this.error(
-          MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
-        );
-      }
-
       const review = await store.createReview({
         milestoneDocumentSubmissionId: submission.id,
         submissionHistoryId: submission.submissionHistoryId,
@@ -179,7 +132,6 @@ export class MilestoneDocumentReviewsService {
         reviewerId,
         decision: input.decision,
         comment: input.comment,
-        resubmissionDueAt: input.resubmissionDueAt,
         reviewedAt,
       });
       await store.updateSubmissionStatus(

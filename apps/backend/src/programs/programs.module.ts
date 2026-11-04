@@ -1,7 +1,7 @@
 import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';

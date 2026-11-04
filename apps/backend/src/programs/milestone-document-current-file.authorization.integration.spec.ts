@@ -8,7 +8,7 @@ import { SubmissionsRepository } from './submissions.repository';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Readable } from 'node:stream';
@@ -917,7 +917,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
   });
 
-  it('목록에 뜨지 않는 옛 제출 슬롯은 받기에서도 없다', async () => {
+  it('기존 목록은 유지하고 전체 항목을 선택한 현재 팀원은 옛 제출 파일도 받는다', async () => {
     const documents = await documentsService.listForViewer(
       users.revertedLeader.githubId,
       milestoneId,
@@ -926,13 +926,23 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       legacyDocumentId,
     );
 
-    await expect(
-      downloadFails(
-        users.revertedLeader.githubId,
-        milestoneId,
-        legacyDocumentId,
-      ),
-    ).resolves.toEqual(hiddenAsMissing);
+    const allDocuments = await documentsService.listForViewer(
+      users.revertedLeader.githubId,
+      milestoneId,
+      new Date(),
+      true,
+    );
+    expect(allDocuments.map((document) => document.id)).toContain(
+      legacyDocumentId,
+    );
+    const file = await currentFileService.download(
+      users.revertedLeader.githubId,
+      milestoneId,
+      legacyDocumentId,
+    );
+    await expect(buffer(file.body)).resolves.toEqual(
+      Buffer.from(`bytes:${prefix}/reverted-legacy.pdf`),
+    );
   });
 
   it('비활성 계정은 팀원이어도 목록도 받기도 닫혀 있다', async () => {

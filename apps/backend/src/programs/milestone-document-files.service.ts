@@ -22,6 +22,7 @@ import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { RequirementSubmissionType } from '@prisma/client';
 
 export interface UploadedMilestoneDocumentFileResponse {
   readonly fileId: string;
@@ -143,6 +144,18 @@ export class MilestoneDocumentFilesService {
       );
     }
 
+    switch (documentContext.submissionType) {
+      case RequirementSubmissionType.TEXT:
+        throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
+      case RequirementSubmissionType.FILE:
+      case RequirementSubmissionType.FILE_OR_TEXT:
+        break;
+      default:
+        throw new TypeError(
+          `Unknown requirement input rule: ${String(documentContext.submissionType satisfies never)}`,
+        );
+    }
+
     const [currentSubmission, latestReview] = await Promise.all([
       this.repository.findMySubmission(
         normalizedDocumentId,
@@ -163,7 +176,6 @@ export class MilestoneDocumentFilesService {
           hasSubmission: currentSubmission !== null,
           latestDecision: latestReview?.decision ?? null,
           submissionStatus: currentSubmission?.status ?? null,
-          resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
         },
       );
     if (blocked !== null) {
@@ -179,6 +191,7 @@ export class MilestoneDocumentFilesService {
         uploaderId: viewer.id,
         applicationId: application.applicationId,
         milestoneId: normalizedMilestoneId,
+        milestoneDocumentId: normalizedDocumentId,
         storageKey: objectKey,
         originalFileName: originalName,
         mimeType: uploadedFile.mimetype,

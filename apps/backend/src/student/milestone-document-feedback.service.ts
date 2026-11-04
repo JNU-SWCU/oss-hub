@@ -4,7 +4,6 @@ import {
   MilestoneDocumentFeedbackRepository,
   type RecentMilestoneDocumentReview,
 } from './milestone-document-feedback.repository';
-import { MilestoneDocumentSubmissionWindowService } from '../programs/milestone-document-submission-window.service';
 
 interface MilestoneDocumentFeedbackItemResult {
   readonly id: string;
@@ -47,7 +46,6 @@ export class MilestoneDocumentFeedbackService {
     >,
     @Inject(MILESTONE_DOCUMENT_FEEDBACK_CLOCK)
     private readonly clock: MilestoneDocumentFeedbackClock,
-    private readonly milestoneDocumentSubmissionWindowService: MilestoneDocumentSubmissionWindowService,
   ) {}
 
   async recentForParticipant(
@@ -57,34 +55,18 @@ export class MilestoneDocumentFeedbackService {
       sessionGithubId,
       feedbackWindowStart(this.clock()),
     );
-    const reviewedSubmissions = new Set<string>();
-    return {
-      items: reviews.map((review) => {
-        const isLatestReview = !reviewedSubmissions.has(review.submissionId);
-        reviewedSubmissions.add(review.submissionId);
-        return this.toFeedbackItem(review, isLatestReview);
-      }),
-    };
+    return { items: reviews.map((review) => this.toFeedbackItem(review)) };
   }
 
   private toFeedbackItem(
     review: RecentMilestoneDocumentReview,
-    isLatestReview: boolean,
   ): MilestoneDocumentFeedbackItemResult {
-    const resubmissionOpen =
-      isLatestReview &&
-      this.milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen(
-        {
-          latestDecision: review.decision,
-          submissionStatus: review.submissionStatus,
-        },
-      );
     return {
       id: review.id,
       decision: review.decision,
       comment: review.comment,
       reviewedAt: review.reviewedAt,
-      resubmissionDueAt: resubmissionOpen ? review.resubmissionDueAt : null,
+      resubmissionDueAt: null,
       applicationId: review.applicationId,
       programId: review.programId,
       milestoneId: review.milestoneId,

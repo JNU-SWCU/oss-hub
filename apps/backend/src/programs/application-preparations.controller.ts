@@ -19,7 +19,6 @@ import {
   ApplicationPreparationInvitationResponseDto,
   ApplicationPreparationResponseDto,
 } from './dto/application-preparation-response.dto';
-import { CreateApplicationPreparationRequestDto } from './dto/create-application-preparation-request.dto';
 import { InviteApplicationPreparationRequestDto } from './dto/invite-application-preparation-request.dto';
 import { MyApplicationPreparationResponseDto } from './dto/my-application-preparation-response.dto';
 import { SearchApplicationPreparationRequestDto } from './dto/search-application-preparation-request.dto';
@@ -46,10 +45,9 @@ export class ApplicationPreparationsController {
   async create(
     @Req() request: AuthenticatedRequest,
     @Param('programId') programId: string,
-    @Body() body: CreateApplicationPreparationRequestDto,
   ): Promise<ApplicationPreparationResponseDto> {
     return ApplicationPreparationResponseDto.from(
-      await this.service.create(request.sessionGithubId, programId, body.name),
+      await this.service.create(request.sessionGithubId, programId),
     );
   }
   @Delete('programs/:programId/me')

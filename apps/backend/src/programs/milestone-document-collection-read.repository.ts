@@ -3,10 +3,12 @@ import {
   SubmissionStatus,
   ReviewDecision,
   MilestoneSubmissionType,
+  type RequirementSubmissionType,
 } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
+import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 
 export type DocumentDeliveryStatus =
   'MISSING' | 'LATE' | 'COMPLETE' | 'NO_REQUIRED_ITEMS';
@@ -14,6 +16,8 @@ export type DocumentDeliveryStatus =
 export type MilestoneDocumentContentInput = {
   readonly text: string | null;
   readonly fileId: string | null;
+  readonly comment?: string | null;
+  readonly expectedRevision?: number;
 };
 
 export type MilestoneDocumentSubmittedContent = {
@@ -24,8 +28,6 @@ export type MilestoneDocumentSubmittedContent = {
 export interface CreateMilestoneDocumentReviewInput {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
-
-  readonly resubmissionDueAt: Date | null;
 
   readonly expectedRevision: number;
 
@@ -48,8 +50,7 @@ export type ProgramDocumentChangeRequestScope =
 export interface ProgramDocumentChangeRequestInput {
   readonly scope: ProgramDocumentChangeRequestScope;
   readonly includeFinalDecisions: boolean;
-  readonly comment: string;
-  readonly resubmissionDueAt: Date;
+  readonly comment: string | null;
   readonly expectedVersion: string;
 }
 
@@ -77,6 +78,7 @@ export interface MilestoneDocumentRecord {
   milestoneId: string;
   name: string;
   required: boolean;
+  submissionType: RequirementSubmissionType;
   sortOrder: number;
   graceDueAt: Date | null;
   templateFileId: string | null;
@@ -171,19 +173,19 @@ export class MilestoneDocumentCollectionReadRepository {
   ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
 
   readonly boundedReviewHistoryQuery = {
-    orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+    where: { event: { in: SUBMISSION_REVIEW_EVENTS } },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
     take: 50,
     select: {
       id: true,
-      decision: true,
+      event: true,
       comment: true,
-      reviewedAt: true,
+      createdAt: true,
 
-      resubmissionDueAt: true,
-      reviewer: { select: { nickname: true } },
-      submissionHistory: { select: { revision: true } },
+      actor: { select: { nickname: true } },
+      revision: true,
     },
-  } satisfies Prisma.MilestoneDocumentSubmission$reviewHistoriesArgs;
+  } satisfies Prisma.MilestoneDocumentSubmission$historiesArgs;
 }
 
 @Injectable()
@@ -202,15 +204,20 @@ export class MilestoneDocumentCollectionReadStoreRepository {
 
   async findDocuments(
     milestoneId: string,
+    includeLegacy = false,
   ): Promise<readonly MilestoneDocumentRecord[]> {
     const documents = await this.transaction.milestoneDocument.findMany({
-      where: { milestoneId, kind: 'DOCUMENT' },
+      where: {
+        milestoneId,
+        ...(includeLegacy ? {} : { kind: 'DOCUMENT' as const }),
+      },
       orderBy: { sortOrder: 'asc' },
       select: {
         id: true,
         milestoneId: true,
         name: true,
         required: true,
+        submissionType: true,
         sortOrder: true,
         graceDueAt: true,
         templateFile: { select: { id: true, originalFileName: true } },
@@ -321,16 +328,16 @@ export class MilestoneDocumentCollectionReadStoreRepository {
               submissionHistory: { select: { revision: true } },
             },
           },
-          reviewHistories: {
+          histories: {
             ...this.milestoneDocumentCollectionReadRepository
               .boundedReviewHistoryQuery,
             take: 1,
           },
         },
       });
-    return submissions.map(({ files, reviewHistories, ...submission }) => {
+    return submissions.map(({ files, histories, ...submission }) => {
       const selectedFile = files[0];
-      const review = reviewHistories[0];
+      const review = histories[0];
       return {
         ...submission,
         file:
@@ -345,12 +352,22 @@ export class MilestoneDocumentCollectionReadStoreRepository {
             ? null
             : {
                 id: review.id,
-                decision: review.decision,
+                decision: submissionReviewDecision(review.event),
                 comment: review.comment,
-                reviewedAt: review.reviewedAt,
-                resubmissionDueAt: review.resubmissionDueAt,
+                reviewedAt: review.createdAt,
+                resubmissionDueAt: null,
               },
       };
     });
   }
+}
+
+function submissionReviewDecision(event: string): ReviewDecision {
+  if (
+    event === 'APPROVED' ||
+    event === 'REJECTED' ||
+    event === 'CHANGES_REQUESTED'
+  )
+    return event;
+  throw new TypeError('Expected a submission review event');
 }

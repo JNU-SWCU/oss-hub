@@ -1,4 +1,4 @@
-import { SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus, RequirementSubmissionType } from '@prisma/client';
 import type { MilestoneDocumentViewerResult } from '../milestone-documents.service';
 import {
   SUBMISSION_UPLOAD_ACCEPT,
@@ -81,6 +81,7 @@ export class MilestoneDocumentResponseDto {
   declare readonly milestoneId: string;
   declare readonly name: string;
   declare readonly required: boolean;
+  declare readonly submissionType: RequirementSubmissionType;
   declare readonly sortOrder: number;
   declare readonly graceDueAt: string | null;
   declare readonly hasTemplateFile: boolean;
@@ -98,6 +99,7 @@ export class MilestoneDocumentResponseDto {
       milestoneId: record.milestoneId,
       name: record.name,
       required: record.required,
+      submissionType: record.submissionType,
       sortOrder: record.sortOrder,
       graceDueAt: record.graceDueAt?.toISOString() ?? null,
       hasTemplateFile: record.templateFileId !== null,

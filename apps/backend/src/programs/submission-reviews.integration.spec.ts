@@ -274,12 +274,15 @@ describe('SubmissionReviewsService integration', () => {
         where: { id: EXISTING_SUBMISSION_ID },
         select: {
           status: true,
-          reviewHistories: { select: { decision: true } },
+          histories: {
+            where: { event: 'APPROVED' },
+            select: { event: true },
+          },
         },
       }),
     ).resolves.toMatchObject({
       status: SubmissionStatus.APPROVED,
-      reviewHistories: [{ decision: ReviewDecision.APPROVED }],
+      histories: [{ event: ReviewDecision.APPROVED }],
     });
     await expect(
       service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {

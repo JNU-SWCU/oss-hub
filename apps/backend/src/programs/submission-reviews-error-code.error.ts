@@ -6,7 +6,6 @@ export const SubmissionReviewsErrorCode = {
   STAFF_APPROVAL_REQUIRED: 'SUB_002',
   STALE_REVISION: 'SUB_003',
   ALREADY_REVIEWED: 'SUB_004',
-  COMMENT_REQUIRED: 'SUB_005',
   REPOSITORY_NOT_READY: 'SUB_006',
   REQUIRED_MILESTONES_NOT_APPROVED: 'SUB_007',
   GITHUB_PUBLISH_FAILED: 'SUB_008',
@@ -47,11 +46,6 @@ export const SUBMISSION_REVIEWS_ERROR_CODES: Record<
     code: SubmissionReviewsErrorCode.ALREADY_REVIEWED,
     status: 409,
     message: '이미 검토가 끝난 제출본입니다.',
-  },
-  [SubmissionReviewsErrorCode.COMMENT_REQUIRED]: {
-    code: SubmissionReviewsErrorCode.COMMENT_REQUIRED,
-    status: 422,
-    message: '보완 요청과 최종 반려에는 코멘트가 필요합니다.',
   },
   [SubmissionReviewsErrorCode.REPOSITORY_NOT_READY]: {
     code: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
