@@ -51,3 +51,60 @@ v0.24.44는 스키마가 열려도 의미상 안전하지 않다. 초대만 있�
 호스트 정리: 지정 worktree의 compose working-directory 라벨로 조회한 잔존 컨테이너는 0개다. 통합 runner의 볼륨·네트워크 정리까지 끝난 EXIT=0을 확인했다. 별도 서버·브라우저·임시 디렉터리는 만들지 않았고 테스트 잠금은 각 명령 종료 때 해제했다. 다른 worktree의 실행과 Docker 자원은 유지했다.
 
 이 문서의 최초 draft 공개 시점에는 서버 리허설과 status reader 제거 최종 검증은 아직 진행 중이다. 운영 데이터 쓰기·merge·배포는 하지 않는다. 서버 리허설은 운영 dump를 서버 내부 tmpfs 기반 --rm 컨테이너로만 복원하고 결과와 정리 영수증을 여기에 추가한다.
+
+## 인계 후 직접 확인한 음성 검증
+
+2026-11-04 인계 시 실제 HEAD와 원격 브랜치는 모두 `78a78659417a39f514e79b7fca430bb20589f3a4`였고 미커밋 변경은 없었다. 여섯 파일의 전체 커밋 diff를 읽은 뒤 `git push --no-verify`가 `Everything up-to-date`로 끝난 것을 확인했다. 미push라는 인계 설명보다 실제 저장소 상태를 기준으로 진행했다.
+
+운영 코드 두 곳만 임시로 변형했다. SQL의 `Invitation approval count mismatch` 조건 전체를 `FALSE AND (...)`로 막았고, 팀 삭제 저장소의 `INVITATION_CANCELLED` 기록에 교직원 `actorId` 대신 `invitation.invitedById`를 전달했다. 테스트는 수정하지 않았다. `BACKEND_INTEGRATION_TEST_PATTERN='(terminal-invitation-migration|program-team-deletion)\.integration\.spec\.ts$' pnpm --config.verify-deps-before-run=false --filter backend test:integration`을 격리 DB에서 실행했다.
+
+```text
+FAIL src/programs/program-team-deletion.integration.spec.ts
+  3b staff deletion records every pending cancellation and preserves archived history
+  - "actorId": "synthetic-team-deletion:staff"
+  + "actorId": "synthetic-team-deletion:leader"
+FAIL prisma/terminal-invitation-migration.integration.spec.ts
+  rejects an unapproved status split or inventory count: DELETE FROM "Team" WHERE id = 'team-40'
+  Received promise resolved instead of rejected
+Test Suites: 2 failed, 2 total
+Tests:       13 failed, 30 passed, 43 total
+MUTATION_RED_EXIT=1
+```
+
+SQL 가드만 무력화했으므로 승인 INSERT 가드는 그대로다. 종료 24·26건은 각각 `Invitation approval insert count mismatch: copied=24; expected 25`와 `copied=26; expected 25`가 발생해 기대한 선행 수량 예외와 달라 실패했다. 상태 비율·대기 수·팀·구성원 변형 아홉 건은 예외 없이 완료되어 실패했다. 이 결과는 두 가드가 서로 다른 불변식을 검사함을 보여준다.
+
+두 운영 파일을 바이트 단위로 복원한 뒤 같은 명령을 실행했다.
+
+```text
+PASS src/programs/program-team-deletion.integration.spec.ts
+PASS prisma/terminal-invitation-migration.integration.spec.ts
+Test Suites: 2 passed, 2 total
+Tests:       43 passed, 43 total
+MUTATION_GREEN_EXIT=0
+```
+
+복원 SHA-256은 SQL `1fa708e4fd21d770a9edf2a02e40d5a3169ba8095630b5114a88a4a117bed485`, 팀 삭제 저장소 `30b1e385d0880de4f06003f0da6c4a80ac7c4a9ae3879cfb74867e34af003b69`이며 변형 전과 같다. 두 실행 모두 mkdir 잠금과 EXIT trap으로 직렬화했고 실패 때도 잠금을 해제했다. 의존성 검증은 환경변수와 명령 옵션으로 비활성화했다.
+
+운영 수량은 이번 인계에서 재조회하지 않았다. `task-8-history-3b-code.md`의 2026-11-04 읽기 전용 실측(EXIT=0)이 출처이며, 신규 이력 25건(수락 20 + 거절 5), 초대 28→3, 대기 3·팀 40·구성원 72 유지가 소유자 승인 대상이다. 운영 연결·쓰기·merge·배포는 수행하지 않았다.
+
+## 인계 후 전체 게이트
+
+동일한 복원 코드에서 전체 단위 테스트를 다시 실행했다. `/tmp/oss-hub-heavy.lock`을 mkdir로 획득한 뒤 EXIT trap으로 해제했으며 `npm_config_verify_deps_before_run=false`를 내보냈다.
+
+```text
+pnpm --config.verify-deps-before-run=false --filter backend test:unit --maxWorkers=2
+Test Suites: 389 passed, 389 total
+Tests:       6321 passed, 6321 total
+FULL_UNIT_EXIT=0
+```
+
+단위 테스트가 끝난 뒤 잠금을 새로 획득하고 `BACKEND_INTEGRATION_TEST_PATTERN`을 unset하여 전체 통합 테스트를 실행했다. 통합 runner의 `--runInBand`로 한 worker만 사용했다.
+
+```text
+pnpm --config.verify-deps-before-run=false --filter backend test:integration
+Test Suites: 151 passed, 151 total
+Tests:       1190 passed, 1190 total
+FULL_INTEGRATION_EXIT=0
+```
+
+마지막 실행의 compose project는 `oss-hub-test-1793804542-48276-13747`이고 PostgreSQL·객체 저장소 포트는 각각 33152·33153이었다. 종료 후 해당 project의 컨테이너·볼륨·네트워크는 각각 0개, 두 포트의 LISTEN은 0개, runner/Jest PID 48276·48341·48365는 모두 없었다. `/tmp/oss-hub-heavy.lock`도 없으며 정리 검사의 `CLEANUP_EXIT=0`을 확인했다. 작업 디렉터리를 사용하는 PID 43734는 `/opt/homebrew/bin/deno lsp`로 TCP LISTEN이 없는 에디터 도구여서 유지했다. 다른 worktree의 기존 Docker 자원은 건드리지 않았다. 별도 서버·브라우저·임시 파일은 만들지 않았다.
