@@ -99,6 +99,8 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 ## 파일별 의도와 상태
 
+Todo 5 후속 draft는 준비 PR #1725의 앱 코드와 위 파일 수·줄 수를 그대로 유지한다. ProgramCreateRequest와 옛 업로드 FK의 물리 삭제만 다음 릴리스로 분리한다. 대조 실패 중단·빈 DB 이관·리허설 증거는 `task-5-retire-verification.md`에 있다.
+
 ### Todo 8 3b 코드 선행
 
 v0.24.44가 운영된 뒤 읽기 전용 집계로 Preparation 두 테이블 0건을 확인했다. DB reader·consumer와 새 프론트의 fallback 조회를 제거했다. 캐시된 구 프론트를 위해 보호된 GET의 NONE 응답만 남기며 이 경로에는 DB reader가 없다. 초대 종료는 이력과 삭제를 같은 트랜잭션에 두고 등록 초기화는 actor와 초대 당사자의 TeamHistory를 확인한다.
