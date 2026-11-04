@@ -24,7 +24,7 @@
 - Preparation DB reader·consumer를 제거하고 새 프론트도 fallback API를 호출하지 않는다. 구 프론트의 보호 GET에는 DB 조회 없는 NONE 응답만 유지한다.
 - 데이터 이관까지 PENDING status 필터를 유지한다. 기존 종료 행의 이관·삭제 및 status 읽기 중단은 별도 draft PR이다.
 - 이관 전 팀 삭제가 기존 종료 행을 잃지 않도록 INVITATION_ARCHIVED에 원본 status/respondedAt/updatedAt을 보존한다. 이는 실제 보관 사건이며 과거 취소·거절 행위자를 추정하지 않는다. 기존 이력이 있으면 덮어쓰지 않는다.
-- 이 코드와 함께 추가하는 migration은 Preparation 0건 검사와 archive enum 추가뿐이다. 기존 행의 이동·삭제와 물리 DROP은 하지 않는다.
+- 이 코드의 migration은 Preparation 0건 검사, 이후 INSERT를 막는 두 CHECK(false), archive enum 추가다. 기존 행의 이동·삭제와 물리 DROP은 하지 않는다.
 - 게이트 수정: 0건 확인과 같은 트랜잭션에서 Preparation 두 테이블에 `CHECK (false)`를 추가한다. 이후 INSERT는 명시적으로 실패하여 reader를 제거한 불변식을 유지한다. trigger나 배포 파이프라인 변경은 없다. v0.24.44 미만으로 rollback하면 Preparation 생성이 실패할 수 있다. v0.24.44 이상은 새 Preparation을 만들지 않는다. 초대 이력 활동 판정 때문에 요구되는 별도 rollback 하한은 그대로다.
 
 v0.24.44는 삭제된 초대를 활동으로 셀 수 없어 초대만 있던 사용자의 등록 초기화 보호를 잃는다. 따라서 삭제를 시작한 뒤의 rollback 하한은 이 코드 선행 릴리스다. 데이터 draft가 이 선행 앱과 호환되는지 별도로 검증하며 v0.24.44로 직접 image rollback이 안전하다고 주장하지 않는다.
@@ -37,4 +37,8 @@ v0.24.44는 삭제된 초대를 활동으로 셀 수 없어 초대만 있던 사
 
 v0.24.44의 실제 hasActivity 원문(blob `0ccf563b3d968f42106621018fe87999943aae7c`)을 독립 fixture에 넣어 같은 DB에서 비교했다. 삭제 후 새 코드는 ROL_025로 거부하지만 구 판정은 false이며 같은 등록 초기화 서비스가 실제로 type을 UNSELECTED, studentId를 null로 바꾼다. 행위자·초대 대상·초대자만 이력에 남은 경우도 비교했다. 타깃 10 tests, backend/frontend typecheck, knip와 파일 원장이 EXIT=0으로 통과했다.
 
-코드 단계 manifest는 `deploy/jenkins/program-migration/team-history/code.json`이며 선행 migration은 prepare_team_history다. 이 문서는 코드 보존 체크포인트다. 데이터 이동 SQL, 서버 임시 컨테이너 리허설, 최종 PR gate는 아직 완료되지 않았다. 전체 스위트·merge·release·물리 DROP은 수행하지 않았다.
+코드 단계 manifest는 `deploy/jenkins/program-migration/team-history/code.json`이며 선행 migration은 prepare_team_history다. 두 CHECK(false)의 늦은 INSERT 거부를 포함한 타깃 5개가 통과했다. 가이드에 TIV_010 재시도 안내도 추가했다.
+
+별도 draft #1741의 서버 내부 리허설에서 이 코드 migration과 이관 SQL을 순서대로 적용했다. Preparation 제약 2개, 이력 INSERT 25, ACCEPTED DELETE 20·DECLINED DELETE 5, 초대 28→3, 대기 3·팀 40·구성원 72를 확인했다. 재실행 추가 이동은 0이고 백업 복원 건수도 동일했다. tmpfs/--rm 임시 컨테이너·dump·소스 디렉터리 잔여 0, 최종 EXIT=0이다. 상세 영수증은 draft의 `task-8-history-3b-retire.md`에 둔다.
+
+merge·release·물리 DROP은 수행하지 않았다. main의 별도 테스트 복구 PR #1740에서 전체 unit을 한 번 실행한 결과는 390 suites / 6,327 tests이며 이 코드 브랜치 전체 스위트 결과로 혼동하지 않는다. pre-push의 raw pnpm이 환경 옵션을 무시해 예상 밖 auto-install/postinstall을 실행한 이력이 있어, 후속 호출은 PATH의 로컬 wrapper로 `--config.verify-deps-before-run=false`를 명시 전달했다. lockfile 변경은 없다.
