@@ -791,6 +791,7 @@ describe('ProgramTeamsService.deleteForStaff', () => {
     expect(deleteTeam).toHaveBeenCalledWith(
       PROGRAM_ID,
       TEAM_ID,
+      STAFF_AUTHORITY.id,
       EXPECTED_SCOPE,
       expect.any(Function),
       expect.any(Function),
@@ -884,6 +885,7 @@ describe('ProgramTeamsService.deleteForStaff', () => {
     expect(deleteTeam).toHaveBeenCalledWith(
       PROGRAM_ID,
       TEAM_ID,
+      STAFF_AUTHORITY.id,
       heavyScope,
       expect.any(Function),
       expect.any(Function),
@@ -901,7 +903,7 @@ describe('ProgramTeamsService.deleteForStaff', () => {
       TEAM_ID,
       EXPECTED_SCOPE,
     );
-    const recordAudit = deleteTeam.mock.calls.at(0)?.at(3);
+    const recordAudit = deleteTeam.mock.calls.at(0)?.at(4);
     if (typeof recordAudit !== 'function') {
       throw new TypeError('Expected an audit callback argument');
     }
