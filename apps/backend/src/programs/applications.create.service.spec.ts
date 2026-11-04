@@ -462,7 +462,7 @@ describe('ApplicationsService.create', () => {
     });
   });
 
-  it('팀 최소 인원이 1보다 크면 1인 팀 신청을 막고 APP_019를 반환한다', async () => {
+  it('팀 최소 인원이 1보다 커도 1인 팀으로 지원할 수 있다', async () => {
     const { service, createApplication, createTeamWithLeader } = buildService({
       store: {
         findTeamMinSize: jest.fn().mockResolvedValue(2),
@@ -471,12 +471,9 @@ describe('ApplicationsService.create', () => {
 
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: 'APP_019', status: 422 },
-      extensions: { memberCount: 1, teamMinSize: 2 },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(createApplication).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({ teamId: 'synthetic-team' });
+    expect(createTeamWithLeader).toHaveBeenCalled();
+    expect(createApplication).toHaveBeenCalled();
   });
 
   it('팀 멤버십 충돌(이미 프로그램 팀 소속)은 APP_011 로 매핑한다', async () => {
@@ -584,7 +581,7 @@ describe('ApplicationsService.create', () => {
     );
   });
 
-  it('재사용할 팀이 최소 인원에 못 미치면 실제 인원으로 거절한다', async () => {
+  it('기존 팀이 최소 인원에 못 미쳐도 같은 팀으로 지원한다', async () => {
     const { service } = buildService({
       store: {
         findTeamMinSize: jest.fn().mockResolvedValue(2),
@@ -597,10 +594,7 @@ describe('ApplicationsService.create', () => {
 
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET },
-      extensions: { memberCount: 1, teamMinSize: 2 },
-    });
+    ).resolves.toMatchObject({ teamId: 'existing-team' });
   });
 
   it('재사용할 팀이 최소 인원을 채웠으면 신청을 허용한다', async () => {
@@ -763,12 +757,11 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
   });
 
   it('팀장을 승계한 사람은 그 팀으로 신청할 수 있다', async () => {
-    const { service, createApplication, lockTeamForApply, countTeamMembers } =
-      buildTeamService({
-        leaderAfterLock: true,
-        teamMinSize: 2,
-        memberCount: 2,
-      });
+    const { service, createApplication, lockTeamForApply } = buildTeamService({
+      leaderAfterLock: true,
+      teamMinSize: 2,
+      memberCount: 2,
+    });
 
     const result = await service.create(
       GITHUB_ID,
@@ -785,10 +778,8 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
       }),
     );
     const lockOrder = lockTeamForApply.mock.invocationCallOrder[0] ?? 0;
-    const countOrder = countTeamMembers.mock.invocationCallOrder[0] ?? 0;
     const createOrder = createApplication.mock.invocationCallOrder[0] ?? 0;
-    expect(lockOrder).toBeLessThan(countOrder);
-    expect(countOrder).toBeLessThan(createOrder);
+    expect(lockOrder).toBeLessThan(createOrder);
   });
 
   it('잠금 직전에 팀에서 빠진 사람은 신청이 쓰이기 전에 막힌다', async () => {
@@ -830,7 +821,7 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
     );
   });
 
-  it('팀장이어도 최소 인원 미달이면 APP_019로 막고 신청을 만들지 않는다', async () => {
+  it('팀장은 최소 인원 미달이어도 지원 후 팀원을 초대할 수 있다', async () => {
     const { service, createApplication } = buildTeamService({
       leaderAfterLock: true,
       teamMinSize: 2,
@@ -839,11 +830,8 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
 
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET },
-      extensions: { memberCount: 1, teamMinSize: 2 },
-    });
-    expect(createApplication).not.toHaveBeenCalled();
+    ).resolves.toMatchObject({ teamId: EXISTING_TEAM.id });
+    expect(createApplication).toHaveBeenCalled();
   });
 
   it('팀장의 중복 신청은 계속 APP_011로 매핑한다', async () => {

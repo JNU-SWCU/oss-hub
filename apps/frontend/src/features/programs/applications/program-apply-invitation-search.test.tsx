@@ -326,47 +326,20 @@ describe('ProgramApplyPage — 초대 검색', () => {
     expect(searchInvitationCandidatesMock).not.toHaveBeenCalled();
   });
 
-  it('팀이 없으면 ＋가 먼저 팀을 만들고, 그 팀으로 검색한다', async () => {
+  it('팀이 없으면 지원 전에 초대 검색을 열지 않는다', async () => {
     loadProgramApplyContextMock
       .mockReset()
-      .mockResolvedValueOnce(readyContext(null))
-      .mockResolvedValue(readyContext(team));
-    createApplicationPreparationMock.mockResolvedValue({
-      id: team.id,
-      name: team.name,
-      memberCount: 1,
-    });
-    searchInvitationCandidatesMock.mockResolvedValue([
-      candidate('u9', 'octo9'),
-    ]);
+      .mockResolvedValue(readyContext(null));
     await renderPage();
-
-    expect(listSentInvitationsMock).not.toHaveBeenCalled();
-
     const teamNameInput =
       container.querySelector<HTMLInputElement>('#apply-team-name');
     if (!teamNameInput) throw new Error('팀 이름 입력을 찾지 못했다.');
     typeInto(teamNameInput, '오픈소스팀');
-    await openInviteDialog();
-
-    expect(createApplicationPreparationMock).toHaveBeenCalledExactlyOnceWith(
-      'program-1',
-      {
-        name: '오픈소스팀',
-      },
-    );
-
-    typeQuery('oc');
-    await runDebouncedSearch();
-
-    expect(searchInvitationCandidatesMock).toHaveBeenCalledExactlyOnceWith(
-      'team-1',
-      'oc',
-      false,
-    );
-    expect(document.body.textContent).toContain('octo9');
-
-    expect(createInvitationMock).not.toHaveBeenCalled();
+    expect(container.querySelector('[aria-label="팀원 초대"]')).toBeNull();
+    expect(searchInput()).toBeNull();
+    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
+    expect(listSentInvitationsMock).not.toHaveBeenCalled();
+    expect(searchInvitationCandidatesMock).not.toHaveBeenCalled();
   });
 
   it('빠르게 입력해도 디바운스 지연이 끝난 뒤 마지막 값으로 한 번만 검색한다', async () => {

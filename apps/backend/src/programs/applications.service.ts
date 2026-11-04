@@ -256,23 +256,6 @@ export class ApplicationsService {
             : null;
         if (preparation !== null && preparation.leaderId !== student.id)
           throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
-        const teamMinSize = await store.findTeamMinSize(programId);
-        const memberCount = existingTeam
-          ? await store.countTeamMembers(existingTeam.id)
-          : (preparation?.memberIds.length ?? 1);
-        if (teamMinSize !== null && memberCount < teamMinSize) {
-          const extensions: TeamMinimumExtensions = {
-            memberCount,
-            teamMinSize,
-          };
-          throw new DomainException(
-            APPLICATIONS_ERROR_CODES[
-              ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET
-            ],
-            extensions,
-          );
-        }
-
         const applicationTeam =
           existingTeam ??
           (await store.createTeamWithLeader({
@@ -473,6 +456,28 @@ export class ApplicationsService {
           processedAt,
           findProvisionJob: (id) => store.findRepositoryProvisionJob(id),
         });
+
+        if (plan.kind === 'APPROVE') {
+          const teamMinSize = await store.findTeamMinSize(
+            application.programId,
+          );
+          const memberCount =
+            application.teamId === null
+              ? 1
+              : await store.countTeamMembers(application.teamId);
+          if (teamMinSize !== null && memberCount < teamMinSize) {
+            const extensions: TeamMinimumExtensions = {
+              memberCount,
+              teamMinSize,
+            };
+            throw new DomainException(
+              APPLICATIONS_ERROR_CODES[
+                ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET
+              ],
+              extensions,
+            );
+          }
+        }
 
         const transition: ApplicationTransition = {
           applicationId,

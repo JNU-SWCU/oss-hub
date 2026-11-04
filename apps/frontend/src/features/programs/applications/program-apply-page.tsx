@@ -11,8 +11,6 @@ import { EmptyState, FailureState, PageBody } from '@/components';
 import { Button } from '@/components/ui/button';
 import { ApiError } from '@/lib/api-client';
 import { createApplication } from './api';
-import { createApplicationPreparation } from '../teams/api';
-import type { ProgramTeam } from '../teams/dto';
 import {
   loadProgramApplyContext,
   type ProgramApplyContext,
@@ -22,7 +20,6 @@ import {
   applyActionFailureMessage,
   EMPTY_APPLY_FORM,
   mapCreateApplicationError,
-  remainingTeamMembers,
   validateApplyForm,
   type ProgramApplyAction,
   type ProgramApplyFormErrors,
@@ -36,7 +33,6 @@ import {
   type ApplicationConfirmation,
   type ApplicationFormMode,
 } from './program-apply-views';
-import { mapTeamActionError } from '../teams/program-teams-flow';
 import {
   cancelMyApplication,
   updateMyApplication,
@@ -102,15 +98,12 @@ export function ProgramApplyPage({
   const [submitting, setSubmitting] = useState(false);
   const [createName, setCreateName] = useState('');
   const [teamError, setTeamError] = useState<string | null>(null);
-  const [creatingTeam, setCreatingTeam] = useState(false);
   const [inviteOpen, setInviteOpen] = useState(false);
   const hasUserInput = useRef(false);
   const identityEpochRef = useRef(0);
   const loadSeqRef = useRef(0);
-  const creatingTeamRef = useRef(false);
   const submittingRef = useRef(false);
 
-  const preparationCreatedRef = useRef(false);
   const mountedRef = useRef(true);
   const stateRef = useRef(state);
   const programIdRef = useRef(programId);
@@ -178,7 +171,6 @@ export function ProgramApplyPage({
     const current = stateRef.current;
     if (current.kind === 'success' || submittingRef.current) return;
     if (context.kind === 'ready') {
-      if (context.team === null) preparationCreatedRef.current = false;
       const modeChanged =
         current.kind === 'ready' && current.mode !== context.mode;
       if (!hasUserInput.current || modeChanged) {
@@ -221,10 +213,7 @@ export function ProgramApplyPage({
     identityEpochRef.current += 1;
     loadSeqRef.current += 1;
     hasUserInput.current = false;
-    creatingTeamRef.current = false;
     submittingRef.current = false;
-    preparationCreatedRef.current = false;
-    setCreatingTeam(false);
     setSubmitting(false);
     setConfirmation(null);
     setServerError(null);
@@ -259,81 +248,11 @@ export function ProgramApplyPage({
     });
   }, [programId, queryClient]);
 
-  async function ensureTeam(
-    started: MutationIdentity,
-  ): Promise<ProgramTeam | null> {
-    const current = stateRef.current;
-    if (current.kind !== 'ready') return null;
-    if (current.team !== null) return current.team;
-
-    if (!preparationCreatedRef.current) {
-      const name = createNameRef.current.trim();
-      if (name.length === 0) {
-        setTeamError(TEAM_NAME_REQUIRED_MESSAGE);
-        setValidationAttempt((current) => current + 1);
-        return null;
-      }
-      await createApplicationPreparation(programIdRef.current, { name });
-      if (!mutationStillCurrent(started)) return null;
-      await queryClient.cancelQueries({
-        queryKey: programFeatureKey(programId, 'apply-context'),
-      });
-      await queryClient.cancelQueries({
-        queryKey: programFeatureKey(programId, 'teams'),
-      });
-      if (!mutationStillCurrent(started)) return null;
-      void queryClient.invalidateQueries({
-        queryKey: programFeatureKey(programId, 'teams'),
-      });
-
-      preparationCreatedRef.current = true;
-    }
-
-    invalidateBackgroundReads();
-    const reloaded = await load({ quiet: true });
-    if (!mutationStillCurrent(started)) return null;
-    if (reloaded === null) return null;
-    return reloaded.kind === 'ready' ? reloaded.team : null;
-  }
-
-  async function openInvite(): Promise<void> {
-    const current = stateRef.current;
-    if (current.kind !== 'ready' || current.mode !== 'create') return;
-    if (current.team !== null) {
-      setInviteOpen(true);
-      return;
-    }
-    if (creatingTeamRef.current) return;
-    if (createNameRef.current.trim().length === 0) {
-      setTeamError(TEAM_NAME_REQUIRED_MESSAGE);
-      setValidationAttempt((current) => current + 1);
-      return;
-    }
-    const started = currentMutationIdentity();
-    creatingTeamRef.current = true;
-    setCreatingTeam(true);
-    setTeamError(null);
-    try {
-      const team = await ensureTeam(started);
-      if (!mutationStillCurrent(started) || team === null) return;
-      setInviteOpen(true);
-    } catch (error: unknown) {
-      if (!mutationStillCurrent(started)) return;
-      setTeamError(mapTeamActionError(error));
-    } finally {
-      if (mutationStillCurrent(started)) {
-        creatingTeamRef.current = false;
-        setCreatingTeam(false);
-      }
-    }
-  }
-
   function requestSubmit(): void {
     if (state.kind !== 'ready') return;
     if (state.mode === 'create' && state.team !== null && !state.team.isLeader)
       return;
     if (state.mode === 'edit' && state.applicationId === null) return;
-    if (remainingTeamMembers(state.teamMinimum) > 0) return;
     if (
       state.mode === 'create' &&
       state.team === null &&
@@ -455,9 +374,9 @@ export function ProgramApplyPage({
     inviteTriggerRef,
     createName,
     teamError,
-    creating: creatingTeam,
+    creating: false,
     onOpenInvite: () => {
-      void openInvite();
+      if (readyTeam !== null) setInviteOpen(true);
     },
     onCloseInvite: () => setInviteOpen(false),
     onCreateNameChange: (value: string) => {

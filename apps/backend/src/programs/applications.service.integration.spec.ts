@@ -25,6 +25,7 @@ import { StudentApplicationManagementService } from './student-application-manag
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './application-answers.service';
+import { TeamInvitationsRepository } from './team-invitations.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -152,6 +153,7 @@ describe('ApplicationsService integration', () => {
           id: 'synthetic-decision-member',
           githubId: 8_000_000_000_003n,
           nickname: 'Synthetic-Member',
+          type: MemberKind.STUDENT,
         },
         {
           id: APPLICANT_ID,
@@ -191,6 +193,9 @@ describe('ApplicationsService integration', () => {
   });
 
   afterEach(async () => {
+    await prisma.teamInvitation.deleteMany({
+      where: { programId: CREATE_PROGRAM_ID },
+    });
     await prisma.admin.deleteMany({ where: { userId: ACTOR_ID } });
     await prisma.notification.deleteMany({
       where: { type: 'APPLICATION_DECISION' },
@@ -551,7 +556,7 @@ describe('ApplicationsService integration', () => {
     15_000,
   );
 
-  it('프로그램 최소 인원이 1보다 크면 1인 팀 자동 생성 신청을 거절한다', async () => {
+  it('최소 2명 프로그램에 혼자 지원하고 초대 수락 후에만 승인한다', async () => {
     await prisma.program.create({
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -571,11 +576,11 @@ describe('ApplicationsService integration', () => {
         teamMinSize: 2,
         teamMaxSize: 4,
 
-        repositoryProvisioningEnabled: true,
+        repositoryProvisioningEnabled: false,
       },
     });
 
-    const application = service.create(
+    const application = await service.create(
       8_000_000_000_002n,
       CREATE_PROGRAM_ID,
       {
@@ -587,19 +592,58 @@ describe('ApplicationsService integration', () => {
       new Date('2026-07-15T00:00:00.000Z'),
     );
 
-    await expect(application).rejects.toMatchObject({
+    await expect(
+      service.decide(
+        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
+        application.id,
+        { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+      ),
+    ).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
         status: 422,
       },
       extensions: { memberCount: 1, teamMinSize: 2 },
     });
+    expect(
+      await prisma.application.findUnique({
+        where: { id: application.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: ApplicationStatus.SUBMITTED });
+    const invitations = new TeamInvitationsRepository(
+      prisma,
+      new PlatformRepository(),
+    );
+    const invited = await invitations.createInvitation({
+      teamId: application.teamId,
+      actorId: APPLICANT_ID,
+      inviteeId: 'synthetic-decision-member',
+    });
+    if (invited.kind !== 'ok')
+      throw new Error(`Invitation failed: ${invited.kind}`);
+    expect(
+      await invitations.withAcceptTransaction(
+        invited.invitation.id,
+        'synthetic-decision-member',
+      ),
+    ).toEqual({
+      kind: 'ok',
+      teamId: application.teamId,
+      programId: CREATE_PROGRAM_ID,
+    });
     await expect(
-      prisma.application.count({ where: { programId: CREATE_PROGRAM_ID } }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.team.count({ where: { programId: CREATE_PROGRAM_ID } }),
-    ).resolves.toBe(0);
+      service.decide(
+        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
+        application.id,
+        { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+      ),
+    ).resolves.toMatchObject({ kind: 'APPROVED' });
+    expect(
+      await prisma.teamMember.count({
+        where: { teamId: application.teamId },
+      }),
+    ).toBe(2);
   });
   it('신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
     const applicationId = APPLICATION_IDS[0];
@@ -1175,6 +1219,8 @@ describe('ApplicationsService integration', () => {
         originalWithTransaction((store) =>
           operation({
             auditLogWriter: store.auditLogWriter,
+            findTeamMinSize: (id) => store.findTeamMinSize(id),
+            countTeamMembers: (id) => store.countTeamMembers(id),
             isCurrentTeamMember: (teamId, userId) =>
               store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),
@@ -1257,6 +1303,8 @@ describe('ApplicationsService integration', () => {
         originalWithTransaction((store) =>
           operation({
             auditLogWriter: store.auditLogWriter,
+            findTeamMinSize: (id) => store.findTeamMinSize(id),
+            countTeamMembers: (id) => store.countTeamMembers(id),
             isCurrentTeamMember: (teamId, userId) =>
               store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),

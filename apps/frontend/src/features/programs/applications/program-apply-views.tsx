@@ -18,7 +18,6 @@ import type { ProgramTeam } from '../teams/dto';
 import { ApplicationConfirmationDialog } from './application-confirmation-dialog';
 import { FormRenderer } from './form-renderer';
 import {
-  remainingTeamMembers,
   type ProgramApplyBlockedReason,
   type ProgramApplyFormErrors,
   type ProgramApplyFormValues,
@@ -144,8 +143,8 @@ export function ProgramApplySuccessView({
             : '신청서가 수정되었습니다'}
         </AlertTitle>
         <AlertDescription>
-          신청 번호 {applicationId}의 내용을 저장했습니다. 신청 기간 내 ‘검토
-          대기’ 상태에서만 수정하거나 취소할 수 있습니다.
+          신청 번호 {applicationId}의 내용을 저장했습니다. 우리 팀 화면에서
+          팀원을 초대하세요. 최소 인원은 승인 전에 충족해야 합니다.
         </AlertDescription>
       </Alert>
       <div className="flex flex-wrap gap-3">
@@ -368,7 +367,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     rejectionReason,
     canManage,
     confirmation,
-    teamMinimum = null,
     submitting,
     onOpenInvite,
     onCloseInvite,
@@ -390,7 +388,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     firstInvalidField?.focus({ preventScroll: true });
     firstInvalidField?.scrollIntoView?.({ block: 'center' });
   }, [validationAttempt]);
-  const missingTeamMembers = remainingTeamMembers(teamMinimum);
   const hasEditableAnswers = template.fields.some(
     (field) => field.key === 'title' && field.type !== 'auto',
   );
@@ -476,7 +473,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                 <Button
                   ref={submitButtonRef}
                   type="button"
-                  disabled={submitting || missingTeamMembers > 0}
+                  disabled={submitting}
                   onClick={onRequestSubmit}
                 >
                   {submitting ? '저장 중…' : '수정 내용 저장'}
@@ -538,7 +535,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
         sessionNickname={sessionNickname}
         mode="compose"
         invitation={invitation}
-        onOpenInvite={onOpenInvite}
+        onOpenInvite={team === null ? null : onOpenInvite}
         inviteTriggerRef={inviteTriggerRef}
         onChanged={onTeamChanged}
       />
@@ -580,24 +577,17 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
               <AlertDescription>{serverError}</AlertDescription>
             </Alert>
           ) : null}
-          {missingTeamMembers > 0 && teamMinimum ? (
-            <Alert>
-              <AlertTitle>
-                최소 {teamMinimum.teamMinSize}명이 필요합니다
-              </AlertTitle>
-              <AlertDescription className="[word-break:keep-all]">
-                현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}
-                명이 더 필요합니다. 팀원 초대에서 팀원을 추가해 주세요.
-              </AlertDescription>
-            </Alert>
-          ) : null}
+          <p className="text-body text-muted-foreground">
+            지원하면 팀이 만들어집니다. 우리 팀 화면에서 팀원을 초대하고 승인
+            전에 최소 인원을 채워 주세요.
+          </p>
         </CardContent>
       </Card>
       <div className="flex flex-wrap justify-end gap-3 border-t border-border pt-6">
         <Button
           ref={submitButtonRef}
           type="button"
-          disabled={submitting || creating || missingTeamMembers > 0}
+          disabled={submitting}
           onClick={onRequestSubmit}
         >
           {submitting ? '저장 중…' : '신청 제출'}

@@ -169,7 +169,7 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET]: {
     code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
     status: 422,
-    message: '팀 최소 인원을 충족해야 신청할 수 있습니다.',
+    message: '팀 최소 인원을 충족해야 승인할 수 있습니다.',
   },
   [ApplicationsErrorCode.PROGRAM_ARCHIVED]: {
     code: ApplicationsErrorCode.PROGRAM_ARCHIVED,
