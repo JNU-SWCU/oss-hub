@@ -1,0 +1,253 @@
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { PrismaService } from '../src/platform/prisma.service';
+import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import {
+  inProgramAuthoringFixtureSchema,
+  migrationStatements,
+} from './program-authoring-migration-test-support';
+
+assertIsolatedIntegrationDatabase({
+  databaseUrl: process.env.DATABASE_URL,
+  runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
+});
+const prisma = new PrismaService();
+const schema = 'terminal_invitation_migration_fixture';
+const migration = readFileSync(
+  resolve(
+    __dirname,
+    'migrations/20261104160000_retire_terminal_invitations/migration.sql',
+  ),
+  'utf8',
+);
+const historyDDL = readFileSync(
+  resolve(
+    __dirname,
+    'migrations/20261104140000_prepare_team_history/migration.sql',
+  ),
+  'utf8',
+);
+const within = <T>(
+  operation: Parameters<typeof inProgramAuthoringFixtureSchema<T>>[2],
+) => inProgramAuthoringFixtureSchema(prisma, schema, operation);
+
+async function apply() {
+  await within(async (tx) => {
+    for (const statement of migrationStatements(migration))
+      await tx.$executeRawUnsafe(statement);
+  });
+}
+async function counts() {
+  return within(
+    (tx) => tx.$queryRaw`
+    SELECT (SELECT count(*)::int FROM "TeamInvitation") AS invitations,
+           (SELECT count(*)::int FROM "TeamHistory") AS histories`,
+  );
+}
+beforeEach(async () => {
+  await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+  await prisma.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
+  await within(async (tx) => {
+    await tx.$executeRawUnsafe(
+      `CREATE TYPE "HistorySource" AS ENUM ('APPLICATION','MIGRATION','BOOTSTRAP')`,
+    );
+    await tx.$executeRawUnsafe(
+      `CREATE TYPE "TeamInvitationStatus" AS ENUM ('PENDING','ACCEPTED','DECLINED','EXPIRED')`,
+    );
+    await tx.$executeRawUnsafe(
+      `CREATE TABLE "ApplicationPreparation" (id TEXT PRIMARY KEY)`,
+    );
+    await tx.$executeRawUnsafe(
+      `CREATE TABLE "ApplicationPreparationParticipant" (id TEXT PRIMARY KEY)`,
+    );
+    await tx.$executeRawUnsafe(
+      `CREATE TABLE "Team" (id TEXT PRIMARY KEY, "programId" TEXT NOT NULL)`,
+    );
+    await tx.$executeRawUnsafe(`CREATE TABLE "TeamInvitation" (
+      id TEXT PRIMARY KEY, "teamId" TEXT NOT NULL REFERENCES "Team"(id),
+      "programId" TEXT NOT NULL, "inviteeId" TEXT NOT NULL, "invitedById" TEXT NOT NULL,
+      status "TeamInvitationStatus" NOT NULL DEFAULT 'PENDING',
+      "createdAt" TIMESTAMP(3) NOT NULL, "respondedAt" TIMESTAMP(3),
+      "updatedAt" TIMESTAMP(3) NOT NULL
+    )`);
+    for (const statement of migrationStatements(historyDDL))
+      await tx.$executeRawUnsafe(statement);
+    await tx.$executeRawUnsafe(
+      `ALTER TYPE "TeamHistoryEvent" ADD VALUE 'INVITATION_ARCHIVED'`,
+    );
+    await tx.$executeRaw`INSERT INTO "Team" VALUES ('team','program')`;
+    await tx.$executeRaw`
+      INSERT INTO "TeamInvitation"
+      SELECT 'invitation-' || n, 'team', 'program', 'invitee-' || n, 'inviter',
+        (CASE WHEN n <= 20 THEN 'ACCEPTED' WHEN n <= 25 THEN 'DECLINED' ELSE 'PENDING' END)::"TeamInvitationStatus",
+        '2026-08-01T01:02:03.456'::TIMESTAMP,
+        CASE WHEN n <= 25 THEN '2026-08-02T04:05:06.789'::TIMESTAMP ELSE NULL END,
+        '2026-08-02T04:05:06.789'::TIMESTAMP
+      FROM generate_series(1,28) n`;
+  });
+});
+afterAll(async () => {
+  await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
+  await prisma.$disconnect();
+});
+
+it('moves all original facts, retains pending rows and is idempotent', async () => {
+  const before = await within(
+    (tx) =>
+      tx.$queryRaw<
+        {
+          id: string;
+          teamId: string;
+          programId: string;
+          inviteeId: string;
+          invitedById: string;
+          status: string;
+          createdAt: Date;
+          respondedAt: Date | null;
+          updatedAt: Date;
+        }[]
+      >`SELECT * FROM "TeamInvitation" WHERE status <> 'PENDING' ORDER BY id`,
+  );
+  await apply();
+  await expect(counts()).resolves.toEqual([{ invitations: 3, histories: 25 }]);
+  const histories = await within(
+    (tx) =>
+      tx.$queryRaw<
+        {
+          teamId: string;
+          programId: string;
+          actorId: string | null;
+          event: string;
+          source: string;
+          sourceId: string;
+          occurredAt: Date;
+          data: { schemaVersion: number; invitation: Record<string, unknown> };
+        }[]
+      >`SELECT * FROM "TeamHistory" ORDER BY "sourceId"`,
+  );
+  for (const [index, row] of before.entries()) {
+    expect(histories[index]).toMatchObject({
+      teamId: row.teamId,
+      programId: row.programId,
+      actorId: null,
+      event: 'INVITATION_ARCHIVED',
+      source: 'MIGRATION',
+      sourceId: row.id,
+      data: {
+        schemaVersion: 1,
+        invitation: {
+          id: row.id,
+          inviteeId: row.inviteeId,
+          invitedById: row.invitedById,
+          status: row.status,
+          createdAt: row.createdAt.toISOString(),
+          respondedAt: row.respondedAt?.toISOString() ?? null,
+          updatedAt: row.updatedAt.toISOString(),
+        },
+      },
+    });
+  }
+  await apply();
+  await expect(
+    within(
+      (tx) => tx.$queryRaw`SELECT * FROM "TeamHistory" ORDER BY "sourceId"`,
+    ),
+  ).resolves.toEqual(histories);
+  await expect(
+    within(
+      (tx) => tx.$executeRaw`
+    UPDATE "TeamInvitation" SET status = 'DECLINED', "respondedAt" = now() WHERE id = 'invitation-26'`,
+    ),
+  ).rejects.toThrow('TeamInvitation_pending_only');
+});
+
+it('preserves a previously recorded close without replacing its actor or event', async () => {
+  await within(
+    (tx) => tx.$executeRaw`
+    INSERT INTO "TeamHistory" (id,"teamId","programId","actorId",event,"occurredAt",source,"sourceTable","sourceId",data)
+    SELECT 'known', "teamId","programId","inviteeId",'INVITATION_ACCEPTED',"respondedAt",
+      'APPLICATION','TeamInvitation',id,
+      jsonb_build_object('schemaVersion',1,'invitation',jsonb_build_object(
+        'id',id,'inviteeId',"inviteeId",'invitedById',"invitedById",
+        'createdAt','2026-08-01T01:02:03.456Z'))
+    FROM "TeamInvitation" WHERE id = 'invitation-1'`,
+  );
+  const original = await within(
+    (tx) => tx.$queryRaw`SELECT * FROM "TeamHistory" WHERE id = 'known'`,
+  );
+  await apply();
+  await expect(counts()).resolves.toEqual([{ invitations: 3, histories: 25 }]);
+  await expect(
+    within(
+      (tx) => tx.$queryRaw`SELECT * FROM "TeamHistory" WHERE id = 'known'`,
+    ),
+  ).resolves.toEqual(original);
+});
+
+it('keeps unknown response times and expired state without inventing a closer', async () => {
+  await within(
+    (tx) => tx.$executeRaw`
+    UPDATE "TeamInvitation" SET status = 'EXPIRED', "respondedAt" = NULL WHERE id = 'invitation-1'`,
+  );
+  await apply();
+  await expect(
+    within(
+      (tx) => tx.$queryRaw`
+    SELECT "actorId", event::text, data->'invitation'->>'status' AS status,
+      data->'invitation'->'respondedAt' AS response
+    FROM "TeamHistory" WHERE "sourceId" = 'invitation-1'`,
+    ),
+  ).resolves.toEqual([
+    {
+      actorId: null,
+      event: 'INVITATION_ARCHIVED',
+      status: 'EXPIRED',
+      response: null,
+    },
+  ]);
+});
+
+it('fails atomically on conflicting existing history', async () => {
+  await within(
+    (tx) => tx.$executeRaw`
+    INSERT INTO "TeamHistory" (id,"teamId","programId",event,source,"sourceTable","sourceId",data)
+    VALUES ('conflict','wrong-team','program','INVITATION_DECLINED','APPLICATION','TeamInvitation','invitation-1',
+      '{"schemaVersion":1,"invitation":{"id":"invitation-1","inviteeId":"wrong","invitedById":"inviter","createdAt":"2026-08-01T01:02:03.456Z"}}')`,
+  );
+  await expect(apply()).rejects.toThrow('Invitation history mismatch');
+  await expect(counts()).resolves.toEqual([{ invitations: 28, histories: 1 }]);
+});
+
+it.each(['ApplicationPreparation', 'ApplicationPreparationParticipant'])(
+  'fails closed for nonempty %s',
+  async (table) => {
+    await within((tx) =>
+      tx.$executeRawUnsafe(`INSERT INTO "${table}" VALUES ('late')`),
+    );
+    await expect(apply()).rejects.toThrow('Preparation must remain empty');
+    await expect(counts()).resolves.toEqual([
+      { invitations: 28, histories: 0 },
+    ]);
+  },
+);
+
+it('refuses an unexpected incoming relation instead of silently losing its data', async () => {
+  await within((tx) =>
+    tx.$executeRawUnsafe(
+      `CREATE TABLE "UnexpectedReference" ("invitationId" TEXT REFERENCES "TeamInvitation"(id))`,
+    ),
+  );
+  await expect(apply()).rejects.toThrow('incoming foreign keys');
+  await expect(counts()).resolves.toEqual([{ invitations: 28, histories: 0 }]);
+});
+
+it('rolls back on an unrelated archive id collision', async () => {
+  await within(
+    (tx) => tx.$executeRaw`
+    INSERT INTO "TeamHistory" (id,"teamId","programId",event,source,data)
+    VALUES ('team-invitation:invitation-1','other','program','INVITATION_DECLINED','APPLICATION',
+      '{"schemaVersion":1,"invitation":{"id":"other","inviteeId":"other","invitedById":"inviter","createdAt":"2026-08-01T01:02:03.456Z"}}')`,
+  );
+  await expect(apply()).rejects.toThrow('archive key collision');
+  await expect(counts()).resolves.toEqual([{ invitations: 28, histories: 1 }]);
+});
