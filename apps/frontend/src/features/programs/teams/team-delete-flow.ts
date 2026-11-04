@@ -12,7 +12,6 @@ const TEAM_DELETE_COUNT_ITEMS = [
   ['invitations', '초대', '건'],
   ['submissions', '제출물', '건'],
   ['submissionEvents', '제출 이력', '건'],
-  ['detachedRepositories', '저장소 연결 해제', '건'],
 ] as const satisfies ReadonlyArray<
   readonly [keyof TeamDeletedCounts, string, string]
 >;
@@ -62,5 +61,5 @@ export function formatTeamDeletedCounts(counts: TeamDeletedCounts): string {
   const summary = TEAM_DELETE_COUNT_ITEMS.filter(([key]) => counts[key] > 0)
     .map(([key, label, unit]) => `${label} ${counts[key]}${unit}`)
     .join(' · ');
-  return summary || '연결된 데이터가 없었습니다.';
+  return summary || '팀을 삭제했습니다.';
 }
