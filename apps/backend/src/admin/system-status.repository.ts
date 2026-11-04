@@ -60,7 +60,7 @@ export interface CollectionExternalCollectionStatusDto {
 }
 
 const COLLECTION_TARGET = {
-  OR: [{ applicationId: { not: null } }, { programId: null, teamId: null }],
+  applicationId: { not: null },
 } satisfies Prisma.GithubRepositoryWhereInput;
 
 const PRESENT_REPOSITORY = {

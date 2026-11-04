@@ -112,6 +112,7 @@ const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
 const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
 interface FakeRepoRow {
+  applicationId: string | null;
   id: string;
   githubOrganizationId: bigint | null;
   githubRepositoryId: bigint;
@@ -125,6 +126,13 @@ function matchesWhere(
 ): boolean {
   return Object.entries(where).every(([key, condition]) => {
     const value = (row as unknown as Record<string, unknown>)[key];
+    if (
+      condition !== null &&
+      typeof condition === 'object' &&
+      'not' in condition
+    ) {
+      return value !== condition.not;
+    }
     if (
       condition !== null &&
       typeof condition === 'object' &&
@@ -183,46 +191,6 @@ describe('CollectionIncrementalRepository — repository identity', () => {
     });
   });
 
-  it('githubRepositoryId 단일 unique key로 upsert한다(github repository id는 전역 유일)', async () => {
-    const db = createDb();
-    db.githubRepository.upsert.mockResolvedValue({ id: 'repo-1' });
-
-    await repositoryFor(db).recordRepositoryObservation({
-      githubOrganizationId: 10n,
-      githubRepositoryId: 20n,
-      nameWithOwner: 'org/repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'ORG_PROVISIONED',
-      observedAt: new Date('2026-07-31T00:00:00.000Z'),
-    });
-
-    expect(db.githubRepository.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { githubRepositoryId: 20n },
-      }),
-    );
-    const calls = db.githubRepository.upsert.mock
-      .calls as unknown as ReadonlyArray<
-      readonly [
-        {
-          readonly create: Record<string, unknown>;
-          readonly update: Record<string, unknown>;
-        },
-      ]
-    >;
-    const call = calls[0]?.[0];
-    expect(call?.create).not.toHaveProperty('appId');
-    expect(call?.update).not.toHaveProperty('appId');
-    expect(call?.create).toMatchObject({ source: 'ORG_PROVISIONED' });
-    expect(call?.update).toMatchObject({
-      source: 'ORG_PROVISIONED',
-      githubOrganizationId: 10n,
-    });
-  });
-
   it('OWN 저장소를 경쟁 안전하게 편입하고 기존 external 상태도 현재 관찰로 복구한다', async () => {
     const db = createDb();
     db.githubRepository.createMany.mockResolvedValue({ count: 1 });
@@ -237,31 +205,7 @@ describe('CollectionIncrementalRepository — repository identity', () => {
       observedAt,
     });
 
-    const createCalls = db.githubRepository.createMany.mock
-      .calls as unknown as ReadonlyArray<
-      readonly [
-        {
-          readonly data: ReadonlyArray<Record<string, unknown>>;
-          readonly skipDuplicates: boolean;
-        },
-      ]
-    >;
-    expect(createCalls[0]?.[0]).toEqual({
-      data: [
-        {
-          githubRepositoryId: 42n,
-          nameWithOwner: 'synthetic-student/synthetic-own-repo',
-          defaultBranch: 'main',
-          archived: false,
-          source: 'EXTERNAL_PUBLIC',
-          visibility: 'PUBLIC',
-          presence: 'PRESENT',
-          lastCompleteInventoryObservedAt: observedAt,
-          nextRunAt: observedAt,
-        },
-      ],
-      skipDuplicates: true,
-    });
+    expect(db.githubRepository.createMany).not.toHaveBeenCalled();
     const updateCalls = db.githubRepository.updateMany.mock
       .calls as unknown as ReadonlyArray<
       readonly [
@@ -610,50 +554,23 @@ describe('CollectionIncrementalRepository — issue facts (parity)', () => {
   });
 });
 
-describe('CollectionIncrementalRepository — transactional scope (todo 8 import)', () => {
-  it('runs the callback against a repository scoped to one Prisma transaction and returns its result', async () => {
+describe('CollectionIncrementalRepository — transactional scope', () => {
+  it('트랜잭션 내부의 조회 결과를 반환한다', async () => {
     const db = createDb();
-    db.githubRepository.upsert.mockResolvedValue({ id: 'repo-1' });
-
-    const result = await repositoryFor(db).runInTransaction(async (repo) => {
-      expect(repo).not.toHaveProperty('runInTransaction');
-      const row = await repo.recordRepositoryObservation({
-        githubOrganizationId: 10n,
-        githubRepositoryId: 20n,
-        nameWithOwner: 'org/repo',
-        defaultBranch: 'main',
-        archived: false,
-        visibility: 'PUBLIC',
-        presence: 'PRESENT',
-        source: 'ORG_PROVISIONED',
-        observedAt: new Date('2026-07-31T00:00:00.000Z'),
-      });
-      return row.id;
-    });
-
-    expect(result).toBe('repo-1');
-    expect(db.$transaction).toHaveBeenCalledTimes(1);
-    expect(db.githubRepository.upsert).toHaveBeenCalledTimes(1);
+    db.githubRepository.findUnique.mockResolvedValue({ id: 'repo-1' });
+    const result = await repositoryFor(db).runInTransaction((repo) =>
+      repo.findRepositoryByLogicalKey(20n),
+    );
+    expect(result).toEqual({ id: 'repo-1' });
   });
 
-  it('propagates a mid-callback failure so the caller sees no partial success', async () => {
+  it('트랜잭션 내부 실패를 호출자에게 전달한다', async () => {
     const db = createDb();
-    db.githubRepository.upsert.mockRejectedValue(new Error('boom'));
-
+    db.githubRepository.findUnique.mockRejectedValue(new Error('boom'));
     await expect(
-      repositoryFor(db).runInTransaction(async (repo) => {
-        await repo.recordRepositoryObservation({
-          githubOrganizationId: 10n,
-          githubRepositoryId: 20n,
-          nameWithOwner: 'org/repo',
-          defaultBranch: 'main',
-          archived: false,
-          visibility: 'PUBLIC',
-          presence: 'PRESENT',
-          source: 'ORG_PROVISIONED',
-          observedAt: new Date('2026-07-31T00:00:00.000Z'),
-        });
-      }),
+      repositoryFor(db).runInTransaction((repo) =>
+        repo.findRepositoryByLogicalKey(20n),
+      ),
     ).rejects.toThrow('boom');
   });
 });
@@ -692,35 +609,16 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
     expect(result?.lastGithubRepositoryId).toBe(5n);
   });
 
-  it('markAbsentRepositories는 이번 관찰에 없는 PRESENT 저장소만 ABSENT로 갱신한다', async () => {
-    const db = createDb();
-    db.githubRepository.updateMany.mockResolvedValue({ count: 2 });
-
-    const observedAt = new Date('2026-08-01T00:00:00.000Z');
-    await repositoryFor(db).markAbsentRepositories(10n, [1n, 2n], observedAt);
-
-    expect(db.githubRepository.updateMany).toHaveBeenCalledWith({
-      where: {
-        githubOrganizationId: 10n,
-        source: 'ORG_PROVISIONED',
-        presence: 'PRESENT',
-        githubRepositoryId: { notIn: [1n, 2n] },
-      },
-      data: { presence: 'ABSENT', lastCompleteInventoryObservedAt: observedAt },
-    });
-  });
-
-  it('listPresentRepositories는 partial inventory 시 이어갈 PRESENT 저장소만 읽는다', async () => {
+  it('등록된 조직 저장소는 조직 ID 관찰 여부와 무관하게 조회한다', async () => {
     const db = createDb();
     db.githubRepository.findMany.mockResolvedValue([{ id: 'repo-1' }]);
 
-    const result = await repositoryFor(db).listPresentRepositories(10n);
+    const result = await repositoryFor(db).listOrganizationRepositories();
 
     expect(db.githubRepository.findMany).toHaveBeenCalledWith({
       where: {
-        githubOrganizationId: 10n,
         source: 'ORG_PROVISIONED',
-        presence: 'PRESENT',
+        applicationId: { not: null },
       },
     });
     expect(result).toEqual([{ id: 'repo-1' }]);
@@ -780,51 +678,11 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
 });
 
 describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABSENT sweep에서 살아남는다', () => {
-  it('markAbsentRepositories는 organization installation listing에 없는 EXTERNAL_PUBLIC 저장소를 ABSENT로 바꾸지 않는다', async () => {
-    const store = createFakeGithubRepositoryStore([
-      {
-        id: 'org-kept',
-        githubOrganizationId: 10n,
-        githubRepositoryId: 1n,
-        presence: 'PRESENT',
-        source: 'ORG_PROVISIONED',
-      },
-      {
-        id: 'org-removed',
-        githubOrganizationId: 10n,
-        githubRepositoryId: 2n,
-        presence: 'PRESENT',
-        source: 'ORG_PROVISIONED',
-      },
-      {
-        id: 'ext-untouched',
-        githubOrganizationId: 10n,
-        githubRepositoryId: 99n,
-        presence: 'PRESENT',
-        source: 'EXTERNAL_PUBLIC',
-      },
-    ]);
-    const db = createDb();
-    db.githubRepository.updateMany = store.updateMany;
-
-    await repositoryFor(db).markAbsentRepositories(
-      10n,
-      [1n],
-      new Date('2026-08-01T00:00:00.000Z'),
-    );
-
-    const external = store.rows.find((row) => row.id === 'ext-untouched');
-    const removedOrgRepo = store.rows.find((row) => row.id === 'org-removed');
-    const keptOrgRepo = store.rows.find((row) => row.id === 'org-kept');
-    expect(external?.presence).toBe('PRESENT');
-    expect(removedOrgRepo?.presence).toBe('ABSENT');
-    expect(keptOrgRepo?.presence).toBe('PRESENT');
-  });
-
-  it('listPresentRepositories는 같은 조직 id를 가진 EXTERNAL_PUBLIC 저장소를 반환하지 않는다', async () => {
+  it('조직 조회는 같은 조직 ID를 가진 외부 저장소를 반환하지 않는다', async () => {
     const store = createFakeGithubRepositoryStore([
       {
         id: 'org-1',
+        applicationId: 'application-1',
         githubOrganizationId: 10n,
         githubRepositoryId: 1n,
         presence: 'PRESENT',
@@ -832,6 +690,7 @@ describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABS
       },
       {
         id: 'ext-1',
+        applicationId: 'application-2',
         githubOrganizationId: 10n,
         githubRepositoryId: 99n,
         presence: 'PRESENT',
@@ -841,7 +700,7 @@ describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABS
     const db = createDb();
     db.githubRepository.findMany = store.findMany;
 
-    const result = await repositoryFor(db).listPresentRepositories(10n);
+    const result = await repositoryFor(db).listOrganizationRepositories();
 
     expect(result.map((row) => (row as unknown as FakeRepoRow).id)).toEqual([
       'org-1',

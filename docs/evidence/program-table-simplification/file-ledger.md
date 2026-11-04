@@ -63,6 +63,24 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 단일 PK를 기대하던 DB 상태에서 복합 PK 회귀 테스트가 실패하는 것을 먼저 확인했다. 최종 스펙은 실제 pg_constraint의 PK 순서와 정보 스키마의 옛 컬럼 부재를 검사한 뒤, 같은 DB에서 초대 수락·탈퇴·중복 저장 키·sentinel 시작일 거부를 확인한다.
 
+## Todo 7: 등록 레포 수집과 삭제 경계
+
+측정 기준은 `baed7d753c842d9fdb13cef15615d9ce22b90c00`이며 다른 병렬 단위의 변경은 포함하지 않는다.
+
+조직 설치 목록 등록과 일괄 ABSENT 판정을 제거한다. `collection-inventory.service.ts`는 이미 등록된 조직·외부 레포의 메타데이터 관찰을 함께 담당하므로 유지한다. 외부 등록 후처리는 행을 새로 만들지 않고 연결이 끝난 레포만 갱신한다. 공개 프로젝트 조회와 프로그램 purge 설정은 Todo 5가 소유하므로 수정하지 않는다.
+
+`program-team-deletion.repository.ts`는 연결 해제 대신 레포·레포 초대·수집 사실을 삭제한다. `student-repository-url-transaction.repository.ts`와 발급 경로는 교체된 레포를 삭제하고 감사에 옛 URL과 삭제 건수를 남긴다. 프로그램 파일의 Todo 9 병합 의도는 유지하며, TeamHistory 전환도 Todo 8/9 소유다.
+
+| 범위 | Before files | Before lines | Todo 7 after files | Todo 7 after lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 | 245 | 37779 | 245 | 37795 |
+
+| Path | Action | Target | Todo | State | Before lines | 이유 |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| `apps/backend/src/platform/repository-deletion.repository.ts` | keep | `apps/backend/src/platform/repository-deletion.repository.ts` | 7 | present | 0 | 수동·발급 교체가 공용 트랜잭션 repository에서 같은 FK 정리와 삭제 건수 계측을 사용 |
+
+레거시 연간 집계 테이블은 기존 CASCADE FK로 승인 대상 행만 정리한다. 테이블 폐기·Prisma 편입은 하지 않는다. 상세 전후 건수와 배포 순서는 `task-7-program-table-simplification.md`에 기록한다.
+
 ## 파일별 의도와 상태
 
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.

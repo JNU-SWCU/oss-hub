@@ -20,6 +20,8 @@ import { repositoryUrlError } from './student-repository-url.error';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
+import type { RepositoryDeletionCounts } from '../platform/repository-audit-metadata.config';
 
 @Injectable()
 export class StudentRepositoryUrlTransactionRepository {
@@ -27,6 +29,7 @@ export class StudentRepositoryUrlTransactionRepository {
     private readonly transaction: Prisma.TransactionClient,
     private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
     private readonly studentRepositoryUrlContextRepository: StudentRepositoryUrlContextRepository,
+    private readonly repositoryDeletion: RepositoryDeletionRepository,
   ) {}
   get auditLogWriter(): AuditLogTransactionWriter {
     return this.transaction;
@@ -56,7 +59,10 @@ export class StudentRepositoryUrlTransactionRepository {
     context: StudentRepositoryUrlContext,
     resolution: OwnGithubRepositoryResolution,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
-  ): Promise<string> {
+  ): Promise<{
+    readonly repositoryId: string;
+    readonly deletedCounts: RepositoryDeletionCounts | null;
+  }> {
     const tx = this.transaction;
     await tx.$queryRaw`SELECT "id" FROM "RepositoryProvisionJob" WHERE "applicationId" = ${context.id} FOR UPDATE`;
     const job = await tx.repositoryProvisionJob.findUnique({
@@ -70,10 +76,10 @@ export class StudentRepositoryUrlTransactionRepository {
       where: { githubRepositoryId: metadata.githubRepositoryId },
       select: { id: true },
     });
-    if (context.repository) {
+    if (context.repository && context.repository.id !== existing?.id) {
       await tx.githubRepository.update({
         where: { id: context.repository.id },
-        data: { applicationId: null },
+        data: { applicationId: null, teamId: null },
       });
     }
     const data = {
@@ -102,7 +108,7 @@ export class StudentRepositoryUrlTransactionRepository {
       const result = await tx.githubRepository.updateMany({
         where: {
           id: existing.id,
-          applicationId: null,
+          OR: [{ applicationId: null }, { applicationId: context.id }],
           AND: [
             { OR: [{ programId: null }, { programId: context.programId }] },
             { OR: [{ teamId: null }, { teamId: context.teamId }] },
@@ -134,7 +140,14 @@ export class StudentRepositoryUrlTransactionRepository {
       { applicationId: context.id, repositoryId, now: new Date() },
       parsePayload,
     );
-    return repositoryId;
+    const deletedCounts =
+      context.repository && context.repository.id !== repositoryId
+        ? await this.repositoryDeletion.deleteRepositoryWithFacts(
+            tx,
+            context.repository.id,
+          )
+        : null;
+    return { repositoryId, deletedCounts };
   }
 
   isStudentRepositoryUrlConflict(error: unknown): boolean {
@@ -152,6 +165,7 @@ export class StudentRepositoryUrlRepository {
     private readonly platformRepository: PlatformRepository,
     private readonly studentRepositoryUrlContextRepository: StudentRepositoryUrlContextRepository,
     private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
+    private readonly repositoryDeletion: RepositoryDeletionRepository,
   ) {}
 
   findContext(
@@ -193,6 +207,7 @@ export class StudentRepositoryUrlRepository {
           transaction,
           this.repositoryProvisionGenerationRepository,
           this.studentRepositoryUrlContextRepository,
+          this.repositoryDeletion,
         ),
       ),
     );

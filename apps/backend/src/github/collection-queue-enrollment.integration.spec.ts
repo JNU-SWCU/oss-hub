@@ -10,56 +10,47 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const repository = new CollectionIncrementalRepository(prisma);
 const githubRepositoryId = 9_000_000_146_301n;
-const githubOrganizationId = 9_000_000_146_302n;
 const observation = {
   githubRepositoryId,
-  githubOrganizationId,
   nameWithOwner: 'synthetic-queue/observed',
-  defaultBranch: 'main',
+  defaultBranch: 'trunk',
   archived: false,
   visibility: 'PUBLIC' as const,
-  presence: 'PRESENT' as const,
   source: 'ORG_PROVISIONED' as const,
   observedAt: new Date('2026-08-09T14:00:00.000Z'),
 };
 
-describe('observed repository queue enrollment', () => {
-  beforeAll(async () => {
-    await prisma.$connect();
-  });
-  afterEach(async () => {
-    await prisma.githubRepository.deleteMany({ where: { githubRepositoryId } });
-  });
-  afterAll(async () => {
-    await prisma.$disconnect();
+describe('registered repository observation', () => {
+  beforeAll(() => prisma.$connect());
+  afterEach(() =>
+    prisma.githubRepository.deleteMany({ where: { githubRepositoryId } }),
+  );
+  afterAll(() => prisma.$disconnect());
+
+  it('미등록 레포의 메타데이터 관찰은 레포를 생성하지 않는다', async () => {
+    await expect(
+      repository.refreshRepositoryObservation(observation),
+    ).resolves.toBeNull();
+    await expect(
+      prisma.githubRepository.count({ where: { githubRepositoryId } }),
+    ).resolves.toBe(0);
   });
 
-  it('creates a due row through the real observation writer and database default', async () => {
-    await repository.recordRepositoryObservation(observation);
-    const row = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId },
-    });
-    expect(row.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
-    expect(row.failureCount).toBe(0);
-    expect(row.lastSuccessAt).toBeNull();
-    expect(
-      (await repository.listPresentRepositories(githubOrganizationId)).map(
-        (item) => item.githubRepositoryId,
-      ),
-    ).toEqual([githubRepositoryId]);
-  });
-
-  it('preserves an existing retry schedule when inventory observes the same repository again', async () => {
+  it('기존 레포의 메타데이터를 갱신하면서 재시도 일정을 보존한다', async () => {
     const retryAt = new Date('2099-01-01T00:00:00.000Z');
-    await repository.recordRepositoryObservation(observation);
-    await prisma.githubRepository.update({
-      where: { githubRepositoryId },
-      data: { nextRunAt: retryAt, failureCount: 3 },
+    await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId,
+        nameWithOwner: observation.nameWithOwner,
+        source: observation.source,
+        defaultBranch: 'main',
+        nextRunAt: retryAt,
+        failureCount: 3,
+      },
     });
-    await repository.recordRepositoryObservation({
-      ...observation,
-      defaultBranch: 'trunk',
-    });
+
+    await repository.refreshRepositoryObservation(observation);
+
     await expect(
       prisma.githubRepository.findUniqueOrThrow({
         where: { githubRepositoryId },
@@ -71,25 +62,26 @@ describe('observed repository queue enrollment', () => {
     });
   });
 
-  it('keeps absent org repositories and detached external repositories out of their sweep lists', async () => {
-    await repository.recordRepositoryObservation({
-      ...observation,
-      presence: 'ABSENT',
-    });
-    expect(
-      await repository.listPresentRepositories(githubOrganizationId),
-    ).toEqual([]);
-    await prisma.githubRepository.update({
-      where: { githubRepositoryId },
-      data: { source: 'EXTERNAL_PUBLIC', presence: 'PRESENT' },
-    });
-    expect(
-      await repository.listPresentRepositories(githubOrganizationId),
-    ).toEqual([]);
-    expect(
-      (await repository.listExternalRepositories()).map(
-        (item) => item.githubRepositoryId,
-      ),
-    ).not.toContain(githubRepositoryId);
-  });
+  it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
+    '팀 지원에서 분리된 %s 저장소는 수집 목록에서 제외한다',
+    async (source) => {
+      await prisma.githubRepository.create({
+        data: {
+          githubRepositoryId,
+          nameWithOwner: observation.nameWithOwner,
+          source,
+          presence: 'PRESENT',
+        },
+      });
+
+      const selected =
+        source === 'ORG_PROVISIONED'
+          ? await repository.listOrganizationRepositories()
+          : await repository.listExternalRepositories();
+
+      expect(selected.map((row) => row.githubRepositoryId)).not.toContain(
+        githubRepositoryId,
+      );
+    },
+  );
 });

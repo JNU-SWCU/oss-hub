@@ -73,7 +73,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('projects only linked repository facts inside the program window while retaining old repository history', async () => {
+it('projects current repository facts and URL audit history without reading or mutating unrelated repository facts', async () => {
   await prisma.user.create({
     data: { id: memberId, githubId, nickname: 'synthetic-member' },
   });

@@ -1,3 +1,4 @@
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -37,6 +38,7 @@ const repository = new StudentRepositoryUrlRepository(
   new PlatformRepository(),
   new StudentRepositoryUrlContextRepository(new PlatformRepository()),
   new RepositoryProvisionGenerationRepository(),
+  new RepositoryDeletionRepository(),
 );
 const applications = new ApplicationsRepository(
   prisma,
