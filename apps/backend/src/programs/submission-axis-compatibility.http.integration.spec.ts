@@ -236,3 +236,142 @@ it('accepts an explicitly empty optional comment from a requirement client', asy
     });
   expect(history.comment).toBeNull();
 });
+
+it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
+  'keeps a new %s decision readable by the old image query',
+  async (decision) => {
+    expect((await fixture.submit('rollback compatibility')).status).toBe(201);
+    const submittedHistory =
+      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
+        where: {
+          event: 'SUBMITTED',
+          submission: { milestoneDocumentId: flowIds.document },
+        },
+        select: { id: true },
+      });
+    const response = await fixture.request(
+      fixture.documentPath() +
+        '/applications/' +
+        flowIds.application +
+        '/reviews',
+      {
+        actor: 'staff',
+        method: 'POST',
+        json: {
+          decision,
+          comment: 'retained rollback reason',
+          expectedRevision: 1,
+          expectedLatestReviewId: null,
+        },
+      },
+    );
+    expect(response.status).toBe(201);
+    const event =
+      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
+        where: {
+          submission: { milestoneDocumentId: flowIds.document },
+          event: decision,
+        },
+      });
+    const oldView =
+      await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+        where: { id: event.milestoneDocumentSubmissionId },
+        select: {
+          status: true,
+          histories: {
+            where: { revision: 1, event: 'SUBMITTED' },
+            select: {
+              id: true,
+              revision: true,
+              reviewHistories: {
+                orderBy: { reviewedAt: 'desc' },
+                select: {
+                  id: true,
+                  decision: true,
+                  comment: true,
+                  reviewerId: true,
+                  reviewedAt: true,
+                },
+              },
+            },
+          },
+        },
+      });
+    expect(oldView.status).toBe(decision);
+    expect(oldView.histories).toEqual([
+      {
+        id: submittedHistory.id,
+        revision: 1,
+        reviewHistories: [
+          {
+            id: event.id,
+            decision,
+            comment: 'retained rollback reason',
+            reviewerId: event.actorId,
+            reviewedAt: event.createdAt,
+          },
+        ],
+      },
+    ]);
+    expect(
+      await fixture.prisma.milestoneDocumentReviewHistory.count({
+        where: {
+          milestoneDocumentSubmissionId: event.milestoneDocumentSubmissionId,
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+        where: {
+          milestoneDocumentSubmissionId: event.milestoneDocumentSubmissionId,
+          event: decision,
+        },
+      }),
+    ).toBe(1);
+  },
+);
+
+it('rolls back both review stores when the compatibility revision link fails', async () => {
+  expect((await fixture.submit('atomic rollback')).status).toBe(201);
+  const submission =
+    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+      where: { milestoneDocumentId: flowIds.document },
+    });
+  await expect(
+    fixture.prisma.$transaction(async (transaction) => {
+      await new PlatformRepository().appendSubmissionReviewEvent(transaction, {
+        milestoneDocumentSubmissionId: submission.id,
+        submissionHistoryId: 'missing-revision',
+        revision: 1,
+        reviewerId: flowIds.staff,
+        decision: 'REJECTED',
+        comment: null,
+        reviewedAt: new Date(),
+      });
+      await transaction.milestoneDocumentSubmission.update({
+        where: { id: submission.id },
+        data: { status: 'REJECTED' },
+      });
+    }),
+  ).rejects.toMatchObject({ code: 'P2003' });
+  expect(
+    await fixture.prisma.milestoneDocumentReviewHistory.count({
+      where: { milestoneDocumentSubmissionId: submission.id },
+    }),
+  ).toBe(0);
+  expect(
+    await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+      where: {
+        milestoneDocumentSubmissionId: submission.id,
+        event: 'REJECTED',
+      },
+    }),
+  ).toBe(0);
+  expect(
+    (
+      await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+        where: { id: submission.id },
+      })
+    ).status,
+  ).toBe('SUBMITTED');
+});

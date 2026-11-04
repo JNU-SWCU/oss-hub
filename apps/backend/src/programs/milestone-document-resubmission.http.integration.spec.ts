@@ -40,7 +40,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());
 
-  it('stores a review and its deadline as exactly one submission event', async () => {
+  it('stores one canonical review event and one rollback-compatible review', async () => {
     expect((await fixture.submit('최초 제출')).status).toBe(201);
 
     const response = await review(ReviewDecision.CHANGES_REQUESTED, {
@@ -71,7 +71,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
           },
         },
       }),
-    ).toBe(0);
+    ).toBe(1);
   });
 
   it('accepts a changes request without reason or resubmission deadline', async () => {

@@ -3,7 +3,7 @@
 이 증거는 백엔드 준비 단계에 한정한다. 프론트 전환, 코드 참조 중단,
 물리 삭제는 구현하지 않았으며 완성된 draft로 제출하지 않는다.
 
-## 실행 결과
+## 초기 실행 결과 (게이트 수정 전)
 
 | 검사 | 실행 결과 |
 | --- | --- |
@@ -75,7 +75,7 @@
 
 ```sh
 pnpm --filter backend test:unit --runInBand
-BACKEND_INTEGRATION_TEST_PATTERN='(program-submission-axis-migration|submission-axis-compatibility.http|milestone-document-resubmission.http|milestone-document-files.http|submission-self-review)\.integration\.spec\.ts$' \
+BACKEND_INTEGRATION_TEST_PATTERN='(program-submission-axis-migration|submission-axis-compatibility.http|milestone-document-resubmission.http|milestone-document-files.http|submission-self-review)\.integration\.spec\.ts \
   pnpm --filter backend test:integration
 pnpm lint:structure
 pnpm format:check
@@ -97,3 +97,11 @@ FILE 내용 표식의 재현 가능한 원인이었다.
 
 그 밖의 장애 주입은 이번 준비 단계의 검사 범위가 아니다. 운영 배포,
 운영 DB 쓰기, 물리 테이블·컬럼 삭제는 실행하지 않았다.
+
+## 게이트 B1·B2 수정
+
+준비 릴리스는 새 심사 이벤트와 동일 ID의 옛 ReviewHistory를 같은 트랜잭션에 기록한다. 제출 revision의 이력 ID, 처리자, 시각, 사유를 보존한다. 신규 심사 후 구형 조회 형태로 세 판정을 읽고, 호환 FK 쓰기가 실패하면 양쪽 기록과 상태 변경이 롤백되는 통합 검증을 추가했다. 위 초기 검증의 “옛 테이블 새 쓰기 없음”은 현재 계약이 아니며 이 절로 대체된다. 이중 쓰기는 구형 조회를 제거하는 코드 참조 중단 릴리스에서만 끝낸다.
+
+기한 약속을 고치는 선행 프론트 PR이 먼저 배포되어야 한다. #1731에는 프론트·guide 변경을 남기지 않는다. 기존 폼의 사유·날짜 필수 검증은 그대로인 동안 API만 선택 사유를 받는다. 보완 요청마다 마감 후 한 번 제출할 수 있고 별도 만료는 없다. 사유가 없으면 레거시 체크리스트는 코멘트 행을 생략하고, 항목 화면은 “사유 없이 저장되었습니다.”를 표시한다.
+
+Todo 5와 통합할 때는 MilestoneDocument→SubmissionFile 관계를 새 공통 PURGE_RELATIONS에 보존해야 한다. 현 준비 브랜치의 FK와 관계 원장 행은 유지하며 관계 행렬 타깃 검사로 확인한다.

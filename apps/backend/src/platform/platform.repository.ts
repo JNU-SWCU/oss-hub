@@ -95,14 +95,14 @@ export class PlatformRepository {
     return current !== null;
   }
 
-  appendSubmissionReviewEvent(
+  async appendSubmissionReviewEvent(
     transaction: Pick<
       Prisma.TransactionClient,
-      'milestoneDocumentSubmissionHistory'
+      'milestoneDocumentSubmissionHistory' | 'milestoneDocumentReviewHistory'
     >,
     input: SubmissionReviewEventInput,
   ) {
-    return transaction.milestoneDocumentSubmissionHistory.create({
+    const event = await transaction.milestoneDocumentSubmissionHistory.create({
       data: {
         milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
         event: input.decision,
@@ -119,6 +119,19 @@ export class PlatformRepository {
         actor: { select: { nickname: true } },
       },
     });
+    await transaction.milestoneDocumentReviewHistory.create({
+      data: {
+        id: event.id,
+        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
+        submissionHistoryId: input.submissionHistoryId,
+        reviewerId: input.reviewerId,
+        decision: input.decision,
+        comment: input.comment,
+        reviewedAt: input.reviewedAt,
+        resubmissionDueAt: null,
+      },
+    });
+    return event;
   }
 }
 
@@ -127,6 +140,7 @@ type LockedRow = Readonly<{ id: string }>;
 type ApplicationCoordinates = Readonly<{ programId: string; teamId: string }>;
 
 interface SubmissionReviewEventInput {
+  readonly submissionHistoryId: string;
   readonly milestoneDocumentSubmissionId: string;
   readonly revision: number;
   readonly reviewerId: string;

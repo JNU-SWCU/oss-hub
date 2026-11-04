@@ -1619,7 +1619,18 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       }),
     );
 
-    expect(reviewCreate).not.toHaveBeenCalled();
+    expect(reviewCreate).toHaveBeenCalledWith({
+      data: {
+        id: 'cuid-synthetic-review',
+        milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
+        submissionHistoryId: 'cuid-synthetic-submission-history',
+        reviewerId: 'cuid-synthetic-staff',
+        decision: ReviewDecision.CHANGES_REQUESTED,
+        comment: '2쪽 서명이 빠졌습니다.',
+        reviewedAt,
+        resubmissionDueAt: null,
+      },
+    });
     expect(direct.create).not.toHaveBeenCalled();
     expect(historyCreate).toHaveBeenCalledWith({
       data: {
