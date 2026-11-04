@@ -115,6 +115,7 @@ export function ParticipationPanel({
           >
             <ResponsiveContainer width="100%" height="100%">
               <BarChart
+                accessibilityLayer={false}
                 layout="vertical"
                 data={data}
                 margin={{ top: 8, right: 28, left: 0, bottom: 8 }}

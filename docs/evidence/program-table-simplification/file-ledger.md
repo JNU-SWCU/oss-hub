@@ -2,6 +2,8 @@
 
 기준 커밋: `449aedd0a7c83afb95d24b080fecd21941bbc30a` (origin/main, 2026-11-03). 계약 16과 목표 코드 구조의 Todo 1 기준선이다. Todo 2는 `2366e1833`에서 시작하며 아래 단계별 변경을 추가한다.
 
+2026-11-03 준비 브랜치 동기화: `fe00e178f484414cab754dea1559c95a68c511f2` (v0.24.29)를 병합했다. main의 추가 변경에는 programs 제품 파일과 DB 마이그레이션이 없어 아래 파일 상태·줄 수는 바뀌지 않는다. 준비 마이그레이션 `20261103130000_prepare_program_dead_columns`는 현재 마지막 main 마이그레이션 `20261103130000_cycle_snapshot_daily` 뒤에 정렬되므로 이름과 SQL을 유지한다. retire 마이그레이션은 이 준비 브랜치에 포함하지 않는다.
+
 ## 위치와 검사 계약
 
 계획의 `.omo/evidence/program-table-simplification/file-ledger.md`는 `.gitignore:35`의 `.omo/` 규칙에 걸린다. CI에서 읽을 추적 사본을 이 경로 `docs/evidence/program-table-simplification/file-ledger.md`에 둔다. `bun scripts/check-file-ledger.ts`의 기본 입력도 이 사본이다. 원장 경로를 첫 인수로 전달해 독립 검사가 가능하다.

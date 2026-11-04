@@ -179,6 +179,8 @@ jobs:
           docker compose --env-file /dev/null -f compose.yml config --no-interpolate --quiet
           node --test deploy/jenkins/release-behavior.test.mjs
           node --test deploy/jenkins/user-consolidation*.test.mjs
+          node --test deploy/jenkins/program-migration/*.test.mjs
+          docker run --rm --volume "$PWD:/mnt:ro" --workdir /mnt koalaman/shellcheck:stable@sha256:bb596a0d169b85ddd81d8b6d3a2ff6d5baf5fca10b97f575ebc647c3dff62b3d -x -P SCRIPTDIR deploy/jenkins/program-migration/*.sh
           node --test deploy/jenkins/validate-production-env.test.mjs
           node --test deploy/jenkins/validate-github-app-credentials.test.mjs
           ! grep -rlE 'oss-hub-release-c[d]|JENKINS[_]' .github/workflows

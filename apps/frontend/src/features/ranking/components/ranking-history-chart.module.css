@@ -146,6 +146,14 @@
   }
 }
 
+.plot :global(.recharts-surface) {
+  outline: none;
+}
+
+.root:has(:global(.recharts-surface):focus-visible) {
+  border-color: var(--ring);
+}
+
 .plot :global(path.recharts-line-curve) {
   stroke-linecap: round;
   stroke-linejoin: round;
