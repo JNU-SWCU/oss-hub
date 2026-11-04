@@ -127,6 +127,12 @@ export function TeamDeleteDialog({
           {disappearing || '연결된 데이터 없음'}
         </AlertDescription>
       </Alert>
+      {displayedScope.detachedRepositories > 0 ? (
+        <p className="text-sm text-muted-foreground [word-break:keep-all]">
+          OSS Hub의 저장소 등록 정보 {displayedScope.detachedRepositories}건과
+          해당 수집 기록을 삭제합니다. GitHub 원본 저장소는 유지됩니다.
+        </p>
+      ) : null}
       <div className="grid gap-2">
         <label
           htmlFor="team-delete-notification-message"

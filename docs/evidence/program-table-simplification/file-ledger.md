@@ -81,6 +81,10 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 조직 설치 목록 등록과 일괄 ABSENT 판정을 제거한다. `collection-inventory.service.ts`는 이미 등록된 조직·외부 레포의 메타데이터 관찰을 함께 담당하므로 유지한다. 외부 등록 후처리는 행을 새로 만들지 않고 연결이 끝난 레포만 갱신한다. 공개 프로젝트 조회와 프로그램 purge 설정은 Todo 5가 소유하므로 수정하지 않는다.
 
+2026-11-04 마무리 확인 기준은 main `1a79dce70445137fd7e7fefa5e7dcf54b039bb0e`다. `recordRepositoryObservation`·`markAbsentRepositories`는 없고, 조직·외부 목록은 `PlatformRepository.collectionTargetWhere()`의 등록 조건과 삭제 프로그램 제외를 함께 사용한다. `CollectionAppClient.listInstallationRepositories()`의 저수준 메서드와 테스트는 남아 있으나 제품 호출부는 0건이다. 이를 자동 등록 경로가 남아 있다는 뜻이나 해당 메서드까지 삭제됐다는 뜻으로 기록하지 않는다.
+
+사용자가 v0.24.40 운영의 레포 7개·팀 없는 레포 0개·teamId 유니크·고아 commit fact 0개를 전달했다. 이후 정확한 삭제 안내와 guide 문구·실행 화면을 마무리하며, 이 frontend 변경으로 backend 제품 파일 수나 줄 수는 바뀌지 않는다. 아래 수치는 Todo 7 자체 변경의 기준선이며 병렬 Todo 5의 파일 감소와 섞지 않는다.
+
 `program-team-deletion.repository.ts`는 연결 해제 대신 레포·레포 초대·수집 사실을 삭제한다. `student-repository-url-transaction.repository.ts`와 발급 경로는 교체된 레포를 삭제하고 감사에 옛 URL과 삭제 건수를 남긴다. 프로그램 파일의 Todo 9 병합 의도는 유지하며, TeamHistory 전환도 Todo 8/9 소유다.
 
 | 범위 | Before files | Before lines | Todo 7 after files | Todo 7 after lines |

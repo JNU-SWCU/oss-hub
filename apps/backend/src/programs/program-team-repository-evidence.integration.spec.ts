@@ -121,7 +121,7 @@ it('projects current repository facts and URL audit history without reading or m
         nameWithOwner: 'synthetic/old',
         source: 'ORG_PROVISIONED',
         programId,
-        teamId,
+        teamId: null,
       },
       {
         id: repositoryId,

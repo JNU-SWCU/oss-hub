@@ -12,6 +12,7 @@ const TEAM_DELETE_COUNT_ITEMS = [
   ['invitations', '초대', '건'],
   ['submissions', '제출물', '건'],
   ['submissionEvents', '제출 이력', '건'],
+  ['detachedRepositories', '저장소 등록 삭제', '건'],
 ] as const satisfies ReadonlyArray<
   readonly [keyof TeamDeletedCounts, string, string]
 >;

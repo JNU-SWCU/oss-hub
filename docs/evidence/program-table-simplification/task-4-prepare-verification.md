@@ -119,3 +119,5 @@ Todo 5를 포함한 main 8261fc711을 통합했다. MilestoneDocument→Submissi
 - 심사 서비스·저장소·관계 행렬: 4 suites, 134 tests, EXIT 0.
 - backend typecheck: EXIT 0.
 - 모든 테스트와 typecheck는 공유 heavy lock 안에서 pnpm --config.verify-deps-before-run=false로 실행했다. 전체 스위트·빌드·성능 측정·운영 리허설은 재실행하지 않았다. 이전 서버 리허설은 당시 head 기준 증거이며 이번 통합 후 재실행 결과로 표시하지 않는다.
+
+검증 도중 main이 e40766704(#1734 안내와 #1727 GitHub 정리, #1735 안내 포함)로 전진하여 추가 병합했다. 신규 제출·심사 구현과 파일 관계 코드는 동일하며, 추가된 DB CHECK migration에 맞춰 manifest의 예상 head를 20261104130000_retire_teamless_github_repositories로 갱신했다. 이에 영향을 받는 삭제 차단·제출 호환 DB 2 suites / 76 tests와 backend typecheck만 추가 확인했고 모두 EXIT 0이었다.

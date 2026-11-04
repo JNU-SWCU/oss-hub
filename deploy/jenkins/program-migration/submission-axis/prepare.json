@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "submission-axis-prepare",
-  "expectedHeadMigration": "20261104050000_prepare_program_absorption",
+  "expectedHeadMigration": "20261104130000_retire_teamless_github_repositories",
   "preflight": ["check-before.sql"],
   "stages": [
     {

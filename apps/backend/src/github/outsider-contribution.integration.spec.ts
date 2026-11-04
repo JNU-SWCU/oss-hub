@@ -91,7 +91,7 @@ beforeAll(async () => {
         nameWithOwner: 'synthetic/outsider-detached',
         source: 'ORG_PROVISIONED',
         programId: ids.program,
-        teamId: ids.team,
+        teamId: null,
       },
     ],
   });
