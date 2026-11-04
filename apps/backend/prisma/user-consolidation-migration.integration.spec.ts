@@ -23,10 +23,15 @@ it('preserves every source field through committed forward reverse and replay', 
   await inMigrationDatabase(async (url) => {
     const before = await sourceSnapshot(url);
     const baselineDrift = await schemaDrift(url, 'before');
+    const historySourceCreation =
+      "-- CreateEnum\nCREATE TYPE \"HistorySource\" AS ENUM ('APPLICATION', 'BOOTSTRAP', 'MIGRATION');\n\n";
+    expect(baselineDrift).toContain(historySourceCreation);
     await sql(url, await artifact('preflight'));
     await forward(url);
     await sql(url, await artifact('reconcile'));
-    expect(await schemaDrift(url, 'after')).toBe(baselineDrift);
+    expect(await schemaDrift(url, 'after')).toBe(
+      baselineDrift.replace(historySourceCreation, ''),
+    );
     process.stdout.write(
       `TASK2_SCHEMA_DRIFT ${JSON.stringify(baselineDrift)}\n`,
     );

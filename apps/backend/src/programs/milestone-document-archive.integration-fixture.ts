@@ -83,6 +83,7 @@ export class ProgramArchiveIntegrationFixture {
           programId: archiveId(program),
           name: `단계 ${stage}`,
           dueAt: new Date('2026-12-01'),
+          submissionType: stage === 'a1' ? 'TEXT' : null,
           documents: {
             create: {
               id: archiveId(`doc-${stage}`),
