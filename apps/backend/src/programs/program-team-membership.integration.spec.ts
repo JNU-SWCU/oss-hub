@@ -13,6 +13,7 @@ import {
   ProgramTrackType,
   SubmissionFileLifecycle,
   SubmissionStatus,
+  TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -754,9 +755,10 @@ describe('program team membership transactions integration', () => {
     const applicationId = await seedApplication(teamId, LEADER_ID);
     const submitted = await seedSubmittedDocument(applicationId, LEADER_ID);
     const invitationId = await seedPendingInvitation(teamId, LEADER_ID);
+    const respondedAt = new Date('2026-09-01T00:00:00.000Z');
 
     const settled = await Promise.allSettled([
-      invitations.withAcceptTransaction(invitationId, INVITEE_ID),
+      invitations.withAcceptTransaction(invitationId, INVITEE_ID, respondedAt),
       service.removeMember(githubIdOf(LEADER_ID), PROGRAM_ID, MEMBER_A_ID),
     ]);
 
@@ -785,9 +787,13 @@ describe('program team membership transactions integration', () => {
     await expect(
       prisma.teamInvitation.findUnique({
         where: { id: invitationId },
-        select: { id: true },
+        select: { id: true, status: true, respondedAt: true },
       }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual({
+      id: invitationId,
+      status: TeamInvitationStatus.ACCEPTED,
+      respondedAt,
+    });
     await expect(
       prisma.teamHistory.findMany({
         where: { sourceId: invitationId },
