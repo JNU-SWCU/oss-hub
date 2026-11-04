@@ -25,6 +25,8 @@ const REJECTION_REASON = [
 ].join('\n');
 
 const REJECTED_PROGRAM = {
+  teamMinSize: 1,
+  teamMaxSize: 4,
   id: PROGRAM_ID,
   name: '합성 반려 도달 프로그램',
   organizer: '합성 운영기관',

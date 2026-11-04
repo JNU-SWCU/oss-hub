@@ -8,6 +8,7 @@ import type {
 export class TeamManagementListItemResponseDto {
   declare readonly id: string;
   declare readonly programId: string;
+  declare readonly teamMinSize: number;
   declare readonly status: ApplicationStatus;
   declare readonly submittedAt: string;
   declare readonly rejectionReason: string | null;
@@ -27,6 +28,7 @@ export class TeamManagementListItemResponseDto {
     return {
       id: item.id,
       programId: item.programId,
+      teamMinSize: item.teamMinSize,
       status: item.status,
       submittedAt: item.submittedAt.toISOString(),
       rejectionReason: item.rejectionReason,

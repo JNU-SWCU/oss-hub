@@ -52,6 +52,7 @@ function item(
   return {
     id,
     programId: PROGRAM_ID,
+    teamMinSize: 2,
     status,
     submittedAt: '2026-08-05T05:32:00.000Z',
     rejectionReason: null,
@@ -307,6 +308,41 @@ describe('ProgramStaffTeamsPage — 상태 드롭다운(AC-14)', () => {
 });
 
 describe('ProgramStaffTeamsPage — 재조회 4분기(AC-16)', () => {
+  it('수락 인원이 부족한 신청은 진행 인원과 승인 거부 이유를 보여 준다', async () => {
+    const underMinimum = item('a', 'SUBMITTED', {
+      team: {
+        id: 'a-team',
+        name: '합성 팀',
+        memberCount: 1,
+        members: [{ id: 'm1', name: '합성 학생', nickname: 'student' }],
+      },
+    });
+    listTeamManagementApplicationsMock.mockResolvedValue(page([underMinimum]));
+    getApplicationDetailMock.mockResolvedValue(underMinimum);
+    decideApplicationMock.mockRejectedValue(
+      new ApiError({
+        type: 'about:blank',
+        title: '승인 거부',
+        status: 422,
+        detail: '최소 인원 미달',
+        instance: '/applications/a',
+        code: 'APP_019',
+      }),
+    );
+    await mount();
+    expect(container.textContent).toContain('수락 1/2명');
+    const select = statusSelects()[0];
+    if (!select) throw new Error('신청 상태 선택이 없습니다.');
+    await act(async () => {
+      select.value = 'APPROVED';
+      select.dispatchEvent(new Event('change', { bubbles: true }));
+    });
+    expect(container.textContent).toContain(
+      '초대한 팀원이 수락한 뒤 다시 승인해 주세요.',
+    );
+    expect(statusSelects()[0]?.value).toBe('SUBMITTED');
+  });
+
   it('자기 팀 승인이 거절되면 다른 교직원이나 운영자에게 검토를 요청하도록 안내한다', async () => {
     decideApplicationMock.mockRejectedValue(
       new ApiError({

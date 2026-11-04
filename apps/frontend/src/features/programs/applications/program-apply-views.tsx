@@ -3,7 +3,7 @@
 import { ApplicationPreparationNotice } from './application-preparation-notice';
 
 import Link from 'next/link';
-import { useEffect, useRef, type RefObject } from 'react';
+import { useEffect, useRef, type RefObject, type ReactNode } from 'react';
 import { AlertCircle } from 'lucide-react';
 import { EmptyState, PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -144,8 +144,8 @@ export function ProgramApplySuccessView({
             : '신청서가 수정되었습니다'}
         </AlertTitle>
         <AlertDescription>
-          신청 번호 {applicationId}의 내용을 저장했습니다. 신청 기간 내 ‘검토
-          대기’ 상태에서만 수정하거나 취소할 수 있습니다.
+          신청 번호 {applicationId}의 내용을 저장했습니다. 지정한 학생은 초대를
+          수락해야 합류합니다. 우리 팀에서 수락 현황을 확인하세요.
         </AlertDescription>
       </Alert>
       <div className="flex flex-wrap gap-3">
@@ -219,6 +219,7 @@ export interface ProgramApplyTeamProps {
 }
 
 interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
+  readonly nominationContent?: ReactNode;
   readonly program: ProgramDetail;
   readonly template: ApplicationFormTemplate;
   readonly applicantName: string;
@@ -369,6 +370,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     canManage,
     confirmation,
     teamMinimum = null,
+    nominationContent,
     submitting,
     onOpenInvite,
     onCloseInvite,
@@ -382,6 +384,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     onCloseConfirmation,
     onConfirm,
   } = props;
+  const missingTeamMembers = remainingTeamMembers(teamMinimum);
   useEffect(() => {
     if (validationAttempt === 0) return;
     const firstInvalidField = formRegionRef.current?.querySelector<HTMLElement>(
@@ -390,7 +393,6 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     firstInvalidField?.focus({ preventScroll: true });
     firstInvalidField?.scrollIntoView?.({ block: 'center' });
   }, [validationAttempt]);
-  const missingTeamMembers = remainingTeamMembers(teamMinimum);
   const hasEditableAnswers = template.fields.some(
     (field) => field.key === 'title' && field.type !== 'auto',
   );
@@ -476,7 +478,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                 <Button
                   ref={submitButtonRef}
                   type="button"
-                  disabled={submitting || missingTeamMembers > 0}
+                  disabled={submitting}
                   onClick={onRequestSubmit}
                 >
                   {submitting ? '저장 중…' : '수정 내용 저장'}
@@ -532,16 +534,18 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
           onChanged={onTeamChanged}
         />
       ) : null}
-      <TeamMembersPanel
-        programId={programId}
-        team={team}
-        sessionNickname={sessionNickname}
-        mode="compose"
-        invitation={invitation}
-        onOpenInvite={onOpenInvite}
-        inviteTriggerRef={inviteTriggerRef}
-        onChanged={onTeamChanged}
-      />
+      {nominationContent ?? (
+        <TeamMembersPanel
+          programId={programId}
+          team={team}
+          sessionNickname={sessionNickname}
+          mode="compose"
+          invitation={invitation}
+          onOpenInvite={team === null ? null : onOpenInvite}
+          inviteTriggerRef={inviteTriggerRef}
+          onChanged={onTeamChanged}
+        />
+      )}
       <Card>
         <CardContent className="space-y-4 pt-6">
           {program.repositoryProvisioningEnabled ? (
@@ -580,16 +584,15 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
               <AlertDescription>{serverError}</AlertDescription>
             </Alert>
           ) : null}
-          {missingTeamMembers > 0 && teamMinimum ? (
-            <Alert>
-              <AlertTitle>
-                최소 {teamMinimum.teamMinSize}명이 필요합니다
-              </AlertTitle>
-              <AlertDescription className="[word-break:keep-all]">
-                현재 {teamMinimum.memberCount}명이며 {missingTeamMembers}
-                명이 더 필요합니다. 팀원 초대에서 팀원을 추가해 주세요.
-              </AlertDescription>
-            </Alert>
+          <p className="text-body text-muted-foreground">
+            본인과 지정한 학생이 최소 인원 이상이어야 지원할 수 있습니다.
+            승인하려면 실제로 수락한 팀원도 최소 인원을 채워야 합니다.
+          </p>
+          {missingTeamMembers > 0 ? (
+            <p role="status" className="text-small text-destructive">
+              지원하려면 {missingTeamMembers}명을 더 지정하거나 기존 초대의
+              수락을 기다려 주세요.
+            </p>
           ) : null}
         </CardContent>
       </Card>
@@ -597,7 +600,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
         <Button
           ref={submitButtonRef}
           type="button"
-          disabled={submitting || creating || missingTeamMembers > 0}
+          disabled={submitting || missingTeamMembers > 0}
           onClick={onRequestSubmit}
         >
           {submitting ? '저장 중…' : '신청 제출'}

@@ -35,12 +35,36 @@ export enum ApplicationsErrorCode {
   TEAM_LEADER_REQUIRED = 'APP_028',
   PREPARATION_CHANGED = 'APP_031',
   OWN_TEAM_DECISION_FORBIDDEN = 'APP_029',
+  INVALID_INVITEES = 'APP_032',
+  INVITEE_NOT_ELIGIBLE = 'APP_033',
+  INVITEE_UNAVAILABLE = 'APP_034',
+  TEAM_MAX_SIZE_EXCEEDED = 'APP_035',
 }
 
 export const APPLICATIONS_ERROR_CODES: Record<
   ApplicationsErrorCode,
   ErrorCode
 > = {
+  [ApplicationsErrorCode.INVALID_INVITEES]: {
+    code: ApplicationsErrorCode.INVALID_INVITEES,
+    status: 422,
+    message: '같은 학생을 중복 지정하거나 본인을 지정할 수 없습니다.',
+  },
+  [ApplicationsErrorCode.INVITEE_NOT_ELIGIBLE]: {
+    code: ApplicationsErrorCode.INVITEE_NOT_ELIGIBLE,
+    status: 422,
+    message: '가입을 마친 활성 학생만 팀원으로 지정할 수 있습니다.',
+  },
+  [ApplicationsErrorCode.INVITEE_UNAVAILABLE]: {
+    code: ApplicationsErrorCode.INVITEE_UNAVAILABLE,
+    status: 409,
+    message: '이미 이 프로그램의 팀 또는 신청 준비에 참여한 학생입니다.',
+  },
+  [ApplicationsErrorCode.TEAM_MAX_SIZE_EXCEEDED]: {
+    code: ApplicationsErrorCode.TEAM_MAX_SIZE_EXCEEDED,
+    status: 422,
+    message: '프로그램의 최대 팀 인원을 초과할 수 없습니다.',
+  },
   [ApplicationsErrorCode.APPLICATION_NOT_FOUND]: {
     code: ApplicationsErrorCode.APPLICATION_NOT_FOUND,
     status: 404,
@@ -169,7 +193,7 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET]: {
     code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
     status: 422,
-    message: '팀 최소 인원을 충족해야 신청할 수 있습니다.',
+    message: '프로그램의 최소 팀 인원을 충족하지 못했습니다.',
   },
   [ApplicationsErrorCode.PROGRAM_ARCHIVED]: {
     code: ApplicationsErrorCode.PROGRAM_ARCHIVED,

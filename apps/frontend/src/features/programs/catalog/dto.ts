@@ -84,6 +84,8 @@ export interface ProgramMilestone {
 }
 
 export interface ProgramDetail {
+  readonly teamMinSize?: number;
+  readonly teamMaxSize?: number;
   readonly coverImageUrl?: string | null;
   readonly id: string;
   readonly name: string;

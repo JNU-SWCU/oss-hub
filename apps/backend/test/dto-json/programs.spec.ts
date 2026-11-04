@@ -417,6 +417,8 @@ const programListItem: ProgramListPageItem = {
 };
 
 const programDetail: ProgramDetailResult = {
+  teamMinSize: 2,
+  teamMaxSize: 4,
   coverImageUrl: null,
   id: 'program-1',
   name: 'Program A',
@@ -664,6 +666,7 @@ const sentInvitation: SentTeamInvitationRecord = {
 };
 
 const teamManagementItem: TeamManagementListItem = {
+  teamMinSize: 2,
   id: 'application-1',
   programId: 'program-1',
   status: 'APPROVED',

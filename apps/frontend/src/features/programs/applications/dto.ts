@@ -21,6 +21,7 @@ export interface ApplicationTemplateListApiResponse {
 }
 
 export interface CreateApplicationInput {
+  readonly inviteeUserIds?: readonly string[];
   readonly teamName?: string;
   readonly answers: { readonly title?: string };
   readonly applicationTemplateVersion: number;
@@ -96,6 +97,7 @@ interface TeamManagementMember {
 
 export interface TeamManagementListItem {
   readonly id: string;
+  readonly teamMinSize?: number;
   readonly programId: string;
   readonly status: ApplicationStatus;
   readonly submittedAt: string;

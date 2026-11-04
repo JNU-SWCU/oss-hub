@@ -261,6 +261,8 @@ const controllerMethod = (name: keyof ProgramsController): object => {
 };
 
 const publicDetail: ProgramDetailResult = {
+  teamMinSize: 1,
+  teamMaxSize: 4,
   id: 'program-1',
   coverImageUrl: null,
   name: 'Synthetic program',

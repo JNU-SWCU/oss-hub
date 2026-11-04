@@ -130,6 +130,8 @@ interface ProgramMilestoneResult {
 }
 
 export interface ProgramDetailResult {
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
   readonly coverImageUrl: string | null;
   readonly id: string;
   readonly name: string;
@@ -372,6 +374,8 @@ export class ProgramsService {
         organizer: program.organizer,
         trackType: program.trackType,
         applicationTemplateKey: program.applicationTemplateKey,
+        teamMinSize: program.teamMinSize,
+        teamMaxSize: program.teamMaxSize,
         lifecycle: program.lifecycle,
         description: program.description,
         repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
