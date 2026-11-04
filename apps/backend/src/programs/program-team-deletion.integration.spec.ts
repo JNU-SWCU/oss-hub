@@ -154,6 +154,9 @@ async function cleanupTeamScope(): Promise<void> {
   await prisma.contribution.deleteMany({
     where: { repositoryId: { startsWith: TEST_PREFIX } },
   });
+  await prisma.repositoryInvitation.deleteMany({
+    where: { repositoryId: { startsWith: TEST_PREFIX } },
+  });
   await prisma.githubRepository.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
@@ -502,8 +505,21 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
   ).resolves.toBe(0);
 });
 
-it('GithubRepository 는 지우지 않고 연결만 끊으며 수집 이력은 그대로 남는다', async () => {
+it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지운다', async () => {
   const fixture = await seedApprovedTeam();
+  await prisma.collectionCommitFact.create({
+    data: {
+      repositoryId: fixture.repositoryId,
+      sha: 'team-deletion-commit',
+      committedAt: new Date('2026-08-21T00:00:00.000Z'),
+    },
+  });
+  await prisma.repositoryInvitation.create({
+    data: {
+      repositoryId: fixture.repositoryId,
+      githubLogin: 'synthetic-team-deletion-invitee',
+    },
+  });
 
   await service.deleteForStaff(
     STAFF_GITHUB_ID,
@@ -512,29 +528,24 @@ it('GithubRepository 는 지우지 않고 연결만 끊으며 수집 이력은 �
     await currentScope(fixture.teamId),
   );
 
-  const repository = await prisma.githubRepository.findUniqueOrThrow({
-    where: { id: fixture.repositoryId },
-    select: {
-      programId: true,
-      applicationId: true,
-      teamId: true,
-      publishedAt: true,
-      visibility: true,
-    },
-  });
-  expect(repository).toEqual({
-    programId: null,
-    applicationId: null,
-    teamId: null,
-
-    publishedAt: null,
-    visibility: RepositoryVisibility.PUBLIC,
-  });
+  await expect(
+    prisma.githubRepository.findUnique({ where: { id: fixture.repositoryId } }),
+  ).resolves.toBeNull();
   await expect(
     prisma.contribution.count({
       where: { repositoryId: fixture.repositoryId },
     }),
-  ).resolves.toBe(1);
+  ).resolves.toBe(0);
+  await expect(
+    prisma.collectionCommitFact.count({
+      where: { repositoryId: fixture.repositoryId },
+    }),
+  ).resolves.toBe(0);
+  await expect(
+    prisma.repositoryInvitation.count({
+      where: { repositoryId: fixture.repositoryId },
+    }),
+  ).resolves.toBe(0);
 });
 
 it('첨부 파일은 지우지 않고 DELETE_PENDING 으로 넘기며 FK 를 모두 끊는다', async () => {

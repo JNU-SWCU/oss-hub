@@ -1,4 +1,5 @@
 import { RepositoryProvisionGenerationRepository } from './repository-provision-generation.repository';
+import { RepositoryDeletionRepository } from './repository-deletion.repository';
 import { PrismaSerializationRetryRepository } from './prisma-serialization-retry.repository';
 import { PlatformRepository } from './platform.repository';
 import { LockProgramTreeRepository } from './lock-program-tree.repository';
@@ -108,6 +109,7 @@ describe('PlatformModule', () => {
     const exported = getMetadataArray(MODULE_METADATA.EXPORTS);
 
     expect(exported).toEqual([
+      RepositoryDeletionRepository,
       RUNTIME_CONFIG,
       LockProgramTreeRepository,
       PrismaService,

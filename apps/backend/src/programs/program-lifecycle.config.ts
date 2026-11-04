@@ -36,7 +36,7 @@ const PURGE_RELATIONS = [
   },
   {
     id: 'github-repositories',
-    operation: 'DETACH',
+    operation: 'DELETE',
     covers: [
       'Program->GithubRepository',
       'Application->GithubRepository',
@@ -54,7 +54,7 @@ const PURGE_RELATIONS = [
   },
   {
     id: 'github-repository-collection-descendants-preserved',
-    operation: 'PRESERVE',
+    operation: 'DELETE',
 
     covers: [
       'GithubRepository->RepositoryInvitation',

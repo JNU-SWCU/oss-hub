@@ -138,7 +138,7 @@ export class StudentRepositoryUrlService {
             },
             relinked: false,
           };
-        const repositoryId = await store
+        const { repositoryId, deletedCounts } = await store
           .relink(current, resolution, (stored) =>
             this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
               stored,
@@ -167,6 +167,7 @@ export class StudentRepositoryUrlService {
                 repositoryUrl: this.url(current),
               },
               after: { repositoryId, repositoryUrl },
+              ...(deletedCounts === null ? {} : { deletedCounts }),
             },
           },
           store.auditLogWriter,

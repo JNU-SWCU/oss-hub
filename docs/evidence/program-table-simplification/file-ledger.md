@@ -28,7 +28,7 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 첫 릴리스의 프론트는 `RETRYABLE_FAILED`/`FAILED`와 `FAILED_RETRYABLE`/`FAILED_FINAL`을 모두 표시한다. 백엔드 응답 전환은 이 프론트가 배포된 다음 릴리스다. `TeamInvitation`의 공개 `invitedAt` 응답 키는 유지하고 `createdAt`에서 읽는다. 기존 초대 시각은 마이그레이션에서 보존한다. 재초대 시각이 의미 있는 `ApplicationPreparationParticipant.invitedAt`은 Todo 8 소유이므로 유지한다.
 
 | 범위 | Before files | Before lines | Todo 2 준비 after files | Todo 2 준비 after lines |
-| ------------------------------- | -----------: | -----------: | ----------------------: | ----------------------: |
+| --- | ---: | ---: | ---: | ---: |
 | programs 제품 파일 (DTO 포함) | 245 | 37919 | 245 | 37832 |
 | 별도 join-code-secret 제품 파일 | 2 | 36 | 0 | 0 |
 
@@ -74,6 +74,24 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 | 범위 | Todo 2 이후 files | Todo 2 이후 lines | Todo 5 준비 files | Todo 5 준비 lines |
 | --- | ---: | ---: | ---: | ---: |
 | programs 제품 파일 (DTO 포함) | 245 | 37779 | 239 | 37447 |
+
+## Todo 7: 등록 레포 수집과 삭제 경계
+
+측정 기준은 `baed7d753c842d9fdb13cef15615d9ce22b90c00`이며 다른 병렬 단위의 변경은 포함하지 않는다.
+
+조직 설치 목록 등록과 일괄 ABSENT 판정을 제거한다. `collection-inventory.service.ts`는 이미 등록된 조직·외부 레포의 메타데이터 관찰을 함께 담당하므로 유지한다. 외부 등록 후처리는 행을 새로 만들지 않고 연결이 끝난 레포만 갱신한다. 공개 프로젝트 조회와 프로그램 purge 설정은 Todo 5가 소유하므로 수정하지 않는다.
+
+`program-team-deletion.repository.ts`는 연결 해제 대신 레포·레포 초대·수집 사실을 삭제한다. `student-repository-url-transaction.repository.ts`와 발급 경로는 교체된 레포를 삭제하고 감사에 옛 URL과 삭제 건수를 남긴다. 프로그램 파일의 Todo 9 병합 의도는 유지하며, TeamHistory 전환도 Todo 8/9 소유다.
+
+| 범위 | Before files | Before lines | Todo 7 after files | Todo 7 after lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 | 245 | 37779 | 245 | 37795 |
+
+| Path | Action | Target | Todo | State | Before lines | 이유 |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| `apps/backend/src/platform/repository-deletion.repository.ts` | keep | `apps/backend/src/platform/repository-deletion.repository.ts` | 7 | present | 0 | 수동·발급 교체가 공용 트랜잭션 repository에서 같은 FK 정리와 삭제 건수 계측을 사용 |
+
+레거시 연간 집계 테이블은 기존 CASCADE FK로 승인 대상 행만 정리한다. 테이블 폐기·Prisma 편입은 하지 않는다. 상세 전후 건수와 배포 순서는 `task-7-program-table-simplification.md`에 기록한다.
 
 ## 파일별 의도와 상태
 

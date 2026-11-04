@@ -47,15 +47,35 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-it('relinks and enqueues the new identity while preserving historical contributions', async () => {
+beforeAll(async () => {
+  await prisma.$executeRawUnsafe(`
+    CREATE UNIQUE INDEX "GithubRepository_teamId_task7_test_key"
+    ON "GithubRepository" ("teamId")
+    WHERE "teamId" LIKE 'synthetic-url-relink-%'
+  `);
+});
+afterAll(async () => {
+  await prisma.$executeRawUnsafe(
+    `DROP INDEX IF EXISTS "GithubRepository_teamId_task7_test_key"`,
+  );
+  await prisma.$disconnect();
+});
+
+it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭제 이력을 남긴다', async () => {
   await service.updateMine(githubId, programId, input);
 
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId: null, programId, teamId });
+  ).toBeNull();
   expect(
     await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
-  ).toEqual([expect.objectContaining({ commitCount: 7 })]);
+  ).toEqual([]);
+  expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
+  expect(
+    await prisma.githubRepository.count({
+      where: { id: { in: [oldId, targetId] }, teamId: null },
+    }),
+  ).toBe(0);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({
@@ -82,6 +102,7 @@ it('relinks and enqueues the new identity while preserving historical contributi
         schemaVersion: 2,
         before: { repositoryId: oldId },
         after: { repositoryId: targetId, repositoryUrl: input.repositoryUrl },
+        deletedCounts: { repositories: 1, contributions: 1 },
       },
     },
   ]);
@@ -122,6 +143,9 @@ it('rolls back binding and queue changes when the audit write fails', async () =
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toMatchObject({ applicationId });
   expect(
+    await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
+  ).toEqual([expect.objectContaining({ commitCount: 7 })]);
+  expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({ applicationId: null, presence: 'ABSENT', failureCount: 4 });
   expect(
@@ -154,6 +178,64 @@ it('serializes duplicate edits into one audit entry', async () => {
   expect(
     await prisma.auditLog.count({ where: { targetId: applicationId } }),
   ).toBe(1);
+  expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
+});
+
+it('같은 URL을 다시 등록해도 레포와 수집 기록 및 감사 이력을 유지한다', async () => {
+  await service.updateMine(githubId, programId, input);
+  await prisma.contribution.create({
+    data: {
+      repositoryId: targetId,
+      githubId,
+      date: new Date('2026-08-02T00:00:00Z'),
+      commitCount: 3,
+    },
+  });
+
+  await service.updateMine(githubId, programId, input);
+
+  expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
+  expect(
+    await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
+  ).toEqual([expect.objectContaining({ commitCount: 3 })]);
+  expect(
+    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+  ).toBe(1);
+});
+
+it('같은 GitHub 레포의 이름이 바뀌어도 행과 수집 기록을 유지한다', async () => {
+  await service.updateMine(githubId, programId, input);
+  await prisma.contribution.create({
+    data: {
+      repositoryId: targetId,
+      githubId,
+      date: new Date('2026-08-02T00:00:00Z'),
+      commitCount: 3,
+    },
+  });
+  resolver.resolve.mockResolvedValue({
+    kind: 'EXTERNAL',
+    repository: {
+      githubRepositoryId: targetGithubId,
+      name: 'renamed',
+      nameWithOwner: 'synthetic/renamed',
+      url: 'https://github.com/synthetic/renamed',
+      visibility: 'PUBLIC',
+      description: null,
+      defaultBranch: 'main',
+      archived: false,
+    },
+  });
+  await service.updateMine(githubId, programId, {
+    repositoryUrl: 'https://github.com/synthetic/renamed',
+  });
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
+  ).toMatchObject({ teamId, nameWithOwner: 'synthetic/renamed' });
+  expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
+  expect(
+    await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
+  ).toEqual([expect.objectContaining({ commitCount: 3 })]);
 });
 it('projects a successful relink without an original provision outbox', async () => {
   await service.updateMine(githubId, programId, input);
@@ -277,7 +359,7 @@ it('links a managed organization repository without re-arming provisioning', asy
   ).toMatchObject({ outcome: RepositoryIssuanceOutcome.SUPERSEDED });
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId: null, programId, teamId });
+  ).toBeNull();
 });
 it('checks the program end after acquiring the transaction lock', async () => {
   jest.spyOn(resolver, 'resolve').mockImplementationOnce(async () => {

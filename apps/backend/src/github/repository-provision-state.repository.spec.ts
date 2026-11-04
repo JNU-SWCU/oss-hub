@@ -1,3 +1,4 @@
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
@@ -270,6 +271,7 @@ function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
     db as unknown as PrismaService,
     new RepositoryProvisionGenerationRepository(),
     new RepositoryProvisionJobRepository(db as unknown as PrismaService),
+    new RepositoryDeletionRepository(),
   );
 }
 

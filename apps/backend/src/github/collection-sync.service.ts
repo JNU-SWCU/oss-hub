@@ -105,13 +105,11 @@ type SyncRepository = Pick<
   | 'recordReleaseFacts'
   | 'recordIssueFacts'
   | 'listRegisteredGithubIds'
-  | 'recordRepositoryObservation'
-  | 'refreshExternalRepositoryObservation'
-  | 'markExternalRepositoryUnavailable'
+  | 'refreshRepositoryObservation'
+  | 'markRepositoryUnavailable'
   | 'recordRepositoryFailure'
   | 'recordRepositorySuccess'
-  | 'markAbsentRepositories'
-  | 'listPresentRepositories'
+  | 'listOrganizationRepositories'
   | 'listExternalRepositories'
   | 'listRepositoryTeamMembers'
   | 'findOutsiderCountingWindow'
@@ -175,10 +173,7 @@ const githubTimestamp = (at: Date): string =>
   at.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
-  repository.applicationId != null ||
-  (repository.source === 'ORG_PROVISIONED' &&
-    repository.programId == null &&
-    repository.teamId == null);
+  repository.applicationId != null;
 
 @Injectable()
 export class CollectionSyncService {
@@ -190,7 +185,6 @@ export class CollectionSyncService {
   constructor(
     private readonly incrementalRepository: SyncRepository,
     private readonly runtimeFactory: CollectionSyncRuntimeFactory,
-    private readonly resolveGithubOrganizationId: () => Promise<bigint>,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly now: () => Date = () => new Date(),
     private readonly createRunId: () => string = randomUUID,
@@ -216,7 +210,6 @@ export class CollectionSyncService {
     registeredGithubIds?: RegisteredGithubIdSet,
   ): Promise<CollectionSyncRunResult> {
     const runtime = await this.runtimeFactory();
-    const githubOrganizationId = await this.resolveGithubOrganizationId();
     return this.runSweep({
       source: 'ORG_PROVISIONED',
       scope: orgScope(runtime.organizationLogin),
@@ -226,7 +219,7 @@ export class CollectionSyncService {
       registeredGithubIds,
       runtime,
       discoverInventory: (lease, deadline) =>
-        this.inventory.org(runtime, lease, githubOrganizationId, deadline),
+        this.inventory.org(runtime, lease, deadline),
     });
   }
 
@@ -630,10 +623,11 @@ export class CollectionSyncService {
         const observedAt = this.now();
         await this.incrementalRepository.runInTransaction(async (repo) => {
           await repo.assertSyncLeaseValid(lease, observedAt);
-          await repo.markExternalRepositoryUnavailable(
+          await repo.markRepositoryUnavailable(
             repository.githubRepositoryId,
             error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
             observedAt,
+            repository.source,
           );
         });
       }

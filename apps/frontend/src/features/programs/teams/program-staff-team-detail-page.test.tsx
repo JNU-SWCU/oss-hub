@@ -1030,8 +1030,9 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(dialog?.textContent).toContain('팀을 삭제할까요?');
       expect(dialog?.textContent).toContain('지원서 1건 · 팀원 2명');
       expect(dialog?.textContent).toContain(
-        '연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다.',
+        '팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
       );
+      expect(dialog?.textContent).not.toContain('저장소');
     });
   });
 });
