@@ -25,6 +25,7 @@
 - 데이터 이관까지 PENDING status 필터를 유지한다. 기존 종료 행의 이관·삭제 및 status 읽기 중단은 별도 draft PR이다.
 - 이관 전 팀 삭제가 기존 종료 행을 잃지 않도록 INVITATION_ARCHIVED에 원본 status/respondedAt/updatedAt을 보존한다. 이는 실제 보관 사건이며 과거 취소·거절 행위자를 추정하지 않는다. 기존 이력이 있으면 덮어쓰지 않는다.
 - 이 코드와 함께 추가하는 migration은 Preparation 0건 검사와 archive enum 추가뿐이다. 기존 행의 이동·삭제와 물리 DROP은 하지 않는다.
+- 게이트 수정: 0건 확인과 같은 트랜잭션에서 Preparation 두 테이블에 `CHECK (false)`를 추가한다. 이후 INSERT는 명시적으로 실패하여 reader를 제거한 불변식을 유지한다. trigger나 배포 파이프라인 변경은 없다. v0.24.44 미만으로 rollback하면 Preparation 생성이 실패할 수 있다. v0.24.44 이상은 새 Preparation을 만들지 않는다. 초대 이력 활동 판정 때문에 요구되는 별도 rollback 하한은 그대로다.
 
 v0.24.44는 삭제된 초대를 활동으로 셀 수 없어 초대만 있던 사용자의 등록 초기화 보호를 잃는다. 따라서 삭제를 시작한 뒤의 rollback 하한은 이 코드 선행 릴리스다. 데이터 draft가 이 선행 앱과 호환되는지 별도로 검증하며 v0.24.44로 직접 image rollback이 안전하다고 주장하지 않는다.
 

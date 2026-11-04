@@ -67,6 +67,23 @@ it('permits the archive event after the empty-state boundary', async () => {
 });
 
 it.each(['ApplicationPreparation', 'ApplicationPreparationParticipant'])(
+  'rejects late insertion into retired %s',
+  async (table) => {
+    await apply();
+    await expect(
+      within((tx) =>
+        tx.$executeRawUnsafe(`INSERT INTO "${table}" VALUES ('late')`),
+      ),
+    ).rejects.toThrow(`${table}_retired`);
+    await within(async (tx) => {
+      await expect(
+        tx.$queryRawUnsafe(`SELECT count(*)::int AS count FROM "${table}"`),
+      ).resolves.toEqual([{ count: 0 }]);
+    });
+  },
+);
+
+it.each(['ApplicationPreparation', 'ApplicationPreparationParticipant'])(
   'refuses reader retirement while %s contains data',
   async (table) => {
     await within((tx) =>
