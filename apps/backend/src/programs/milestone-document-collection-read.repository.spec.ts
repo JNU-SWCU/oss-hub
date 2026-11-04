@@ -1,7 +1,7 @@
 import type { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 
 describe('milestone-document-history-query.repository', () => {
   describe('milestone document history', () => {
@@ -11,7 +11,7 @@ describe('milestone-document-history-query.repository', () => {
           .boundedReviewHistoryQuery,
       ).toMatchObject({
         take: 50,
-        orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       });
     });
 

@@ -1,5 +1,3 @@
-import { ProgramScheduleService } from '../programs/program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from '../programs/milestone-document-submission-window.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
 import {
@@ -32,7 +30,6 @@ const prisma = new PrismaService();
 const service = new MilestoneDocumentFeedbackService(
   new MilestoneDocumentFeedbackRepository(prisma, new PlatformRepository()),
   () => now,
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
 );
 
 async function cleanup(): Promise<void> {

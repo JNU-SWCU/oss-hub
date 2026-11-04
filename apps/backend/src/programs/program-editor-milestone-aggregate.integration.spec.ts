@@ -34,7 +34,7 @@ import type { ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   cleanup,

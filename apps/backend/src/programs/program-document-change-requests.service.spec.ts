@@ -1,5 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
@@ -23,7 +23,6 @@ const programDocumentChangeRequestsService =
 
 const programId = 'synthetic-program';
 const now = new Date('2026-10-12T03:00:00.000Z');
-const dueAt = new Date('2026-10-19T14:59:59.000Z');
 
 function candidate(
   applicationId: string,
@@ -76,7 +75,19 @@ function writeStore(
           latestHistoryCreatedAt: new Date('2026-10-11T00:00:00.000Z'),
         }),
     ),
-    createReview: jest.fn().mockResolvedValue({}),
+    createReview: jest
+      .fn<
+        ReturnType<MilestoneDocumentWriteStore['createReview']>,
+        Parameters<MilestoneDocumentWriteStore['createReview']>
+      >()
+      .mockResolvedValue({
+        id: 'review',
+        decision: ReviewDecision.CHANGES_REQUESTED,
+        comment: null,
+        reviewedAt: now,
+        resubmissionDueAt: null,
+        reviewerNickname: 'synthetic-staff',
+      }),
     updateSubmissionStatus: jest.fn().mockResolvedValue(undefined),
   };
 }
@@ -120,7 +131,7 @@ function request(
     scope: { kind: 'PROGRAM' },
     includeFinalDecisions: false,
     comment: '양식을 바꿔 다시 내 주세요.',
-    resubmissionDueAt: dueAt,
+
     expectedVersion:
       programDocumentChangeRequestsService.changeRequestTargetsVersion(
         previewed,
@@ -217,7 +228,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       reviewerId: 'staff-1',
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '양식을 바꿔 다시 내 주세요.',
-      resubmissionDueAt: dueAt,
+
       reviewedAt: now,
     });
     expect(store.updateSubmissionStatus.mock.calls).toEqual([
@@ -306,21 +317,26 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     ).resolves.toEqual({ requestedCount: 2 });
   });
 
-  it('재제출 기한이 지금 이후가 아니면 잠그기 전에 거절한다', async () => {
-    const { service: subject, repo } = service({});
-
-    const error = await subject
-      .requestChanges(
-        'staff-1',
-        programId,
-        request({ resubmissionDueAt: now }),
-        () => now,
-      )
-      .catch((caught: unknown) => caught);
-
-    expect(code(error)).toBe(
-      MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
-    );
-    expect(repo.withTransaction).not.toHaveBeenCalled();
-  });
+  it.each([undefined, '   ', '  다시 확인해 주세요  '])(
+    '옛 기한은 무시하고 선택 사유를 저장한다: %s',
+    async (comment) => {
+      const { service: subject, store } = service({});
+      const input = subject.toProgramDocumentChangeRequestInput({
+        scope: 'PROGRAM',
+        includeFinalDecisions: false,
+        comment,
+        resubmissionDueAt: now.toISOString(),
+        expectedVersion: request().expectedVersion,
+      });
+      await expect(
+        subject.requestChanges('staff-1', programId, input, () => now),
+      ).resolves.toEqual({ requestedCount: 2 });
+      expect(store.createReview).toHaveBeenCalledWith(
+        expect.objectContaining({ comment: comment?.trim() || null }),
+      );
+      expect(store.createReview.mock.calls[0]?.[0]).not.toHaveProperty(
+        'resubmissionDueAt',
+      );
+    },
+  );
 });

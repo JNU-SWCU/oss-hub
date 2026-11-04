@@ -3,7 +3,7 @@ import {
   Prisma,
   ApplicationStatus,
   RepositoryConnectionMode,
-  type ReviewDecision,
+  ReviewDecision,
 } from '@prisma/client';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.config';
 
@@ -95,32 +95,6 @@ export class PlatformRepository {
     return current !== null;
   }
 
-  appendSubmissionReview<
-    TSelect extends Prisma.MilestoneDocumentReviewHistorySelect,
-  >(
-    transaction: Pick<
-      Prisma.TransactionClient,
-      'milestoneDocumentReviewHistory'
-    >,
-    input: SubmissionReviewRecordInput,
-    select: TSelect,
-  ) {
-    return transaction.milestoneDocumentReviewHistory.create({
-      data: {
-        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-        submissionHistoryId: input.submissionHistoryId,
-        reviewerId: input.reviewerId,
-        decision: input.decision,
-        comment: input.comment,
-        ...(input.resubmissionDueAt === undefined
-          ? {}
-          : { resubmissionDueAt: input.resubmissionDueAt }),
-        reviewedAt: input.reviewedAt,
-      },
-      select,
-    });
-  }
-
   appendSubmissionReviewEvent(
     transaction: Pick<
       Prisma.TransactionClient,
@@ -137,7 +111,13 @@ export class PlatformRepository {
         actorId: input.reviewerId,
         createdAt: input.reviewedAt,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        event: true,
+        comment: true,
+        createdAt: true,
+        actor: { select: { nickname: true } },
+      },
     });
   }
 }
@@ -145,16 +125,6 @@ export class PlatformRepository {
 type LockedRow = Readonly<{ id: string }>;
 
 type ApplicationCoordinates = Readonly<{ programId: string; teamId: string }>;
-
-interface SubmissionReviewRecordInput {
-  readonly milestoneDocumentSubmissionId: string;
-  readonly submissionHistoryId: string;
-  readonly reviewerId: string;
-  readonly decision: ReviewDecision;
-  readonly comment: string | null;
-  readonly reviewedAt: Date;
-  readonly resubmissionDueAt?: Date | null;
-}
 
 interface SubmissionReviewEventInput {
   readonly milestoneDocumentSubmissionId: string;

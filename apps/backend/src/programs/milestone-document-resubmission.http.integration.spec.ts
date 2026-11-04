@@ -40,7 +40,41 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());
 
-  it('requires a resubmission deadline before creating a changes request', async () => {
+  it('stores a review and its deadline as exactly one submission event', async () => {
+    expect((await fixture.submit('최초 제출')).status).toBe(201);
+
+    const response = await review(ReviewDecision.CHANGES_REQUESTED, {
+      expectedRevision: 1,
+      expectedLatestReviewId: null,
+      comment: '보완해 주세요.',
+    });
+
+    expect(response.status).toBe(201);
+    const events =
+      await fixture.prisma.milestoneDocumentSubmissionHistory.findMany({
+        where: { submission: { milestoneDocumentId: flowIds.document } },
+        orderBy: { createdAt: 'asc' },
+        select: { event: true, revision: true },
+      });
+    expect(events).toEqual([
+      { event: 'SUBMITTED', revision: 1 },
+      {
+        event: 'CHANGES_REQUESTED',
+        revision: 1,
+      },
+    ]);
+    expect(
+      await fixture.prisma.milestoneDocumentReviewHistory.count({
+        where: {
+          milestoneDocumentSubmission: {
+            milestoneDocumentId: flowIds.document,
+          },
+        },
+      }),
+    ).toBe(0);
+  });
+
+  it('accepts a changes request without reason or resubmission deadline', async () => {
     expect((await fixture.submit('최초 제출')).status).toBe(201);
     const response = await fixture.request(reviewsPath(), {
       actor: 'staff',
@@ -49,13 +83,19 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
         decision: ReviewDecision.CHANGES_REQUESTED,
         expectedRevision: 1,
         expectedLatestReviewId: null,
-        comment: '보완해 주세요.',
       },
     });
-    expect(response.status).toBe(422);
-    expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED,
-    });
+    expect(response.status).toBe(201);
+    const history =
+      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
+        where: {
+          event: 'CHANGES_REQUESTED',
+          submission: { milestoneDocumentId: flowIds.document },
+        },
+      });
+    expect(history.comment).toBeNull();
+    await fixture.closeDeadline();
+    expect((await fixture.submit('기한 없이 보완')).status).toBe(201);
   });
 
   it('allows one post-deadline revision while preserving history and staff conflict checks', async () => {
@@ -70,9 +110,10 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
       ).status,
     ).toBe(201);
     const requested =
-      await fixture.prisma.milestoneDocumentReviewHistory.findFirstOrThrow({
+      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
         where: {
-          milestoneDocumentSubmission: {
+          event: 'CHANGES_REQUESTED',
+          submission: {
             milestoneDocumentId: flowIds.document,
           },
         },
@@ -102,15 +143,19 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
           status: true,
           histories: {
             orderBy: { revision: 'asc' },
-            select: { revision: true, content: true },
+            select: { id: true, event: true, revision: true, content: true },
           },
-          reviewHistories: { select: { id: true } },
         },
       });
     expect(submission).toMatchObject({
       revision: 2,
       status: 'SUBMITTED',
-      reviewHistories: [{ id: requested.id }],
+    });
+    expect(submission.histories).toContainEqual({
+      id: requested.id,
+      event: 'CHANGES_REQUESTED',
+      revision: 1,
+      content: null,
     });
     expect(
       submission.histories
@@ -138,16 +183,18 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
       await review(ReviewDecision.CHANGES_REQUESTED, {
         expectedRevision: 1,
         expectedLatestReviewId: null,
-        comment: '보완해 주세요.',
       });
       const requested =
-        await fixture.prisma.milestoneDocumentReviewHistory.findFirstOrThrow({
-          where: {
-            milestoneDocumentSubmission: {
-              milestoneDocumentId: flowIds.document,
+        await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow(
+          {
+            where: {
+              event: 'CHANGES_REQUESTED',
+              submission: {
+                milestoneDocumentId: flowIds.document,
+              },
             },
           },
-        });
+        );
       await fixture.closeDeadline();
       await fixture.submit('보완 제출');
       expect(
@@ -181,37 +228,31 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     });
   });
 
-  it('requires rejection reasons and exposes the accepted reason in student history', async () => {
-    await fixture.submit('최초 제출');
-    const version = {
-      expectedRevision: 1,
-      expectedLatestReviewId: null,
-      comment: '   ',
-    };
-    const empty = await review(ReviewDecision.REJECTED, version);
-    expect(empty.status).toBe(422);
-
-    expect(
-      (
-        await review(ReviewDecision.REJECTED, {
-          ...version,
-          comment: '필수 실행 결과가 없습니다.',
-        })
-      ).status,
-    ).toBe(201);
-
-    const history = await fixture.request(`${fixture.documentPath()}/history`);
-    const body: unknown = await history.json();
-    expect(body).toHaveProperty(
-      'items',
-      expect.arrayContaining([
-        expect.objectContaining({
-          event: 'REJECTED',
-          comment: '필수 실행 결과가 없습니다.',
-        }),
-      ]),
-    );
-  });
+  it.each(['   ', '필수 실행 결과가 없습니다.'])(
+    'accepts an optional rejection reason and exposes the stored comment: %s',
+    async (comment) => {
+      expect((await fixture.submit('최초 제출')).status).toBe(201);
+      const response = await review(ReviewDecision.REJECTED, {
+        expectedRevision: 1,
+        expectedLatestReviewId: null,
+        comment,
+      });
+      expect(response.status).toBe(201);
+      const history = await fixture.request(
+        fixture.documentPath() + '/history',
+      );
+      expect(history.status).toBe(200);
+      expect(await history.json()).toHaveProperty(
+        'items',
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: 'REJECTED',
+            comment: comment.trim() || null,
+          }),
+        ]),
+      );
+    },
+  );
 
   it('rejects an empty submission', async () => {
     expect((await fixture.submit('   ')).status).toBe(422);

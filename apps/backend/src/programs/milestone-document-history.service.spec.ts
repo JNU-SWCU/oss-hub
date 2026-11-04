@@ -3,7 +3,7 @@ import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -14,6 +14,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
   it('checks the document and application program before returning a bounded page', async () => {
     const repository = {
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: 'document-1',
         milestoneId: 'milestone-1',
         programId: 'program-1',
@@ -70,6 +71,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
   it('maps an out-of-scope cursor to the invalid-request contract', async () => {
     const repository = {
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: 'document-1',
         milestoneId: 'milestone-1',
         programId: 'program-1',

@@ -16,6 +16,10 @@ const MILESTONE_DOCUMENT_COLLECTION_MAX_PAGE_SIZE = 100;
 
 export class MilestoneDocumentCollectionRequestDto {
   @IsOptional()
+  @IsIn(['all'])
+  declare readonly scope?: 'all';
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)

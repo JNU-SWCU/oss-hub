@@ -1,5 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
@@ -17,11 +17,12 @@ const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
 const seenRevision = 3;
 const seenLatestReviewId = 'cuid-synthetic-review-seen';
 
-const resubmissionDueAt = new Date('2026-09-25T09:00:00.000Z');
+const resubmissionDueAt = null;
 
 function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const mocks = {
     findDocumentContext: jest.fn().mockResolvedValue({
+      submissionType: 'FILE_OR_TEXT',
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
       programId: syntheticProgramId,
@@ -125,7 +126,6 @@ function review(
   version: {
     expectedRevision?: number;
     expectedLatestReviewId?: string | null;
-    resubmissionDueAt?: Date | null;
   } = {},
 ) {
   return service.review(
@@ -136,12 +136,6 @@ function review(
     {
       decision,
       comment,
-      resubmissionDueAt:
-        version.resubmissionDueAt === undefined
-          ? decision === ReviewDecision.CHANGES_REQUESTED
-            ? resubmissionDueAt
-            : null
-          : version.resubmissionDueAt,
       expectedRevision: version.expectedRevision ?? seenRevision,
       expectedLatestReviewId:
         version.expectedLatestReviewId === undefined
@@ -194,6 +188,7 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
   it('서류 항목이 다른 마일스톤 소속이면 DOCUMENT_NOT_FOUND로 막는다', async () => {
     const { mocks, clock, repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: 'cuid-synthetic-other-milestone',
         programId: syntheticProgramId,
@@ -562,7 +557,6 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       reviewerId: syntheticStaffId,
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
-      resubmissionDueAt,
       reviewedAt,
     });
     expect(result).toEqual({
@@ -575,36 +569,35 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     });
   });
 
-  it('판정 시각보다 이르거나 같은 기한은 422로 거절하고 아무것도 쓰지 않는다', async () => {
-    const { mocks, clock, repository } = buildRepository();
-    const service = new MilestoneDocumentReviewsService(
-      repository,
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
-    );
-
-    for (const dueAt of [
-      new Date(reviewedAt.getTime() - 1),
-      new Date(reviewedAt.getTime()),
-    ]) {
-      await expect(
-        review(
-          service,
-          clock,
-          ReviewDecision.CHANGES_REQUESTED,
-          '고쳐 주세요.',
-          {
-            resubmissionDueAt: dueAt,
-          },
-        ),
-      ).rejects.toMatchObject({
-        errorCode: {
-          code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
-        },
+  it.each(Object.values(ReviewDecision))(
+    '%s 사유 없이 판정하고 옛 기한은 무시한다',
+    async (decision) => {
+      const { mocks, clock, repository } = buildRepository();
+      const service = new MilestoneDocumentReviewsService(
+        repository,
+        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      );
+      const input = service.reviewInputFromRequest({
+        decision,
+        comment: '   ',
+        expectedRevision: seenRevision,
+        expectedLatestReviewId: seenLatestReviewId,
+        resubmissionDueAt: 'old-client-value',
       });
-    }
-    expect(mocks.createReview).not.toHaveBeenCalled();
-    expect(mocks.updateSubmissionStatus).not.toHaveBeenCalled();
-  });
+      expect(input).not.toHaveProperty('resubmissionDueAt');
+      await service.review(
+        syntheticStaffId,
+        syntheticMilestoneId,
+        syntheticDocumentId,
+        syntheticApplicationId,
+        input,
+        clock,
+      );
+      expect(mocks.createReview).toHaveBeenCalledWith(
+        expect.objectContaining({ decision, comment: null }),
+      );
+    },
+  );
 
   it('승인은 사유 없이도 저장된다 — comment가 null로 들어간다', async () => {
     const { mocks, clock, repository } = buildRepository();
@@ -619,8 +612,6 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       expect.objectContaining({
         decision: ReviewDecision.APPROVED,
         comment: null,
-
-        resubmissionDueAt: null,
       }),
     );
   });

@@ -1,10 +1,5 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  MilestoneDocumentKind,
-  Prisma,
-  SubmissionFileLifecycle,
-} from '@prisma/client';
+import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import { PrismaService } from '../platform/prisma.service';
 
@@ -70,7 +65,6 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
         milestoneDocument: {
           is: {
             milestoneId,
-            kind: MilestoneDocumentKind.DOCUMENT,
           },
         },
         application: {

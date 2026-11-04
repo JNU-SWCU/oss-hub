@@ -19,17 +19,6 @@ export class MilestoneDocumentSubmissionWindowService {
     }
   }
 
-  hasMilestoneDocumentResubmissionDueAtPassed(
-    resubmissionDueAt: Date | null,
-    now: Date,
-  ): boolean {
-    if (resubmissionDueAt === null) return false;
-    return this.programScheduleService.hasProgramDeadlinePassed(
-      resubmissionDueAt,
-      now,
-    );
-  }
-
   isChangeRequestResubmissionOpen({
     latestDecision,
     submissionStatus,
@@ -43,26 +32,6 @@ export class MilestoneDocumentSubmissionWindowService {
     );
   }
 
-  isPostDeadlineResubmissionOpen({
-    latestDecision,
-    submissionStatus,
-    resubmissionDueAt,
-    now,
-  }: {
-    readonly latestDecision: ReviewDecision | null;
-    readonly submissionStatus: SubmissionStatus | null;
-    readonly resubmissionDueAt: Date | null;
-    readonly now: Date;
-  }): boolean {
-    return (
-      this.isChangeRequestResubmissionOpen({
-        latestDecision,
-        submissionStatus,
-      }) &&
-      !this.hasMilestoneDocumentResubmissionDueAtPassed(resubmissionDueAt, now)
-    );
-  }
-
   milestoneDocumentSubmissionBlock({
     dueAt,
     graceDueAt = null,
@@ -70,7 +39,6 @@ export class MilestoneDocumentSubmissionWindowService {
     hasSubmission,
     latestDecision,
     submissionStatus,
-    resubmissionDueAt,
   }: {
     readonly dueAt: Date;
     readonly graceDueAt?: Date | null;
@@ -79,8 +47,6 @@ export class MilestoneDocumentSubmissionWindowService {
     readonly latestDecision: ReviewDecision | null;
 
     readonly submissionStatus: SubmissionStatus | null;
-
-    readonly resubmissionDueAt: Date | null;
   }): MilestoneDocumentSubmissionBlock | null {
     if (
       latestDecision === ReviewDecision.APPROVED ||
@@ -91,20 +57,9 @@ export class MilestoneDocumentSubmissionWindowService {
     if (!this.programScheduleService.hasProgramDeadlinePassed(dueAt, now))
       return null;
     if (
-      this.isPostDeadlineResubmissionOpen({
-        latestDecision,
-        submissionStatus,
-        resubmissionDueAt,
-        now,
-      })
-    ) {
-      return null;
-    }
-
-    if (
       this.isChangeRequestResubmissionOpen({ latestDecision, submissionStatus })
     ) {
-      return 'RESUBMISSION_DUE_AT_PASSED';
+      return null;
     }
 
     if (latestDecision === ReviewDecision.CHANGES_REQUESTED && hasSubmission) {
@@ -124,5 +79,4 @@ export type MilestoneDocumentSubmissionBlock =
   | 'MILESTONE_CLOSED'
   | 'SUBMISSION_REPLACEMENT_CLOSED'
   | 'RESUBMISSION_NOT_ALLOWED'
-  | 'RESUBMISSION_ALREADY_USED'
-  | 'RESUBMISSION_DUE_AT_PASSED';
+  | 'RESUBMISSION_ALREADY_USED';

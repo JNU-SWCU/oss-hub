@@ -1,6 +1,6 @@
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
@@ -161,7 +161,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
               status: SubmissionStatus.SUBMITTED,
               content: null,
               files: [],
-              reviewHistories: [],
+              histories: [],
             },
           ]),
       },
@@ -272,6 +272,7 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
         milestoneId: true,
         name: true,
         required: true,
+        submissionType: true,
         sortOrder: true,
         graceDueAt: true,
         templateFile: { select: { id: true, originalFileName: true } },
@@ -616,10 +617,14 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const historyCreate = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-history',
     });
-    const historyFindFirst = jest.fn().mockResolvedValue(null);
+    const historyFindFirst = jest
+      .fn<Promise<{ createdAt: Date } | null>, []>()
+      .mockResolvedValue(null);
     const fileUpdateMany = jest.fn().mockResolvedValue({ count: 0 });
     const fileFindMany = jest.fn().mockResolvedValue([]);
-    const reviewFindFirst = jest.fn().mockResolvedValue(lockedLatestReview);
+    const reviewFindFirst = jest
+      .fn<Promise<{ id: string } | null>, []>()
+      .mockResolvedValue(lockedLatestReview);
     const submissionFindUnique = jest.fn().mockResolvedValue(lockedSubmission);
     const queryRaw = jest.fn().mockResolvedValue([{ id: syntheticDocumentId }]);
     const tx = {
@@ -628,10 +633,14 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         upsert: submissionUpsert,
         findUnique: submissionFindUnique,
       },
-      milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
       milestoneDocumentSubmissionHistory: {
         create: historyCreate,
-        findFirst: historyFindFirst,
+        findFirst: (
+          args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
+        ) =>
+          args.where?.event === undefined
+            ? historyFindFirst()
+            : reviewFindFirst(),
       },
       submissionFile: { updateMany: fileUpdateMany, findMany: fileFindMany },
       ...overrides,
@@ -750,7 +759,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     });
 
     expect(submissionUpsert).toHaveBeenCalledTimes(1);
-    expect(queryRaw).toHaveBeenCalledTimes(2);
+    expect(queryRaw).toHaveBeenCalledTimes(3);
   });
 
   it('마감 뒤 재제출: 잠금 아래에서 제출 상태가 이미 바뀌었으면 덮어쓰지 않는다', async () => {
@@ -919,7 +928,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    expect(order).toEqual(['lock', 'upsert']);
+    expect(order).toEqual(['lock', 'lock', 'upsert']);
 
     expect(fence.locks).toEqual(['Program', 'Team']);
     expect(firstInvocationOrder(fence.applicationFindFirst)).toBeLessThan(
@@ -1233,10 +1242,9 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       order.push('readLatestReview');
       return Promise.resolve(null);
     });
-    const { prisma } = transactionPrisma({
-      $queryRaw: queryRaw,
-      milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
-    });
+    const harness = transactionPrisma({ $queryRaw: queryRaw });
+    harness.reviewFindFirst.mockImplementation(reviewFindFirst);
+    const { prisma } = harness;
     const repository = new MilestoneDocumentsRepository(
       prisma,
       new LockProgramTreeRepository(),
@@ -1255,7 +1263,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       expectedLatestReviewId: null,
     });
 
-    expect(order).toEqual(['lock', 'readLatestReview']);
+    expect(order).toEqual(['lock', 'lock', 'readLatestReview']);
   });
 
   it('잠금 뒤 현재 팀원이 아니면 제출·이력·첨부를 쓰지 않는다', async () => {
@@ -1396,7 +1404,10 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       histories: [{ id: 'cuid-synthetic-submission-history', revision: 3 }],
     });
     const reviewFindFirst = jest
-      .fn()
+      .fn<
+        Promise<{ id: string } | null>,
+        [Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs]
+      >()
       .mockResolvedValue(
         options.latestReview === undefined
           ? { id: 'cuid-synthetic-review' }
@@ -1410,21 +1421,31 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt: new Date('2026-09-18T09:00:00.000Z'),
-      resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
+      resubmissionDueAt: null,
       reviewer: { nickname: 'synthetic-staff' },
     });
     const historyCreate = jest.fn().mockResolvedValue({
-      id: 'cuid-synthetic-decision-history',
+      id: 'cuid-synthetic-review',
+      event: ReviewDecision.CHANGES_REQUESTED,
+      comment: '2쪽 서명이 빠졌습니다.',
+      createdAt: new Date('2026-09-18T09:00:00.000Z'),
+      resubmissionDueAt: null,
+      actor: { nickname: 'synthetic-staff' },
     });
-    const historyFindFirst = jest.fn().mockResolvedValue({
-      createdAt: new Date('2026-09-17T09:00:00.000Z'),
-    });
+    const historyFindFirst = jest
+      .fn<Promise<{ createdAt: Date }>, []>()
+      .mockResolvedValue({
+        createdAt: new Date('2026-09-17T09:00:00.000Z'),
+      });
     const direct = { create: jest.fn(), update: jest.fn() };
     const prisma = {
       milestoneDocumentReviewHistory: { create: direct.create },
       milestoneDocumentSubmission: { update: direct.update },
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback({
+          $queryRaw: jest
+            .fn()
+            .mockResolvedValue([{ id: 'cuid-synthetic-submission' }]),
           milestoneDocumentSubmission: {
             findUnique: submissionFindUnique,
             update: submissionUpdate,
@@ -1435,7 +1456,12 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
           },
           milestoneDocumentSubmissionHistory: {
             create: historyCreate,
-            findFirst: historyFindFirst,
+            findFirst: (
+              args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
+            ) =>
+              args.where?.event === undefined
+                ? historyFindFirst()
+                : reviewFindFirst(args),
           },
         }),
       ),
@@ -1542,8 +1568,11 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     );
 
     expect(reviewFindFirst).toHaveBeenCalledWith({
-      where: { milestoneDocumentSubmissionId: 'cuid-synthetic-submission' },
-      orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+      where: {
+        milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
+        event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       select: { id: true },
     });
     expect(result).toBe('cuid-synthetic-review');
@@ -1577,7 +1606,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
-    const resubmissionDueAt = new Date('2026-09-25T09:00:00.000Z');
 
     const result = await repository.withTransaction((store) =>
       store.createReview({
@@ -1587,24 +1615,11 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         reviewerId: 'cuid-synthetic-staff',
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
-        resubmissionDueAt,
         reviewedAt,
       }),
     );
 
-    expect(reviewCreate).toHaveBeenCalledWith(
-      expect.objectContaining({
-        data: {
-          milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
-          submissionHistoryId: 'cuid-synthetic-submission-history',
-          reviewerId: 'cuid-synthetic-staff',
-          decision: ReviewDecision.CHANGES_REQUESTED,
-          comment: '2쪽 서명이 빠졌습니다.',
-          resubmissionDueAt,
-          reviewedAt,
-        },
-      }),
-    );
+    expect(reviewCreate).not.toHaveBeenCalled();
     expect(direct.create).not.toHaveBeenCalled();
     expect(historyCreate).toHaveBeenCalledWith({
       data: {
@@ -1615,7 +1630,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         comment: '2쪽 서명이 빠졌습니다.',
         createdAt: reviewedAt,
       },
-      select: { id: true },
+      select: {
+        id: true,
+        event: true,
+        comment: true,
+        createdAt: true,
+        actor: { select: { nickname: true } },
+      },
     });
 
     expect(result).toEqual({
@@ -1624,7 +1645,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
 
-      resubmissionDueAt,
+      resubmissionDueAt: null,
       reviewerNickname: 'synthetic-staff',
     });
   });
@@ -1919,7 +1940,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
           },
         ],
         histories: [],
-        reviewHistories: [],
       },
     ]);
     const prisma = {
@@ -1979,7 +1999,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
           },
         ],
         histories: [],
-        reviewHistories: [],
       },
     ]);
     const repository = new MilestoneDocumentsRepository(
@@ -2010,7 +2029,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         files: [],
-        reviewHistories: [],
+        histories: [],
       },
     ]);
     const prisma = {
@@ -2043,7 +2062,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         status: SubmissionStatus.SUBMITTED,
         content: null,
         files: [],
-        reviewHistories: [],
+        histories: [],
       },
     ]);
     const prisma = {
@@ -2076,11 +2095,11 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         submittedAt: new Date('2026-09-19T08:00:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         files: [],
-        reviewHistories: [
+        histories: [
           {
-            decision: ReviewDecision.CHANGES_REQUESTED,
+            event: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
-            reviewedAt,
+            createdAt: reviewedAt,
           },
         ],
       },
@@ -2120,32 +2139,22 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         files: [],
         histories: [
           {
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-            revision: 1,
-            comment: null,
-            createdAt: new Date('2026-09-16T14:22:00.000Z'),
-            actor: { nickname: 'synthetic-student' },
-            files: [{ originalFileName: '계획서-v1.pdf' }],
-          },
-        ],
-        reviewHistories: [
-          {
             id: 'cuid-synthetic-review-2',
-            decision: ReviewDecision.CHANGES_REQUESTED,
+            event: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
-            reviewedAt,
-            resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
-            reviewer: { nickname: 'synthetic-staff-2' },
-            submissionHistory: { revision: 1 },
+            createdAt: reviewedAt,
+            resubmissionDueAt: null,
+            actor: { nickname: 'synthetic-staff-2' },
+            revision: 1,
           },
           {
             id: 'cuid-synthetic-review-1',
-            decision: ReviewDecision.APPROVED,
+            event: ReviewDecision.APPROVED,
             comment: null,
-            reviewedAt: firstReviewedAt,
+            createdAt: firstReviewedAt,
             resubmissionDueAt: null,
-            reviewer: { nickname: 'synthetic-staff-1' },
-            submissionHistory: { revision: 1 },
+            actor: { nickname: 'synthetic-staff-1' },
+            revision: 1,
           },
         ],
       },
@@ -2168,29 +2177,27 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
 
     const call = firstCallArgument<{
       select: {
-        reviewHistories: { orderBy: unknown; select: unknown };
+        histories: { orderBy: unknown; select: unknown };
       };
     }>(findMany);
-    expect(call.select.reviewHistories.orderBy).toEqual([
-      { reviewedAt: 'desc' },
+    expect(call.select.histories.orderBy).toEqual([
+      { createdAt: 'desc' },
       { id: 'desc' },
     ]);
-    expect(call.select.reviewHistories.select).toEqual({
+    expect(call.select.histories.select).toEqual({
       id: true,
-      decision: true,
+      event: true,
       comment: true,
-      reviewedAt: true,
-
-      resubmissionDueAt: true,
-      reviewer: { select: { nickname: true } },
-      submissionHistory: { select: { revision: true } },
+      createdAt: true,
+      actor: { select: { nickname: true } },
+      revision: true,
     });
     expect(result[0]?.review).toEqual({
       id: 'cuid-synthetic-review-2',
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
-      resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
+      resubmissionDueAt: null,
     });
   });
 
@@ -2203,7 +2210,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         status: SubmissionStatus.SUBMITTED,
         content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
         files: [],
-        reviewHistories: [],
+        histories: [],
       },
     ]);
     const prisma = {
@@ -2537,14 +2544,14 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
             submissionHistory: { revision: 2 },
           },
         ],
-        reviewHistories: [
+        histories: [
           {
             id: 'cuid-synthetic-review',
-            decision: ReviewDecision.CHANGES_REQUESTED,
+            event: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
-            reviewedAt,
-            reviewer: { nickname: 'synthetic-staff' },
-            submissionHistory: { revision: 1 },
+            createdAt: reviewedAt,
+            actor: { nickname: 'synthetic-staff' },
+            revision: 1,
           },
         ],
       },
@@ -2579,6 +2586,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt,
+        resubmissionDueAt: null,
       },
     });
   });
@@ -2592,7 +2600,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         status: SubmissionStatus.SUBMITTED,
         _count: { histories: 1 },
         files: [],
-        reviewHistories: [],
+        histories: [],
       },
     ]);
     const prisma = {
@@ -2624,7 +2632,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         status: SubmissionStatus.SUBMITTED,
         _count: { histories: 1 },
         files: [],
-        reviewHistories: [],
+        histories: [],
       },
     ]);
     const repository = new MilestoneDocumentsRepository(
@@ -2684,7 +2692,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
             submissionHistory: { revision: 2 },
           },
         ],
-        reviewHistories: [],
+        histories: [],
       },
     ]);
     const repository = new MilestoneDocumentsRepository(
@@ -2733,7 +2741,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
             submissionHistory: { revision: 1 },
           },
         ],
-        reviewHistories: [],
+        histories: [],
       },
     ]);
     const repository = new MilestoneDocumentsRepository(
@@ -2763,14 +2771,14 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
 });
 
 describe('MilestoneDocumentsRepository.findLatestReview', () => {
-  it('(서류, 신청) 제출의 최신 판정을 id·decision·재제출 기한만 뽑아 돌려준다', async () => {
+  it('(서류, 신청) 제출의 최신 판정을 id·decision만 뽑아 돌려준다', async () => {
     const findFirst = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.APPROVED,
+      event: ReviewDecision.APPROVED,
       resubmissionDueAt: null,
     });
     const prisma = {
-      milestoneDocumentReviewHistory: { findFirst },
+      milestoneDocumentSubmissionHistory: { findFirst },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2787,26 +2795,25 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
 
     expect(findFirst).toHaveBeenCalledWith({
       where: {
-        milestoneDocumentSubmission: {
+        submission: {
           milestoneDocumentId: syntheticDocumentId,
           applicationId: syntheticApplicationId,
         },
+        event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
       },
-      orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-
-      select: { id: true, decision: true, resubmissionDueAt: true },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { id: true, event: true },
     });
     expect(result).toEqual({
       id: 'cuid-synthetic-review',
       decision: ReviewDecision.APPROVED,
-      resubmissionDueAt: null,
     });
   });
 
   it('판정이 없으면 null이다', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = {
-      milestoneDocumentReviewHistory: { findFirst },
+      milestoneDocumentSubmissionHistory: { findFirst },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3333,6 +3340,8 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
           $queryRaw: async (sql: { readonly strings: readonly string[] }) => {
             const text = String(sql.strings);
             if (text.includes('FOR SHARE')) return [{ dueAt }];
+            if (text.includes('"MilestoneDocumentSubmission"'))
+              return [{ id: 'cuid-synthetic-submission' }];
             await acquire();
             return [{ id: syntheticDocumentId }];
           },
@@ -3355,11 +3364,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
             },
           },
 
-          milestoneDocumentReviewHistory: {
-            findFirst: () => Promise.resolve({ id: reviewId }),
-          },
           milestoneDocumentSubmissionHistory: {
-            findFirst: () => Promise.resolve(null),
+            findFirst: (
+              args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
+            ) =>
+              Promise.resolve(
+                args.where?.event === undefined ? null : { id: reviewId },
+              ),
             create: () => Promise.resolve({ id: 'cuid-synthetic-history' }),
           },
           submissionFile: {

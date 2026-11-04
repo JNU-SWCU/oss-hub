@@ -191,7 +191,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/milestone-document-reviews.service.ts` | merge | `submissions.service.ts` | 4 | present | 198 | 제출 입력·심사 통합 |
 | `apps/backend/src/programs/milestone-document-submission-window.service.ts` | merge | `submissions.service.ts` | 4 | present | 128 | 제출 기간 판정 통합 |
 | `apps/backend/src/programs/milestone-document-submission.error.ts` | merge | `submissions.error.ts` | 11 | present | 19 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/milestone-document-submission.repository.ts` | merge | `submissions.repository.ts` | 4 | present | 258 | 제출·심사·행렬의 레거시 축 제거 |
+| `apps/backend/src/programs/milestone-document-submission.repository.ts` | merge | `submissions.repository.ts` | 4 | deleted | 258 | 준비 단계에서 제출 트랜잭션을 submissions.repository로 병합; 기존 DI 계약은 이전 API와 함께 후속 단계까지 유지 |
 | `apps/backend/src/programs/milestone-documents-error-code.error.ts` | merge | `submissions.error.ts` | 11 | present | 339 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/milestone-documents.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 267 | 항목 이름과 경로 전환 |
 | `apps/backend/src/programs/milestone-documents.error.ts` | merge | `submissions.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
@@ -280,6 +280,8 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/student-repository-url.error.ts` | merge | `teams.error.ts` | 9 | present | 31 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
 | `apps/backend/src/programs/student-repository-url.service.ts` | merge | `team-application.service.ts` | 9 | present | 254 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
 | `apps/backend/src/programs/submission-completion.config.ts` | keep | `submission-completion.config.ts` | 4 | present | 29 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
+| `apps/backend/src/programs/submission-history.config.ts` | keep | `submission-history.config.ts` | 4 | present | 0 | 통합 이력의 심사 이벤트 선택과 공개 판정 값 변환 |
+| `apps/backend/src/programs/dto/milestone-document-list-request.dto.ts` | keep | `dto/milestone-document-list-request.dto.ts` | 4 | present | 0 | 준비 단계의 전체 항목 opt-in 조회 계약 |
 | `apps/backend/src/programs/submission-dashboard-summary.error.ts` | merge | `submissions.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/submission-dashboard-summary.repository.ts` | merge | `submissions.repository.ts` | 4 | present | 242 | 제출 요약 읽기 |
 | `apps/backend/src/programs/submission-dashboard-summary.service.ts` | merge | `submission-matrix.service.ts` | 4 | present | 244 | 제출 현황 집계 |
@@ -570,3 +572,13 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 네 실제 저장소 경로마다 warmup 1회와 순차 sample 20회를 기록한다. SQL 이벤트는 구독한 query 장벽으로 배출하고 장벽 SQL 자체는 수에서 제외한다. 장벽 시간은 p50에서 제외한다. 성능 수치에는 결과 검증 비용이 포함되며 HTTP·권한·직렬화 전체 지연은 아니다. 트랜잭션 제어 SQL과 팀 상세의 evidence SQL은 포함한다. 임계값 assert는 없다. p50은 10번째와 11번째 정렬 sample의 평균이다. 생성 결과는 `.omo/evidence/program-table-simplification/program-read-baseline.json`, 커밋 기준선은 이 디렉터리의 `program-read-baseline.json`이다.
 
 테스트 시드는 소규모 합성 데이터이며 운영 성능을 대표하지 않는다. 두 마일스톤 모두 DOCUMENT 항목만 가지므로 레거시 제출 결과는 0건이다. 후속 단계는 동일 fixture·호스트 조건으로 재측정하고 운영 크기의 별도 검증 없이 속도 개선을 주장하지 않는다.
+
+## Todo 4: 백엔드 준비 단계
+
+비교 기준은 `baed7d753`이다. 레거시 경로를 유지하는 준비 릴리스이므로 최종 코드 감소를 주장하지 않는다.
+
+| 범위 | Before files | Before lines | 준비 후 files | 준비 후 lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (같은 제외 규칙) | 245 | 37779 | 246 | 37815 |
+
+`milestone-document-submission.repository.ts`의 구현은 `submissions.repository.ts`로 병합했고 원본 파일을 삭제했다. 기존 API와 주입 계약을 유지하기 위해 준비 단계에서는 두 저장소 클래스를 같은 파일에 둔다. 목록의 opt-in 범위 DTO와 심사 이벤트 상수 파일이 추가되어 파일 수는 순증 1개다. 레거시 API·판별 분기·물리 컬럼 및 심사 테이블 삭제는 후속 단계다.

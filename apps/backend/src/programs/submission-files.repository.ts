@@ -29,6 +29,7 @@ export interface SubmissionFileUploadAuthorization {
   readonly uploaderId: string;
   readonly applicationId: string;
   readonly milestoneId: string;
+  readonly milestoneDocumentId: string;
   readonly applicationApproved: boolean;
   readonly submissionType: MilestoneSubmissionType;
   readonly dueAt: Date;
@@ -46,6 +47,7 @@ export interface CreatePendingSubmissionFileInput {
   readonly uploaderId: string;
   readonly applicationId: string;
   readonly milestoneId: string;
+  readonly milestoneDocumentId?: string;
   readonly storageKey: string;
   readonly originalFileName: string;
   readonly mimeType: string;
@@ -216,9 +218,20 @@ export class SubmissionFilesRepository {
 
     const milestone = await this.prisma.milestone.findFirst({
       where: { id: milestoneId, programId: application.programId },
-      select: { id: true, submissionType: true, dueAt: true },
+      select: {
+        id: true,
+        submissionType: true,
+        dueAt: true,
+        documents: {
+          where: { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
+          take: 1,
+          select: { id: true },
+        },
+      },
     });
     if (milestone === null || milestone.submissionType === null) return null;
+    const document = milestone.documents[0];
+    if (document === undefined) return null;
 
     let resubmissionStatus: SubmissionStatus | null = null;
     let currentRevision: number | null = null;
@@ -249,6 +262,7 @@ export class SubmissionFilesRepository {
       uploaderId,
       applicationId: application.id,
       milestoneId: milestone.id,
+      milestoneDocumentId: document.id,
       applicationApproved: application.status === ApplicationStatus.APPROVED,
       submissionType: milestone.submissionType,
       dueAt: milestone.dueAt,
@@ -316,6 +330,7 @@ export class SubmissionFilesRepository {
           uploaderId: input.uploaderId,
           applicationId: input.applicationId,
           milestoneId: input.milestoneId,
+          milestoneDocumentId: input.milestoneDocumentId,
           storageKey: input.storageKey,
           originalFileName: input.originalFileName,
           mimeType: input.mimeType,

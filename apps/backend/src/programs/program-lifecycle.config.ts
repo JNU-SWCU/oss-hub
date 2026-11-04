@@ -72,6 +72,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     operation: 'DETACH',
     covers: [
       'Milestone->SubmissionFile',
+      'MilestoneDocument->SubmissionFile',
       'Application->SubmissionFile',
       'MilestoneDocumentSubmission->SubmissionFile',
       'MilestoneDocumentSubmissionHistory->SubmissionFile',

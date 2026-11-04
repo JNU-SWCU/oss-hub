@@ -704,16 +704,20 @@ describe('seed profile=oss-hub contract (integration)', () => {
 
       expect(ossHubDocumentSubmissionCount).toBe(2);
       expect(ossHubSubmissionHistoryCount).toBe(3);
-      expect(ossHubReviewHistoryCount).toBe(1);
+      expect(ossHubReviewHistoryCount).toBe(0);
       expect(awsStagingSubmission).toMatchObject({
         status: SubmissionStatus.APPROVED,
         revision: 1,
       });
       expect(awsStagingSubmission.histories).toHaveLength(2);
-      expect(awsStagingSubmission.reviewHistories).toHaveLength(1);
-      expect(awsStagingSubmission.reviewHistories[0]).toMatchObject({
-        decision: ReviewDecision.APPROVED,
-        reviewerId: AUTH_SCENARIOS['staff-approved'],
+      expect(awsStagingSubmission.reviewHistories).toHaveLength(0);
+      expect(
+        awsStagingSubmission.histories.find(
+          (history) => history.event === ReviewDecision.APPROVED,
+        ),
+      ).toMatchObject({
+        event: ReviewDecision.APPROVED,
+        actorId: AUTH_SCENARIOS['staff-approved'],
       });
 
       expect(intakeFreezeSubmission).toMatchObject({
@@ -1067,9 +1071,22 @@ describe('seed profile=demo 계약 (integration)', () => {
       ).toBeGreaterThanOrEqual(9);
       expect(countsAfterFirstRun.SubmissionFile).toBeGreaterThan(0);
 
-      expect(
-        countsAfterFirstRun.MilestoneDocumentReviewHistory,
-      ).toBeGreaterThan(0);
+      expect(countsAfterFirstRun.MilestoneDocumentReviewHistory).toBe(0);
+      const reviewEvents =
+        await prisma.milestoneDocumentSubmissionHistory.count({
+          where: {
+            id: { startsWith: seedDemoPrefix },
+            event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
+          },
+        });
+      const reviewedSubmissions =
+        await prisma.milestoneDocumentSubmission.count({
+          where: {
+            id: { startsWith: seedDemoPrefix },
+            status: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
+          },
+        });
+      expect(reviewEvents).toBe(reviewedSubmissions);
       expect(countsAfterFirstRun.BoardPost).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardComment).toBeGreaterThan(0);
 
@@ -1345,8 +1362,9 @@ describe('seed profile=demo 계약 (integration)', () => {
         0,
       );
       expect(
-        countsBeforeTeardown.MilestoneDocumentReviewHistory,
+        countsBeforeTeardown.MilestoneDocumentSubmissionHistory,
       ).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.MilestoneDocumentReviewHistory).toBe(0);
 
       await runTeardown('demo', new SeedStats());
 

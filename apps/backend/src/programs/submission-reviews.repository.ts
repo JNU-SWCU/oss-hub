@@ -1,3 +1,4 @@
+import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
@@ -250,7 +251,6 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
 
   readonly REVIEW_CONTEXT_SELECT = {
     id: true,
-    legacySubmissionId: true,
     revision: true,
     application: {
       select: {
@@ -301,17 +301,14 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       select: { milestone: { select: { id: true, name: true } } },
     },
     histories: {
-      where: {
-        event: {
-          in: [
-            MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-            MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-          ],
-        },
-      },
-      orderBy: [{ revision: 'desc' as const }, { id: 'desc' as const }],
+      orderBy: [
+        { revision: 'desc' as const },
+        { createdAt: 'desc' as const },
+        { id: 'desc' as const },
+      ],
       select: {
         id: true,
+        event: true,
         revision: true,
         content: true,
         comment: true,
@@ -325,16 +322,6 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
             sizeBytes: true,
             expiresAt: true,
             lifecycle: true,
-          },
-        },
-        reviewHistories: {
-          orderBy: [{ reviewedAt: 'desc' as const }, { id: 'desc' as const }],
-          take: 1,
-          select: {
-            id: true,
-            decision: true,
-            comment: true,
-            reviewedAt: true,
           },
         },
       },
@@ -417,21 +404,25 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         orderBy: { id: 'desc' },
         select: {
           id: true,
-          reviewHistories: {
-            where: { milestoneDocumentSubmissionId: targetId },
-            take: 1,
-            select: { id: true },
-          },
         },
       });
     if (history === null) return null;
+    const review =
+      await transaction.milestoneDocumentSubmissionHistory.findFirst({
+        where: {
+          milestoneDocumentSubmissionId: targetId,
+          revision: submission.revision,
+          event: { in: SUBMISSION_REVIEW_EVENTS },
+        },
+        select: { id: true },
+      });
     return {
       id: submission.id,
       currentRevision: submission.revision,
       status: submission.status,
       revision: {
         id: history.id,
-        reviewId: history.reviewHistories[0]?.id ?? null,
+        reviewId: review?.id ?? null,
       },
     };
   }
@@ -440,18 +431,10 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     transaction: PrismaTypes.TransactionClient,
     input: CreateReviewRecordInput,
   ): Promise<{ readonly id: string }> {
-    const review = await this.platformRepository.appendSubmissionReview(
-      transaction,
-      input,
-      {
-        id: true,
-      },
-    );
-    await this.platformRepository.appendSubmissionReviewEvent(
+    return this.platformRepository.appendSubmissionReviewEvent(
       transaction,
       input,
     );
-    return review;
   }
 
   private async transitionSubmissionIn(

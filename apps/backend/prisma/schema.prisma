@@ -608,6 +608,8 @@ model SubmissionFile {
 
   milestoneId String?
   milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
+  milestoneDocumentId String?
+  milestoneDocument MilestoneDocument? @relation(fields: [milestoneDocumentId], references: [id], onDelete: SetNull)
 
   storageKey       String @unique
   originalFileName String
@@ -638,11 +640,18 @@ model SubmissionFile {
   @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
   @@index([milestoneDocumentSubmissionId])
   @@index([milestoneDocumentSubmissionHistoryId])
+  @@index([milestoneDocumentId])
 }
 
 enum MilestoneDocumentKind {
   DOCUMENT
   LEGACY_MILESTONE_SUBMISSION
+}
+
+enum RequirementSubmissionType {
+  FILE
+  TEXT
+  FILE_OR_TEXT
 }
 
 model MilestoneDocument {
@@ -655,12 +664,14 @@ model MilestoneDocument {
   required  Boolean
   sortOrder Int
   kind      MilestoneDocumentKind @default(DOCUMENT)
+  submissionType RequirementSubmissionType @default(FILE_OR_TEXT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   templateFile MilestoneDocumentTemplateFile?
   submissions  MilestoneDocumentSubmission[]
+  pendingFiles SubmissionFile[]
 
   @@index([milestoneId, sortOrder])
 }
@@ -684,8 +695,6 @@ model MilestoneDocumentTemplateFile {
 
 model MilestoneDocumentSubmission {
   id String @id @default(cuid())
-
-  legacySubmissionId String? @unique
 
   milestoneDocumentId String
   milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])

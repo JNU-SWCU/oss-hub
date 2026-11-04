@@ -1,8 +1,4 @@
-import {
-  AccountStatus,
-  MilestoneDocumentKind,
-  SubmissionFileLifecycle,
-} from '@prisma/client';
+import { AccountStatus, SubmissionFileLifecycle } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 
@@ -17,7 +13,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     jest.useRealTimers();
   });
 
-  it('목록·이력과 같은 자격(활성 학생·DOCUMENT·이 마일스톤·그 신청의 팀 구성원)으로 현재 리비전의 살아 있는 첨부만 투영한다', async () => {
+  it('목록·이력과 같은 자격(활성 학생·이 마일스톤·그 신청의 팀 구성원)으로 현재 리비전의 살아 있는 첨부만 투영한다', async () => {
     const findFirst = jest.fn().mockResolvedValue({
       revision: 2,
       files: [
@@ -51,7 +47,6 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
         milestoneDocument: {
           is: {
             milestoneId: 'milestone-current',
-            kind: MilestoneDocumentKind.DOCUMENT,
           },
         },
         application: {

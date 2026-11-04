@@ -510,43 +510,7 @@ async function upsertDemoSubmission(
 
   if (params.review && params.reviewerId) {
     const review = params.review;
-    const reviewHistoryEventId = seedId(
-      'demo',
-      'milestone-document-submission',
-      params.slug,
-      'review-event',
-    );
-    const reviewEvent =
-      review.decision === ReviewDecision.APPROVED
-        ? MilestoneDocumentSubmissionHistoryEvent.APPROVED
-        : MilestoneDocumentSubmissionHistoryEvent.CHANGES_REQUESTED;
-    await upsertTracked(
-      stats,
-      'MilestoneDocumentSubmissionHistory',
-      () =>
-        prisma.milestoneDocumentSubmissionHistory.findUnique({
-          where: { id: reviewHistoryEventId },
-        }),
-      () =>
-        prisma.milestoneDocumentSubmissionHistory.upsert({
-          where: { id: reviewHistoryEventId },
-          update: {
-            event: reviewEvent,
-            comment: review.comment,
-            actorId: params.reviewerId!,
-            createdAt: review.reviewedAt,
-          },
-          create: {
-            id: reviewHistoryEventId,
-            milestoneDocumentSubmissionId: submissionId,
-            event: reviewEvent,
-            revision: 1,
-            comment: review.comment,
-            actorId: params.reviewerId!,
-            createdAt: review.reviewedAt,
-          },
-        }),
-    );
+    const reviewerId = params.reviewerId;
     const reviewId = seedId(
       'demo',
       'milestone-document-submission',
@@ -555,27 +519,28 @@ async function upsertDemoSubmission(
     );
     await upsertTracked(
       stats,
-      'MilestoneDocumentReviewHistory',
+      'MilestoneDocumentSubmissionHistory',
       () =>
-        prisma.milestoneDocumentReviewHistory.findUnique({
+        prisma.milestoneDocumentSubmissionHistory.findUnique({
           where: { id: reviewId },
         }),
       () =>
-        prisma.milestoneDocumentReviewHistory.upsert({
+        prisma.milestoneDocumentSubmissionHistory.upsert({
           where: { id: reviewId },
           update: {
-            decision: review.decision,
+            event: review.decision,
             comment: review.comment,
-            reviewedAt: review.reviewedAt,
+            actorId: reviewerId,
+            createdAt: review.reviewedAt,
           },
           create: {
             id: reviewId,
             milestoneDocumentSubmissionId: submissionId,
-            submissionHistoryId,
-            reviewerId: params.reviewerId!,
-            decision: review.decision,
+            event: review.decision,
+            revision: 1,
             comment: review.comment,
-            reviewedAt: review.reviewedAt,
+            actorId: reviewerId,
+            createdAt: review.reviewedAt,
           },
         }),
     );

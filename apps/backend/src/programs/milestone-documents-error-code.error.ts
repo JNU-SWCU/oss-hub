@@ -14,6 +14,8 @@ export const MilestoneDocumentsErrorCode = {
   NOT_APPLICATION_MEMBER: 'MSD_005',
   APPLICATION_APPROVAL_REQUIRED: 'MSD_006',
   CONTENT_REQUIRED: 'MSD_008',
+  CONTENT_TYPE_MISMATCH: 'MSD_047',
+  SUBMISSION_REVISION_CHANGED: 'MSD_048',
   INVALID_FILE_UPLOAD: 'MSD_009',
   UNSUPPORTED_FILE_TYPE: 'MSD_010',
   FILE_TOO_LARGE: 'MSD_011',
@@ -24,7 +26,6 @@ export const MilestoneDocumentsErrorCode = {
   DOCUMENT_HAS_SUBMISSIONS: 'MSD_016',
   INVALID_REQUEST: 'MSD_019',
   SUBMISSION_FILE_NOT_FOUND: 'MSD_020',
-  REVIEW_COMMENT_REQUIRED: 'MSD_021',
   SUBMISSION_NOT_FOUND: 'MSD_022',
   RESUBMISSION_NOT_ALLOWED: 'MSD_023',
   REVIEW_CHANGED: 'MSD_024',
@@ -35,9 +36,6 @@ export const MilestoneDocumentsErrorCode = {
   SUBMISSION_REPLACEMENT_CLOSED: 'MSD_029',
   LAST_DOCUMENT_REQUIRED: 'MSD_030',
   RESUBMISSION_ALREADY_USED: 'MSD_031',
-  RESUBMISSION_DUE_AT_REQUIRED: 'MSD_032',
-  RESUBMISSION_DUE_AT_NOT_FUTURE: 'MSD_033',
-  RESUBMISSION_DUE_AT_PASSED: 'MSD_034',
   PROGRAM_NOT_FOUND: 'MSD_035',
   ARCHIVE_TEAM_NOT_FOUND: 'MSD_036',
 
@@ -58,6 +56,17 @@ export type MilestoneDocumentsErrorCode =
 export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   Record<MilestoneDocumentsErrorCode, ErrorCode>
 > = {
+  [MilestoneDocumentsErrorCode.SUBMISSION_REVISION_CHANGED]: {
+    code: MilestoneDocumentsErrorCode.SUBMISSION_REVISION_CHANGED,
+    status: 409,
+    message:
+      '제출본이 변경되었습니다. 최신 제출 내역을 확인한 뒤 다시 제출해 주세요.',
+  },
+  [MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH]: {
+    code: MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH,
+    status: 422,
+    message: '이 항목의 제출 형식에 맞는 내용을 입력해 주세요.',
+  },
   [MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT]: {
     code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT,
     status: 422,
@@ -169,11 +178,6 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 404,
     message: '제출된 파일을 찾을 수 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED]: {
-    code: MilestoneDocumentsErrorCode.REVIEW_COMMENT_REQUIRED,
-    status: 422,
-    message: '보완 요청과 반려는 사유를 입력해 주세요.',
-  },
   [MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND]: {
     code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND,
     status: 404,
@@ -234,25 +238,6 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
     status: 422,
     message:
       '보완 요청에 응해 이미 다시 제출했습니다. 마감 이후에는 검토 결과가 나올 때까지 내용을 바꿀 수 없습니다.',
-  },
-
-  [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED]: {
-    code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_REQUIRED,
-    status: 422,
-    message: '보완 요청은 재제출 기한을 정해야 합니다.',
-  },
-
-  [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE]: {
-    code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_NOT_FUTURE,
-    status: 422,
-    message: '재제출 기한은 지금보다 뒤여야 합니다.',
-  },
-
-  [MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_PASSED]: {
-    code: MilestoneDocumentsErrorCode.RESUBMISSION_DUE_AT_PASSED,
-    status: 422,
-    message:
-      '교직원이 정한 재제출 기한이 지났습니다. 기한 연장이 필요하면 담당 교직원에게 문의해 주세요.',
   },
 
   [MilestoneDocumentsErrorCode.ZIP_UNREADABLE]: {

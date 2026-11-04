@@ -156,7 +156,6 @@ async function createSubmissionScenario(
         update: { status: params.status, revision: 1 },
         create: {
           id: targetSubmissionId,
-          legacySubmissionId: null,
           milestoneDocumentId: documentId,
           applicationId: params.applicationId,
           status: params.status,
@@ -193,61 +192,29 @@ async function createSubmissionScenario(
       }),
   );
   if (params.review) {
-    const targetReviewId = seedId(
-      'milestones',
-      params.scenarioId,
-      'target-review',
-    );
-    await upsertTracked(
-      stats,
-      'MilestoneDocumentReviewHistory',
-      () =>
-        prisma.milestoneDocumentReviewHistory.findUnique({
-          where: { id: targetReviewId },
-        }),
-      () =>
-        prisma.milestoneDocumentReviewHistory.upsert({
-          where: { id: targetReviewId },
-          update: {
-            decision: params.review?.decision,
-            comment: params.review?.comment,
-          },
-          create: {
-            id: targetReviewId,
-            milestoneDocumentSubmissionId: targetSubmissionId,
-            submissionHistoryId: targetHistoryId,
-            reviewerId: REVIEWER_ID,
-            decision: params.review!.decision,
-            comment: params.review?.comment,
-          },
-        }),
-    );
-    const targetReviewEventId = seedId(
-      'milestones',
-      params.scenarioId,
-      'target-review-event',
-    );
+    const review = params.review;
+    const reviewId = seedId('milestones', params.scenarioId, 'target-review');
     await upsertTracked(
       stats,
       'MilestoneDocumentSubmissionHistory',
       () =>
         prisma.milestoneDocumentSubmissionHistory.findUnique({
-          where: { id: targetReviewEventId },
+          where: { id: reviewId },
         }),
       () =>
         prisma.milestoneDocumentSubmissionHistory.upsert({
-          where: { id: targetReviewEventId },
+          where: { id: reviewId },
           update: {
-            event: params.review!.decision,
-            comment: params.review?.comment,
+            event: review.decision,
+            comment: review.comment,
             actorId: REVIEWER_ID,
           },
           create: {
-            id: targetReviewEventId,
+            id: reviewId,
             milestoneDocumentSubmissionId: targetSubmissionId,
-            event: params.review!.decision,
+            event: review.decision,
             revision: 1,
-            comment: params.review?.comment,
+            comment: review.comment,
             actorId: REVIEWER_ID,
           },
         }),

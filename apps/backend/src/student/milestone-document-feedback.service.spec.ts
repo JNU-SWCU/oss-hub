@@ -1,5 +1,3 @@
-import { ProgramScheduleService } from '../programs/program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from '../programs/milestone-document-submission-window.service';
 import {
   MilestoneDocumentKind,
   ReviewDecision,
@@ -40,9 +38,6 @@ function serviceWith(
     service: new MilestoneDocumentFeedbackService(
       { findRecentForParticipant },
       () => now,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
     ),
     findRecentForParticipant,
   };
@@ -69,7 +64,7 @@ describe('MilestoneDocumentFeedbackService', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '표지를 보완해 주세요.',
         reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
-        resubmissionDueAt: new Date('2026-09-27T14:59:00.000Z'),
+        resubmissionDueAt: null,
         applicationId: 'synthetic-application',
         programId: 'synthetic-program',
         milestoneId: 'seed:milestone',
@@ -123,7 +118,7 @@ describe('MilestoneDocumentFeedbackService', () => {
     expect(response.items[0]?.itemName).toBe('최종 보고');
   });
 
-  it('지금도 열려 있는 보완 요청에만 재제출 기한을 싣는다', async () => {
+  it('옛 기한 값이 있어도 모든 판정에 기한 없는 호환 응답을 보낸다', async () => {
     const { service } = serviceWith([
       review({
         id: 'review-3',
@@ -148,7 +143,7 @@ describe('MilestoneDocumentFeedbackService', () => {
     expect(
       response.items.map((item) => [item.id, item.resubmissionDueAt]),
     ).toEqual([
-      ['review-3', new Date('2026-09-27T14:59:00.000Z')],
+      ['review-3', null],
       ['review-2', null],
       ['review-1', null],
     ]);

@@ -1,6 +1,7 @@
 import { UserProfileService } from '../users/user-profile.service';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
+  RequirementSubmissionType,
   SubmissionStatus,
 } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
@@ -17,13 +18,14 @@ import {
 import {
   type UpsertMilestoneDocumentSubmissionInput,
   MilestoneDocumentSubmissionRepository,
-} from './milestone-document-submission.repository';
+} from './submissions.repository';
 import {
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
+  MilestoneDocumentRevisionChangedError,
 } from './milestone-document-submission.error';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 import {
@@ -121,16 +123,33 @@ export class MilestoneDocumentsService {
     return this.repository.findByMilestoneId(milestoneId);
   }
 
+  listForViewerFromRequest(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    request: { readonly scope?: 'all' },
+  ): Promise<MilestoneDocumentViewerResult[]> {
+    return this.listForViewer(
+      sessionGithubId,
+      milestoneId,
+      new Date(),
+      request.scope === 'all',
+    );
+  }
+
   async listForViewer(
     sessionGithubId: bigint,
     milestoneId: string,
     now: Date = new Date(),
+    includeLegacy = false,
   ): Promise<MilestoneDocumentViewerResult[]> {
     const milestone = await this.repository.findMilestone(milestoneId);
     if (milestone === null) {
       throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
     }
-    const documents = await this.repository.findByMilestoneId(milestoneId);
+    const documents = await this.repository.findByMilestoneId(
+      milestoneId,
+      includeLegacy,
+    );
     const documentIds = documents.map((document) => document.id);
     const viewer = await this.repository.findActiveUser(sessionGithubId);
     const isStaff =
@@ -492,17 +511,22 @@ export class MilestoneDocumentsService {
     milestoneId: string,
     documentId: string,
     request: {
+      readonly comment?: string | null;
+      readonly expectedRevision?: number;
       readonly content: Parameters<
         MilestoneDocumentsService['parseMilestoneDocumentContent']
       >[0];
     },
   ): ReturnType<MilestoneDocumentsService['submit']> {
-    return this.submit(
-      sessionGithubId,
-      milestoneId,
-      documentId,
-      this.parseMilestoneDocumentContent(request.content),
-    );
+    return this.submit(sessionGithubId, milestoneId, documentId, {
+      ...this.parseMilestoneDocumentContent(request.content),
+      ...(request.comment === undefined
+        ? {}
+        : { comment: request.comment?.trim() || null }),
+      ...(request.expectedRevision === undefined
+        ? {}
+        : { expectedRevision: request.expectedRevision }),
+    });
   }
 
   async submit(
@@ -539,6 +563,28 @@ export class MilestoneDocumentsService {
       );
     }
 
+    let acceptedContent = content;
+    switch (documentContext.submissionType) {
+      case RequirementSubmissionType.FILE:
+        if (content.fileId === null) {
+          throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
+        }
+        acceptedContent = { ...content, text: null };
+        break;
+      case RequirementSubmissionType.TEXT:
+        if (content.text === null) {
+          throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
+        }
+        acceptedContent = { ...content, fileId: null };
+        break;
+      case RequirementSubmissionType.FILE_OR_TEXT:
+        break;
+      default:
+        throw new TypeError(
+          `Unknown requirement input rule: ${String(documentContext.submissionType satisfies never)}`,
+        );
+    }
+
     const latestReview = await this.repository.findLatestReview(
       documentId,
       application.applicationId,
@@ -558,7 +604,6 @@ export class MilestoneDocumentsService {
           hasSubmission: currentSubmission !== null,
           latestDecision,
           submissionStatus,
-          resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
         },
       );
     if (blocked !== null) {
@@ -566,16 +611,16 @@ export class MilestoneDocumentsService {
     }
 
     const attachFile: UpsertMilestoneDocumentSubmissionInput['attachFile'] =
-      content.fileId === null
+      acceptedContent.fileId === null
         ? null
         : {
-            fileId: content.fileId,
+            fileId: acceptedContent.fileId,
             uploaderId: viewer.id,
             milestoneId,
           };
     const submissionContent =
       this.milestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
-        content.text,
+        acceptedContent.text,
       );
 
     try {
@@ -588,24 +633,33 @@ export class MilestoneDocumentsService {
           milestoneId,
 
           allowAfterDeadline:
-            this.milestoneDocumentSubmissionWindowService.isPostDeadlineResubmissionOpen(
+            this.milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen(
               {
                 latestDecision,
                 submissionStatus,
-                resubmissionDueAt: latestReview?.resubmissionDueAt ?? null,
-                now,
               },
             ),
 
           expectedSubmissionStatus: submissionStatus,
         },
         content: submissionContent,
+        ...(acceptedContent.expectedRevision === undefined
+          ? {}
+          : { expectedRevision: acceptedContent.expectedRevision }),
+        ...(acceptedContent.comment === undefined
+          ? {}
+          : { comment: acceptedContent.comment }),
         attachFile,
 
         expectedLatestReviewId: latestReview?.id ?? null,
       });
       return detail;
     } catch (error) {
+      if (error instanceof MilestoneDocumentRevisionChangedError) {
+        throw this.error(
+          MilestoneDocumentsErrorCode.SUBMISSION_REVISION_CHANGED,
+        );
+      }
       if (error instanceof SubmissionMembershipChangedError) {
         throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
       }
