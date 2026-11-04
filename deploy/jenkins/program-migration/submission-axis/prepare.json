@@ -7,7 +7,7 @@
     {
       "id": "prepare",
       "apply": [
-        "../../../../apps/backend/prisma/migrations/20261104060000_prepare_submission_axis/migration.sql"
+        "../../../../apps/backend/prisma/migrations/20261104140000_prepare_submission_axis/migration.sql"
       ],
       "reconcile": ["check-prepare.sql"]
     }

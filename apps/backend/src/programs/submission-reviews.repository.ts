@@ -373,12 +373,22 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         },
       },
       take: 2,
-      select: { id: true },
+      select: { id: true, application: { select: { programId: true } } },
     });
     const resolved =
       this.submissionsRepository.exactSubmissionByPublicId(submissions);
     if (resolved === null) return null;
     const targetId = resolved.id;
+    const programs = await transaction.$queryRaw<readonly { id: string }[]>(
+      Prisma.sql`
+        SELECT "id"
+        FROM "Program"
+        WHERE "id" = ${resolved.application.programId}
+          AND "lifecycle" <> 'DELETED'
+        FOR SHARE
+      `,
+    );
+    if (programs.length === 0) return null;
     await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
       SELECT "id"
       FROM "MilestoneDocumentSubmission"

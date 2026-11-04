@@ -121,3 +121,23 @@ Todo 5를 포함한 main 8261fc711을 통합했다. MilestoneDocument→Submissi
 - 모든 테스트와 typecheck는 공유 heavy lock 안에서 pnpm --config.verify-deps-before-run=false로 실행했다. 전체 스위트·빌드·성능 측정·운영 리허설은 재실행하지 않았다. 이전 서버 리허설은 당시 head 기준 증거이며 이번 통합 후 재실행 결과로 표시하지 않는다.
 
 검증 도중 main이 e40766704(#1734 안내와 #1727 GitHub 정리, #1735 안내 포함)로 전진하여 추가 병합했다. 신규 제출·심사 구현과 파일 관계 코드는 동일하며, 추가된 DB CHECK migration에 맞춰 manifest의 예상 head를 20261104130000_retire_teamless_github_repositories로 갱신했다. 이에 영향을 받는 삭제 차단·제출 호환 DB 2 suites / 76 tests와 backend typecheck만 추가 확인했고 모두 EXIT 0이었다.
+
+## DG-1 / MG-1 후속 수정
+
+레거시 심사의 findReviewTargetIn이 non-DELETED Program을 FOR SHARE로 먼저 잠그고,
+그 다음 제출 행을 FOR UPDATE로 잠근다. 같은 트랜잭션에서 정식 이력과 호환
+심사 기록을 쓰고 제출 상태 전환까지 완료한다.
+
+경쟁 테스트는 독립 연결의 두 트랜잭션과 EventEmitter 신호, NOWAIT 및 savepoint로
+순서를 제어한다. sleep이나 시간 기반 polling은 없다. 수정 전에는 삭제가 먼저
+커밋되고 심사가 뒤따랐으며(deleteWasBlocked=false) 1개 실패/16개 통과로 red를
+확인했다. 수정 후에는 삭제의 NOWAIT가 55P03으로 막히고, 심사 커밋 뒤 같은 삭제
+트랜잭션을 진행한다. 두 심사 기록과 상태 전환 및 최종 삭제 상태를 확인했다.
+타깃 통합 4 suites / 92 tests, backend typecheck 모두 EXIT 0이다.
+
+migration 이름은 20261104140000_prepare_submission_axis로 옮겼다. SQL은
+7,349 bytes 그대로이며 SHA-256은
+a2d30e6a393f714740e23881a44eaa7710296908aba8e3a92b671b651ebe2c35로 이전 파일과 동일하다.
+manifest의 선행 head는 20261104130000_retire_teamless_github_repositories다.
+#1728은 수정하거나 선행 migration으로 가정하지 않았다. 기존 운영 복원 리허설은
+이름 변경 전의 역사적 실행이고, 이번에는 새 정렬 순서로 타깃 DB 테스트를 수행했다.

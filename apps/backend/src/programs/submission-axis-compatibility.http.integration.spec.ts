@@ -2,7 +2,12 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import {
+  MilestoneDocumentSubmissionRepository,
+  SubmissionsRepository,
+} from './submissions.repository';
+import { SubmissionReviewsRepository } from './submission-reviews.repository';
+import { EventEmitter, once } from 'node:events';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -500,4 +505,121 @@ it('rejects a bulk review write scope if the program was deleted after admission
       store.lockProgramForReview(flowIds.program),
     ),
   ).toBe(false);
+});
+
+it('serializes legacy review commit before program deletion with two transactions and no sleeps', async () => {
+  expect((await fixture.submit('legacy delete race')).status).toBe(201);
+  const submission =
+    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+      where: { milestoneDocumentId: flowIds.document },
+    });
+  const repository = new SubmissionReviewsRepository(
+    fixture.prisma,
+    platform,
+    new SubmissionsRepository(fixture.prisma, platform),
+  );
+  const contender = new PrismaService();
+  await contender.$connect();
+  const signals = new EventEmitter();
+  const targetReady = once(signals, 'target-ready');
+  const continueReview = once(signals, 'continue-review');
+  const reviewCommitted = once(signals, 'review-committed');
+  const commits: string[] = [];
+  let deleteWasBlocked = false;
+  const review = repository
+    .withTransaction(async (store) => {
+      const target = await store.findReviewTarget(submission.id);
+      if (target === null) throw new Error('Expected live review target');
+      signals.emit('target-ready');
+      await continueReview;
+      await store.createReview({
+        milestoneDocumentSubmissionId: target.id,
+        submissionHistoryId: target.revision.id,
+        revision: target.currentRevision,
+        reviewerId: flowIds.staff,
+        decision: 'APPROVED',
+        comment: 'race review',
+        reviewedAt: new Date(),
+      });
+      expect(
+        await store.transitionSubmission({
+          submissionId: target.id,
+          expectedRevision: target.currentRevision,
+          nextStatus: 'APPROVED',
+        }),
+      ).toBe(true);
+    })
+    .then(() => {
+      commits.push('review');
+      signals.emit('review-committed');
+    });
+  const deletion = (async () => {
+    await Promise.race([targetReady, review]);
+    await contender.$transaction(async (transaction) => {
+      await transaction.$executeRawUnsafe('SAVEPOINT legacy_review_delete');
+      try {
+        await transaction.$queryRawUnsafe(
+          'SELECT "id" FROM "Program" WHERE "id" = $1 FOR UPDATE NOWAIT',
+          flowIds.program,
+        );
+      } catch (error) {
+        expect(error).toMatchObject({ code: 'P2010', meta: { code: '55P03' } });
+        deleteWasBlocked = true;
+        await transaction.$executeRawUnsafe(
+          'ROLLBACK TO SAVEPOINT legacy_review_delete',
+        );
+      }
+      if (deleteWasBlocked) {
+        signals.emit('continue-review');
+        await Promise.race([reviewCommitted, review]);
+        await transaction.$queryRawUnsafe(
+          'SELECT "id" FROM "Program" WHERE "id" = $1 FOR UPDATE',
+          flowIds.program,
+        );
+      }
+      await transaction.program.update({
+        where: { id: flowIds.program },
+        data: { lifecycle: 'DELETED' },
+      });
+    });
+    commits.push('delete');
+    if (!deleteWasBlocked) signals.emit('continue-review');
+  })();
+  try {
+    await Promise.all([review, deletion]);
+  } finally {
+    signals.emit('continue-review');
+    await Promise.allSettled([review, deletion]);
+    signals.removeAllListeners();
+    await contender.$disconnect();
+  }
+  expect(commits).toEqual(['review', 'delete']);
+  expect(deleteWasBlocked).toBe(true);
+  expect(
+    (
+      await fixture.prisma.program.findUniqueOrThrow({
+        where: { id: flowIds.program },
+      })
+    ).lifecycle,
+  ).toBe('DELETED');
+  expect(
+    (
+      await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+        where: { id: submission.id },
+      })
+    ).status,
+  ).toBe('APPROVED');
+  const event =
+    await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
+      where: {
+        milestoneDocumentSubmissionId: submission.id,
+        event: 'APPROVED',
+      },
+    });
+  expect(
+    await fixture.prisma.milestoneDocumentReviewHistory.findUnique({
+      where: { id: event.id },
+      select: { milestoneDocumentSubmissionId: true },
+    }),
+  ).toEqual({ milestoneDocumentSubmissionId: submission.id });
 });

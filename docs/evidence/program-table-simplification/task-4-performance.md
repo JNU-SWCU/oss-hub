@@ -1,6 +1,15 @@
 # Todo 4 준비 백엔드 조회 성능 검증
 
-## 판정
+## 측정 시점과 현재 적용 범위
+
+이 수치는 이전 준비 구현의 측정이다. base는 baed7d753이며 후보 파일 8개의
+SHA-256이 준비 커밋 2e0e3e492와 일치한다. 현재 HEAD를 새로 측정한 결과가 아니다.
+이후 게이트 수정은 심사 쓰기의 호환 기록과 트랜잭션 잠금 경로를 보완했다.
+현재 overview의 DELETED 필터는 main과 후보가 공통으로 갖는다. 아래 과거
+숫자가 이 병합된 필터의 비용까지 직접 측정했다고 해석하지 않는다.
+이번 수정에서는 요청대로 성능 측정을 재실행하지 않았다.
+
+## 당시 측정의 판정
 
 동일 DB에서 순서를 번갈아 실행한 최종 비교의 네 경로 모두 중앙값 회귀가
 10% 이내였다. 수합 조회는 SQL 19회에서 18회로 줄었다. 이 결과를 HTTP나
@@ -75,7 +84,7 @@ git archive baed7d753 | tar -xf - -C .omo/qa/submission-axis-base
 )
 cp docs/evidence/program-table-simplification/submission-axis-interleaved.integration.spec.ts.txt \
   apps/backend/prisma/submission-axis-interleaved.integration.spec.ts
-BACKEND_INTEGRATION_TEST_PATTERN='submission-axis-interleaved\.integration\.spec\.ts$' \
+BACKEND_INTEGRATION_TEST_PATTERN='submission-axis-interleaved\.integration\.spec\.ts \
   pnpm --filter backend test:integration
 ```
 

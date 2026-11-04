@@ -6,7 +6,9 @@
 ## 입력과 결과
 
 - 운영 완료 migration head: `20261103140000_retire_program_dead_columns`.
-- 후보 SQL: `20261104060000_prepare_submission_axis/migration.sql`.
+- 현재 SQL 경로: `20261104140000_prepare_submission_axis/migration.sql`.
+  이 리허설은 이름 변경 전 `20261104060000_prepare_submission_axis`에서 실행했다.
+  SQL 바이트는 동일하며 아래 SHA-256을 보존한다.
 - SQL SHA-256: `a2d30e6a393f714740e23881a44eaa7710296908aba8e3a92b671b651ebe2c35`.
 - 실행 도구: 저장소의 `deploy/jenkins/program-migration/rehearse.sh`.
 - manifest: `submission-axis/prepare.json`.
