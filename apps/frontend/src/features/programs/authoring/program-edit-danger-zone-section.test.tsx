@@ -124,7 +124,7 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(container.querySelectorAll('button')).toHaveLength(1);
   });
 
-  it('프로그램 삭제는 이름과 되돌릴 수 없는 경고, 현재 삭제 범위를 보여준다', async () => {
+  it('프로그램 삭제는 이름과 복구 화면 부재 안내, 현재 삭제 범위를 보여준다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -142,7 +142,7 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(getEditableProgramMock).toHaveBeenCalledWith('program-1');
     expect(dialog.textContent).toContain('프로그램을 삭제할까요?');
     expect(dialog.textContent).toContain('OSS 프로그램');
-    expect(dialog.textContent).toContain('이 작업은 되돌릴 수 없습니다.');
+    expect(dialog.textContent).toContain('복구 화면은 없습니다.');
     expect(dialog.textContent).toContain(
       '지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
     );
@@ -354,7 +354,7 @@ describe('ProgramEditDangerZoneSection', () => {
         submissionFiles: 0,
         programPurgeFileTombstones: 0,
       },
-      notice: '목록에서 더 이상 표시되지 않습니다.',
+      notice: '정리할 업로드 파일이 없습니다.',
     },
     {
       backend: '새 backend의 파일 정리 결과',
