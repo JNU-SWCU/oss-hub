@@ -34,4 +34,6 @@ v0.24.44는 삭제된 초대를 활동으로 셀 수 없어 초대만 있던 사
 
 코드 변경 뒤 타깃 DB 10 suites / 193 tests가 통과했다. 변경한 HTTP·DTO 검증은 113 tests / 101 snapshots가 통과했고 프론트 reader 관련 3 files / 75 tests가 통과했다. 폐기한 Preparation 계약의 테스트는 제거하고 빈 상태 migration 거부·보호 GET·폐기 경로 404·정상 신청/초대 검증으로 대체했다. 관련 없는 DTO 사례는 그대로 유지했다.
 
-이 문서는 코드 보존 체크포인트다. 실제 v0.24.44 rollback 대조, 데이터 이동 SQL, 서버 임시 컨테이너 리허설, 최종 PR gate는 아직 완료되지 않았다. 전체 스위트·merge·release·물리 DROP은 수행하지 않았다.
+v0.24.44의 실제 hasActivity 원문(blob `0ccf563b3d968f42106621018fe87999943aae7c`)을 독립 fixture에 넣어 같은 DB에서 비교했다. 삭제 후 새 코드는 ROL_025로 거부하지만 구 판정은 false이며 같은 등록 초기화 서비스가 실제로 type을 UNSELECTED, studentId를 null로 바꾼다. 행위자·초대 대상·초대자만 이력에 남은 경우도 비교했다. 타깃 10 tests, backend/frontend typecheck, knip와 파일 원장이 EXIT=0으로 통과했다.
+
+코드 단계 manifest는 `deploy/jenkins/program-migration/team-history/code.json`이며 선행 migration은 prepare_team_history다. 이 문서는 코드 보존 체크포인트다. 데이터 이동 SQL, 서버 임시 컨테이너 리허설, 최종 PR gate는 아직 완료되지 않았다. 전체 스위트·merge·release·물리 DROP은 수행하지 않았다.
