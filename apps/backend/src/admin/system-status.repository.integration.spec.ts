@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -16,7 +17,7 @@ assertIsolatedIntegrationDatabase({
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 
-const status = new SystemStatusRepository(prisma);
+const status = new SystemStatusRepository(prisma, new PlatformRepository());
 const statusService = new SystemStatusService(
   status,
   () => new Date(),

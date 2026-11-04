@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   SyntheticGithubProvider,
@@ -310,7 +311,10 @@ function originalImplementation<T, Y extends unknown[]>(
 
 describe('CollectionSyncService — 100-repository scale/idempotency suite (public-admin-exposure todo 13)', () => {
   const prisma = new PrismaService();
-  const repository = new CollectionIncrementalRepository(prisma);
+  const repository = new CollectionIncrementalRepository(
+    prisma,
+    new PlatformRepository(),
+  );
   const seeds = buildSeeds();
   const resolveGithubOrganizationId = () =>
     Promise.resolve(GITHUB_ORGANIZATION_ID);

@@ -2076,9 +2076,30 @@ describe('Program purge integration — full child graph, worker file deletion, 
   ];
 
   it.each(IN_TRANSACTION_RACE_CASES)(
-    'race: 확인 snapshot 이후 추가된 $scopeField를 보존하고 프로그램을 숨긴다',
+    'race: 상태 삭제는 자식을 지우지 않으므로 확인 snapshot 이후 추가된 $scopeField를 보존하고 성공한다',
     async ({ scopeField, insertRacingChildRow }) => {
       const fixture = await seedFullChildGraph(`in-tx-race-${scopeField}`);
+      const programs = new ProgramsRepository(
+        prisma,
+        new PlatformRepository(),
+        new ProgramListStatusFilterRepository(),
+      );
+      const { name } = await prisma.program.findUniqueOrThrow({
+        where: { id: fixture.programId },
+        select: { name: true },
+      });
+      const query = {
+        page: 1,
+        pageSize: 100,
+        search: name,
+        status: 'all' as const,
+      };
+      const [visibleRows, visibleCount] = await programs.listPrograms(
+        query,
+        NOW,
+      );
+      expect(visibleRows.map((row) => row.id)).toEqual([fixture.programId]);
+      expect(visibleCount).toBe(1);
       const before = await programChildRowCounts(fixture.programId, [
         fixture.applicationId,
       ]);
@@ -2144,15 +2165,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       await expect(
         prisma.program.findUnique({ where: { id: fixture.programId } }),
       ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
-      const programs = new ProgramsRepository(
-        prisma,
-        new PlatformRepository(),
-        new ProgramListStatusFilterRepository(),
-      );
-      const [rows, count] = await programs.listPrograms(
-        { page: 1, pageSize: 100, search: fixture.programId, status: 'all' },
-        NOW,
-      );
+      const [rows, count] = await programs.listPrograms(query, NOW);
       expect(rows).toEqual([]);
       expect(count).toBe(0);
       await expect(

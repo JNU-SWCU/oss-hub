@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { UserPolicyRepository } from '../users/user-policy.repository';
 import { ConsentsService } from '../users/consents.service';
@@ -11,7 +12,10 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const enrollment = new CollectionIncrementalRepository(prisma);
+const enrollment = new CollectionIncrementalRepository(
+  prisma,
+  new PlatformRepository(),
+);
 const REPOSITORY_IDS = [
   9_000_000_730_001n,
   9_000_000_730_002n,

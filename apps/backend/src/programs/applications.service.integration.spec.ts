@@ -684,6 +684,39 @@ describe('ApplicationsService integration', () => {
     });
   });
 
+  it('삭제된 프로그램의 신청 승인을 거절하고 상태와 기록을 보존한다', async () => {
+    const applicationId = APPLICATION_IDS[0];
+    await createApplication(applicationId, true);
+    await prisma.program.update({
+      where: { id: `${applicationId}-program` },
+      data: { lifecycle: ProgramLifecycle.DELETED },
+    });
+    const before = await prisma.application.findUniqueOrThrow({
+      where: { id: applicationId },
+    });
+
+    await expect(
+      service.decide(
+        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
+        applicationId,
+        { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+      ),
+    ).rejects.toMatchObject({
+      errorCode: { code: ApplicationsErrorCode.APPLICATION_NOT_FOUND },
+    });
+    expect(
+      await prisma.application.findUniqueOrThrow({
+        where: { id: applicationId },
+      }),
+    ).toEqual(before);
+    expect(
+      await prisma.applicationReviewHistory.count({ where: { applicationId } }),
+    ).toBe(0);
+    expect(
+      await prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+    ).toBe(0);
+  });
+
   it('저장소 기능이 꺼진 프로그램은 승인하고 outbox를 만들지 않는다', async () => {
     const applicationId = APPLICATION_IDS[1];
     await createApplication(applicationId, false);

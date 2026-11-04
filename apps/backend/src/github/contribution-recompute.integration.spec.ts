@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaClient } from '@prisma/client';
 
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
@@ -13,6 +14,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   const prisma = new PrismaClient();
   const repository = new CollectionIncrementalRepository(
     prisma as unknown as PrismaService,
+    new PlatformRepository(),
   );
 
   const PREFIX = 'contrib-recompute';
@@ -291,6 +293,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     logged.$on('query' as never, spy);
     const loggedRepository = new CollectionIncrementalRepository(
       logged as unknown as PrismaService,
+      new PlatformRepository(),
     );
 
     await loggedRepository.recordCommitFacts(
@@ -316,6 +319,7 @@ describe('수집 편입 큐 백오프 (실 Postgres)', () => {
   const prisma = new PrismaClient();
   const repository = new CollectionIncrementalRepository(
     prisma as unknown as PrismaService,
+    new PlatformRepository(),
   );
 
   const QUEUE_REPO_ID = 'queue-backoff-repo';

@@ -60,7 +60,7 @@ export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader 
 
   async findProgram(programId: string): Promise<ArchiveProgram | null> {
     return this.prisma.program.findUnique({
-      where: { id: programId },
+      where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
         name: true,
         milestones: {

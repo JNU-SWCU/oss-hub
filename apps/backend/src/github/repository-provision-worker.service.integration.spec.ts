@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { ApprovalStatus, DepartmentType } from '@prisma/client';
 import {
   ApplicationStatus,
@@ -1485,7 +1486,7 @@ function programId(applicationId: string): string {
 function ownEnrollment(): RepositoryOwnEnrollmentService {
   return new RepositoryOwnEnrollmentService(
     new ConsentsService(new UserPolicyRepository(prisma)),
-    new CollectionIncrementalRepository(prisma),
+    new CollectionIncrementalRepository(prisma, new PlatformRepository()),
   );
 }
 

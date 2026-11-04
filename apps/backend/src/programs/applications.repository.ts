@@ -928,7 +928,10 @@ export class ApplicationsRepository {
     applicationId: string,
   ): Promise<ApplicationDecisionTarget | null> {
     const application = await transaction.application.findUnique({
-      where: { id: applicationId },
+      where: {
+        id: applicationId,
+        program: { lifecycle: { not: 'DELETED' } },
+      },
       include: {
         program: {
           select: { repositoryProvisioningEnabled: true, name: true },

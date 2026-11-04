@@ -79,7 +79,12 @@ export class LockProgramTreeRepository {
       const rows = await tx.$queryRaw<
         readonly { id: string; programId: string }[]
       >(
-        Prisma.sql`SELECT id, "programId" FROM "Milestone" WHERE id = ${step.milestoneId} FOR UPDATE`,
+        Prisma.sql`
+          SELECT m."id", m."programId" FROM "Milestone" m
+          JOIN "Program" p ON p."id" = m."programId"
+          WHERE m."id" = ${step.milestoneId} AND p."lifecycle" <> 'DELETED'
+          FOR UPDATE OF m
+        `,
       );
       const row = rows[0];
       if (!row) return null;

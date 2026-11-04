@@ -240,6 +240,7 @@ export class BoardService {
   ): Promise<BoardActorAccess> {
     const forbidden = () =>
       new DomainException(BOARD_ERROR_CODES[BoardErrorCode.ACCESS_FORBIDDEN]);
+    if (!(await this.repository.programExists(programId))) throw forbidden();
     const actor = await this.repository.findAccessActor(sessionGithubId);
     if (!actor || actor.accountStatus !== AccountStatus.ACTIVE)
       throw forbidden();

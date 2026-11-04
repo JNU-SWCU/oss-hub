@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PlatformRepository } from '../platform/platform.repository';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import type {
@@ -272,7 +273,10 @@ type CollectionStoreClient = Pick<
 
 @Injectable()
 export class CollectionIncrementalStoreRepository {
-  constructor(private readonly db: CollectionStoreClient) {}
+  constructor(
+    private readonly db: CollectionStoreClient,
+    protected readonly platform: PlatformRepository,
+  ) {}
 
   async recordRepositoryObservation(
     input: RecordRepositoryObservationInput,
@@ -308,6 +312,17 @@ export class CollectionIncrementalStoreRepository {
   ): Promise<CollectionRepositoryRow | null> {
     return this.db.githubRepository.findUnique({
       where: { githubRepositoryId },
+    });
+  }
+
+  async findCollectionTargetByLogicalKey(
+    githubRepositoryId: bigint,
+  ): Promise<CollectionRepositoryRow | null> {
+    return this.db.githubRepository.findUnique({
+      where: {
+        githubRepositoryId,
+        ...this.platform.collectionTargetWhere(),
+      },
     });
   }
 
@@ -1078,7 +1093,10 @@ export class CollectionIncrementalStoreRepository {
 
   async listExternalRepositories(): Promise<CollectionRepositoryRow[]> {
     return this.db.githubRepository.findMany({
-      where: { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+      where: {
+        source: 'EXTERNAL_PUBLIC',
+        ...this.platform.collectionTargetWhere(),
+      },
     });
   }
 
@@ -1152,15 +1170,18 @@ export class CollectionIncrementalStoreRepository {
 
 @Injectable()
 export class CollectionIncrementalRepository extends CollectionIncrementalStoreRepository {
-  constructor(private readonly prisma: PrismaService) {
-    super(prisma);
+  constructor(
+    private readonly prisma: PrismaService,
+    platform: PlatformRepository,
+  ) {
+    super(prisma, platform);
   }
 
   async runInTransaction<T>(
     fn: (store: CollectionIncrementalStoreRepository) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((tx) =>
-      fn(new CollectionIncrementalStoreRepository(tx)),
+      fn(new CollectionIncrementalStoreRepository(tx, this.platform)),
     );
   }
 

@@ -214,7 +214,7 @@ function ProgramListPage({
       />
       {purgeNotice ? (
         <Alert>
-          <AlertTitle>프로그램을 목록에서 숨겼습니다</AlertTitle>
+          <AlertTitle>프로그램 전체 삭제를 완료했습니다</AlertTitle>
           <AlertDescription>{purgeNotice}</AlertDescription>
         </Alert>
       ) : null}

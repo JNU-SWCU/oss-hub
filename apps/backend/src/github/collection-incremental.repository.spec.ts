@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type { PrismaService } from '../platform/prisma.service';
 
@@ -108,7 +109,10 @@ const createDb = (): MockDb => {
 };
 
 const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
-  new CollectionIncrementalRepository(db as unknown as PrismaService);
+  new CollectionIncrementalRepository(
+    db as unknown as PrismaService,
+    new PlatformRepository(),
+  );
 const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
 interface FakeRepoRow {
@@ -733,7 +737,17 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
     const result = await repositoryFor(db).listExternalRepositories();
 
     expect(db.githubRepository.findMany).toHaveBeenCalledWith({
-      where: { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+      where: {
+        source: 'EXTERNAL_PUBLIC',
+        OR: [
+          { applicationId: { not: null } },
+          { source: 'ORG_PROVISIONED', programId: null, teamId: null },
+        ],
+        NOT: [
+          { program: { lifecycle: 'DELETED' } },
+          { application: { program: { lifecycle: 'DELETED' } } },
+        ],
+      },
     });
     expect(result).toEqual([{ id: 'ext-1' }]);
   });

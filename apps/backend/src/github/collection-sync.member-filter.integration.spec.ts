@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCategory, RepositorySource } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -167,7 +168,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
 
   const createService = (client: CollectionAppClient): CollectionSyncService =>
     new CollectionSyncService(
-      new CollectionIncrementalRepository(prisma),
+      new CollectionIncrementalRepository(prisma, new PlatformRepository()),
       () => ({
         appId: APP_ID.toString(),
         organizationLogin: ORG_LOGIN,

@@ -98,7 +98,10 @@ export class ProgramTeamDeletionRepository {
           await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
 
           const team = await tx.team.findUnique({
-            where: { id: teamId },
+            where: {
+              id: teamId,
+              program: { lifecycle: { not: 'DELETED' } },
+            },
             select: {
               programId: true,
               name: true,
