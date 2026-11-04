@@ -141,7 +141,10 @@ describe('TeamDeleteDialog', () => {
     expect(dialog.textContent).toContain(
       '오픈소스팀 팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
     );
-    expect(dialog.textContent).not.toContain('저장소');
+    expect(dialog.textContent).toContain(
+      'OSS Hub의 저장소 등록 정보 1건과 해당 수집 기록을 삭제합니다.',
+    );
+    expect(dialog.textContent).toContain('GitHub 원본 저장소는 유지됩니다.');
     expect(getButton('삭제', dialog).className).toContain('destructive');
 
     await act(async () => getButton('삭제', dialog).click());
@@ -155,7 +158,9 @@ describe('TeamDeleteDialog', () => {
       scope,
       '',
     );
-    expect(onDeleted).toHaveBeenCalledWith('지원서 1건 · 팀원 3명');
+    expect(onDeleted).toHaveBeenCalledWith(
+      '지원서 1건 · 팀원 3명 · 저장소 등록 삭제 1건',
+    );
   });
 
   it('TEAM_019는 자동 재시도하지 않고 갱신된 범위로 명시적 재확인을 요구한다', async () => {
@@ -203,7 +208,9 @@ describe('TeamDeleteDialog', () => {
       changedScope,
       '',
     );
-    expect(onDeleted).toHaveBeenCalledWith('지원서 2건 · 팀원 3명 · 초대 1건');
+    expect(onDeleted).toHaveBeenCalledWith(
+      '지원서 2건 · 팀원 3명 · 초대 1건 · 저장소 등록 삭제 1건',
+    );
   });
 
   it('권한 오류는 창 안에서 말하고 성공 콜백을 부르지 않는다', async () => {

@@ -4,9 +4,18 @@ import {
   installSyntheticAuthority,
 } from './support/member-access-fixture';
 
+test.use({ deviceScaleFactor: 2 });
+
 const programId = 'synthetic-repository-scope';
 const teamId = 'synthetic-repository-team';
 const applicationId = 'synthetic-repository-application';
+const repository = {
+  id: 'synthetic-repository',
+  url: 'https://github.com/synthetic/project',
+  visibility: 'PUBLIC',
+  publishEligible: false,
+  blockedReasons: [],
+};
 const scope = {
   applications: 1,
   members: 1,
@@ -109,7 +118,7 @@ for (const width of [1440, 390]) {
                 id: applicationId,
                 status: 'APPROVED',
                 repositoryConnectionMode: 'OWN',
-                repository: null,
+                repository,
                 repositoryProvisioning: provisioning,
               },
               repositoryContributions: null,
@@ -131,7 +140,7 @@ for (const width of [1440, 390]) {
                 nickname: 'synthetic-student',
               },
               team: { id: teamId, name: '합성 개발팀', memberCount: 1 },
-              repository: null,
+              repository,
               answers: {
                 applicantName: '합성 학생',
                 title: '합성 프로젝트',
@@ -148,8 +157,8 @@ for (const width of [1440, 390]) {
           ) =>
             fulfillJson(route, {
               applicationId,
-              repository: null,
-              status: 'NOT_CONNECTED',
+              repository: { id: repository.id, url: repository.url },
+              status: 'NOT_COLLECTED',
               lastSuccessAt: null,
               window: {
                 from: '2026-08-01',
@@ -179,10 +188,12 @@ for (const width of [1440, 390]) {
       await expect(dialog).toBeVisible();
       await expect(dialog).toContainText(
         before
-          ? '연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다'
-          : '팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+          ? '팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.'
+          : 'OSS Hub의 저장소 등록 정보 1건과 해당 수집 기록을 삭제합니다.',
       );
-      if (!before) await expect(dialog).not.toContainText('저장소');
+      if (before) await expect(dialog).not.toContainText('저장소');
+      else
+        await expect(dialog).toContainText('GitHub 원본 저장소는 유지됩니다.');
       const diagnostics = await dialog.evaluate((root) => {
         const path: string[] = [];
         for (let node: Element | null = root; node; node = node.parentElement) {
