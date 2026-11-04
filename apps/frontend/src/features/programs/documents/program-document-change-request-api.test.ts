@@ -29,7 +29,6 @@ describe('program document change request api', () => {
       scope: { kind: 'PROGRAM' },
       includeFinalDecisions: true,
       comment: '다시 내 주세요.',
-      resubmissionDueAt: '2099-06-30T14:59:00.000Z',
       expectedVersion: 'a'.repeat(64),
     });
 
@@ -42,7 +41,6 @@ describe('program document change request api', () => {
       scope: 'PROGRAM',
       includeFinalDecisions: true,
       comment: '다시 내 주세요.',
-      resubmissionDueAt: '2099-06-30T14:59:00.000Z',
       expectedVersion: 'a'.repeat(64),
     });
   });

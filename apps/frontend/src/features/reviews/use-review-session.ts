@@ -75,7 +75,7 @@ export function useReviewSession(programId: string, submissionId: string) {
     setFormError(null);
     setNotice(null);
     try {
-      await createReview(submissionId, {
+      await createReview(session.context, {
         revision: session.context.currentRevision.number,
         decision: session.decision,
         ...(session.comment.trim() ? { comment: session.comment.trim() } : {}),

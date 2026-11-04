@@ -69,9 +69,7 @@ export function SubmissionReviewView(props: SubmissionReviewViewProps) {
           onRefresh={props.onRefresh}
           onOpenLatestRevision={props.onOpenLatestRevision}
         />
-        {reviewContext.currentRevision.review ? null : (
-          <ReviewForm {...props} />
-        )}
+        <ReviewForm {...props} />
         <section
           className="grid gap-4"
           aria-labelledby="revision-history-title"

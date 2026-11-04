@@ -49,7 +49,6 @@ export function createProgramDocumentChangeRequest(
         ...scopeFields(input.scope),
         includeFinalDecisions: input.includeFinalDecisions,
         comment: input.comment,
-        resubmissionDueAt: input.resubmissionDueAt,
         expectedVersion: input.expectedVersion,
       }),
     },

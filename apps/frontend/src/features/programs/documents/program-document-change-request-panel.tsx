@@ -13,7 +13,6 @@ import {
   FieldLegend,
   FieldSet,
 } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { Select } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { ApiError } from '@/lib/api-client';
@@ -26,8 +25,8 @@ import {
   MILESTONE_DOCUMENT_REVIEW_ERROR_CODES,
 } from './milestone-document-review-api';
 import {
-  milestoneDocumentResubmissionDueAtError,
-  milestoneDocumentResubmissionDueAtPayload,
+  milestoneDocumentReviewFormError,
+  milestoneDocumentReviewCommentPayload,
 } from './milestone-document-review';
 import {
   changeRequestTargetCount,
@@ -132,12 +131,7 @@ function ChangeRequestDialog({
   const [teamId, setTeamId] = useState('');
   const [includeFinalDecisions, setIncludeFinalDecisions] = useState(false);
   const [comment, setComment] = useState('');
-  const [resubmissionDueAt, setResubmissionDueAt] = useState('');
-
-  const [errors, setErrors] = useState<{
-    readonly comment: string | null;
-    readonly resubmissionDueAt: string | null;
-  }>({ comment: null, resubmissionDueAt: null });
+  const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<Notice | null>(null);
 
@@ -180,42 +174,23 @@ function ChangeRequestDialog({
       : 0;
 
   async function send() {
-    const nextErrors = {
-      comment: comment.trim() === '' ? '보완 요청 사유를 입력해 주세요.' : null,
-      resubmissionDueAt: milestoneDocumentResubmissionDueAtError(
-        'CHANGES_REQUESTED',
-        resubmissionDueAt,
-      ),
-    };
-    setErrors(nextErrors);
+    const error = milestoneDocumentReviewFormError(
+      'CHANGES_REQUESTED',
+      comment,
+    );
+    setError(error);
     setNotice(null);
-    if (nextErrors.comment !== null) {
+    if (error !== null) {
       document.getElementById(`${id}-comment`)?.focus();
       return;
     }
-    if (nextErrors.resubmissionDueAt !== null) {
-      document.getElementById(`${id}-due`)?.focus();
-      return;
-    }
-    const dueAt = milestoneDocumentResubmissionDueAtPayload(
-      'CHANGES_REQUESTED',
-      resubmissionDueAt,
-    );
-    if (
-      scope === null ||
-      dueAt === undefined ||
-      busy ||
-      targets.kind !== 'ready'
-    ) {
-      return;
-    }
+    if (scope === null || busy || targets.kind !== 'ready') return;
     setBusy(true);
     try {
       const result = await createProgramDocumentChangeRequest(programId, {
         scope,
         includeFinalDecisions,
-        comment: comment.trim(),
-        resubmissionDueAt: dueAt,
+        comment: milestoneDocumentReviewCommentPayload(comment),
         expectedVersion: targets.targets.version,
       });
       setNotice({ kind: 'sent', count: result.requestedCount });
@@ -416,47 +391,24 @@ function ChangeRequestDialog({
             ) : null}
           </FieldSet>
           <Field>
-            <FieldLabel htmlFor={`${id}-comment`}>사유</FieldLabel>
+            <FieldLabel htmlFor={`${id}-comment`}>사유 (선택)</FieldLabel>
             <Textarea
               id={`${id}-comment`}
               value={comment}
               maxLength={MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH}
               disabled={busy}
-              aria-invalid={errors.comment !== null}
-              aria-describedby={`${id}-comment-description${errors.comment === null ? '' : ` ${id}-comment-error`}`}
+              aria-invalid={error !== null}
+              aria-describedby={`${id}-comment-description${error === null ? '' : ` ${id}-comment-error`}`}
               onChange={(event) => setComment(event.target.value)}
             />
             <FieldDescription id={`${id}-comment-description`}>
               학생에게 그대로 보입니다 · 최대 2,000자
             </FieldDescription>
-            {errors.comment === null ? null : (
-              <FieldError id={`${id}-comment-error`}>
-                {errors.comment}
-              </FieldError>
+            {error === null ? null : (
+              <FieldError id={`${id}-comment-error`}>{error}</FieldError>
             )}
           </Field>
-          <Field>
-            <FieldLabel htmlFor={`${id}-due`}>재제출 기한</FieldLabel>
-            <Input
-              id={`${id}-due`}
-              type="datetime-local"
-              value={resubmissionDueAt}
-              disabled={busy}
-              aria-invalid={errors.resubmissionDueAt !== null}
-              aria-describedby={`${id}-due-description${errors.resubmissionDueAt === null ? '' : ` ${id}-due-error`}`}
-              onChange={(event) => setResubmissionDueAt(event.target.value)}
-            />
-            <FieldDescription id={`${id}-due-description`}>
-              이 날짜는 검토 요청에 함께 보내는 호환 입력입니다. 서버 정책에
-              따라 적용 여부가 달라집니다. 날짜만으로 재제출 가능 여부를
-              판단하지 말고 학생의 제출 화면에서 확인해 주세요.
-            </FieldDescription>
-            {errors.resubmissionDueAt === null ? null : (
-              <FieldError id={`${id}-due-error`}>
-                {errors.resubmissionDueAt}
-              </FieldError>
-            )}
-          </Field>
+
           {notice?.kind === 'changed' ? (
             <Alert role="status">
               <AlertDescription className="break-keep">
