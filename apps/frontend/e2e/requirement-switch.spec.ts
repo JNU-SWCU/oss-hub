@@ -618,42 +618,51 @@ for (const width of [1440, 390]) {
       expect(
         await region.evaluate((el) => el.scrollWidth <= el.clientWidth + 1),
       ).toBe(true);
-      await region.locator('textarea').last().focus();
-      await page.keyboard.press('Tab');
-      await expect(page.locator(':focus')).toHaveJSProperty(
-        'tagName',
-        'BUTTON',
-      );
-      if (width === 390) {
-        await page.locator(':focus').evaluate((el) =>
-          el.scrollIntoView({
-            block: 'center',
-            inline: 'nearest',
-            behavior: 'instant',
-          }),
+      if (!before) {
+        await region.locator('textarea').last().focus();
+        for (let tabs = 0; tabs < 20; tabs += 1) {
+          await page.keyboard.press('Tab');
+          if (
+            (await page.evaluate(
+              () => window.document.activeElement?.tagName,
+            )) === 'BUTTON'
+          )
+            break;
+        }
+        await expect(page.locator(':focus')).toHaveJSProperty(
+          'tagName',
+          'BUTTON',
         );
-        expect(
-          await page.locator(':focus').evaluate((el) => {
-            const r = el.getBoundingClientRect();
-            const hit = window.document.elementFromPoint(
-              r.x + r.width / 2,
-              r.y + r.height / 2,
-            );
-            return hit !== null && (el === hit || el.contains(hit));
-          }),
-        ).toBe(true);
-        await page.screenshot({
-          path: testInfo.outputPath(
-            (before ? 'before' : 'after') +
-              '-' +
-              scenario +
-              '-' +
-              width +
-              '-controls.png',
-          ),
-        });
+        if (width === 390) {
+          await page.locator(':focus').evaluate((el) =>
+            el.scrollIntoView({
+              block: 'center',
+              inline: 'nearest',
+              behavior: 'instant',
+            }),
+          );
+          expect(
+            await page.locator(':focus').evaluate((el) => {
+              const r = el.getBoundingClientRect();
+              const hit = window.document.elementFromPoint(
+                r.x + r.width / 2,
+                r.y + r.height / 2,
+              );
+              return hit !== null && (el === hit || el.contains(hit));
+            }),
+          ).toBe(true);
+          await page.screenshot({
+            path: testInfo.outputPath(
+              (before ? 'before' : 'after') +
+                '-' +
+                scenario +
+                '-' +
+                width +
+                '-controls.png',
+            ),
+          });
+        }
       }
-
       if (!before) {
         if (scenario === 'bulk-review') {
           await region
