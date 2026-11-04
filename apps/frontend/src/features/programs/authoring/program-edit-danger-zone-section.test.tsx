@@ -340,6 +340,58 @@ describe('ProgramEditDangerZoneSection', () => {
     );
   });
 
+  it.each([
+    {
+      backend: '기존 backend의 행 삭제 결과',
+      deletedCounts: { applications: 2, teams: 1 },
+      notice: '지원서 2건 · 팀 1건',
+    },
+    {
+      backend: '새 backend의 기록 보존과 파일 0건 결과',
+      deletedCounts: {
+        applications: 0,
+        teams: 0,
+        submissionFiles: 0,
+        programPurgeFileTombstones: 0,
+      },
+      notice: '목록에서 더 이상 표시되지 않습니다.',
+    },
+    {
+      backend: '새 backend의 파일 정리 결과',
+      deletedCounts: { submissionFiles: 1, programPurgeFileTombstones: 2 },
+      notice: '제출 파일 1건 · 파일 삭제 대기 2건',
+    },
+  ])(
+    '$backend를 연결 기록의 부재로 안내하지 않는다',
+    async ({ deletedCounts, notice }) => {
+      purgeProgramMock.mockResolvedValue({
+        id: 'program-1',
+        deleted: true,
+        deletedCounts,
+      });
+      await act(async () => {
+        root.render(
+          <ProgramEditDangerZoneSection
+            programId="program-1"
+            programName="OSS 프로그램"
+            canDeleteProgram
+            onDeleted={onDeleted}
+          />,
+        );
+      });
+      const dialog = await openDialog();
+      await flush();
+      expect(dialog.textContent).toContain('지원서 2건');
+      await act(async () => getButton('삭제', dialog).click());
+      await flush();
+      expect(onDeleted).toHaveBeenCalledWith(notice);
+      expect(purgeProgramMock).toHaveBeenCalledWith(
+        'program-1',
+        deletionScopeCounts,
+      );
+    },
+  );
+
   it('0건 범위도 표시하고 취소는 purge를 호출하지 않는다', async () => {
     getEditableProgramMock.mockResolvedValue({
       deletionScopeCounts: zeroDeletionScopeCounts,
