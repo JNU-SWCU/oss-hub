@@ -234,6 +234,20 @@ function rejectedApplication(
 }
 
 describe('ProgramApply views', () => {
+  it('본인과 지명 인원이 최소보다 적으면 제출하지 못하고 지원 전 초대는 보내지 않는다', () => {
+    const html = renderForm({
+      team: null,
+      teamMinimum: { memberCount: 1, teamMinSize: 2 },
+    });
+    const host = document.createElement('div');
+    host.innerHTML = html;
+    const submit = [...host.querySelectorAll('button')].find(
+      (button) => button.textContent === '신청 제출',
+    );
+    expect(submit).toBeDefined();
+    expect(submit?.disabled).toBe(true);
+    expect(host.querySelector('[aria-label="팀원 초대"]')).toBeNull();
+  });
   it('새 신청서는 단계 없이 한 화면에 프로필·팀 이름·구성·저장소·동의·제출을 모두 둔다', () => {
     const html = renderForm({ team: null });
 

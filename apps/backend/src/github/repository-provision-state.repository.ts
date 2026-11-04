@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import {
   CollectionRepositoryPresence,
   Prisma,
@@ -237,6 +238,7 @@ export class RepositoryProvisionStateRepository {
     private readonly prisma: PrismaService,
     private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
     private readonly repositoryProvisionJobRepository: RepositoryProvisionJobRepository,
+    private readonly repositoryDeletion: RepositoryDeletionRepository,
   ) {}
 
   assertOwnedRepository(
@@ -313,9 +315,14 @@ export class RepositoryProvisionStateRepository {
       select: { id: true, nameWithOwner: true },
     });
     if (current !== null && current.id !== target?.id) {
+      if (input.connectionAudit === undefined) {
+        throw RepositoryProvisionFailure.final(
+          PROVISION_ERROR_CODES.INVALID_EVENT,
+        );
+      }
       await transaction.githubRepository.update({
         where: { id: current.id },
-        data: { applicationId: null, publishedAt: null },
+        data: { applicationId: null, teamId: null, publishedAt: null },
       });
     }
 
@@ -377,6 +384,13 @@ export class RepositoryProvisionStateRepository {
         repositoryUrl: input.repositoryUrl,
       },
     });
+    const deletedCounts =
+      current !== null && current.id !== repository.id
+        ? await this.repositoryDeletion.deleteRepositoryWithFacts(
+            transaction,
+            current.id,
+          )
+        : null;
     if (input.connectionAudit !== undefined) {
       const auditActor = await transaction.user.findUniqueOrThrow({
         where: { githubId: input.connectionAudit.actorGithubId },
@@ -389,22 +403,30 @@ export class RepositoryProvisionStateRepository {
             REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED,
           targetType: 'APPLICATION',
           targetId: input.applicationId,
-          metadata: input.connectionAudit.buildMetadata({
-            applicationId: input.applicationId,
-            before: {
-              repositoryId: current?.id ?? null,
-              nameWithOwner: current?.nameWithOwner ?? null,
+          metadata: {
+            ...input.connectionAudit.buildMetadata({
+              applicationId: input.applicationId,
+              before: {
+                repositoryId: current?.id ?? null,
+                nameWithOwner: current?.nameWithOwner ?? null,
 
-              connectionMode: input.currentConnectionMode,
-              repositoryUrl: input.currentRepositoryUrl,
-            },
-            after: {
-              repositoryId: repository.id,
-              nameWithOwner: repository.nameWithOwner,
-              connectionMode: input.connectionMode,
-              repositoryUrl: input.repositoryUrl,
-            },
-          }),
+                connectionMode: input.currentConnectionMode,
+                repositoryUrl: input.currentRepositoryUrl,
+              },
+              after: {
+                repositoryId: repository.id,
+                nameWithOwner: repository.nameWithOwner,
+                connectionMode: input.connectionMode,
+                repositoryUrl: input.repositoryUrl,
+              },
+            }),
+            ...(deletedCounts === null || current === null
+              ? {}
+              : {
+                  deletedRepositoryUrl: `https://github.com/${current.nameWithOwner}`,
+                  deletedCounts,
+                }),
+          },
         },
       });
     }

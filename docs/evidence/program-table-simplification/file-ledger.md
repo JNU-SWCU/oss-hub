@@ -28,7 +28,7 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 첫 릴리스의 프론트는 `RETRYABLE_FAILED`/`FAILED`와 `FAILED_RETRYABLE`/`FAILED_FINAL`을 모두 표시한다. 백엔드 응답 전환은 이 프론트가 배포된 다음 릴리스다. `TeamInvitation`의 공개 `invitedAt` 응답 키는 유지하고 `createdAt`에서 읽는다. 기존 초대 시각은 마이그레이션에서 보존한다. 재초대 시각이 의미 있는 `ApplicationPreparationParticipant.invitedAt`은 Todo 8 소유이므로 유지한다.
 
 | 범위 | Before files | Before lines | Todo 2 준비 after files | Todo 2 준비 after lines |
-| ------------------------------- | -----------: | -----------: | ----------------------: | ----------------------: |
+| --- | ---: | ---: | ---: | ---: |
 | programs 제품 파일 (DTO 포함) | 245 | 37919 | 245 | 37832 |
 | 별도 join-code-secret 제품 파일 | 2 | 36 | 0 | 0 |
 
@@ -75,7 +75,50 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 | --- | ---: | ---: | ---: | ---: |
 | programs 제품 파일 (DTO 포함) | 245 | 37779 | 239 | 37447 |
 
+## Todo 7: 등록 레포 수집과 삭제 경계
+
+측정 기준은 `baed7d753c842d9fdb13cef15615d9ce22b90c00`이며 다른 병렬 단위의 변경은 포함하지 않는다.
+
+조직 설치 목록 등록과 일괄 ABSENT 판정을 제거한다. `collection-inventory.service.ts`는 이미 등록된 조직·외부 레포의 메타데이터 관찰을 함께 담당하므로 유지한다. 외부 등록 후처리는 행을 새로 만들지 않고 연결이 끝난 레포만 갱신한다. 공개 프로젝트 조회와 프로그램 purge 설정은 Todo 5가 소유하므로 수정하지 않는다.
+
+`program-team-deletion.repository.ts`는 연결 해제 대신 레포·레포 초대·수집 사실을 삭제한다. `student-repository-url-transaction.repository.ts`와 발급 경로는 교체된 레포를 삭제하고 감사에 옛 URL과 삭제 건수를 남긴다. 프로그램 파일의 Todo 9 병합 의도는 유지하며, TeamHistory 전환도 Todo 8/9 소유다.
+
+| 범위 | Before files | Before lines | Todo 7 after files | Todo 7 after lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 | 245 | 37779 | 245 | 37795 |
+
+| Path | Action | Target | Todo | State | Before lines | 이유 |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| `apps/backend/src/platform/repository-deletion.repository.ts` | keep | `apps/backend/src/platform/repository-deletion.repository.ts` | 7 | present | 0 | 수동·발급 교체가 공용 트랜잭션 repository에서 같은 FK 정리와 삭제 건수 계측을 사용 |
+
+레거시 연간 집계 테이블은 기존 CASCADE FK로 승인 대상 행만 정리한다. 테이블 폐기·Prisma 편입은 하지 않는다. 상세 전후 건수와 배포 순서는 `task-7-program-table-simplification.md`에 기록한다.
+
 ## 파일별 의도와 상태
+
+### Todo 8 A/B 배포 경계
+
+A는 지원 시 본인과 지명 인원을 최소 이상·최대 이하로 검사하고, 팀·팀장 구성원·지원서·대기 초대를 원자적으로 만든다. 승인 시에는 실제 수락 인원을 검사한다. 최소 2명 이상 프로그램의 혼자 지원은 거부한다. 기존 준비팀 지원 경로와 구 프론트는 유지한다. B는 A가 실제 운영 백엔드에 반영된 뒤에만 배포하는 후속 draft다. Vercel release 배포는 Jenkins 완료를 기다리지 않는다.
+
+| A의 제품 파일 | Before lines | After lines |
+| --- | ---: | ---: |
+| applications.service.ts | 1004 | 1073 |
+| applications.repository.ts | 1593 | 1689 |
+
+준비팀 파일과 테이블·초대 status의 사용 중단 및 물리 삭제는 후속 3·4단계다. 이번 단계에서 삭제된 제품 파일은 0개이며 present 상태를 유지한다. 기존 큰 서비스·저장소는 트랜잭션과 준비팀 호환 경계 때문에 유지하고, 새 검증의 구성 fixture와 행동 테스트는 각각 순수 코드 250줄 이내로 분리했다.
+
+B는 지원서에서 기존 검색 패널로 학생을 로컬 지명하고 최종 제출 때만 초대를 만든다. 교직원에게 수락 1/2명과 APP_019 승인 거부 이유를 표시한다. 학생·교직원 가이드와 실제 두 폭 캡처를 B에 담으며, A도 이 응답의 소비 화면 증거를 링크한다.
+
+| B의 지원 화면 | Before lines | After lines |
+| --- | ---: | ---: |
+| program-apply-page.tsx | 561 | 521 |
+| program-apply-views.tsx | 617 | 620 |
+| application-invitees.tsx | 0 | 144 |
+
+### Todo 9에 남긴 계약 26-1 공백
+
+- `student-application-management.config.ts`는 취소를 SUBMITTED에만 허용한다. REJECTED 취소와 승인 전 마지막 1인 탈퇴는 Todo 9의 팀/지원 통합·삭제 계약에서 처리한다.
+- `team-invitation-error-code.error.ts`의 기존 소속 거부에는 “현재 팀에서 탈퇴 후 수락” 안내가 없다. Todo 9에서 이 안내를 보완하며 자동 탈퇴는 추가하지 않는다.
+- 반려 팀은 현재 구성원을 유지하며, 신청이 있는 마지막 한 명의 탈퇴는 현재 거부된다. 이 상태를 Todo 8 A/B에서 해결했다고 주장하지 않는다.
 
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.
 

@@ -25,6 +25,9 @@ import { StudentApplicationManagementService } from './student-application-manag
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './application-answers.service';
+import { TeamInvitationsRepository } from './team-invitations.repository';
+import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -152,6 +155,7 @@ describe('ApplicationsService integration', () => {
           id: 'synthetic-decision-member',
           githubId: 8_000_000_000_003n,
           nickname: 'Synthetic-Member',
+          type: MemberKind.STUDENT,
         },
         {
           id: APPLICANT_ID,
@@ -191,6 +195,16 @@ describe('ApplicationsService integration', () => {
   });
 
   afterEach(async () => {
+    await prisma.teamInvitation.deleteMany({
+      where: {
+        programId: {
+          in: [
+            CREATE_PROGRAM_ID,
+            ...APPLICATION_IDS.map((id) => `${id}-program`),
+          ],
+        },
+      },
+    });
     await prisma.admin.deleteMany({ where: { userId: ACTOR_ID } });
     await prisma.notification.deleteMany({
       where: { type: 'APPLICATION_DECISION' },
@@ -551,7 +565,7 @@ describe('ApplicationsService integration', () => {
     15_000,
   );
 
-  it('프로그램 최소 인원이 1보다 크면 1인 팀 자동 생성 신청을 거절한다', async () => {
+  it('최소 2명 프로그램에 학생을 지명해 지원하고 수락 후에만 승인한다', async () => {
     await prisma.program.create({
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -571,15 +585,16 @@ describe('ApplicationsService integration', () => {
         teamMinSize: 2,
         teamMaxSize: 4,
 
-        repositoryProvisioningEnabled: true,
+        repositoryProvisioningEnabled: false,
       },
     });
 
-    const application = service.create(
+    const application = await service.create(
       8_000_000_000_002n,
       CREATE_PROGRAM_ID,
       {
         answers: { title: '팀 제목' },
+        inviteeUserIds: ['synthetic-decision-member'],
         teamName: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
@@ -587,20 +602,231 @@ describe('ApplicationsService integration', () => {
       new Date('2026-07-15T00:00:00.000Z'),
     );
 
-    await expect(application).rejects.toMatchObject({
+    await expect(
+      service.decide(
+        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
+        application.id,
+        { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+      ),
+    ).rejects.toMatchObject({
       errorCode: {
         code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
         status: 422,
       },
       extensions: { memberCount: 1, teamMinSize: 2 },
     });
+    expect(
+      await prisma.application.findUnique({
+        where: { id: application.id },
+        select: { status: true },
+      }),
+    ).toEqual({ status: ApplicationStatus.SUBMITTED });
+    const invitations = new TeamInvitationsRepository(
+      prisma,
+      new PlatformRepository(),
+    );
+    const invited = await prisma.teamInvitation.findFirstOrThrow({
+      where: {
+        teamId: application.teamId,
+        inviteeId: 'synthetic-decision-member',
+        status: 'PENDING',
+      },
+    });
+    expect(
+      await invitations.withAcceptTransaction(
+        invited.id,
+        'synthetic-decision-member',
+      ),
+    ).toEqual({
+      kind: 'ok',
+      teamId: application.teamId,
+      programId: CREATE_PROGRAM_ID,
+    });
     await expect(
-      prisma.application.count({ where: { programId: CREATE_PROGRAM_ID } }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.team.count({ where: { programId: CREATE_PROGRAM_ID } }),
-    ).resolves.toBe(0);
+      service.decide(
+        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
+        application.id,
+        { action: APPLICATION_DECISION_ACTIONS.APPROVE },
+      ),
+    ).resolves.toMatchObject({ kind: 'APPROVED' });
+    expect(
+      await prisma.teamMember.count({
+        where: { teamId: application.teamId },
+      }),
+    ).toBe(2);
   });
+  it.each(['leave', 'accept'] as const)(
+    '%s 중 승인은 커밋된 팀 구성원을 사용한다',
+    async (change) => {
+      const applicationId = APPLICATION_IDS[0];
+      const programId = `${applicationId}-program`;
+      const teamId = `${applicationId}-team`;
+      await createApplication(applicationId, change === 'accept');
+      await prisma.program.update({
+        where: { id: programId },
+        data: { teamMinSize: 2, teamMaxSize: 2 },
+      });
+      if (change === 'leave') {
+        await prisma.teamMember.create({
+          data: { teamId, programId, userId: 'synthetic-decision-member' },
+        });
+      }
+      const url = new URL(process.env.DATABASE_URL ?? '');
+      url.searchParams.set('connection_limit', '1');
+      const approvalPrisma = new PrismaService({
+        datasources: { db: { url: url.toString() } },
+      });
+      const approvalService = new ApplicationsService(
+        new ApplicationsRepository(
+          approvalPrisma,
+          new ReviewHistoryWriterRepository(),
+          new RepositoryProvisionGenerationRepository(),
+          new PlatformRepository(),
+        ),
+        new AuditLogService(
+          new AuditLogRepository(approvalPrisma),
+          new AuditLogReadService(new AuditLogMetadataService()),
+        ),
+        new AuditLogMetadataService(),
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
+      );
+      const teams = new ProgramTeamsRepository(
+        prisma,
+        new ProgramTeamRepositoryEvidenceRepository(prisma),
+        new PlatformRepository(),
+      );
+      const gate: { ready?: () => void; release?: () => void } = {};
+      const ready = new Promise<void>((resolve) => {
+        gate.ready = resolve;
+      });
+      const release = new Promise<void>((resolve) => {
+        gate.release = resolve;
+      });
+      const waitForCommit = async () => {
+        gate.ready?.();
+        await release;
+      };
+      const write: Promise<unknown> =
+        change === 'leave'
+          ? teams.leave(programId, 'synthetic-decision-member', waitForCommit)
+          : (async () => {
+              const pending = await prisma.teamInvitation.create({
+                data: {
+                  teamId,
+                  programId,
+                  invitedById: APPLICANT_ID,
+                  inviteeId: 'synthetic-decision-member',
+                },
+              });
+              return new TeamInvitationsRepository(
+                prisma,
+                new PlatformRepository(),
+              ).withAcceptTransaction(
+                pending.id,
+                'synthetic-decision-member',
+                new Date(),
+                waitForCommit,
+              );
+            })();
+      const mutation = write.then(
+        (value) => ({ kind: 'completed' as const, value }),
+        (error: unknown) => ({ kind: 'failed' as const, error }),
+      );
+      let approval: Promise<unknown> | undefined;
+      try {
+        await Promise.race([
+          ready,
+          mutation.then(() => {
+            throw new Error(
+              'Membership change ended before acquiring the team lock',
+            );
+          }),
+        ]);
+        const [connection] = await approvalPrisma.$queryRaw<
+          [{ pid: number }]
+        >`SELECT pg_backend_pid() AS pid`;
+        approval = approvalService
+          .decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, applicationId, {
+            action: APPLICATION_DECISION_ACTIONS.APPROVE,
+          })
+          .then(
+            (value) => ({ kind: 'approved' as const, value }),
+            (error: unknown) => ({ kind: 'refused' as const, error }),
+          );
+        const deadline = Date.now() + 4000;
+        while (true) {
+          const [state] = await prisma.$queryRaw<[{ waiting: boolean }]>`
+          SELECT EXISTS (
+            SELECT 1 FROM pg_stat_activity
+            WHERE pid = ${connection.pid} AND wait_event_type = 'Lock'
+              AND cardinality(pg_blocking_pids(pid)) > 0
+          ) AS waiting`;
+          if (state.waiting) break;
+          if (Date.now() >= deadline)
+            throw new Error(
+              'Approval did not wait for the membership transaction',
+            );
+        }
+        gate.release?.();
+        if (change === 'leave') {
+          expect(await mutation).toEqual({
+            kind: 'completed',
+            value: 'removed',
+          });
+          expect(await approval).toMatchObject({
+            kind: 'refused',
+            error: {
+              errorCode: { code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET },
+              extensions: { memberCount: 1, teamMinSize: 2 },
+            },
+          });
+          expect(
+            await prisma.application.findUnique({
+              where: { id: applicationId },
+              select: { status: true },
+            }),
+          ).toEqual({ status: ApplicationStatus.SUBMITTED });
+          expect(
+            await prisma.applicationReviewHistory.count({
+              where: { applicationId },
+            }),
+          ).toBe(0);
+          expect(
+            await prisma.outboxEvent.count({
+              where: { aggregateId: applicationId },
+            }),
+          ).toBe(0);
+        } else {
+          expect(await mutation).toMatchObject({
+            kind: 'completed',
+            value: { kind: 'ok' },
+          });
+          expect(await approval).toMatchObject({
+            kind: 'approved',
+            value: { kind: 'APPROVED' },
+          });
+          const event = await prisma.outboxEvent.findFirstOrThrow({
+            where: { aggregateId: applicationId },
+          });
+          expect(event.payload).toMatchObject({
+            collaboratorGithubLogins: [
+              'synthetic-applicant',
+              'synthetic-member',
+            ],
+          });
+        }
+      } finally {
+        gate.release?.();
+        await mutation;
+        await approval;
+        await approvalPrisma.$disconnect();
+      }
+    },
+    15_000,
+  );
+
   it('신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
     const applicationId = APPLICATION_IDS[0];
     await createApplication(applicationId, true);
@@ -1208,6 +1434,8 @@ describe('ApplicationsService integration', () => {
         originalWithTransaction((store) =>
           operation({
             auditLogWriter: store.auditLogWriter,
+            findTeamMinSize: (id) => store.findTeamMinSize(id),
+            countTeamMembers: (id) => store.countTeamMembers(id),
             isCurrentTeamMember: (teamId, userId) =>
               store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),
@@ -1290,6 +1518,8 @@ describe('ApplicationsService integration', () => {
         originalWithTransaction((store) =>
           operation({
             auditLogWriter: store.auditLogWriter,
+            findTeamMinSize: (id) => store.findTeamMinSize(id),
+            countTeamMembers: (id) => store.countTeamMembers(id),
             isCurrentTeamMember: (teamId, userId) =>
               store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),

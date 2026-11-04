@@ -195,6 +195,8 @@ export class ProgramsRepository {
         organizer: true,
         trackType: true,
         applicationTemplateKey: true,
+        teamMinSize: true,
+        teamMaxSize: true,
         description: true,
         repositoryProvisioningEnabled: true,
         applicationStartAt: true,

@@ -165,8 +165,8 @@ export function ProgramEditDangerZoneSection({
     <section className="grid gap-6">
       <SectionHeading title="위험 영역" />
       <p className="text-body text-muted-foreground [word-break:keep-all]">
-        프로그램을 목록에서 숨기고 업로드한 파일을 삭제합니다. 이 작업은 되돌릴
-        수 없습니다.
+        프로그램을 삭제 상태로 바꿔 목록에서 숨깁니다. 연결된 기록은 보존하고
+        업로드한 파일은 정리 작업으로 삭제합니다.
       </p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button

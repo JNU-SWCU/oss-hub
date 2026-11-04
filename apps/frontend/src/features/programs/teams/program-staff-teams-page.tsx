@@ -251,10 +251,15 @@ export function ProgramStaffTeamsPage({
                 disabled={busyId === item.id || (notice?.blocked ?? false)}
                 onChange={(next) => onSelectStatus(item, next)}
               />
+              {item.team !== null && item.teamMinSize !== undefined ? (
+                <span className="text-xs text-muted-foreground">
+                  수락 {item.team.memberCount}/{item.teamMinSize}명
+                </span>
+              ) : null}
               {notice !== null ? (
                 <span
                   role="status"
-                  className="text-xs break-keep text-muted-foreground"
+                  className="max-w-64 text-xs break-keep whitespace-normal text-muted-foreground"
                 >
                   {notice.message}
                 </span>

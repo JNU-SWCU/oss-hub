@@ -361,6 +361,15 @@ export class TeamInvitationsRepository {
     );
   }
 
+  async isApplicationProgramAvailable(programId: string): Promise<boolean> {
+    return (
+      (await this.prisma.program.findUnique({
+        where: { id: programId, lifecycle: 'PUBLISHED' },
+        select: { id: true },
+      })) !== null
+    );
+  }
+
   async createInvitation(
     input: CreateInvitationInput,
     now: Date = new Date(),
@@ -546,6 +555,7 @@ export class TeamInvitationsRepository {
           this.platformRepository.userProfileNameWhere(query),
         ],
         teamMemberships: { none: { programId } },
+        preparationParticipants: { none: { programId, status: 'ACCEPTED' } },
       },
       select: {
         id: true,

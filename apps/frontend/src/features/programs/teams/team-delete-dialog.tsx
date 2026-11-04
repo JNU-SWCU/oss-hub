@@ -93,7 +93,7 @@ export function TeamDeleteDialog({
     <DialogShell
       kind="alert"
       title="팀을 삭제할까요?"
-      description={`${teamName} 팀과 연결된 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+      description={`${teamName} 팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
 
       className="max-w-lg"
 
@@ -127,12 +127,6 @@ export function TeamDeleteDialog({
           {disappearing || '연결된 데이터 없음'}
         </AlertDescription>
       </Alert>
-      <p className="text-sm text-muted-foreground [word-break:keep-all]">
-        연결된 GitHub 저장소는 삭제하지 않고 연결만 해제합니다
-        {displayedScope.detachedRepositories > 0
-          ? ` (${displayedScope.detachedRepositories}건).`
-          : '.'}
-      </p>
       <div className="grid gap-2">
         <label
           htmlFor="team-delete-notification-message"

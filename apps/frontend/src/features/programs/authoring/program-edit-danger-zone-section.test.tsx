@@ -124,7 +124,7 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(container.querySelectorAll('button')).toHaveLength(1);
   });
 
-  it('프로그램 삭제는 이름과 되돌릴 수 없는 경고, 현재 삭제 범위를 보여준다', async () => {
+  it('프로그램 삭제는 이름과 복구 화면 부재 안내, 현재 삭제 범위를 보여준다', async () => {
     await act(async () => {
       root.render(
         <ProgramEditDangerZoneSection
@@ -142,7 +142,7 @@ describe('ProgramEditDangerZoneSection', () => {
     expect(getEditableProgramMock).toHaveBeenCalledWith('program-1');
     expect(dialog.textContent).toContain('프로그램을 삭제할까요?');
     expect(dialog.textContent).toContain('OSS 프로그램');
-    expect(dialog.textContent).toContain('이 작업은 되돌릴 수 없습니다.');
+    expect(dialog.textContent).toContain('복구 화면은 없습니다.');
     expect(dialog.textContent).toContain(
       '지원서 2건 · 팀 3개 · 게시글 4건 · 제출물 5건',
     );
@@ -340,34 +340,57 @@ describe('ProgramEditDangerZoneSection', () => {
     );
   });
 
-  it('보존한 기록이 있어도 파일 정리 0건을 기록 부재로 안내하지 않는다', async () => {
-    purgeProgramMock.mockResolvedValue({
-      id: 'program-1',
-      deleted: true,
+  it.each([
+    {
+      backend: '기존 backend의 행 삭제 결과',
+      deletedCounts: { applications: 2, teams: 1 },
+      notice: '지원서 2건 · 팀 1건',
+    },
+    {
+      backend: '새 backend의 기록 보존과 파일 0건 결과',
       deletedCounts: {
         applications: 0,
         teams: 0,
         submissionFiles: 0,
         programPurgeFileTombstones: 0,
       },
-    });
-    await act(async () => {
-      root.render(
-        <ProgramEditDangerZoneSection
-          programId="program-1"
-          programName="OSS 프로그램"
-          canDeleteProgram
-          onDeleted={onDeleted}
-        />,
+      notice: '정리할 업로드 파일이 없습니다.',
+    },
+    {
+      backend: '새 backend의 파일 정리 결과',
+      deletedCounts: { submissionFiles: 1, programPurgeFileTombstones: 2 },
+      notice: '제출 파일 1건 · 파일 삭제 대기 2건',
+    },
+  ])(
+    '$backend를 연결 기록의 부재로 안내하지 않는다',
+    async ({ deletedCounts, notice }) => {
+      purgeProgramMock.mockResolvedValue({
+        id: 'program-1',
+        deleted: true,
+        deletedCounts,
+      });
+      await act(async () => {
+        root.render(
+          <ProgramEditDangerZoneSection
+            programId="program-1"
+            programName="OSS 프로그램"
+            canDeleteProgram
+            onDeleted={onDeleted}
+          />,
+        );
+      });
+      const dialog = await openDialog();
+      await flush();
+      expect(dialog.textContent).toContain('지원서 2건');
+      await act(async () => getButton('삭제', dialog).click());
+      await flush();
+      expect(onDeleted).toHaveBeenCalledWith(notice);
+      expect(purgeProgramMock).toHaveBeenCalledWith(
+        'program-1',
+        deletionScopeCounts,
       );
-    });
-    const dialog = await openDialog();
-    await flush();
-    await act(async () => getButton('삭제', dialog).click());
-    await flush();
-
-    expect(onDeleted).toHaveBeenCalledWith('정리할 업로드 파일이 없습니다.');
-  });
+    },
+  );
 
   it('0건 범위도 표시하고 취소는 purge를 호출하지 않는다', async () => {
     getEditableProgramMock.mockResolvedValue({

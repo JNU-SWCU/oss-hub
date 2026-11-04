@@ -87,6 +87,9 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
           },
         ],
         teamMemberships: { none: { programId: syntheticProgramId } },
+        preparationParticipants: {
+          none: { programId: syntheticProgramId, status: 'ACCEPTED' },
+        },
       },
       select: {
         id: true,

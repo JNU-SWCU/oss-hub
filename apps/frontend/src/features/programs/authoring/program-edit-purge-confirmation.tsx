@@ -31,7 +31,7 @@ export function ProgramEditPurgeConfirmation({
     <DialogShell
       kind="alert"
       title="프로그램을 삭제할까요?"
-      description={`${programName} 프로그램을 목록에서 숨깁니다. 이 작업은 되돌릴 수 없습니다.`}
+      description={`${programName} 프로그램을 삭제 상태로 바꿔 목록에서 숨깁니다. 복구 화면은 없습니다.`}
       busy={busy}
 
       className="max-w-lg"
@@ -62,8 +62,8 @@ export function ProgramEditPurgeConfirmation({
       }
     >
       <p className="text-sm text-muted-foreground [word-break:keep-all]">
-        업로드한 파일은 정리 작업으로 삭제됩니다. 감사 기록과 사용자 계정은
-        유지됩니다.
+        프로그램과 연결된 기록, 감사 기록, 사용자 계정은 유지됩니다. 업로드한
+        파일은 정리 작업으로 삭제됩니다.
       </p>
       {isPurgeScopeLoading ? (
         <Alert>
@@ -80,7 +80,7 @@ export function ProgramEditPurgeConfirmation({
       ) : null}
       {purgeError ? (
         <Alert variant="destructive">
-          <AlertTitle>전체 삭제 실패</AlertTitle>
+          <AlertTitle>프로그램 삭제 실패</AlertTitle>
           <AlertDescription>{purgeError}</AlertDescription>
         </Alert>
       ) : null}

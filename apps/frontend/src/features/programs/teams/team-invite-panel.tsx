@@ -45,7 +45,20 @@ function optionId(listboxId: string, candidateId: string): string {
 }
 
 export interface TeamInvitePanelProps {
-  readonly invitation: TeamInvitationManagement;
+  readonly invitation: Pick<
+    TeamInvitationManagement,
+    | 'inviteQuery'
+    | 'inviteCandidates'
+    | 'searching'
+    | 'searchError'
+    | 'invitingUserId'
+    | 'inviteActionError'
+    | 'sentInvitations'
+    | 'onInviteQueryChange'
+    | 'onSearch'
+    | 'onInvite'
+  >;
+  readonly selectedInviteeIds?: readonly string[];
   readonly open: boolean;
   readonly onClose: () => void;
   readonly returnFocusRef: RefObject<HTMLButtonElement | null>;
@@ -56,6 +69,7 @@ export function TeamInvitePanel({
   open,
   onClose,
   returnFocusRef,
+  selectedInviteeIds,
 }: TeamInvitePanelProps) {
   const {
     inviteQuery: query,
@@ -94,9 +108,10 @@ export function TeamInvitePanel({
   }, [open, returnFocusRef]);
 
   const pendingInviteeIds = new Set(
-    sentInvitations
-      .filter((item) => item.status === 'PENDING')
-      .map((item) => item.invitee.id),
+    selectedInviteeIds ??
+      sentInvitations
+        .filter((item) => item.status === 'PENDING')
+        .map((item) => item.invitee.id),
   );
 
   const listboxState = resolveListboxState(
@@ -142,8 +157,12 @@ export function TeamInvitePanel({
 
   return (
     <DialogShell
-      title="팀원 초대"
-      description="이름 또는 GitHub 아이디로 찾아 초대를 보냅니다. 초대한 사람은 팀 구성원 목록에 「초대 대기」로 남습니다."
+      title={selectedInviteeIds === undefined ? '팀원 초대' : '팀원 지정'}
+      description={
+        selectedInviteeIds === undefined
+          ? '이름 또는 GitHub 아이디로 찾아 초대를 보냅니다. 초대한 사람은 팀 구성원 목록에 「초대 대기」로 남습니다.'
+          : '가입한 활성 학생을 찾아 지정합니다. 신청서를 제출할 때 초대를 보내며, 수락해야 팀원이 됩니다.'
+      }
       busy={busy}
       returnFocusRef={returnFocusRef}
       onCancel={onClose}
@@ -244,7 +263,9 @@ export function TeamInvitePanel({
                     role="status"
                     className="whitespace-nowrap rounded-control border border-dashed border-border px-2 text-small text-muted-foreground"
                   >
-                    {PENDING_LABEL}
+                    {selectedInviteeIds === undefined
+                      ? PENDING_LABEL
+                      : '지정됨'}
                   </span>
                 ) : (
                   <Button
@@ -254,7 +275,11 @@ export function TeamInvitePanel({
                     onMouseDown={(event) => event.preventDefault()}
                     onClick={() => onInvite(candidate)}
                   >
-                    {invitingUserId === candidate.id ? '초대 중…' : '초대'}
+                    {selectedInviteeIds !== undefined
+                      ? '지정'
+                      : invitingUserId === candidate.id
+                        ? '초대 중…'
+                        : '초대'}
                   </Button>
                 )}
               </li>

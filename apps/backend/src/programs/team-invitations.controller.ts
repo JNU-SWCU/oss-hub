@@ -67,6 +67,21 @@ export class TeamInvitationsController {
     );
   }
 
+  @Get('programs/:programId/search')
+  async searchForApplication(
+    @Req() request: AuthenticatedRequest,
+    @Param('programId') programId: string,
+    @Query() query: SearchInvitationCandidatesRequestDto,
+  ): Promise<InvitationCandidateResponseDto[]> {
+    return (
+      await this.service.searchApplicationCandidates(
+        request.sessionGithubId,
+        programId,
+        query.query,
+      )
+    ).map((candidate) => InvitationCandidateResponseDto.from(candidate));
+  }
+
   @Post('teams/:teamId/invitations')
   @HttpCode(201)
   @UseGuards(OriginGuard)

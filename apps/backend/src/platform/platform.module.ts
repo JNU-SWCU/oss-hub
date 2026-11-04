@@ -1,4 +1,5 @@
 import { RepositoryProvisionGenerationRepository } from './repository-provision-generation.repository';
+import { RepositoryDeletionRepository } from './repository-deletion.repository';
 import { PrismaSerializationRetryRepository } from './prisma-serialization-retry.repository';
 import { PlatformRepository } from './platform.repository';
 import { LockProgramTreeRepository } from './lock-program-tree.repository';
@@ -31,6 +32,7 @@ import { RolesGuard } from './roles.guard';
 @Module({
   controllers: [HealthController],
   providers: [
+    RepositoryDeletionRepository,
     RepositoryProvisionGenerationRepository,
     PrismaSerializationRetryRepository,
     PlatformRepository,
@@ -55,6 +57,7 @@ import { RolesGuard } from './roles.guard';
     OriginGuard,
   ],
   exports: [
+    RepositoryDeletionRepository,
     RUNTIME_CONFIG,
     LockProgramTreeRepository,
     PrismaService,

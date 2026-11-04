@@ -190,20 +190,20 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     }
   });
 
-  it('GithubRepository 는 여기서도 DETACH 이고 그 아래 수집 이력은 PRESERVE 다', () => {
-    const detach = TEAM_PURGE_DELETION_ORDER.find(
+  it('팀 삭제는 GithubRepository와 그 아래 수집 이력을 DELETE로 분류한다', () => {
+    const repository = TEAM_PURGE_DELETION_ORDER.find(
       (step) => step.id === 'github-repositories',
     );
-    expect(detach?.operation).toBe('DETACH');
-    expect(detach?.covers).toEqual([
+    expect(repository?.operation).toBe('DELETE');
+    expect(repository?.covers).toEqual([
       'Application->GithubRepository',
       'Team->GithubRepository',
     ]);
 
-    const preserved = TEAM_PURGE_DELETION_ORDER.filter(
-      (step) => step.operation === 'PRESERVE',
+    const deleted = TEAM_PURGE_DELETION_ORDER.filter(
+      (step) => step.operation === 'DELETE',
     ).flatMap((step) => step.covers);
-    expect(preserved).toEqual(
+    expect(deleted).toEqual(
       expect.arrayContaining([
         'GithubRepository->Contribution',
         'GithubRepository->CollectionCommitFact',
@@ -213,12 +213,9 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
         'GithubRepository->RepositoryInvitation',
       ]),
     );
-    const nonPreserveCovers = TEAM_PURGE_DELETION_ORDER.filter(
-      (step) => step.operation !== 'PRESERVE',
-    ).flatMap((step) => step.covers);
-    for (const relation of preserved) {
-      expect(nonPreserveCovers).not.toContain(relation);
-    }
+    expect(
+      TEAM_PURGE_DELETION_ORDER.filter((step) => step.operation === 'PRESERVE'),
+    ).toEqual([]);
   });
 
   it('application → teamInvitation → teamMember → team 순서를 고정한다', () => {

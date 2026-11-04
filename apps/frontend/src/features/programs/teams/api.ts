@@ -7,9 +7,20 @@ import type {
   RenamedTeam,
   TeamDeletionScope,
   DeletedTeamResult,
+  InvitationCandidate,
 } from './dto';
 import { apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
+
+export function searchApplicationInvitationCandidates(
+  programId: string,
+  query: string,
+): Promise<readonly InvitationCandidate[]> {
+  const search = new URLSearchParams({ query });
+  return apiClient<readonly InvitationCandidate[]>(
+    `team-invitations/programs/${encodeURIComponent(programId)}/search?${search}`,
+  );
+}
 
 export class ProgramTeamResponseError extends Error {
   constructor() {

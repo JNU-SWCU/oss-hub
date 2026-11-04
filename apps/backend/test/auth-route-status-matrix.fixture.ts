@@ -124,6 +124,8 @@ export class AuthRouteStatusHarness {
         ended: 0,
       }),
       detail: jest.fn().mockResolvedValue({
+        teamMinSize: 2,
+        teamMaxSize: 4,
         id: 'synthetic-program',
         coverImageUrl: null,
         name: 'Synthetic program',
