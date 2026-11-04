@@ -78,7 +78,7 @@ describe('review conflict recovery', () => {
       submissionStatus: 'CHANGES_REQUESTED',
     });
     await act(() => Promise.resolve(screen.button('저장').click()));
-    expect(createReview).toHaveBeenLastCalledWith('submission-synthetic', {
+    expect(createReview).toHaveBeenLastCalledWith(context(2), {
       revision: 2,
       decision: 'CHANGES_REQUESTED',
       comment: '작성 중인 검토 의견',

@@ -8,6 +8,7 @@ const noOp = () => undefined;
 
 function context(overrides?: Partial<ReviewContext>): ReviewContext {
   return {
+    requirementId: 'requirement-1',
     submissionId: 'submission-existing',
     application: {
       id: 'application-personal',
@@ -140,7 +141,7 @@ describe('SubmissionReviewView', () => {
     expect(html).not.toContain('이전 이력을 확인할 수 없습니다');
   });
 
-  it('이미 검토한 최신 revision은 판정과 코멘트를 읽기 전용으로 표시한다', () => {
+  it('이미 검토한 최신 revision도 이전 판정을 보존하며 새 판정을 고를 수 있다', () => {
     const reviewContext = context({
       repository: null,
       currentRevision: {
@@ -162,8 +163,8 @@ describe('SubmissionReviewView', () => {
 
     expect(html).toContain('승인');
     expect(html).toContain('확인했습니다.');
-    expect(html).not.toContain('name="review-decision"');
-    expect(html).not.toContain('type="submit"');
+    expect(html).toContain('name="review-decision"');
+    expect(html).toContain('type="submit"');
   });
 
   it('보완 요청은 재제출 가능한 대기 상태 색으로 표시한다', () => {

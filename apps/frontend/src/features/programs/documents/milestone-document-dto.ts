@@ -33,11 +33,14 @@ interface MilestoneDocumentTeamSubmissionCount {
   readonly total: number;
 }
 
+export type RequirementSubmissionType = 'FILE' | 'TEXT' | 'FILE_OR_TEXT';
+
 export interface MilestoneDocument {
   readonly id: string;
   readonly milestoneId: string;
   readonly name: string;
   readonly required: boolean;
+  readonly submissionType: RequirementSubmissionType;
   readonly sortOrder: number;
   readonly graceDueAt?: string | null;
   readonly hasTemplateFile: boolean;

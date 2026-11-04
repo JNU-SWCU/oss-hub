@@ -51,7 +51,6 @@ export function milestoneDocumentSubmitGate({
     isMilestoneDocumentDeadlineLocked(
       closed || (graceDueAt !== null && isPastDue(graceDueAt, now)),
       viewerSubmission,
-      now,
     ) &&
     !graceOpen
   ) {

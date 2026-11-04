@@ -90,6 +90,7 @@ export function toProgramMilestoneDraft(
         ...document,
         milestoneId: milestone.id,
         hasTemplateFile: document.templateFileName !== null,
+        submissionType: 'FILE_OR_TEXT' as const,
       })),
     ),
   };

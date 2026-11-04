@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import type {
   MilestoneDocumentSubmissionStatus,
   MilestoneDocumentViewerSubmission,
@@ -9,16 +9,11 @@ import {
   isMilestoneDocumentDeadlineLocked,
   isMilestoneDocumentResubmissionFinal,
   isMilestoneDocumentResubmittable,
-  isMilestoneDocumentReviewCommentRequired,
   isSameMilestoneDocumentReviewTarget,
   MILESTONE_DOCUMENT_REVIEW_DECISION_ORDER,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_LABELS,
   MILESTONE_DOCUMENT_REVIEW_DISPLAY_VARIANTS,
   milestoneDocumentCellDisplay,
-  milestoneDocumentResubmissionDueAtError,
-  milestoneDocumentResubmissionDueAtPayload,
-  milestoneDocumentResubmissionDueNotice,
-  milestoneDocumentResubmissionDueTickDelay,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
   milestoneDocumentReviewNoticeTone,
@@ -28,7 +23,6 @@ import {
   nextMilestoneDocumentReviewState,
   shouldHighlightMilestoneDocumentReview,
 } from './milestone-document-review';
-import { MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH } from './milestone-document-review-api';
 
 function viewer(
   overrides: Partial<MilestoneDocumentViewerSubmission> = {},
@@ -192,149 +186,38 @@ describe('isMilestoneDocumentResubmittable', () => {
 });
 
 describe('isMilestoneDocumentDeadlineLocked', () => {
-  it('마감 전에는 아무것도 잠그지 않는다', () => {
-    for (const status of [
-      null,
-      'SUBMITTED',
-      'APPROVED',
-      'CHANGES_REQUESTED',
-      'REJECTED',
-    ] as const) {
-      expect(isMilestoneDocumentDeadlineLocked(false, viewer({ status }))).toBe(
-        false,
-      );
-    }
-    expect(isMilestoneDocumentDeadlineLocked(false, undefined)).toBe(false);
-  });
-
-  it('마감 뒤에도 보완 요청은 지나간다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        viewer({ status: 'CHANGES_REQUESTED' }),
-      ),
-    ).toBe(false);
-  });
-
-  it('마감 뒤 나머지 상태는 그대로 잠근다', () => {
-    for (const status of [null, 'SUBMITTED', 'APPROVED', 'REJECTED'] as const) {
-      expect(isMilestoneDocumentDeadlineLocked(true, viewer({ status }))).toBe(
-        true,
-      );
-    }
-    expect(isMilestoneDocumentDeadlineLocked(true, undefined)).toBe(true);
-  });
-
-  it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        viewer({
-          status: 'SUBMITTED',
-          revision: 2,
-          review: {
-            comment: '3쪽 서명이 빠졌습니다.',
-            reviewedAt: '2026-08-02T00:00:00.000Z',
-            resubmissionDueAt: null,
-          },
-        }),
-      ),
-    ).toBe(true);
-  });
-
-  it('마감 전이면 재제출도 잠기지 않는다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        false,
-        viewer({ status: 'SUBMITTED', revision: 2 }),
-      ),
-    ).toBe(false);
-  });
-
   it.each([
-    [false, null, null, true],
-    [false, 'SUBMITTED', 1, true],
-    [false, 'CHANGES_REQUESTED', 1, true],
-    [false, 'SUBMITTED', 2, true],
-    [false, 'APPROVED', 1, false],
-    [false, 'REJECTED', 1, false],
-    [true, null, null, false],
-    [true, 'SUBMITTED', 1, false],
-    [true, 'CHANGES_REQUESTED', 1, true],
-    [true, 'SUBMITTED', 2, false],
-    [true, 'APPROVED', 1, false],
-    [true, 'REJECTED', 1, false],
+    [false, 'SUBMITTED', false],
+    [true, 'SUBMITTED', true],
+    [true, 'APPROVED', true],
+    [true, 'REJECTED', true],
+    [true, 'CHANGES_REQUESTED', false],
   ] as const)(
-    '마감 지남=%s · 상태=%s · 리비전=%s 에서 조작 가능 여부는 %s다',
-    (closed, status, revision, opens) => {
-      const viewerSubmission =
-        status === null
-          ? viewer({ submitted: false, submittedAt: null, status, revision })
-          : viewer({ status, revision });
-
-      const editable =
-        isMilestoneDocumentResubmittable(viewerSubmission) &&
-        !isMilestoneDocumentDeadlineLocked(closed, viewerSubmission);
-
-      expect(editable).toBe(opens);
+    'closed=%s, status=%s preserves the milestone cutoff (%s)',
+    (closed, status, locked) => {
+      expect(
+        isMilestoneDocumentDeadlineLocked(closed, viewer({ status })),
+      ).toBe(locked);
     },
   );
-
-  const dueAt = '2026-09-26T09:00:00.000Z';
-  const beforeDue = Date.parse('2026-09-26T08:59:59.999Z');
-  const afterDue = Date.parse('2026-09-26T09:00:00.001Z');
-  function awaitingResubmission(
-    resubmissionDueAt: string | null,
-  ): MilestoneDocumentViewerSubmission {
-    return viewer({
-      status: 'CHANGES_REQUESTED',
-      review: {
-        comment: '3쪽 서명이 빠졌습니다.',
-        reviewedAt: '2026-09-20T00:00:00.000Z',
-        resubmissionDueAt,
-      },
-    });
-  }
-
-  it('재제출 기한이 남아 있으면 마감 뒤에도 연다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        awaitingResubmission(dueAt),
-        beforeDue,
-      ),
-    ).toBe(false);
-  });
-
-  it('재제출 기한이 지나면 아직 응하지 않은 보완 요청도 잠근다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        awaitingResubmission(dueAt),
-        afterDue,
-      ),
-    ).toBe(true);
-  });
-
-  it('기한이 없는 옛 보완 요청은 앞 규칙대로 연다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        awaitingResubmission(null),
-        afterDue,
-      ),
-    ).toBe(false);
-  });
-
-  it('마감 전에는 기한이 지났어도 잠그지 않는다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        false,
-        awaitingResubmission(dueAt),
-        afterDue,
-      ),
-    ).toBe(false);
-  });
+  it.each([null, '2000-01-01T00:00:00Z', '2099-12-31T00:00:00Z'])(
+    'ignores the retired review expiry %s',
+    (resubmissionDueAt) => {
+      expect(
+        isMilestoneDocumentDeadlineLocked(
+          true,
+          viewer({
+            status: 'CHANGES_REQUESTED',
+            review: {
+              comment: null,
+              reviewedAt: '2026-08-01T00:00:00Z',
+              resubmissionDueAt,
+            },
+          }),
+        ),
+      ).toBe(false);
+    },
+  );
 });
 
 describe('isMilestoneDocumentResubmissionFinal', () => {
@@ -357,134 +240,6 @@ describe('isMilestoneDocumentResubmissionFinal', () => {
       ).toBe(false);
     }
     expect(isMilestoneDocumentResubmissionFinal(true, undefined)).toBe(false);
-  });
-});
-
-describe('milestoneDocumentResubmissionDueNotice', () => {
-  const dueAt = '2026-09-26T09:00:00.000Z';
-  function withDue(
-    status: MilestoneDocumentSubmissionStatus,
-    resubmissionDueAt: string | null,
-  ): MilestoneDocumentViewerSubmission {
-    return viewer({
-      status,
-      review: {
-        comment: '3쪽 서명이 빠졌습니다.',
-        reviewedAt: '2026-09-20T00:00:00.000Z',
-        resubmissionDueAt,
-      },
-    });
-  }
-
-  it('아직 응하지 않았고 기한이 남았으면 언제까지인지 말한다', () => {
-    expect(
-      milestoneDocumentResubmissionDueNotice(
-        withDue('CHANGES_REQUESTED', dueAt),
-        Date.parse('2026-09-26T08:59:59.999Z'),
-      ),
-    ).toEqual({ kind: 'open', dueAt });
-  });
-
-  it('기한이 지났으면 지났다고 말한다', () => {
-    expect(
-      milestoneDocumentResubmissionDueNotice(
-        withDue('CHANGES_REQUESTED', dueAt),
-        Date.parse('2026-09-26T09:00:00.001Z'),
-      ),
-    ).toEqual({ kind: 'passed', dueAt });
-  });
-
-  it('이미 다시 낸 서류에는 아무 말도 하지 않는다', () => {
-    expect(
-      milestoneDocumentResubmissionDueNotice(
-        withDue('SUBMITTED', dueAt),
-        Date.parse('2026-09-26T08:59:59.999Z'),
-      ),
-    ).toBeNull();
-  });
-
-  it('기한 없는 옛 보완 요청에는 없는 기한을 지어내지 않는다', () => {
-    expect(
-      milestoneDocumentResubmissionDueNotice(
-        withDue('CHANGES_REQUESTED', null),
-        Date.parse('2026-09-26T09:00:00.001Z'),
-      ),
-    ).toBeNull();
-  });
-});
-
-describe('milestoneDocumentResubmissionDueAtError', () => {
-  const now = Date.parse('2026-09-20T00:00:00.000Z');
-
-  it('보완 요청에 기한이 없으면 저장할 수 없다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtError('CHANGES_REQUESTED', '', now),
-    ).toBe('보완 요청은 재제출 기한을 정해 주세요.');
-  });
-
-  it('지난 시각은 거절하고 무엇을 고칠지 말한다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtError(
-        'CHANGES_REQUESTED',
-        '2026-09-19T23:59',
-        now,
-      ),
-    ).toBe('재제출 기한은 지금보다 뒤여야 합니다.');
-  });
-
-  it('읽을 수 없는 값은 다시 고르라고 말한다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtError(
-        'CHANGES_REQUESTED',
-        '2026-02-30T25:61',
-        now,
-      ),
-    ).toBe('재제출 기한을 다시 골라 주세요.');
-  });
-
-  it('미래 시각이면 통과한다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtError(
-        'CHANGES_REQUESTED',
-        '2026-09-26T18:00',
-        now,
-      ),
-    ).toBeNull();
-  });
-
-  it('승인·반려는 기한을 보지 않는다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtError('APPROVED', '', now),
-    ).toBeNull();
-    expect(
-      milestoneDocumentResubmissionDueAtError('REJECTED', '', now),
-    ).toBeNull();
-  });
-});
-
-describe('milestoneDocumentResubmissionDueAtPayload', () => {
-  it('보완 요청의 서울 시각을 ISO로 굳혀 보낸다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtPayload(
-        'CHANGES_REQUESTED',
-        '2026-09-26T18:00',
-      ),
-    ).toBe('2026-09-26T09:00:00.000Z');
-  });
-
-  it('승인·반려에는 아예 싣지 않는다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtPayload('APPROVED', '2026-09-26T18:00'),
-    ).toBeUndefined();
-    expect(
-      milestoneDocumentResubmissionDueAtPayload('REJECTED', '2026-09-26T18:00'),
-    ).toBeUndefined();
-  });
-
-  it('읽을 수 없는 값은 지어내지 않고 빼고 보낸다', () => {
-    expect(
-      milestoneDocumentResubmissionDueAtPayload('CHANGES_REQUESTED', ''),
-    ).toBeUndefined();
   });
 });
 
@@ -542,82 +297,23 @@ describe('milestoneDocumentReviewNoticeTone', () => {
   });
 });
 
-describe('isMilestoneDocumentReviewCommentRequired', () => {
-  it('보완 요청·반려만 사유가 필요하다', () => {
-    expect(isMilestoneDocumentReviewCommentRequired('CHANGES_REQUESTED')).toBe(
-      true,
-    );
-    expect(isMilestoneDocumentReviewCommentRequired('REJECTED')).toBe(true);
-    expect(isMilestoneDocumentReviewCommentRequired('APPROVED')).toBe(false);
-  });
-});
-
 describe('milestoneDocumentReviewFormError', () => {
-  it('판정을 고르기 전에는 저장할 수 없다', () => {
-    expect(milestoneDocumentReviewFormError(null, '무엇이든')).toBe(
-      '승인, 보완 요청, 반려 중 하나를 골라 주세요.',
-    );
+  it('requires a decision', () => {
+    expect(milestoneDocumentReviewFormError(null, '')).not.toBeNull();
   });
-
-  it('보완 요청·반려에 사유가 비면 막는다', () => {
-    expect(milestoneDocumentReviewFormError('CHANGES_REQUESTED', '')).toBe(
-      '보완 요청과 반려는 사유를 입력해 주세요.',
-    );
-    expect(milestoneDocumentReviewFormError('REJECTED', '')).toBe(
-      '보완 요청과 반려는 사유를 입력해 주세요.',
-    );
-  });
-
-  it('공백만 적은 사유는 안 적은 것으로 본다', () => {
-    expect(milestoneDocumentReviewFormError('REJECTED', '   \n\t  ')).toBe(
-      '보완 요청과 반려는 사유를 입력해 주세요.',
-    );
-  });
-
-  it('승인은 사유 없이도 저장할 수 있다', () => {
-    expect(milestoneDocumentReviewFormError('APPROVED', '')).toBeNull();
-  });
-
-  it('사유를 적어도 재제출 기한이 없는 보완 요청은 막는다', () => {
-    expect(
-      milestoneDocumentReviewFormError(
-        'CHANGES_REQUESTED',
-        '표지를 고쳐 주세요.',
-      ),
-    ).toBe('보완 요청은 재제출 기한을 정해 주세요.');
-  });
-
-  it('사유와 재제출 기한을 함께 채운 보완 요청은 저장할 수 있다', () => {
-    expect(
-      milestoneDocumentReviewFormError(
-        'CHANGES_REQUESTED',
-        '표지를 고쳐 주세요.',
-        '2026-09-26T18:00',
-        Date.parse('2026-09-20T00:00:00.000Z'),
-      ),
-    ).toBeNull();
-  });
-
-  it('사유와 기한이 둘 다 비면 사유를 먼저 말한다', () => {
-    expect(milestoneDocumentReviewFormError('CHANGES_REQUESTED', '')).toBe(
-      '보완 요청과 반려는 사유를 입력해 주세요.',
-    );
-  });
-
-  it('한도를 넘긴 사유는 막는다', () => {
-    const tooLong = 'ㄱ'.repeat(
-      MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH + 1,
-    );
-    expect(milestoneDocumentReviewFormError('APPROVED', tooLong)).toBe(
-      '사유는 2,000자까지 쓸 수 있습니다.',
-    );
-    expect(
-      milestoneDocumentReviewFormError(
-        'APPROVED',
-        'ㄱ'.repeat(MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH),
-      ),
-    ).toBeNull();
-  });
+  it.each(['APPROVED', 'CHANGES_REQUESTED', 'REJECTED'] as const)(
+    '%s accepts no reason or deadline while enforcing the comment limit',
+    (decision) => {
+      expect(milestoneDocumentReviewFormError(decision, '')).toBeNull();
+      expect(milestoneDocumentReviewFormError(decision, '  \n\t')).toBeNull();
+      expect(
+        milestoneDocumentReviewFormError(decision, 'x'.repeat(2000)),
+      ).toBeNull();
+      expect(
+        milestoneDocumentReviewFormError(decision, 'x'.repeat(2001)),
+      ).not.toBeNull();
+    },
+  );
 });
 
 describe('milestoneDocumentReviewCommentPayload', () => {
@@ -719,7 +415,6 @@ describe('nextMilestoneDocumentReviewState', () => {
       version,
       decision: null,
       comment: '',
-      resubmissionDueAt: '',
       isSubmitting: false,
       errorMessage: null,
       history: [],
@@ -782,121 +477,5 @@ describe('isSameMilestoneDocumentReviewTarget', () => {
         { applicationId: 'a2', documentId: 'd1' },
       ),
     ).toBe(false);
-  });
-});
-
-describe('재제출 기한을 서울 시각으로 읽는다', () => {
-  const originalTimeZone = process.env.TZ;
-
-  afterEach(() => {
-    if (originalTimeZone === undefined) delete process.env.TZ;
-    else process.env.TZ = originalTimeZone;
-  });
-
-  it('UTC 브라우저가 고른 18:00도 서울 18:00으로 보낸다', () => {
-    process.env.TZ = 'UTC';
-
-    expect(
-      milestoneDocumentResubmissionDueAtPayload(
-        'CHANGES_REQUESTED',
-        '2026-09-26T18:00',
-      ),
-    ).toBe('2026-09-26T09:00:00.000Z');
-  });
-
-  it('서울에서 12시간 앞선 곳에서도 같은 값을 보낸다', () => {
-    process.env.TZ = 'Pacific/Auckland';
-
-    expect(
-      milestoneDocumentResubmissionDueAtPayload(
-        'CHANGES_REQUESTED',
-        '2026-09-26T18:00',
-      ),
-    ).toBe('2026-09-26T09:00:00.000Z');
-  });
-
-  it('검사도 같은 규칙으로 읽어 지난 시각을 그 자리에서 막는다', () => {
-    process.env.TZ = 'UTC';
-
-    const now = Date.parse('2026-09-26T09:30:00.000Z');
-
-    expect(
-      milestoneDocumentResubmissionDueAtError(
-        'CHANGES_REQUESTED',
-        '2026-09-26T18:00',
-        now,
-      ),
-    ).toBe('재제출 기한은 지금보다 뒤여야 합니다.');
-  });
-});
-
-describe('milestoneDocumentResubmissionDueTickDelay', () => {
-  const dueAt = '2026-09-26T09:00:00.000Z';
-
-  function awaitingResubmission(
-    resubmissionDueAt: string | null,
-  ): MilestoneDocumentViewerSubmission {
-    return viewer({
-      status: 'CHANGES_REQUESTED',
-      review: {
-        comment: '3쪽 서명이 빠졌습니다.',
-        reviewedAt: '2026-09-20T00:00:00.000Z',
-        resubmissionDueAt,
-      },
-    });
-  }
-
-  it('기한이 지나는 순간 다음 1밀리초를 겨냥한다', () => {
-    const now = Date.parse('2026-09-26T08:59:59.000Z');
-
-    expect(
-      milestoneDocumentResubmissionDueTickDelay(
-        awaitingResubmission(dueAt),
-        now,
-      ),
-    ).toBe(1001);
-  });
-
-  it('이미 지난 기한·기한 없는 옛 보완 요청에는 타이머를 걸지 않는다', () => {
-    const afterDue = Date.parse('2026-09-26T09:00:00.001Z');
-
-    expect(
-      milestoneDocumentResubmissionDueTickDelay(
-        awaitingResubmission(dueAt),
-        afterDue,
-      ),
-    ).toBeNull();
-    expect(
-      milestoneDocumentResubmissionDueTickDelay(
-        awaitingResubmission(null),
-        afterDue,
-      ),
-    ).toBeNull();
-  });
-
-  it('보완 요청을 기다리는 자리가 아니면 타이머를 걸지 않는다', () => {
-    const now = Date.parse('2026-09-26T08:00:00.000Z');
-
-    for (const status of ['SUBMITTED', 'APPROVED', 'REJECTED'] as const) {
-      expect(
-        milestoneDocumentResubmissionDueTickDelay(viewer({ status }), now),
-      ).toBeNull();
-    }
-  });
-
-  it('setTimeout이 감당하는 최대치를 넘지 않는다', () => {
-    const now = Date.parse('2026-09-26T09:00:00.000Z');
-    const farFuture = viewer({
-      status: 'CHANGES_REQUESTED',
-      review: {
-        comment: '3쪽 서명이 빠졌습니다.',
-        reviewedAt: '2026-09-20T00:00:00.000Z',
-        resubmissionDueAt: '2027-09-26T09:00:00.000Z',
-      },
-    });
-
-    expect(milestoneDocumentResubmissionDueTickDelay(farFuture, now)).toBe(
-      2_147_483_647,
-    );
   });
 });

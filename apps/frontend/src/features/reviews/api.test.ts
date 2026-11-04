@@ -1,102 +1,153 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-
 import { apiPath } from '@/lib/api-client';
-
 import { createReview, getReviewContext, publishRepository } from './api';
 import { publishRepository as publishRepositoryDirect } from '@/lib/repository-publication';
+import type { ReviewContext } from './types';
 
-afterEach(() => {
-  vi.unstubAllGlobals();
-});
+const context: ReviewContext = {
+  requirementId: 'requirement-text',
+  submissionId: 'submission-existing',
+  application: {
+    id: 'application-personal',
+    applicationMode: 'PERSONAL',
+    displayName: '합성 신청자',
+  },
+  milestone: { id: 'milestone-final', name: '최종 제출' },
+  currentRevision: {
+    number: 2,
+    content: { type: 'TEXT', text: '활동 내용' },
+    comment: null,
+    submittedAt: '2026-09-27T01:00:00Z',
+    files: [],
+    review: {
+      id: 'previous-review',
+      decision: 'APPROVED',
+      comment: null,
+      reviewedAt: '2026-09-28T00:00:00Z',
+    },
+  },
+  history: [],
+  repository: null,
+};
+const document = {
+  id: context.requirementId,
+  milestoneId: context.milestone.id,
+  name: '활동 내용',
+  required: true,
+  submissionType: 'TEXT',
+  sortOrder: 0,
+  hasTemplateFile: false,
+  templateFileName: null,
+};
+const fileUpload = {
+  maxBytes: 5242880,
+  maxLabel: '5 MB',
+  accept: '.pdf,.hwp,.zip',
+  formatLabel: 'PDF, HWP, ZIP',
+};
+function json(body: unknown) {
+  return new Response(JSON.stringify(body), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
+afterEach(() => vi.unstubAllGlobals());
 
 describe('reviews api', () => {
-  it('submission id로 검토 문맥을 조회한다', async () => {
-    const response = {
-      submissionId: 'submission-existing',
-      application: {
-        id: 'application-personal',
-        applicationMode: 'PERSONAL',
-        displayName: '합성 신청자',
-      },
-      milestone: { id: 'milestone-final', name: '최종 제출' },
-      currentRevision: {
-        number: 2,
-        content: { repositoryUrl: 'https://example.com/repository' },
-        comment: '수정했습니다.',
-        submittedAt: '2026-09-27T01:00:00.000Z',
-        review: null,
-      },
-      history: [],
-      repository: null,
-    };
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(response), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+  it.each(['submission-existing', 'submission/one'])(
+    'resolves an existing review link %s to its typed requirement',
+    async (submissionId) => {
+      const wireContext = {
+        submissionId: context.submissionId,
+        application: context.application,
+        milestone: context.milestone,
+        currentRevision: context.currentRevision,
+        history: context.history,
+        repository: context.repository,
+      };
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(json(wireContext))
+        .mockResolvedValueOnce(
+          json({
+            documents: [
+              {
+                ...document,
+                id: 'other-document',
+                submissionType: 'FILE_OR_TEXT',
+              },
+              document,
+            ],
+            fileUpload,
+          }),
+        );
+      vi.stubGlobal('fetch', fetchMock);
+      await expect(getReviewContext(submissionId)).resolves.toEqual(context);
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
+        apiPath(
+          'submissions/' + encodeURIComponent(submissionId) + '/review-context',
+        ),
+        undefined,
+      );
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        2,
+        apiPath('milestones/milestone-final/documents?scope=all'),
+        undefined,
+      );
+    },
+  );
+  it.each([
+    { documents: [] },
+    { documents: [document, { ...document, id: 'ambiguous' }] },
+  ])(
+    'does not guess a missing or ambiguous requirement',
+    async ({ documents }) => {
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(json(context))
+        .mockResolvedValueOnce(json({ documents, fileUpload }));
+      vi.stubGlobal('fetch', fetchMock);
+      await expect(getReviewContext(context.submissionId)).rejects.toThrow(
+        TypeError,
+      );
+    },
+  );
+  it('sends a reasonless rejection with the observed revision and latest review to the requirement endpoint', async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValue(
+        json({
+          id: 'review-new',
+          decision: 'REJECTED',
+          comment: null,
+          reviewedAt: '2026-09-29T00:00:00Z',
+          resubmissionDueAt: null,
+          reviewerNickname: 'synthetic-staff',
+        }),
+      );
     vi.stubGlobal('fetch', fetchMock);
-
-    const result = await getReviewContext('submission-existing');
-
-    expect(result).toEqual(response);
-    expect(fetchMock).toHaveBeenCalledWith(
-      apiPath('submissions/submission-existing/review-context'),
-      undefined,
-    );
-  });
-
-  it('현재 revision과 판정을 함께 저장한다', async () => {
-    const response = {
-      reviewId: 'review-synthetic',
-      submissionStatus: 'CHANGES_REQUESTED',
-    };
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify(response), {
-        status: 201,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    const result = await createReview('submission-existing', {
-      revision: 2,
-      decision: 'CHANGES_REQUESTED',
-      comment: '실행 화면을 추가해 주세요.',
+    await expect(
+      createReview(context, { revision: 2, decision: 'REJECTED' }),
+    ).resolves.toEqual({
+      reviewId: 'review-new',
+      submissionStatus: 'REJECTED',
     });
-
-    expect(result).toEqual(response);
     expect(fetchMock).toHaveBeenCalledWith(
-      apiPath('submissions/submission-existing/reviews'),
+      apiPath(
+        'milestones/milestone-final/documents/requirement-text/applications/application-personal/reviews',
+      ),
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          revision: 2,
-          decision: 'CHANGES_REQUESTED',
-          comment: '실행 화면을 추가해 주세요.',
+          decision: 'REJECTED',
+          expectedRevision: 2,
+          expectedLatestReviewId: 'previous-review',
         }),
       },
     );
   });
-
-  it('slash가 포함된 submission id를 경로 세그먼트로 인코딩한다', async () => {
-    const fetchMock = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({}), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', fetchMock);
-
-    await getReviewContext('submission/one');
-
-    expect(fetchMock).toHaveBeenCalledWith(
-      apiPath('submissions/submission%2Fone/review-context'),
-      undefined,
-    );
-  });
-
   it('repository id로 별도 공개 전환을 요청한다', async () => {
     const response = {
       repositoryId: 'repository-ready',

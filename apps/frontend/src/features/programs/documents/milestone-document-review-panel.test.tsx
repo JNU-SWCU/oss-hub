@@ -64,7 +64,6 @@ function render(
       fileHref={null}
       decision={null}
       comment=""
-      resubmissionDueAt=""
       isSubmitting={false}
       errorMessage={null}
       history={overrides.history ?? []}
@@ -75,7 +74,6 @@ function render(
       onHistoryMore={() => {}}
       onDecisionChange={() => {}}
       onCommentChange={() => {}}
-      onResubmissionDueAtChange={() => {}}
       onSubmit={() => {}}
       onClose={() => {}}
       {...overrides}
@@ -469,13 +467,11 @@ describe('판정 입력', () => {
     }
   });
 
-  it('사유가 학생에게 보인다는 것과 언제 필수인지를 미리 적는다', () => {
+  it('사유가 학생에게 보인다는 것과 선택 입력임을 미리 적는다', () => {
     const html = render();
 
     expect(html).toContain('학생에게 그대로 보입니다');
-    expect(html).toContain(
-      '보완 요청·반려는 사유를 적어야 저장됩니다. 승인은 안 적어도 됩니다.',
-    );
+    expect(html).toContain('모든 판정은 사유 없이 저장할 수 있습니다.');
   });
 
   it('사유 입력 칸에 백엔드와 같은 길이 한도를 건다', () => {

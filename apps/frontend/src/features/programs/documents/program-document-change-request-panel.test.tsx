@@ -124,7 +124,6 @@ async function type(selector: string, value: string) {
 
 async function fillReason() {
   await type('textarea', '양식을 바꿔 다시 내 주세요.');
-  await type('input[type="datetime-local"]', '2099-06-30T23:59');
 }
 
 it('범위 안 제출 수를 상태별로 보여 주고 이미 끝난 판정은 체크해야 더한다', async () => {
@@ -151,22 +150,26 @@ it('범위 안 제출 수를 상태별로 보여 주고 이미 끝난 판정은 
   expect(getProgramDocumentChangeRequestTargets).toHaveBeenCalledTimes(1);
 });
 
-it('사유가 없으면 보내지 않고 사유 칸에 오류를 보이며, 취소하면 입력을 버린다', async () => {
+it('sends a bulk request without a reason or deadline', async () => {
   await open();
-  await type('input[type="datetime-local"]', '2099-06-30T23:59');
+  expect(document.querySelector('input[type="datetime-local"]')).toBeNull();
   await act(async () => inDialog('3건 보완 요청 보내기').click());
+  expect(createProgramDocumentChangeRequest).toHaveBeenCalledWith('program-1', {
+    scope: { kind: 'PROGRAM' },
+    includeFinalDecisions: false,
+    comment: undefined,
+    expectedVersion: 'a'.repeat(64),
+  });
+  expect(dialog()?.textContent).toContain('제출 3건에 보완 요청을 보냈습니다.');
+});
 
-  expect(dialog()?.textContent).toContain('보완 요청 사유를 입력해 주세요.');
-  expect(document.activeElement).toBe(document.querySelector('textarea'));
-  expect(createProgramDocumentChangeRequest).not.toHaveBeenCalled();
-
+it('cancelling discards the optional reason without sending', async () => {
+  await open();
+  await type('textarea', '작성 중인 사유');
   await act(async () => inDialog('취소').click());
   expect(dialog()).toBeNull();
   await open();
-  expect(
-    document.querySelector<HTMLInputElement>('input[type="datetime-local"]')
-      ?.value,
-  ).toBe('');
+  expect(document.querySelector('textarea')?.value).toBe('');
   expect(createProgramDocumentChangeRequest).not.toHaveBeenCalled();
 });
 
@@ -179,7 +182,6 @@ it('보내면 확인한 건수와 함께 보내고 표를 다시 부르며 닫�
     scope: { kind: 'PROGRAM' },
     includeFinalDecisions: false,
     comment: '양식을 바꿔 다시 내 주세요.',
-    resubmissionDueAt: '2099-06-30T14:59:00.000Z',
     expectedVersion: 'a'.repeat(64),
   });
   expect(onSent).toHaveBeenCalledTimes(1);

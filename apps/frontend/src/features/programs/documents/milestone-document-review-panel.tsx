@@ -4,7 +4,6 @@ import { FilterChip, FilterChipGroup, StatusBadge } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Field, FieldDescription, FieldLabel } from '@/components/ui/field';
-import { Input } from '@/components/ui/input';
 import { cn } from '@/lib/utils';
 import type {
   MilestoneDocumentCollectionCell,
@@ -36,14 +35,12 @@ export interface MilestoneDocumentReviewPanelProps {
   readonly decision: MilestoneDocumentReviewDecision | null;
   readonly comment: string;
 
-  readonly resubmissionDueAt: string;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
   readonly onDecisionChange: (
     decision: MilestoneDocumentReviewDecision,
   ) => void;
   readonly onCommentChange: (comment: string) => void;
-  readonly onResubmissionDueAtChange: (resubmissionDueAt: string) => void;
   readonly onSubmit: () => void;
   readonly onClose: () => void;
   readonly history: readonly MilestoneDocumentCollectionHistory[];
@@ -131,17 +128,6 @@ function PreviousReview({
         {review.comment ?? '사유 없이 저장되었습니다.'}
       </p>
 
-      {review.decision !== 'CHANGES_REQUESTED' ? null : (
-        <p
-          data-testid="milestone-document-previous-review-due-at"
-          className="text-small text-muted-foreground break-keep"
-        >
-          재제출 기한{' '}
-          {review.resubmissionDueAt === null
-            ? '없음 (이 기능이 생기기 전에 저장된 보완 요청입니다)'
-            : `${formatSeoulDate(review.resubmissionDueAt)}까지`}
-        </p>
-      )}
       <p className="text-small text-muted-foreground break-keep">
         새 검토를 저장해도 이전 검토 기록은 남습니다.
       </p>
@@ -155,7 +141,6 @@ export function MilestoneDocumentReviewPanel(
   const { cell } = props;
   const display = milestoneDocumentCellDisplay(cell);
   const commentId = 'milestone-document-review-comment';
-  const resubmissionDueAtId = 'milestone-document-review-resubmission-due-at';
 
   return (
     <div
@@ -263,7 +248,7 @@ export function MilestoneDocumentReviewPanel(
       </FilterChipGroup>
 
       <Field>
-        <FieldLabel htmlFor={commentId}>사유</FieldLabel>
+        <FieldLabel htmlFor={commentId}>사유 (선택)</FieldLabel>
         <textarea
           id={commentId}
           value={props.comment}
@@ -283,32 +268,10 @@ export function MilestoneDocumentReviewPanel(
         </FieldDescription>
       </Field>
 
-      {props.decision === 'CHANGES_REQUESTED' ? (
-        <Field>
-          <FieldLabel htmlFor={resubmissionDueAtId}>재제출 기한</FieldLabel>
-          <Input
-            id={resubmissionDueAtId}
-            type="datetime-local"
-            value={props.resubmissionDueAt}
-            disabled={props.isSubmitting}
-            aria-describedby={`${resubmissionDueAtId}-description`}
-            onChange={(event) =>
-              props.onResubmissionDueAtChange(event.target.value)
-            }
-          />
-          <FieldDescription id={`${resubmissionDueAtId}-description`}>
-            이 날짜는 검토 요청에 함께 보내는 호환 입력입니다. 서버 정책에 따라
-            적용 여부가 달라집니다. 날짜만으로 재제출 가능 여부를 판단하지 말고
-            학생의 제출 화면에서 확인해 주세요.
-          </FieldDescription>
-        </Field>
-      ) : null}
-
       <p className="text-small text-muted-foreground break-keep">
-        보완 요청·반려는 사유를 적어야 저장됩니다. 승인은 안 적어도 됩니다. 보완
-        요청은 재제출 기한도 함께 정해야 합니다.
+        모든 판정은 사유 없이 저장할 수 있습니다. 보완 요청에는 별도 재제출
+        기한이 없습니다.
       </p>
-
       {props.errorMessage === null ? null : (
         <Alert variant="destructive">
           <AlertDescription className="break-keep [overflow-wrap:anywhere]">
@@ -316,7 +279,6 @@ export function MilestoneDocumentReviewPanel(
           </AlertDescription>
         </Alert>
       )}
-
       <div className="flex flex-wrap justify-between gap-3">
         <Button
           type="button"

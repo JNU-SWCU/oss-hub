@@ -59,7 +59,6 @@ const cases: readonly {
     render: (onCancel, onConfirm) => (
       <MilestoneDocumentResubmissionDialog
         documentName="합성 결과 보고서"
-        resubmissionDueAt="2027-06-30T14:59:59.000Z"
         submitting={false}
         onCancel={onCancel}
         onConfirm={onConfirm}

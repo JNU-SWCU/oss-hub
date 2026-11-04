@@ -794,7 +794,7 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
     expect(html.match(/새 피드백 1건/g)).toHaveLength(2);
   });
 
-  it('행은 서류 화면 링크·판정·80자 의견·검토일·열린 보완 요청의 재제출 기한을 보인다', () => {
+  it('행은 서류 화면 링크·판정·80자 의견·검토일을 보이고 별도 기한은 표시하지 않는다', () => {
     const html = withFeedback(
       [first],
       [dashboardFeedback(first, 'a', { comment: '가'.repeat(81) })],
@@ -806,8 +806,8 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
     expect(html).toMatch(/data-variant="pending"[^>]*>보완 요청</);
     expect(html).toContain(`${'가'.repeat(80)}…`);
     expect(html).not.toContain('가'.repeat(81));
-    expect(html).toContain('>7월 22일</time> 검토 · <span');
-    expect(html).toContain('text-status-pending-fg">재제출 기한 D-3<');
+    expect(html).toContain('>7월 22일</time> 검토');
+    expect(html).not.toContain('재제출 기한');
     expect(
       withFeedback(
         [first],
@@ -822,7 +822,7 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
     ).not.toContain('재제출 기한');
   });
 
-  it('재제출 기한이 지났으면 D+n 대신 며칠 지났는지를 반려 색으로 보인다', () => {
+  it('이전 보완 기한이 지나도 만료 안내를 표시하지 않는다', () => {
     const passed = withFeedback(
       [first],
       [
@@ -840,9 +840,12 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
       ],
     );
 
-    expect(passed).toContain('text-status-rejected-fg">재제출 기한 2일 지남<');
-    expect(passedToday).toContain('text-status-rejected-fg">재제출 기한 지남<');
-    expect(passed + passedToday).not.toContain('재제출 기한 D+');
+    expect(passed + passedToday).not.toContain('재제출 기한');
+    const noReason = withFeedback(
+      [first],
+      [dashboardFeedback(first, 'a', { comment: null })],
+    );
+    expect(noReason).toContain('사유 없이 저장되었습니다.');
   });
 
   it('항목 이름이 마일스톤 이름과 같으면 한 번만 보인다', () => {

@@ -197,7 +197,7 @@ describe('document grace submission gate', () => {
       ).toBe('held');
     },
   );
-  it('보완 기한이 지났으면 유예로 열지 않는다', () => {
+  it('이전 재제출 기한은 무시하고 아직 응하지 않은 보완 요청은 연다', () => {
     const viewerSubmission = {
       ...submission('CHANGES_REQUESTED'),
       review: {
@@ -214,7 +214,7 @@ describe('document grace submission gate', () => {
         graceDueAt,
         now,
       }).kind,
-    ).toBe('held');
+    ).toBe('open');
   });
   it('보완에 응한 제출은 유예로 다시 열지 않는다', () => {
     const viewerSubmission = {

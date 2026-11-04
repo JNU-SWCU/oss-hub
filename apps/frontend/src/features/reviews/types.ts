@@ -49,6 +49,7 @@ export interface SubmissionRevision {
 export type ReviewRepository = RepositoryPublication;
 
 export interface ReviewContext {
+  readonly requirementId: string;
   readonly submissionId: string;
   readonly application: {
     readonly id: string;

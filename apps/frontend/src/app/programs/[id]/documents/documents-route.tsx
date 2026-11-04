@@ -5,7 +5,7 @@ import { invalidateProgram } from '@/features/programs/catalog/queries';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { hasStaffAudience } from '../../../_shell/member-access';
 import { PageBody } from '@/components/page-body';
-import { SubmissionChecklistPage } from '@/features/submissions/submission-checklist-page';
+import { RequirementChecklistPage } from '../requirement-checklist';
 import { SubmissionMatrixScreen } from '@/features/submissions/components/submission-matrix-screen';
 import { programDocumentsHref } from '@/lib/program-route';
 import { useSharedSessionRole } from '../../../_shell/session-role-context';
@@ -69,7 +69,7 @@ export function DocumentsRoute({ programId }: { readonly programId: string }) {
 
   return (
     <PageBody>
-      <SubmissionChecklistPage
+      <RequirementChecklistPage
         programId={programId}
         milestoneId={selectedMilestoneId}
         onCloseSelected={() => {

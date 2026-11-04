@@ -20,10 +20,11 @@ export function useMilestoneDocumentsQuery(
   programId: string,
   milestoneId: string,
   enabled: boolean,
+  scope?: 'all',
 ) {
   return useQuery({
-    queryKey: milestoneDocumentsKey(programId, milestoneId),
-    queryFn: () => listMilestoneDocuments(milestoneId),
+    queryKey: milestoneDocumentsKey(programId, milestoneId, scope),
+    queryFn: () => listMilestoneDocuments(milestoneId, scope),
     enabled,
   });
 }

@@ -90,9 +90,9 @@ export function MilestoneDocumentHistoryTimeline({
                   {item.content.text}
                 </p>
               )}
-              {item.comment === null ? null : (
+              {item.comment === null && !isReview(item) ? null : (
                 <p className="text-small break-keep whitespace-pre-wrap">
-                  {item.comment}
+                  {item.comment ?? '사유 없이 저장되었습니다.'}
                 </p>
               )}
               {isReview(item) && item.revision === null ? (

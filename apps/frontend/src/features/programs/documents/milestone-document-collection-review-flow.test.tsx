@@ -128,10 +128,6 @@ function collection(
   };
 }
 
-const dueAtInput = '2027-06-30T18:00';
-
-const dueAtSentToServer = '2027-06-30T09:00:00.000Z';
-
 describe('수합 표에서 판정하기', () => {
   let container: HTMLDivElement;
   let root: Root;
@@ -221,19 +217,6 @@ describe('수합 표에서 판정하기', () => {
     );
     descriptor?.set?.call(textarea, value);
     textarea.dispatchEvent(new window.Event('input', { bubbles: true }));
-  }
-
-  function typeResubmissionDueAt(value: string) {
-    const input = container.querySelector('input[type="datetime-local"]');
-    if (input === null) {
-      throw new TypeError('재제출 기한 칸을 찾지 못했습니다.');
-    }
-    const descriptor = Object.getOwnPropertyDescriptor(
-      window.HTMLInputElement.prototype,
-      'value',
-    );
-    descriptor?.set?.call(input, value);
-    input.dispatchEvent(new window.Event('input', { bubbles: true }));
   }
 
   async function openPanelForGaTeam() {
@@ -334,19 +317,26 @@ describe('수합 표에서 판정하기', () => {
     ).toBe(true);
   });
 
-  it('보완 요청에 사유가 없으면 보내지 않고 그 자리에서 막는다', async () => {
-    await openPanelForGaTeam();
-
-    await click(byText('보완 요청'));
-    await click(byText('저장'));
-
-    expect(createMilestoneDocumentReviewMock).not.toHaveBeenCalled();
-    expect(panel()?.textContent).toContain(
-      '보완 요청과 반려는 사유를 입력해 주세요.',
-    );
-
-    expect(panel()?.textContent).toContain('가팀 — 기획서');
-  });
+  it.each(['CHANGES_REQUESTED', 'REJECTED'] as const)(
+    '%s can be saved without a reason or expiry',
+    async (decision) => {
+      await openPanelForGaTeam();
+      await click(byText(decision === 'REJECTED' ? '반려' : '보완 요청'));
+      await click(byText('저장'));
+      expect(createMilestoneDocumentReviewMock).toHaveBeenCalledWith(
+        'milestone-1',
+        'd1',
+        'a',
+        {
+          decision,
+          comment: undefined,
+          expectedRevision: 1,
+          expectedLatestReviewId: null,
+        },
+      );
+      expect(panel()).toBeNull();
+    },
+  );
 
   it('판정을 고르지 않고 저장하면 고르라고 말한다', async () => {
     await openPanelForGaTeam();
@@ -446,8 +436,6 @@ describe('수합 표에서 판정하기', () => {
     await click(byText('보완 요청'));
     await act(async () => {
       typeComment('  표지를 고쳐 주세요.  ');
-
-      typeResubmissionDueAt(dueAtInput);
     });
     await click(byText('저장'));
 
@@ -458,26 +446,9 @@ describe('수합 표에서 판정하기', () => {
       {
         decision: 'CHANGES_REQUESTED',
         comment: '표지를 고쳐 주세요.',
-
-        resubmissionDueAt: dueAtSentToServer,
         expectedRevision: 1,
         expectedLatestReviewId: null,
       },
-    );
-  });
-
-  it('재제출 기한 없는 보완 요청은 보내지 않고 무엇이 빠졌는지 말한다', async () => {
-    await openPanelForGaTeam();
-
-    await click(byText('보완 요청'));
-    await act(async () => {
-      typeComment('표지를 고쳐 주세요.');
-    });
-    await click(byText('저장'));
-
-    expect(createMilestoneDocumentReviewMock).not.toHaveBeenCalled();
-    expect(container.textContent).toContain(
-      '보완 요청은 재제출 기한을 정해 주세요.',
     );
   });
 

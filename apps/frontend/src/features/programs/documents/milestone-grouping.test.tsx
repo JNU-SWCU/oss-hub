@@ -86,6 +86,7 @@ function documentOf(milestoneId: string): MilestoneDocument {
     name: `${milestoneId} 서류`,
     required: true,
     sortOrder: 0,
+    submissionType: 'FILE_OR_TEXT' as const,
     hasTemplateFile: false,
     templateFileName: null,
   };

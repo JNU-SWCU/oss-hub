@@ -35,7 +35,7 @@ export function ReviewSubmission(props: ReviewSubmissionProps) {
       {props.needsLatestRevision && !props.refreshError ? (
         <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="text-small text-muted-foreground">
-            새 제출본이 도착했습니다.
+            제출본 또는 검토 결과가 변경되었습니다.
           </p>
           <Button
             type="button"
