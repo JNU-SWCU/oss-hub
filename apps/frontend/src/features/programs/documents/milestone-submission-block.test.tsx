@@ -62,6 +62,7 @@ function documentOf(
     name: '학습 회고',
     required: true,
     sortOrder: 0,
+    submissionType: 'FILE_OR_TEXT' as const,
     hasTemplateFile: false,
     templateFileName: null,
     viewerSubmission,

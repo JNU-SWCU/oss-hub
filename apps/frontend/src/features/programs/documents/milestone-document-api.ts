@@ -18,9 +18,12 @@ function documentPath(milestoneId: string, documentId: string): string {
 
 export async function listMilestoneDocuments(
   milestoneId: string,
+  scope?: 'all',
 ): Promise<MilestoneDocumentList> {
   return requireMilestoneDocumentList(
-    await apiClient<unknown>(documentsPath(milestoneId)),
+    await apiClient<unknown>(
+      `${documentsPath(milestoneId)}${scope === 'all' ? '?scope=all' : ''}`,
+    ),
   );
 }
 
@@ -76,12 +79,13 @@ export function submitMilestoneDocument(
   milestoneId: string,
   documentId: string,
   content: MilestoneDocumentSubmissionContent,
+  options: { readonly expectedRevision: number; readonly comment?: string },
 ): Promise<MilestoneDocumentSubmission> {
   return apiClient<MilestoneDocumentSubmission>(
     `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/submissions`,
     {
       method: 'POST',
-      body: JSON.stringify({ content }),
+      body: JSON.stringify({ content, ...options }),
     },
   );
 }

@@ -14,6 +14,11 @@ export function featureKey(feature: string, ...parameters: readonly unknown[]) {
   return [feature, ...parameters] as const;
 }
 
-export function milestoneDocumentsKey(programId: string, milestoneId: string) {
-  return programFeatureKey(programId, 'documents', milestoneId);
+export function milestoneDocumentsKey(
+  programId: string,
+  milestoneId: string,
+  scope?: 'all',
+) {
+  const key = programFeatureKey(programId, 'documents', milestoneId);
+  return scope === 'all' ? ([...key, 'all'] as const) : key;
 }

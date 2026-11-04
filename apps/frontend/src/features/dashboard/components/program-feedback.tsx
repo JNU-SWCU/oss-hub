@@ -11,53 +11,22 @@ import {
   SUBMISSION_STATUS_LABELS,
 } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
-import {
-  dashboardDeadlineDays,
-  formatDashboardDate,
-  formatDashboardDeadline,
-} from '../deadline';
+import { formatDashboardDate } from '../deadline';
 import type { DashboardFeedbackItem } from '../types';
 
 const VISIBLE_FEEDBACK_ROWS = 3;
 const COMMENT_PREVIEW_LENGTH = 80;
 
-function commentPreview(comment: string | null): string | null {
+function commentPreview(comment: string | null): string {
   const characters = Array.from((comment ?? '').replace(/\s+/g, ' ').trim());
-  if (characters.length === 0) return null;
+  if (characters.length === 0) return '사유 없이 저장되었습니다.';
   return characters.length > COMMENT_PREVIEW_LENGTH
     ? `${characters.slice(0, COMMENT_PREVIEW_LENGTH).join('')}…`
     : characters.join('');
 }
 
-function resubmissionDeadline(dueAt: string, now: Date) {
-  if (now.getTime() <= Date.parse(dueAt)) {
-    return {
-      label: `재제출 기한 ${formatDashboardDeadline(dueAt, now)}`,
-      tone: 'text-status-pending-fg',
-    };
-  }
-  const days = -dashboardDeadlineDays(dueAt, now);
-  return {
-    label: days > 0 ? `재제출 기한 ${days}일 지남` : '재제출 기한 지남',
-    tone: 'text-status-rejected-fg',
-  };
-}
-
-function FeedbackRow({
-  item,
-  now,
-}: {
-  readonly item: DashboardFeedbackItem;
-  readonly now: Date;
-}) {
+function FeedbackRow({ item }: { readonly item: DashboardFeedbackItem }) {
   const preview = commentPreview(item.comment);
-  const resubmissionDueAt =
-    item.decision === 'CHANGES_REQUESTED' ? item.resubmissionDueAt : null;
-  const resubmission =
-    resubmissionDueAt === null
-      ? null
-      : resubmissionDeadline(resubmissionDueAt, now);
-
   return (
     <li
       className={cn(
@@ -87,14 +56,6 @@ function FeedbackRow({
           {formatDashboardDate(item.reviewedAt)}
         </time>
         {' 검토'}
-        {resubmission ? (
-          <>
-            {' · '}
-            <span className={cn('font-semibold', resubmission.tone)}>
-              {resubmission.label}
-            </span>
-          </>
-        ) : null}
       </span>
     </li>
   );
@@ -102,11 +63,9 @@ function FeedbackRow({
 
 export function ProgramFeedback({
   items,
-  now,
   className,
 }: {
   readonly items: readonly DashboardFeedbackItem[];
-  readonly now: Date;
   readonly className: string;
 }) {
   const id = useId();
@@ -131,7 +90,7 @@ export function ProgramFeedback({
         className="flex flex-col gap-2"
       >
         {visibleItems.map((item) => (
-          <FeedbackRow key={item.id} item={item} now={now} />
+          <FeedbackRow key={item.id} item={item} />
         ))}
       </ul>
       {foldedCount > 0 ? (

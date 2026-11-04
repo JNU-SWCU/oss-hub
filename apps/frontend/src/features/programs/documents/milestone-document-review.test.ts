@@ -192,149 +192,38 @@ describe('isMilestoneDocumentResubmittable', () => {
 });
 
 describe('isMilestoneDocumentDeadlineLocked', () => {
-  it('마감 전에는 아무것도 잠그지 않는다', () => {
-    for (const status of [
-      null,
-      'SUBMITTED',
-      'APPROVED',
-      'CHANGES_REQUESTED',
-      'REJECTED',
-    ] as const) {
-      expect(isMilestoneDocumentDeadlineLocked(false, viewer({ status }))).toBe(
-        false,
-      );
-    }
-    expect(isMilestoneDocumentDeadlineLocked(false, undefined)).toBe(false);
-  });
-
-  it('마감 뒤에도 보완 요청은 지나간다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        viewer({ status: 'CHANGES_REQUESTED' }),
-      ),
-    ).toBe(false);
-  });
-
-  it('마감 뒤 나머지 상태는 그대로 잠근다', () => {
-    for (const status of [null, 'SUBMITTED', 'APPROVED', 'REJECTED'] as const) {
-      expect(isMilestoneDocumentDeadlineLocked(true, viewer({ status }))).toBe(
-        true,
-      );
-    }
-    expect(isMilestoneDocumentDeadlineLocked(true, undefined)).toBe(true);
-  });
-
-  it('마감 뒤, 보완 요청에 이미 응한 제출은 잠근 채로 둔다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        viewer({
-          status: 'SUBMITTED',
-          revision: 2,
-          review: {
-            comment: '3쪽 서명이 빠졌습니다.',
-            reviewedAt: '2026-08-02T00:00:00.000Z',
-            resubmissionDueAt: null,
-          },
-        }),
-      ),
-    ).toBe(true);
-  });
-
-  it('마감 전이면 재제출도 잠기지 않는다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        false,
-        viewer({ status: 'SUBMITTED', revision: 2 }),
-      ),
-    ).toBe(false);
-  });
-
   it.each([
-    [false, null, null, true],
-    [false, 'SUBMITTED', 1, true],
-    [false, 'CHANGES_REQUESTED', 1, true],
-    [false, 'SUBMITTED', 2, true],
-    [false, 'APPROVED', 1, false],
-    [false, 'REJECTED', 1, false],
-    [true, null, null, false],
-    [true, 'SUBMITTED', 1, false],
-    [true, 'CHANGES_REQUESTED', 1, true],
-    [true, 'SUBMITTED', 2, false],
-    [true, 'APPROVED', 1, false],
-    [true, 'REJECTED', 1, false],
+    [false, 'SUBMITTED', false],
+    [true, 'SUBMITTED', true],
+    [true, 'APPROVED', true],
+    [true, 'REJECTED', true],
+    [true, 'CHANGES_REQUESTED', false],
   ] as const)(
-    '마감 지남=%s · 상태=%s · 리비전=%s 에서 조작 가능 여부는 %s다',
-    (closed, status, revision, opens) => {
-      const viewerSubmission =
-        status === null
-          ? viewer({ submitted: false, submittedAt: null, status, revision })
-          : viewer({ status, revision });
-
-      const editable =
-        isMilestoneDocumentResubmittable(viewerSubmission) &&
-        !isMilestoneDocumentDeadlineLocked(closed, viewerSubmission);
-
-      expect(editable).toBe(opens);
+    'closed=%s, status=%s preserves the milestone cutoff (%s)',
+    (closed, status, locked) => {
+      expect(
+        isMilestoneDocumentDeadlineLocked(closed, viewer({ status })),
+      ).toBe(locked);
     },
   );
-
-  const dueAt = '2026-09-26T09:00:00.000Z';
-  const beforeDue = Date.parse('2026-09-26T08:59:59.999Z');
-  const afterDue = Date.parse('2026-09-26T09:00:00.001Z');
-  function awaitingResubmission(
-    resubmissionDueAt: string | null,
-  ): MilestoneDocumentViewerSubmission {
-    return viewer({
-      status: 'CHANGES_REQUESTED',
-      review: {
-        comment: '3쪽 서명이 빠졌습니다.',
-        reviewedAt: '2026-09-20T00:00:00.000Z',
-        resubmissionDueAt,
-      },
-    });
-  }
-
-  it('재제출 기한이 남아 있으면 마감 뒤에도 연다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        awaitingResubmission(dueAt),
-        beforeDue,
-      ),
-    ).toBe(false);
-  });
-
-  it('재제출 기한이 지나면 아직 응하지 않은 보완 요청도 잠근다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        awaitingResubmission(dueAt),
-        afterDue,
-      ),
-    ).toBe(true);
-  });
-
-  it('기한이 없는 옛 보완 요청은 앞 규칙대로 연다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        true,
-        awaitingResubmission(null),
-        afterDue,
-      ),
-    ).toBe(false);
-  });
-
-  it('마감 전에는 기한이 지났어도 잠그지 않는다', () => {
-    expect(
-      isMilestoneDocumentDeadlineLocked(
-        false,
-        awaitingResubmission(dueAt),
-        afterDue,
-      ),
-    ).toBe(false);
-  });
+  it.each([null, '2000-01-01T00:00:00Z', '2099-12-31T00:00:00Z'])(
+    'ignores the retired review expiry %s',
+    (resubmissionDueAt) => {
+      expect(
+        isMilestoneDocumentDeadlineLocked(
+          true,
+          viewer({
+            status: 'CHANGES_REQUESTED',
+            review: {
+              comment: null,
+              reviewedAt: '2026-08-01T00:00:00Z',
+              resubmissionDueAt,
+            },
+          }),
+        ),
+      ).toBe(false);
+    },
+  );
 });
 
 describe('isMilestoneDocumentResubmissionFinal', () => {

@@ -78,6 +78,7 @@ describe('프로그램 편집의 초안 적용', () => {
         name,
         required: true,
         sortOrder: index + 1,
+        submissionType: 'FILE_OR_TEXT' as const,
         hasTemplateFile: false,
         templateFileName: null,
       })),

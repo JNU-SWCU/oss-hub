@@ -30,6 +30,7 @@ const documentFixture: MilestoneDocument = {
   name: '계획서',
   required: true,
   sortOrder: 1,
+  submissionType: 'FILE_OR_TEXT' as const,
   hasTemplateFile: true,
   templateFileName: 'plan.pdf',
 };

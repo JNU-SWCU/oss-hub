@@ -9,6 +9,7 @@ const document: MilestoneDocument = {
   name: '기획서',
   required: true,
   sortOrder: 0,
+  submissionType: 'FILE_OR_TEXT' as const,
   hasTemplateFile: false,
   templateFileName: null,
 };
@@ -30,12 +31,14 @@ describe('requireMilestoneDocumentList', () => {
       body([
         {
           ...document,
+          submissionType: 'FILE_OR_TEXT' as const,
           hasTemplateFile: true,
           templateFileName: '운영결과보고서_2026.docx',
         },
         {
           ...document,
           id: 'document-2',
+          submissionType: 'FILE_OR_TEXT' as const,
           hasTemplateFile: false,
           templateFileName: null,
         },
@@ -105,3 +108,15 @@ describe('requireMilestoneDocumentList', () => {
     );
   });
 });
+
+it.each([undefined, null, 'UNKNOWN'])(
+  'rejects an absent or unsupported requirement type %s',
+  (submissionType) => {
+    expect(() =>
+      requireMilestoneDocumentList({
+        documents: [{ ...document, submissionType }],
+        fileUpload: milestoneDocumentUploadPolicy(),
+      }),
+    ).toThrow(TypeError);
+  },
+);

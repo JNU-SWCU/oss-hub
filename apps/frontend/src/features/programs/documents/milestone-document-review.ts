@@ -82,11 +82,8 @@ export function isMilestoneDocumentResubmittable(
 export function isMilestoneDocumentDeadlineLocked(
   closed: boolean,
   viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
-  now: number = Date.now(),
 ): boolean {
-  if (!closed) return false;
-  if (viewerSubmission?.status !== 'CHANGES_REQUESTED') return true;
-  return isMilestoneDocumentResubmissionDueAtPassed(viewerSubmission, now);
+  return closed && viewerSubmission?.status !== 'CHANGES_REQUESTED';
 }
 
 function isMilestoneDocumentResubmissionDueAtPassed(

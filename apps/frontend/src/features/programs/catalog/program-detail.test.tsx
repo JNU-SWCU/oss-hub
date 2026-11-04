@@ -836,6 +836,7 @@ function buildDocument(
     name: '기획서',
     required: true,
     sortOrder: 0,
+    submissionType: 'FILE_OR_TEXT' as const,
     hasTemplateFile: false,
     templateFileName: null,
 
@@ -912,6 +913,7 @@ describe('MilestoneDocumentSectionBody', () => {
           kind: 'ready',
           documents: [
             buildDocument({
+              submissionType: 'FILE_OR_TEXT' as const,
               hasTemplateFile: true,
               templateFileName: null,
 

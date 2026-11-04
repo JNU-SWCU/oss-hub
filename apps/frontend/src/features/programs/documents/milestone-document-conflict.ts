@@ -82,9 +82,9 @@ export function milestoneDocumentReviewConflictNotice(
 export function isMilestoneDocumentSubmitReviewChanged(
   error: unknown,
 ): boolean {
-  return hasProblemCode(
-    error,
-    MILESTONE_DOCUMENT_REVIEW_ERROR_CODES.REVIEW_CHANGED,
+  return (
+    hasProblemCode(error, 'MSD_048') ||
+    hasProblemCode(error, MILESTONE_DOCUMENT_REVIEW_ERROR_CODES.REVIEW_CHANGED)
   );
 }
 
@@ -92,7 +92,7 @@ export function milestoneDocumentSubmitConflictNotice(
   documentName: string,
   result: MilestoneDocumentReloadResult,
 ): string {
-  const lead = `제출하는 사이에 「${documentName}」에 교직원 검토 결과가 등록되어, 방금 제출은 저장되지 않았습니다.`;
+  const lead = `제출하는 사이에 「${documentName}」의 제출본 또는 검토 결과가 바뀌어, 방금 제출은 저장되지 않았습니다.`;
   return result === 'reloaded'
     ? `${lead} 서류 상태를 다시 불러왔습니다 — 검토 내용을 확인한 뒤 진행해 주세요.`
     : `${lead} 서류 상태를 다시 불러오지 못했습니다 — 「다시 시도」로 불러온 뒤 검토 내용을 확인해 주세요.`;
