@@ -383,20 +383,13 @@ describe('Team invitation acceptance transaction races', () => {
     ).resolves.toEqual({ status: TeamInvitationStatus.PENDING });
 
     await expect(
-      invitations.cancelPendingInvitationAsLeader(
-        INVITATION_ID,
-        MEMBER_ID,
-        new Date('2026-09-01T00:00:00.000Z'),
-      ),
+      invitations.cancelPendingInvitationAsLeader(INVITATION_ID, MEMBER_ID),
     ).resolves.toEqual({ kind: 'ok' });
     const cancelled = await prisma.teamInvitation.findUnique({
       where: { id: INVITATION_ID },
       select: { status: true, respondedAt: true },
     });
-    expect(cancelled).toEqual({
-      status: TeamInvitationStatus.DECLINED,
-      respondedAt: new Date('2026-09-01T00:00:00.000Z'),
-    });
+    expect(cancelled).toBeNull();
     await expect(
       prisma.teamHistory.findMany({
         where: { sourceId: INVITATION_ID },
@@ -447,14 +440,8 @@ describe('Team invitation acceptance transaction races', () => {
     const accepted = await prisma.teamHistory.findMany({
       where: { teamId: TEAM_ID, event: 'INVITATION_ACCEPTED' },
     });
-    expect(invitations).toHaveLength(2);
-    expect(
-      invitations.filter(
-        (invitation) => invitation.status === TeamInvitationStatus.ACCEPTED,
-      ),
-    ).toEqual([
-      { inviteeId: joined[0], status: TeamInvitationStatus.ACCEPTED },
-    ]);
+    expect(invitations).toHaveLength(1);
+    expect(invitations[0]?.inviteeId).not.toBe(joined[0]);
     expect(accepted).toHaveLength(1);
     expect(accepted[0]?.data).toMatchObject({
       invitation: { inviteeId: joined[0] },
