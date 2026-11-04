@@ -144,19 +144,11 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(query.strings.join('')).toContain(
       'SELECT count(*) FROM "MilestoneDocumentSubmission"',
     );
-    expect(query.strings.join('')).toContain(
-      "SELECT CONCAT('ApplicationPreparation:', id)",
+    expect(query.strings.join('')).not.toContain('"ApplicationPreparation"');
+    expect(query.strings.join('')).not.toContain(
+      '"ApplicationPreparationParticipant"',
     );
-    expect(query.strings.join('')).toContain(
-      'FROM "ApplicationPreparation" WHERE "programId" = ',
-    );
-    expect(query.strings.join('')).toContain(
-      "SELECT CONCAT('ApplicationPreparationParticipant:', id)",
-    );
-    expect(query.strings.join('')).toContain(
-      'FROM "ApplicationPreparationParticipant" WHERE "programId" = ',
-    );
-    expect(query.values).toHaveLength(37);
-    expect(query.values).toEqual(Array(37).fill('program-1'));
+    expect(query.values).toHaveLength(35);
+    expect(query.values).toEqual(Array(35).fill('program-1'));
   });
 });

@@ -154,6 +154,6 @@ describe('global authentication guard coverage', () => {
       Object.values(observed).filter(
         (access) => access === AUTH_ROUTE_ACCESS.PROTECTED,
       ),
-    ).toHaveLength(129);
+    ).toHaveLength(120);
   });
 });
