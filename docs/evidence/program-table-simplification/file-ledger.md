@@ -67,13 +67,13 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 ProgramCreateRequest의 생성자·멱등 키·해시는 Program으로, 업로드 연결은 programId로 옮긴다. 과거 요청이 없으면 LEGACY_UNKNOWN이다. 현재의 두 생성 API는 알려진 생성자를 USER로 기록하며, 옛 POST /programs는 키와 해시를 만들지 않는다. 준비 릴리스에서 옛 모델 사용을 중단하고, 실제 테이블과 두 FK 컬럼은 별도 후속 draft PR에서 제거한다.
 
-Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 파일 바이트는 기존 큐로 삭제하며 생성 사실과 멱등 재시도도 남는다. 공개·교직원 목록과 상세에서 제외한다. 파일 큐 밖의 늦은 커버·양식 연결 공백과 일부 기존 무가드 쓰기는 task-5-contract-findings.md에 기록했고 후속 단순화 단계로 넘겼다.
+Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 파일 바이트는 기존 큐로 삭제하며 생성 사실과 멱등 재시도도 남는다. 공개·교직원 목록과 상세에서 제외한다. 삭제 후 게시판·초대·멤버·신청·문서·저장소 쓰기를 차단하고 수집·관리자 집계에서도 제외한다. 파일 큐 밖의 늦은 커버·양식 연결 공백만 소유자 결정에 따라 Todo 6으로 넘긴다. 화면 안내와 guide는 prepare backend 운영 확인 뒤 배포할 별도 frontend PR로 분리한다.
 
 지정된 다섯 파일의 구현을 programs.repository.ts와 programs.service.ts로 옮겼다. 호출부는 새 경로를 직접 import한다. 생성·조회·삭제의 기존 Nest provider 이름은 각 DI 계약을 유지하며, forwarding 파일이나 호환 wrapper는 추가하지 않았다. program-lifecycle.error.ts는 삭제 건수 불일치라는 전제가 사라져 제거했다. 이 오류는 Todo 11까지 남겨두지 않는다.
 
 | 범위 | Todo 2 이후 files | Todo 2 이후 lines | Todo 5 준비 files | Todo 5 준비 lines |
 | --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 245 | 37779 | 239 | 37407 |
+| programs 제품 파일 (DTO 포함) | 245 | 37779 | 239 | 37447 |
 
 ## 파일별 의도와 상태
 

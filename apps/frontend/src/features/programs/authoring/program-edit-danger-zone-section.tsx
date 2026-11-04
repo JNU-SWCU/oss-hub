@@ -165,8 +165,7 @@ export function ProgramEditDangerZoneSection({
     <section className="grid gap-6">
       <SectionHeading title="위험 영역" />
       <p className="text-body text-muted-foreground [word-break:keep-all]">
-        프로그램을 목록에서 숨기고 업로드한 파일을 삭제합니다. 이 작업은 되돌릴
-        수 없습니다.
+        연결된 데이터와 관련 기록을 포함해 되돌릴 수 없이 삭제합니다.
       </p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button
@@ -204,7 +203,7 @@ function formatDeletedCounts(counts: ProgramPurgeDeletedCounts): string {
       ([key, count]) => count > 0 && key !== 'milestoneDocumentSubmissions',
     )
     .map(([key, count]) => `${PURGE_COUNT_LABELS[key] ?? key} ${count}건`);
-  return items.join(' · ') || '정리할 업로드 파일이 없습니다.';
+  return items.join(' · ') || '연결된 데이터가 없었습니다.';
 }
 
 function purgeErrorMessage(reason: unknown): string {

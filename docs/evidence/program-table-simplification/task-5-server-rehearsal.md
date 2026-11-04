@@ -55,8 +55,10 @@ REHEARSAL_BRIDGE_EXIT=0
 
 최초 잔여 확인은 8월의 전체 볼륨과 dangling 볼륨을 혼동해 44를 43과 비교했다. 재확인은 두 범위를 구분했다. 추가 삭제 없이 이 작업의 볼륨 0개와 기존 dangling 볼륨 43개 보존을 확인했다.
 
+게이트 보완 시 원래 도구 응답에서 명명된 소유권 확인·제거·잔여 확인 영수증을 추출해 독립 리뷰에 함께 전달했다. UTC 실행 시각은 각각 04:38:23, 04:38:51, 04:44:18이고 모두 EXIT=0이다. 새 제거 명령이나 리허설을 실행한 것으로 표시하지 않는다.
+
 ## 릴리스 순서와 비가역 값
 
-먼저 prepare 앱을 배포한다. 이 앱은 ProgramCreateRequest와 옛 업로드 FK 컬럼을 읽거나 기록하지 않는다. 이후 별도 릴리스에서만 retire를 적용한다. 두 PR을 같은 배포에 넣지 않는다.
+먼저 prepare backend를 기존 frontend와 배포한다. 새 숨김·파일 정리 안내와 guide는 별도 draft frontend PR이며 새 backend 운영 확인 뒤에만 배포한다. prepare backend는 ProgramCreateRequest와 옛 업로드 FK 컬럼을 읽거나 기록하지 않는다. 이후 별도 릴리스에서만 retire를 적용한다. prepare와 retire를 같은 배포에 넣지 않는다.
 
 현재 집계 기준 retire의 물리 삭제 대상은 요청 9행과 옛 업로드 FK 2개 컬럼이다. 생성자·멱등 키·해시는 Program으로, 연결 대상은 업로드의 programId로 이미 이관되어야 한다. 원래 요청의 대리키 9개와 요청 시각 9개는 최종 모델에 남지 않는다. 옛 업로드 FK scalar 값은 합계 4개이며 programId와 Program 생성자로 대체된다. 프로그램과 하위 도메인 행의 삭제는 0건이다.

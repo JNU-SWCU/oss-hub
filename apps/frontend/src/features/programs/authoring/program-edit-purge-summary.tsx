@@ -19,7 +19,7 @@ export function ProgramPurgeSummary({
     .join(' · ');
   return (
     <Alert>
-      <AlertTitle>연결된 기록</AlertTitle>
+      <AlertTitle>삭제될 데이터</AlertTitle>
       <AlertDescription className="[word-break:keep-all]">
         {summary || '연결된 데이터 없음'}
       </AlertDescription>

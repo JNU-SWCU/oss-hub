@@ -130,14 +130,7 @@ async function openEdit(
         body: {
           id: PROGRAM_ID,
           deleted: true,
-          deletedCounts: {
-            applications: 0,
-            teams: 0,
-            boardPosts: 0,
-            submissions: 0,
-            submissionFiles: 1,
-            programPurgeFileTombstones: 2,
-          },
+          deletedCounts: scenario.counts,
         },
       };
       await scenario.purgeGate;
@@ -153,53 +146,6 @@ async function openEdit(
     }
     if (path.endsWith('/auth/session')) {
       await json(route, authenticatedSessionBody(scenario.actor));
-      return;
-    }
-    if (path.endsWith('/consents/current')) {
-      await json(route, {
-        policyVersion: '2026-11-01',
-        requiredItems: [
-          {
-            key: 'privacy',
-            label: '개인정보 수집·이용',
-            documentUrl: '/policies/privacy',
-          },
-        ],
-        acceptedPolicyVersion: '2026-11-01',
-        consented: true,
-        nextUrl: '/dashboard',
-      });
-      return;
-    }
-    if (path.endsWith(`/programs/${PROGRAM_ID}/overview`)) {
-      await json(route, {
-        programId: PROGRAM_ID,
-        name: scenario.programName ?? PROGRAM_NAME,
-        trackType: 'EXTRACURRICULAR',
-        lifecycle: 'PUBLISHED',
-        milestoneCount: 0,
-        boardPostCount: scenario.counts.boardPosts,
-        participantCount: 4,
-        teamCount: scenario.counts.teams,
-        connectedRepositoryCount: 0,
-        viewerRole: 'STAFF',
-        viewerDocumentsCompleted: null,
-        viewerDocumentsTotal: null,
-        fullySubmittedParticipantCount: 0,
-        remainingMilestones: [],
-        milestoneDocuments: [],
-      });
-      return;
-    }
-    if (path.endsWith(`/programs/${PROGRAM_ID}`)) {
-      await json(route, {
-        ...editableProgram(scenario.counts, scenario.programName),
-        applicationPeriod: {
-          startsAt: '2026-01-01T00:00:00Z',
-          endsAt: '2026-02-01T00:00:00Z',
-        },
-        viewer: { role: 'STAFF', applicationStatus: null },
-      });
       return;
     }
     if (path.endsWith('/onboarding/role')) {
@@ -221,25 +167,10 @@ async function openEdit(
     }
     if (path.endsWith('/programs/status-counts')) {
       await json(route, {
-        all: 0,
-        recruiting: 0,
-        in_progress: 0,
-        upcoming: 0,
-        ended: 0,
-      });
-      return;
-    }
-    if (path.endsWith('/programs/ended-years')) {
-      await json(route, { years: [] });
-      return;
-    }
-    if (path.endsWith('/programs')) {
-      await json(route, {
-        items: [],
-        page: 1,
-        pageSize: 12,
-        totalItems: 0,
-        totalPages: 0,
+        published: 1,
+        recruiting: 1,
+        closed: 0,
+        archived: 0,
       });
       return;
     }
@@ -268,45 +199,6 @@ async function openPurge(page: Page, counts: Counts = COUNTS) {
   await expect(page.getByText(summary, { exact: true })).toBeVisible();
 }
 
-async function captureDeletionSurface(page: Page, surface: string) {
-  const directory = resolve(
-    process.cwd(),
-    '../../.omo/evidence/task-5-browser',
-  );
-  mkdirSync(directory, { recursive: true });
-  for (const width of [1440, 390]) {
-    await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    if (surface === 'danger-zone') {
-      await page
-        .getByRole('button', { name: '프로그램 삭제', exact: true })
-        .scrollIntoViewIfNeeded();
-    }
-    if (surface === 'success') {
-      await page
-        .getByRole('alert')
-        .filter({ hasText: '프로그램을 목록에서 숨겼습니다' })
-        .scrollIntoViewIfNeeded();
-    }
-    await page.evaluate(
-      () =>
-        new Promise<void>((resolveFrame) =>
-          requestAnimationFrame(() =>
-            requestAnimationFrame(() => resolveFrame()),
-          ),
-        ),
-    );
-    await page.screenshot({
-      path: resolve(
-        directory,
-        `program-absorb-${process.env.E2E_CAPTURE_PHASE ?? 'after'}-${surface}-${width}.png`,
-      ),
-      fullPage: false,
-      animations: 'disabled',
-    });
-  }
-  await page.setViewportSize({ width: 1440, height: 900 });
-}
-
 test.describe('program edit purge network contract', () => {
   test('ADMIN confirms one purge with the displayed full scope', async ({
     page,
@@ -324,8 +216,6 @@ test.describe('program edit purge network contract', () => {
     await expect(page.getByText('다시 게시하기', { exact: true })).toHaveCount(
       0,
     );
-    await trigger.scrollIntoViewIfNeeded();
-    await captureDeletionSurface(page, 'danger-zone');
     await page
       .getByRole('textbox', { name: '프로그램명 *', exact: true })
       .fill(`${PROGRAM_NAME} 수정`);
@@ -333,17 +223,13 @@ test.describe('program edit purge network contract', () => {
     await expect(
       page.getByRole('textbox', { name: '프로그램명 *', exact: true }),
     ).toHaveCount(0);
-    await captureDeletionSurface(page, 'confirmation');
     await page.getByRole('button', { name: '삭제', exact: true }).click();
     await expect(page).toHaveURL(new URL('/programs', page.url()).href);
     const notice = page
       .getByRole('alert')
-      .filter({ hasText: '프로그램을 목록에서 숨겼습니다' });
+      .filter({ hasText: '프로그램 전체 삭제' });
     await expect(notice).toBeVisible();
-    await expect(notice).toContainText('제출 파일 1건');
-    await expect(notice).not.toContainText('지원서 4건');
-    await notice.scrollIntoViewIfNeeded();
-    await captureDeletionSurface(page, 'success');
+    await expect(notice).toContainText('지원서 4건');
     await page.reload();
     await expect(notice).toHaveCount(0);
     expect(purgeRequests).toEqual([{ expectedScope: COUNTS }]);

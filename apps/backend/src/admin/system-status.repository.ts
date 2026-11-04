@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
-import { type CollectionRunKind, type Prisma } from '@prisma/client';
+import { type CollectionRunKind } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
+import { PlatformRepository } from '../platform/platform.repository';
 
 export interface CollectionIncrementalStatusSnapshotDto {
   readonly trackedRepositoryCount: number;
@@ -59,20 +60,14 @@ export interface CollectionExternalCollectionStatusDto {
   readonly cumulativeIssueCount: number;
 }
 
-const COLLECTION_TARGET = {
-  OR: [{ applicationId: { not: null } }, { programId: null, teamId: null }],
-} satisfies Prisma.GithubRepositoryWhereInput;
-
 const PRESENT_REPOSITORY = {
   presence: 'PRESENT',
   source: 'ORG_PROVISIONED',
-  ...COLLECTION_TARGET,
 } as const;
 
 const PRESENT_EXTERNAL_REPOSITORY = {
   presence: 'PRESENT',
   source: 'EXTERNAL_PUBLIC',
-  applicationId: { not: null },
 } as const;
 
 const EXTERNAL_SWEEP_SCOPE = 'external';
@@ -111,7 +106,10 @@ function toSweepActivity(row: {
 
 @Injectable()
 export class SystemStatusRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platform: PlatformRepository,
+  ) {}
 
   countFinalProvisionFailures(): Promise<number> {
     return this.prisma.repositoryProvisionJob.count({
@@ -120,28 +118,32 @@ export class SystemStatusRepository {
   }
 
   async getIncrementalStatusSnapshot(): Promise<CollectionIncrementalStatusSnapshotDto> {
+    const presentRepository = {
+      ...PRESENT_REPOSITORY,
+      ...this.platform.collectionTargetWhere(),
+    };
     const trackedRepositoryCount = await this.prisma.githubRepository.count({
-      where: PRESENT_REPOSITORY,
+      where: presentRepository,
     });
 
     const now = new Date();
     const [dueRepositoryCount, failingRepositoryCount, lastSuccess] =
       await Promise.all([
         this.prisma.githubRepository.count({
-          where: { ...PRESENT_REPOSITORY, nextRunAt: { lte: now } },
+          where: { ...presentRepository, nextRunAt: { lte: now } },
         }),
         this.prisma.githubRepository.count({
-          where: { ...PRESENT_REPOSITORY, failureCount: { gt: 0 } },
+          where: { ...presentRepository, failureCount: { gt: 0 } },
         }),
         this.prisma.githubRepository.aggregate({
-          where: PRESENT_REPOSITORY,
+          where: presentRepository,
           _max: { lastSuccessAt: true },
         }),
       ]);
 
     const streamGroups = await this.prisma.collectionRepositoryStream.groupBy({
       by: ['status'],
-      where: { repository: PRESENT_REPOSITORY },
+      where: { repository: presentRepository },
       _count: { _all: true },
     });
     const countFor = (status: string): number =>
@@ -154,7 +156,7 @@ export class SystemStatusRepository {
 
     const retryPendingWhere = {
       lastErrorCode: { not: null },
-      repository: PRESENT_REPOSITORY,
+      repository: presentRepository,
     } as const;
     const retryPendingStreamCount =
       await this.prisma.collectionRepositoryStream.count({
@@ -164,11 +166,11 @@ export class SystemStatusRepository {
     const [oldestReady, latest, oldestRetryPending, cursor] = await Promise.all(
       [
         this.prisma.collectionRepositoryStream.aggregate({
-          where: { status: 'READY', repository: PRESENT_REPOSITORY },
+          where: { status: 'READY', repository: presentRepository },
           _min: { lastRunAt: true },
         }),
         this.prisma.collectionRepositoryStream.aggregate({
-          where: { repository: PRESENT_REPOSITORY },
+          where: { repository: presentRepository },
           _max: { lastRunAt: true },
         }),
         this.prisma.collectionRepositoryStream.aggregate({
@@ -204,7 +206,10 @@ export class SystemStatusRepository {
     readonly CollectionRepositoryStreamsDto[]
   > {
     const repositories = await this.prisma.githubRepository.findMany({
-      where: PRESENT_REPOSITORY,
+      where: {
+        ...PRESENT_REPOSITORY,
+        ...this.platform.collectionTargetWhere(),
+      },
       orderBy: { nameWithOwner: 'asc' },
       select: {
         githubRepositoryId: true,
@@ -246,7 +251,10 @@ export class SystemStatusRepository {
     const [trackedRepositoryCount, lastSweepRow, sweepTotals] =
       await Promise.all([
         this.prisma.githubRepository.count({
-          where: PRESENT_EXTERNAL_REPOSITORY,
+          where: {
+            ...PRESENT_EXTERNAL_REPOSITORY,
+            ...this.platform.collectionTargetWhere(),
+          },
         }),
 
         this.prisma.collectionSweepHistory.findFirst({

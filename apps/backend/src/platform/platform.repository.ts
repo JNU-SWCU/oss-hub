@@ -9,6 +9,19 @@ import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.conf
 
 @Injectable()
 export class PlatformRepository {
+  collectionTargetWhere() {
+    return {
+      OR: [
+        { applicationId: { not: null } },
+        { source: 'ORG_PROVISIONED', programId: null, teamId: null },
+      ],
+      NOT: [
+        { program: { lifecycle: 'DELETED' } },
+        { application: { program: { lifecycle: 'DELETED' } } },
+      ],
+    } satisfies Prisma.GithubRepositoryWhereInput;
+  }
+
   programApplicationManagerWhere(userId: string) {
     return {
       team: { leaderId: userId, members: { some: { userId } } },

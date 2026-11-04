@@ -204,7 +204,10 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     repositoryId: string,
   ): Promise<PublishEligibilityRow | null> {
     const repository = await this.prisma.githubRepository.findUnique({
-      where: { id: repositoryId },
+      where: {
+        id: repositoryId,
+        application: { program: { lifecycle: { not: 'DELETED' } } },
+      },
       select: {
         id: true,
         visibility: true,

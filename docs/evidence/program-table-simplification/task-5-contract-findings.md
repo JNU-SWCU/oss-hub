@@ -18,7 +18,7 @@
 
 기존 퍼지는 자식 행 DELETE로 동시 INSERT와 직렬화 충돌을 만들었다. 상태만 바꾸면 두 트랜잭션이 순서대로 실행된 것으로 볼 수 있어 PostgreSQL이 성공을 허용한다. 운영자가 확인하지 못한 행을 물리 삭제하는 위험이 사라졌으므로 소유자는 이 경우의 성공을 승인했다.
 
-`program-purge.integration.spec.ts`의 네 경합 시나리오는 이제 성공, 새 자식 보존, DELETED 상태, 목록과 상세 제외를 함께 확인한다. 확인 전후의 건수·identity 지문 변경은 기존대로 409를 반환한다. 새 잠금 전략이나 자식 쓰기 잠금은 도입하지 않았다.
+`program-purge.integration.spec.ts`의 네 경합 시나리오는 이제 성공, 새 자식 보존, DELETED 상태, 목록과 상세 제외를 함께 확인한다. 목록은 실제 이름으로 검색하고 삭제 전 해당 ID와 1건이 보임을 먼저 확인한다. 확인 전후의 건수·identity 지문 변경은 기존대로 409를 반환한다. 새 잠금 전략이나 자식 쓰기 잠금은 도입하지 않았다.
 
 ## 삭제 이후 쓰기
 
@@ -31,14 +31,23 @@
 
 실제 DB에서 PUBLISHED·ARCHIVED는 기존 가드를 통과하고 DELETED는 통과하지 않는 것을 검증했다. 퍼지는 이 편집 가드를 사용하지 않으며 PUBLISHED·ARCHIVED를 상태 삭제한다. DELETED 복구 API는 이 작업에 추가하지 않았다.
 
-아래 기존 경로는 Program 상태 검사를 별도로 도입해야 하므로 단일 조건 추가 범위를 넘긴다. 후속 팀·파일 정리의 알려진 공백이다.
+첫 게이트에서 지적한 아래 경로는 이 준비 릴리스에서 모두 수정했다. 뒤 단계로 넘기지 않는다.
 
-| 기준 위치 | 공백 |
+| 경계 | 수정과 실제 DB 증거 |
 | --- | --- |
-| `board.service.ts:236-260`, `board.repository.ts:215-255` | 교직원 게시판 쓰기는 사용자 자격만 확인하고 Program을 읽지 않는다. 새 글·댓글과 기존 글 수정·삭제에 공통 프로그램 가드가 필요하다. |
-| `team-invitations.repository.ts:443-497,581-583` | 초대 취소·거절·수락의 기존 Program 잠금은 결과를 검사하지 않는다. 수락 쿼리에 조건만 붙여도 작업은 계속되므로 결과 계약 변경이 필요하다. |
-| `program-teams.repository.ts:582-636,682-708,744-788,836-850` | 탈퇴·강퇴·위임은 팀/멤버를 잠그며 Program lifecycle을 검사하지 않는다. |
-| `github/collection-sync.service.ts:177-181` | 수집 대상은 Application 연결만 확인한다. 삭제 Program의 보존된 저장소 연결은 계속 수집 대상이 될 수 있다. Todo 7과의 통합에서 검토해야 한다. |
+| `BoardService.assertAccess` | 직원의 조기 반환 전 공통 프로그램 존재 검사를 수행한다. 글 생성·수정·삭제·고정, 댓글 생성·삭제 6개 쓰기를 검사한다. |
+| `TeamInvitationsRepository` | 팀 잠금과 Program 잠금에 삭제 조건을 적용하고 빈 잠금 결과를 거부한다. 거절의 UPDATE도 팀의 프로그램 조건을 검사한다. 취소·거절·수락 3개 경계를 검사한다. |
+| `ProgramTeamsRepository` | 기존 팀 잠금의 공통 조건과 결과 검사로 탈퇴·강퇴·직원 강퇴·위임을 차단한다. |
+| 추가 스캔 | 신청 준비의 거절·취소·탈퇴, 팀 삭제, 저장소 URL 변경, 신청 승인, 문서 심사 잠금, 일괄 변경 요청의 프로그램 조회, 저장소 공개 대상 조회도 차단했다. |
+| 수집과 관리자 집계 | `platform/platform.repository.ts`의 공통 Prisma 조건을 실제 수집 직전 조회, 외부 수집 목록, 관리자 집계·스트림 상세에서 사용한다. 기존 fact·Contribution·랭킹은 보존한다. Todo 7은 이 조건의 대상 연결 규칙을 이어서 단순화한다. |
+
+`program-deleted-write.integration.spec.ts`는 같은 입력으로 PUBLISHED·ARCHIVED의 기존 성공과 DELETED의 거부를 함께 확인한다. 기존 13개 쓰기는 수정 전 모두 잘못 성공했고, 추가 준비·팀 삭제 4개도 RED를 확인했다. URL 변경·신청 승인·문서/공개 조회의 RED는 각각의 실제 서비스·DB 경계에서 확인했다. 거부 후 보존 대상 행은 수정 전과 같아야 한다.
+
+## 독립 배포 순서
+
+준비 PR의 apps/frontend와 guide 전체는 기준 커밋과 같다. 기존 화면으로 새 삭제 응답을 소비한 E2E 실행 증거는 보존하고, fixture 변경도 후속 frontend PR로 분리한다. 새 숨김·파일 정리 안내와 캡처는 별도 frontend PR에서만 배포한다. 순서는 기존 화면/기존 backend, 기존 화면/새 backend, 새 backend가 운영 중임을 확인한 뒤 새 화면/새 backend다. 새 화면/기존 backend 조합은 지원하지 않고 후속 PR을 draft로 잠근다. 기존 화면은 삭제 동작의 종전 문구를 유지하지만, 새 backend가 도메인 기록을 보존한다는 새 약속은 후속 화면에서만 노출한다.
+
+물리 구조 retire는 prepare backend가 옛 구조를 읽고 쓰지 않는 것을 운영에서 확인한 뒤 별도 릴리스로 적용한다. frontend 후속 PR과 retire PR은 모두 prepare에 쌓되 서로를 한 배포의 전제라고 가정하지 않는다.
 
 ## 늦게 연결된 파일: Todo 6으로 넘긴 공백
 
@@ -58,7 +67,7 @@ prepare의 임시 업로드 bridge는 옛 앱이 createRequestId를 명시적으
 
 ## 검증 도구의 기존 공백
 
-기존 삭제 E2E fixture에 `/consents/current` 응답이 없어 변경 전 화면 진입부터 실패했다. 현행 동의·프로그램 개요 응답과 실제 삭제 응답 형태로 fixture를 보정했다. 제품 인증 동작을 우회하거나 바꾸지 않았다.
+기존 삭제 E2E fixture에 `/consents/current` 응답이 없어 변경 전 화면 진입부터 실패했다. 현행 동의·프로그램 개요 응답과 실제 삭제 응답 형태로 fixture를 보정했다. 준비 PR은 기존 문구와 새 응답의 호환을 검증하고, 화면 후속 PR은 새 문구에 맞춰 같은 검증을 이어 간다. 제품 인증 동작을 우회하거나 바꾸지 않았다.
 
 git-master가 참조하는 `docs/reference/github-attachment-upload.md`는 현재 저장소에 없다. 소유자의 지시대로 저장소 submit-pr-evidence 경로를 사용해 이미 공개된 릴리스의 asset에 합성 캡처만 올렸으며, 새 릴리스나 브라우저 세션은 만들지 않았다.
 

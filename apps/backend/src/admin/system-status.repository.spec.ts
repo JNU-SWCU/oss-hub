@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { SystemStatusRepository } from './system-status.repository';
@@ -55,7 +56,10 @@ const repositoryWith = (
       aggregate: jest.fn().mockResolvedValue({ _sum: {} }),
     },
   };
-  return new SystemStatusRepository(prisma as unknown as PrismaService);
+  return new SystemStatusRepository(
+    prisma as unknown as PrismaService,
+    new PlatformRepository(),
+  );
 };
 
 const threeReadyStreams = [

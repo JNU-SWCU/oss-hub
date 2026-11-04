@@ -244,7 +244,7 @@ export class ProgramTeamsRepository {
     recordAudit: RecordTeamRenameAudit,
   ): Promise<TeamRenameResult> {
     return this.prisma.$transaction(async (tx) => {
-      await lockTeamRow(tx, teamId);
+      if ((await lockTeamRow(tx, teamId)).length === 0) return 'not-found';
 
       const team = await tx.team.findUnique({
         where: { id: teamId, program: { lifecycle: { not: 'DELETED' } } },
@@ -591,7 +591,8 @@ export class ProgramTeamsRepository {
       });
       if (!membership) return 'not-found';
 
-      await lockTeamRow(tx, membership.teamId);
+      if ((await lockTeamRow(tx, membership.teamId)).length === 0)
+        return 'not-found';
 
       const lockedMembership = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId } },
@@ -685,7 +686,8 @@ export class ProgramTeamsRepository {
       });
       if (!actorMembership) return 'actor-not-in-team';
 
-      await lockTeamRow(tx, actorMembership.teamId);
+      if ((await lockTeamRow(tx, actorMembership.teamId)).length === 0)
+        return 'actor-not-in-team';
 
       const lockedActor = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId: actorUserId } },
@@ -747,7 +749,7 @@ export class ProgramTeamsRepository {
       });
       if (!team || team.programId !== programId) return 'not-found';
 
-      await lockTeamRow(tx, teamId);
+      if ((await lockTeamRow(tx, teamId)).length === 0) return 'not-found';
 
       if (!(await isActiveStaff(tx, actorUserId))) return 'forbidden';
 
@@ -839,7 +841,7 @@ export class ProgramTeamsRepository {
       });
       if (!team || team.programId !== programId) return 'not-found';
 
-      await lockTeamRow(tx, teamId);
+      if ((await lockTeamRow(tx, teamId)).length === 0) return 'not-found';
 
       if (!(await isActiveStaff(tx, actorUserId))) return 'forbidden';
 
@@ -957,7 +959,12 @@ function lockTeamRow(
   teamId: string,
 ): Promise<LockedTeamRow[]> {
   return tx.$queryRaw<LockedTeamRow[]>(
-    Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    Prisma.sql`
+      SELECT t."id" FROM "Team" t
+      JOIN "Program" p ON p."id" = t."programId"
+      WHERE t."id" = ${teamId} AND p."lifecycle" <> 'DELETED'
+      FOR UPDATE OF t
+    `,
   );
 }
 

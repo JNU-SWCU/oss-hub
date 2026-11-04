@@ -48,7 +48,10 @@ export class StudentRepositoryUrlContextRepository {
     });
     if (!actor) return null;
     const context = await db.application.findUnique({
-      where: { programId_teamId: { programId, teamId } },
+      where: {
+        programId_teamId: { programId, teamId },
+        program: { lifecycle: { not: 'DELETED' } },
+      },
       select: this.STUDENT_REPOSITORY_URL_SELECT,
     });
     if (!context) return null;

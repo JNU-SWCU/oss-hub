@@ -112,9 +112,10 @@ async function lockProgram(
   tx: Prisma.TransactionClient,
   programId: string,
 ): Promise<void> {
-  await tx.$queryRaw(
-    Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE`,
+  const programs = await tx.$queryRaw<readonly { id: string }[]>(
+    Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
   );
+  if (programs.length === 0) throw new PreparationConflict('not-found');
 }
 async function assertAvailable(
   tx: Prisma.TransactionClient,

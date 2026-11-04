@@ -878,7 +878,7 @@ async function createOwnApplication(
 function ownEnrollment(): RepositoryOwnEnrollmentService {
   return new RepositoryOwnEnrollmentService(
     new ConsentsService(new UserPolicyRepository(prisma)),
-    new CollectionIncrementalRepository(prisma),
+    new CollectionIncrementalRepository(prisma, new PlatformRepository()),
   );
 }
 

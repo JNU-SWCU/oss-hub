@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { Logger } from '@nestjs/common';
 import {
   CollectionIncrementalRepository,
@@ -750,7 +751,7 @@ function createService(
   overrides: { now?: () => Date; createRunId?: () => string } = {},
 ): CollectionSyncService {
   return new CollectionSyncService(
-    new CollectionIncrementalRepository(db),
+    new CollectionIncrementalRepository(db, new PlatformRepository()),
     () => runtimeFor(client),
     () => Promise.resolve(GITHUB_ORG_ID),
     new RepositoryUrlService(),
@@ -765,7 +766,7 @@ function createServiceWithExternal(
   overrides: { now?: () => Date; createRunId?: () => string } = {},
 ): CollectionSyncService {
   return new CollectionSyncService(
-    new CollectionIncrementalRepository(db),
+    new CollectionIncrementalRepository(db, new PlatformRepository()),
     () => runtimeFor(externalClient),
     () => Promise.resolve(GITHUB_ORG_ID),
     new RepositoryUrlService(),
@@ -1372,7 +1373,10 @@ describe('CollectionSyncService — fenced transactions and lease safety', () =>
     });
 
     const service = createService(db, client);
-    const originalRepository = new CollectionIncrementalRepository(db);
+    const originalRepository = new CollectionIncrementalRepository(
+      db,
+      new PlatformRepository(),
+    );
     const originalAcquire =
       originalRepository.acquireSyncLease.bind(originalRepository);
     jest
@@ -1478,7 +1482,7 @@ describe('CollectionSyncService — durable cursor draining a mixed fixture acro
     });
 
     const service = new CollectionSyncService(
-      new CollectionIncrementalRepository(db),
+      new CollectionIncrementalRepository(db, new PlatformRepository()),
       () => ({
         appId: '1',
         organizationLogin: 'synthetic-org',
@@ -3410,7 +3414,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     const runtime = runtimeFor(client);
     jest.spyOn(runtime.queue, 'shouldStop').mockReturnValue(true);
     const service = new CollectionSyncService(
-      new CollectionIncrementalRepository(db),
+      new CollectionIncrementalRepository(db, new PlatformRepository()),
       () => runtime,
       () => Promise.resolve(GITHUB_ORG_ID),
       new RepositoryUrlService(),
@@ -3443,15 +3447,14 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     const { db, box } = createFakeDb();
     box.store.repositories.set(repoKey(100n), linkedRow());
     const client = createClient([]);
-    const detached = { ...linkedRow(), applicationId: null };
     const read = jest
       .spyOn(
         CollectionIncrementalStoreRepository.prototype,
-        'findRepositoryByLogicalKey',
+        'findCollectionTargetByLogicalKey',
       )
 
       .mockResolvedValueOnce(linkedRow() as never)
-      .mockResolvedValueOnce(detached as never);
+      .mockResolvedValueOnce(null);
 
     const result = await createService(db, client).runRepository(
       'owner-link',
