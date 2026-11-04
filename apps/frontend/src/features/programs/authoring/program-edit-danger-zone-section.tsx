@@ -165,7 +165,8 @@ export function ProgramEditDangerZoneSection({
     <section className="grid gap-6">
       <SectionHeading title="위험 영역" />
       <p className="text-body text-muted-foreground [word-break:keep-all]">
-        프로그램 삭제를 요청합니다. 완료되면 목록에서 제외됩니다.
+        프로그램을 삭제 상태로 바꿔 목록에서 숨깁니다. 연결된 기록은 보존하고
+        업로드한 파일은 정리 작업으로 삭제합니다.
       </p>
       <div className="flex flex-wrap justify-end gap-2">
         <Button
@@ -203,7 +204,7 @@ function formatDeletedCounts(counts: ProgramPurgeDeletedCounts): string {
       ([key, count]) => count > 0 && key !== 'milestoneDocumentSubmissions',
     )
     .map(([key, count]) => `${PURGE_COUNT_LABELS[key] ?? key} ${count}건`);
-  return items.join(' · ') || '목록에서 더 이상 표시되지 않습니다.';
+  return items.join(' · ') || '정리할 업로드 파일이 없습니다.';
 }
 
 function purgeErrorMessage(reason: unknown): string {
