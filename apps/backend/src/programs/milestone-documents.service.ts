@@ -619,9 +619,11 @@ export class MilestoneDocumentsService {
             milestoneId,
           };
     const submissionContent =
-      this.milestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
-        acceptedContent.text,
-      );
+      documentContext.submissionType === RequirementSubmissionType.FILE
+        ? { type: RequirementSubmissionType.FILE }
+        : this.milestoneDocumentSubmissionRepository.milestoneDocumentSubmissionContent(
+            acceptedContent.text,
+          );
 
     try {
       const detail = await this.repository.upsertSubmission({

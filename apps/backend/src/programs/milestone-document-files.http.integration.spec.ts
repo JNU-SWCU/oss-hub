@@ -67,6 +67,16 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
         where: { id: flowIds.document },
         data: { submissionType },
       });
+      if (submissionType === 'FILE') {
+        await fixture.prisma.milestone.update({
+          where: { id: flowIds.milestone },
+          data: { submissionType: 'FILE' },
+        });
+        await fixture.prisma.milestoneDocument.update({
+          where: { id: flowIds.document },
+          data: { kind: 'LEGACY_MILESTONE_SUBMISSION' },
+        });
+      }
       let fileId = 'synthetic-unused-file';
       if (hasFile && submissionType !== 'TEXT') {
         const uploaded = await upload(
@@ -119,13 +129,33 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
                 content:
                   hasText && submissionType !== 'FILE'
                     ? { type: 'TEXT', text: 'rule content' }
-                    : null,
+                    : submissionType === 'FILE'
+                      ? { type: 'FILE' }
+                      : null,
                 files:
                   hasFile && submissionType !== 'TEXT' ? [{ id: fileId }] : [],
               },
             ]
           : [],
       );
+      if (accepted && submissionType === 'FILE') {
+        const submission =
+          await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+            where: { milestoneDocumentId: flowIds.document },
+            select: { id: true },
+          });
+        const legacyView = await fixture.request(
+          'submissions/' + submission.id + '/review-context',
+          { actor: 'staff' },
+        );
+        expect(legacyView.status).toBe(200);
+        expect(await legacyView.json()).toMatchObject({
+          currentRevision: {
+            content: { type: 'FILE' },
+            files: [expect.objectContaining({ fileId })],
+          },
+        });
+      }
     },
   );
 

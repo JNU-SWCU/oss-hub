@@ -579,6 +579,6 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 
 | 범위 | Before files | Before lines | 준비 후 files | 준비 후 lines |
 | --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (같은 제외 규칙) | 245 | 37779 | 246 | 37815 |
+| programs 제품 파일 (같은 제외 규칙) | 245 | 37779 | 246 | 37817 |
 
 `milestone-document-submission.repository.ts`의 구현은 `submissions.repository.ts`로 병합했고 원본 파일을 삭제했다. 기존 API와 주입 계약을 유지하기 위해 준비 단계에서는 두 저장소 클래스를 같은 파일에 둔다. 목록의 opt-in 범위 DTO와 심사 이벤트 상수 파일이 추가되어 파일 수는 순증 1개다. 레거시 API·판별 분기·물리 컬럼 및 심사 테이블 삭제는 후속 단계다.
