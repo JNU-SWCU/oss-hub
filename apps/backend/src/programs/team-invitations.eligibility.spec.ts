@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { AccountStatus } from '@prisma/client';
@@ -55,6 +56,7 @@ describe('팀 초대 대상 자격', () => {
   ] as const)('%s의 초대 자격을 판정한다', async (_, user, expected) => {
     const repository = Object.assign(
       new TeamInvitationsRepository(
+        new TeamHistoryRepository(),
         {
           user: {
             findUnique: jest.fn(({ where }: { where: { id: string } }) =>
@@ -116,6 +118,7 @@ describe('팀 초대 대상 자격', () => {
   it('후보 검색은 ACTIVE STUDENT만 조회한다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const repository = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       {
         user: { findMany },
       } as unknown as PrismaService,
@@ -192,6 +195,7 @@ describe('팀 초대 대상 자격', () => {
       $queryRaw: jest.fn().mockResolvedValue([{ id: teamId }]),
     };
     const repository = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       {
         $transaction: <T>(operation: (client: typeof tx) => Promise<T>) =>
           operation(tx),

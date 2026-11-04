@@ -80,6 +80,115 @@ const invitation: SentTeamInvitation = {
   invitee: candidate,
 };
 
+for (const mode of ['before', 'after'] as const) {
+  for (const width of [1440, 390]) {
+    test(`history compatibility ${mode} at ${width}`, async ({
+      page,
+    }, testInfo) => {
+      await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
+      await page.clock.setFixedTime(new Date('2026-08-15T00:00:00Z'));
+      let cancelled = false;
+      const legacyClosed = {
+        ...invitation,
+        id: 'synthetic-old-closed',
+        status: 'DECLINED',
+        respondedAt: '2026-08-14T00:00:00Z',
+      };
+      await installSyntheticAuthority(
+        page,
+        {
+          role: 'STUDENT',
+          memberKind: 'STUDENT',
+          hasStaffAccess: false,
+          hasAdminAccess: false,
+        },
+        {
+          'GET /api/v1/consents/current': (route) =>
+            fulfillJson(route, {
+              policyVersion: '2026-11-01',
+              requiredItems: [
+                {
+                  key: 'privacy',
+                  label: '개인정보 수집·이용',
+                  documentUrl: '/policies/privacy',
+                },
+              ],
+              acceptedPolicyVersion: '2026-11-01',
+              consented: true,
+              nextUrl: '/dashboard',
+            }),
+          'GET /api/v1/team-invitations/received': (route) =>
+            fulfillJson(route, []),
+          [`GET /api/v1/programs/${programId}`]: (route) =>
+            fulfillJson(route, program),
+          [`GET /api/v1/programs/${programId}/viewer`]: (route) =>
+            fulfillJson(route, program),
+          [`GET /api/v1/programs/${programId}/overview`]: (route) =>
+            fulfillJson(route, {
+              programId,
+              name: program.name,
+              trackType: 'EXTRACURRICULAR',
+              lifecycle: 'PUBLISHED',
+              milestoneCount: 0,
+              boardPostCount: 0,
+              participantCount: 1,
+              teamCount: 1,
+              connectedRepositoryCount: 0,
+              viewerRole: 'STUDENT',
+              viewerDocumentsCompleted: null,
+              viewerDocumentsTotal: null,
+              fullySubmittedParticipantCount: 0,
+              remainingMilestones: [],
+              milestoneDocuments: [],
+            }),
+          [`GET /api/v1/programs/${programId}/teams/me`]: (route) =>
+            fulfillJson(route, { membership: 'LEADER', team }),
+          [`GET /api/v1/programs/${programId}/applications/me`]: (route) =>
+            fulfillJson(route, { status: 'SUBMITTED', application }),
+          [`GET /api/v1/team-invitations/teams/${teamId}/sent`]: (route) =>
+            fulfillJson(route, [
+              ...(mode === 'before' ? [legacyClosed] : []),
+              ...(!cancelled
+                ? [invitation]
+                : mode === 'before'
+                  ? [{ ...invitation, status: 'DECLINED' }]
+                  : []),
+            ]),
+          [`POST /api/v1/team-invitations/${invitation.id}/cancel`]: async (
+            route,
+          ) => {
+            cancelled = true;
+            await route.fulfill({ status: 204 });
+          },
+        },
+      );
+      await page.goto(`/programs/${programId}/team`);
+      const cancel = page.getByRole('button', { name: /초대 취소$/ });
+      await expect(cancel).toHaveCount(1);
+      await expect(cancel).toBeVisible();
+      await cancel.evaluate((element) =>
+        element.scrollIntoView({ block: 'center', behavior: 'instant' }),
+      );
+      await page.screenshot({
+        path: testInfo.outputPath(`${mode}-pending-${width}.png`),
+        fullPage: width !== 390,
+      });
+      await cancel.click();
+      await expect(cancel).toHaveCount(0);
+      expect(cancelled).toBe(true);
+      await page.screenshot({
+        path: testInfo.outputPath(`${mode}-closed-${width}.png`),
+        fullPage: true,
+      });
+      expect(
+        await page.evaluate(
+          () => document.documentElement.scrollWidth <= window.innerWidth,
+        ),
+      ).toBe(true);
+    });
+  }
+}
+
 for (const width of [1440, 390]) {
   test(`named application then invitation and capacity error at ${width}`, async ({
     page,

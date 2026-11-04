@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
@@ -252,6 +253,8 @@ describe('acceptTeamInvitationTransaction', () => {
       teamId: syntheticTeamId,
       programId: syntheticProgramId,
       inviteeId: syntheticUserId,
+      invitedById: syntheticLeaderId,
+      createdAt: new Date('2026-08-01'),
       status: TeamInvitationStatus.PENDING,
       team: {
         name: '합성 팀',
@@ -265,16 +268,15 @@ describe('acceptTeamInvitationTransaction', () => {
     return {
       teamInvitation: {
         findUnique: jest.fn().mockResolvedValue(invitationRow()),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
+        findMany: jest.fn().mockResolvedValue([]),
       },
       teamMember: {
         findUnique: jest.fn().mockResolvedValue(null),
         count: jest.fn().mockResolvedValue(1),
         create: jest.fn().mockResolvedValue(undefined),
       },
-      applicationPreparationParticipant: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
+      teamHistory: { create: jest.fn().mockResolvedValue({}) },
       team: { update: jest.fn() },
       user: {
         findUnique: jest.fn().mockResolvedValue({
@@ -297,6 +299,7 @@ describe('acceptTeamInvitationTransaction', () => {
         operation(tx),
     } as unknown as PrismaService;
     return new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       prisma,
       new PlatformRepository(),
     ).acceptTeamInvitationTransaction(
@@ -332,21 +335,40 @@ describe('acceptTeamInvitationTransaction', () => {
 
   it('같은 프로그램의 남은 대기 초대를 같은 트랜잭션에서 종결한다', async () => {
     const tx = buildTx();
+    tx.teamInvitation.findMany.mockResolvedValue([
+      invitationRow({ id: OTHER_TEAM_INVITATION_ID }),
+    ]);
 
     await run(tx);
 
-    expect(tx.teamInvitation.updateMany).toHaveBeenCalledWith({
+    expect(tx.teamInvitation.findMany).toHaveBeenCalledWith({
       where: {
         programId: syntheticProgramId,
         inviteeId: syntheticUserId,
         status: TeamInvitationStatus.PENDING,
         id: { not: INVITATION_ID },
       },
-      data: {
-        status: TeamInvitationStatus.DECLINED,
-        respondedAt: RESPONDED_AT,
+      orderBy: { id: 'asc' },
+    });
+    expect(tx.teamInvitation.deleteMany).toHaveBeenCalledWith({
+      where: {
+        id: OTHER_TEAM_INVITATION_ID,
+        status: TeamInvitationStatus.PENDING,
       },
     });
+    expect(tx.teamHistory.create).toHaveBeenCalledTimes(2);
+    expect(tx.teamHistory.create.mock.calls).toMatchObject([
+      [{}],
+      [
+        {
+          data: {
+            event: 'INVITATION_CANCELLED',
+            sourceId: OTHER_TEAM_INVITATION_ID,
+            data: { reason: 'JOINED_ANOTHER_TEAM' },
+          },
+        },
+      ],
+    ]);
   });
 
   it('초대받은 사람이 아니면 forbidden이다', async () => {
@@ -442,7 +464,7 @@ describe('acceptTeamInvitationTransaction', () => {
 
   it('잠금 뒤 CAS가 0건이면 not-pending으로 되돌린다', async () => {
     const tx = buildTx();
-    tx.teamInvitation.updateMany.mockResolvedValueOnce({ count: 0 });
+    tx.teamInvitation.deleteMany.mockResolvedValueOnce({ count: 0 });
 
     await expect(run(tx)).resolves.toEqual({ kind: 'not-pending' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();
@@ -504,7 +526,7 @@ describe('acceptTeamInvitationTransaction', () => {
     const tx = buildTx({
       teamInvitation: {
         findUnique: jest.fn().mockResolvedValue(null),
-        updateMany: jest.fn(),
+        deleteMany: jest.fn(),
       },
     });
     const prisma = {
@@ -514,6 +536,7 @@ describe('acceptTeamInvitationTransaction', () => {
 
     await expect(
       new TeamInvitationsRepository(
+        new TeamHistoryRepository(),
         prisma,
         new PlatformRepository(),
       ).acceptTeamInvitationTransaction(

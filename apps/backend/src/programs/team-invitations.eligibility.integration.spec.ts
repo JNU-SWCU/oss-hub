@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { ApprovalStatus, DepartmentType, UserType } from '@prisma/client';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -32,6 +33,7 @@ const CANDIDATE_QUERY = 'eligibility-candidate';
 const RESPONDED_AT = new Date('2026-08-12T00:00:00.000Z');
 const prisma = new PrismaService();
 const repository = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
   prisma,
   new PlatformRepository(),
 );

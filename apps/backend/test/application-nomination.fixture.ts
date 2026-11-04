@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from '../src/programs/team-history.repository';
 import { assertIsolatedIntegrationDatabase } from './integration-database.guard';
 import { PrismaService } from '../src/platform/prisma.service';
 import { PlatformRepository } from '../src/platform/platform.repository';
@@ -47,6 +48,7 @@ const service = new ApplicationsService(
   new RepositoryProvisionEventService(),
 );
 const invitations = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
   prisma,
   new PlatformRepository(),
 );

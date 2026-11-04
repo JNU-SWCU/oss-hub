@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import {
@@ -163,6 +164,7 @@ it('preserves canonical and legacy fallback projections across all three consume
 
   const students = await staffInsights.listStudents();
   const canonicalCandidates = await new TeamInvitationsRepository(
+    new TeamHistoryRepository(),
     prisma,
     new PlatformRepository(),
   ).searchInvitationCandidates(
@@ -172,6 +174,7 @@ it('preserves canonical and legacy fallback projections across all three consume
     legacyUserId,
   );
   const staleLegacyCandidates = await new TeamInvitationsRepository(
+    new TeamHistoryRepository(),
     prisma,
     new PlatformRepository(),
   ).searchInvitationCandidates(
@@ -181,6 +184,7 @@ it('preserves canonical and legacy fallback projections across all three consume
     legacyUserId,
   );
   const legacyCandidates = await new TeamInvitationsRepository(
+    new TeamHistoryRepository(),
     prisma,
     new PlatformRepository(),
   ).searchInvitationCandidates(

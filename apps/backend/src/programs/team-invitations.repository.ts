@@ -9,6 +9,7 @@ import {
   TeamInvitationStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
+import { TeamHistoryRepository } from './team-history.repository';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
@@ -188,6 +189,7 @@ function lockTeamRow(
 @Injectable()
 export class TeamInvitationsRepository {
   constructor(
+    private readonly history: TeamHistoryRepository,
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
   ) {}
@@ -204,7 +206,7 @@ export class TeamInvitationsRepository {
     inviteeId: string,
   ): Promise<ReceivedTeamInvitationRecord[]> {
     const invitations = await this.prisma.teamInvitation.findMany({
-      where: { inviteeId },
+      where: { inviteeId, status: TeamInvitationStatus.PENDING },
       orderBy: { createdAt: 'desc' },
       include: {
         team: {
@@ -220,7 +222,7 @@ export class TeamInvitationsRepository {
       },
     });
 
-    const official = invitations.map((invitation) => ({
+    return invitations.map((invitation) => ({
       id: invitation.id,
       teamId: invitation.teamId,
       programId: invitation.programId,
@@ -237,64 +239,11 @@ export class TeamInvitationsRepository {
       memberCount: invitation.team._count.members,
       teamMaxSize: invitation.team.program.teamMaxSize,
     }));
-    const preparations =
-      await this.prisma.applicationPreparationParticipant.findMany({
-        where: {
-          userId: inviteeId,
-          status: 'PENDING',
-          preparation: { leaderId: { not: inviteeId } },
-        },
-        select: {
-          id: true,
-          programId: true,
-          userId: true,
-          status: true,
-          invitedAt: true,
-          respondedAt: true,
-          preparation: {
-            select: {
-              id: true,
-              name: true,
-              leaderId: true,
-              leader: {
-                select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
-              },
-              program: { select: { name: true, teamMaxSize: true } },
-              _count: {
-                select: { participants: { where: { status: 'ACCEPTED' } } },
-              },
-            },
-          },
-        },
-      });
-    const temporary: ReceivedTeamInvitationRecord[] = preparations.map(
-      (row) => ({
-        preparation: true,
-        id: row.id,
-        programId: row.programId,
-        teamId: row.preparation.id,
-        inviteeId: row.userId,
-        invitedById: row.preparation.leaderId,
-        status: row.status,
-        invitedAt: row.invitedAt,
-        respondedAt: row.respondedAt,
-        teamName: row.preparation.name,
-        programName: row.preparation.program.name,
-        invitedByDisplayName:
-          row.preparation.leader.name?.trim() ||
-          row.preparation.leader.nickname,
-        memberCount: row.preparation._count.participants,
-        teamMaxSize: row.preparation.program.teamMaxSize,
-      }),
-    );
-    return [...official, ...temporary].sort(
-      (left, right) => right.invitedAt.getTime() - left.invitedAt.getTime(),
-    );
   }
 
   async findByTeamId(teamId: string): Promise<SentTeamInvitationRecord[]> {
     const invitations = await this.prisma.teamInvitation.findMany({
-      where: { teamId },
+      where: { teamId, status: TeamInvitationStatus.PENDING },
       orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
     });
@@ -474,7 +423,7 @@ export class TeamInvitationsRepository {
 
       const locked = await tx.teamInvitation.findUnique({
         where: { id: invitationId },
-        select: { status: true, team: { select: { leaderId: true } } },
+        include: { team: { select: { leaderId: true } } },
       });
       if (!locked) return { kind: 'not-found' };
 
@@ -488,11 +437,17 @@ export class TeamInvitationsRepository {
         return { kind: 'not-pending' };
       }
 
-      const closed = await tx.teamInvitation.updateMany({
+      const closed = await tx.teamInvitation.deleteMany({
         where: { id: invitationId, status: TeamInvitationStatus.PENDING },
-        data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
       });
       if (closed.count === 0) return { kind: 'not-pending' };
+      await this.history.recordInvitationClosed(
+        tx,
+        locked,
+        'INVITATION_CANCELLED',
+        actorId,
+        now,
+      );
       return { kind: 'ok' };
     });
   }
@@ -502,26 +457,35 @@ export class TeamInvitationsRepository {
     inviteeId: string,
     now: Date = new Date(),
   ): Promise<DeclineInvitationOutcome> {
-    const closed = await this.prisma.teamInvitation.updateMany({
-      where: {
-        id: invitationId,
+    return this.prisma.$transaction<DeclineInvitationOutcome>(async (tx) => {
+      const invitation = await tx.teamInvitation.findFirst({
+        where: { id: invitationId, inviteeId },
+      });
+      if (!invitation) return { kind: 'not-found' };
+      if ((await lockTeamRow(tx, invitation.teamId)).length === 0)
+        return { kind: 'not-found' };
+      const closed = await tx.teamInvitation.deleteMany({
+        where: {
+          id: invitationId,
+          inviteeId,
+          status: TeamInvitationStatus.PENDING,
+        },
+      });
+      if (closed.count === 0) {
+        const own = await tx.teamInvitation.findUnique({
+          where: { id: invitationId },
+        });
+        return own ? { kind: 'not-pending' } : { kind: 'not-found' };
+      }
+      await this.history.recordInvitationClosed(
+        tx,
+        invitation,
+        'INVITATION_DECLINED',
         inviteeId,
-        status: TeamInvitationStatus.PENDING,
-        team: { program: { lifecycle: { not: 'DELETED' } } },
-      },
-      data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
+        now,
+      );
+      return { kind: 'ok' };
     });
-    if (closed.count > 0) return { kind: 'ok' };
-
-    const own = await this.prisma.teamInvitation.findFirst({
-      where: {
-        id: invitationId,
-        inviteeId,
-        team: { program: { lifecycle: { not: 'DELETED' } } },
-      },
-      select: { id: true },
-    });
-    return own ? { kind: 'not-pending' } : { kind: 'not-found' };
   }
 
   async withAcceptTransaction(
@@ -555,7 +519,6 @@ export class TeamInvitationsRepository {
           this.platformRepository.userProfileNameWhere(query),
         ],
         teamMemberships: { none: { programId } },
-        preparationParticipants: { none: { programId, status: 'ACCEPTED' } },
       },
       select: {
         id: true,
@@ -590,6 +553,8 @@ export class TeamInvitationsRepository {
             teamId: true,
             programId: true,
             inviteeId: true,
+            invitedById: true,
+            createdAt: true,
             team: {
               select: {
                 name: true,
@@ -645,40 +610,49 @@ export class TeamInvitationsRepository {
           select: { userId: true },
         });
         if (existingMembership) return { kind: 'already-in-team' };
-        const preparation =
-          await tx.applicationPreparationParticipant.findFirst({
-            where: {
-              programId,
-              userId: inviteeId,
-              status: TeamInvitationStatus.ACCEPTED,
-            },
-            select: { id: true },
-          });
-        if (preparation !== null) return { kind: 'already-in-team' };
-
         const maxSize = invitation.team.program.teamMaxSize;
         const memberCount = await tx.teamMember.count({ where: { teamId } });
         if (memberCount >= maxSize) return { kind: 'team-full' };
 
-        const updated = await tx.teamInvitation.updateMany({
+        const updated = await tx.teamInvitation.deleteMany({
           where: { id: invitationId, status: TeamInvitationStatus.PENDING },
-          data: { status: TeamInvitationStatus.ACCEPTED, respondedAt: now },
         });
         if (updated.count === 0) return { kind: 'not-pending' };
+        await this.history.recordInvitationClosed(
+          tx,
+          invitation,
+          'INVITATION_ACCEPTED',
+          inviteeId,
+          now,
+        );
 
         await tx.teamMember.create({
           data: { teamId, programId, userId: inviteeId },
         });
 
-        await tx.teamInvitation.updateMany({
+        const otherInvitations = await tx.teamInvitation.findMany({
           where: {
             programId,
             inviteeId,
             status: TeamInvitationStatus.PENDING,
             id: { not: invitationId },
           },
-          data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
+          orderBy: { id: 'asc' },
         });
+        for (const other of otherInvitations) {
+          const closed = await tx.teamInvitation.deleteMany({
+            where: { id: other.id, status: TeamInvitationStatus.PENDING },
+          });
+          if (closed.count === 1)
+            await this.history.recordInvitationClosed(
+              tx,
+              other,
+              'INVITATION_CANCELLED',
+              inviteeId,
+              now,
+              'JOINED_ANOTHER_TEAM',
+            );
+        }
 
         await enqueueRepositoryAccessSyncEvents(
           this.platformRepository,
@@ -707,7 +681,8 @@ export class TeamInvitationsRepository {
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
+        error.code === 'P2002' &&
+        error.meta?.modelName === 'TeamMember'
       ) {
         return { kind: 'already-in-team' };
       }

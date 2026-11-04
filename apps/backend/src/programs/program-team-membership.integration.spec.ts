@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -12,7 +13,6 @@ import {
   ProgramTrackType,
   SubmissionFileLifecycle,
   SubmissionStatus,
-  TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -103,6 +103,7 @@ const service = new ProgramTeamsService(
   ),
 );
 const invitations = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
   prisma,
   new PlatformRepository(),
 );
@@ -114,6 +115,7 @@ interface MemberSeed {
 }
 
 async function cleanupTeamScope(): Promise<void> {
+  await prisma.teamHistory.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.submissionFile.deleteMany({
     where: { uploaderId: { startsWith: TEST_PREFIX } },
   });
@@ -780,11 +782,17 @@ describe('program team membership transactions integration', () => {
       }),
     ).resolves.toEqual({ leaderId: LEADER_ID });
     await expect(
-      prisma.teamInvitation.findUniqueOrThrow({
+      prisma.teamInvitation.findUnique({
         where: { id: invitationId },
         select: { status: true },
       }),
-    ).resolves.toEqual({ status: TeamInvitationStatus.ACCEPTED });
+    ).resolves.toBeNull();
+    await expect(
+      prisma.teamHistory.findMany({
+        where: { sourceId: invitationId },
+        select: { event: true, actorId: true },
+      }),
+    ).resolves.toEqual([{ event: 'INVITATION_ACCEPTED', actorId: INVITEE_ID }]);
 
     await expect(
       prisma.application.count({ where: { id: applicationId } }),

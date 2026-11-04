@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma, TeamInvitationStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -64,6 +65,7 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = { user: { findMany } };
     const repository = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       prisma as unknown as PrismaService,
       new PlatformRepository(),
     );
@@ -87,9 +89,6 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
           },
         ],
         teamMemberships: { none: { programId: syntheticProgramId } },
-        preparationParticipants: {
-          none: { programId: syntheticProgramId, status: 'ACCEPTED' },
-        },
       },
       select: {
         id: true,
@@ -107,6 +106,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
   it('보낸 초대는 초대 대상의 허용된 표시 정보만 select·투영한다', async () => {
     const findMany = jest.fn().mockResolvedValue([selectedInvitationRow]);
     const repository = new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       {
         teamInvitation: { findMany },
       } as unknown as PrismaService,
@@ -116,7 +116,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
     const result = await repository.findByTeamId(syntheticTeamId);
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { teamId: syntheticTeamId },
+      where: { teamId: syntheticTeamId, status: TeamInvitationStatus.PENDING },
       orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
     });
@@ -206,6 +206,7 @@ describe('TeamInvitationsRepository.createInvitation', () => {
 
   function buildRepository(tx: object) {
     return new TeamInvitationsRepository(
+      new TeamHistoryRepository(),
       {
         $transaction: <T>(operation: (transaction: never) => Promise<T>) =>
           operation(tx as never),

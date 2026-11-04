@@ -500,6 +500,31 @@ model TeamMember {
   @@index([userId])
 }
 
+enum TeamHistoryEvent {
+  INVITATION_ACCEPTED
+  INVITATION_DECLINED
+  INVITATION_CANCELLED
+}
+
+model TeamHistory {
+  id          String @id @default(cuid())
+  teamId      String
+  programId   String
+  actorId     String?
+  event       TeamHistoryEvent
+  occurredAt  DateTime @default(now())
+  recordedAt  DateTime @default(now())
+  source      HistorySource
+  sourceTable String?
+  sourceId    String?
+  data        Json
+
+  @@unique([sourceTable, sourceId])
+  @@index([teamId, occurredAt, id])
+  @@index([programId, occurredAt, id])
+  @@index([actorId, occurredAt, id])
+}
+
 enum TeamInvitationStatus {
   PENDING
   ACCEPTED

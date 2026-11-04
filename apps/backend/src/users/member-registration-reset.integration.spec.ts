@@ -96,6 +96,38 @@ function expectState(user: {
 }
 
 describe('registration reset persistence', () => {
+  it.each(['actorId', 'inviteeId', 'invitedById'] as const)(
+    'keeps a closed invitation as activity through %s',
+    async (field) => {
+      const user = await create();
+      const history = await prisma.teamHistory.create({
+        data: {
+          teamId: 'deleted-team',
+          programId: 'deleted-program',
+          actorId: field === 'actorId' ? user.id : 'other-actor',
+          event: 'INVITATION_CANCELLED',
+          source: 'APPLICATION',
+          data: {
+            schemaVersion: 1,
+            invitation: {
+              id: `closed-${user.id}`,
+              inviteeId: field === 'inviteeId' ? user.id : 'other-invitee',
+              invitedById: field === 'invitedById' ? user.id : 'other-inviter',
+              createdAt: at.toISOString(),
+            },
+          },
+        },
+      });
+      try {
+        await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(
+          true,
+        );
+      } finally {
+        await prisma.teamHistory.delete({ where: { id: history.id } });
+      }
+    },
+  );
+
   it('keeps the session identity, clears membership and returns staff re-registration to normal approval', async () => {
     const admin = await actor();
     const user = await create();

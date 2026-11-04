@@ -1,3 +1,4 @@
+import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ProgramCategory,
@@ -40,6 +41,7 @@ const PROGRAM_B_NAME = '초대 요약 프로그램 B';
 
 const prisma = new PrismaService();
 const repository = new TeamInvitationsRepository(
+  new TeamHistoryRepository(),
   prisma,
   new PlatformRepository(),
 );
@@ -241,9 +243,13 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
   });
 
   it('falls back to the legacy name only when the inviter has no profile', async () => {
+    await prisma.teamInvitation.update({
+      where: { id: PENDING_A_ID },
+      data: { invitedById: LEGACY_LEADER_ID },
+    });
     const invitations = await repository.findByInviteeId(INVITEE_ID);
     const legacyInvitation = invitations.find(
-      (invitation) => invitation.id === DECLINED_A_ID,
+      (invitation) => invitation.id === PENDING_A_ID,
     );
 
     expect(legacyInvitation?.invitedByDisplayName).toBe(LEGACY_LEADER_NAME);
@@ -272,16 +278,15 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
     ).toBe(HANDLE_ONLY_LEADER_HANDLE);
   });
 
-  it('returns responded invitations too, newest first', async () => {
+  it('returns only pending invitations, newest first', async () => {
     const invitations = await repository.findByInviteeId(INVITEE_ID);
 
     expect(invitations.map((invitation) => invitation.id)).toEqual([
       PENDING_A_ID,
       PENDING_B_ID,
-      DECLINED_A_ID,
     ]);
     expect(
       invitations.find((invitation) => invitation.id === DECLINED_A_ID)?.status,
-    ).toBe(TeamInvitationStatus.DECLINED);
+    ).toBeUndefined();
   });
 });
