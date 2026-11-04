@@ -3,9 +3,11 @@ import { resolve } from 'node:path';
 import { PrismaService } from '../src/platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
+  columnExists,
   executeProgramAuthoringMigration,
   inProgramAuthoringFixtureSchema,
   migrationStatements,
+  relationExists,
   resetProgramAuthoringFixture,
 } from './program-authoring-migration-test-support';
 
@@ -21,6 +23,13 @@ const migration = readFileSync(
   resolve(
     __dirname,
     'migrations/20261104050000_prepare_program_absorption/migration.sql',
+  ),
+  'utf8',
+);
+const retirement = readFileSync(
+  resolve(
+    __dirname,
+    'migrations/20261104170000_retire_program_creation_request/migration.sql',
   ),
   'utf8',
 );
@@ -59,6 +68,14 @@ afterAll(async () => {
 async function prepare() {
   await inProgramAuthoringFixtureSchema(prisma, schema, async (tx) => {
     for (const statement of migrationStatements(migration)) {
+      await tx.$executeRawUnsafe(statement);
+    }
+  });
+}
+
+async function retire() {
+  await inProgramAuthoringFixtureSchema(prisma, schema, async (tx) => {
+    for (const statement of migrationStatements(retirement)) {
       await tx.$executeRawUnsafe(statement);
     }
   });
@@ -206,4 +223,58 @@ it('keeps the previous app purge writable between prepare migration and app repl
       return tx.$executeRaw`DELETE FROM "Program" WHERE id = 'program-1'`;
     }),
   ).resolves.toBe(1);
+});
+
+it('retires only the old request structure while preserving Program facts and upload identity', async () => {
+  await prepare();
+  await retire();
+
+  await expect(
+    relationExists(prisma, schema, 'ProgramCreateRequest'),
+  ).resolves.toBe(false);
+  for (const column of ['createRequestId', 'createRequestActorId']) {
+    await expect(
+      columnExists(prisma, schema, 'ProgramAuthoringUpload', column),
+    ).resolves.toBe(false);
+  }
+  await inProgramAuthoringFixtureSchema(prisma, schema, async (tx) => {
+    await expect(tx.$queryRaw`
+      SELECT id, "createdBy"::text AS "createdBy", "createdById", "idempotencyKey", "payloadHash"
+      FROM "Program"
+    `).resolves.toEqual([
+      {
+        id: 'program-1',
+        createdBy: 'USER',
+        createdById: 'actor-1',
+        idempotencyKey: 'original-key',
+        payloadHash: hash,
+      },
+    ]);
+    await expect(tx.$queryRaw`
+      SELECT id, "programId", "actorId" FROM "ProgramAuthoringUpload"
+    `).resolves.toEqual([
+      { id: 'upload-1', programId: 'program-1', actorId: 'actor-1' },
+    ]);
+  });
+});
+
+it('refuses retirement without dropping anything when copied creation facts disagree', async () => {
+  await prepare();
+  await inProgramAuthoringFixtureSchema(
+    prisma,
+    schema,
+    (tx) =>
+      tx.$executeRaw`UPDATE "Program" SET "payloadHash" = ${'b'.repeat(64)} WHERE id = 'program-1'`,
+  );
+
+  await expect(retire()).rejects.toMatchObject({
+    code: 'P2010',
+    meta: { code: 'P0001' },
+  });
+  await expect(
+    relationExists(prisma, schema, 'ProgramCreateRequest'),
+  ).resolves.toBe(true);
+  await expect(
+    columnExists(prisma, schema, 'ProgramAuthoringUpload', 'createRequestId'),
+  ).resolves.toBe(true);
 });
