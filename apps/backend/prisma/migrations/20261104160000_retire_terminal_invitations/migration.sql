@@ -8,12 +8,14 @@ DECLARE
   accepted_count BIGINT;
   declined_count BIGINT;
   pending_count BIGINT;
+  team_count BIGINT;
+  member_count BIGINT;
   covered_count BIGINT;
   copied_count BIGINT;
   deleted_count BIGINT;
   mismatch_count BIGINT;
 BEGIN
-  LOCK TABLE "Team", "TeamInvitation" IN SHARE ROW EXCLUSIVE MODE;
+  LOCK TABLE "Team", "TeamMember", "TeamInvitation", "TeamHistory" IN SHARE ROW EXCLUSIVE MODE;
 
   IF EXISTS (SELECT 1 FROM "ApplicationPreparation")
      OR EXISTS (SELECT 1 FROM "ApplicationPreparationParticipant") THEN
@@ -54,6 +56,9 @@ BEGIN
   INTO accepted_count, declined_count, pending_count
   FROM "TeamInvitation";
 
+  SELECT count(*) INTO team_count FROM "Team";
+  SELECT count(*) INTO member_count FROM "TeamMember";
+
   IF terminal_count = 0 THEN
     IF EXISTS (
       SELECT 1 FROM pg_constraint
@@ -63,7 +68,7 @@ BEGIN
     ) THEN
       RAISE NOTICE 'INVITATION_RETIRE replay terminal=0 copied=0 deleted=0';
       RETURN;
-    ELSIF pending_count = 0 AND NOT EXISTS (
+    ELSIF pending_count = 0 AND team_count = 0 AND member_count = 0 AND NOT EXISTS (
       SELECT 1 FROM "TeamHistory" WHERE "sourceTable" = 'TeamInvitation'
     ) THEN
       RAISE NOTICE 'INVITATION_RETIRE fresh terminal=0 copied=0 deleted=0';
@@ -72,10 +77,11 @@ BEGIN
   END IF;
 
   IF terminal_count <> 25 OR accepted_count <> 20
-     OR declined_count <> 5 OR pending_count <> 3 THEN
+     OR declined_count <> 5 OR pending_count <> 3
+     OR team_count <> 40 OR member_count <> 72 THEN
     RAISE EXCEPTION
-      'Invitation approval count mismatch: terminal=% accepted=% declined=% pending=%; expected 25/20/5/3',
-      terminal_count, accepted_count, declined_count, pending_count;
+      'Invitation approval count mismatch: terminal=% accepted=% declined=% pending=% teams=% members=%; expected 25/20/5/3/40/72',
+      terminal_count, accepted_count, declined_count, pending_count, team_count, member_count;
   END IF;
 
   SELECT count(*) INTO covered_count
@@ -141,6 +147,9 @@ BEGIN
   END IF;
   IF copied_count + covered_count <> terminal_count THEN
     RAISE EXCEPTION 'Invitation archive cardinality mismatch';
+  END IF;
+  IF copied_count <> 25 THEN
+    RAISE EXCEPTION 'Invitation approval insert count mismatch: copied=%; expected 25', copied_count;
   END IF;
 
   DELETE FROM "TeamInvitation" i

@@ -1,11 +1,6 @@
 import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import {
-  ProgramCategory,
-  TeamInvitationStatus,
-  ProgramTrackType,
-  type Prisma,
-} from '@prisma/client';
+import { ProgramCategory, ProgramTrackType, type Prisma } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -47,6 +42,9 @@ const repository = new TeamInvitationsRepository(
 );
 
 async function cleanup(): Promise<void> {
+  await prisma.teamHistory.deleteMany({
+    where: { sourceId: DECLINED_A_ID },
+  });
   await prisma.teamInvitation.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
@@ -174,16 +172,6 @@ async function seed(): Promise<void> {
   await prisma.teamInvitation.createMany({
     data: [
       {
-        id: DECLINED_A_ID,
-        teamId: TEAM_A_ID,
-        programId: PROGRAM_A_ID,
-        inviteeId: INVITEE_ID,
-        invitedById: LEGACY_LEADER_ID,
-        status: TeamInvitationStatus.DECLINED,
-        createdAt: new Date('2026-08-01T00:00:00.000Z'),
-        respondedAt: new Date('2026-08-02T00:00:00.000Z'),
-      },
-      {
         id: PENDING_B_ID,
         teamId: TEAM_B_ID,
         programId: PROGRAM_B_ID,
@@ -200,6 +188,27 @@ async function seed(): Promise<void> {
         createdAt: new Date('2026-08-04T00:00:00.000Z'),
       },
     ],
+  });
+  await prisma.teamHistory.create({
+    data: {
+      teamId: TEAM_A_ID,
+      programId: PROGRAM_A_ID,
+      actorId: INVITEE_ID,
+      event: 'INVITATION_DECLINED',
+      occurredAt: new Date('2026-08-02T00:00:00.000Z'),
+      source: 'APPLICATION',
+      sourceTable: 'TeamInvitation',
+      sourceId: DECLINED_A_ID,
+      data: {
+        schemaVersion: 1,
+        invitation: {
+          id: DECLINED_A_ID,
+          inviteeId: INVITEE_ID,
+          invitedById: LEGACY_LEADER_ID,
+          createdAt: '2026-08-01T00:00:00.000Z',
+        },
+      },
+    },
   });
 }
 

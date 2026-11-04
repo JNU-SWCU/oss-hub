@@ -240,13 +240,21 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     },
   );
 
-  it('3b filters legacy closed rows while preserving them for migration', async () => {
-    await prisma.teamInvitation.update({
-      where: { id: INVITATION_ID },
-      data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
-    });
-    await expect(repository.findByTeamId(TARGET_TEAM_ID)).resolves.toEqual([]);
-    await expect(repository.findByInviteeId(INVITEE_ID)).resolves.toEqual([]);
+  it('3b rejects legacy close writes and keeps the pending invitation visible', async () => {
+    await expect(
+      prisma.teamInvitation.update({
+        where: { id: INVITATION_ID },
+        data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
+      }),
+    ).rejects.toThrow('TeamInvitation_pending_only');
+    await expect(
+      repository.findByTeamId(TARGET_TEAM_ID),
+    ).resolves.toMatchObject([
+      { id: INVITATION_ID, status: 'PENDING', respondedAt: null },
+    ]);
+    await expect(repository.findByInviteeId(INVITEE_ID)).resolves.toMatchObject(
+      [{ id: INVITATION_ID, status: 'PENDING', respondedAt: null }],
+    );
     await expect(
       prisma.teamInvitation.count({ where: { id: INVITATION_ID } }),
     ).resolves.toBe(1);
@@ -381,7 +389,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     ).resolves.toBe(1);
   });
 
-  it('3a preserves old status writes and permits reinvitation after a new decline', async () => {
+  it('3b permits reinvitation after a decline and fences legacy status writes', async () => {
     await repository.declinePendingInvitationAsInvitee(
       INVITATION_ID,
       INVITEE_ID,
@@ -405,14 +413,18 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       },
     });
     expect(next.status).toBe('PENDING');
-    await prisma.teamInvitation.updateMany({
-      where: { id: next.id, status: 'PENDING' },
-      data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
-    });
-    await expect(repository.findByInviteeId(INVITEE_ID)).resolves.toEqual([]);
+    await expect(
+      prisma.teamInvitation.updateMany({
+        where: { id: next.id, status: 'PENDING' },
+        data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
+      }),
+    ).rejects.toThrow('TeamInvitation_pending_only');
+    await expect(repository.findByInviteeId(INVITEE_ID)).resolves.toMatchObject(
+      [{ id: next.id, status: 'PENDING' }],
+    );
     await expect(
       prisma.teamInvitation.findUnique({ where: { id: next.id } }),
-    ).resolves.toMatchObject({ status: 'DECLINED' });
+    ).resolves.toMatchObject({ status: 'PENDING', respondedAt: null });
     await expect(
       prisma.teamHistory.count({ where: { programId: PROGRAM_ID } }),
     ).resolves.toBe(1);

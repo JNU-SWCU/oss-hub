@@ -63,6 +63,9 @@ beforeEach(async () => {
     await tx.$executeRawUnsafe(
       `CREATE TABLE "Team" (id TEXT PRIMARY KEY, "programId" TEXT NOT NULL)`,
     );
+    await tx.$executeRawUnsafe(
+      `CREATE TABLE "TeamMember" ("teamId" TEXT NOT NULL REFERENCES "Team"(id), "userId" TEXT PRIMARY KEY)`,
+    );
     await tx.$executeRawUnsafe(`CREATE TABLE "TeamInvitation" (
       id TEXT PRIMARY KEY, "teamId" TEXT NOT NULL REFERENCES "Team"(id),
       "programId" TEXT NOT NULL, "inviteeId" TEXT NOT NULL, "invitedById" TEXT NOT NULL,
@@ -76,6 +79,10 @@ beforeEach(async () => {
       `ALTER TYPE "TeamHistoryEvent" ADD VALUE 'INVITATION_ARCHIVED'`,
     );
     await tx.$executeRaw`INSERT INTO "Team" VALUES ('team','program')`;
+    await tx.$executeRaw`
+      INSERT INTO "Team" SELECT 'team-' || n, 'program' FROM generate_series(2,40) n`;
+    await tx.$executeRaw`
+      INSERT INTO "TeamMember" SELECT 'team', 'member-' || n FROM generate_series(1,72) n`;
     await tx.$executeRaw`
       INSERT INTO "TeamInvitation"
       SELECT 'invitation-' || n, 'team', 'program', 'invitee-' || n, 'inviter',
@@ -92,6 +99,7 @@ afterAll(async () => {
 });
 
 it('moves all original facts, retains pending rows and is idempotent', async () => {
+  await expect(counts()).resolves.toEqual([{ invitations: 28, histories: 0 }]);
   const before = await within(
     (tx) =>
       tx.$queryRaw<
@@ -110,6 +118,15 @@ it('moves all original facts, retains pending rows and is idempotent', async () 
   );
   await apply();
   await expect(counts()).resolves.toEqual([{ invitations: 3, histories: 25 }]);
+  await expect(
+    within(
+      (tx) => tx.$queryRaw`
+      SELECT (SELECT count(*)::int FROM "Team") AS teams,
+             (SELECT count(*)::int FROM "TeamMember") AS members,
+             (SELECT count(*)::int FROM "TeamInvitation" WHERE status = 'PENDING') AS pending,
+             (SELECT count(*)::int FROM "TeamHistory" WHERE source = 'MIGRATION') AS inserted`,
+    ),
+  ).resolves.toEqual([{ teams: 40, members: 72, pending: 3, inserted: 25 }]);
   const histories = await within(
     (tx) =>
       tx.$queryRaw<
@@ -161,7 +178,7 @@ it('moves all original facts, retains pending rows and is idempotent', async () 
   ).rejects.toThrow('TeamInvitation_pending_only');
 });
 
-it('preserves a previously recorded close without replacing its actor or event', async () => {
+it('rolls back inserted histories when a recorded close reduces approved inserts', async () => {
   await within(
     (tx) => tx.$executeRaw`
     INSERT INTO "TeamHistory" (id,"teamId","programId","actorId",event,"occurredAt",source,"sourceTable","sourceId",data)
@@ -175,8 +192,10 @@ it('preserves a previously recorded close without replacing its actor or event',
   const original = await within(
     (tx) => tx.$queryRaw`SELECT * FROM "TeamHistory" WHERE id = 'known'`,
   );
-  await apply();
-  await expect(counts()).resolves.toEqual([{ invitations: 3, histories: 25 }]);
+  await expect(apply()).rejects.toThrow(
+    'Invitation approval insert count mismatch',
+  );
+  await expect(counts()).resolves.toEqual([{ invitations: 28, histories: 1 }]);
   await expect(
     within(
       (tx) => tx.$queryRaw`SELECT * FROM "TeamHistory" WHERE id = 'known'`,
@@ -257,14 +276,19 @@ it.each([24, 26])(
 
 it.each([
   "UPDATE \"TeamInvitation\" SET status = 'DECLINED' WHERE id = 'invitation-1'",
+  "UPDATE \"TeamInvitation\" SET status = 'ACCEPTED' WHERE id = 'invitation-21'",
   "UPDATE \"TeamInvitation\" SET status = 'EXPIRED' WHERE id = 'invitation-1'",
   'DELETE FROM "TeamInvitation" WHERE id = \'invitation-26\'',
   `INSERT INTO "TeamInvitation"
    SELECT 'invitation-29', "teamId", "programId", 'invitee-29', "invitedById",
      status, "createdAt", "respondedAt", "updatedAt"
    FROM "TeamInvitation" WHERE id = 'invitation-26'`,
+  `DELETE FROM "Team" WHERE id = 'team-40'`,
+  `INSERT INTO "Team" VALUES ('team-41', 'program')`,
+  `DELETE FROM "TeamMember" WHERE "userId" = 'member-72'`,
+  `INSERT INTO "TeamMember" VALUES ('team', 'member-73')`,
 ])(
-  'rejects an unapproved status split or pending count: %s',
+  'rejects an unapproved status split or inventory count: %s',
   async (change) => {
     await within((tx) => tx.$executeRawUnsafe(change));
     const before = await counts();
@@ -276,7 +300,11 @@ it.each([
 );
 
 it('installs the pending-only constraint on a fresh empty database without data writes', async () => {
-  await within((tx) => tx.$executeRaw`DELETE FROM "TeamInvitation"`);
+  await within(async (tx) => {
+    await tx.$executeRaw`DELETE FROM "TeamInvitation"`;
+    await tx.$executeRaw`DELETE FROM "TeamMember"`;
+    await tx.$executeRaw`DELETE FROM "Team"`;
+  });
 
   await apply();
 

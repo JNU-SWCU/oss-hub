@@ -430,7 +430,7 @@ function currentScope(teamId: string) {
   return deletionRepository.readScopeCounts(teamId);
 }
 
-it('3a staff deletion records every pending cancellation with the staff actor', async () => {
+it('3b staff deletion records every pending cancellation and preserves archived history', async () => {
   const fixture = await seedApprovedTeam();
   await prisma.teamInvitation.createMany({
     data: [
@@ -441,15 +441,29 @@ it('3a staff deletion records every pending cancellation with the staff actor', 
         invitedById: LEADER_ID,
         inviteeId: SECOND_INVITEE_ID,
       },
-      {
-        id: `${fixture.teamId}:expired`,
-        teamId: fixture.teamId,
-        programId: PROGRAM_ID,
-        invitedById: LEADER_ID,
-        inviteeId: MEMBER_ID,
-        status: 'EXPIRED',
-      },
     ],
+  });
+  const archived = await prisma.teamHistory.create({
+    data: {
+      teamId: fixture.teamId,
+      programId: PROGRAM_ID,
+      event: 'INVITATION_ARCHIVED',
+      source: 'MIGRATION',
+      sourceTable: 'TeamInvitation',
+      sourceId: `${fixture.teamId}:expired`,
+      data: {
+        schemaVersion: 1,
+        invitation: {
+          id: `${fixture.teamId}:expired`,
+          invitedById: LEADER_ID,
+          inviteeId: MEMBER_ID,
+          createdAt: '2026-08-01T00:00:00.000Z',
+          status: 'EXPIRED',
+          respondedAt: null,
+          updatedAt: '2026-08-02T00:00:00.000Z',
+        },
+      },
+    },
   });
   const scope = await currentScope(fixture.teamId);
 
@@ -469,9 +483,11 @@ it('3a staff deletion records every pending cancellation with the staff actor', 
     `${fixture.teamId}:invitation`,
     `${fixture.teamId}:second`,
   ]);
-  for (const event of events.filter(
+  const cancellations = events.filter(
     (row) => row.event === 'INVITATION_CANCELLED',
-  )) {
+  );
+  expect(cancellations).toHaveLength(2);
+  for (const event of cancellations) {
     expect(event).toMatchObject({
       actorId: STAFF_ID,
       event: 'INVITATION_CANCELLED',
@@ -481,15 +497,7 @@ it('3a staff deletion records every pending cancellation with the staff actor', 
   }
   expect(
     events.find((event) => event.sourceId === `${fixture.teamId}:expired`),
-  ).toMatchObject({
-    event: 'INVITATION_ARCHIVED',
-    actorId: STAFF_ID,
-    source: 'APPLICATION',
-    data: {
-      reason: 'TEAM_DELETED',
-      invitation: { status: 'EXPIRED', respondedAt: null },
-    },
-  });
+  ).toEqual(archived);
   await expect(
     prisma.team.findUnique({ where: { id: fixture.teamId } }),
   ).resolves.toBeNull();
