@@ -459,7 +459,7 @@ export class SubmissionsRepository implements SubmissionsStore {
               revision: true,
 
               histories: {
-                orderBy: { createdAt: 'desc', id: 'desc' },
+                orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
                 select: {
                   event: true,
                   createdAt: true,
@@ -486,7 +486,7 @@ export class SubmissionsRepository implements SubmissionsStore {
           },
         },
       },
-    }) as const;
+    }) satisfies Prisma.MilestoneSelect;
 
   private submissionsStore(database: SubmissionsDatabase): SubmissionsStore {
     return {
