@@ -27,13 +27,14 @@ export function receiveReviewContext(
     return session;
   const changed =
     previousNumber !== undefined &&
-    previousNumber !== context.currentRevision.number;
+    (previousNumber !== context.currentRevision.number ||
+      (session.decision !== '' &&
+        session.context?.currentRevision.review?.id !==
+          context.currentRevision.review?.id));
   return {
     ...session,
     context,
     decision: changed ? '' : session.decision,
-    needsLatestRevision: context.currentRevision.review
-      ? false
-      : changed || session.needsLatestRevision,
+    needsLatestRevision: changed || session.needsLatestRevision,
   };
 }

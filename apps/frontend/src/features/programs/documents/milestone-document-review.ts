@@ -6,14 +6,11 @@ import type {
   MilestoneDocumentCollectionCell,
   MilestoneDocumentCollectionHistory,
 } from './milestone-document-collection-dto';
-import { MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH } from './milestone-document-review-api';
 import type { MilestoneDocumentReviewDecision } from './milestone-document-review-dto';
 import {
   SUBMISSION_STATUS_BADGE,
   SUBMISSION_STATUS_LABELS,
 } from '@/lib/status-vocabulary';
-import { isPastDue } from '../catalog/program-detail-format';
-import { seoulDateTimeValue } from '../authoring/seoul-date-time';
 
 export type MilestoneDocumentReviewDisplay =
   'NOT_SUBMITTED' | 'PENDING' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
@@ -86,49 +83,11 @@ export function isMilestoneDocumentDeadlineLocked(
   return closed && viewerSubmission?.status !== 'CHANGES_REQUESTED';
 }
 
-function isMilestoneDocumentResubmissionDueAtPassed(
-  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
-  now: number = Date.now(),
-): boolean {
-  const dueAt = viewerSubmission?.review?.resubmissionDueAt ?? null;
-  if (dueAt === null) return false;
-  return isPastDue(dueAt, now);
-}
-
 export function isMilestoneDocumentResubmissionFinal(
   closed: boolean,
   viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
 ): boolean {
   return closed && viewerSubmission?.status === 'CHANGES_REQUESTED';
-}
-
-export function milestoneDocumentResubmissionDueNotice(
-  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
-  now: number = Date.now(),
-): { readonly kind: 'open' | 'passed'; readonly dueAt: string } | null {
-  if (viewerSubmission?.status !== 'CHANGES_REQUESTED') return null;
-  const dueAt = viewerSubmission.review?.resubmissionDueAt ?? null;
-  if (dueAt === null) return null;
-  return {
-    kind: isMilestoneDocumentResubmissionDueAtPassed(viewerSubmission, now)
-      ? 'passed'
-      : 'open',
-    dueAt,
-  };
-}
-
-const MAX_TIMEOUT_DELAY = 2_147_483_647;
-
-export function milestoneDocumentResubmissionDueTickDelay(
-  viewerSubmission: MilestoneDocumentViewerSubmission | undefined,
-  now: number = Date.now(),
-): number | null {
-  const notice = milestoneDocumentResubmissionDueNotice(viewerSubmission, now);
-  if (notice === null || notice.kind !== 'open') return null;
-  const dueAt = new Date(notice.dueAt).getTime();
-  if (!Number.isFinite(dueAt)) return null;
-
-  return Math.min(Math.max(dueAt - now + 1, 0), MAX_TIMEOUT_DELAY);
 }
 
 export function shouldHighlightMilestoneDocumentReview(
@@ -149,62 +108,7 @@ export function milestoneDocumentReviewNoticeTone(
   return comment !== null && comment.trim() !== '' ? 'neutral' : null;
 }
 
-export function isMilestoneDocumentReviewCommentRequired(
-  decision: MilestoneDocumentReviewDecision,
-): boolean {
-  return decision === 'CHANGES_REQUESTED' || decision === 'REJECTED';
-}
-
-export function milestoneDocumentReviewFormError(
-  decision: MilestoneDocumentReviewDecision | null,
-  comment: string,
-  resubmissionDueAt = '',
-  now: number = Date.now(),
-): string | null {
-  if (decision === null) return '승인, 보완 요청, 반려 중 하나를 골라 주세요.';
-  if (
-    isMilestoneDocumentReviewCommentRequired(decision) &&
-    comment.trim() === ''
-  ) {
-    return '보완 요청과 반려는 사유를 입력해 주세요.';
-  }
-  if (comment.length > MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH) {
-    return `사유는 ${MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH.toLocaleString('ko-KR')}자까지 쓸 수 있습니다.`;
-  }
-  return milestoneDocumentResubmissionDueAtError(
-    decision,
-    resubmissionDueAt,
-    now,
-  );
-}
-
-export function milestoneDocumentResubmissionDueAtError(
-  decision: MilestoneDocumentReviewDecision,
-  resubmissionDueAt: string,
-  now: number = Date.now(),
-): string | null {
-  if (decision !== 'CHANGES_REQUESTED') return null;
-  if (resubmissionDueAt.trim() === '') {
-    return '보완 요청은 재제출 기한을 정해 주세요.';
-  }
-  const parsed = seoulDateTimeValue(resubmissionDueAt);
-  if (parsed === null) {
-    return '재제출 기한을 다시 골라 주세요.';
-  }
-  if (parsed <= now) {
-    return '재제출 기한은 지금보다 뒤여야 합니다.';
-  }
-  return null;
-}
-
-export function milestoneDocumentResubmissionDueAtPayload(
-  decision: MilestoneDocumentReviewDecision,
-  resubmissionDueAt: string,
-): string | undefined {
-  if (decision !== 'CHANGES_REQUESTED') return undefined;
-  const parsed = seoulDateTimeValue(resubmissionDueAt);
-  return parsed === null ? undefined : new Date(parsed).toISOString();
-}
+export { milestoneDocumentReviewFormError } from '@/lib/requirement-review';
 
 export function milestoneDocumentReviewCommentPayload(
   comment: string,
@@ -256,7 +160,6 @@ export interface MilestoneDocumentReviewFormState {
   readonly decision: MilestoneDocumentReviewDecision | null;
   readonly comment: string;
 
-  readonly resubmissionDueAt: string;
   readonly isSubmitting: boolean;
   readonly errorMessage: string | null;
   readonly history: readonly MilestoneDocumentCollectionHistory[];
@@ -275,7 +178,6 @@ export function createMilestoneDocumentReviewFormState(
     version,
     decision: null,
     comment: '',
-    resubmissionDueAt: '',
     isSubmitting: false,
     errorMessage: null,
     history: [],

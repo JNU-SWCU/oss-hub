@@ -14,6 +14,7 @@ export function context(
   submissionId = 'submission-synthetic',
 ): ReviewContext {
   return {
+    requirementId: 'requirement-1',
     submissionId,
     application: {
       id: 'application-synthetic',

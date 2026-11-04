@@ -126,7 +126,6 @@ function render(
       onReviewClose={() => {}}
       onReviewDecisionChange={() => {}}
       onReviewCommentChange={() => {}}
-      onReviewResubmissionDueAtChange={() => {}}
       onReviewSubmit={() => {}}
       onReviewHistoryMore={() => {}}
       {...overrides}
@@ -465,7 +464,6 @@ describe('MilestoneDocumentCollectionView 표', () => {
         version: { expectedRevision: 1, expectedLatestReviewId: null },
         decision: null,
         comment: '',
-        resubmissionDueAt: '',
         isSubmitting: false,
         errorMessage: null,
         history: [],

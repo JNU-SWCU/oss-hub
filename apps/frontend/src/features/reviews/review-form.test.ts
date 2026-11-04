@@ -12,13 +12,13 @@ describe('reviewFormError', () => {
   });
 
   it.each(['CHANGES_REQUESTED', 'REJECTED'] as const)(
-    '%s 판정은 빈 코멘트를 허용하지 않는다',
+    '%s 판정은 코멘트 없이 저장할 수 있다',
     (decision) => {
       const comment = '   ';
 
       const error = reviewFormError(decision, comment);
 
-      expect(error).toBe('보완 요청과 최종 반려에는 코멘트가 필요합니다.');
+      expect(error).toBeNull();
     },
   );
 

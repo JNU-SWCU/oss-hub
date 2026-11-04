@@ -25,21 +25,9 @@ export interface SubmissionRevisionFile {
   readonly downloadUrl: string;
 }
 
-interface SubmissionTextContent {
-  readonly type: 'TEXT';
-  readonly text: string;
-}
-
-interface SubmissionFileContent {
-  readonly type: 'FILE';
-  readonly fileId: string;
-}
-
-type SubmissionRevisionContent = SubmissionTextContent | SubmissionFileContent;
-
 export interface SubmissionRevision {
   readonly number: number;
-  readonly content: SubmissionRevisionContent;
+  readonly content: unknown;
   readonly comment: string | null;
   readonly submittedAt: string;
   readonly files: readonly SubmissionRevisionFile[];
@@ -49,6 +37,7 @@ export interface SubmissionRevision {
 export type ReviewRepository = RepositoryPublication;
 
 export interface ReviewContext {
+  readonly requirementId: string;
   readonly submissionId: string;
   readonly application: {
     readonly id: string;

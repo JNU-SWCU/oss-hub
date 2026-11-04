@@ -42,7 +42,7 @@ describe('review submission display', () => {
   });
   it('offers one transition before displaying the new content or file links', () => {
     const html = renderSubmission(true);
-    expect(html).toContain('새 제출본이 도착했습니다.');
+    expect(html).toContain('제출본 또는 검토 결과가 변경되었습니다.');
     expect(html).toContain('최신 제출본 2번 열기');
     expect(html.match(/<button/g)).toHaveLength(1);
     expect(html).not.toContain('제출 글 2');

@@ -64,7 +64,7 @@ describe('revisionContent', () => {
 
   it('문자열 content는 그대로 반환한다', () => {
     const value = revisionContent(
-      revision({ content: 'legacy-string-content' as never }),
+      revision({ content: 'legacy-string-content' }),
     );
 
     expect(value).toBe('legacy-string-content');
@@ -72,7 +72,7 @@ describe('revisionContent', () => {
 
   it('알 수 없는 형태의 content는 JSON을 흘리지 않고 안내 문구를 반환한다', () => {
     const value = revisionContent(
-      revision({ content: { repositoryUrl: 'https://example.com' } as never }),
+      revision({ content: { repositoryUrl: 'https://example.com' } }),
     );
 
     expect(value).toBe('제출 내용을 표시할 수 없습니다.');
