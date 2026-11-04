@@ -308,13 +308,19 @@ function originalImplementation<T, Y extends unknown[]>(
   return original;
 }
 
+class ScaleCollectionRepository extends CollectionIncrementalRepository {
+  override async listOrganizationRepositories() {
+    return (await super.listOrganizationRepositories()).filter(
+      (repository) =>
+        repository.githubOrganizationId === GITHUB_ORGANIZATION_ID,
+    );
+  }
+}
+
 describe('CollectionSyncService — 100-repository scale/idempotency suite (public-admin-exposure todo 13)', () => {
   const prisma = new PrismaService();
-  const repository = new CollectionIncrementalRepository(prisma);
+  const repository = new ScaleCollectionRepository(prisma);
   const seeds = buildSeeds();
-  const resolveGithubOrganizationId = () =>
-    Promise.resolve(GITHUB_ORGANIZATION_ID);
-
   const clock = fakeClock();
   const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);
   const provider = new SyntheticGithubProvider(seeds);
@@ -326,7 +332,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
   const service = new CollectionSyncService(
     repository,
     () => runtime,
-    resolveGithubOrganizationId,
     new RepositoryUrlService(),
   );
 
@@ -345,6 +350,52 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       })),
       skipDuplicates: true,
     });
+    await prisma.program.create({
+      data: {
+        id: 'synthetic-scale-program',
+        name: 'Synthetic registered repository scale',
+        organizer: 'Synthetic',
+        category: 'BASIC',
+        trackType: 'EXTRACURRICULAR',
+        description: 'Synthetic',
+        applicationTemplateKey: 'synthetic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2025-01-01T00:00:00Z'),
+        applicationEndAt: new Date('2025-12-01T00:00:00Z'),
+        startAt: new Date('2025-12-01T00:00:00Z'),
+        endAt: new Date('2027-01-01T00:00:00Z'),
+      },
+    });
+    for (const seed of seeds) {
+      const id = `synthetic-scale-${seed.id}`;
+      await prisma.team.create({
+        data: {
+          id,
+          programId: 'synthetic-scale-program',
+          name: seed.name,
+          leaderId: 'synthetic-scale-contributor-0',
+        },
+      });
+      await prisma.application.create({
+        data: {
+          id,
+          programId: 'synthetic-scale-program',
+          teamId: id,
+          applicantId: 'synthetic-scale-contributor-0',
+          answers: {},
+          applicationTemplateVersion: 1,
+        },
+      });
+      await prisma.githubRepository.create({
+        data: {
+          githubRepositoryId: BigInt(seed.id),
+          githubOrganizationId: GITHUB_ORGANIZATION_ID,
+          applicationId: id,
+          nameWithOwner: `${seed.owner}/${seed.name}`,
+          source: 'ORG_PROVISIONED',
+        },
+      });
+    }
 
     const commitSpy = jest.spyOn(
       CollectionIncrementalStoreRepository.prototype,
@@ -451,6 +502,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       GITHUB_ORGANIZATION_ID,
     );
+    await prisma.application.deleteMany({
+      where: { programId: 'synthetic-scale-program' },
+    });
+    await prisma.team.deleteMany({
+      where: { programId: 'synthetic-scale-program' },
+    });
+    await prisma.program.delete({ where: { id: 'synthetic-scale-program' } });
     await prisma.user.deleteMany({
       where: { id: { startsWith: 'synthetic-scale-contributor-' } },
     });
@@ -461,14 +519,21 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     reposPerRun: number,
   ): Promise<CollectionSyncRunResult> {
     let considered = 0;
-    const spy = jest.spyOn(queue, 'shouldStop').mockImplementation(() => {
-      considered += 1;
-      return considered > reposPerRun;
-    });
+    const original = repository.recordRepositorySuccess.bind(repository);
+    const progress = jest
+      .spyOn(repository, 'recordRepositorySuccess')
+      .mockImplementation(async (...args) => {
+        await original(...args);
+        considered += 1;
+      });
+    const spy = jest
+      .spyOn(queue, 'shouldStop')
+      .mockImplementation(() => considered >= reposPerRun);
     try {
       return await service.run(OWNER_ID);
     } finally {
       spy.mockRestore();
+      progress.mockRestore();
     }
   }
 
@@ -579,7 +644,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     }
 
     const expectedTotal =
-      runs.length +
+      runs.length * REPO_COUNT +
       seeds.reduce((sum, s) => sum + firstBackfillRequestCost(s), 0);
     expect(provider.counters.total).toBe(expectedTotal);
 
@@ -630,7 +695,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
 
     const afterByKind = { ...provider.counters.byKind };
     const kindDeltaThisRun = kindDelta(beforeByKind, afterByKind);
-    expect(kindDeltaThisRun['installation']).toBe(1);
+    expect(kindDeltaThisRun['installation']).toBe(0);
+    expect(kindDeltaThisRun['repository']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['commit-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['release-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['pull-list']).toBe(REPO_COUNT);
@@ -643,8 +709,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
 
     const noEtagAfter = repoKindSnapshot(provider, noEtagKey);
     const stableAfter = repoKindSnapshot(provider, stableKey);
-    expect(totalKindDelta(stableBefore, stableAfter)).toBe(4);
-    expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(6);
+    expect(totalKindDelta(stableBefore, stableAfter)).toBe(5);
+    expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(7);
 
     const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
     if (!tiesSeed) throw new Error('fixture missing PR-ties repo');

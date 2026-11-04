@@ -517,6 +517,36 @@ edge(
   true,
 );
 edge(
+  'program repository may delete repository facts in its transaction',
+  'src/programs/repository-deletion.repository.ts',
+  'src/platform/repository-deletion.repository.ts',
+  true,
+);
+edge(
+  'github repository may delete repository facts in its transaction',
+  'src/github/repository-deletion.repository.ts',
+  'src/platform/repository-deletion.repository.ts',
+  true,
+);
+edge(
+  'service cannot directly delete repository facts',
+  'src/programs/repository-deletion.service.ts',
+  'src/platform/repository-deletion.repository.ts',
+  false,
+);
+edge(
+  'controller cannot directly delete repository facts',
+  'src/programs/repository-deletion.controller.ts',
+  'src/platform/repository-deletion.repository.ts',
+  false,
+);
+edge(
+  'ordinary foreign platform repositories remain inaccessible',
+  'src/programs/ordinary-platform.repository.ts',
+  'src/platform/ordinary.repository.ts',
+  false,
+);
+edge(
   'service cannot acquire tree lock',
   'src/programs/lock.service.ts',
   'src/platform/lock-program-tree.repository.ts',

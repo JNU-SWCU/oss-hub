@@ -1,3 +1,4 @@
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -85,6 +86,7 @@ const state = new RepositoryProvisionStateService(
     prisma,
     new RepositoryProvisionGenerationRepository(),
     new RepositoryProvisionJobRepository(prisma),
+    new RepositoryDeletionRepository(),
   ),
   new RepositoryUrlService(),
   new RepositoryProvisionEventService(),
@@ -697,6 +699,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         new PlatformRepository(),
         new StudentRepositoryUrlContextRepository(new PlatformRepository()),
         new RepositoryProvisionGenerationRepository(),
+        new RepositoryDeletionRepository(),
       ),
       repository,
       new OwnRepositoryUrlValidationService(

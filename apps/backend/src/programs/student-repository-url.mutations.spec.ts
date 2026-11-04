@@ -1,3 +1,4 @@
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -50,11 +51,15 @@ function fixture(
     new PrismaService(),
     new RepositoryProvisionGenerationRepository(),
     new StudentRepositoryUrlContextRepository(new PlatformRepository()),
+    new RepositoryDeletionRepository(),
   );
   const lockTeamContext = jest
     .spyOn(transaction, 'lockTeamContext')
     .mockResolvedValue(teamContext);
-  const relink = jest.spyOn(transaction, 'relink').mockResolvedValue('target');
+  const relink = jest.spyOn(transaction, 'relink').mockResolvedValue({
+    repositoryId: 'target',
+    deletedCounts: null,
+  });
 
   const events: string[] = [];
   const repository = {

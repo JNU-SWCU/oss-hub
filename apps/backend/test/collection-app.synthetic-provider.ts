@@ -58,6 +58,7 @@ export interface SyntheticRepositorySeed {
 
 type RequestKind =
   | 'installation'
+  | 'repository'
   | 'commit-probe'
   | 'commit-list'
   | 'pull-list'
@@ -73,6 +74,7 @@ export interface SyntheticRequestCounters {
 
 const emptyByKind = (): Record<RequestKind, number> => ({
   installation: 0,
+  repository: 0,
   'commit-probe': 0,
   'commit-list': 0,
   'pull-list': 0,
@@ -168,6 +170,13 @@ export class SyntheticGithubProvider {
   }
 
   private handle(url: URL, ifNoneMatch: string | null): Response {
+    const repositoryMatch = /^\/repos\/([^/]+)\/([^/]+)$/.exec(url.pathname);
+    const owner = repositoryMatch?.[1];
+    const name = repositoryMatch?.[2];
+    if (owner !== undefined && name !== undefined) {
+      this.record('repository', `${owner}/${name}`);
+      return this.json(this.repositoryJson(this.repositoryFor(owner, name)));
+    }
     if (url.pathname === '/installation/repositories') {
       this.record('installation');
       const repositories = this.installationOrder.map((repo) =>

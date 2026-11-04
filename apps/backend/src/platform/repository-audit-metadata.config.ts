@@ -1,9 +1,24 @@
 import { RepositoryConnectionMode } from '@prisma/client';
 
+export type RepositoryDeletionCounts = {
+  readonly repositories: number;
+  readonly commits: number;
+  readonly contributions: number;
+  readonly streams: number;
+  readonly pullRequests: number;
+  readonly releases: number;
+  readonly issues: number;
+  readonly outsiders: number;
+  readonly invitations: number;
+  readonly repositoryYearAggregates: number;
+  readonly contributorYearAggregates: number;
+};
+
 export const APPLICATION_REPOSITORY_URL_CHANGED =
   'APPLICATION_REPOSITORY_URL_CHANGED';
 
 export type ApplicationRepositoryUrlAuditMetadata = {
+  readonly deletedCounts?: RepositoryDeletionCounts;
   readonly schemaVersion: 2;
   readonly programId: string;
   readonly teamId: string;
