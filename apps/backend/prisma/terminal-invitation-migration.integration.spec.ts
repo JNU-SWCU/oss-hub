@@ -16,7 +16,7 @@ const schema = 'terminal_invitation_migration_fixture';
 const migration = readFileSync(
   resolve(
     __dirname,
-    'migrations/20261104160000_retire_terminal_invitations/migration.sql',
+    'migrations/20261104190000_retire_terminal_invitations/migration.sql',
   ),
   'utf8',
 );

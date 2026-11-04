@@ -1,6 +1,6 @@
 # Todo 8 3b 데이터 이관 draft
 
-이 draft는 코드 선행 PR #1738이 운영되고 구 writer가 모두 종료된 뒤에만 적용한다. 지금 main/v0.24.44에 먼저 적용하지 않는다. migration의 선행 head는 `20261104150000_prepare_invitation_archival`이다. 물리 컬럼·테이블 DROP은 포함하지 않는다.
+이 draft는 코드 선행 PR #1738과 종료 시 행 삭제 PR #1742가 모두 운영에 배포되고 구 writer가 종료된 뒤에만 적용한다. migration의 선행 head는 `20261104180000_prepare_invitation_archival`이다. 물리 컬럼·테이블 DROP은 포함하지 않는다.
 
 ## 예상 이동과 대조
 
@@ -38,7 +38,7 @@ v0.24.44는 스키마가 열려도 의미상 안전하지 않다. 초대만 있�
 
 원격 PR의 기존 가드는 복사·삭제 수를 입력에서 구한 terminal_count와 비교했기 때문에 24·26건에서도 같은 수가 나와 통과했다. 작업 시작 시 로컬 미push 커밋에는 25/20/5/3 가드와 purge 공통 픽스처 수정이 이미 있었다. 이번에는 팀·구성원·신규 INSERT 가드와 실제 DB 음성 검증을 보강했다. purge의 ACCEPTED 초대는 TeamHistory로 옮기고 별도 PENDING 초대를 유지한 공통 픽스처를 보존했다. 자식 행 수와 이력 내용의 삭제 전후 동등성 검증도 유지한다.
 
-`git fetch origin main` 후 `origin/main`의 `f5c6b8b99529af00fe7e81d12e5cdf1da72af589`에 rebase했다. main의 마지막 디렉터리는 `20261104140000_prepare_team_history`이므로 `20261104160000_retire_terminal_invitations`는 이미 마지막 순서이며 이름을 바꾸지 않았다. 작업 시작 SQL SHA-256은 `83601e25b2ebc887aedae3a5fa47ed12c8a610b6cb0c4b4c5baee73ebce61097`이었다. SQL 변경은 승인 가드와 그 검사를 위한 잠금·빈 DB 판정에 한정한다.
+`git fetch origin main` 후 `origin/main`의 `7f4d94597a8f78ee711c8d65cbcf3eaf8d53a99b`에 rebase했다. 이 rebase에서 #1738과 #1728의 커밋 6건이 이미 적용된 것으로 떨어져 이 PR은 이관 커밋 4건만 남았다. main의 마지막 디렉터리가 `20261104180000_prepare_invitation_archival`이 되었으므로 디렉터리를 `20261104190000_retire_terminal_invitations`로 바꿔 운영 ledger가 연속이 되도록 했다. 이름 변경 전후 SQL SHA-256은 모두 `1fa708e4fd21d770a9edf2a02e40d5a3169ba8095630b5114a88a4a117bed485`이며 바이트는 바뀌지 않았다. SQL 변경은 승인 가드와 그 검사를 위한 잠금·빈 DB 판정에 한정한다.
 
 첫 전체 통합 실행은 151 suites 중 2 failed / 149 passed, 1190 tests 중 3 failed / 1187 passed, EXIT=1이었다. rebase로 들어온 팀 삭제의 EXPIRED 행과 저장소 테스트의 DECLINED 직접 갱신 두 건이 pending-only 제약에 걸렸다. 만료 사실은 기존 TeamHistory로 준비하고 팀 삭제 뒤 내용이 그대로인지 확인하도록 수정했다. 직접 status 갱신은 제약으로 거부되고 PENDING 행은 보존되는지 확인한다. 재초대 뒤 구 writer의 status 갱신도 거부되는 계약을 검증한다. 수신 초대 요약의 과거 DECLINED 픽스처도 이력으로 옮겨 대기 초대 두 건만 목록에 나타나는 검증을 유지했다.
 

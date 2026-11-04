@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "terminal-invitations-retire",
-  "expectedHeadMigration": "20261104150000_prepare_invitation_archival",
+  "expectedHeadMigration": "20261104180000_prepare_invitation_archival",
   "preflight": [
     "../../../../apps/backend/prisma/migration-checks/team-history/preflight.sql"
   ],
@@ -9,7 +9,7 @@
     {
       "id": "retire",
       "apply": [
-        "../../../../apps/backend/prisma/migrations/20261104160000_retire_terminal_invitations/migration.sql"
+        "../../../../apps/backend/prisma/migrations/20261104190000_retire_terminal_invitations/migration.sql"
       ],
       "reconcile": ["check-retired.sql"]
     }
