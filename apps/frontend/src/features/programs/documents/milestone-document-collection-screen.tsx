@@ -26,7 +26,6 @@ import {
   type MilestoneDocumentReviewConflict,
 } from './milestone-document-conflict';
 import {
-  milestoneDocumentResubmissionDueAtPayload,
   milestoneDocumentReviewCommentPayload,
   milestoneDocumentReviewFormError,
   milestoneDocumentReviewVersionError,
@@ -135,10 +134,10 @@ export function MilestoneDocumentCollectionScreen({
 
   const submitReview = useCallback(async () => {
     if (review === null) return;
-    const { decision, comment, resubmissionDueAt, target, version } = review;
+    const { decision, comment, target, version } = review;
 
     const formError =
-      milestoneDocumentReviewFormError(decision, comment, resubmissionDueAt) ??
+      milestoneDocumentReviewFormError(decision, comment) ??
       milestoneDocumentReviewVersionError(version);
 
     if (formError !== null || decision === null || version === null) {
@@ -169,11 +168,6 @@ export function MilestoneDocumentCollectionScreen({
         {
           decision,
           comment: milestoneDocumentReviewCommentPayload(comment),
-
-          resubmissionDueAt: milestoneDocumentResubmissionDueAtPayload(
-            decision,
-            resubmissionDueAt,
-          ),
 
           expectedRevision: version.expectedRevision,
           expectedLatestReviewId: version.expectedLatestReviewId,
@@ -292,13 +286,6 @@ export function MilestoneDocumentCollectionScreen({
       onReviewCommentChange={(comment: string) =>
         setReview((previous) =>
           previous === null ? previous : { ...previous, comment },
-        )
-      }
-      onReviewResubmissionDueAtChange={(resubmissionDueAt: string) =>
-        setReview((previous) =>
-          previous === null
-            ? previous
-            : { ...previous, resubmissionDueAt, errorMessage: null },
         )
       }
       onReviewSubmit={() => void submitReview()}

@@ -35,11 +35,9 @@ function ReviewResult({ revision }: { readonly revision: SubmissionRevision }) {
           {formatReviewDate(review.reviewedAt)}
         </span>
       </div>
-      {review.comment ? (
-        <p className="text-sm whitespace-pre-wrap text-foreground">
-          {review.comment}
-        </p>
-      ) : null}
+      <p className="text-sm whitespace-pre-wrap text-foreground">
+        {review.comment ?? '사유 없이 저장되었습니다.'}
+      </p>
     </div>
   );
 }

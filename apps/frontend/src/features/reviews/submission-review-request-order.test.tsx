@@ -113,7 +113,9 @@ describe('review request ordering', () => {
       },
     });
     await act(() => Promise.resolve(screen.button('저장').click()));
-    expect(screen.container.querySelector('textarea')).toBeNull();
+    expect(screen.container.querySelector('textarea')).not.toBeNull();
+    expect(screen.button('저장').disabled).toBe(true);
+    await act(async () => screen.button('최신 제출본 1번 열기').click());
     expect(screen.container.textContent).toContain(
       '확인할 내용을 추가해 주세요.',
     );

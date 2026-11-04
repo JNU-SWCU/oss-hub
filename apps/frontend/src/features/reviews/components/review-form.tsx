@@ -55,7 +55,7 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
       <CardHeader className="border-b border-border">
         <CardTitle>검토</CardTitle>
         <CardDescription>
-          보완 요청과 최종 반려에는 코멘트가 필요합니다.
+          사유는 선택 입력입니다. 보완 요청에는 별도 재제출 기한이 없습니다.
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -99,10 +99,11 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
             ) : null}
           </FieldSet>
           <Field data-invalid={commentError ? 'true' : undefined}>
-            <FieldLabel htmlFor="review-comment">코멘트</FieldLabel>
+            <FieldLabel htmlFor="review-comment">코멘트 (선택)</FieldLabel>
             <textarea
               id="review-comment"
               rows={5}
+              maxLength={2000}
               value={props.comment}
               disabled={props.isSaving}
               aria-invalid={commentError ? true : undefined}
@@ -122,7 +123,7 @@ export function ReviewForm(props: SubmissionReviewViewProps) {
               placeholder="검토 근거와 필요한 보완 내용을 입력하세요."
             />
             <FieldDescription id="review-comment-description">
-              승인 코멘트는 선택 사항입니다.
+              어떤 판정이든 코멘트 없이 저장할 수 있습니다 · 최대 2,000자
             </FieldDescription>
             {commentError ? (
               <FieldError id="review-comment-error">{commentError}</FieldError>
