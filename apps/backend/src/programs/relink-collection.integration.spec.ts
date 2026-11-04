@@ -413,6 +413,20 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     ).toMatchObject({ status: 'SKIPPED', processedRepositoryCount: 0 });
     expect(provider.streamedNames()).toEqual([]);
     expect(provider.getRepository).not.toHaveBeenCalled();
+    await expect(
+      prisma.githubRepository.create({
+        data: {
+          githubRepositoryId: targetGithubId + 2n,
+          nameWithOwner: `synthetic/${oldId}-duplicate`,
+          programId,
+          teamId,
+          source,
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'P2002',
+      meta: { target: ['teamId'] },
+    });
     const afterStatus =
       source === 'ORG_PROVISIONED'
         ? await status.getIncrementalStatusSnapshot()

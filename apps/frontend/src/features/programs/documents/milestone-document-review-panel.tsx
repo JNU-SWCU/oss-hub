@@ -297,8 +297,9 @@ export function MilestoneDocumentReviewPanel(
             }
           />
           <FieldDescription id={`${resubmissionDueAtId}-description`}>
-            학생은 이 시각까지 한 번 다시 낼 수 있습니다 · 마감이 지난
-            마일스톤이라도 이 기한 안에는 열립니다
+            이 날짜는 검토 요청에 함께 보내는 호환 입력입니다. 서버 정책에 따라
+            적용 여부가 달라집니다. 날짜만으로 재제출 가능 여부를 판단하지 말고
+            학생의 제출 화면에서 확인해 주세요.
           </FieldDescription>
         </Field>
       ) : null}
