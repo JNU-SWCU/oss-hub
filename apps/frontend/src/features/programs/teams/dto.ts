@@ -4,6 +4,7 @@ import type {
   RepositoryProvisioning,
 } from '../applications/dto';
 import type { PublishBlockedReason } from '@/lib/repository-publication';
+export type { InvitationCandidate } from './team-invitation-dto';
 
 export interface TeamMember {
   readonly userId: string;

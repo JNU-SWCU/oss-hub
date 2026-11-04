@@ -8,6 +8,9 @@ export function serializeCreateApplication(
   return JSON.stringify({
     answers: input.answers,
     teamName: input.teamName,
+    ...(input.inviteeUserIds === undefined
+      ? {}
+      : { inviteeUserIds: input.inviteeUserIds }),
     applicationTemplateVersion: input.applicationTemplateVersion,
     isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
   });

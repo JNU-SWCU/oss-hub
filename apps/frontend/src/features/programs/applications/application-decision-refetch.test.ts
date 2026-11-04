@@ -175,6 +175,20 @@ describe('decisionInputFor', () => {
 });
 
 describe('decisionNoticeFor', () => {
+  it('최소 인원 승인 거부는 재시도 대신 초대 수락을 안내한다', async () => {
+    const result = await runDecisionWithRefetch(
+      ports(
+        () => Promise.reject(problem(422, 'APP_019')),
+        () => Promise.resolve(APPLICATION),
+      ),
+    );
+
+    expect(decisionNoticeFor(result)).toBe(
+      '팀 최소 인원이 부족해 승인할 수 없습니다. 초대한 팀원이 수락한 뒤 다시 승인해 주세요.',
+    );
+    expect(blocksFurtherDecisions(result)).toBe(false);
+  });
+
   it('자기 팀 판정 거절은 다시 시도 대신 다른 검토자를 안내한다', async () => {
     const result = await runDecisionWithRefetch(
       ports(
