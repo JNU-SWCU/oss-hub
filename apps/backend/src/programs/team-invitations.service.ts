@@ -18,6 +18,10 @@ import {
   type StaffAuthorityRow,
 } from './team-invitations.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import {
+  APPLICATIONS_ERROR_CODES,
+  ApplicationsErrorCode,
+} from './applications-error-code.error';
 
 @Injectable()
 export class TeamInvitationsService {
@@ -54,6 +58,31 @@ export class TeamInvitationsService {
     const trimmed = query.trim();
     if (!trimmed) return [];
     return this.repository.searchCandidates(team.programId, trimmed, userId);
+  }
+
+  async searchApplicationCandidates(
+    githubId: bigint,
+    programId: string,
+    query: string,
+  ): Promise<InvitationCandidateRecord[]> {
+    const userId = await this.requireUserId(githubId);
+    if (
+      this.inviteeEligibility(
+        await this.repository.findInviteeAccount(userId),
+      ) !== 'eligible'
+    ) {
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STUDENT_ONLY],
+      );
+    }
+    if (!(await this.repository.isApplicationProgramAvailable(programId))) {
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.PROGRAM_NOT_FOUND],
+      );
+    }
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return [];
+    return this.repository.searchCandidates(programId, trimmed, userId);
   }
 
   async create(

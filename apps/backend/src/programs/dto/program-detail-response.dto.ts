@@ -75,6 +75,8 @@ class ProgramDetailMilestoneResponseDto {
 }
 
 export class ProgramDetailResponseDto {
+  declare readonly teamMinSize: number;
+  declare readonly teamMaxSize: number;
   declare readonly id: string;
   declare readonly coverImageUrl: string | null;
   declare readonly name: string;
@@ -107,6 +109,8 @@ export class ProgramDetailResponseDto {
       organizer: result.organizer,
       trackType: result.trackType,
       applicationTemplateKey: result.applicationTemplateKey,
+      teamMinSize: result.teamMinSize,
+      teamMaxSize: result.teamMaxSize,
       lifecycle: result.lifecycle,
       description: result.description,
       repositoryProvisioningEnabled: result.repositoryProvisioningEnabled,
