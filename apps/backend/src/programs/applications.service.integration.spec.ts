@@ -196,7 +196,14 @@ describe('ApplicationsService integration', () => {
 
   afterEach(async () => {
     await prisma.teamInvitation.deleteMany({
-      where: { programId: CREATE_PROGRAM_ID },
+      where: {
+        programId: {
+          in: [
+            CREATE_PROGRAM_ID,
+            ...APPLICATION_IDS.map((id) => `${id}-program`),
+          ],
+        },
+      },
     });
     await prisma.admin.deleteMany({ where: { userId: ACTOR_ID } });
     await prisma.notification.deleteMany({
@@ -558,7 +565,7 @@ describe('ApplicationsService integration', () => {
     15_000,
   );
 
-  it('최소 2명 프로그램에 혼자 지원하고 초대 수락 후에만 승인한다', async () => {
+  it('최소 2명 프로그램에 학생을 지명해 지원하고 수락 후에만 승인한다', async () => {
     await prisma.program.create({
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
@@ -587,6 +594,7 @@ describe('ApplicationsService integration', () => {
       CREATE_PROGRAM_ID,
       {
         answers: { title: '팀 제목' },
+        inviteeUserIds: ['synthetic-decision-member'],
         teamName: null,
         applicationTemplateVersion: 1,
         isRepositoryPublicationPlanned: true,
@@ -617,16 +625,16 @@ describe('ApplicationsService integration', () => {
       prisma,
       new PlatformRepository(),
     );
-    const invited = await invitations.createInvitation({
-      teamId: application.teamId,
-      actorId: APPLICANT_ID,
-      inviteeId: 'synthetic-decision-member',
+    const invited = await prisma.teamInvitation.findFirstOrThrow({
+      where: {
+        teamId: application.teamId,
+        inviteeId: 'synthetic-decision-member',
+        status: 'PENDING',
+      },
     });
-    if (invited.kind !== 'ok')
-      throw new Error(`Invitation failed: ${invited.kind}`);
     expect(
       await invitations.withAcceptTransaction(
-        invited.invitation.id,
+        invited.id,
         'synthetic-decision-member',
       ),
     ).toEqual({
@@ -647,125 +655,177 @@ describe('ApplicationsService integration', () => {
       }),
     ).toBe(2);
   });
-  it('팀원 탈퇴가 먼저 잠그면 승인은 커밋 뒤 줄어든 인원으로 거부한다', async () => {
-    const applicationId = APPLICATION_IDS[0];
-    const programId = `${applicationId}-program`;
-    const teamId = `${applicationId}-team`;
-    await createApplication(applicationId, false);
-    await prisma.program.update({
-      where: { id: programId },
-      data: { teamMinSize: 2, teamMaxSize: 2 },
-    });
-    await prisma.teamMember.create({
-      data: { teamId, programId, userId: 'synthetic-decision-member' },
-    });
-    const url = new URL(process.env.DATABASE_URL ?? '');
-    url.searchParams.set('connection_limit', '1');
-    const approvalPrisma = new PrismaService({
-      datasources: { db: { url: url.toString() } },
-    });
-    const approvalService = new ApplicationsService(
-      new ApplicationsRepository(
-        approvalPrisma,
-        new ReviewHistoryWriterRepository(),
-        new RepositoryProvisionGenerationRepository(),
+  it.each(['leave', 'accept'] as const)(
+    '%s 중 승인은 커밋된 팀 구성원을 사용한다',
+    async (change) => {
+      const applicationId = APPLICATION_IDS[0];
+      const programId = `${applicationId}-program`;
+      const teamId = `${applicationId}-team`;
+      await createApplication(applicationId, change === 'accept');
+      await prisma.program.update({
+        where: { id: programId },
+        data: { teamMinSize: 2, teamMaxSize: 2 },
+      });
+      if (change === 'leave') {
+        await prisma.teamMember.create({
+          data: { teamId, programId, userId: 'synthetic-decision-member' },
+        });
+      }
+      const url = new URL(process.env.DATABASE_URL ?? '');
+      url.searchParams.set('connection_limit', '1');
+      const approvalPrisma = new PrismaService({
+        datasources: { db: { url: url.toString() } },
+      });
+      const approvalService = new ApplicationsService(
+        new ApplicationsRepository(
+          approvalPrisma,
+          new ReviewHistoryWriterRepository(),
+          new RepositoryProvisionGenerationRepository(),
+          new PlatformRepository(),
+        ),
+        new AuditLogService(
+          new AuditLogRepository(approvalPrisma),
+          new AuditLogReadService(new AuditLogMetadataService()),
+        ),
+        new AuditLogMetadataService(),
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
+      );
+      const teams = new ProgramTeamsRepository(
+        prisma,
+        new ProgramTeamRepositoryEvidenceRepository(prisma),
         new PlatformRepository(),
-      ),
-      new AuditLogService(
-        new AuditLogRepository(approvalPrisma),
-        new AuditLogReadService(new AuditLogMetadataService()),
-      ),
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
-    const teams = new ProgramTeamsRepository(
-      prisma,
-      new ProgramTeamRepositoryEvidenceRepository(prisma),
-      new PlatformRepository(),
-    );
-    const gate: { ready?: () => void; release?: () => void } = {};
-    const ready = new Promise<void>((resolve) => {
-      gate.ready = resolve;
-    });
-    const release = new Promise<void>((resolve) => {
-      gate.release = resolve;
-    });
-    const leave = teams
-      .leave(programId, 'synthetic-decision-member', async () => {
+      );
+      const gate: { ready?: () => void; release?: () => void } = {};
+      const ready = new Promise<void>((resolve) => {
+        gate.ready = resolve;
+      });
+      const release = new Promise<void>((resolve) => {
+        gate.release = resolve;
+      });
+      const waitForCommit = async () => {
         gate.ready?.();
         await release;
-      })
-      .then(
+      };
+      const write: Promise<unknown> =
+        change === 'leave'
+          ? teams.leave(programId, 'synthetic-decision-member', waitForCommit)
+          : (async () => {
+              const pending = await prisma.teamInvitation.create({
+                data: {
+                  teamId,
+                  programId,
+                  invitedById: APPLICANT_ID,
+                  inviteeId: 'synthetic-decision-member',
+                },
+              });
+              return new TeamInvitationsRepository(
+                prisma,
+                new PlatformRepository(),
+              ).withAcceptTransaction(
+                pending.id,
+                'synthetic-decision-member',
+                new Date(),
+                waitForCommit,
+              );
+            })();
+      const mutation = write.then(
         (value) => ({ kind: 'completed' as const, value }),
         (error: unknown) => ({ kind: 'failed' as const, error }),
       );
-    let approval: Promise<unknown> | undefined;
-    try {
-      await Promise.race([
-        ready,
-        leave.then(() => {
-          throw new Error('Leave ended before acquiring the team lock');
-        }),
-      ]);
-      const [connection] = await approvalPrisma.$queryRaw<
-        [{ pid: number }]
-      >`SELECT pg_backend_pid() AS pid`;
-      approval = approvalService
-        .decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, applicationId, {
-          action: APPLICATION_DECISION_ACTIONS.APPROVE,
-        })
-        .then(
-          (value) => ({ kind: 'approved' as const, value }),
-          (error: unknown) => ({ kind: 'refused' as const, error }),
-        );
-      const deadline = Date.now() + 4000;
-      while (true) {
-        const [state] = await prisma.$queryRaw<[{ waiting: boolean }]>`
+      let approval: Promise<unknown> | undefined;
+      try {
+        await Promise.race([
+          ready,
+          mutation.then(() => {
+            throw new Error(
+              'Membership change ended before acquiring the team lock',
+            );
+          }),
+        ]);
+        const [connection] = await approvalPrisma.$queryRaw<
+          [{ pid: number }]
+        >`SELECT pg_backend_pid() AS pid`;
+        approval = approvalService
+          .decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, applicationId, {
+            action: APPLICATION_DECISION_ACTIONS.APPROVE,
+          })
+          .then(
+            (value) => ({ kind: 'approved' as const, value }),
+            (error: unknown) => ({ kind: 'refused' as const, error }),
+          );
+        const deadline = Date.now() + 4000;
+        while (true) {
+          const [state] = await prisma.$queryRaw<[{ waiting: boolean }]>`
           SELECT EXISTS (
             SELECT 1 FROM pg_stat_activity
             WHERE pid = ${connection.pid} AND wait_event_type = 'Lock'
               AND cardinality(pg_blocking_pids(pid)) > 0
           ) AS waiting`;
-        if (state.waiting) break;
-        if (Date.now() >= deadline)
-          throw new Error(
-            'Approval did not wait for the leaving member transaction',
-          );
+          if (state.waiting) break;
+          if (Date.now() >= deadline)
+            throw new Error(
+              'Approval did not wait for the membership transaction',
+            );
+        }
+        gate.release?.();
+        if (change === 'leave') {
+          expect(await mutation).toEqual({
+            kind: 'completed',
+            value: 'removed',
+          });
+          expect(await approval).toMatchObject({
+            kind: 'refused',
+            error: {
+              errorCode: { code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET },
+              extensions: { memberCount: 1, teamMinSize: 2 },
+            },
+          });
+          expect(
+            await prisma.application.findUnique({
+              where: { id: applicationId },
+              select: { status: true },
+            }),
+          ).toEqual({ status: ApplicationStatus.SUBMITTED });
+          expect(
+            await prisma.applicationReviewHistory.count({
+              where: { applicationId },
+            }),
+          ).toBe(0);
+          expect(
+            await prisma.outboxEvent.count({
+              where: { aggregateId: applicationId },
+            }),
+          ).toBe(0);
+        } else {
+          expect(await mutation).toMatchObject({
+            kind: 'completed',
+            value: { kind: 'ok' },
+          });
+          expect(await approval).toMatchObject({
+            kind: 'approved',
+            value: { kind: 'APPROVED' },
+          });
+          const event = await prisma.outboxEvent.findFirstOrThrow({
+            where: { aggregateId: applicationId },
+          });
+          expect(event.payload).toMatchObject({
+            collaboratorGithubLogins: [
+              'synthetic-applicant',
+              'synthetic-member',
+            ],
+          });
+        }
+      } finally {
+        gate.release?.();
+        await mutation;
+        await approval;
+        await approvalPrisma.$disconnect();
       }
-      gate.release?.();
-      expect(await leave).toEqual({ kind: 'completed', value: 'removed' });
-      expect(await approval).toMatchObject({
-        kind: 'refused',
-        error: {
-          errorCode: { code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET },
-          extensions: { memberCount: 1, teamMinSize: 2 },
-        },
-      });
-      expect(
-        await prisma.application.findUnique({
-          where: { id: applicationId },
-          select: { status: true },
-        }),
-      ).toEqual({ status: ApplicationStatus.SUBMITTED });
-      expect(
-        await prisma.applicationReviewHistory.count({
-          where: { applicationId },
-        }),
-      ).toBe(0);
-      expect(
-        await prisma.outboxEvent.count({
-          where: { aggregateId: applicationId },
-        }),
-      ).toBe(0);
-    } finally {
-      gate.release?.();
-      await leave;
-      await approval;
-      await approvalPrisma.$disconnect();
-    }
-  }, 15_000);
+    },
+    15_000,
+  );
 
   it('신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
     const applicationId = APPLICATION_IDS[0];

@@ -17,6 +17,24 @@ function dto(body: Record<string, unknown>): CreateApplicationRequestDto {
 }
 
 describe('CreateApplicationRequestDto.toInput', () => {
+  it('지명한 학생 ID 배열을 검증하고 지원 입력에 보존한다', async () => {
+    const body = dto({ inviteeUserIds: ['student-a', 'student-b'] });
+    expect(await validate(body)).toHaveLength(0);
+    expect(
+      applicationsService.createInputFromRequest(body).inviteeUserIds,
+    ).toEqual(['student-a', 'student-b']);
+  });
+
+  it.each([{ value: 'student-a' }, { value: [1] }, { value: [true] }])(
+    '잘못된 학생 ID 입력 %j를 거부한다',
+    async ({ value }) => {
+      const errors = await validate(dto({ inviteeUserIds: value }));
+      expect(errors.some((error) => error.property === 'inviteeUserIds')).toBe(
+        true,
+      );
+    },
+  );
+
   it('구 클라이언트가 필드를 생략하면 true 로 기본 설정한다', () => {
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목' },
@@ -114,6 +132,7 @@ describe('CreateApplicationRequestDto validation', () => {
     const input = applicationsService.createInputFromRequest(body);
 
     expect(input).toEqual({
+      inviteeUserIds: [],
       answers: { title: '제목' },
       teamName: null,
       applicationTemplateVersion: 1,

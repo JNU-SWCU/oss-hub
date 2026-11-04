@@ -118,6 +118,7 @@ interface TeamMinimumExtensions extends ProblemDetailExtensions {
 }
 
 export interface CreateApplicationRequest {
+  readonly inviteeUserIds?: readonly string[];
   readonly answers: Readonly<Record<string, unknown>>;
   readonly teamName?: string | null;
   readonly applicationTemplateVersion: number;
@@ -147,6 +148,7 @@ export class ApplicationsService {
 
     return {
       answers: request.answers,
+      inviteeUserIds: request.inviteeUserIds ?? [],
       teamName:
         trimmedTeamName !== undefined && trimmedTeamName.length > 0
           ? trimmedTeamName
@@ -185,6 +187,13 @@ export class ApplicationsService {
       throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
     }
     const teamName = input.teamName?.trim() || `${student.nickname}의 팀`;
+    const inviteeIds = input.inviteeUserIds ?? [];
+    if (
+      new Set(inviteeIds).size !== inviteeIds.length ||
+      inviteeIds.includes(student.id)
+    ) {
+      throw this.error(ApplicationsErrorCode.INVALID_INVITEES);
+    }
 
     try {
       return await this.repository.withCreateTransaction(async (store) => {
@@ -256,6 +265,47 @@ export class ApplicationsService {
             : null;
         if (preparation !== null && preparation.leaderId !== student.id)
           throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
+        const acceptedCount = existingTeam
+          ? await store.countTeamMembers(existingTeam.id)
+          : (preparation?.memberIds.length ?? 1);
+        const memberCount = acceptedCount + inviteeIds.length;
+        if (memberCount < lockedProgram.teamMinSize) {
+          const extensions: TeamMinimumExtensions = {
+            memberCount,
+            teamMinSize: lockedProgram.teamMinSize,
+          };
+          throw new DomainException(
+            APPLICATIONS_ERROR_CODES[
+              ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET
+            ],
+            extensions,
+          );
+        }
+        if (memberCount > lockedProgram.teamMaxSize) {
+          throw this.error(ApplicationsErrorCode.TEAM_MAX_SIZE_EXCEEDED);
+        }
+        const participants = await store.validateApplicationParticipants({
+          programId,
+          actorId: student.id,
+          preparationMemberIds: preparation?.memberIds ?? [],
+          inviteeIds,
+        });
+        switch (participants) {
+          case 'student-ineligible':
+            throw this.error(ApplicationsErrorCode.STUDENT_ONLY);
+          case 'preparation-changed':
+            throw this.error(ApplicationsErrorCode.PREPARATION_CHANGED);
+          case 'invitee-ineligible':
+            throw this.error(ApplicationsErrorCode.INVITEE_NOT_ELIGIBLE);
+          case 'invitee-unavailable':
+            throw this.error(ApplicationsErrorCode.INVITEE_UNAVAILABLE);
+          case 'ok':
+            break;
+          default: {
+            const exhaustive: never = participants;
+            return exhaustive;
+          }
+        }
         const applicationTeam =
           existingTeam ??
           (await store.createTeamWithLeader({
@@ -276,6 +326,12 @@ export class ApplicationsService {
           repositoryUrl: null,
         });
 
+        await store.createApplicationInvitations({
+          teamId: applicationTeam.id,
+          programId,
+          actorId: student.id,
+          inviteeIds,
+        });
         if (preparation !== null) await store.deletePreparation(preparation.id);
         await store.appendReviewHistory({
           applicationId: application.id,
@@ -432,7 +488,7 @@ export class ApplicationsService {
     const idempotencyKey = `repository-provision:${applicationId}`;
     try {
       return await this.repository.withTransaction(async (store) => {
-        const application = await store.findApplicationById(applicationId);
+        let application = await store.findApplicationById(applicationId);
         if (!application) {
           throw new DomainException(
             APPLICATIONS_ERROR_CODES[
@@ -446,6 +502,14 @@ export class ApplicationsService {
           (await store.isCurrentTeamMember(application.teamId, actorId))
         ) {
           throw this.error(ApplicationsErrorCode.OWN_TEAM_DECISION_FORBIDDEN);
+        }
+
+        if (application.teamId !== null) {
+          const current = await store.findApplicationById(applicationId);
+          if (current === null) {
+            throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+          }
+          application = { ...application, participants: current.participants };
         }
 
         const processedAt = new Date();

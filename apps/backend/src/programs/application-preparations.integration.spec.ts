@@ -191,28 +191,17 @@ describe('application preparation integration', () => {
     ).rejects.toMatchObject({ errorCode: { code: 'APP_030' } });
   });
 
-  it('allows a single accepted preparation member to apply before filling the minimum', async () => {
+  it('refuses a preparation below the minimum and preserves it for the old frontend', async () => {
     const preparation = await prepare();
 
-    const application = await applications.create(
-      leader.githubId,
-      programId,
-      input,
-      now,
-    );
-
-    expect(
-      await prisma.team.findUnique({
-        where: { id: application.teamId },
-        select: { name: true, members: { select: { userId: true } } },
-      }),
-    ).toEqual({
-      name: preparation.name,
-      members: [{ userId: leader.id }],
+    await expect(
+      applications.create(leader.githubId, programId, input, now),
+    ).rejects.toMatchObject({ errorCode: { code: 'APP_019' } });
+    await expectNoOfficialRows();
+    expect(await preparations.get(leader.githubId, programId)).toMatchObject({
+      id: preparation.id,
+      memberCount: 1,
     });
-    expect(
-      await prisma.applicationPreparation.count({ where: { programId } }),
-    ).toBe(0);
   });
 
   it('rejects current eligibility changes without creating an official team', async () => {

@@ -156,6 +156,7 @@ export interface ApplicationListQuery {
 type CreateApplicationAnswersInput = Readonly<Record<string, unknown>>;
 
 export interface CreateApplicationInput {
+  readonly inviteeUserIds?: readonly string[];
   readonly answers: CreateApplicationAnswersInput;
 
   readonly teamName: string | null;
@@ -306,6 +307,7 @@ export interface TeamManagementMember {
 export interface TeamManagementListItem {
   readonly id: string;
   readonly programId: string;
+  readonly teamMinSize: number;
   readonly status: ApplicationStatus;
   readonly submittedAt: Date;
   readonly rejectionReason: string | null;
@@ -399,6 +401,7 @@ type ApplicationDatabase = Pick<
   | 'program'
   | 'team'
   | 'teamMember'
+  | 'teamInvitation'
   | 'application'
   | 'applicationPreparation'
   | 'applicationPreparationParticipant'
@@ -408,6 +411,8 @@ type ApplicationDatabase = Pick<
 >;
 
 interface LockedProgramPolicy {
+  readonly teamMinSize: number;
+  readonly teamMaxSize: number;
   readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
@@ -496,7 +501,6 @@ export interface ApplicationCreateStore {
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory>;
   lockProgramForApply(programId: string): Promise<LockedProgramPolicy | null>;
-  findTeamMinSize(programId: string): Promise<number | null>;
 
   findExistingTeamMembership(
     programId: string,
@@ -516,6 +520,24 @@ export interface ApplicationCreateStore {
   } | null>;
   deletePreparation(preparationId: string): Promise<void>;
   countTeamMembers(teamId: string): Promise<number>;
+  validateApplicationParticipants(input: {
+    readonly programId: string;
+    readonly actorId: string;
+    readonly preparationMemberIds: readonly string[];
+    readonly inviteeIds: readonly string[];
+  }): Promise<
+    | 'ok'
+    | 'student-ineligible'
+    | 'preparation-changed'
+    | 'invitee-ineligible'
+    | 'invitee-unavailable'
+  >;
+  createApplicationInvitations(input: {
+    readonly teamId: string;
+    readonly programId: string;
+    readonly actorId: string;
+    readonly inviteeIds: readonly string[];
+  }): Promise<void>;
   createTeamWithLeader(
     input: CreateTeamForApplicationInput,
   ): Promise<CreatedTeamForApplication>;
@@ -1154,7 +1176,6 @@ export class ApplicationsRepository {
         database,
       ),
       lockProgramForApply: this.lockProgramForApplyIn.bind(this, database),
-      findTeamMinSize: this.findTeamMinSizeIn.bind(this, database),
       findExistingTeamMembership: this.findExistingTeamMembershipIn.bind(
         this,
         database,
@@ -1165,6 +1186,12 @@ export class ApplicationsRepository {
       ),
       deletePreparation: this.deletePreparationIn.bind(this, database),
       countTeamMembers: this.countTeamMembersIn.bind(this, database),
+      validateApplicationParticipants:
+        this.validateApplicationParticipantsIn.bind(this, database),
+      createApplicationInvitations: this.createApplicationInvitationsIn.bind(
+        this,
+        database,
+      ),
       lockTeamForApply: this.lockTeamForApplyIn.bind(this, database),
       createTeamWithLeader: this.createTeamWithLeaderIn.bind(this, database),
       createApplication: this.createApplicationIn.bind(this, database),
@@ -1183,7 +1210,7 @@ export class ApplicationsRepository {
     programId: string,
   ): Promise<LockedProgramPolicy | null> {
     const rows = await database.$queryRaw<readonly LockedProgramPolicy[]>(
-      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
+      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion", "teamMinSize", "teamMaxSize" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
     );
     return rows[0] ?? null;
   }
@@ -1236,21 +1263,7 @@ export class ApplicationsRepository {
     const memberIds = preparation.participants
       .map((participant) => participant.userId)
       .sort();
-    await database.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(memberIds)}) ORDER BY "id" FOR UPDATE`,
-    );
-    const eligible = await database.user.count({
-      where: {
-        id: { in: memberIds },
-        accountStatus: AccountStatus.ACTIVE,
-        ...STUDENT_MEMBER_WHERE,
-        teamMemberships: { none: { programId } },
-      },
-    });
-    if (
-      eligible !== memberIds.length ||
-      memberIds.length > preparation.program.teamMaxSize
-    )
+    if (memberIds.length > preparation.program.teamMaxSize)
       throw new ApplicationPreparationConflictError();
     return {
       id: preparation.id,
@@ -1266,6 +1279,83 @@ export class ApplicationsRepository {
   ): Promise<void> {
     await database.applicationPreparation.delete({
       where: { id: preparationId },
+    });
+  }
+
+  private async validateApplicationParticipantsIn(
+    database: ApplicationDatabase,
+    input: Parameters<
+      ApplicationCreateStore['validateApplicationParticipants']
+    >[0],
+  ): ReturnType<ApplicationCreateStore['validateApplicationParticipants']> {
+    const ids = [
+      ...new Set([
+        input.actorId,
+        ...input.preparationMemberIds,
+        ...input.inviteeIds,
+      ]),
+    ].sort();
+    await database.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`,
+    );
+    const activeStudents = await database.user.findMany({
+      where: {
+        id: { in: ids },
+        accountStatus: AccountStatus.ACTIVE,
+        ...STUDENT_MEMBER_WHERE,
+      },
+      select: { id: true },
+    });
+    const eligible = new Set(activeStudents.map((user) => user.id));
+    if (!eligible.has(input.actorId)) return 'student-ineligible';
+    if (input.preparationMemberIds.some((id) => !eligible.has(id)))
+      return 'preparation-changed';
+    if (
+      input.preparationMemberIds.length > 0 &&
+      (await database.teamMember.count({
+        where: {
+          programId: input.programId,
+          userId: { in: [...input.preparationMemberIds] },
+        },
+      })) > 0
+    )
+      return 'preparation-changed';
+    if (input.inviteeIds.some((id) => !eligible.has(id)))
+      return 'invitee-ineligible';
+    if (input.inviteeIds.length > 0) {
+      const memberships = await database.teamMember.count({
+        where: {
+          programId: input.programId,
+          userId: { in: [...input.inviteeIds] },
+        },
+      });
+      const preparations =
+        await database.applicationPreparationParticipant.count({
+          where: {
+            programId: input.programId,
+            userId: { in: [...input.inviteeIds] },
+            status: 'ACCEPTED',
+          },
+        });
+      if (memberships > 0 || preparations > 0) return 'invitee-unavailable';
+    }
+    return 'ok';
+  }
+
+  private async createApplicationInvitationsIn(
+    database: ApplicationDatabase,
+    input: Parameters<
+      ApplicationCreateStore['createApplicationInvitations']
+    >[0],
+  ): Promise<void> {
+    if (input.inviteeIds.length === 0) return;
+    await database.teamInvitation.createMany({
+      data: input.inviteeIds.map((inviteeId) => ({
+        teamId: input.teamId,
+        programId: input.programId,
+        invitedById: input.actorId,
+        inviteeId,
+      })),
     });
   }
 
@@ -1460,6 +1550,7 @@ const TEAM_MANAGEMENT_ORDER_BY = [
 const TEAM_MANAGEMENT_LIST_SELECT = {
   id: true,
   programId: true,
+  program: { select: { teamMinSize: true } },
   status: true,
   submittedAt: true,
   rejectionReason: true,
@@ -1493,6 +1584,7 @@ function toTeamManagementListItem(
   return {
     id: row.id,
     programId: row.programId,
+    teamMinSize: row.program.teamMinSize,
     status: row.status,
     submittedAt: row.submittedAt,
     rejectionReason: row.rejectionReason,
