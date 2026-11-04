@@ -410,25 +410,25 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     [
       RepositoryProvisionJobStatus.FAILED_RETRYABLE,
       'GITHUB_OPERATIONS_RATE_LIMITED',
-      'RETRYABLE_FAILED',
+      'FAILED_RETRYABLE',
       'RATE_LIMIT',
     ],
     [
       RepositoryProvisionJobStatus.FAILED_FINAL,
       'GITHUB_OPERATIONS_AUTHENTICATION',
-      'FAILED',
+      'FAILED_FINAL',
       'AUTH',
     ],
     [
       RepositoryProvisionJobStatus.FAILED_FINAL,
       'GITHUB_OPERATIONS_INVALID_INPUT',
-      'FAILED',
+      'FAILED_FINAL',
       'UPSTREAM_REJECTED',
     ],
     [
       RepositoryProvisionJobStatus.FAILED_FINAL,
       'REPOSITORY_PROVISION_INTERNAL',
-      'FAILED',
+      'FAILED_FINAL',
       'UNKNOWN',
     ],
   ])(
@@ -452,7 +452,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
   it.each([
     [OutboxEventStatus.PENDING, 'PENDING', null],
     [OutboxEventStatus.PROCESSING, 'PENDING', null],
-    [OutboxEventStatus.FAILED, 'FAILED', 'UNKNOWN'],
+    [OutboxEventStatus.FAILED, 'FAILED_FINAL', 'UNKNOWN'],
   ])(
     'enabled outbox-only %s projects %s',
     async (outboxStatus, expectedStatus, safeErrorClass) => {

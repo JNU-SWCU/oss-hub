@@ -4,7 +4,6 @@ import {
   type TeamActivityView,
   type RepositoryUrlHistoryCursor,
   type TeamApplicationView,
-  type TeamRepositoryProvisioningJobStatus,
   type TeamRepositoryProvisioningSafeErrorClass,
   type RepositoryUrlHistoryRows,
   type RepositoryUrlHistoryPage,
@@ -786,13 +785,13 @@ function resolveTeamRepositoryProvisioning(
   }
 
   if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
-    const jobStatus = mapTeamProvisionJobStatus(job.status);
+    const jobStatus = job.status;
     return {
       enabled,
       jobStatus,
       updatedAt: job.updatedAt,
       safeErrorClass:
-        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
+        jobStatus === 'FAILED_RETRYABLE' || jobStatus === 'FAILED_FINAL'
           ? normalizeTeamSafeErrorClass(job.lastErrorCode)
           : null,
     };
@@ -813,7 +812,7 @@ function resolveTeamRepositoryProvisioning(
     if (outbox.status === OutboxEventStatus.FAILED) {
       return {
         enabled,
-        jobStatus: 'FAILED',
+        jobStatus: 'FAILED_FINAL',
         updatedAt: outbox.createdAt,
         safeErrorClass: 'UNKNOWN',
       };
@@ -829,23 +828,6 @@ function resolveTeamRepositoryProvisioning(
     };
   }
   return anomalous();
-}
-
-function mapTeamProvisionJobStatus(
-  status: RepositoryProvisionJobStatus,
-): TeamRepositoryProvisioningJobStatus {
-  switch (status) {
-    case RepositoryProvisionJobStatus.PENDING:
-      return 'PENDING';
-    case RepositoryProvisionJobStatus.PROCESSING:
-      return 'PROCESSING';
-    case RepositoryProvisionJobStatus.SUCCEEDED:
-      return 'SUCCEEDED';
-    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
-      return 'RETRYABLE_FAILED';
-    case RepositoryProvisionJobStatus.FAILED_FINAL:
-      return 'FAILED';
-  }
 }
 
 function normalizeTeamSafeErrorClass(

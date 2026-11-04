@@ -46,6 +46,23 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 학생·교직원의 표시 문구와 화면 구성은 바꾸지 않아 `guide/` 갱신은 없다. 개발 환경설정 변경은 README에 반영한다. 운영 접근·머지·배포는 이 작업에 포함하지 않는다.
 
+## Todo 2: 별도 다음 릴리스의 컬럼 삭제
+
+선행 릴리스는 PR #1718, 커밋 `92f2bff157d5691ea53ff891fa1e6a54a56c0065`다. 해당 frontend와 backend가 모두 배포된 다음에만 후속 마이그레이션을 적용한다. 이 두 단계를 같은 배포에 넣지 않는다. 운영 점검·백업·배포는 로컬 검증과 구분하며 이 작업에서 수행하지 않는다.
+
+2026-11-04 후속 확인: 선행 내용이 포함된 v0.24.30 `4aa54c6657cf2ece5e02f2534209e27d3bf67031`의 두 앱 배포와 prepare 적용을 읽기 전용으로 확인했다. 중단 후 현재 배포는 v0.24.31이며 backend와 migration은 v0.24.30과 동일하다. 후속 브랜치는 main `103c107ddf6f6ea19fcc14de95d43aac6f3b8c8a`를 병합했고 prepare 증거와 이관 도구를 보존했다. 관측 시각·정확한 삭제 값 개수·쓰기 측정 한계는 `task-2-retire-release-verification.md`에 기록한다. 이 후속 작업은 새 백업·운영 쓰기·배포를 하지 않았으며 owner 승인까지 draft를 유지한다.
+
+`20261103140000_retire_program_dead_columns`는 TeamMember incoming FK를 다시 확인한 뒤 하나의 트랜잭션에서 기존 UNIQUE 인덱스를 `(teamId, userId)` PK로 승격하고, TeamMember의 `id/name/email/department`, Team의 `joinCodeDigest`, TeamInvitation의 `invitedAt`을 삭제한다. 직전 릴리스는 이미 이 컬럼을 조회·기록하지 않는다. `programId`와 복합 FK, `(programId, userId)` 유니크는 유지한다.
+
+두 백엔드 응답 경로(`ApplicationsService`, `ProgramTeamsService`) 모두 `RepositoryProvisionJobStatus`를 그대로 내보낸다. `RETRYABLE_FAILED`/`FAILED` 변환을 없애고 `FAILED_RETRYABLE`/`FAILED_FINAL`을 사용한다. 프론트의 표준 상태 타입도 같은 값이며, API 입력 경계만 직전 backend의 별칭을 계속 수용한다. 표시 라벨은 그대로다. 아카이브는 `PENDING`으로 바꾸지 않고 `SubmissionStatus.SUBMITTED`를 사용한다. CSV의 한국어 표시와 다른 기능의 PENDING 상태는 바꾸지 않는다.
+
+| 범위 | 기준 files | 기준 lines | 준비 릴리스 lines | 후속 릴리스 files | 후속 릴리스 lines |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 245 | 37919 | 37832 | 245 | 37779 |
+| 별도 join-code-secret 제품 파일 | 2 | 36 | 0 | 0 | 0 |
+
+단일 PK를 기대하던 DB 상태에서 복합 PK 회귀 테스트가 실패하는 것을 먼저 확인했다. 최종 스펙은 실제 pg_constraint의 PK 순서와 정보 스키마의 옛 컬럼 부재를 검사한 뒤, 같은 DB에서 초대 수락·탈퇴·중복 저장 키·sentinel 시작일 거부를 확인한다.
+
 ## 파일별 의도와 상태
 
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.

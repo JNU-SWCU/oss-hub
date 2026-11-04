@@ -1,0 +1,113 @@
+Todo 2 후속 릴리스: 물리 컬럼 삭제와 API 상태값 전환 (2026-11-03)
+
+반드시 먼저 배포할 릴리스:
+PR #1718
+92f2bff157d5691ea53ff891fa1e6a54a56c0065
+해당 frontend와 backend가 모두 실행된 뒤에만 후속 마이그레이션을 적용한다.
+두 PR을 같은 배포에 포함하지 않는다.
+
+배포 담당자는 운영 덤프 복원 검증, 사전 점검과 백업을 별도로 완료해야 한다.
+여기서는 운영 접속·덤프 취득·운영 백업·머지·배포를 수행하지 않았다.
+SQL이 실제 실행 중인 앱 버전을 판별하지는 않는다. 릴리스 경계는 배포 절차의 필수 조건이다.
+
+물리 변경
+- TeamMember: 기존 (teamId, userId) UNIQUE 인덱스를 PK로 승격한다.
+- TeamMember: id, name, email, department를 삭제한다.
+- Team: joinCodeDigest를 삭제한다.
+- TeamInvitation: invitedAt을 삭제한다. 공개 응답 키는 createdAt에서 계속 제공한다.
+- programId 복합 FK와 프로그램당 한 팀 유니크는 유지한다.
+- 새 incoming FK가 있으면 삭제 전에 트랜잭션을 중단한다.
+
+상태값
+ApplicationsService와 ProgramTeamsService가 원래 RepositoryProvisionJobStatus를 반환한다.
+FAILED_RETRYABLE / FAILED_FINAL 대신 별도 이름을 만들던 두 매퍼를 삭제했다.
+프론트 표준 타입도 원래 이름이다. 교체 중인 직전 backend의 값은 DTO 입력 경계에서만 함께 받는다.
+아카이브는 SubmissionStatus.SUBMITTED를 사용하고 CSV 표시 문구는 그대로다.
+팀 화면의 소문자 stage 별칭은 선행 릴리스에서 이미 제거했다.
+다른 기능의 PENDING, EXPIRED 및 프로비저닝 작업 상태 머신은 변경하지 않았다.
+
+TDD
+상태값 변경 전:
+applications.list.service.spec.ts와 milestone-document-archive.spec.ts는 옛 별칭을 반환하여 실패했다.
+Test Suites: 3 failed, 3 total
+Tests:       5 failed, 54 passed, 59 total
+EXIT=1
+이 실행의 팀 상세 스펙은 fixture 타입 오류로 실행되지 않아 fixture를 수정해 별도로 검증했다.
+유효한 팀 상세 fixture로 다시 실행:
+Test Suites: 1 failed, 1 total
+Tests:       2 failed, 8 passed, 10 total
+EXIT=1
+원인: 실제 응답이 RETRYABLE_FAILED / FAILED였음.
+
+복합 PK 변경 전:
+apps/backend에서 BACKEND_INTEGRATION_TEST_PATTERN='src/programs/(team-invitations|program-teams)\.integration\.spec\.ts$' bash test/run-integration.sh
+Test Suites: 1 failed, 1 passed, 2 total
+Tests:       1 failed, 7 passed, 8 total
+EXIT=1
+원인: 실제 pg_constraint의 PK가 id였음.
+
+수정 후 상태값·CSV 회귀:
+applications.list.service.spec.ts, program-teams-staff-detail.spec.ts,
+milestone-document-archive.spec.ts, milestone-document-archive-manifest-csv.spec.ts
+Test Suites: 4 passed, 4 total
+Tests:       96 passed, 96 total
+EXIT=0
+
+최종 전체 통합
+apps/backend에서 BACKEND_INTEGRATION_TEST_PATTERN='\.integration\.spec\.ts$' bash test/run-integration.sh
+새 빈 PostgreSQL에 첫 단계와 후속 단계 마이그레이션을 모두 적용했다.
+Test Suites: 142 passed, 142 total
+Tests:       997 passed, 997 total
+EXIT=0
+실제 복합 PK 순서와 옛 컬럼 부재, 초대 수락·탈퇴, 저장 키 중복 거부,
+Program·Milestone sentinel 시작일 INSERT 거부 및 마일스톤 기간 경계를 확인했다.
+기존 종료일 미정 조회, 시드 멱등성, 신청·제출·권한·삭제 통합 스펙도 모두 통과했다.
+
+실패 탐침
+stale_state: 기존 테스트 DB를 재사용하지 않고 매 실행마다 새 project/빈 DB에서 migrate deploy했다.
+dirty_worktree: 첫 커밋 전 git diff --quiet의 EXIT=1을 확인했다. 소유하지 않은 변경은 없었다.
+misleading_success_output: 성공 문구를 출력하는 runner 대역의 EXIT=17을 그대로 전달했다.
+cleanup_failure: 테스트 성공이어도 정리 실패 EXIT=23을 그대로 전달했다.
+flaky_tests: 신규 테스트는 sleep 없이 고정 시각·완료된 DB 작업·브라우저 상태 assertion을 사용한다.
+초대·탈퇴는 독립된 빈 DB 실행에서 반복 통과했고 브라우저 retries는 0이다.
+
+범위
+guide 표시 문구와 레이아웃은 같아 guide 파일은 바꾸지 않았다.
+운영 QA와 CI 완료 대기는 하지 않는다. 요청된 로컬 검증으로 확인한다.
+별도 검토자에게 위임하지 않고 구현과 후속 diff 검토를 직접 수행했다.
+
+최종 backend 단위 테스트
+pnpm --filter backend test:unit --runInBand
+Test Suites: 390 passed, 390 total
+Tests:       6333 passed, 6333 total
+Snapshots:   309 passed, 309 total
+EXIT=0
+DTO JSON fixture와 스냅샷의 옛 FAILED 값 1개도 새 API 계약에 맞게 갱신했다.
+이후 정적 검사에서 외부 사용이 사라진 타입 export 2개와 미사용 타입 import 1개만 제거했다.
+
+최종 로컬 CI 정적 검사
+pnpm lint:structure: EXIT=0
+pnpm format:check: EXIT=0
+pnpm --filter frontend lint: EXIT=0 (기존 anchor 경고 4개, 오류 0개)
+pnpm --filter frontend typecheck: EXIT=0
+pnpm --filter backend lint: EXIT=0
+pnpm --filter backend typecheck: EXIT=0
+pnpm --filter backend exec tsc -p ../../scripts/tsconfig.json: EXIT=0
+pnpm check:file-ledger: FILE_LEDGER_OK 257 paths / EXIT=0
+
+최종 프론트 회귀
+pnpm --filter frontend exec vitest run src/features/programs/applications/application-presentation.test.ts src/features/programs/teams/program-my-team-page.test.tsx src/features/programs/teams/program-staff-team-detail-page.test.tsx --maxWorkers=2
+Test Files 3 passed (3)
+Tests 96 passed (96)
+EXIT=0
+pnpm --filter frontend e2e program-dead-columns.spec.ts --project=chrome
+4 passed
+EXIT=0
+학생 신청 상태·명단·수정 링크와 교직원 저장소 상태를 1440x900, 390x844에서 확인했다.
+구·신 상태값 모두 같은 라벨을 표시한다. 고정 시각·합성 응답·retries 0이며 sleep을 사용하지 않는다.
+마지막 desktop/mobile 상태 화면을 직접 열어 렌더링과 합성 데이터만 포함하는지 확인했다.
+
+실행 자원 확인
+oss-hub-test 접두사의 컨테이너·네트워크·볼륨 조회 결과는 모두 0개였다.
+해당 Next dev 서버와 Playwright headless Chrome 프로세스도 남지 않았다.
+pnpm dev와 운영 연결은 사용하지 않았다. 증거 이미지는 기존 GitHub 릴리스의 자산으로만 첨부한다.

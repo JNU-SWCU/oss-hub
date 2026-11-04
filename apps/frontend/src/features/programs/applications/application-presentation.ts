@@ -3,7 +3,7 @@ import { sanitizeDisplayText } from '@/lib/display-text';
 import type {
   ApplicationDecisionAction,
   ApplicationListItem,
-  RepositoryProvisioningJobStatus,
+  RepositoryProvisioning,
 } from './dto';
 import type { ApplicationStatus } from '../program-contract';
 
@@ -24,7 +24,7 @@ export const APPLICATION_STATUS_BADGE: Readonly<
 };
 
 export const PROVISIONING_LABELS: Readonly<
-  Record<RepositoryProvisioningJobStatus, string>
+  Record<RepositoryProvisioning['jobStatus'], string>
 > = {
   NOT_REQUESTED: '요청 전',
   DISABLED: '사용 안 함',

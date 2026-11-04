@@ -18,7 +18,6 @@ import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import {
   ApplicationListItem,
   ApplicationRepositoryProvisioning,
-  RepositoryProvisioningJobStatus,
   RepositoryProvisioningSafeErrorClass,
   ApplicationListAnswers,
   ApplicationsRepository,
@@ -918,13 +917,13 @@ function resolveRepositoryProvisioning(
   }
 
   if (job && outbox?.status === OutboxEventStatus.PROCESSED) {
-    const jobStatus = mapProvisionJobStatus(job.status);
+    const jobStatus = job.status;
     return {
       enabled,
       jobStatus,
       updatedAt: job.updatedAt,
       safeErrorClass:
-        jobStatus === 'RETRYABLE_FAILED' || jobStatus === 'FAILED'
+        jobStatus === 'FAILED_RETRYABLE' || jobStatus === 'FAILED_FINAL'
           ? normalizeSafeErrorClass(job.lastErrorCode)
           : null,
     };
@@ -945,7 +944,7 @@ function resolveRepositoryProvisioning(
     if (outbox.status === OutboxEventStatus.FAILED) {
       return {
         enabled,
-        jobStatus: 'FAILED',
+        jobStatus: 'FAILED_FINAL',
         updatedAt: outbox.createdAt,
         safeErrorClass: 'UNKNOWN',
       };
@@ -961,23 +960,6 @@ function resolveRepositoryProvisioning(
     };
   }
   return anomalous();
-}
-
-function mapProvisionJobStatus(
-  status: RepositoryProvisionJobStatus,
-): RepositoryProvisioningJobStatus {
-  switch (status) {
-    case RepositoryProvisionJobStatus.PENDING:
-      return 'PENDING';
-    case RepositoryProvisionJobStatus.PROCESSING:
-      return 'PROCESSING';
-    case RepositoryProvisionJobStatus.SUCCEEDED:
-      return 'SUCCEEDED';
-    case RepositoryProvisionJobStatus.FAILED_RETRYABLE:
-      return 'RETRYABLE_FAILED';
-    case RepositoryProvisionJobStatus.FAILED_FINAL:
-      return 'FAILED';
-  }
 }
 
 function normalizeSafeErrorClass(

@@ -186,14 +186,7 @@ export interface ApplicationListAnswers {
 }
 
 export type RepositoryProvisioningJobStatus =
-  | 'NOT_REQUESTED'
-  | 'DISABLED'
-  | 'PENDING'
-  | 'PROCESSING'
-  | 'SUCCEEDED'
-  | 'RETRYABLE_FAILED'
-  | 'FAILED'
-  | 'ANOMALOUS';
+  'NOT_REQUESTED' | 'DISABLED' | RepositoryProvisionJobStatus | 'ANOMALOUS';
 
 export type RepositoryProvisioningSafeErrorClass =
   'AUTH' | 'RATE_LIMIT' | 'UPSTREAM_REJECTED' | 'UNKNOWN';

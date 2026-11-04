@@ -789,7 +789,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             rejectionReason: 'No',
             repositoryProvisioning: {
               enabled: false,
-              jobStatus: 'FAILED',
+              jobStatus: 'FAILED_FINAL',
               updatedAt: at('2026-01-06T00:00:00.000Z'),
               safeErrorClass: 'AUTH',
             },
