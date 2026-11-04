@@ -89,7 +89,7 @@ it('counts only current linked activity and never substitutes detached or unrela
         nameWithOwner: 'synthetic/unlinked',
         source: 'ORG_PROVISIONED',
         programId,
-        teamId,
+        teamId: null,
       },
     ],
   });

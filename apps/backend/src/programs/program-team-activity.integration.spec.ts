@@ -149,7 +149,7 @@ beforeAll(async () => {
         nameWithOwner: 'synthetic/a',
         source: 'ORG_PROVISIONED',
         programId,
-        teamId,
+        teamId: null,
         lastSuccessAt: new Date('2026-08-20Z'),
       },
       {
