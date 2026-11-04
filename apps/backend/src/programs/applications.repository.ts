@@ -417,6 +417,8 @@ type LockedTeamRow = Readonly<{ id: string; leaderId: string }>;
 
 export interface ApplicationsTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
+  findTeamMinSize(programId: string): Promise<number | null>;
+  countTeamMembers(teamId: string): Promise<number>;
 
   appendReviewHistory(
     input: AppendReviewHistoryInput,
@@ -891,6 +893,8 @@ export class ApplicationsRepository {
   ): ApplicationsTransactionStore {
     return {
       auditLogWriter: transaction,
+      findTeamMinSize: this.findTeamMinSizeIn.bind(this, transaction),
+      countTeamMembers: this.countTeamMembersIn.bind(this, transaction),
       appendReviewHistory: this.appendReviewHistoryIn.bind(this, transaction),
       findApplicationById: this.findApplicationByIdIn.bind(this, transaction),
       isCurrentTeamMember: this.isCurrentTeamMemberIn.bind(this, transaction),

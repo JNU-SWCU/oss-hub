@@ -65,6 +65,17 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 ## 파일별 의도와 상태
 
+### Todo 8 A/B 배포 경계
+
+A는 백엔드의 최소 인원 검증을 지원에서 승인으로 옮긴다. 기존 준비팀 지원 경로와 프론트는 유지한다. B는 A가 실제 운영 백엔드에 반영된 것을 확인한 뒤에만 배포하는 프론트 후속 draft다. release publish가 Jenkins 완료를 기다리지 않으므로 두 앱을 한 릴리스로 함께 바꾸지 않는다.
+
+| A의 제품 파일 | Before lines | After lines |
+| --- | ---: | ---: |
+| applications.service.ts | 1004 | 1009 |
+| applications.repository.ts | 1593 | 1597 |
+
+준비팀 파일과 테이블·초대 status의 사용 중단 및 물리 삭제는 후속 단계다. 이 단계에서 삭제된 제품 파일은 0개이며 `present` 행을 유지한다. 자세한 호환·잠금 경합 증거는 `task-8-backend-first.md`에 기록한다.
+
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.
 
 | Path | Action | Target | Todo | State | Before lines | 이유 |
