@@ -114,18 +114,16 @@ describe('reviews api', () => {
     },
   );
   it('sends a reasonless rejection with the observed revision and latest review to the requirement endpoint', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        json({
-          id: 'review-new',
-          decision: 'REJECTED',
-          comment: null,
-          reviewedAt: '2026-09-29T00:00:00Z',
-          resubmissionDueAt: null,
-          reviewerNickname: 'synthetic-staff',
-        }),
-      );
+    const fetchMock = vi.fn().mockResolvedValue(
+      json({
+        id: 'review-new',
+        decision: 'REJECTED',
+        comment: null,
+        reviewedAt: '2026-09-29T00:00:00Z',
+        resubmissionDueAt: null,
+        reviewerNickname: 'synthetic-staff',
+      }),
+    );
     vi.stubGlobal('fetch', fetchMock);
     await expect(
       createReview(context, { revision: 2, decision: 'REJECTED' }),

@@ -213,11 +213,9 @@ test('requirement feedback uses an optional reason and no separate expiry', asyn
     },
   );
   await page.goto('/dashboard');
-  const dashboard = page
-    .locator('main')
-    .filter({
-      has: page.getByRole('heading', { name: '내 대시보드', exact: true }),
-    });
+  const dashboard = page.locator('main').filter({
+    has: page.getByRole('heading', { name: '내 대시보드', exact: true }),
+  });
   await expect(dashboard).toBeVisible();
   if (!before) {
     await expect(
@@ -227,11 +225,9 @@ test('requirement feedback uses an optional reason and no separate expiry', asyn
   }
   for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 1000 });
-    const feedback = dashboard
-      .locator('[data-slot="card"]')
-      .filter({
-        has: page.getByRole('heading', { name: /^2026 합성 오픈소스/ }),
-      });
+    const feedback = dashboard.locator('[data-slot="card"]').filter({
+      has: page.getByRole('heading', { name: /^2026 합성 오픈소스/ }),
+    });
     await expect(feedback).toBeVisible();
     await page.addStyleTag({
       content: 'nextjs-portal { display: none !important; }',
