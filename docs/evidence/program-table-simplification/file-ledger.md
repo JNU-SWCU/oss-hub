@@ -99,6 +99,8 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 ## 파일별 의도와 상태
 
+Todo 5 후속 draft는 준비 PR #1725의 앱 코드와 위 파일 수·줄 수를 그대로 유지한다. ProgramCreateRequest와 옛 업로드 FK의 물리 삭제만 다음 릴리스로 분리한다. 대조 실패 중단·빈 DB 이관·리허설 증거는 `task-5-retire-verification.md`에 있다.
+
 ### Todo 8 3a: 이력 이중 기록과 신규 Preparation 생성 중단
 
 최신 main `c653d0235`를 병합했다. TeamHistory 관련 rollback 계약은 `v0.24.42`다. 닫힌 B2·B3에 따라 기존 초대 status 갱신과 이력을 이중 기록한다. terminal 행과 respondedAt, 목록 조회와 등록 초기화 검사를 보존하고, 교직원 팀 삭제의 대기 취소 이력을 같은 트랜잭션에 기록한다.
