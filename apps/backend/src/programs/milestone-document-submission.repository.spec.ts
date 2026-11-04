@@ -9,7 +9,7 @@ import { SubmissionMembershipChangedError } from './submission-membership-change
 import {
   type UpsertMilestoneDocumentSubmissionInput,
   MilestoneDocumentSubmissionRepository,
-} from './milestone-document-submission.repository';
+} from './submissions.repository';
 
 const mockLockSubmissionMembership = jest.fn<
   ReturnType<PlatformRepository['lockSubmissionMembership']>,
@@ -88,6 +88,8 @@ function buildHarness(
     const table = tableOf(sql);
     order.push(`lock:${table}`);
     if (table === 'Milestone') return Promise.resolve([{ dueAt: NOW }]);
+    if (table === 'MilestoneDocumentSubmission')
+      return Promise.resolve([{ id: SUBMISSION_ID }]);
     if (table === 'MilestoneDocument')
       return Promise.resolve([
         { id: DOCUMENT_ID, graceDueAt: options.graceDueAt ?? null },
@@ -140,10 +142,14 @@ function buildHarness(
   const transaction = {
     $queryRaw: queryRaw,
     milestoneDocumentSubmissionHistory: {
-      findFirst: historyFindFirst,
+      findFirst: (
+        args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
+      ) =>
+        args.where?.event === undefined
+          ? historyFindFirst()
+          : reviewFindFirst(),
       create: historyCreate,
     },
-    milestoneDocumentReviewHistory: { findFirst: reviewFindFirst },
     milestoneDocumentSubmission: { findUnique: submissionFindUnique, upsert },
     submissionFile: { updateMany: attachUpdateMany, findMany: fileFindMany },
   };
@@ -289,6 +295,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
       'fence:membership',
       'lock:Milestone',
       'lock:MilestoneDocument',
+      'lock:MilestoneDocumentSubmission',
       'read:latestHistory',
       'read:latestReview',
       'read:currentSubmission',

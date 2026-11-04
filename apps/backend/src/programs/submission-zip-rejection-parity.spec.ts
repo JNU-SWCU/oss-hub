@@ -125,6 +125,7 @@ function milestoneDocumentService() {
       admin: null,
     }),
     findDocumentContext: jest.fn().mockResolvedValue({
+      submissionType: 'FILE_OR_TEXT',
       id: 'document-opaque',
       milestoneId: 'milestone-opaque',
       programId: 'program-opaque',

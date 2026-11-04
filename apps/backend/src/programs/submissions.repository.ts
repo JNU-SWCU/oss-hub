@@ -1,3 +1,4 @@
+import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { createHash } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
@@ -14,6 +15,15 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import type { MilestoneDocumentSubmissionDetail } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentPendingFileMissingError,
+  MilestoneDocumentReviewChangedError,
+  MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentSubmissionChangedError,
+  MilestoneDocumentRevisionChangedError,
+  MilestoneDocumentMissingError,
+} from './milestone-document-submission.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionAlreadyExistsError,
@@ -86,7 +96,12 @@ type ChecklistTargetSubmission = NonNullable<
 function currentRevisionFile(
   submission: ChecklistTargetSubmission,
 ): SubmissionFileRow | null {
-  const currentHistory = submission.histories[0] ?? null;
+  const currentHistory =
+    submission.histories.find(
+      (history) =>
+        SUBMISSION_HISTORY_EVENTS.includes(history.event) &&
+        history.revision === submission.revision,
+    ) ?? null;
   if (currentHistory?.revision !== submission.revision) return null;
   const file = currentHistory?.files[0] ?? null;
   if (file === null || file.expiresAt === null) return null;
@@ -348,9 +363,7 @@ export class SubmissionsRepository implements SubmissionsStore {
       status: application.status,
       existingSubmission: application.milestoneDocumentSubmissions[0]
         ? {
-            id:
-              application.milestoneDocumentSubmissions[0].legacySubmissionId ??
-              application.milestoneDocumentSubmissions[0].id,
+            id: application.milestoneDocumentSubmissions[0].id,
             status: application.milestoneDocumentSubmissions[0].status,
           }
         : null,
@@ -362,6 +375,9 @@ export class SubmissionsRepository implements SubmissionsStore {
   ): ChecklistMilestone | null {
     if (record.submissionType === null) return null;
     const submission = record.documents[0]?.submissions[0] ?? null;
+    const review = submission?.histories.find((history) =>
+      SUBMISSION_REVIEW_EVENTS.includes(history.event),
+    );
     return {
       id: record.id,
       name: record.name,
@@ -369,10 +385,17 @@ export class SubmissionsRepository implements SubmissionsStore {
       submissionType: record.submissionType,
       submission: submission
         ? {
-            id: submission.legacySubmissionId ?? submission.id,
+            id: submission.id,
             status: submission.status,
             currentRevision: submission.revision,
-            latestReview: submission.reviewHistories[0] ?? null,
+            latestReview:
+              review === undefined
+                ? null
+                : {
+                    decision: submissionReviewDecision(review.event),
+                    reviewedAt: review.createdAt,
+                    comment: review.comment,
+                  },
             file: currentRevisionFile(submission),
           }
         : null,
@@ -380,7 +403,7 @@ export class SubmissionsRepository implements SubmissionsStore {
   }
 
   submissionPublicIdWhere(publicId: string) {
-    return { OR: [{ id: publicId }, { legacySubmissionId: publicId }] };
+    return { id: publicId };
   }
 
   exactSubmissionByPublicId<T>(rows: readonly T[]): T | null {
@@ -408,7 +431,7 @@ export class SubmissionsRepository implements SubmissionsStore {
           },
         },
         take: 1,
-        select: { id: true, legacySubmissionId: true, status: true },
+        select: { id: true, status: true },
       },
     }) as const;
 
@@ -432,27 +455,15 @@ export class SubmissionsRepository implements SubmissionsStore {
             take: 1,
             select: {
               id: true,
-              legacySubmissionId: true,
               status: true,
               revision: true,
-              reviewHistories: {
-                orderBy: { reviewedAt: 'desc' as const },
-                take: 1,
-                select: {
-                  decision: true,
-                  reviewedAt: true,
-                  comment: true,
-                },
-              },
+
               histories: {
-                where: {
-                  event: {
-                    in: SUBMISSION_HISTORY_EVENTS,
-                  },
-                },
-                orderBy: { revision: 'desc' as const },
-                take: 1,
+                orderBy: { createdAt: 'desc', id: 'desc' },
                 select: {
+                  event: true,
+                  createdAt: true,
+                  comment: true,
                   revision: true,
                   files: {
                     where: {
@@ -817,7 +828,6 @@ export class SubmissionsRepository implements SubmissionsStore {
       take: 2,
       select: {
         id: true,
-        legacySubmissionId: true,
         applicationId: true,
         status: true,
         revision: true,
@@ -842,7 +852,7 @@ export class SubmissionsRepository implements SubmissionsStore {
       return null;
     }
     return {
-      id: submission.legacySubmissionId ?? submission.id,
+      id: submission.id,
       submissionRecordId: submission.id,
       applicationId: submission.applicationId,
       milestoneId: submission.milestoneDocument.milestoneId,
@@ -944,6 +954,267 @@ type SelectedSubmissionMilestone = Prisma.MilestoneGetPayload<{
   select: typeof MILESTONE_SELECT;
 }>;
 
+@Injectable()
+export class MilestoneDocumentSubmissionRepository {
+  constructor(private readonly platformRepository: PlatformRepository) {}
+
+  nextHistoryCreatedAt(requested: Date, latest: Date | null): Date {
+    return latest === null || requested.getTime() > latest.getTime()
+      ? requested
+      : new Date(latest.getTime() + 1);
+  }
+
+  milestoneDocumentSubmissionContent(
+    text: string | null,
+  ): Prisma.InputJsonValue | typeof Prisma.JsonNull {
+    return text === null
+      ? Prisma.JsonNull
+      : { type: MilestoneSubmissionType.TEXT, text };
+  }
+
+  upsertMilestoneDocumentSubmission(
+    prisma: PrismaService,
+    input: UpsertMilestoneDocumentSubmissionInput,
+  ): Promise<MilestoneDocumentSubmissionDetail> {
+    return prisma.$transaction(async (transaction) => {
+      const stillMember =
+        await this.platformRepository.lockSubmissionMembership(
+          transaction,
+          input.applicationId,
+          input.submittedById,
+        );
+      if (!stillMember) {
+        throw new SubmissionMembershipChangedError(
+          input.applicationId,
+          input.submittedById,
+        );
+      }
+
+      let afterDeadline = false;
+      if (input.deadline !== undefined) {
+        const milestone = await transaction.$queryRaw<
+          readonly { dueAt: Date }[]
+        >(
+          Prisma.sql`
+          SELECT "dueAt"
+          FROM "Milestone"
+          WHERE "id" = ${input.deadline.milestoneId}
+          FOR SHARE
+        `,
+        );
+        const dueAt = milestone[0]?.dueAt;
+        afterDeadline =
+          dueAt !== undefined && input.submittedAt.getTime() > dueAt.getTime();
+      }
+      const documents = await transaction.$queryRaw<
+        readonly { id: string; graceDueAt: Date | null }[]
+      >(
+        Prisma.sql`
+      SELECT "id", "graceDueAt"
+      FROM "MilestoneDocument"
+      WHERE "id" = ${input.milestoneDocumentId}
+      FOR UPDATE
+    `,
+      );
+      const document = documents[0];
+      if (document === undefined) throw new MilestoneDocumentMissingError();
+      if (
+        afterDeadline &&
+        input.deadline !== undefined &&
+        !input.deadline.allowAfterDeadline &&
+        !(
+          input.expectedLatestReviewId === null &&
+          document.graceDueAt != null &&
+          input.submittedAt.getTime() <= document.graceDueAt.getTime()
+        )
+      ) {
+        throw new MilestoneDocumentDeadlineClosedError();
+      }
+      await transaction.$queryRaw(Prisma.sql`
+        SELECT "id"
+        FROM "MilestoneDocumentSubmission"
+        WHERE "milestoneDocumentId" = ${input.milestoneDocumentId}
+          AND "applicationId" = ${input.applicationId}
+        FOR UPDATE
+      `);
+      const latestHistory =
+        await transaction.milestoneDocumentSubmissionHistory.findFirst({
+          where: {
+            submission: {
+              milestoneDocumentId: input.milestoneDocumentId,
+              applicationId: input.applicationId,
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: { createdAt: true },
+        });
+      const submittedAt = this.nextHistoryCreatedAt(
+        input.submittedAt,
+        latestHistory?.createdAt ?? null,
+      );
+
+      const latestReview =
+        await transaction.milestoneDocumentSubmissionHistory.findFirst({
+          where: {
+            event: { in: SUBMISSION_REVIEW_EVENTS },
+            submission: {
+              milestoneDocumentId: input.milestoneDocumentId,
+              applicationId: input.applicationId,
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+          select: { id: true },
+        });
+      if ((latestReview?.id ?? null) !== input.expectedLatestReviewId) {
+        throw new MilestoneDocumentReviewChangedError();
+      }
+
+      if (
+        input.expectedRevision !== undefined ||
+        (afterDeadline && input.deadline !== undefined)
+      ) {
+        const current =
+          await transaction.milestoneDocumentSubmission.findUnique({
+            where: {
+              milestoneDocumentId_applicationId: {
+                milestoneDocumentId: input.milestoneDocumentId,
+                applicationId: input.applicationId,
+              },
+            },
+            select: { status: true, revision: true },
+          });
+        if (
+          input.expectedRevision !== undefined &&
+          (current?.revision ?? 0) !== input.expectedRevision
+        ) {
+          throw new MilestoneDocumentRevisionChangedError();
+        }
+        if (
+          afterDeadline &&
+          input.deadline !== undefined &&
+          (current?.status ?? null) !== input.deadline.expectedSubmissionStatus
+        )
+          throw new MilestoneDocumentSubmissionChangedError();
+      }
+
+      const submission = await transaction.milestoneDocumentSubmission.upsert({
+        where: {
+          milestoneDocumentId_applicationId: {
+            milestoneDocumentId: input.milestoneDocumentId,
+            applicationId: input.applicationId,
+          },
+        },
+        update: {
+          status: SubmissionStatus.SUBMITTED,
+          content: input.content,
+          submittedById: input.submittedById,
+          submittedAt,
+          revision: { increment: 1 },
+        },
+        create: {
+          milestoneDocumentId: input.milestoneDocumentId,
+          applicationId: input.applicationId,
+          status: SubmissionStatus.SUBMITTED,
+          content: input.content,
+          submittedById: input.submittedById,
+          submittedAt,
+        },
+        select: {
+          id: true,
+          status: true,
+          content: true,
+          submittedAt: true,
+          revision: true,
+        },
+      });
+
+      const history =
+        await transaction.milestoneDocumentSubmissionHistory.create({
+          data: {
+            milestoneDocumentSubmissionId: submission.id,
+            event:
+              submission.revision === 1
+                ? MilestoneDocumentSubmissionHistoryEvent.SUBMITTED
+                : MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+            revision: submission.revision,
+            actorId: input.submittedById,
+            content: input.content,
+            createdAt: submittedAt,
+            ...(input.comment === undefined ? {} : { comment: input.comment }),
+          },
+          select: { id: true },
+        });
+
+      if (input.attachFile !== null) {
+        const attached = await transaction.submissionFile.updateMany({
+          where: {
+            id: input.attachFile.fileId,
+            uploaderId: input.attachFile.uploaderId,
+            applicationId: input.applicationId,
+            milestoneId: input.attachFile.milestoneId,
+            lifecycle: SubmissionFileLifecycle.PENDING,
+            pendingExpiresAt: { gt: input.submittedAt },
+          },
+          data: {
+            milestoneDocumentSubmissionId: submission.id,
+            milestoneDocumentSubmissionHistoryId: history.id,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            pendingExpiresAt: null,
+          },
+        });
+        if (attached.count !== 1) {
+          throw new MilestoneDocumentPendingFileMissingError();
+        }
+      }
+
+      const files = await transaction.submissionFile.findMany({
+        where: {
+          milestoneDocumentSubmissionHistoryId: history.id,
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+        },
+        orderBy: { createdAt: 'desc' },
+        select: attachedFileSelect,
+      });
+
+      return {
+        id: submission.id,
+        status: submission.status,
+        content: submission.content,
+        submittedAt: submission.submittedAt,
+        files,
+      };
+    });
+  }
+}
+
+export interface UpsertMilestoneDocumentSubmissionInput {
+  readonly milestoneDocumentId: string;
+  readonly applicationId: string;
+  readonly submittedById: string;
+  readonly submittedAt: Date;
+  readonly comment?: string | null;
+  readonly expectedRevision?: number;
+  readonly deadline?: {
+    readonly milestoneId: string;
+    readonly allowAfterDeadline: boolean;
+    readonly expectedSubmissionStatus: SubmissionStatus | null;
+  };
+  readonly expectedLatestReviewId: string | null;
+  readonly content: Prisma.InputJsonValue | typeof Prisma.JsonNull;
+  readonly attachFile: {
+    readonly fileId: string;
+    readonly uploaderId: string;
+    readonly milestoneId: string;
+  } | null;
+}
+
+const attachedFileSelect = {
+  id: true,
+  originalFileName: true,
+  mimeType: true,
+  sizeBytes: true,
+} as const;
+
 function submissionContentJson(input: SubmissionContentInput) {
   return input.type === 'FILE' ? Prisma.JsonNull : input;
 }
@@ -961,4 +1232,14 @@ function toSubmissionMilestone(
     instructions: milestone.instructions,
     programEndAt: milestone.program.endAt,
   };
+}
+
+function submissionReviewDecision(event: string): ReviewDecision {
+  if (
+    event === 'APPROVED' ||
+    event === 'REJECTED' ||
+    event === 'CHANGES_REQUESTED'
+  )
+    return event;
+  throw new TypeError('Expected a submission review event');
 }

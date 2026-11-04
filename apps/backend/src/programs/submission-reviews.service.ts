@@ -1,3 +1,4 @@
+import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { Injectable, Inject } from '@nestjs/common';
 import {
   SubmissionStatus,
@@ -70,29 +71,11 @@ export class SubmissionReviewsService {
     readonly decision: ReviewDecision;
     readonly comment?: string;
   }): CreateSubmissionReviewInput {
-    const comment = request.comment?.trim() || null;
-    switch (request.decision) {
-      case ReviewDecision.APPROVED:
-        return {
-          revision: request.revision,
-          decision: request.decision,
-          comment,
-        };
-      case ReviewDecision.CHANGES_REQUESTED:
-      case ReviewDecision.REJECTED:
-        if (comment === null) {
-          throw new DomainException(
-            SUBMISSION_REVIEWS_ERROR_CODES[
-              SubmissionReviewsErrorCode.COMMENT_REQUIRED
-            ],
-          );
-        }
-        return {
-          revision: request.revision,
-          decision: request.decision,
-          comment,
-        };
-    }
+    return {
+      revision: request.revision,
+      decision: request.decision,
+      comment: request.comment?.trim() || null,
+    };
   }
 
   assertPublishConfirmed(request: { readonly isConfirmed: boolean }): void {
@@ -121,7 +104,11 @@ export class SubmissionReviewsService {
     row: ReviewContextRow,
     now: Date = new Date(),
   ): SubmissionReviewContext {
-    const current = row.histories.find(
+    const revisions = row.histories.filter(
+      (history) =>
+        history.event === 'SUBMITTED' || history.event === 'RESUBMITTED',
+    );
+    const current = revisions.find(
       (history) => history.revision === row.revision,
     );
     if (current === undefined) {
@@ -135,7 +122,7 @@ export class SubmissionReviewsService {
         )
       : [];
     return {
-      submissionId: row.legacySubmissionId ?? row.id,
+      submissionId: row.id,
       application: {
         id: row.application.id,
         applicationMode:
@@ -148,10 +135,10 @@ export class SubmissionReviewsService {
           row.application.applicant.nickname,
       },
       milestone: row.milestoneDocument.milestone,
-      currentRevision: this.toRevisionRecord(current, now),
-      history: row.histories
+      currentRevision: this.toRevisionRecord(current, row.histories, now),
+      history: revisions
         .filter((history) => history.id !== current.id)
-        .map((history) => this.toRevisionRecord(history, now)),
+        .map((history) => this.toRevisionRecord(history, row.histories, now)),
       repository: repository
         ? {
             id: repository.id,
@@ -350,18 +337,32 @@ export class SubmissionReviewsService {
 
   private toRevisionRecord(
     history: ReviewContextRow['histories'][number],
+    events: ReviewContextRow['histories'],
     now: Date,
   ): SubmissionRevisionRecord {
     if (history.revision === null) {
       throw new SubmissionRevisionInvariantError();
     }
+    const review = events.find(
+      (event) =>
+        event.revision === history.revision &&
+        SUBMISSION_REVIEW_EVENTS.includes(event.event),
+    );
     return {
       number: history.revision,
       content: history.content,
       comment: history.comment,
       submittedAt: history.createdAt,
       files: history.files.flatMap((file) => this.toFileRecord(file, now)),
-      review: history.reviewHistories[0] ?? null,
+      review:
+        review === undefined
+          ? null
+          : {
+              id: review.id,
+              decision: submissionReviewDecision(review.event),
+              comment: review.comment,
+              reviewedAt: review.createdAt,
+            },
     };
   }
 
@@ -401,4 +402,14 @@ function decisionStatus(decision: ReviewDecision): SubmissionStatus {
     case ReviewDecision.REJECTED:
       return SubmissionStatus.REJECTED;
   }
+}
+
+function submissionReviewDecision(event: string): ReviewDecision {
+  if (
+    event === 'APPROVED' ||
+    event === 'REJECTED' ||
+    event === 'CHANGES_REQUESTED'
+  )
+    return event;
+  throw new TypeError('Expected a submission review event');
 }

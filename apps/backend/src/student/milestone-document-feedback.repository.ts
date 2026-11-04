@@ -1,3 +1,4 @@
+import { SUBMISSION_REVIEW_EVENTS } from '../programs/submission-history.config';
 import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
@@ -13,11 +14,10 @@ const RECENT_FEEDBACK_LIMIT = 50;
 
 const recentReviewSelect = {
   id: true,
-  decision: true,
+  event: true,
   comment: true,
-  reviewedAt: true,
-  resubmissionDueAt: true,
-  milestoneDocumentSubmission: {
+  createdAt: true,
+  submission: {
     select: {
       id: true,
       status: true,
@@ -31,9 +31,9 @@ const recentReviewSelect = {
       },
     },
   },
-} as const satisfies Prisma.MilestoneDocumentReviewHistorySelect;
+} as const satisfies Prisma.MilestoneDocumentSubmissionHistorySelect;
 
-type RecentReviewRow = Prisma.MilestoneDocumentReviewHistoryGetPayload<{
+type RecentReviewRow = Prisma.MilestoneDocumentSubmissionHistoryGetPayload<{
   select: typeof recentReviewSelect;
 }>;
 
@@ -70,10 +70,11 @@ export class MilestoneDocumentFeedbackRepository {
     });
     if (user === null) return [];
 
-    const rows = await this.prisma.milestoneDocumentReviewHistory.findMany({
+    const rows = await this.prisma.milestoneDocumentSubmissionHistory.findMany({
       where: {
-        reviewedAt: { gte: reviewedSince },
-        milestoneDocumentSubmission: {
+        createdAt: { gte: reviewedSince },
+        event: { in: SUBMISSION_REVIEW_EVENTS },
+        submission: {
           is: {
             application: {
               is: {
@@ -86,7 +87,7 @@ export class MilestoneDocumentFeedbackRepository {
           },
         },
       },
-      orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
       take: RECENT_FEEDBACK_LIMIT,
       select: recentReviewSelect,
     });
@@ -95,20 +96,30 @@ export class MilestoneDocumentFeedbackRepository {
 }
 
 function toRecentReview(row: RecentReviewRow): RecentMilestoneDocumentReview {
-  const document = row.milestoneDocumentSubmission.milestoneDocument;
+  const document = row.submission.milestoneDocument;
   return {
     id: row.id,
-    decision: row.decision,
+    decision: submissionReviewDecision(row.event),
     comment: row.comment,
-    reviewedAt: row.reviewedAt,
-    resubmissionDueAt: row.resubmissionDueAt,
-    applicationId: row.milestoneDocumentSubmission.applicationId,
+    reviewedAt: row.createdAt,
+    resubmissionDueAt: null,
+    applicationId: row.submission.applicationId,
     programId: document.milestone.programId,
     milestoneId: document.milestone.id,
     milestoneName: document.milestone.name,
     documentName: document.name,
     documentKind: document.kind,
-    submissionId: row.milestoneDocumentSubmission.id,
-    submissionStatus: row.milestoneDocumentSubmission.status,
+    submissionId: row.submission.id,
+    submissionStatus: row.submission.status,
   };
+}
+
+function submissionReviewDecision(event: string): ReviewDecision {
+  if (
+    event === 'APPROVED' ||
+    event === 'REJECTED' ||
+    event === 'CHANGES_REQUESTED'
+  )
+    return event;
+  throw new TypeError('Expected a submission review event');
 }

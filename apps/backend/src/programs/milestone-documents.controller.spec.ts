@@ -458,6 +458,8 @@ it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', asy
   expect(listForViewer).toHaveBeenCalledWith(
     SESSION_GITHUB_ID,
     'synthetic-milestone',
+    expect.any(Date),
+    false,
   );
 });
 
@@ -1190,8 +1192,6 @@ describe('교직원 서류 제출물 판정', () => {
         decision: 'CHANGES_REQUESTED',
         comment: '2쪽 서명이 빠졌습니다.',
 
-        resubmissionDueAt: new Date(resubmissionDueAt),
-
         expectedRevision: 3,
         expectedLatestReviewId: null,
       },
@@ -1220,14 +1220,13 @@ describe('교직원 서류 제출물 판정', () => {
         decision: 'APPROVED',
         comment: null,
 
-        resubmissionDueAt: null,
         expectedRevision: 3,
         expectedLatestReviewId: null,
       },
     );
   });
 
-  it('보완 요청에 사유가 없으면 서비스 호출 전에 422로 거절한다', async () => {
+  it('보완 요청에 사유가 없어도 null 사유로 전달한다', async () => {
     const body = {
       decision: 'CHANGES_REQUESTED',
       resubmissionDueAt,
@@ -1243,12 +1242,17 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    expect(response.status).toBe(422);
-    await expect(response.json()).resolves.toMatchObject({ code: 'MSD_021' });
-    expect(review).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(review).toHaveBeenCalledWith(
+      SYNTHETIC_STAFF_PRINCIPAL.id,
+      'synthetic-milestone',
+      'synthetic-document',
+      'synthetic-application',
+      { decision: body.decision, comment: null, ...seenVersion },
+    );
   });
 
-  it('반려 사유가 공백뿐이면 422로 거절한다 — 학생 화면에 빈 사유가 남지 않게 한다', async () => {
+  it('반려 사유가 공백이면 null로 정규화해 전달한다', async () => {
     const body = { decision: 'REJECTED', comment: '   ', ...seenVersion };
 
     const response = await fetch(
@@ -1260,12 +1264,17 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    expect(response.status).toBe(422);
-    await expect(response.json()).resolves.toMatchObject({ code: 'MSD_021' });
-    expect(review).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(review).toHaveBeenCalledWith(
+      SYNTHETIC_STAFF_PRINCIPAL.id,
+      'synthetic-milestone',
+      'synthetic-document',
+      'synthetic-application',
+      { decision: body.decision, comment: null, ...seenVersion },
+    );
   });
 
-  it('보완 요청에 재제출 기한이 없으면 서비스 호출 전에 422로 거절한다', async () => {
+  it('보완 요청에 재제출 기한이 없어도 저장한다', async () => {
     const body = {
       decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
@@ -1281,9 +1290,14 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    expect(response.status).toBe(422);
-    await expect(response.json()).resolves.toMatchObject({ code: 'MSD_032' });
-    expect(review).not.toHaveBeenCalled();
+    expect(response.status).toBe(201);
+    expect(review).toHaveBeenCalledWith(
+      SYNTHETIC_STAFF_PRINCIPAL.id,
+      'synthetic-milestone',
+      'synthetic-document',
+      'synthetic-application',
+      body,
+    );
   });
 
   it('반려에 실려 온 기한은 서비스로 넘기지 않는다', async () => {
@@ -1312,7 +1326,6 @@ describe('교직원 서류 제출물 판정', () => {
       {
         decision: 'REJECTED',
         comment: '기한을 넘겼습니다.',
-        resubmissionDueAt: null,
         expectedRevision: 3,
         expectedLatestReviewId: null,
       },

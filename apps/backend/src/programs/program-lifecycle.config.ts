@@ -72,6 +72,7 @@ const PURGE_RELATIONS = [
     operation: 'DETACH',
     covers: [
       'Milestone->SubmissionFile',
+      'MilestoneDocument->SubmissionFile',
       'Application->SubmissionFile',
       'MilestoneDocumentSubmission->SubmissionFile',
       'MilestoneDocumentSubmissionHistory->SubmissionFile',

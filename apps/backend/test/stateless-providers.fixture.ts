@@ -2,7 +2,7 @@ import { PlatformRepository } from '../src/platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../src/platform/prisma-serialization-retry.repository';
 import { RepositoryProvisionGenerationRepository } from '../src/platform/repository-provision-generation.repository';
 import { ProgramAuthoringUploadTransactionRepository } from '../src/programs/program-authoring-upload-transaction.repository';
-import { MilestoneDocumentSubmissionRepository } from '../src/programs/milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from '../src/programs/submissions.repository';
 import { ProgramListStatusFilterRepository } from '../src/programs/program-list-status-filter.repository';
 import { StudentRepositoryUrlContextRepository } from '../src/programs/student-repository-url-context.repository';
 import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.repository';

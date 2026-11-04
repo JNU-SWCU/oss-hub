@@ -4,6 +4,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsInt,
+  Min,
   MaxLength,
   ValidateNested,
 } from 'class-validator';
@@ -21,6 +23,16 @@ export class MilestoneDocumentSubmissionContentRequestDto {
 }
 
 export class CreateMilestoneDocumentSubmissionRequestDto {
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  declare readonly expectedRevision?: number;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(2000)
+  declare readonly comment?: string | null;
+
   @ValidateNested()
   @IsDefined()
   @IsObject()

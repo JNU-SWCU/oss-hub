@@ -1,0 +1,295 @@
+{
+  "measurementPurpose": "Diagnostic runs, not the final performance gate. No run selected as a pass.",
+  "sequential": {
+    "base": [
+      {
+        "name": "program-overview",
+        "medianMs": 3.3391670000000886,
+        "p25Ms": 2.8100627499998154,
+        "p75Ms": 5.603125000000091,
+        "p95Ms": 7.032866000000058,
+        "sqlCount": 3,
+        "n": 20
+      },
+      {
+        "name": "submission-matrix",
+        "medianMs": 14.265063000000282,
+        "p25Ms": 12.940374750000046,
+        "p75Ms": 16.130395749999707,
+        "p95Ms": 24.359368399999635,
+        "sqlCount": 12,
+        "n": 20
+      },
+      {
+        "name": "document-collection",
+        "medianMs": 16.826708500000223,
+        "p25Ms": 16.357780750000074,
+        "p75Ms": 18.211729000000105,
+        "p95Ms": 20.70706909999995,
+        "sqlCount": 19,
+        "n": 20
+      },
+      {
+        "name": "staff-team-detail",
+        "medianMs": 13.592999500000587,
+        "p25Ms": 13.213698000000477,
+        "p75Ms": 13.994885250000152,
+        "p95Ms": 15.747193749999319,
+        "sqlCount": 16,
+        "n": 20
+      }
+    ],
+    "candidate": [
+      {
+        "name": "program-overview",
+        "medianMs": 4.041666500000247,
+        "p25Ms": 3.8178752500004975,
+        "p75Ms": 4.483896000000186,
+        "p95Ms": 4.75207915000051,
+        "sqlCount": 3,
+        "n": 20
+      },
+      {
+        "name": "submission-matrix",
+        "medianMs": 11.86547900000005,
+        "p25Ms": 11.441572249999808,
+        "p75Ms": 14.381291749999946,
+        "p95Ms": 18.495820200000164,
+        "sqlCount": 12,
+        "n": 20
+      },
+      {
+        "name": "document-collection",
+        "medianMs": 31.606874999999945,
+        "p25Ms": 25.079333499999848,
+        "p75Ms": 35.54209374999937,
+        "p95Ms": 40.624081250000245,
+        "sqlCount": 18,
+        "n": 20
+      },
+      {
+        "name": "staff-team-detail",
+        "medianMs": 15.292833499999688,
+        "p25Ms": 14.830177000000049,
+        "p75Ms": 15.7604687500002,
+        "p95Ms": 21.195602400000148,
+        "sqlCount": 16,
+        "n": 20
+      }
+    ]
+  },
+  "perQueryTiming": {
+    "base": [
+      {
+        "name": "program-overview",
+        "medianMs": 2.15237500000012,
+        "p25Ms": 1.9531562500000064,
+        "p75Ms": 2.3362812500002974,
+        "p95Ms": 3.9455006499997807,
+        "sqlCount": 3,
+        "n": 20
+      },
+      {
+        "name": "submission-matrix",
+        "medianMs": 18.531083500000022,
+        "p25Ms": 10.524344000000042,
+        "p75Ms": 22.276447750000102,
+        "p95Ms": 36.14570864999997,
+        "sqlCount": 12,
+        "n": 20
+      },
+      {
+        "name": "document-collection",
+        "medianMs": 21.19681249999985,
+        "p25Ms": 15.852739499999984,
+        "p75Ms": 39.10099974999957,
+        "p95Ms": 43.6023624999998,
+        "sqlCount": 19,
+        "n": 20
+      },
+      {
+        "name": "staff-team-detail",
+        "medianMs": 17.7658335000001,
+        "p25Ms": 15.889677499999607,
+        "p75Ms": 27.056812500000433,
+        "p95Ms": 31.627907999999888,
+        "sqlCount": 16,
+        "n": 20
+      }
+    ],
+    "candidate": [
+      {
+        "name": "program-overview",
+        "medianMs": 1.9147710000002007,
+        "p25Ms": 1.8369272500003717,
+        "p75Ms": 2.1634994999994888,
+        "p95Ms": 2.770539249999457,
+        "sqlCount": 3,
+        "n": 20
+      },
+      {
+        "name": "submission-matrix",
+        "medianMs": 9.925395999999637,
+        "p25Ms": 9.480416750000131,
+        "p75Ms": 10.358468999999786,
+        "p95Ms": 11.685333649999944,
+        "sqlCount": 12,
+        "n": 20
+      },
+      {
+        "name": "document-collection",
+        "medianMs": 15.168166500000098,
+        "p25Ms": 13.667832750000116,
+        "p75Ms": 17.258677749999833,
+        "p95Ms": 18.221275000000333,
+        "sqlCount": 18,
+        "n": 20
+      },
+      {
+        "name": "staff-team-detail",
+        "medianMs": 16.757854499999667,
+        "p25Ms": 13.582458749999887,
+        "p75Ms": 18.69756274999986,
+        "p95Ms": 21.874562500000366,
+        "sqlCount": 16,
+        "n": 20
+      }
+    ],
+    "sql": [
+      {
+        "arm": "base",
+        "paths": [
+          {
+            "name": "program-overview",
+            "queryEvents": 64,
+            "totalDatabaseMs": 14,
+            "slowestQueryMs": 2
+          },
+          {
+            "name": "submission-matrix",
+            "queryEvents": 252,
+            "totalDatabaseMs": 133,
+            "slowestQueryMs": 7
+          },
+          {
+            "name": "document-collection",
+            "queryEvents": 399,
+            "totalDatabaseMs": 127,
+            "slowestQueryMs": 8
+          },
+          {
+            "name": "staff-team-detail",
+            "queryEvents": 336,
+            "totalDatabaseMs": 98,
+            "slowestQueryMs": 8
+          }
+        ]
+      },
+      {
+        "arm": "candidate",
+        "paths": [
+          {
+            "name": "program-overview",
+            "queryEvents": 63,
+            "totalDatabaseMs": 7,
+            "slowestQueryMs": 2
+          },
+          {
+            "name": "submission-matrix",
+            "queryEvents": 252,
+            "totalDatabaseMs": 26,
+            "slowestQueryMs": 1
+          },
+          {
+            "name": "document-collection",
+            "queryEvents": 378,
+            "totalDatabaseMs": 13,
+            "slowestQueryMs": 1
+          },
+          {
+            "name": "staff-team-detail",
+            "queryEvents": 336,
+            "totalDatabaseMs": 50,
+            "slowestQueryMs": 6
+          }
+        ]
+      }
+    ]
+  },
+  "historicalReference": [
+    {
+      "name": "program-overview",
+      "medianMs": 1.619479000000183,
+      "p25Ms": 1.4667297500000132,
+      "p75Ms": 1.7114377499998454,
+      "p95Ms": 2.3293729499999247,
+      "sqlCount": 3,
+      "n": 20
+    },
+    {
+      "name": "submission-matrix",
+      "medianMs": 7.884958000000097,
+      "p25Ms": 7.57856199999992,
+      "p75Ms": 8.283812249999869,
+      "p95Ms": 9.38572645000004,
+      "sqlCount": 12,
+      "n": 20
+    },
+    {
+      "name": "document-collection",
+      "medianMs": 12.177478999999721,
+      "p25Ms": 11.842885249999995,
+      "p75Ms": 12.429656499999965,
+      "p95Ms": 13.000333050000132,
+      "sqlCount": 19,
+      "n": 20
+    },
+    {
+      "name": "staff-team-detail",
+      "medianMs": 9.093228999999837,
+      "p25Ms": 8.810239499999852,
+      "p75Ms": 9.54380249999997,
+      "p95Ms": 13.246658000000298,
+      "sqlCount": 16,
+      "n": 20
+    }
+  ],
+  "initialCandidate": [
+    {
+      "name": "program-overview",
+      "medianMs": 2.505833500001245,
+      "p25Ms": 2.3145519999998214,
+      "p75Ms": 2.740802249999433,
+      "p95Ms": 3.204506600000788,
+      "sqlCount": 3,
+      "n": 20
+    },
+    {
+      "name": "submission-matrix",
+      "medianMs": 19.33220849999998,
+      "p25Ms": 16.069708250001895,
+      "p75Ms": 21.305927000000338,
+      "p95Ms": 26.859336900003115,
+      "sqlCount": 12,
+      "n": 20
+    },
+    {
+      "name": "document-collection",
+      "medianMs": 32.08495849999963,
+      "p25Ms": 29.231593749999774,
+      "p75Ms": 35.27030224999817,
+      "p95Ms": 37.79593750000022,
+      "sqlCount": 18,
+      "n": 20
+    },
+    {
+      "name": "staff-team-detail",
+      "medianMs": 22.798562500000116,
+      "p25Ms": 17.39709324999967,
+      "p75Ms": 26.855739749998065,
+      "p95Ms": 29.949397899997898,
+      "sqlCount": 16,
+      "n": 20
+    }
+  ]
+}

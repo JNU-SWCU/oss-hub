@@ -26,6 +26,7 @@ import {
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
+  readonly scope?: 'all';
   readonly deliveryStatus?: DocumentDeliveryStatus;
   readonly document?: {
     readonly id: string;
@@ -129,6 +130,7 @@ export class MilestoneDocumentCurrentFileService {
 const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
 
 export interface MilestoneDocumentCollectionRequest {
+  readonly scope?: 'all';
   readonly page?: number;
   readonly pageSize?: number;
   readonly filter?: MilestoneDocumentCollectionFilter;
@@ -252,6 +254,7 @@ export class MilestoneDocumentCollectionService {
       pageSize:
         request.pageSize ?? MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE,
       filter: request.filter ?? 'ALL',
+      ...(request.scope === undefined ? {} : { scope: request.scope }),
       ...(request.documentId === undefined
         ? {}
         : {
@@ -290,7 +293,7 @@ export class MilestoneDocumentCollectionService {
           ],
         );
       const [documents, applications] = await Promise.all([
-        store.findDocuments(milestoneId),
+        store.findDocuments(milestoneId, query.scope === 'all'),
         store.findApplications(milestone.programId),
       ]);
       if (

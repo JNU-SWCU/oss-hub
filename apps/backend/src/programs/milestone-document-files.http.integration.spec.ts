@@ -50,6 +50,115 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());
 
+  it.each([
+    ['FILE', true, false, false],
+    ['FILE', false, true, true],
+    ['FILE', true, true, true],
+    ['TEXT', true, false, true],
+    ['TEXT', false, true, false],
+    ['TEXT', true, true, true],
+    ['FILE_OR_TEXT', true, false, true],
+    ['FILE_OR_TEXT', false, true, true],
+    ['FILE_OR_TEXT', true, true, true],
+  ] as const)(
+    'preserves %s input semantics for text=%s file=%s and retains the optional comment',
+    async (submissionType, hasText, hasFile, accepted) => {
+      await fixture.prisma.milestoneDocument.update({
+        where: { id: flowIds.document },
+        data: { submissionType },
+      });
+      if (submissionType === 'FILE') {
+        await fixture.prisma.milestone.update({
+          where: { id: flowIds.milestone },
+          data: { submissionType: 'FILE' },
+        });
+        await fixture.prisma.milestoneDocument.update({
+          where: { id: flowIds.document },
+          data: { kind: 'LEGACY_MILESTONE_SUBMISSION' },
+        });
+      }
+      let fileId = 'synthetic-unused-file';
+      if (hasFile && submissionType !== 'TEXT') {
+        const uploaded = await upload(
+          'rule.pdf',
+          'application/pdf',
+          Buffer.from('%PDF-rule'),
+        );
+        expect(uploaded.status).toBe(201);
+        const pending = await fixture.prisma.submissionFile.findFirstOrThrow({
+          where: {
+            milestoneDocumentId: flowIds.document,
+            lifecycle: 'PENDING',
+          },
+          select: { id: true },
+        });
+        fileId = pending.id;
+      }
+
+      const response = await fixture.request(
+        `${fixture.documentPath()}/submissions`,
+        {
+          method: 'POST',
+          json: {
+            content: {
+              ...(hasText ? { text: 'rule content' } : {}),
+              ...(hasFile ? { fileId } : {}),
+            },
+            comment: '  retained comment  ',
+          },
+        },
+      );
+
+      expect(response.status).toBe(accepted ? 201 : 422);
+      const events =
+        await fixture.prisma.milestoneDocumentSubmissionHistory.findMany({
+          where: { submission: { milestoneDocumentId: flowIds.document } },
+          select: {
+            event: true,
+            comment: true,
+            content: true,
+            files: { select: { id: true } },
+          },
+        });
+      expect(events).toEqual(
+        accepted
+          ? [
+              {
+                event: 'SUBMITTED',
+                comment: 'retained comment',
+                content:
+                  hasText && submissionType !== 'FILE'
+                    ? { type: 'TEXT', text: 'rule content' }
+                    : submissionType === 'FILE'
+                      ? { type: 'FILE' }
+                      : null,
+                files:
+                  hasFile && submissionType !== 'TEXT' ? [{ id: fileId }] : [],
+              },
+            ]
+          : [],
+      );
+      if (accepted && submissionType === 'FILE') {
+        const submission =
+          await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+            where: { milestoneDocumentId: flowIds.document },
+            select: { id: true },
+          });
+        const legacyView = await fixture.request(
+          'submissions/' + submission.id + '/review-context',
+          { actor: 'staff' },
+        );
+        expect(legacyView.status).toBe(200);
+        expect(await legacyView.json()).toMatchObject({
+          currentRevision: {
+            content: { type: 'FILE' },
+            files: [expect.objectContaining({ fileId })],
+          },
+        });
+      }
+    },
+  );
+
   it('blocks another file after the one allowed post-deadline resubmission', async () => {
     expect((await fixture.submit('최초 제출')).status).toBe(201);
     expect(
@@ -117,6 +226,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       const pending = await fixture.prisma.submissionFile.findFirstOrThrow({
         where: { applicationId: flowIds.application },
       });
+      expect(pending.milestoneDocumentId).toBe(flowIds.document);
       expect((await fixture.submit('', pending.id)).status).toBe(201);
       const downloaded = await fixture.request(
         `${fixture.documentPath()}/submissions/current/file`,

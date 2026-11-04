@@ -14,6 +14,10 @@ export class MilestoneDocumentSubmissionChangedError extends Error {
   override readonly name = 'MilestoneDocumentSubmissionChangedError';
 }
 
+export class MilestoneDocumentRevisionChangedError extends Error {
+  override readonly name = 'MilestoneDocumentRevisionChangedError';
+}
+
 export class MilestoneDocumentMissingError extends Error {
   override readonly name = 'MilestoneDocumentMissingError';
 }

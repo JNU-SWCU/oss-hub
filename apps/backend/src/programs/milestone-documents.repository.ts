@@ -21,6 +21,7 @@ import {
   type ReviewDecision,
   SubmissionFileLifecycle,
   SubmissionStatus,
+  type RequirementSubmissionType,
 } from '@prisma/client';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import type { MilestoneLock } from '../platform/lock-program-tree.repository';
@@ -32,7 +33,8 @@ import {
 import {
   type UpsertMilestoneDocumentSubmissionInput,
   MilestoneDocumentSubmissionRepository,
-} from './milestone-document-submission.repository';
+} from './submissions.repository';
+import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 
 export type MilestoneDocumentViewer = Prisma.UserGetPayload<{
@@ -47,6 +49,7 @@ export interface MilestoneDocumentContext {
   readonly dueAt: Date;
   readonly graceDueAt: Date | null;
   readonly required: boolean;
+  readonly submissionType: RequirementSubmissionType;
 }
 
 export interface StudentApplicationContext {
@@ -115,15 +118,12 @@ interface CreateMilestoneDocumentReviewInput {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
 
-  readonly resubmissionDueAt: Date | null;
   readonly reviewedAt: Date;
 }
 
 export interface LatestMilestoneDocumentReview {
   readonly id: string;
   readonly decision: ReviewDecision;
-
-  readonly resubmissionDueAt: Date | null;
 }
 
 export interface StaffDownloadableMilestoneDocumentFile {
@@ -167,6 +167,7 @@ interface LockedMilestoneDocument {
 }
 
 export interface MilestoneDocumentWriteStore {
+  lockProgramForReview(programId: string): Promise<boolean>;
   lockMilestoneForGrace(
     milestoneId: string,
   ): Promise<(LockedMilestone & { readonly programEndAt: Date }) | null>;
@@ -266,6 +267,7 @@ const documentRecordSelect = {
   milestoneId: true,
   name: true,
   required: true,
+  submissionType: true,
   sortOrder: true,
   graceDueAt: true,
   templateFile: { select: { id: true, originalFileName: true } },
@@ -276,6 +278,7 @@ function toDocumentRecord(row: {
   milestoneId: string;
   name: string;
   required: boolean;
+  submissionType: RequirementSubmissionType;
   sortOrder: number;
   graceDueAt: Date | null;
   templateFile: { id: string; originalFileName: string } | null;
@@ -285,6 +288,7 @@ function toDocumentRecord(row: {
     milestoneId: row.milestoneId,
     name: row.name,
     required: row.required,
+    submissionType: row.submissionType,
     sortOrder: row.sortOrder,
     graceDueAt: row.graceDueAt,
     templateFileId: row.templateFile?.id ?? null,
@@ -400,9 +404,13 @@ export class MilestoneDocumentsRepository {
 
   async findByMilestoneId(
     milestoneId: string,
+    includeLegacy = false,
   ): Promise<MilestoneDocumentRecord[]> {
     const documents = await this.prisma.milestoneDocument.findMany({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: {
+        milestoneId,
+        ...(includeLegacy ? {} : { kind: MilestoneDocumentKind.DOCUMENT }),
+      },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
     });
@@ -450,12 +458,13 @@ export class MilestoneDocumentsRepository {
     documentId: string,
   ): Promise<MilestoneDocumentContext | null> {
     const document = await this.prisma.milestoneDocument.findFirst({
-      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { id: documentId },
       select: {
         id: true,
         milestoneId: true,
         name: true,
         required: true,
+        submissionType: true,
         graceDueAt: true,
         milestone: { select: { programId: true, dueAt: true } },
       },
@@ -469,6 +478,7 @@ export class MilestoneDocumentsRepository {
       dueAt: document.milestone.dueAt,
       graceDueAt: document.graceDueAt,
       required: document.required,
+      submissionType: document.submissionType,
     };
   }
 
@@ -534,7 +544,7 @@ export class MilestoneDocumentsRepository {
             submissionHistory: { select: { revision: true } },
           },
         },
-        reviewHistories: {
+        histories: {
           ...this.milestoneDocumentCollectionReadRepository
             .boundedReviewHistoryQuery,
           take: 1,
@@ -542,7 +552,7 @@ export class MilestoneDocumentsRepository {
       },
     });
     return submissions.map((submission) => {
-      const review = submission.reviewHistories[0] ?? null;
+      const review = submission.histories[0] ?? null;
 
       const currentFile =
         submission.files[0]?.submissionHistory?.revision === submission.revision
@@ -561,10 +571,10 @@ export class MilestoneDocumentsRepository {
             ? null
             : {
                 id: review.id,
-                decision: review.decision,
+                decision: submissionReviewDecision(review.event),
                 comment: review.comment,
-                reviewedAt: review.reviewedAt,
-                resubmissionDueAt: review.resubmissionDueAt,
+                reviewedAt: review.createdAt,
+                resubmissionDueAt: null,
               },
       };
     });
@@ -574,14 +584,21 @@ export class MilestoneDocumentsRepository {
     milestoneDocumentId: string,
     applicationId: string,
   ): Promise<LatestMilestoneDocumentReview | null> {
-    const review = await this.prisma.milestoneDocumentReviewHistory.findFirst({
-      where: {
-        milestoneDocumentSubmission: { milestoneDocumentId, applicationId },
-      },
-      orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
-      select: { id: true, decision: true, resubmissionDueAt: true },
-    });
-    return review;
+    const review =
+      await this.prisma.milestoneDocumentSubmissionHistory.findFirst({
+        where: {
+          submission: { milestoneDocumentId, applicationId },
+          event: { in: SUBMISSION_REVIEW_EVENTS },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { id: true, event: true },
+      });
+    return review === null
+      ? null
+      : {
+          id: review.id,
+          decision: submissionReviewDecision(review.event),
+        };
   }
 
   async findSubmissionHistoryPage(
@@ -770,7 +787,7 @@ export class MilestoneDocumentsRepository {
             submissionHistory: { select: { revision: true } },
           },
         },
-        reviewHistories: {
+        histories: {
           ...this.milestoneDocumentCollectionReadRepository
             .boundedReviewHistoryQuery,
           take: 1,
@@ -778,7 +795,7 @@ export class MilestoneDocumentsRepository {
       },
     });
     return submissions.map((submission) => {
-      const review = submission.reviewHistories[0] ?? null;
+      const review = submission.histories[0] ?? null;
       const selectedFile = submission.files[0];
       const file =
         selectedFile !== undefined &&
@@ -802,10 +819,10 @@ export class MilestoneDocumentsRepository {
             ? null
             : {
                 id: review.id,
-                decision: review.decision,
+                decision: submissionReviewDecision(review.event),
                 comment: review.comment,
-                reviewedAt: review.reviewedAt,
-                resubmissionDueAt: review.resubmissionDueAt,
+                reviewedAt: review.createdAt,
+                resubmissionDueAt: null,
               },
       };
     });
@@ -1011,6 +1028,7 @@ export class MilestoneDocumentsRepository {
       milestoneLock: null,
     };
     return {
+      lockProgramForReview: this.lockProgramForReviewIn.bind(this, scope),
       isApplicationParticipant: this.isApplicationParticipantIn.bind(
         this,
         scope,
@@ -1047,6 +1065,20 @@ export class MilestoneDocumentsRepository {
         scope,
       ),
     };
+  }
+
+  private async lockProgramForReviewIn(
+    scope: MilestoneDocumentWriteScope,
+    programId: string,
+  ): Promise<boolean> {
+    const rows = await scope.transaction.$queryRaw<
+      readonly { id: string }[]
+    >(Prisma.sql`
+      SELECT "id" FROM "Program"
+      WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED'
+      FOR SHARE
+    `);
+    return rows.length === 1;
   }
 
   private async isApplicationParticipantIn(
@@ -1120,7 +1152,6 @@ export class MilestoneDocumentsRepository {
       SELECT "id", "milestoneId"
       FROM "MilestoneDocument"
       WHERE "id" = ${documentId}
-        AND "kind" = 'DOCUMENT'
       FOR UPDATE
     `);
     return rows[0] ?? null;
@@ -1213,6 +1244,7 @@ export class MilestoneDocumentsRepository {
         required: true,
         sortOrder: true,
         graceDueAt: true,
+        submissionType: true,
       },
     });
     return {
@@ -1298,6 +1330,13 @@ export class MilestoneDocumentsRepository {
     readonly submissionHistoryId: string;
     readonly latestHistoryCreatedAt: Date | null;
   } | null> {
+    await scope.transaction.$queryRaw(Prisma.sql`
+      SELECT "id"
+      FROM "MilestoneDocumentSubmission"
+      WHERE "milestoneDocumentId" = ${milestoneDocumentId}
+        AND "applicationId" = ${applicationId}
+      FOR UPDATE
+    `);
     const submission =
       await scope.transaction.milestoneDocumentSubmission.findUnique({
         where: {
@@ -1351,9 +1390,12 @@ export class MilestoneDocumentsRepository {
     submissionId: string,
   ): Promise<string | null> {
     const review =
-      await scope.transaction.milestoneDocumentReviewHistory.findFirst({
-        where: { milestoneDocumentSubmissionId: submissionId },
-        orderBy: [{ reviewedAt: 'desc' }, { id: 'desc' }],
+      await scope.transaction.milestoneDocumentSubmissionHistory.findFirst({
+        where: {
+          milestoneDocumentSubmissionId: submissionId,
+          event: { in: SUBMISSION_REVIEW_EVENTS },
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
         select: { id: true },
       });
     return review?.id ?? null;
@@ -1363,29 +1405,17 @@ export class MilestoneDocumentsRepository {
     scope: MilestoneDocumentWriteScope,
     input: CreateMilestoneDocumentReviewInput,
   ): Promise<CreatedMilestoneDocumentReview> {
-    await this.platformRepository.appendSubmissionReviewEvent(
+    const created = await this.platformRepository.appendSubmissionReviewEvent(
       scope.transaction,
       input,
-    );
-    const created = await this.platformRepository.appendSubmissionReview(
-      scope.transaction,
-      input,
-      {
-        id: true,
-        decision: true,
-        comment: true,
-        reviewedAt: true,
-        resubmissionDueAt: true,
-        reviewer: { select: { nickname: true } },
-      },
     );
     return {
       id: created.id,
-      decision: created.decision,
+      decision: submissionReviewDecision(created.event),
       comment: created.comment,
-      reviewedAt: created.reviewedAt,
-      resubmissionDueAt: created.resubmissionDueAt,
-      reviewerNickname: created.reviewer.nickname,
+      reviewedAt: created.createdAt,
+      resubmissionDueAt: null,
+      reviewerNickname: created.actor.nickname,
     };
   }
 
@@ -1573,7 +1603,7 @@ export class MilestoneDocumentsRepository {
             submissionHistory: { select: { revision: true } },
           },
         },
-        reviewHistories: {
+        histories: {
           ...this.milestoneDocumentCollectionReadRepository
             .boundedReviewHistoryQuery,
           take: 1,
@@ -1581,7 +1611,7 @@ export class MilestoneDocumentsRepository {
       },
     });
     return submissions.map((submission) => {
-      const review = submission.reviewHistories[0] ?? null;
+      const review = submission.histories[0] ?? null;
       const selectedFile = submission.files[0];
       const file =
         selectedFile !== undefined &&
@@ -1605,12 +1635,22 @@ export class MilestoneDocumentsRepository {
             ? null
             : {
                 id: review.id,
-                decision: review.decision,
+                decision: submissionReviewDecision(review.event),
                 comment: review.comment,
-                reviewedAt: review.reviewedAt,
-                resubmissionDueAt: review.resubmissionDueAt,
+                reviewedAt: review.createdAt,
+                resubmissionDueAt: null,
               },
       };
     });
   }
+}
+
+function submissionReviewDecision(event: string): ReviewDecision {
+  if (
+    event === 'APPROVED' ||
+    event === 'REJECTED' ||
+    event === 'CHANGES_REQUESTED'
+  )
+    return event;
+  throw new TypeError('Expected a submission review event');
 }

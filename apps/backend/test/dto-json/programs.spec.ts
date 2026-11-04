@@ -292,6 +292,7 @@ const documentRecord: MilestoneDocumentRecord = {
   milestoneId: 'milestone-1',
   name: 'Plan',
   required: true,
+  submissionType: 'FILE_OR_TEXT',
   sortOrder: 0,
   graceDueAt: at('2026-02-12T00:00:00.000Z'),
   templateFileId: 'file-1',

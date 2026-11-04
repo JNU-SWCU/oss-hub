@@ -1,7 +1,7 @@
 import { ReviewDecision } from '@prisma/client';
 import {
   IsEnum,
-  IsISO8601,
+  Allow,
   IsInt,
   IsOptional,
   IsString,
@@ -19,9 +19,8 @@ export class CreateMilestoneDocumentReviewRequestDto {
   @MaxLength(2_000)
   declare readonly comment?: string;
 
-  @IsOptional()
-  @IsISO8601()
-  declare readonly resubmissionDueAt?: string;
+  @Allow()
+  declare readonly resubmissionDueAt?: unknown;
 
   @IsInt()
   @Min(1)

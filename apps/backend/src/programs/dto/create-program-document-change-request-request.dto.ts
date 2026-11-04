@@ -1,7 +1,7 @@
 import {
   IsBoolean,
   IsIn,
-  IsISO8601,
+  Allow,
   IsOptional,
   IsString,
   Matches,
@@ -23,12 +23,13 @@ export class CreateProgramDocumentChangeRequestRequestDto {
   @IsBoolean()
   declare readonly includeFinalDecisions: boolean;
 
+  @IsOptional()
   @IsString()
   @MaxLength(2_000)
-  declare readonly comment: string;
+  declare readonly comment?: string;
 
-  @IsISO8601()
-  declare readonly resubmissionDueAt: string;
+  @Allow()
+  declare readonly resubmissionDueAt?: unknown;
 
   @Matches(/^[0-9a-f]{64}$/)
   declare readonly expectedVersion: string;

@@ -6,7 +6,7 @@ import {
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
+import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
@@ -75,6 +75,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     findLatestReview: jest.fn().mockResolvedValue(null),
     findMySubmission: jest.fn().mockResolvedValue(null),
     findDocumentContext: jest.fn().mockResolvedValue({
+      submissionType: 'FILE_OR_TEXT',
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
       programId: syntheticProgramId,
@@ -1448,6 +1449,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -1491,6 +1493,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -1535,6 +1538,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -1599,6 +1603,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -1726,6 +1731,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -1771,6 +1777,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -1822,6 +1829,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -2050,6 +2058,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: syntheticMilestoneId,
         programId: syntheticProgramId,
@@ -3020,6 +3029,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         admin: null,
       }),
       findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
         id: syntheticDocumentId,
         milestoneId: 'cuid-synthetic-other-milestone',
         programId: syntheticProgramId,
