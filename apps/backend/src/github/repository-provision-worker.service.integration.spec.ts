@@ -518,7 +518,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
     const previous = await prisma.githubRepository.create({
       data: {
         programId: programId(applicationId),
-        teamId: teamIdFor(applicationId),
+        teamId: null,
         githubRepositoryId: PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
         nameWithOwner: `synthetic-org/${applicationId}-previous`,
         visibility: RepositoryVisibility.PRIVATE,

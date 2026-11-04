@@ -268,7 +268,7 @@ it('seeds current observations idempotently without reassigning detached facts',
   const old = await seedE2eRepositoryEvidence(prisma, fixture.graph());
   await prisma.githubRepository.update({
     where: { id: oldId },
-    data: { applicationId: null },
+    data: { applicationId: null, teamId: null },
   });
   await prisma.githubRepository.create({
     data: {
