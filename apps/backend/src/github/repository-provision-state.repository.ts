@@ -437,7 +437,7 @@ export class RepositoryProvisionStateRepository {
 
   async loadContext(jobId: string, workerId: string, requestId: string) {
     return this.prisma.$transaction(async (transaction) => {
-      await this.repositoryProvisionJobRepository.assertCurrentRequest(
+      await this.assertAvailableRequest(
         transaction,
         jobId,
         workerId,
@@ -515,7 +515,7 @@ export class RepositoryProvisionStateRepository {
           transaction,
           input.applicationId,
         );
-        await this.repositoryProvisionJobRepository.assertCurrentRequest(
+        await this.assertAvailableRequest(
           transaction,
           input.jobId,
           input.workerId,
@@ -582,7 +582,7 @@ export class RepositoryProvisionStateRepository {
     },
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await this.repositoryProvisionJobRepository.assertCurrentRequest(
+      await this.assertAvailableRequest(
         transaction,
         jobId,
         workerId,
@@ -643,6 +643,9 @@ export class RepositoryProvisionStateRepository {
     const rows = await this.prisma.repositoryInvitation.findMany({
       where: {
         repositoryId,
+        repository: {
+          application: { program: { lifecycle: { not: 'DELETED' } } },
+        },
         OR: [
           {
             status: RepositoryInvitationStatus.PENDING,
@@ -668,7 +671,7 @@ export class RepositoryProvisionStateRepository {
     input: CompleteRepositoryInvitationInput,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await this.repositoryProvisionJobRepository.assertCurrentRequest(
+      await this.assertAvailableRequest(
         transaction,
         input.jobId,
         input.workerId,
@@ -720,7 +723,7 @@ export class RepositoryProvisionStateRepository {
 
   async failInvitation(input: FailRepositoryInvitationInput): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      await this.repositoryProvisionJobRepository.assertCurrentRequest(
+      await this.assertAvailableRequest(
         transaction,
         input.jobId,
         input.workerId,
@@ -780,13 +783,12 @@ export class RepositoryProvisionStateRepository {
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const { applicationId } =
-        await this.repositoryProvisionJobRepository.assertCurrentRequest(
-          transaction,
-          jobId,
-          workerId,
-          requestId,
-        );
+      const { applicationId } = await this.assertAvailableRequest(
+        transaction,
+        jobId,
+        workerId,
+        requestId,
+      );
       const stale =
         isMembershipCurrent === undefined
           ? false
@@ -837,6 +839,33 @@ export class RepositoryProvisionStateRepository {
     });
   }
 
+  private async assertAvailableRequest(
+    transaction: Prisma.TransactionClient,
+    jobId: string,
+    workerId: string,
+    requestId: string,
+  ) {
+    const job =
+      await this.repositoryProvisionJobRepository.assertCurrentRequest(
+        transaction,
+        jobId,
+        workerId,
+        requestId,
+      );
+    const available = await transaction.application.count({
+      where: {
+        id: job.applicationId,
+        program: { lifecycle: { not: 'DELETED' } },
+      },
+    });
+    if (available === 0) {
+      throw RepositoryProvisionFailure.final(
+        PROVISION_ERROR_CODES.FEATURE_DISABLED,
+      );
+    }
+    return job;
+  }
+
   private async currentMemberLogins(
     transaction: Prisma.TransactionClient,
     applicationId: string,
@@ -869,7 +898,8 @@ export class RepositoryProvisionStateRepository {
           input.requestId,
         );
       const stale =
-        isMembershipCurrent === undefined
+        isMembershipCurrent === undefined ||
+        input.errorCode === PROVISION_ERROR_CODES.FEATURE_DISABLED
           ? false
           : !isMembershipCurrent(
               await this.currentMemberLogins(transaction, applicationId),
