@@ -97,7 +97,9 @@ describe('ProgramSubmissionReviewPage access contract', () => {
         .mockResolvedValueOnce(
           new Response(
             JSON.stringify({
-              documents: [{ id: 'requirement-existing', submissionType: 'TEXT' }],
+              documents: [
+                { id: 'requirement-existing', submissionType: 'TEXT' },
+              ],
             }),
             { headers: { 'Content-Type': 'application/json' } },
           ),
