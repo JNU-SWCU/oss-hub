@@ -77,6 +77,8 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 ## 파일별 의도와 상태
 
+Todo 5 후속 draft는 준비 PR #1725의 앱 코드와 위 파일 수·줄 수를 그대로 유지한다. ProgramCreateRequest와 옛 업로드 FK의 물리 삭제만 다음 릴리스로 분리한다. 대조 실패 중단·빈 DB 이관·리허설 증거는 `task-5-retire-verification.md`에 있다.
+
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.
 
 | Path | Action | Target | Todo | State | Before lines | 이유 |
