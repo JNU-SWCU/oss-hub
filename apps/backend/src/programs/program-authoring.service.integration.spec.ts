@@ -12,8 +12,8 @@ import {
 } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import type { AuditLogService } from '../platform/audit-log.service';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
-import { ProgramAuthoringService } from './program-authoring.service';
+import { ProgramAuthoringRepository } from './programs.repository';
+import { ProgramAuthoringService } from './programs.service';
 import {
   AUTHORING_TEST_PREFIX,
   ProgramAuthoringIntegrationHarness,
@@ -154,10 +154,10 @@ describe('ProgramAuthoringService integration', () => {
     const upload =
       await harness.prisma.programAuthoringUpload.findUniqueOrThrow({
         where: { id: templateId },
-        select: { lifecycle: true, createRequestId: true },
+        select: { lifecycle: true, programId: true },
       });
     expect(upload.lifecycle).toBe(ProgramAuthoringUploadLifecycle.ATTACHED);
-    expect(typeof upload.createRequestId).toBe('string');
+    expect(upload.programId).toBe(created.id);
   });
 
   it('persists a milestone ending exactly with its program', async () => {
@@ -197,6 +197,49 @@ describe('ProgramAuthoringService integration', () => {
     ).rejects.toBeInstanceOf(ProgramAuthoringIdempotencyConflictError);
   });
 
+  it('concurrent identical creation requests commit exactly one Program', async () => {
+    const actor = await harness.createActor('concurrent-key');
+    const input = authoringRequest('concurrent-key', [
+      authoringMilestone('one', []),
+    ]);
+
+    const [first, second] = await Promise.all([
+      service.create(actor, 'concurrent-key', input),
+      service.create(actor, 'concurrent-key', input),
+    ]);
+
+    expect(second.id).toBe(first.id);
+    await expect(
+      harness.prisma.program.count({
+        where: { createdById: actor.id, idempotencyKey: 'concurrent-key' },
+      }),
+    ).resolves.toBe(1);
+  });
+
+  it('a retry keeps the original identity after the Program is marked deleted', async () => {
+    const actor = await harness.createActor('deleted-key');
+    const input = authoringRequest('deleted-key', [
+      authoringMilestone('one', []),
+    ]);
+    const original = await service.create(actor, 'deleted-key', input);
+    await harness.prisma.program.update({
+      where: { id: original.id },
+      data: { lifecycle: 'DELETED' },
+    });
+
+    await expect(
+      service.create(actor, 'deleted-key', input),
+    ).resolves.toMatchObject({
+      id: original.id,
+      lifecycle: 'DELETED',
+    });
+    await expect(
+      harness.prisma.program.count({
+        where: { createdById: actor.id, idempotencyKey: 'deleted-key' },
+      }),
+    ).resolves.toBe(1);
+  });
+
   it('rejects track changes while the original retry still returns exactly one program', async () => {
     const actor = await harness.createActor('track-conflict');
     const initial = authoringRequest('track-conflict', [
@@ -214,8 +257,8 @@ describe('ProgramAuthoringService integration', () => {
       created.id,
     );
     expect(
-      await harness.prisma.programCreateRequest.count({
-        where: { actorId: actor.id },
+      await harness.prisma.program.count({
+        where: { createdById: actor.id },
       }),
     ).toBe(1);
   });
@@ -241,13 +284,8 @@ describe('ProgramAuthoringService integration', () => {
         }),
       )
       .digest('hex');
-    await harness.prisma.programCreateRequest.update({
-      where: {
-        actorId_idempotencyKey: {
-          actorId: actor.id,
-          idempotencyKey: 'legacy-key',
-        },
-      },
+    await harness.prisma.program.update({
+      where: { id: created.id },
       data: { payloadHash },
     });
     await harness.prisma.program.update({
@@ -262,8 +300,8 @@ describe('ProgramAuthoringService integration', () => {
       }),
     ).rejects.toMatchObject({ existingProgramId: created.id });
     expect(
-      await harness.prisma.programCreateRequest.count({
-        where: { actorId: actor.id },
+      await harness.prisma.program.count({
+        where: { createdById: actor.id },
       }),
     ).toBe(1);
   });

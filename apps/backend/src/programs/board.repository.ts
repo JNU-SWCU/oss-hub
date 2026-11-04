@@ -140,6 +140,14 @@ export class BoardRepository {
     });
   }
 
+  async programExists(programId: string): Promise<boolean> {
+    return (
+      (await this.prisma.program.count({
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
+      })) === 1
+    );
+  }
+
   async isApprovedParticipant(
     programId: string,
     userId: string,

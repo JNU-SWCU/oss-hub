@@ -78,6 +78,7 @@ interface MockDb {
     >;
   };
   application: {
+    count: jest.Mock<Promise<number>, [Prisma.ApplicationCountArgs]>;
     findUnique: jest.Mock<
       Promise<{ readonly teamId: string | null } | null>,
       [Prisma.ApplicationFindUniqueArgs]
@@ -188,6 +189,9 @@ function createDb(): MockDb {
         .mockResolvedValue({ count: 1 }),
     },
     application: {
+      count: jest
+        .fn<Promise<number>, [Prisma.ApplicationCountArgs]>()
+        .mockResolvedValue(1),
       findUnique: jest.fn<
         Promise<{ readonly teamId: string | null } | null>,
         [Prisma.ApplicationFindUniqueArgs]

@@ -5,7 +5,7 @@ export type PurgeDeletionStep = {
   readonly covers: readonly string[];
 };
 
-export const PROGRAM_PURGE_DELETION_ORDER = [
+const PURGE_RELATIONS = [
   {
     id: 'program-outbox-events',
     operation: 'DELETE',
@@ -36,7 +36,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
   },
   {
     id: 'github-repositories',
-    operation: 'DETACH',
+    operation: 'DELETE',
     covers: [
       'Program->GithubRepository',
       'Application->GithubRepository',
@@ -54,7 +54,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
   },
   {
     id: 'github-repository-collection-descendants-preserved',
-    operation: 'PRESERVE',
+    operation: 'DELETE',
 
     covers: [
       'GithubRepository->RepositoryInvitation',
@@ -80,7 +80,7 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
   {
     id: 'program-authoring-uploads',
     operation: 'DETACH',
-    covers: ['ProgramCreateRequest->ProgramAuthoringUpload'],
+    covers: ['Program->ProgramAuthoringUpload'],
   },
   {
     id: 'milestone-document-template-file-tombstones',
@@ -145,11 +145,6 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     covers: ['Program->Team'],
   },
   {
-    id: 'program-create-requests',
-    operation: 'DELETE',
-    covers: ['Program->ProgramCreateRequest'],
-  },
-  {
     id: 'milestones',
     operation: 'DELETE',
     covers: ['Program->Milestone'],
@@ -168,6 +163,19 @@ export const PROGRAM_PURGE_DELETION_ORDER = [
     ],
   },
 ] as const satisfies readonly PurgeDeletionStep[];
+
+export const PROGRAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =
+  PURGE_RELATIONS.filter(
+    (step) => step.id !== 'milestone-document-template-files',
+  ).map((step) => ({
+    ...step,
+    operation:
+      step.id === 'submission-files' ||
+      step.id === 'program-authoring-uploads' ||
+      step.operation === 'TOMBSTONE'
+        ? 'TOMBSTONE'
+        : 'PRESERVE',
+  }));
 
 const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([
   'Team',
@@ -198,7 +206,7 @@ function narrowCoverToTeam(relation: string): string | null {
 }
 
 export const TEAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =
-  PROGRAM_PURGE_DELETION_ORDER.map((step) => ({
+  PURGE_RELATIONS.map((step) => ({
     id: step.id,
     operation: step.operation,
     covers: step.covers

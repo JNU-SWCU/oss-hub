@@ -13,14 +13,14 @@ import {
 import {
   ProgramNoticePreviewService,
   ProgramAuthoringService,
-} from './program-authoring.service';
+} from './programs.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import {
   ProgramAuthoringRepository,
   type ProgramAuthoringTransactionStore,
-} from './program-authoring.repository';
+} from './programs.repository';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import {
   ProgramAuthoringIdempotencyRaceError,

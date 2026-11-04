@@ -13,6 +13,7 @@ import {
   invitationService,
   seedNamedStudents,
 } from '../../test/application-nomination.fixture';
+import { ApplicationsRepository } from './applications.repository';
 let sequence = 0;
 let programId: string;
 function apply(inviteeUserIds: readonly string[]) {
@@ -86,6 +87,39 @@ describe('application named invitees integration', () => {
       errorCode: { code: 'APP_019' },
     });
     await expectNoApplication();
+  });
+
+  it('rejects a named application when deletion commits after preflight and before apply-lock without creating rows', async () => {
+    const findProgram = jest.spyOn(
+      ApplicationsRepository.prototype,
+      'findProgramById',
+    );
+    const readProgram = findProgram.getMockImplementation();
+    if (readProgram === undefined)
+      throw new Error('findProgramById spy has no original implementation');
+    const auditCount = await prisma.auditLog.count();
+    findProgram.mockImplementationOnce(async function (
+      this: ApplicationsRepository,
+      id: string,
+    ) {
+      const program = await readProgram.call(this, id);
+      expect(program).not.toBeNull();
+      await prisma.program.update({
+        where: { id },
+        data: { lifecycle: 'DELETED' },
+      });
+      return program;
+    });
+
+    await expect(apply([member])).rejects.toMatchObject({
+      errorCode: { code: 'APP_009' },
+    });
+    await expect(
+      prisma.program.findUnique({ where: { id: programId } }),
+    ).resolves.toMatchObject({ lifecycle: 'DELETED' });
+    await expectNoApplication();
+    expect(await prisma.teamMember.count({ where: { programId } })).toBe(0);
+    expect(await prisma.auditLog.count()).toBe(auditCount);
   });
 
   it('searches eligible registered students without needing a team or preparation', async () => {

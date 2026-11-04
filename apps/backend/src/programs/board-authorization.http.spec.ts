@@ -34,6 +34,7 @@ const prisma = {
   application: { findFirst: jest.fn<Promise<{ id: string } | null>, []>() },
 };
 const repository = {
+  programExists: jest.fn().mockResolvedValue(true),
   findAccessActor: jest.fn(async () => {
     const user = await prisma.user.findUnique();
     return user === null

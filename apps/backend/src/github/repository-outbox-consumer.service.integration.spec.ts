@@ -207,6 +207,48 @@ describe('RepositoryOutboxConsumerService integration', () => {
     await prisma.$disconnect();
   });
 
+  it.each(['provision', 'access-sync'] as const)(
+    '삭제된 프로그램의 %s outbox는 기존 terminal 작업을 다시 활성화하지 않는다',
+    async (kind) => {
+      const applicationId = APPLICATION_IDS[0];
+      await createApprovedApplication(applicationId);
+      let eventId = await createProvisionEvent(applicationId);
+      if (kind === 'access-sync') {
+        await prisma.outboxEvent.update({
+          where: { id: eventId },
+          data: { status: OutboxEventStatus.PROCESSED },
+        });
+        eventId = await createAccessSyncEvent(applicationId);
+      }
+      await prisma.repositoryProvisionJob.update({
+        where: { applicationId },
+        data: { status: RepositoryProvisionJobStatus.FAILED_FINAL },
+      });
+      await prisma.program.update({
+        where: { id: programId(applicationId) },
+        data: { lifecycle: 'DELETED' },
+      });
+      const before = await prisma.repositoryProvisionJob.findUniqueOrThrow({
+        where: { applicationId },
+      });
+
+      await expect(
+        consumer.consumeNext('worker-deleted', NOW),
+      ).resolves.toEqual({
+        kind: 'FAILED',
+        eventId,
+      });
+      expect(
+        await prisma.repositoryProvisionJob.findUniqueOrThrow({
+          where: { applicationId },
+        }),
+      ).toEqual(before);
+      expect(
+        await prisma.outboxEvent.findUniqueOrThrow({ where: { id: eventId } }),
+      ).toMatchObject({ status: OutboxEventStatus.FAILED, lockedBy: null });
+    },
+  );
+
   it('수락 때 세대가 이전된 event를 job 변경 없이 확인한다', async () => {
     const applicationId = APPLICATION_IDS[0];
     await createApprovedApplication(applicationId);

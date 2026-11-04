@@ -11,7 +11,7 @@ import {
   DeadlineDigestService,
   type DeadlineDigestSendRequest,
 } from '../../src/notifications/deadline-digest.service';
-import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
+import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { ProgramAuthoringUploadMaintenanceService } from '../../src/programs/program-authoring-upload-maintenance.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
 import { PrismaService } from '../../src/platform/prisma.service';
@@ -334,40 +334,37 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
   }
 
   private async removePrismaAggregate(): Promise<void> {
-    const request = await this.prisma.programCreateRequest.findFirst({
+    const program = await this.prisma.program.findFirst({
       where: {
-        actorId: E2E_STAFF_ID,
+        createdById: E2E_STAFF_ID,
         idempotencyKey: 'e2e-prisma-fault',
       },
       select: {
-        actorId: true,
         id: true,
-        programId: true,
-        uploads: { select: { id: true, storageKey: true } },
+        authoringUploads: { select: { id: true, storageKey: true } },
       },
     });
-    if (request === null) return;
+    if (program === null) return;
     await this.prisma.$transaction(async (transaction) => {
       await transaction.milestoneDocumentTemplateFile.deleteMany({
         where: {
-          milestoneDocument: { milestone: { programId: request.programId } },
+          milestoneDocument: { milestone: { programId: program.id } },
         },
       });
       await transaction.programAuthoringUpload.deleteMany({
-        where: { id: { in: request.uploads.map((upload) => upload.id) } },
-      });
-      await transaction.programCreateRequest.delete({
-        where: { actorId_id: { actorId: request.actorId, id: request.id } },
+        where: {
+          id: { in: program.authoringUploads.map((upload) => upload.id) },
+        },
       });
       await transaction.milestoneDocument.deleteMany({
-        where: { milestone: { programId: request.programId } },
+        where: { milestone: { programId: program.id } },
       });
       await transaction.milestone.deleteMany({
-        where: { programId: request.programId },
+        where: { programId: program.id },
       });
-      await transaction.program.delete({ where: { id: request.programId } });
+      await transaction.program.delete({ where: { id: program.id } });
     });
-    for (const upload of request.uploads) {
+    for (const upload of program.authoringUploads) {
       await e2eProgramAuthoringExternalPorts.storage.delete(upload.storageKey);
     }
   }

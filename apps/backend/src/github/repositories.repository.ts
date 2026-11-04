@@ -19,6 +19,7 @@ import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.co
 
 import { PrismaService } from '../platform/prisma.service';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
+import { InvalidRepositoryProvisionEventError } from './repositories.error';
 
 export interface ClaimProvisionEventInput {
   readonly workerId: string;
@@ -330,6 +331,10 @@ export class RepositoriesRepository {
     applicationId: string,
     now: Date,
   ): Promise<ProvisionJobReference> {
+    const available = await transaction.application.count({
+      where: { id: applicationId, program: { lifecycle: { not: 'DELETED' } } },
+    });
+    if (available === 0) throw new InvalidRepositoryProvisionEventError();
     const locked = await transaction.$queryRaw<LockedProvisionJobRow[]>(
       Prisma.sql`
         SELECT "id", "status", "nextAttemptAt", "currentEventId"
@@ -400,7 +405,10 @@ export class RepositoriesRepository {
     applicationId: string,
   ): Promise<ProvisionJobReference | null> {
     return transaction.repositoryProvisionJob.findUnique({
-      where: { applicationId },
+      where: {
+        applicationId,
+        application: { program: { lifecycle: { not: 'DELETED' } } },
+      },
       select: { id: true, currentEventId: true },
     });
   }

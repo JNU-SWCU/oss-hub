@@ -120,7 +120,7 @@ export class ProgramListStatusFilterRepository {
     if (status === 'current') {
       return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND p."endAt" >= ${now}`;
     }
-    return Prisma.sql`(${programListStatusCaseSql(now)}) = ${status}`;
+    return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED') AND (${programListStatusCaseSql(now)}) = ${status}`;
   }
 
   programEndYearRange(year: number) {

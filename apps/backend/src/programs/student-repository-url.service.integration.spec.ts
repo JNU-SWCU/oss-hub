@@ -108,6 +108,30 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
   ]);
   expect(entries[0]?.metadata).not.toHaveProperty('reason');
 });
+
+it('rejects a repository relink after the program is deleted and keeps its current binding', async () => {
+  const before = await prisma.githubRepository.findUniqueOrThrow({
+    where: { id: oldId },
+  });
+  const targetBefore = await prisma.githubRepository.findUniqueOrThrow({
+    where: { id: targetId },
+  });
+  await prisma.program.update({
+    where: { id: programId },
+    data: { lifecycle: 'DELETED' },
+  });
+
+  await expect(
+    service.updateMine(githubId, programId, input),
+  ).rejects.toThrow();
+
+  expect(
+    await prisma.githubRepository.findUniqueOrThrow({ where: { id: oldId } }),
+  ).toEqual(before);
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
+  ).toEqual(targetBefore);
+});
 it('rolls back binding and queue changes when the audit write fails', async () => {
   jest
     .spyOn(audit, 'record')

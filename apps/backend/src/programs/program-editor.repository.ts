@@ -17,7 +17,7 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramDeletionScopeRepository,
   type ProgramDeletionScopeCounts,
-} from './program-deletion-scope.repository';
+} from './programs.repository';
 import {
   ProgramAuthoringUploadTransactionRepository,
   type ProgramExternalCover,
@@ -318,7 +318,7 @@ export class ProgramEditorRepository {
   ): Promise<EditableProgramRow | null> {
     const [program, deletionScopeCounts] = await Promise.all([
       transaction.program.findUnique({
-        where: { id: programId },
+        where: { id: programId, lifecycle: { not: 'DELETED' } },
         include: editableProgramInclude,
       }),
       this.readDeletionScopeCountsIn(transaction, programId),

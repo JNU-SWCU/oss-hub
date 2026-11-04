@@ -9,6 +9,16 @@ import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.conf
 
 @Injectable()
 export class PlatformRepository {
+  collectionTargetWhere() {
+    return {
+      applicationId: { not: null },
+      NOT: [
+        { program: { lifecycle: 'DELETED' } },
+        { application: { program: { lifecycle: 'DELETED' } } },
+      ],
+    } satisfies Prisma.GithubRepositoryWhereInput;
+  }
+
   programApplicationManagerWhere(userId: string) {
     return {
       team: { leaderId: userId, members: { some: { userId } } },
@@ -76,7 +86,7 @@ export class PlatformRepository {
     if (!coordinates) return false;
 
     const lockedPrograms = await tx.$queryRaw<readonly LockedRow[]>(Prisma.sql`
-    SELECT "id" FROM "Program" WHERE "id" = ${coordinates.programId} FOR UPDATE
+    SELECT "id" FROM "Program" WHERE "id" = ${coordinates.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE
   `);
     if (lockedPrograms.length === 0) return false;
 

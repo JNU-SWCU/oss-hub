@@ -597,7 +597,7 @@ export class ApplicationsRepository {
 
   findProgramById(programId: string): Promise<ApplyProgramRecord | null> {
     return this.prisma.program.findUnique({
-      where: { id: programId },
+      where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
         id: true,
         name: true,
@@ -825,6 +825,7 @@ export class ApplicationsRepository {
 
   async listStaffDashboardSummary(): Promise<StaffDashboardSummary> {
     const programs = await this.prisma.program.findMany({
+      where: { lifecycle: { not: 'DELETED' } },
       orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
         cover: { select: { id: true, imageUrl: true } },
@@ -953,7 +954,10 @@ export class ApplicationsRepository {
     applicationId: string,
   ): Promise<ApplicationDecisionTarget | null> {
     const application = await transaction.application.findUnique({
-      where: { id: applicationId },
+      where: {
+        id: applicationId,
+        program: { lifecycle: { not: 'DELETED' } },
+      },
       include: {
         program: {
           select: { repositoryProvisioningEnabled: true, name: true },
@@ -1210,7 +1214,7 @@ export class ApplicationsRepository {
     programId: string,
   ): Promise<LockedProgramPolicy | null> {
     const rows = await database.$queryRaw<readonly LockedProgramPolicy[]>(
-      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion", "teamMinSize", "teamMaxSize" FROM "Program" WHERE id = ${programId} FOR UPDATE`,
+      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion", "teamMinSize", "teamMaxSize" FROM "Program" WHERE id = ${programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
     );
     return rows[0] ?? null;
   }

@@ -7,11 +7,11 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
+import { ProgramAuthoringRepository } from './programs.repository';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramAuthoringController } from './program-authoring.controller';
-import { ProgramNoticePreviewService } from './program-authoring.service';
+import { ProgramNoticePreviewService } from './programs.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 

@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
@@ -8,7 +9,10 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const repository = new CollectionIncrementalRepository(prisma);
+const repository = new CollectionIncrementalRepository(
+  prisma,
+  new PlatformRepository(),
+);
 const githubRepositoryId = 9_000_000_146_301n;
 const observation = {
   githubRepositoryId,
