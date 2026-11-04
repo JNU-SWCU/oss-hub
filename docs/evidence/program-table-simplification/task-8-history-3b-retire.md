@@ -4,21 +4,23 @@
 
 ## 예상 이동과 대조
 
-운영 읽기 전용 조회에서 Preparation 두 테이블 0, 종료 초대 25, 해당 종료 이력 0, 대기 초대 3, 팀 40, 구성원 72를 확인했다. 적용 직전 다시 집계하고 값이 달라지면 차이를 검토해야 한다.
+운영 읽기 전용 조회에서 Preparation 두 테이블 0, 종료 초대 25, 해당 종료 이력 0, 대기 초대 3, 팀 40, 구성원 72를 확인했다. 적용 직전 다시 집계한다. SQL도 같은 트랜잭션에서 종료 25 / ACCEPTED 20 / DECLINED 5 / PENDING 3을 강제하며, 다르면 이력 INSERT와 초대 DELETE 전에 중단한다.
 
-| 항목 | 전 | 변경 | 후 |
-| --- | ---: | ---: | ---: |
-| TeamHistory | 0 | 25 INSERT | 25 |
-| ACCEPTED 초대 | 20 | 20 DELETE | 0 |
-| DECLINED 초대 | 5 | 5 DELETE | 0 |
-| 전체 초대 | 28 | 25 DELETE | 3 |
-| PENDING 초대 | 3 | 0 | 3 |
-| 팀 | 40 | 0 | 40 |
-| 구성원 | 72 | 0 | 72 |
+| 항목          |  전 |      변경 |  후 |
+| ------------- | --: | --------: | --: |
+| TeamHistory   |   0 | 25 INSERT |  25 |
+| ACCEPTED 초대 |  20 | 20 DELETE |   0 |
+| DECLINED 초대 |   5 |  5 DELETE |   0 |
+| 전체 초대     |  28 | 25 DELETE |   3 |
+| PENDING 초대  |   3 |         0 |   3 |
+| 팀            |  40 |         0 |  40 |
+| 구성원        |  72 |         0 |  72 |
 
 기존 종료 사실은 INVITATION_ARCHIVED/source=MIGRATION, actorId=null로 보존한다. 원본 status와 createdAt/respondedAt/updatedAt, team/program/초대 당사자 ID를 그대로 저장한다. occurredAt은 보관 사건의 시각이며 과거 거절·취소 행위자를 추정하지 않는다. 이미 올바른 이력이 있는 sourceTable/sourceId는 덮어쓰지 않는다.
 
-Team→Invitation 잠금 순서에서 이력을 쓰고 원본과 대조한 뒤 종료 행만 지운다. 충돌·누락·외래키 추가·pending 이력 모순이 있으면 전체 트랜잭션이 실패한다. 재실행은 새 이력을 만들지 않는다. 마지막에 pending-only CHECK를 추가해 옛 status 갱신 writer를 거부한다.
+Team→Invitation 순서의 SHARE ROW EXCLUSIVE 테이블 잠금으로 집계 이후 동시 쓰기까지 막고 승인 건수를 검사한다. 이력을 쓰고 원본과 대조한 뒤 종료 행만 지운다. 충돌·누락·외래키 추가·pending 이력 모순이 있으면 전체 트랜잭션이 실패한다. 마지막에 pending-only CHECK를 추가해 옛 status 갱신 writer를 거부한다.
+
+무변경 경로는 두 가지다. 초대와 초대 출처 이력이 모두 없는 새 DB는 데이터 쓰기 없이 CHECK만 설치한다. 검증된 pending-only CHECK가 이미 있고 종료 초대가 0인 재실행은 데이터 쓰기를 건너뛴다. CHECK 없이 대기 초대만 남은 상태는 재실행으로 간주하지 않는다. 25건이어도 ACCEPTED/DECLINED 비율, EXPIRED 포함 여부 또는 PENDING 건수가 승인과 다르면 거부한다. 이 고정 범위가 운영에서 달라지면 새 집계와 승인이 필요하다.
 
 ## 롤백 하한
 

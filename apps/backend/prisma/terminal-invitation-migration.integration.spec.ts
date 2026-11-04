@@ -184,10 +184,10 @@ it('preserves a previously recorded close without replacing its actor or event',
   ).resolves.toEqual(original);
 });
 
-it('keeps unknown response times and expired state without inventing a closer', async () => {
+it('keeps unknown response times without inventing a closer', async () => {
   await within(
     (tx) => tx.$executeRaw`
-    UPDATE "TeamInvitation" SET status = 'EXPIRED', "respondedAt" = NULL WHERE id = 'invitation-1'`,
+    UPDATE "TeamInvitation" SET "respondedAt" = NULL WHERE id = 'invitation-1'`,
   );
   await apply();
   await expect(
@@ -201,10 +201,107 @@ it('keeps unknown response times and expired state without inventing a closer', 
     {
       actorId: null,
       event: 'INVITATION_ARCHIVED',
-      status: 'EXPIRED',
+      status: 'ACCEPTED',
       response: null,
     },
   ]);
+});
+
+it.each([24, 26])(
+  'rejects %i terminal rows before changing invitations or histories',
+  async (terminalCount) => {
+    await within(async (tx) => {
+      if (terminalCount === 24) {
+        await tx.$executeRaw`DELETE FROM "TeamInvitation" WHERE id = 'invitation-1'`;
+      } else {
+        await tx.$executeRaw`
+          INSERT INTO "TeamInvitation"
+          SELECT 'invitation-29', "teamId", "programId", 'invitee-29', "invitedById",
+            status, "createdAt", "respondedAt", "updatedAt"
+          FROM "TeamInvitation" WHERE id = 'invitation-1'`;
+      }
+    });
+    const invitations = await within(
+      (tx) =>
+        tx.$queryRaw`SELECT to_jsonb(i) AS row FROM "TeamInvitation" i ORDER BY id`,
+    );
+    const histories = await within(
+      (tx) =>
+        tx.$queryRaw`SELECT to_jsonb(h) AS row FROM "TeamHistory" h ORDER BY id`,
+    );
+
+    await expect(apply()).rejects.toThrow('Invitation approval count mismatch');
+
+    await expect(
+      within(
+        (tx) =>
+          tx.$queryRaw`SELECT to_jsonb(i) AS row FROM "TeamInvitation" i ORDER BY id`,
+      ),
+    ).resolves.toEqual(invitations);
+    await expect(
+      within(
+        (tx) =>
+          tx.$queryRaw`SELECT to_jsonb(h) AS row FROM "TeamHistory" h ORDER BY id`,
+      ),
+    ).resolves.toEqual(histories);
+    await expect(
+      within(
+        (tx) => tx.$queryRaw`
+        SELECT count(*)::int AS constraints FROM pg_constraint
+        WHERE conrelid = '"TeamInvitation"'::regclass
+          AND conname = 'TeamInvitation_pending_only'`,
+      ),
+    ).resolves.toEqual([{ constraints: 0 }]);
+  },
+);
+
+it.each([
+  "UPDATE \"TeamInvitation\" SET status = 'DECLINED' WHERE id = 'invitation-1'",
+  "UPDATE \"TeamInvitation\" SET status = 'EXPIRED' WHERE id = 'invitation-1'",
+  'DELETE FROM "TeamInvitation" WHERE id = \'invitation-26\'',
+  `INSERT INTO "TeamInvitation"
+   SELECT 'invitation-29', "teamId", "programId", 'invitee-29', "invitedById",
+     status, "createdAt", "respondedAt", "updatedAt"
+   FROM "TeamInvitation" WHERE id = 'invitation-26'`,
+])(
+  'rejects an unapproved status split or pending count: %s',
+  async (change) => {
+    await within((tx) => tx.$executeRawUnsafe(change));
+    const before = await counts();
+
+    await expect(apply()).rejects.toThrow('Invitation approval count mismatch');
+
+    await expect(counts()).resolves.toEqual(before);
+  },
+);
+
+it('installs the pending-only constraint on a fresh empty database without data writes', async () => {
+  await within((tx) => tx.$executeRaw`DELETE FROM "TeamInvitation"`);
+
+  await apply();
+
+  await expect(counts()).resolves.toEqual([{ invitations: 0, histories: 0 }]);
+  await expect(
+    within(
+      (tx) => tx.$queryRaw`
+      SELECT convalidated FROM pg_constraint
+      WHERE conrelid = '"TeamInvitation"'::regclass
+        AND conname = 'TeamInvitation_pending_only'`,
+    ),
+  ).resolves.toEqual([{ convalidated: true }]);
+  await apply();
+  await expect(counts()).resolves.toEqual([{ invitations: 0, histories: 0 }]);
+});
+
+it('rejects an unmarked pending-only inventory rather than treating it as replay', async () => {
+  await within(
+    (tx) =>
+      tx.$executeRaw`DELETE FROM "TeamInvitation" WHERE status <> 'PENDING'`,
+  );
+
+  await expect(apply()).rejects.toThrow('Invitation approval count mismatch');
+
+  await expect(counts()).resolves.toEqual([{ invitations: 3, histories: 0 }]);
 });
 
 it('fails atomically on conflicting existing history', async () => {

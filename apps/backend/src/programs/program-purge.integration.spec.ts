@@ -30,6 +30,8 @@ import {
   SubmissionFileLifecycle,
   SubmissionStatus,
   TeamInvitationStatus,
+  TeamHistoryEvent,
+  HistorySource,
   ProgramTrackType,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
@@ -150,6 +152,9 @@ function isNotFound(error: unknown): boolean {
 }
 
 async function cleanup(): Promise<void> {
+  await prisma.teamHistory.deleteMany({
+    where: { programId: { startsWith: PREFIX } },
+  });
   const tombstones = await prisma.programPurgeFileTombstone.findMany({
     where: {
       OR: [
@@ -483,15 +488,35 @@ async function seedFullChildGraph(
       },
     ],
   });
-  await prisma.teamInvitation.create({
+  await prisma.teamHistory.create({
     data: {
-      id: p('team-invitation'),
+      id: p('team-invitation-history'),
       teamId,
       programId,
-      inviteeId: applicantId,
+      actorId: applicantId,
+      event: TeamHistoryEvent.INVITATION_ACCEPTED,
+      source: HistorySource.APPLICATION,
+      sourceTable: 'TeamInvitation',
+      sourceId: p('team-invitation'),
+      occurredAt: NOW,
+      data: {
+        schemaVersion: 1,
+        invitation: {
+          id: p('team-invitation'),
+          inviteeId: applicantId,
+          invitedById: leaderId,
+          createdAt: NOW.toISOString(),
+        },
+      },
+    },
+  });
+  await prisma.teamInvitation.create({
+    data: {
+      id: p('pending-team-invitation'),
+      teamId,
+      programId,
+      inviteeId: staffId,
       invitedById: leaderId,
-      status: TeamInvitationStatus.ACCEPTED,
-      respondedAt: NOW,
     },
   });
 
@@ -936,6 +961,7 @@ async function programChildRowCounts(
     teams,
     teamMembers,
     teamInvitations,
+    teamHistories,
     boardPosts,
     boardComments,
     submissionFilesAttached,
@@ -957,6 +983,7 @@ async function programChildRowCounts(
     prisma.team.count({ where: { programId } }),
     prisma.teamMember.count({ where: { programId } }),
     prisma.teamInvitation.count({ where: { programId } }),
+    prisma.teamHistory.count({ where: { programId } }),
     prisma.boardPost.count({ where: { programId } }),
     prisma.boardComment.count({ where: { post: { programId } } }),
     prisma.submissionFile.count({
@@ -1037,6 +1064,7 @@ async function programChildRowCounts(
     teams,
     teamMembers,
     teamInvitations,
+    teamHistories,
     boardPosts,
     boardComments,
     submissionFilesAttached,
@@ -1211,6 +1239,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ]);
     expect(before.milestones).toBe(1);
     expect(before.programCovers).toBe(1);
+    expect(before.teamInvitations).toBe(1);
+    expect(before.teamHistories).toBe(1);
+    const invitationHistoryBefore = await prisma.teamHistory.findMany({
+      where: { programId: fixture.programId },
+    });
 
     expect(before.applications).toBe(2);
     expect(before.milestoneDocumentSubmissions).toBe(1);
@@ -1275,6 +1308,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.applicationId,
     ]);
     expect(after).toEqual(before);
+    await expect(
+      prisma.teamHistory.findMany({
+        where: { programId: fixture.programId },
+      }),
+    ).resolves.toEqual(invitationHistoryBefore);
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });

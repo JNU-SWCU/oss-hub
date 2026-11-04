@@ -5,11 +5,16 @@ DO $$
 DECLARE
   invitation_ids TEXT[];
   terminal_count BIGINT;
+  accepted_count BIGINT;
+  declined_count BIGINT;
+  pending_count BIGINT;
   covered_count BIGINT;
   copied_count BIGINT;
   deleted_count BIGINT;
   mismatch_count BIGINT;
 BEGIN
+  LOCK TABLE "Team", "TeamInvitation" IN SHARE ROW EXCLUSIVE MODE;
+
   IF EXISTS (SELECT 1 FROM "ApplicationPreparation")
      OR EXISTS (SELECT 1 FROM "ApplicationPreparationParticipant") THEN
     RAISE EXCEPTION 'Preparation must remain empty before invitation retirement';
@@ -38,21 +43,40 @@ BEGIN
     RAISE EXCEPTION 'Terminal invitation team identity is inconsistent';
   END IF;
 
-  PERFORM t.id FROM "Team" t
-  WHERE EXISTS (
-    SELECT 1 FROM "TeamInvitation" i
-    WHERE i."teamId" = t.id AND i.status <> 'PENDING'
-  )
-  ORDER BY t.id FOR UPDATE OF t;
-
-  PERFORM i.id FROM "TeamInvitation" i
-  WHERE i.status <> 'PENDING'
-  ORDER BY i.id FOR UPDATE OF i;
-
   SELECT coalesce(array_agg(id ORDER BY id), ARRAY[]::TEXT[])
   INTO invitation_ids
   FROM "TeamInvitation" WHERE status <> 'PENDING';
   terminal_count := cardinality(invitation_ids);
+
+  SELECT count(*) FILTER (WHERE status = 'ACCEPTED'),
+         count(*) FILTER (WHERE status = 'DECLINED'),
+         count(*) FILTER (WHERE status = 'PENDING')
+  INTO accepted_count, declined_count, pending_count
+  FROM "TeamInvitation";
+
+  IF terminal_count = 0 THEN
+    IF EXISTS (
+      SELECT 1 FROM pg_constraint
+      WHERE conrelid = '"TeamInvitation"'::regclass
+        AND conname = 'TeamInvitation_pending_only'
+        AND contype = 'c' AND convalidated
+    ) THEN
+      RAISE NOTICE 'INVITATION_RETIRE replay terminal=0 copied=0 deleted=0';
+      RETURN;
+    ELSIF pending_count = 0 AND NOT EXISTS (
+      SELECT 1 FROM "TeamHistory" WHERE "sourceTable" = 'TeamInvitation'
+    ) THEN
+      RAISE NOTICE 'INVITATION_RETIRE fresh terminal=0 copied=0 deleted=0';
+      RETURN;
+    END IF;
+  END IF;
+
+  IF terminal_count <> 25 OR accepted_count <> 20
+     OR declined_count <> 5 OR pending_count <> 3 THEN
+    RAISE EXCEPTION
+      'Invitation approval count mismatch: terminal=% accepted=% declined=% pending=%; expected 25/20/5/3',
+      terminal_count, accepted_count, declined_count, pending_count;
+  END IF;
 
   SELECT count(*) INTO covered_count
   FROM "TeamInvitation" i
@@ -131,16 +155,6 @@ BEGIN
     RAISE EXCEPTION 'Terminal invitations appeared during retirement; confirm code-first writers';
   END IF;
 
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_constraint
-    WHERE conrelid = '"TeamInvitation"'::regclass
-      AND conname = 'TeamInvitation_pending_only'
-  ) THEN
-    ALTER TABLE "TeamInvitation"
-      ADD CONSTRAINT "TeamInvitation_pending_only"
-      CHECK (status = 'PENDING' AND "respondedAt" IS NULL);
-  END IF;
-
   RAISE NOTICE 'INVITATION_RETIRE terminal=% covered=% copied=% deleted=%',
     terminal_count, covered_count, copied_count, deleted_count;
 EXCEPTION
@@ -152,6 +166,19 @@ EXCEPTION
     RAISE EXCEPTION 'Pending-only invitation invariant failed; no rows retired';
   WHEN foreign_key_violation THEN
     RAISE EXCEPTION 'A retained relation references invitations; no rows retired';
+END $$;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = '"TeamInvitation"'::regclass
+      AND conname = 'TeamInvitation_pending_only'
+  ) THEN
+    ALTER TABLE "TeamInvitation"
+      ADD CONSTRAINT "TeamInvitation_pending_only"
+      CHECK (status = 'PENDING' AND "respondedAt" IS NULL);
+  END IF;
 END $$;
 
 COMMIT;
