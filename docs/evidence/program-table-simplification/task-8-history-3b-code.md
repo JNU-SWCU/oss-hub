@@ -48,3 +48,18 @@ merge·release·물리 DROP은 수행하지 않았다. main의 별도 테스트 
 인가 목록·보호 경로 건수·삭제 범위 SQL 테스트에서 3 failed / 17 passed를 직접 재현했다. 제거된 9개 경로만 기대 목록에서 빼고 보호 경로 120개, 전체 경로 137개를 유지한다. 실제 컨트롤러 탐색·익명 요청 거부·전체 목록 대조는 그대로다. 삭제 범위 쿼리는 폐기 테이블 두 개를 읽지 않음을 검증하며 나머지 범위와 바인딩 값 검증을 유지한다. 수정 후 타깃 3 suites / 20 tests와 backend typecheck가 통과했다.
 
 purge의 폐기된 신청 준비 fixture 3개는 현재 계약으로 바꿨다. 준비가 없는 프로그램 삭제가 다른 프로그램·계정을 보존하고, 삭제 확인 이후 준비 또는 참여자의 INSERT는 각각 이름 있는 CHECK에 거부되며 원래 확인 범위로 삭제가 성공한다. 실제 자식 행 추가를 다루는 기존 댓글·게시글 경합, 권한과 원자성 검증은 유지한다. 테스트 skip·only나 제약 완화는 없다.
+
+## main 반영 후 전체 backend 검증
+
+2026-11-04, 지정 worktree에서 `git fetch origin main` 후 `git rebase origin/main`을 실행했다. main `f5c6b8b99529af00fe7e81d12e5cdf1da72af589`이 이미 포함되어 충돌과 추가 코드 변경은 없었다. 검증한 HEAD는 `1dd1820d87153251597b0f22411f9c093e8050bb`이며 `submissions.repository.ts`는 main과 동일하다.
+
+모든 테스트 명령은 `/tmp/oss-hub-heavy.lock`의 mkdir 획득과 rmdir 반환으로 직렬화했다. `pnpm --config.verify-deps-before-run=false`를 사용했고 통합 하네스의 내부 pnpm에도 `npm_config_verify_deps_before_run=false`를 전달했다. install은 실행하지 않았다.
+
+| 전체 실행 | 명령 | 결과 |
+| --- | --- | --- |
+| backend unit | `pnpm --config.verify-deps-before-run=false --filter backend test:unit --maxWorkers=2` | 389 suites / 6,321 tests / 302 snapshots, EXIT=0 |
+| backend integration | `pnpm --config.verify-deps-before-run=false --filter backend test:integration` | 150 suites / 1,169 tests, EXIT=0 |
+
+통합 하네스는 Jest `--runInBand`를 사용했다. `program-purge.integration.spec.ts`를 포함한 전체 suite가 통과했다. 실패가 없어 origin/main 별도 checkout 비교는 필요하지 않았다. 기존 수정 커밋의 인가 목록, 120개 보호 경로, Preparation 없는 삭제 범위 검증과 purge fixture 3개를 그대로 검증했다.
+
+초기 대기 중 만료된 watcher는 테스트를 시작하지 못했다. 실행 중인 테스트가 없는 고아 공유 lock을 확인하고 디렉터리만 해제한 뒤 백그라운드 세션에서 실행했다. 두 테스트 세션은 EXIT=0으로 종료했고 통합 하네스의 Docker 정리도 EXIT=0이다. dev server, 임시 checkout, 임시 파일은 만들지 않았다.
