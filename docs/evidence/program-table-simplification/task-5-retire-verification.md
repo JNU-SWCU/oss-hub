@@ -1,23 +1,27 @@
 # Todo 5 후속 구조 삭제 검증
 
-선행 PR: #1725, 운영 확인 버전 v0.24.38. 최신 main `1a79dce70445137fd7e7fefa5e7dcf54b039bb0e`을 이력 보존 merge로 반영했다.
+선행 PR: #1725, 운영 확인 버전 v0.24.38. main `370ba6a5c` 위에 원래 merge 커밋의 retire 변경을 재적용하고 파일 원장의 양쪽 기록을 보존했다.
 이 후속 PR은 draft이며 준비 backend의 운영 확인과 새 백업·소유자 삭제 승인 뒤에만 별도 릴리스로 적용한다. 새 안내와 guide는 별도 frontend draft로 분리하며, retire 배포의 선행 조건으로 묶지 않는다.
 
 ## 변경과 불변식
 
-`20261104130100_retire_program_creation_request`는 먼저 생성자·키·해시와 업로드 연결을 대조한다. 불일치가 있으면 DROP 전에 예외로 중단한다. 일치하면 임시 bridge 두 개와 옛 업로드 FK 컬럼 두 개, ProgramCreateRequest 테이블을 제거한다.
+`20261104170000_retire_program_creation_request`는 먼저 생성자·키·해시와 업로드 연결을 대조한다. 불일치가 있으면 DROP 전에 예외로 중단한다. 일치하면 임시 bridge 두 개와 옛 업로드 FK 컬럼 두 개, ProgramCreateRequest 테이블을 제거한다.
 
 Program, 업로드 ID, 새 연결과 생성 사실, 팀·지원·제출·이력 행은 삭제하지 않는다. 앱과 API·화면 코드는 준비 커밋과 같다. 가이드 변경은 별도 frontend draft에 포함된다.
 
 SQL SHA-256은 서버 실제 데이터 복원 리허설의 입력과 동일하다.
 
-main의 마지막 migration `20261104130000_retire_teamless_github_repositories` 뒤에 정렬되도록 폴더 이름과 테스트의 참조 경로만 바꿨다. SQL 바이트는 변경하지 않았다. 아래 해시는 이름 변경 전후에 동일하다. 이번 갱신에서 서버 리허설을 새로 실행하지 않았으며, 아래의 기존 리허설을 새 tmpfs 실행으로 표시하지 않는다.
+main의 `20261104140000_prepare_team_history`와 형제 PR의 `20261104150000_prepare_invitation_archival`, `20261104160000_retire_terminal_invitations` 뒤에 정렬되도록 폴더 이름과 테스트의 참조 경로만 바꿨다. SQL 바이트는 변경하지 않았다. 아래 해시는 이름 변경 전후에 동일하다. 이번 갱신에서 서버 리허설을 새로 실행하지 않았으며, 아래의 기존 리허설을 새 tmpfs 실행으로 표시하지 않는다.
+
+기존 CI run `41799700745`는 관리자 승인 fixture가 `9100002` 학번을 지명 지원 fixture와 공유해 User.studentId 유니크 제약에서 실패했다. main의 `bf68bece9`는 승인 대상의 고유 githubId를 학번으로 사용한다. 이번 rebase는 이 수정도 반영하며 테스트·assertion·이관 가드를 삭제하거나 완화하지 않는다.
 
 ```text
 637fe6e3f28f593cdebf8afdb12568a6e31004a3c9fbb4963efe2c48601a4bf7
 ```
 
 ## 회귀 검증
+
+2026-11-04 rebase 후 로컬 전용 PostgreSQL의 빈 `oss_hub_test` DB에 전체 migration을 적용했다. Jest `--maxWorkers=2 --runTestsByPath`로 `program-create-request-migration.integration.spec.ts`, `applications-named-invitees.integration.spec.ts`, `admin-access-mutation.integration.spec.ts`를 실행해 3 suites / 32 tests가 통과했다. 실행 종료 코드는 0이며 임시 DB 서버와 데이터 디렉터리, 공용 heavy lock을 정리했다.
 
 대조 가드의 Program 비교를 일시적으로 무효화한 변이에서는 불일치 fixture가 거부되지 않아 정확히 1건이 RED였다(12 passed / 1 failed, EXIT=1). 원래 SQL을 바이트 단위로 복구했고 위 해시와 일치했다.
 

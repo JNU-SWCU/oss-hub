@@ -29,7 +29,7 @@ const migration = readFileSync(
 const retirement = readFileSync(
   resolve(
     __dirname,
-    'migrations/20261104130100_retire_program_creation_request/migration.sql',
+    'migrations/20261104170000_retire_program_creation_request/migration.sql',
   ),
   'utf8',
 );
