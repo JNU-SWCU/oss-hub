@@ -91,6 +91,46 @@ it('keeps the old document list stable and exposes legacy items only to the opt-
   });
 });
 
+it('returns the current submission and latest review through the student checklist endpoint', async () => {
+  expect((await fixture.submit('checklist content')).status).toBe(201);
+  const submission =
+    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+      where: { milestoneDocumentId: flowIds.document },
+      select: { id: true },
+    });
+  const review = await fixture.request(`submissions/${submission.id}/reviews`, {
+    actor: 'staff',
+    method: 'POST',
+    json: {
+      revision: 1,
+      decision: 'CHANGES_REQUESTED',
+      comment: 'checklist review',
+    },
+  });
+  expect(review.status).toBe(201);
+
+  const response = await fixture.request(
+    `programs/${flowIds.program}/submissions/me`,
+  );
+
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    applicationId: flowIds.application,
+    items: [
+      {
+        milestoneId: flowIds.milestone,
+        submission: {
+          id: submission.id,
+          currentRevision: 1,
+          status: 'CHANGES_REQUESTED',
+          decision: 'CHANGES_REQUESTED',
+          reviewComment: 'checklist review',
+        },
+      },
+    ],
+  });
+});
+
 it('reads and replaces an old-client submission through the requirement API without creating a second submission', async () => {
   const previous = await fixture.request('submissions', {
     method: 'POST',

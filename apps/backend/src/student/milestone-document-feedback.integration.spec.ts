@@ -37,6 +37,9 @@ async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentReviewHistory.deleteMany({
     where: { id: owned },
   });
+  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    where: { id: owned },
+  });
   await prisma.milestoneDocumentSubmission.deleteMany({ where: { id: owned } });
   await prisma.application.deleteMany({ where: { id: owned } });
   await prisma.teamMember.deleteMany({ where: { teamId: owned } });
@@ -69,6 +72,7 @@ async function createProgram(key: string, name: string): Promise<void> {
           id: `${prefix}-${key}-milestone`,
           name: milestoneName,
           dueAt: new Date('2026-12-31'),
+          submissionType: 'TEXT',
           documents: {
             create: [
               {
@@ -153,6 +157,17 @@ async function createReviews(input: {
       decision: review.decision ?? ReviewDecision.CHANGES_REQUESTED,
       comment: `합성 의견 ${review.key}`,
       reviewedAt: new Date(review.reviewedAt),
+    })),
+  });
+  await prisma.milestoneDocumentSubmissionHistory.createMany({
+    data: input.reviews.map((review) => ({
+      id: `${prefix}-review-${review.key}`,
+      milestoneDocumentSubmissionId: submissionId,
+      actorId: users.staff,
+      event: review.decision ?? ReviewDecision.CHANGES_REQUESTED,
+      revision: 1,
+      comment: `합성 의견 ${review.key}`,
+      createdAt: new Date(review.reviewedAt),
     })),
   });
 }
