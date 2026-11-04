@@ -340,6 +340,35 @@ describe('ProgramEditDangerZoneSection', () => {
     );
   });
 
+  it('보존한 기록이 있어도 파일 정리 0건을 기록 부재로 안내하지 않는다', async () => {
+    purgeProgramMock.mockResolvedValue({
+      id: 'program-1',
+      deleted: true,
+      deletedCounts: {
+        applications: 0,
+        teams: 0,
+        submissionFiles: 0,
+        programPurgeFileTombstones: 0,
+      },
+    });
+    await act(async () => {
+      root.render(
+        <ProgramEditDangerZoneSection
+          programId="program-1"
+          programName="OSS 프로그램"
+          canDeleteProgram
+          onDeleted={onDeleted}
+        />,
+      );
+    });
+    const dialog = await openDialog();
+    await flush();
+    await act(async () => getButton('삭제', dialog).click());
+    await flush();
+
+    expect(onDeleted).toHaveBeenCalledWith('정리할 업로드 파일이 없습니다.');
+  });
+
   it('0건 범위도 표시하고 취소는 purge를 호출하지 않는다', async () => {
     getEditableProgramMock.mockResolvedValue({
       deletionScopeCounts: zeroDeletionScopeCounts,

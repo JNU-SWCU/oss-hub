@@ -64,41 +64,41 @@ enum AccountStatus {
 }
 
 model User {
-  id                 String        @id @default(cuid())
-  githubId           BigInt        @unique
-  nickname           String        @map("login")
-  avatarUrl          String?
-  phone              String?
-  accountStatus      AccountStatus @default(ACTIVE)
-  sessionVersion     Int           @default(0)
-  notificationEmail  String?
-  notifyEnabled      Boolean       @default(false)
-  type               UserType      @default(UNSELECTED)
-  name               String?
+  id                  String          @id @default(cuid())
+  githubId            BigInt          @unique
+  nickname            String          @map("login")
+  avatarUrl           String?
+  phone               String?
+  accountStatus       AccountStatus   @default(ACTIVE)
+  sessionVersion      Int             @default(0)
+  notificationEmail   String?
+  notifyEnabled       Boolean         @default(false)
+  type                UserType        @default(UNSELECTED)
+  name                String?
   /// CHECK User_studentId_requires_student_check: non-null only for STUDENT.
-  studentId          String?       @unique
-  staffNumber        String?
-  department         String?
-  departmentType     DepartmentType?
-  profileCreatedAt   DateTime?
-  profileUpdatedAt   DateTime?
-  approvalStatus      ApprovalStatus @default(NOT_REQUIRED)
-  approvalRequestId   String?        @unique
+  studentId           String?         @unique
+  staffNumber         String?
+  department          String?
+  departmentType      DepartmentType?
+  profileCreatedAt    DateTime?
+  profileUpdatedAt    DateTime?
+  approvalStatus      ApprovalStatus  @default(NOT_REQUIRED)
+  approvalRequestId   String?         @unique
   approvalRequestedAt DateTime?
-  approvalDecidedAt    DateTime?
-  approvalDecidedById  String?
+  approvalDecidedAt   DateTime?
+  approvalDecidedById String?
   approvalReason      String?
-  createdAt          DateTime      @default(now())
-  updatedAt          DateTime      @updatedAt
+  createdAt           DateTime        @default(now())
+  updatedAt           DateTime        @updatedAt
 
-  approvalDecidedBy                      User?          @relation("UserApprovalDecider", fields: [approvalDecidedById], references: [id], onDelete: Restrict)
-  approvalDecisions                      User[]         @relation("UserApprovalDecider")
-  admin                                  Admin?         @relation("AdminUser")
-  adminGrants                            Admin[]        @relation("AdminGrantor")
-  userHistories                          UserHistory[]  @relation("UserHistorySubject")
-  actedUserHistories                     UserHistory[]  @relation("UserHistoryActor")
-  adminHistories                         AdminHistory[] @relation("AdminHistorySubject")
-  actedAdminHistories                    AdminHistory[] @relation("AdminHistoryActor")
+  approvalDecidedBy                      User?                                @relation("UserApprovalDecider", fields: [approvalDecidedById], references: [id], onDelete: Restrict)
+  approvalDecisions                      User[]                               @relation("UserApprovalDecider")
+  admin                                  Admin?                               @relation("AdminUser")
+  adminGrants                            Admin[]                              @relation("AdminGrantor")
+  userHistories                          UserHistory[]                        @relation("UserHistorySubject")
+  actedUserHistories                     UserHistory[]                        @relation("UserHistoryActor")
+  adminHistories                         AdminHistory[]                       @relation("AdminHistorySubject")
+  actedAdminHistories                    AdminHistory[]                       @relation("AdminHistoryActor")
   policies                               UserPolicy[]
   applications                           Application[]                        @relation("ApplicationApplicant")
   processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
@@ -111,7 +111,7 @@ model User {
   uploadedFiles                          SubmissionFile[]
   uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
   programAuthoringUploads                ProgramAuthoringUpload[]
-  programCreateRequests                  ProgramCreateRequest[]
+  createdPrograms                        Program[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
   milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
   milestoneDocumentReviewHistories       MilestoneDocumentReviewHistory[]
@@ -124,28 +124,28 @@ model User {
 }
 
 model Admin {
-  userId String @id
-  user User @relation("AdminUser", fields: [userId], references: [id], onDelete: Restrict)
-  grantedAt DateTime @default(now())
+  userId      String      @id
+  user        User        @relation("AdminUser", fields: [userId], references: [id], onDelete: Restrict)
+  grantedAt   DateTime    @default(now())
   grantedById String?
-  grantedBy User? @relation("AdminGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
-  origin AdminOrigin
+  grantedBy   User?       @relation("AdminGrantor", fields: [grantedById], references: [id], onDelete: Restrict)
+  origin      AdminOrigin
 }
 
 model UserHistory {
-  id String @id @default(cuid())
-  userId String
-  user User @relation("UserHistorySubject", fields: [userId], references: [id], onDelete: Restrict)
-  actorId String?
-  actor User? @relation("UserHistoryActor", fields: [actorId], references: [id], onDelete: Restrict)
-  event UserHistoryEvent
-  occurredAt DateTime @default(now())
-  recordedAt DateTime @default(now())
-  source HistorySource
+  id          String           @id @default(cuid())
+  userId      String
+  user        User             @relation("UserHistorySubject", fields: [userId], references: [id], onDelete: Restrict)
+  actorId     String?
+  actor       User?            @relation("UserHistoryActor", fields: [actorId], references: [id], onDelete: Restrict)
+  event       UserHistoryEvent
+  occurredAt  DateTime         @default(now())
+  recordedAt  DateTime         @default(now())
+  source      HistorySource
   sourceTable String?
-  sourceId String?
-  sourcePart String? @default("whole")
-  data Json
+  sourceId    String?
+  sourcePart  String?          @default("whole")
+  data        Json
 
   @@unique([sourceTable, sourceId, sourcePart])
   @@index([userId, occurredAt, id])
@@ -153,19 +153,19 @@ model UserHistory {
 }
 
 model AdminHistory {
-  id String @id @default(cuid())
-  userId String
-  user User @relation("AdminHistorySubject", fields: [userId], references: [id], onDelete: Restrict)
-  actorId String?
-  actor User? @relation("AdminHistoryActor", fields: [actorId], references: [id], onDelete: Restrict)
-  event AdminHistoryEvent
-  occurredAt DateTime @default(now())
-  recordedAt DateTime @default(now())
-  source HistorySource
+  id          String            @id @default(cuid())
+  userId      String
+  user        User              @relation("AdminHistorySubject", fields: [userId], references: [id], onDelete: Restrict)
+  actorId     String?
+  actor       User?             @relation("AdminHistoryActor", fields: [actorId], references: [id], onDelete: Restrict)
+  event       AdminHistoryEvent
+  occurredAt  DateTime          @default(now())
+  recordedAt  DateTime          @default(now())
+  source      HistorySource
   sourceTable String?
-  sourceId String?
-  sourcePart String? @default("whole")
-  data Json
+  sourceId    String?
+  sourcePart  String?           @default("whole")
+  data        Json
 
   @@unique([sourceTable, sourceId, sourcePart])
   @@index([userId, occurredAt, id])
@@ -221,6 +221,12 @@ enum ProgramTrackType {
 enum ProgramLifecycle {
   PUBLISHED
   ARCHIVED
+  DELETED
+}
+
+enum ProgramCreatedBy {
+  USER
+  LEGACY_UNKNOWN
 }
 
 model Program {
@@ -230,6 +236,12 @@ model Program {
   category  ProgramCategory
   trackType ProgramTrackType?
   lifecycle ProgramLifecycle  @default(PUBLISHED)
+
+  createdBy      ProgramCreatedBy @default(LEGACY_UNKNOWN)
+  createdById    String?
+  creator        User?            @relation(fields: [createdById], references: [id], onDelete: Restrict)
+  idempotencyKey String?          @db.VarChar(128)
+  payloadHash    String?          @db.VarChar(64)
 
   applicationTemplateKey     String
   applicationTemplateVersion Int
@@ -249,14 +261,14 @@ model Program {
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
-  milestones    Milestone[]
-  applications  Application[]
-  preparations  ApplicationPreparation[]
-  teams         Team[]
-  repositories  GithubRepository[]
-  boardPosts    BoardPost[]
-  createRequest ProgramCreateRequest?
-  cover         ProgramCover?
+  milestones       Milestone[]
+  applications     Application[]
+  preparations     ApplicationPreparation[]
+  teams            Team[]
+  repositories     GithubRepository[]
+  boardPosts       BoardPost[]
+  authoringUploads ProgramAuthoringUpload[]
+  cover            ProgramCover?
 }
 
 enum ProgramCoverSource {
@@ -358,36 +370,14 @@ model ProgramAuthoringUpload {
   lastDeleteError      String?   @db.VarChar(64)
   deletedAt            DateTime?
 
-  createRequestActorId String?
-  createRequestId      String?
-  createRequest        ProgramCreateRequest? @relation(fields: [createRequestActorId, createRequestId], references: [actorId, id], onDelete: Restrict)
+  programId String?
+  program   Program? @relation(fields: [programId], references: [id], onDelete: Restrict)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([actorId, lifecycle, expiresAt])
   @@index([lifecycle, nextDeleteAttemptAt, deleteClaimExpiresAt])
-}
-
-model ProgramCreateRequest {
-  id String @id @default(cuid())
-
-  actorId String
-  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
-
-  idempotencyKey String @db.VarChar(128)
-  payloadHash    String @db.VarChar(64)
-
-  programId String  @unique
-  program   Program @relation(fields: [programId], references: [id], onDelete: Restrict)
-
-  createdAt DateTime @default(now())
-
-  uploads ProgramAuthoringUpload[]
-
-  @@unique([actorId, idempotencyKey])
-  @@unique([actorId, id])
-  @@index([actorId, createdAt])
 }
 
 enum ApplicationStatus {

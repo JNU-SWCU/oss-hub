@@ -397,7 +397,10 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     `);
     const submission = await transaction.milestoneDocumentSubmission.findUnique(
       {
-        where: { id: targetId },
+        where: {
+          id: targetId,
+          application: { program: { lifecycle: { not: 'DELETED' } } },
+        },
         select: { id: true, revision: true, status: true },
       },
     );

@@ -1,7 +1,7 @@
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
-import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramCategory, ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -120,7 +120,7 @@ describe('ProgramEditorRepository edit counts', () => {
       },
     });
     expect(findUnique).toHaveBeenCalledWith({
-      where: { id: 'program-1' },
+      where: { id: 'program-1', lifecycle: { not: 'DELETED' } },
       include: {
         cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
         _count: {
@@ -156,7 +156,7 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(query.strings.join('')).toContain(
       'FROM "ApplicationPreparationParticipant" WHERE "programId" = ',
     );
-    expect(query.values).toHaveLength(38);
-    expect(query.values).toEqual(Array(38).fill('program-1'));
+    expect(query.values).toHaveLength(37);
+    expect(query.values).toEqual(Array(37).fill('program-1'));
   });
 });

@@ -365,7 +365,10 @@ export class TeamInvitationsRepository {
         await lockTeamRow(tx, input.teamId);
 
         const team = await tx.team.findUnique({
-          where: { id: input.teamId },
+          where: {
+            id: input.teamId,
+            program: { lifecycle: { not: 'DELETED' } },
+          },
           select: {
             id: true,
             programId: true,

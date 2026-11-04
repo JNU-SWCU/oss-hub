@@ -157,6 +157,7 @@ export class ProgramCreationService {
     return this.repository.withCreateTransaction(async (writer) => {
       const program = await this.repository.createProgram(
         {
+          createdByGithubId: githubId,
           name,
           organizer,
           category: ProgramCategory.BASIC,

@@ -63,6 +63,18 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 단일 PK를 기대하던 DB 상태에서 복합 PK 회귀 테스트가 실패하는 것을 먼저 확인했다. 최종 스펙은 실제 pg_constraint의 PK 순서와 정보 스키마의 옛 컬럼 부재를 검사한 뒤, 같은 DB에서 초대 수락·탈퇴·중복 저장 키·sentinel 시작일 거부를 확인한다.
 
+## Todo 5: Program 흡수와 상태 삭제 준비
+
+ProgramCreateRequest의 생성자·멱등 키·해시는 Program으로, 업로드 연결은 programId로 옮긴다. 과거 요청이 없으면 LEGACY_UNKNOWN이다. 현재의 두 생성 API는 알려진 생성자를 USER로 기록하며, 옛 POST /programs는 키와 해시를 만들지 않는다. 준비 릴리스에서 옛 모델 사용을 중단하고, 실제 테이블과 두 FK 컬럼은 별도 후속 draft PR에서 제거한다.
+
+Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 파일 바이트는 기존 큐로 삭제하며 생성 사실과 멱등 재시도도 남는다. 공개·교직원 목록과 상세에서 제외한다. 파일 큐 밖의 늦은 커버·양식 연결 공백과 일부 기존 무가드 쓰기는 task-5-contract-findings.md에 기록했고 후속 단순화 단계로 넘겼다.
+
+지정된 다섯 파일의 구현을 programs.repository.ts와 programs.service.ts로 옮겼다. 호출부는 새 경로를 직접 import한다. 생성·조회·삭제의 기존 Nest provider 이름은 각 DI 계약을 유지하며, forwarding 파일이나 호환 wrapper는 추가하지 않았다. program-lifecycle.error.ts는 삭제 건수 불일치라는 전제가 사라져 제거했다. 이 오류는 Todo 11까지 남겨두지 않는다.
+
+| 범위 | Todo 2 이후 files | Todo 2 이후 lines | Todo 5 준비 files | Todo 5 준비 lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 245 | 37779 | 239 | 37407 |
+
 ## 파일별 의도와 상태
 
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.
@@ -213,13 +225,13 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/program-authoring-validation.error.ts` | merge | `programs.error.ts` | 11 | present | 12 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/program-authoring.controller.ts` | keep | `program-authoring.controller.ts` | 11 | present | 139 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
 | `apps/backend/src/programs/program-authoring.error.ts` | merge | `programs.error.ts` | 11 | present | 57 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-authoring.repository.ts` | merge | `programs.repository.ts` | 5 | present | 248 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-authoring.service.ts` | merge | `programs.service.ts` | 5 | present | 545 | 프로그램 생성 요청 흡수·상태 삭제 |
+| `apps/backend/src/programs/program-authoring.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 248 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
+| `apps/backend/src/programs/program-authoring.service.ts` | merge | `programs.service.ts` | 5 | deleted | 545 | 프로그램 생성 요청 흡수·상태 삭제 |
 | `apps/backend/src/programs/program-cover-url.service.ts` | merge | `programs.service.ts` | 5 | present | 15 | 프로그램 외부 커버 응답 유지 |
 | `apps/backend/src/programs/program-cover.config.ts` | keep | `program-cover.config.ts` | 5 | present | 1 | 외부 커버는 Program 컬럼으로 유지 |
 | `apps/backend/src/programs/program-cover.repository.ts` | merge | `files.repository.ts` | 6 | present | 156 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
 | `apps/backend/src/programs/program-creation.service.ts` | merge | `programs.service.ts` | 5 | present | 192 | 프로그램 생성 요청 흡수·상태 삭제 |
-| `apps/backend/src/programs/program-deletion-scope.repository.ts` | merge | `programs.repository.ts` | 5 | present | 224 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
+| `apps/backend/src/programs/program-deletion-scope.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 224 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
 | `apps/backend/src/programs/program-document-archives.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 46 | 항목 중심 API 경계 |
 | `apps/backend/src/programs/program-document-change-requests.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 73 | 항목 중심 API 경계 |
 | `apps/backend/src/programs/program-document-change-requests.service.ts` | merge | `requirements.service.ts` | 4 | present | 259 | 항목별 변경 요청 |
@@ -228,9 +240,9 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/program-editor.service.ts` | keep | `program-editor.service.ts` | 11 | present | 858 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
 | `apps/backend/src/programs/program-error-code.error.ts` | merge | `programs.error.ts` | 11 | present | 94 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/program-lifecycle.config.ts` | keep | `program-lifecycle.config.ts` | 11 | present | 207 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-lifecycle.error.ts` | merge | `programs.error.ts` | 11 | present | 6 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-lifecycle.repository.ts` | merge | `programs.repository.ts` | 5 | present | 477 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-lifecycle.service.ts` | merge | `programs.service.ts` | 5 | present | 227 | 프로그램 생성 요청 흡수·상태 삭제 |
+| `apps/backend/src/programs/program-lifecycle.error.ts` | delete | - | 5 | deleted | 6 | 물리 삭제 건수 대조가 사라져 오류 타입도 제거 |
+| `apps/backend/src/programs/program-lifecycle.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 477 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
+| `apps/backend/src/programs/program-lifecycle.service.ts` | merge | `programs.service.ts` | 5 | deleted | 227 | 프로그램 생성 요청 흡수·상태 삭제 |
 | `apps/backend/src/programs/program-list-status-filter.repository.ts` | merge | `programs.repository.ts` | 5 | present | 244 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
 | `apps/backend/src/programs/program-list.config.ts` | keep | `program-list.config.ts` | 11 | present | 16 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
 | `apps/backend/src/programs/program-notice-error-code.error.ts` | keep | `program-notice-error-code.error.ts` | 11 | present | 25 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |

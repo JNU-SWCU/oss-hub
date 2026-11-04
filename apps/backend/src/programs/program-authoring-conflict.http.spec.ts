@@ -7,7 +7,7 @@ import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
-import { ProgramAuthoringService } from './program-authoring.service';
+import { ProgramAuthoringService } from './programs.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
 import {

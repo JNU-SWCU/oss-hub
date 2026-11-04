@@ -130,7 +130,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
 describe('TEAM_PURGE_DELETION_ORDER', () => {
   const teamCovers = TEAM_PURGE_DELETION_ORDER.flatMap((step) => step.covers);
 
-  it('program purge 순서의 부분수열이다 — 단계를 새로 만들거나 순서를 바꾸지 않는다', () => {
+  it('팀의 물리 삭제 순서와 프로그램의 상태 삭제를 구분한다', () => {
     const programIds = PROGRAM_PURGE_DELETION_ORDER.map((step) => step.id);
     const teamIds = TEAM_PURGE_DELETION_ORDER.map((step) => step.id);
 
@@ -141,7 +141,7 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       const origin = PROGRAM_PURGE_DELETION_ORDER.find(
         (candidate) => candidate.id === step.id,
       );
-      expect(origin?.operation).toBe(step.operation);
+      expect(['PRESERVE', 'TOMBSTONE']).toContain(origin?.operation);
       for (const relation of step.covers) {
         if (!relation.startsWith('logical:')) {
           expect(origin?.covers).toContain(relation);
@@ -177,7 +177,7 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       'Milestone->SubmissionFile',
       'MilestoneDocument->MilestoneDocumentSubmission',
       'MilestoneDocument->MilestoneDocumentTemplateFile',
-      'Program->ProgramCreateRequest',
+      'Program->ProgramAuthoringUpload',
       'Program->ProgramCover',
       'Program->GithubRepository',
       'Program->Application',
@@ -350,41 +350,44 @@ const OUTBOX_AGGREGATE_TYPE_CLASSIFICATION: Record<
 };
 
 describe('program-linked logical record allowlist (Notification/OutboxEvent)', () => {
-  it('소스의 모든 Notification type 리터럴이 분류표에 있고, program-linked면 purge 코드가 그 값을 실제로 참조한다', () => {
+  it('프로그램 알림을 빠짐없이 분류하고 상태 삭제에서 보존한다', () => {
     const discoveredTypes = scanLiterals(
       'type',
       /\.notification\.(?:create|createMany)\(/g,
     );
-    const purgeServiceSource = readFileSync(
-      join(process.cwd(), 'src/programs/program-lifecycle.repository.ts'),
-      'utf8',
-    );
+    const preservedRelations = PROGRAM_PURGE_DELETION_ORDER.filter(
+      (step) => step.operation === 'PRESERVE',
+    ).flatMap((step) => step.covers);
 
     for (const type of discoveredTypes) {
       const classification = NOTIFICATION_TYPE_CLASSIFICATION[type];
       expect(classification).toBeDefined();
       if (classification?.programLinked) {
-        expect(purgeServiceSource).toContain(`'${type}'`);
+        expect(
+          preservedRelations.some((relation) =>
+            relation.includes(`Notification[${type},`),
+          ),
+        ).toBe(true);
       }
     }
   });
 
-  it('소스의 모든 OutboxEvent aggregateType 리터럴이 분류표에 있고, program-linked면 purge 코드가 그 값을 실제로 참조한다', () => {
+  it('프로그램 Outbox aggregate를 빠짐없이 분류하고 상태 삭제에서 보존한다', () => {
     const discoveredAggregateTypes = scanLiterals(
       'aggregateType',
       /\.outboxEvent\.(?:create|createMany)\(/g,
     );
-    const purgeServiceSource = readFileSync(
-      join(process.cwd(), 'src/programs/program-lifecycle.repository.ts'),
-      'utf8',
-    );
+    const preservedRelations = PROGRAM_PURGE_DELETION_ORDER.filter(
+      (step) => step.operation === 'PRESERVE',
+    ).flatMap((step) => step.covers);
 
     for (const aggregateType of discoveredAggregateTypes) {
       const classification =
         OUTBOX_AGGREGATE_TYPE_CLASSIFICATION[aggregateType];
       expect(classification).toBeDefined();
       if (classification?.programLinked) {
-        expect(purgeServiceSource).toContain(`'${aggregateType}'`);
+        const target = aggregateType === 'PROGRAM' ? 'Program' : aggregateType;
+        expect(preservedRelations).toContain(`logical:${target}->OutboxEvent`);
       }
     }
   });

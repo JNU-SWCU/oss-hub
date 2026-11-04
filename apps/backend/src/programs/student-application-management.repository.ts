@@ -218,7 +218,7 @@ export class StudentApplicationManagementRepository {
     programId: string,
   ): Promise<StudentApplicationPolicy | null> {
     const locked = await transaction.$queryRaw<readonly { id: string }[]>`
-      SELECT "id" FROM "Program" WHERE "id" = ${programId} FOR UPDATE
+      SELECT "id" FROM "Program" WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED' FOR UPDATE
     `;
     if (locked.length === 0) return null;
     return transaction.program.findUnique({

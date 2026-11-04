@@ -22,7 +22,7 @@ import {
   ProgramCreationService,
 } from '../src/programs/program-creation.service';
 import { ProgramEditorService } from '../src/programs/program-editor.service';
-import { ProgramLifecycleService } from '../src/programs/program-lifecycle.service';
+import { ProgramLifecycleService } from '../src/programs/programs.service';
 import { ProgramsService } from '../src/programs/programs.service';
 import { ProgramViewerService } from '../src/programs/program-viewer.service';
 import { RankingController } from '../src/ranking/ranking.controller';

@@ -6,7 +6,7 @@ import {
 } from './e2e-external-port-registry';
 import type { E2eFailureKind } from './e2e-program-authoring.types';
 import { DeadlineDigestService } from '../../src/notifications/deadline-digest.service';
-import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
+import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import {
   E2E_NOW,

@@ -2,7 +2,7 @@ import { StudentRepositoryUrlContextRepository } from './student-repository-url-
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { MilestoneDocumentSubmissionRepository } from './milestone-document-submission.repository';
-import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { ProgramDeletionScopeRepository } from './programs.repository';
 import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
 import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
 import { ProgramsController } from './programs.controller';
@@ -11,11 +11,11 @@ import { Module } from '@nestjs/common';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
+import { ProgramAuthoringRepository } from './programs.repository';
 import {
   ProgramAuthoringService,
   ProgramNoticePreviewService,
-} from './program-authoring.service';
+} from './programs.service';
 import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
 import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
 import { ProgramPurgeFileCleanupRepository } from './program-purge-file-cleanup.repository';
@@ -35,8 +35,8 @@ import { ProgramActivitySummaryService } from './program-activity-summary.servic
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { ProgramLifecycleRepository } from './program-lifecycle.repository';
-import { ProgramLifecycleService } from './program-lifecycle.service';
+import { ProgramLifecycleRepository } from './programs.repository';
+import { ProgramLifecycleService } from './programs.service';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';

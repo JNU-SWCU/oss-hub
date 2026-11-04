@@ -247,7 +247,7 @@ export class ProgramTeamsRepository {
       await lockTeamRow(tx, teamId);
 
       const team = await tx.team.findUnique({
-        where: { id: teamId },
+        where: { id: teamId, program: { lifecycle: { not: 'DELETED' } } },
         select: {
           programId: true,
           name: true,
@@ -296,7 +296,7 @@ export class ProgramTeamsRepository {
 
   findProgramById(programId: string): Promise<TeamProgramRecord | null> {
     return this.prisma.program.findUnique({
-      where: { id: programId },
+      where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
         id: true,
         name: true,

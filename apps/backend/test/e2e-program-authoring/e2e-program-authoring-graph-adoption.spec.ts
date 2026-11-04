@@ -11,7 +11,7 @@ import {
   inspectE2eProgramAdoption,
   type E2eProgramAdoptionCandidate,
 } from './e2e-program-authoring-graph-adoption';
-import { ProgramAuthoringService } from '../../src/programs/program-authoring.service';
+import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
 
 const programAuthoringService = new ProgramAuthoringService(
@@ -83,7 +83,7 @@ function authoredCandidate(): PersistedAuthoredCandidate {
     name: plan.program.name,
     organizer: plan.program.organizer,
     description: plan.program.description,
-    createRequest: { actor: { githubId: AUTHOR_GITHUB_ID } },
+    creator: { githubId: AUTHOR_GITHUB_ID },
     milestones: plan.milestones.map((milestone, milestoneIndex) => ({
       id: `milestone-${milestoneIndex}`,
       name: milestone.name,
@@ -169,7 +169,7 @@ describe('adoptPersistedE2eProgramGraph', () => {
       predicate: 'authenticatedActor',
       change: (candidate: E2eProgramAdoptionCandidate) => ({
         ...candidate,
-        createRequest: { actor: { githubId: AUTHOR_GITHUB_ID + 1n } },
+        creator: { githubId: AUTHOR_GITHUB_ID + 1n },
       }),
     },
     {

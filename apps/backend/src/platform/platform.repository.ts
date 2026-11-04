@@ -76,7 +76,7 @@ export class PlatformRepository {
     if (!coordinates) return false;
 
     const lockedPrograms = await tx.$queryRaw<readonly LockedRow[]>(Prisma.sql`
-    SELECT "id" FROM "Program" WHERE "id" = ${coordinates.programId} FOR UPDATE
+    SELECT "id" FROM "Program" WHERE "id" = ${coordinates.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE
   `);
     if (lockedPrograms.length === 0) return false;
 
