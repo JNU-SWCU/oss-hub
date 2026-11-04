@@ -61,7 +61,7 @@ describe('Admin access atomic request decisions', () => {
     const target = await createUser(null, 'approve-target');
     const profile = {
       name: '합성 승인 대상',
-      studentId: `${9100000 + sequence}`,
+      studentId: target.githubId.toString(),
       department: '소프트웨어공학과',
       memberKind: MemberKind.STUDENT,
       departmentType: DepartmentType.DEPARTMENT,
