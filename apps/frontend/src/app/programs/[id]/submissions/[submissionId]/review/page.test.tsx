@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { programHref } from '@/features/programs/program-paths';
 import { getReviewContext } from '@/features/reviews/api';
+import type { ReviewContext } from '@/features/reviews/types';
 import { apiPath } from '@/lib/api-client';
 
 const mocks = vi.hoisted(() => ({
@@ -67,11 +68,40 @@ describe('ProgramSubmissionReviewPage access contract', () => {
       expectedProgramPath,
       expectedReviewPath,
     }) => {
-      const fetchMock = vi.fn().mockResolvedValue(
-        new Response(JSON.stringify({}), {
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
+      const context: Omit<ReviewContext, 'requirementId'> = {
+        submissionId,
+        application: {
+          id: 'application-existing',
+          applicationMode: 'PERSONAL',
+          displayName: '신청자',
+        },
+        milestone: { id: 'milestone-existing', name: '최종 제출' },
+        currentRevision: {
+          number: 1,
+          content: { type: 'TEXT', text: '제출 내용' },
+          comment: null,
+          submittedAt: '2026-11-04T00:00:00.000Z',
+          files: [],
+          review: null,
+        },
+        history: [],
+        repository: null,
+      };
+      const fetchMock = vi
+        .fn()
+        .mockResolvedValueOnce(
+          new Response(JSON.stringify(context), {
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        )
+        .mockResolvedValueOnce(
+          new Response(
+            JSON.stringify({
+              documents: [{ id: 'requirement-existing', submissionType: 'TEXT' }],
+            }),
+            { headers: { 'Content-Type': 'application/json' } },
+          ),
+        );
       vi.stubGlobal('fetch', fetchMock);
       const requests: Promise<unknown>[] = [];
       mocks.loadContext.mockImplementation((id) => {
@@ -86,10 +116,12 @@ describe('ProgramSubmissionReviewPage access contract', () => {
       const html = renderToStaticMarkup(page);
       await Promise.all(requests);
 
-      expect(fetchMock).toHaveBeenCalledExactlyOnceWith(
+      expect(fetchMock).toHaveBeenNthCalledWith(
+        1,
         apiPath(expectedReviewPath),
         undefined,
       );
+      expect(fetchMock).toHaveBeenCalledTimes(2);
       expect(html).toContain(`href="${expectedProgramPath}"`);
     },
   );
