@@ -16,7 +16,7 @@ import {
 } from './program-authoring-upload.error';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { type ProgramAuthoringRequest } from './program-authoring-upload-transaction.repository';
-import { ProgramAuthoringService } from './program-authoring.service';
+import { ProgramAuthoringService } from './programs.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const programAuthoringService = new ProgramAuthoringService(

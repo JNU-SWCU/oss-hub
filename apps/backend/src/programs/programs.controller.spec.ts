@@ -9,7 +9,7 @@ import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { ProgramsController } from './programs.controller';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramsModule } from './programs.module';
-import { ProgramLifecycleService } from './program-lifecycle.service';
+import { ProgramLifecycleService } from './programs.service';
 import { ValidationPipe } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
@@ -261,6 +261,8 @@ const controllerMethod = (name: keyof ProgramsController): object => {
 };
 
 const publicDetail: ProgramDetailResult = {
+  teamMinSize: 1,
+  teamMaxSize: 4,
   id: 'program-1',
   coverImageUrl: null,
   name: 'Synthetic program',

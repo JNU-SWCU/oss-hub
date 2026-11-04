@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "submission-axis-prepare",
-  "expectedHeadMigration": "20261103140000_retire_program_dead_columns",
+  "expectedHeadMigration": "20261104050000_prepare_program_absorption",
   "preflight": ["check-before.sql"],
   "stages": [
     {

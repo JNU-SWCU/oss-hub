@@ -1,10 +1,11 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
+import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,
@@ -16,6 +17,14 @@ assertIsolatedIntegrationDatabase({
 });
 
 const fixture = new MilestoneDocumentFlowFixture();
+const platform = new PlatformRepository();
+const writeRepository = new MilestoneDocumentsRepository(
+  fixture.prisma,
+  new LockProgramTreeRepository(),
+  platform,
+  new MilestoneDocumentSubmissionRepository(platform),
+  new MilestoneDocumentCollectionReadRepository(fixture.prisma),
+);
 
 beforeAll(() => fixture.start());
 beforeEach(async () => {
@@ -374,4 +383,121 @@ it('rolls back both review stores when the compatibility revision link fails', a
       })
     ).status,
   ).toBe('SUBMITTED');
+});
+
+it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
+  'rejects %s writes to a DELETED program without changing submission records',
+  async (operation) => {
+    if (operation !== 'create')
+      expect((await fixture.submit('preserve existing revision')).status).toBe(
+        201,
+      );
+    const bulkPath =
+      'programs/' + flowIds.program + '/documents/change-requests';
+    let expectedVersion: string | undefined;
+    if (operation === 'bulk-review') {
+      const targets = await fixture.request(
+        bulkPath + '/targets?scope=PROGRAM',
+        { actor: 'staff' },
+      );
+      expect(targets.status).toBe(200);
+      const body: unknown = await targets.json();
+      if (
+        !body ||
+        typeof body !== 'object' ||
+        !('version' in body) ||
+        typeof body.version !== 'string'
+      )
+        throw new Error('Missing bulk version');
+      expectedVersion = body.version;
+    }
+    const where = { milestoneDocumentId: flowIds.document };
+    const before = await fixture.prisma.milestoneDocumentSubmission.findMany({
+      where,
+      include: { histories: true, reviewHistories: true },
+    });
+    await fixture.prisma.program.update({
+      where: { id: flowIds.program },
+      data: { lifecycle: 'DELETED' },
+    });
+    const response =
+      operation === 'review'
+        ? await fixture.request(
+            fixture.documentPath() +
+              '/applications/' +
+              flowIds.application +
+              '/reviews',
+            {
+              actor: 'staff',
+              method: 'POST',
+              json: {
+                decision: 'APPROVED',
+                comment: 'must not persist',
+                expectedRevision: 1,
+                expectedLatestReviewId: null,
+              },
+            },
+          )
+        : operation === 'bulk-review'
+          ? await fixture.request(bulkPath, {
+              actor: 'staff',
+              method: 'POST',
+              json: {
+                scope: 'PROGRAM',
+                includeFinalDecisions: false,
+                expectedVersion,
+                comment: 'must not persist',
+              },
+            })
+          : await fixture.submit('must not persist');
+    expect(response.status).toBe(
+      operation === 'create' || operation === 'replace' ? 403 : 404,
+    );
+    expect(
+      await fixture.prisma.milestoneDocumentSubmission.findMany({
+        where,
+        include: { histories: true, reviewHistories: true },
+      }),
+    ).toEqual(before);
+  },
+);
+
+it('rejects an admitted item submission if the program was deleted before its write transaction', async () => {
+  await fixture.prisma.program.update({
+    where: { id: flowIds.program },
+    data: { lifecycle: 'DELETED' },
+  });
+  await expect(
+    writeRepository.upsertSubmission({
+      milestoneDocumentId: flowIds.document,
+      applicationId: flowIds.application,
+      submittedById: flowIds.student,
+      submittedAt: new Date(),
+      content: { type: 'TEXT', text: 'must not persist' },
+      attachFile: null,
+      expectedLatestReviewId: null,
+      deadline: {
+        milestoneId: flowIds.milestone,
+        allowAfterDeadline: false,
+        expectedSubmissionStatus: null,
+      },
+    }),
+  ).rejects.toBeInstanceOf(SubmissionMembershipChangedError);
+  expect(
+    await fixture.prisma.milestoneDocumentSubmission.count({
+      where: { milestoneDocumentId: flowIds.document },
+    }),
+  ).toBe(0);
+});
+
+it('rejects a bulk review write scope if the program was deleted after admission', async () => {
+  await fixture.prisma.program.update({
+    where: { id: flowIds.program },
+    data: { lifecycle: 'DELETED' },
+  });
+  expect(
+    await writeRepository.withTransaction((store) =>
+      store.lockProgramForReview(flowIds.program),
+    ),
+  ).toBe(false);
 });

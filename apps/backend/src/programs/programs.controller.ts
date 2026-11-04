@@ -32,7 +32,7 @@ import { UpdateProgramRequestDto } from './dto/program-authoring-request.dto';
 import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from './program-editor.service';
 import { PurgeProgramRequestDto } from './dto/purge-program-request.dto';
-import { ProgramLifecycleService } from './program-lifecycle.service';
+import { ProgramLifecycleService } from './programs.service';
 import { ProgramViewerRequestDto } from './dto/program-viewer-request.dto';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';

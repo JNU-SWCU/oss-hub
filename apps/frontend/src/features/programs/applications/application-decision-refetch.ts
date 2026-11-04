@@ -96,6 +96,13 @@ export function decisionNoticeFor(
     case 'unknown':
       if (
         result.outcome.error instanceof ApiError &&
+        result.outcome.error.problem.status === 422 &&
+        result.outcome.error.problem.code === 'APP_019'
+      ) {
+        return '팀 최소 인원이 부족해 승인할 수 없습니다. 초대한 팀원이 수락한 뒤 다시 승인해 주세요.';
+      }
+      if (
+        result.outcome.error instanceof ApiError &&
         result.outcome.error.problem.status === 403 &&
         result.outcome.error.problem.code === 'APP_029'
       ) {

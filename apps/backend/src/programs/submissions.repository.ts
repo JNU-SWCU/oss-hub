@@ -607,7 +607,7 @@ export class SubmissionsRepository implements SubmissionsStore {
     >(Prisma.sql`
       SELECT "endAt"
       FROM "Program"
-      WHERE "id" = ${programId}
+      WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED'
       FOR UPDATE
     `);
     return programs[0]?.endAt ?? null;

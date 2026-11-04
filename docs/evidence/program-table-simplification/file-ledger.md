@@ -28,7 +28,7 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 첫 릴리스의 프론트는 `RETRYABLE_FAILED`/`FAILED`와 `FAILED_RETRYABLE`/`FAILED_FINAL`을 모두 표시한다. 백엔드 응답 전환은 이 프론트가 배포된 다음 릴리스다. `TeamInvitation`의 공개 `invitedAt` 응답 키는 유지하고 `createdAt`에서 읽는다. 기존 초대 시각은 마이그레이션에서 보존한다. 재초대 시각이 의미 있는 `ApplicationPreparationParticipant.invitedAt`은 Todo 8 소유이므로 유지한다.
 
 | 범위 | Before files | Before lines | Todo 2 준비 after files | Todo 2 준비 after lines |
-| ------------------------------- | -----------: | -----------: | ----------------------: | ----------------------: |
+| --- | ---: | ---: | ---: | ---: |
 | programs 제품 파일 (DTO 포함) | 245 | 37919 | 245 | 37832 |
 | 별도 join-code-secret 제품 파일 | 2 | 36 | 0 | 0 |
 
@@ -63,7 +63,62 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 단일 PK를 기대하던 DB 상태에서 복합 PK 회귀 테스트가 실패하는 것을 먼저 확인했다. 최종 스펙은 실제 pg_constraint의 PK 순서와 정보 스키마의 옛 컬럼 부재를 검사한 뒤, 같은 DB에서 초대 수락·탈퇴·중복 저장 키·sentinel 시작일 거부를 확인한다.
 
+## Todo 5: Program 흡수와 상태 삭제 준비
+
+ProgramCreateRequest의 생성자·멱등 키·해시는 Program으로, 업로드 연결은 programId로 옮긴다. 과거 요청이 없으면 LEGACY_UNKNOWN이다. 현재의 두 생성 API는 알려진 생성자를 USER로 기록하며, 옛 POST /programs는 키와 해시를 만들지 않는다. 준비 릴리스에서 옛 모델 사용을 중단하고, 실제 테이블과 두 FK 컬럼은 별도 후속 draft PR에서 제거한다.
+
+Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 파일 바이트는 기존 큐로 삭제하며 생성 사실과 멱등 재시도도 남는다. 공개·교직원 목록과 상세에서 제외한다. 삭제 후 게시판·초대·멤버·신청·문서·저장소 쓰기를 차단하고 수집·관리자 집계에서도 제외한다. 파일 큐 밖의 늦은 커버·양식 연결 공백만 소유자 결정에 따라 Todo 6으로 넘긴다. 화면 안내와 guide는 prepare backend 운영 확인 뒤 배포할 별도 frontend PR로 분리한다.
+
+지정된 다섯 파일의 구현을 programs.repository.ts와 programs.service.ts로 옮겼다. 호출부는 새 경로를 직접 import한다. 생성·조회·삭제의 기존 Nest provider 이름은 각 DI 계약을 유지하며, forwarding 파일이나 호환 wrapper는 추가하지 않았다. program-lifecycle.error.ts는 삭제 건수 불일치라는 전제가 사라져 제거했다. 이 오류는 Todo 11까지 남겨두지 않는다.
+
+| 범위 | Todo 2 이후 files | Todo 2 이후 lines | Todo 5 준비 files | Todo 5 준비 lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 245 | 37779 | 239 | 37447 |
+
+## Todo 7: 등록 레포 수집과 삭제 경계
+
+측정 기준은 `baed7d753c842d9fdb13cef15615d9ce22b90c00`이며 다른 병렬 단위의 변경은 포함하지 않는다.
+
+조직 설치 목록 등록과 일괄 ABSENT 판정을 제거한다. `collection-inventory.service.ts`는 이미 등록된 조직·외부 레포의 메타데이터 관찰을 함께 담당하므로 유지한다. 외부 등록 후처리는 행을 새로 만들지 않고 연결이 끝난 레포만 갱신한다. 공개 프로젝트 조회와 프로그램 purge 설정은 Todo 5가 소유하므로 수정하지 않는다.
+
+`program-team-deletion.repository.ts`는 연결 해제 대신 레포·레포 초대·수집 사실을 삭제한다. `student-repository-url-transaction.repository.ts`와 발급 경로는 교체된 레포를 삭제하고 감사에 옛 URL과 삭제 건수를 남긴다. 프로그램 파일의 Todo 9 병합 의도는 유지하며, TeamHistory 전환도 Todo 8/9 소유다.
+
+| 범위 | Before files | Before lines | Todo 7 after files | Todo 7 after lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 | 245 | 37779 | 245 | 37795 |
+
+| Path | Action | Target | Todo | State | Before lines | 이유 |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| `apps/backend/src/platform/repository-deletion.repository.ts` | keep | `apps/backend/src/platform/repository-deletion.repository.ts` | 7 | present | 0 | 수동·발급 교체가 공용 트랜잭션 repository에서 같은 FK 정리와 삭제 건수 계측을 사용 |
+
+레거시 연간 집계 테이블은 기존 CASCADE FK로 승인 대상 행만 정리한다. 테이블 폐기·Prisma 편입은 하지 않는다. 상세 전후 건수와 배포 순서는 `task-7-program-table-simplification.md`에 기록한다.
+
 ## 파일별 의도와 상태
+
+### Todo 8 A/B 배포 경계
+
+A는 지원 시 본인과 지명 인원을 최소 이상·최대 이하로 검사하고, 팀·팀장 구성원·지원서·대기 초대를 원자적으로 만든다. 승인 시에는 실제 수락 인원을 검사한다. 최소 2명 이상 프로그램의 혼자 지원은 거부한다. 기존 준비팀 지원 경로와 구 프론트는 유지한다. B는 A가 실제 운영 백엔드에 반영된 뒤에만 배포하는 후속 draft다. Vercel release 배포는 Jenkins 완료를 기다리지 않는다.
+
+| A의 제품 파일 | Before lines | After lines |
+| --- | ---: | ---: |
+| applications.service.ts | 1004 | 1073 |
+| applications.repository.ts | 1593 | 1689 |
+
+준비팀 파일과 테이블·초대 status의 사용 중단 및 물리 삭제는 후속 3·4단계다. 이번 단계에서 삭제된 제품 파일은 0개이며 present 상태를 유지한다. 기존 큰 서비스·저장소는 트랜잭션과 준비팀 호환 경계 때문에 유지하고, 새 검증의 구성 fixture와 행동 테스트는 각각 순수 코드 250줄 이내로 분리했다.
+
+B는 지원서에서 기존 검색 패널로 학생을 로컬 지명하고 최종 제출 때만 초대를 만든다. 교직원에게 수락 1/2명과 APP_019 승인 거부 이유를 표시한다. 학생·교직원 가이드와 실제 두 폭 캡처를 B에 담으며, A도 이 응답의 소비 화면 증거를 링크한다.
+
+| B의 지원 화면 | Before lines | After lines |
+| --- | ---: | ---: |
+| program-apply-page.tsx | 561 | 521 |
+| program-apply-views.tsx | 617 | 620 |
+| application-invitees.tsx | 0 | 144 |
+
+### Todo 9에 남긴 계약 26-1 공백
+
+- `student-application-management.config.ts`는 취소를 SUBMITTED에만 허용한다. REJECTED 취소와 승인 전 마지막 1인 탈퇴는 Todo 9의 팀/지원 통합·삭제 계약에서 처리한다.
+- `team-invitation-error-code.error.ts`의 기존 소속 거부에는 “현재 팀에서 탈퇴 후 수락” 안내가 없다. Todo 9에서 이 안내를 보완하며 자동 탈퇴는 추가하지 않는다.
+- 반려 팀은 현재 구성원을 유지하며, 신청이 있는 마지막 한 명의 탈퇴는 현재 거부된다. 이 상태를 Todo 8 A/B에서 해결했다고 주장하지 않는다.
 
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.
 
@@ -213,13 +268,13 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/program-authoring-validation.error.ts` | merge | `programs.error.ts` | 11 | present | 12 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/program-authoring.controller.ts` | keep | `program-authoring.controller.ts` | 11 | present | 139 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
 | `apps/backend/src/programs/program-authoring.error.ts` | merge | `programs.error.ts` | 11 | present | 57 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-authoring.repository.ts` | merge | `programs.repository.ts` | 5 | present | 248 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-authoring.service.ts` | merge | `programs.service.ts` | 5 | present | 545 | 프로그램 생성 요청 흡수·상태 삭제 |
+| `apps/backend/src/programs/program-authoring.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 248 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
+| `apps/backend/src/programs/program-authoring.service.ts` | merge | `programs.service.ts` | 5 | deleted | 545 | 프로그램 생성 요청 흡수·상태 삭제 |
 | `apps/backend/src/programs/program-cover-url.service.ts` | merge | `programs.service.ts` | 5 | present | 15 | 프로그램 외부 커버 응답 유지 |
 | `apps/backend/src/programs/program-cover.config.ts` | keep | `program-cover.config.ts` | 5 | present | 1 | 외부 커버는 Program 컬럼으로 유지 |
 | `apps/backend/src/programs/program-cover.repository.ts` | merge | `files.repository.ts` | 6 | present | 156 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
 | `apps/backend/src/programs/program-creation.service.ts` | merge | `programs.service.ts` | 5 | present | 192 | 프로그램 생성 요청 흡수·상태 삭제 |
-| `apps/backend/src/programs/program-deletion-scope.repository.ts` | merge | `programs.repository.ts` | 5 | present | 224 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
+| `apps/backend/src/programs/program-deletion-scope.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 224 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
 | `apps/backend/src/programs/program-document-archives.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 46 | 항목 중심 API 경계 |
 | `apps/backend/src/programs/program-document-change-requests.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 73 | 항목 중심 API 경계 |
 | `apps/backend/src/programs/program-document-change-requests.service.ts` | merge | `requirements.service.ts` | 4 | present | 259 | 항목별 변경 요청 |
@@ -228,9 +283,9 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/program-editor.service.ts` | keep | `program-editor.service.ts` | 11 | present | 858 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
 | `apps/backend/src/programs/program-error-code.error.ts` | merge | `programs.error.ts` | 11 | present | 94 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
 | `apps/backend/src/programs/program-lifecycle.config.ts` | keep | `program-lifecycle.config.ts` | 11 | present | 207 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-lifecycle.error.ts` | merge | `programs.error.ts` | 11 | present | 6 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-lifecycle.repository.ts` | merge | `programs.repository.ts` | 5 | present | 477 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-lifecycle.service.ts` | merge | `programs.service.ts` | 5 | present | 227 | 프로그램 생성 요청 흡수·상태 삭제 |
+| `apps/backend/src/programs/program-lifecycle.error.ts` | delete | - | 5 | deleted | 6 | 물리 삭제 건수 대조가 사라져 오류 타입도 제거 |
+| `apps/backend/src/programs/program-lifecycle.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 477 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
+| `apps/backend/src/programs/program-lifecycle.service.ts` | merge | `programs.service.ts` | 5 | deleted | 227 | 프로그램 생성 요청 흡수·상태 삭제 |
 | `apps/backend/src/programs/program-list-status-filter.repository.ts` | merge | `programs.repository.ts` | 5 | present | 244 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
 | `apps/backend/src/programs/program-list.config.ts` | keep | `program-list.config.ts` | 11 | present | 16 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
 | `apps/backend/src/programs/program-notice-error-code.error.ts` | keep | `program-notice-error-code.error.ts` | 11 | present | 25 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |

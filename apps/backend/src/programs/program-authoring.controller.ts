@@ -23,7 +23,7 @@ import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import {
   ProgramNoticePreviewService,
   ProgramAuthoringService,
-} from './program-authoring.service';
+} from './programs.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ProgramAuthoringUploadResponseDto } from './dto/program-authoring-upload-response.dto';
 import { ProgramIdResponseDto } from './dto/program-id-response.dto';

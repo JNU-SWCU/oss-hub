@@ -155,9 +155,6 @@ export class ProgramAuthoringIntegrationHarness {
     await this.prisma.milestone.deleteMany({
       where: { program: { name: { startsWith: AUTHORING_TEST_PREFIX } } },
     });
-    await this.prisma.programCreateRequest.deleteMany({
-      where: { actorId: { startsWith: AUTHORING_TEST_PREFIX } },
-    });
     await this.prisma.program.deleteMany({
       where: { name: { startsWith: AUTHORING_TEST_PREFIX } },
     });

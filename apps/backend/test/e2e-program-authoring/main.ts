@@ -3,7 +3,7 @@ import { AppModule } from '../../src/app.module';
 import { configureHttpApp } from '../../src/configure-http-app';
 import { GithubAppClient } from '../../src/github/github-app.client';
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
-import { ProgramAuthoringRepository } from '../../src/programs/program-authoring.repository';
+import { ProgramAuthoringRepository } from '../../src/programs/programs.repository';
 import { OBJECT_STORAGE } from '../../src/platform/object-storage.config';
 import type { RuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';

@@ -1,3 +1,4 @@
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import {
@@ -77,6 +78,7 @@ interface MockDb {
     >;
   };
   application: {
+    count: jest.Mock<Promise<number>, [Prisma.ApplicationCountArgs]>;
     findUnique: jest.Mock<
       Promise<{ readonly teamId: string | null } | null>,
       [Prisma.ApplicationFindUniqueArgs]
@@ -187,6 +189,9 @@ function createDb(): MockDb {
         .mockResolvedValue({ count: 1 }),
     },
     application: {
+      count: jest
+        .fn<Promise<number>, [Prisma.ApplicationCountArgs]>()
+        .mockResolvedValue(1),
       findUnique: jest.fn<
         Promise<{ readonly teamId: string | null } | null>,
         [Prisma.ApplicationFindUniqueArgs]
@@ -266,6 +271,7 @@ function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
     db as unknown as PrismaService,
     new RepositoryProvisionGenerationRepository(),
     new RepositoryProvisionJobRepository(db as unknown as PrismaService),
+    new RepositoryDeletionRepository(),
   );
 }
 

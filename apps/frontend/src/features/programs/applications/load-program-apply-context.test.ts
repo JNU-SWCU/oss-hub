@@ -53,6 +53,8 @@ vi.mock('./student-application-api', () => ({
 }));
 
 const program = {
+  teamMinSize: 2,
+  teamMaxSize: 4,
   id: 'program-1',
   name: 'Team Program',
   organizer: 'Organizer',
@@ -336,7 +338,7 @@ describe('loadProgramApplyContext', () => {
       kind: 'ready',
       mode: 'create',
       teamId: null,
-      teamMinimum: null,
+      teamMinimum: { memberCount: 1, teamMinSize: 2 },
       team: null,
       applicationId: null,
       rejectionReason: null,
@@ -350,6 +352,16 @@ describe('loadProgramApplyContext', () => {
     expect(getMyTeam).toHaveBeenCalledWith('program-1');
 
     expect(removeMyTeamMember).not.toHaveBeenCalled();
+  });
+
+  it('프로그램 인원 기준이 없으면 최소 1명으로 추정하지 않고 지원을 막는다', async () => {
+    vi.mocked(getProgramDetail).mockResolvedValue({
+      ...program,
+      viewer: { role: 'STUDENT', applicationStatus: null },
+      applicationPeriod: openPeriod,
+      teamMinSize: undefined,
+    });
+    expect(await loadDefaultContext()).toMatchObject({ kind: 'failed' });
   });
 
   it('예전 개인형 양식도 인증된 팀 조회로 기존 팀을 이어받는다', async () => {

@@ -80,13 +80,12 @@ export const COLLECTION_PROVIDERS: Provider[] = [
       publicTokens: CollectionPublicTokenService,
       repositoryUrl: RepositoryUrlService,
     ): CollectionSyncService => {
-      let orgTokens: CollectionAppTokenClient | undefined;
       let runtime: CollectionSyncRuntime | undefined;
       const runtimeFactory: CollectionSyncRuntimeFactory = () => {
         if (runtime) return runtime;
 
         const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-        orgTokens = new CollectionAppTokenClient(config);
+        const orgTokens = new CollectionAppTokenClient(config);
         const queue = new ProviderRequestQueueClient();
         runtime = {
           appId: config.appId,
@@ -101,15 +100,6 @@ export const COLLECTION_PROVIDERS: Provider[] = [
         };
         return runtime;
       };
-      const resolveGithubOrganizationId = async (): Promise<bigint> => {
-        if (!orgTokens) {
-          const config = CollectionAppConfig.fromRuntimeConfig(runtimeConfig);
-          orgTokens = new CollectionAppTokenClient(config);
-        }
-        const identity = await orgTokens.getInstallationIdentity();
-        return BigInt(identity.organizationId);
-      };
-
       let externalRuntime: CollectionSyncRuntime | undefined;
       const externalRuntimeFactory: CollectionSyncRuntimeFactory = () => {
         if (externalRuntime) return externalRuntime;
@@ -131,7 +121,6 @@ export const COLLECTION_PROVIDERS: Provider[] = [
       return new CollectionSyncService(
         incrementalRepository,
         runtimeFactory,
-        resolveGithubOrganizationId,
         repositoryUrl,
         undefined,
         undefined,

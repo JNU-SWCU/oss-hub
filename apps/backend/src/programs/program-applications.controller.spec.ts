@@ -66,6 +66,7 @@ describe('ProgramApplicationsController', () => {
     );
 
     expect(create).toHaveBeenCalledWith(4242n, 'synthetic-program', {
+      inviteeUserIds: [],
       answers: { title: '제목', summary: '요약' },
       teamName: null,
       applicationTemplateVersion: 1,

@@ -136,19 +136,22 @@ describe('formatTeamDeletedCounts', () => {
         submissionEvents: 0,
         detachedRepositories: 1,
       }),
-    ).toBe('지원서 1건 · 팀원 3명 · 저장소 연결 해제 1건');
+    ).toBe('지원서 1건 · 팀원 3명');
   });
 
-  it('전부 0이면 연결된 데이터가 없었다고 말한다', () => {
-    expect(
-      formatTeamDeletedCounts({
-        applications: 0,
-        members: 0,
-        invitations: 0,
-        submissions: 0,
-        submissionEvents: 0,
-        detachedRepositories: 0,
-      }),
-    ).toBe('연결된 데이터가 없었습니다.');
-  });
+  it.each([0, 1])(
+    '저장소 처리 건수가 %i여도 다른 항목이 없으면 팀 삭제 완료만 알린다',
+    (detachedRepositories) => {
+      expect(
+        formatTeamDeletedCounts({
+          applications: 0,
+          members: 0,
+          invitations: 0,
+          submissions: 0,
+          submissionEvents: 0,
+          detachedRepositories,
+        }),
+      ).toBe('팀을 삭제했습니다.');
+    },
+  );
 });

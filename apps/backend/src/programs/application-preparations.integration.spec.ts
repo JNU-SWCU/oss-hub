@@ -191,11 +191,21 @@ describe('application preparation integration', () => {
     ).rejects.toMatchObject({ errorCode: { code: 'APP_030' } });
   });
 
-  it('rejects minimum and current eligibility changes without creating an official team', async () => {
+  it('refuses a preparation below the minimum and preserves it for the old frontend', async () => {
     const preparation = await prepare();
+
     await expect(
       applications.create(leader.githubId, programId, input, now),
     ).rejects.toMatchObject({ errorCode: { code: 'APP_019' } });
+    await expectNoOfficialRows();
+    expect(await preparations.get(leader.githubId, programId)).toMatchObject({
+      id: preparation.id,
+      memberCount: 1,
+    });
+  });
+
+  it('rejects current eligibility changes without creating an official team', async () => {
+    const preparation = await prepare();
     await inviteAndAccept(preparation.id);
     await prisma.user.update({
       where: { id: member.id },

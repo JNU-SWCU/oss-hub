@@ -32,6 +32,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     }),
     findApplicationProgramId: jest.fn().mockResolvedValue(syntheticProgramId),
     isApplicationParticipant: jest.fn().mockResolvedValue(false),
+    lockProgramForReview: jest.fn().mockResolvedValue(true),
     lockDocument: jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
       milestoneId: syntheticMilestoneId,
@@ -67,6 +68,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     (operation: (store: unknown) => Promise<unknown>) =>
       operation({
         isApplicationParticipant: mocks.isApplicationParticipant,
+        lockProgramForReview: mocks.lockProgramForReview,
         lockDocument: (documentId: string): Promise<unknown> => {
           transactionCalls.push('lockDocument');
           return mocks.lockDocument(documentId) as Promise<unknown>;
@@ -169,6 +171,23 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
       expect(mocks.updateSubmissionStatus).not.toHaveBeenCalled();
     },
   );
+
+  it('사전 조회 뒤 프로그램이 삭제되면 문서 잠금과 쓰기 전에 거부한다', async () => {
+    const { mocks, clock, repository } = buildRepository({
+      lockProgramForReview: jest.fn().mockResolvedValue(false),
+    });
+    const service = new MilestoneDocumentReviewsService(
+      repository,
+      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    );
+    await expect(review(service, clock)).rejects.toMatchObject({
+      errorCode: { code: MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND },
+    });
+    expect(mocks.lockProgramForReview).toHaveBeenCalledWith(syntheticProgramId);
+    expect(mocks.lockDocument).not.toHaveBeenCalled();
+    expect(mocks.createReview).not.toHaveBeenCalled();
+    expect(clock).not.toHaveBeenCalled();
+  });
 
   it('서류 항목이 없으면 DOCUMENT_NOT_FOUND를 던지고 아무것도 쓰지 않는다', async () => {
     const { mocks, clock, repository } = buildRepository({

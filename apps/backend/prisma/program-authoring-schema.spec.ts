@@ -24,12 +24,11 @@ describe('Program authoring schema contract', () => {
     expect(schema).toContain('enum ProgramAuthoringUploadLifecycle');
     expect(schema).toContain('sha256');
     expect(schema).toContain('deleteClaimExpiresAt');
-    expect(schema).toContain('model ProgramCreateRequest');
-    expect(schema).toContain('@@unique([actorId, idempotencyKey])');
+    expect(schema).toContain('enum ProgramCreatedBy');
+    expect(schema).toContain('idempotencyKey');
     expect(schema).toContain('payloadHash');
-    expect(schema).toContain('createRequestId');
-    expect(schema).toContain('createRequestActorId');
-    expect(schema).toContain('uploads ProgramAuthoringUpload[]');
+    expect(schema).toContain('createdById');
+    expect(schema).toMatch(/authoringUploads\s+ProgramAuthoringUpload\[\]/);
   });
 
   it('preflights before DDL, backfills, then applies required checks', () => {

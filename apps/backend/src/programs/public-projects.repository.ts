@@ -113,6 +113,7 @@ export class PublicProjectsRepository {
     const rows = await this.prisma.githubRepository.findMany({
       where: {
         visibility: 'PUBLIC',
+        program: { lifecycle: { not: 'DELETED' } },
         publishedAt: publishedAtWhere,
         ...(cursor === null
           ? {}
@@ -137,6 +138,7 @@ export class PublicProjectsRepository {
       where: {
         githubRepositoryId: BigInt(projectId),
         visibility: 'PUBLIC',
+        program: { lifecycle: { not: 'DELETED' } },
         publishedAt: { not: null },
       },
       select: PROJECT_ROW_SELECT,
@@ -148,6 +150,7 @@ export class PublicProjectsRepository {
     const rows = await this.prisma.githubRepository.findMany({
       where: {
         visibility: 'PUBLIC',
+        program: { lifecycle: { not: 'DELETED' } },
         publishedAt: { not: null },
         OR: [
           { teamId: null, application: { applicantId: userId } },

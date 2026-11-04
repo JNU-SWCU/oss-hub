@@ -114,7 +114,7 @@ export class ProgramOverviewRepository {
     programId: string,
   ): Promise<ProgramOverviewRecord | null> {
     const program = await this.prisma.program.findUnique({
-      where: { id: programId },
+      where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
         id: true,
         name: true,

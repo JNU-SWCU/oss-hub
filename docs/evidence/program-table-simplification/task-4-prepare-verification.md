@@ -104,4 +104,18 @@ FILE 내용 표식의 재현 가능한 원인이었다.
 
 기한 약속을 고치는 선행 프론트 PR이 먼저 배포되어야 한다. #1731에는 프론트·guide 변경을 남기지 않는다. 기존 폼의 사유·날짜 필수 검증은 그대로인 동안 API만 선택 사유를 받는다. 보완 요청마다 마감 후 한 번 제출할 수 있고 별도 만료는 없다. 사유가 없으면 레거시 체크리스트는 코멘트 행을 생략하고, 항목 화면은 “사유 없이 저장되었습니다.”를 표시한다.
 
-Todo 5와 통합할 때는 MilestoneDocument→SubmissionFile 관계를 새 공통 PURGE_RELATIONS에 보존해야 한다. 현 준비 브랜치의 FK와 관계 원장 행은 유지하며 관계 행렬 타깃 검사로 확인한다.
+Todo 5를 포함한 main 8261fc711을 통합했다. MilestoneDocument→SubmissionFile FK와 공통 PURGE_RELATIONS의 submission-files 행을 보존했고, 관계 행렬 타깃 검사가 통과했다.
+
+## main 8261fc711 통합과 DELETED 쓰기 보호
+
+이력 재작성 없이 main을 병합한다. ProgramsModule 충돌은 제출 저장소의 새 경로와 main의 ProgramDeletionScopeRepository 경로를 모두 유지하여 해결했다. 준비 manifest의 expectedHeadMigration은 main의 20261104050000_prepare_program_absorption으로 갱신했다.
+
+제출의 기존 lockSubmissionMembership은 프로그램 행을 잠근 뒤 DELETED를 거부한다. HTTP 신규·교체 제출의 403 계약과 사전 조회 뒤 삭제된 경우의 저장소 거부를 실제 DB로 확인했다. 이 경로는 수정하지 않았다.
+
+단건 심사는 삭제 상태에서도 201과 새 기록을 만들 수 있어 수정했다. 단건·일괄 심사가 트랜잭션 맨 처음에 Program 행을 FOR SHARE로 잠그고 lifecycle을 확인한다. 삭제되었으면 문서·신청 잠금이나 쓰기 전에 404로 거부한다. 이 잠금은 삭제 UPDATE와 직렬화되므로 사전 조회 후 삭제되는 경계도 보호한다.
+
+- DB 신규 회귀 및 호환: 16 tests, EXIT 0. 제출·단건·일괄 거부 뒤 기록이 바뀌지 않는지 검사했다.
+- main의 기존 삭제 차단·재제출·일괄 심사 DB: 3 suites, 79 tests 통과.
+- 심사 서비스·저장소·관계 행렬: 4 suites, 134 tests, EXIT 0.
+- backend typecheck: EXIT 0.
+- 모든 테스트와 typecheck는 공유 heavy lock 안에서 pnpm --config.verify-deps-before-run=false로 실행했다. 전체 스위트·빌드·성능 측정·운영 리허설은 재실행하지 않았다. 이전 서버 리허설은 당시 head 기준 증거이며 이번 통합 후 재실행 결과로 표시하지 않는다.

@@ -143,6 +143,9 @@ export class ProgramDocumentChangeRequestsService {
 
     const requestedCount = await this.repository.withTransaction(
       async (store) => {
+        if (!(await store.lockProgramForReview(programId))) {
+          throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+        }
         const documentIds = await store.lockProgramDocumentIds(programId);
         const applicationIds = await store.lockApprovedApplicationIds(
           programId,

@@ -167,6 +167,7 @@ interface LockedMilestoneDocument {
 }
 
 export interface MilestoneDocumentWriteStore {
+  lockProgramForReview(programId: string): Promise<boolean>;
   lockMilestoneForGrace(
     milestoneId: string,
   ): Promise<(LockedMilestone & { readonly programEndAt: Date }) | null>;
@@ -1027,6 +1028,7 @@ export class MilestoneDocumentsRepository {
       milestoneLock: null,
     };
     return {
+      lockProgramForReview: this.lockProgramForReviewIn.bind(this, scope),
       isApplicationParticipant: this.isApplicationParticipantIn.bind(
         this,
         scope,
@@ -1063,6 +1065,20 @@ export class MilestoneDocumentsRepository {
         scope,
       ),
     };
+  }
+
+  private async lockProgramForReviewIn(
+    scope: MilestoneDocumentWriteScope,
+    programId: string,
+  ): Promise<boolean> {
+    const rows = await scope.transaction.$queryRaw<
+      readonly { id: string }[]
+    >(Prisma.sql`
+      SELECT "id" FROM "Program"
+      WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED'
+      FOR SHARE
+    `);
+    return rows.length === 1;
   }
 
   private async isApplicationParticipantIn(

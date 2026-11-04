@@ -176,7 +176,12 @@ function lockTeamRow(
   teamId: string,
 ): Promise<LockedTeamRow[]> {
   return tx.$queryRaw<LockedTeamRow[]>(
-    Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    Prisma.sql`
+      SELECT t."id" FROM "Team" t
+      JOIN "Program" p ON p."id" = t."programId"
+      WHERE t."id" = ${teamId} AND p."lifecycle" <> 'DELETED'
+      FOR UPDATE OF t
+    `,
   );
 }
 
@@ -356,6 +361,15 @@ export class TeamInvitationsRepository {
     );
   }
 
+  async isApplicationProgramAvailable(programId: string): Promise<boolean> {
+    return (
+      (await this.prisma.program.findUnique({
+        where: { id: programId, lifecycle: 'PUBLISHED' },
+        select: { id: true },
+      })) !== null
+    );
+  }
+
   async createInvitation(
     input: CreateInvitationInput,
     now: Date = new Date(),
@@ -365,7 +379,10 @@ export class TeamInvitationsRepository {
         await lockTeamRow(tx, input.teamId);
 
         const team = await tx.team.findUnique({
-          where: { id: input.teamId },
+          where: {
+            id: input.teamId,
+            program: { lifecycle: { not: 'DELETED' } },
+          },
           select: {
             id: true,
             programId: true,
@@ -452,7 +469,8 @@ export class TeamInvitationsRepository {
       });
       if (!invitation) return { kind: 'not-found' };
 
-      await lockTeamRow(tx, invitation.teamId);
+      if ((await lockTeamRow(tx, invitation.teamId)).length === 0)
+        return { kind: 'not-found' };
 
       const locked = await tx.teamInvitation.findUnique({
         where: { id: invitationId },
@@ -489,13 +507,18 @@ export class TeamInvitationsRepository {
         id: invitationId,
         inviteeId,
         status: TeamInvitationStatus.PENDING,
+        team: { program: { lifecycle: { not: 'DELETED' } } },
       },
       data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
     });
     if (closed.count > 0) return { kind: 'ok' };
 
     const own = await this.prisma.teamInvitation.findFirst({
-      where: { id: invitationId, inviteeId },
+      where: {
+        id: invitationId,
+        inviteeId,
+        team: { program: { lifecycle: { not: 'DELETED' } } },
+      },
       select: { id: true },
     });
     return own ? { kind: 'not-pending' } : { kind: 'not-found' };
@@ -532,6 +555,7 @@ export class TeamInvitationsRepository {
           this.platformRepository.userProfileNameWhere(query),
         ],
         teamMemberships: { none: { programId } },
+        preparationParticipants: { none: { programId, status: 'ACCEPTED' } },
       },
       select: {
         id: true,
@@ -577,12 +601,12 @@ export class TeamInvitationsRepository {
         if (!invitation) return { kind: 'not-found' };
         if (invitation.inviteeId !== inviteeId) return { kind: 'forbidden' };
 
-        await tx.$queryRaw(
-          Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${invitation.programId} FOR UPDATE`,
+        const programs = await tx.$queryRaw<LockedTeamRow[]>(
+          Prisma.sql`SELECT "id" FROM "Program" WHERE "id" = ${invitation.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
         );
-        await tx.$queryRaw<LockedTeamRow[]>(
-          Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${invitation.teamId} FOR UPDATE`,
-        );
+        if (programs.length === 0) return { kind: 'not-found' };
+        if ((await lockTeamRow(tx, invitation.teamId)).length === 0)
+          return { kind: 'not-found' };
 
         const currentInvitation = await tx.teamInvitation.findUnique({
           where: { id: invitationId },

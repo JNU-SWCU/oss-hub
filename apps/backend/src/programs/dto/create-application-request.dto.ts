@@ -1,6 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
+  IsArray,
   IsDefined,
   IsInt,
   IsObject,
@@ -10,6 +11,11 @@ import {
 } from 'class-validator';
 
 export class CreateApplicationRequestDto {
+  @IsOptional()
+  @IsArray()
+  @IsString({ each: true })
+  declare readonly inviteeUserIds?: readonly string[];
+
   @IsDefined()
   @IsObject()
   declare readonly answers: Readonly<Record<string, unknown>>;

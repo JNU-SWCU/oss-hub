@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { PlatformRepository } from '../platform/platform.repository';
 import type { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import type {
@@ -50,18 +51,6 @@ type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
 type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
 
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
-
-export interface RecordRepositoryObservationInput {
-  githubOrganizationId: bigint | null;
-  githubRepositoryId: bigint;
-  nameWithOwner: string;
-  defaultBranch: string | null;
-  archived: boolean;
-  visibility: CollectionRepositoryVisibility;
-  presence: CollectionRepositoryPresence;
-  source: RepositorySource;
-  observedAt: Date;
-}
 
 export interface CollectionRepositoryRow {
   id: string;
@@ -272,42 +261,27 @@ type CollectionStoreClient = Pick<
 
 @Injectable()
 export class CollectionIncrementalStoreRepository {
-  constructor(private readonly db: CollectionStoreClient) {}
-
-  async recordRepositoryObservation(
-    input: RecordRepositoryObservationInput,
-  ): Promise<CollectionRepositoryRow> {
-    return this.db.githubRepository.upsert({
-      where: { githubRepositoryId: input.githubRepositoryId },
-      create: {
-        githubOrganizationId: input.githubOrganizationId,
-        githubRepositoryId: input.githubRepositoryId,
-        nameWithOwner: input.nameWithOwner,
-        defaultBranch: input.defaultBranch,
-        archived: input.archived,
-        visibility: input.visibility,
-        presence: input.presence,
-        source: input.source,
-        lastCompleteInventoryObservedAt: input.observedAt,
-      },
-      update: {
-        githubOrganizationId: input.githubOrganizationId,
-        nameWithOwner: input.nameWithOwner,
-        defaultBranch: input.defaultBranch,
-        archived: input.archived,
-        visibility: input.visibility,
-        presence: input.presence,
-        source: input.source,
-        lastCompleteInventoryObservedAt: input.observedAt,
-      },
-    });
-  }
+  constructor(
+    private readonly db: CollectionStoreClient,
+    protected readonly platform: PlatformRepository,
+  ) {}
 
   async findRepositoryByLogicalKey(
     githubRepositoryId: bigint,
   ): Promise<CollectionRepositoryRow | null> {
     return this.db.githubRepository.findUnique({
       where: { githubRepositoryId },
+    });
+  }
+
+  async findCollectionTargetByLogicalKey(
+    githubRepositoryId: bigint,
+  ): Promise<CollectionRepositoryRow | null> {
+    return this.db.githubRepository.findUnique({
+      where: {
+        githubRepositoryId,
+        AND: this.platform.collectionTargetWhere(),
+      },
     });
   }
 
@@ -493,17 +467,7 @@ export class CollectionIncrementalStoreRepository {
       presence: 'PRESENT' as const,
       lastCompleteInventoryObservedAt: input.observedAt,
     };
-    await this.db.githubRepository.createMany({
-      data: [
-        {
-          githubRepositoryId: input.githubRepositoryId,
-          source: 'EXTERNAL_PUBLIC',
-          nextRunAt: input.observedAt,
-          ...currentObservation,
-        },
-      ],
-      skipDuplicates: true,
-    });
+
     const updated = await this.db.githubRepository.updateMany({
       where: {
         githubRepositoryId: input.githubRepositoryId,
@@ -519,7 +483,8 @@ export class CollectionIncrementalStoreRepository {
     return true;
   }
 
-  async refreshExternalRepositoryObservation(input: {
+  async refreshRepositoryObservation(input: {
+    readonly source: RepositorySource;
     readonly githubRepositoryId: bigint;
     readonly nameWithOwner: string;
     readonly defaultBranch: string | null;
@@ -530,7 +495,7 @@ export class CollectionIncrementalStoreRepository {
     await this.db.githubRepository.updateMany({
       where: {
         githubRepositoryId: input.githubRepositoryId,
-        source: 'EXTERNAL_PUBLIC',
+        source: input.source,
       },
       data: {
         nameWithOwner: input.nameWithOwner,
@@ -544,16 +509,17 @@ export class CollectionIncrementalStoreRepository {
     const current = await this.db.githubRepository.findUnique({
       where: { githubRepositoryId: input.githubRepositoryId },
     });
-    return current?.source === 'EXTERNAL_PUBLIC' ? current : null;
+    return current?.source === input.source ? current : null;
   }
 
-  async markExternalRepositoryUnavailable(
+  async markRepositoryUnavailable(
     githubRepositoryId: bigint,
     unavailable: 'ABSENT' | 'PRIVATE',
     observedAt: Date,
+    source: RepositorySource,
   ): Promise<void> {
     await this.db.githubRepository.updateMany({
-      where: { githubRepositoryId, source: 'EXTERNAL_PUBLIC' },
+      where: { githubRepositoryId, source },
       data: {
         ...(unavailable === 'ABSENT'
           ? { presence: 'ABSENT' as const }
@@ -981,22 +947,6 @@ export class CollectionIncrementalStoreRepository {
     };
   }
 
-  async markAbsentRepositories(
-    githubOrganizationId: bigint,
-    presentGithubRepositoryIds: readonly bigint[],
-    observedAt: Date,
-  ): Promise<void> {
-    await this.db.githubRepository.updateMany({
-      where: {
-        githubOrganizationId,
-        source: 'ORG_PROVISIONED',
-        presence: 'PRESENT',
-        githubRepositoryId: { notIn: [...presentGithubRepositoryIds] },
-      },
-      data: { presence: 'ABSENT', lastCompleteInventoryObservedAt: observedAt },
-    });
-  }
-
   async findOutsiderCountingWindow(repositoryId: string): Promise<{
     applicationId: string;
     programId: string;
@@ -1064,21 +1014,21 @@ export class CollectionIncrementalStoreRepository {
     });
   }
 
-  async listPresentRepositories(
-    githubOrganizationId: bigint,
-  ): Promise<CollectionRepositoryRow[]> {
+  async listOrganizationRepositories(): Promise<CollectionRepositoryRow[]> {
     return this.db.githubRepository.findMany({
       where: {
-        githubOrganizationId,
         source: 'ORG_PROVISIONED',
-        presence: 'PRESENT',
+        ...this.platform.collectionTargetWhere(),
       },
     });
   }
 
   async listExternalRepositories(): Promise<CollectionRepositoryRow[]> {
     return this.db.githubRepository.findMany({
-      where: { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
+      where: {
+        source: 'EXTERNAL_PUBLIC',
+        ...this.platform.collectionTargetWhere(),
+      },
     });
   }
 
@@ -1152,15 +1102,18 @@ export class CollectionIncrementalStoreRepository {
 
 @Injectable()
 export class CollectionIncrementalRepository extends CollectionIncrementalStoreRepository {
-  constructor(private readonly prisma: PrismaService) {
-    super(prisma);
+  constructor(
+    private readonly prisma: PrismaService,
+    platform: PlatformRepository,
+  ) {
+    super(prisma, platform);
   }
 
   async runInTransaction<T>(
     fn: (store: CollectionIncrementalStoreRepository) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((tx) =>
-      fn(new CollectionIncrementalStoreRepository(tx)),
+      fn(new CollectionIncrementalStoreRepository(tx, this.platform)),
     );
   }
 

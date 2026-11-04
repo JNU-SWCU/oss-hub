@@ -429,7 +429,7 @@ export function ProgramStaffTeamDetailPage({
 
         <Section title="위험 영역">
           <p className="text-body text-muted-foreground [word-break:keep-all]">
-            연결된 데이터와 관련 기록을 포함해 되돌릴 수 없이 삭제합니다.
+            팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.
           </p>
           <div className="flex flex-wrap justify-end gap-2">
             <Button

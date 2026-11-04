@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCategory, RepositorySource } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -24,7 +25,6 @@ assertIsolatedIntegrationDatabase({
 
 const APP_ID = 9_000_000_680_001n;
 const ORG_LOGIN = 'synthetic-member-filter-org';
-const GITHUB_ORGANIZATION_ID = 9_000_000_680_002n;
 const GITHUB_REPOSITORY_ID = 9_000_000_680_003n;
 const OWNER_ID = 'synthetic-member-filter-suite';
 
@@ -114,6 +114,7 @@ const createClient = (
 ): CollectionAppClient =>
   ({
     listInstallationRepositories: () => Promise.resolve([providerRepository()]),
+    getRepository: () => Promise.resolve(providerRepository()),
     resolveUserNodeId: (login: string) => Promise.resolve(`node:${login}`),
     listDefaultBranchCommitsByAuthor: () => Promise.resolve([]),
     countDefaultBranchCommitsBetween: () => Promise.resolve(null),
@@ -167,7 +168,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
 
   const createService = (client: CollectionAppClient): CollectionSyncService =>
     new CollectionSyncService(
-      new CollectionIncrementalRepository(prisma),
+      new CollectionIncrementalRepository(prisma, new PlatformRepository()),
       () => ({
         appId: APP_ID.toString(),
         organizationLogin: ORG_LOGIN,
@@ -175,7 +176,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         client,
         queue: new ProviderRequestQueueClient(),
       }),
-      () => Promise.resolve(GITHUB_ORGANIZATION_ID),
       new RepositoryUrlService(),
       () => new Date('2026-08-01T12:00:00.000Z'),
       () => 'synthetic-member-filter-run',
@@ -271,6 +271,38 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
   });
 
   afterAll(() => prisma.$disconnect());
+
+  it('설치 목록의 미등록 레포는 등록하지 않고 연결된 팀 레포만 수집한다', async () => {
+    await seed();
+    const unregisteredId = GITHUB_REPOSITORY_ID + 1n;
+    const client = createClient([pullRequest({})], []);
+    jest.spyOn(client, 'listInstallationRepositories').mockResolvedValue([
+      providerRepository(),
+      {
+        ...providerRepository(),
+        id: unregisteredId.toString(),
+        fullName: `${ORG_LOGIN}/unregistered`,
+      },
+    ]);
+    try {
+      await createService(client).run(OWNER_ID);
+
+      await expect(
+        prisma.githubRepository.count({
+          where: { githubRepositoryId: unregisteredId },
+        }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.collectionPullRequestFact.count({
+          where: { repositoryId: REPOSITORY_ID },
+        }),
+      ).resolves.toBe(1);
+    } finally {
+      await prisma.githubRepository.deleteMany({
+        where: { githubRepositoryId: unregisteredId },
+      });
+    }
+  });
 
   it('팀원 PR·릴리스만 테이블에 남기고 비팀원·작성자 불명은 fact도 집계도 만들지 않는다', async () => {
     await seed();
@@ -392,13 +424,11 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     );
   });
 
-  it('GithubRepository 행에 teamId가 없어 팀을 특정할 수 없어도 가입하지 않은 작성자는 적재하지 않는다', async () => {
-    await prisma.user.create({
-      data: {
-        id: MEMBER_USER_ID,
-        githubId: MEMBER_GITHUB_ID,
-        nickname: 'synthetic-member',
-      },
+  it('등록 레포의 teamId 백필 전에도 가입하지 않은 작성자는 적재하지 않는다', async () => {
+    await seed();
+    await prisma.githubRepository.update({
+      where: { id: REPOSITORY_ID },
+      data: { teamId: null },
     });
     const client = createClient(
       [

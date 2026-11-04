@@ -98,7 +98,10 @@ export class ProgramTeamDeletionRepository {
           await tx.$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`;
 
           const team = await tx.team.findUnique({
-            where: { id: teamId },
+            where: {
+              id: teamId,
+              program: { lifecycle: { not: 'DELETED' } },
+            },
             select: {
               programId: true,
               name: true,
@@ -249,17 +252,17 @@ async function deleteTeamTree(
     });
   }
 
-  const githubRepositoriesDetached = await tx.githubRepository.updateMany({
-    where: { OR: [{ teamId }, { application: { is: { teamId } } }] },
-    data: {
-      programId: null,
-      applicationId: null,
-      teamId: null,
-      publishedAt: null,
-    },
-  });
+  const repositoryScope = {
+    OR: [{ teamId }, { application: { is: { teamId } } }],
+  } satisfies Prisma.GithubRepositoryWhereInput;
   await tx.repositoryProvisionJob.deleteMany({
     where: { application: { teamId } },
+  });
+  await tx.repositoryInvitation.deleteMany({
+    where: { repository: repositoryScope },
+  });
+  const githubRepositoriesDeleted = await tx.githubRepository.deleteMany({
+    where: repositoryScope,
   });
 
   const fileScope = {
@@ -327,6 +330,6 @@ async function deleteTeamTree(
       deletedSubmissionFiles.count +
       milestoneDocumentSubmissionHistories.count +
       milestoneDocumentReviewHistories.count,
-    detachedRepositories: githubRepositoriesDetached.count,
+    detachedRepositories: githubRepositoriesDeleted.count,
   };
 }

@@ -177,7 +177,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('A→B 직후 B가 아직 수집 전이면 NOT_COLLECTED이고 A의 행도 0 점도 싣지 않는다', async () => {
+it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행과 0 점을 싣지 않는다', async () => {
   const activity = await service.getActivity(
     people.leader.githubId,
     programId,

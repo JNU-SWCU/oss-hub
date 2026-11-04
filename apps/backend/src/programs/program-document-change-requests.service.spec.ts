@@ -61,6 +61,7 @@ function writeStore(
   candidates: readonly ProgramDocumentChangeRequestCandidate[] = previewed,
 ) {
   return {
+    lockProgramForReview: jest.fn().mockResolvedValue(true),
     lockProgramDocumentIds: jest.fn().mockResolvedValue(['document-1']),
     lockApprovedApplicationIds: jest
       .fn()
@@ -339,4 +340,15 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       );
     },
   );
+});
+
+it('사전 조회 뒤 삭제된 프로그램은 문서와 신청 잠금 전에 거부한다', async () => {
+  const { service: subject, store } = service({});
+  store.lockProgramForReview.mockResolvedValue(false);
+  await expect(
+    subject.requestChanges('staff-1', programId, request()).catch(code),
+  ).resolves.toBe(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+  expect(store.lockProgramDocumentIds).not.toHaveBeenCalled();
+  expect(store.lockApprovedApplicationIds).not.toHaveBeenCalled();
+  expect(store.createReview).not.toHaveBeenCalled();
 });

@@ -1,6 +1,6 @@
 import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
-import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramTrackType, SubmissionFileLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';

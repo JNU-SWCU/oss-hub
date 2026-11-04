@@ -3,6 +3,7 @@ import type {
   CollectionIncrementalRepository,
   CollectionRepositoryRow,
   CollectionSyncRuntime,
+  RepositorySource,
   SyncLeaseToken,
 } from './collection-incremental.repository';
 import { CollectionAppClientError } from './collection-app.error';
@@ -21,7 +22,7 @@ export class CollectionInventoryService {
     private readonly incrementalRepository: Pick<
       CollectionIncrementalRepository,
       | 'runInTransaction'
-      | 'listPresentRepositories'
+      | 'listOrganizationRepositories'
       | 'listExternalRepositories'
     >,
     private readonly deadline: CollectionSyncDeadlineService,
@@ -32,53 +33,15 @@ export class CollectionInventoryService {
   async org(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
-    githubOrganizationId: bigint,
     deadline: number,
   ): Promise<SweepInventory> {
-    let listed;
-    try {
-      listed = await this.deadline.run(
-        runtime.client.listInstallationRepositories(),
-        deadline,
-      );
-    } catch {
-      const known =
-        await this.incrementalRepository.listPresentRepositories(
-          githubOrganizationId,
-        );
-      return { complete: false, repositories: known };
-    }
-
-    const observedAt = this.now();
-    const repositories = await this.incrementalRepository.runInTransaction(
-      async (repo) => {
-        await repo.assertSyncLeaseValid(lease, observedAt);
-        const upserted: CollectionRepositoryRow[] = [];
-        for (const item of listed) {
-          upserted.push(
-            await repo.recordRepositoryObservation({
-              githubOrganizationId,
-              githubRepositoryId: BigInt(item.id),
-              nameWithOwner: item.fullName,
-              defaultBranch: item.defaultBranch,
-              archived: item.archived,
-              visibility: item.private ? 'PRIVATE' : 'PUBLIC',
-              presence: 'PRESENT',
-              source: 'ORG_PROVISIONED',
-              observedAt,
-            }),
-          );
-        }
-        await repo.markAbsentRepositories(
-          githubOrganizationId,
-          upserted.map((row) => row.githubRepositoryId),
-          observedAt,
-        );
-        return upserted;
-      },
+    return this.observe(
+      runtime,
+      lease,
+      await this.incrementalRepository.listOrganizationRepositories(),
+      deadline,
+      'ORG_PROVISIONED',
     );
-
-    return { complete: true, repositories };
   }
 
   async external(
@@ -86,7 +49,22 @@ export class CollectionInventoryService {
     lease: SyncLeaseToken,
     deadline: number,
   ): Promise<SweepInventory> {
-    const tracked = await this.incrementalRepository.listExternalRepositories();
+    return this.observe(
+      runtime,
+      lease,
+      await this.incrementalRepository.listExternalRepositories(),
+      deadline,
+      'EXTERNAL_PUBLIC',
+    );
+  }
+
+  private async observe(
+    runtime: CollectionSyncRuntime,
+    lease: SyncLeaseToken,
+    tracked: readonly CollectionRepositoryRow[],
+    deadline: number,
+    source: RepositorySource,
+  ): Promise<SweepInventory> {
     const repositories: CollectionRepositoryRow[] = [];
     let complete = true;
 
@@ -100,7 +78,8 @@ export class CollectionInventoryService {
             .slice(index)
             .filter(
               (repository) =>
-                repository.visibility === 'PUBLIC' &&
+                (source === 'ORG_PROVISIONED' ||
+                  repository.visibility === 'PUBLIC') &&
                 repository.presence === 'PRESENT',
             ),
         );
@@ -125,10 +104,11 @@ export class CollectionInventoryService {
         ) {
           await this.incrementalRepository.runInTransaction(async (repo) => {
             await repo.assertSyncLeaseValid(lease, observedAt);
-            await repo.markExternalRepositoryUnavailable(
+            await repo.markRepositoryUnavailable(
               current.githubRepositoryId,
               error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
               observedAt,
+              source,
             );
           });
           continue;
@@ -141,10 +121,11 @@ export class CollectionInventoryService {
       if (BigInt(metadata.id) !== current.githubRepositoryId) {
         await this.incrementalRepository.runInTransaction(async (repo) => {
           await repo.assertSyncLeaseValid(lease, observedAt);
-          await repo.markExternalRepositoryUnavailable(
+          await repo.markRepositoryUnavailable(
             current.githubRepositoryId,
             'ABSENT',
             observedAt,
+            source,
           );
         });
         continue;
@@ -153,7 +134,8 @@ export class CollectionInventoryService {
       const refreshed = await this.incrementalRepository.runInTransaction(
         async (repo) => {
           await repo.assertSyncLeaseValid(lease, observedAt);
-          return repo.refreshExternalRepositoryObservation({
+          return repo.refreshRepositoryObservation({
+            source,
             githubRepositoryId: current.githubRepositoryId,
             nameWithOwner: metadata.fullName,
             defaultBranch: metadata.defaultBranch,
@@ -163,7 +145,10 @@ export class CollectionInventoryService {
           });
         },
       );
-      if (refreshed?.visibility === 'PUBLIC') {
+      if (
+        refreshed !== null &&
+        (source === 'ORG_PROVISIONED' || refreshed.visibility === 'PUBLIC')
+      ) {
         repositories.push(refreshed);
       }
     }

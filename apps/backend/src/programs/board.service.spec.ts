@@ -51,6 +51,7 @@ function syntheticPostDetail() {
 
 function buildRepository(overrides: Partial<BoardRepository> = {}) {
   const mocks = {
+    programExists: jest.fn().mockResolvedValue(true),
     findAccessActor: jest.fn((session: bigint) => {
       const actor = actors.get(session);
       return Promise.resolve(

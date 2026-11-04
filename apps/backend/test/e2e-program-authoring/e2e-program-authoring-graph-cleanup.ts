@@ -9,7 +9,7 @@ export async function removeAdoptedGraph(
     Promise.resolve(),
 ): Promise<void> {
   const uploads = await prisma.programAuthoringUpload.findMany({
-    where: { createRequest: { programId: graph.programId } },
+    where: { programId: graph.programId },
     select: { storageKey: true },
   });
   const templateFiles = await prisma.milestoneDocumentTemplateFile.findMany({
@@ -109,9 +109,6 @@ export async function removeAdoptedGraph(
       where: { programId: graph.programId },
     });
     await transaction.programAuthoringUpload.deleteMany({
-      where: { createRequest: { programId: graph.programId } },
-    });
-    await transaction.programCreateRequest.deleteMany({
       where: { programId: graph.programId },
     });
     await transaction.programCover.deleteMany({

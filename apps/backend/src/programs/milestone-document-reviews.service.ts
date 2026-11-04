@@ -89,6 +89,9 @@ export class MilestoneDocumentReviewsService {
     }
 
     const created = await this.repository.withTransaction(async (store) => {
+      if (!(await store.lockProgramForReview(documentContext.programId))) {
+        throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+      }
       const locked = await store.lockDocument(documentId);
 
       if (locked === null || locked.milestoneId !== milestoneId) {

@@ -1,9 +1,12 @@
+import { PlatformRepository } from '../platform/platform.repository';
+import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { ApprovalStatus, DepartmentType } from '@prisma/client';
 import {
   ApplicationStatus,
   CollectionRepositoryPresence,
   OutboxEventStatus,
   ProgramCategory,
+  ProgramLifecycle,
   RepositoryInvitationStatus,
   RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
@@ -70,6 +73,7 @@ const state = new RepositoryProvisionStateService(
     prisma,
     new RepositoryProvisionGenerationRepository(),
     new RepositoryProvisionJobRepository(prisma),
+    new RepositoryDeletionRepository(),
   ),
   new RepositoryUrlService(),
   new RepositoryProvisionEventService(),
@@ -247,6 +251,153 @@ describe('RepositoryProvisionWorkerService integration', () => {
       where: { id: { in: [APPLICANT_ID, MEMBER_USER.id, GHOST_USER.id] } },
     });
     await prisma.$disconnect();
+  });
+
+  it.each([
+    ['PENDING', ProgramLifecycle.PUBLISHED],
+    ['PENDING', ProgramLifecycle.ARCHIVED],
+    ['PENDING', ProgramLifecycle.DELETED],
+    ['SUCCEEDED', ProgramLifecycle.PUBLISHED],
+    ['SUCCEEDED', ProgramLifecycle.ARCHIVED],
+    ['SUCCEEDED', ProgramLifecycle.DELETED],
+  ] as const)(
+    '%s 작업은 %s 프로그램에서만 provider와 자식 쓰기를 진행한다',
+    async (phase, lifecycle) => {
+      const applicationId = APPLICATION_IDS[0];
+      await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
+      await outbox.consumeNext('outbox-lifecycle', NOW);
+      const github = githubClient();
+      const worker = new RepositoryProvisionWorkerService(
+        jobs,
+        state,
+        github as unknown as GithubAppClient,
+        ownEnrollment(),
+        new AuditLogMetadataService(),
+        new RepositoryProvisionGithubService(new RepositoryUrlService()),
+      );
+      if (phase === 'SUCCEEDED') {
+        await expect(
+          worker.runNext('worker-initial', NOW),
+        ).resolves.toMatchObject({
+          kind: 'SUCCEEDED',
+        });
+      }
+      const dueAt = new Date(
+        NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
+      );
+      await prisma.program.update({
+        where: { id: programId(applicationId) },
+        data: { lifecycle },
+      });
+      const applicationBefore = await prisma.application.findUniqueOrThrow({
+        where: { id: applicationId },
+      });
+      const repositoriesBefore = await prisma.githubRepository.findMany({
+        where: { applicationId },
+      });
+      const invitationsBefore = await prisma.repositoryInvitation.findMany({
+        where: { repository: { applicationId } },
+      });
+      const historyBefore = await prisma.repositoryIssuanceHistory.findMany({
+        where: { applicationId },
+      });
+      github.findRepository.mockClear();
+      github.createRepository.mockClear();
+      github.findPublicRepository.mockClear();
+      github.ensureCollaborator.mockClear();
+      github.revokeCollaborator.mockClear();
+
+      const result = await worker.runNext('worker-lifecycle', dueAt);
+
+      if (lifecycle !== ProgramLifecycle.DELETED) {
+        expect(result.kind).toBe('SUCCEEDED');
+        if (phase === 'PENDING')
+          expect(github.createRepository).toHaveBeenCalledTimes(1);
+        return;
+      }
+      expect(result).toMatchObject({
+        kind: 'FAILED_FINAL',
+        errorCode: PROVISION_ERROR_CODES.FEATURE_DISABLED,
+      });
+      expect(github.findRepository).not.toHaveBeenCalled();
+      expect(github.createRepository).not.toHaveBeenCalled();
+      expect(github.findPublicRepository).not.toHaveBeenCalled();
+      expect(github.ensureCollaborator).not.toHaveBeenCalled();
+      expect(github.revokeCollaborator).not.toHaveBeenCalled();
+      expect(
+        await prisma.application.findUniqueOrThrow({
+          where: { id: applicationId },
+        }),
+      ).toEqual(applicationBefore);
+      expect(
+        await prisma.githubRepository.findMany({ where: { applicationId } }),
+      ).toEqual(repositoriesBefore);
+      expect(
+        await prisma.repositoryInvitation.findMany({
+          where: { repository: { applicationId } },
+        }),
+      ).toEqual(invitationsBefore);
+      expect(
+        await prisma.repositoryProvisionJob.findUniqueOrThrow({
+          where: { applicationId },
+        }),
+      ).toMatchObject({
+        status: RepositoryProvisionJobStatus.FAILED_FINAL,
+        lastErrorCode: PROVISION_ERROR_CODES.FEATURE_DISABLED,
+        lockedBy: null,
+      });
+      const historyAfter = await prisma.repositoryIssuanceHistory.findMany({
+        where: { applicationId },
+      });
+      if (phase === 'SUCCEEDED') expect(historyAfter).toEqual(historyBefore);
+      else
+        expect(historyAfter).toEqual([
+          expect.objectContaining({
+            outcome: RepositoryIssuanceOutcome.FAILED_FINAL,
+          }),
+        ]);
+      await expect(worker.runNext('worker-terminal', dueAt)).resolves.toEqual({
+        kind: 'EMPTY',
+      });
+    },
+  );
+
+  it('provider 응답 전에 팀원이 바뀌고 삭제되어도 재무장 없이 작업을 종료한다', async () => {
+    const applicationId = APPLICATION_IDS[0];
+    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN]);
+    await outbox.consumeNext('outbox-lifecycle', NOW);
+    const github = githubClient();
+    github.createRepository.mockImplementationOnce(
+      async (name, description) => {
+        await prisma.teamMember.deleteMany({
+          where: { teamId: teamIdFor(applicationId) },
+        });
+        await prisma.program.update({
+          where: { id: programId(applicationId) },
+          data: { lifecycle: ProgramLifecycle.DELETED },
+        });
+        return repositoryMetadata(name, description);
+      },
+    );
+    const worker = new RepositoryProvisionWorkerService(
+      jobs,
+      state,
+      github as unknown as GithubAppClient,
+      ownEnrollment(),
+      new AuditLogMetadataService(),
+      new RepositoryProvisionGithubService(new RepositoryUrlService()),
+    );
+    await expect(
+      worker.runNext('worker-racing-delete', NOW),
+    ).resolves.toMatchObject({
+      kind: 'FAILED_FINAL',
+      errorCode: PROVISION_ERROR_CODES.FEATURE_DISABLED,
+    });
+    expect(
+      await prisma.githubRepository.count({ where: { applicationId } }),
+    ).toBe(0);
+    expect(github.ensureCollaborator).not.toHaveBeenCalled();
+    expect(github.revokeCollaborator).not.toHaveBeenCalled();
   });
 
   it('과거 outbox 명단 대신 현재 팀원에게 저장소 접근을 부여한다', async () => {
@@ -973,116 +1124,149 @@ describe('RepositoryProvisionWorkerService integration', () => {
     });
   });
 
-  it('pending NEW reads its exact event target while the current OWN tuple remains visible', async () => {
-    const applicationId = APPLICATION_IDS[4];
-    await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN], {
-      connectionMode: 'OWN',
-      repositoryUrl: OWN_REPOSITORY_URL,
-    });
-    await outbox.consumeNext('outbox-own-r1', NOW);
-    await prisma.githubRepository.create({
-      data: {
-        applicationId,
-        programId: programId(applicationId),
-        teamId: teamIdFor(applicationId),
-        githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
-        nameWithOwner: OWN_NAME_WITH_OWNER,
-        source: RepositorySource.EXTERNAL_PUBLIC,
-        visibility: RepositoryVisibility.PUBLIC,
-      },
-    });
-    const r2 = await prisma.$transaction(async (transaction) => {
-      const event = await transaction.outboxEvent.create({
+  it.each([true, false])(
+    'pending NEW preserves its exact target and requires an actor to replace OWN (actor=%s)',
+    async (hasActor) => {
+      const applicationId = APPLICATION_IDS[4];
+      await createApplicationAndEvent(applicationId, [APPLICANT_LOGIN], {
+        connectionMode: 'OWN',
+        repositoryUrl: OWN_REPOSITORY_URL,
+      });
+      await outbox.consumeNext('outbox-own-r1', NOW);
+      await prisma.githubRepository.create({
         data: {
-          type: REPOSITORY_PROVISION_EVENT_TYPE,
-          aggregateType: 'Application',
-          aggregateId: applicationId,
-          idempotencyKey: `repository-provision:${applicationId}:r2`,
-          payload: {
-            applicationId,
-            programId: programId(applicationId),
-            teamId: null,
-            requestedAt: NOW.toISOString(),
-            collaboratorGithubLogins: [APPLICANT_LOGIN],
-            repositoryConnectionMode: 'NEW',
-            repositoryUrl: null,
-          },
-          availableAt: NOW,
+          applicationId,
+          programId: programId(applicationId),
+          teamId: teamIdFor(applicationId),
+          githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+          nameWithOwner: OWN_NAME_WITH_OWNER,
+          source: RepositorySource.EXTERNAL_PUBLIC,
+          visibility: RepositoryVisibility.PUBLIC,
         },
       });
-      await new RepositoryProvisionGenerationRepository().transferProvisionGeneration(
-        transaction,
-        { applicationId, newEventId: event.id, now: NOW },
-        parseProvisionPayload,
+      const r2 = await prisma.$transaction(async (transaction) => {
+        const event = await transaction.outboxEvent.create({
+          data: {
+            type: REPOSITORY_PROVISION_EVENT_TYPE,
+            aggregateType: 'Application',
+            aggregateId: applicationId,
+            idempotencyKey: `repository-provision:${applicationId}:r2`,
+            payload: {
+              applicationId,
+              programId: programId(applicationId),
+              teamId: null,
+              requestedAt: NOW.toISOString(),
+              collaboratorGithubLogins: [APPLICANT_LOGIN],
+              repositoryConnectionMode: 'NEW',
+              repositoryUrl: null,
+              ...(hasActor
+                ? { requestedByGithubId: CONNECTION_ACTOR_GITHUB_ID.toString() }
+                : {}),
+            },
+            availableAt: NOW,
+          },
+        });
+        await new RepositoryProvisionGenerationRepository().transferProvisionGeneration(
+          transaction,
+          { applicationId, newEventId: event.id, now: NOW },
+          parseProvisionPayload,
+        );
+        return event;
+      });
+      const claimed = await claimJobFor(applicationId, 'exact-event-worker');
+      const context = await state.loadContext(
+        claimed.id,
+        'exact-event-worker',
+        claimed.requestId,
       );
-      return event;
-    });
-    const claimed = await claimJobFor(applicationId, 'exact-event-worker');
-    const context = await state.loadContext(
-      claimed.id,
-      'exact-event-worker',
-      claimed.requestId,
-    );
-    expect(claimed.requestId).toBe(r2.id);
-    expect(context).toMatchObject({
-      requestedConnectionMode: 'NEW',
-      requestedRepositoryUrl: null,
-      repository: null,
-    });
-    await expect(
-      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
-    ).resolves.toMatchObject({
-      repositoryConnectionMode: 'OWN',
-      repositoryUrl: OWN_REPOSITORY_URL,
-    });
-    await prisma.repositoryProvisionJob.update({
-      where: { applicationId },
-      data: {
-        status: RepositoryProvisionJobStatus.PENDING,
-        attemptCount: 0,
-        lockedAt: null,
-        lockedBy: null,
-        startedAt: null,
-        nextAttemptAt: NOW,
-      },
-    });
-    await outbox.consumeNext('outbox-own-r2', NOW);
-    const github = githubClient();
-    const worker = new RepositoryProvisionWorkerService(
-      jobs,
-      state,
-      github as unknown as GithubAppClient,
-      {
-        enrollExternalRepository: jest.fn(),
-      } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
-      new RepositoryProvisionGithubService(new RepositoryUrlService()),
-    );
+      expect(claimed.requestId).toBe(r2.id);
+      expect(context).toMatchObject({
+        requestedConnectionMode: 'NEW',
+        requestedRepositoryUrl: null,
+        repository: null,
+      });
+      await expect(
+        prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+      ).resolves.toMatchObject({
+        repositoryConnectionMode: 'OWN',
+        repositoryUrl: OWN_REPOSITORY_URL,
+      });
+      await prisma.repositoryProvisionJob.update({
+        where: { applicationId },
+        data: {
+          status: RepositoryProvisionJobStatus.PENDING,
+          attemptCount: 0,
+          lockedAt: null,
+          lockedBy: null,
+          startedAt: null,
+          nextAttemptAt: NOW,
+        },
+      });
+      await outbox.consumeNext('outbox-own-r2', NOW);
+      const github = githubClient();
+      const worker = new RepositoryProvisionWorkerService(
+        jobs,
+        state,
+        github as unknown as GithubAppClient,
+        {
+          enrollExternalRepository: jest.fn(),
+        } as unknown as RepositoryOwnEnrollmentService,
+        new AuditLogMetadataService(),
+        new RepositoryProvisionGithubService(new RepositoryUrlService()),
+      );
 
-    await expect(
-      worker.runNext('provision-worker-own-r2', NOW),
-    ).resolves.toMatchObject({ kind: 'SUCCEEDED' });
-    expect(github.createRepository.mock.calls).toHaveLength(1);
-    expect(github.findPublicRepository.mock.calls).toHaveLength(0);
-    await expect(
-      prisma.application.findUniqueOrThrow({
-        where: { id: applicationId },
-        include: { repository: true },
-      }),
-    ).resolves.toMatchObject({
-      repositoryConnectionMode: 'NEW',
-      repositoryUrl: null,
-      repository: {
-        githubRepositoryId: 987654321n,
-        source: RepositorySource.ORG_PROVISIONED,
-      },
-    });
-    await expect(
-      prisma.githubRepository.findUniqueOrThrow({
-        where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
-      }),
-    ).resolves.toMatchObject({ applicationId: null });
-  });
+      const result = await worker.runNext('provision-worker-own-r2', NOW);
+      if (!hasActor) {
+        expect(result).toMatchObject({ kind: 'FAILED_FINAL' });
+        await expect(
+          prisma.githubRepository.findUnique({
+            where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+          }),
+        ).resolves.toMatchObject({ applicationId });
+        await expect(
+          prisma.application.findUnique({
+            where: { id: applicationId },
+          }),
+        ).resolves.toMatchObject({
+          repositoryConnectionMode: 'OWN',
+          repositoryUrl: OWN_REPOSITORY_URL,
+        });
+        return;
+      }
+      expect(result).toMatchObject({ kind: 'SUCCEEDED' });
+      expect(github.createRepository.mock.calls).toHaveLength(1);
+      expect(github.findPublicRepository.mock.calls).toHaveLength(0);
+      await expect(
+        prisma.application.findUniqueOrThrow({
+          where: { id: applicationId },
+          include: { repository: true },
+        }),
+      ).resolves.toMatchObject({
+        repositoryConnectionMode: 'NEW',
+        repositoryUrl: null,
+        repository: {
+          githubRepositoryId: 987654321n,
+          source: RepositorySource.ORG_PROVISIONED,
+        },
+      });
+      await expect(
+        prisma.githubRepository.findUnique({
+          where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+        }),
+      ).resolves.toBeNull();
+      const auditEntries = await prisma.auditLog.findMany({
+        where: {
+          targetId: applicationId,
+          action: 'REPOSITORY_CONNECTION_CHANGED',
+        },
+      });
+      expect(auditEntries).toHaveLength(1);
+      expect(auditEntries[0]?.metadata).toMatchObject({
+        deletedRepositoryUrl: `https://github.com/${OWN_NAME_WITH_OWNER}`,
+        deletedCounts: { repositories: 1 },
+      });
+    },
+  );
 
   it('부여→탈퇴 회수→재합류를 같은 행에서 이력을 남기며 수렴한다', async () => {
     const applicationId = 'synthetic-worker-revoke-lifecycle';
@@ -1485,7 +1669,7 @@ function programId(applicationId: string): string {
 function ownEnrollment(): RepositoryOwnEnrollmentService {
   return new RepositoryOwnEnrollmentService(
     new ConsentsService(new UserPolicyRepository(prisma)),
-    new CollectionIncrementalRepository(prisma),
+    new CollectionIncrementalRepository(prisma, new PlatformRepository()),
   );
 }
 

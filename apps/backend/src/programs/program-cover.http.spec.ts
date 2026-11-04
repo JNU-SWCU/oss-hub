@@ -8,8 +8,8 @@ import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramsController } from './programs.controller';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
-import { ProgramAuthoringService } from './program-authoring.service';
+import { ProgramAuthoringRepository } from './programs.repository';
+import { ProgramAuthoringService } from './programs.service';
 import {
   ProgramAuthoringUploadRepository,
   type CreatePendingProgramAuthoringUploadInput,

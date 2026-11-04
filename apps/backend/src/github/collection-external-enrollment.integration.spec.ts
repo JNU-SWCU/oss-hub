@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { UserPolicyRepository } from '../users/user-policy.repository';
 import { ConsentsService } from '../users/consents.service';
@@ -11,7 +12,10 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const enrollment = new CollectionIncrementalRepository(prisma);
+const enrollment = new CollectionIncrementalRepository(
+  prisma,
+  new PlatformRepository(),
+);
 const REPOSITORY_IDS = [
   9_000_000_730_001n,
   9_000_000_730_002n,
@@ -46,7 +50,7 @@ describe('external repository enrollment integration', () => {
     await prisma.$disconnect();
   });
 
-  it('owner/name과 기본 브랜치를 갖춘 external 행을 즉시 수집 큐에 만든다', async () => {
+  it('연결 후처리가 늦게 도착해도 삭제된 external 행을 다시 만들지 않는다', async () => {
     await enrollment.enrollExternalRepository({
       githubRepositoryId: REPOSITORY_IDS[0],
       nameWithOwner: 'synthetic-student/synthetic-own-repo',
@@ -56,19 +60,10 @@ describe('external repository enrollment integration', () => {
     });
 
     await expect(
-      prisma.githubRepository.findUniqueOrThrow({
+      prisma.githubRepository.findUnique({
         where: { githubRepositoryId: REPOSITORY_IDS[0] },
       }),
-    ).resolves.toMatchObject({
-      nameWithOwner: 'synthetic-student/synthetic-own-repo',
-      defaultBranch: 'main',
-      archived: false,
-      source: 'EXTERNAL_PUBLIC',
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      nextRunAt: OBSERVED_AT,
-      failureCount: 0,
-    });
+    ).resolves.toBeNull();
   });
 
   it('기존 external PRIVATE·ABSENT 행을 복구하되 기존 fact·Contribution은 보존한다', async () => {
@@ -410,7 +405,7 @@ describe('external repository enrollment integration', () => {
     ).resolves.toEqual([0, 0, 0]);
   });
 
-  it('동일 id 동시 편입이 unique 오류 없이 한 행으로 수렴한다', async () => {
+  it('이미 연결된 동일 id의 동시 후처리는 한 행을 유지한다', async () => {
     const input = {
       githubRepositoryId: REPOSITORY_IDS[3],
       nameWithOwner: 'synthetic-student/concurrent-repo',
@@ -418,6 +413,13 @@ describe('external repository enrollment integration', () => {
       archived: false,
       observedAt: OBSERVED_AT,
     } as const;
+    await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId: input.githubRepositoryId,
+        nameWithOwner: input.nameWithOwner,
+        source: 'EXTERNAL_PUBLIC',
+      },
+    });
 
     await expect(
       Promise.all([
@@ -474,6 +476,6 @@ describe('external repository enrollment integration', () => {
       prisma.githubRepository.count({
         where: { githubRepositoryId: REPOSITORY_IDS[0] },
       }),
-    ).resolves.toBe(1);
+    ).resolves.toBe(0);
   });
 });
