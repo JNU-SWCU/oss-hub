@@ -42,3 +42,9 @@ v0.24.44의 실제 hasActivity 원문(blob `0ccf563b3d968f42106621018fe87999943a
 별도 draft #1741의 서버 내부 리허설에서 이 코드 migration과 이관 SQL을 순서대로 적용했다. Preparation 제약 2개, 이력 INSERT 25, ACCEPTED DELETE 20·DECLINED DELETE 5, 초대 28→3, 대기 3·팀 40·구성원 72를 확인했다. 재실행 추가 이동은 0이고 백업 복원 건수도 동일했다. tmpfs/--rm 임시 컨테이너·dump·소스 디렉터리 잔여 0, 최종 EXIT=0이다. 상세 영수증은 draft의 `task-8-history-3b-retire.md`에 둔다.
 
 merge·release·물리 DROP은 수행하지 않았다. main의 별도 테스트 복구 PR #1740에서 전체 unit을 한 번 실행한 결과는 390 suites / 6,327 tests이며 이 코드 브랜치 전체 스위트 결과로 혼동하지 않는다. pre-push의 raw pnpm이 환경 옵션을 무시해 예상 밖 auto-install/postinstall을 실행한 이력이 있어, 후속 호출은 PATH의 로컬 wrapper로 `--config.verify-deps-before-run=false`를 명시 전달했다. lockfile 변경은 없다.
+
+## 폐기 계약의 게이트 회귀 수정
+
+인가 목록·보호 경로 건수·삭제 범위 SQL 테스트에서 3 failed / 17 passed를 직접 재현했다. 제거된 9개 경로만 기대 목록에서 빼고 보호 경로 120개, 전체 경로 137개를 유지한다. 실제 컨트롤러 탐색·익명 요청 거부·전체 목록 대조는 그대로다. 삭제 범위 쿼리는 폐기 테이블 두 개를 읽지 않음을 검증하며 나머지 범위와 바인딩 값 검증을 유지한다. 수정 후 타깃 3 suites / 20 tests와 backend typecheck가 통과했다.
+
+purge의 폐기된 신청 준비 fixture 3개는 현재 계약으로 바꿨다. 준비가 없는 프로그램 삭제가 다른 프로그램·계정을 보존하고, 삭제 확인 이후 준비 또는 참여자의 INSERT는 각각 이름 있는 CHECK에 거부되며 원래 확인 범위로 삭제가 성공한다. 실제 자식 행 추가를 다루는 기존 댓글·게시글 경합, 권한과 원자성 검증은 유지한다. 테스트 skip·only나 제약 완화는 없다.
