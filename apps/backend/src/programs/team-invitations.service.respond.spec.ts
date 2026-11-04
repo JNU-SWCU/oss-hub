@@ -268,7 +268,7 @@ describe('acceptTeamInvitationTransaction', () => {
     return {
       teamInvitation: {
         findUnique: jest.fn().mockResolvedValue(invitationRow()),
-        updateMany: jest.fn().mockResolvedValue({ count: 1 }),
+        deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
         findMany: jest.fn().mockResolvedValue([]),
       },
       teamMember: {
@@ -277,9 +277,6 @@ describe('acceptTeamInvitationTransaction', () => {
         create: jest.fn().mockResolvedValue(undefined),
       },
       teamHistory: { create: jest.fn().mockResolvedValue({}) },
-      applicationPreparationParticipant: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
       team: { update: jest.fn() },
       user: {
         findUnique: jest.fn().mockResolvedValue({
@@ -353,14 +350,10 @@ describe('acceptTeamInvitationTransaction', () => {
       },
       orderBy: { id: 'asc' },
     });
-    expect(tx.teamInvitation.updateMany).toHaveBeenCalledWith({
+    expect(tx.teamInvitation.deleteMany).toHaveBeenCalledWith({
       where: {
         id: OTHER_TEAM_INVITATION_ID,
         status: TeamInvitationStatus.PENDING,
-      },
-      data: {
-        status: TeamInvitationStatus.DECLINED,
-        respondedAt: RESPONDED_AT,
       },
     });
     expect(tx.teamHistory.create).toHaveBeenCalledTimes(2);
@@ -471,7 +464,7 @@ describe('acceptTeamInvitationTransaction', () => {
 
   it('잠금 뒤 CAS가 0건이면 not-pending으로 되돌린다', async () => {
     const tx = buildTx();
-    tx.teamInvitation.updateMany.mockResolvedValueOnce({ count: 0 });
+    tx.teamInvitation.deleteMany.mockResolvedValueOnce({ count: 0 });
 
     await expect(run(tx)).resolves.toEqual({ kind: 'not-pending' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();
@@ -533,7 +526,7 @@ describe('acceptTeamInvitationTransaction', () => {
     const tx = buildTx({
       teamInvitation: {
         findUnique: jest.fn().mockResolvedValue(null),
-        updateMany: jest.fn(),
+        deleteMany: jest.fn(),
       },
     });
     const prisma = {

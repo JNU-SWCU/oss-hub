@@ -1,11 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { ApiError } from '@/lib/api-client';
 import { featureKey, programFeatureKey } from '@/lib/query-keys';
-import {
-  getMyTeam,
-  getMyApplicationPreparation,
-  removeMyTeamMember,
-} from '../teams/api';
+import { getMyTeam, removeMyTeamMember } from '../teams/api';
 import { getProgramDetail } from '../catalog/api';
 import { listApplicationTemplates } from './api';
 import { createTestQueryClient } from '../../../../test-support/render-with-query';
@@ -28,21 +24,18 @@ vi.mock('@/lib/api-client', () => ({
 
 vi.mock('../teams/api', () => ({
   getMyTeam: vi.fn(),
-  getMyApplicationPreparation: vi.fn().mockResolvedValue(null),
   getProgramDetail: vi.fn(),
   listApplicationTemplates: vi.fn(),
   removeMyTeamMember: vi.fn(),
 }));
 vi.mock('../catalog/api', () => ({
   getMyTeam: vi.fn(),
-  getMyApplicationPreparation: vi.fn().mockResolvedValue(null),
   getProgramDetail: vi.fn(),
   listApplicationTemplates: vi.fn(),
   removeMyTeamMember: vi.fn(),
 }));
 vi.mock('./api', () => ({
   getMyTeam: vi.fn(),
-  getMyApplicationPreparation: vi.fn().mockResolvedValue(null),
   getProgramDetail: vi.fn(),
   listApplicationTemplates: vi.fn(),
   removeMyTeamMember: vi.fn(),
@@ -522,25 +515,33 @@ describe('loadProgramApplyContext', () => {
       githubHandle: 'shared-applicant',
     });
   });
-  it('loads accepted preparation when no official team exists', async () => {
+  it('ignores retired preparation cache when no official team exists', async () => {
     vi.mocked(getProgramDetail).mockResolvedValue({
       ...program,
       applicationPeriod: openPeriod,
       viewer: { role: 'STUDENT', applicationStatus: null },
     });
     vi.mocked(getMyTeam).mockResolvedValue(null);
-    vi.mocked(getMyApplicationPreparation).mockResolvedValueOnce({
-      ...leaderTeam,
-      preparation: true,
-    });
+    const queryClient = createTestQueryClient();
+    queryClient.setQueryData(
+      programFeatureKey('program-1', 'teams', 'preparation'),
+      {
+        ...leaderTeam,
+        preparation: true,
+      },
+    );
 
-    const context = await loadDefaultContext();
+    const context = await loadProgramApplyContext(
+      'program-1',
+      { name: 'Applicant', nickname: 'applicant' },
+      queryClient,
+    );
 
     expect(context).toMatchObject({
       kind: 'ready',
       mode: 'create',
-      team: { id: leaderTeam.id, preparation: true },
-      teamMinimum: { memberCount: 2, teamMinSize: 2 },
+      team: null,
+      teamMinimum: { memberCount: 1, teamMinSize: 2 },
     });
   });
 });

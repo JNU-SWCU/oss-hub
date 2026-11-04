@@ -8,12 +8,6 @@ import {
   ReviewHistoryEntryResponseDto,
 } from '../../src/programs/dto/application-list-page-response.dto';
 import {
-  ApplicationPreparationInvitationResponseDto,
-  ApplicationPreparationResponseDto,
-  ApplicationPreparationAcceptResponseDto,
-  ApplicationPreparationCandidateResponseDto,
-} from '../../src/programs/dto/application-preparation-response.dto';
-import {
   ApplicationFieldResponseDto,
   ApplicationTemplateListResponseDto,
   ApplicationTemplateResponseDto,
@@ -49,7 +43,6 @@ import {
   MilestoneDocumentSubmissionFileResponseDto,
   MilestoneDocumentSubmissionResponseDto,
 } from '../../src/programs/dto/milestone-document-submission-response.dto';
-import { MyApplicationPreparationResponseDto } from '../../src/programs/dto/my-application-preparation-response.dto';
 import { MyProgramTeamResponseDto } from '../../src/programs/dto/my-program-team-response.dto';
 import { MyStudentApplicationResponseDto } from '../../src/programs/dto/my-student-application-response.dto';
 import {
@@ -822,40 +815,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         reviewHistory: [reviewEntry],
       }),
   ],
-  [
-    'ApplicationPreparationResponseDto',
-    () =>
-      ApplicationPreparationResponseDto.from({
-        id: 'team-1',
-        name: 'Team A',
-        memberCount: 2,
-        minMembers: 1,
-        maxMembers: 4,
-        isLeader: true,
-        members: [
-          { userId: 'user-1', nickname: 'octo', name: 'Octo', isLeader: true },
-        ],
-      }),
-  ],
-  [
-    'ApplicationPreparationInvitationResponseDto',
-    () =>
-      ApplicationPreparationInvitationResponseDto.from({
-        id: 'invitation-1',
-        teamId: 'team-1',
-        programId: 'program-1',
-        invitedById: 'user-1',
-        status: 'ACCEPTED',
-        invitedAt: at('2026-01-10T00:00:00.000Z'),
-        respondedAt: at('2026-01-11T00:00:00.000Z'),
-        teamName: 'Team A',
-        programName: 'Program A',
-        invitedByDisplayName: 'Octo',
-        memberCount: 2,
-        teamMaxSize: 4,
-        invitee: sentInvitation.invitee,
-      }),
-  ],
   ...programTemplatesService
     .listProgramTemplates()
     .flatMap((template): ReadonlyArray<readonly [string, () => unknown]> => [
@@ -1093,50 +1052,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             originalFileName: 'plan.pdf',
             mimeType: 'application/pdf',
             sizeBytes: 1024,
-          },
-        ],
-      }),
-  ],
-  [
-    'MyApplicationPreparationResponseDto none',
-    () => MyApplicationPreparationResponseDto.from(null),
-  ],
-  [
-    'MyApplicationPreparationResponseDto leader',
-    () =>
-      MyApplicationPreparationResponseDto.from({
-        id: 'team-1',
-        name: 'Team A',
-        memberCount: 2,
-        minMembers: 1,
-        maxMembers: 4,
-        isLeader: true,
-        members: [
-          {
-            userId: 'user-1',
-            nickname: 'octo',
-            name: 'Octo',
-            isLeader: true,
-          },
-        ],
-      }),
-  ],
-  [
-    'MyApplicationPreparationResponseDto member',
-    () =>
-      MyApplicationPreparationResponseDto.from({
-        id: 'team-1',
-        name: 'Team A',
-        memberCount: 2,
-        minMembers: 1,
-        maxMembers: 4,
-        isLeader: false,
-        members: [
-          {
-            userId: 'user-1',
-            nickname: 'octo',
-            name: 'Octo',
-            isLeader: false,
           },
         ],
       }),
@@ -1644,24 +1559,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         pageSize: 20,
         totalItems: 2,
         totalPages: 1,
-      }),
-  ],
-  [
-    'ApplicationPreparationCandidateResponseDto',
-    () =>
-      ApplicationPreparationCandidateResponseDto.from({
-        id: 'user-2',
-        nickname: 'hubot',
-        name: null,
-        avatarUrl: 'https://avatars.example.com/hubot.png',
-      }),
-  ],
-  [
-    'ApplicationPreparationAcceptResponseDto',
-    () =>
-      ApplicationPreparationAcceptResponseDto.from({
-        teamId: 'preparation-1',
-        programId: 'program-1',
       }),
   ],
   [

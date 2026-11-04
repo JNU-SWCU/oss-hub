@@ -5,8 +5,6 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ApplicationPreparationsController } from './application-preparations.controller';
-import { ApplicationPreparationsService } from './application-preparations.service';
-import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -30,17 +28,7 @@ const APPLICATION = {
   isManager: true,
   canManage: false,
 };
-const PREPARATION = {
-  id: 'team-1',
-  name: '합성 팀',
-  memberCount: 1,
-  minMembers: 1,
-  maxMembers: 4,
-  isLeader: true,
-  members: [{ userId: 'user-1', nickname: 'octo', name: null, isLeader: true }],
-};
 const getMine = jest.fn();
-const getPreparation = jest.fn();
 let app: INestApplication;
 let baseUrl: string;
 let cookie: string;
@@ -58,14 +46,6 @@ beforeAll(async () => {
         provide: StudentApplicationManagementService,
         useValue: { getMine },
       },
-      {
-        provide: ApplicationPreparationsRepository,
-        useValue: {
-          findActor: jest.fn().mockResolvedValue('user-1'),
-          get: getPreparation,
-        },
-      },
-      ApplicationPreparationsService,
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {
@@ -144,93 +124,34 @@ describe('GET programs/:programId/applications/me', () => {
   });
 });
 
-describe('GET application-preparations/programs/:programId/me', () => {
-  const path = 'application-preparations/programs/program-1/me';
-  const body = {
-    ...PREPARATION,
-    preparation: true,
-    hasApplication: false,
-    canInvite: true,
-    canRemoveMembers: true,
-    canLeave: false,
-  };
-
-  it('지원 준비가 없으면 빈 본문 대신 NONE 소속 JSON을 보낸다', async () => {
-    getPreparation.mockResolvedValueOnce(null);
-
-    const response = await getJson(path);
-
+describe('retired Preparation compatibility', () => {
+  it('keeps the old frontend fallback without a Preparation repository', async () => {
+    const response = await getJson(
+      'application-preparations/programs/program-1/me',
+    );
     expect(response.status).toBe(200);
-    expect(response.text).toBe('{"membership":"NONE"}');
+    expect(JSON.parse(response.text)).toEqual({ membership: 'NONE' });
   });
 
-  it('팀장이면 LEADER 소속과 기존 본문을 preparation 아래에 보낸다', async () => {
-    getPreparation.mockResolvedValueOnce(PREPARATION);
-
-    const response = await getJson(path);
-
-    expect(response.status).toBe(200);
-    expect(JSON.parse(response.text)).toEqual({
-      membership: 'LEADER',
-      preparation: body,
-    });
-  });
-
-  it('팀원이면 MEMBER 소속으로 보낸다', async () => {
-    getPreparation.mockResolvedValueOnce({ ...PREPARATION, isLeader: false });
-
-    const response = await getJson(path);
-
-    expect(response.status).toBe(200);
-    expect(JSON.parse(response.text)).toMatchObject({
-      membership: 'MEMBER',
-      preparation: { id: 'team-1', isLeader: false, canLeave: true },
-    });
-  });
-});
-
-it('R1 rejects new Preparation creation with 410', async () => {
-  getPreparation.mockResolvedValueOnce(null);
-  const response = await fetch(
-    `${baseUrl}/api/v1/application-preparations/programs/program-1`,
-    {
-      method: 'POST',
-      headers: {
-        connection: 'close',
-        cookie,
-        origin,
-        'content-type': 'application/json',
+  it.each([
+    ['POST', 'programs/program-1'],
+    ['POST', 'preparation-1/invitations'],
+    ['GET', 'preparation-1/sent'],
+    ['GET', 'preparation-1/search'],
+    ['POST', 'invitations/invitation-1/accept'],
+    ['POST', 'invitations/invitation-1/decline'],
+    ['POST', 'invitations/invitation-1/cancel'],
+    ['DELETE', 'programs/program-1/me'],
+    ['DELETE', 'programs/program-1/members/user-2'],
+  ])('retires %s %s', async (method, suffix) => {
+    const response = await fetch(
+      baseUrl + '/api/v1/application-preparations/' + suffix,
+      {
+        method,
+        headers: { connection: 'close', cookie, origin },
       },
-      body: JSON.stringify({ name: 'Synthetic' }),
-    },
-  );
-  expect(response.status).toBe(410);
-  await expect(response.json()).resolves.toMatchObject({
-    code: 'APP_036',
-    status: 410,
-  });
-});
-
-it('R1 returns the existing preparation without applying a replacement name', async () => {
-  getPreparation.mockResolvedValueOnce(PREPARATION);
-  const response = await fetch(
-    `${baseUrl}/api/v1/application-preparations/programs/program-1`,
-    {
-      method: 'POST',
-      headers: {
-        connection: 'close',
-        cookie,
-        origin,
-        'content-type': 'application/json',
-      },
-      body: JSON.stringify({ name: 'Replacement' }),
-    },
-  );
-  expect(response.status).toBe(201);
-  await expect(response.json()).resolves.toMatchObject({
-    id: PREPARATION.id,
-    name: PREPARATION.name,
-    canInvite: true,
-    canRemoveMembers: true,
+    );
+    expect(response.status).toBe(404);
+    await response.text();
   });
 });

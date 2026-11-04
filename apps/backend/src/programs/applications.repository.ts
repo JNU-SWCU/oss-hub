@@ -35,7 +35,6 @@ import {
   RepositoryEventAlreadyExistsError,
   ApplicationDuplicateError,
   ApplicationTeamMembershipConflictError,
-  ApplicationPreparationConflictError,
 } from './applications.error';
 import {
   APPLICATION_DECISION_ACTIONS,
@@ -403,8 +402,6 @@ type ApplicationDatabase = Pick<
   | 'teamMember'
   | 'teamInvitation'
   | 'application'
-  | 'applicationPreparation'
-  | 'applicationPreparationParticipant'
   | 'applicationReviewHistory'
   | 'auditLog'
   | '$queryRaw'
@@ -509,28 +506,13 @@ export interface ApplicationCreateStore {
 
   lockTeamForApply(teamId: string, userId: string): Promise<boolean>;
 
-  findPreparationForApply(
-    programId: string,
-    userId: string,
-  ): Promise<{
-    readonly id: string;
-    readonly name: string;
-    readonly leaderId: string;
-    readonly memberIds: readonly string[];
-  } | null>;
-  deletePreparation(preparationId: string): Promise<void>;
   countTeamMembers(teamId: string): Promise<number>;
   validateApplicationParticipants(input: {
     readonly programId: string;
     readonly actorId: string;
-    readonly preparationMemberIds: readonly string[];
     readonly inviteeIds: readonly string[];
   }): Promise<
-    | 'ok'
-    | 'student-ineligible'
-    | 'preparation-changed'
-    | 'invitee-ineligible'
-    | 'invitee-unavailable'
+    'ok' | 'student-ineligible' | 'invitee-ineligible' | 'invitee-unavailable'
   >;
   createApplicationInvitations(input: {
     readonly teamId: string;
@@ -1184,11 +1166,6 @@ export class ApplicationsRepository {
         this,
         database,
       ),
-      findPreparationForApply: this.findPreparationForApplyIn.bind(
-        this,
-        database,
-      ),
-      deletePreparation: this.deletePreparationIn.bind(this, database),
       countTeamMembers: this.countTeamMembersIn.bind(this, database),
       validateApplicationParticipants:
         this.validateApplicationParticipantsIn.bind(this, database),
@@ -1242,63 +1219,13 @@ export class ApplicationsRepository {
     return membership?.team ?? null;
   }
 
-  private async findPreparationForApplyIn(
-    database: ApplicationDatabase,
-    programId: string,
-    userId: string,
-  ) {
-    const preparation = await database.applicationPreparation.findFirst({
-      where: {
-        programId,
-        participants: { some: { userId, status: 'ACCEPTED' } },
-      },
-      select: {
-        id: true,
-        name: true,
-        leaderId: true,
-        program: { select: { teamMaxSize: true } },
-        participants: {
-          where: { status: 'ACCEPTED' },
-          select: { userId: true },
-        },
-      },
-    });
-    if (preparation === null) return null;
-    const memberIds = preparation.participants
-      .map((participant) => participant.userId)
-      .sort();
-    if (memberIds.length > preparation.program.teamMaxSize)
-      throw new ApplicationPreparationConflictError();
-    return {
-      id: preparation.id,
-      name: preparation.name,
-      leaderId: preparation.leaderId,
-      memberIds,
-    };
-  }
-
-  private async deletePreparationIn(
-    database: ApplicationDatabase,
-    preparationId: string,
-  ): Promise<void> {
-    await database.applicationPreparation.delete({
-      where: { id: preparationId },
-    });
-  }
-
   private async validateApplicationParticipantsIn(
     database: ApplicationDatabase,
     input: Parameters<
       ApplicationCreateStore['validateApplicationParticipants']
     >[0],
   ): ReturnType<ApplicationCreateStore['validateApplicationParticipants']> {
-    const ids = [
-      ...new Set([
-        input.actorId,
-        ...input.preparationMemberIds,
-        ...input.inviteeIds,
-      ]),
-    ].sort();
+    const ids = [...new Set([input.actorId, ...input.inviteeIds])].sort();
     await database.$queryRaw(
       Prisma.sql`SELECT "id" FROM "User" WHERE "id" IN (${Prisma.join(ids)}) ORDER BY "id" FOR UPDATE`,
     );
@@ -1312,18 +1239,6 @@ export class ApplicationsRepository {
     });
     const eligible = new Set(activeStudents.map((user) => user.id));
     if (!eligible.has(input.actorId)) return 'student-ineligible';
-    if (input.preparationMemberIds.some((id) => !eligible.has(id)))
-      return 'preparation-changed';
-    if (
-      input.preparationMemberIds.length > 0 &&
-      (await database.teamMember.count({
-        where: {
-          programId: input.programId,
-          userId: { in: [...input.preparationMemberIds] },
-        },
-      })) > 0
-    )
-      return 'preparation-changed';
     if (input.inviteeIds.some((id) => !eligible.has(id)))
       return 'invitee-ineligible';
     if (input.inviteeIds.length > 0) {
@@ -1333,15 +1248,7 @@ export class ApplicationsRepository {
           userId: { in: [...input.inviteeIds] },
         },
       });
-      const preparations =
-        await database.applicationPreparationParticipant.count({
-          where: {
-            programId: input.programId,
-            userId: { in: [...input.inviteeIds] },
-            status: 'ACCEPTED',
-          },
-        });
-      if (memberships > 0 || preparations > 0) return 'invitee-unavailable';
+      if (memberships > 0) return 'invitee-unavailable';
     }
     return 'ok';
   }

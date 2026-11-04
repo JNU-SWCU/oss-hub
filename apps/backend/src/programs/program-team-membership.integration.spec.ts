@@ -13,7 +13,6 @@ import {
   ProgramTrackType,
   SubmissionFileLifecycle,
   SubmissionStatus,
-  TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -784,11 +783,17 @@ describe('program team membership transactions integration', () => {
       }),
     ).resolves.toEqual({ leaderId: LEADER_ID });
     await expect(
-      prisma.teamInvitation.findUniqueOrThrow({
+      prisma.teamInvitation.findUnique({
         where: { id: invitationId },
-        select: { status: true },
+        select: { id: true },
       }),
-    ).resolves.toEqual({ status: TeamInvitationStatus.ACCEPTED });
+    ).resolves.toBeNull();
+    await expect(
+      prisma.teamHistory.findMany({
+        where: { sourceId: invitationId },
+        select: { event: true, actorId: true },
+      }),
+    ).resolves.toEqual([{ event: 'INVITATION_ACCEPTED', actorId: INVITEE_ID }]);
 
     await expect(
       prisma.application.count({ where: { id: applicationId } }),

@@ -99,7 +99,51 @@ function expectState(user: {
 }
 
 describe('registration reset persistence', () => {
-  it('keeps the v0.24.42 activity guard after a 3a invitation decline', async () => {
+  it.each(['actorId', 'inviteeId', 'invitedById'] as const)(
+    '3b protects history-only activity through %s',
+    async (field) => {
+      const admin = await actor();
+      const user = await create();
+      const history = await prisma.teamHistory.create({
+        data: {
+          teamId: 'deleted-team',
+          programId: 'deleted-program',
+          actorId: field === 'actorId' ? user.id : null,
+          event:
+            field === 'actorId'
+              ? 'INVITATION_CANCELLED'
+              : 'INVITATION_ARCHIVED',
+          source: field === 'actorId' ? 'APPLICATION' : 'MIGRATION',
+          sourceTable: 'TeamInvitation',
+          sourceId: `history-only-${user.id}`,
+          data: {
+            schemaVersion: 1,
+            invitation: {
+              id: `history-only-${user.id}`,
+              inviteeId: field === 'inviteeId' ? user.id : 'other-invitee',
+              invitedById: field === 'invitedById' ? user.id : 'other-inviter',
+              createdAt: at.toISOString(),
+              status: 'DECLINED',
+              respondedAt: at.toISOString(),
+              updatedAt: at.toISOString(),
+            },
+          },
+        },
+      });
+      try {
+        await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(
+          true,
+        );
+        await expect(
+          service.resetFromRequest(admin.githubId, user.id, expectState(user)),
+        ).rejects.toMatchObject({ errorCode: { code: 'ROL_025' } });
+      } finally {
+        await prisma.teamHistory.delete({ where: { id: history.id } });
+      }
+    },
+  );
+
+  it('3b keeps activity protection after the invitation row is removed', async () => {
     const admin = await actor();
     const user = await create();
     const programId = `${user.id}:program`;
@@ -143,6 +187,7 @@ describe('registration reset persistence', () => {
     await expect(
       invitations.declinePendingInvitationAsInvitee(invitationId, user.id, at),
     ).resolves.toEqual({ kind: 'ok' });
+    await prisma.teamInvitation.deleteMany({ where: { id: invitationId } });
 
     await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(true);
     await expect(
@@ -153,7 +198,7 @@ describe('registration reset persistence', () => {
     ).resolves.toMatchObject({ type: 'STUDENT', studentId: user.studentId });
     await expect(
       prisma.teamInvitation.findUnique({ where: { id: invitationId } }),
-    ).resolves.toMatchObject({ status: 'DECLINED', respondedAt: at });
+    ).resolves.toBeNull();
     await expect(
       prisma.teamHistory.count({ where: { sourceId: invitationId } }),
     ).resolves.toBe(1);
