@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "team-history-code",
-  "expectedHeadMigration": "20261104140000_prepare_team_history",
+  "expectedHeadMigration": "20261104170000_retire_program_creation_request",
   "preflight": [
     "../../../../apps/backend/prisma/migration-checks/team-history/preflight.sql"
   ],
@@ -9,7 +9,7 @@
     {
       "id": "code",
       "apply": [
-        "../../../../apps/backend/prisma/migrations/20261104150000_prepare_invitation_archival/migration.sql"
+        "../../../../apps/backend/prisma/migrations/20261104180000_prepare_invitation_archival/migration.sql"
       ],
       "reconcile": ["check-archive-event.sql"]
     }

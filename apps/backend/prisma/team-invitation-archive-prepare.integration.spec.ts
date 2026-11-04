@@ -17,7 +17,7 @@ const schema = 'invitation_archive_prepare_fixture';
 const sql = readFileSync(
   resolve(
     __dirname,
-    'migrations/20261104150000_prepare_invitation_archival/migration.sql',
+    'migrations/20261104180000_prepare_invitation_archival/migration.sql',
   ),
   'utf8',
 );
