@@ -1,6 +1,6 @@
 # Todo 7: 팀 없는 저장소 데이터 정리
 
-준비 PR #1726은 main에 반영됐다. 이 retire PR은 최신 main `8261fc711d835688f69d636a7660e7de9f71f424`를 이력 재작성 없이 병합한 별도 draft이며 운영 반영을 승인하거나 실행하지 않는다.
+준비 PR #1726은 main에 반영됐다. 이 retire PR은 최신 main `cce0ae86174528814fd13102f31a55e56c0ef821`을 이력 재작성 없이 병합한 별도 draft이며 운영 반영을 승인하거나 실행하지 않는다.
 
 2026-11-04 사용자가 v0.24.34 이상에서 옛 collector가 사라졌고 v0.24.38에 Todo 5 purge 중단이 반영됐다고 전달했다. 읽기 전용 운영 재집계의 레포 12·commit 167·PR 15·release 9·stream 40도 승인과 일치한다고 전달받았다. 이번 작업에서는 운영 DB를 다시 조회하거나 변경하지 않았다.
 
@@ -28,6 +28,8 @@ SQL SHA-256은 `d41d67ecbe46a474bb07cc6ef86fb20bd23669c47cbfd7ae3b09a7b7ad187294
 ## 검증 경계
 
 main `8261fc711` 병합 후 공식 실행기가 새 격리 DB에 88개 마이그레이션을 적용하고 retire·프로그램 흡수·수집 경계 타깃 11 suites·102 tests를 통과했다(EXIT=0). `20261104050000_prepare_program_absorption` 다음에 retire SQL이 적용됐다. 전체 스위트는 재실행하지 않았다.
+
+검증 중 main이 `cce0ae861`로 이동해 추가 병합했다. 차이는 재제출 날짜 안내 frontend·guide 9개 파일뿐이며 backend·마이그레이션 입력은 바뀌지 않아 통과한 타깃을 반복하지 않았다. 추가 회귀 파일의 ESLint·Prettier도 EXIT=0이다.
 
 Todo 5의 `PlatformRepository.collectionTargetWhere()`는 `applicationId != null`과 직접 연결·지원 연결 양쪽 프로그램의 `DELETED` 제외를 함께 적용한다. 조직·외부 목록과 실행 직전 재조회가 이 조건을 사용한다. `relink-collection.integration.spec.ts`의 두 source 경우에서 삭제된 프로그램은 수집·상태 집계에서 제외되고 기존 fact·랭킹은 유지됐다. 같은 팀에 두 번째 레포를 INSERT하면 `P2002`, `target: ['teamId']`로 실패하는 단언을 추가해 실제 전체 마이그레이션의 부분 유니크가 이 상태에서도 유지됨을 확인했다.
 
