@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -9,7 +10,10 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const collection = new CollectionIncrementalRepository(prisma);
+const collection = new CollectionIncrementalRepository(
+  prisma,
+  new PlatformRepository(),
+);
 const scope = `outsider-${randomUUID()}`;
 const memberGithubId = BigInt(
   `0x${randomUUID().replaceAll('-', '').slice(0, 12)}`,

@@ -250,6 +250,7 @@ const teamManagementPage: TeamManagementListPage = {
     {
       id: APPLICATION_ID,
       programId: PROGRAM_ID,
+      teamMinSize: 2,
       status: ApplicationStatus.SUBMITTED,
       submittedAt: SUBMITTED_AT,
       rejectionReason: null,
@@ -368,6 +369,7 @@ const teamManagementPageBody = {
     {
       id: APPLICATION_ID,
       programId: PROGRAM_ID,
+      teamMinSize: 2,
       status: ApplicationStatus.SUBMITTED,
       submittedAt: '2026-08-05T05:32:00.000Z',
       rejectionReason: null,
@@ -488,6 +490,8 @@ const discardRepositoryProvisionRequest = jest
 const createRepositoryProvisionEvent = jest.fn();
 const transactionStore = {
   auditLogWriter: {},
+  findTeamMinSize: jest.fn().mockResolvedValue(1),
+  countTeamMembers: jest.fn().mockResolvedValue(1),
   appendReviewHistory,
   findApplicationById,
   isCurrentTeamMember: jest.fn().mockResolvedValue(false),

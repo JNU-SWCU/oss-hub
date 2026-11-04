@@ -1,6 +1,8 @@
 # Todo 7: 팀 없는 저장소 데이터 정리
 
-준비 PR은 #1726, head는 `ac546d08e9e065e3afb7389dd0cb898a9c77a43f`다. 이 PR 위에 쌓인 별도 draft이며 운영 반영을 승인하거나 실행하지 않는다.
+준비 PR #1726은 main에 반영됐다. 이 retire PR은 최신 main `8261fc711d835688f69d636a7660e7de9f71f424`를 이력 재작성 없이 병합한 별도 draft이며 운영 반영을 승인하거나 실행하지 않는다.
+
+2026-11-04 사용자가 v0.24.34 이상에서 옛 collector가 사라졌고 v0.24.38에 Todo 5 purge 중단이 반영됐다고 전달했다. 읽기 전용 운영 재집계의 레포 12·commit 167·PR 15·release 9·stream 40도 승인과 일치한다고 전달받았다. 이번 작업에서는 운영 DB를 다시 조회하거나 변경하지 않았다.
 
 ## 실행 순서
 
@@ -17,11 +19,17 @@
 
 SQL SHA-256은 `d41d67ecbe46a474bb07cc6ef86fb20bd23669c47cbfd7ae3b09a7b7ad187294`이며 서버 복원본에서 검증한 파일과 같다. 정확한 테이블별 건수와 서버 격리·복원·랭킹·정리 영수증은 [준비 단계 증거](task-7-program-table-simplification.md)에 있다.
 
+병합한 main의 마지막 마이그레이션은 `20261104050000_prepare_program_absorption`이다. retire 폴더 `20261104130000_retire_teamless_github_repositories`가 이미 그 뒤에 정렬되므로 이름과 SQL 바이트를 바꾸지 않았다.
+
 마이그레이션 기록 외의 애플리케이션 테이블이 모두 빈 신규 DB만 승인 건수 비교를 생략한다. 사용자나 활동 캐시가 있는데 레포만 없는 DB는 신규 설치가 아니므로 중단한다.
 
 `RepositoryInvitation`은 RESTRICT FK이므로 먼저 삭제한다. 레거시 연간 집계 두 테이블은 현재 Prisma 모델에 없지만 기존 FK의 CASCADE로 대상 1행·2행만 삭제한다. 테이블 자체와 무관한 행은 유지한다. 대상 AuditLog 1행, 발급 값 이력, 사용자 활동 기반 랭킹은 보존한다. `applicationId`·`programId` 컬럼 제거와 TeamHistory 전환은 포함하지 않는다.
 
 ## 검증 경계
+
+main `8261fc711` 병합 후 공식 실행기가 새 격리 DB에 88개 마이그레이션을 적용하고 retire·프로그램 흡수·수집 경계 타깃 11 suites·102 tests를 통과했다(EXIT=0). `20261104050000_prepare_program_absorption` 다음에 retire SQL이 적용됐다. 전체 스위트는 재실행하지 않았다.
+
+Todo 5의 `PlatformRepository.collectionTargetWhere()`는 `applicationId != null`과 직접 연결·지원 연결 양쪽 프로그램의 `DELETED` 제외를 함께 적용한다. 조직·외부 목록과 실행 직전 재조회가 이 조건을 사용한다. `relink-collection.integration.spec.ts`의 두 source 경우에서 삭제된 프로그램은 수집·상태 집계에서 제외되고 기존 fact·랭킹은 유지됐다. 같은 팀에 두 번째 레포를 INSERT하면 `P2002`, `target: ['teamId']`로 실패하는 단언을 추가해 실제 전체 마이그레이션의 부분 유니크가 이 상태에서도 유지됨을 확인했다.
 
 `github-scope-migration.integration.spec.ts`는 실제 SQL을 격리 스키마에 실행한다. 승인 범위 삭제·백필, 각 양수 삭제 건수의 변동 시 롤백, 완전히 빈 DB, 기존 사용자·활동이 있는 레포 0개 DB, 부분 유니크 위반을 검사한다. 운영 복원본에서는 실제 배포 이미지의 랭킹 결과와 17개 테이블 백업 복원을 별도로 대조했다.
 
@@ -40,4 +48,4 @@ SQL SHA-256은 `d41d67ecbe46a474bb07cc6ef86fb20bd23669c47cbfd7ae3b09a7b7ad187294
 
 게이트에서 지적한 두 이름의 설명 충돌은 준비 PR에서 수정했다. 두 테스트는 교체 함수를 호출하지 않고 무관한 행을 직접 넣어 읽기 격리를 검사하며 기존 기대값을 유지한다. 감사 이력은 보존하지만 실제 교체의 옛 레포·fact는 삭제한다.
 
-이 PR은 준비 PR의 제품 코드를 그대로 사용한다. 추가 UI와 가이드 변화는 없고 프로그램 제품 파일 수·줄 수는 준비 단계의 245 files·37,795 lines 그대로다. 운영에 적용할 시점에 다른 Todo와의 충돌, 마이그레이션 정렬, 승인 건수를 다시 확인해야 한다.
+이 PR은 최신 main의 제품 코드를 그대로 사용한다. main 대비 추가 제품·UI·가이드 변경은 없으며 retire SQL과 회귀·fixture·증거 문서만 남는다. 운영 적용 전 새 백업과 승인 건수를 확인해야 한다.

@@ -70,7 +70,11 @@ describe('PublicProjectsRepository', () => {
       const rows = await repository.listPage(null, 21);
 
       expect(findMany).toHaveBeenCalledWith({
-        where: { visibility: 'PUBLIC', publishedAt: { not: null } },
+        where: {
+          visibility: 'PUBLIC',
+          publishedAt: { not: null },
+          program: { lifecycle: { not: 'DELETED' } },
+        },
         orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
         take: 21,
         select: {
@@ -119,6 +123,7 @@ describe('PublicProjectsRepository', () => {
         expect.objectContaining({
           where: {
             visibility: 'PUBLIC',
+            program: { lifecycle: { not: 'DELETED' } },
             publishedAt: { not: null },
             OR: [
               { publishedAt: { lt: cursor.publishedAt } },
@@ -140,6 +145,7 @@ describe('PublicProjectsRepository', () => {
         expect.objectContaining({
           where: {
             visibility: 'PUBLIC',
+            program: { lifecycle: { not: 'DELETED' } },
             publishedAt: {
               gte: new Date('2025-12-31T15:00:00.000Z'),
               lt: new Date('2026-12-31T15:00:00.000Z'),
@@ -187,6 +193,7 @@ describe('PublicProjectsRepository', () => {
         where: {
           githubRepositoryId: 9001n,
           visibility: 'PUBLIC',
+          program: { lifecycle: { not: 'DELETED' } },
           publishedAt: { not: null },
         },
         select: PROJECT_ROW_SELECT,
@@ -228,6 +235,7 @@ describe('PublicProjectsRepository', () => {
       expect(findMany).toHaveBeenCalledWith({
         where: {
           visibility: 'PUBLIC',
+          program: { lifecycle: { not: 'DELETED' } },
           publishedAt: { not: null },
           OR: [
             {

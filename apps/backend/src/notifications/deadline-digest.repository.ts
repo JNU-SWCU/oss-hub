@@ -82,6 +82,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     const programs = await this.prisma.program.findMany({
       where: {
         notifyOnDeadline: true,
+        lifecycle: { not: 'DELETED' },
         milestones: {
           some: {
             dueAt: { gte: window.from, lte: window.to },
@@ -104,7 +105,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     programId: string,
   ): Promise<DeadlineProgramSource | null> {
     const program = await this.prisma.program.findUnique({
-      where: { id: programId },
+      where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
         id: true,
         name: true,

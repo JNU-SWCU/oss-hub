@@ -103,7 +103,7 @@ it.each([
     'uploadedMilestoneDocumentTemplateFiles',
   ],
   ['ProgramAuthoringUpload.actorId', 'programAuthoringUploads'],
-  ['ProgramCreateRequest.actorId', 'programCreateRequests'],
+  ['Program.createdById', 'createdPrograms'],
   ['User.approvalDecidedById', 'approvalDecisions'],
   ['Admin.grantedById', 'adminGrants'],
 ] as const)('blocks activity through %s', async (_, relation) => {

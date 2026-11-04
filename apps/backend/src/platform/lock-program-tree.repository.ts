@@ -58,7 +58,7 @@ export class LockProgramTreeRepository {
       if (state.rank !== undefined) throw new LockOrderError();
       state.rank = 1;
       const rows = await tx.$queryRaw<readonly { id: string }[]>(
-        Prisma.sql`SELECT id FROM "Program" WHERE id = ${step.programId} FOR UPDATE`,
+        Prisma.sql`SELECT id FROM "Program" WHERE id = ${step.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
       );
       if (rows.length !== 1) return null;
       const witness: ProgramLock = Object.freeze({
@@ -79,7 +79,12 @@ export class LockProgramTreeRepository {
       const rows = await tx.$queryRaw<
         readonly { id: string; programId: string }[]
       >(
-        Prisma.sql`SELECT id, "programId" FROM "Milestone" WHERE id = ${step.milestoneId} FOR UPDATE`,
+        Prisma.sql`
+          SELECT m."id", m."programId" FROM "Milestone" m
+          JOIN "Program" p ON p."id" = m."programId"
+          WHERE m."id" = ${step.milestoneId} AND p."lifecycle" <> 'DELETED'
+          FOR UPDATE OF m
+        `,
       );
       const row = rows[0];
       if (!row) return null;

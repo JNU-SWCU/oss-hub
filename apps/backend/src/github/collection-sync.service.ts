@@ -118,7 +118,7 @@ type SyncRepository = Pick<
   | 'getSyncCursor'
   | 'upsertSyncCursor'
   | 'recordSweepHistory'
-  | 'findRepositoryByLogicalKey'
+  | 'findCollectionTargetByLogicalKey'
   | 'acquireSyncLease'
   | 'heartbeatSyncLease'
   | 'releaseSyncLease'
@@ -246,7 +246,7 @@ export class CollectionSyncService {
     runId: string = this.createRunId(),
   ): Promise<CollectionSyncRunResult> {
     const repository =
-      await this.incrementalRepository.findRepositoryByLogicalKey(
+      await this.incrementalRepository.findCollectionTargetByLogicalKey(
         githubRepositoryId,
       );
     if (
@@ -589,9 +589,10 @@ export class CollectionSyncService {
       insertedCount: number,
     ) => void,
   ): Promise<RepositorySyncOutcome> {
-    const current = await this.incrementalRepository.findRepositoryByLogicalKey(
-      repository.githubRepositoryId,
-    );
+    const current =
+      await this.incrementalRepository.findCollectionTargetByLogicalKey(
+        repository.githubRepositoryId,
+      );
     if (current === null || !isCollectionTarget(current)) {
       return { kind: 'SKIPPED' };
     }

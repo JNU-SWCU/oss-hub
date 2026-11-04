@@ -601,6 +601,11 @@
   },
   {
     "method": "GET",
+    "path": "/api/v1/team-invitations/programs/:programId/search",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
     "path": "/api/v1/team-invitations/received",
     "access": "PROTECTED"
   },

@@ -52,7 +52,7 @@ model User {
   uploadedFiles                          SubmissionFile[]
   uploadedMilestoneDocumentTemplateFiles MilestoneDocumentTemplateFile[]
   programAuthoringUploads                ProgramAuthoringUpload[]
-  programCreateRequests                  ProgramCreateRequest[]
+  createdPrograms                        Program[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
   milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
   milestoneDocumentReviewHistories       MilestoneDocumentReviewHistory[]

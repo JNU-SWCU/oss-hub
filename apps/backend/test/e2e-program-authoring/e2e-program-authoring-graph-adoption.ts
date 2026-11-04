@@ -19,9 +19,7 @@ type E2eProgramAdoptionMilestone = {
 export type E2eProgramAdoptionCandidate = {
   readonly id: string;
   readonly name: string;
-  readonly createRequest: {
-    readonly actor: { readonly githubId: bigint };
-  } | null;
+  readonly creator: { readonly githubId: bigint } | null;
   readonly milestones: readonly E2eProgramAdoptionMilestone[];
 };
 
@@ -44,7 +42,7 @@ export async function adoptE2eProgramGraph(
     select: {
       id: true,
       name: true,
-      createRequest: { select: { actor: { select: { githubId: true } } } },
+      creator: { select: { githubId: true } },
       milestones: {
         select: {
           id: true,
@@ -80,8 +78,7 @@ export function inspectE2eProgramAdoption(
   return {
     exactProgramId: program?.id === programId,
     exactProgramMarker: program?.name === `${prefix}happy-program`,
-    authenticatedActor:
-      program?.createRequest?.actor.githubId === authorGithubId,
+    authenticatedActor: program?.creator?.githubId === authorGithubId,
     exactMilestoneCount: program?.milestones.length === 2,
     requiredFileDocument: required !== undefined,
   };

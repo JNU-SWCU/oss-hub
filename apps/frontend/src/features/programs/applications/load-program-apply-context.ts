@@ -36,7 +36,10 @@ export type ProgramApplyContext =
   | {
       readonly kind: 'ready';
       readonly mode: 'create' | 'edit';
-      readonly program: ProgramDetail;
+      readonly program: ProgramDetail & {
+        readonly teamMinSize: number;
+        readonly teamMaxSize: number;
+      };
       readonly template: ApplicationFormTemplate;
       readonly applicantName: string;
       readonly githubHandle: string;
@@ -95,6 +98,24 @@ export async function loadProgramApplyContext(
     if (!template) {
       return { kind: 'failed', message: '신청 양식을 찾을 수 없습니다.' };
     }
+    if (
+      typeof program.teamMinSize !== 'number' ||
+      typeof program.teamMaxSize !== 'number' ||
+      !Number.isInteger(program.teamMinSize) ||
+      !Number.isInteger(program.teamMaxSize) ||
+      program.teamMinSize < 1 ||
+      program.teamMaxSize < program.teamMinSize
+    ) {
+      return {
+        kind: 'failed',
+        message: '팀 인원 기준을 불러오지 못했습니다. 새로고침해 주세요.',
+      };
+    }
+    const applyProgram = {
+      ...program,
+      teamMinSize: program.teamMinSize,
+      teamMaxSize: program.teamMaxSize,
+    };
     const applicantName = sessionUser.name ?? sessionUser.nickname;
     const githubHandle = sessionUser.nickname;
 
@@ -135,7 +156,7 @@ export async function loadProgramApplyContext(
       return {
         kind: 'ready',
         mode: 'edit',
-        program,
+        program: applyProgram,
         template,
         applicantName: application.answers.applicantName,
         githubHandle,
@@ -166,12 +187,15 @@ export async function loadProgramApplyContext(
     return {
       kind: 'ready',
       mode: 'create',
-      program,
+      program: applyProgram,
       template,
       applicantName,
       githubHandle,
       teamId: team.teamId,
-      teamMinimum: team.minimum,
+      teamMinimum: {
+        memberCount: team.team?.memberCount ?? 1,
+        teamMinSize: program.teamMinSize,
+      },
       team: team.team,
       applicationId: null,
       rejectionReason: null,

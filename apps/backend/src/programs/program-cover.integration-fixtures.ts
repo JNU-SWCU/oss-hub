@@ -6,7 +6,7 @@ import { ProgramAuthoringUploadService } from './program-authoring-upload.servic
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
@@ -14,8 +14,8 @@ import { ProgramTrackType } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramAuthoringRepository } from './program-authoring.repository';
-import { ProgramAuthoringService } from './program-authoring.service';
+import { ProgramAuthoringRepository } from './programs.repository';
+import { ProgramAuthoringService } from './programs.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverRepository } from './program-cover.repository';
@@ -103,9 +103,6 @@ async function cleanup() {
     where: { storageKey: { contains: PREFIX } },
   });
   await prisma.programAuthoringUpload.deleteMany({
-    where: { actorId: { startsWith: PREFIX } },
-  });
-  await prisma.programCreateRequest.deleteMany({
     where: { actorId: { startsWith: PREFIX } },
   });
   await prisma.milestone.deleteMany({

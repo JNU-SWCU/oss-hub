@@ -93,7 +93,11 @@ export type ProgramAuthoringPlan = {
   readonly uploadTokenIds: readonly string[];
 };
 
-export type ProgramAuthoringProgram = ProgramAuthoringProgramPlan & {
+export type ProgramAuthoringProgram = Omit<
+  ProgramAuthoringProgramPlan,
+  'trackType'
+> & {
+  readonly trackType: ProgramTrackType | null;
   readonly id: string;
   readonly lifecycle: ProgramLifecycle;
   readonly createdAt: Date;

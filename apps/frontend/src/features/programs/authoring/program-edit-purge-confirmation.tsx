@@ -31,7 +31,7 @@ export function ProgramEditPurgeConfirmation({
     <DialogShell
       kind="alert"
       title="프로그램을 삭제할까요?"
-      description={`${programName} 프로그램과 연결된 데이터를 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+      description={`${programName} 프로그램 삭제를 요청합니다. 이 작업은 되돌릴 수 없습니다.`}
       busy={busy}
 
       className="max-w-lg"
@@ -66,7 +66,7 @@ export function ProgramEditPurgeConfirmation({
       </p>
       {isPurgeScopeLoading ? (
         <Alert>
-          <AlertTitle>삭제될 데이터</AlertTitle>
+          <AlertTitle>연결된 항목</AlertTitle>
           <AlertDescription>삭제 범위를 확인하는 중입니다.</AlertDescription>
         </Alert>
       ) : null}
@@ -79,7 +79,7 @@ export function ProgramEditPurgeConfirmation({
       ) : null}
       {purgeError ? (
         <Alert variant="destructive">
-          <AlertTitle>전체 삭제 실패</AlertTitle>
+          <AlertTitle>프로그램 삭제 실패</AlertTitle>
           <AlertDescription>{purgeError}</AlertDescription>
         </Alert>
       ) : null}

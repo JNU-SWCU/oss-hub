@@ -141,6 +141,10 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
   await prisma.program.create({
     data: {
       id: AGGREGATE_PROGRAM_ID,
+      createdBy: 'USER',
+      createdById: E2E_STAFF_ID,
+      idempotencyKey: AGGREGATE_IDEMPOTENCY_KEY,
+      payloadHash: 'a'.repeat(64),
       name: `${E2E_PROGRAM_ID}:aggregate`,
       organizer: `${E2E_PROGRAM_ID}:organizer`,
       trackType: ProgramTrackType.EXTRACURRICULAR,
@@ -181,15 +185,6 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
       },
     },
   });
-  const request = await prisma.programCreateRequest.create({
-    data: {
-      actorId: E2E_STAFF_ID,
-      idempotencyKey: AGGREGATE_IDEMPOTENCY_KEY,
-      payloadHash: 'a'.repeat(64),
-      programId: AGGREGATE_PROGRAM_ID,
-    },
-    select: { id: true },
-  });
   await prisma.programAuthoringUpload.create({
     data: {
       actorId: E2E_STAFF_ID,
@@ -201,8 +196,7 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
       lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED,
       expiresAt: E2E_NOW,
       attachedAt: E2E_NOW,
-      createRequestActorId: E2E_STAFF_ID,
-      createRequestId: request.id,
+      programId: AGGREGATE_PROGRAM_ID,
     },
   });
 }
@@ -214,9 +208,6 @@ async function removeAggregateProgram(): Promise<void> {
     },
   });
   await prisma.programAuthoringUpload.deleteMany({
-    where: { createRequest: { programId: AGGREGATE_PROGRAM_ID } },
-  });
-  await prisma.programCreateRequest.deleteMany({
     where: { programId: AGGREGATE_PROGRAM_ID },
   });
   await prisma.milestoneDocument.deleteMany({

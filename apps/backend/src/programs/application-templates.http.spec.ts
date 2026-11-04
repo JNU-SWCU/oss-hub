@@ -8,7 +8,7 @@ import { ApplicationTemplatesController } from './application-templates.controll
 import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
-import { ProgramLifecycleService } from './program-lifecycle.service';
+import { ProgramLifecycleService } from './programs.service';
 import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from './programs.service';

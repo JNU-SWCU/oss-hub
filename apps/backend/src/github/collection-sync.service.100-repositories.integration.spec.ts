@@ -1,3 +1,4 @@
+import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   SyntheticGithubProvider,
@@ -319,7 +320,10 @@ class ScaleCollectionRepository extends CollectionIncrementalRepository {
 
 describe('CollectionSyncService — 100-repository scale/idempotency suite (public-admin-exposure todo 13)', () => {
   const prisma = new PrismaService();
-  const repository = new ScaleCollectionRepository(prisma);
+  const repository = new ScaleCollectionRepository(
+    prisma,
+    new PlatformRepository(),
+  );
   const seeds = buildSeeds();
   const clock = fakeClock();
   const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);

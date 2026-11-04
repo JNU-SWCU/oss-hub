@@ -1,5 +1,5 @@
 import type { PrismaService } from '../platform/prisma.service';
-import { ProgramDeletionScopeRepository } from './program-deletion-scope.repository';
+import { ProgramDeletionScopeRepository } from './programs.repository';
 
 describe('readProgramDeletionScopeCounts', () => {
   it('target 제출 원장만 한 스냅샷에서 센다', async () => {

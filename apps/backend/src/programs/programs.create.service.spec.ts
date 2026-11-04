@@ -104,6 +104,8 @@ describe('ProgramsService', () => {
 
     expect(create).toHaveBeenCalledWith({
       data: {
+        createdBy: 'USER',
+        creator: { connect: { githubId: 101n } },
         name: '2026 OSS Contest',
         organizer: 'SW Center',
         category: ProgramCategory.BASIC,
@@ -138,6 +140,8 @@ describe('ProgramsService', () => {
 
     expect(create).toHaveBeenCalledWith({
       data: {
+        createdBy: 'USER',
+        creator: { connect: { githubId: 101n } },
         name: '2026 OSS Contest',
         organizer: 'SW Center',
         category: ProgramCategory.BASIC,
