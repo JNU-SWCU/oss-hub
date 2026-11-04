@@ -159,20 +159,6 @@ export function deleteStaffProgramTeam(
   );
 }
 
-export async function getMyApplicationPreparation(
-  programId: string,
-): Promise<ProgramTeam | null> {
-  const body = await apiClient<unknown>(
-    `application-preparations/programs/${encodeURIComponent(programId)}/me`,
-  );
-  if (!isRecord(body)) throw new ProgramTeamResponseError();
-  if (body.membership === 'NONE') return null;
-  if (body.membership !== 'MEMBER' && body.membership !== 'LEADER') {
-    throw new ProgramTeamResponseError();
-  }
-  return parseProgramTeam(body.preparation);
-}
-
 export async function createApplicationPreparation(
   programId: string,
   input: { readonly name: string },

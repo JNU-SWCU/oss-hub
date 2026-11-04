@@ -464,10 +464,13 @@ it('3a staff deletion records every pending cancellation with the staff actor', 
     orderBy: { sourceId: 'asc' },
   });
   expect(events.map((event) => event.sourceId)).toEqual([
+    `${fixture.teamId}:expired`,
     `${fixture.teamId}:invitation`,
     `${fixture.teamId}:second`,
   ]);
-  for (const event of events) {
+  for (const event of events.filter(
+    (row) => row.event === 'INVITATION_CANCELLED',
+  )) {
     expect(event).toMatchObject({
       actorId: STAFF_ID,
       event: 'INVITATION_CANCELLED',
@@ -475,6 +478,17 @@ it('3a staff deletion records every pending cancellation with the staff actor', 
       data: { reason: 'TEAM_DELETED' },
     });
   }
+  expect(
+    events.find((event) => event.sourceId === `${fixture.teamId}:expired`),
+  ).toMatchObject({
+    event: 'INVITATION_ARCHIVED',
+    actorId: STAFF_ID,
+    source: 'APPLICATION',
+    data: {
+      reason: 'TEAM_DELETED',
+      invitation: { status: 'EXPIRED', respondedAt: null },
+    },
+  });
   await expect(
     prisma.team.findUnique({ where: { id: fixture.teamId } }),
   ).resolves.toBeNull();

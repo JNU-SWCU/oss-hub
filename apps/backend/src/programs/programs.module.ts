@@ -67,8 +67,6 @@ import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { TeamInvitationsService } from './team-invitations.service';
 import { ApplicationPreparationsController } from './application-preparations.controller';
-import { ApplicationPreparationsService } from './application-preparations.service';
-import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
@@ -215,8 +213,6 @@ import { SubmissionInputService } from './submission-input.service';
     PublicProjectsRepository,
     PublicProjectMetricsRepository,
     PublicProjectsService,
-    ApplicationPreparationsService,
-    ApplicationPreparationsRepository,
     StudentRepositoryUrlService,
     StudentRepositoryUrlRepository,
     ApplicationsRepository,

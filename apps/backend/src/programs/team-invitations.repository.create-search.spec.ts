@@ -89,9 +89,6 @@ describe('TeamInvitationsRepository.searchCandidates', () => {
           },
         ],
         teamMemberships: { none: { programId: syntheticProgramId } },
-        preparationParticipants: {
-          none: { programId: syntheticProgramId, status: 'ACCEPTED' },
-        },
       },
       select: {
         id: true,
@@ -119,7 +116,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
     const result = await repository.findByTeamId(syntheticTeamId);
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { teamId: syntheticTeamId },
+      where: { teamId: syntheticTeamId, status: TeamInvitationStatus.PENDING },
       orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
     });

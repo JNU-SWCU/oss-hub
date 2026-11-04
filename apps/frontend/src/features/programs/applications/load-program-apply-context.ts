@@ -1,7 +1,7 @@
 import { ApiError } from '@/lib/api-client';
 import type { QueryClient } from '@tanstack/react-query';
 import { featureKey, programFeatureKey } from '@/lib/query-keys';
-import { getMyTeam, getMyApplicationPreparation } from '../teams/api';
+import { getMyTeam } from '../teams/api';
 import { getProgramDetail } from '../catalog/api';
 import { listApplicationTemplates } from './api';
 import type { ProgramTeam } from '../teams/dto';
@@ -61,17 +61,11 @@ async function resolveTeam(
   readonly minimum: TeamMinimum | null;
   readonly team: ProgramTeam | null;
 }> {
-  const team =
-    (await queryClient.fetchQuery({
-      queryKey: programFeatureKey(programId, 'teams', 'current'),
-      queryFn: () => getMyTeam(programId),
-      staleTime: 0,
-    })) ??
-    (await queryClient.fetchQuery({
-      queryKey: programFeatureKey(programId, 'teams', 'preparation'),
-      queryFn: () => getMyApplicationPreparation(programId),
-      staleTime: 0,
-    }));
+  const team = await queryClient.fetchQuery({
+    queryKey: programFeatureKey(programId, 'teams', 'current'),
+    queryFn: () => getMyTeam(programId),
+    staleTime: 0,
+  });
   if (team === null) return { teamId: null, minimum: null, team: null };
   return { teamId: team.id, minimum: resolveTeamMinimum(team), team };
 }

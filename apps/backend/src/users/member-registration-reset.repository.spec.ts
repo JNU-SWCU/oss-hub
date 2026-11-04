@@ -44,6 +44,7 @@ function harness() {
         ),
     },
     userHistory: { create: history },
+    teamHistory: { findFirst: jest.fn().mockResolvedValue(null) },
     $queryRaw: jest.fn().mockResolvedValue([]),
   });
   const transaction = jest
@@ -86,8 +87,6 @@ it.each([
   ['TeamMember.userId', 'teamMemberships'],
   ['TeamInvitation.inviteeId', 'receivedTeamInvitations'],
   ['TeamInvitation.invitedById', 'sentTeamInvitations'],
-  ['ApplicationPreparation.leaderId', 'applicationPreparations'],
-  ['ApplicationPreparationParticipant.userId', 'preparationParticipants'],
   ['SubmissionFile.uploaderId', 'uploadedFiles'],
   ['MilestoneDocumentSubmission.submittedById', 'milestoneDocumentSubmissions'],
   [

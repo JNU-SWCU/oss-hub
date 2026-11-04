@@ -9,7 +9,6 @@ import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
-import { ApplicationPreparationsRepository } from './application-preparations.repository';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
@@ -40,7 +39,6 @@ const invitations = new TeamInvitationsRepository(
   prisma,
   platform,
 );
-const preparations = new ApplicationPreparationsRepository(prisma, platform);
 const teamDeletion = new ProgramTeamDeletionRepository(
   new TeamHistoryRepository(),
   prisma,
@@ -57,8 +55,6 @@ const staffId = `${prefix}staff`;
 const postId = `${prefix}post`;
 const commentId = `${prefix}comment`;
 const invitationId = `${prefix}invitation`;
-const preparationId = `${prefix}preparation`;
-const preparationInvitationId = `${prefix}preparation-invitation`;
 const staffGithubId = 9_878_100_004n;
 const recordAudit = jest.fn(async () => {});
 
@@ -67,7 +63,6 @@ async function cleanup(): Promise<void> {
   await prisma.githubRepository.deleteMany({ where: { programId } });
   await prisma.application.deleteMany({ where: { programId } });
   await prisma.milestone.deleteMany({ where: { programId } });
-  await prisma.applicationPreparation.deleteMany({ where: { programId } });
   await prisma.boardComment.deleteMany({ where: { post: { programId } } });
   await prisma.boardPost.deleteMany({ where: { programId } });
   await prisma.teamInvitation.deleteMany({ where: { programId } });
@@ -141,21 +136,6 @@ async function seed(lifecycle: ProgramLifecycle): Promise<void> {
       },
     },
   });
-  await prisma.applicationPreparation.create({
-    data: {
-      id: preparationId,
-      programId,
-      leaderId,
-      name: 'Retained preparation',
-      participants: {
-        create: [
-          { userId: leaderId, status: 'ACCEPTED' },
-          { userId: memberId, status: 'ACCEPTED' },
-          { id: preparationInvitationId, userId: inviteeId, status: 'PENDING' },
-        ],
-      },
-    },
-  });
 }
 
 function snapshot() {
@@ -171,11 +151,6 @@ function snapshot() {
       orderBy: { userId: 'asc' },
     }),
     prisma.teamInvitation.findMany({ where: { programId } }),
-    prisma.applicationPreparation.findMany({ where: { programId } }),
-    prisma.applicationPreparationParticipant.findMany({
-      where: { programId },
-      orderBy: { userId: 'asc' },
-    }),
   ]);
 }
 
@@ -315,29 +290,6 @@ describe.each([
       expect(await snapshot()).not.toEqual(before);
     }
   });
-
-  it.each(['decline', 'cancel', 'remove'] as const)(
-    'preparation %s',
-    async (action) => {
-      const before = await snapshot();
-      const run = () =>
-        action === 'remove'
-          ? preparations.remove(programId, leaderId, memberId)
-          : preparations.respond(
-              preparationInvitationId,
-              action === 'cancel' ? leaderId : inviteeId,
-              action,
-              new Date(),
-            );
-      if (lifecycle === ProgramLifecycle.DELETED) {
-        await expect(run()).rejects.toMatchObject({ reason: 'not-found' });
-        expect(await snapshot()).toEqual(before);
-      } else {
-        await run();
-        expect(await snapshot()).not.toEqual(before);
-      }
-    },
-  );
 
   it('delete team', async () => {
     const before = await snapshot();

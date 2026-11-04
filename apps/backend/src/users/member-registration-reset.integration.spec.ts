@@ -15,6 +15,7 @@ import { AdminAccessReadOrderingRepository } from './admin-access-read-ordering.
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { MemberRegistrationResetRepository } from './member-registration-reset.repository';
+import { LegacyMemberRegistrationResetRepository } from './member-registration-reset-v02444.fixture';
 import { MemberRegistrationResetService } from './member-registration-reset.service';
 import { UserProfileService } from './user-profile.service';
 import { UserTransitionRepository } from './user-transition.repository';
@@ -46,6 +47,19 @@ const repository = new MemberRegistrationResetRepository(
 const audit = new UserHistoryRepository(transitions);
 const service = new MemberRegistrationResetService(
   repository,
+  audit,
+  new AuditLogMetadataService(),
+  profiles,
+  new AdminAccessMutationService(new AuditLogMetadataService(), profiles),
+);
+const legacyRepository = new LegacyMemberRegistrationResetRepository(
+  prisma,
+  access,
+  new PrismaSerializationRetryRepository(),
+  transitions,
+);
+const legacyService = new MemberRegistrationResetService(
+  legacyRepository,
   audit,
   new AuditLogMetadataService(),
   profiles,
@@ -99,7 +113,54 @@ function expectState(user: {
 }
 
 describe('registration reset persistence', () => {
-  it('keeps the v0.24.42 activity guard after a 3a invitation decline', async () => {
+  it.each(['actorId', 'inviteeId', 'invitedById'] as const)(
+    '3b protects history-only activity through %s',
+    async (field) => {
+      const admin = await actor();
+      const user = await create();
+      const history = await prisma.teamHistory.create({
+        data: {
+          teamId: 'deleted-team',
+          programId: 'deleted-program',
+          actorId: field === 'actorId' ? user.id : null,
+          event:
+            field === 'actorId'
+              ? 'INVITATION_CANCELLED'
+              : 'INVITATION_ARCHIVED',
+          source: field === 'actorId' ? 'APPLICATION' : 'MIGRATION',
+          sourceTable: 'TeamInvitation',
+          sourceId: `history-only-${user.id}`,
+          data: {
+            schemaVersion: 1,
+            invitation: {
+              id: `history-only-${user.id}`,
+              inviteeId: field === 'inviteeId' ? user.id : 'other-invitee',
+              invitedById: field === 'invitedById' ? user.id : 'other-inviter',
+              createdAt: at.toISOString(),
+              status: 'DECLINED',
+              respondedAt: at.toISOString(),
+              updatedAt: at.toISOString(),
+            },
+          },
+        },
+      });
+      try {
+        await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(
+          true,
+        );
+        await expect(
+          legacyRepository.hasActivity(prisma, user.id),
+        ).resolves.toBe(false);
+        await expect(
+          service.resetFromRequest(admin.githubId, user.id, expectState(user)),
+        ).rejects.toMatchObject({ errorCode: { code: 'ROL_025' } });
+      } finally {
+        await prisma.teamHistory.delete({ where: { id: history.id } });
+      }
+    },
+  );
+
+  it('image rollback preserves legacy activity detection and refuses registration reset after invitation decline', async () => {
     const admin = await actor();
     const user = await create();
     const programId = `${user.id}:program`;
@@ -125,6 +186,9 @@ describe('registration reset persistence', () => {
     await prisma.team.create({
       data: { id: teamId, programId, name: 'Synthetic', leaderId: admin.id },
     });
+    await expect(legacyRepository.hasActivity(prisma, user.id)).resolves.toBe(
+      false,
+    );
     await prisma.teamInvitation.create({
       data: {
         id: invitationId,
@@ -139,11 +203,13 @@ describe('registration reset persistence', () => {
       prisma,
       new PlatformRepository(),
     );
+    await expect(legacyRepository.hasActivity(prisma, user.id)).resolves.toBe(
+      true,
+    );
 
     await expect(
       invitations.declinePendingInvitationAsInvitee(invitationId, user.id, at),
     ).resolves.toEqual({ kind: 'ok' });
-
     await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(true);
     await expect(
       service.resetFromRequest(admin.githubId, user.id, expectState(user)),
@@ -157,6 +223,29 @@ describe('registration reset persistence', () => {
     await expect(
       prisma.teamHistory.count({ where: { sourceId: invitationId } }),
     ).resolves.toBe(1);
+    await expect(legacyRepository.hasActivity(prisma, user.id)).resolves.toBe(
+      true,
+    );
+    await expect(
+      legacyService.resetFromRequest(
+        admin.githubId,
+        user.id,
+        expectState(user),
+      ),
+    ).rejects.toMatchObject({ errorCode: { code: 'ROL_025' } });
+    await expect(
+      prisma.user.findUnique({ where: { id: user.id } }),
+    ).resolves.toMatchObject({
+      type: user.type,
+      studentId: user.studentId,
+      name: user.name,
+      department: user.department,
+      profileCreatedAt: user.profileCreatedAt,
+      profileUpdatedAt: user.profileUpdatedAt,
+      approvalStatus: user.approvalStatus,
+      approvalRequestId: user.approvalRequestId,
+      sessionVersion: user.sessionVersion,
+    });
   });
 
   it('keeps the session identity, clears membership and returns staff re-registration to normal approval', async () => {

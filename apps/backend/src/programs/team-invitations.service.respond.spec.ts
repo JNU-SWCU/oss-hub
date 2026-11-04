@@ -277,9 +277,6 @@ describe('acceptTeamInvitationTransaction', () => {
         create: jest.fn().mockResolvedValue(undefined),
       },
       teamHistory: { create: jest.fn().mockResolvedValue({}) },
-      applicationPreparationParticipant: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
       team: { update: jest.fn() },
       user: {
         findUnique: jest.fn().mockResolvedValue({
