@@ -143,7 +143,7 @@ export function MyRepositoriesView({
           />
           <CardGrid>
             {state.repositories.items.map((item) => (
-              <RepositoryCard key={item.applicationId} item={item} />
+              <RepositoryCard key={item.teamId} item={item} />
             ))}
           </CardGrid>
         </section>

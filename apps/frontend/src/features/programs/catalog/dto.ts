@@ -93,7 +93,7 @@ export interface ProgramDetail {
   readonly milestones: readonly ProgramMilestone[];
 }
 export interface ProgramActivity {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly label: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;

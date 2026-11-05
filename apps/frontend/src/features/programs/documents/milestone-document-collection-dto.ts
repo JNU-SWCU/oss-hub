@@ -56,7 +56,7 @@ export interface MilestoneDocumentCollectionCell {
 }
 export interface MilestoneDocumentCollectionRow {
   readonly deliveryStatus: DocumentDeliveryStatus;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly teamName: string;
   readonly applicantName: string | null;
   readonly memberNicknames: readonly string[];

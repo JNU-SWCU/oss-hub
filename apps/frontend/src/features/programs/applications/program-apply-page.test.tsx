@@ -55,7 +55,7 @@ const leaderTeam: ProgramTeam = {
   memberCount: 1,
   minMembers: 1,
   maxMembers: 4,
-  hasApplication: false,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: true,
@@ -94,7 +94,7 @@ const leaderTeamWithMember: ProgramTeam = {
 
 const submittedLeaderTeam: ProgramTeam = {
   ...leaderTeamWithMember,
-  hasApplication: true,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: true,
@@ -452,7 +452,7 @@ describe('ProgramApply views', () => {
     );
 
     expect(html).toContain('신청서를 수정할 권한이 없습니다');
-    expect(html).toContain('신청서를 낸 사람과 팀장만');
+    expect(html).toContain('현재 팀장만 수정하거나 취소할 수 있습니다');
     expect(html).not.toContain('신청 취소');
     expect(html).not.toContain('수정 내용 저장');
     expect(html).not.toContain('신청 기간이 아닙니다');
@@ -485,7 +485,7 @@ describe('ProgramApply views', () => {
   it('반려된 신청은 사유를 반려 사유 상자로 그린다', () => {
     const html = renderToStaticMarkup(
       <BlockedView
-        reason="already-applied"
+        reason="manage-not-allowed"
         application={rejectedApplication(
           '제출한 요약이 프로그램 주제와 맞지 않습니다.',
         )}
@@ -495,7 +495,7 @@ describe('ProgramApply views', () => {
     expect(html).toContain('반려 사유');
     expect(html).toContain('제출한 요약이 프로그램 주제와 맞지 않습니다.');
     expect(html).toContain(
-      '승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다.',
+      '팀 신청서는 현재 팀장만 수정하거나 취소할 수 있습니다.',
     );
     expect(html).toContain('whitespace-pre-wrap');
     expect(html).toContain('break-keep');
@@ -592,7 +592,7 @@ describe('ProgramApply views', () => {
 
   it('성공 상태를 표시한다', () => {
     const html = renderToStaticMarkup(
-      <ProgramApplySuccessView applicationId="app-1" programId={program.id} />,
+      <ProgramApplySuccessView teamId="app-1" programId={program.id} />,
     );
     expect(html).toContain('신청이 접수되었습니다');
     expect(html).toContain('app-1');
@@ -601,7 +601,7 @@ describe('ProgramApply views', () => {
 
   it('제출 직후에는 방금 신청한 프로그램의 우리 팀 화면으로 바로 간다', () => {
     const html = renderToStaticMarkup(
-      <ProgramApplySuccessView applicationId="app-1" programId="program:1" />,
+      <ProgramApplySuccessView teamId="app-1" programId="program:1" />,
     );
 
     expect(html).toContain('우리 팀 보기');
@@ -614,7 +614,7 @@ describe('ProgramApply views', () => {
   it('수정 저장 직후에도 같은 팀 화면 동선을 준다', () => {
     const html = renderToStaticMarkup(
       <ProgramApplySuccessView
-        applicationId="app-1"
+        teamId="app-1"
         programId={program.id}
         mode="edit"
       />,
@@ -623,5 +623,20 @@ describe('ProgramApply views', () => {
     expect(html).toContain('신청서가 수정되었습니다');
     expect(html).toContain('href="/programs/program-1/team"');
     expect(html).toContain('내 대시보드로');
+  });
+
+  it('반려 재제출 직후에는 검토 대기로 돌아갔다고 알린다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplySuccessView
+        teamId="app-1"
+        programId={program.id}
+        mode="edit"
+        resubmitted
+      />,
+    );
+
+    expect(html).toContain('신청서를 다시 제출했습니다');
+    expect(html).toContain('검토 대기');
+    expect(html).not.toContain('신청서가 수정되었습니다');
   });
 });

@@ -39,11 +39,9 @@ export function useMyTeamQuery(programId: string, sessionKey: string | null) {
               getProgramDetail(programId),
               getMyTeam(programId),
             ]);
-            const application = team?.hasApplication
-              ? await getMyApplication(programId)
-              : null;
-            if (team?.hasApplication && application === null)
-              throw new TeamApplicationOutOfSyncError();
+            if (team === null) return { program, team, application: null };
+            const application = await getMyApplication(programId);
+            if (application === null) throw new TeamApplicationOutOfSyncError();
             return { program, team, application };
           },
     refetchOnWindowFocus: true,
@@ -108,7 +106,7 @@ export function useStaffTeamDetailQuery(
 
 export function useTeamApplicationQuery(
   programId: string,
-  applicationId: string | null,
+  teamId: string | null,
   sessionKey: string | null,
 ) {
   return useQuery({
@@ -116,13 +114,13 @@ export function useTeamApplicationQuery(
       programId,
       'teams',
       'application',
-      applicationId,
+      teamId,
       sessionKey,
     ),
     queryFn:
-      applicationId === null
+      teamId === null
         ? skipToken
-        : () => getApplicationDetailWithHistory(applicationId),
+        : () => getApplicationDetailWithHistory(teamId),
   });
 }
 

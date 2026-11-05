@@ -89,6 +89,8 @@ vi.mock('next/navigation', () => ({
 
 import { ProgramApplyPage } from './program-apply-page';
 
+let leaderView = false;
+
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {
     status,
@@ -111,12 +113,47 @@ function rejectionFetch(
   if (url.pathname === apiPath(`programs/${PROGRAM_ID}/viewer`)) {
     return Promise.resolve(jsonResponse(REJECTED_PROGRAM));
   }
-  if (url.pathname === apiPath('programs/application-templates')) {
+  if (url.pathname === apiPath('programs/team-templates')) {
     return Promise.resolve(jsonResponse({ items: [] }));
   }
-  if (url.pathname === apiPath(`programs/${PROGRAM_ID}/applications/me`)) {
+  if (url.pathname === apiPath(`programs/${PROGRAM_ID}/teams/me`)) {
     return Promise.resolve(
-      jsonResponse({ status: 'REJECTED', application: REJECTED_APPLICATION }),
+      jsonResponse({
+        status: 'REJECTED',
+        application: leaderView
+          ? { ...REJECTED_APPLICATION, canManage: true, canEdit: true }
+          : REJECTED_APPLICATION,
+      }),
+    );
+  }
+  if (
+    leaderView &&
+    url.pathname === apiPath(`programs/${PROGRAM_ID}/teams/me/membership`)
+  ) {
+    return Promise.resolve(
+      jsonResponse({
+        membership: 'LEADER',
+        team: {
+          id: REJECTED_APPLICATION.teamId,
+          name: '합성 반려 팀',
+          memberCount: 1,
+          minMembers: 1,
+          maxMembers: 4,
+          status: 'REJECTED',
+          canInvite: true,
+          canRemoveMembers: true,
+          canLeave: true,
+          isLeader: true,
+          members: [
+            {
+              userId: 'user-rejected-reach',
+              nickname: 'synthetic-student',
+              name: '합성 학생',
+              isLeader: true,
+            },
+          ],
+        },
+      }),
     );
   }
   throw new Error(`unexpected request ${url.pathname}`);
@@ -127,6 +164,7 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
   let rendered: Awaited<ReturnType<typeof renderWithQuery>>;
 
   beforeEach(() => {
+    leaderView = false;
     vi.stubGlobal('fetch', vi.fn(rejectionFetch));
   });
 
@@ -165,5 +203,21 @@ describe('반려된 신청의 사유가 신청 상세 화면에 도달한다', (
 
     const text = container.textContent ?? '';
     expect(text).not.toContain('수정할 수 없는 신청입니다');
+  });
+
+  it('편집할 응답 항목이 없어도 다시 제출 버튼을 보여 준다', async () => {
+    leaderView = true;
+    rendered = await renderWithQuery(
+      <ProgramApplyPage programId={PROGRAM_ID} sessionUser={SESSION_USER} />,
+    );
+    container = rendered.container;
+    await vi.waitFor(() => {
+      expect(container.textContent ?? '').toContain('반려 사유');
+    });
+
+    const labels = Array.from(container.querySelectorAll('button')).map(
+      (button) => button.textContent ?? '',
+    );
+    expect(labels).toContain('신청서 다시 제출');
   });
 });

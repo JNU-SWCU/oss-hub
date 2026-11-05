@@ -39,22 +39,22 @@ export interface CreatedApplication {
 
 export type ApplicationDecisionInput =
   | { readonly action: 'APPROVE' }
-  | { readonly action: 'REJECT'; readonly reason: string }
+  | { readonly action: 'REJECT'; readonly reason?: string }
   | { readonly action: 'REVERT' };
 
 export type ApplicationDecisionResponse =
   | {
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly status: 'APPROVED';
       readonly repositoryProvisioning: RepositoryProvisioning;
     }
   | {
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly status: 'REJECTED';
-      readonly rejectionReason: string;
+      readonly rejectionReason: string | null;
     }
   | {
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly status: 'SUBMITTED';
     };
 

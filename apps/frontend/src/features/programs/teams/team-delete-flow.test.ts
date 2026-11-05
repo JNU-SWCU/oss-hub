@@ -9,7 +9,7 @@ import {
 } from './team-delete-flow';
 
 const currentTeamScopeCounts = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 0,
   submissions: 2,
@@ -72,7 +72,7 @@ describe('teamDeleteScopeChangedCounts', () => {
         scopeChangedError({
           currentTeamScopeCounts: {
             ...currentTeamScopeCounts,
-            applications: Number.NaN,
+            teams: Number.NaN,
           },
         }),
       ),
@@ -129,7 +129,7 @@ describe('formatTeamDeletedCounts', () => {
   it('0건은 빼고 한국어 요약을 만든다', () => {
     expect(
       formatTeamDeletedCounts({
-        applications: 1,
+        teams: 1,
         members: 3,
         invitations: 0,
         submissions: 0,
@@ -147,7 +147,7 @@ describe('formatTeamDeletedCounts', () => {
     ({ detachedRepositories, expected }) => {
       expect(
         formatTeamDeletedCounts({
-          applications: 0,
+          teams: 0,
           members: 0,
           invitations: 0,
           submissions: 0,

@@ -75,12 +75,12 @@ function cell(
 }
 
 function row(
-  applicationId: string,
+  teamId: string,
   teamName: string,
   cells: readonly MilestoneDocumentCollectionCell[],
 ): MilestoneDocumentCollectionRow {
   return {
-    applicationId,
+    teamId,
     deliveryStatus: 'MISSING',
     teamName,
     applicantName: '김철수',

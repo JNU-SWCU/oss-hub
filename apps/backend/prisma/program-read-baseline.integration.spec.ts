@@ -160,7 +160,7 @@ async function seed(): Promise<void> {
             name: `Team ${team}`,
             leaderId,
             applicantId: leaderId,
-            answers: [],
+            answers: {},
             applicationTemplateVersion: 1,
             status: 'APPROVED',
             submittedAt: now,
@@ -297,6 +297,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  await prisma.file.deleteMany({ where: { id: { startsWith: prefix } } });
   await prisma.$disconnect();
 });
 

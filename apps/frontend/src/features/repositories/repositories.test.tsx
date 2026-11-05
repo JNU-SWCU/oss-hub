@@ -42,7 +42,7 @@ function responseItem({
   const owner = connectionMode === 'NEW' ? 'JNU-SWCU' : 'synthetic-student';
   return {
     repositoryId: hasRepository ? `repository-${id}` : null,
-    applicationId: `application-${id}`,
+    teamId: `application-${id}`,
     applicationMode: mode,
     connectionMode,
     programName: mode === 'PERSONAL' ? '침스톤 프로그램' : 'OSS 경진대회',
@@ -446,7 +446,7 @@ describe('my repositories loader boundary', () => {
     vi.mocked(apiClient).mockResolvedValue(response);
 
     await expect(loadMyRepositories()).resolves.toMatchObject({
-      items: [expect.objectContaining({ applicationId: 'application-1' })],
+      items: [expect.objectContaining({ teamId: 'application-1' })],
     });
     expect(apiClient).toHaveBeenCalledWith('repositories/me');
   });

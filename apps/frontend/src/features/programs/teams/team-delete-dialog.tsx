@@ -16,7 +16,7 @@ import type { TeamDeletionScope } from './dto';
 const MAX_NOTIFICATION_MESSAGE_LENGTH = 500;
 
 const DISAPPEARING_ITEMS = [
-  ['applications', '지원서', '건'],
+  ['teams', '지원서', '건'],
   ['members', '팀원', '명'],
   ['invitations', '초대', '건'],
   ['submissions', '제출물', '건'],
@@ -93,7 +93,7 @@ export function TeamDeleteDialog({
     <DialogShell
       kind="alert"
       title="팀을 삭제할까요?"
-      description={`${teamName} 팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+      description={`${teamName}을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
 
       className="max-w-lg"
 

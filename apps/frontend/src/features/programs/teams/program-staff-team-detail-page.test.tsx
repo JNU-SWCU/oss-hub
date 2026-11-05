@@ -147,7 +147,7 @@ const APPLICATION_DETAIL = {
 } as unknown as ApplicationDetail;
 
 const teamActivity: TeamActivity = {
-  applicationId: 'app-1',
+  teamId: 'app-1',
   repository: null,
   status: 'NOT_CONNECTED',
   lastSuccessAt: null,
@@ -178,7 +178,7 @@ const withApplication: StaffTeamDetail = {
   },
   repositoryContributions: null,
   deletionScope: {
-    applications: 1,
+    teams: 1,
     members: 2,
     invitations: 0,
     submissions: 0,
@@ -198,7 +198,7 @@ const withoutApplication: StaffTeamDetail = {
   application: null,
   repositoryContributions: null,
   deletionScope: {
-    applications: 0,
+    teams: 0,
     members: 1,
     invitations: 0,
     submissions: 0,
@@ -1030,7 +1030,7 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(dialog?.textContent).toContain('팀을 삭제할까요?');
       expect(dialog?.textContent).toContain('지원서 1건 · 팀원 2명');
       expect(dialog?.textContent).toContain(
-        '팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+        '오픈소스팀을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
       );
       expect(dialog?.textContent).not.toContain('저장소');
     });

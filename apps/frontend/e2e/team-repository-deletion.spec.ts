@@ -8,7 +8,6 @@ test.use({ deviceScaleFactor: 2 });
 
 const programId = 'synthetic-repository-scope';
 const teamId = 'synthetic-repository-team';
-const applicationId = 'synthetic-repository-application';
 const repository = {
   id: 'synthetic-repository',
   url: 'https://github.com/synthetic/project',
@@ -17,7 +16,7 @@ const repository = {
   blockedReasons: [],
 };
 const scope = {
-  applications: 1,
+  teams: 1,
   members: 1,
   invitations: 0,
   submissions: 0,
@@ -115,7 +114,7 @@ for (const width of [1440, 390]) {
                 },
               ],
               application: {
-                id: applicationId,
+                id: teamId,
                 status: 'APPROVED',
                 repositoryConnectionMode: 'OWN',
                 repository,
@@ -124,9 +123,9 @@ for (const width of [1440, 390]) {
               repositoryContributions: null,
               deletionScope: scope,
             }),
-          [`GET /api/v1/applications/${applicationId}`]: (route) =>
+          [`GET /api/v1/teams/${teamId}`]: (route) =>
             fulfillJson(route, {
-              id: applicationId,
+              id: teamId,
               programId,
               status: 'APPROVED',
               rejectionReason: null,
@@ -156,7 +155,7 @@ for (const width of [1440, 390]) {
             route,
           ) =>
             fulfillJson(route, {
-              applicationId,
+              teamId,
               repository: { id: repository.id, url: repository.url },
               status: 'NOT_COLLECTED',
               lastSuccessAt: null,

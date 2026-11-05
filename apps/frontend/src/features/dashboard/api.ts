@@ -156,7 +156,7 @@ function isDashboardItem(value: unknown): value is DashboardItem {
   const progress = value.progress ?? null;
   const programId = value.programId;
   return (
-    isNonEmptyString(value.applicationId) &&
+    isNonEmptyString(value.teamId) &&
     isNonEmptyString(programId) &&
     isSafePathSegment(programId) &&
     isNonEmptyString(value.programName) &&
@@ -202,7 +202,7 @@ function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
       value.decision === 'REJECTED') &&
     (value.comment === null || typeof value.comment === 'string') &&
     isDateString(value.reviewedAt) &&
-    isNonEmptyString(value.applicationId) &&
+    isNonEmptyString(value.teamId) &&
     isNonEmptyString(programId) &&
     isSafePathSegment(programId) &&
     isNonEmptyString(milestoneId) &&
@@ -230,7 +230,7 @@ function isApplicationDecisionNotice(
   if (!isRecord(value)) return false;
   return (
     isNonEmptyString(value.id) &&
-    isNonEmptyString(value.applicationId) &&
+    isNonEmptyString(value.teamId) &&
     isNonEmptyString(value.programId) &&
     isSafePathSegment(value.programId) &&
     isNonEmptyString(value.programName) &&
@@ -245,7 +245,7 @@ export async function fetchUnreadApplicationDecisionNotices(): Promise<
   readonly ApplicationDecisionNotice[]
 > {
   const response = await apiClient<unknown>(
-    'users/me/notifications/application-decisions',
+    'users/me/notifications/team-decisions',
   );
   if (
     !Array.isArray(response) ||
@@ -259,7 +259,7 @@ export async function markApplicationDecisionNoticeRead(
   notificationId: string,
 ): Promise<void> {
   await apiClient<unknown>(
-    `users/me/notifications/application-decisions/${encodeURIComponent(notificationId)}/read`,
+    `users/me/notifications/team-decisions/${encodeURIComponent(notificationId)}/read`,
     { method: 'PATCH' },
   );
 }

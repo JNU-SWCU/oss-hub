@@ -164,7 +164,7 @@ export function MilestoneDocumentCollectionScreen({
       await createMilestoneDocumentReview(
         milestoneId,
         target.documentId,
-        target.applicationId,
+        target.teamId,
         {
           decision,
           comment: milestoneDocumentReviewCommentPayload(comment),

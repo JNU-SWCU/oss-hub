@@ -48,8 +48,9 @@ type ProgramApplyPageState =
   | {
       readonly kind: 'success';
       readonly program: ReadyContext['program'];
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly mode: ApplicationFormMode;
+      readonly resubmitted: boolean;
     };
 
 const BACKGROUND_REFRESH_MS = 30_000;
@@ -261,7 +262,7 @@ export function ProgramApplyPage({
     if (state.kind !== 'ready') return;
     if (state.mode === 'create' && state.team !== null && !state.team.isLeader)
       return;
-    if (state.mode === 'edit' && state.applicationId === null) return;
+    if (state.mode === 'edit' && state.teamId === null) return;
     if (
       state.mode === 'create' &&
       (state.team?.memberCount ?? 1) + selectedInvitees.length <
@@ -299,7 +300,7 @@ export function ProgramApplyPage({
     const action: ProgramApplyAction = confirmation;
     const currentProgram = state.program;
     const currentTemplateVersion = state.template.version;
-    const currentApplicationId = state.applicationId;
+    const currentApplicationId = state.teamId;
     submittingRef.current = true;
     setSubmitting(true);
     setServerError(null);
@@ -331,8 +332,9 @@ export function ProgramApplyPage({
         setState({
           kind: 'success',
           program: currentProgram,
-          applicationId: updated.id,
+          teamId: updated.id,
           mode: 'edit',
+          resubmitted: state.isRejected,
         });
         setConfirmation(null);
         return;
@@ -356,8 +358,9 @@ export function ProgramApplyPage({
       setState({
         kind: 'success',
         program: currentProgram,
-        applicationId: created.id,
+        teamId: created.id,
         mode: 'create',
+        resubmitted: false,
       });
       setConfirmation(null);
     } catch (error: unknown) {
@@ -442,9 +445,10 @@ export function ProgramApplyPage({
     case 'success':
       return (
         <ProgramApplySuccessView
-          applicationId={state.applicationId}
+          teamId={state.teamId}
           programId={programId}
           mode={state.mode}
+          resubmitted={state.resubmitted}
         />
       );
     case 'ready':
@@ -459,6 +463,7 @@ export function ProgramApplyPage({
           serverError={serverError}
           mode={state.mode}
           rejectionReason={state.rejectionReason}
+          isRejected={state.isRejected}
           canManage={state.canManage}
           confirmation={confirmation}
           teamMinimum={
