@@ -39,7 +39,9 @@ export class ProgramDocumentChangeRequestsService {
     const lines = candidates
       .map(
         (candidate) =>
-          `${candidate.milestoneDocumentId}:${candidate.applicationId}:${OPEN_STATUSES.includes(candidate.status) ? 'open' : 'final'}`,
+          `${candidate.milestoneDocumentId}:${candidate.teamId}:${
+            OPEN_STATUSES.includes(candidate.status) ? 'open' : 'final'
+          }`,
       )
       .sort();
     return createHash('sha256').update(lines.join('\n')).digest('hex');
@@ -104,10 +106,10 @@ export class ProgramDocumentChangeRequestsService {
     programId: string,
     scope: ProgramDocumentChangeRequestScope,
   ): Promise<ProgramDocumentChangeRequestPreview> {
-    const applicationIds = await this.applicationIdsInScope(programId, scope);
+    const teamIds = await this.teamIdsInScope(programId, scope);
     const candidates = await this.repository.findChangeRequestCandidates(
       programId,
-      applicationIds,
+      teamIds,
     );
     const count = (status: SubmissionStatus) =>
       candidates.filter((candidate) => candidate.status === status).length;
@@ -138,13 +140,13 @@ export class ProgramDocumentChangeRequestsService {
           throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
         }
         const documentIds = await store.lockProgramDocumentIds(programId);
-        const applicationIds = await store.lockApprovedApplicationIds(
+        const teamIds = await store.lockApprovedApplicationIds(
           programId,
           input.scope.kind === 'TEAM' ? input.scope.teamId : undefined,
         );
         const candidates = await store.findChangeRequestCandidates({
           documentIds,
-          applicationIds,
+          teamIds,
         });
         if (
           this.changeRequestTargetsVersion(candidates) !== input.expectedVersion
@@ -160,7 +162,7 @@ export class ProgramDocumentChangeRequestsService {
         for (const target of targets) {
           const submission = await store.findSubmissionForReview(
             target.milestoneDocumentId,
-            target.applicationId,
+            target.teamId,
           );
           if (submission === null) {
             throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
@@ -194,7 +196,8 @@ export class ProgramDocumentChangeRequestsService {
       throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
     }
   }
-  private async applicationIdsInScope(
+
+  private async teamIdsInScope(
     programId: string,
     scope: ProgramDocumentChangeRequestScope,
   ): Promise<readonly string[]> {
@@ -203,7 +206,7 @@ export class ProgramDocumentChangeRequestsService {
       programId,
       scope.kind === 'TEAM' ? scope.teamId : undefined,
     );
-    return teams.map((team) => team.applicationId);
+    return teams.map((team) => team.teamId);
   }
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);

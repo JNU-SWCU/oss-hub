@@ -1,19 +1,30 @@
-import { StudentRepositoryUrlService } from './team-application.service';
+import {
+  StudentRepositoryUrlService,
+  TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
+import type {
+  ApplicationsRepository,
+  TeamManagementListPage,
+} from './team.repository';
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
+import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { TeamsController } from './teams.controller';
+import {
+  TeamsController,
+  ProgramApplicationsController,
+} from './teams.controller';
 import type {
   TeamRepository,
   StaffTeamDetailRecord,
-  StaffTeamRecord,
   TeamProgramRecord,
 } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
@@ -63,18 +74,39 @@ const TEAM_MEMBER_VIEWS = [
   { userId: 'user-b', name: null, nickname: 'login-b', isLeader: false },
 ];
 
-const STAFF_TEAM: StaffTeamRecord = {
-  id: 'team-1',
-  name: '오픈소스팀',
-  leaderId: 'user-a',
-  members: TEAM_MEMBER_RECORDS,
+const STAFF_TEAM_PAGE: TeamManagementListPage = {
+  items: [
+    {
+      id: TEAM_ID,
+      programId: PROGRAM_ID,
+      teamMinSize: 2,
+      status: 'SUBMITTED',
+      submittedAt: new Date('2026-08-01T00:00:00.000Z'),
+      rejectionReason: null,
+      applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+      team: {
+        id: TEAM_ID,
+        name: '오픈소스팀',
+        memberCount: 2,
+        members: TEAM_MEMBER_RECORDS.map((member) => ({
+          id: member.userId,
+          name: member.name,
+          nickname: member.nickname,
+        })),
+      },
+    },
+  ],
+  page: 1,
+  pageSize: 20,
+  totalItems: 1,
+  totalPages: 1,
 };
-
 const STAFF_TEAM_BODY = {
-  teamId: 'team-1',
-  name: '오픈소스팀',
-  memberCount: 2,
-  members: TEAM_MEMBER_VIEWS,
+  ...STAFF_TEAM_PAGE,
+  items: STAFF_TEAM_PAGE.items.map((item) => ({
+    ...item,
+    submittedAt: item.submittedAt.toISOString(),
+  })),
 };
 
 const STAFF_TEAM_DETAIL: StaffTeamDetailRecord = {
@@ -142,26 +174,31 @@ function staffOnlyProblem(instance: string) {
     type: 'about:blank',
     title: 'FORBIDDEN',
     status: 403,
-    detail: STAFF_ONLY_DETAIL,
+    detail:
+      instance === LIST_INSTANCE
+        ? '승인된 교직원 또는 운영자만 조회할 수 있습니다.'
+        : STAFF_ONLY_DETAIL,
     instance,
-    code: TeamsErrorCode.STAFF_ONLY,
+    code:
+      instance === LIST_INSTANCE
+        ? ApplicationsErrorCode.STAFF_LIST_ONLY
+        : TeamsErrorCode.STAFF_ONLY,
   };
 }
 
 const findProgramById = jest.fn();
-const listStaffTeams = jest.fn();
+const listTeamManagementForProgram = jest.fn();
 const findStaffTeamDetail = jest.fn();
 const findUnique = jest.fn();
 
 const repository = {
   findProgramById,
-  listStaffTeams,
+  listTeamManagementForProgram,
   findStaffTeamDetail,
 } as unknown as TeamRepository;
 
 const service = new TeamMembershipService(
   repository,
-  { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository(),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
@@ -174,13 +211,18 @@ const service = new TeamMembershipService(
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
   ),
 );
 
-const listForStaff = jest.fn(
-  (...args: Parameters<TeamMembershipService['listForStaff']>) =>
-    service.listForStaff(...args),
+const applicationService = new TeamApplicationService(
+  repository as unknown as ApplicationsRepository,
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
+);
+const listForProgramView = jest.fn(
+  (...args: Parameters<TeamApplicationService['listForProgramView']>) =>
+    applicationService.listForProgramView(...args),
 );
 const getForStaff = jest.fn(
   (...args: Parameters<TeamMembershipService['getForStaff']>) =>
@@ -190,9 +232,9 @@ const getForStaff = jest.fn(
 const guardedRoutes = [
   {
     route: 'GET 목록',
-    path: '',
+    path: '?view=team-management',
     instance: LIST_INSTANCE,
-    success: [STAFF_TEAM_BODY] as unknown,
+    success: STAFF_TEAM_BODY as unknown,
   },
   {
     route: 'GET 상세',
@@ -254,7 +296,7 @@ let baseUrl = '';
 
 async function getTeams(
   cookie: string | null,
-  path = '',
+  path = '?view=team-management',
   origin: string | null = null,
 ): Promise<Response> {
   return fetch(`${baseUrl}${LIST_INSTANCE}${path}`, {
@@ -278,14 +320,12 @@ async function sessionCookieFor(githubId: bigint): Promise<string> {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [TeamsController],
+    controllers: [ProgramApplicationsController, TeamsController],
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      {
-        provide: TeamMembershipService,
-        useValue: { listForStaff, getForStaff },
-      },
+      { provide: TeamMembershipService, useValue: { getForStaff } },
+      { provide: TeamApplicationService, useValue: { listForProgramView } },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {
@@ -319,13 +359,13 @@ beforeAll(async () => {
 });
 
 beforeEach(() => {
-  listForStaff.mockClear();
+  listForProgramView.mockClear();
   getForStaff.mockClear();
   findUnique.mockReset();
   findProgramById.mockReset();
   findProgramById.mockResolvedValue(TEAM_PROGRAM);
-  listStaffTeams.mockReset();
-  listStaffTeams.mockResolvedValue([STAFF_TEAM]);
+  listTeamManagementForProgram.mockReset();
+  listTeamManagementForProgram.mockResolvedValue(STAFF_TEAM_PAGE);
   findStaffTeamDetail.mockReset();
   findStaffTeamDetail.mockResolvedValue(STAFF_TEAM_DETAIL);
 });
@@ -336,29 +376,14 @@ afterAll(async () => {
   }
 });
 
-it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
+it('ACTIVE STAFF 는 팀 목록 페이지를 200 으로 받는다', async () => {
   findUnique.mockResolvedValue(STAFF_USER);
 
   const response = await getTeams(await sessionCookieFor(5001n));
 
   expect(response.status).toBe(200);
   const body: unknown = await response.json();
-  expect(body).toEqual([
-    {
-      teamId: 'team-1',
-      name: '오픈소스팀',
-      memberCount: 2,
-      members: [
-        {
-          userId: 'user-a',
-          name: '가나다',
-          nickname: 'login-a',
-          isLeader: true,
-        },
-        { userId: 'user-b', name: null, nickname: 'login-b', isLeader: false },
-      ],
-    },
-  ]);
+  expect(body).toEqual(STAFF_TEAM_BODY);
 
   const serialized = JSON.stringify(body);
   for (const forbidden of [
@@ -374,13 +399,24 @@ it('ACTIVE STAFF 는 팀 목록 배열을 200 으로 받는다', async () => {
   ]) {
     expect(serialized).not.toContain(forbidden);
   }
-  expect(listForStaff).toHaveBeenCalledWith(PROGRAM_ID);
-  expect(listStaffTeams).toHaveBeenCalledWith(PROGRAM_ID);
+  expect(listForProgramView).toHaveBeenCalledWith(
+    PROGRAM_ID,
+    expect.objectContaining({ view: 'team-management' }),
+  );
+  expect(listTeamManagementForProgram).toHaveBeenCalledWith(
+    PROGRAM_ID,
+    expect.objectContaining({ page: 1, pageSize: 20, view: 'team-management' }),
+  );
 });
 
 it('교직원 권한이 없는 ACTIVE ADMIN 은 거부한다', async () => {
   findUnique.mockResolvedValue(ADMIN_USER);
-  listStaffTeams.mockResolvedValue([]);
+  listTeamManagementForProgram.mockResolvedValue({
+    ...STAFF_TEAM_PAGE,
+    items: [],
+    totalItems: 0,
+    totalPages: 0,
+  });
 
   const response = await getTeams(await sessionCookieFor(5002n));
 
@@ -388,7 +424,7 @@ it('교직원 권한이 없는 ACTIVE ADMIN 은 거부한다', async () => {
   await expect(response.json()).resolves.toEqual(
     staffOnlyProblem(LIST_INSTANCE),
   );
-  expect(listStaffTeams).not.toHaveBeenCalled();
+  expect(listTeamManagementForProgram).not.toHaveBeenCalled();
 });
 
 it.each([
@@ -406,11 +442,11 @@ it.each([
     await expect(response.json()).resolves.toMatchObject({
       type: 'about:blank',
       status: 403,
-      code: TeamsErrorCode.STAFF_ONLY,
+      code: ApplicationsErrorCode.STAFF_LIST_ONLY,
       instance: `/api/v1/programs/${PROGRAM_ID}/teams`,
     });
     expect(findProgramById).not.toHaveBeenCalled();
-    expect(listStaffTeams).not.toHaveBeenCalled();
+    expect(listTeamManagementForProgram).not.toHaveBeenCalled();
   },
 );
 
@@ -419,7 +455,7 @@ it('세션 쿠키가 없으면 401 이고 권한 조회까지 가지 않는다',
 
   expect(response.status).toBe(401);
   expect(findUnique).not.toHaveBeenCalled();
-  expect(listForStaff).not.toHaveBeenCalled();
+  expect(listForProgramView).not.toHaveBeenCalled();
 });
 
 it('세션 쿠키가 위조되면 401 이다', async () => {
@@ -428,7 +464,7 @@ it('세션 쿠키가 위조되면 401 이다', async () => {
   );
 
   expect(response.status).toBe(401);
-  expect(listForStaff).not.toHaveBeenCalled();
+  expect(listForProgramView).not.toHaveBeenCalled();
 });
 
 it.each(guardedCells)(
@@ -444,24 +480,33 @@ it.each(guardedCells)(
     expect(response.status).toBe(status);
     await expect(response.json()).resolves.toEqual(expected);
     if (status !== 200) {
-      expect(listStaffTeams).not.toHaveBeenCalled();
+      expect(listTeamManagementForProgram).not.toHaveBeenCalled();
       expect(findStaffTeamDetail).not.toHaveBeenCalled();
     }
   },
 );
 
 it.each(inputCells)(
-  '$role 의 $route 요청은 입력 DTO 가 없어 알 수 없는 query 로도 400 이 되지 않는다',
+  '$role 의 $route 요청은 목록 DTO의 알 수 없는 query를 거부하고 상세는 query를 무시한다',
   async ({ githubId, user, path, status, expected }) => {
     findUnique.mockResolvedValue(user);
 
     const response = await getTeams(
       await sessionCookieFor(githubId),
-      `${path}?unknown=1`,
+      `${path}${path.includes('?') ? '&' : '?'}unknown=1`,
     );
 
-    expect(response.status).toBe(status);
-    await expect(response.json()).resolves.toEqual(expected);
+    if (path.startsWith('?') && status === 200) {
+      expect(response.status).toBe(400);
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'SYS_003',
+        status: 400,
+      });
+      expect(listForProgramView).not.toHaveBeenCalled();
+    } else {
+      expect(response.status).toBe(status);
+      await expect(response.json()).resolves.toEqual(expected);
+    }
   },
 );
 
@@ -494,9 +539,9 @@ it('프로그램이 없으면 STAFF 목록 요청도 404 TEAM_002 다', async ()
     status: 404,
     detail: '프로그램을 찾을 수 없습니다.',
     instance: LIST_INSTANCE,
-    code: TeamsErrorCode.PROGRAM_NOT_FOUND,
+    code: ApplicationsErrorCode.PROGRAM_NOT_FOUND,
   });
-  expect(listStaffTeams).not.toHaveBeenCalled();
+  expect(listTeamManagementForProgram).not.toHaveBeenCalled();
 });
 
 it('대상 팀이 없으면 STAFF 상세 요청은 404 TEAM_010 이다', async () => {

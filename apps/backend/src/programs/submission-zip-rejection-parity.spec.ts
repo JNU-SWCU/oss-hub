@@ -131,7 +131,7 @@ function milestoneDocumentService() {
       required: true,
     }),
     findStudentApplication: jest.fn().mockResolvedValue({
-      applicationId: 'application-opaque',
+      teamId: 'application-opaque',
       approved: true,
       programEndAt: new Date('2099-12-31T00:00:00.000Z'),
     }),

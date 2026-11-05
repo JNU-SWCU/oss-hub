@@ -55,9 +55,8 @@ async function seedFixture(): Promise<void> {
     data: {
       startAt: new Date('2026-08-01T00:00:00.000Z'),
       endAt: new Date(
-        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000,
       ),
-
       id: PROGRAM_ID,
       name: 'Invitation acceptance race program',
       organizer: 'Synthetic organizer',
@@ -69,7 +68,6 @@ async function seedFixture(): Promise<void> {
       applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
       description: 'Synthetic invitation acceptance race fixture',
       teamMinSize: 1,
-
       teamMaxSize: 3,
     },
   });
@@ -79,6 +77,9 @@ async function seedFixture(): Promise<void> {
       programId: PROGRAM_ID,
       name: 'Acceptance race team',
       leaderId: LEADER_ID,
+      applicantId: LEADER_ID,
+      answers: { title: 'Acceptance race team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.createMany({
@@ -112,7 +113,7 @@ async function cleanup(): Promise<void> {
   await prisma.teamInvitation.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
-  await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });

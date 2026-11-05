@@ -25,10 +25,7 @@ function programLinkedRepositoryFilter(
   platformRepository: PlatformRepository,
 ): Prisma.GithubRepositoryWhereInput {
   return {
-    AND: [
-      platformRepository.linkedRepositoryFilter(),
-      { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
-    ],
+    AND: [platformRepository.linkedRepositoryFilter()],
   };
 }
 

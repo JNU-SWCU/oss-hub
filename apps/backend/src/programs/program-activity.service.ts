@@ -45,7 +45,7 @@ export interface ActivityTimelineResult {
 }
 
 export interface ProgramActivityResult {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly label: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -155,7 +155,7 @@ export class ProgramActivityService {
           });
         }
         const members = repository
-          ? application.team.members.map(({ user }) => ({
+          ? application.members.map(({ user }) => ({
               githubLogin: user.nickname,
               commitCount: contributions.get(user.githubId)?.commitCount ?? 0,
               pullRequestCount:
@@ -184,8 +184,8 @@ export class ProgramActivityService {
           }
         }
         return {
-          applicationId: application.id,
-          label: application.team.name,
+          teamId: application.id,
+          label: application.name,
           ...totals,
           lastActivityAt,
           dataAsOf: latestCommittedStreamAt(repository?.streams),
@@ -289,7 +289,7 @@ export class ProgramActivityService {
                 seoulPeriod(application.program.applicationStartAt, 'YEAR'),
               ),
               applicationMode:
-                application.teamId === null
+                application.id === null
                   ? ('PERSONAL' as const)
                   : ('TEAM' as const),
             },

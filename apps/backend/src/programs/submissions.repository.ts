@@ -47,12 +47,12 @@ export class SubmissionsRepository {
       const stillMember =
         await this.platformRepository.lockSubmissionMembership(
           transaction,
-          input.applicationId,
+          input.teamId,
           input.submittedById,
         );
       if (!stillMember) {
         throw new SubmissionMembershipChangedError(
-          input.applicationId,
+          input.teamId,
           input.submittedById,
         );
       }
@@ -101,7 +101,7 @@ export class SubmissionsRepository {
         SELECT "id"
         FROM "MilestoneDocumentSubmission"
         WHERE "milestoneDocumentId" = ${input.milestoneDocumentId}
-          AND "applicationId" = ${input.applicationId}
+          AND "teamId" = ${input.teamId}
         FOR UPDATE
       `);
       const latestHistory =
@@ -109,7 +109,7 @@ export class SubmissionsRepository {
           where: {
             submission: {
               milestoneDocumentId: input.milestoneDocumentId,
-              applicationId: input.applicationId,
+              teamId: input.teamId,
             },
           },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -125,7 +125,7 @@ export class SubmissionsRepository {
             event: { in: SUBMISSION_REVIEW_EVENTS },
             submission: {
               milestoneDocumentId: input.milestoneDocumentId,
-              applicationId: input.applicationId,
+              teamId: input.teamId,
             },
           },
           orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -141,9 +141,9 @@ export class SubmissionsRepository {
         const current =
           await transaction.milestoneDocumentSubmission.findUnique({
             where: {
-              milestoneDocumentId_applicationId: {
+              milestoneDocumentId_teamId: {
                 milestoneDocumentId: input.milestoneDocumentId,
-                applicationId: input.applicationId,
+                teamId: input.teamId,
               },
             },
             select: { status: true, revision: true },
@@ -163,9 +163,9 @@ export class SubmissionsRepository {
       }
       const submission = await transaction.milestoneDocumentSubmission.upsert({
         where: {
-          milestoneDocumentId_applicationId: {
+          milestoneDocumentId_teamId: {
             milestoneDocumentId: input.milestoneDocumentId,
-            applicationId: input.applicationId,
+            teamId: input.teamId,
           },
         },
         update: {
@@ -177,7 +177,7 @@ export class SubmissionsRepository {
         },
         create: {
           milestoneDocumentId: input.milestoneDocumentId,
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           status: SubmissionStatus.SUBMITTED,
           content: input.content,
           submittedById: input.submittedById,
@@ -213,7 +213,7 @@ export class SubmissionsRepository {
             id: input.attachFile.fileId,
             uploaderId: input.attachFile.uploaderId,
             kind: 'SUBMISSION',
-            team: { applications: { some: { id: input.applicationId } } },
+            teamId: input.teamId,
             requirementId: input.milestoneDocumentId,
             lifecycle: FileLifecycle.PENDING,
             pendingExpiresAt: { gt: input.submittedAt },
@@ -249,7 +249,7 @@ export class SubmissionsRepository {
 }
 export interface UpsertMilestoneDocumentSubmissionInput {
   readonly milestoneDocumentId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly submittedById: string;
   readonly submittedAt: Date;
   readonly comment?: string | null;

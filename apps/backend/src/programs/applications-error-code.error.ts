@@ -33,7 +33,6 @@ export enum ApplicationsErrorCode {
   OWN_REPOSITORY_URL_UNREACHABLE = 'APP_027',
 
   TEAM_LEADER_REQUIRED = 'APP_028',
-  PREPARATION_CHANGED = 'APP_031',
   OWN_TEAM_DECISION_FORBIDDEN = 'APP_029',
   INVALID_INVITEES = 'APP_032',
   INVITEE_NOT_ELIGIBLE = 'APP_033',
@@ -58,7 +57,7 @@ export const APPLICATIONS_ERROR_CODES: Record<
   [ApplicationsErrorCode.INVITEE_UNAVAILABLE]: {
     code: ApplicationsErrorCode.INVITEE_UNAVAILABLE,
     status: 409,
-    message: '이미 이 프로그램의 팀 또는 신청 준비에 참여한 학생입니다.',
+    message: '이미 이 프로그램의 팀에 참여한 학생입니다.',
   },
   [ApplicationsErrorCode.TEAM_MAX_SIZE_EXCEEDED]: {
     code: ApplicationsErrorCode.TEAM_MAX_SIZE_EXCEEDED,
@@ -148,12 +147,6 @@ export const APPLICATIONS_ERROR_CODES: Record<
     message:
       '연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.',
   },
-  [ApplicationsErrorCode.PREPARATION_CHANGED]: {
-    code: ApplicationsErrorCode.PREPARATION_CHANGED,
-    status: 409,
-    message:
-      '신청 준비의 구성원 상태가 변경되었습니다. 구성원과 인원 제한을 확인해 주세요.',
-  },
   [ApplicationsErrorCode.OWN_TEAM_DECISION_FORBIDDEN]: {
     code: ApplicationsErrorCode.OWN_TEAM_DECISION_FORBIDDEN,
     status: 403,
@@ -224,7 +217,7 @@ const STUDENT_REPOSITORY_URL_ERRORS = {
     message: '저장소를 처리 중입니다. 잠시 후 다시 시도해 주세요.',
   },
   unavailable: {
-    code: 'APP_031',
+    code: 'APP_036',
     status: 503,
     message: 'GitHub 저장소를 확인할 수 없습니다. 잠시 후 다시 시도해 주세요.',
     exposeToClient: true,

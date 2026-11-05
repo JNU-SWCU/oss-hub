@@ -154,46 +154,40 @@ export class MilestoneDocumentsController {
       documentId,
     );
   }
-  @Get(':documentId/applications/:applicationId/file')
+
+  @Get(':documentId/teams/:teamId/file')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   async downloadSubmissionFile(
-    @Param('milestoneId')
-    milestoneId: string,
-    @Param('documentId')
-    documentId: string,
-    @Param('applicationId')
-    applicationId: string,
-    @Res({ passthrough: true })
-    response: Response,
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Param('teamId') teamId: string,
+    @Res({ passthrough: true }) response: Response,
   ): Promise<StreamableFile> {
     return this.filesService.downloadSubmissionFileTo(
       response,
       milestoneId,
       documentId,
-      applicationId,
+      teamId,
     );
   }
-  @Get(':documentId/applications/:applicationId/history')
+
+  @Get(':documentId/teams/:teamId/history')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   async history(
-    @Param('milestoneId')
-    milestoneId: string,
-    @Param('documentId')
-    documentId: string,
-    @Param('applicationId')
-    applicationId: string,
-    @Query()
-    query: MilestoneDocumentHistoryRequestDto,
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Param('teamId') teamId: string,
+    @Query() query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return MilestoneDocumentHistoryPageResponseDto.from(
       await this.service.historyForStaff(
         milestoneId,
         documentId,
-        applicationId,
+        teamId,
         query,
       ),
     );
@@ -220,29 +214,25 @@ export class MilestoneDocumentsController {
       ),
     );
   }
-  @Post(':documentId/applications/:applicationId/reviews')
+
+  @Post(':documentId/teams/:teamId/reviews')
   @HttpCode(201)
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   async review(
-    @Req()
-    request: ViewerRequest,
-    @Param('milestoneId')
-    milestoneId: string,
-    @Param('documentId')
-    documentId: string,
-    @Param('applicationId')
-    applicationId: string,
-    @Body()
-    body: CreateMilestoneDocumentReviewRequestDto,
+    @Req() request: ViewerRequest,
+    @Param('milestoneId') milestoneId: string,
+    @Param('documentId') documentId: string,
+    @Param('teamId') teamId: string,
+    @Body() body: CreateMilestoneDocumentReviewRequestDto,
   ): Promise<MilestoneDocumentReviewResponseDto> {
     return MilestoneDocumentReviewResponseDto.from(
       await this.reviewsService.reviewFromRequest(
         request.principal.id,
         milestoneId,
         documentId,
-        applicationId,
+        teamId,
         body,
       ),
     );

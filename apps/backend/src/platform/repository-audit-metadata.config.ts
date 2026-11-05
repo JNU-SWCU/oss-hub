@@ -14,9 +14,6 @@ export type RepositoryDeletionCounts = {
   readonly contributorYearAggregates: number;
 };
 
-export const APPLICATION_REPOSITORY_URL_CHANGED =
-  'APPLICATION_REPOSITORY_URL_CHANGED';
-
 export type ApplicationRepositoryUrlAuditMetadata = {
   readonly deletedCounts?: RepositoryDeletionCounts;
   readonly schemaVersion: 2;
@@ -42,10 +39,6 @@ export type ApplicationRepositoryUrlAuditMetadataView =
     });
 
 export const REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION = 1 as const;
-
-export const REPOSITORY_CONNECTION_AUDIT_ACTIONS = {
-  REPOSITORY_CONNECTION_CHANGED: 'REPOSITORY_CONNECTION_CHANGED',
-} as const;
 
 export type RepositoryConnectionAuditState = {
   readonly repositoryId: string | null;

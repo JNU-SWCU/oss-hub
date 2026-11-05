@@ -10,27 +10,27 @@ export interface SubmissionMatrixFilter {
   readonly applicationMode: MatrixApplicationMode | null;
 }
 export interface MatrixDocumentFirstSubmission {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneDocumentId: string;
   readonly firstSubmittedAt: Date;
 }
 async function findMatrixDocumentFirstSubmissions(
   prisma: Prisma.TransactionClient,
   scope: {
-    readonly applicationIds: readonly string[];
+    readonly teamIds: readonly string[];
     readonly documentIds: readonly string[];
   },
 ): Promise<readonly MatrixDocumentFirstSubmission[]> {
-  if (scope.applicationIds.length === 0 || scope.documentIds.length === 0) {
+  if (scope.teamIds.length === 0 || scope.documentIds.length === 0) {
     return [];
   }
   const submissions = await prisma.milestoneDocumentSubmission.findMany({
     where: {
-      applicationId: { in: [...scope.applicationIds] },
+      teamId: { in: [...scope.teamIds] },
       milestoneDocumentId: { in: [...scope.documentIds] },
     },
     select: {
-      applicationId: true,
+      teamId: true,
       milestoneDocumentId: true,
       createdAt: true,
       histories: {
@@ -42,7 +42,7 @@ async function findMatrixDocumentFirstSubmissions(
     },
   });
   return submissions.map((submission) => ({
-    applicationId: submission.applicationId,
+    teamId: submission.teamId,
     milestoneDocumentId: submission.milestoneDocumentId,
     firstSubmittedAt:
       submission.histories[0]?.createdAt ?? submission.createdAt,
@@ -67,7 +67,7 @@ export interface MatrixApplicationRecord {
 }
 export interface MatrixSubmissionRecord {
   readonly id: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneId: string;
   readonly milestoneDocumentId: string;
   readonly status: SubmissionStatus;
@@ -88,18 +88,18 @@ export interface SubmissionMatrixRepositoryPort {
     take: number,
   ): Promise<MatrixApplicationPage>;
   findCurrentSubmissions(
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]>;
   findDocumentFirstSubmissions(
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
     documentIds: readonly string[],
   ): Promise<readonly MatrixDocumentFirstSubmission[]>;
   findDocumentChangeRequests(
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly MatrixDocumentChangeRequest[]>;
 }
 export interface MatrixDocumentChangeRequest {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneId: string;
 }
 const matrixApplicationSelect = {
@@ -110,17 +110,13 @@ const matrixApplicationSelect = {
       ...USER_PROFILE_NAME_SELECT,
     },
   },
-  team: {
-    select: {
-      name: true,
-      members: {
-        orderBy: { createdAt: 'asc' },
-        select: { user: { select: { nickname: true } } },
-      },
-    },
+  name: true,
+  members: {
+    orderBy: { createdAt: 'asc' },
+    select: { user: { select: { nickname: true } } },
   },
-} satisfies Prisma.ApplicationSelect;
-type MatrixApplicationRow = Prisma.ApplicationGetPayload<{
+} satisfies Prisma.TeamSelect;
+type MatrixApplicationRow = Prisma.TeamGetPayload<{
   select: typeof matrixApplicationSelect;
 }>;
 function toMatrixApplication(
@@ -132,14 +128,12 @@ function toMatrixApplication(
       name: application.applicant.name ?? null,
       nickname: application.applicant.nickname,
     },
-    team: application.team
-      ? {
-          name: application.team.name,
-          memberNicknames: application.team.members.map(
-            (member) => member.user.nickname,
-          ),
-        }
-      : null,
+    team: {
+      name: application.name,
+      memberNicknames: application.members.map(
+        (member) => member.user.nickname,
+      ),
+    },
   };
 }
 @Injectable()
@@ -177,11 +171,11 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     }));
   }
   findDocumentFirstSubmissions(
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
     documentIds: readonly string[],
   ): Promise<readonly MatrixDocumentFirstSubmission[]> {
     return findMatrixDocumentFirstSubmissions(this.prisma, {
-      applicationIds,
+      teamIds,
       documentIds,
     });
   }
@@ -193,50 +187,50 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
   ): Promise<MatrixApplicationPage> {
     const where = this.submissionMatrixApplicationWhere(programId, filter);
     const [applications, total] = await Promise.all([
-      this.prisma.application.findMany({
+      this.prisma.team.findMany({
         where,
         orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
         skip,
         take,
         select: matrixApplicationSelect,
       }),
-      this.prisma.application.count({ where }),
+      this.prisma.team.count({ where }),
     ]);
     return { items: applications.map(toMatrixApplication), total };
   }
   async findDocumentChangeRequests(
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly MatrixDocumentChangeRequest[]> {
-    if (applicationIds.length === 0) return [];
+    if (teamIds.length === 0) return [];
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
-        applicationId: { in: [...applicationIds] },
+        teamId: { in: [...teamIds] },
         status: SubmissionStatus.CHANGES_REQUESTED,
         milestoneDocument: {},
       },
       select: {
-        applicationId: true,
+        teamId: true,
         milestoneDocument: { select: { milestoneId: true } },
       },
     });
     return submissions.map((submission) => ({
-      applicationId: submission.applicationId,
+      teamId: submission.teamId,
       milestoneId: submission.milestoneDocument.milestoneId,
     }));
   }
   async findCurrentSubmissions(
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]> {
-    if (applicationIds.length === 0) return [];
+    if (teamIds.length === 0) return [];
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
-        applicationId: { in: [...applicationIds] },
+        teamId: { in: [...teamIds] },
         milestoneDocument: { required: true },
       },
       select: {
         id: true,
         milestoneDocumentId: true,
-        applicationId: true,
+        teamId: true,
         status: true,
         revision: true,
         submittedAt: true,
@@ -245,7 +239,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     });
     return submissions.map((submission) => ({
       id: submission.id,
-      applicationId: submission.applicationId,
+      teamId: submission.teamId,
       milestoneId: submission.milestoneDocument.milestoneId,
       milestoneDocumentId: submission.milestoneDocumentId,
       status: submission.status,
@@ -256,8 +250,8 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
   submissionMatrixApplicationWhere(
     programId: string,
     filter: SubmissionMatrixFilter,
-  ): Prisma.ApplicationWhereInput {
-    const where: Prisma.ApplicationWhereInput = {
+  ): Prisma.TeamWhereInput {
+    const where: Prisma.TeamWhereInput = {
       programId,
       status: ApplicationStatus.APPROVED,
     };
@@ -266,8 +260,8 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       where.OR = [
         { applicant: this.platformRepository.userProfileNameWhere(filter.q) },
         { applicant: { nickname: contains } },
-        { team: { name: contains } },
-        { team: { members: { some: { user: { nickname: contains } } } } },
+        { name: contains },
+        { members: { some: { user: { nickname: contains } } } },
       ];
     }
     return where;

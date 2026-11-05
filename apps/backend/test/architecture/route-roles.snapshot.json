@@ -8,20 +8,6 @@
   },
   {
     "method": "GET",
-    "path": "/api/v1/applications/:id",
-    "roles": ["STAFF"],
-    "status": 403,
-    "error": "APP_018"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/applications/:id",
-    "roles": ["STAFF"],
-    "status": 403,
-    "error": "APP_004"
-  },
-  {
-    "method": "GET",
     "path": "/api/v1/audit-logs",
     "roles": ["ADMIN"],
     "status": 403,
@@ -42,29 +28,29 @@
     "error": "APP_018"
   },
   {
-    "method": "GET",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/file",
+    "method": "PATCH",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/grace",
     "roles": ["STAFF"],
     "status": 403,
     "error": "MSD_001"
   },
   {
     "method": "GET",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/history",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/teams/:teamId/file",
+    "roles": ["STAFF"],
+    "status": 403,
+    "error": "MSD_001"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/teams/:teamId/history",
     "roles": ["STAFF"],
     "status": 403,
     "error": "MSD_001"
   },
   {
     "method": "POST",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/reviews",
-    "roles": ["STAFF"],
-    "status": 403,
-    "error": "MSD_001"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/grace",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/teams/:teamId/reviews",
     "roles": ["STAFF"],
     "status": 403,
     "error": "MSD_001"
@@ -147,13 +133,6 @@
     "error": "PRG_011"
   },
   {
-    "method": "GET",
-    "path": "/api/v1/programs/:programId/applications",
-    "roles": ["STAFF"],
-    "status": 403,
-    "error": "APP_018"
-  },
-  {
     "method": "POST",
     "path": "/api/v1/programs/:programId/deadline-digest/preview",
     "roles": ["STAFF"],
@@ -200,7 +179,7 @@
     "path": "/api/v1/programs/:programId/teams",
     "roles": ["STAFF"],
     "status": 403,
-    "error": "TEAM_003"
+    "error": "APP_018"
   },
   {
     "method": "GET",
@@ -229,5 +208,19 @@
     "roles": ["ADMIN"],
     "status": 403,
     "error": "Active administrator access is required"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/teams/:id",
+    "roles": ["STAFF"],
+    "status": 403,
+    "error": "APP_018"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/teams/:id",
+    "roles": ["STAFF"],
+    "status": 403,
+    "error": "APP_004"
   }
 ]

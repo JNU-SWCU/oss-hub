@@ -5,12 +5,8 @@ import type {
   StaffDashboardSummary,
 } from './team.repository';
 import { TeamApplicationService } from './team-application.service';
-import type { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
-
-const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 describe('TeamApplicationService.staffSummary', () => {
   it('repository 요약을 그대로 반환한다', async () => {
@@ -42,8 +38,6 @@ describe('TeamApplicationService.staffSummary', () => {
     } as unknown as ApplicationsRepository;
     const service = new TeamApplicationService(
       repository,
-      noopAuditLog,
-      new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
       new RepositoryProvisionEventService(),
@@ -59,8 +53,6 @@ describe('TeamApplicationService.staffSummary', () => {
     } as unknown as ApplicationsRepository;
     const service = new TeamApplicationService(
       repository,
-      noopAuditLog,
-      new AuditLogMetadataService(),
       new RepositoryUrlService(),
       new ApplicationAnswersService(),
       new RepositoryProvisionEventService(),

@@ -116,7 +116,8 @@ const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
 const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
 interface FakeRepoRow {
-  applicationId: string | null;
+  readonly team?: { readonly program: { readonly lifecycle: string } };
+  teamId: string | null;
   id: string;
   githubOrganizationId: bigint | null;
   githubRepositoryId: bigint;
@@ -124,10 +125,7 @@ interface FakeRepoRow {
   source: 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
 }
 
-function matchesWhere(
-  row: FakeRepoRow,
-  where: Record<string, unknown>,
-): boolean {
+function matchesWhere(row: object, where: Record<string, unknown>): boolean {
   return Object.entries(where).every(([key, condition]) => {
     if (key === 'NOT' && Array.isArray(condition)) {
       return condition.every(
@@ -150,6 +148,13 @@ function matchesWhere(
       const notIn = (condition as { notIn: readonly unknown[] }).notIn;
       return !notIn.includes(value);
     }
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      condition !== null &&
+      typeof condition === 'object'
+    )
+      return matchesWhere(value, condition as Record<string, unknown>);
     return value === condition;
   });
 }
@@ -627,11 +632,8 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
     expect(db.githubRepository.findMany).toHaveBeenCalledWith({
       where: {
         source: 'ORG_PROVISIONED',
-        applicationId: { not: null },
-        NOT: [
-          { program: { lifecycle: 'DELETED' } },
-          { application: { program: { lifecycle: 'DELETED' } } },
-        ],
+        teamId: { not: null },
+        team: { program: { lifecycle: { not: 'DELETED' } } },
       },
     });
     expect(result).toEqual([{ id: 'repo-1' }]);
@@ -646,11 +648,8 @@ describe('CollectionIncrementalRepository — todo 10 sync cursor/inventory', ()
     expect(db.githubRepository.findMany).toHaveBeenCalledWith({
       where: {
         source: 'EXTERNAL_PUBLIC',
-        applicationId: { not: null },
-        NOT: [
-          { program: { lifecycle: 'DELETED' } },
-          { application: { program: { lifecycle: 'DELETED' } } },
-        ],
+        teamId: { not: null },
+        team: { program: { lifecycle: { not: 'DELETED' } } },
       },
     });
     expect(result).toEqual([{ id: 'ext-1' }]);
@@ -702,7 +701,8 @@ describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABS
     const store = createFakeGithubRepositoryStore([
       {
         id: 'org-1',
-        applicationId: 'application-1',
+        teamId: 'application-1',
+        team: { program: { lifecycle: 'PUBLISHED' } },
         githubOrganizationId: 10n,
         githubRepositoryId: 1n,
         presence: 'PRESENT',
@@ -710,7 +710,8 @@ describe('CollectionIncrementalRepository — GR-6 external 저장소는 org ABS
       },
       {
         id: 'ext-1',
-        applicationId: 'application-2',
+        teamId: 'application-2',
+        team: { program: { lifecycle: 'PUBLISHED' } },
         githubOrganizationId: 10n,
         githubRepositoryId: 99n,
         presence: 'PRESENT',

@@ -23,7 +23,7 @@ const repositoryWith = (
         {
           githubRepositoryId: 1n,
           nameWithOwner: 'synthetic/repo',
-          programId: null,
+          team: null,
           streams: streams.map((stream) => ({
             ...stream,
             lastRunAt: null,

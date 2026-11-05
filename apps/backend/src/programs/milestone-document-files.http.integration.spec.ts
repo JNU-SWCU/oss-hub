@@ -156,7 +156,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     expect(
       (
         await fixture.request(
-          `${fixture.documentPath()}/applications/${flowIds.application}/reviews`,
+          `${fixture.documentPath()}/teams/${flowIds.team}/reviews`,
           {
             actor: 'staff',
             method: 'POST',
@@ -184,10 +184,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     });
     expect(
       await fixture.prisma.file.count({
-        where: {
-          kind: 'SUBMISSION',
-          team: { applications: { some: { id: flowIds.application } } },
-        },
+        where: { kind: 'SUBMISSION', teamId: flowIds.team },
       }),
     ).toBe(0);
     expect(
@@ -215,10 +212,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       const response = await upload(name, mime, bytes);
       expect(response.status).toBe(201);
       const pending = await fixture.prisma.file.findFirstOrThrow({
-        where: {
-          kind: 'SUBMISSION',
-          team: { applications: { some: { id: flowIds.application } } },
-        },
+        where: { kind: 'SUBMISSION', teamId: flowIds.team },
       });
       expect(pending.requirementId).toBe(flowIds.document);
       expect((await fixture.submit('', pending.id)).status).toBe(201);
@@ -244,10 +238,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       expect(response.status).toBe(415);
       expect(
         await fixture.prisma.file.count({
-          where: {
-            kind: 'SUBMISSION',
-            team: { applications: { some: { id: flowIds.application } } },
-          },
+          where: { kind: 'SUBMISSION', teamId: flowIds.team },
         }),
       ).toBe(0);
     },
@@ -309,12 +300,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       data: {
         kind: 'SUBMISSION',
         uploaderId: flowIds.student,
-        teamId: (
-          await fixture.prisma.application.findUniqueOrThrow({
-            where: { id: flowIds.application },
-            select: { teamId: true },
-          })
-        ).teamId,
+        teamId: flowIds.team,
         submissionId: history.milestoneDocumentSubmissionId,
         submissionHistoryId: history.id,
         lifecycle: 'ATTACHED',
@@ -345,10 +331,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       Buffer.from('%PDF-synthetic'),
     );
     const file = await fixture.prisma.file.findFirstOrThrow({
-      where: {
-        kind: 'SUBMISSION',
-        team: { applications: { some: { id: flowIds.application } } },
-      },
+      where: { kind: 'SUBMISSION', teamId: flowIds.team },
     });
     await fixture.submit('첫 제출', file.id);
     expect((await fixture.submit('이번 제출은 글만 포함합니다.')).status).toBe(

@@ -41,7 +41,6 @@ function firstInvocationOrder(mock: jest.Mock): number {
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticDocumentId = 'cuid-synthetic-document';
-const syntheticApplicationId = 'cuid-synthetic-application';
 const syntheticUserId = 'cuid-synthetic-user';
 const syntheticFenceProgramId = 'cuid-synthetic-fence-program';
 const syntheticTeamId = 'cuid-synthetic-team';
@@ -57,36 +56,32 @@ type MembershipFence = Readonly<{
 }>;
 
 function attachMembershipFence(
-  tx: { $queryRaw: unknown; application?: unknown },
+  tx: { $queryRaw: unknown; team?: unknown },
   currentMemberIds: readonly string[] = [syntheticUserId],
 ): MembershipFence {
   const featureQueryRaw = tx.$queryRaw as RawQueryFn;
   const locks: string[] = [];
 
   const applicationFindUnique = jest.fn((args: { where: { id: string } }) =>
-    args.where.id === syntheticApplicationId
+    args.where.id === syntheticTeamId
       ? Promise.resolve({
           programId: syntheticFenceProgramId,
-          teamId: syntheticTeamId,
+          id: syntheticTeamId,
         })
       : Promise.resolve(null),
   );
 
   const applicationFindFirst = jest.fn(
-    (args: { where: Prisma.ApplicationWhereInput }) => {
-      const team = args.where.team as
-        Readonly<{ members?: { some?: { userId?: string } } }> | undefined;
-      const candidateId = team?.members?.some?.userId;
-      if (candidateId === undefined) {
+    (args: { where: Prisma.TeamWhereInput }) => {
+      const candidateId = args.where.members?.some?.userId;
+      if (typeof candidateId !== 'string') {
         throw new Error('현재 TeamMember 술어 없이 권한을 판정했다');
       }
-      if ((args.where.id as string | undefined) !== syntheticApplicationId) {
+      if (args.where.id !== syntheticTeamId) {
         return Promise.resolve(null);
       }
       return Promise.resolve(
-        currentMemberIds.includes(candidateId)
-          ? { id: syntheticApplicationId }
-          : null,
+        currentMemberIds.includes(candidateId) ? { id: syntheticTeamId } : null,
       );
     },
   );
@@ -103,7 +98,7 @@ function attachMembershipFence(
     }
     return featureQueryRaw(sql);
   };
-  tx.application = {
+  tx.team = {
     findUnique: applicationFindUnique,
     findFirst: applicationFindFirst,
   };
@@ -134,12 +129,13 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
           },
         ]),
       },
-      application: {
+      team: {
         findMany: jest.fn().mockResolvedValue([
           {
-            id: syntheticApplicationId,
+            id: syntheticTeamId,
             applicant: { name: '합성 신청자' },
-            team: { name: '가나다팀', members: [] },
+            name: '가나다팀',
+            members: [],
           },
         ]),
       },
@@ -149,13 +145,13 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
           .mockResolvedValueOnce([
             {
               milestoneDocumentId: syntheticDocumentId,
-              applicationId: syntheticApplicationId,
+              teamId: syntheticTeamId,
             },
           ])
           .mockResolvedValueOnce([
             {
               milestoneDocumentId: syntheticDocumentId,
-              applicationId: syntheticApplicationId,
+              teamId: syntheticTeamId,
               submittedAt: new Date('2026-09-16T14:22:00.000Z'),
               revision: 1,
               status: SubmissionStatus.SUBMITTED,
@@ -202,7 +198,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
       const submissions = await store.findSubmissionsForCollection(
         documents.map((document) => document.id),
         new Date('2026-09-20T00:00:00.000Z'),
-        applications.map((application) => application.applicationId),
+        applications.map((team) => team.teamId),
       );
       return { coordinates, submissions };
     });
@@ -218,13 +214,13 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
       coordinates: [
         {
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticTeamId,
         },
       ],
       submissions: [
         expect.objectContaining({
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticTeamId,
           revision: 1,
         }),
       ],
@@ -371,7 +367,7 @@ describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
 describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissionsByDocument', () => {
   it('승인된 신청 수를 센다', async () => {
     const count = jest.fn().mockResolvedValue(8);
-    const prisma = { application: { count } } as unknown as PrismaService;
+    const prisma = { team: { count } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
       new LockProgramTreeRepository(),
@@ -483,7 +479,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
       by: ['milestoneDocumentId'],
       where: {
         milestoneDocumentId: { in: [syntheticDocumentId] },
-        application: {
+        team: {
           programId: 'cuid-program',
           status: ApplicationStatus.APPROVED,
         },
@@ -779,7 +775,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       content: { type: 'TEXT', text: '본문' },
@@ -816,7 +812,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-19T09:00:00.001Z'),
         deadline: {
@@ -860,7 +856,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-20T00:00:00.000Z'),
       deadline: {
@@ -906,7 +902,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-20T00:00:00.000Z'),
         deadline: {
@@ -968,7 +964,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-20T00:00:00.000Z'),
       deadline: {
@@ -1010,7 +1006,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-18T00:00:00.000Z'),
       deadline: {
@@ -1063,7 +1059,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       content: { type: 'TEXT', text: '본문' },
@@ -1108,7 +1104,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         content: { type: 'TEXT', text: '본문' },
@@ -1141,7 +1137,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: latest,
       content: { type: 'TEXT', text: '본문' },
@@ -1195,7 +1191,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     const result = await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt,
       content: Prisma.JsonNull,
@@ -1213,7 +1209,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         id: 'cuid-synthetic-file',
         uploaderId: syntheticUserId,
         kind: 'SUBMISSION',
-        team: { applications: { some: { id: syntheticApplicationId } } },
+        teamId: syntheticTeamId,
         requirementId: syntheticDocumentId,
         lifecycle: SubmissionFileLifecycle.PENDING,
         pendingExpiresAt: { gt: submittedAt },
@@ -1251,7 +1247,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         content: Prisma.JsonNull,
@@ -1288,7 +1284,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         content: { type: 'TEXT', text: '본문' },
@@ -1321,7 +1317,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       content: { type: 'TEXT', text: '본문' },
@@ -1351,7 +1347,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       content: { type: 'TEXT', text: '본문' },
@@ -1385,7 +1381,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt,
       content: { type: 'TEXT', text: '수정한 본문' },
@@ -1425,7 +1421,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       content: { type: 'TEXT', text: '본문' },
@@ -1469,7 +1465,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
       content: { type: 'TEXT', text: '본문' },
@@ -1501,7 +1497,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     await expect(
       repository.upsertSubmission({
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         content: Prisma.JsonNull,
@@ -1559,7 +1555,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
 
     const result = await repository.findMySubmission(
       syntheticDocumentId,
-      syntheticApplicationId,
+      syntheticTeamId,
     );
 
     const call = firstCallArgument<{
@@ -1622,7 +1618,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
 
     const result = await repository.findMySubmission(
       syntheticDocumentId,
-      syntheticApplicationId,
+      syntheticTeamId,
     );
 
     expect(result?.files).toEqual([]);
@@ -1728,17 +1724,14 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     );
 
     const result = await repository.withTransaction((store) =>
-      store.findSubmissionForReview(
-        syntheticDocumentId,
-        syntheticApplicationId,
-      ),
+      store.findSubmissionForReview(syntheticDocumentId, syntheticTeamId),
     );
 
     expect(submissionFindUnique).toHaveBeenCalledWith({
       where: {
-        milestoneDocumentId_applicationId: {
+        milestoneDocumentId_teamId: {
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticTeamId,
         },
       },
 
@@ -1791,10 +1784,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     );
 
     const result = await repository.withTransaction((store) =>
-      store.findSubmissionForReview(
-        syntheticDocumentId,
-        syntheticApplicationId,
-      ),
+      store.findSubmissionForReview(syntheticDocumentId, syntheticTeamId),
     );
 
     expect(result).toBeNull();
@@ -2120,18 +2110,16 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   it('승인된 신청만 팀 이름 오름차순으로 조회하고 표시 이름 관례를 그대로 쓴다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        id: syntheticApplicationId,
+        id: syntheticTeamId,
         applicant: { name: '합성 신청자' },
-        team: {
-          name: '가나다팀',
-          members: [
-            { user: { nickname: 'synthetic-leader' } },
-            { user: { nickname: 'synthetic-member' } },
-          ],
-        },
+        name: '가나다팀',
+        members: [
+          { user: { nickname: 'synthetic-leader' } },
+          { user: { nickname: 'synthetic-member' } },
+        ],
       },
     ]);
-    const prisma = { application: { findMany } } as unknown as PrismaService;
+    const prisma = { team: { findMany } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
       new LockProgramTreeRepository(),
@@ -2156,12 +2144,12 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
           programId: 'cuid-program',
           status: ApplicationStatus.APPROVED,
         },
-        orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+        orderBy: [{ name: 'asc' }, { id: 'asc' }],
       }),
     );
     expect(result).toEqual([
       {
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         teamName: '가나다팀',
         applicantName: '합성 신청자',
         memberNicknames: ['synthetic-leader', 'synthetic-member'],
@@ -2171,7 +2159,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
 
   it('팀원은 TeamMember createdAt 오름차순으로 조회한다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
-    const prisma = { application: { findMany } } as unknown as PrismaService;
+    const prisma = { team: { findMany } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
       new LockProgramTreeRepository(),
@@ -2190,9 +2178,9 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     await repository.findApprovedApplicationsForCollection('cuid-program');
 
     const call = firstCallArgument<{
-      select: { team: { select: { members: { orderBy: unknown } } } };
+      select: { members: { orderBy: unknown } };
     }>(findMany);
-    expect(call.select.team.select.members.orderBy).toEqual({
+    expect(call.select.members.orderBy).toEqual({
       createdAt: 'asc',
     });
   });
@@ -2200,12 +2188,13 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   it('프로필이 있으면 프로필 이름을 신청자 이름으로 쓴다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        id: syntheticApplicationId,
+        id: syntheticTeamId,
         applicant: { name: '프로필 이름' },
-        team: { name: '가나다팀', members: [] },
+        name: '가나다팀',
+        members: [],
       },
     ]);
-    const prisma = { application: { findMany } } as unknown as PrismaService;
+    const prisma = { team: { findMany } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
       new LockProgramTreeRepository(),
@@ -2261,7 +2250,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -2326,7 +2315,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -2372,7 +2361,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         files: [],
@@ -2410,7 +2399,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-19T08:00:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -2452,7 +2441,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-19T08:00:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         files: [],
@@ -2501,7 +2490,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.CHANGES_REQUESTED,
         files: [],
@@ -2577,7 +2566,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
@@ -2684,7 +2673,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -2748,7 +2737,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -2838,7 +2827,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -2889,7 +2878,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
         content: { type: 'TEXT', text: '3주차까지 인터뷰 8건을 마쳤습니다.' },
@@ -2956,7 +2945,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     expect(call.select.revision).toBe(true);
     expect(call.select).toMatchObject({
       milestoneDocumentId: true,
-      applicationId: true,
+      teamId: true,
       submittedAt: true,
       status: true,
       content: true,
@@ -3011,10 +3000,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       new FileMetadataRepository(),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticApplicationId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(result[0]).toEqual({
@@ -3064,10 +3052,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       new FileMetadataRepository(),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticApplicationId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     expect(result[0]?.review).toBeNull();
     expect(result[0]?.historyComplete).toBe(true);
@@ -3105,9 +3092,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     );
 
     await expect(
-      repository.findSubmittedSummaries(syntheticApplicationId, [
-        syntheticDocumentId,
-      ]),
+      repository.findSubmittedSummaries(syntheticTeamId, [syntheticDocumentId]),
     ).resolves.toEqual([expect.objectContaining({ historyComplete: false })]);
   });
 
@@ -3131,10 +3116,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       new FileMetadataRepository(),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticApplicationId,
-      [],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, []);
 
     expect(findMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
@@ -3178,10 +3160,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       new FileMetadataRepository(),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticApplicationId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     const call = firstCallArgument<{
       select: { files: { select: Record<string, unknown> } };
@@ -3234,10 +3215,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       new FileMetadataRepository(),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticApplicationId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     expect(result[0]).toEqual(
       expect.objectContaining({
@@ -3274,14 +3254,14 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
 
     const result = await repository.findLatestReview(
       syntheticDocumentId,
-      syntheticApplicationId,
+      syntheticTeamId,
     );
 
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         submission: {
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticTeamId,
         },
         event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
       },
@@ -3315,7 +3295,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     );
 
     await expect(
-      repository.findLatestReview(syntheticDocumentId, syntheticApplicationId),
+      repository.findLatestReview(syntheticDocumentId, syntheticTeamId),
     ).resolves.toBeNull();
   });
 });
@@ -3325,7 +3305,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
     const findUnique = jest
       .fn()
       .mockResolvedValue({ programId: 'cuid-program' });
-    const prisma = { application: { findUnique } } as unknown as PrismaService;
+    const prisma = { team: { findUnique } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
       new LockProgramTreeRepository(),
@@ -3341,12 +3321,10 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
       new FileMetadataRepository(),
     );
 
-    const result = await repository.findApplicationProgramId(
-      syntheticApplicationId,
-    );
+    const result = await repository.findApplicationProgramId(syntheticTeamId);
 
     expect(findUnique).toHaveBeenCalledWith({
-      where: { id: syntheticApplicationId },
+      where: { id: syntheticTeamId },
       select: { programId: true },
     });
     expect(result).toBe('cuid-program');
@@ -3354,7 +3332,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
 
   it('신청이 없으면 null이다', async () => {
     const findUnique = jest.fn().mockResolvedValue(null);
-    const prisma = { application: { findUnique } } as unknown as PrismaService;
+    const prisma = { team: { findUnique } } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
       new LockProgramTreeRepository(),
@@ -3381,7 +3359,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
 
   it('ATTACHED이고 만료되지 않은 첨부 1개를 팀 이름과 함께 돌려준다', async () => {
     const findUnique = jest.fn().mockResolvedValue({
-      application: { team: { name: '가나다팀' } },
+      team: { name: '가나다팀' },
       revision: 2,
       files: [
         {
@@ -3413,7 +3391,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
 
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
-      syntheticApplicationId,
+      syntheticTeamId,
       now,
     );
 
@@ -3422,9 +3400,9 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       select: { files: { where: unknown; orderBy: unknown; take: number } };
     }>(findUnique);
     expect(call.where).toEqual({
-      milestoneDocumentId_applicationId: {
+      milestoneDocumentId_teamId: {
         milestoneDocumentId: syntheticDocumentId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticTeamId,
       },
     });
     expect(call.select.files.where).toEqual({
@@ -3451,7 +3429,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
 
   it('현재 revision과 다른 이력의 파일은 교직원 다운로드에 쓰지 않는다', async () => {
     const findUnique = jest.fn().mockResolvedValue({
-      application: { team: { name: '가나다팀' } },
+      team: { team: { name: '가나다팀' } },
       revision: 2,
       files: [
         {
@@ -3485,7 +3463,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     await expect(
       repository.findSubmissionFileForStaffDownload(
         syntheticDocumentId,
-        syntheticApplicationId,
+        syntheticTeamId,
         now,
       ),
     ).resolves.toBeNull();
@@ -3493,7 +3471,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
 
   it('제출은 있으나 살아 있는 첨부가 없으면 null이다', async () => {
     const findUnique = jest.fn().mockResolvedValue({
-      application: { team: { name: '가나다팀' } },
+      team: { team: { name: '가나다팀' } },
       files: [],
     });
     const prisma = {
@@ -3516,7 +3494,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
 
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
-      syntheticApplicationId,
+      syntheticTeamId,
       now,
     );
 
@@ -3545,7 +3523,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
 
     const result = await repository.findSubmissionFileForStaffDownload(
       syntheticDocumentId,
-      syntheticApplicationId,
+      syntheticTeamId,
       now,
     );
 
@@ -3958,7 +3936,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
   ): Promise<unknown> {
     return repository.upsertSubmission({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-20T00:00:00.000Z'),
       deadline: {

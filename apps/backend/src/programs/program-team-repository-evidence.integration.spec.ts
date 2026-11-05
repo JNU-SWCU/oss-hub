@@ -1,5 +1,4 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -16,8 +15,6 @@ import { TeamRepository } from './team.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { TeamMembershipService } from './team-membership.service';
 import { ProgramTeamDeletionRepository } from './team.repository';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -36,10 +33,6 @@ const teamsService = new TeamMembershipService(
     new PlatformRepository(),
     new TeamHistoryRepository(),
   ),
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(new AuditLogMetadataService()),
-  ),
   new ProgramTeamDeletionRepository(
     new TeamHistoryRepository(),
     prisma,
@@ -57,7 +50,6 @@ const teamsService = new TeamMembershipService(
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
   ),
 );
 const prefix = `staff-evidence-${randomUUID()}`;
@@ -65,7 +57,6 @@ const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const memberId = `${prefix}-member`;
 const programId = `${prefix}-program`;
 const teamId = `${prefix}-team`;
-const applicationId = `${prefix}-application`;
 const oldRepositoryId = `${prefix}-old`;
 const repositoryId = `${prefix}-current`;
 
@@ -101,16 +92,18 @@ it('projects current repository facts and URL audit history without reading or m
       programId,
       name: 'Synthetic team',
       leaderId: memberId,
+      applicantId: memberId,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
     data: { teamId, programId, userId: memberId },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
-      teamId,
       applicantId: memberId,
       answers: {},
       applicationTemplateVersion: 1,
@@ -123,7 +116,6 @@ it('projects current repository facts and URL audit history without reading or m
         githubRepositoryId: githubId + 1n,
         nameWithOwner: 'synthetic/old',
         source: 'ORG_PROVISIONED',
-        programId,
         teamId: null,
       },
       {
@@ -131,8 +123,6 @@ it('projects current repository facts and URL audit history without reading or m
         githubRepositoryId: githubId + 2n,
         nameWithOwner: 'synthetic/current',
         source: 'EXTERNAL_PUBLIC',
-        applicationId,
-        programId,
         teamId,
         lastSuccessAt: new Date('2026-09-01Z'),
       },
@@ -190,14 +180,14 @@ it('projects current repository facts and URL audit history without reading or m
         actorId: memberId,
         action: 'APPLICATION_REPOSITORY_URL_CHANGED',
         targetType: 'APPLICATION',
-        targetId: applicationId,
+        targetId: teamId,
         metadata,
       },
       {
         actorId: memberId,
         action: 'APPLICATION_REPOSITORY_URL_CHANGED',
         targetType: 'APPLICATION',
-        targetId: applicationId,
+        targetId: teamId,
         metadata: { ...metadata, teamId: 'unrelated-team' },
       },
     ],
@@ -278,6 +268,9 @@ it('shows the outsider totals only while they were counted for this program wind
       programId: scoped.program,
       name: 'Synthetic team',
       leaderId: scoped.member,
+      applicantId: scoped.member,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -287,11 +280,10 @@ it('shows the outsider totals only while they were counted for this program wind
       userId: scoped.member,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: scoped.team },
     data: {
-      id: scoped.application,
       programId: scoped.program,
-      teamId: scoped.team,
       applicantId: scoped.member,
       answers: {},
       applicationTemplateVersion: 1,
@@ -303,9 +295,7 @@ it('shows the outsider totals only while they were counted for this program wind
       githubRepositoryId: memberGithubId + 1n,
       nameWithOwner: 'synthetic/outsider-current',
       source: 'EXTERNAL_PUBLIC',
-      applicationId: scoped.application,
-      programId: scoped.program,
-      teamId: scoped.team,
+      teamId: scoped.application,
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
@@ -313,7 +303,7 @@ it('shows the outsider totals only while they were counted for this program wind
   await prisma.githubRepositoryOutsiderContribution.create({
     data: {
       repositoryId: scoped.repository,
-      applicationId: scoped.application,
+      teamId: scoped.application,
       programId: scoped.program,
       windowStartAt: startAt,
       windowEndAt: endAt,
@@ -339,13 +329,13 @@ it('shows the outsider totals only while they were counted for this program wind
 
   await prisma.githubRepositoryOutsiderContribution.update({
     where: { repositoryId: scoped.repository },
-    data: { applicationId: `${scope}-previous-application` },
+    data: { teamId: `${scope}-previous-application` },
   });
   const moved = await teams.findStaffTeamDetail(scoped.program, scoped.team);
   expect(moved?.repositoryContributions?.outsiderContributions).toBeNull();
   await prisma.githubRepositoryOutsiderContribution.update({
     where: { repositoryId: scoped.repository },
-    data: { applicationId: scoped.application },
+    data: { teamId: scoped.application },
   });
 
   await prisma.program.update({
@@ -370,7 +360,6 @@ it('reads contributions of a program that never set an end date', async () => {
     data: {
       startAt: new Date('2026-07-31Z'),
       endAt: new Date('9999-12-31T23:59:59.999Z'),
-
       id: scopedProgramId,
       name: 'Synthetic program',
       organizer: 'Synthetic',
@@ -388,6 +377,9 @@ it('reads contributions of a program that never set an end date', async () => {
       programId: scopedProgramId,
       name: 'Synthetic team',
       leaderId: `${scope}-member`,
+      applicantId: `${scope}-member`,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -397,11 +389,10 @@ it('reads contributions of a program that never set an end date', async () => {
       userId: `${scope}-member`,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: scopedTeamId },
     data: {
-      id: scopedApplicationId,
       programId: scopedProgramId,
-      teamId: scopedTeamId,
       applicantId: `${scope}-member`,
       answers: {},
       applicationTemplateVersion: 1,
@@ -413,9 +404,7 @@ it('reads contributions of a program that never set an end date', async () => {
       githubRepositoryId: base + 1n,
       nameWithOwner: 'synthetic/sentinel',
       source: 'EXTERNAL_PUBLIC',
-      applicationId: scopedApplicationId,
-      programId: scopedProgramId,
-      teamId: scopedTeamId,
+      teamId: scopedApplicationId,
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
@@ -502,6 +491,9 @@ it('counts issues for team members, so an issue-only member has observations', a
       programId: scopedProgramId,
       name: 'Synthetic team',
       leaderId: activeId,
+      applicantId: activeId,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.createMany({
@@ -511,11 +503,10 @@ it('counts issues for team members, so an issue-only member has observations', a
       userId,
     })),
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: scopedTeamId },
     data: {
-      id: scopedApplicationId,
       programId: scopedProgramId,
-      teamId: scopedTeamId,
       applicantId: activeId,
       answers: {},
       applicationTemplateVersion: 1,
@@ -527,9 +518,7 @@ it('counts issues for team members, so an issue-only member has observations', a
       githubRepositoryId: base + 2n,
       nameWithOwner: 'synthetic/issue-only',
       source: 'EXTERNAL_PUBLIC',
-      applicationId: scopedApplicationId,
-      programId: scopedProgramId,
-      teamId: scopedTeamId,
+      teamId: scopedApplicationId,
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });

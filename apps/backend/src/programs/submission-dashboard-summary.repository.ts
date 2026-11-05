@@ -8,7 +8,7 @@ import { PrismaService } from '../platform/prisma.service';
 const dashboardApplicationSelect = {
   id: true,
   programId: true,
-} satisfies Prisma.ApplicationSelect;
+} satisfies Prisma.TeamSelect;
 const dashboardMilestoneSelect = {
   id: true,
   programId: true,
@@ -19,10 +19,10 @@ const dashboardMilestoneDocumentSelect = {
   milestone: { select: { programId: true } },
 } satisfies Prisma.MilestoneDocumentSelect;
 const dashboardDocumentSubmissionSelect = {
-  applicationId: true,
+  teamId: true,
   milestoneDocumentId: true,
   status: true,
-  application: { select: { programId: true } },
+  team: { select: { programId: true } },
   milestoneDocument: {
     select: {
       milestoneId: true,
@@ -30,7 +30,7 @@ const dashboardDocumentSubmissionSelect = {
     },
   },
 } satisfies Prisma.MilestoneDocumentSubmissionSelect;
-export type DashboardApplicationRow = Prisma.ApplicationGetPayload<{
+export type DashboardApplicationRow = Prisma.TeamGetPayload<{
   select: typeof dashboardApplicationSelect;
 }>;
 export type DashboardMilestoneRow = Prisma.MilestoneGetPayload<{
@@ -44,9 +44,9 @@ export type DashboardDocumentSubmissionRow =
     select: typeof dashboardDocumentSubmissionSelect;
   }>;
 export interface SubmissionDashboardSummaryDataSource {
-  readonly application: {
+  readonly team: {
     findMany(args: {
-      readonly where: Prisma.ApplicationWhereInput;
+      readonly where: Prisma.TeamWhereInput;
       readonly select: typeof dashboardApplicationSelect;
     }): Promise<readonly DashboardApplicationRow[]>;
   };
@@ -78,7 +78,7 @@ export interface SubmissionDashboardMilestoneRecord {
   readonly programId: string;
 }
 interface SubmissionDashboardSubmissionRecord {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicationProgramId: string;
   readonly milestoneId: string;
   readonly milestoneProgramId: string;
@@ -90,7 +90,7 @@ export interface SubmissionDashboardMilestoneDocumentRecord {
   readonly milestoneProgramId: string;
 }
 export interface SubmissionDashboardDocumentSubmissionRecord {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicationProgramId: string;
   readonly milestoneDocumentId: string;
   readonly milestoneId: string;
@@ -130,7 +130,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     const programFilter = { in: [...programIds] };
     const [applications, milestones, milestoneDocuments, targetSubmissions] =
       await Promise.all([
-        this.prisma.application.findMany({
+        this.prisma.team.findMany({
           where: {
             programId: programFilter,
             status: ApplicationStatus.APPROVED,
@@ -150,7 +150,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
         }),
         this.prisma.milestoneDocumentSubmission.findMany({
           where: {
-            application: {
+            team: {
               is: {
                 programId: programFilter,
                 status: ApplicationStatus.APPROVED,
@@ -172,8 +172,8 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     for (const submission of targetSubmissions) {
       const { milestoneDocument } = submission;
       documentSubmissions.push({
-        applicationId: submission.applicationId,
-        applicationProgramId: submission.application.programId,
+        teamId: submission.teamId,
+        applicationProgramId: submission.team.programId,
         milestoneDocumentId: submission.milestoneDocumentId,
         milestoneId: milestoneDocument.milestoneId,
         milestoneProgramId: milestoneDocument.milestone.programId,

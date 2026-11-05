@@ -218,6 +218,9 @@ async function upsertDemoTeam(
           programId,
           name: params.teamName,
           leaderId: leaderUserId,
+          applicantId: leaderUserId,
+          answers: { title: params.teamName },
+          applicationTemplateVersion: 1,
         },
       }),
   );
@@ -254,17 +257,14 @@ async function upsertDemoApplication(
 ): Promise<void> {
   await upsertTracked(
     stats,
-    'Application',
-    () => prisma.application.findUnique({ where: { id: params.id } }),
+    'Team',
+    () => prisma.team.findUnique({ where: { id: params.teamId } }),
     () =>
-      prisma.application.upsert({
-        where: { id: params.id },
-        update: { status: ApplicationStatus.APPROVED },
-        create: {
-          id: params.id,
+      prisma.team.update({
+        where: { id: params.teamId },
+        data: {
           programId: params.programId,
           applicantId: params.applicantId,
-          teamId: params.teamId,
           answers: {
             seedPlaceholder: true,
             scenarioId: 'demo-application',
@@ -352,7 +352,7 @@ async function upsertDemoSubmission(
   params: {
     readonly slug: string;
     readonly milestoneId: string;
-    readonly applicationId: string;
+    readonly teamId: string;
     readonly submittedById: string;
     readonly submittedAt: Date;
     readonly status: SubmissionStatus;
@@ -410,7 +410,7 @@ async function upsertDemoSubmission(
         create: {
           id: submissionId,
           milestoneDocumentId: documentId,
-          applicationId: params.applicationId,
+          teamId: params.teamId,
           status: params.status,
           revision: 1,
           content,
@@ -487,15 +487,10 @@ async function upsertDemoSubmission(
             kind: 'SUBMISSION',
             id: fileId,
             uploaderId: params.submittedById,
-            teamId: (
-              await prisma.application.findUniqueOrThrow({
-                where: { id: params.applicationId },
-                select: { teamId: true },
-              })
-            ).teamId,
+            teamId: params.teamId,
             submissionId: submissionId,
             submissionHistoryId: submissionHistoryId,
-            storageKey: storageKey,
+            storageKey,
             originalFileName: fileContent.originalFileName,
             mimeType: fileContent.mimeType,
             sizeBytes: storedFile.contentLength,
@@ -724,7 +719,7 @@ export async function seedDemo(
   );
   const internshipApplicationId = seedId(
     'demo',
-    'application',
+    'team',
     'summer-internship-alpha',
   );
   await upsertDemoApplication(stats, {
@@ -757,7 +752,7 @@ export async function seedDemo(
   await upsertDemoSubmission(stats, storage, {
     slug: 'summer-internship-midpoint',
     milestoneId: internshipMilestoneId,
-    applicationId: internshipApplicationId,
+    teamId: internshipTeamId,
     submittedById: studentId('kim-doyoon'),
     status: SubmissionStatus.SUBMITTED,
     content: {
@@ -1005,9 +1000,8 @@ export async function seedDemo(
       leaderUserId,
       [leaderUserId, ...memberUserIds],
     );
-    const applicationId = seedId('demo', 'application', team.teamSlug);
     await upsertDemoApplication(stats, {
-      id: applicationId,
+      id: teamId,
       programId: contestProgramId,
       applicantId: leaderUserId,
       teamId,
@@ -1023,7 +1017,7 @@ export async function seedDemo(
     await upsertDemoSubmission(stats, storage, {
       slug: demoDaySubmissionSlug,
       milestoneId: contestMilestoneId,
-      applicationId,
+      teamId,
       submittedById: leaderUserId,
       status: team.demoDaySubmission.status,
       content: {
@@ -1040,7 +1034,7 @@ export async function seedDemo(
       await upsertDemoSubmission(stats, storage, {
         slug: `${team.teamSlug}-final`,
         milestoneId: contestFinalMilestoneId,
-        applicationId,
+        teamId,
         submittedById: leaderUserId,
         status: team.finalSubmission.status,
         content: {
@@ -1119,7 +1113,7 @@ export async function seedDemo(
   );
   const freshmenApplicationId = seedId(
     'demo',
-    'application',
+    'team',
     'freshmen-bootcamp-nabi',
   );
   await upsertDemoApplication(stats, {
@@ -1152,7 +1146,7 @@ export async function seedDemo(
   await upsertDemoSubmission(stats, storage, {
     slug: 'freshmen-bootcamp-checkpoint',
     milestoneId: freshmenMilestoneId,
-    applicationId: freshmenApplicationId,
+    teamId: freshmenTeamId,
     submittedById: studentId('kang-yerin'),
     status: SubmissionStatus.SUBMITTED,
     content: {
@@ -1215,7 +1209,7 @@ export async function seedDemo(
   );
   const mileageApplicationId = seedId(
     'demo',
-    'application',
+    'team',
     'sojoong-mileage-jungsubin',
   );
   await upsertDemoApplication(stats, {
@@ -1248,7 +1242,7 @@ export async function seedDemo(
   await upsertDemoSubmission(stats, storage, {
     slug: 'sojoong-mileage-activity-log',
     milestoneId: mileageMilestoneId,
-    applicationId: mileageApplicationId,
+    teamId: mileageTeamId,
     submittedById: studentId('jung-subin'),
     status: SubmissionStatus.APPROVED,
     content: {
@@ -1341,9 +1335,6 @@ export async function teardownDemo(
   );
   await countAndDelete('Milestone', () =>
     prisma.milestone.deleteMany({ where: seedIdFilter }),
-  );
-  await countAndDelete('Application', () =>
-    prisma.application.deleteMany({ where: seedIdFilter }),
   );
   await countAndDelete('Team', () =>
     prisma.team.deleteMany({ where: seedIdFilter }),

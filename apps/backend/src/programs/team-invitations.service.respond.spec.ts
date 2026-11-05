@@ -273,7 +273,6 @@ describe('acceptTeamInvitationTransaction', () => {
         create: jest.fn().mockResolvedValue(undefined),
       },
       teamHistory: { create: jest.fn().mockResolvedValue({}) },
-      team: { update: jest.fn() },
       user: {
         findUnique: jest.fn().mockResolvedValue({
           id: syntheticUserId,
@@ -282,7 +281,7 @@ describe('acceptTeamInvitationTransaction', () => {
         }),
       },
 
-      application: { findMany: jest.fn().mockResolvedValue([]) },
+      team: { update: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       outboxEvent: { createMany: jest.fn().mockResolvedValue({ count: 0 }) },
       $queryRaw: jest.fn().mockResolvedValue([{ id: syntheticTeamId }]),
       ...overrides,
@@ -386,7 +385,7 @@ describe('acceptTeamInvitationTransaction', () => {
 
   it('승인된 NEW 신청은 같은 트랜잭션에서 권한 동기화 outbox 이벤트로 예약된다', async () => {
     const tx = buildTx();
-    tx.application.findMany.mockResolvedValue([{ id: syntheticApplicationId }]);
+    tx.team.findMany.mockResolvedValue([{ id: syntheticApplicationId }]);
 
     await expect(run(tx)).resolves.toEqual({
       kind: 'ok',
@@ -394,9 +393,9 @@ describe('acceptTeamInvitationTransaction', () => {
       programId: syntheticProgramId,
     });
 
-    expect(tx.application.findMany).toHaveBeenCalledWith({
+    expect(tx.team.findMany).toHaveBeenCalledWith({
       where: {
-        teamId: syntheticTeamId,
+        id: syntheticTeamId,
         status: ApplicationStatus.APPROVED,
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         program: { repositoryProvisioningEnabled: true },
@@ -408,12 +407,11 @@ describe('acceptTeamInvitationTransaction', () => {
       data: [
         {
           type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-          aggregateType: 'Application',
+          aggregateType: 'Team',
           aggregateId: syntheticApplicationId,
           idempotencyKey: `repository-access-sync:${syntheticApplicationId}:${requestedAt}`,
           payload: {
-            applicationId: syntheticApplicationId,
-            teamId: syntheticTeamId,
+            teamId: syntheticApplicationId,
             requestedAt,
           },
           availableAt: RESPONDED_AT,
@@ -431,14 +429,14 @@ describe('acceptTeamInvitationTransaction', () => {
       teamId: syntheticTeamId,
       programId: syntheticProgramId,
     });
-    expect(tx.application.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.team.findMany).toHaveBeenCalledTimes(1);
     expect(tx.outboxEvent.createMany).not.toHaveBeenCalled();
   });
 
   it('outbox 예약이 실패하면 트랜잭션 밖으로 전파해 합류까지 롤백된다', async () => {
     const boom = new Error('outbox write failed');
     const tx = buildTx();
-    tx.application.findMany.mockResolvedValue([{ id: syntheticApplicationId }]);
+    tx.team.findMany.mockResolvedValue([{ id: syntheticApplicationId }]);
     tx.outboxEvent.createMany.mockRejectedValue(boom);
 
     await expect(run(tx)).rejects.toBe(boom);
@@ -450,7 +448,7 @@ describe('acceptTeamInvitationTransaction', () => {
     tx.teamMember.count.mockResolvedValue(4);
 
     await expect(run(tx)).resolves.toEqual({ kind: 'team-full' });
-    expect(tx.application.findMany).not.toHaveBeenCalled();
+    expect(tx.team.findMany).not.toHaveBeenCalled();
     expect(tx.outboxEvent.createMany).not.toHaveBeenCalled();
   });
 

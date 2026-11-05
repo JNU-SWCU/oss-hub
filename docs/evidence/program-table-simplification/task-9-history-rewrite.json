@@ -1,0 +1,88 @@
+{
+  "scope": "own A/B/C branches only",
+  "authorization": "owner approved checkpoint reword and force-with-lease after backup and verification",
+  "reword": [
+    {
+      "label": "A",
+      "oldHead": "1b06774184fd7dd055c499e89525393962597c62",
+      "newHead": "a707ee18759b8adbee72479622fdb89223131348",
+      "oldTree": "4de868d87cef6ff409fa3d666273084e39c24bd7",
+      "newTree": "4de868d87cef6ff409fa3d666273084e39c24bd7",
+      "treeIdentical": true,
+      "migrations": [
+        {
+          "name": "20261105100000_prepare_team_application_events",
+          "sha256": "a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7"
+        },
+        {
+          "name": "20261105100100_merge_applications_into_teams",
+          "sha256": "21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1"
+        }
+      ]
+    },
+    {
+      "label": "B",
+      "oldHead": "c53d29e243a607ddc18fcfc297f21d676686c75d",
+      "newHead": "a2d880c48fc054b8e85a9ff9ea24fa8ea782e8be",
+      "oldTree": "c43d9587706ab60bd277be1c9f511ff82aeab41d",
+      "newTree": "c43d9587706ab60bd277be1c9f511ff82aeab41d",
+      "treeIdentical": true,
+      "migrations": [
+        {
+          "name": "20261105100000_prepare_team_application_events",
+          "sha256": "a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7"
+        },
+        {
+          "name": "20261105100100_merge_applications_into_teams",
+          "sha256": "21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1"
+        }
+      ]
+    },
+    {
+      "label": "C",
+      "oldHead": "4b2fca26c8926885f65a0bbdb1c9faff128aa12b",
+      "newHead": "566c99ac3d3e85cbb417e5e410ba172cd6d0ebc4",
+      "oldTree": "09bfde727a78d184ea202b447d40b4fa8884b13b",
+      "newTree": "09bfde727a78d184ea202b447d40b4fa8884b13b",
+      "treeIdentical": true,
+      "migrations": [
+        {
+          "name": "20261105100000_prepare_team_application_events",
+          "sha256": "a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7"
+        },
+        {
+          "name": "20261105100100_merge_applications_into_teams",
+          "sha256": "21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1"
+        },
+        {
+          "name": "20261105110000_retire_application_storage",
+          "sha256": "146c5324016092c89cb79f2cb6307c3b7914c6a9578df5e1a7e85d4d44b41fc4"
+        }
+      ]
+    }
+  ],
+  "falsePositive": {
+    "findings": [
+      {
+        "rule": "generic-api-key",
+        "file": "apps/backend/test/e2e-program-authoring/e2e-program-authoring.adapter.ts",
+        "line": 340,
+        "commit": "34dd768441adb379fcfff927399461866ee2dceb"
+      },
+      {
+        "rule": "generic-api-key",
+        "file": "apps/backend/test/e2e-program-authoring/e2e-program-authoring.adapter.ts",
+        "line": 340,
+        "commit": "b1958a026f034f783e6c13f7ec66fa0a2703c599"
+      }
+    ],
+    "classification": "Static E2E program idempotency fixture; not a credential",
+    "allowlistAdded": false,
+    "changedFiles": [
+      "apps/backend/test/e2e-program-authoring/e2e-program-authoring-exercise-support.ts",
+      "apps/backend/test/e2e-program-authoring/e2e-program-authoring.adapter.ts"
+    ],
+    "migrationSqlUnchanged": true
+  },
+  "checks": { "commitlint": 0, "gitleaksVersion": "8.30.1", "gitleaksExit": 0 }
+}

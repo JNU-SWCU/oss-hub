@@ -221,7 +221,7 @@ export class ProgramsRepository {
     });
   }
   async findStudentApplication(programId: string, userId: string) {
-    return this.prisma.application.findFirst({
+    return this.prisma.team.findFirst({
       where: {
         programId,
         ...this.platformRepository.programApplicationParticipantWhere(userId),
@@ -239,7 +239,7 @@ export class ProgramsRepository {
     });
   }
   async findApprovedApplications(programId: string) {
-    return this.prisma.application.findMany({
+    return this.prisma.team.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
         milestoneDocumentSubmissions: {
@@ -256,7 +256,7 @@ export class ProgramsRepository {
     userId: string,
   ): Promise<ReadonlyMap<string, ApplicationStatus>> {
     if (programIds.length === 0) return new Map();
-    const applications = await this.prisma.application.findMany({
+    const applications = await this.prisma.team.findMany({
       where: {
         programId: { in: [...programIds] },
         ...this.platformRepository.programApplicationParticipantWhere(userId),
@@ -274,7 +274,7 @@ export class ProgramsRepository {
     programIds: readonly string[],
   ): Promise<ReadonlyMap<string, ProgramApplicationCounts>> {
     if (programIds.length === 0) return new Map();
-    const rows = await this.prisma.application.groupBy({
+    const rows = await this.prisma.team.groupBy({
       by: ['programId', 'status'],
       where: { programId: { in: [...programIds] } },
       _count: { _all: true },
@@ -302,20 +302,18 @@ export class ProgramsRepository {
   ) {
     const repositories = await this.prisma.githubRepository.findMany({
       where: {
-        programId,
-        ...(studentUserId
-          ? {
-              application: {
-                ...this.platformRepository.programApplicationParticipantWhere(
-                  studentUserId,
-                ),
-              },
-            }
-          : {}),
+        team: {
+          programId,
+          ...(studentUserId
+            ? this.platformRepository.programApplicationParticipantWhere(
+                studentUserId,
+              )
+            : {}),
+        },
       },
       select: {
         githubRepositoryId: true,
-        application: {
+        team: {
           select: {
             id: true,
             applicant: {
@@ -325,48 +323,45 @@ export class ProgramsRepository {
                 ...USER_PROFILE_NAME_SELECT,
               },
             },
-            team: {
-              select: {
-                name: true,
-                leader: { select: { githubId: true } },
-                members: { select: { user: { select: { githubId: true } } } },
-              },
-            },
+            name: true,
+            leader: { select: { githubId: true } },
+            members: { select: { user: { select: { githubId: true } } } },
           },
         },
       },
     });
-    return repositories
-      .filter((repository) => repository.application !== null)
-      .map((repository) => ({
-        githubRepositoryId: repository.githubRepositoryId,
-        application: {
-          id: repository.application!.id,
-          applicant: {
-            githubId: repository.application!.applicant.githubId,
-            nickname: repository.application!.applicant.nickname,
-            name: repository.application!.applicant.name ?? null,
+
+    return repositories.flatMap((repository) => {
+      const team = repository.team;
+      if (team === null) return [];
+      return [
+        {
+          githubRepositoryId: repository.githubRepositoryId,
+          application: {
+            id: team.id,
+            applicant: team.applicant,
+            team: {
+              name: team.name,
+              leader: team.leader,
+              members: team.members,
+            },
           },
-          team: repository.application!.team,
         },
-      }));
+      ];
+    });
   }
   async findStudentActivityApplications(userId: string) {
-    return this.prisma.application.findMany({
+    return this.prisma.team.findMany({
       where: {
         status: ApplicationStatus.APPROVED,
         ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
-        teamId: true,
+        id: true,
         applicant: { select: { githubId: true } },
-        team: {
-          select: {
-            leader: { select: { githubId: true } },
-            members: {
-              select: { user: { select: { githubId: true } } },
-            },
-          },
+        leader: { select: { githubId: true } },
+        members: {
+          select: { user: { select: { githubId: true } } },
         },
         program: {
           select: { id: true, name: true, applicationStartAt: true },
@@ -447,7 +442,7 @@ export class ProgramDeletionScopeRepository {
       readonly DeletionScopeCountsRow[]
     >(Prisma.sql`
       SELECT
-        (SELECT count(*) FROM "Application" WHERE "programId" = ${programId}) AS applications,
+        (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS applications,
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
         (SELECT count(*) FROM "BoardPost" WHERE "programId" = ${programId}) AS "boardPosts",
         (SELECT count(*) FROM "MilestoneDocumentSubmission" WHERE "milestoneDocumentId" IN (
@@ -473,10 +468,7 @@ export class ProgramDeletionScopeRepository {
         (
           SELECT MD5(COALESCE(STRING_AGG(scope."key", '|' ORDER BY scope."key"), ''))
           FROM (
-            SELECT CONCAT('Application:', id) AS "key"
-            FROM "Application" WHERE "programId" = ${programId}
-            UNION ALL
-            SELECT CONCAT('Team:', id) FROM "Team" WHERE "programId" = ${programId}
+            SELECT CONCAT('Team:', id) AS "key" FROM "Team" WHERE "programId" = ${programId}
             UNION ALL
             SELECT CONCAT('TeamMember:', JSONB_BUILD_ARRAY("teamId", "userId")::text) FROM "TeamMember" WHERE "programId" = ${programId}
             UNION ALL
@@ -517,29 +509,21 @@ export class ProgramDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT('RepositoryProvisionJob:', job.id)
             FROM "RepositoryProvisionJob" AS job
-            INNER JOIN "Application" AS application ON application.id = job."applicationId"
+            INNER JOIN "Team" AS application ON application.id = job."teamId"
             WHERE application."programId" = ${programId}
             UNION ALL
             SELECT CONCAT(
               'GithubRepository:', repository.id, ':',
-              COALESCE(repository."programId", ''), ':',
-              COALESCE(repository."applicationId", ''), ':',
               COALESCE(repository."teamId", '')
             )
             FROM "GithubRepository" AS repository
-            WHERE repository."programId" = ${programId}
-              OR repository."applicationId" IN (
-                SELECT id FROM "Application" WHERE "programId" = ${programId}
-              )
-              OR repository."teamId" IN (
-                SELECT id FROM "Team" WHERE "programId" = ${programId}
-              )
+            WHERE repository."teamId" IN (SELECT id FROM "Team" WHERE "programId" = ${programId})
             UNION ALL
             SELECT CONCAT('OutboxEvent:', event.id)
             FROM "OutboxEvent" AS event
             WHERE (event."aggregateType" = 'PROGRAM' AND event."aggregateId" = ${programId})
-              OR (event."aggregateType" = 'Application' AND event."aggregateId" IN (
-                SELECT id FROM "Application" WHERE "programId" = ${programId}
+              OR (event."aggregateType" = 'Team' AND event."aggregateId" IN (
+                SELECT id FROM "Team" WHERE "programId" = ${programId}
               ))
             UNION ALL
             SELECT CONCAT('Notification:', notification.id)

@@ -2,7 +2,6 @@ import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { AccountStatus, RepositoryProvisionJobStatus } from '@prisma/client';
 import { StaffTeamDetailResponseDto } from './dto/staff-team-detail-response.dto';
 import { TeamRepository, type StaffTeamDetailRecord } from './team.repository';
@@ -51,14 +50,12 @@ function buildService(overrides: {
   const deletionRepository = stubTeamDeletionRepository();
   const service = new TeamMembershipService(
     repository,
-    { record: jest.fn() } as unknown as AuditLogService,
     deletionRepository,
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
     new StudentRepositoryUrlService(
-      {} as never,
       {} as never,
       {} as never,
       {} as never,
@@ -291,7 +288,7 @@ describe('TeamMembershipService.getForStaff', () => {
       },
 
       deletionScope: {
-        applications: 0,
+        teams: 0,
         members: 0,
         invitations: 0,
         submissions: 0,
@@ -334,18 +331,32 @@ describe('TeamRepository.findStaffTeamDetail', () => {
   }
 
   function buildRepository(overrides: {
-    readonly team?: unknown;
-    readonly application?: unknown;
+    readonly team?: object | null;
+    readonly application?: object | null;
     readonly outbox?: unknown;
     readonly job?: unknown;
   }) {
     const teamFindFirst = jest
-      .fn()
-      .mockResolvedValue(overrides.team === undefined ? null : overrides.team);
-    const applicationFindFirst = jest
-      .fn()
+      .fn<Promise<unknown>, [unknown]>()
       .mockResolvedValue(
-        overrides.application === undefined ? null : overrides.application,
+        overrides.team == null
+          ? null
+          : {
+              status: 'SUBMITTED',
+              updatedAt: new Date('2026-08-01'),
+              repositoryConnectionMode: 'NEW',
+              repositoryUrl: null,
+              isRepositoryPublicationPlanned: false,
+              repository: null,
+              program: {
+                endAt: new Date('2099-01-01'),
+                repositoryProvisioningEnabled: false,
+                milestones: [],
+              },
+              milestoneDocumentSubmissions: [],
+              ...(overrides.application ?? {}),
+              ...(overrides.team ?? {}),
+            },
       );
     const outboxFindUnique = jest
       .fn()
@@ -353,14 +364,13 @@ describe('TeamRepository.findStaffTeamDetail', () => {
     const jobFindUnique = jest.fn().mockResolvedValue(overrides.job ?? null);
     const prisma = {
       team: { findFirst: teamFindFirst },
-      application: { findFirst: applicationFindFirst },
       outboxEvent: { findUnique: outboxFindUnique },
       repositoryProvisionJob: { findUnique: jobFindUnique },
       contribution: { groupBy: jest.fn().mockResolvedValue([]) },
       githubRepositoryOutsiderContribution: {
         findUnique: jest.fn().mockResolvedValue(null),
       },
-      auditLog: { findMany: jest.fn().mockResolvedValue([]) },
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
     return {
       repository: new TeamRepository(
@@ -370,7 +380,6 @@ describe('TeamRepository.findStaffTeamDetail', () => {
         new TeamHistoryRepository(),
       ),
       teamFindFirst,
-      applicationFindFirst,
     };
   }
 
@@ -387,8 +396,8 @@ describe('TeamRepository.findStaffTeamDetail', () => {
     );
   });
 
-  it('팀은 있지만 신청이 없으면 application: null 이고 Application 조회로 저장소를 읽는다', async () => {
-    const { repository, applicationFindFirst } = buildRepository({
+  it('지원 상태를 같은 Team 조회에서 읽는다', async () => {
+    const { repository, teamFindFirst } = buildRepository({
       team: {
         id: TEAM_ID,
         name: '오픈소스팀',
@@ -405,12 +414,11 @@ describe('TeamRepository.findStaffTeamDetail', () => {
 
     const result = await repository.findStaffTeamDetail(PROGRAM_ID, TEAM_ID);
 
-    expect(result?.application).toBeNull();
-    expect(applicationFindFirst).toHaveBeenCalledWith(
-      expect.objectContaining({
-        where: { programId: PROGRAM_ID, teamId: TEAM_ID },
-      }),
-    );
+    expect(result?.application).toMatchObject({
+      id: TEAM_ID,
+      status: 'SUBMITTED',
+    });
+    expect(teamFindFirst).toHaveBeenCalledTimes(1);
   });
 
   it('서류 전용 마일스톤 승인만으로도 같은 공개 게이트를 통과한 저장소를 싣는다', async () => {
@@ -473,13 +481,11 @@ describe('TeamRepository.findStaffTeamDetail', () => {
       new TeamMembershipService(
         undefined as never,
         undefined as never,
-        undefined as never,
         new AuditLogMetadataService(),
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
         new StudentRepositoryUrlService(
-          {} as never,
           {} as never,
           {} as never,
           {} as never,

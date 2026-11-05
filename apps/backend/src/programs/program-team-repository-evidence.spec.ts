@@ -2,9 +2,8 @@ import { StudentRepositoryUrlService } from './team-application.service';
 import {
   outsiderFindUnique,
   teamFindFirst,
-  applicationFindFirst,
   contributionGroupBy,
-  auditFindMany,
+  historyQuery,
   provisionFindUnique,
   givenRepository,
 } from './program-team-repository-evidence.fixture';
@@ -23,7 +22,6 @@ function toPage(history: RepositoryUrlHistoryRows | undefined) {
   return new TeamMembershipService(
     undefined as never,
     undefined as never,
-    undefined as never,
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
@@ -35,12 +33,10 @@ function toPage(history: RepositoryUrlHistoryRows | undefined) {
       {} as never,
       {} as never,
       {} as never,
-      {} as never,
     ),
   )['toRepositoryUrlHistoryPage'](history!, {
     programId: 'program',
     teamId: 'team',
-    applicationId: 'application',
   });
 }
 
@@ -105,13 +101,11 @@ it('reports an explicit repository relink as succeeded without inventing a provi
     new TeamMembershipService(
       undefined as never,
       undefined as never,
-      undefined as never,
       new AuditLogMetadataService(),
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new StudentRepositoryUrlService(
-        {} as never,
         {} as never,
         {} as never,
         {} as never,
@@ -135,39 +129,44 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
   );
 
   expect(page).toEqual({
-    applicationId: 'application',
+    teamId: 'team',
     rows: [],
     hasMore: false,
   });
-  const historyQuery: unknown = auditFindMany.mock.calls[0]?.[0];
-  expect(historyQuery).toHaveProperty('where.targetId', 'application');
-  expect(historyQuery).toHaveProperty(
-    ['where', 'AND', 1, 'OR'],
-    [
-      { occurredAt: { lt: new Date('2026-08-15Z') } },
-      { occurredAt: new Date('2026-08-15Z'), id: { lt: 'change-11' } },
-    ],
+  const [sql, ...bindings] = historyQuery.mock.calls[0]!;
+  expect(bindings).toEqual([
+    'team',
+    'program',
+    cursor.occurredAt,
+    cursor.occurredAt,
+    cursor.occurredAt,
+    cursor.id,
+  ]);
+  expect(sql.join('?')).toContain(
+    'ORDER BY h."occurredAt" DESC, h.id DESC LIMIT 21',
   );
-  expect(historyQuery).toHaveProperty('take', 21);
 });
 
-it('returns an explicit empty evidence state when the team has no application', async () => {
+it('reads the application state from the same Team row', async () => {
   const repository = givenRepository();
-  applicationFindFirst.mockResolvedValue(null);
 
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
   expect(detail).toMatchObject({
-    repositoryContributions: null,
+    application: { id: 'team', status: 'APPROVED' },
+    repositoryContributions: {
+      repositoryId: 'current-repo',
+      collectionStatus: 'COLLECTED',
+    },
     repositoryUrlHistory: { rows: [], hasMore: false },
   });
-  expect(contributionGroupBy).not.toHaveBeenCalled();
-  expect(auditFindMany).not.toHaveBeenCalled();
+  expect(contributionGroupBy).toHaveBeenCalledTimes(1);
+  expect(historyQuery).toHaveBeenCalledTimes(1);
 });
 
 it('returns only application-scoped URL history with the actor snapshot', async () => {
   const repository = givenRepository();
-  auditFindMany.mockResolvedValue([
+  historyQuery.mockResolvedValue([
     {
       id: 'change-1',
       occurredAt: new Date('2026-08-15Z'),
@@ -204,36 +203,19 @@ it('returns only application-scoped URL history with the actor snapshot', async 
     ],
     nextCursor: null,
   });
-  expect(auditFindMany).toHaveBeenCalledWith(
-    expect.objectContaining({
-      where: {
-        targetType: 'APPLICATION',
-        targetId: 'application',
-        AND: [
-          {
-            OR: [
-              {
-                action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-                AND: [
-                  { metadata: { path: ['programId'], equals: 'program' } },
-                  { metadata: { path: ['teamId'], equals: 'team' } },
-                ],
-              },
-              {
-                action: 'REPOSITORY_CONNECTION_CHANGED',
-                metadata: { path: ['applicationId'], equals: 'application' },
-              },
-            ],
-          },
-        ],
-      },
-    }),
-  );
+  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual([
+    'team',
+    'program',
+    null,
+    null,
+    null,
+    null,
+  ]);
 });
 
 it('bounds the initial history page and provides a cursor for all remaining history', async () => {
   const repository = givenRepository();
-  auditFindMany.mockResolvedValue(
+  historyQuery.mockResolvedValue(
     Array.from({ length: 21 }, (_, index) => ({
       id: `change-${String(30 - index).padStart(2, '0')}`,
       occurredAt: new Date('2026-08-15Z'),
@@ -263,9 +245,14 @@ it('bounds the initial history page and provides a cursor for all remaining hist
     'items',
     expect.arrayContaining([expect.objectContaining({ id: 'change-11' })]),
   );
-  expect(auditFindMany).toHaveBeenCalledWith(
-    expect.objectContaining({ take: 21 }),
-  );
+  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual([
+    'team',
+    'program',
+    null,
+    null,
+    null,
+    null,
+  ]);
 });
 
 it('matches numeric GitHub identities and preserves members without observations', async () => {
@@ -338,14 +325,14 @@ it('does not query contributions or history for an absent or differently scoped 
 
   expect(detail).toBeNull();
   expect(contributionGroupBy).not.toHaveBeenCalled();
-  expect(auditFindMany).not.toHaveBeenCalled();
+  expect(historyQuery).not.toHaveBeenCalled();
 });
 
 it('shows the outsider totals only while they were counted for this application, program and window', async () => {
   const repository = givenRepository();
   const counted = {
     repositoryId: 'current-repo',
-    applicationId: 'application',
+    teamId: 'team',
     programId: 'program',
     windowStartAt: new Date('2026-07-31T15:00:00Z'),
     windowEndAt: new Date('2026-08-31T14:59:59Z'),
@@ -368,7 +355,7 @@ it('shows the outsider totals only while they were counted for this application,
   });
 
   for (const stale of [
-    { ...counted, applicationId: 'previous-application' },
+    { ...counted, teamId: 'previous-application' },
     { ...counted, programId: 'other-program' },
     { ...counted, windowStartAt: new Date('2026-07-01T15:00:00Z') },
     { ...counted, windowEndAt: new Date('2026-12-31T14:59:59Z') },

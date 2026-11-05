@@ -33,7 +33,7 @@ const FILE_BYTES_LIMIT = 5 * 1024 * 1024;
 function pendingRow(suffix: string, sizeBytes: number) {
   return {
     uploaderId: UPLOADER_ID,
-    applicationId: APPLICATION_ID,
+    teamId: APPLICATION_ID,
     milestoneId: MILESTONE_ID,
     milestoneDocumentId: seedId(
       'milestones',
@@ -62,14 +62,14 @@ function retainedFile(
   sizeBytes: number,
   lifecycle: SubmissionFileLifecycle = SubmissionFileLifecycle.PENDING,
 ) {
-  const { applicationId, milestoneId, milestoneDocumentId, ...metadata } =
-    pendingRow(suffix, sizeBytes);
-  void applicationId;
+  const { milestoneId, milestoneDocumentId, ...metadata } = pendingRow(
+    suffix,
+    sizeBytes,
+  );
   void milestoneId;
   return {
     ...metadata,
     kind: 'SUBMISSION' as const,
-    teamId: seedId('milestones', 'application-personal', 'team'),
     requirementId: milestoneDocumentId,
     lifecycle,
     expiresAt: PENDING_EXPIRES_AT,

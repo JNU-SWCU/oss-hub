@@ -9,7 +9,7 @@ import {
 import { InvalidRepositoryProvisionHistoryEventError } from './repository-provision-generation.error';
 
 interface RepositoryProvisionHistoryPayload {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly requestedAt: string;
 }
@@ -30,7 +30,7 @@ interface SynchronousProvisionGenerationRow extends LockedProvisionGenerationRow
 
 interface RepositoryIssuanceHistoryInput {
   readonly requestId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly repositoryId: string | null;
   readonly source: RepositorySource | null;
   readonly outcome: RepositoryIssuanceOutcome;
@@ -59,9 +59,9 @@ export class RepositoryProvisionGenerationRepository {
 
     const payload = parsePayload(event.payload);
     if (
-      event.aggregateType !== 'Application' ||
-      event.aggregateId !== input.applicationId ||
-      payload.applicationId !== input.applicationId
+      event.aggregateType !== 'Team' ||
+      event.aggregateId !== input.teamId ||
+      payload.teamId !== input.teamId
     ) {
       throw new InvalidRepositoryProvisionHistoryEventError();
     }
@@ -70,7 +70,7 @@ export class RepositoryProvisionGenerationRepository {
       data: [
         {
           requestId: input.requestId,
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           repositoryId: input.repositoryId,
           connectionMode: payload.repositoryConnectionMode,
           source: input.source,
@@ -87,7 +87,7 @@ export class RepositoryProvisionGenerationRepository {
   async transferProvisionGeneration(
     transaction: Prisma.TransactionClient,
     input: {
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly newEventId: string;
       readonly now: Date;
     },
@@ -99,7 +99,7 @@ export class RepositoryProvisionGenerationRepository {
         job."id",
         job."currentEventId"
       FROM "RepositoryProvisionJob" AS job
-      WHERE job."applicationId" = ${input.applicationId}
+      WHERE job."teamId" = ${input.teamId}
       FOR UPDATE OF job
     `,
     );
@@ -113,7 +113,7 @@ export class RepositoryProvisionGenerationRepository {
         transaction,
         {
           requestId: existing.currentEventId,
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           repositoryId: null,
           source: null,
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
@@ -126,7 +126,7 @@ export class RepositoryProvisionGenerationRepository {
     if (existing === undefined) {
       const created = await transaction.repositoryProvisionJob.create({
         data: {
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           currentEventId: input.newEventId,
           status: RepositoryProvisionJobStatus.PENDING,
           nextAttemptAt: input.now,
@@ -158,7 +158,7 @@ export class RepositoryProvisionGenerationRepository {
   async settleProvisionGenerationForSynchronousConnection(
     transaction: Prisma.TransactionClient,
     input: {
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly repositoryId: string;
       readonly now: Date;
     },
@@ -173,7 +173,7 @@ export class RepositoryProvisionGenerationRepository {
           job."repositoryId",
           job."status"
         FROM "RepositoryProvisionJob" AS job
-        WHERE job."applicationId" = ${input.applicationId}
+        WHERE job."teamId" = ${input.teamId}
         FOR UPDATE
       `,
       )
@@ -184,7 +184,7 @@ export class RepositoryProvisionGenerationRepository {
         transaction,
         {
           requestId: existing.currentEventId,
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           repositoryId: null,
           source: null,
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
@@ -202,9 +202,9 @@ export class RepositoryProvisionGenerationRepository {
     }
 
     await transaction.repositoryProvisionJob.upsert({
-      where: { applicationId: input.applicationId },
+      where: { teamId: input.teamId },
       create: {
-        applicationId: input.applicationId,
+        teamId: input.teamId,
         currentEventId: null,
         repositoryId: input.repositoryId,
         status: RepositoryProvisionJobStatus.SUCCEEDED,

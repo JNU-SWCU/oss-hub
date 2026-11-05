@@ -20,7 +20,7 @@ const LEADER_ID = seedId('program-overview', 'user', 'team-leader');
 const MEMBER_ID = seedId('program-overview', 'user', 'team-member');
 const INVITEE_ID = seedId('program-overview', 'user', 'invitee');
 const TEAM_ID = seedId('program-overview', 'team');
-const APPLICATION_ID = seedId('program-overview', 'application');
+const APPLICATION_ID = seedId('program-overview', 'team');
 const PROGRAM_START_AT = offsetDays(-45);
 type MilestoneSeed = {
   readonly id: string;
@@ -154,7 +154,7 @@ async function upsertMilestoneDocumentSubmission(
         create: {
           id: params.id,
           milestoneDocumentId: params.milestoneDocumentId,
-          applicationId: APPLICATION_ID,
+          teamId: APPLICATION_ID,
           status: SubmissionStatus.SUBMITTED,
           submittedById: params.submittedById,
           submittedAt,
@@ -223,15 +223,10 @@ async function upsertMilestoneDocumentSubmission(
           lifecycle: 'ATTACHED',
           id: fileId,
           uploaderId: params.submittedById,
-          teamId: (
-            await prisma.application.findUniqueOrThrow({
-              where: { id: APPLICATION_ID },
-              select: { teamId: true },
-            })
-          ).teamId,
+          teamId: APPLICATION_ID,
           submissionId: params.id,
           submissionHistoryId: historyId,
-          storageKey: storageKey,
+          storageKey,
           originalFileName: params.originalFileName,
           mimeType: 'application/pdf',
           sizeBytes: 512000,
@@ -358,6 +353,9 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
           programId: PROGRAM_ID,
           name: 'seed-program-overview-team',
           leaderId: leader.id,
+          applicantId: leader.id,
+          answers: { title: 'seed-program-overview-team' },
+          applicationTemplateVersion: 1,
         },
       }),
   );
@@ -399,17 +397,14 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
   );
   await upsertTracked(
     stats,
-    'Application',
-    () => prisma.application.findUnique({ where: { id: APPLICATION_ID } }),
+    'Team',
+    () => prisma.team.findUnique({ where: { id: TEAM_ID } }),
     () =>
-      prisma.application.upsert({
-        where: { id: APPLICATION_ID },
-        update: {},
-        create: {
-          id: APPLICATION_ID,
+      prisma.team.update({
+        where: { id: TEAM_ID },
+        data: {
           programId: PROGRAM_ID,
           applicantId: leader.id,
-          teamId: TEAM_ID,
           answers: {
             seedPlaceholder: true,
             scenarioId: 'program-overview-team',

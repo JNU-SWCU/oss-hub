@@ -3,7 +3,6 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramCategory, AccountStatus } from '@prisma/client';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { StaffProgramTeamResponseDto } from './dto/program-team-response.dto';
 import {
   TeamRepository,
@@ -66,14 +65,12 @@ function buildService(overrides: {
   } as unknown as TeamRepository;
   const service = new TeamMembershipService(
     repository,
-    { record: jest.fn() } as unknown as AuditLogService,
     stubTeamDeletionRepository(),
     new AuditLogMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
     new StudentRepositoryUrlService(
-      {} as never,
       {} as never,
       {} as never,
       {} as never,

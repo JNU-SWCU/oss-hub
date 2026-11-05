@@ -153,9 +153,8 @@ async function createPreservedAssets(
     data: {
       startAt: new Date('2026-07-01T00:00:00.000Z'),
       endAt: new Date(
-        new Date('2026-07-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        new Date('2026-07-31T00:00:00.000Z').getTime() + 365 * 86400000,
       ),
-
       id: `${prefix}program`,
       name: 'Synthetic PR04H Program',
       organizer: 'Synthetic Organizer',
@@ -174,6 +173,9 @@ async function createPreservedAssets(
       programId: program.id,
       name: `${prefix}team`,
       leaderId: staffId,
+      applicantId: staffId,
+      answers: { title: `${prefix}team` },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -183,12 +185,11 @@ async function createPreservedAssets(
       userId: staffId,
     },
   });
-  const application = await prisma.application.create({
+  const application = await prisma.team.update({
+    where: { id: team.id },
     data: {
-      id: `${prefix}application`,
       programId: program.id,
       applicantId: staffId,
-      teamId: team.id,
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
     },
@@ -196,8 +197,7 @@ async function createPreservedAssets(
   await prisma.githubRepository.create({
     data: {
       id: `${prefix}repository`,
-      applicationId: application.id,
-      programId: program.id,
+      teamId: application.id,
       githubRepositoryId: 9004800000n + BigInt(sequence),
       nameWithOwner: `synthetic-org/synthetic-pr04h-repository-${sequence}`,
       source: RepositorySource.ORG_PROVISIONED,
@@ -219,7 +219,7 @@ async function countPreservedAssets(
       prisma.userPolicy.count({ where: { userId: staffId } }),
       prisma.loginHistory.count({ where: { userId: staffId } }),
       prisma.program.count({ where: { id: `${prefix}program` } }),
-      prisma.application.count({ where: { applicantId: staffId } }),
+      prisma.team.count({ where: { applicantId: staffId } }),
       prisma.githubRepository.count({ where: { id: `${prefix}repository` } }),
     ]);
   return {

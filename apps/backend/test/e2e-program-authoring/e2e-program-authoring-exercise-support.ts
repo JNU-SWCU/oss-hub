@@ -68,7 +68,7 @@ export async function exercisePrismaFailure(
   try {
     await authoring.create(
       { id: E2E_STAFF_ID, githubId: E2E_STAFF_GITHUB_ID },
-      'e2e-prisma-fault',
+      'e2e-program-core',
       prismaAggregateRequest(uploadId),
     );
   } catch (error) {

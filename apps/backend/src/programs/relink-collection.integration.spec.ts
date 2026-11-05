@@ -7,7 +7,6 @@ import {
   collectionTrigger,
   githubId,
   programId,
-  applicationId,
   teamId,
   oldId,
   targetId,
@@ -177,7 +176,7 @@ it('stops selecting a linked external repository once deletion clears every link
   await service.updateMine(githubId, programId, input);
   await prisma.githubRepository.update({
     where: { id: targetId },
-    data: { applicationId: null, programId: null, teamId: null },
+    data: { teamId: null },
   });
 
   const selected = await collection.listExternalRepositories();
@@ -237,7 +236,7 @@ it('selects a historical external repository again when the application reattach
     expect.arrayContaining([
       expect.objectContaining({
         githubRepositoryId: targetGithubId + 1n,
-        applicationId,
+        teamId,
       }),
     ]),
   );
@@ -418,7 +417,6 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
         data: {
           githubRepositoryId: targetGithubId + 2n,
           nameWithOwner: `synthetic/${oldId}-duplicate`,
-          programId,
           teamId,
           source,
         },

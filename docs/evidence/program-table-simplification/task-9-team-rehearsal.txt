@@ -1,0 +1,37 @@
+source_commit=34dd768441adb379fcfff927399461866ee2dceb
+live_head_migration=20261105050000_retire_submission_axis
+production_database_writes=0
+SERVER_ISOLATION network=none memory=536870912 swap=536870912 nano_cpus=500000000 ports=0 labelled=true
+PREFLIGHT_OK head=20261105050000_retire_submission_axis checks=1
+BACKUP_VERIFIED label=rehearsal-20261105090831_835966 objects=absent object-count=0
+NOTICE:  TEAM_CUTOVER ApplicationReviewHistory copied=9 paired=9
+NOTICE:  TEAM_CUTOVER AuditLog lifecycle_copied=62 url_copied=2
+NOTICE:  TEAM_CUTOVER RepositoryProvisionJob repointed=7 reconcile=0
+NOTICE:  TEAM_CUTOVER RepositoryIssuanceHistory repointed=0 reconcile=0
+NOTICE:  TEAM_CUTOVER GithubRepositoryOutsiderContribution repointed=3 reconcile=0
+NOTICE:  TEAM_CUTOVER MilestoneDocumentSubmission repointed=55 reconcile=0
+NOTICE:  TEAM_CUTOVER SubmissionFile repointed=76 reconcile=0
+NOTICE:  TEAM_CUTOVER GithubRepository repointed=7 reconcile=0
+NOTICE:  TEAM_CUTOVER Notification repointed=56
+NOTICE:  TEAM_CUTOVER OutboxEvent repointed=5
+NOTICE:  TEAM_CUTOVER Team copied=33 deleted=7 TeamMember deleted=7 TeamHistory inserted=80 application_history=73 reconcile=0
+RECONCILE_OK stage=cutover checks=1
+BACKUP_VERIFIED label=rehearsal-20261105090831_835966 objects=absent object-count=0
+COUNT applications before=33 restored=33
+COUNT reviews before=9 restored=9
+COUNT teams before=40 restored=40
+COUNT members before=72 restored=72
+COUNT invitations before=3 restored=3
+COUNT histories before=25 restored=25
+COUNT repositories before=7 restored=7
+COUNT jobs before=7 restored=7
+COUNT issuances before=0 restored=0
+COUNT outsiders before=3 restored=3
+COUNT submissions before=55 restored=55
+COUNT files before=81 restored=81
+COUNT notifications before=94 restored=94
+COUNT outbox before=5 restored=5
+REHEARSAL_OK name=team-application-cutover stages=1 counts=14
+TEAM_SERVER_REHEARSAL_EXIT=0
+SERVER_VOLUME_INVENTORY before=1 after=1 added=0 removed=0 before_sha256=005d9630aadecb79820373e432a707aed5514524a14320b2008b7c3808908c28 after_sha256=005d9630aadecb79820373e432a707aed5514524a14320b2008b7c3808908c28
+SERVER_CLEANUP containers_remaining=0 volumes_created=0 dumps_remaining=0 EXIT=0

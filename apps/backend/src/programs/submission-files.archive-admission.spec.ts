@@ -158,7 +158,7 @@ function setup() {
     findActiveStudentByGithubId: jest.fn().mockResolvedValue('student-opaque'),
     findUploadAuthorization: jest.fn().mockResolvedValue({
       uploaderId: 'student-opaque',
-      applicationId: 'application-opaque',
+      teamId: 'application-opaque',
       milestoneId: 'milestone-opaque',
       applicationApproved: true,
       dueAt: new Date('2099-01-01T00:00:00.000Z'),

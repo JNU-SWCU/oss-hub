@@ -37,7 +37,7 @@ const PROGRAM_ID = `${SEED_PREFIX}-program`;
 const TEAM_ID = `${SEED_PREFIX}-team`;
 const MEMBER_USER_ID = `${SEED_PREFIX}-user`;
 const LATE_MEMBER_USER_ID = `${SEED_PREFIX}-late-user`;
-const APPLICATION_ID = `${SEED_PREFIX}-application`;
+const APPLICATION_ID = `${SEED_PREFIX}-team`;
 const REPOSITORY_ID = `${SEED_PREFIX}-repository`;
 
 const fingerprint = (endpoint: string): RequestFingerprint => ({
@@ -186,9 +186,8 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       data: {
         startAt: new Date('2026-12-31T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: PROGRAM_ID,
         name: 'synthetic member filter program',
         organizer: 'synthetic',
@@ -214,6 +213,9 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         programId: PROGRAM_ID,
         name: 'synthetic member filter team',
         leaderId: MEMBER_USER_ID,
+        applicantId: MEMBER_USER_ID,
+        answers: { title: 'synthetic member filter team' },
+        applicationTemplateVersion: 1,
       },
     });
     await prisma.teamMember.create({
@@ -223,12 +225,11 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         userId: MEMBER_USER_ID,
       },
     });
-    await prisma.application.create({
+    await prisma.team.update({
+      where: { id: TEAM_ID },
       data: {
-        id: APPLICATION_ID,
         programId: PROGRAM_ID,
         applicantId: MEMBER_USER_ID,
-        teamId: TEAM_ID,
         answers: {},
         applicationTemplateVersion: 1,
         status: 'APPROVED',
@@ -237,9 +238,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     await prisma.githubRepository.create({
       data: {
         id: REPOSITORY_ID,
-        applicationId: APPLICATION_ID,
-        programId: PROGRAM_ID,
-        teamId: TEAM_ID,
+        teamId: APPLICATION_ID,
         githubRepositoryId: GITHUB_REPOSITORY_ID,
         nameWithOwner: `${ORG_LOGIN}/member-filter-repo`,
         source: RepositorySource.ORG_PROVISIONED,
@@ -261,7 +260,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       'DELETE FROM "CollectionSyncLease" WHERE "appId" = $1',
       APP_ID,
     );
-    await prisma.application.deleteMany({ where: { id: APPLICATION_ID } });
+    await prisma.team.deleteMany({ where: { id: APPLICATION_ID } });
     await prisma.teamMember.deleteMany({ where: { teamId: TEAM_ID } });
     await prisma.team.deleteMany({ where: { id: TEAM_ID } });
     await prisma.user.deleteMany({

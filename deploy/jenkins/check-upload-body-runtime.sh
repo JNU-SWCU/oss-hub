@@ -16,7 +16,7 @@ head -c "$probe_bytes" /dev/zero >"$probe_file"
 
 status=$(curl -o /dev/null -w '%{http_code}' --silent --show-error \
   --request POST "$@" \
-  --form 'applicationId=smoke' \
+  --form 'documentId=smoke' \
   --form 'milestoneId=smoke' \
   --form "file=@${probe_file};filename=smoke.png;type=image/png" \
   "$url")

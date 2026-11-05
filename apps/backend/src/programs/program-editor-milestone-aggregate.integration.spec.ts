@@ -544,7 +544,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new FileMetadataRepository(),
     ).upsertMilestoneDocumentSubmission(submissionPrisma, {
       milestoneDocumentId: firstDocumentId,
-      applicationId: application.id,
+      teamId: application.id,
       submittedById: application.studentId,
       submittedAt: new Date('2026-08-18T00:00:00.000Z'),
       expectedLatestReviewId: null,
@@ -597,7 +597,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new FileMetadataRepository(),
       ).upsertMilestoneDocumentSubmission(prisma, {
         milestoneDocumentId: firstDocumentId,
-        applicationId: application.id,
+        teamId: application.id,
         submittedById: application.studentId,
         submittedAt: new Date('2026-08-18T00:00:00.000Z'),
         expectedLatestReviewId: null,
@@ -1159,7 +1159,6 @@ async function seedGraph(
 async function createSubmissionApplication(programId: string) {
   const studentId = `${TEST_PREFIX}student:${crypto.randomUUID()}`;
   const teamId = `${TEST_PREFIX}team:${crypto.randomUUID()}`;
-  const applicationId = `${TEST_PREFIX}application:${crypto.randomUUID()}`;
   await prisma.user.create({
     data: {
       id: studentId,
@@ -1176,6 +1175,9 @@ async function createSubmissionApplication(programId: string) {
       programId,
       name: 'Submission team',
       leaderId: studentId,
+      applicantId: studentId,
+      answers: { title: 'Submission team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -1185,17 +1187,16 @@ async function createSubmissionApplication(programId: string) {
       userId: studentId,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
       applicantId: studentId,
-      teamId,
       answers: {},
       applicationTemplateVersion: 1,
     },
   });
-  return { id: applicationId, studentId };
+  return { id: teamId, studentId };
 }
 function request(
   snapshot: Awaited<ReturnType<typeof editor.getMilestoneEdit>>,

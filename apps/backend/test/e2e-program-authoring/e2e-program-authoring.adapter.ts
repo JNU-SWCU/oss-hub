@@ -285,7 +285,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       throw new E2eAdapterError(409);
     } else {
       const job = await this.prisma.repositoryProvisionJob.findFirst({
-        where: { applicationId: application.id },
+        where: { teamId: application.id },
         select: { status: true },
       });
       if (job?.status !== 'SUCCEEDED') throw new E2eAdapterError(409);
@@ -313,7 +313,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       throw new E2eAdapterError(409);
     }
     const job = await this.prisma.repositoryProvisionJob.findFirst({
-      where: { applicationId: application.id },
+      where: { teamId: application.id },
       select: { nextAttemptAt: true, status: true },
     });
     if (job === null) throw new E2eAdapterError(409);
@@ -338,7 +338,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     const program = await this.prisma.program.findFirst({
       where: {
         createdById: E2E_STAFF_ID,
-        idempotencyKey: 'e2e-prisma-fault',
+        idempotencyKey: 'e2e-program-core',
       },
       select: {
         id: true,

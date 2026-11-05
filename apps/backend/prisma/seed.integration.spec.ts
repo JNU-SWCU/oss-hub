@@ -115,7 +115,6 @@ const OSS_HUB_TEAM_ACCOUNT_USER_IDS = OSS_HUB_TEAM_ACCOUNT_GITHUB_IDS.map(
 );
 const OSS_HUB_PROGRAM_ID = seedId('oss-hub', 'program');
 const OSS_HUB_TEAM_ID = seedId('oss-hub', 'team');
-const OSS_HUB_APPLICATION_ID = seedId('oss-hub', 'application');
 const OSS_HUB_REPOSITORY_ID = seedId('oss-hub', 'repository');
 const OSS_HUB_PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
@@ -123,10 +122,6 @@ const OSS_HUB_REPOSITORY_URL = 'https://github.com/JNU-SWCU/oss-hub';
 const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const OSS_HUB_PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
 const OSS_HUB_PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
-const OSS_HUB_PRACTICE_APPLICATION_ID = seedId(
-  'oss-hub-practice',
-  'application',
-);
 const OSS_HUB_PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
 const OSS_HUB_PRACTICE_PROVISION_JOB_ID = seedId(
   'oss-hub-practice',
@@ -183,10 +178,6 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   [
     'Milestone',
     () => prisma.milestone.count({ where: { id: { startsWith: 'seed:' } } }),
-  ],
-  [
-    'Application',
-    () => prisma.application.count({ where: { id: { startsWith: 'seed:' } } }),
   ],
   ['Team', () => prisma.team.count({ where: { id: { startsWith: 'seed:' } } })],
   [
@@ -293,7 +284,7 @@ async function deleteAllSeeded(): Promise<void> {
     },
   });
   const [
-    submissionFilesByApplication,
+    submissionFilesByTeam,
     submissionFilesByMilestone,
     auditLogActors,
     notificationUsers,
@@ -301,12 +292,10 @@ async function deleteAllSeeded(): Promise<void> {
     submissionFileUploaders,
     historyUsers,
   ] = await Promise.all([
-    prisma.application.findMany({
-      where: {
-        id: { startsWith: seedPrefix },
-        team: { files: { some: { kind: 'SUBMISSION' } } },
-      },
-      select: { id: true },
+    prisma.file.findMany({
+      where: { kind: 'SUBMISSION', teamId: { startsWith: seedPrefix } },
+      select: { teamId: true },
+      distinct: ['teamId'],
     }),
     prisma.milestone.findMany({
       where: {
@@ -351,9 +340,10 @@ async function deleteAllSeeded(): Promise<void> {
       select: { id: true },
     }),
   ]);
-  const protectedApplicationIds = new Set(
-    submissionFilesByApplication
-      .map((row) => row.id)
+
+  const protectedTeamIds = new Set(
+    submissionFilesByTeam
+      .map((row) => row.teamId)
       .filter((id): id is string => id !== null),
   );
   const protectedMilestoneIds = new Set(
@@ -386,10 +376,9 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.milestone.deleteMany({
     where: { ...seedIdFilter, ...excluding(protectedMilestoneIds) },
   });
-  await prisma.application.deleteMany({
-    where: { ...seedIdFilter, ...excluding(protectedApplicationIds) },
+  await prisma.team.deleteMany({
+    where: { ...seedIdFilter, ...excluding(protectedTeamIds) },
   });
-  await prisma.team.deleteMany({ where: seedIdFilter });
   await prisma.program.deleteMany({ where: seedIdFilter });
   await prisma.userPolicy.deleteMany({
     where: { userId: { startsWith: seedPrefix } },
@@ -487,8 +476,8 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: OSS_HUB_TEAM_ID },
           include: { members: { orderBy: { userId: 'asc' } } },
         }),
-        prisma.application.findUniqueOrThrow({
-          where: { id: OSS_HUB_APPLICATION_ID },
+        prisma.team.findUniqueOrThrow({
+          where: { id: OSS_HUB_TEAM_ID },
         }),
         prisma.milestoneDocumentSubmission.findUniqueOrThrow({
           where: {
@@ -527,8 +516,8 @@ describe('seed profile=oss-hub contract (integration)', () => {
           where: { id: OSS_HUB_PRACTICE_TEAM_ID },
           include: { members: { orderBy: { userId: 'asc' } } },
         }),
-        prisma.application.findUniqueOrThrow({
-          where: { id: OSS_HUB_PRACTICE_APPLICATION_ID },
+        prisma.team.findUniqueOrThrow({
+          where: { id: OSS_HUB_PRACTICE_TEAM_ID },
         }),
         prisma.githubRepository.findUniqueOrThrow({
           where: { id: OSS_HUB_PRACTICE_REPOSITORY_ID },
@@ -552,7 +541,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.milestone.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.application.count({
+        prisma.team.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
         prisma.milestoneDocumentSubmission.count({
@@ -675,7 +664,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
 
       expect(ossHubApplicationCount).toBe(1);
       expect(application).toMatchObject({
-        teamId: OSS_HUB_TEAM_ID,
+        id: OSS_HUB_TEAM_ID,
         applicantId: configuredUsers[0]?.id,
         status: ApplicationStatus.APPROVED,
       });
@@ -704,7 +693,6 @@ describe('seed profile=oss-hub contract (integration)', () => {
 
       expect(ossHubRepositoryCount).toBe(1);
       expect(repository).toMatchObject({
-        applicationId: OSS_HUB_APPLICATION_ID,
         teamId: OSS_HUB_TEAM_ID,
         githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
         visibility: RepositoryVisibility.PUBLIC,
@@ -716,7 +704,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
       ).toBe(OSS_HUB_REPOSITORY_URL);
       expect(ossHubRepositoryProvisionJobCount).toBe(1);
       expect(provisionJob).toMatchObject({
-        applicationId: OSS_HUB_APPLICATION_ID,
+        teamId: OSS_HUB_TEAM_ID,
         repositoryId: OSS_HUB_REPOSITORY_ID,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       });
@@ -730,13 +718,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
       );
       expect(practiceApplication).toMatchObject({
         programId: OSS_HUB_PRACTICE_PROGRAM_ID,
-        teamId: OSS_HUB_PRACTICE_TEAM_ID,
+        id: OSS_HUB_PRACTICE_TEAM_ID,
         applicantId: configuredUsers[0]?.id,
         status: ApplicationStatus.APPROVED,
       });
       expect(practiceRepository).toMatchObject({
-        applicationId: OSS_HUB_PRACTICE_APPLICATION_ID,
-        programId: OSS_HUB_PRACTICE_PROGRAM_ID,
         teamId: OSS_HUB_PRACTICE_TEAM_ID,
         githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
         visibility: RepositoryVisibility.PUBLIC,
@@ -748,7 +734,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
       ).toBe(OSS_HUB_PRACTICE_REPOSITORY_URL);
       expect(practiceRepository.publishedAt).not.toBeNull();
       expect(practiceProvisionJob).toMatchObject({
-        applicationId: OSS_HUB_PRACTICE_APPLICATION_ID,
+        teamId: OSS_HUB_PRACTICE_TEAM_ID,
         repositoryId: OSS_HUB_PRACTICE_REPOSITORY_ID,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       });
@@ -799,7 +785,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         data: {
           id: staleSubmissionId,
           milestoneDocumentId: staleDocumentId,
-          applicationId: OSS_HUB_APPLICATION_ID,
+          teamId: OSS_HUB_TEAM_ID,
           status: SubmissionStatus.SUBMITTED,
           revision: 1,
           content: {
@@ -905,7 +891,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       prisma.teamMember.count({
         where: { teamId: { startsWith: seedDemoPrefix } },
       }),
-      prisma.application.count({
+      prisma.team.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
       prisma.milestone.count({
@@ -982,7 +968,7 @@ describe('seed profile=demo 계약 (integration)', () => {
     await prisma.boardPost.deleteMany({ where: seedIdFilter });
     await prisma.teamMember.deleteMany({ where: { teamId: seedIdFilter.id } });
     await prisma.milestone.deleteMany({ where: seedIdFilter });
-    await prisma.application.deleteMany({ where: seedIdFilter });
+    await prisma.team.deleteMany({ where: seedIdFilter });
     await prisma.team.deleteMany({ where: seedIdFilter });
     await prisma.program.deleteMany({ where: seedIdFilter });
     await prisma.userPolicy.deleteMany({
@@ -1123,7 +1109,7 @@ describe('seed profile=demo 계약 (integration)', () => {
         where: { programId: contestProgramId },
       });
       expect(contestTeams).toBeGreaterThanOrEqual(5);
-      const contestApplications = await prisma.application.findMany({
+      const contestApplications = await prisma.team.findMany({
         where: { programId: contestProgramId },
         select: { status: true },
       });
@@ -1168,11 +1154,8 @@ describe('seed profile=demo 계약 (integration)', () => {
     '한빛 팀 데모데이 제출 원장은 보존 id를 유지해 재시드해도 항목별 고유 제약을 깨드리지 않는다',
     async () => {
       await runProfile('demo', new SeedStats());
-      const contestApplicationId = seedId(
-        'demo',
-        'application',
-        'oss-contest-hanbit',
-      );
+
+      const contestApplicationId = seedId('demo', 'team', 'oss-contest-hanbit');
       const contestMilestoneId = seedId(
         'demo',
         'milestone',
@@ -1213,7 +1196,7 @@ describe('seed profile=demo 계약 (integration)', () => {
         data: {
           id: preservedSubmissionId,
           milestoneDocumentId: contestDocumentId,
-          applicationId: contestApplicationId,
+          teamId: contestApplicationId,
           status: SubmissionStatus.SUBMITTED,
           revision: 1,
           content: {
@@ -1241,12 +1224,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           kind: 'SUBMISSION',
           id: preservedFileId,
           uploaderId: parkHaeunUserId,
-          teamId: (
-            await prisma.application.findUniqueOrThrow({
-              where: { id: contestApplicationId },
-              select: { teamId: true },
-            })
-          ).teamId,
+          teamId: contestApplicationId,
           submissionId: preservedSubmissionId,
           submissionHistoryId: preservedHistoryId,
           storageKey: `demo/${preservedFileId}`,
@@ -1260,7 +1238,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       const submissionsForPair =
         await prisma.milestoneDocumentSubmission.findMany({
           where: {
-            applicationId: contestApplicationId,
+            teamId: contestApplicationId,
             milestoneDocumentId: contestDocumentId,
           },
         });
@@ -1319,7 +1297,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       const survivorUserId = 'seed:demo-teardown-guard:user';
       const survivorProgramId = 'seed:demo-teardown-guard:program';
       const survivorTeamId = 'seed:demo-teardown-guard:team';
-      const survivorApplicationId = 'seed:demo-teardown-guard:application';
+
       await prisma.user.create({
         data: {
           id: survivorUserId,
@@ -1353,6 +1331,9 @@ describe('seed profile=demo 계약 (integration)', () => {
           programId: survivorProgramId,
           name: 'teardown guard 팀',
           leaderId: survivorUserId,
+          applicantId: survivorUserId,
+          answers: {},
+          applicationTemplateVersion: 1,
         },
       });
       await prisma.teamMember.create({
@@ -1362,14 +1343,10 @@ describe('seed profile=demo 계약 (integration)', () => {
           userId: survivorUserId,
         },
       });
-      await prisma.application.create({
+      await prisma.team.update({
+        where: { id: survivorTeamId },
         data: {
-          id: survivorApplicationId,
-          programId: survivorProgramId,
-          applicantId: survivorUserId,
-          teamId: survivorTeamId,
           answers: { seedPlaceholder: true, scenarioId: 'teardown-guard' },
-          applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
         },
       });
@@ -1379,27 +1356,22 @@ describe('seed profile=demo 계약 (integration)', () => {
         for (const count of Object.values(demoCountsAfterTeardown)) {
           expect(count).toBe(0);
         }
-        const [
-          survivorUser,
-          survivorProgram,
-          survivorTeam,
-          survivorApplication,
-        ] = await Promise.all([
-          prisma.user.findUnique({ where: { id: survivorUserId } }),
-          prisma.program.findUnique({ where: { id: survivorProgramId } }),
-          prisma.team.findUnique({ where: { id: survivorTeamId } }),
-          prisma.application.findUnique({
-            where: { id: survivorApplicationId },
-          }),
-        ]);
+
+        const [survivorUser, survivorProgram, survivorTeam] = await Promise.all(
+          [
+            prisma.user.findUnique({ where: { id: survivorUserId } }),
+            prisma.program.findUnique({ where: { id: survivorProgramId } }),
+            prisma.team.findUnique({ where: { id: survivorTeamId } }),
+          ],
+        );
         expect(survivorUser).not.toBeNull();
         expect(survivorProgram).not.toBeNull();
-        expect(survivorTeam).not.toBeNull();
-        expect(survivorApplication).not.toBeNull();
-      } finally {
-        await prisma.application.deleteMany({
-          where: { id: survivorApplicationId },
+        expect(survivorTeam).toMatchObject({
+          id: survivorTeamId,
+          status: ApplicationStatus.APPROVED,
+          answers: { seedPlaceholder: true, scenarioId: 'teardown-guard' },
         });
+      } finally {
         await prisma.teamMember.deleteMany({
           where: { teamId: survivorTeamId },
         });

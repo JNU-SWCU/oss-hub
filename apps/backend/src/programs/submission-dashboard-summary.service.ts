@@ -68,7 +68,8 @@ export class SubmissionDashboardSummaryService {
       ) {
         continue;
       }
-      const cell = cellKey(submission.applicationId, submission.milestoneId);
+
+      const cell = cellKey(submission.teamId, submission.milestoneId);
       if (!submissionByCell.has(cell)) {
         submissionByCell.set(cell, submission.status);
       }
@@ -98,7 +99,7 @@ export class SubmissionDashboardSummaryService {
         continue;
       }
       documentStatusByCell.set(
-        cellKey(submission.applicationId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.milestoneDocumentId),
         submission.status,
       );
     }
@@ -115,13 +116,12 @@ export class SubmissionDashboardSummaryService {
       summary.notSubmitted = summary.total;
     }
     const milestoneIdsByProgram = groupIdsByProgram(activeMilestones);
-    const applicationIdsByProgram = groupIdsByProgram(records.applications);
+    const teamIdsByProgram = groupIdsByProgram(records.applications);
     for (const summary of summaries) {
       summary.notSubmitted = 0;
       const milestoneIds = milestoneIdsByProgram.get(summary.programId) ?? [];
-      const applicationIds =
-        applicationIdsByProgram.get(summary.programId) ?? [];
-      for (const applicationId of applicationIds) {
+      const teamIds = teamIdsByProgram.get(summary.programId) ?? [];
+      for (const teamId of teamIds) {
         for (const milestoneId of milestoneIds) {
           const documentIds =
             requiredDocumentsByMilestone.get(milestoneId) ?? [];
@@ -131,13 +131,10 @@ export class SubmissionDashboardSummaryService {
               submissionAxisInUse: false,
               requiredDocumentStatuses: documentIds.map(
                 (documentId) =>
-                  documentStatusByCell.get(
-                    cellKey(applicationId, documentId),
-                  ) ?? null,
+                  documentStatusByCell.get(cellKey(teamId, documentId)) ?? null,
               ),
               submissionStatus:
-                submissionByCell.get(cellKey(applicationId, milestoneId)) ??
-                null,
+                submissionByCell.get(cellKey(teamId, milestoneId)) ?? null,
             }),
           );
         }
@@ -146,8 +143,9 @@ export class SubmissionDashboardSummaryService {
     return summaries;
   }
 }
-function cellKey(applicationId: string, otherId: string): string {
-  return `${applicationId}::${otherId}`;
+
+function cellKey(teamId: string, otherId: string): string {
+  return `${teamId}::${otherId}`;
 }
 function groupIdsByProgram(
   rows: readonly {
@@ -167,15 +165,14 @@ function isConsistentCell(
   applicationProgramById: ReadonlyMap<string, string>,
   milestoneProgramById: ReadonlyMap<string, string>,
   row: {
-    readonly applicationId: string;
+    readonly teamId: string;
     readonly applicationProgramId: string;
     readonly milestoneId: string;
     readonly milestoneProgramId: string;
   },
 ): boolean {
   return (
-    applicationProgramById.get(row.applicationId) ===
-      row.applicationProgramId &&
+    applicationProgramById.get(row.teamId) === row.applicationProgramId &&
     milestoneProgramById.get(row.milestoneId) === row.milestoneProgramId &&
     row.applicationProgramId === row.milestoneProgramId
   );

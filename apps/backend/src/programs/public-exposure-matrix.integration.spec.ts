@@ -179,7 +179,7 @@ async function createScenario(params: {
   readonly provisionStatus?: RepositoryProvisionJobStatus;
 }): Promise<{
   readonly applicantId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly repositoryId: string;
   readonly githubRepositoryId: bigint;
   readonly nameWithOwner: string;
@@ -196,14 +196,17 @@ async function createScenario(params: {
       approvalStatus: 'NOT_REQUIRED',
     },
   });
-  const applicationId = `${PREFIX}-${params.key}-application`;
-  const teamId = `${PREFIX}-${params.key}-team`;
+
+  const teamId = `${PREFIX}-${params.key}-application`;
   await prisma.team.create({
     data: {
       id: teamId,
       programId: params.programId,
       name: `${PREFIX}-${params.key}-team`,
       leaderId: applicantId,
+      applicantId: applicantId,
+      answers: { title: `${PREFIX}-${params.key}-team` },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -213,12 +216,11 @@ async function createScenario(params: {
       userId: applicantId,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId: params.programId,
       applicantId,
-      teamId,
       answers: { syntheticFixture: true },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -232,8 +234,7 @@ async function createScenario(params: {
   await prisma.githubRepository.create({
     data: {
       id: repositoryId,
-      applicationId,
-      programId: params.programId,
+      teamId,
       githubRepositoryId,
       nameWithOwner,
       source: RepositorySource.ORG_PROVISIONED,
@@ -245,7 +246,7 @@ async function createScenario(params: {
   await prisma.repositoryProvisionJob.create({
     data: {
       id: `${PREFIX}-${params.key}-job`,
-      applicationId,
+      teamId,
       repositoryId,
       status: params.provisionStatus ?? RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: now(),
@@ -255,7 +256,7 @@ async function createScenario(params: {
   });
   return {
     applicantId,
-    applicationId,
+    teamId,
     repositoryId,
     githubRepositoryId,
     nameWithOwner,
@@ -515,7 +516,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await prisma.application.deleteMany({
+      await prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await prisma.teamMember.deleteMany({

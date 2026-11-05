@@ -29,7 +29,7 @@ export type DeadlineProgramSource = {
       readonly required: boolean;
     }[];
   }[];
-  readonly applications: readonly {
+  readonly teams: readonly {
     readonly id: string;
     readonly applicant: DeadlineRecipientSource;
     readonly members: readonly DeadlineRecipientSource[];
@@ -110,18 +110,14 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
           },
           orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
         },
-        applications: {
+        teams: {
           where: { status: ApplicationStatus.APPROVED },
           select: {
             id: true,
             applicant: { select: deadlineRecipientSelect },
-            team: {
-              select: {
-                members: {
-                  select: { user: { select: deadlineRecipientSelect } },
-                  orderBy: { userId: 'asc' },
-                },
-              },
+            members: {
+              select: { user: { select: deadlineRecipientSelect } },
+              orderBy: { userId: 'asc' },
             },
             milestoneDocumentSubmissions: {
               select: { milestoneDocumentId: true },
@@ -138,10 +134,10 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       name: program.name,
       notifyOnDeadline: program.notifyOnDeadline,
       milestones: program.milestones,
-      applications: program.applications.map((application) => ({
+      teams: program.teams.map((application) => ({
         id: application.id,
         applicant: application.applicant,
-        members: application.team.members.map(
+        members: application.members.map(
           (member): DeadlineRecipientSource => member.user,
         ),
         submittedDocumentIds: application.milestoneDocumentSubmissions.map(

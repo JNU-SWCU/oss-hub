@@ -97,7 +97,6 @@ const submissionFileCleanup = new FileCleanupService(
 type Fixture = {
   readonly programId: string;
   readonly milestoneId: string;
-  readonly applicationId: string;
   readonly teamId: string;
   readonly submissionFileStorageKey: string;
   readonly templateFileStorageKey: string;
@@ -189,9 +188,7 @@ async function cleanup(): Promise<void> {
       OR: [
         {
           kind: 'SUBMISSION',
-          team: {
-            applications: { some: { programId: { startsWith: PREFIX } } },
-          },
+          team: { is: { programId: { startsWith: PREFIX } } },
         },
         {
           kind: 'SUBMISSION',
@@ -231,10 +228,10 @@ async function cleanup(): Promise<void> {
     where: { milestone: { program: { id: { startsWith: PREFIX } } } },
   });
   await prisma.repositoryProvisionJob.deleteMany({
-    where: { application: { programId: { startsWith: PREFIX } } },
+    where: { team: { programId: { startsWith: PREFIX } } },
   });
   await prisma.repositoryIssuanceHistory.deleteMany({
-    where: { applicationId: { startsWith: PREFIX } },
+    where: { teamId: { startsWith: PREFIX } },
   });
   await prisma.repositoryInvitation.deleteMany({
     where: { repository: { nameWithOwner: { startsWith: 'purge7-org/' } } },
@@ -242,8 +239,7 @@ async function cleanup(): Promise<void> {
   await prisma.githubRepository.deleteMany({
     where: {
       OR: [
-        { programId: { startsWith: PREFIX } },
-        { application: { is: { programId: { startsWith: PREFIX } } } },
+        { team: { is: { programId: { startsWith: PREFIX } } } },
         { nameWithOwner: { startsWith: 'purge7-org/' } },
       ],
     },
@@ -260,7 +256,7 @@ async function cleanup(): Promise<void> {
   await prisma.teamMember.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });
-  await prisma.application.deleteMany({
+  await prisma.team.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });
   await prisma.team.deleteMany({
@@ -353,7 +349,6 @@ async function seedFullChildGraph(
   const leaderId = p('leader');
   const staffId = p('staff-reviewer');
   const teamId = p('team');
-  const applicationId = p('application');
   const publishedApplicationId = p('published-application');
   const documentId = p('document');
   const documentSubmissionId = p('document-submission');
@@ -454,6 +449,9 @@ async function seedFullChildGraph(
       programId,
       name: `합성 팀 ${label}`,
       leaderId,
+      applicantId: leaderId,
+      answers: { title: `합성 팀 ${label}` },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.createMany({
@@ -497,12 +495,12 @@ async function seedFullChildGraph(
       invitedById: leaderId,
     },
   });
-  await prisma.application.create({
+
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
       applicantId,
-      teamId,
       answers: { seedPlaceholder: true, label },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -516,6 +514,9 @@ async function seedFullChildGraph(
       programId,
       name: `합성 단독 팀 ${label}`,
       leaderId: publishedApplicantId,
+      applicantId: publishedApplicantId,
+      answers: { title: `합성 단독 팀 ${label}` },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -525,12 +526,11 @@ async function seedFullChildGraph(
       userId: publishedApplicantId,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: p('published-team') },
     data: {
-      id: publishedApplicationId,
       programId,
       applicantId: publishedApplicantId,
-      teamId: p('published-team'),
       answers: { seedPlaceholder: true, label },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -543,8 +543,6 @@ async function seedFullChildGraph(
   await prisma.githubRepository.create({
     data: {
       id: provisionedRepositoryId,
-      applicationId,
-      programId,
       teamId,
       githubRepositoryId: provisionedGithubRepositoryId,
       nameWithOwner: `purge7-org/${label}-provisioned`,
@@ -555,7 +553,7 @@ async function seedFullChildGraph(
   await prisma.repositoryProvisionJob.create({
     data: {
       id: p('provision-job'),
-      applicationId,
+      teamId,
       repositoryId: provisionedRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: NOW,
@@ -568,7 +566,7 @@ async function seedFullChildGraph(
     data: {
       id: repositoryIssuanceHistoryId,
       requestId: p('repository-issuance-request'),
-      applicationId,
+      teamId,
       repositoryId: provisionedRepositoryId,
       connectionMode: RepositoryConnectionMode.NEW,
       source: RepositorySource.ORG_PROVISIONED,
@@ -636,7 +634,6 @@ async function seedFullChildGraph(
   await prisma.githubRepository.create({
     data: {
       id: externalRepositoryId,
-      programId,
       githubRepositoryId: externalGithubRepositoryId,
       nameWithOwner: `purge7-org/${label}-external-public`,
       source: RepositorySource.EXTERNAL_PUBLIC,
@@ -646,9 +643,7 @@ async function seedFullChildGraph(
   await prisma.githubRepository.create({
     data: {
       id: publishedRepositoryId,
-      applicationId: publishedApplicationId,
-      programId,
-      teamId: p('published-team'),
+      teamId: publishedApplicationId,
       githubRepositoryId: publishedGithubRepositoryId,
       nameWithOwner: `purge7-org/${label}-published`,
       source: RepositorySource.ORG_PROVISIONED,
@@ -706,7 +701,7 @@ async function seedFullChildGraph(
     data: {
       id: documentSubmissionId,
       milestoneDocumentId: documentId,
-      applicationId,
+      teamId,
       status: SubmissionStatus.CHANGES_REQUESTED,
       content: {},
       revision: 1,
@@ -749,12 +744,7 @@ async function seedFullChildGraph(
       kind: 'SUBMISSION',
       id: p('submission-file'),
       uploaderId: applicantId,
-      teamId: (
-        await prisma.application.findUniqueOrThrow({
-          where: { id: applicationId },
-          select: { teamId: true },
-        })
-      ).teamId,
+      teamId,
       storageKey: submissionFileStorageKey,
       originalFileName: 'submission-file.pdf',
       mimeType: 'application/pdf',
@@ -816,10 +806,10 @@ async function seedFullChildGraph(
     data: {
       id: applicationOutboxEventId,
       type: 'REPOSITORY_PROVISION_REQUESTED',
-      aggregateType: 'Application',
-      aggregateId: applicationId,
+      aggregateType: 'Team',
+      aggregateId: teamId,
       idempotencyKey: p('application-outbox-idempotency'),
-      payload: { applicationId, programId },
+      payload: { teamId, programId },
     },
   });
   const applicationDecisionNotificationId = p(
@@ -835,7 +825,7 @@ async function seedFullChildGraph(
       idempotencyKey: p('application-decision-idempotency'),
       payload: {
         schemaVersion: 1,
-        applicationId,
+        teamId,
         programId,
         programName: `합성 purge 대상 프로그램 ${label}`,
         decision: 'APPROVED',
@@ -876,7 +866,6 @@ async function seedFullChildGraph(
   return {
     programId,
     milestoneId,
-    applicationId,
     teamId,
     submissionFileStorageKey,
     templateFileStorageKey,
@@ -933,7 +922,7 @@ async function currentDeletionScopeCounts(programId: string) {
 }
 async function programChildRowCounts(
   programId: string,
-  applicationIds: readonly string[] = [],
+  teamIds: readonly string[] = [],
 ) {
   const [
     programCovers,
@@ -959,7 +948,7 @@ async function programChildRowCounts(
   ] = await Promise.all([
     prisma.file.count({ where: { kind: 'COVER', programId: programId } }),
     prisma.milestone.count({ where: { programId } }),
-    prisma.application.count({ where: { programId } }),
+    prisma.team.count({ where: { programId } }),
     prisma.team.count({ where: { programId } }),
     prisma.teamMember.count({ where: { programId } }),
     prisma.teamInvitation.count({ where: { programId } }),
@@ -970,9 +959,10 @@ async function programChildRowCounts(
       where: {
         kind: 'SUBMISSION',
         OR: [
+
           {
             kind: 'SUBMISSION',
-            team: { applications: { some: { programId } } },
+            team: { is: { programId } },
           },
           {
             kind: 'SUBMISSION',
@@ -1006,18 +996,18 @@ async function programChildRowCounts(
       },
     }),
     prisma.repositoryProvisionJob.count({
-      where: { application: { programId } },
+      where: { team: { programId } },
     }),
     prisma.program.count({ where: { id: programId, createdBy: 'USER' } }),
     prisma.file.count({ where: { kind: 'UPLOAD', programId: programId } }),
     prisma.outboxEvent.count({
       where: { aggregateType: 'PROGRAM', aggregateId: programId },
     }),
-    applicationIds.length > 0
+    teamIds.length > 0
       ? prisma.outboxEvent.count({
           where: {
-            aggregateType: 'Application',
-            aggregateId: { in: [...applicationIds] },
+            aggregateType: 'Team',
+            aggregateId: { in: [...teamIds] },
           },
         })
       : Promise.resolve(0),
@@ -1077,8 +1067,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     'student and staff write guards respect committed %s status',
     async (status) => {
       const fixture = await seedFullChildGraph(`guard-${status}`);
-      const application = await prisma.application.findUniqueOrThrow({
-        where: { id: fixture.applicationId },
+      const application = await prisma.team.findUniqueOrThrow({
+        where: { id: fixture.teamId },
         select: { applicantId: true },
       });
       await prisma.program.update({
@@ -1094,7 +1084,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       const studentLock = await prisma.$transaction((tx) =>
         new PlatformRepository().lockSubmissionMembership(
           tx,
-          fixture.applicationId,
+          fixture.teamId,
           application.applicantId,
         ),
       );
@@ -1175,8 +1165,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       'full',
       ProgramLifecycle.PUBLISHED,
     );
-    const applicant = await prisma.application.findUniqueOrThrow({
-      where: { id: fixture.applicationId },
+    const applicant = await prisma.team.findUniqueOrThrow({
+      where: { id: fixture.teamId },
       select: { applicantId: true },
     });
     const applicantBefore = await prisma.user.findUniqueOrThrow({
@@ -1194,8 +1184,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       await prisma.githubRepository.findUniqueOrThrow({
         where: { id: fixture.publishedRepositoryId },
         select: {
-          programId: true,
-          applicationId: true,
           teamId: true,
           publishedAt: true,
           visibility: true,
@@ -1203,7 +1191,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         },
       });
     const before = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
+      fixture.teamId,
     ]);
     expect(before.milestones).toBe(1);
     expect(before.programCovers).toBe(1);
@@ -1267,7 +1255,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     });
     const after = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
+      fixture.teamId,
     ]);
     expect(after).toEqual(before);
     await expect(
@@ -1309,7 +1297,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.repositoryIssuanceHistoryId },
       }),
     ).resolves.toMatchObject({
-      applicationId: fixture.applicationId,
+      teamId: fixture.teamId,
       outcome: RepositoryIssuanceOutcome.SUCCEEDED,
       repositoryId: fixture.provisionedRepositoryId,
     });
@@ -1404,7 +1392,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       where: { id: fixture.externalRepositoryId },
     });
     expect(externalRepository).toMatchObject({
-      programId: fixture.programId,
       githubRepositoryId: fixture.externalGithubRepositoryId,
       source: RepositorySource.EXTERNAL_PUBLIC,
     });
@@ -1414,7 +1401,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(provisionedRepositories).toHaveLength(1);
     expect(provisionedRepositories[0]).toMatchObject({
       programId: fixture.programId,
-      applicationId: fixture.applicationId,
       teamId: fixture.teamId,
       source: RepositorySource.ORG_PROVISIONED,
     });
@@ -1438,8 +1424,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       ProgramLifecycle.ARCHIVED,
     );
     const unrelatedProgramId = await seedStandaloneProgram('unrelated');
-    const applicant = await prisma.application.findUniqueOrThrow({
-      where: { id: fixture.applicationId },
+    const applicant = await prisma.team.findUniqueOrThrow({
+      where: { id: fixture.teamId },
       select: { applicantId: true },
     });
     const accountBefore = await prisma.user.findUniqueOrThrow({
@@ -1531,13 +1517,13 @@ describe('Program purge integration — full child graph, worker file deletion, 
 
   it('이미 삭제 완료된 SubmissionFile은 상태와 원래 FK를 그대로 보존한다', async () => {
     const fixture = await seedFullChildGraph('deleted-submission-file');
-    const application = await prisma.application.findUniqueOrThrow({
-      where: { id: fixture.applicationId },
+    const application = await prisma.team.findUniqueOrThrow({
+      where: { id: fixture.teamId },
       select: { applicantId: true },
     });
     const submission =
       await prisma.milestoneDocumentSubmission.findFirstOrThrow({
-        where: { applicationId: fixture.applicationId },
+        where: { teamId: fixture.teamId },
         select: { id: true },
       });
     const history =
@@ -1552,12 +1538,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         kind: 'SUBMISSION',
         id: deletedFileId,
         uploaderId: application.applicantId,
-        teamId: (
-          await prisma.application.findUniqueOrThrow({
-            where: { id: fixture.applicationId },
-            select: { teamId: true },
-          })
-        ).teamId,
+        teamId: fixture.teamId,
         submissionId: submission.id,
         submissionHistoryId: history.id,
         storageKey: `${OBJECT_PREFIX}/deleted-submission-file/completed.pdf`,
@@ -1615,8 +1596,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const fixture = await seedFullChildGraph('staff-toctou-race');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     const raceBoardPostId = `${fixture.programId}-staff-race-board-post`;
-    const applicant = await prisma.application.findUniqueOrThrow({
-      where: { id: fixture.applicationId },
+    const applicant = await prisma.team.findUniqueOrThrow({
+      where: { id: fixture.teamId },
       select: { applicantId: true },
     });
     await prisma.boardPost.create({
@@ -1641,7 +1622,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
     const after = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
+      fixture.teamId,
     ]);
     expect(after.milestones).toBe(1);
     expect(after.applications).toBe(2);
@@ -1688,7 +1669,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
   it('atomicity: 트랜잭션 중간에 실패를 유도하면 전부 롤백되고 부분 삭제가 남지 않는다', async () => {
     const fixture = await seedFullChildGraph('atomic-rollback');
     const before = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
+      fixture.teamId,
     ]);
     expect(before.milestones).toBe(1);
     const failingAuditLog = {
@@ -1711,7 +1692,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
     const after = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
+      fixture.teamId,
     ]);
     expect(after).toEqual(before);
     await expect(
@@ -1732,7 +1713,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },
     });
-    expect(externalRepository?.programId).toBe(fixture.programId);
+    expect(externalRepository?.teamId).toBe(fixture.teamId);
   });
   it('전체 삭제는 프로그램 상태만 DELETED로 바꾼다', async () => {
     const fixture = await seedFullChildGraph('unprotected');
@@ -1759,8 +1740,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(expectedScope.scopeFingerprint).toMatch(/^[0-9a-f]{32}$/);
     const raceBoardPostId = `${fixture.programId}-race-board-post`;
-    const applicant = await prisma.application.findUniqueOrThrow({
-      where: { id: fixture.applicationId },
+    const applicant = await prisma.team.findUniqueOrThrow({
+      where: { id: fixture.teamId },
       select: { applicantId: true },
     });
     await prisma.boardPost.create({
@@ -1793,7 +1774,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.boardPost.findUnique({ where: { id: raceBoardPostId } }),
     ).resolves.not.toBeNull();
     const after = await programChildRowCounts(fixture.programId, [
-      fixture.applicationId,
+      fixture.teamId,
     ]);
     expect(after.milestones).toBe(1);
     expect(after.applications).toBe(2);
@@ -1846,8 +1827,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     {
       scopeField: 'boardPosts',
       insertRacingChildRow: async (fixture, raceId) => {
-        const applicant = await prisma.application.findUniqueOrThrow({
-          where: { id: fixture.applicationId },
+        const applicant = await prisma.team.findUniqueOrThrow({
+          where: { id: fixture.teamId },
           select: { applicantId: true },
         });
         await concurrentPrisma.boardPost.create({
@@ -1865,8 +1846,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     {
       scopeField: 'teams',
       insertRacingChildRow: async (fixture, raceId) => {
-        const applicant = await prisma.application.findUniqueOrThrow({
-          where: { id: fixture.applicationId },
+        const applicant = await prisma.team.findUniqueOrThrow({
+          where: { id: fixture.teamId },
           select: { applicantId: true },
         });
         await concurrentPrisma.team.create({
@@ -1875,6 +1856,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
             programId: fixture.programId,
             name: 'Committed team during purge',
             leaderId: applicant.applicantId,
+            applicantId: applicant.applicantId,
+            answers: { title: 'Committed team during purge' },
+            applicationTemplateVersion: 1,
           },
         });
       },
@@ -1882,8 +1866,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     {
       scopeField: 'applications',
       insertRacingChildRow: async (fixture, raceId) => {
-        const applicant = await prisma.application.findUniqueOrThrow({
-          where: { id: fixture.applicationId },
+        const applicant = await prisma.team.findUniqueOrThrow({
+          where: { id: fixture.teamId },
           select: { applicantId: true },
         });
         const raceTeamId = `${raceId}-team`;
@@ -1893,14 +1877,16 @@ describe('Program purge integration — full child graph, worker file deletion, 
             programId: fixture.programId,
             name: 'Committed application team during purge',
             leaderId: applicant.applicantId,
+            applicantId: applicant.applicantId,
+            answers: { title: 'Committed application team during purge' },
+            applicationTemplateVersion: 1,
           },
         });
-        await concurrentPrisma.application.create({
+        await concurrentPrisma.team.update({
+          where: { id: raceTeamId },
           data: {
-            id: raceId,
             programId: fixture.programId,
             applicantId: applicant.applicantId,
-            teamId: raceTeamId,
             answers: { racedDuringPurge: true },
             applicationTemplateVersion: 1,
             status: ApplicationStatus.SUBMITTED,
@@ -1925,12 +1911,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
           data: {
             id: raceId,
             milestoneDocumentId: raceDocumentId,
-            applicationId: fixture.applicationId,
+            teamId: fixture.teamId,
             status: SubmissionStatus.SUBMITTED,
             revision: 1,
             submittedById: (
-              await prisma.application.findUniqueOrThrow({
-                where: { id: fixture.applicationId },
+              await prisma.team.findUniqueOrThrow({
+                where: { id: fixture.teamId },
                 select: { applicantId: true },
               })
             ).applicantId,
@@ -1965,7 +1951,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       expect(visibleRows.map((row) => row.id)).toEqual([fixture.programId]);
       expect(visibleCount).toBe(1);
       const before = await programChildRowCounts(fixture.programId, [
-        fixture.applicationId,
+        fixture.teamId,
       ]);
       const expectedScope = await currentDeletionScopeCounts(fixture.programId);
       const scopeRead = deferred();
@@ -2008,7 +1994,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
       });
       const after = await programChildRowCounts(fixture.programId, [
-        fixture.applicationId,
+        fixture.teamId,
       ]);
       const expectedAfter = { ...before };
       if (scopeField === 'boardPosts') {

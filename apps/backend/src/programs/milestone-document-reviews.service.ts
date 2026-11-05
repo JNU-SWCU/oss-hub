@@ -47,14 +47,14 @@ export class MilestoneDocumentReviewsService {
     reviewerId: string,
     milestoneId: string,
     documentId: string,
-    applicationId: string,
+    teamId: string,
     request: MilestoneDocumentReviewRequest,
   ): ReturnType<MilestoneDocumentReviewsService['review']> {
     return this.review(
       reviewerId,
       milestoneId,
       documentId,
-      applicationId,
+      teamId,
       this.reviewInputFromRequest(request),
     );
   }
@@ -62,7 +62,7 @@ export class MilestoneDocumentReviewsService {
     reviewerId: string,
     milestoneId: string,
     documentId: string,
-    applicationId: string,
+    teamId: string,
     input: CreateMilestoneDocumentReviewInput,
     now: () => Date = () => new Date(),
   ): Promise<CreatedMilestoneDocumentReview> {
@@ -75,7 +75,7 @@ export class MilestoneDocumentReviewsService {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
     const applicationProgramId =
-      await this.repository.findApplicationProgramId(applicationId);
+      await this.repository.findApplicationProgramId(teamId);
     if (applicationProgramId !== documentContext.programId) {
       throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
     }
@@ -89,12 +89,13 @@ export class MilestoneDocumentReviewsService {
       }
       const submission = await store.findSubmissionForReview(
         documentId,
-        applicationId,
+        teamId,
       );
       if (submission === null) {
         throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
       }
-      if (await store.isApplicationParticipant(applicationId, reviewerId)) {
+
+      if (await store.isApplicationParticipant(teamId, reviewerId)) {
         throw this.error(MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN);
       }
       if (submission.revision !== input.expectedRevision) {

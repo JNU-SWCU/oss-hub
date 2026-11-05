@@ -378,13 +378,15 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
           programId: 'synthetic-scale-program',
           name: seed.name,
           leaderId: 'synthetic-scale-contributor-0',
+          applicantId: 'synthetic-scale-contributor-0',
+          answers: { title: seed.name },
+          applicationTemplateVersion: 1,
         },
       });
-      await prisma.application.create({
+      await prisma.team.update({
+        where: { id: id },
         data: {
-          id,
           programId: 'synthetic-scale-program',
-          teamId: id,
           applicantId: 'synthetic-scale-contributor-0',
           answers: {},
           applicationTemplateVersion: 1,
@@ -394,7 +396,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         data: {
           githubRepositoryId: BigInt(seed.id),
           githubOrganizationId: GITHUB_ORGANIZATION_ID,
-          applicationId: id,
+          teamId: id,
           nameWithOwner: `${seed.owner}/${seed.name}`,
           source: 'ORG_PROVISIONED',
         },
@@ -506,7 +508,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       GITHUB_ORGANIZATION_ID,
     );
-    await prisma.application.deleteMany({
+    await prisma.team.deleteMany({
       where: { programId: 'synthetic-scale-program' },
     });
     await prisma.team.deleteMany({

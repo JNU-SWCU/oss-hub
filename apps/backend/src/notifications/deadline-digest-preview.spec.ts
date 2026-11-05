@@ -23,7 +23,7 @@ const source: DeadlineProgramSource = {
       documents: [{ id: 'doc-1', required: true }],
     },
   ],
-  applications: [
+  teams: [
     {
       id: 'application-1',
       applicant: {
@@ -118,7 +118,7 @@ describe('confirmed rendered deadline digest', () => {
     );
 
     expect(prepared.studentPreviews[0]?.text).toContain(
-      source.applications[0]?.applicant.nickname,
+      source.teams[0]?.applicant.nickname,
     );
     expect(prepared.studentPreviews[0]?.text).toContain('student note');
     expect(prepared.staffPreview?.text).toContain('staff note');

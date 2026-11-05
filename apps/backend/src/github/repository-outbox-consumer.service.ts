@@ -90,17 +90,17 @@ export class RepositoryOutboxConsumerService {
             this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
               event.payload,
             );
-          if (payload.applicationId !== event.aggregateId) {
+          if (payload.teamId !== event.aggregateId) {
             throw new InvalidRepositoryProvisionEventError();
           }
-          const job = await store.findProvisionJob(payload.applicationId);
+          const job = await store.findProvisionJob(payload.teamId);
           if (job === null) {
             throw new InvalidRepositoryProvisionEventError();
           }
           if (job.currentEventId !== event.id) {
             await store.confirmSupersededProvisionEvent(
               event.id,
-              payload.applicationId,
+              payload.teamId,
               now,
               (stored) =>
                 this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
@@ -114,10 +114,10 @@ export class RepositoryOutboxConsumerService {
         }
 
         const payload = this.parseEventPayload(event.type, event.payload);
-        if (payload.applicationId !== event.aggregateId) {
+        if (payload.teamId !== event.aggregateId) {
           throw new InvalidRepositoryProvisionEventError();
         }
-        const job = await store.upsertProvisionJob(payload.applicationId, now);
+        const job = await store.upsertProvisionJob(payload.teamId, now);
         await store.completeProvisionEvent(event.id, workerId, now);
         return { kind: 'CONSUMED', eventId: event.id, jobId: job.id };
       } catch (error) {
@@ -138,7 +138,7 @@ export class RepositoryOutboxConsumerService {
   private parseEventPayload(
     type: string,
     payload: unknown,
-  ): { readonly applicationId: string } {
+  ): { readonly teamId: string } {
     if (type === REPOSITORY_ACCESS_SYNC_EVENT_TYPE) {
       return this.repositoryProvisionEventService.parseRepositoryAccessSyncEvent(
         payload,

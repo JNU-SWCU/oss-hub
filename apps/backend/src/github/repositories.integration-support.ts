@@ -60,27 +60,25 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
   }
 
   upsertProvisionJob(
-    applicationId: string,
+    teamId: string,
     now: Date,
   ): Promise<ProvisionJobReference> {
-    return this.store.upsertProvisionJob(applicationId, now);
+    return this.store.upsertProvisionJob(teamId, now);
   }
 
-  findProvisionJob(
-    applicationId: string,
-  ): Promise<ProvisionJobReference | null> {
-    return this.store.findProvisionJob(applicationId);
+  findProvisionJob(teamId: string): Promise<ProvisionJobReference | null> {
+    return this.store.findProvisionJob(teamId);
   }
 
   confirmSupersededProvisionEvent(
     eventId: string,
-    applicationId: string,
+    teamId: string,
     now: Date,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     return this.store.confirmSupersededProvisionEvent(
       eventId,
-      applicationId,
+      teamId,
       now,
       parsePayload,
     );

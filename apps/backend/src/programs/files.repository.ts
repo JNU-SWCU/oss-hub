@@ -446,7 +446,7 @@ const MAX_RETAINED_FILE_COUNT = 100;
 const MAX_RETAINED_FILE_BYTES = 500 * 1024 * 1024;
 export interface CreatePendingSubmissionFileInput {
   readonly uploaderId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneId: string;
   readonly milestoneDocumentId: string;
   readonly storageKey: string;
@@ -583,11 +583,8 @@ export class FilesRepository {
     }
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
-      submissionHistory: {
-        submission: {
-          application:
-            this.platformRepository.programApplicationParticipantWhere(user.id),
-        },
+      team: {
+        is: this.platformRepository.programApplicationParticipantWhere(user.id),
       },
     });
   }
@@ -596,26 +593,25 @@ export class FilesRepository {
       const stillMember =
         await this.platformRepository.lockSubmissionMembership(
           transaction,
-          input.applicationId,
+          input.teamId,
           input.uploaderId,
         );
       if (!stillMember) {
         throw new SubmissionMembershipChangedError(
-          input.applicationId,
+          input.teamId,
           input.uploaderId,
         );
       }
       const programs = await transaction.$queryRaw<
         readonly {
           endAt: Date;
-          teamId: string;
         }[]
       >(Prisma.sql`
-        SELECT program."endAt", application."teamId"
+        SELECT program."endAt"
         FROM "Program" AS program
-        INNER JOIN "Application" AS application
-          ON application."programId" = program."id"
-        WHERE application."id" = ${input.applicationId}
+        INNER JOIN "Team" AS team
+          ON team."programId" = program."id"
+        WHERE team."id" = ${input.teamId}
         FOR UPDATE OF program
       `);
       const program = programs[0];
@@ -652,7 +648,7 @@ export class FilesRepository {
         data: {
           uploaderId: input.uploaderId,
           kind: 'SUBMISSION',
-          teamId: program.teamId,
+          teamId: input.teamId,
           requirementId: input.milestoneDocumentId,
           storageKey: input.storageKey,
           originalFileName: input.originalFileName,

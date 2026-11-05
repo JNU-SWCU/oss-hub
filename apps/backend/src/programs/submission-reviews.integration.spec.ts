@@ -109,14 +109,16 @@ async function createFreshPrivateRepository(): Promise<{
       approvalStatus: 'NOT_REQUIRED',
     },
   });
-  const applicationId = seedId('repositories', scenarioId, 'application');
-  const teamId = seedId('repositories', scenarioId, 'team');
+  const teamId = seedId('repositories', scenarioId, 'application');
   await prisma.team.create({
     data: {
       id: teamId,
       programId: REPOSITORIES_PROGRAM_ID,
       name: `${scenarioId} 1인 팀`,
       leaderId: applicantId,
+      applicantId: applicantId,
+      answers: { title: `${scenarioId} 1인 팀` },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -126,12 +128,11 @@ async function createFreshPrivateRepository(): Promise<{
       userId: applicantId,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId: REPOSITORIES_PROGRAM_ID,
       applicantId,
-      teamId,
       answers: { seedPlaceholder: true, scenarioId },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -148,8 +149,7 @@ async function createFreshPrivateRepository(): Promise<{
   await prisma.githubRepository.create({
     data: {
       id: repositoryId,
-      applicationId,
-      programId: REPOSITORIES_PROGRAM_ID,
+      teamId,
       githubRepositoryId,
       nameWithOwner,
       source: RepositorySource.ORG_PROVISIONED,
@@ -159,7 +159,7 @@ async function createFreshPrivateRepository(): Promise<{
   await prisma.repositoryProvisionJob.create({
     data: {
       id: seedId('repositories', scenarioId, 'job'),
-      applicationId,
+      teamId,
       repositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: new Date(),
@@ -195,7 +195,7 @@ describe('SubmissionReviewsService integration', () => {
         },
       },
     });
-    await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+    await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.milestoneDocument.deleteMany({
@@ -204,18 +204,18 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
     await prisma.repositoryInvitation.deleteMany({
-      where: { repository: { programId: REPOSITORIES_PROGRAM_ID } },
+      where: { repository: { team: { programId: REPOSITORIES_PROGRAM_ID } } },
     });
     await prisma.repositoryProvisionJob.deleteMany({
-      where: { application: { programId: REPOSITORIES_PROGRAM_ID } },
+      where: { team: { programId: REPOSITORIES_PROGRAM_ID } },
     });
     await prisma.githubRepository.deleteMany({
-      where: { programId: REPOSITORIES_PROGRAM_ID },
+      where: { team: { programId: REPOSITORIES_PROGRAM_ID } },
     });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { startsWith: seedId('repositories') } },
     });
-    await prisma.application.deleteMany({
+    await prisma.team.deleteMany({
       where: { programId: REPOSITORIES_PROGRAM_ID },
     });
     await prisma.teamMember.deleteMany({

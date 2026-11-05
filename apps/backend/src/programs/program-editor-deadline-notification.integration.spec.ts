@@ -41,7 +41,7 @@ const MILESTONE_ID = `${TEST_PREFIX}milestone`;
 const DOCUMENT_REQUIRED_ID = `${TEST_PREFIX}document:required`;
 const DOCUMENT_OPTIONAL_ID = `${TEST_PREFIX}document:optional`;
 const TEAM_ID = `${TEST_PREFIX}team`;
-const APPLICATION_ID = `${TEST_PREFIX}application`;
+const APPLICATION_ID = `${TEST_PREFIX}team`;
 const LEADER_ID = `${TEST_PREFIX}leader`;
 const MEMBER_ID = `${TEST_PREFIX}member`;
 const NOW = new Date('2026-08-18T00:00:00.000Z');
@@ -100,9 +100,9 @@ function errorCode(error: unknown): string | null {
 }
 async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { applicationId: APPLICATION_ID },
+    where: { teamId: APPLICATION_ID },
   });
-  await prisma.application.deleteMany({ where: { id: APPLICATION_ID } });
+  await prisma.team.deleteMany({ where: { id: APPLICATION_ID } });
   await prisma.milestoneDocument.deleteMany({
     where: { milestoneId: MILESTONE_ID },
   });
@@ -199,6 +199,9 @@ async function seed(): Promise<void> {
       programId: PROGRAM_ID,
       name: '검증 팀',
       leaderId: LEADER_ID,
+      applicantId: LEADER_ID,
+      answers: { title: '검증 팀' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.createMany({
@@ -207,12 +210,11 @@ async function seed(): Promise<void> {
       { teamId: TEAM_ID, programId: PROGRAM_ID, userId: MEMBER_ID },
     ],
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: TEAM_ID },
     data: {
-      id: APPLICATION_ID,
       programId: PROGRAM_ID,
       applicantId: LEADER_ID,
-      teamId: TEAM_ID,
       answers: {},
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -275,7 +277,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     await prisma.milestoneDocumentSubmission.create({
       data: {
         milestoneDocumentId: DOCUMENT_REQUIRED_ID,
-        applicationId: APPLICATION_ID,
+        teamId: APPLICATION_ID,
         submittedById: LEADER_ID,
       },
     });

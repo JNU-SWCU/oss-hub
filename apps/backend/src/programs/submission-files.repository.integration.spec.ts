@@ -96,7 +96,7 @@ const FILE_IDS: string[] = [
 const BASE_FILE = {
   uploaderId: UPLOADER_USER_ID,
   kind: 'SUBMISSION',
-  teamId: seedId('milestones', 'team'),
+  teamId: APPLICATION_ID,
   requirementId: MILESTONE_DOCUMENT_ID,
   mimeType: 'application/pdf',
 } as const;
@@ -213,7 +213,7 @@ describe('FilesRepository.findDownloadableFile integration', () => {
       data: {
         id: MILESTONE_DOCUMENT_SUBMISSION_ID,
         milestoneDocumentId: MILESTONE_DOCUMENT_ID,
-        applicationId: APPLICATION_ID,
+        teamId: APPLICATION_ID,
         status: SubmissionStatus.SUBMITTED,
         revision: 1,
         submittedById: UPLOADER_USER_ID,

@@ -1,6 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
@@ -48,12 +48,12 @@ function createRepository() {
   const prisma = new PrismaService();
   const repository = new StudentApplicationManagementRepository(
     prisma,
-    new ReviewHistoryWriterRepository(),
+    new TeamHistoryRepository(),
     new PlatformRepository(),
   );
   const applicationsRepository = new ApplicationsRepository(
     prisma,
-    new ReviewHistoryWriterRepository(),
+    new TeamHistoryRepository(),
     new RepositoryProvisionGenerationRepository(),
     new PlatformRepository(),
   );
@@ -657,7 +657,7 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
     expect(result.canManage).toBe(true);
   });
 
-  it('신청 취소는 반려 상태로 열리지 않는다 — 명세가 재제출만 확장했다', async () => {
+  it('반려 팀의 팀장도 지원을 취소할 수 있다', async () => {
     const {
       repository,
       applicationsRepository,
@@ -674,10 +674,9 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
       new ApplicationAnswersService(),
     );
 
-    await expectDomainCode(
+    await expect(
       service.cancelMine(4242n, 'program-1', NOW),
-      ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
-    );
-    expect(deletePendingApplication.mock.calls).toHaveLength(0);
+    ).resolves.toBeDefined();
+    expect(deletePendingApplication).toHaveBeenCalledTimes(1);
   });
 });

@@ -59,16 +59,18 @@ beforeAll(async () => {
       programId: ids.program,
       name: 'Synthetic team',
       leaderId: ids.member,
+      applicantId: ids.member,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
     data: { teamId: ids.team, programId: ids.program, userId: ids.member },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: ids.team },
     data: {
-      id: ids.application,
       programId: ids.program,
-      teamId: ids.team,
       applicantId: ids.member,
       answers: {},
       applicationTemplateVersion: 1,
@@ -81,16 +83,13 @@ beforeAll(async () => {
         githubRepositoryId: memberGithubId + 1n,
         nameWithOwner: 'synthetic/outsider-linked',
         source: 'EXTERNAL_PUBLIC',
-        applicationId: ids.application,
-        programId: ids.program,
-        teamId: ids.team,
+        teamId: ids.application,
       },
       {
         id: ids.detached,
         githubRepositoryId: memberGithubId + 2n,
         nameWithOwner: 'synthetic/outsider-detached',
         source: 'ORG_PROVISIONED',
-        programId: ids.program,
         teamId: null,
       },
     ],
@@ -102,7 +101,7 @@ afterAll(async () => {
 
 it('counts against the linked program window and not for a detached repository', async () => {
   expect(await collection.findOutsiderCountingWindow(ids.linked)).toEqual({
-    applicationId: ids.application,
+    teamId: ids.application,
     programId: ids.program,
     startAt,
     endAt,
@@ -155,7 +154,7 @@ it('counts the team side of `outsiders = total − team` from current members in
 it('keeps one row per repository, overwritten by each count', async () => {
   const base = {
     repositoryId: ids.linked,
-    applicationId: ids.application,
+    teamId: ids.application,
     programId: ids.program,
     windowStartAt: startAt,
     windowEndAt: endAt,
@@ -191,7 +190,7 @@ it('remembers when it last counted only while the application and window stay th
   const observedAt = new Date('2026-09-02T00:00:00Z');
   await collection.saveOutsiderContribution({
     repositoryId: ids.linked,
-    applicationId: ids.application,
+    teamId: ids.application,
     programId: ids.program,
     windowStartAt: startAt,
     windowEndAt: endAt,
@@ -206,7 +205,7 @@ it('remembers when it last counted only while the application and window stay th
 
   await prisma.githubRepositoryOutsiderContribution.update({
     where: { repositoryId: ids.linked },
-    data: { applicationId: `${scope}-previous-application` },
+    data: { teamId: `${scope}-previous-application` },
   });
   expect(
     (await collection.findOutsiderCountingWindow(ids.linked))?.countedThrough,

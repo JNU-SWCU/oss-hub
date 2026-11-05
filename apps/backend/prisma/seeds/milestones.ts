@@ -25,8 +25,6 @@ const APPLICANT_PERSONAL_ID = seedId(
 const TEAM_LEADER_ID = seedId('milestones', 'user', 'team-leader');
 const TEAM_MEMBER_ID = seedId('milestones', 'user', 'team-member');
 const TEAM_ID = seedId('milestones', 'team');
-const APPLICATION_PERSONAL_ID = seedId('milestones', 'application', 'personal');
-const APPLICATION_TEAM_ID = seedId('milestones', 'application', 'team');
 const PROGRAM_START_AT = offsetDays(-49);
 export const MILESTONE_SCENARIOS = {
   'milestones-upcoming': [
@@ -103,7 +101,7 @@ async function createSubmissionScenario(
   params: {
     scenarioId: string;
     milestoneId: string;
-    applicationId: string;
+    teamId: string;
     submittedById: string;
     status: SubmissionStatus;
     review?: {
@@ -136,7 +134,7 @@ async function createSubmissionScenario(
         create: {
           id: targetSubmissionId,
           milestoneDocumentId: documentId,
-          applicationId: params.applicationId,
+          teamId: params.teamId,
           status: params.status,
           content: { seedPlaceholder: true, scenarioId: params.scenarioId },
           revision: 1,
@@ -285,6 +283,9 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
           programId: PROGRAM_ID,
           name: '마일스톤 개인 참여 1인 팀',
           leaderId: applicantPersonal.id,
+          applicantId: applicantPersonal.id,
+          answers: { title: '마일스톤 개인 참여 1인 팀' },
+          applicationTemplateVersion: 1,
         },
       }),
   );
@@ -318,19 +319,15 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   );
   await upsertTracked(
     stats,
-    'Application',
+    'Team',
+    () => prisma.team.findUnique({ where: { id: personalTeamId } }),
     () =>
-      prisma.application.findUnique({ where: { id: APPLICATION_PERSONAL_ID } }),
-    () =>
-      prisma.application.upsert({
-        where: { id: APPLICATION_PERSONAL_ID },
-        update: {},
-        create: {
-          id: APPLICATION_PERSONAL_ID,
+      prisma.team.update({
+        where: { id: personalTeamId },
+        data: {
           programId: PROGRAM_ID,
           applicantId: applicantPersonal.id,
           answers: { seedPlaceholder: true, scenarioId: 'milestones-personal' },
-          teamId: personalTeamId,
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
         },
@@ -349,6 +346,9 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
           programId: PROGRAM_ID,
           name: 'seed-milestones-team',
           leaderId: teamLeader.id,
+          applicantId: teamLeader.id,
+          answers: { title: 'seed-milestones-team' },
+          applicationTemplateVersion: 1,
         },
       }),
   );
@@ -390,17 +390,14 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   );
   await upsertTracked(
     stats,
-    'Application',
-    () => prisma.application.findUnique({ where: { id: APPLICATION_TEAM_ID } }),
+    'Team',
+    () => prisma.team.findUnique({ where: { id: TEAM_ID } }),
     () =>
-      prisma.application.upsert({
-        where: { id: APPLICATION_TEAM_ID },
-        update: {},
-        create: {
-          id: APPLICATION_TEAM_ID,
+      prisma.team.update({
+        where: { id: TEAM_ID },
+        data: {
           programId: PROGRAM_ID,
           applicantId: teamLeader.id,
-          teamId: TEAM_ID,
           answers: { seedPlaceholder: true, scenarioId: 'milestones-team' },
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
@@ -437,7 +434,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'milestone-with-submission',
     milestoneId: withSubmissionId,
-    applicationId: APPLICATION_PERSONAL_ID,
+    teamId: personalTeamId,
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.SUBMITTED,
   });
@@ -451,7 +448,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-existing',
     milestoneId: existingId,
-    applicationId: APPLICATION_TEAM_ID,
+    teamId: TEAM_ID,
     submittedById: teamLeader.id,
     status: SubmissionStatus.SUBMITTED,
   });
@@ -465,7 +462,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-approved',
     milestoneId: approvedId,
-    applicationId: APPLICATION_PERSONAL_ID,
+    teamId: personalTeamId,
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.APPROVED,
     review: { decision: ReviewDecision.APPROVED },
@@ -481,7 +478,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-changes-requested',
     milestoneId: changesRequestedId,
-    applicationId: APPLICATION_TEAM_ID,
+    teamId: TEAM_ID,
     submittedById: teamMember.id,
     status: SubmissionStatus.CHANGES_REQUESTED,
     review: {
@@ -499,7 +496,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-rejected',
     milestoneId: rejectedId,
-    applicationId: APPLICATION_PERSONAL_ID,
+    teamId: personalTeamId,
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.REJECTED,
     review: {

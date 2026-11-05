@@ -5,7 +5,7 @@ export class MilestoneDocumentFeedbackItemResponseDto {
   declare readonly decision: ReviewDecision;
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
-  declare readonly applicationId: string;
+  declare readonly teamId: string;
   declare readonly programId: string;
   declare readonly milestoneId: string;
   declare readonly milestoneName: string;
@@ -19,7 +19,7 @@ export class MilestoneDocumentFeedbackItemResponseDto {
       decision: item.decision,
       comment: item.comment,
       reviewedAt: item.reviewedAt.toISOString(),
-      applicationId: item.applicationId,
+      teamId: item.teamId,
       programId: item.programId,
       milestoneId: item.milestoneId,
       milestoneName: item.milestoneName,

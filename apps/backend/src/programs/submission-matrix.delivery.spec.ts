@@ -20,7 +20,7 @@ const query: SubmissionMatrixQuery = {
 function setup(firstTimes: readonly (Date | null)[]) {
   const documentIds = firstTimes.map((_, index) => `required-${index}`);
   const calls: Array<{
-    applicationIds: readonly string[];
+    teamIds: readonly string[];
     documentIds: readonly string[];
   }> = [];
   const repository = {
@@ -55,7 +55,7 @@ function setup(firstTimes: readonly (Date | null)[]) {
                 {
                   id: `submission-${index}`,
                   milestoneDocumentId: `required-${index}`,
-                  applicationId: 'application',
+                  teamId: 'application',
                   milestoneId: 'stage',
                   currentRevision: 3,
                   status: SubmissionStatus.REJECTED,
@@ -66,17 +66,17 @@ function setup(firstTimes: readonly (Date | null)[]) {
       ),
     findDocumentChangeRequests: () => Promise.resolve([]),
     findDocumentFirstSubmissions: (
-      applicationIds: readonly string[],
+      teamIds: readonly string[],
       requiredIds: readonly string[],
     ) => {
-      calls.push({ applicationIds, documentIds: requiredIds });
+      calls.push({ teamIds, documentIds: requiredIds });
       return Promise.resolve(
         firstTimes.flatMap((firstSubmittedAt, index) =>
           firstSubmittedAt === null
             ? []
             : [
                 {
-                  applicationId: 'application',
+                  teamId: 'application',
                   milestoneDocumentId: `required-${index}`,
                   firstSubmittedAt,
                 },
@@ -143,12 +143,12 @@ it('does not treat another application or unrelated document as a required submi
   repository.findDocumentFirstSubmissions = () =>
     Promise.resolve([
       {
-        applicationId: 'other-application',
+        teamId: 'other-application',
         milestoneDocumentId: 'required-0',
         firstSubmittedAt: onTime,
       },
       {
-        applicationId: 'application',
+        teamId: 'application',
         milestoneDocumentId: 'optional-or-other-stage',
         firstSubmittedAt: onTime,
       },
@@ -169,7 +169,7 @@ it('reads first-submission coordinates once for only the selected page and requi
 
   expect(calls).toEqual([
     {
-      applicationIds: ['application'],
+      teamIds: ['application'],
       documentIds: ['required-0', 'required-1'],
     },
   ]);

@@ -50,7 +50,7 @@ export interface ProgramDocumentChangeRequestInput {
 }
 export interface ProgramDocumentChangeRequestCandidate {
   readonly milestoneDocumentId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly status: SubmissionStatus;
 }
 export interface ProgramDocumentChangeRequestPreview {
@@ -84,14 +84,14 @@ export interface MilestoneContext {
   readonly dueAt: Date;
 }
 export interface MilestoneDocumentCollectionApplication {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly teamName: string;
   readonly applicantName: string | null;
   readonly memberNicknames: readonly string[];
 }
 export interface MilestoneDocumentCollectionSubmission {
   readonly milestoneDocumentId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly submittedAt: Date;
   readonly revision: number;
   readonly status: SubmissionStatus;
@@ -128,7 +128,7 @@ export interface UpsertMilestoneDocumentInput {
   readonly sortOrder: number;
 }
 export interface DocumentDeliveryCoordinate {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneDocumentId: string;
   readonly firstSubmittedAt: Date;
 }
@@ -218,46 +218,42 @@ export class MilestoneDocumentCollectionReadStoreRepository {
   async findApplications(
     programId: string,
   ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
-    const applications = await this.transaction.application.findMany({
+    const applications = await this.transaction.team.findMany({
       where: { programId, status: 'APPROVED' },
-      orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         applicant: { select: USER_PROFILE_NAME_SELECT },
-        team: {
-          select: {
-            name: true,
-            members: {
-              orderBy: { createdAt: 'asc' },
-              select: { user: { select: { nickname: true } } },
-            },
-          },
+        name: true,
+        members: {
+          orderBy: { createdAt: 'asc' },
+          select: { user: { select: { nickname: true } } },
         },
       },
     });
     return applications.map((application) => ({
-      applicationId: application.id,
-      teamName: application.team.name,
+      teamId: application.id,
+      teamName: application.name,
       applicantName: application.applicant.name ?? null,
-      memberNicknames: application.team.members.map(
+      memberNicknames: application.members.map(
         (member) => member.user.nickname,
       ),
     }));
   }
   async findCoordinates(
     documentIds: readonly string[],
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly DocumentDeliveryCoordinate[]> {
-    if (documentIds.length === 0 || applicationIds.length === 0) return [];
+    if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions =
       await this.transaction.milestoneDocumentSubmission.findMany({
         where: {
           milestoneDocumentId: { in: [...documentIds] },
-          applicationId: { in: [...applicationIds] },
+          teamId: { in: [...teamIds] },
         },
         select: {
           milestoneDocumentId: true,
-          applicationId: true,
+          teamId: true,
           createdAt: true,
           histories: {
             where: { event: 'SUBMITTED', revision: 1 },
@@ -269,26 +265,27 @@ export class MilestoneDocumentCollectionReadStoreRepository {
       });
     return submissions.map((submission) => ({
       milestoneDocumentId: submission.milestoneDocumentId,
-      applicationId: submission.applicationId,
+      teamId: submission.teamId,
+
       firstSubmittedAt:
         submission.histories[0]?.createdAt ?? submission.createdAt,
     }));
   }
   async findDetails(
     documentIds: readonly string[],
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
     now: Date,
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
-    if (documentIds.length === 0 || applicationIds.length === 0) return [];
+    if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions =
       await this.transaction.milestoneDocumentSubmission.findMany({
         where: {
           milestoneDocumentId: { in: [...documentIds] },
-          applicationId: { in: [...applicationIds] },
+          teamId: { in: [...teamIds] },
         },
         select: {
           milestoneDocumentId: true,
-          applicationId: true,
+          teamId: true,
           submittedAt: true,
           revision: true,
           status: true,

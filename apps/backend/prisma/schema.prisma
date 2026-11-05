@@ -100,8 +100,8 @@ model User {
   adminHistories                         AdminHistory[]                       @relation("AdminHistorySubject")
   actedAdminHistories                    AdminHistory[]                       @relation("AdminHistoryActor")
   policies                               UserPolicy[]
-  applications                           Application[]                        @relation("ApplicationApplicant")
-  processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
+  submittedTeams                         Team[]                               @relation("TeamApplicant")
+  processedTeams                         Team[]                               @relation("TeamProcessedBy")
   ledTeams                               Team[]                               @relation("TeamLeader")
   teamMemberships                        TeamMember[]
   sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")
@@ -110,7 +110,6 @@ model User {
   createdPrograms                        Program[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
   milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
-  applicationReviewHistories             ApplicationReviewHistory[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
@@ -262,9 +261,7 @@ model Program {
   updatedAt                     DateTime @updatedAt
 
   milestones       Milestone[]
-  applications     Application[]
   teams            Team[]
-  repositories     GithubRepository[]
   boardPosts       BoardPost[]
 }
 
@@ -284,10 +281,10 @@ model Milestone {
   programId String
   program   Program @relation(fields: [programId], references: [id])
 
-  name         String
-  startAt      DateTime
-  dueAt        DateTime
-  instructions String?
+  name           String
+  startAt        DateTime
+  dueAt          DateTime
+  instructions   String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -322,78 +319,6 @@ enum RepositoryConnectionMode {
   OWN
 }
 
-model Application {
-  id        String  @id @default(cuid())
-  programId String
-  program   Program @relation(fields: [programId], references: [id])
-
-  applicantId String
-  applicant   User   @relation("ApplicationApplicant", fields: [applicantId], references: [id])
-
-  teamId String
-  team   Team   @relation(fields: [teamId], references: [id], onDelete: Restrict)
-
-  answers                    Json
-  applicationTemplateVersion Int
-
-  isRepositoryPublicationPlanned Boolean @default(true)
-
-  repositoryConnectionMode RepositoryConnectionMode @default(NEW)
-  repositoryUrl            String?
-
-  status          ApplicationStatus @default(SUBMITTED)
-  rejectionReason String?
-
-  revision Int @default(1)
-
-  submittedAt DateTime @default(now())
-
-  processedById String?
-  processedBy   User?     @relation("ApplicationProcessedBy", fields: [processedById], references: [id])
-  processedAt   DateTime?
-
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-
-  repository                   GithubRepository?
-  provisionJob                 RepositoryProvisionJob?
-  milestoneDocumentSubmissions MilestoneDocumentSubmission[]
-  reviewHistories              ApplicationReviewHistory[]
-
-  @@unique([programId, teamId])
-  @@index([programId])
-  @@index([applicantId])
-  @@index([teamId])
-}
-
-enum ApplicationReviewEventKind {
-  SUBMITTED
-  RESUBMITTED
-  APPROVED
-  REJECTED
-  REVERTED
-}
-
-model ApplicationReviewHistory {
-  id String @id @default(cuid())
-
-  applicationId String
-  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-
-  eventKind ApplicationReviewEventKind
-  revision  Int
-
-  actorId String
-  actor   User   @relation(fields: [actorId], references: [id], onDelete: Restrict)
-
-  occurredAt DateTime @default(now())
-
-  rejectionReason String?
-
-  @@index([applicationId, occurredAt])
-  @@index([actorId])
-}
-
 model Team {
   files File[]
   id        String  @id @default(cuid())
@@ -405,16 +330,34 @@ model Team {
   leaderId String
   leader   User   @relation("TeamLeader", fields: [leaderId], references: [id])
 
+  applicantId String
+  applicant User @relation("TeamApplicant", fields: [applicantId], references: [id])
+  answers Json
+  applicationTemplateVersion Int
+  status ApplicationStatus @default(SUBMITTED)
+  revision Int @default(1)
+  submittedAt DateTime @default(now())
+  processedById String?
+  processedBy User? @relation("TeamProcessedBy", fields: [processedById], references: [id])
+  processedAt DateTime?
+  rejectionReason String?
+  isRepositoryPublicationPlanned Boolean @default(true)
+  repositoryConnectionMode RepositoryConnectionMode @default(NEW)
+  repositoryUrl String?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   members      TeamMember[]
-  applications Application[]
-  repositories GithubRepository[]
+  repository GithubRepository?
+  provisionJob RepositoryProvisionJob?
+  milestoneDocumentSubmissions MilestoneDocumentSubmission[]
   invitations  TeamInvitation[]
 
   @@unique([id, programId])
   @@index([programId])
+  @@index([applicantId])
+  @@index([programId, status, submittedAt])
 }
 
 model TeamMember {
@@ -432,6 +375,17 @@ model TeamMember {
 }
 
 enum TeamHistoryEvent {
+  SUBMITTED
+  APPROVED
+  REJECTED
+  REVERTED
+  RESUBMITTED
+  REPOSITORY_URL_CHANGED
+  DELETED
+  MEMBER_LEFT
+  MEMBER_REMOVED
+  LEADER_TRANSFERRED
+  RENAMED
   INVITATION_ARCHIVED
   INVITATION_ACCEPTED
   INVITATION_DECLINED
@@ -439,13 +393,13 @@ enum TeamHistoryEvent {
 }
 
 model TeamHistory {
-  id          String           @id @default(cuid())
+  id          String @id @default(cuid())
   teamId      String
   programId   String
   actorId     String?
   event       TeamHistoryEvent
-  occurredAt  DateTime         @default(now())
-  recordedAt  DateTime         @default(now())
+  occurredAt  DateTime @default(now())
+  recordedAt  DateTime @default(now())
   source      HistorySource
   sourceTable String?
   sourceId    String?
@@ -473,10 +427,10 @@ model TeamInvitation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@unique([teamId, inviteeId])
   @@index([teamId])
   @@index([programId, inviteeId])
   @@index([inviteeId])
+  @@unique([teamId, inviteeId])
 }
 
 enum BoardPostCategory {
@@ -554,9 +508,9 @@ model MilestoneDocument {
   milestoneId String
   milestone   Milestone @relation(fields: [milestoneId], references: [id])
 
-  name           String
-  required       Boolean
-  sortOrder      Int
+  name      String
+  required  Boolean
+  sortOrder Int
   submissionType RequirementSubmissionType @default(FILE_OR_TEXT)
 
   createdAt DateTime @default(now())
@@ -573,9 +527,8 @@ model MilestoneDocumentSubmission {
 
   milestoneDocumentId String
   milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])
-
-  applicationId String
-  application   Application @relation(fields: [applicationId], references: [id])
+  teamId String
+  team Team @relation(fields: [teamId], references: [id])
 
   status  SubmissionStatus @default(SUBMITTED)
   content Json?
@@ -589,11 +542,10 @@ model MilestoneDocumentSubmission {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  files     File[]
-  histories MilestoneDocumentSubmissionHistory[]
-
-  @@unique([milestoneDocumentId, applicationId])
-  @@index([applicationId])
+  files           File[]
+  histories       MilestoneDocumentSubmissionHistory[]
+  @@unique([milestoneDocumentId, teamId])
+  @@index([teamId])
   @@index([submittedById])
 }
 
@@ -773,9 +725,8 @@ enum RepositoryProvisionJobStatus {
 
 model RepositoryProvisionJob {
   id String @id @default(cuid())
-
-  applicationId String      @unique
-  application   Application @relation(fields: [applicationId], references: [id])
+  teamId String @unique
+  team Team @relation(fields: [teamId], references: [id])
 
   repositoryId String?
   repository   GithubRepository? @relation(fields: [repositoryId], references: [id])
@@ -805,8 +756,7 @@ model RepositoryIssuanceHistory {
   id String @id @default(cuid())
 
   requestId String @unique
-
-  applicationId String
+  teamId String
   repositoryId  String?
 
   connectionMode RepositoryConnectionMode
@@ -818,8 +768,7 @@ model RepositoryIssuanceHistory {
   requestedAt DateTime
   closedAt    DateTime
   createdAt   DateTime @default(now())
-
-  @@index([applicationId])
+  @@index([teamId])
 }
 
 enum RepositoryIssuanceOutcome {
@@ -894,13 +843,8 @@ model GithubRepository {
   lastSuccessAt DateTime?
   failureCount  Int       @default(0)
 
-  applicationId String?      @unique
-  application   Application? @relation(fields: [applicationId], references: [id])
 
-  programId String?
-  program   Program? @relation(fields: [programId], references: [id], onDelete: Restrict)
-
-  teamId String?
+  teamId String? @unique
   team   Team?   @relation(fields: [teamId], references: [id])
 
   publishedAt DateTime?
@@ -921,7 +865,6 @@ model GithubRepository {
   @@index([source, visibility])
   @@index([visibility, presence])
   @@index([nextRunAt])
-  @@index([programId])
   @@index([teamId])
   @@index([visibility, publishedAt, id])
 }
@@ -1127,8 +1070,7 @@ model GithubIssueHistory {
 model GithubRepositoryOutsiderContribution {
   repositoryId String           @id
   repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  applicationId String
+  teamId String
   programId     String
   windowStartAt DateTime
   windowEndAt   DateTime

@@ -789,7 +789,7 @@ export class ProgramEditorRepository {
   }
 }
 const editableProgramInclude = {
-  _count: { select: { applications: true, teams: true, boardPosts: true } },
+  _count: { select: { teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
 function toEditableProgramView(
@@ -813,7 +813,7 @@ function toEditableProgramView(
     lifecycle: program.lifecycle,
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,
-    applicationCount: program._count.applications,
+    applicationCount: program._count.teams,
     teamCount: program._count.teams,
     deletionScopeCounts,
     applicationStartAt: program.applicationStartAt,

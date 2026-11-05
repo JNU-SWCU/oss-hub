@@ -94,7 +94,7 @@ describe('ApplicationDecisionNotificationsService', () => {
           createdAt: new Date('2026-08-09T00:00:00.000Z'),
           payload: {
             schemaVersion: 1,
-            applicationId: 'application-1',
+            teamId: 'application-1',
             programId: 'program-1',
             programName: '합성 프로그램',
             decision,
@@ -116,7 +116,7 @@ describe('ApplicationDecisionNotificationsService', () => {
     await expect(service.listUnread(42n)).resolves.toEqual([
       {
         id: 'notification-1',
-        applicationId: 'application-1',
+        teamId: 'application-1',
         programId: 'program-1',
         programName: '합성 프로그램',
         decision,

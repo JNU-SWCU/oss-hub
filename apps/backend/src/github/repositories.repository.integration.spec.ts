@@ -35,11 +35,11 @@ const PREFIX = 'synthetic-owned-provision-jobs';
 const CURRENT_USER_ID = `${PREFIX}-current-user`;
 const OTHER_USER_ID = `${PREFIX}-other-user`;
 const PROGRAM_ID = `${PREFIX}-program`;
-const PERSONAL_APPLICATION_ID = `${PREFIX}-personal-application`;
-const LEADER_APPLICATION_ID = `${PREFIX}-leader-application`;
-const MEMBER_APPLICATION_ID = `${PREFIX}-member-application`;
-const UNRELATED_APPLICATION_ID = `${PREFIX}-unrelated-application`;
-const UNAPPROVED_APPLICATION_ID = `${PREFIX}-unapproved-application`;
+const PERSONAL_APPLICATION_ID = `${PREFIX}-personal-team`;
+const LEADER_APPLICATION_ID = `${PREFIX}-leader-team`;
+const MEMBER_APPLICATION_ID = `${PREFIX}-member-team`;
+const UNRELATED_APPLICATION_ID = `${PREFIX}-unrelated-team`;
+const UNAPPROVED_APPLICATION_ID = `${PREFIX}-unapproved-team`;
 const PERSONAL_TEAM_ID = `${PREFIX}-personal-team`;
 const LEADER_TEAM_ID = `${PREFIX}-leader-team`;
 const MEMBER_TEAM_ID = `${PREFIX}-member-team`;
@@ -67,14 +67,14 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       data: [
         {
           id: CURRENT_USER_ID,
-          githubId: 8_300_000_000_001n,
+          githubId: 8300000000001n,
           nickname: `${PREFIX}-Current`,
           type: MemberKind.STUDENT,
           approvalStatus: 'NOT_REQUIRED',
         },
         {
           id: OTHER_USER_ID,
-          githubId: 8_300_000_000_002n,
+          githubId: 8300000000002n,
           nickname: `${PREFIX}-other`,
           type: MemberKind.STUDENT,
           approvalStatus: 'NOT_REQUIRED',
@@ -85,9 +85,8 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
@@ -108,30 +107,45 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           programId: PROGRAM_ID,
           name: `${PREFIX}-personal-team`,
           leaderId: CURRENT_USER_ID,
+          applicantId: CURRENT_USER_ID,
+          answers: { title: `${PREFIX}-personal-team` },
+          applicationTemplateVersion: 1,
         },
         {
           id: LEADER_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-leader-team`,
           leaderId: CURRENT_USER_ID,
+          applicantId: CURRENT_USER_ID,
+          answers: { title: `${PREFIX}-leader-team` },
+          applicationTemplateVersion: 1,
         },
         {
           id: MEMBER_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-member-team`,
           leaderId: OTHER_USER_ID,
+          applicantId: OTHER_USER_ID,
+          answers: { title: `${PREFIX}-member-team` },
+          applicationTemplateVersion: 1,
         },
         {
           id: UNRELATED_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-unrelated-team`,
           leaderId: OTHER_USER_ID,
+          applicantId: OTHER_USER_ID,
+          answers: { title: `${PREFIX}-unrelated-team` },
+          applicationTemplateVersion: 1,
         },
         {
           id: UNAPPROVED_TEAM_ID,
           programId: PROGRAM_ID,
           name: `${PREFIX}-unapproved-team`,
           leaderId: CURRENT_USER_ID,
+          applicantId: CURRENT_USER_ID,
+          answers: { title: `${PREFIX}-unapproved-team` },
+          applicationTemplateVersion: 1,
         },
       ],
     });
@@ -159,13 +173,10 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         where: { repositoryId: { in: [...REPOSITORY_IDS] } },
       });
       await prisma.repositoryProvisionJob.deleteMany({
-        where: { applicationId: { in: [...APPLICATION_IDS] } },
+        where: { teamId: { in: [...APPLICATION_IDS] } },
       });
       await prisma.githubRepository.deleteMany({
         where: { id: { in: [...REPOSITORY_IDS] } },
-      });
-      await prisma.application.deleteMany({
-        where: { id: { in: [...APPLICATION_IDS] } },
       });
       await prisma.teamMember.deleteMany({
         where: {
@@ -204,22 +215,20 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
 
   it('returns current-member jobs, excluding historical applicants and bare leaders', async () => {
     const jobs = await repository.listOwnedProvisionJobs(8_300_000_000_001n);
-    const byApplication = new Map(jobs.map((job) => [job.application.id, job]));
+    const byApplication = new Map(jobs.map((job) => [job.team.id, job]));
 
     expect([...byApplication.keys()]).toEqual([MEMBER_APPLICATION_ID]);
     expect(byApplication.has(PERSONAL_APPLICATION_ID)).toBe(false);
     expect(byApplication.has(LEADER_APPLICATION_ID)).toBe(false);
     expect(byApplication.get(MEMBER_APPLICATION_ID)).toEqual({
-      application: {
+      team: {
         id: MEMBER_APPLICATION_ID,
         teamId: MEMBER_TEAM_ID,
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-other` },
         program: { name: `${PREFIX}-program` },
-        team: {
-          name: `${PREFIX}-member-team`,
-          _count: { members: 2 },
-        },
+        name: `${PREFIX}-member-team`,
+        _count: { members: 2 },
         repository: {
           id: REPOSITORY_IDS[1],
           nameWithOwner: `synthetic/${REPOSITORY_IDS[1]}`,
@@ -245,26 +254,24 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     try {
       await prisma.githubRepository.update({
         where: { id: REPOSITORY_IDS[1] },
-        data: { applicationId: null, programId: null, teamId: null },
+        data: { teamId: null },
       });
 
       const pendingJobs =
         await repository.listOwnedProvisionJobs(8_300_000_000_001n);
       expect(
         pendingJobs.find(
-          (candidate) => candidate.application.id === MEMBER_APPLICATION_ID,
-        )?.application.repository,
+          (candidate) => candidate.team.id === MEMBER_APPLICATION_ID,
+        )?.team.repository,
       ).toBeNull();
       await prisma.githubRepository.create({
         data: {
           id: replacementId,
-          githubRepositoryId: 8_300_000_000_777n,
+          githubRepositoryId: 8300000000777n,
           nameWithOwner: `synthetic/${replacementId}`,
           visibility: RepositoryVisibility.PRIVATE,
           source: RepositorySource.ORG_PROVISIONED,
-          applicationId: MEMBER_APPLICATION_ID,
-          programId: PROGRAM_ID,
-          teamId: MEMBER_TEAM_ID,
+          teamId: MEMBER_APPLICATION_ID,
         },
       });
       await prisma.repositoryInvitation.createMany({
@@ -284,12 +291,12 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
 
       const jobs = await repository.listOwnedProvisionJobs(8_300_000_000_001n);
       const job = jobs.find(
-        (candidate) => candidate.application.id === MEMBER_APPLICATION_ID,
+        (candidate) => candidate.team.id === MEMBER_APPLICATION_ID,
       );
 
-      expect(job?.application.repository?.id).toBe(replacementId);
-      expect(job?.application.repository?.id).not.toBe(REPOSITORY_IDS[1]);
-      expect(job?.application.repository?.invitations).toEqual([
+      expect(job?.team.repository?.id).toBe(replacementId);
+      expect(job?.team.repository?.id).not.toBe(REPOSITORY_IDS[1]);
+      expect(job?.team.repository?.invitations).toEqual([
         { status: RepositoryInvitationStatus.SUCCEEDED },
       ]);
     } finally {
@@ -302,16 +309,13 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       await prisma.githubRepository.update({
         where: { id: REPOSITORY_IDS[1] },
         data: {
-          applicationId: MEMBER_APPLICATION_ID,
-          programId: PROGRAM_ID,
-          teamId: MEMBER_TEAM_ID,
+          teamId: MEMBER_APPLICATION_ID,
         },
       });
     }
   });
 
   it('retains approved jobs without a repository when updatedAt ties', async () => {
-    const tiedApplicationId = `${PREFIX}-tied-pending-application`;
     const tiedProgramId = `${PREFIX}-tied-program`;
     const tiedTeamId = `${PREFIX}-tied-team`;
     try {
@@ -319,9 +323,8 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         data: {
           startAt: new Date('2026-01-01T00:00:00.000Z'),
           endAt: new Date(
-            new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+            new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
           ),
-
           id: tiedProgramId,
           name: `${PREFIX}-tied-program`,
           organizer: 'synthetic-organizer',
@@ -341,6 +344,9 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           programId: tiedProgramId,
           name: `${PREFIX}-tied-team`,
           leaderId: CURRENT_USER_ID,
+          applicantId: CURRENT_USER_ID,
+          answers: { title: `${PREFIX}-tied-team` },
+          applicationTemplateVersion: 1,
         },
       });
       await prisma.teamMember.create({
@@ -350,20 +356,13 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
           userId: CURRENT_USER_ID,
         },
       });
-      await prisma.application.create({
-        data: {
-          ...application(
-            tiedApplicationId,
-            CURRENT_USER_ID,
-            tiedTeamId,
-            ApplicationStatus.APPROVED,
-          ),
-          programId: tiedProgramId,
-        },
+      await prisma.team.update({
+        where: { id: tiedTeamId },
+        data: { status: ApplicationStatus.APPROVED },
       });
       await prisma.repositoryProvisionJob.create({
         data: provisionJob(
-          tiedApplicationId,
+          tiedTeamId,
           null,
           RepositoryProvisionJobStatus.PENDING,
         ),
@@ -372,40 +371,35 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       const jobs = await repository.listOwnedProvisionJobs(8_300_000_000_001n);
       const tiedJobs = jobs.filter(
         (candidate) =>
-          candidate.application.id === MEMBER_APPLICATION_ID ||
-          candidate.application.id === tiedApplicationId,
+          candidate.team.id === MEMBER_APPLICATION_ID ||
+          candidate.team.id === tiedTeamId,
       );
 
       expect(tiedJobs).toHaveLength(2);
-      expect(tiedJobs.map((candidate) => candidate.application.id)).toEqual(
-        expect.arrayContaining([MEMBER_APPLICATION_ID, tiedApplicationId]),
+      expect(tiedJobs.map((candidate) => candidate.team.id)).toEqual(
+        expect.arrayContaining([MEMBER_APPLICATION_ID, tiedTeamId]),
       );
       expect(tiedJobs.map((candidate) => candidate.updatedAt)).toEqual([
         FIXED_UPDATED_AT,
         FIXED_UPDATED_AT,
       ]);
       expect(
-        tiedJobs.find(
-          (candidate) => candidate.application.id === tiedApplicationId,
-        )?.application.repository,
+        tiedJobs.find((candidate) => candidate.team.id === tiedTeamId)?.team
+          .repository,
       ).toBeNull();
     } finally {
       await prisma.repositoryProvisionJob.deleteMany({
-        where: { applicationId: tiedApplicationId },
+        where: { teamId: tiedTeamId },
       });
-      await prisma.application.deleteMany({ where: { id: tiedApplicationId } });
       await prisma.teamMember.deleteMany({ where: { teamId: tiedTeamId } });
       await prisma.team.deleteMany({ where: { id: tiedTeamId } });
       await prisma.program.deleteMany({ where: { id: tiedProgramId } });
     }
   });
 
-  it.each([
-    [PERSONAL_TEAM_ID, PERSONAL_APPLICATION_ID],
-    [LEADER_TEAM_ID, LEADER_APPLICATION_ID],
-  ])(
+  it.each([PERSONAL_TEAM_ID, LEADER_TEAM_ID])(
     'grants access to %s only while membership exists',
-    async (teamId, applicationId) => {
+    async (teamId) => {
       const membership = { userId: CURRENT_USER_ID, programId: PROGRAM_ID };
       try {
         await prisma.teamMember.updateMany({
@@ -414,8 +408,8 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
         });
         const jobs =
           await repository.listOwnedProvisionJobs(8_300_000_000_001n);
-        expect(jobs.map((job) => job.application.id)).toEqual([applicationId]);
-        expect(jobs[0]?.application.team?._count.members).toBe(1);
+        expect(jobs.map((job) => job.team.id)).toEqual([teamId]);
+        expect(jobs[0]?.team._count.members).toBe(1);
       } finally {
         await prisma.teamMember.updateMany({
           where: membership,
@@ -424,7 +418,7 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
       }
       const restored =
         await repository.listOwnedProvisionJobs(8_300_000_000_001n);
-      expect(restored.map((job) => job.application.id)).toEqual([
+      expect(restored.map((job) => job.team.id)).toEqual([
         MEMBER_APPLICATION_ID,
       ]);
     },
@@ -432,66 +426,22 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
 });
 
 async function createFixtures(): Promise<void> {
-  await prisma.application.createMany({
-    data: [
-      application(
-        PERSONAL_APPLICATION_ID,
-        CURRENT_USER_ID,
-        PERSONAL_TEAM_ID,
-        ApplicationStatus.APPROVED,
-      ),
-      application(
-        LEADER_APPLICATION_ID,
-        OTHER_USER_ID,
-        LEADER_TEAM_ID,
-        ApplicationStatus.APPROVED,
-      ),
-      application(
-        MEMBER_APPLICATION_ID,
-        OTHER_USER_ID,
-        MEMBER_TEAM_ID,
-        ApplicationStatus.APPROVED,
-      ),
-      application(
-        UNRELATED_APPLICATION_ID,
-        OTHER_USER_ID,
-        UNRELATED_TEAM_ID,
-        ApplicationStatus.APPROVED,
-      ),
-      application(
-        UNAPPROVED_APPLICATION_ID,
-        OTHER_USER_ID,
-        UNAPPROVED_TEAM_ID,
-        ApplicationStatus.SUBMITTED,
-      ),
-    ],
-  });
+  for (const row of [
+    application(CURRENT_USER_ID, PERSONAL_TEAM_ID, ApplicationStatus.APPROVED),
+    application(OTHER_USER_ID, LEADER_TEAM_ID, ApplicationStatus.APPROVED),
+    application(OTHER_USER_ID, MEMBER_TEAM_ID, ApplicationStatus.APPROVED),
+    application(OTHER_USER_ID, UNRELATED_TEAM_ID, ApplicationStatus.APPROVED),
+    application(OTHER_USER_ID, UNAPPROVED_TEAM_ID, ApplicationStatus.SUBMITTED),
+  ]) {
+    const { teamId, ...data } = row;
+    await prisma.team.update({ where: { id: teamId }, data });
+  }
   await prisma.githubRepository.createMany({
     data: [
-      storedRepository(
-        REPOSITORY_IDS[0],
-        LEADER_APPLICATION_ID,
-        LEADER_TEAM_ID,
-        8_300_000_001n,
-      ),
-      storedRepository(
-        REPOSITORY_IDS[1],
-        MEMBER_APPLICATION_ID,
-        MEMBER_TEAM_ID,
-        8_300_000_002n,
-      ),
-      storedRepository(
-        REPOSITORY_IDS[2],
-        UNRELATED_APPLICATION_ID,
-        UNRELATED_TEAM_ID,
-        8_300_000_003n,
-      ),
-      storedRepository(
-        REPOSITORY_IDS[3],
-        UNAPPROVED_APPLICATION_ID,
-        UNAPPROVED_TEAM_ID,
-        8_300_000_004n,
-      ),
+      storedRepository(REPOSITORY_IDS[0], LEADER_TEAM_ID, 8300000001n),
+      storedRepository(REPOSITORY_IDS[1], MEMBER_TEAM_ID, 8300000002n),
+      storedRepository(REPOSITORY_IDS[2], UNRELATED_TEAM_ID, 8300000003n),
+      storedRepository(REPOSITORY_IDS[3], UNAPPROVED_TEAM_ID, 8300000004n),
     ],
   });
   await prisma.repositoryProvisionJob.createMany({
@@ -546,13 +496,11 @@ async function createFixtures(): Promise<void> {
 }
 
 function application(
-  id: string,
   applicantId: string,
   teamId: string,
   status: ApplicationStatus,
 ) {
   return {
-    id,
     programId: PROGRAM_ID,
     applicantId,
     teamId,
@@ -564,17 +512,13 @@ function application(
 
 function storedRepository(
   id: string,
-  applicationId: string,
   teamId: string | null,
   githubRepositoryId: bigint,
 ) {
   return {
     id,
-    applicationId,
-    programId: PROGRAM_ID,
     teamId,
     githubRepositoryId,
-
     nameWithOwner: `synthetic/${id}`,
     source: RepositorySource.ORG_PROVISIONED,
     visibility: RepositoryVisibility.PRIVATE,
@@ -582,12 +526,12 @@ function storedRepository(
 }
 
 function provisionJob(
-  applicationId: string,
+  teamId: string,
   repositoryId: string | null,
   status: RepositoryProvisionJobStatus,
 ) {
   return {
-    applicationId,
+    teamId,
     repositoryId,
     status,
     nextAttemptAt: new Date('2026-07-22T00:00:00.000Z'),

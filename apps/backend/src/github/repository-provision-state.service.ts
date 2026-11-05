@@ -51,7 +51,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       workerId,
       requestId,
     );
-    const application = job.application;
+    const application = job.team;
     if (event === null) {
       throw RepositoryProvisionFailure.final(
         PROVISION_ERROR_CODES.INVALID_EVENT,
@@ -61,7 +61,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
     try {
       if (
         event.type !== REPOSITORY_PROVISION_EVENT_TYPE ||
-        event.aggregateType !== 'Application' ||
+        event.aggregateType !== 'Team' ||
         event.aggregateId !== application.id
       ) {
         throw new InvalidRepositoryProvisionEventError();
@@ -71,9 +71,8 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
           event.payload,
         );
       if (
-        requested.applicationId !== application.id ||
-        requested.programId !== application.programId ||
-        (requested.teamId !== null && requested.teamId !== application.teamId)
+        requested.teamId !== application.id ||
+        requested.programId !== application.programId
       ) {
         throw new InvalidRepositoryProvisionEventError();
       }
@@ -85,7 +84,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       }
       throw error;
     }
-    const team = application.team;
+    const team = application;
     const requiresManagedMembership =
       application.repository === null
         ? requested.repositoryConnectionMode === RepositoryConnectionMode.NEW
@@ -108,15 +107,14 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
           : BigInt(requested.requestedByGithubId),
       currentConnectionMode: application.repositoryConnectionMode,
       currentRepositoryUrl: application.repositoryUrl,
-      applicationId: application.id,
+      teamId: application.id,
       applicantGithubId: application.applicant.githubId,
       applicationStatus: application.status,
       programId: application.programId,
       programName: application.program.name,
       repositoryProvisioningEnabled:
         application.program.repositoryProvisioningEnabled,
-      teamId: application.teamId,
-      subjectName: team?.name ?? application.applicant.nickname,
+      subjectName: team.name,
       currentMemberGithubLogins,
       membershipFingerprint: this.membershipFingerprint(
         currentMemberGithubLogins,
@@ -226,12 +224,12 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
   }
 
   recordSupersededRequest(
-    applicationId: string,
+    teamId: string,
     requestId: string,
     now: Date,
   ): Promise<void> {
     return this.repository.recordSupersededRequest(
-      applicationId,
+      teamId,
       requestId,
       now,
       this.parseHistoryPayload,
@@ -324,7 +322,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
   ): ProvisionedRepository {
     return {
       id: row.id,
-      applicationId: row.applicationId,
+      teamId: row.teamId,
       githubRepositoryId: row.githubRepositoryId,
       name: this.repositoryUrlService.repositoryNameFromNameWithOwner(
         row.nameWithOwner,

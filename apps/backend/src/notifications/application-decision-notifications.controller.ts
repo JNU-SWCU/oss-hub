@@ -31,7 +31,7 @@ export class ApplicationDecisionNotificationsController {
     >,
   ) {}
 
-  @Get('application-decisions')
+  @Get('team-decisions')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   async listUnread(
@@ -43,7 +43,7 @@ export class ApplicationDecisionNotificationsController {
     );
   }
 
-  @Patch('application-decisions/:notificationId/read')
+  @Patch('team-decisions/:notificationId/read')
   @HttpCode(204)
   @Protected()
   @UseGuards(OriginGuard)

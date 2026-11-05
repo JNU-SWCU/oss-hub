@@ -43,7 +43,7 @@ describe('MilestoneDocumentFeedbackRepository', () => {
           submission: {
             id: 'submission-1',
             status: SubmissionStatus.CHANGES_REQUESTED,
-            applicationId: 'application-1',
+            teamId: 'application-1',
             milestoneDocument: {
               name: '합성 계획서',
               milestone: {
@@ -79,10 +79,10 @@ describe('MilestoneDocumentFeedbackRepository', () => {
       event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
       submission: {
         is: {
-          application: {
+          team: {
             is: {
               status: ApplicationStatus.APPROVED,
-              team: { members: { some: { userId: 'synthetic-student' } } },
+              members: { some: { userId: 'synthetic-student' } },
             },
           },
         },
@@ -97,7 +97,7 @@ describe('MilestoneDocumentFeedbackRepository', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '표지를 보완해 주세요.',
         reviewedAt: REVIEWED_AT,
-        applicationId: 'application-1',
+        teamId: 'application-1',
         programId: 'program-1',
         milestoneId: 'milestone-1',
         milestoneName: '중간 보고',

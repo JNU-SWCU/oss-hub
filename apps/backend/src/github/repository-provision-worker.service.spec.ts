@@ -690,15 +690,29 @@ describe('RepositoryProvisionWorkerService success', () => {
   it('현재 요청 context는 백필된 teamId와 함께 성공한다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
-    const claimed = provisionContext({
-      teamId: 'synthetic-backfilled-team',
+    const claimed = provisionContext({ teamId: 'synthetic-backfilled-team' });
+    const repository = { ...PROVISION_REPOSITORY, teamId: claimed.teamId };
+    jobs.claimNext.mockResolvedValue({
+      id: 'synthetic-job-id',
+      teamId: claimed.teamId,
+      requestId: claimed.requestId,
+      repositoryId: null,
+      attemptCount: 1,
     });
+    state.recordRepository.mockResolvedValue(repository);
     state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
       ...claimed,
-      repository: PROVISION_REPOSITORY,
+      repository,
       currentRepositorySource: RepositorySource.ORG_PROVISIONED,
     });
     const github = githubClientMock();
+    github.createRepository.mockResolvedValue({
+      ...repository,
+      nameWithOwner: `synthetic-org/${repository.name}`,
+      description: new RepositoryProvisionGithubService(
+        new RepositoryUrlService(),
+      ).buildRepositoryOwnershipMarker(claimed.teamId),
+    });
     const worker = new RepositoryProvisionWorkerService(
       jobs as unknown as RepositoryProvisionJobRepository,
       state as unknown as RepositoryProvisionStateService,
@@ -711,7 +725,7 @@ describe('RepositoryProvisionWorkerService success', () => {
     );
 
     const result = await worker.runNext(
-      'worker-legacy-null-team',
+      'worker-backfilled-team',
       PROVISION_NOW,
     );
 

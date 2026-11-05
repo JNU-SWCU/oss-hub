@@ -7,7 +7,7 @@ import type {
 
 export interface MyRepositoryResult {
   readonly repositoryId: string | null;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly connectionMode: RepositoryConnectionMode;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly programName: string;

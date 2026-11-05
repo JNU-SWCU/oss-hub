@@ -291,35 +291,17 @@ export class SystemStatusRepository {
 
     const repositories = await this.prisma.githubRepository.findMany({
       where: { githubRepositoryId: { in: [...githubRepositoryIds] } },
-      select: { githubRepositoryId: true, programId: true },
+      select: {
+        githubRepositoryId: true,
+        team: { select: { program: { select: { name: true } } } },
+      },
     });
-    const programIds = [
-      ...new Set(
-        repositories
-          .map((repository) => repository.programId)
-          .filter((programId): programId is string => programId !== null),
+    return new Map(
+      repositories.flatMap((repository) =>
+        repository.team === null
+          ? []
+          : [[repository.githubRepositoryId, repository.team.program.name]],
       ),
-    ];
-    if (programIds.length === 0) return new Map();
-
-    const programs = await this.prisma.program.findMany({
-      where: { id: { in: programIds } },
-      select: { id: true, name: true },
-    });
-    const nameByProgramId = new Map(
-      programs.map((program) => [program.id, program.name]),
     );
-
-    const programNameById = new Map<bigint, string>();
-    for (const repository of repositories) {
-      const name =
-        repository.programId === null
-          ? undefined
-          : nameByProgramId.get(repository.programId);
-      if (name !== undefined) {
-        programNameById.set(repository.githubRepositoryId, name);
-      }
-    }
-    return programNameById;
   }
 }

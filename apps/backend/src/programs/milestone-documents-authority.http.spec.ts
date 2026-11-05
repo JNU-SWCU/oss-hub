@@ -197,14 +197,10 @@ it.each([1n, 2n])(
   async (githubId) => {
     const cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`;
     for (const [method, path, body] of [
-      [
-        'POST',
-        '/document/applications/application/reviews',
-        { decision: 'INVALID' },
-      ],
+      ['POST', '/document/teams/application/reviews', { decision: 'INVALID' }],
       ['GET', '/collection?page=0', undefined],
       ['GET', '/collection/archive?groupBy=INVALID', undefined],
-      ['GET', '/document/applications/application/history?limit=0', undefined],
+      ['GET', '/document/teams/application/history?limit=0', undefined],
     ] as const) {
       const response = await fetch(`${base}${path}`, {
         method,

@@ -18,7 +18,7 @@ const recentReviewSelect = {
     select: {
       id: true,
       status: true,
-      applicationId: true,
+      teamId: true,
       milestoneDocument: {
         select: {
           name: true,
@@ -36,7 +36,7 @@ export interface RecentMilestoneDocumentReview {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly milestoneId: string;
   readonly milestoneName: string;
@@ -65,7 +65,7 @@ export class MilestoneDocumentFeedbackRepository {
         event: { in: SUBMISSION_REVIEW_EVENTS },
         submission: {
           is: {
-            application: {
+            team: {
               is: {
                 status: ApplicationStatus.APPROVED,
                 ...this.platformRepository.programApplicationParticipantWhere(
@@ -90,7 +90,7 @@ function toRecentReview(row: RecentReviewRow): RecentMilestoneDocumentReview {
     decision: submissionReviewDecision(row.event),
     comment: row.comment,
     reviewedAt: row.createdAt,
-    applicationId: row.submission.applicationId,
+    teamId: row.submission.teamId,
     programId: document.milestone.programId,
     milestoneId: document.milestone.id,
     milestoneName: document.milestone.name,

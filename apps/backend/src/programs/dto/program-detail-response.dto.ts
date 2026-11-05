@@ -121,7 +121,7 @@ export class ProgramDetailResponseDto {
   }
 }
 export class ProgramActivityResponseDto {
-  declare readonly applicationId: string;
+  declare readonly teamId: string;
   declare readonly label: string;
   declare readonly commitCount: number;
   declare readonly pullRequestCount: number;
@@ -139,7 +139,7 @@ export class ProgramActivityResponseDto {
   declare readonly dataAsOf: string | null;
   static from(result: ProgramActivityResult): ProgramActivityResponseDto {
     return {
-      applicationId: result.applicationId,
+      teamId: result.teamId,
       label: result.label,
       commitCount: result.commitCount,
       pullRequestCount: result.pullRequestCount,

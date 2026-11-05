@@ -17,12 +17,10 @@ const student: ProgramStudentViewer = {
 };
 
 const application = {
-  teamId: 'team-1',
+  id: 'team-1',
   applicant: { githubId: 11n },
-  team: {
-    leader: { githubId: 11n },
-    members: [{ user: { githubId: 11n } }],
-  },
+  leader: { githubId: 11n },
+  members: [{ user: { githubId: 11n } }],
   program: {
     id: 'program-1',
     name: 'Capstone 2026',

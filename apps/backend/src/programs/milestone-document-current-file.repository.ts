@@ -69,12 +69,10 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
             milestoneId,
           },
         },
-        application: {
+        team: {
           is: {
             program: { is: { milestones: { some: { id: milestoneId } } } },
-            team: {
-              is: { members: { some: { user: { is: activeStudent } } } },
-            },
+            members: { some: { user: { is: activeStudent } } },
           },
         },
       },

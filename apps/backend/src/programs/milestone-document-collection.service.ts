@@ -189,7 +189,7 @@ export class MilestoneDocumentCollectionService {
     const cellIndex = new Map<string, TSubmission>();
     for (const submission of submissions) {
       cellIndex.set(
-        cellKey(submission.applicationId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.milestoneDocumentId),
         submission,
       );
     }
@@ -201,8 +201,7 @@ export class MilestoneDocumentCollectionService {
       application,
       cells: documents.map(
         (document) =>
-          cellIndex.get(cellKey(application.applicationId, document.id)) ??
-          null,
+          cellIndex.get(cellKey(application.teamId, document.id)) ?? null,
       ),
     }));
 
@@ -308,7 +307,7 @@ export class MilestoneDocumentCollectionService {
       const documentIds = documents.map((document) => document.id);
       const coordinates = await store.findCoordinates(
         documentIds,
-        applications.map((application) => application.applicationId),
+        applications.map((application) => application.teamId),
       );
       const page = this.buildMilestoneDocumentDeliveryPage(
         {
@@ -321,12 +320,12 @@ export class MilestoneDocumentCollectionService {
       );
       const details = await store.findDetails(
         documentIds,
-        page.rows.map((row) => row.application.applicationId),
+        page.rows.map((row) => row.application.teamId),
         now,
       );
       const detailByCell = new Map(
         details.map((submission) => [
-          `${submission.applicationId}::${submission.milestoneDocumentId}`,
+          `${submission.teamId}::${submission.milestoneDocumentId}`,
           this.toMilestoneDocumentCollectionCell(submission),
         ]),
       );
@@ -339,9 +338,8 @@ export class MilestoneDocumentCollectionService {
           deliveryStatus: row.deliveryStatus,
           cells: documents.map(
             (document) =>
-              detailByCell.get(
-                `${row.application.applicationId}::${document.id}`,
-              ) ?? null,
+              detailByCell.get(`${row.application.teamId}::${document.id}`) ??
+              null,
           ),
         })),
       };
@@ -436,8 +434,8 @@ export class MilestoneDocumentCollectionService {
   }
 }
 
-function cellKey(applicationId: string, documentId: string): string {
-  return `${applicationId}::${documentId}`;
+function cellKey(teamId: string, documentId: string): string {
+  return `${teamId}::${documentId}`;
 }
 
 function isSubmittedAt(
@@ -502,11 +500,11 @@ export interface MilestoneDocumentCollectionDocumentRule {
 }
 
 export interface MilestoneDocumentCollectionApplicationRule {
-  readonly applicationId: string;
+  readonly teamId: string;
 }
 
 export interface MilestoneDocumentCollectionSubmissionRule {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneDocumentId: string;
 }
 

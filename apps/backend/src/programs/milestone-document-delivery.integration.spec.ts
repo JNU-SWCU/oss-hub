@@ -84,7 +84,7 @@ afterAll(async () => {
 });
 
 it('preserves the existing collection response, approved population and paging contract', async () => {
-  await harness.prisma.application.update({
+  await harness.prisma.team.update({
     where: { id: fixture.offApplication },
     data: { status: 'REJECTED' },
   });
@@ -260,18 +260,13 @@ it('holds counts and visible details at one snapshot while another connection su
     const documents = await store.findDocuments(fixture.notifyMilestone);
     const applications = await store.findApplications(fixture.notifyProgram);
     const documentIds = documents.map((document) => document.id);
-    const applicationIds = applications.map(
-      (application) => application.applicationId,
-    );
-    const submissions = await store.findCoordinates(
-      documentIds,
-      applicationIds,
-    );
+    const teamIds = applications.map((application) => application.teamId);
+    const submissions = await store.findCoordinates(documentIds, teamIds);
     await harness.prisma.milestoneDocumentSubmission.create({
       data: {
         id: extraSubmissionId,
         milestoneDocumentId: fixture.notifyDocument,
-        applicationId: fixture.missingApplication,
+        teamId: fixture.missingApplication,
         submittedById: fixture.studentMissing,
         createdAt: first,
         submittedAt: first,
@@ -282,11 +277,7 @@ it('holds counts and visible details at one snapshot while another connection su
         { documents, applications, submissions, dueAt: fixture.dueSoon },
         query,
       ),
-      details: await store.findDetails(
-        documentIds,
-        applicationIds,
-        fixture.now,
-      ),
+      details: await store.findDetails(documentIds, teamIds, fixture.now),
     };
   });
   const after = await service
@@ -299,7 +290,7 @@ it('holds counts and visible details at one snapshot while another connection su
   expect(before.details).toHaveLength(1);
   expect(
     before.details.some(
-      (detail) => detail.applicationId === fixture.missingApplication,
+      (detail) => detail.teamId === fixture.missingApplication,
     ),
   ).toBe(false);
   expect(after.deliveryCounts.complete).toBe(2);

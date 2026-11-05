@@ -11,15 +11,17 @@ export interface ProgramActivitySummaryDataSource {
   readonly githubRepository: {
     findMany(args: {
       readonly where: {
-        readonly programId: { readonly in: string[] };
-        readonly applicationId: { readonly not: null };
+        readonly team: { readonly programId: { readonly in: string[] } };
       };
       readonly select: {
-        readonly programId: true;
+        readonly team: { readonly select: { readonly programId: true } };
         readonly githubRepositoryId: true;
       };
     }): Promise<
-      readonly { programId: string | null; githubRepositoryId: bigint }[]
+      readonly {
+        team: { programId: string } | null;
+        githubRepositoryId: bigint;
+      }[]
     >;
   };
 }
@@ -37,15 +39,23 @@ export class ProgramActivitySummaryRepository {
     if (programIds.length === 0) return [];
     const rows = await this.prisma.githubRepository.findMany({
       where: {
-        programId: { in: [...programIds] },
-        applicationId: { not: null },
+        team: { programId: { in: [...programIds] } },
       },
-      select: { programId: true, githubRepositoryId: true },
+      select: {
+        team: { select: { programId: true } },
+        githubRepositoryId: true,
+      },
     });
 
-    return rows.filter(
-      (row): row is { programId: string; githubRepositoryId: bigint } =>
-        row.programId !== null,
+    return rows.flatMap((row) =>
+      row.team === null
+        ? []
+        : [
+            {
+              programId: row.team.programId,
+              githubRepositoryId: row.githubRepositoryId,
+            },
+          ],
     );
   }
 }
@@ -75,7 +85,7 @@ export class ProgramActivityRepository {
     programId: string,
     studentUserId: string | null,
   ) {
-    return this.prisma.application.findMany({
+    return this.prisma.team.findMany({
       where: {
         programId,
         AND: [
@@ -101,14 +111,10 @@ export class ProgramActivityRepository {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
-        team: {
-          select: {
-            name: true,
-            members: {
-              orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-              select: { user: { select: { githubId: true, nickname: true } } },
-            },
-          },
+        name: true,
+        members: {
+          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+          select: { user: { select: { githubId: true, nickname: true } } },
         },
         repository: {
           select: {

@@ -81,7 +81,7 @@ it('drops an external repository from the tracked count once deletion clears its
 
   await prisma.githubRepository.update({
     where: { id: oldId },
-    data: { applicationId: null, programId: null, teamId: null },
+    data: { teamId: null },
   });
 
   const cleared = await status.getExternalCollectionStatus();

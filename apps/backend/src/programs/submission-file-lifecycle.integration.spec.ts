@@ -107,12 +107,7 @@ async function createPending(options: {
     data: {
       kind: 'SUBMISSION',
       uploaderId: USER_ID,
-      teamId: (
-        await prisma.application.findUniqueOrThrow({
-          where: { id: APPLICATION_ID },
-          select: { teamId: true },
-        })
-      ).teamId,
+      teamId: APPLICATION_ID,
       requirementId: (
         await prisma.milestoneDocument.findFirstOrThrow({
           where: { milestoneId: MILESTONE_ID },
@@ -151,7 +146,7 @@ async function createSubmissionHistory(suffix: string): Promise<{
     data: {
       id: submissionId,
       milestoneDocumentId: documentId,
-      applicationId: APPLICATION_ID,
+      teamId: APPLICATION_ID,
       status: SubmissionStatus.SUBMITTED,
       revision: 1,
       submittedById: USER_ID,

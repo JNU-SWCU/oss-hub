@@ -95,13 +95,13 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
     ]),
     findApprovedApplicationsForCollection: jest.fn().mockResolvedValue([
       {
-        applicationId: 'app-a',
+        teamId: 'app-a',
         teamName: '코드나무',
         applicantName: '신청자',
         memberNicknames: ['가', '나'],
       },
       {
-        applicationId: 'app-b',
+        teamId: 'app-b',
         teamName: '오픈테이블',
         applicantName: null,
         memberNicknames: [],
@@ -109,7 +109,7 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
     ]),
     findSubmissionsForArchive: jest.fn().mockResolvedValue([
       {
-        applicationId: 'app-a',
+        teamId: 'app-a',
         milestoneDocumentId: 'doc-plan',
         submittedAt,
         status: SubmissionStatus.APPROVED,
@@ -121,7 +121,7 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
         },
       },
       {
-        applicationId: 'app-a',
+        teamId: 'app-a',
         milestoneDocumentId: 'doc-summary',
         submittedAt,
         status: SubmissionStatus.SUBMITTED,
@@ -129,7 +129,7 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
         file: null,
       },
       {
-        applicationId: 'app-b',
+        teamId: 'app-b',
         milestoneDocumentId: 'doc-plan',
         submittedAt,
         status: SubmissionStatus.SUBMITTED,
@@ -184,7 +184,7 @@ function buildStorage(overrides: Partial<Record<string, jest.Mock>> = {}) {
 
 function manyTeams(teams: number): Record<string, jest.Mock> {
   const applications = Array.from({ length: teams }, (_unused, index) => ({
-    applicationId: `app-${index}`,
+    teamId: `app-${index}`,
     teamName: `합성 참여 팀 ${index}`,
     applicantName: null,
     memberNicknames: [],
@@ -205,7 +205,7 @@ function manyTeams(teams: number): Record<string, jest.Mock> {
       .mockResolvedValue(applications),
     findSubmissionsForArchive: jest.fn().mockResolvedValue(
       applications.map((application) => ({
-        applicationId: application.applicationId,
+        teamId: application.teamId,
         milestoneDocumentId: 'doc-plan',
         submittedAt,
         status: SubmissionStatus.SUBMITTED,
@@ -547,7 +547,7 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service, storageMocks } = buildService({
       findSubmissionsForArchive: jest.fn().mockResolvedValue([
         {
-          applicationId: 'app-a',
+          teamId: 'app-a',
           milestoneDocumentId: 'doc-plan',
           submittedAt,
           status: SubmissionStatus.SUBMITTED,
@@ -578,7 +578,7 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service } = buildService({
       findSubmissionsForArchive: jest.fn().mockResolvedValue([
         {
-          applicationId: 'app-a',
+          teamId: 'app-a',
           milestoneDocumentId: 'doc-plan',
           submittedAt,
           status: SubmissionStatus.SUBMITTED,
@@ -608,7 +608,7 @@ describe('MilestoneDocumentArchiveService', () => {
     const { service } = buildService({
       findSubmissionsForArchive: jest.fn().mockResolvedValue([
         {
-          applicationId: 'app-a',
+          teamId: 'app-a',
           milestoneDocumentId: 'doc-plan',
           submittedAt,
           status: SubmissionStatus.SUBMITTED,

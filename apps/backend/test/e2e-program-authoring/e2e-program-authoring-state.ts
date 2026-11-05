@@ -33,13 +33,13 @@ export async function stateForE2eProgramGraph(
     prisma.milestoneDocument.count({
       where: { milestone: { programId: graph.programId } },
     }),
-    prisma.application.count({ where: { programId: graph.programId } }),
+    prisma.team.count({ where: { programId: graph.programId } }),
     prisma.team.count({ where: { programId: graph.programId } }),
     prisma.repositoryProvisionJob.count({
-      where: { application: { programId: graph.programId } },
+      where: { team: { programId: graph.programId } },
     }),
     prisma.githubRepository.count({
-      where: { application: { programId: graph.programId } },
+      where: { team: { programId: graph.programId } },
     }),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
     prisma.file.findMany({
@@ -52,7 +52,7 @@ export async function stateForE2eProgramGraph(
     prisma.file.findMany({
       where: {
         kind: 'SUBMISSION',
-        team: { applications: { some: { programId: graph.programId } } },
+        team: { programId: graph.programId },
         lifecycle: SubmissionFileLifecycle.ATTACHED,
       },
       select: { storageKey: true },
@@ -67,7 +67,7 @@ export async function stateForE2eProgramGraph(
     prisma.file.count({
       where: {
         kind: 'SUBMISSION',
-        team: { applications: { some: { programId: graph.programId } } },
+        team: { programId: graph.programId },
         lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
       },
     }),

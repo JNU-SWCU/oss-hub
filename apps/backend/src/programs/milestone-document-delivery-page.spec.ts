@@ -8,17 +8,17 @@ const documents = [
   { id: 'required', required: true },
   { id: 'optional', required: false },
 ];
-const applications = ['early', 'late', 'missing'].map((applicationId) => ({
-  applicationId,
+const applications = ['early', 'late', 'missing'].map((teamId) => ({
+  teamId,
 }));
 const submissions = [
   {
-    applicationId: 'early',
+    teamId: 'early',
     milestoneDocumentId: 'required',
     firstSubmittedAt: new Date('2026-08-14T11:00:00Z'),
   },
   {
-    applicationId: 'late',
+    teamId: 'late',
     milestoneDocumentId: 'required',
     firstSubmittedAt: new Date('2026-08-14T12:00:00.001Z'),
   },
@@ -36,9 +36,7 @@ it('counts the whole approved population before status filtering and pagination'
       },
     );
 
-  expect(page.rows.map((row) => row.application.applicationId)).toEqual([
-    'early',
-  ]);
+  expect(page.rows.map((row) => row.application.teamId)).toEqual(['early']);
   expect(page.total).toBe(1);
   expect(page.deliveryCounts).toEqual({
     missing: 1,
@@ -102,9 +100,7 @@ it('filters a selected document before paging without shrinking milestone totals
       { documents, applications, submissions, dueAt },
       query,
     );
-  expect(page.rows.map((row) => row.application.applicationId)).toEqual([
-    'late',
-  ]);
+  expect(page.rows.map((row) => row.application.teamId)).toEqual(['late']);
   expect(page.total).toBe(2);
   expect(page.documentTotals).toEqual([
     { documentId: 'required', submitted: 2, total: 3 },
@@ -126,9 +122,7 @@ it('selects missing optional documents without declaring the teams incomplete', 
       { documents, applications, submissions, dueAt },
       query,
     );
-  expect(page.rows.map((row) => row.application.applicationId)).toEqual([
-    'early',
-  ]);
+  expect(page.rows.map((row) => row.application.teamId)).toEqual(['early']);
   expect(page.rows[0]?.deliveryStatus).toBe('COMPLETE');
   expect(page.deliveryCounts.complete).toBe(1);
 });

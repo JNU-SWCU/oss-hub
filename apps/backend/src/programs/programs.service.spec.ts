@@ -56,7 +56,7 @@ function createService() {
   const findMany = jest.fn();
   const prisma = {
     program: { findUnique },
-    application: { findFirst, findMany },
+    team: { findFirst, findMany },
   } as unknown as PrismaService;
   return {
     service: new ProgramsService(
@@ -161,7 +161,7 @@ describe('ProgramsService detail', () => {
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         programId: 'program-1',
-        team: { members: { some: { userId: 'leader-1' } } },
+        members: { some: { userId: 'leader-1' } },
       },
       select: {
         id: true,
@@ -192,12 +192,10 @@ describe('ProgramsService detail', () => {
         where: Record<string, unknown>;
       },
     ];
-    expect(Object.keys(where).sort()).toEqual(['programId', 'team']);
+    expect(Object.keys(where).sort()).toEqual(['members', 'programId']);
     expect(where).not.toHaveProperty('OR');
     expect(where).not.toHaveProperty('applicantId');
-    expect(where.team).toEqual({
-      members: { some: { userId: 'ex-member-1' } },
-    });
+    expect(where.members).toEqual({ some: { userId: 'ex-member-1' } });
     expect(detail.viewer.applicationStatus).toBeNull();
     expect(detail.milestones[0]?.viewerSubmissionStatus).toBeNull();
   });

@@ -108,20 +108,22 @@ async function createRepositoryFixture(params: {
   await harness.prisma.user.create({
     data: {
       id: applicantId,
-      githubId: 8_940_000_000_000n + BigInt(hashKey(params.key)),
+      githubId: 8940000000000n + BigInt(hashKey(params.key)),
       nickname: `${PREFIX}-${params.key}-applicant-login`,
       type: MemberKind.STUDENT,
       approvalStatus: 'NOT_REQUIRED',
     },
   });
-  const applicationId = `${PREFIX}-${params.key}-application`;
-  const teamId = `${PREFIX}-${params.key}-team`;
+  const teamId = `${PREFIX}-${params.key}-application`;
   await harness.prisma.team.create({
     data: {
       id: teamId,
       programId: PROGRAM_ID,
       name: `${PREFIX}-${params.key}-team`,
       leaderId: applicantId,
+      applicantId: applicantId,
+      answers: { title: `${PREFIX}-${params.key}-team` },
+      applicationTemplateVersion: 1,
     },
   });
   await harness.prisma.teamMember.create({
@@ -131,12 +133,11 @@ async function createRepositoryFixture(params: {
       userId: applicantId,
     },
   });
-  await harness.prisma.application.create({
+  await harness.prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId: PROGRAM_ID,
       applicantId,
-      teamId,
       answers: { syntheticFixture: true },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -149,8 +150,7 @@ async function createRepositoryFixture(params: {
   await harness.prisma.githubRepository.create({
     data: {
       id: repositoryId,
-      applicationId,
-      programId: PROGRAM_ID,
+      teamId,
       githubRepositoryId,
       nameWithOwner: `synthetic-org/${repositoryName}`,
       source: RepositorySource.ORG_PROVISIONED,
@@ -161,7 +161,7 @@ async function createRepositoryFixture(params: {
   await harness.prisma.repositoryProvisionJob.create({
     data: {
       id: `${PREFIX}-${params.key}-job`,
-      applicationId,
+      teamId,
       repositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: new Date(),
@@ -187,7 +187,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.program.create({
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
-
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
@@ -237,7 +236,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.githubRepository.update({
       where: { id: published.repositoryId },
       data: {
-        githubOrganizationId: 8_900_000_000_001n,
+        githubOrganizationId: 8900000000001n,
         defaultBranch: 'main',
         presence: CollectionRepositoryPresence.PRESENT,
         lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
@@ -318,7 +317,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await harness.prisma.application.deleteMany({
+      await harness.prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
       await harness.prisma.teamMember.deleteMany({
@@ -834,7 +833,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.prisma.user.create({
       data: {
         id: FOREIGN_SUITE_ACTOR_ID,
-        githubId: 8_970_000_000_001n,
+        githubId: 8970000000001n,
         nickname: `${FOREIGN_SUITE_ACTOR_ID}-login`,
         type: MemberKind.STAFF,
         approvalStatus: 'APPROVED',

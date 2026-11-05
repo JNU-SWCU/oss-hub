@@ -7,26 +7,14 @@ import {
   Patch,
   Req,
   UseGuards,
-  HttpCode,
-  Post,
-  Query,
-  Delete,
-  Header,
 } from '@nestjs/common';
 import { OriginGuard } from '../platform/origin.guard';
-import { type AuthenticatedRequest } from '../auth/http-auth.types';
-import {
-  TeamApplicationService,
-  StudentApplicationManagementService,
-  StudentRepositoryUrlService,
-} from './team-application.service';
+import type { AuthenticatedRequest } from '../auth/http-auth.types';
+import { TeamApplicationService } from './team-application.service';
 import { ApplicationDecisionResponseDto } from './dto/application-decision-response.dto';
-import {
-  ApplicationDetailResponseDto,
-  ApplicationListPageResponseDto,
-} from './dto/application-list-page-response.dto';
+import { ApplicationDetailResponseDto } from './dto/application-list-page-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
-import { Protected, Public } from '../auth/auth-route.decorator';
+import { Protected } from '../auth/auth-route.decorator';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
@@ -34,17 +22,22 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
 } from './applications-error-code.error';
+import { HttpCode, Post, Query } from '@nestjs/common';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
+import { ApplicationListPageResponseDto } from './dto/application-list-page-response.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { CreateApplicationResponseDto } from './dto/create-application-response.dto';
 import { TeamManagementListPageResponseDto } from './dto/team-management-list-page-response.dto';
+import { Delete, Header } from '@nestjs/common';
 import { MyStudentApplicationResponseDto } from './dto/my-student-application-response.dto';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
 import {
   StudentApplicationCancellationResponseDto,
   StudentApplicationResponseDto,
 } from './dto/student-application-response.dto';
+import { StudentApplicationManagementService } from './team-application.service';
 import { ApplicationTemplateListResponseDto } from './dto/application-template-response.dto';
+import { Public } from '../auth/auth-route.decorator';
 import { ProgramTemplatesService } from './team-application.service';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { MyProgramTeamResponseDto } from './dto/my-program-team-response.dto';
@@ -59,12 +52,12 @@ import { TeamActivityResponseDto } from './dto/team-activity-response.dto';
 import {
   DeleteTeamResponseDto,
   RenameTeamResponseDto,
-  StaffProgramTeamResponseDto,
 } from './dto/program-team-response.dto';
 import { TeamMembershipService } from './team-membership.service';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 import { UpdateStudentRepositoryUrlRequestDto } from './dto/update-student-repository-url-request.dto';
 import { StudentRepositoryUrlResponseDto } from './dto/student-repository-url-response.dto';
+import { StudentRepositoryUrlService } from './team-application.service';
 
 type ApplicationActorRequest = Pick<AuthenticatedRequest, 'principal'>;
 
@@ -78,7 +71,7 @@ const staffOnly = () =>
     APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STAFF_ONLY],
   );
 
-@Controller('applications')
+@Controller('teams')
 export class ApplicationsController {
   constructor(
     @Inject(TeamApplicationService)
@@ -92,10 +85,10 @@ export class ApplicationsController {
   @Protected()
   @Roles(STAFF_AUDIENCE, staffListOnly)
   async detail(
-    @Param('id') applicationId: string,
+    @Param('id') teamId: string,
   ): Promise<ApplicationDetailResponseDto> {
     return ApplicationDetailResponseDto.from(
-      await this.service.getForStaff(applicationId),
+      await this.service.getForStaff(teamId),
     );
   }
 
@@ -105,21 +98,17 @@ export class ApplicationsController {
   @UseGuards(OriginGuard)
   async decide(
     @Req() request: ApplicationActorRequest,
-    @Param('id') applicationId: string,
+    @Param('id') teamId: string,
     @Body() body: PatchApplicationDecisionRequestDto,
   ): Promise<ApplicationDecisionResponseDto> {
-    const result = await this.service.decide(
-      request.principal,
-      applicationId,
-      body,
-    );
+    const result = await this.service.decide(request.principal, teamId, body);
     return ApplicationDecisionResponseDto.from(result);
   }
 }
 
 type ApplicationSessionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-@Controller('programs/:programId/applications')
+@Controller('programs/:programId/teams')
 export class ProgramApplicationsController {
   constructor(
     @Inject(TeamApplicationService)
@@ -164,7 +153,7 @@ export class ProgramApplicationsController {
 
 type StudentApplicationRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-@Controller('programs/:programId/applications/me')
+@Controller('programs/:programId/teams/me')
 @Protected()
 export class StudentApplicationsController {
   constructor(
@@ -212,7 +201,7 @@ export class StudentApplicationsController {
   }
 }
 
-@Controller('programs/application-templates')
+@Controller('programs/team-templates')
 @Public()
 export class ApplicationTemplatesController {
   constructor(
@@ -249,10 +238,11 @@ export class TeamsController {
       | 'deleteForStaffFromRequest'
       | 'removeMemberForStaff'
       | 'transferLeaderForStaff'
+      | 'transferLeader'
     >,
   ) {}
 
-  @Get('me')
+  @Get('me/membership')
   @Protected()
   async me(
     @Req() request: TeamSessionRequest,
@@ -262,7 +252,7 @@ export class TeamsController {
     return MyProgramTeamResponseDto.from(team);
   }
 
-  @Delete('me')
+  @Delete('me/membership')
   @HttpCode(204)
   @Protected()
   @UseGuards(OriginGuard)
@@ -283,17 +273,6 @@ export class TeamsController {
     @Param('userId') userId: string,
   ): Promise<void> {
     await this.service.removeMember(request.sessionGithubId, programId, userId);
-  }
-
-  @Get()
-  @Protected()
-  @Roles(STAFF_AUDIENCE, teamStaffOnly)
-  async list(
-    @Param('programId') programId: string,
-  ): Promise<StaffProgramTeamResponseDto[]> {
-    return (await this.service.listForStaff(programId)).map((view) =>
-      StaffProgramTeamResponseDto.from(view),
-    );
   }
 
   @Get(':teamId')
@@ -379,6 +358,22 @@ export class TeamsController {
     );
   }
 
+  @Patch('me/leader')
+  @HttpCode(204)
+  @Protected()
+  @UseGuards(OriginGuard)
+  async transferLeader(
+    @Req() request: TeamSessionRequest,
+    @Param('programId') programId: string,
+    @Body() body: TransferTeamLeaderRequestDto,
+  ): Promise<void> {
+    await this.service.transferLeader(
+      request.sessionGithubId,
+      programId,
+      body.userId,
+    );
+  }
+
   @Patch(':teamId/leader')
   @HttpCode(204)
   @Protected()
@@ -422,7 +417,7 @@ export class TeamsController {
 export class StudentRepositoryUrlController {
   constructor(private readonly service: StudentRepositoryUrlService) {}
 
-  @Patch('applications/me/repository-url')
+  @Patch('teams/me/repository-url')
   @UseGuards(OriginGuard)
   async updateMine(
     @Req() request: Pick<AuthenticatedRequest, 'sessionGithubId'>,

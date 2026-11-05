@@ -27,7 +27,7 @@ const PROGRAM_ID = `${TEST_PREFIX}program`;
 const TARGET_TEAM_ID = `${TEST_PREFIX}target-team`;
 const OTHER_TEAM_ID = `${TEST_PREFIX}other-team`;
 const INVITATION_ID = `${TEST_PREFIX}invitation`;
-const APPLICATION_ID = `${TEST_PREFIX}application`;
+const APPLICATION_ID = `${TEST_PREFIX}target-team`;
 const LEADER_ID = `${TEST_PREFIX}leader`;
 const INVITEE_ID = `${TEST_PREFIX}invitee`;
 const FILLER_ID = `${TEST_PREFIX}filler`;
@@ -46,7 +46,7 @@ async function cleanup(): Promise<void> {
     where: { aggregateId: { startsWith: TEST_PREFIX } },
   });
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
-  await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({
     where: { programId: PROGRAM_ID },
   });
@@ -78,9 +78,8 @@ async function seedPendingInvitation(): Promise<void> {
     data: {
       startAt: new Date('2026-08-01T00:00:00.000Z'),
       endAt: new Date(
-        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000,
       ),
-
       id: PROGRAM_ID,
       name: 'Invitation atomicity program',
       organizer: 'Synthetic organizer',
@@ -101,6 +100,9 @@ async function seedPendingInvitation(): Promise<void> {
       programId: PROGRAM_ID,
       name: 'Target team',
       leaderId: LEADER_ID,
+      applicantId: LEADER_ID,
+      answers: { title: 'Target team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -126,12 +128,11 @@ async function seedApplication(overrides?: {
   readonly repositoryConnectionMode?: RepositoryConnectionMode;
   readonly repositoryUrl?: string;
 }): Promise<void> {
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: TARGET_TEAM_ID },
     data: {
-      id: APPLICATION_ID,
       programId: PROGRAM_ID,
       applicantId: LEADER_ID,
-      teamId: TARGET_TEAM_ID,
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
       status: overrides?.status ?? ApplicationStatus.SUBMITTED,
@@ -294,6 +295,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         programId: PROGRAM_ID,
         name: 'Other',
         leaderId: OUTSIDER_ID,
+        applicantId: OUTSIDER_ID,
+        answers: { title: 'Other' },
+        applicationTemplateVersion: 1,
       },
     });
     await prisma.teamInvitation.create({
@@ -514,6 +518,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         programId: PROGRAM_ID,
         name: 'Other team',
         leaderId: OUTSIDER_ID,
+        applicantId: OUTSIDER_ID,
+        answers: { title: 'Other team' },
+        applicationTemplateVersion: 1,
       },
     });
     await prisma.teamMember.create({
@@ -580,6 +587,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         programId: PROGRAM_ID,
         name: 'Other team',
         leaderId: INVITEE_ID,
+        applicantId: INVITEE_ID,
+        answers: { title: 'Other team' },
+        applicationTemplateVersion: 1,
       },
     });
     await prisma.teamMember.create({
@@ -652,9 +662,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     expect(membership).not.toBeNull();
 
     await expect(
-      prisma.application.findUniqueOrThrow({
+      prisma.team.findUniqueOrThrow({
         where: { id: APPLICATION_ID },
-        select: { applicantId: true, teamId: true, status: true },
+        select: { applicantId: true, id: true, status: true },
       }),
     ).resolves.toEqual({
       applicantId: LEADER_ID,
@@ -721,7 +731,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       const [event] = events;
       expect(event).toMatchObject({
         type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-        aggregateType: 'Application',
+        aggregateType: 'Team',
         aggregateId: APPLICATION_ID,
         idempotencyKey: `repository-access-sync:${APPLICATION_ID}:${RESPONDED_AT.toISOString()}`,
         status: OutboxEventStatus.PENDING,
@@ -735,15 +745,14 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
           event!.payload,
         ),
       ).toEqual({
-        applicationId: APPLICATION_ID,
-        teamId: TARGET_TEAM_ID,
+        teamId: APPLICATION_ID,
         requestedAt: RESPONDED_AT.toISOString(),
       });
 
       await expect(
-        prisma.application.findUniqueOrThrow({
+        prisma.team.findUniqueOrThrow({
           where: { id: APPLICATION_ID },
-          select: { status: true, teamId: true },
+          select: { status: true, id: true },
         }),
       ).resolves.toEqual({
         status: ApplicationStatus.APPROVED,
@@ -751,7 +760,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       });
       await expect(
         prisma.repositoryProvisionJob.count({
-          where: { applicationId: APPLICATION_ID },
+          where: { teamId: APPLICATION_ID },
         }),
       ).resolves.toBe(0);
     });
@@ -847,6 +856,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
           programId: PROGRAM_ID,
           name: 'Other team',
           leaderId: INVITEE_ID,
+          applicantId: INVITEE_ID,
+          answers: { title: 'Other team' },
+          applicationTemplateVersion: 1,
         },
       });
       await prisma.teamMember.create({

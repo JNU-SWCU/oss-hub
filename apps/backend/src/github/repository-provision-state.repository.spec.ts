@@ -77,11 +77,11 @@ interface MockDb {
       [Prisma.RepositoryInvitationUpdateManyArgs]
     >;
   };
-  application: {
-    count: jest.Mock<Promise<number>, [Prisma.ApplicationCountArgs]>;
+  team: {
+    count: jest.Mock<Promise<number>, [Prisma.TeamCountArgs]>;
     findUnique: jest.Mock<
       Promise<{ readonly teamId: string | null } | null>,
-      [Prisma.ApplicationFindUniqueArgs]
+      [Prisma.TeamFindUniqueArgs]
     >;
   };
   teamMember: {
@@ -94,7 +94,7 @@ interface MockDb {
     findUnique: jest.Mock<
       Promise<{
         readonly id: string;
-        readonly applicationId: string | null;
+        readonly teamId: string | null;
       } | null>,
       [Prisma.GithubRepositoryFindUniqueArgs]
     >;
@@ -114,7 +114,7 @@ interface MockDb {
   $queryRaw: jest.Mock<
     Promise<
       readonly {
-        readonly applicationId: string;
+        readonly teamId: string;
         readonly currentEventId: string | null;
         readonly repositoryId: string | null;
         readonly status: RepositoryProvisionJobStatus;
@@ -157,12 +157,11 @@ function createDb(): MockDb {
         .mockResolvedValue({
           id: REQUEST_ID,
           type: REPOSITORY_PROVISION_EVENT_TYPE,
-          aggregateType: 'Application',
+          aggregateType: 'Team',
           aggregateId: 'application-1',
           payload: {
-            applicationId: 'application-1',
+            teamId: 'application-1',
             programId: 'program-1',
-            teamId: null,
             requestedAt: NOW.toISOString(),
             collaboratorGithubLogins: ['synthetic-member'],
           },
@@ -188,13 +187,13 @@ function createDb(): MockDb {
         >()
         .mockResolvedValue({ count: 1 }),
     },
-    application: {
+    team: {
       count: jest
-        .fn<Promise<number>, [Prisma.ApplicationCountArgs]>()
+        .fn<Promise<number>, [Prisma.TeamCountArgs]>()
         .mockResolvedValue(1),
       findUnique: jest.fn<
         Promise<{ readonly teamId: string | null } | null>,
-        [Prisma.ApplicationFindUniqueArgs]
+        [Prisma.TeamFindUniqueArgs]
       >(),
     },
     teamMember: {
@@ -209,7 +208,7 @@ function createDb(): MockDb {
       findUnique: jest.fn<
         Promise<{
           readonly id: string;
-          readonly applicationId: string | null;
+          readonly teamId: string | null;
         } | null>,
         [Prisma.GithubRepositoryFindUniqueArgs]
       >(),
@@ -233,7 +232,7 @@ function createDb(): MockDb {
       .fn<
         Promise<
           readonly {
-            readonly applicationId: string;
+            readonly teamId: string;
             readonly currentEventId: string | null;
             readonly repositoryId: string | null;
             readonly status: RepositoryProvisionJobStatus;
@@ -244,7 +243,7 @@ function createDb(): MockDb {
       >()
       .mockResolvedValue([
         {
-          applicationId: 'application-1',
+          teamId: 'application-1',
           currentEventId: REQUEST_ID,
           repositoryId: REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.PROCESSING,
@@ -283,7 +282,7 @@ function jobRow(
   return {
     currentEventId: REQUEST_ID,
     repositoryId: REPOSITORY_ID,
-    application: {
+    team: {
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
       programId: 'program-1',
@@ -295,19 +294,14 @@ function jobRow(
         connectionMode === RepositoryConnectionMode.OWN
           ? 'https://github.com/synthetic-owner/synthetic-repo'
           : null,
-      team:
-        team === null
-          ? null
-          : {
-              name: team.name,
-              members: team.nicknames.map((nickname) => ({
-                user: { nickname },
-              })),
-            },
+      name: team?.name ?? 'Synthetic solo team',
+      members: (team?.nicknames ?? []).map((nickname) => ({
+        user: { nickname },
+      })),
       repository: {
         id: REPOSITORY_ID,
         source,
-        applicationId: 'application-1',
+        teamId: 'application-1',
         githubRepositoryId: 7n,
         nameWithOwner: 'synthetic-org/synthetic-repo',
         visibility: RepositoryVisibility.PRIVATE,
@@ -342,28 +336,27 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
 
   it('NEW인데 팀을 읽을 수 없으면 최종 실패로 막는다', async () => {
     const db = createDb();
-    db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
+    db.team.count.mockResolvedValue(0);
 
     await expect(
       serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
       name: 'RepositoryProvisionFailure',
       retryable: false,
-      code: 'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE',
+      code: PROVISION_ERROR_CODES.FEATURE_DISABLED,
     });
   });
 
-  it('OWN은 팀이 없어도 신청자를 채우지 않고 빈 목록을 든다', async () => {
+  it('OWN 팀의 현재 구성원이 없으면 과거 신청자를 채우지 않는다', async () => {
     const db = createDb();
     db.outboxEvent.findUnique.mockResolvedValue({
       id: REQUEST_ID,
       type: REPOSITORY_PROVISION_EVENT_TYPE,
-      aggregateType: 'Application',
+      aggregateType: 'Team',
       aggregateId: 'application-1',
       payload: {
-        applicationId: 'application-1',
+        teamId: 'application-1',
         programId: 'program-1',
-        teamId: null,
         requestedAt: NOW.toISOString(),
         collaboratorGithubLogins: ['synthetic-member'],
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
@@ -386,7 +379,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
 
     expect(context.currentMemberGithubLogins).toEqual([]);
     expect(context.membershipFingerprint).toBe('[]');
-    expect(context.subjectName).toBe('Applicant-Login');
+    expect(context.subjectName).toBe('Synthetic solo team');
     expect(context.currentRepositorySource).toBe(
       RepositorySource.EXTERNAL_PUBLIC,
     );
@@ -394,6 +387,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
 
   it('원래 OWN이어도 현재 관리 저장소의 팀을 읽지 못하면 막는다', async () => {
     const db = createDb();
+    db.team.count.mockResolvedValue(0);
     db.repositoryProvisionJob.findFirst.mockResolvedValue(
       jobRow(
         null,
@@ -404,7 +398,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     await expect(
       serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
-      code: 'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE',
+      code: PROVISION_ERROR_CODES.FEATURE_DISABLED,
       retryable: false,
     });
   });
@@ -436,7 +430,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       const job = jobRow({ name: 'synthetic-team', nicknames: ['alpha'] });
       db.repositoryProvisionJob.findFirst.mockResolvedValue(
         state === 'missing'
-          ? { ...job, application: { ...job.application, repository: null } }
+          ? { ...job, team: { ...job.team, repository: null } }
           : { ...job, repositoryId: 'different-repository' },
       );
 
@@ -763,7 +757,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
 
   it('멤버십이 그대로면 SUCCEEDED로 닫고 다음 확인 시각을 남긴다', async () => {
     const db = createDb();
-    db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
+    db.team.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue(members(['Alpha', 'zeta']));
     const nextAt = new Date(NOW.getTime() + 900_000);
 
@@ -793,7 +787,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
 
   it('작업 중 멤버십이 바뀌었으면 닫지 않고 즉시 재무장한다', async () => {
     const db = createDb();
-    db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
+    db.team.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue(members(['alpha']));
 
     await serviceFor(db).completeJob(
@@ -828,7 +822,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
       order.push('lock-job');
       return Promise.resolve([
         {
-          applicationId: 'application-1',
+          teamId: 'application-1',
           currentEventId: REQUEST_ID,
           repositoryId: REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.PROCESSING,
@@ -836,7 +830,7 @@ describe('RepositoryProvisionStateRepository.completeJob', () => {
         },
       ]);
     });
-    db.application.findUnique.mockImplementation(() => {
+    db.team.findUnique.mockImplementation(() => {
       order.push('read-application');
       return Promise.resolve({ teamId: 'team-1' });
     });
@@ -911,7 +905,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
 
   it('작업 중 멤버십이 바뀜다면 최종 실패로 닫지 않고 재무장한다', async () => {
     const db = createDb();
-    db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
+    db.team.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue([{ user: { nickname: 'alpha' } }]);
 
     await serviceFor(db).failJob({
@@ -935,7 +929,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
 
   it('멤버십이 그대로면 실패를 그대로 기록한다', async () => {
     const db = createDb();
-    db.application.findUnique.mockResolvedValue({ teamId: 'team-1' });
+    db.team.findUnique.mockResolvedValue({ teamId: 'team-1' });
     db.teamMember.findMany.mockResolvedValue([{ user: { nickname: 'alpha' } }]);
 
     await serviceFor(db).failJob({
@@ -980,7 +974,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
 
 it('loadContext 실패는 재시도하지 않는 provision 실패 타입이다', async () => {
   const db = createDb();
-  db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
+  db.team.count.mockResolvedValue(0);
 
   await expect(
     serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
@@ -998,9 +992,8 @@ describe('RepositoryProvisionStateService.failJob 이력 payload 계약', () => 
     now: NOW,
   };
   const validPayload = {
-    applicationId: 'application-1',
+    teamId: 'application-1',
     programId: 'program-1',
-    teamId: null,
     requestedAt: NOW.toISOString(),
     collaboratorGithubLogins: ['synthetic-member'],
   };
@@ -1022,7 +1015,7 @@ describe('RepositoryProvisionStateService.failJob 이력 payload 계약', () => 
       db.outboxEvent.findUnique.mockResolvedValue({
         id: REQUEST_ID,
         type: REPOSITORY_PROVISION_EVENT_TYPE,
-        aggregateType: 'Application',
+        aggregateType: 'Team',
         aggregateId: 'application-1',
         payload,
       });
@@ -1050,7 +1043,7 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
       .mockResolvedValueOnce([{ id: 'application-1' }] as never)
       .mockResolvedValueOnce([
         {
-          applicationId: 'application-1',
+          teamId: 'application-1',
           currentEventId: REQUEST_ID,
           repositoryId: null,
           status: RepositoryProvisionJobStatus.PROCESSING,
@@ -1061,14 +1054,14 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
     db.githubRepository.findUnique.mockResolvedValue(null);
     const create = jest.fn().mockResolvedValue({
       id: REPOSITORY_ID,
-      applicationId: 'application-1',
+      teamId: 'application-1',
       githubRepositoryId: 7n,
       nameWithOwner: 'synthetic-owner/synthetic-repo',
       visibility: RepositoryVisibility.PUBLIC,
     });
     const update = jest.fn().mockResolvedValue({});
     Object.assign(db.githubRepository, { create });
-    Object.assign(db.application, { update });
+    Object.assign(db.team, { update });
     return db;
   }
 
@@ -1077,9 +1070,8 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
       jobId: JOB_ID,
       workerId: WORKER_ID,
       requestId: REQUEST_ID,
-      applicationId: 'application-1',
+      teamId: 'application-1',
       programId: 'program-1',
-      teamId: null,
       connectionMode: RepositoryConnectionMode.OWN,
       repositoryUrl: url,
       currentConnectionMode: RepositoryConnectionMode.OWN,

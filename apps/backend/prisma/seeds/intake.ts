@@ -119,22 +119,14 @@ async function upsertApplication(
   }
   return upsertTracked(
     stats,
-    'Application',
-    () => prisma.application.findUnique({ where: { id: params.id } }),
+    'Team',
+    () => prisma.team.findUnique({ where: { id: teamId } }),
     () =>
-      prisma.application.upsert({
-        where: { id: params.id },
-        update: {
-          status: params.status,
-          rejectionReason: params.rejectionReason,
-          processedById: params.processedById,
-          processedAt: params.processedAt,
-        },
-        create: {
-          id: params.id,
+      prisma.team.update({
+        where: { id: teamId },
+        data: {
           programId: params.programId,
           applicantId: params.applicantId,
-          teamId,
           answers,
           applicationTemplateVersion: 1,
           status: params.status,
@@ -168,6 +160,9 @@ async function upsertTeam(
           programId: params.programId,
           name: params.name,
           leaderId: params.leaderId,
+          applicantId: params.leaderId,
+          answers: { title: params.name },
+          applicationTemplateVersion: 1,
         },
       }),
   );
@@ -209,7 +204,7 @@ async function createTeamWithApplication(
     leaderId: string;
     memberIds: readonly string[];
   },
-): Promise<{ teamId: string; applicationId: string }> {
+): Promise<{ teamId: string }> {
   const teamId = seedId('intake', params.scenarioId, 'team');
   await upsertTeam(stats, {
     id: teamId,
@@ -229,16 +224,15 @@ async function createTeamWithApplication(
       userId: memberId,
     });
   }
-  const applicationId = seedId('intake', params.scenarioId, 'application');
   await upsertApplication(stats, {
-    id: applicationId,
+    id: teamId,
     programId: params.programId,
     applicantId: params.leaderId,
     teamId,
     status: ApplicationStatus.SUBMITTED,
     scenarioId: params.scenarioId,
   });
-  return { teamId, applicationId };
+  return { teamId };
 }
 
 const PROGRAM_WITH_APPLICATIONS_ID = seedId(
@@ -325,7 +319,7 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
   });
 
   await upsertApplication(stats, {
-    id: seedId('intake', 'application-personal', 'application'),
+    id: seedId('intake', 'application-personal', 'team'),
     programId: PROGRAM_WITH_APPLICATIONS_ID,
     applicantId: applicantPersonal.id,
     status: ApplicationStatus.SUBMITTED,
@@ -333,7 +327,7 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
   });
 
   await upsertApplication(stats, {
-    id: seedId('intake', 'application-pending', 'application'),
+    id: seedId('intake', 'application-pending', 'team'),
     programId: PROGRAM_WITH_APPLICATIONS_ID,
     applicantId: applicantPending.id,
     status: ApplicationStatus.SUBMITTED,
@@ -341,7 +335,7 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
   });
 
   await upsertApplication(stats, {
-    id: seedId('intake', 'application-approved', 'application'),
+    id: seedId('intake', 'application-approved', 'team'),
     programId: PROGRAM_WITH_APPLICATIONS_ID,
     applicantId: applicantApproved.id,
     status: ApplicationStatus.APPROVED,
@@ -351,7 +345,7 @@ export async function seedIntake(stats: SeedStats): Promise<void> {
   });
 
   await upsertApplication(stats, {
-    id: seedId('intake', 'application-rejected', 'application'),
+    id: seedId('intake', 'application-rejected', 'team'),
     programId: PROGRAM_WITH_APPLICATIONS_ID,
     applicantId: applicantRejected.id,
     status: ApplicationStatus.REJECTED,

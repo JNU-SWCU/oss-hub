@@ -4,7 +4,7 @@ import { Prisma, type ApplicationStatus } from '@prisma/client';
 
 export interface ApplicationDecisionNotification {
   readonly id: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly programName: string;
   readonly decision:
@@ -109,8 +109,8 @@ export class ApplicationDecisionNotificationsRepository implements ApplicationDe
       SELECT source."id", source."payload", source."createdAt"
       FROM "Notification" AS source
       INNER JOIN "User" AS account ON account."id" = source."userId"
-      INNER JOIN "Application" AS application
-        ON application."id" = source."payload"->>'applicationId'
+      INNER JOIN "Team" AS application
+        ON application."id" = source."payload"->>'teamId'
         AND application."programId" = source."payload"->>'programId'
         AND application."status"::text = source."payload"->>'decision'
         AND source."payload"->>'decidedAt' >=
@@ -124,7 +124,7 @@ export class ApplicationDecisionNotificationsRepository implements ApplicationDe
           WHERE later."userId" = source."userId"
             AND later."type" = 'APPLICATION_DECISION'
             AND later."channel" = 'IN_APP'
-            AND later."payload"->>'applicationId' = source."payload"->>'applicationId'
+            AND later."payload"->>'teamId' = source."payload"->>'teamId'
             AND (later."payload"->>'decidedAt', later."createdAt", later."id") >
               (source."payload"->>'decidedAt', source."createdAt", source."id")
         )

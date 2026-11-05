@@ -42,7 +42,7 @@ function team(
   overrides: Partial<MilestoneDocumentArchiveTeam> = {},
 ): MilestoneDocumentArchiveTeam {
   return {
-    applicationId: 'app-1',
+    teamId: 'app-1',
     teamName: '합성팀',
     applicantName: '합성신청자',
 

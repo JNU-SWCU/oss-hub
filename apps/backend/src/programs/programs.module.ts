@@ -23,10 +23,7 @@ import {
   ProgramLifecycleRepository,
   ProgramsRepository,
 } from './programs.repository';
-import {
-  ReviewHistoryWriterRepository,
-  TeamHistoryRepository,
-} from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
@@ -223,7 +220,6 @@ import { ProgramScheduleService } from './program-schedule.service';
     ApplicationsRepository,
     TeamApplicationService,
     StudentApplicationManagementRepository,
-    ReviewHistoryWriterRepository,
     StudentApplicationManagementService,
     {
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,

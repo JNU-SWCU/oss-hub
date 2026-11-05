@@ -80,10 +80,9 @@ function toCurrentSubmissionMilestone(
 }
 export interface ProgramApplicationTeamRow {
   readonly id: string;
-  readonly teamId: string | null;
 }
 export interface SubmittedDocumentPairRow {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneDocumentId: string;
 }
 @Injectable()
@@ -114,7 +113,7 @@ export class ProgramOverviewRepository {
         select: { userId: true },
         distinct: ['userId'],
       }),
-      this.prisma.githubRepository.count({ where: { programId } }),
+      this.prisma.githubRepository.count({ where: { team: { programId } } }),
     ]);
     const participantIds = new Set<string>(
       teamMemberRows.map((row) => row.userId),
@@ -226,7 +225,7 @@ export class ProgramOverviewRepository {
     programId: string,
     userId: string,
   ): Promise<string | null> {
-    const application = await this.prisma.application.findFirst({
+    const application = await this.prisma.team.findFirst({
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
@@ -240,7 +239,7 @@ export class ProgramOverviewRepository {
     programId: string,
     userId: string,
   ): Promise<string | null> {
-    const direct = await this.prisma.application.findFirst({
+    const direct = await this.prisma.team.findFirst({
       where: { programId, applicantId: userId },
       select: { id: true },
       orderBy: { submittedAt: 'desc' },
@@ -255,26 +254,27 @@ export class ProgramOverviewRepository {
     if (!membership) {
       return null;
     }
-    const teamApplication = await this.prisma.application.findFirst({
-      where: { programId, teamId: membership.teamId },
+
+    const teamApplication = await this.prisma.team.findFirst({
+      where: { programId, id: membership.teamId },
       select: { id: true },
       orderBy: { submittedAt: 'desc' },
     });
     return teamApplication?.id ?? null;
   }
   async countSubmittedDocuments(
-    applicationId: string,
+    teamId: string,
     documentIds: string[],
   ): Promise<number> {
     if (documentIds.length === 0) {
       return 0;
     }
     return this.prisma.milestoneDocumentSubmission.count({
-      where: { applicationId, milestoneDocumentId: { in: documentIds } },
+      where: { teamId, milestoneDocumentId: { in: documentIds } },
     });
   }
   async findSubmittedDocumentIds(
-    applicationId: string,
+    teamId: string,
     documentIds: string[],
   ): Promise<Set<string>> {
     if (documentIds.length === 0) {
@@ -282,34 +282,34 @@ export class ProgramOverviewRepository {
     }
     const rows = await this.prisma.milestoneDocumentSubmission.groupBy({
       by: ['milestoneDocumentId'],
-      where: { applicationId, milestoneDocumentId: { in: documentIds } },
+      where: { teamId, milestoneDocumentId: { in: documentIds } },
     });
     return new Set(rows.map((row) => row.milestoneDocumentId));
   }
   findProgramApplications(
     programId: string,
   ): Promise<readonly ProgramApplicationTeamRow[]> {
-    return this.prisma.application.findMany({
+    return this.prisma.team.findMany({
       where: { programId },
-      select: { id: true, teamId: true },
+      select: { id: true },
     });
   }
   async findSubmittedDocumentPairs(
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
     documentIds: readonly string[],
   ): Promise<readonly SubmittedDocumentPairRow[]> {
     if (documentIds.length === 0) {
       return [];
     }
     const rows = await this.prisma.milestoneDocumentSubmission.groupBy({
-      by: ['milestoneDocumentId', 'applicationId'],
+      by: ['milestoneDocumentId', 'teamId'],
       where: {
-        applicationId: { in: [...applicationIds] },
+        teamId: { in: [...teamIds] },
         milestoneDocumentId: { in: [...documentIds] },
       },
     });
     return rows.map((row) => ({
-      applicationId: row.applicationId,
+      teamId: row.teamId,
       milestoneDocumentId: row.milestoneDocumentId,
     }));
   }

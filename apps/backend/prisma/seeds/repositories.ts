@@ -51,7 +51,7 @@ async function ensureProgram(stats: SeedStats): Promise<void> {
 async function ensureApplication(
   stats: SeedStats,
   scenarioId: string,
-): Promise<{ applicationId: string; applicantId: string }> {
+): Promise<{ teamId: string; applicantId: string }> {
   const applicant = await upsertSeedUser(stats, {
     id: seedId('repositories', scenarioId, 'applicant'),
     role: 'STUDENT',
@@ -71,6 +71,9 @@ async function ensureApplication(
           programId: PROGRAM_ID,
           name: `${scenarioId} 1인 팀`,
           leaderId: applicant.id,
+          applicantId: applicant.id,
+          answers: { title: `${scenarioId} 1인 팀` },
+          applicationTemplateVersion: 1,
         },
       }),
   );
@@ -92,33 +95,29 @@ async function ensureApplication(
         },
       }),
   );
-  const applicationId = seedId('repositories', scenarioId, 'application');
   await upsertTracked(
     stats,
-    'Application',
-    () => prisma.application.findUnique({ where: { id: applicationId } }),
+    'Team',
+    () => prisma.team.findUnique({ where: { id: teamId } }),
     () =>
-      prisma.application.upsert({
-        where: { id: applicationId },
-        update: {},
-        create: {
-          id: applicationId,
+      prisma.team.update({
+        where: { id: teamId },
+        data: {
           programId: PROGRAM_ID,
           applicantId: applicant.id,
           answers: { seedPlaceholder: true, scenarioId },
-          teamId,
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
           processedAt: offsetDays(-2),
         },
       }),
   );
-  return { applicationId, applicantId: applicant.id };
+  return { teamId, applicantId: applicant.id };
 }
 
 async function seedRepoJobPending(stats: SeedStats): Promise<void> {
   const scenarioId = 'repo-job-pending';
-  const { applicationId } = await ensureApplication(stats, scenarioId);
+  const { teamId } = await ensureApplication(stats, scenarioId);
 
   const outboxId = seedId('repositories', scenarioId, 'outbox-event');
   await upsertTracked(
@@ -132,8 +131,8 @@ async function seedRepoJobPending(stats: SeedStats): Promise<void> {
         create: {
           id: outboxId,
           type: 'repository.provision.requested',
-          aggregateType: 'Application',
-          aggregateId: applicationId,
+          aggregateType: 'Team',
+          aggregateId: teamId,
           idempotencyKey: seedId('repositories', scenarioId, 'idempotency'),
           payload: { seedPlaceholder: true, scenarioId },
           status: OutboxEventStatus.PROCESSED,
@@ -153,7 +152,7 @@ async function seedRepoJobPending(stats: SeedStats): Promise<void> {
         update: { status: RepositoryProvisionJobStatus.PENDING },
         create: {
           id: jobId,
-          applicationId,
+          teamId,
           status: RepositoryProvisionJobStatus.PENDING,
           nextAttemptAt: offsetDays(0),
         },
@@ -163,7 +162,7 @@ async function seedRepoJobPending(stats: SeedStats): Promise<void> {
 
 async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
   const scenarioId = 'repo-job-succeeded';
-  const { applicationId } = await ensureApplication(stats, scenarioId);
+  const { teamId } = await ensureApplication(stats, scenarioId);
 
   const repositoryId = seedId('repositories', scenarioId, 'repository');
   await upsertTracked(
@@ -176,8 +175,7 @@ async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
         update: {},
         create: {
           id: repositoryId,
-          applicationId,
-          programId: PROGRAM_ID,
+          teamId,
           githubRepositoryId: seedRepositoryId(scenarioId),
           nameWithOwner: seedNameWithOwner(scenarioId),
           source: RepositorySource.ORG_PROVISIONED,
@@ -197,7 +195,7 @@ async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
         update: { status: RepositoryProvisionJobStatus.SUCCEEDED },
         create: {
           id: jobId,
-          applicationId,
+          teamId,
           repositoryId,
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: offsetDays(-1),
@@ -210,7 +208,7 @@ async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
 
 async function seedRepoJobFailedRetryable(stats: SeedStats): Promise<void> {
   const scenarioId = 'repo-job-failed-retryable';
-  const { applicationId } = await ensureApplication(stats, scenarioId);
+  const { teamId } = await ensureApplication(stats, scenarioId);
 
   const jobId = seedId('repositories', scenarioId, 'job');
   await upsertTracked(
@@ -226,7 +224,7 @@ async function seedRepoJobFailedRetryable(stats: SeedStats): Promise<void> {
         },
         create: {
           id: jobId,
-          applicationId,
+          teamId,
           status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
           attemptCount: 2,
           lastErrorCode: 'PROVISION_TIMEOUT',
@@ -239,10 +237,7 @@ async function seedRepoJobFailedRetryable(stats: SeedStats): Promise<void> {
 
 async function seedRepositoryReady(stats: SeedStats): Promise<void> {
   const scenarioId = 'repository-ready';
-  const { applicationId, applicantId } = await ensureApplication(
-    stats,
-    scenarioId,
-  );
+  const { teamId, applicantId } = await ensureApplication(stats, scenarioId);
 
   const repositoryId = seedId('repositories', scenarioId, 'repository');
   await upsertTracked(
@@ -255,8 +250,7 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
         update: {},
         create: {
           id: repositoryId,
-          applicationId,
-          programId: PROGRAM_ID,
+          teamId,
           githubRepositoryId: seedRepositoryId(scenarioId),
           nameWithOwner: seedNameWithOwner(scenarioId),
           source: RepositorySource.ORG_PROVISIONED,
@@ -292,7 +286,7 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
 
 async function seedRepositoryPublic(stats: SeedStats): Promise<void> {
   const scenarioId = 'repository-public';
-  const { applicationId } = await ensureApplication(stats, scenarioId);
+  const { teamId } = await ensureApplication(stats, scenarioId);
 
   const repositoryId = seedId('repositories', scenarioId, 'repository');
   await upsertTracked(
@@ -305,8 +299,7 @@ async function seedRepositoryPublic(stats: SeedStats): Promise<void> {
         update: { publishedAt: null },
         create: {
           id: repositoryId,
-          applicationId,
-          programId: PROGRAM_ID,
+          teamId,
           githubRepositoryId: seedRepositoryId(scenarioId),
           nameWithOwner: seedNameWithOwner(scenarioId),
           source: RepositorySource.ORG_PROVISIONED,

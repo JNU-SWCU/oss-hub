@@ -59,7 +59,7 @@ export interface MilestoneDocumentContext {
   readonly submissionType: RequirementSubmissionType;
 }
 export interface StudentApplicationContext {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly approved: boolean;
   readonly programEndAt: Date;
 }
@@ -75,7 +75,7 @@ export interface MilestoneDocumentSubmissionSummary {
 }
 export interface MilestoneDocumentSubmissionCoordinate {
   readonly milestoneDocumentId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
 }
 interface MilestoneDocumentCollectionHistoryRecord {
   readonly event: MilestoneDocumentSubmissionHistoryEvent;
@@ -96,7 +96,7 @@ export interface MilestoneDocumentHistoryPage {
 }
 export interface MilestoneDocumentArchiveSubmissionRecord {
   readonly milestoneDocumentId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly submittedAt: Date;
   readonly status: SubmissionStatus;
   readonly content: Prisma.JsonValue | null;
@@ -163,10 +163,9 @@ export interface MilestoneDocumentWriteStore {
     | null
   >;
   updateGraceDueAt(documentId: string, graceDueAt: Date | null): Promise<void>;
-  isApplicationParticipant(
-    applicationId: string,
-    userId: string,
-  ): Promise<boolean>;
+
+  isApplicationParticipant(teamId: string, userId: string): Promise<boolean>;
+
   lockMilestone(milestoneId: string): Promise<LockedMilestone | null>;
   lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
   upsertTemplateFile(input: MilestoneDocumentTemplateInput): Promise<void>;
@@ -187,7 +186,7 @@ export interface MilestoneDocumentWriteStore {
   deleteDocument(documentId: string): Promise<void>;
   findSubmissionForReview(
     milestoneDocumentId: string,
-    applicationId: string,
+    teamId: string,
   ): Promise<{
     readonly id: string;
     readonly revision: number;
@@ -209,7 +208,7 @@ export interface MilestoneDocumentWriteStore {
   ): Promise<readonly string[]>;
   findChangeRequestCandidates(input: {
     readonly documentIds: readonly string[];
-    readonly applicationIds: readonly string[];
+    readonly teamIds: readonly string[];
   }): Promise<readonly ProgramDocumentChangeRequestCandidate[]>;
 }
 export interface MilestoneDocumentCollectionReadStore {
@@ -226,7 +225,7 @@ export interface MilestoneDocumentCollectionReadStore {
   findSubmissionsForCollection(
     documentIds: readonly string[],
     now: Date,
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]>;
 }
 const attachedFileSelect = {
@@ -274,16 +273,12 @@ function toDocumentRecord(row: {
 const collectionApplicationSelect = {
   id: true,
   applicant: { select: USER_PROFILE_NAME_SELECT },
-  team: {
-    select: {
-      name: true,
-      members: {
-        orderBy: { createdAt: 'asc' },
-        select: { user: { select: { nickname: true } } },
-      },
-    },
+  name: true,
+  members: {
+    orderBy: { createdAt: 'asc' },
+    select: { user: { select: { nickname: true } } },
   },
-} satisfies Prisma.ApplicationSelect;
+} satisfies Prisma.TeamSelect;
 function unexpiredAttachedFileWhere(now: Date) {
   return {
     lifecycle: FileLifecycle.ATTACHED,
@@ -343,18 +338,18 @@ export class MilestoneDocumentsRepository {
   }
   findChangeRequestCandidates(
     programId: string,
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
-    if (applicationIds.length === 0) return Promise.resolve([]);
+    if (teamIds.length === 0) return Promise.resolve([]);
     return this.prisma.milestoneDocumentSubmission.findMany({
       where: {
-        applicationId: { in: [...applicationIds] },
+        teamId: { in: [...teamIds] },
         milestoneDocument: {
           milestone: { programId },
         },
       },
       orderBy: { id: 'asc' },
-      select: { milestoneDocumentId: true, applicationId: true, status: true },
+      select: { milestoneDocumentId: true, teamId: true, status: true },
     });
   }
   withCollectionSnapshot<T>(
@@ -443,7 +438,7 @@ export class MilestoneDocumentsRepository {
     userId: string,
     programId: string,
   ): Promise<StudentApplicationContext | null> {
-    const application = await this.prisma.application.findFirst({
+    const application = await this.prisma.team.findFirst({
       where: {
         programId,
         ...this.platformRepository.programApplicationParticipantWhere(userId),
@@ -456,20 +451,20 @@ export class MilestoneDocumentsRepository {
     });
     if (application === null) return null;
     return {
-      applicationId: application.id,
+      teamId: application.id,
       approved: application.status === ApplicationStatus.APPROVED,
       programEndAt: application.program.endAt,
     };
   }
   async findSubmittedSummaries(
-    applicationId: string,
+    teamId: string,
     documentIds: readonly string[],
     now: Date = new Date(),
   ): Promise<readonly MilestoneDocumentSubmissionSummary[]> {
     if (documentIds.length === 0) return [];
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
-        applicationId,
+        teamId,
         milestoneDocumentId: { in: [...documentIds] },
       },
       select: {
@@ -535,12 +530,12 @@ export class MilestoneDocumentsRepository {
   }
   async findLatestReview(
     milestoneDocumentId: string,
-    applicationId: string,
+    teamId: string,
   ): Promise<LatestMilestoneDocumentReview | null> {
     const review =
       await this.prisma.milestoneDocumentSubmissionHistory.findFirst({
         where: {
-          submission: { milestoneDocumentId, applicationId },
+          submission: { milestoneDocumentId, teamId },
           event: { in: SUBMISSION_REVIEW_EVENTS },
         },
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -555,7 +550,7 @@ export class MilestoneDocumentsRepository {
   }
   async findSubmissionHistoryPage(
     milestoneDocumentId: string,
-    applicationId: string,
+    teamId: string,
     cursor: string | null,
     limit: number,
     now: Date = new Date(),
@@ -563,9 +558,9 @@ export class MilestoneDocumentsRepository {
     const submission = await this.prisma.milestoneDocumentSubmission.findUnique(
       {
         where: {
-          milestoneDocumentId_applicationId: {
+          milestoneDocumentId_teamId: {
             milestoneDocumentId,
-            applicationId,
+            teamId,
           },
         },
         select: {
@@ -654,7 +649,7 @@ export class MilestoneDocumentsRepository {
     };
   }
   async countApprovedApplications(programId: string): Promise<number> {
-    return this.prisma.application.count({
+    return this.prisma.team.count({
       where: { programId, status: ApplicationStatus.APPROVED },
     });
   }
@@ -667,7 +662,7 @@ export class MilestoneDocumentsRepository {
       by: ['milestoneDocumentId'],
       where: {
         milestoneDocumentId: { in: [...documentIds] },
-        application: { programId, status: ApplicationStatus.APPROVED },
+        team: { programId, status: ApplicationStatus.APPROVED },
       },
       _count: { _all: true },
     });
@@ -678,16 +673,16 @@ export class MilestoneDocumentsRepository {
   async findApprovedApplicationsForCollection(
     programId: string,
   ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
-    const applications = await this.prisma.application.findMany({
+    const applications = await this.prisma.team.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
-      orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: collectionApplicationSelect,
     });
     return applications.map((application) => ({
-      applicationId: application.id,
-      teamName: application.team.name,
+      teamId: application.id,
+      teamName: application.name,
       applicantName: application.applicant.name ?? null,
-      memberNicknames: application.team.members.map(
+      memberNicknames: application.members.map(
         (member) => member.user.nickname,
       ),
     }));
@@ -698,25 +693,23 @@ export class MilestoneDocumentsRepository {
     if (documentIds.length === 0) return [];
     return this.prisma.milestoneDocumentSubmission.findMany({
       where: { milestoneDocumentId: { in: [...documentIds] } },
-      select: { milestoneDocumentId: true, applicationId: true },
+      select: { milestoneDocumentId: true, teamId: true },
     });
   }
   async findSubmissionsForCollection(
     documentIds: readonly string[],
     now: Date,
-    applicationIds?: readonly string[],
+    teamIds?: readonly string[],
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
-    if (documentIds.length === 0 || applicationIds?.length === 0) return [];
+    if (documentIds.length === 0 || teamIds?.length === 0) return [];
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
         milestoneDocumentId: { in: [...documentIds] },
-        ...(applicationIds === undefined
-          ? {}
-          : { applicationId: { in: [...applicationIds] } }),
+        ...(teamIds === undefined ? {} : { teamId: { in: [...teamIds] } }),
       },
       select: {
         milestoneDocumentId: true,
-        applicationId: true,
+        teamId: true,
         submittedAt: true,
         revision: true,
         status: true,
@@ -756,7 +749,7 @@ export class MilestoneDocumentsRepository {
           : null;
       return {
         milestoneDocumentId: submission.milestoneDocumentId,
-        applicationId: submission.applicationId,
+        teamId: submission.teamId,
         submittedAt: submission.submittedAt,
         revision: submission.revision,
         status: submission.status,
@@ -783,7 +776,7 @@ export class MilestoneDocumentsRepository {
       where: { milestoneDocumentId: { in: [...documentIds] } },
       select: {
         milestoneDocumentId: true,
-        applicationId: true,
+        teamId: true,
         submittedAt: true,
         revision: true,
         status: true,
@@ -825,7 +818,7 @@ export class MilestoneDocumentsRepository {
           : null;
       return {
         milestoneDocumentId: submission.milestoneDocumentId,
-        applicationId: submission.applicationId,
+        teamId: submission.teamId,
         submittedAt: submission.submittedAt,
         status: submission.status,
         content: submission.content,
@@ -834,30 +827,29 @@ export class MilestoneDocumentsRepository {
       };
     });
   }
-  async findApplicationProgramId(
-    applicationId: string,
-  ): Promise<string | null> {
-    const application = await this.prisma.application.findUnique({
-      where: { id: applicationId },
+
+  async findApplicationProgramId(teamId: string): Promise<string | null> {
+    const application = await this.prisma.team.findUnique({
+      where: { id: teamId },
       select: { programId: true },
     });
     return application?.programId ?? null;
   }
   async findSubmissionFileForStaffDownload(
     milestoneDocumentId: string,
-    applicationId: string,
+    teamId: string,
     now: Date,
   ): Promise<StaffDownloadableMilestoneDocumentFile | null> {
     const submission = await this.prisma.milestoneDocumentSubmission.findUnique(
       {
         where: {
-          milestoneDocumentId_applicationId: {
+          milestoneDocumentId_teamId: {
             milestoneDocumentId,
-            applicationId,
+            teamId,
           },
         },
         select: {
-          application: { select: { team: { select: { name: true } } } },
+          team: { select: { name: true } },
           revision: true,
           files: {
             where: unexpiredAttachedFileWhere(now),
@@ -889,7 +881,7 @@ export class MilestoneDocumentsRepository {
       originalFileName: file.originalFileName,
       mimeType: file.mimeType,
       sizeBytes: file.sizeBytes,
-      teamName: submission.application.team.name,
+      teamName: submission.team.name,
     };
   }
   async findTemplateForDownload(
@@ -923,14 +915,14 @@ export class MilestoneDocumentsRepository {
   }
   async findMySubmission(
     milestoneDocumentId: string,
-    applicationId: string,
+    teamId: string,
   ): Promise<MilestoneDocumentSubmissionDetail | null> {
     const submission = await this.prisma.milestoneDocumentSubmission.findUnique(
       {
         where: {
-          milestoneDocumentId_applicationId: {
+          milestoneDocumentId_teamId: {
             milestoneDocumentId,
-            applicationId,
+            teamId,
           },
         },
         select: {
@@ -1036,12 +1028,12 @@ export class MilestoneDocumentsRepository {
   }
   private async isApplicationParticipantIn(
     scope: MilestoneDocumentWriteScope,
-    applicationId: string,
+    teamId: string,
     userId: string,
   ): Promise<boolean> {
-    const application = await scope.transaction.application.findFirst({
+    const application = await scope.transaction.team.findFirst({
       where: {
-        id: applicationId,
+        id: teamId,
         ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
@@ -1256,7 +1248,7 @@ export class MilestoneDocumentsRepository {
   private findSubmissionForReviewIn(
     scope: MilestoneDocumentWriteScope,
     milestoneDocumentId: string,
-    applicationId: string,
+    teamId: string,
   ): Promise<{
     readonly id: string;
     readonly revision: number;
@@ -1266,13 +1258,13 @@ export class MilestoneDocumentsRepository {
     return this.findSubmissionForReviewWithHistoryIn(
       scope,
       milestoneDocumentId,
-      applicationId,
+      teamId,
     );
   }
   private async findSubmissionForReviewWithHistoryIn(
     scope: MilestoneDocumentWriteScope,
     milestoneDocumentId: string,
-    applicationId: string,
+    teamId: string,
   ): Promise<{
     readonly id: string;
     readonly revision: number;
@@ -1283,15 +1275,15 @@ export class MilestoneDocumentsRepository {
       SELECT "id"
       FROM "MilestoneDocumentSubmission"
       WHERE "milestoneDocumentId" = ${milestoneDocumentId}
-        AND "applicationId" = ${applicationId}
+        AND "teamId" = ${teamId}
       FOR UPDATE
     `);
     const submission =
       await scope.transaction.milestoneDocumentSubmission.findUnique({
         where: {
-          milestoneDocumentId_applicationId: {
+          milestoneDocumentId_teamId: {
             milestoneDocumentId,
-            applicationId,
+            teamId,
           },
         },
         select: {
@@ -1411,7 +1403,7 @@ export class MilestoneDocumentsRepository {
           application."status",
           application."teamId",
           team."programId" AS "teamProgramId"
-        FROM "Application" application
+        FROM "Team" application
         LEFT JOIN "Team" team ON team."id" = application."teamId"
         WHERE application."programId" = ${programId}
         ORDER BY application."id"
@@ -1430,19 +1422,19 @@ export class MilestoneDocumentsRepository {
     scope: MilestoneDocumentWriteScope,
     input: {
       readonly documentIds: readonly string[];
-      readonly applicationIds: readonly string[];
+      readonly teamIds: readonly string[];
     },
   ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
-    if (input.documentIds.length === 0 || input.applicationIds.length === 0) {
+    if (input.documentIds.length === 0 || input.teamIds.length === 0) {
       return Promise.resolve([]);
     }
     return scope.transaction.milestoneDocumentSubmission.findMany({
       where: {
         milestoneDocumentId: { in: [...input.documentIds] },
-        applicationId: { in: [...input.applicationIds] },
+        teamId: { in: [...input.teamIds] },
       },
       orderBy: { id: 'asc' },
-      select: { milestoneDocumentId: true, applicationId: true, status: true },
+      select: { milestoneDocumentId: true, teamId: true, status: true },
     });
   }
   private milestoneDocumentCollectionReadStore(
@@ -1485,16 +1477,16 @@ export class MilestoneDocumentsRepository {
     transaction: Prisma.TransactionClient,
     programId: string,
   ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
-    const applications = await transaction.application.findMany({
+    const applications = await transaction.team.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
-      orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: collectionApplicationSelect,
     });
     return applications.map((application) => ({
-      applicationId: application.id,
-      teamName: application.team.name,
+      teamId: application.id,
+      teamName: application.name,
       applicantName: application.applicant.name ?? null,
-      memberNicknames: application.team.members.map(
+      memberNicknames: application.members.map(
         (member) => member.user.nickname,
       ),
     }));
@@ -1506,24 +1498,24 @@ export class MilestoneDocumentsRepository {
     if (documentIds.length === 0) return [];
     return transaction.milestoneDocumentSubmission.findMany({
       where: { milestoneDocumentId: { in: [...documentIds] } },
-      select: { milestoneDocumentId: true, applicationId: true },
+      select: { milestoneDocumentId: true, teamId: true },
     });
   }
   private async findSubmissionsForCollectionIn(
     transaction: Prisma.TransactionClient,
     documentIds: readonly string[],
     now: Date,
-    applicationIds: readonly string[],
+    teamIds: readonly string[],
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
-    if (documentIds.length === 0 || applicationIds.length === 0) return [];
+    if (documentIds.length === 0 || teamIds.length === 0) return [];
     const submissions = await transaction.milestoneDocumentSubmission.findMany({
       where: {
         milestoneDocumentId: { in: [...documentIds] },
-        applicationId: { in: [...applicationIds] },
+        teamId: { in: [...teamIds] },
       },
       select: {
         milestoneDocumentId: true,
-        applicationId: true,
+        teamId: true,
         submittedAt: true,
         revision: true,
         status: true,
@@ -1563,7 +1555,7 @@ export class MilestoneDocumentsRepository {
           : null;
       return {
         milestoneDocumentId: submission.milestoneDocumentId,
-        applicationId: submission.applicationId,
+        teamId: submission.teamId,
         submittedAt: submission.submittedAt,
         revision: submission.revision,
         status: submission.status,

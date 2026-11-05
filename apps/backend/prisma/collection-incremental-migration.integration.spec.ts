@@ -29,9 +29,6 @@ async function cleanFixtures(): Promise<void> {
   await prisma.githubRepository.deleteMany({
     where: { githubOrganizationId: ORG_ID },
   });
-  await prisma.application.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } },
-  });
   await prisma.teamMember.deleteMany({
     where: { teamId: { startsWith: TEST_PREFIX } },
   });
@@ -247,12 +244,19 @@ describe('collection incremental migration — DB invariants', () => {
           programId: `${TEST_PREFIX}program`,
           name: `${TEST_PREFIX}team-default`,
           leaderId: `${TEST_PREFIX}user`,
+          applicantId: `${TEST_PREFIX}user`,
+          answers: { title: `${TEST_PREFIX}team-default` },
+          applicationTemplateVersion: 1,
         },
         {
           id: `${TEST_PREFIX}team:explicit-false`,
           programId: `${TEST_PREFIX}program`,
           name: `${TEST_PREFIX}team-explicit-false`,
           leaderId: `${TEST_PREFIX}user:second`,
+          isRepositoryPublicationPlanned: false,
+          applicantId: `${TEST_PREFIX}user:second`,
+          answers: { title: `${TEST_PREFIX}team-explicit-false` },
+          applicationTemplateVersion: 1,
         },
       ],
     });
@@ -271,32 +275,17 @@ describe('collection incremental migration — DB invariants', () => {
       ],
     });
 
-    const defaulted = await prisma.application.create({
-      data: {
-        id: `${TEST_PREFIX}application:default`,
-        programId: `${TEST_PREFIX}program`,
-        applicantId: `${TEST_PREFIX}user`,
-        teamId: `${TEST_PREFIX}team:default`,
-        answers: {},
-        applicationTemplateVersion: 1,
-      },
+    const defaulted = await prisma.team.findUniqueOrThrow({
+      where: { id: `${TEST_PREFIX}team:default` },
     });
     expect(defaulted.isRepositoryPublicationPlanned).toBe(true);
 
-    const explicitFalse = await prisma.application.create({
-      data: {
-        id: `${TEST_PREFIX}application:explicit-false`,
-        programId: `${TEST_PREFIX}program`,
-        applicantId: `${TEST_PREFIX}user:second`,
-        teamId: `${TEST_PREFIX}team:explicit-false`,
-        answers: {},
-        applicationTemplateVersion: 1,
-        isRepositoryPublicationPlanned: false,
-      },
+    const explicitFalse = await prisma.team.findUniqueOrThrow({
+      where: { id: `${TEST_PREFIX}team:explicit-false` },
     });
     expect(explicitFalse.isRepositoryPublicationPlanned).toBe(false);
 
-    const reread = await prisma.application.findUniqueOrThrow({
+    const reread = await prisma.team.findUniqueOrThrow({
       where: { id: explicitFalse.id },
     });
     expect(reread.isRepositoryPublicationPlanned).toBe(false);

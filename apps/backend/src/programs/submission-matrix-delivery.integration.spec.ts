@@ -109,7 +109,7 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
     'rows',
     expect.arrayContaining([
       expect.objectContaining({
-        applicationId: fixture.submittedApplication,
+        teamId: fixture.submittedApplication,
         cells: [
           {
             milestoneId: fixture.notifyMilestone,
@@ -124,7 +124,7 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
         ],
       }),
       expect.objectContaining({
-        applicationId: fixture.missingApplication,
+        teamId: fixture.missingApplication,
         cells: [expect.objectContaining({ deliveryStatus: 'MISSING' })],
       }),
     ]),
@@ -150,7 +150,7 @@ it.each([
       'rows',
       expect.arrayContaining([
         expect.objectContaining({
-          applicationId: fixture.submittedApplication,
+          teamId: fixture.submittedApplication,
           cells: [expect.objectContaining({ deliveryStatus })],
         }),
       ]),
@@ -226,14 +226,13 @@ it('does not mistake an unrelated history event or later revision for the first 
   });
 
   expect(
-    matrix.rows.find(
-      (row) => row.applicationId === fixture.submittedApplication,
-    )?.cells[0],
+    matrix.rows.find((row) => row.teamId === fixture.submittedApplication)
+      ?.cells[0],
   ).toMatchObject({ deliveryStatus: 'LATE' });
 });
 
 it('excludes a rejected application and keeps the other program isolated', async () => {
-  await harness.prisma.application.update({
+  await harness.prisma.team.update({
     where: { id: fixture.submittedApplication },
     data: { status: 'REJECTED' },
   });
@@ -246,7 +245,7 @@ it('excludes a rejected application and keeps the other program isolated', async
   });
 
   expect(matrix.total).toBe(3);
-  expect(matrix.rows.map((row) => row.applicationId)).not.toContain(
+  expect(matrix.rows.map((row) => row.teamId)).not.toContain(
     fixture.submittedApplication,
   );
   expect(matrix.milestones.map((milestone) => milestone.id)).toEqual([

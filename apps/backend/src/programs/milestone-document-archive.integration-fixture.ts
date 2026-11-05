@@ -116,13 +116,15 @@ export class ProgramArchiveIntegrationFixture {
           programId,
           name: `합성 팀 ${index}`,
           leaderId: archiveId('user'),
+          applicantId: archiveId('user'),
+          answers: { title: `합성 팀 ${index}` },
+          applicationTemplateVersion: 1,
         },
       });
-      await this.prisma.application.create({
+      await this.prisma.team.update({
+        where: { id: archiveId(`team-${index}`) },
         data: {
-          id: archiveId(`app-${index}`),
           programId,
-          teamId: archiveId(`team-${index}`),
           applicantId: archiveId('user'),
           answers: {},
           applicationTemplateVersion: 1,
@@ -144,7 +146,7 @@ export class ProgramArchiveIntegrationFixture {
         data: {
           id: archiveId(`submission-${team}-${stage}`),
           milestoneDocumentId: archiveId(`doc-${stage}`),
-          applicationId: archiveId(`app-${team}`),
+          teamId: archiveId(`app-${team}`),
           submittedById: archiveId('user'),
           submittedAt: archiveNow,
           revision: 2,
@@ -191,12 +193,7 @@ export class ProgramArchiveIntegrationFixture {
         kind: 'SUBMISSION',
         id: archiveId(`file-${stage}-${revision}`),
         uploaderId: archiveId('user'),
-        teamId: (
-          await this.prisma.application.findUniqueOrThrow({
-            where: { id: archiveId('app-0') },
-            select: { teamId: true },
-          })
-        ).teamId,
+        teamId: archiveId('app-0'),
         submissionId: archiveId(`submission-0-${stage}`),
         submissionHistoryId: archiveId(`history-0-${stage}-${revision}`),
         lifecycle: 'ATTACHED',
@@ -220,7 +217,7 @@ export class ProgramArchiveIntegrationFixture {
     await this.prisma.file.deleteMany({
       where: { kind: 'SUBMISSION', uploaderId: archiveId('user') },
     });
-    const submissions = { application: { programId: programs } };
+    const submissions = { team: { programId: programs } };
     await this.prisma.milestoneDocumentSubmissionHistory.deleteMany({
       where: { submission: submissions },
     });
@@ -231,7 +228,7 @@ export class ProgramArchiveIntegrationFixture {
       where: { milestone: { programId: programs } },
     });
     await this.prisma.milestone.deleteMany({ where: { programId: programs } });
-    await this.prisma.application.deleteMany({
+    await this.prisma.team.deleteMany({
       where: { programId: programs },
     });
     await this.prisma.team.deleteMany({ where: { programId: programs } });

@@ -53,6 +53,7 @@ describe('program storage invariants', () => {
     });
     await prisma.teamMember.deleteMany({ where: { programId: prefix } });
     await prisma.team.deleteMany({ where: { programId: prefix } });
+    await prisma.teamHistory.deleteMany({ where: { programId: prefix } });
     await prisma.milestone.deleteMany({ where: { programId: prefix } });
     await prisma.program.deleteMany({ where: { id: prefix } });
     await prisma.user.deleteMany({ where: { id: prefix } });
@@ -80,35 +81,68 @@ describe('program storage invariants', () => {
     expect(legacyColumns).toEqual([]);
   });
 
-  it('leaves a team whose membership was inserted without a surrogate ID', async () => {
-    await prisma.program.create({ data: program });
-    await prisma.$executeRaw`
-      INSERT INTO "Team" ("id", "programId", "name", "leaderId", "updatedAt")
-      VALUES (${prefix}, ${prefix}, 'Synthetic team', ${prefix}, ${now})
-    `;
-    await prisma.$executeRaw`
-      INSERT INTO "TeamMember" ("teamId", "programId", "userId")
-      VALUES (${prefix}, ${prefix}, ${prefix})
-    `;
-    const repository = new TeamRepository(
-      prisma,
-      new ProgramTeamRepositoryEvidenceRepository(prisma),
-      new PlatformRepository(),
-      new TeamHistoryRepository(),
-    );
-    const events: string[] = [];
+  it.each(['SUBMITTED', 'REJECTED', 'APPROVED'] as const)(
+    'uses the composite membership key and applies the final-member rule for %s',
+    async (status) => {
+      await prisma.program.create({ data: program });
+      await prisma.team.create({
+        data: {
+          id: prefix,
+          programId: prefix,
+          name: 'Synthetic team',
+          leaderId: prefix,
+          applicantId: prefix,
+          answers: {},
+          applicationTemplateVersion: 1,
+          status,
+        },
+      });
+      await prisma.$executeRaw`
+        INSERT INTO "TeamMember" ("teamId", "programId", "userId")
+        VALUES (${prefix}, ${prefix}, ${prefix})
+      `;
+      const repository = new TeamRepository(
+        prisma,
+        new ProgramTeamRepositoryEvidenceRepository(prisma),
+        new PlatformRepository(),
+        new TeamHistoryRepository(),
+      );
 
-    const result = await repository.leave(prefix, prefix, (_, event) => {
-      events.push(event.operation);
-      return Promise.resolve();
-    });
+      const result = await repository.leave(prefix, prefix, () =>
+        Promise.resolve(),
+      );
 
-    expect(result).toBe('removed');
-    expect(events).toEqual(['LEAVE']);
-    expect(
-      await prisma.teamMember.count({ where: { programId: prefix } }),
-    ).toBe(0);
-  });
+      if (status === 'APPROVED') {
+        expect(result).toBe('last-member-with-application');
+        expect(await prisma.team.count({ where: { id: prefix } })).toBe(1);
+        expect(
+          await prisma.teamMember.count({ where: { programId: prefix } }),
+        ).toBe(1);
+        expect(
+          await prisma.teamHistory.count({ where: { teamId: prefix } }),
+        ).toBe(0);
+      } else {
+        expect(result).toBe('removed');
+        expect(await prisma.team.count({ where: { id: prefix } })).toBe(0);
+        expect(
+          await prisma.teamMember.count({ where: { programId: prefix } }),
+        ).toBe(0);
+        const history = await prisma.teamHistory.findMany({
+          where: { teamId: prefix },
+        });
+        expect(history).toHaveLength(1);
+        expect(history[0]).toMatchObject({
+          event: 'DELETED',
+          actorId: prefix,
+          data: {
+            reason: 'LAST_MEMBER_LEFT',
+            status,
+            deletedCounts: { teams: 1, members: 1 },
+          },
+        });
+      }
+    },
+  );
 
   it('rejects duplicate storage keys at the database boundary', async () => {
     const file = {

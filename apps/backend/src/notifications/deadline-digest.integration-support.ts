@@ -48,19 +48,16 @@ export function createDeadlineDigestIntegrationHarness() {
     await prisma.milestoneDocumentSubmission.deleteMany({
       where: { id: DIGEST_FIXTURE.documentSubmission },
     });
-    await prisma.application.deleteMany({
-      where: { id: { in: DIGEST_APPLICATION_FIXTURES.map(([id]) => id) } },
-    });
     await prisma.teamMember.deleteMany({
       where: {
         teamId: {
-          in: DIGEST_APPLICATION_FIXTURES.map(([id]) => `${id}-team`),
+          in: DIGEST_APPLICATION_FIXTURES.map(([id]) => id),
         },
       },
     });
     await prisma.team.deleteMany({
       where: {
-        id: { in: DIGEST_APPLICATION_FIXTURES.map(([id]) => `${id}-team`) },
+        id: { in: DIGEST_APPLICATION_FIXTURES.map(([id]) => id) },
       },
     });
     await prisma.milestoneDocument.deleteMany({
@@ -171,35 +168,28 @@ export function createDeadlineDigestIntegrationHarness() {
       });
     }
     await prisma.team.createMany({
-      data: DIGEST_APPLICATION_FIXTURES.map(([applicationId, applicantId]) => ({
-        id: `${applicationId}-team`,
+      data: DIGEST_APPLICATION_FIXTURES.map(([teamId, applicantId]) => ({
+        id: teamId,
         programId: DIGEST_FIXTURE.notifyProgram,
-        name: `${applicationId}-team`,
+        name: `${teamId}-team`,
         leaderId: applicantId,
-      })),
-    });
-    await prisma.teamMember.createMany({
-      data: DIGEST_APPLICATION_FIXTURES.map(([applicationId, applicantId]) => ({
-        teamId: `${applicationId}-team`,
-        programId: DIGEST_FIXTURE.notifyProgram,
-        userId: applicantId,
-      })),
-    });
-    await prisma.application.createMany({
-      data: DIGEST_APPLICATION_FIXTURES.map(([applicationId, applicantId]) => ({
-        id: applicationId,
-        programId: DIGEST_FIXTURE.notifyProgram,
         applicantId,
-        teamId: `${applicationId}-team`,
         answers: {},
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
       })),
     });
+    await prisma.teamMember.createMany({
+      data: DIGEST_APPLICATION_FIXTURES.map(([teamId, applicantId]) => ({
+        teamId,
+        programId: DIGEST_FIXTURE.notifyProgram,
+        userId: applicantId,
+      })),
+    });
     await prisma.milestoneDocumentSubmission.create({
       data: {
         id: DIGEST_FIXTURE.documentSubmission,
-        applicationId: DIGEST_FIXTURE.submittedApplication,
+        teamId: DIGEST_FIXTURE.submittedApplication,
         milestoneDocumentId: DIGEST_FIXTURE.notifyDocument,
         submittedById: DIGEST_FIXTURE.studentSubmitted,
       },

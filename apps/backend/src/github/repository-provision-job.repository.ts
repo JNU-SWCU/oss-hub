@@ -151,7 +151,7 @@ export interface ClaimRepositoryProvisionJobInput {
 
 export interface ClaimedRepositoryProvisionJob {
   readonly id: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly requestId: string;
   readonly repositoryId: string | null;
   readonly attemptCount: number;
@@ -188,19 +188,19 @@ export class RepositoryProvisionJobRepository {
     workerId: string,
     expectedRequestId: string,
   ): Promise<{
-    readonly applicationId: string;
+    readonly teamId: string;
     readonly repositoryId: string | null;
   }> {
     const rows = await transaction.$queryRaw<
       readonly {
-        readonly applicationId: string;
+        readonly teamId: string;
         readonly currentEventId: string | null;
         readonly repositoryId: string | null;
         readonly status: RepositoryProvisionJobStatus;
         readonly lockedBy: string | null;
       }[]
     >(Prisma.sql`
-    SELECT "applicationId", "currentEventId", "repositoryId", "status", "lockedBy"
+    SELECT "teamId", "currentEventId", "repositoryId", "status", "lockedBy"
     FROM "RepositoryProvisionJob"
     WHERE "id" = ${jobId}
     FOR UPDATE
@@ -219,7 +219,7 @@ export class RepositoryProvisionJobRepository {
       throw new RepositoryProvisionLeaseLostError();
     }
     return {
-      applicationId: row.applicationId,
+      teamId: row.teamId,
       repositoryId: row.repositoryId,
     };
   }
@@ -270,7 +270,7 @@ export class RepositoryProvisionJobRepository {
       WHERE job."id" = candidate."id"
       RETURNING
         job."id",
-        job."applicationId",
+        job."teamId",
         job."currentEventId" AS "requestId",
         job."repositoryId",
         job."attemptCount"
@@ -290,8 +290,8 @@ export class RepositoryProvisionJobRepository {
           FROM "RepositoryProvisionJob" AS job
           JOIN "Program" AS program ON program."id" = (
             SELECT application."programId"
-            FROM "Application" AS application
-            WHERE application."id" = job."applicationId"
+            FROM "Team" AS application
+            WHERE application."id" = job."teamId"
           )
           JOIN "GithubRepository" AS repository ON repository."id" = job."repositoryId"
           WHERE job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
@@ -315,7 +315,7 @@ export class RepositoryProvisionJobRepository {
         WHERE job."id" = candidate."id"
         RETURNING
           job."id",
-          job."applicationId",
+          job."teamId",
           job."currentEventId" AS "requestId",
           job."repositoryId",
           job."attemptCount"

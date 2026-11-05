@@ -29,13 +29,15 @@ async function createApplication(status: ApplicationStatus): Promise<void> {
       name: '합성 팀',
       programId: PROGRAM_ID,
       leaderId: USER_IDS[0],
+      applicantId: USER_IDS[0],
+      answers: { title: '합성 팀' },
+      applicationTemplateVersion: 1,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: 'synthetic-notice-team' },
     data: {
-      id: APPLICATION_ID,
       programId: PROGRAM_ID,
-      teamId: 'synthetic-notice-team',
       applicantId: USER_IDS[0],
       answers: {},
       applicationTemplateVersion: 1,
@@ -55,7 +57,7 @@ function decision(id: string, status: ApplicationStatus, index: 0 | 1 | 2) {
     createdAt: new Date(TIMES[index]),
     payload: {
       schemaVersion: 1,
-      applicationId: APPLICATION_ID,
+      teamId: APPLICATION_ID,
       programId: PROGRAM_ID,
       programName: '합성 프로그램',
       decision: status,
@@ -68,7 +70,7 @@ async function clearFixtures(): Promise<void> {
   await prisma.notification.deleteMany({
     where: { userId: { in: [...USER_IDS] } },
   });
-  await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
 }
 
@@ -87,9 +89,8 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: PROGRAM_ID,
         name: '합성 프로그램',
         organizer: '합성 조직',
@@ -219,7 +220,7 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
     await prisma.notification.create({
       data: decision('synthetic-old-revert', ApplicationStatus.SUBMITTED, 0),
     });
-    await prisma.application.update({
+    await prisma.team.update({
       where: { id: APPLICATION_ID },
       data: { submittedAt: new Date(TIMES[2]) },
     });

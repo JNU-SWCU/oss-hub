@@ -1,6 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { ApplicationsRepository } from './team.repository';
 import type { PrismaService } from '../platform/prisma.service';
@@ -31,7 +31,7 @@ function buildStoreHarness(overrides: {
   } as unknown as PrismaService;
   const repository = new ApplicationsRepository(
     prisma,
-    new ReviewHistoryWriterRepository(),
+    new TeamHistoryRepository(),
     new RepositoryProvisionGenerationRepository(),
     new PlatformRepository(),
   );

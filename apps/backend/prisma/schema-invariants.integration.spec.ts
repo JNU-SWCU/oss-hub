@@ -81,16 +81,16 @@ async function createTeam(
 ): Promise<void> {
   await prisma.$executeRaw`
     INSERT INTO "Team" (
-      "id", "programId", "name", "leaderId", "createdAt", "updatedAt"
+      "id", "programId", "name", "leaderId", "createdAt", "updatedAt", "applicantId", "answers", "applicationTemplateVersion"
     ) VALUES (
-      ${id}, ${programId}, ${id}, ${leaderId}, NOW(), NOW()
+      ${id}, ${programId}, ${id}, ${leaderId}, NOW(), NOW(), ${leaderId}, '{}'::jsonb, 1
     )
   `;
 }
 
 async function cleanFixtures(): Promise<void> {
-  await prisma.application.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } },
+  await prisma.repositoryProvisionJob.deleteMany({
+    where: { teamId: { startsWith: TEST_PREFIX } },
   });
   await prisma.teamMember.deleteMany({
     where: { teamId: { startsWith: TEST_PREFIX } },
@@ -118,51 +118,31 @@ describe('core schema invariants integration', () => {
     await prisma.$disconnect();
   });
 
-  it('신청은 같은 프로그램에서 팀당 한 건만 허용한다(programId, teamId full unique)', async () => {
+  it('a team identity can hold only one application state', async () => {
     await createProgram();
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
-    await prisma.application.create({
-      data: {
-        id: `${TEST_PREFIX}application:team:first`,
-        programId: PROGRAM_ID,
-        applicantId: USER_A_ID,
-        teamId: TEAM_A_ID,
-        answers: {},
-        applicationTemplateVersion: 1,
-      },
-    });
-
-    const duplicateInsert = prisma.application.create({
-      data: {
-        id: `${TEST_PREFIX}application:team:second`,
-        programId: PROGRAM_ID,
-        applicantId: USER_B_ID,
-        teamId: TEAM_A_ID,
-        answers: {},
-        applicationTemplateVersion: 1,
-      },
-    });
-
-    await expect(duplicateInsert).rejects.toMatchObject({ code: 'P2002' });
+    await expect(
+      prisma.team.create({
+        data: {
+          id: TEAM_A_ID,
+          programId: PROGRAM_ID,
+          name: 'Duplicate team',
+          leaderId: USER_B_ID,
+          applicantId: USER_B_ID,
+          answers: {},
+          applicationTemplateVersion: 1,
+        },
+      }),
+    ).rejects.toMatchObject({ code: 'P2002' });
   });
 
-  it('Application.teamId FK는 ON DELETE RESTRICT다', async () => {
+  it('RepositoryProvisionJob.teamId restricts deletion of its owning team', async () => {
     await createProgram();
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
-    await prisma.application.create({
-      data: {
-        id: `${TEST_PREFIX}application:restrict`,
-        programId: PROGRAM_ID,
-        applicantId: USER_A_ID,
-        teamId: TEAM_A_ID,
-        answers: {},
-        applicationTemplateVersion: 1,
-      },
-    });
-
-    const deleteTeam = prisma.team.delete({ where: { id: TEAM_A_ID } });
-
-    await expect(deleteTeam).rejects.toMatchObject({ code: 'P2003' });
+    await prisma.repositoryProvisionJob.create({ data: { teamId: TEAM_A_ID } });
+    await expect(
+      prisma.team.delete({ where: { id: TEAM_A_ID } }),
+    ).rejects.toMatchObject({ code: 'P2003' });
   });
 
   it('사용자는 같은 프로그램의 두 팀에 동시에 속할 수 없다', async () => {
