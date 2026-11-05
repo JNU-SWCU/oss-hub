@@ -39,8 +39,8 @@ const service = new SubmissionMatrixService(
 );
 
 const PROGRAM_ID = seedId('milestones', 'program');
-const PERSONAL_APPLICATION_ID = seedId('milestones', 'application', 'personal');
-const TEAM_APPLICATION_ID = seedId('milestones', 'application', 'team');
+const PERSONAL_TEAM_ID = seedId('milestones', 'application-personal', 'team');
+const TEAM_ID = seedId('milestones', 'team');
 
 const STAFF_VIEWER_ID = 'synthetic-matrix-staff';
 const ADMIN_VIEWER_ID = 'synthetic-matrix-admin';
@@ -243,14 +243,14 @@ describe('SubmissionMatrixService integration', () => {
     ).toEqual(EXPECTED_MILESTONE_ORDER);
 
     expect(matrix.rows.map((row) => row.teamId)).toEqual([
-      PERSONAL_APPLICATION_ID,
-      TEAM_APPLICATION_ID,
+      PERSONAL_TEAM_ID,
+      TEAM_ID,
       UNSUBMITTED_TEAM_ID,
     ]);
     expect(matrix.total).toBe(3);
 
-    const personal = rowFor(matrix.rows, PERSONAL_APPLICATION_ID);
-    const team = rowFor(matrix.rows, TEAM_APPLICATION_ID);
+    const personal = rowFor(matrix.rows, PERSONAL_TEAM_ID);
+    const team = rowFor(matrix.rows, TEAM_ID);
     const unsubmitted = rowFor(matrix.rows, UNSUBMITTED_TEAM_ID);
 
     expect(personal).toMatchObject({
@@ -343,9 +343,9 @@ describe('SubmissionMatrixService integration', () => {
 
   it.each([
     ['신청자 이름', 'nameHOLDER', [UNSUBMITTED_TEAM_ID]],
-    ['팀명', 'MILESTONES-TEAM', [TEAM_APPLICATION_ID]],
-    ['팀원 GitHub 핸들', 'USER-TEAM-MEMBER', [TEAM_APPLICATION_ID]],
-    ['신청자 GitHub 핸들', 'APPLICANT-PERSONAL', [PERSONAL_APPLICATION_ID]],
+    ['팀명', 'MILESTONES-TEAM', [TEAM_ID]],
+    ['팀원 GitHub 핸들', 'USER-TEAM-MEMBER', [TEAM_ID]],
+    ['신청자 GitHub 핸들', 'APPLICANT-PERSONAL', [PERSONAL_TEAM_ID]],
     ['불일치 검색어', 'synthetic-matrix-no-such', []],
   ] as const)(
     '검색은 %s을(를) 대소문자 무시로 필터하고 total도 같은 필터를 쓴다',
@@ -373,8 +373,8 @@ describe('SubmissionMatrixService integration', () => {
     expect(personalOnly.total).toBe(noFilter.total);
     expect(teamOnly.total).toBe(noFilter.total);
     expect(noFilter.rows.map((row) => row.teamId)).toEqual([
-      PERSONAL_APPLICATION_ID,
-      TEAM_APPLICATION_ID,
+      PERSONAL_TEAM_ID,
+      TEAM_ID,
       UNSUBMITTED_TEAM_ID,
     ]);
   });
@@ -385,9 +385,7 @@ describe('SubmissionMatrixService integration', () => {
       service.matrix(PROGRAM_ID, query({ page: 9, pageSize: 1 })),
     ]);
 
-    expect(secondPage.rows.map((row) => row.teamId)).toEqual([
-      TEAM_APPLICATION_ID,
-    ]);
+    expect(secondPage.rows.map((row) => row.teamId)).toEqual([TEAM_ID]);
     expect(secondPage).toMatchObject({ page: 2, pageSize: 1, total: 3 });
     expect(beyondPage.rows).toEqual([]);
     expect(beyondPage.total).toBe(3);

@@ -47,8 +47,8 @@ model User {
   staffAccessRequests                    StaffAccessRequest[]                 @relation("StaffAccessRequestUser")
   decidedStaffAccessRequests             StaffAccessRequest[]                 @relation("StaffAccessRequestDecidedBy")
   consents                               Consent[]
-  applications                           Application[]                        @relation("ApplicationApplicant")
-  processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
+  submittedTeams                         Team[]                               @relation("TeamApplicant")
+  processedTeams                         Team[]                               @relation("TeamProcessedBy")
   ledTeams                               Team[]                               @relation("TeamLeader")
   teamMemberships                        TeamMember[]
   sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")
@@ -59,7 +59,6 @@ model User {
   createdPrograms                        Program[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
   milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
-  applicationReviewHistories             ApplicationReviewHistory[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
