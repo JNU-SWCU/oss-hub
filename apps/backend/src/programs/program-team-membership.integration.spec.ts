@@ -120,6 +120,12 @@ async function cleanupTeamScope(): Promise<void> {
     where: { team: { programId: PROGRAM_ID } },
   });
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
+  await prisma.repositoryProvisionJob.deleteMany({
+    where: { team: { programId: PROGRAM_ID } },
+  });
+  await prisma.outboxEvent.deleteMany({
+    where: { aggregateType: 'Team', aggregateId: { startsWith: RUN_PREFIX } },
+  });
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
 }
@@ -1064,6 +1070,40 @@ describe('program team membership transactions integration', () => {
       await expect(
         prisma.teamMember.count({ where: { teamId, userId: MEMBER_A_ID } }),
       ).resolves.toBe(1);
+    });
+
+    it('교직원이 마지막 팀원을 제외하면 프로비저닝 작업과 outbox 행도 함께 지우고 팀을 삭제한다', async () => {
+      const teamId = `${RUN_PREFIX}staff-remove-last-jobs`;
+      await seedTeam(teamId, LEADER_ID, [
+        { userId: LEADER_ID, createdAt: JOINED_FIRST },
+      ]);
+      await prisma.repositoryProvisionJob.create({ data: { teamId } });
+      await prisma.outboxEvent.create({
+        data: {
+          type: 'team.provision',
+          aggregateType: 'Team',
+          aggregateId: teamId,
+          idempotencyKey: `${teamId}:provision`,
+          payload: {},
+        },
+      });
+
+      await service.removeMemberForStaff(
+        githubIdOf(STAFF_ID),
+        PROGRAM_ID,
+        teamId,
+        LEADER_ID,
+      );
+
+      await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(
+        0,
+      );
+      await expect(
+        prisma.repositoryProvisionJob.count({ where: { teamId } }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
+      ).resolves.toBe(0);
     });
 
     it('승인된 팀의 마지막 팀원은 교직원도 뺄 수 없다', async () => {
