@@ -740,6 +740,6 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 | 범위 | Before files | Before lines | Todo 10 1단계 files | Todo 10 1단계 lines |
 | --- | ---: | ---: | ---: | ---: |
 | programs 제품 파일 (DTO 포함) | 194 | 32539 | 194 | 32528 |
-| platform/audit-log* 제품 파일 | 10 | 2257 | 6 | 2101 |
+| platform/audit-log* 제품 파일 | 10 | 2257 | 6 | 2077 |
 
 범용 AuditLog service·repository·transaction writer 타입과 feed 설정·쿼리 타입 5개를 지웠다. ProgramHistory writer는 새 파일 없이 `programs.repository.ts`에 둔다. 메타데이터 생성기(`audit-log-metadata.*`, `audit-log-history-metadata.config.ts`)와 `audit-log-error-code.error.ts`는 2단계에서 쓰는 도메인으로 옮기거나 지운다.

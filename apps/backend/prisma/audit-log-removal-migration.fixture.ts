@@ -5,8 +5,8 @@ import {
   migrationStatements,
 } from './program-authoring-migration-test-support';
 
-export const AUDIT_FIXTURE_SCHEMA = 'audit_log_removal_fixture';
-export const AUDIT_FIXTURE_BACKUP_SCHEMA = 'audit_log_removal_fixture_backup';
+const AUDIT_FIXTURE_SCHEMA = 'audit_log_removal_fixture';
+const AUDIT_FIXTURE_BACKUP_SCHEMA = 'audit_log_removal_fixture_backup';
 
 type FixtureOperation<T> = Parameters<
   typeof inProgramAuthoringFixtureSchema<T>
@@ -236,7 +236,7 @@ const IMPORT_AUDIT_ROW = (table: string, id: string, auditId: string) => `
       jsonb_build_object('action', a.action, 'targetType', a."targetType", 'targetId', a."targetId", 'metadata', a.metadata))
   FROM "AuditLog" a WHERE a.id = '${auditId}'`;
 
-export const SEED_SQL = `
+const SEED_SQL = `
   INSERT INTO "User" VALUES ('user-actor', 'actor'), ('user-target', 'target');
   INSERT INTO "Program" VALUES
     ('program-live', 'Live Program'), ('twin-1', 'Twin Program'), ('twin-2', 'Twin Program');
