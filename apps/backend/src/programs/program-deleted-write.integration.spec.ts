@@ -326,7 +326,7 @@ describe.each([
     else expect(locked).toMatchObject({ id: milestone.id, programId });
   });
   it('resolves repository publication eligibility only in an available program', async () => {
-    const application = await prisma.team.update({
+    await prisma.team.update({
       where: { id: teamId },
       data: {
         programId,

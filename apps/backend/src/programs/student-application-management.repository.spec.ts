@@ -179,11 +179,7 @@ describe('StudentApplicationManagementRepository', () => {
 
       await run(repository, operation);
 
-      expect(lockedTables(transaction)).toEqual([
-        'Program',
-        'Team',
-        'Team',
-      ]);
+      expect(lockedTables(transaction)).toEqual(['Program', 'Team', 'Team']);
     },
   );
 
@@ -565,11 +561,17 @@ function createTransaction(input?: {
     $queryRaw: jest.fn().mockResolvedValue([{ id: 'locked' }]),
     program: { findUnique: jest.fn().mockResolvedValue(POLICY) },
     teamHistory: { create: jest.fn().mockResolvedValue({}) },
-    teamInvitation: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]), deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    teamInvitation: {
+      count: jest.fn().mockResolvedValue(0),
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
     githubRepository: { count: jest.fn().mockResolvedValue(0) },
     submissionFile: { count: jest.fn().mockResolvedValue(0) },
-    repositoryProvisionJob: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    repositoryProvisionJob: {
+      deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+    },
     outboxEvent: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     teamMember: {
       count: jest.fn().mockResolvedValue(1),
@@ -582,7 +584,13 @@ function createTransaction(input?: {
         }),
     },
     team: {
-      findUniqueOrThrow: jest.fn().mockResolvedValue({ name: 'Team', programId: APPLICATION.programId, leaderId: 'student-1', status: APPLICATION.status, members: [] }),
+      findUniqueOrThrow: jest.fn().mockResolvedValue({
+        name: 'Team',
+        programId: APPLICATION.programId,
+        leaderId: 'student-1',
+        status: APPLICATION.status,
+        members: [],
+      }),
       findFirst: input?.team?.findFirst ?? jest.fn(),
       update: input?.team?.update ?? jest.fn(),
       delete: input?.team?.delete ?? jest.fn(),

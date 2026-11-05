@@ -4,10 +4,6 @@ import type {
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  APPLICATION_REPOSITORY_URL_CHANGED,
-  REPOSITORY_CONNECTION_AUDIT_ACTIONS,
-} from '../platform/repository-audit-metadata.config';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
@@ -191,9 +187,6 @@ export interface DeletedTeamView {
   readonly deleted: true;
   readonly deletedCounts: Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
 }
-
-const REPOSITORY_CONNECTION_CHANGED =
-  REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED;
 
 interface ApplicationRepositorySource {
   readonly id: string;

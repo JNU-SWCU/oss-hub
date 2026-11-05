@@ -125,10 +125,7 @@ interface FakeRepoRow {
   source: 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
 }
 
-function matchesWhere(
-  row: object,
-  where: Record<string, unknown>,
-): boolean {
+function matchesWhere(row: object, where: Record<string, unknown>): boolean {
   return Object.entries(where).every(([key, condition]) => {
     if (key === 'NOT' && Array.isArray(condition)) {
       return condition.every(
@@ -151,7 +148,13 @@ function matchesWhere(
       const notIn = (condition as { notIn: readonly unknown[] }).notIn;
       return !notIn.includes(value);
     }
-    if (value !== null && typeof value === 'object' && condition !== null && typeof condition === 'object') return matchesWhere(value, condition as Record<string, unknown>);
+    if (
+      value !== null &&
+      typeof value === 'object' &&
+      condition !== null &&
+      typeof condition === 'object'
+    )
+      return matchesWhere(value, condition as Record<string, unknown>);
     return value === condition;
   });
 }

@@ -131,20 +131,22 @@ describe('StudentDashboardController', () => {
     const item = response.items[0];
     expect(item).not.toHaveProperty('applicationMode');
     expect(item).not.toHaveProperty('displayName');
-    expect(Object.keys(item ?? {}).sort()).toEqual([
-      'applicationStatus',
-      'checklistUrl',
-      'coverImageUrl',
-      'detailUrl',
-      'nextMilestone',
-      'programId',
-      'programName',
-      'progress',
-      'repository',
-      'teamName',
-      'teamUrl',
-      'teamId',
-    ].sort());
+    expect(Object.keys(item ?? {}).sort()).toEqual(
+      [
+        'applicationStatus',
+        'checklistUrl',
+        'coverImageUrl',
+        'detailUrl',
+        'nextMilestone',
+        'programId',
+        'programName',
+        'progress',
+        'repository',
+        'teamName',
+        'teamUrl',
+        'teamId',
+      ].sort(),
+    );
   });
 
   it('leaves unauthenticated handling to the global authentication guard', () => {

@@ -25,8 +25,6 @@ const APPLICANT_PERSONAL_ID = seedId(
 const TEAM_LEADER_ID = seedId('milestones', 'user', 'team-leader');
 const TEAM_MEMBER_ID = seedId('milestones', 'user', 'team-member');
 const TEAM_ID = seedId('milestones', 'team');
-const APPLICATION_PERSONAL_ID = seedId('milestones', 'team', 'personal');
-const APPLICATION_TEAM_ID = seedId('milestones', 'team', 'team');
 const PROGRAM_START_AT = offsetDays(-49);
 export const MILESTONE_SCENARIOS = {
   'milestones-upcoming': [
@@ -436,7 +434,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'milestone-with-submission',
     milestoneId: withSubmissionId,
-    teamId: APPLICATION_PERSONAL_ID,
+    teamId: personalTeamId,
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.SUBMITTED,
   });
@@ -450,7 +448,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-existing',
     milestoneId: existingId,
-    teamId: APPLICATION_TEAM_ID,
+    teamId: TEAM_ID,
     submittedById: teamLeader.id,
     status: SubmissionStatus.SUBMITTED,
   });
@@ -464,7 +462,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-approved',
     milestoneId: approvedId,
-    teamId: APPLICATION_PERSONAL_ID,
+    teamId: personalTeamId,
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.APPROVED,
     review: { decision: ReviewDecision.APPROVED },
@@ -480,7 +478,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-changes-requested',
     milestoneId: changesRequestedId,
-    teamId: APPLICATION_TEAM_ID,
+    teamId: TEAM_ID,
     submittedById: teamMember.id,
     status: SubmissionStatus.CHANGES_REQUESTED,
     review: {
@@ -498,7 +496,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-rejected',
     milestoneId: rejectedId,
-    teamId: APPLICATION_PERSONAL_ID,
+    teamId: personalTeamId,
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.REJECTED,
     review: {

@@ -5,7 +5,6 @@ export const flowIds = {
   program: `${prefix}-program`,
   milestone: `${prefix}-milestone`,
   document: `${prefix}-document`,
-  application: `${prefix}-application`,
   team: `${prefix}-team`,
   student: `${prefix}-student`,
   staff: `${prefix}-staff`,

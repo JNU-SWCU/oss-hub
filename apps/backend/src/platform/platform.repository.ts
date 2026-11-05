@@ -18,7 +18,8 @@ export class PlatformRepository {
 
   programApplicationManagerWhere(userId: string) {
     return {
-      leaderId: userId, members: { some: { userId } },
+      leaderId: userId,
+      members: { some: { userId } },
     };
   }
 
@@ -34,10 +35,7 @@ export class PlatformRepository {
     };
   }
 
-  repositoryAccessSyncEventData(
-    teamId: string,
-    now: Date,
-  ) {
+  repositoryAccessSyncEventData(teamId: string, now: Date) {
     const requestedAt = now.toISOString();
     return {
       type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
@@ -52,16 +50,11 @@ export class PlatformRepository {
   linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
     return {
       teamId: { not: null },
-      OR: [
-        { source: 'ORG_PROVISIONED' },
-        { source: 'EXTERNAL_PUBLIC' },
-      ],
+      OR: [{ source: 'ORG_PROVISIONED' }, { source: 'EXTERNAL_PUBLIC' }],
     };
   }
 
-  repositoryAccessSyncTargetWhere(
-    teamId: string,
-  ): Prisma.TeamWhereInput {
+  repositoryAccessSyncTargetWhere(teamId: string): Prisma.TeamWhereInput {
     return {
       id: teamId,
       status: ApplicationStatus.APPROVED,
@@ -75,11 +68,12 @@ export class PlatformRepository {
     teamId: string,
     userId: string,
   ): Promise<boolean> {
-    const coordinates: ApplicationCoordinates | null =
-      await tx.team.findUnique({
+    const coordinates: ApplicationCoordinates | null = await tx.team.findUnique(
+      {
         where: { id: teamId },
         select: { programId: true, id: true },
-      });
+      },
+    );
     if (!coordinates) return false;
 
     const lockedPrograms = await tx.$queryRaw<readonly LockedRow[]>(Prisma.sql`

@@ -1,5 +1,4 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -23,9 +22,6 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { TEAM_DELETED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -78,10 +74,7 @@ const deletionRepository = new ProgramTeamDeletionRepository(
   new TeamDeletionScopeRepository(),
   new PrismaSerializationRetryRepository(),
 );
-const auditLog = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogReadService(new AuditLogMetadataService()),
-);
+
 const service = new TeamMembershipService(
   new TeamRepository(
     prisma,
@@ -729,7 +722,7 @@ it('삭제 이력에는 팀 이름과 함께 실제로 사라진 수치를 남�
     data: {
       schemaVersion: 1,
       reason: 'STAFF_DELETED',
-      name: expect.stringContaining('Team '),
+      name: expect.stringContaining('Team ') as unknown,
       deletedCounts: {
         teams: 1,
         members: 2,

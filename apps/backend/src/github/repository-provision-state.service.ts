@@ -84,7 +84,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       }
       throw error;
     }
-    const team = application
+    const team = application;
     const requiresManagedMembership =
       application.repository === null
         ? requested.repositoryConnectionMode === RepositoryConnectionMode.NEW

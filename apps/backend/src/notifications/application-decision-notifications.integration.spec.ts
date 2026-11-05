@@ -25,26 +25,26 @@ const TIMES = [
 async function createApplication(status: ApplicationStatus): Promise<void> {
   await prisma.team.create({
     data: {
-        id: 'synthetic-notice-team',
-        name: '합성 팀',
-        programId: PROGRAM_ID,
-        leaderId: USER_IDS[0],
-        applicantId: USER_IDS[0],
-        answers: { title: '합성 팀' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: 'synthetic-notice-team',
+      name: '합성 팀',
+      programId: PROGRAM_ID,
+      leaderId: USER_IDS[0],
+      applicantId: USER_IDS[0],
+      answers: { title: '합성 팀' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.team.update({
     where: { id: 'synthetic-notice-team' },
     data: {
-        programId: PROGRAM_ID,
-        applicantId: USER_IDS[0],
-        answers: {},
-        applicationTemplateVersion: 1,
-        status,
-        submittedAt: new Date('2026-08-01T00:00:00.000Z')
-    }
-});
+      programId: PROGRAM_ID,
+      applicantId: USER_IDS[0],
+      answers: {},
+      applicationTemplateVersion: 1,
+      status,
+      submittedAt: new Date('2026-08-01T00:00:00.000Z'),
+    },
+  });
 }
 
 function decision(id: string, status: ApplicationStatus, index: 0 | 1 | 2) {
@@ -78,17 +78,19 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.createMany({
-    data: USER_IDS.map((id, index) => {
+      data: USER_IDS.map((id, index) => {
         const githubId = GITHUB_IDS[index];
         if (githubId === undefined)
-            throw new TypeError('missing synthetic github id');
+          throw new TypeError('missing synthetic github id');
         return { id, githubId, nickname: id };
-    })
-});
+      }),
+    });
     await prisma.program.create({
-    data: {
+      data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000),
+        endAt: new Date(
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
+        ),
         id: PROGRAM_ID,
         name: '합성 프로그램',
         organizer: '합성 조직',
@@ -97,9 +99,9 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        description: '합성 프로그램'
-    }
-});
+        description: '합성 프로그램',
+      },
+    });
   });
   beforeEach(clearFixtures);
   afterAll(async () => {
@@ -219,9 +221,9 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
       data: decision('synthetic-old-revert', ApplicationStatus.SUBMITTED, 0),
     });
     await prisma.team.update({
-    where: { id: APPLICATION_ID },
-    data: { submittedAt: new Date(TIMES[2]) }
-});
+      where: { id: APPLICATION_ID },
+      data: { submittedAt: new Date(TIMES[2]) },
+    });
 
     expect(await service.listUnread(GITHUB_IDS[0])).toEqual([]);
   });

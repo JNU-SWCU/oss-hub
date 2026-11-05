@@ -18,7 +18,10 @@ export interface ProgramActivitySummaryDataSource {
         readonly githubRepositoryId: true;
       };
     }): Promise<
-      readonly { team: { programId: string } | null; githubRepositoryId: bigint }[]
+      readonly {
+        team: { programId: string } | null;
+        githubRepositoryId: bigint;
+      }[]
     >;
   };
 }
@@ -35,13 +38,25 @@ export class ProgramActivitySummaryRepository {
   ): Promise<readonly ProgramRepositoryLink[]> {
     if (programIds.length === 0) return [];
     const rows = await this.prisma.githubRepository.findMany({
-    where: {
-        team: { programId: { in: [...programIds] } }
-    },
-    select: { team: { select: { programId: true } }, githubRepositoryId: true }
-});
+      where: {
+        team: { programId: { in: [...programIds] } },
+      },
+      select: {
+        team: { select: { programId: true } },
+        githubRepositoryId: true,
+      },
+    });
 
-    return rows.flatMap(row => row.team === null ? [] : [{ programId: row.team.programId, githubRepositoryId: row.githubRepositoryId }]);
+    return rows.flatMap((row) =>
+      row.team === null
+        ? []
+        : [
+            {
+              programId: row.team.programId,
+              githubRepositoryId: row.githubRepositoryId,
+            },
+          ],
+    );
   }
 }
 
@@ -71,68 +86,70 @@ export class ProgramActivityRepository {
     studentUserId: string | null,
   ) {
     return this.prisma.team.findMany({
-    where: {
+      where: {
         programId,
         AND: [
-            {
-                OR: [
-                    {
-                        repository: {
-                            is: this.platformRepository.linkedRepositoryFilter()
-                        }
-                    },
-                    { status: 'APPROVED', repository: null }
-                ]
-            },
-            ...(studentUserId
-                ? [
-                    this.platformRepository.programApplicationParticipantWhere(studentUserId),
-                ]
-                : [])
-        ]
-    },
-    orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-    select: {
+          {
+            OR: [
+              {
+                repository: {
+                  is: this.platformRepository.linkedRepositoryFilter(),
+                },
+              },
+              { status: 'APPROVED', repository: null },
+            ],
+          },
+          ...(studentUserId
+            ? [
+                this.platformRepository.programApplicationParticipantWhere(
+                  studentUserId,
+                ),
+              ]
+            : []),
+        ],
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: {
         id: true,
         name: true,
         members: {
-            orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-            select: { user: { select: { githubId: true, nickname: true } } }
+          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
+          select: { user: { select: { githubId: true, nickname: true } } },
         },
         repository: {
-            select: {
-                failureCount: true,
-                streams: { select: { lastRunAt: true } },
-                _count: {
-                    select: { commits: true, pullRequests: true, releases: true }
-                },
-                commits: {
-                    orderBy: { committedAt: 'desc' },
-                    take: 1,
-                    select: { committedAt: true }
-                },
-                pullRequests: {
-                    orderBy: { createdAt: 'desc' },
-                    take: 1,
-                    select: { createdAt: true }
-                },
-                releases: {
-                    orderBy: { publishedAt: 'desc' },
-                    take: 1,
-                    select: { publishedAt: true }
-                },
-                contributions: {
-                    select: {
-                        githubId: true,
-                        commitCount: true,
-                        pullRequestCount: true,
-                        releaseCount: true
-                    }
-                }
-            }
-        }
-    }
-});
+          select: {
+            failureCount: true,
+            streams: { select: { lastRunAt: true } },
+            _count: {
+              select: { commits: true, pullRequests: true, releases: true },
+            },
+            commits: {
+              orderBy: { committedAt: 'desc' },
+              take: 1,
+              select: { committedAt: true },
+            },
+            pullRequests: {
+              orderBy: { createdAt: 'desc' },
+              take: 1,
+              select: { createdAt: true },
+            },
+            releases: {
+              orderBy: { publishedAt: 'desc' },
+              take: 1,
+              select: { publishedAt: true },
+            },
+            contributions: {
+              select: {
+                githubId: true,
+                commitCount: true,
+                pullRequestCount: true,
+                releaseCount: true,
+              },
+            },
+          },
+        },
+      },
+    });
   }
 
   async findRepositoryActivity(
@@ -145,32 +162,32 @@ export class ProgramActivityRepository {
       : undefined;
 
     const repositories = await this.prisma.githubRepository.findMany({
-    where: {
+      where: {
         githubRepositoryId: { in: [...query.repositoryIds] },
-        ...this.platformRepository.linkedRepositoryFilter()
-    },
-    select: {
+        ...this.platformRepository.linkedRepositoryFilter(),
+      },
+      select: {
         githubRepositoryId: true,
         updatedAt: true,
         lastCompleteInventoryObservedAt: true,
         commits: {
-            where: authorWhere,
-            select: { committedAt: true }
+          where: authorWhere,
+          select: { committedAt: true },
         },
         pullRequests: {
-            where: authorWhere,
-            select: { createdAt: true }
+          where: authorWhere,
+          select: { createdAt: true },
         },
         releases: {
-            where: authorWhere,
-            select: { publishedAt: true }
+          where: authorWhere,
+          select: { publishedAt: true },
         },
         issues: {
-            where: authorWhere,
-            select: { createdAt: true }
-        }
-    }
-});
+          where: authorWhere,
+          select: { createdAt: true },
+        },
+      },
+    });
 
     return repositories.map((repository) => ({
       repositoryId: repository.githubRepositoryId,

@@ -9,7 +9,6 @@ import {
   RepositoryConnectionMode,
 } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
@@ -31,7 +30,6 @@ import { StaffDashboardController } from '../staff/staff-dashboard.controller';
 import { StaffDashboardService } from '../staff/staff-dashboard.service';
 import type { StaffInsightsRepository } from '../staff/staff-insights.repository';
 import { StaffInsightsService } from '../staff/staff-insights.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
@@ -224,7 +222,8 @@ const listItemSource: ApplicationListSource = {
       type: 'UNSELECTED',
       profileCreatedAt: null,
     },
-    name: '합성 팀', _count: { members: 3 },
+    name: '합성 팀',
+    _count: { members: 3 },
     answers: listItem.answers,
   } as unknown as ApplicationListSource['row'],
   outbox: undefined,
@@ -337,7 +336,7 @@ const listItemBody = {
     name: null,
     nickname: 'synthetic-applicant',
   },
-  team: { id: 'synthetic-team', name: '합성 팀', memberCount: 3 },
+  team: { id: APPLICATION_ID, name: '합성 팀', memberCount: 3 },
   answers: {
     applicantName: '합성 신청자',
     title: '합성 제목',
@@ -506,7 +505,7 @@ const withTransaction = jest.fn(
   (operation: (store: typeof transactionStore) => Promise<unknown>) =>
     operation(transactionStore),
 );
-const record = jest.fn();
+
 const applicationsRepository = {
   findApplicationForStaff,
   listReviewHistory,
@@ -517,7 +516,12 @@ const applicationsRepository = {
   findRepositoryProvisionEvent,
   withTransaction,
 } as unknown as ApplicationsRepository;
-const applicationsService = new TeamApplicationService(applicationsRepository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+const applicationsService = new TeamApplicationService(
+  applicationsRepository,
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
+);
 const summarizeActivity = jest.fn().mockResolvedValue([]);
 const listSubmissionsByProgram = jest.fn().mockResolvedValue([]);
 const staffDashboardService = new StaffDashboardService(
@@ -869,17 +873,25 @@ it.each(decisionCases)(
 
     expect(response.status).toBe(200);
     const rejected = body.value.action === 'REJECT';
-    expect(await readJson(response)).toEqual(rejected ? { teamId: APPLICATION_ID, status: 'REJECTED', rejectionReason: null } : decisionBody);
+    expect(await readJson(response)).toEqual(
+      rejected
+        ? { teamId: APPLICATION_ID, status: 'REJECTED', rejectionReason: null }
+        : decisionBody,
+    );
     expect(transitionApplication).toHaveBeenCalledWith({
       teamId: APPLICATION_ID,
       expectedStatus: ApplicationStatus.SUBMITTED,
-      nextStatus: rejected ? ApplicationStatus.REJECTED : ApplicationStatus.APPROVED,
+      nextStatus: rejected
+        ? ApplicationStatus.REJECTED
+        : ApplicationStatus.APPROVED,
       rejectionReason: null,
       processedBy: { id: actorId(actor), at: expect.any(Date) as unknown },
     });
     expect(appendReviewHistory).toHaveBeenCalledWith({
       teamId: APPLICATION_ID,
-      eventKind: rejected ? TeamHistoryEvent.REJECTED : TeamHistoryEvent.APPROVED,
+      eventKind: rejected
+        ? TeamHistoryEvent.REJECTED
+        : TeamHistoryEvent.APPROVED,
       actorId: actorId(actor),
       occurredAt: expect.any(Date) as unknown,
       rejectionReason: null,

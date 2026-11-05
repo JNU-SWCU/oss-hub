@@ -179,14 +179,15 @@ function job(
   const { team, ...rest } = overrides;
   return {
     team: {
-    id: 'synthetic-solo-team',
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
-    applicant: { nickname: 'synthetic-applicant' },
-    program: { name: 'Synthetic program' },
-    repository: null,
-    name: 'synthetic-applicant의 팀', _count: { members: 1 },
-    ...team
-},
+      id: 'synthetic-solo-team',
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      applicant: { nickname: 'synthetic-applicant' },
+      program: { name: 'Synthetic program' },
+      repository: null,
+      name: 'synthetic-applicant의 팀',
+      _count: { members: 1 },
+      ...team,
+    },
     status: RepositoryProvisionJobStatus.PENDING,
     lastErrorCode: null,
     updatedAt: NOW,
@@ -226,19 +227,20 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       }),
       job({
         team: {
-    id: 'synthetic-team',
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
-    applicant: { nickname: 'other-applicant' },
-    program: { name: 'Team program' },
-    repository: {
-        id: 'synthetic-completed-repository',
-        nameWithOwner: 'synthetic-org/synthetic-completed',
-        visibility: RepositoryVisibility.PRIVATE,
-        source: RepositorySource.ORG_PROVISIONED,
-        invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
-    },
-    name: 'Synthetic team', _count: { members: 2 }
-},
+          id: 'synthetic-team',
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          applicant: { nickname: 'other-applicant' },
+          program: { name: 'Team program' },
+          repository: {
+            id: 'synthetic-completed-repository',
+            nameWithOwner: 'synthetic-org/synthetic-completed',
+            visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
+            invitations: [{ status: RepositoryInvitationStatus.SUCCEEDED }],
+          },
+          name: 'Synthetic team',
+          _count: { members: 2 },
+        },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);
@@ -293,19 +295,20 @@ describe('RepositoriesReadService.getMyRepositories', () => {
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         team: {
-    id: 'synthetic-own-solo-team',
-    repositoryConnectionMode: RepositoryConnectionMode.OWN,
-    applicant: { nickname: 'synthetic-applicant' },
-    program: { name: 'Synthetic program' },
-    repository: {
-        id: 'synthetic-own-repository',
-        nameWithOwner: externalUrl.replace('https://github.com/', ''),
-        visibility: RepositoryVisibility.PUBLIC,
-        source: RepositorySource.EXTERNAL_PUBLIC,
-        invitations: [],
-    },
-    name: 'synthetic-applicant의 팀', _count: { members: 1 }
-},
+          id: 'synthetic-own-solo-team',
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          applicant: { nickname: 'synthetic-applicant' },
+          program: { name: 'Synthetic program' },
+          repository: {
+            id: 'synthetic-own-repository',
+            nameWithOwner: externalUrl.replace('https://github.com/', ''),
+            visibility: RepositoryVisibility.PUBLIC,
+            source: RepositorySource.EXTERNAL_PUBLIC,
+            invitations: [],
+          },
+          name: 'synthetic-applicant의 팀',
+          _count: { members: 1 },
+        },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);
@@ -503,19 +506,20 @@ describe('RepositoriesReadService.getMyRepositories', () => {
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         team: {
-    id: 'synthetic-direct-link-team',
-    repositoryConnectionMode: RepositoryConnectionMode.OWN,
-    applicant: { nickname: 'synthetic-leader' },
-    program: { name: 'Synthetic program' },
-    repository: {
-        id: 'synthetic-direct-org-repository',
-        nameWithOwner: 'synthetic-org/synthetic-direct-org',
-        visibility: RepositoryVisibility.PUBLIC,
-        source: RepositorySource.ORG_PROVISIONED,
-        invitations: [],
-    },
-    name: 'Synthetic direct team', _count: { members: 3 }
-},
+          id: 'synthetic-direct-link-team',
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          applicant: { nickname: 'synthetic-leader' },
+          program: { name: 'Synthetic program' },
+          repository: {
+            id: 'synthetic-direct-org-repository',
+            nameWithOwner: 'synthetic-org/synthetic-direct-org',
+            visibility: RepositoryVisibility.PUBLIC,
+            source: RepositorySource.ORG_PROVISIONED,
+            invitations: [],
+          },
+          name: 'Synthetic direct team',
+          _count: { members: 3 },
+        },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);
@@ -540,19 +544,20 @@ describe('RepositoriesReadService.getMyRepositories', () => {
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         team: {
-    id: 'synthetic-solo-team',
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
-    applicant: { nickname: 'synthetic-applicant' },
-    program: { name: 'Synthetic program' },
-    repository: {
-        id: 'synthetic-relinked-repository',
-        nameWithOwner: externalUrl.replace('https://github.com/', ''),
-        visibility: RepositoryVisibility.PUBLIC,
-        source: RepositorySource.EXTERNAL_PUBLIC,
-        invitations: [],
-    },
-    name: 'synthetic-applicant의 팀', _count: { members: 1 }
-},
+          id: 'synthetic-solo-team',
+          repositoryConnectionMode: RepositoryConnectionMode.NEW,
+          applicant: { nickname: 'synthetic-applicant' },
+          program: { name: 'Synthetic program' },
+          repository: {
+            id: 'synthetic-relinked-repository',
+            nameWithOwner: externalUrl.replace('https://github.com/', ''),
+            visibility: RepositoryVisibility.PUBLIC,
+            source: RepositorySource.EXTERNAL_PUBLIC,
+            invitations: [],
+          },
+          name: 'synthetic-applicant의 팀',
+          _count: { members: 1 },
+        },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);
@@ -567,7 +572,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
     expect(result).toEqual([
       {
         repositoryId: 'synthetic-relinked-repository',
-        teamId: 'synthetic-team',
+        teamId: 'synthetic-solo-team',
         connectionMode: RepositoryConnectionMode.OWN,
         applicationMode: 'PERSONAL',
         programName: 'Synthetic program',
@@ -588,19 +593,20 @@ describe('RepositoriesReadService.getMyRepositories', () => {
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         team: {
-    id: 'synthetic-solo-team',
-    repositoryConnectionMode: RepositoryConnectionMode.OWN,
-    applicant: { nickname: 'synthetic-applicant' },
-    program: { name: 'Synthetic program' },
-    repository: {
-        id: 'synthetic-managed-mismatch-repository',
-        nameWithOwner: 'other-org/synthetic-managed-mismatch',
-        visibility: RepositoryVisibility.PRIVATE,
-        source: RepositorySource.ORG_PROVISIONED,
-        invitations: [],
-    },
-    name: 'synthetic-applicant의 팀', _count: { members: 1 }
-},
+          id: 'synthetic-solo-team',
+          repositoryConnectionMode: RepositoryConnectionMode.OWN,
+          applicant: { nickname: 'synthetic-applicant' },
+          program: { name: 'Synthetic program' },
+          repository: {
+            id: 'synthetic-managed-mismatch-repository',
+            nameWithOwner: 'other-org/synthetic-managed-mismatch',
+            visibility: RepositoryVisibility.PRIVATE,
+            source: RepositorySource.ORG_PROVISIONED,
+            invitations: [],
+          },
+          name: 'synthetic-applicant의 팀',
+          _count: { members: 1 },
+        },
         status: RepositoryProvisionJobStatus.SUCCEEDED,
       }),
     ]);

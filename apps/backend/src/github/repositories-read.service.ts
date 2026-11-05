@@ -61,8 +61,7 @@ export class RepositoriesReadService {
 
       const connectionMode =
         repository === null ||
-        job.team.repositoryConnectionMode ===
-          RepositoryConnectionMode.OWN
+        job.team.repositoryConnectionMode === RepositoryConnectionMode.OWN
           ? job.team.repositoryConnectionMode
           : connectionModeFromSource(repository.source);
 

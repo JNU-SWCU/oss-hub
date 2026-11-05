@@ -160,7 +160,8 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       },
 
       findUnique: ({
-        where, select,
+        where,
+        select,
       }: {
         where: { githubRepositoryId: bigint };
         select?: { teamId?: boolean };
@@ -3296,8 +3297,8 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     source: 'ORG_PROVISIONED',
     lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
     teamId: 'application-1',
-    ...overrides
-});
+    ...overrides,
+  });
   const providerCallCount = (client: ClientMock): number =>
     (Object.values(client) as jest.Mock[]).reduce<number>(
       (total, mock) => total + mock.mock.calls.length,

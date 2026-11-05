@@ -1,5 +1,4 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -16,8 +15,6 @@ import { TeamRepository } from './team.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { TeamMembershipService } from './team-membership.service';
 import { ProgramTeamDeletionRepository } from './team.repository';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -29,7 +26,32 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const teamsService = new TeamMembershipService(new TeamRepository(prisma, new ProgramTeamRepositoryEvidenceRepository(prisma), new PlatformRepository(), new TeamHistoryRepository()), new ProgramTeamDeletionRepository(new TeamHistoryRepository(), prisma, new TeamDeletionScopeRepository(), new PrismaSerializationRetryRepository()), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
+const teamsService = new TeamMembershipService(
+  new TeamRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+    new TeamHistoryRepository(),
+  ),
+  new ProgramTeamDeletionRepository(
+    new TeamHistoryRepository(),
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
+);
 const prefix = `staff-evidence-${randomUUID()}`;
 const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const memberId = `${prefix}-member`;
@@ -47,65 +69,65 @@ afterAll(async () => {
 
 it('projects current repository facts and URL audit history without reading or mutating unrelated repository facts', async () => {
   await prisma.user.create({
-    data: { id: memberId, githubId, nickname: 'synthetic-member' }
-});
+    data: { id: memberId, githubId, nickname: 'synthetic-member' },
+  });
   await prisma.program.create({
     data: {
-        id: programId,
-        name: 'Synthetic program',
-        organizer: 'Synthetic',
-        category: 'BASIC',
-        applicationTemplateKey: 'synthetic',
-        applicationTemplateVersion: 1,
-        description: 'Synthetic',
-        applicationStartAt: new Date('2026-07-01Z'),
-        applicationEndAt: new Date('2026-07-31Z'),
-        startAt: new Date('2026-07-31T15:00:00Z'),
-        endAt: new Date('2026-08-31T14:59:59Z')
-    }
-});
+      id: programId,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt: new Date('2026-07-31T15:00:00Z'),
+      endAt: new Date('2026-08-31T14:59:59Z'),
+    },
+  });
   await prisma.team.create({
     data: {
-        id: teamId,
-        programId,
-        name: 'Synthetic team',
-        leaderId: memberId,
-        applicantId: memberId,
-        answers: { title: 'Synthetic team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: teamId,
+      programId,
+      name: 'Synthetic team',
+      leaderId: memberId,
+      applicantId: memberId,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
-    data: { teamId, programId, userId: memberId }
-});
+    data: { teamId, programId, userId: memberId },
+  });
   await prisma.team.update({
     where: { id: teamId },
     data: {
-        programId,
-        applicantId: memberId,
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId,
+      applicantId: memberId,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.createMany({
     data: [
-        {
-    id: oldRepositoryId,
-    githubRepositoryId: githubId + 1n,
-    nameWithOwner: 'synthetic/old',
-    source: 'ORG_PROVISIONED',
-    teamId: null
-},
-        {
-    id: repositoryId,
-    githubRepositoryId: githubId + 2n,
-    nameWithOwner: 'synthetic/current',
-    source: 'EXTERNAL_PUBLIC',
-    teamId,
-    lastSuccessAt: new Date('2026-09-01Z')
-}
-    ]
-});
+      {
+        id: oldRepositoryId,
+        githubRepositoryId: githubId + 1n,
+        nameWithOwner: 'synthetic/old',
+        source: 'ORG_PROVISIONED',
+        teamId: null,
+      },
+      {
+        id: repositoryId,
+        githubRepositoryId: githubId + 2n,
+        nameWithOwner: 'synthetic/current',
+        source: 'EXTERNAL_PUBLIC',
+        teamId,
+        lastSuccessAt: new Date('2026-09-01Z'),
+      },
+    ],
+  });
   await prisma.contribution.createMany({
     data: [
       {
@@ -220,63 +242,63 @@ it('shows the outsider totals only while they were counted for this program wind
   const endAt = new Date('2026-08-31T14:59:59Z');
   await prisma.user.create({
     data: {
-        id: scoped.member,
-        githubId: memberGithubId,
-        nickname: 'synthetic-outsider-member'
-    }
-});
+      id: scoped.member,
+      githubId: memberGithubId,
+      nickname: 'synthetic-outsider-member',
+    },
+  });
   await prisma.program.create({
     data: {
-        id: scoped.program,
-        name: 'Synthetic program',
-        organizer: 'Synthetic',
-        category: 'BASIC',
-        applicationTemplateKey: 'synthetic',
-        applicationTemplateVersion: 1,
-        description: 'Synthetic',
-        applicationStartAt: new Date('2026-07-01Z'),
-        applicationEndAt: new Date('2026-07-31Z'),
-        startAt,
-        endAt
-    }
-});
+      id: scoped.program,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt,
+      endAt,
+    },
+  });
   await prisma.team.create({
     data: {
-        id: scoped.team,
-        programId: scoped.program,
-        name: 'Synthetic team',
-        leaderId: scoped.member,
-        applicantId: scoped.member,
-        answers: { title: 'Synthetic team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: scoped.team,
+      programId: scoped.program,
+      name: 'Synthetic team',
+      leaderId: scoped.member,
+      applicantId: scoped.member,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
     data: {
-        teamId: scoped.team,
-        programId: scoped.program,
-        userId: scoped.member
-    }
-});
+      teamId: scoped.team,
+      programId: scoped.program,
+      userId: scoped.member,
+    },
+  });
   await prisma.team.update({
     where: { id: scoped.team },
     data: {
-        programId: scoped.program,
-        applicantId: scoped.member,
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId: scoped.program,
+      applicantId: scoped.member,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.create({
     data: {
-        id: scoped.repository,
-        githubRepositoryId: memberGithubId + 1n,
-        nameWithOwner: 'synthetic/outsider-current',
-        source: 'EXTERNAL_PUBLIC',
-        teamId: scoped.application,
-        lastSuccessAt: new Date('2026-09-01Z')
-    }
-});
+      id: scoped.repository,
+      githubRepositoryId: memberGithubId + 1n,
+      nameWithOwner: 'synthetic/outsider-current',
+      source: 'EXTERNAL_PUBLIC',
+      teamId: scoped.application,
+      lastSuccessAt: new Date('2026-09-01Z'),
+    },
+  });
 
   await prisma.githubRepositoryOutsiderContribution.create({
     data: {
@@ -318,8 +340,8 @@ it('shows the outsider totals only while they were counted for this program wind
 
   await prisma.program.update({
     where: { id: scoped.program },
-    data: { startAt: new Date('2026-07-01T15:00:00Z') }
-});
+    data: { startAt: new Date('2026-07-01T15:00:00Z') },
+  });
   const edited = await teams.findStaffTeamDetail(scoped.program, scoped.team);
   expect(edited?.repositoryContributions?.outsiderContributions).toBeNull();
 });
@@ -332,60 +354,60 @@ it('reads contributions of a program that never set an end date', async () => {
   const scopedApplicationId = `${scope}-application`;
   const scopedRepositoryId = `${scope}-repository`;
   await prisma.user.create({
-    data: { id: `${scope}-member`, githubId: base, nickname: 'sentinel' }
-});
+    data: { id: `${scope}-member`, githubId: base, nickname: 'sentinel' },
+  });
   await prisma.program.create({
     data: {
-        startAt: new Date('2026-07-31Z'),
-        endAt: new Date('9999-12-31T23:59:59.999Z'),
-        id: scopedProgramId,
-        name: 'Synthetic program',
-        organizer: 'Synthetic',
-        category: 'BASIC',
-        applicationTemplateKey: 'synthetic',
-        applicationTemplateVersion: 1,
-        description: 'Synthetic',
-        applicationStartAt: new Date('2026-07-01Z'),
-        applicationEndAt: new Date('2026-07-31Z')
-    }
-});
+      startAt: new Date('2026-07-31Z'),
+      endAt: new Date('9999-12-31T23:59:59.999Z'),
+      id: scopedProgramId,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+    },
+  });
   await prisma.team.create({
     data: {
-        id: scopedTeamId,
-        programId: scopedProgramId,
-        name: 'Synthetic team',
-        leaderId: `${scope}-member`,
-        applicantId: `${scope}-member`,
-        answers: { title: 'Synthetic team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: scopedTeamId,
+      programId: scopedProgramId,
+      name: 'Synthetic team',
+      leaderId: `${scope}-member`,
+      applicantId: `${scope}-member`,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
     data: {
-        teamId: scopedTeamId,
-        programId: scopedProgramId,
-        userId: `${scope}-member`
-    }
-});
+      teamId: scopedTeamId,
+      programId: scopedProgramId,
+      userId: `${scope}-member`,
+    },
+  });
   await prisma.team.update({
     where: { id: scopedTeamId },
     data: {
-        programId: scopedProgramId,
-        applicantId: `${scope}-member`,
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId: scopedProgramId,
+      applicantId: `${scope}-member`,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.create({
     data: {
-        id: scopedRepositoryId,
-        githubRepositoryId: base + 1n,
-        nameWithOwner: 'synthetic/sentinel',
-        source: 'EXTERNAL_PUBLIC',
-        teamId: scopedApplicationId,
-        lastSuccessAt: new Date('2026-09-01Z')
-    }
-});
+      id: scopedRepositoryId,
+      githubRepositoryId: base + 1n,
+      nameWithOwner: 'synthetic/sentinel',
+      source: 'EXTERNAL_PUBLIC',
+      teamId: scopedApplicationId,
+      lastSuccessAt: new Date('2026-09-01Z'),
+    },
+  });
   await prisma.contribution.create({
     data: {
       repositoryId: scopedRepositoryId,
@@ -444,62 +466,62 @@ it('counts issues for team members, so an issue-only member has observations', a
   const scopedRepositoryId = `${scope}-repository`;
   await prisma.user.createMany({
     data: [
-        { id: activeId, githubId: base, nickname: 'synthetic-active' },
-        { id: issueOnlyId, githubId: base + 1n, nickname: 'synthetic-issuer' }
-    ]
-});
+      { id: activeId, githubId: base, nickname: 'synthetic-active' },
+      { id: issueOnlyId, githubId: base + 1n, nickname: 'synthetic-issuer' },
+    ],
+  });
   await prisma.program.create({
     data: {
-        id: scopedProgramId,
-        name: 'Synthetic program',
-        organizer: 'Synthetic',
-        category: 'BASIC',
-        applicationTemplateKey: 'synthetic',
-        applicationTemplateVersion: 1,
-        description: 'Synthetic',
-        applicationStartAt: new Date('2026-07-01Z'),
-        applicationEndAt: new Date('2026-07-31Z'),
-        startAt: new Date('2026-07-31T15:00:00Z'),
-        endAt: new Date('2026-08-31T14:59:59Z')
-    }
-});
+      id: scopedProgramId,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt: new Date('2026-07-31T15:00:00Z'),
+      endAt: new Date('2026-08-31T14:59:59Z'),
+    },
+  });
   await prisma.team.create({
     data: {
-        id: scopedTeamId,
-        programId: scopedProgramId,
-        name: 'Synthetic team',
-        leaderId: activeId,
-        applicantId: activeId,
-        answers: { title: 'Synthetic team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: scopedTeamId,
+      programId: scopedProgramId,
+      name: 'Synthetic team',
+      leaderId: activeId,
+      applicantId: activeId,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.createMany({
     data: [activeId, issueOnlyId].map((userId) => ({
-        teamId: scopedTeamId,
-        programId: scopedProgramId,
-        userId,
-    }))
-});
+      teamId: scopedTeamId,
+      programId: scopedProgramId,
+      userId,
+    })),
+  });
   await prisma.team.update({
     where: { id: scopedTeamId },
     data: {
-        programId: scopedProgramId,
-        applicantId: activeId,
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId: scopedProgramId,
+      applicantId: activeId,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.create({
     data: {
-        id: scopedRepositoryId,
-        githubRepositoryId: base + 2n,
-        nameWithOwner: 'synthetic/issue-only',
-        source: 'EXTERNAL_PUBLIC',
-        teamId: scopedApplicationId,
-        lastSuccessAt: new Date('2026-09-01Z')
-    }
-});
+      id: scopedRepositoryId,
+      githubRepositoryId: base + 2n,
+      nameWithOwner: 'synthetic/issue-only',
+      source: 'EXTERNAL_PUBLIC',
+      teamId: scopedApplicationId,
+      lastSuccessAt: new Date('2026-09-01Z'),
+    },
+  });
   await prisma.contribution.createMany({
     data: [
       { githubId: base, date: new Date('2026-08-01Z'), commitCount: 2 },

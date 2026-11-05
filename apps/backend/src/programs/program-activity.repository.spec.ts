@@ -26,7 +26,10 @@ describe('program-activity-summary.repository', () => {
         where: {
           team: { programId: { in: ['program-archived'] } },
         },
-        select: { team: { select: { programId: true } }, githubRepositoryId: true },
+        select: {
+          team: { select: { programId: true } },
+          githubRepositoryId: true,
+        },
       });
       expect(result).toEqual([
         {

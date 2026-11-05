@@ -674,7 +674,9 @@ describe('StudentApplicationManagementService — 재제출 허용 상태(R-1)',
       new ApplicationAnswersService(),
     );
 
-    await expect(service.cancelMine(4242n, 'program-1', NOW)).resolves.toBeDefined();
+    await expect(
+      service.cancelMine(4242n, 'program-1', NOW),
+    ).resolves.toBeDefined();
     expect(deletePendingApplication).toHaveBeenCalledTimes(1);
   });
 });

@@ -48,14 +48,14 @@ async function cleanup(): Promise<void> {
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({
-    where: { programId: PROGRAM_ID }
-});
+    where: { programId: PROGRAM_ID },
+  });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
 
   await prisma.user.deleteMany({
-    where: { id: { startsWith: TEST_PREFIX } }
-});
+    where: { id: { startsWith: TEST_PREFIX } },
+  });
 }
 
 async function seedPendingInvitation(): Promise<void> {
@@ -66,50 +66,52 @@ async function seedPendingInvitation(): Promise<void> {
     [OUTSIDER_ID, 9_100_000_004n, 'atomic-outsider'],
   ] as const) {
     await prisma.user.create({
-    data: canonicalUserCreateFromLabel('STUDENT', {
+      data: canonicalUserCreateFromLabel('STUDENT', {
         id,
         githubId,
         nickname,
         name: 'Synthetic user',
-    })
-});
+      }),
+    });
   }
   await prisma.program.create({
     data: {
-        startAt: new Date('2026-08-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000),
-        id: PROGRAM_ID,
-        name: 'Invitation atomicity program',
-        organizer: 'Synthetic organizer',
-        trackType: ProgramTrackType.CURRICULAR,
-        category: ProgramCategory.BASIC,
-        applicationTemplateKey: 'capstone-v1',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
-        applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
-        description: 'Synthetic invitation transaction fixture',
-        teamMinSize: 1,
-        teamMaxSize: 2
-    }
-});
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000,
+      ),
+      id: PROGRAM_ID,
+      name: 'Invitation atomicity program',
+      organizer: 'Synthetic organizer',
+      trackType: ProgramTrackType.CURRICULAR,
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'capstone-v1',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
+      description: 'Synthetic invitation transaction fixture',
+      teamMinSize: 1,
+      teamMaxSize: 2,
+    },
+  });
   await prisma.team.create({
     data: {
-        id: TARGET_TEAM_ID,
-        programId: PROGRAM_ID,
-        name: 'Target team',
-        leaderId: LEADER_ID,
-        applicantId: LEADER_ID,
-        answers: { title: 'Target team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: TARGET_TEAM_ID,
+      programId: PROGRAM_ID,
+      name: 'Target team',
+      leaderId: LEADER_ID,
+      applicantId: LEADER_ID,
+      answers: { title: 'Target team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
     data: {
-        teamId: TARGET_TEAM_ID,
-        programId: PROGRAM_ID,
-        userId: LEADER_ID
-    }
-});
+      teamId: TARGET_TEAM_ID,
+      programId: PROGRAM_ID,
+      userId: LEADER_ID,
+    },
+  });
   await prisma.teamInvitation.create({
     data: {
       id: INVITATION_ID,
@@ -129,22 +131,23 @@ async function seedApplication(overrides?: {
   await prisma.team.update({
     where: { id: TARGET_TEAM_ID },
     data: {
-        programId: PROGRAM_ID,
-        applicantId: LEADER_ID,
-        answers: { synthetic: true },
-        applicationTemplateVersion: 1,
-        status: overrides?.status ?? ApplicationStatus.SUBMITTED,
-        repositoryConnectionMode: overrides?.repositoryConnectionMode ?? RepositoryConnectionMode.NEW,
-        repositoryUrl: overrides?.repositoryUrl ?? null
-    }
-});
+      programId: PROGRAM_ID,
+      applicantId: LEADER_ID,
+      answers: { synthetic: true },
+      applicationTemplateVersion: 1,
+      status: overrides?.status ?? ApplicationStatus.SUBMITTED,
+      repositoryConnectionMode:
+        overrides?.repositoryConnectionMode ?? RepositoryConnectionMode.NEW,
+      repositoryUrl: overrides?.repositoryUrl ?? null,
+    },
+  });
 }
 
 async function enableRepositoryProvisioning(): Promise<void> {
   await prisma.program.update({
     where: { id: PROGRAM_ID },
-    data: { repositoryProvisioningEnabled: true }
-});
+    data: { repositoryProvisioningEnabled: true },
+  });
 }
 
 async function storedAccessSyncEvents() {
@@ -161,10 +164,10 @@ async function storedInvitationAndTargetMembership() {
   return Promise.all([
     prisma.teamInvitation.findUnique({ where: { id: INVITATION_ID } }),
     prisma.teamMember.findUnique({
-    where: {
-        teamId_userId: { teamId: TARGET_TEAM_ID, userId: INVITEE_ID }
-    }
-}),
+      where: {
+        teamId_userId: { teamId: TARGET_TEAM_ID, userId: INVITEE_ID },
+      },
+    }),
   ]);
 }
 
@@ -287,16 +290,16 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
   it('3a closes other pending invitations with an explicit automatic cancellation reason', async () => {
     await prisma.team.create({
-    data: {
+      data: {
         id: OTHER_TEAM_ID,
         programId: PROGRAM_ID,
         name: 'Other',
         leaderId: OUTSIDER_ID,
         applicantId: OUTSIDER_ID,
         answers: { title: 'Other' },
-        applicationTemplateVersion: 1
-    }
-});
+        applicationTemplateVersion: 1,
+      },
+    });
     await prisma.teamInvitation.create({
       data: {
         id: `${INVITATION_ID}:other`,
@@ -496,8 +499,8 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
   it('rejects a leader row that no longer has a membership row', async () => {
     await prisma.teamMember.delete({
-    where: { teamId_userId: { teamId: TARGET_TEAM_ID, userId: LEADER_ID } }
-});
+      where: { teamId_userId: { teamId: TARGET_TEAM_ID, userId: LEADER_ID } },
+    });
 
     const outcome = await repository.createInvitation({
       teamId: TARGET_TEAM_ID,
@@ -510,23 +513,23 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
   it('rejects an invitee that already belongs to a team in the same program', async () => {
     await prisma.team.create({
-    data: {
+      data: {
         id: OTHER_TEAM_ID,
         programId: PROGRAM_ID,
         name: 'Other team',
         leaderId: OUTSIDER_ID,
         applicantId: OUTSIDER_ID,
         answers: { title: 'Other team' },
-        applicationTemplateVersion: 1
-    }
-});
+        applicationTemplateVersion: 1,
+      },
+    });
     await prisma.teamMember.create({
-    data: {
+      data: {
         teamId: OTHER_TEAM_ID,
         programId: PROGRAM_ID,
-        userId: OUTSIDER_ID
-    }
-});
+        userId: OUTSIDER_ID,
+      },
+    });
 
     const outcome = await repository.createInvitation({
       teamId: TARGET_TEAM_ID,
@@ -539,12 +542,12 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
   it('rejects a new invitation once the roster already fills the program capacity', async () => {
     await prisma.teamMember.create({
-    data: {
+      data: {
         teamId: TARGET_TEAM_ID,
         programId: PROGRAM_ID,
-        userId: FILLER_ID
-    }
-});
+        userId: FILLER_ID,
+      },
+    });
 
     const outcome = await repository.createInvitation({
       teamId: TARGET_TEAM_ID,
@@ -557,12 +560,12 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
   it('keeps the invitation pending and creates no member when the team is full', async () => {
     await prisma.teamMember.create({
-    data: {
+      data: {
         teamId: TARGET_TEAM_ID,
         programId: PROGRAM_ID,
-        userId: FILLER_ID
-    }
-});
+        userId: FILLER_ID,
+      },
+    });
 
     const outcome = await repository.withAcceptTransaction(
       INVITATION_ID,
@@ -579,23 +582,23 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
   it('keeps the invitation pending when the invitee already belongs to another team', async () => {
     await prisma.team.create({
-    data: {
+      data: {
         id: OTHER_TEAM_ID,
         programId: PROGRAM_ID,
         name: 'Other team',
         leaderId: INVITEE_ID,
         applicantId: INVITEE_ID,
         answers: { title: 'Other team' },
-        applicationTemplateVersion: 1
-    }
-});
+        applicationTemplateVersion: 1,
+      },
+    });
     await prisma.teamMember.create({
-    data: {
+      data: {
         teamId: OTHER_TEAM_ID,
         programId: PROGRAM_ID,
-        userId: INVITEE_ID
-    }
-});
+        userId: INVITEE_ID,
+      },
+    });
 
     const outcome = await repository.withAcceptTransaction(
       INVITATION_ID,
@@ -633,9 +636,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: TARGET_TEAM_ID },
-    select: { leaderId: true }
-}),
+        where: { id: TARGET_TEAM_ID },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: LEADER_ID });
   });
 
@@ -660,9 +663,9 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: APPLICATION_ID },
-    select: { applicantId: true, id: true, status: true }
-}),
+        where: { id: APPLICATION_ID },
+        select: { applicantId: true, id: true, status: true },
+      }),
     ).resolves.toEqual({
       applicantId: LEADER_ID,
       teamId: TARGET_TEAM_ID,
@@ -706,8 +709,8 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     expect(membership).not.toBeNull();
     await expect(
       prisma.teamMember.count({
-    where: { programId: PROGRAM_ID, userId: INVITEE_ID }
-}),
+        where: { programId: PROGRAM_ID, userId: INVITEE_ID },
+      }),
     ).resolves.toBe(1);
   });
 
@@ -748,17 +751,17 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
 
       await expect(
         prisma.team.findUniqueOrThrow({
-    where: { id: APPLICATION_ID },
-    select: { status: true, id: true }
-}),
+          where: { id: APPLICATION_ID },
+          select: { status: true, id: true },
+        }),
       ).resolves.toEqual({
         status: ApplicationStatus.APPROVED,
         teamId: TARGET_TEAM_ID,
       });
       await expect(
         prisma.repositoryProvisionJob.count({
-    where: { teamId: APPLICATION_ID }
-}),
+          where: { teamId: APPLICATION_ID },
+        }),
       ).resolves.toBe(0);
     });
 
@@ -823,12 +826,12 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       await enableRepositoryProvisioning();
       await seedApplication({ status: ApplicationStatus.APPROVED });
       await prisma.teamMember.create({
-    data: {
-        teamId: TARGET_TEAM_ID,
-        programId: PROGRAM_ID,
-        userId: FILLER_ID
-    }
-});
+        data: {
+          teamId: TARGET_TEAM_ID,
+          programId: PROGRAM_ID,
+          userId: FILLER_ID,
+        },
+      });
 
       const outcome = await repository.withAcceptTransaction(
         INVITATION_ID,
@@ -848,23 +851,23 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       await enableRepositoryProvisioning();
       await seedApplication({ status: ApplicationStatus.APPROVED });
       await prisma.team.create({
-    data: {
-        id: OTHER_TEAM_ID,
-        programId: PROGRAM_ID,
-        name: 'Other team',
-        leaderId: INVITEE_ID,
-        applicantId: INVITEE_ID,
-        answers: { title: 'Other team' },
-        applicationTemplateVersion: 1
-    }
-});
+        data: {
+          id: OTHER_TEAM_ID,
+          programId: PROGRAM_ID,
+          name: 'Other team',
+          leaderId: INVITEE_ID,
+          applicantId: INVITEE_ID,
+          answers: { title: 'Other team' },
+          applicationTemplateVersion: 1,
+        },
+      });
       await prisma.teamMember.create({
-    data: {
-        teamId: OTHER_TEAM_ID,
-        programId: PROGRAM_ID,
-        userId: INVITEE_ID
-    }
-});
+        data: {
+          teamId: OTHER_TEAM_ID,
+          programId: PROGRAM_ID,
+          userId: INVITEE_ID,
+        },
+      });
 
       const outcome = await repository.withAcceptTransaction(
         INVITATION_ID,

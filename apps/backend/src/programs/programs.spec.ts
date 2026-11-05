@@ -1,7 +1,14 @@
 import { StudentRepositoryUrlService } from './team-application.service';
 import { ApplicationStatus } from '@prisma/client';
 
-const studentRepositoryUrlService = new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never);
+const studentRepositoryUrlService = new StudentRepositoryUrlService(
+  {} as never,
+  {} as never,
+  {} as never,
+  {} as never,
+  {} as never,
+  {} as never,
+);
 
 describe('program-participant', () => {
   describe('student repository URL edit permission', () => {

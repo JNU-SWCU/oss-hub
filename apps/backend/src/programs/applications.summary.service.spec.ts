@@ -5,12 +5,8 @@ import type {
   StaffDashboardSummary,
 } from './team.repository';
 import { TeamApplicationService } from './team-application.service';
-import type { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
-
-const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 describe('TeamApplicationService.staffSummary', () => {
   it('repository 요약을 그대로 반환한다', async () => {
@@ -40,7 +36,12 @@ describe('TeamApplicationService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary,
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
 
     await expect(service.staffSummary()).resolves.toEqual(summary);
     expect(listStaffDashboardSummary).toHaveBeenCalledTimes(1);
@@ -50,7 +51,12 @@ describe('TeamApplicationService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary: jest.fn().mockResolvedValue({ programs: [] }),
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
 
     await expect(service.staffSummary()).resolves.toEqual({
       programs: [],

@@ -66,7 +66,14 @@ const resolver = {
 };
 
 const collectionTrigger = { collectRepository: jest.fn<void, [bigint]>() };
-const service = new StudentRepositoryUrlService(repository, applications, resolver, { requireCurrent: jest.fn().mockResolvedValue(undefined) }, collectionTrigger, new RepositoryProvisionEventService());
+const service = new StudentRepositoryUrlService(
+  repository,
+  applications,
+  resolver,
+  { requireCurrent: jest.fn().mockResolvedValue(undefined) },
+  collectionTrigger,
+  new RepositoryProvisionEventService(),
+);
 const input = {
   repositoryUrl: 'https://github.com/synthetic/target',
 };
@@ -75,19 +82,19 @@ beforeAll(async () => {
   await prisma.$connect();
   await prisma.user.create({
     data: {
-        id: userId,
-        githubId,
-        nickname: 'synthetic-relink-user',
-        name: 'Synthetic user',
-        studentId: (githubIdBase / 1000n).toString().padStart(10, '0'),
-        department: 'Synthetic',
-        type: MemberKind.STUDENT,
-        departmentType: DepartmentType.DEPARTMENT,
-        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        approvalStatus: 'NOT_REQUIRED'
-    }
-});
+      id: userId,
+      githubId,
+      nickname: 'synthetic-relink-user',
+      name: 'Synthetic user',
+      studentId: (githubIdBase / 1000n).toString().padStart(10, '0'),
+      department: 'Synthetic',
+      type: MemberKind.STUDENT,
+      departmentType: DepartmentType.DEPARTMENT,
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      approvalStatus: 'NOT_REQUIRED',
+    },
+  });
 });
 beforeEach(async () => {
   collectionTrigger.collectRepository.mockClear();
@@ -113,62 +120,62 @@ beforeEach(async () => {
   });
   await prisma.program.create({
     data: {
-        startAt: new Date('2026-01-01'),
-        id: programId,
-        name: 'Synthetic relink program',
-        organizer: 'Synthetic',
-        category: ProgramCategory.BASIC,
-        applicationTemplateKey: 'basic',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-01-01'),
-        applicationEndAt: new Date('2026-01-31'),
-        endAt: new Date('2099-01-01'),
-        description: 'Synthetic'
-    }
-});
+      startAt: new Date('2026-01-01'),
+      id: programId,
+      name: 'Synthetic relink program',
+      organizer: 'Synthetic',
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'basic',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-01-01'),
+      applicationEndAt: new Date('2026-01-31'),
+      endAt: new Date('2099-01-01'),
+      description: 'Synthetic',
+    },
+  });
   await prisma.team.create({
     data: {
-        id: teamId,
-        programId,
-        name: 'Synthetic team',
-        leaderId: userId,
-        applicantId: userId,
-        answers: { title: 'Synthetic team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: teamId,
+      programId,
+      name: 'Synthetic team',
+      leaderId: userId,
+      applicantId: userId,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({ data: { teamId, programId, userId } });
   await prisma.team.update({
     where: { id: teamId },
     data: {
-        programId,
-        applicantId: userId,
-        status: ApplicationStatus.APPROVED,
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId,
+      applicantId: userId,
+      status: ApplicationStatus.APPROVED,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.create({
     data: {
-        id: oldId,
-        githubRepositoryId: targetGithubId + 1n,
-        nameWithOwner: 'synthetic/old',
-        teamId,
-        source: RepositorySource.ORG_PROVISIONED
-    }
-});
+      id: oldId,
+      githubRepositoryId: targetGithubId + 1n,
+      nameWithOwner: 'synthetic/old',
+      teamId,
+      source: RepositorySource.ORG_PROVISIONED,
+    },
+  });
   await prisma.githubRepository.create({
     data: {
-        id: targetId,
-        githubRepositoryId: targetGithubId,
-        nameWithOwner: 'synthetic/target',
-        source: RepositorySource.EXTERNAL_PUBLIC,
-        presence: 'ABSENT',
-        failureCount: 4,
-        archived: true,
-        nextRunAt: new Date('2099-01-01')
-    }
-});
+      id: targetId,
+      githubRepositoryId: targetGithubId,
+      nameWithOwner: 'synthetic/target',
+      source: RepositorySource.EXTERNAL_PUBLIC,
+      presence: 'ABSENT',
+      failureCount: 4,
+      archived: true,
+      nextRunAt: new Date('2099-01-01'),
+    },
+  });
   await prisma.contribution.create({
     data: {
       repositoryId: oldId,
@@ -186,4 +193,18 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-export { prisma, service, applications, audit, resolver, collectionTrigger, githubId, programId, teamId, oldId, targetId, targetGithubId, input };
+export {
+  prisma,
+  service,
+  applications,
+  audit,
+  resolver,
+  collectionTrigger,
+  githubId,
+  programId,
+  teamId,
+  oldId,
+  targetId,
+  targetGithubId,
+  input,
+};

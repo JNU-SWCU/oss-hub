@@ -1,5 +1,4 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -7,8 +6,6 @@ import { TeamDeletionScopeRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamDeletionRepository } from './team.repository';
 import { TeamRepository } from './team.repository';
@@ -24,7 +21,32 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const service = new TeamMembershipService(new TeamRepository(prisma, new ProgramTeamRepositoryEvidenceRepository(prisma), new PlatformRepository(), new TeamHistoryRepository()), new ProgramTeamDeletionRepository(new TeamHistoryRepository(), prisma, new TeamDeletionScopeRepository(), new PrismaSerializationRetryRepository()), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
+const service = new TeamMembershipService(
+  new TeamRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+    new TeamHistoryRepository(),
+  ),
+  new ProgramTeamDeletionRepository(
+    new TeamHistoryRepository(),
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
+);
 const prefix = `team-activity-${randomUUID()}`;
 const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const programId = `${prefix}-program`;
@@ -55,83 +77,84 @@ beforeAll(async () => {
   await prisma.$connect();
   await prisma.user.createMany({
     data: Object.values(people).map((person) => ({
-        ...person,
-        type: person === people.staff ? 'STAFF' : 'STUDENT',
-        approvalStatus: (person === people.staff ? 'STAFF' : 'STUDENT') === 'STAFF'
-            ? person === people.staff
-                ? 'APPROVED'
-                : 'PENDING'
-            : 'NOT_REQUIRED',
-        name: 'Synthetic staff',
-        department: 'Synthetic department',
-        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        departmentType: 'DEPARTMENT',
-    }))
-});
+      ...person,
+      type: person === people.staff ? 'STAFF' : 'STUDENT',
+      approvalStatus:
+        (person === people.staff ? 'STAFF' : 'STUDENT') === 'STAFF'
+          ? person === people.staff
+            ? 'APPROVED'
+            : 'PENDING'
+          : 'NOT_REQUIRED',
+      name: 'Synthetic staff',
+      department: 'Synthetic department',
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      departmentType: 'DEPARTMENT',
+    })),
+  });
   await prisma.program.create({
     data: {
-        id: programId,
-        name: 'Synthetic program',
-        organizer: 'Synthetic',
-        category: 'BASIC',
-        applicationTemplateKey: 'synthetic',
-        applicationTemplateVersion: 1,
-        description: 'Synthetic',
-        applicationStartAt: new Date('2026-07-01Z'),
-        applicationEndAt: new Date('2026-07-31Z'),
-        startAt: new Date('2026-07-31T15:00:00Z'),
-        endAt: new Date('2026-08-31T14:59:59Z')
-    }
-});
+      id: programId,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt: new Date('2026-07-31T15:00:00Z'),
+      endAt: new Date('2026-08-31T14:59:59Z'),
+    },
+  });
   await prisma.team.create({
     data: {
-        id: teamId,
-        programId,
-        name: 'Synthetic team',
-        leaderId: people.leader.id,
-        applicantId: people.leader.id,
-        answers: { title: 'Synthetic team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: teamId,
+      programId,
+      name: 'Synthetic team',
+      leaderId: people.leader.id,
+      applicantId: people.leader.id,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.createMany({
     data: [people.leader, people.quiet, people.issuer].map((person, index) => ({
-        teamId,
-        programId,
-        userId: person.id,
-        createdAt: new Date(Date.UTC(2026, 6, 1, 0, index)),
-    }))
-});
+      teamId,
+      programId,
+      userId: person.id,
+      createdAt: new Date(Date.UTC(2026, 6, 1, 0, index)),
+    })),
+  });
   await prisma.team.update({
     where: { id: teamId },
     data: {
-        programId,
-        applicantId: people.leader.id,
-        status: 'APPROVED',
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId,
+      applicantId: people.leader.id,
+      status: 'APPROVED',
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.createMany({
     data: [
-        {
-    id: repositoryA,
-    githubRepositoryId: base + 100n,
-    nameWithOwner: 'synthetic/a',
-    source: 'ORG_PROVISIONED',
-    teamId: null,
-    lastSuccessAt: new Date('2026-08-20Z')
-},
-        {
-    id: repositoryB,
-    githubRepositoryId: base + 101n,
-    nameWithOwner: 'synthetic/b',
-    source: 'EXTERNAL_PUBLIC',
-    teamId
-}
-    ]
-});
+      {
+        id: repositoryA,
+        githubRepositoryId: base + 100n,
+        nameWithOwner: 'synthetic/a',
+        source: 'ORG_PROVISIONED',
+        teamId: null,
+        lastSuccessAt: new Date('2026-08-20Z'),
+      },
+      {
+        id: repositoryB,
+        githubRepositoryId: base + 101n,
+        nameWithOwner: 'synthetic/b',
+        source: 'EXTERNAL_PUBLIC',
+        teamId,
+      },
+    ],
+  });
   await prisma.contribution.create({
     data: {
       repositoryId: repositoryA,
@@ -168,9 +191,9 @@ it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행�
 describe('B가 수집된 뒤', () => {
   beforeAll(async () => {
     await prisma.githubRepository.update({
-    where: { id: repositoryB },
-    data: { lastSuccessAt: new Date('2026-08-20T01:00:00Z') }
-});
+      where: { id: repositoryB },
+      data: { lastSuccessAt: new Date('2026-08-20T01:00:00Z') },
+    });
     await prisma.contribution.createMany({
       data: [
         {
@@ -283,9 +306,9 @@ describe('B가 수집된 뒤', () => {
 
   it('수집이 실패 중이어도 마지막으로 끝낸 값을 그대로 싣는다', async () => {
     await prisma.githubRepository.update({
-    where: { id: repositoryB },
-    data: { failureCount: 2 }
-});
+      where: { id: repositoryB },
+      data: { failureCount: 2 },
+    });
 
     const activity = await service.getActivity(
       people.staff.githubId,
@@ -299,16 +322,16 @@ describe('B가 수집된 뒤', () => {
       members: collectedMembers,
     });
     await prisma.githubRepository.update({
-    where: { id: repositoryB },
-    data: { failureCount: 0 }
-});
+      where: { id: repositoryB },
+      data: { failureCount: 0 },
+    });
   });
 
   it('끝나는 날을 정하지 않은 프로그램은 센티널 창을 그대로 싣고 시작 뒤의 날을 모두 싣는다', async () => {
     await prisma.program.update({
-    where: { id: programId },
-    data: { endAt: new Date('9999-12-31T23:59:59.999Z') }
-});
+      where: { id: programId },
+      data: { endAt: new Date('9999-12-31T23:59:59.999Z') },
+    });
 
     const activity = await service.getActivity(
       people.leader.githubId,
@@ -327,9 +350,9 @@ describe('B가 수집된 뒤', () => {
       '2026-09-01',
     ]);
     await prisma.program.update({
-    where: { id: programId },
-    data: { endAt: new Date('2026-08-31T14:59:59Z') }
-});
+      where: { id: programId },
+      data: { endAt: new Date('2026-08-31T14:59:59Z') },
+    });
   });
 });
 

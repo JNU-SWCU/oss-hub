@@ -142,10 +142,7 @@ function isGithubLogin(value: unknown): value is string {
   );
 }
 
-const ACCESS_SYNC_PAYLOAD_KEYS = [
-  'teamId',
-  'requestedAt',
-] as const;
+const ACCESS_SYNC_PAYLOAD_KEYS = ['teamId', 'requestedAt'] as const;
 
 function requiredIsoTimestamp(record: UnknownRecord, key: string): string {
   const value = requiredString(record, key);

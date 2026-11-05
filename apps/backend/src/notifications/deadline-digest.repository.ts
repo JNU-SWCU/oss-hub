@@ -115,7 +115,10 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
           select: {
             id: true,
             applicant: { select: deadlineRecipientSelect },
-            members: { select: { user: { select: deadlineRecipientSelect } }, orderBy: { userId: 'asc' } },
+            members: {
+              select: { user: { select: deadlineRecipientSelect } },
+              orderBy: { userId: 'asc' },
+            },
             milestoneDocumentSubmissions: {
               select: { milestoneDocumentId: true },
               orderBy: { milestoneDocumentId: 'asc' },

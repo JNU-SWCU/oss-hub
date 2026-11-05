@@ -1,19 +1,71 @@
-import { Injectable, Logger, Inject } from "@nestjs/common";
-import { APPLICATION_DECISION_ACTIONS } from "./applications.config";
-import { ApplicationDecisionCommand, ApplicationDecisionAction, ApplicationListItem, ApplicationRepositoryProvisioning, RepositoryProvisioningSafeErrorClass, ApplicationListAnswers, ApplicationsRepository, type ApplicationListQuery, type ApplicationListPage, type CreatedApplication, type StaffApplicationDetail, type StaffDashboardSummary, type TeamManagementListPage, type CreateApplicationInput, type ApplicationDecisionResult, type ApplicationDecisionTarget, type ApplicationTransition, type RepositoryProvisionJobSnapshot, type ApplicationListRow, type ApplicationListOutbox, type ApplicationListProvisionJob, type ApplyProgramRecord, type UpdateStudentApplicationInput, StudentApplicationManagementRepository, type OwnedStudentApplication, type StudentApplicationMutationFailure, StudentRepositoryUrlRepository, type StudentRepositoryUrlContext, type TeamRepositoryUrlContext } from "./team.repository";
-import { DomainException, type ProblemDetailExtensions } from "../platform/error-code.error";
-import { APPLICATIONS_ERROR_CODES, ApplicationsErrorCode, repositoryUrlError } from "./applications-error-code.error";
-import { ProgramCategory, ApplicationStatus, OutboxEventStatus, RepositoryConnectionMode, RepositoryProvisionJobStatus, ProgramLifecycle, TeamHistoryEvent } from "@prisma/client";
-import { RepositoryProvisionEventService } from "../github/repository-provision-event.service";
-import { RepositoryEventAlreadyExistsError, ApplicationDuplicateError, ApplicationTeamMembershipConflictError } from "./applications.error";
-import { RepositoryUrlService } from "../github/repository-url.service";
-import { TEAMS_ERROR_CODES, TeamsErrorCode } from "./teams-error-code.error";
-import { CANCELLABLE_STATUSES, RESUBMITTABLE_STATUSES } from "./student-application-management.config";
-import { ConsentsService } from "../users/consents.service";
-import { CollectionTriggerService } from "../github/collection-trigger.service";
-import { GithubOperationsError } from "../github/github-app.error";
-import { OwnRepositoryUrlValidationService } from "../github/own-repository-url-validation.service";
-import { RepositoryProvisionFailure } from "../github/repository-provision-state.error";
+import { Injectable, Logger, Inject } from '@nestjs/common';
+import { APPLICATION_DECISION_ACTIONS } from './applications.config';
+import {
+  ApplicationDecisionCommand,
+  ApplicationDecisionAction,
+  ApplicationListItem,
+  ApplicationRepositoryProvisioning,
+  RepositoryProvisioningSafeErrorClass,
+  ApplicationListAnswers,
+  ApplicationsRepository,
+  type ApplicationListQuery,
+  type ApplicationListPage,
+  type CreatedApplication,
+  type StaffApplicationDetail,
+  type StaffDashboardSummary,
+  type TeamManagementListPage,
+  type CreateApplicationInput,
+  type ApplicationDecisionResult,
+  type ApplicationDecisionTarget,
+  type ApplicationTransition,
+  type RepositoryProvisionJobSnapshot,
+  type ApplicationListRow,
+  type ApplicationListOutbox,
+  type ApplicationListProvisionJob,
+  type ApplyProgramRecord,
+  type UpdateStudentApplicationInput,
+  StudentApplicationManagementRepository,
+  type OwnedStudentApplication,
+  type StudentApplicationMutationFailure,
+  StudentRepositoryUrlRepository,
+  type StudentRepositoryUrlContext,
+  type TeamRepositoryUrlContext,
+} from './team.repository';
+import {
+  DomainException,
+  type ProblemDetailExtensions,
+} from '../platform/error-code.error';
+import {
+  APPLICATIONS_ERROR_CODES,
+  ApplicationsErrorCode,
+  repositoryUrlError,
+} from './applications-error-code.error';
+import {
+  ProgramCategory,
+  ApplicationStatus,
+  OutboxEventStatus,
+  RepositoryConnectionMode,
+  RepositoryProvisionJobStatus,
+  ProgramLifecycle,
+  TeamHistoryEvent,
+} from '@prisma/client';
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
+import {
+  RepositoryEventAlreadyExistsError,
+  ApplicationDuplicateError,
+  ApplicationTeamMembershipConflictError,
+} from './applications.error';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
+import {
+  CANCELLABLE_STATUSES,
+  RESUBMITTABLE_STATUSES,
+} from './student-application-management.config';
+import { ConsentsService } from '../users/consents.service';
+import { CollectionTriggerService } from '../github/collection-trigger.service';
+import { GithubOperationsError } from '../github/github-app.error';
+import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
+import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
 
 @Injectable()
 export class ApplicationAnswersService {
@@ -291,10 +343,7 @@ const REVIEW_EVENT_BY_PLAN_KIND = {
   APPROVE: TeamHistoryEvent.APPROVED,
   REJECT: TeamHistoryEvent.REJECTED,
   REVERT: TeamHistoryEvent.REVERTED,
-} as const satisfies Record<
-  ApplicationDecisionPlan['kind'],
-  TeamHistoryEvent
->;
+} as const satisfies Record<ApplicationDecisionPlan['kind'], TeamHistoryEvent>;
 
 interface ApplicationStatusConflictExtensions extends ProblemDetailExtensions {
   readonly latestStatus: ApplicationStatus;
@@ -440,7 +489,8 @@ export class TeamApplicationService {
           programId,
           student.id,
         );
-        if (existingTeam) throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
+        if (existingTeam)
+          throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
         const acceptedCount = 1;
         const memberCount = acceptedCount + inviteeIds.length;
         if (memberCount < lockedProgram.teamMinSize) {
@@ -478,7 +528,9 @@ export class TeamApplicationService {
           }
         }
         const application = await store.createTeamWithLeader({
-          programId, name: teamName, leaderId: student.id,
+          programId,
+          name: teamName,
+          leaderId: student.id,
           answers: answersResult.answers,
           applicationTemplateVersion: lockedProgram.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
@@ -959,7 +1011,11 @@ export class TeamApplicationService {
     outbox: ApplicationListOutbox | undefined,
     job: ApplicationListProvisionJob | undefined,
   ): ApplicationListItem {
-    const team = { id: row.id, name: row.name, memberCount: row._count.members };
+    const team = {
+      id: row.id,
+      name: row.name,
+      memberCount: row._count.members,
+    };
     return {
       id: row.id,
       programId: row.programId,
@@ -1321,7 +1377,9 @@ export class StudentApplicationManagementService {
     failure: StudentApplicationMutationFailure,
   ): never {
     if (failure.kind === 'team-has-activity')
-      throw new DomainException(TEAMS_ERROR_CODES[TeamsErrorCode.TEAM_HAS_ACTIVITY]);
+      throw new DomainException(
+        TEAMS_ERROR_CODES[TeamsErrorCode.TEAM_HAS_ACTIVITY],
+      );
     const code = {
       'program-not-found': ApplicationsErrorCode.PROGRAM_NOT_FOUND,
       'application-not-found': ApplicationsErrorCode.APPLICATION_NOT_FOUND,
@@ -1530,17 +1588,31 @@ export class StudentRepositoryUrlService {
               : error;
           });
         const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
-        await store.historyWriter.teamHistory.create({ data: {
-          teamId: current.id, programId, actorId: current.editor.id,
-          event: 'REPOSITORY_URL_CHANGED', source: 'APPLICATION',
-          data: { schemaVersion: 1, metadata: {
-            schemaVersion: 2, programId, teamId: current.id, programName: current.program.name,
-            actorGithubLogin: current.editor.nickname,
-            before: { repositoryId: current.repository?.id ?? null, repositoryUrl: this.url(current) },
-            after: { repositoryId, repositoryUrl },
-            ...(deletedCounts === null ? {} : { deletedCounts }),
-          } },
-        } });
+        await store.historyWriter.teamHistory.create({
+          data: {
+            teamId: current.id,
+            programId,
+            actorId: current.editor.id,
+            event: 'REPOSITORY_URL_CHANGED',
+            source: 'APPLICATION',
+            data: {
+              schemaVersion: 1,
+              metadata: {
+                schemaVersion: 2,
+                programId,
+                teamId: current.id,
+                programName: current.program.name,
+                actorGithubLogin: current.editor.nickname,
+                before: {
+                  repositoryId: current.repository?.id ?? null,
+                  repositoryUrl: this.url(current),
+                },
+                after: { repositoryId, repositoryUrl },
+                ...(deletedCounts === null ? {} : { deletedCounts }),
+              },
+            },
+          },
+        });
         return {
           view: { repositoryUrl, canEditRepositoryUrl: true },
           relinked: true,

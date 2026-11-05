@@ -2362,14 +2362,6 @@ export class TeamRepository {
           },
           orderBy: { createdAt: 'asc' },
         },
-      },
-    });
-    if (!team) return null;
-
-    const application = await this.prisma.team.findFirst({
-      where: { programId, id: teamId },
-      select: {
-        id: true,
         status: true,
         updatedAt: true,
         repositoryConnectionMode: true,
@@ -2411,25 +2403,24 @@ export class TeamRepository {
         },
       },
     });
-    let applicationRow: TeamApplicationRow | null = null;
-    if (application) {
-      const [outbox, job] = await Promise.all([
-        this.prisma.outboxEvent.findUnique({
-          where: { idempotencyKey: `repository-provision:${application.id}` },
-          select: { status: true, createdAt: true },
-        }),
-        this.prisma.repositoryProvisionJob.findUnique({
-          where: { teamId: application.id },
-          select: {
-            status: true,
-            updatedAt: true,
-            lastErrorCode: true,
-            repositoryId: true,
-          },
-        }),
-      ]);
-      applicationRow = { ...application, outbox, job };
-    }
+    if (!team) return null;
+
+    const [outbox, job] = await Promise.all([
+      this.prisma.outboxEvent.findUnique({
+        where: { idempotencyKey: `repository-provision:${team.id}` },
+        select: { status: true, createdAt: true },
+      }),
+      this.prisma.repositoryProvisionJob.findUnique({
+        where: { teamId: team.id },
+        select: {
+          status: true,
+          updatedAt: true,
+          lastErrorCode: true,
+          repositoryId: true,
+        },
+      }),
+    ]);
+    const applicationRow: TeamApplicationRow = { ...team, outbox, job };
     return {
       id: team.id,
       name: team.name,
@@ -2440,15 +2431,11 @@ export class TeamRepository {
         name: member.user.name ?? null,
       })),
       application: applicationRow,
-      repositoryContributions: application
-        ? await this.evidence.contributions(application, team.members)
-        : null,
-      repositoryUrlHistory: application
-        ? await this.evidence.history({
-            programId,
-            teamId,
-          })
-        : { rows: [], hasMore: false },
+      repositoryContributions: await this.evidence.contributions(
+        team,
+        team.members,
+      ),
+      repositoryUrlHistory: await this.evidence.history({ programId, teamId }),
     };
   }
   async findStaffRepositoryUrlHistory(
@@ -3057,8 +3044,14 @@ export class ProgramTeamDeletionRepository {
             actorId,
             deletedAt,
           );
-          const { scopeFingerprint, ...expectedDeletedCounts } =
-            currentScopeCounts;
+          const expectedDeletedCounts = {
+            teams: currentScopeCounts.teams,
+            members: currentScopeCounts.members,
+            invitations: currentScopeCounts.invitations,
+            submissions: currentScopeCounts.submissions,
+            submissionEvents: currentScopeCounts.submissionEvents,
+            detachedRepositories: currentScopeCounts.detachedRepositories,
+          };
           await this.history.recordDeleted(
             tx,
             teamId,
@@ -3401,7 +3394,7 @@ export class StudentRepositoryUrlTransactionRepository {
       const result = await tx.githubRepository.updateMany({
         where: {
           id: existing.id,
-          teamId: context.teamId,
+          OR: [{ teamId: null }, { teamId: context.teamId }],
         },
         data,
       });

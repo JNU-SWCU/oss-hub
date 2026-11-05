@@ -2,7 +2,6 @@ import { StudentRepositoryUrlService } from './team-application.service';
 import {
   outsiderFindUnique,
   teamFindFirst,
-  applicationFindFirst,
   contributionGroupBy,
   historyQuery,
   provisionFindUnique,
@@ -20,7 +19,22 @@ import { MilestoneCompletionService } from './milestone-completion.service';
 afterEach(() => jest.clearAllMocks());
 
 function toPage(history: RepositoryUrlHistoryRows | undefined) {
-  return new TeamMembershipService(undefined as never, undefined as never, new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never))['toRepositoryUrlHistoryPage'](history!, {
+  return new TeamMembershipService(
+    undefined as never,
+    undefined as never,
+    new AuditLogMetadataService(),
+    new RepositoryPublishService(),
+    new RepositoryUrlService(),
+    new MilestoneCompletionService(),
+    new StudentRepositoryUrlService(
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+      {} as never,
+    ),
+  )['toRepositoryUrlHistoryPage'](history!, {
     programId: 'program',
     teamId: 'team',
   });
@@ -84,7 +98,22 @@ it('reports an explicit repository relink as succeeded without inventing a provi
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
   expect(
-    new TeamMembershipService(undefined as never, undefined as never, new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never))['toTeamApplicationView'](detail!.application!).repositoryProvisioning
+    new TeamMembershipService(
+      undefined as never,
+      undefined as never,
+      new AuditLogMetadataService(),
+      new RepositoryPublishService(),
+      new RepositoryUrlService(),
+      new MilestoneCompletionService(),
+      new StudentRepositoryUrlService(
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+        {} as never,
+      ),
+    )['toTeamApplicationView'](detail!.application!).repositoryProvisioning
       .jobStatus,
   ).toBe('SUCCEEDED');
 });
@@ -105,22 +134,34 @@ it('continues history with timestamp and ID tie-breaking inside the same scope',
     hasMore: false,
   });
   const [sql, ...bindings] = historyQuery.mock.calls[0]!;
-  expect(bindings).toEqual(['team', 'program', cursor.occurredAt, cursor.occurredAt, cursor.occurredAt, cursor.id]);
-  expect(sql.join('?')).toContain('ORDER BY h."occurredAt" DESC, h.id DESC LIMIT 21');
+  expect(bindings).toEqual([
+    'team',
+    'program',
+    cursor.occurredAt,
+    cursor.occurredAt,
+    cursor.occurredAt,
+    cursor.id,
+  ]);
+  expect(sql.join('?')).toContain(
+    'ORDER BY h."occurredAt" DESC, h.id DESC LIMIT 21',
+  );
 });
 
-it('returns empty evidence when the team disappears between scoped reads', async () => {
+it('reads the application state from the same Team row', async () => {
   const repository = givenRepository();
-  applicationFindFirst.mockResolvedValue(null);
 
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
   expect(detail).toMatchObject({
-    repositoryContributions: null,
+    application: { id: 'team', status: 'APPROVED' },
+    repositoryContributions: {
+      repositoryId: 'current-repo',
+      collectionStatus: 'COLLECTED',
+    },
     repositoryUrlHistory: { rows: [], hasMore: false },
   });
-  expect(contributionGroupBy).not.toHaveBeenCalled();
-  expect(historyQuery).not.toHaveBeenCalled();
+  expect(contributionGroupBy).toHaveBeenCalledTimes(1);
+  expect(historyQuery).toHaveBeenCalledTimes(1);
 });
 
 it('returns only application-scoped URL history with the actor snapshot', async () => {
@@ -162,7 +203,14 @@ it('returns only application-scoped URL history with the actor snapshot', async 
     ],
     nextCursor: null,
   });
-  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual(['team', 'program', null, null, null, null]);
+  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual([
+    'team',
+    'program',
+    null,
+    null,
+    null,
+    null,
+  ]);
 });
 
 it('bounds the initial history page and provides a cursor for all remaining history', async () => {
@@ -197,7 +245,14 @@ it('bounds the initial history page and provides a cursor for all remaining hist
     'items',
     expect.arrayContaining([expect.objectContaining({ id: 'change-11' })]),
   );
-  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual(['team', 'program', null, null, null, null]);
+  expect(historyQuery.mock.calls[0]?.slice(1)).toEqual([
+    'team',
+    'program',
+    null,
+    null,
+    null,
+    null,
+  ]);
 });
 
 it('matches numeric GitHub identities and preserves members without observations', async () => {
@@ -277,7 +332,7 @@ it('shows the outsider totals only while they were counted for this application,
   const repository = givenRepository();
   const counted = {
     repositoryId: 'current-repo',
-    teamId: 'application',
+    teamId: 'team',
     programId: 'program',
     windowStartAt: new Date('2026-07-31T15:00:00Z'),
     windowEndAt: new Date('2026-08-31T14:59:59Z'),

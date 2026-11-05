@@ -28,9 +28,11 @@ describe('PublicProjectsRepository integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.program.create({
-    data: {
+      data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-02-01T00:00:00.000Z').getTime() + 365 * 86400000),
+        endAt: new Date(
+          new Date('2026-02-01T00:00:00.000Z').getTime() + 365 * 86400000,
+        ),
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
@@ -40,133 +42,140 @@ describe('PublicProjectsRepository integration', () => {
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
-        description: 'synthetic-description'
-    }
-});
+        description: 'synthetic-description',
+      },
+    });
 
     const applicantIds = Array.from(
       { length: PUBLIC_REPOSITORY_COUNT },
       (_, index) => `${PREFIX}-applicant-${index}`,
     );
     await prisma.user.createMany({
-    data: applicantIds.map((id, index) => ({
+      data: applicantIds.map((id, index) => ({
         id,
         githubId: 8600000000000n + BigInt(index),
         nickname: `${PREFIX}-applicant-${index}`,
         type: MemberKind.STUDENT,
         approvalStatus: 'NOT_REQUIRED',
-    }))
-});
+      })),
+    });
     const teamIds = applicantIds.map(
       (_, index) => `${PREFIX}-application-${index}`,
     );
     await prisma.team.createMany({
-    data: teamIds.map((id, index) => ({
+      data: teamIds.map((id, index) => ({
         id,
         programId: PROGRAM_ID,
         name: `${PREFIX}-team-${index}`,
         leaderId: applicantIds[index]!,
-        applicantId: applicantIds[index]!, answers: {}, applicationTemplateVersion: 1, status: ApplicationStatus.APPROVED,
-    }))
-});
+        applicantId: applicantIds[index]!,
+        answers: {},
+        applicationTemplateVersion: 1,
+        status: ApplicationStatus.APPROVED,
+      })),
+    });
     await prisma.teamMember.createMany({
-    data: teamIds.map((id, index) => ({
+      data: teamIds.map((id, index) => ({
         teamId: id,
         programId: PROGRAM_ID,
         userId: applicantIds[index]!,
-    }))
-});
+      })),
+    });
     await prisma.githubRepository.createMany({
-    data: teamIds.map((id, index) => ({
-    id: `${PREFIX}-repository-${index}`,
-    teamId: id,
-    githubRepositoryId: 8700000000000n + BigInt(index),
-    nameWithOwner: `synthetic-org/${PREFIX}-repo-${index}`,
-    source: RepositorySource.ORG_PROVISIONED,
-    visibility: RepositoryVisibility.PUBLIC,
-    publishedAt: new Date(BASE_PUBLISHED_AT.getTime() +
-        ((index * 37) % PUBLIC_REPOSITORY_COUNT) * 86400000)
-}))
-});
+      data: teamIds.map((id, index) => ({
+        id: `${PREFIX}-repository-${index}`,
+        teamId: id,
+        githubRepositoryId: 8700000000000n + BigInt(index),
+        nameWithOwner: `synthetic-org/${PREFIX}-repo-${index}`,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PUBLIC,
+        publishedAt: new Date(
+          BASE_PUBLISHED_AT.getTime() +
+            ((index * 37) % PUBLIC_REPOSITORY_COUNT) * 86400000,
+        ),
+      })),
+    });
 
     const privateApplicantId = `${PREFIX}-private-applicant`;
     const unpublishedApplicantId = `${PREFIX}-unpublished-applicant`;
     await prisma.user.createMany({
-    data: [
+      data: [
         {
-            id: privateApplicantId,
-            githubId: 8600000099001n,
-            nickname: `${PREFIX}-private-applicant`,
-            type: MemberKind.STUDENT,
-            approvalStatus: 'NOT_REQUIRED'
+          id: privateApplicantId,
+          githubId: 8600000099001n,
+          nickname: `${PREFIX}-private-applicant`,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
         },
         {
-            id: unpublishedApplicantId,
-            githubId: 8600000099002n,
-            nickname: `${PREFIX}-unpublished-applicant`,
-            type: MemberKind.STUDENT,
-            approvalStatus: 'NOT_REQUIRED'
-        }
-    ]
-});
+          id: unpublishedApplicantId,
+          githubId: 8600000099002n,
+          nickname: `${PREFIX}-unpublished-applicant`,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
+        },
+      ],
+    });
     await prisma.team.createMany({
-    data: [
+      data: [
         {
-            id: `${PREFIX}-private-team`,
-            programId: PROGRAM_ID,
-            name: `${PREFIX}-private-team`,
-            leaderId: privateApplicantId,
-            applicantId: privateApplicantId,
-            answers: { title: `${PREFIX}-private-team` },
-            applicationTemplateVersion: 1, status: ApplicationStatus.APPROVED
+          id: `${PREFIX}-private-team`,
+          programId: PROGRAM_ID,
+          name: `${PREFIX}-private-team`,
+          leaderId: privateApplicantId,
+          applicantId: privateApplicantId,
+          answers: { title: `${PREFIX}-private-team` },
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
         },
         {
-            id: `${PREFIX}-unpublished-team`,
-            programId: PROGRAM_ID,
-            name: `${PREFIX}-unpublished-team`,
-            leaderId: unpublishedApplicantId,
-            applicantId: unpublishedApplicantId,
-            answers: { title: `${PREFIX}-unpublished-team` },
-            applicationTemplateVersion: 1, status: ApplicationStatus.APPROVED
-        }
-    ]
-});
+          id: `${PREFIX}-unpublished-team`,
+          programId: PROGRAM_ID,
+          name: `${PREFIX}-unpublished-team`,
+          leaderId: unpublishedApplicantId,
+          applicantId: unpublishedApplicantId,
+          answers: { title: `${PREFIX}-unpublished-team` },
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
+        },
+      ],
+    });
     await prisma.teamMember.createMany({
-    data: [
+      data: [
         {
-            teamId: `${PREFIX}-private-team`,
-            programId: PROGRAM_ID,
-            userId: privateApplicantId
+          teamId: `${PREFIX}-private-team`,
+          programId: PROGRAM_ID,
+          userId: privateApplicantId,
         },
         {
-            teamId: `${PREFIX}-unpublished-team`,
-            programId: PROGRAM_ID,
-            userId: unpublishedApplicantId
-        }
-    ]
-});
+          teamId: `${PREFIX}-unpublished-team`,
+          programId: PROGRAM_ID,
+          userId: unpublishedApplicantId,
+        },
+      ],
+    });
     await prisma.githubRepository.createMany({
-    data: [
+      data: [
         {
-    id: `${PREFIX}-private-repository`,
-    teamId: `${PREFIX}-private-team`,
-    githubRepositoryId: 8700000099001n,
-    nameWithOwner: `synthetic-org/${PREFIX}-private-repo`,
-    source: RepositorySource.ORG_PROVISIONED,
-    visibility: RepositoryVisibility.PRIVATE,
-    publishedAt: null
-},
+          id: `${PREFIX}-private-repository`,
+          teamId: `${PREFIX}-private-team`,
+          githubRepositoryId: 8700000099001n,
+          nameWithOwner: `synthetic-org/${PREFIX}-private-repo`,
+          source: RepositorySource.ORG_PROVISIONED,
+          visibility: RepositoryVisibility.PRIVATE,
+          publishedAt: null,
+        },
         {
-    id: `${PREFIX}-unpublished-repository`,
-    teamId: `${PREFIX}-unpublished-team`,
-    githubRepositoryId: 8700000099002n,
-    nameWithOwner: `synthetic-org/${PREFIX}-unpublished-repo`,
-    source: RepositorySource.ORG_PROVISIONED,
-    visibility: RepositoryVisibility.PUBLIC,
-    publishedAt: null
-}
-    ]
-});
+          id: `${PREFIX}-unpublished-repository`,
+          teamId: `${PREFIX}-unpublished-team`,
+          githubRepositoryId: 8700000099002n,
+          nameWithOwner: `synthetic-org/${PREFIX}-unpublished-repo`,
+          source: RepositorySource.ORG_PROVISIONED,
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: null,
+        },
+      ],
+    });
 
     await prisma.$executeRawUnsafe('VACUUM (ANALYZE) "GithubRepository"');
   });
@@ -174,13 +183,13 @@ describe('PublicProjectsRepository integration', () => {
   afterAll(async () => {
     try {
       await prisma.githubRepository.deleteMany({
-    where: { id: { startsWith: PREFIX } }
-});
+        where: { id: { startsWith: PREFIX } },
+      });
       await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
       await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
       await prisma.user.deleteMany({
-    where: { id: { startsWith: PREFIX } }
-});
+        where: { id: { startsWith: PREFIX } },
+      });
       await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
     } finally {
       await prisma.$disconnect();
@@ -257,54 +266,54 @@ describe('PublicProjectsRepository integration', () => {
       const contractNameWithOwner = `JNU-SWCU/${contractRepositoryName}`;
 
       await prisma.user.create({
-    data: {
-        id: contractApplicantId,
-        githubId: 8600000099101n,
-        nickname: `${PREFIX}-contract-applicant`,
-        type: MemberKind.STUDENT,
-        approvalStatus: 'NOT_REQUIRED'
-    }
-});
+        data: {
+          id: contractApplicantId,
+          githubId: 8600000099101n,
+          nickname: `${PREFIX}-contract-applicant`,
+          type: MemberKind.STUDENT,
+          approvalStatus: 'NOT_REQUIRED',
+        },
+      });
       const contractTeamId = `${PREFIX}-contract-team`;
       await prisma.team.create({
-    data: {
-        id: contractTeamId,
-        programId: PROGRAM_ID,
-        name: `${PREFIX}-contract-team`,
-        leaderId: contractApplicantId,
-        applicantId: contractApplicantId,
-        answers: { title: `${PREFIX}-contract-team` },
-        applicationTemplateVersion: 1
-    }
-});
+        data: {
+          id: contractTeamId,
+          programId: PROGRAM_ID,
+          name: `${PREFIX}-contract-team`,
+          leaderId: contractApplicantId,
+          applicantId: contractApplicantId,
+          answers: { title: `${PREFIX}-contract-team` },
+          applicationTemplateVersion: 1,
+        },
+      });
       await prisma.teamMember.create({
-    data: {
-        teamId: contractTeamId,
-        programId: PROGRAM_ID,
-        userId: contractApplicantId
-    }
-});
+        data: {
+          teamId: contractTeamId,
+          programId: PROGRAM_ID,
+          userId: contractApplicantId,
+        },
+      });
       await prisma.team.update({
-    where: { id: contractTeamId },
-    data: {
-        programId: PROGRAM_ID,
-        applicantId: contractApplicantId,
-        answers: {},
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.APPROVED
-    }
-});
+        where: { id: contractTeamId },
+        data: {
+          programId: PROGRAM_ID,
+          applicantId: contractApplicantId,
+          answers: {},
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
+        },
+      });
       await prisma.githubRepository.create({
-    data: {
-        id: contractRepositoryId,
-        teamId: contractApplicationId,
-        githubRepositoryId: contractGithubRepositoryId,
-        nameWithOwner: contractNameWithOwner,
-        source: RepositorySource.ORG_PROVISIONED,
-        visibility: RepositoryVisibility.PUBLIC,
-        publishedAt: BASE_PUBLISHED_AT
-    }
-});
+        data: {
+          id: contractRepositoryId,
+          teamId: contractApplicationId,
+          githubRepositoryId: contractGithubRepositoryId,
+          nameWithOwner: contractNameWithOwner,
+          source: RepositorySource.ORG_PROVISIONED,
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: BASE_PUBLISHED_AT,
+        },
+      });
 
       try {
         const found = await repository.findById(
@@ -316,19 +325,19 @@ describe('PublicProjectsRepository integration', () => {
         expect(found?.nameWithOwner).toBe(contractNameWithOwner);
       } finally {
         await prisma.githubRepository.delete({
-    where: { id: contractRepositoryId }
-});
+          where: { id: contractRepositoryId },
+        });
         await prisma.team.delete({
-    where: { id: contractApplicationId }
-});
+          where: { id: contractApplicationId },
+        });
         await prisma.teamMember.delete({
-    where: {
-        teamId_userId: {
-            teamId: contractTeamId,
-            userId: contractApplicantId
-        }
-    }
-});
+          where: {
+            teamId_userId: {
+              teamId: contractTeamId,
+              userId: contractApplicantId,
+            },
+          },
+        });
         await prisma.team.delete({ where: { id: contractTeamId } });
         await prisma.user.delete({ where: { id: contractApplicantId } });
       }

@@ -33,67 +33,67 @@ beforeAll(async () => {
   await prisma.$connect();
   await prisma.user.create({
     data: {
-        id: ids.member,
-        githubId: memberGithubId,
-        nickname: 'synthetic-outsider-member'
-    }
-});
+      id: ids.member,
+      githubId: memberGithubId,
+      nickname: 'synthetic-outsider-member',
+    },
+  });
   await prisma.program.create({
     data: {
-        id: ids.program,
-        name: 'Synthetic program',
-        organizer: 'Synthetic',
-        category: 'BASIC',
-        applicationTemplateKey: 'synthetic',
-        applicationTemplateVersion: 1,
-        description: 'Synthetic',
-        applicationStartAt: new Date('2026-07-01Z'),
-        applicationEndAt: new Date('2026-07-31Z'),
-        startAt,
-        endAt
-    }
-});
+      id: ids.program,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt,
+      endAt,
+    },
+  });
   await prisma.team.create({
     data: {
-        id: ids.team,
-        programId: ids.program,
-        name: 'Synthetic team',
-        leaderId: ids.member,
-        applicantId: ids.member,
-        answers: { title: 'Synthetic team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: ids.team,
+      programId: ids.program,
+      name: 'Synthetic team',
+      leaderId: ids.member,
+      applicantId: ids.member,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
-    data: { teamId: ids.team, programId: ids.program, userId: ids.member }
-});
+    data: { teamId: ids.team, programId: ids.program, userId: ids.member },
+  });
   await prisma.team.update({
     where: { id: ids.team },
     data: {
-        programId: ids.program,
-        applicantId: ids.member,
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId: ids.program,
+      applicantId: ids.member,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.createMany({
     data: [
-        {
-    id: ids.linked,
-    githubRepositoryId: memberGithubId + 1n,
-    nameWithOwner: 'synthetic/outsider-linked',
-    source: 'EXTERNAL_PUBLIC',
-    teamId: ids.application
-},
-        {
-    id: ids.detached,
-    githubRepositoryId: memberGithubId + 2n,
-    nameWithOwner: 'synthetic/outsider-detached',
-    source: 'ORG_PROVISIONED',
-    teamId: null
-}
-    ]
-});
+      {
+        id: ids.linked,
+        githubRepositoryId: memberGithubId + 1n,
+        nameWithOwner: 'synthetic/outsider-linked',
+        source: 'EXTERNAL_PUBLIC',
+        teamId: ids.application,
+      },
+      {
+        id: ids.detached,
+        githubRepositoryId: memberGithubId + 2n,
+        nameWithOwner: 'synthetic/outsider-detached',
+        source: 'ORG_PROVISIONED',
+        teamId: null,
+      },
+    ],
+  });
 });
 afterAll(async () => {
   await prisma.$disconnect();

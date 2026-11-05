@@ -127,7 +127,9 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
     expect(position('milestone-document-template-files')).toBeLessThan(
       position('milestone-documents'),
     );
-    expect(position('milestone-document-submissions')).toBeLessThan(position('teams'));
+    expect(position('milestone-document-submissions')).toBeLessThan(
+      position('teams'),
+    );
     expect(position('team-members')).toBeLessThan(position('teams'));
     expect(position('teams')).toBeLessThan(PROGRAM_PURGE_DELETION_ORDER.length);
   });
@@ -204,9 +206,7 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       (step) => step.id === 'github-repositories',
     );
     expect(repository?.operation).toBe('DELETE');
-    expect(repository?.covers).toEqual([
-      'Team->GithubRepository',
-    ]);
+    expect(repository?.covers).toEqual(['Team->GithubRepository']);
 
     const deleted = TEAM_PURGE_DELETION_ORDER.filter(
       (step) => step.operation === 'DELETE',
@@ -230,7 +230,9 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     const position = (id: string) =>
       TEAM_PURGE_DELETION_ORDER.findIndex((step) => step.id === id);
 
-    expect(position('milestone-document-submissions')).toBeLessThan(position('team-invitations'));
+    expect(position('milestone-document-submissions')).toBeLessThan(
+      position('team-invitations'),
+    );
     expect(position('team-invitations')).toBeLessThan(position('team-members'));
     expect(position('team-members')).toBeLessThan(position('teams'));
     expect(position('teams')).toBe(TEAM_PURGE_DELETION_ORDER.length - 1);

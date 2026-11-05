@@ -291,8 +291,17 @@ export class SystemStatusRepository {
 
     const repositories = await this.prisma.githubRepository.findMany({
       where: { githubRepositoryId: { in: [...githubRepositoryIds] } },
-      select: { githubRepositoryId: true, team: { select: { program: { select: { name: true } } } } },
+      select: {
+        githubRepositoryId: true,
+        team: { select: { program: { select: { name: true } } } },
+      },
     });
-    return new Map(repositories.flatMap(repository => repository.team === null ? [] : [[repository.githubRepositoryId, repository.team.program.name]]));
+    return new Map(
+      repositories.flatMap((repository) =>
+        repository.team === null
+          ? []
+          : [[repository.githubRepositoryId, repository.team.program.name]],
+      ),
+    );
   }
 }

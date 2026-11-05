@@ -4,15 +4,31 @@ import { PrismaService } from '../platform/prisma.service';
 import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 
-export const teamFindFirst = jest.fn();
-export const applicationFindFirst = jest.fn();
+export const teamFindFirst = jest.fn<
+  Promise<Record<string, unknown> | null>,
+  [unknown]
+>();
+export const applicationFindFirst = jest.fn<
+  Promise<Record<string, unknown> | null>,
+  [unknown]
+>();
 export const contributionGroupBy = jest.fn();
-export const historyQuery = jest.fn<Promise<unknown[]>, [TemplateStringsArray, ...unknown[]]>();
+export const historyQuery = jest.fn<
+  Promise<unknown[]>,
+  [TemplateStringsArray, ...unknown[]]
+>();
 export const provisionFindUnique = jest.fn();
 export const outsiderFindUnique = jest.fn();
 jest.mock('../platform/prisma.service', () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
-    team: { findFirst: (args: { select: { status?: boolean } }) => args.select.status ? applicationFindFirst(args) : teamFindFirst(args) },
+    team: {
+      findFirst: async (args: unknown): Promise<unknown> => {
+        const team = await teamFindFirst(args);
+        if (team === null) return null;
+        const application = await applicationFindFirst(args);
+        return { ...(application ?? {}), ...team };
+      },
+    },
     contribution: { groupBy: contributionGroupBy },
     $queryRaw: historyQuery,
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(null) },

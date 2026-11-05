@@ -15,10 +15,10 @@ function application(): ApplicationActivity {
   return {
     id: 'application-1',
     name: '팀 A',
-      members: [
-        { user: { githubId: 11n, nickname: 'student-a' } },
-        { user: { githubId: 12n, nickname: 'student-b' } },
-      ],
+    members: [
+      { user: { githubId: 11n, nickname: 'student-a' } },
+      { user: { githubId: 12n, nickname: 'student-b' } },
+    ],
     repository: {
       failureCount: 0,
       streams: [{ lastRunAt: new Date('2026-07-24T00:00:00.000Z') }],

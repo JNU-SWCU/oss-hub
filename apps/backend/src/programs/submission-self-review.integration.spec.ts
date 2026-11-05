@@ -60,7 +60,7 @@ async function review(
       reviewerId,
       flowIds.milestone,
       flowIds.document,
-      flowIds.application,
+      flowIds.team,
       {
         decision,
         comment: '합성 검토 사유',
@@ -78,7 +78,7 @@ async function review(
       where: {
         milestoneDocumentId_teamId: {
           milestoneDocumentId: flowIds.document,
-          teamId: flowIds.application,
+          teamId: flowIds.team,
         },
       },
       select: { id: true },
@@ -92,7 +92,7 @@ async function review(
 async function expectSubmissionUnchanged(): Promise<void> {
   const submission =
     await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { teamId: flowIds.application },
+      where: { teamId: flowIds.team },
       select: {
         status: true,
         revision: true,
@@ -197,7 +197,7 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
       await review(path, flowGithubIds.staff, ReviewDecision.APPROVED);
       await expect(
         fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-          where: { teamId: flowIds.application },
+          where: { teamId: flowIds.team },
           select: {
             status: true,
             histories: {

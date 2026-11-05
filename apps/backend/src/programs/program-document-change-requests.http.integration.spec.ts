@@ -149,7 +149,7 @@ async function previewVersion(query = 'scope=PROGRAM'): Promise<string> {
 
 async function approveSecondTeam(): Promise<void> {
   const response = await fixture.request(
-    `${fixture.documentPath()}/applications/${extra.application}/reviews`,
+    `${fixture.documentPath()}/teams/${extra.application}/reviews`,
     {
       actor: 'staff',
       method: 'POST',
@@ -225,7 +225,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ requestedCount: 1 });
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
     await expect(statusOf(extra.application)).resolves.toBe(
@@ -234,7 +234,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     const review =
       await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
         where: {
-          submission: { teamId: flowIds.application },
+          submission: { teamId: flowIds.team },
           event: ReviewDecision.CHANGES_REQUESTED,
         },
         select: { event: true, comment: true },
@@ -245,7 +245,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     });
     await expect(
       fixture.prisma.milestoneDocumentSubmissionHistory.count({
-        where: { submission: { teamId: flowIds.application } },
+        where: { submission: { teamId: flowIds.team } },
       }),
     ).resolves.toBe(2);
     await expect(
@@ -280,7 +280,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     await expect(statusOf(extra.application)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
     );
   });
@@ -295,7 +295,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(await response.json()).toMatchObject({
       code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
     });
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
     );
     await expect(statusOf(extra.application)).resolves.toBe(
@@ -379,7 +379,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(await send.json()).toMatchObject({
       code: MilestoneDocumentsErrorCode.STAFF_ONLY,
     });
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
     );
   });
@@ -409,7 +409,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
       ]),
     ).toEqual(
       expect.arrayContaining([
-        [flowIds.application, [1]],
+        [flowIds.team, [1]],
         [extra.application, [1]],
       ]),
     );

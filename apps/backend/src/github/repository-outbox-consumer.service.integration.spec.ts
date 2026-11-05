@@ -57,49 +57,51 @@ async function createApprovedApplication(teamId: string): Promise<void> {
   const program = programId(teamId);
   await prisma.program.create({
     data: {
-        startAt: new Date('2026-01-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000),
-        id: program,
-        name: `program-${teamId}`,
-        organizer: 'synthetic-organizer',
-        trackType: ProgramTrackType.EXTRACURRICULAR,
-        category: ProgramCategory.BASIC,
-        applicationTemplateKey: 'synthetic-template',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-        applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        description: 'synthetic-description',
-        repositoryProvisioningEnabled: true
-    }
-});
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
+      ),
+      id: program,
+      name: `program-${teamId}`,
+      organizer: 'synthetic-organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'synthetic-template',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      description: 'synthetic-description',
+      repositoryProvisioningEnabled: true,
+    },
+  });
   await prisma.team.create({
     data: {
-        id: teamId,
-        programId: program,
-        name: `${teamId}-team`,
-        leaderId: APPLICANT_ID,
-        applicantId: APPLICANT_ID,
-        answers: { title: `${teamId}-team` },
-        applicationTemplateVersion: 1
-    }
-});
+      id: teamId,
+      programId: program,
+      name: `${teamId}-team`,
+      leaderId: APPLICANT_ID,
+      applicantId: APPLICANT_ID,
+      answers: { title: `${teamId}-team` },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
     data: {
-        teamId,
-        programId: program,
-        userId: APPLICANT_ID
-    }
-});
+      teamId,
+      programId: program,
+      userId: APPLICANT_ID,
+    },
+  });
   await prisma.team.update({
     where: { id: teamId },
     data: {
-        programId: program,
-        applicantId: APPLICANT_ID,
-        answers: { synthetic: true },
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.APPROVED
-    }
-});
+      programId: program,
+      applicantId: APPLICANT_ID,
+      answers: { synthetic: true },
+      applicationTemplateVersion: 1,
+      status: ApplicationStatus.APPROVED,
+    },
+  });
 }
 
 async function createProvisionEvent(
@@ -143,7 +145,10 @@ async function createAccessSyncEvent(
   requestedAt: Date = NOW,
   payloadOverride?: Prisma.InputJsonValue,
 ): Promise<string> {
-  const data = new PlatformRepository().repositoryAccessSyncEventData(teamId, requestedAt);
+  const data = new PlatformRepository().repositoryAccessSyncEventData(
+    teamId,
+    requestedAt,
+  );
   const event = await prisma.outboxEvent.create({
     data: {
       ...data,
@@ -157,14 +162,14 @@ describe('RepositoryOutboxConsumerService integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.create({
-    data: {
+      data: {
         id: APPLICANT_ID,
         githubId: 8100000000001n,
         nickname: 'synthetic-applicant',
         type: MemberKind.STUDENT,
-        approvalStatus: 'NOT_REQUIRED'
-    }
-});
+        approvalStatus: 'NOT_REQUIRED',
+      },
+    });
   });
 
   afterEach(async () => {
@@ -172,23 +177,23 @@ describe('RepositoryOutboxConsumerService integration', () => {
       where: { teamId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.repositoryProvisionJob.deleteMany({
-    where: { teamId: { in: [...APPLICATION_IDS] } }
-});
+      where: { teamId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.team.deleteMany({
-    where: { id: { in: [...APPLICATION_IDS] } }
-});
+      where: { id: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.teamMember.deleteMany({
-    where: { teamId: { in: [...APPLICATION_IDS] } }
-});
+      where: { teamId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.team.deleteMany({
-    where: { id: { in: [...APPLICATION_IDS] } }
-});
+      where: { id: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.program.deleteMany({
-    where: { id: { in: APPLICATION_IDS.map(programId) } }
-});
+      where: { id: { in: APPLICATION_IDS.map(programId) } },
+    });
   });
 
   afterAll(async () => {
@@ -210,16 +215,16 @@ describe('RepositoryOutboxConsumerService integration', () => {
         eventId = await createAccessSyncEvent(teamId);
       }
       await prisma.repositoryProvisionJob.update({
-    where: { teamId },
-    data: { status: RepositoryProvisionJobStatus.FAILED_FINAL }
-});
+        where: { teamId },
+        data: { status: RepositoryProvisionJobStatus.FAILED_FINAL },
+      });
       await prisma.program.update({
-    where: { id: programId(teamId) },
-    data: { lifecycle: 'DELETED' }
-});
+        where: { id: programId(teamId) },
+        data: { lifecycle: 'DELETED' },
+      });
       const before = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-});
+        where: { teamId },
+      });
 
       await expect(
         consumer.consumeNext('worker-deleted', NOW),
@@ -229,8 +234,8 @@ describe('RepositoryOutboxConsumerService integration', () => {
       });
       expect(
         await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+          where: { teamId },
+        }),
       ).toEqual(before);
       expect(
         await prisma.outboxEvent.findUniqueOrThrow({ where: { id: eventId } }),
@@ -249,8 +254,8 @@ describe('RepositoryOutboxConsumerService integration', () => {
       where: { id: eventId },
     });
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     expect(result).toEqual({
       kind: 'CONSUMED',
       eventId,
@@ -288,30 +293,30 @@ describe('RepositoryOutboxConsumerService integration', () => {
       data: { createdAt: new Date(NOW.getTime() - 1_000) },
     });
     const before = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId },
-    select: {
+      where: { teamId },
+      select: {
         id: true,
         currentEventId: true,
         status: true,
         attemptCount: true,
         lockedAt: true,
-        lockedBy: true
-    }
-});
+        lockedBy: true,
+      },
+    });
     expect(before.currentEventId).toBe(secondEventId);
 
     const staleResult = await consumer.consumeNext('worker-generation', NOW);
     const afterStale = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId },
-    select: {
+      where: { teamId },
+      select: {
         id: true,
         currentEventId: true,
         status: true,
         attemptCount: true,
         lockedAt: true,
-        lockedBy: true
-    }
-});
+        lockedBy: true,
+      },
+    });
     expect(staleResult).toEqual({
       kind: 'CONSUMED',
       eventId: firstEventId,
@@ -338,16 +343,16 @@ describe('RepositoryOutboxConsumerService integration', () => {
     });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId },
-    select: {
-        id: true,
-        currentEventId: true,
-        status: true,
-        attemptCount: true,
-        lockedAt: true,
-        lockedBy: true
-    }
-}),
+        where: { teamId },
+        select: {
+          id: true,
+          currentEventId: true,
+          status: true,
+          attemptCount: true,
+          lockedAt: true,
+          lockedBy: true,
+        },
+      }),
     ).resolves.toEqual(before);
   });
 
@@ -392,23 +397,23 @@ describe('RepositoryOutboxConsumerService integration', () => {
     const teamId = APPLICATION_IDS[5];
     await createApprovedApplication(teamId);
     await prisma.repositoryProvisionJob.create({
-    data: {
+      data: {
         teamId,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         attemptCount: 3,
         nextAttemptAt: new Date(NOW.getTime() + 60 * 60000),
         lastErrorCode: 'PREVIOUS_FAILURE',
         lastErrorMessage: 'previous failure detail',
-        finishedAt: new Date(NOW.getTime() - 60000)
-    }
-});
+        finishedAt: new Date(NOW.getTime() - 60000),
+      },
+    });
     const eventId = await createAccessSyncEvent(teamId);
 
     const result = await consumer.consumeNext('worker-sync', NOW);
 
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     expect(result).toEqual({ kind: 'CONSUMED', eventId, jobId: job.id });
     expect(job).toMatchObject({
       status: RepositoryProvisionJobStatus.PENDING,
@@ -436,12 +441,12 @@ describe('RepositoryOutboxConsumerService integration', () => {
     );
 
     const jobs = await prisma.repositoryProvisionJob.findMany({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     expect(jobs).toHaveLength(1);
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     expect(first).toEqual({
       kind: 'CONSUMED',
       eventId: firstEventId,
@@ -463,22 +468,22 @@ describe('RepositoryOutboxConsumerService integration', () => {
     await createApprovedApplication(teamId);
     const lockedAt = new Date(NOW.getTime() - 30_000);
     await prisma.repositoryProvisionJob.create({
-    data: {
+      data: {
         teamId,
         status: RepositoryProvisionJobStatus.PROCESSING,
         attemptCount: 2,
         nextAttemptAt: new Date(NOW.getTime() + 60000),
         lockedAt,
-        lockedBy: 'provision-worker'
-    }
-});
+        lockedBy: 'provision-worker',
+      },
+    });
     const eventId = await createAccessSyncEvent(teamId);
 
     const result = await consumer.consumeNext('worker-lease', NOW);
 
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     expect(result).toEqual({ kind: 'CONSUMED', eventId, jobId: job.id });
     expect(job).toMatchObject({
       status: RepositoryProvisionJobStatus.PROCESSING,

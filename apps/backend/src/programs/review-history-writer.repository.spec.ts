@@ -14,7 +14,11 @@ type CreatedRow = {
   readonly event: TeamHistoryEvent;
   readonly programId: string;
   readonly source: string;
-  readonly data: { readonly schemaVersion: number; readonly revision: number; readonly rejectionReason: string | null };
+  readonly data: {
+    readonly schemaVersion: number;
+    readonly revision: number;
+    readonly rejectionReason: string | null;
+  };
   readonly actorId: string;
   readonly occurredAt: Date;
 };
@@ -30,7 +34,9 @@ function fakeClient(options: { readonly revision: number | null }) {
     return Promise.resolve({ revision: stored, programId: 'program-1' });
   });
   const findUnique = jest.fn(() =>
-    Promise.resolve(stored === null ? null : { revision: stored, programId: 'program-1' }),
+    Promise.resolve(
+      stored === null ? null : { revision: stored, programId: 'program-1' },
+    ),
   );
   const create = jest.fn((args: { readonly data: CreatedRow }) => {
     created.push(args.data);

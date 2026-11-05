@@ -66,9 +66,7 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
     return this.store.upsertProvisionJob(teamId, now);
   }
 
-  findProvisionJob(
-    teamId: string,
-  ): Promise<ProvisionJobReference | null> {
+  findProvisionJob(teamId: string): Promise<ProvisionJobReference | null> {
     return this.store.findProvisionJob(teamId);
   }
 

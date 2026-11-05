@@ -180,9 +180,9 @@ export class TeamInvitationsRepository {
 
   async findUserIdByGithubId(githubId: bigint): Promise<string | null> {
     const user = await this.prisma.user.findUnique({
-    where: { githubId },
-    select: { id: true }
-});
+      where: { githubId },
+      select: { id: true },
+    });
     return user?.id ?? null;
   }
 
@@ -235,14 +235,14 @@ export class TeamInvitationsRepository {
 
   async findTeamContext(teamId: string): Promise<TeamContextRecord | null> {
     const team = await this.prisma.team.findUnique({
-    where: { id: teamId },
-    select: {
+      where: { id: teamId },
+      select: {
         id: true,
         programId: true,
         leaderId: true,
-        program: { select: { teamMaxSize: true } }
-    }
-});
+        program: { select: { teamMaxSize: true } },
+      },
+    });
     if (!team) return null;
     return {
       teamId: team.id,
@@ -254,30 +254,30 @@ export class TeamInvitationsRepository {
 
   async isTeamMember(teamId: string, userId: string): Promise<boolean> {
     const member = await this.prisma.teamMember.findUnique({
-    where: { teamId_userId: { teamId, userId } },
-    select: { userId: true }
-});
+      where: { teamId_userId: { teamId, userId } },
+      select: { userId: true },
+    });
     return member !== null;
   }
 
   findStaffAuthority(userId: string): Promise<StaffAuthorityRow | null> {
     return this.prisma.user.findUnique({
-    where: { id: userId },
-    select: {
+      where: { id: userId },
+      select: {
         accountStatus: true,
-        ...USER_AUTHORITY_SELECT
-    }
-});
+        ...USER_AUTHORITY_SELECT,
+      },
+    });
   }
 
   findInviteeAccount(userId: string): Promise<InviteeAccountRow | null> {
     return this.prisma.user.findUnique({
-    where: { id: userId },
-    select: {
+      where: { id: userId },
+      select: {
         accountStatus: true,
-        type: true
-    }
-});
+        type: true,
+      },
+    });
   }
 
   async searchCandidates(
@@ -296,9 +296,9 @@ export class TeamInvitationsRepository {
   async isApplicationProgramAvailable(programId: string): Promise<boolean> {
     return (
       (await this.prisma.program.findUnique({
-    where: { id: programId, lifecycle: 'PUBLISHED' },
-    select: { id: true }
-})) !== null
+        where: { id: programId, lifecycle: 'PUBLISHED' },
+        select: { id: true },
+      })) !== null
     );
   }
 
@@ -311,17 +311,17 @@ export class TeamInvitationsRepository {
         await lockTeamRow(tx, input.teamId);
 
         const team = await tx.team.findUnique({
-    where: {
-        id: input.teamId,
-        program: { lifecycle: { not: 'DELETED' } }
-    },
-    select: {
-        id: true,
-        programId: true,
-        leaderId: true,
-        program: { select: { teamMaxSize: true } }
-    }
-});
+          where: {
+            id: input.teamId,
+            program: { lifecycle: { not: 'DELETED' } },
+          },
+          select: {
+            id: true,
+            programId: true,
+            leaderId: true,
+            program: { select: { teamMaxSize: true } },
+          },
+        });
         if (!team) return { kind: 'team-not-found' };
 
         const actorIsStaff = await isActiveStaffActor(tx, input.actorId);
@@ -330,32 +330,32 @@ export class TeamInvitationsRepository {
             return { kind: 'not-team-leader' };
           }
           const actorMembership = await tx.teamMember.findUnique({
-    where: {
-        teamId_userId: { teamId: team.id, userId: input.actorId },
-        user: {
-            ...STUDENT_MEMBER_WHERE,
-            accountStatus: AccountStatus.ACTIVE
-        }
-    },
-    select: { userId: true }
-});
+            where: {
+              teamId_userId: { teamId: team.id, userId: input.actorId },
+              user: {
+                ...STUDENT_MEMBER_WHERE,
+                accountStatus: AccountStatus.ACTIVE,
+              },
+            },
+            select: { userId: true },
+          });
           if (!actorMembership) return { kind: 'not-team-member' };
         }
 
         const inviteeMembership = await tx.teamMember.findUnique({
-    where: {
-        programId_userId: {
-            programId: team.programId,
-            userId: input.inviteeId
-        }
-    },
-    select: { userId: true }
-});
+          where: {
+            programId_userId: {
+              programId: team.programId,
+              userId: input.inviteeId,
+            },
+          },
+          select: { userId: true },
+        });
         if (inviteeMembership) return { kind: 'invitee-already-in-team' };
 
         const memberCount = await tx.teamMember.count({
-    where: { teamId: team.id }
-});
+          where: { teamId: team.id },
+        });
         if (memberCount >= team.program.teamMaxSize) {
           return { kind: 'team-full' };
         }
@@ -484,25 +484,25 @@ export class TeamInvitationsRepository {
     excludeUserId: string,
   ): Promise<InvitationCandidateRecord[]> {
     const users = await prisma.user.findMany({
-    where: {
+      where: {
         id: { not: excludeUserId },
         ...STUDENT_MEMBER_WHERE,
         accountStatus: AccountStatus.ACTIVE,
         OR: [
-            { nickname: { contains: query, mode: 'insensitive' } },
-            this.platformRepository.userProfileNameWhere(query)
+          { nickname: { contains: query, mode: 'insensitive' } },
+          this.platformRepository.userProfileNameWhere(query),
         ],
-        teamMemberships: { none: { programId } }
-    },
-    select: {
+        teamMemberships: { none: { programId } },
+      },
+      select: {
         id: true,
         nickname: true,
         ...USER_PROFILE_NAME_SELECT,
-        avatarUrl: true
-    },
-    orderBy: { nickname: 'asc' },
-    take: 20
-});
+        avatarUrl: true,
+      },
+      orderBy: { nickname: 'asc' },
+      take: 20,
+    });
     return users.map((user) => ({
       id: user.id,
       nickname: user.nickname,
@@ -561,13 +561,13 @@ export class TeamInvitationsRepository {
           Prisma.sql`SELECT "id" FROM "User" WHERE "id" = ${inviteeId} FOR UPDATE`,
         );
         const invitee = await tx.user.findUnique({
-    where: { id: inviteeId },
-    select: {
-        id: true,
-        accountStatus: true,
-        type: true
-    }
-});
+          where: { id: inviteeId },
+          select: {
+            id: true,
+            accountStatus: true,
+            type: true,
+          },
+        });
         if (
           !invitee ||
           invitee.type !== UserType.STUDENT ||
@@ -577,9 +577,9 @@ export class TeamInvitationsRepository {
         }
 
         const existingMembership = await tx.teamMember.findUnique({
-    where: { programId_userId: { programId, userId: inviteeId } },
-    select: { userId: true }
-});
+          where: { programId_userId: { programId, userId: inviteeId } },
+          select: { userId: true },
+        });
         if (existingMembership) return { kind: 'already-in-team' };
         const maxSize = invitation.team.program.teamMaxSize;
         const memberCount = await tx.teamMember.count({ where: { teamId } });
@@ -598,8 +598,8 @@ export class TeamInvitationsRepository {
         );
 
         await tx.teamMember.create({
-    data: { teamId, programId, userId: inviteeId }
-});
+          data: { teamId, programId, userId: inviteeId },
+        });
 
         const otherInvitations = await tx.teamInvitation.findMany({
           where: {
@@ -668,10 +668,10 @@ async function isActiveStaffActor(
   const user = await db.user.findUnique({
     where: { id: userId },
     select: {
-        ...USER_AUTHORITY_SELECT,
-        accountStatus: true
-    }
-});
+      ...USER_AUTHORITY_SELECT,
+      accountStatus: true,
+    },
+  });
   if (user?.accountStatus !== AccountStatus.ACTIVE) return false;
   return (
     user.type === 'STAFF' &&
@@ -682,10 +682,7 @@ async function isActiveStaffActor(
   );
 }
 
-type AccessSyncTx = Pick<
-  Prisma.TransactionClient,
-  'team' | 'outboxEvent'
->;
+type AccessSyncTx = Pick<Prisma.TransactionClient, 'team' | 'outboxEvent'>;
 
 async function enqueueRepositoryAccessSyncEvents(
   platformRepository: PlatformRepository,
@@ -695,15 +692,12 @@ async function enqueueRepositoryAccessSyncEvents(
 ): Promise<void> {
   const applications = await tx.team.findMany({
     where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
-    select: { id: true }
-});
+    select: { id: true },
+  });
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      platformRepository.repositoryAccessSyncEventData(
-        application.id,
-        now,
-      ),
+      platformRepository.repositoryAccessSyncEventData(application.id, now),
     ),
     skipDuplicates: true,
   });

@@ -22,8 +22,8 @@ assertIsolatedIntegrationDatabase({
 
 it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 랭킹과 월별 값은 보존된다', async () => {
   const originalUser = await prisma.user.findUniqueOrThrow({
-    where: { githubId }
-});
+    where: { githubId },
+  });
   const actorLogin = `${teamId}-ranking-actor`;
   const peerGithubId = githubId + 900_000n;
   const staffGithubId = githubId + 900_001n;
@@ -31,28 +31,28 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
   const observedAt = new Date('2026-08-02T00:00:00Z');
   await prisma.user.update({
     where: { githubId },
-    data: { nickname: actorLogin }
-});
+    data: { nickname: actorLogin },
+  });
   await prisma.user.createMany({
     data: [
-        {
-            githubId: peerGithubId,
-            nickname: `${teamId}-ranking-peer`,
-            type: 'STUDENT'
-        },
-        {
-            githubId: staffGithubId,
-            nickname: `${teamId}-ranking-staff`,
-            type: 'STAFF',
-            approvalStatus: 'APPROVED',
-            name: 'Synthetic staff',
-            department: 'Synthetic',
-            departmentType: 'PROGRAM_OFFICE',
-            profileCreatedAt: observedAt,
-            profileUpdatedAt: observedAt
-        }
-    ]
-});
+      {
+        githubId: peerGithubId,
+        nickname: `${teamId}-ranking-peer`,
+        type: 'STUDENT',
+      },
+      {
+        githubId: staffGithubId,
+        nickname: `${teamId}-ranking-staff`,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic',
+        departmentType: 'PROGRAM_OFFICE',
+        profileCreatedAt: observedAt,
+        profileUpdatedAt: observedAt,
+      },
+    ],
+  });
   await prisma.githubUserActivityHistory.createMany({
     data: [
       {
@@ -205,11 +205,11 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       where: { githubId: { in: rankingIds } },
     });
     await prisma.user.deleteMany({
-    where: { githubId: { in: [peerGithubId, staffGithubId] } }
-});
+      where: { githubId: { in: [peerGithubId, staffGithubId] } },
+    });
     await prisma.user.update({
-    where: { githubId },
-    data: { nickname: originalUser.nickname }
-});
+      where: { githubId },
+      data: { nickname: originalUser.nickname },
+    });
   }
 });

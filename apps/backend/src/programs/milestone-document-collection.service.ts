@@ -201,8 +201,7 @@ export class MilestoneDocumentCollectionService {
       application,
       cells: documents.map(
         (document) =>
-          cellIndex.get(cellKey(application.teamId, document.id)) ??
-          null,
+          cellIndex.get(cellKey(application.teamId, document.id)) ?? null,
       ),
     }));
 
@@ -339,9 +338,8 @@ export class MilestoneDocumentCollectionService {
           deliveryStatus: row.deliveryStatus,
           cells: documents.map(
             (document) =>
-              detailByCell.get(
-                `${row.application.teamId}::${document.id}`,
-              ) ?? null,
+              detailByCell.get(`${row.application.teamId}::${document.id}`) ??
+              null,
           ),
         })),
       };

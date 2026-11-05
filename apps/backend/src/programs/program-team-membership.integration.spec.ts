@@ -1,5 +1,4 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -15,9 +14,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
 import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -77,11 +74,28 @@ const repository = new TeamRepository(
   new PlatformRepository(),
   new TeamHistoryRepository(),
 );
-const auditLog = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogReadService(new AuditLogMetadataService()),
+
+const service = new TeamMembershipService(
+  repository,
+  new ProgramTeamDeletionRepository(
+    new TeamHistoryRepository(),
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
 );
-const service = new TeamMembershipService(repository, new ProgramTeamDeletionRepository(new TeamHistoryRepository(), prisma, new TeamDeletionScopeRepository(), new PrismaSerializationRetryRepository()), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
 const invitations = new TeamInvitationsRepository(
   new TeamHistoryRepository(),
   prisma,
@@ -97,15 +111,15 @@ interface MemberSeed {
 async function cleanupTeamScope(): Promise<void> {
   await prisma.teamHistory.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.submissionFile.deleteMany({
-    where: { uploaderId: { startsWith: TEST_PREFIX } }
-});
+    where: { uploaderId: { startsWith: TEST_PREFIX } },
+  });
 
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
-    where: { submission: { team: { programId: PROGRAM_ID } } }
-});
+    where: { submission: { team: { programId: PROGRAM_ID } } },
+  });
   await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { team: { programId: PROGRAM_ID } }
-});
+    where: { team: { programId: PROGRAM_ID } },
+  });
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -117,34 +131,39 @@ async function seedDurableFixturesOnce(): Promise<void> {
     const existing = await prisma.user.count({ where: { id: userId } });
     if (existing > 0) continue;
     await prisma.user.create({
-    data: canonicalUserCreateFromLabel(userId === STAFF_ID ? 'STAFF' : 'STUDENT', {
-        id: userId,
-        githubId,
-        nickname: `synthetic-${userId.slice(TEST_PREFIX.length)}`,
-        name: 'Synthetic user',
-    })
-});
+      data: canonicalUserCreateFromLabel(
+        userId === STAFF_ID ? 'STAFF' : 'STUDENT',
+        {
+          id: userId,
+          githubId,
+          nickname: `synthetic-${userId.slice(TEST_PREFIX.length)}`,
+          name: 'Synthetic user',
+        },
+      ),
+    });
   }
   await prisma.program.upsert({
     where: { id: PROGRAM_ID },
     update: {},
     create: {
-        startAt: new Date('2026-08-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000),
-        id: PROGRAM_ID,
-        name: 'Team membership program',
-        organizer: 'Synthetic organizer',
-        trackType: ProgramTrackType.CURRICULAR,
-        category: ProgramCategory.BASIC,
-        applicationTemplateKey: 'capstone-v1',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
-        applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
-        description: 'Synthetic team membership fixture',
-        teamMinSize: 1,
-        teamMaxSize: 4
-    }
-});
+      startAt: new Date('2026-08-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000,
+      ),
+      id: PROGRAM_ID,
+      name: 'Team membership program',
+      organizer: 'Synthetic organizer',
+      trackType: ProgramTrackType.CURRICULAR,
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'capstone-v1',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
+      description: 'Synthetic team membership fixture',
+      teamMinSize: 1,
+      teamMaxSize: 4,
+    },
+  });
 
   await prisma.milestone.upsert({
     where: { id: MILESTONE_ID },
@@ -178,24 +197,24 @@ async function seedTeam(
 ): Promise<void> {
   await prisma.team.create({
     data: {
-        id: teamId,
-        programId: PROGRAM_ID,
-        name: `Team ${teamId}`,
-        leaderId,
-        applicantId: leaderId,
-        answers: { title: `Team ${teamId}` },
-        applicationTemplateVersion: 1
-    }
-});
+      id: teamId,
+      programId: PROGRAM_ID,
+      name: `Team ${teamId}`,
+      leaderId,
+      applicantId: leaderId,
+      answers: { title: `Team ${teamId}` },
+      applicationTemplateVersion: 1,
+    },
+  });
   for (const member of members) {
     await prisma.teamMember.create({
-    data: {
+      data: {
         teamId,
         programId: PROGRAM_ID,
         userId: member.userId,
-        createdAt: member.createdAt
-    }
-});
+        createdAt: member.createdAt,
+      },
+    });
   }
 }
 
@@ -206,14 +225,14 @@ async function seedApplication(
   const application = await prisma.team.update({
     where: { id: teamId },
     data: {
-        programId: PROGRAM_ID,
-        applicantId,
-        answers: { synthetic: true },
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.SUBMITTED
+      programId: PROGRAM_ID,
+      applicantId,
+      answers: { synthetic: true },
+      applicationTemplateVersion: 1,
+      status: ApplicationStatus.SUBMITTED,
     },
-    select: { id: true }
-});
+    select: { id: true },
+  });
   return application.id;
 }
 
@@ -231,40 +250,40 @@ async function seedSubmittedDocument(
   const historyId = `${teamId}:history`;
   await prisma.milestoneDocumentSubmission.create({
     data: {
-        id: submissionId,
-        milestoneDocumentId: MILESTONE_DOCUMENT_ID,
-        teamId,
-        submittedById: submitterId,
-        revision: 1,
-        status: SubmissionStatus.SUBMITTED,
-        histories: {
-            create: {
-                id: historyId,
-                event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                revision: 1,
-                actorId: submitterId
-            }
-        }
-    }
-});
+      id: submissionId,
+      milestoneDocumentId: MILESTONE_DOCUMENT_ID,
+      teamId,
+      submittedById: submitterId,
+      revision: 1,
+      status: SubmissionStatus.SUBMITTED,
+      histories: {
+        create: {
+          id: historyId,
+          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          revision: 1,
+          actorId: submitterId,
+        },
+      },
+    },
+  });
   const file = await prisma.submissionFile.create({
     data: {
-        id: `${teamId}:file`,
-        uploaderId: submitterId,
-        teamId,
-        milestoneId: MILESTONE_ID,
-        milestoneDocumentSubmissionId: submissionId,
-        milestoneDocumentSubmissionHistoryId: historyId,
-        lifecycle: SubmissionFileLifecycle.ATTACHED,
-        pendingExpiresAt: null,
-        expiresAt: new Date('2099-12-31T00:00:00.000Z'),
-        storageKey: `${teamId}/synthetic.pdf`,
-        originalFileName: 'synthetic.pdf',
-        mimeType: 'application/pdf',
-        sizeBytes: 1024
+      id: `${teamId}:file`,
+      uploaderId: submitterId,
+      teamId,
+      milestoneId: MILESTONE_ID,
+      milestoneDocumentSubmissionId: submissionId,
+      milestoneDocumentSubmissionHistoryId: historyId,
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      pendingExpiresAt: null,
+      expiresAt: new Date('2099-12-31T00:00:00.000Z'),
+      storageKey: `${teamId}/synthetic.pdf`,
+      originalFileName: 'synthetic.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 1024,
     },
-    select: { id: true }
-});
+    select: { id: true },
+  });
   return { submissionId, historyId, fileId: file.id };
 }
 
@@ -288,8 +307,8 @@ async function seedPendingInvitation(
 async function rosterOf(teamId: string): Promise<readonly string[]> {
   const members = await prisma.teamMember.findMany({
     where: { teamId },
-    select: { userId: true }
-});
+    select: { userId: true },
+  });
   return members.map((member) => member.userId).sort();
 }
 
@@ -308,8 +327,8 @@ async function membershipAuditRows(teamId: string) {
 async function expectLeaderInsideMembership(teamId: string): Promise<void> {
   const team = await prisma.team.findUnique({
     where: { id: teamId },
-    select: { leaderId: true }
-});
+    select: { leaderId: true },
+  });
   if (team === null) return;
   const roster = await rosterOf(teamId);
   expect(roster.length).toBeGreaterThan(0);
@@ -353,9 +372,9 @@ describe('program team membership transactions integration', () => {
 
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: MEMBER_A_ID });
     expect(await rosterOf(teamId)).toEqual([MEMBER_A_ID, MEMBER_B_ID].sort());
     await expectLeaderInsideMembership(teamId);
@@ -382,9 +401,9 @@ describe('program team membership transactions integration', () => {
 
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: MEMBER_B_ID });
     await expectLeaderInsideMembership(teamId);
   });
@@ -407,15 +426,15 @@ describe('program team membership transactions integration', () => {
     expect(await rosterOf(teamId)).toEqual([LEADER_ID]);
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: LEADER_ID });
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { id: true, applicantId: true, status: true }
-}),
+        where: { id: teamId },
+        select: { id: true, applicantId: true, status: true },
+      }),
     ).resolves.toEqual({
       teamId,
       applicantId: LEADER_ID,
@@ -440,16 +459,16 @@ describe('program team membership transactions integration', () => {
 
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: MEMBER_A_ID });
     expect(await rosterOf(teamId)).toEqual([MEMBER_A_ID]);
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { applicantId: true, id: true }
-}),
+        where: { id: teamId },
+        select: { applicantId: true, id: true },
+      }),
     ).resolves.toEqual({ applicantId: LEADER_ID, teamId });
 
     const audits = await membershipAuditRows(teamId);
@@ -482,16 +501,16 @@ describe('program team membership transactions integration', () => {
     expect(await rosterOf(teamId)).toEqual([LEADER_ID]);
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { id: true, applicantId: true }
-}),
+        where: { id: teamId },
+        select: { id: true, applicantId: true },
+      }),
     ).resolves.toEqual({ teamId, applicantId: LEADER_ID });
 
     await expect(
       prisma.milestoneDocumentSubmission.findUniqueOrThrow({
-    where: { id: submitted.submissionId },
-    select: { teamId: true, submittedById: true, status: true }
-}),
+        where: { id: submitted.submissionId },
+        select: { teamId: true, submittedById: true, status: true },
+      }),
     ).resolves.toEqual({
       teamId,
       submittedById: MEMBER_A_ID,
@@ -499,13 +518,13 @@ describe('program team membership transactions integration', () => {
     });
     await expect(
       prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
-    where: { id: submitted.historyId },
-    select: {
-        milestoneDocumentSubmissionId: true,
-        actorId: true,
-        event: true
-    }
-}),
+        where: { id: submitted.historyId },
+        select: {
+          milestoneDocumentSubmissionId: true,
+          actorId: true,
+          event: true,
+        },
+      }),
     ).resolves.toEqual({
       milestoneDocumentSubmissionId: submitted.submissionId,
       actorId: MEMBER_A_ID,
@@ -513,16 +532,16 @@ describe('program team membership transactions integration', () => {
     });
     await expect(
       prisma.submissionFile.findUniqueOrThrow({
-    where: { id: submitted.fileId },
-    select: {
-        teamId: true,
-        uploaderId: true,
-        lifecycle: true,
-        milestoneDocumentSubmissionId: true,
-        milestoneDocumentSubmissionHistoryId: true,
-        deletedAt: true
-    }
-}),
+        where: { id: submitted.fileId },
+        select: {
+          teamId: true,
+          uploaderId: true,
+          lifecycle: true,
+          milestoneDocumentSubmissionId: true,
+          milestoneDocumentSubmissionHistoryId: true,
+          deletedAt: true,
+        },
+      }),
     ).resolves.toEqual({
       teamId,
       uploaderId: MEMBER_A_ID,
@@ -564,18 +583,16 @@ describe('program team membership transactions integration', () => {
 
     expect(await rosterOf(teamId)).toEqual([LEADER_ID]);
     await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(1);
-    await expect(
-      prisma.team.count({ where: { id: teamId } }),
-    ).resolves.toBe(1);
+    await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(1);
     await expect(
       prisma.milestoneDocumentSubmission.count({
-    where: { id: submitted.submissionId }
-}),
+        where: { id: submitted.submissionId },
+      }),
     ).resolves.toBe(1);
     await expect(
       prisma.milestoneDocumentSubmissionHistory.count({
-    where: { id: submitted.historyId }
-}),
+        where: { id: submitted.historyId },
+      }),
     ).resolves.toBe(1);
     await expect(
       prisma.submissionFile.count({ where: { id: submitted.fileId } }),
@@ -772,9 +789,9 @@ describe('program team membership transactions integration', () => {
 
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: LEADER_ID });
     expect(await rosterOf(teamId)).toEqual([LEADER_ID, MEMBER_A_ID].sort());
     expect(await membershipAuditRows(teamId)).toHaveLength(0);
@@ -834,9 +851,9 @@ describe('program team membership transactions integration', () => {
     expect(await rosterOf(teamId)).toEqual([MEMBER_B_ID]);
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: MEMBER_B_ID });
     await expectLeaderInsideMembership(teamId);
     expect(await membershipAuditRows(teamId)).toHaveLength(2);
@@ -881,9 +898,9 @@ describe('program team membership transactions integration', () => {
     await expectLeaderInsideMembership(teamId);
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
     ).resolves.toEqual({ leaderId: LEADER_ID });
     await expect(
       prisma.teamInvitation.findUnique({
@@ -898,13 +915,11 @@ describe('program team membership transactions integration', () => {
       }),
     ).resolves.toEqual([{ event: 'INVITATION_ACCEPTED', actorId: INVITEE_ID }]);
 
-    await expect(
-      prisma.team.count({ where: { id: teamId } }),
-    ).resolves.toBe(1);
+    await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(1);
     await expect(
       prisma.milestoneDocumentSubmission.count({
-    where: { id: submitted.submissionId }
-}),
+        where: { id: submitted.submissionId },
+      }),
     ).resolves.toBe(1);
     await expect(
       prisma.submissionFile.count({ where: { id: submitted.fileId } }),
@@ -937,9 +952,9 @@ describe('program team membership transactions integration', () => {
       ).resolves.toBe(1);
       await expect(
         prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
       ).resolves.toEqual({ leaderId: LEADER_ID });
     });
 
@@ -969,9 +984,9 @@ describe('program team membership transactions integration', () => {
 
       await expect(
         prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
       ).resolves.toEqual({ leaderId: MEMBER_A_ID });
 
       await expect(
@@ -1052,9 +1067,9 @@ describe('program team membership transactions integration', () => {
 
       await expect(
         prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
       ).resolves.toEqual({ leaderId: MEMBER_A_ID });
       await expect(
         prisma.teamMember.count({ where: { teamId } }),
@@ -1081,9 +1096,9 @@ describe('program team membership transactions integration', () => {
 
       await expect(
         prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
       ).resolves.toEqual({ leaderId: LEADER_ID });
     });
 
@@ -1107,9 +1122,9 @@ describe('program team membership transactions integration', () => {
 
       await expect(
         prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    select: { leaderId: true }
-}),
+          where: { id: teamId },
+          select: { leaderId: true },
+        }),
       ).resolves.toEqual({ leaderId: LEADER_ID });
     });
 

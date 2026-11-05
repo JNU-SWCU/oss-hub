@@ -33,7 +33,17 @@ const audit = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogReadService(new AuditLogMetadataService()),
 );
-const service = new TeamApplicationService(new ApplicationsRepository(prisma, new TeamHistoryRepository(), new RepositoryProvisionGenerationRepository(), new PlatformRepository()), new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+const service = new TeamApplicationService(
+  new ApplicationsRepository(
+    prisma,
+    new TeamHistoryRepository(),
+    new RepositoryProvisionGenerationRepository(),
+    new PlatformRepository(),
+  ),
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
+);
 const invitations = new TeamInvitationsRepository(
   new TeamHistoryRepository(),
   prisma,

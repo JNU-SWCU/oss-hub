@@ -80,9 +80,7 @@ function rowFor(
   rows: readonly MatrixRowResult[],
   teamId: string,
 ): MatrixRowResult {
-  const row = rows.find(
-    (candidate) => candidate.teamId === teamId,
-  );
+  const row = rows.find((candidate) => candidate.teamId === teamId);
   if (!row) throw new Error(`application 행 누락: ${teamId}`);
   return row;
 }
@@ -147,86 +145,86 @@ describe('SubmissionMatrixService integration', () => {
         },
       ].map((data) =>
         prisma.user.upsert({
-    where: { id: data.id },
-    update: {},
-    create: data
-}),
+          where: { id: data.id },
+          update: {},
+          create: data,
+        }),
       ),
     );
     await prisma.user.update({
-    where: { id: ROWHOLDER_ID },
-    data: {
+      where: { id: ROWHOLDER_ID },
+      data: {
         name: 'Synthetic Nameholder',
         studentId: '261097',
         department: '합성 학과',
         type: MemberKind.STUDENT,
         departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z')
-    }
-});
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    });
     await prisma.user.update({
-    where: { id: PENDING_STAFF_ID },
-    data: {
+      where: { id: PENDING_STAFF_ID },
+      data: {
         type: UserType.STAFF,
         approvalStatus: ApprovalStatus.PENDING,
         approvalRequestId: PENDING_REQUEST_ID,
-        approvalRequestedAt: new Date('2026-01-01T00:00:00.000Z')
-    }
-});
+        approvalRequestedAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    });
     const unsubmittedTeamId = UNSUBMITTED_TEAM_ID;
     await prisma.team.upsert({
-    where: { id: unsubmittedTeamId },
-    update: { status: ApplicationStatus.APPROVED },
-    create: {
+      where: { id: unsubmittedTeamId },
+      update: { status: ApplicationStatus.APPROVED },
+      create: {
         id: unsubmittedTeamId,
         programId: PROGRAM_ID,
         name: UNSUBMITTED_TEAM_ID,
         leaderId: ROWHOLDER_ID,
         applicantId: ROWHOLDER_ID,
         answers: { title: UNSUBMITTED_TEAM_ID },
-        applicationTemplateVersion: 1, status: ApplicationStatus.APPROVED
-    }
-});
+        applicationTemplateVersion: 1,
+        status: ApplicationStatus.APPROVED,
+      },
+    });
     await prisma.teamMember.upsert({
-    where: {
+      where: {
         teamId_userId: {
-            teamId: unsubmittedTeamId,
-            userId: ROWHOLDER_ID
-        }
-    },
-    update: {},
-    create: {
+          teamId: unsubmittedTeamId,
+          userId: ROWHOLDER_ID,
+        },
+      },
+      update: {},
+      create: {
         teamId: unsubmittedTeamId,
         programId: PROGRAM_ID,
-        userId: ROWHOLDER_ID
-    }
-});
-
+        userId: ROWHOLDER_ID,
+      },
+    });
   });
 
   afterAll(async () => {
     await prisma.teamMember.deleteMany({
-    where: { teamId: UNSUBMITTED_TEAM_ID }
-});
+      where: { teamId: UNSUBMITTED_TEAM_ID },
+    });
     await prisma.team.deleteMany({
-    where: { id: UNSUBMITTED_TEAM_ID }
-});
+      where: { id: UNSUBMITTED_TEAM_ID },
+    });
     await prisma.admin.deleteMany({ where: { userId: ADMIN_VIEWER_ID } });
     await prisma.user.deleteMany({
-    where: {
+      where: {
         id: {
-            in: [
-                STAFF_VIEWER_ID,
-                ADMIN_VIEWER_ID,
-                STUDENT_VIEWER_ID,
-                PENDING_STAFF_ID,
-                DEACTIVATED_STAFF_ID,
-                ROWHOLDER_ID
-            ]
-        }
-    }
-});
+          in: [
+            STAFF_VIEWER_ID,
+            ADMIN_VIEWER_ID,
+            STUDENT_VIEWER_ID,
+            PENDING_STAFF_ID,
+            DEACTIVATED_STAFF_ID,
+            ROWHOLDER_ID,
+          ],
+        },
+      },
+    });
     await Promise.all([prisma.$disconnect(), seedPrisma.$disconnect()]);
   });
 
@@ -354,9 +352,7 @@ describe('SubmissionMatrixService integration', () => {
     async (_, q, expectedIds) => {
       const matrix = await service.matrix(PROGRAM_ID, query({ q }));
 
-      expect(matrix.rows.map((row) => row.teamId)).toEqual([
-        ...expectedIds,
-      ]);
+      expect(matrix.rows.map((row) => row.teamId)).toEqual([...expectedIds]);
       expect(matrix.total).toBe(expectedIds.length);
     },
   );

@@ -9,10 +9,7 @@ const PURGE_RELATIONS = [
   {
     id: 'program-outbox-events',
     operation: 'DELETE',
-    covers: [
-      'logical:Program->OutboxEvent',
-      'logical:Team->OutboxEvent',
-    ],
+    covers: ['logical:Program->OutboxEvent', 'logical:Team->OutboxEvent'],
   },
   {
     id: 'program-notifications',
@@ -37,9 +34,7 @@ const PURGE_RELATIONS = [
   {
     id: 'github-repositories',
     operation: 'DELETE',
-    covers: [
-      'Team->GithubRepository',
-    ],
+    covers: ['Team->GithubRepository'],
   },
   {
     id: 'repository-provision-jobs',

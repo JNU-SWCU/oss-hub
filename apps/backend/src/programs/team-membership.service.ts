@@ -1,18 +1,51 @@
-import { BadRequestException } from "@nestjs/common";
-import { Injectable } from "@nestjs/common";
-import { type TeamActivityView, type RepositoryUrlHistoryCursor, type TeamApplicationView, type TeamRepositoryProvisioningSafeErrorClass, type RepositoryUrlHistoryRows, type RepositoryUrlHistoryPage, type DeletedTeamView, type ProgramTeamView, type RenamedTeamView, type StaffTeamDetailView, type StaffTeamView, type RepositoryUrlHistoryRow, type RepositoryUrlHistoryView, type TeamRepositoryContributionsRow, type TeamRepositoryContributionsView } from "./program-team-repository-evidence.repository";
-import { ApplicationStatus, OutboxEventStatus, RepositoryProvisionJobStatus } from "@prisma/client";
-import { DomainException } from "../platform/error-code.error";
-import { TeamRepository, type StaffTeamDetailRecord, type StaffTeamRecord, type TeamDetailRecord, type TeamMembershipAuditEvent, type TeamMembershipAuditStore, type TeamRenameAuditEvent, type TeamApplicationRow } from "./team.repository";
-import { ProgramTeamDeletionRepository, type TeamDeletionNotificationEvent, type TeamDeletionNotificationStore } from "./team.repository";
-import { TEAMS_ERROR_CODES, TeamsErrorCode } from "./teams-error-code.error";
-import type { TeamDeletionScopeCounts } from "./team-deletion-scope.config";
-import { AuditLogMetadataService } from "../platform/audit-log-metadata.service";
-import { InvalidRepositoryUrlHistoryError } from "./program-team-repository-evidence.error";
-import { RepositoryPublishService } from "../github/repository-publish.service";
-import { RepositoryUrlService } from "../github/repository-url.service";
-import { MilestoneCompletionService } from "./milestone-completion.service";
-import { StudentRepositoryUrlService } from "./team-application.service";
+import { BadRequestException } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import {
+  type TeamActivityView,
+  type RepositoryUrlHistoryCursor,
+  type TeamApplicationView,
+  type TeamRepositoryProvisioningSafeErrorClass,
+  type RepositoryUrlHistoryRows,
+  type RepositoryUrlHistoryPage,
+  type DeletedTeamView,
+  type ProgramTeamView,
+  type RenamedTeamView,
+  type StaffTeamDetailView,
+  type StaffTeamView,
+  type RepositoryUrlHistoryRow,
+  type RepositoryUrlHistoryView,
+  type TeamRepositoryContributionsRow,
+  type TeamRepositoryContributionsView,
+} from './program-team-repository-evidence.repository';
+import {
+  ApplicationStatus,
+  OutboxEventStatus,
+  RepositoryProvisionJobStatus,
+} from '@prisma/client';
+import { DomainException } from '../platform/error-code.error';
+import {
+  TeamRepository,
+  type StaffTeamDetailRecord,
+  type StaffTeamRecord,
+  type TeamDetailRecord,
+  type TeamMembershipAuditEvent,
+  type TeamMembershipAuditStore,
+  type TeamRenameAuditEvent,
+  type TeamApplicationRow,
+} from './team.repository';
+import {
+  ProgramTeamDeletionRepository,
+  type TeamDeletionNotificationEvent,
+  type TeamDeletionNotificationStore,
+} from './team.repository';
+import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
+import type { TeamDeletionScopeCounts } from './team-deletion-scope.config';
+import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { RepositoryUrlService } from '../github/repository-url.service';
+import { MilestoneCompletionService } from './milestone-completion.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 
@@ -110,9 +143,12 @@ export class TeamMembershipService {
     if (result === 'not-found') {
       throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
     }
-    if (result === 'last-member-with-application') throw this.error(TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION);
-    if (result === 'leader-transfer-required') throw this.error(TeamsErrorCode.LEADER_TRANSFER_REQUIRED);
-    if (result === 'team-has-activity') throw this.error(TeamsErrorCode.TEAM_HAS_ACTIVITY);
+    if (result === 'last-member-with-application')
+      throw this.error(TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION);
+    if (result === 'leader-transfer-required')
+      throw this.error(TeamsErrorCode.LEADER_TRANSFER_REQUIRED);
+    if (result === 'team-has-activity')
+      throw this.error(TeamsErrorCode.TEAM_HAS_ACTIVITY);
   }
 
   async removeMember(
@@ -200,18 +236,34 @@ export class TeamMembershipService {
     }
   }
 
-  async transferLeader(githubId: bigint, programId: string, targetUserId: string): Promise<void> {
+  async transferLeader(
+    githubId: bigint,
+    programId: string,
+    targetUserId: string,
+  ): Promise<void> {
     const actor = await this.requireStudent(githubId);
-    const team = await this.repository.findTeamDetailForUser(programId, actor.id);
+    const team = await this.repository.findTeamDetailForUser(
+      programId,
+      actor.id,
+    );
     if (!team) throw this.error(TeamsErrorCode.TEAM_NOT_FOUND);
-    if (team.leaderId !== actor.id) throw this.error(TeamsErrorCode.TEAM_LEADER_REQUIRED);
-    const result = await this.repository.transferLeader(programId, team.id, actor.id, targetUserId,
-      (store, event) => this.recordMembershipAudit(githubId, store, event));
+    if (team.leaderId !== actor.id)
+      throw this.error(TeamsErrorCode.TEAM_LEADER_REQUIRED);
+    const result = await this.repository.transferLeader(
+      programId,
+      team.id,
+      actor.id,
+      targetUserId,
+      (store, event) => this.recordMembershipAudit(githubId, store, event),
+    );
     switch (result) {
       case 'transferred':
-      case 'unchanged': return;
-      case 'forbidden': throw this.error(TeamsErrorCode.TEAM_LEADER_REQUIRED);
-      case 'not-found': throw this.error(TeamsErrorCode.TARGET_MEMBER_NOT_FOUND);
+      case 'unchanged':
+        return;
+      case 'forbidden':
+        throw this.error(TeamsErrorCode.TEAM_LEADER_REQUIRED);
+      case 'not-found':
+        throw this.error(TeamsErrorCode.TARGET_MEMBER_NOT_FOUND);
     }
   }
 
@@ -249,22 +301,56 @@ export class TeamMembershipService {
     store: TeamMembershipAuditStore,
     event: TeamRenameAuditEvent,
   ): Promise<void> {
-    const actor = await store.historyWriter.user.findUniqueOrThrow({ where: { githubId: actorGithubId }, select: { id: true } });
-    await store.historyWriter.teamHistory.create({ data: {
-      teamId: event.teamId, programId: store.programId, actorId: actor.id, event: 'RENAMED', source: 'APPLICATION',
-      data: { schemaVersion: 1, previousName: event.previousName, name: event.nextName },
-    } });
+    const actor = await store.historyWriter.user.findUniqueOrThrow({
+      where: { githubId: actorGithubId },
+      select: { id: true },
+    });
+    await store.historyWriter.teamHistory.create({
+      data: {
+        teamId: event.teamId,
+        programId: store.programId,
+        actorId: actor.id,
+        event: 'RENAMED',
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          previousName: event.previousName,
+          name: event.nextName,
+        },
+      },
+    });
   }
 
   private async recordMembershipAudit(
-    actorGithubId: bigint, store: TeamMembershipAuditStore, event: TeamMembershipAuditEvent,
+    actorGithubId: bigint,
+    store: TeamMembershipAuditStore,
+    event: TeamMembershipAuditEvent,
   ): Promise<void> {
-    const actor = await store.historyWriter.user.findUniqueOrThrow({ where: { githubId: actorGithubId }, select: { id: true } });
-    const events = { LEAVE: 'MEMBER_LEFT', REMOVE: 'MEMBER_REMOVED', TRANSFER_LEADER: 'LEADER_TRANSFERRED' } as const;
-    await store.historyWriter.teamHistory.create({ data: {
-      teamId: event.teamId, programId: store.programId, actorId: actor.id, event: events[event.operation], source: 'APPLICATION',
-      data: { schemaVersion: 1, name: event.teamName, removedUserId: event.removedUserId, previousLeaderId: event.previousLeaderId, nextLeaderId: event.nextLeaderId },
-    } });
+    const actor = await store.historyWriter.user.findUniqueOrThrow({
+      where: { githubId: actorGithubId },
+      select: { id: true },
+    });
+    const events = {
+      LEAVE: 'MEMBER_LEFT',
+      REMOVE: 'MEMBER_REMOVED',
+      TRANSFER_LEADER: 'LEADER_TRANSFERRED',
+    } as const;
+    await store.historyWriter.teamHistory.create({
+      data: {
+        teamId: event.teamId,
+        programId: store.programId,
+        actorId: actor.id,
+        event: events[event.operation],
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          name: event.teamName,
+          removedUserId: event.removedUserId,
+          previousLeaderId: event.previousLeaderId,
+          nextLeaderId: event.nextLeaderId,
+        },
+      },
+    });
   }
 
   async listForStaff(programId: string): Promise<StaffTeamView[]> {
@@ -544,10 +630,20 @@ export class TeamMembershipService {
     row: RepositoryUrlHistoryRow,
     scope: RepositoryUrlHistoryScope,
   ): Omit<RepositoryUrlHistoryView, 'id' | 'occurredAt'> {
-    const metadata = this.auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(row.metadata);
-    if (metadata?.programId !== scope.programId || metadata.teamId !== scope.teamId)
+    const metadata =
+      this.auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+        row.metadata,
+      );
+    if (
+      metadata?.programId !== scope.programId ||
+      metadata.teamId !== scope.teamId
+    )
       throw new InvalidRepositoryUrlHistoryError();
-    return { actorGithubLogin: metadata.actorGithubLogin, previousRepositoryUrl: metadata.before.repositoryUrl, newRepositoryUrl: metadata.after.repositoryUrl };
+    return {
+      actorGithubLogin: metadata.actorGithubLogin,
+      previousRepositoryUrl: metadata.before.repositoryUrl,
+      newRepositoryUrl: metadata.after.repositoryUrl,
+    };
   }
 
   private async requireTeamReader(
@@ -613,7 +709,10 @@ export class TeamMembershipService {
       isLeader,
       canInvite: isLeader,
       canRemoveMembers: isLeader && memberCount > 1,
-      canLeave: memberCount > 1 ? !isLeader : detail.status !== ApplicationStatus.APPROVED && !detail.hasActivity,
+      canLeave:
+        memberCount > 1
+          ? !isLeader
+          : detail.status !== ApplicationStatus.APPROVED && !detail.hasActivity,
       members: detail.members.map((member) => ({
         userId: member.userId,
         nickname: member.nickname,

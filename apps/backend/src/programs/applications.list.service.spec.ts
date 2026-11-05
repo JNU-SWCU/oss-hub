@@ -19,12 +19,8 @@ import {
 } from './team.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { TeamApplicationService } from './team-application.service';
-import type { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
-
-const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const PROGRAM_ID = 'synthetic-program';
 
@@ -48,7 +44,12 @@ const EMPTY_PAGE: ApplicationListPage = {
 
 function mapItem(source: ApplicationListSource | null | undefined) {
   return source
-    ? new TeamApplicationService(undefined as never, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService())['toApplicationListItem'](source.row, source.outbox, source.job)
+    ? new TeamApplicationService(
+        undefined as never,
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
+      )['toApplicationListItem'](source.row, source.outbox, source.job)
     : undefined;
 }
 
@@ -59,7 +60,12 @@ describe('TeamApplicationService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(null),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
 
     await expect(
       service.listForProgram(PROGRAM_ID, {
@@ -155,7 +161,12 @@ describe('TeamApplicationService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
     const query = {
       page: 2,
       pageSize: 10,
@@ -176,7 +187,12 @@ describe('TeamApplicationService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram: jest.fn().mockResolvedValue(EMPTY_PAGE),
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
 
     await expect(
       service.listForProgram(PROGRAM_ID, {
@@ -220,7 +236,8 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     lastErrorCode = null,
   }: ProjectionSource) => {
     const transaction = {
-      team: { findMany: jest.fn().mockResolvedValue([
+      team: {
+        findMany: jest.fn().mockResolvedValue([
           {
             id: 'app-1',
             status: applicationStatus,
@@ -231,7 +248,8 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
             answers: {},
             program: { repositoryProvisioningEnabled: enabled },
             applicant: { id: 'student-1', name: null, nickname: 'student' },
-            name: 'Synthetic team', _count: { members: 1 },
+            name: 'Synthetic team',
+            _count: { members: 1 },
           },
         ]),
         count: jest.fn().mockResolvedValue(1),
@@ -509,7 +527,8 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
           repository,
           program: { repositoryProvisioningEnabled: true },
           applicant: { id: 'student-1', name: null, nickname: 'student' },
-          name: '합성 팀', _count: { members: 2 },
+          name: '합성 팀',
+          _count: { members: 2 },
         },
       ]);
       const transaction = {

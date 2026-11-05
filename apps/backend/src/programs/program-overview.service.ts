@@ -208,10 +208,7 @@ export class ProgramOverviewService {
     ]);
     const allDocumentIds = catalog.flatMap((entry) => entry.documentIds);
     const submittedDocumentIds = teamId
-      ? await this.repository.findSubmittedDocumentIds(
-          teamId,
-          allDocumentIds,
-        )
+      ? await this.repository.findSubmittedDocumentIds(teamId, allDocumentIds)
       : new Set<string>();
     const { completed, total } = sumStudentDocuments(
       catalog,
@@ -306,9 +303,7 @@ export class ProgramOverviewService {
       .reduce(
         (total, application) =>
           total +
-          (application.id
-            ? (memberCountByTeam.get(application.id) ?? 0)
-            : 1),
+          (application.id ? (memberCountByTeam.get(application.id) ?? 0) : 1),
         0,
       );
   }
@@ -346,9 +341,7 @@ export class ProgramOverviewService {
             milestone.requiredDocumentIds,
           )
         ) {
-          completedTeamIds.add(
-            application.id,
-          );
+          completedTeamIds.add(application.id);
         }
       }
       result.set(milestone.milestoneId, completedTeamIds.size);

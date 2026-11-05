@@ -145,11 +145,11 @@ const DENIED_DOWNLOADS = [
 async function deleteIssue342Rows(): Promise<void> {
   await prisma.submissionFile.deleteMany({ where: { id: { in: FILE_IDS } } });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
-    where: { id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID }
-});
+    where: { id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID },
+  });
   await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { id: MILESTONE_DOCUMENT_SUBMISSION_ID }
-});
+    where: { id: MILESTONE_DOCUMENT_SUBMISSION_ID },
+  });
   await prisma.milestoneDocument.deleteMany({
     where: { id: MILESTONE_DOCUMENT_ID },
   });
@@ -158,8 +158,8 @@ async function deleteIssue342Rows(): Promise<void> {
     where: { userId: { in: USER_RECORDS.map((user) => user.id) } },
   });
   await prisma.user.deleteMany({
-    where: { id: { in: USER_RECORDS.map((user) => user.id) } }
-});
+    where: { id: { in: USER_RECORDS.map((user) => user.id) } },
+  });
 }
 describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
   beforeAll(async () => {
@@ -172,20 +172,20 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
       ),
     );
     await prisma.user.update({
-    where: { id: UNRELATED_STUDENT_USER_ID },
-    data: {
+      where: { id: UNRELATED_STUDENT_USER_ID },
+      data: {
         name: '합성 무관 학생',
         studentId: '342002',
         department: '합성 학과',
         type: MemberKind.STUDENT,
         departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z')
-    }
-});
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      },
+    });
     const program = await prisma.program.findUniqueOrThrow({
-    where: { id: PROGRAM_ID }
-});
+      where: { id: PROGRAM_ID },
+    });
     await prisma.milestone.create({
       data: {
         startAt: program.startAt,
@@ -205,61 +205,63 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
       },
     });
     await prisma.milestoneDocumentSubmission.create({
-    data: {
+      data: {
         id: MILESTONE_DOCUMENT_SUBMISSION_ID,
         milestoneDocumentId: MILESTONE_DOCUMENT_ID,
         teamId: APPLICATION_ID,
         status: SubmissionStatus.SUBMITTED,
         revision: 1,
-        submittedById: UPLOADER_USER_ID
-    }
-});
+        submittedById: UPLOADER_USER_ID,
+      },
+    });
     await prisma.milestoneDocumentSubmissionHistory.create({
-    data: {
+      data: {
         id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
         milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
         event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
         revision: 1,
         content: { type: 'FILE', fileId: DOWNLOADABLE_FILE_ID },
-        actorId: UPLOADER_USER_ID
-    }
-});
+        actorId: UPLOADER_USER_ID,
+      },
+    });
     await prisma.submissionFile.createMany({
-    data: [
+      data: [
         {
-            ...BASE_FILE,
-            id: DOWNLOADABLE_FILE_ID,
-            storageKey: 'submission-files/issue-342/downloadable',
-            originalFileName: 'report.pdf',
-            sizeBytes: 1024,
-            milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-            milestoneDocumentSubmissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
-            expiresAt: FUTURE_EXPIRES_AT
+          ...BASE_FILE,
+          id: DOWNLOADABLE_FILE_ID,
+          storageKey: 'submission-files/issue-342/downloadable',
+          originalFileName: 'report.pdf',
+          sizeBytes: 1024,
+          milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+          milestoneDocumentSubmissionHistoryId:
+            MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          expiresAt: FUTURE_EXPIRES_AT,
         },
         {
-            ...BASE_FILE,
-            id: PENDING_FILE_ID,
-            storageKey: 'submission-files/issue-342/pending',
-            originalFileName: 'pending.pdf',
-            sizeBytes: 2048,
-            lifecycle: SubmissionFileLifecycle.PENDING,
-            pendingExpiresAt: PENDING_EXPIRES_AT,
-            expiresAt: FUTURE_EXPIRES_AT
+          ...BASE_FILE,
+          id: PENDING_FILE_ID,
+          storageKey: 'submission-files/issue-342/pending',
+          originalFileName: 'pending.pdf',
+          sizeBytes: 2048,
+          lifecycle: SubmissionFileLifecycle.PENDING,
+          pendingExpiresAt: PENDING_EXPIRES_AT,
+          expiresAt: FUTURE_EXPIRES_AT,
         },
         {
-            ...BASE_FILE,
-            id: EXPIRED_FILE_ID,
-            storageKey: 'submission-files/issue-342/expired',
-            originalFileName: 'expired.pdf',
-            sizeBytes: 4096,
-            milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-            milestoneDocumentSubmissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
-            expiresAt: PAST_EXPIRES_AT
-        }
-    ]
-});
+          ...BASE_FILE,
+          id: EXPIRED_FILE_ID,
+          storageKey: 'submission-files/issue-342/expired',
+          originalFileName: 'expired.pdf',
+          sizeBytes: 4096,
+          milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+          milestoneDocumentSubmissionHistoryId:
+            MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          expiresAt: PAST_EXPIRES_AT,
+        },
+      ],
+    });
   });
   afterAll(async () => {
     await deleteIssue342Rows();

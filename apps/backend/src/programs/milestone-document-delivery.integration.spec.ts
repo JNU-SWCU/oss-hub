@@ -51,11 +51,11 @@ const extraSubmissionId = 'test:qa153:collection:new-submission';
 
 async function cleanExtraRows() {
   await harness.prisma.milestoneDocumentSubmissionHistory.deleteMany({
-    where: { milestoneDocumentSubmissionId: fixture.documentSubmission }
-});
+    where: { milestoneDocumentSubmissionId: fixture.documentSubmission },
+  });
   await harness.prisma.milestoneDocumentSubmission.deleteMany({
-    where: { id: extraSubmissionId }
-});
+    where: { id: extraSubmissionId },
+  });
 }
 beforeAll(() => harness.connect());
 beforeEach(async () => {
@@ -63,8 +63,8 @@ beforeEach(async () => {
   await harness.reset();
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
-    data: { createdAt: first, submittedAt: first }
-});
+    data: { createdAt: first, submittedAt: first },
+  });
 });
 afterAll(async () => {
   await cleanExtraRows();
@@ -74,8 +74,8 @@ afterAll(async () => {
 it('preserves the existing collection response, approved population and paging contract', async () => {
   await harness.prisma.team.update({
     where: { id: fixture.offApplication },
-    data: { status: 'REJECTED' }
-});
+    data: { status: 'REJECTED' },
+  });
 
   const result = await service
     .collectForStaff(
@@ -118,28 +118,28 @@ it('keeps an on-time first submission complete after a late resubmission and rej
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
     data: {
-        createdAt: late,
-        submittedAt: late,
-        revision: 2,
-        status: 'REJECTED',
-        histories: {
-            create: [
-                {
-                    event: 'SUBMITTED',
-                    revision: 1,
-                    actorId: fixture.studentSubmitted,
-                    createdAt: first
-                },
-                {
-                    event: 'RESUBMITTED',
-                    revision: 2,
-                    actorId: fixture.studentSubmitted,
-                    createdAt: late
-                }
-            ]
-        }
-    }
-});
+      createdAt: late,
+      submittedAt: late,
+      revision: 2,
+      status: 'REJECTED',
+      histories: {
+        create: [
+          {
+            event: 'SUBMITTED',
+            revision: 1,
+            actorId: fixture.studentSubmitted,
+            createdAt: first,
+          },
+          {
+            event: 'RESUBMITTED',
+            revision: 2,
+            actorId: fixture.studentSubmitted,
+            createdAt: late,
+          },
+        ],
+      },
+    },
+  });
 
   const result = await service
     .collectForStaff(
@@ -173,9 +173,9 @@ it.each([
   'uses persisted header time without history: %s',
   async (_label, createdAt, deliveryStatus) => {
     await harness.prisma.milestoneDocumentSubmission.update({
-    where: { id: fixture.documentSubmission },
-    data: { createdAt, submittedAt: late }
-});
+      where: { id: fixture.documentSubmission },
+      data: { createdAt, submittedAt: late },
+    });
 
     const result = await service
       .collectForStaff(
@@ -248,33 +248,24 @@ it('holds counts and visible details at one snapshot while another connection su
     const documents = await store.findDocuments(fixture.notifyMilestone);
     const applications = await store.findApplications(fixture.notifyProgram);
     const documentIds = documents.map((document) => document.id);
-    const teamIds = applications.map(
-      (application) => application.teamId,
-    );
-    const submissions = await store.findCoordinates(
-      documentIds,
-      teamIds,
-    );
+    const teamIds = applications.map((application) => application.teamId);
+    const submissions = await store.findCoordinates(documentIds, teamIds);
     await harness.prisma.milestoneDocumentSubmission.create({
-    data: {
+      data: {
         id: extraSubmissionId,
         milestoneDocumentId: fixture.notifyDocument,
         teamId: fixture.missingApplication,
         submittedById: fixture.studentMissing,
         createdAt: first,
-        submittedAt: first
-    }
-});
+        submittedAt: first,
+      },
+    });
     return {
       page: milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
         { documents, applications, submissions, dueAt: fixture.dueSoon },
         query,
       ),
-      details: await store.findDetails(
-        documentIds,
-        teamIds,
-        fixture.now,
-      ),
+      details: await store.findDetails(documentIds, teamIds, fixture.now),
     };
   });
   const after = await service

@@ -10,7 +10,10 @@ import { OriginGuard } from '../platform/origin.guard';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
-import { TeamsController, ProgramApplicationsController } from './teams.controller';
+import {
+  TeamsController,
+  ProgramApplicationsController,
+} from './teams.controller';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import type { TeamManagementListPage } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
@@ -29,9 +32,7 @@ type ControllerMethodName =
   | 'rename'
   | 'remove';
 
-type ControllerService = ConstructorParameters<
-  typeof TeamsController
->[0];
+type ControllerService = ConstructorParameters<typeof TeamsController>[0];
 
 function methodOf(name: ControllerMethodName): object | undefined {
   const value: unknown = Object.getOwnPropertyDescriptor(
@@ -54,9 +55,7 @@ function readPath(name: ControllerMethodName): unknown {
 }
 
 function declarationOrder(name: ControllerMethodName): number {
-  return Object.getOwnPropertyNames(TeamsController.prototype).indexOf(
-    name,
-  );
+  return Object.getOwnPropertyNames(TeamsController.prototype).indexOf(name);
 }
 
 function serviceStub(
@@ -120,7 +119,15 @@ describe('TeamsController', () => {
   });
 
   it('list(교직원 팀 목록) 에는 역할 가드만 둔다', () => {
-    expect(Reflect.getMetadata(GUARDS_METADATA, ProgramApplicationsController.prototype.list)).toEqual([RolesGuard]);
+    expect(
+      Reflect.getMetadata(
+        GUARDS_METADATA,
+        Object.getOwnPropertyDescriptor(
+          ProgramApplicationsController.prototype,
+          'list',
+        )?.value as object,
+      ),
+    ).toEqual([RolesGuard]);
   });
 
   it('GET me 를 동적 팀 상세 경로보다 먼저 선언한다', () => {
@@ -156,9 +163,7 @@ describe('TeamsController', () => {
 
     it('행위자 세션·프로그램·대상 팀원을 그대로 service 로 넘기고 본문 없이 끝낸다', async () => {
       const removeMember = jest.fn().mockResolvedValue(undefined);
-      const controller = new TeamsController(
-        serviceStub({ removeMember }),
-      );
+      const controller = new TeamsController(serviceStub({ removeMember }));
 
       const response = await controller.removeMember(
         { sessionGithubId: 4242n },
@@ -173,9 +178,7 @@ describe('TeamsController', () => {
     it('service 오류를 그대로 전파한다 — controller 가 권한을 다시 판정하지 않는다', async () => {
       const failure = new Error('LEADER_ONLY');
       const removeMember = jest.fn().mockRejectedValue(failure);
-      const controller = new TeamsController(
-        serviceStub({ removeMember }),
-      );
+      const controller = new TeamsController(serviceStub({ removeMember }));
 
       await expect(
         controller.removeMember({ sessionGithubId: 1n }, 'program-1', 'user-b'),
@@ -207,19 +210,70 @@ describe('TeamsController', () => {
   });
 
   it('통합 팀 목록은 관리 뷰의 팀원과 제출 시각을 페이지 DTO로 반환한다', async () => {
-    const member = { id: 'user-a', name: '가나다', nickname: 'login-a', isLeader: true };
-    const page: TeamManagementListPage = {
-      items: [{ id: 'team-1', programId: 'program-1', teamMinSize: 1, status: 'SUBMITTED', submittedAt: new Date('2026-01-01'), rejectionReason: null, applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' }, team: { id: 'team-1', name: '오픈소스팀', memberCount: 1, members: [member] } }],
-      page: 1, pageSize: 20, totalItems: 1, totalPages: 1,
+    const member = {
+      id: 'user-a',
+      name: '가나다',
+      nickname: 'login-a',
+      isLeader: true,
     };
-    const listForProgramView = jest.fn().mockResolvedValue({ view: 'team-management', page });
-    const controller = new ProgramApplicationsController({ createFromRequest: jest.fn(), listForProgramView });
-    const query = { ...new ApplicationListRequestDto(), view: 'team-management' } satisfies ApplicationListRequestDto;
+    const page: TeamManagementListPage = {
+      items: [
+        {
+          id: 'team-1',
+          programId: 'program-1',
+          teamMinSize: 1,
+          status: 'SUBMITTED',
+          submittedAt: new Date('2026-01-01'),
+          rejectionReason: null,
+          applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+          team: {
+            id: 'team-1',
+            name: '오픈소스팀',
+            memberCount: 1,
+            members: [member],
+          },
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    };
+    const listForProgramView = jest
+      .fn()
+      .mockResolvedValue({ view: 'team-management', page });
+    const controller = new ProgramApplicationsController({
+      createFromRequest: jest.fn(),
+      listForProgramView,
+    });
+    const query = {
+      ...new ApplicationListRequestDto(),
+      view: 'team-management',
+    } satisfies ApplicationListRequestDto;
     const response = await controller.list('program-1', query);
     expect(listForProgramView).toHaveBeenCalledWith('program-1', query);
     expect(response).toEqual({
-      items: [{ id: 'team-1', programId: 'program-1', teamMinSize: 1, status: 'SUBMITTED', submittedAt: '2026-01-01T00:00:00.000Z', rejectionReason: null, applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' }, team: { id: 'team-1', name: '오픈소스팀', memberCount: 1, members: [member] } }],
-      page: 1, pageSize: 20, totalItems: 1, totalPages: 1,
+      items: [
+        {
+          id: 'team-1',
+          programId: 'program-1',
+          teamMinSize: 1,
+          status: 'SUBMITTED',
+          submittedAt: '2026-01-01T00:00:00.000Z',
+          rejectionReason: null,
+          applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+          team: {
+            id: 'team-1',
+            name: '오픈소스팀',
+            memberCount: 1,
+            members: [member],
+          },
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
     });
   });
 

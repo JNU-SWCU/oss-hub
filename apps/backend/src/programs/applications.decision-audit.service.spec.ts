@@ -4,7 +4,6 @@ import {
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import {
   type ApplicationsRepository,
@@ -14,7 +13,6 @@ import {
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { TeamApplicationService } from './team-application.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
 
@@ -109,7 +107,12 @@ function createHarness(
     findRepositoryProvisionEvent: jest.fn(),
     discardRepositoryProvisionRequest: jest.fn().mockResolvedValue(undefined),
   } as unknown as ApplicationsRepository;
-  const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+  const service = new TeamApplicationService(
+    repository,
+    new RepositoryUrlService(),
+    new ApplicationAnswersService(),
+    new RepositoryProvisionEventService(),
+  );
   return {
     service,
     store,
@@ -135,8 +138,16 @@ function expectDomainCode(error: unknown, code: ApplicationsErrorCode): void {
 describe('TeamApplicationService.decide — 팀 심사 이력', () => {
   it.each([undefined, '   '])('사유 %j 없이 반려할 수 있다', async (reason) => {
     const { service, appendReviewHistory } = createHarness();
-    await expect(service.decide(ACTOR, APPLICATION_ID, { action: 'REJECT', reason })).resolves.toMatchObject({ status: 'REJECTED', rejectionReason: null });
-    expect(appendReviewHistory).toHaveBeenCalledWith({ teamId: APPLICATION_ID, eventKind: 'REJECTED', actorId: ACTOR_ID, occurredAt: expect.any(Date), rejectionReason: null });
+    await expect(
+      service.decide(ACTOR, APPLICATION_ID, { action: 'REJECT', reason }),
+    ).resolves.toMatchObject({ status: 'REJECTED', rejectionReason: null });
+    expect(appendReviewHistory).toHaveBeenCalledWith({
+      teamId: APPLICATION_ID,
+      eventKind: 'REJECTED',
+      actorId: ACTOR_ID,
+      occurredAt: expect.any(Date) as unknown,
+      rejectionReason: null,
+    });
   });
   it.each([
     [{ action: 'UNKNOWN' }, ApplicationsErrorCode.INVALID_DECISION_ACTION],
@@ -153,14 +164,23 @@ describe('TeamApplicationService.decide — 팀 심사 이력', () => {
   );
 
   it('승인을 APPLICATION_APPROVED로 기록하고 판정과 같은 트랜잭션 writer를 쓴다', async () => {
-    const { service, appendReviewHistory, createApplicationDecisionNotifications } =
-      createHarness();
+    const {
+      service,
+      appendReviewHistory,
+      createApplicationDecisionNotifications,
+    } = createHarness();
 
     const result = await service.decide(ACTOR, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.APPROVE,
     });
 
-    expect(appendReviewHistory).toHaveBeenCalledWith({ teamId: APPLICATION_ID, eventKind: 'APPROVED', actorId: ACTOR_ID, occurredAt: expect.any(Date), rejectionReason: null });
+    expect(appendReviewHistory).toHaveBeenCalledWith({
+      teamId: APPLICATION_ID,
+      eventKind: 'APPROVED',
+      actorId: ACTOR_ID,
+      occurredAt: expect.any(Date) as unknown,
+      rejectionReason: null,
+    });
     const approvedNotification =
       createApplicationDecisionNotifications.mock.calls[0]?.[0];
     expect(approvedNotification).toMatchObject({
@@ -185,15 +205,24 @@ describe('TeamApplicationService.decide — 팀 심사 이력', () => {
   });
 
   it('거절을 APPLICATION_REJECTED로 기록하되 사유 원문은 감사 metadata에 담지 않는다', async () => {
-    const { service, appendReviewHistory, createApplicationDecisionNotifications } =
-      createHarness();
+    const {
+      service,
+      appendReviewHistory,
+      createApplicationDecisionNotifications,
+    } = createHarness();
 
     const result = await service.decide(ACTOR, APPLICATION_ID, {
       action: APPLICATION_DECISION_ACTIONS.REJECT,
       reason: '제출 서류 누락',
     });
 
-    expect(appendReviewHistory).toHaveBeenCalledWith({ teamId: APPLICATION_ID, eventKind: 'REJECTED', actorId: ACTOR_ID, occurredAt: expect.any(Date), rejectionReason: '제출 서류 누락' });
+    expect(appendReviewHistory).toHaveBeenCalledWith({
+      teamId: APPLICATION_ID,
+      eventKind: 'REJECTED',
+      actorId: ACTOR_ID,
+      occurredAt: expect.any(Date) as unknown,
+      rejectionReason: '제출 서류 누락',
+    });
     expect(createApplicationDecisionNotifications).toHaveBeenCalledWith(
       expect.objectContaining({
         decision: ApplicationStatus.REJECTED,
@@ -227,8 +256,12 @@ describe('TeamApplicationService.decide — 팀 심사 이력', () => {
   });
 
   it('이미 판정된 신청은 감사 기록을 남기지 않는다', async () => {
-    const { service, appendReviewHistory, store, createApplicationDecisionNotifications } =
-      createHarness();
+    const {
+      service,
+      appendReviewHistory,
+      store,
+      createApplicationDecisionNotifications,
+    } = createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({ status: ApplicationStatus.APPROVED }),
     );
@@ -291,7 +324,8 @@ describe('TeamApplicationService.decide — 팀 심사 이력', () => {
 
 describe('TeamApplicationService.decide — REVERT', () => {
   it('반려 취소: REJECTED → SUBMITTED 성공하고 APPLICATION_REVERTED를 기록한다', async () => {
-    const { service, appendReviewHistory, store, transitionApplication } = createHarness();
+    const { service, appendReviewHistory, store, transitionApplication } =
+      createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({
         status: ApplicationStatus.REJECTED,
@@ -316,7 +350,13 @@ describe('TeamApplicationService.decide — REVERT', () => {
       rejectionReason: null,
       processedBy: 'preserve',
     });
-    expect(appendReviewHistory).toHaveBeenCalledWith({ teamId: APPLICATION_ID, eventKind: 'REVERTED', actorId: ACTOR_ID, occurredAt: expect.any(Date), rejectionReason: null });
+    expect(appendReviewHistory).toHaveBeenCalledWith({
+      teamId: APPLICATION_ID,
+      eventKind: 'REVERTED',
+      actorId: ACTOR_ID,
+      occurredAt: expect.any(Date) as unknown,
+      rejectionReason: null,
+    });
   });
 
   it('승인 되돌리기(프로비저닝 미완료): APPROVED → SUBMITTED 성공', async () => {
@@ -684,7 +724,13 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
         processedBy: expect.objectContaining({ id: ACTOR_ID }) as unknown,
       }),
     );
-    expect(appendReviewHistory).toHaveBeenCalledWith({ teamId: APPLICATION_ID, eventKind: 'REJECTED', actorId: ACTOR_ID, occurredAt: expect.any(Date), rejectionReason: '합성 반려 사유' });
+    expect(appendReviewHistory).toHaveBeenCalledWith({
+      teamId: APPLICATION_ID,
+      eventKind: 'REJECTED',
+      actorId: ACTOR_ID,
+      occurredAt: expect.any(Date) as unknown,
+      rejectionReason: '합성 반려 사유',
+    });
     expect(createApplicationDecisionNotifications).toHaveBeenCalledWith(
       expect.objectContaining({ decision: ApplicationStatus.REJECTED }),
     );
@@ -748,11 +794,18 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
       }),
       expect.any(Function),
     );
-    expect(appendReviewHistory).toHaveBeenCalledWith({ teamId: APPLICATION_ID, eventKind: 'APPROVED', actorId: ACTOR_ID, occurredAt: expect.any(Date), rejectionReason: null });
+    expect(appendReviewHistory).toHaveBeenCalledWith({
+      teamId: APPLICATION_ID,
+      eventKind: 'APPROVED',
+      actorId: ACTOR_ID,
+      occurredAt: expect.any(Date) as unknown,
+      rejectionReason: null,
+    });
   });
 
   it('같은 판정 재전송(REJECTED에 REJECT)은 그대로 409다', async () => {
-    const { service, appendReviewHistory, store, transitionApplication } = createHarness();
+    const { service, appendReviewHistory, store, transitionApplication } =
+      createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
       baseApplication({ status: ApplicationStatus.REJECTED }),
     );
@@ -890,7 +943,8 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
   });
 
   it('경합으로 APPROVED가 이미 밀렸으면 CAS가 판정을 거절한다', async () => {
-    const { service, appendReviewHistory, store, transitionApplication } = createHarness();
+    const { service, appendReviewHistory, store, transitionApplication } =
+      createHarness();
     (store.findApplicationById as jest.Mock)
       .mockResolvedValueOnce(
         baseApplication({ status: ApplicationStatus.APPROVED }),

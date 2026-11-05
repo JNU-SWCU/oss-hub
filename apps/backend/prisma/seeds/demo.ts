@@ -208,21 +208,21 @@ async function upsertDemoTeam(
     () => prisma.team.findUnique({ where: { id: teamId } }),
     () =>
       prisma.team.upsert({
-    where: { id: teamId },
-    update: {
-        name: params.teamName,
-        leaderId: leaderUserId,
-    },
-    create: {
-        id: teamId,
-        programId,
-        name: params.teamName,
-        leaderId: leaderUserId,
-        applicantId: leaderUserId,
-        answers: { title: params.teamName },
-        applicationTemplateVersion: 1
-    }
-}),
+        where: { id: teamId },
+        update: {
+          name: params.teamName,
+          leaderId: leaderUserId,
+        },
+        create: {
+          id: teamId,
+          programId,
+          name: params.teamName,
+          leaderId: leaderUserId,
+          applicantId: leaderUserId,
+          answers: { title: params.teamName },
+          applicationTemplateVersion: 1,
+        },
+      }),
   );
   for (const memberUserId of memberUserIds) {
     await upsertTracked(
@@ -255,18 +255,29 @@ async function upsertDemoApplication(
     readonly processedAt: Date;
   },
 ): Promise<void> {
-  await upsertTracked(stats, 'Team', () => prisma.team.findUnique({ where: { id: params.teamId } }), () => prisma.team.update({ where: { id: params.teamId }, data: { programId: params.programId,
-applicantId: params.applicantId,
-answers: {
+  await upsertTracked(
+    stats,
+    'Team',
+    () => prisma.team.findUnique({ where: { id: params.teamId } }),
+    () =>
+      prisma.team.update({
+        where: { id: params.teamId },
+        data: {
+          programId: params.programId,
+          applicantId: params.applicantId,
+          answers: {
             seedPlaceholder: true,
             scenarioId: 'demo-application',
             title: params.title,
             summary: params.summary,
           },
-applicationTemplateVersion: 1,
-status: ApplicationStatus.APPROVED,
-submittedAt: params.submittedAt,
-processedAt: params.processedAt } }));
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
+          submittedAt: params.submittedAt,
+          processedAt: params.processedAt,
+        },
+      }),
+  );
 }
 type DemoMilestoneSeed = {
   readonly id: string;
@@ -740,7 +751,7 @@ export async function seedDemo(
   await upsertDemoSubmission(stats, storage, {
     slug: 'summer-internship-midpoint',
     milestoneId: internshipMilestoneId,
-    teamId: internshipApplicationId,
+    teamId: internshipTeamId,
     submittedById: studentId('kim-doyoon'),
     status: SubmissionStatus.SUBMITTED,
     content: {
@@ -1134,7 +1145,7 @@ export async function seedDemo(
   await upsertDemoSubmission(stats, storage, {
     slug: 'freshmen-bootcamp-checkpoint',
     milestoneId: freshmenMilestoneId,
-    teamId: freshmenApplicationId,
+    teamId: freshmenTeamId,
     submittedById: studentId('kang-yerin'),
     status: SubmissionStatus.SUBMITTED,
     content: {
@@ -1230,7 +1241,7 @@ export async function seedDemo(
   await upsertDemoSubmission(stats, storage, {
     slug: 'sojoong-mileage-activity-log',
     milestoneId: mileageMilestoneId,
-    teamId: mileageApplicationId,
+    teamId: mileageTeamId,
     submittedById: studentId('jung-subin'),
     status: SubmissionStatus.APPROVED,
     content: {

@@ -38,11 +38,18 @@ async function expectNoApplication() {
 }
 async function joinElsewhere(userId: string) {
   const team = await prisma.team.create({
-    data: { programId, name: 'Synthetic other team', leaderId: userId, applicantId: userId, answers: { title: 'Synthetic other team' }, applicationTemplateVersion: 1 }
-});
+    data: {
+      programId,
+      name: 'Synthetic other team',
+      leaderId: userId,
+      applicantId: userId,
+      answers: { title: 'Synthetic other team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
-    data: { teamId: team.id, programId, userId }
-});
+    data: { teamId: team.id, programId, userId },
+  });
   return team.id;
 }
 
@@ -51,7 +58,7 @@ describe('application named invitees integration', () => {
   beforeEach(async () => {
     programId = prefix + ++sequence;
     await prisma.program.create({
-    data: {
+      data: {
         id: programId,
         name: 'Synthetic program',
         organizer: 'Synthetic organizer',
@@ -64,9 +71,9 @@ describe('application named invitees integration', () => {
         endAt: new Date('2026-12-31'),
         teamMinSize: 2,
         teamMaxSize: 3,
-        description: 'Synthetic fixture'
-    }
-});
+        description: 'Synthetic fixture',
+      },
+    });
   });
   afterEach(async () => {
     jest.restoreAllMocks();
@@ -76,9 +83,9 @@ describe('application named invitees integration', () => {
     await prisma.team.deleteMany({ where: { programId } });
     await prisma.program.delete({ where: { id: programId } });
     await prisma.user.updateMany({
-    where: { id: { startsWith: prefix } },
-    data: { accountStatus: 'ACTIVE' }
-});
+      where: { id: { startsWith: prefix } },
+      data: { accountStatus: 'ACTIVE' },
+    });
   });
   afterAll(() => prisma.$disconnect());
 
@@ -105,9 +112,9 @@ describe('application named invitees integration', () => {
       const program = await readProgram.call(this, id);
       expect(program).not.toBeNull();
       await prisma.program.update({
-    where: { id },
-    data: { lifecycle: 'DELETED' }
-});
+        where: { id },
+        data: { lifecycle: 'DELETED' },
+      });
       return program;
     });
 
@@ -124,9 +131,9 @@ describe('application named invitees integration', () => {
 
   it('searches eligible registered students without needing a team', async () => {
     await prisma.user.update({
-    where: { id: member },
-    data: { accountStatus: 'DEACTIVATED' }
-});
+      where: { id: member },
+      data: { accountStatus: 'DEACTIVATED' },
+    });
     await joinElsewhere(extra);
     const candidates = await invitationService.searchApplicationCandidates(
       9_100_001n,
@@ -148,9 +155,9 @@ describe('application named invitees integration', () => {
 
   it('allows solo application when minimum is one', async () => {
     await prisma.program.update({
-    where: { id: programId },
-    data: { teamMinSize: 1 }
-});
+      where: { id: programId },
+      data: { teamMinSize: 1 },
+    });
     const application = await apply([]);
     expect(
       await prisma.teamMember.count({ where: { teamId: application.teamId } }),
@@ -162,9 +169,9 @@ describe('application named invitees integration', () => {
     const application = await apply([member, replacement]);
     expect(
       await prisma.teamMember.findMany({
-    where: { teamId: application.teamId },
-    select: { userId: true }
-}),
+        where: { teamId: application.teamId },
+        select: { userId: true },
+      }),
     ).toEqual([{ userId: leader }]);
     expect(
       await prisma.teamInvitation.findMany({
@@ -206,9 +213,9 @@ describe('application named invitees integration', () => {
 
   it('refuses an inactive named account', async () => {
     await prisma.user.update({
-    where: { id: member },
-    data: { accountStatus: 'DEACTIVATED' }
-});
+      where: { id: member },
+      data: { accountStatus: 'DEACTIVATED' },
+    });
     await expect(apply([member])).rejects.toMatchObject({
       errorCode: { code: 'APP_033' },
     });
@@ -261,10 +268,10 @@ describe('application named invitees integration', () => {
     ).resolves.toMatchObject({ kind: 'APPROVED' });
     expect(
       await prisma.teamMember.findMany({
-    where: { teamId: application.teamId },
-    orderBy: { userId: 'asc' },
-    select: { userId: true }
-}),
+        where: { teamId: application.teamId },
+        orderBy: { userId: 'asc' },
+        select: { userId: true },
+      }),
     ).toEqual([{ userId: leader }, { userId: replacement }]);
   });
 

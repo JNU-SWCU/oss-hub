@@ -85,10 +85,12 @@ describe('ApplicationsController', () => {
 
   it('공백 반려 사유를 null로 정규화한다', () => {
     const body = Object.assign(new PatchApplicationDecisionRequestDto(), {
-      action: 'REJECT', reason: '   ',
+      action: 'REJECT',
+      reason: '   ',
     });
     expect(applicationAnswersService.applicationDecisionAction(body)).toEqual({
-      action: 'REJECT', reason: null,
+      action: 'REJECT',
+      reason: null,
     });
   });
 

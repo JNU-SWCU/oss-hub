@@ -136,16 +136,18 @@ describe('MilestoneDocumentFeedbackService', () => {
       } as RecentMilestoneDocumentReview,
     ]);
     const response = await service.recentForParticipant(34290202n);
-    expect(Object.keys(response.items[0] ?? {}).sort()).toEqual([
-      'comment',
-      'decision',
-      'id',
-      'itemName',
-      'milestoneId',
-      'milestoneName',
-      'programId',
-      'reviewedAt',
-      'teamId',
-    ].sort());
+    expect(Object.keys(response.items[0] ?? {}).sort()).toEqual(
+      [
+        'comment',
+        'decision',
+        'id',
+        'itemName',
+        'milestoneId',
+        'milestoneName',
+        'programId',
+        'reviewedAt',
+        'teamId',
+      ].sort(),
+    );
   });
 });

@@ -26,16 +26,16 @@ export async function seedE2eRepositoryEvidence(
   if (graph.programId !== E2E_PROGRAM_ID) throw new E2eAdapterError(409);
   return prisma.$transaction(async (transaction) => {
     const application = await transaction.team.findFirst({
-    where: {
+      where: {
         programId: E2E_PROGRAM_ID,
         applicantId: E2E_STUDENT_ID,
-        status: 'APPROVED'
-    },
-    select: {
+        status: 'APPROVED',
+      },
+      select: {
         repository: { select: { id: true } },
-        program: { select: { startAt: true, endAt: true } }
-    }
-});
+        program: { select: { startAt: true, endAt: true } },
+      },
+    });
     if (!application?.repository) {
       throw new E2eAdapterError(409);
     }
@@ -72,9 +72,9 @@ export async function seedE2eRepositoryEvidence(
       });
     }
     await transaction.githubRepository.update({
-    where: { id: currentRepositoryId },
-    data: { lastSuccessAt: new Date(), failureCount: 0 }
-});
+      where: { id: currentRepositoryId },
+      data: { lastSuccessAt: new Date(), failureCount: 0 },
+    });
     const facts = await transaction.contribution.findMany({
       where: { repository: { team: { programId: E2E_PROGRAM_ID } } },
       select: {

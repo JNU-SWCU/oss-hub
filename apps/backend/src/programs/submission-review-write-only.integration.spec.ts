@@ -135,7 +135,7 @@ it('shows the historical approval with an unknown revision without rewriting the
     ],
   });
   const snapshot = await collection.withSnapshot((store) =>
-    store.findDetails([flowIds.document], [flowIds.application], new Date()),
+    store.findDetails([flowIds.document], [flowIds.team], new Date()),
   );
   expect(snapshot.map((item) => item.review)).toEqual([
     {
@@ -146,10 +146,7 @@ it('shows the historical approval with an unknown revision without rewriting the
     },
   ]);
   const next = await fixture.request(
-    fixture.documentPath() +
-      '/applications/' +
-      flowIds.application +
-      '/reviews',
+    fixture.documentPath() + '/teams/' + flowIds.team + '/reviews',
     {
       actor: 'staff',
       method: 'POST',
@@ -185,7 +182,7 @@ it('shows the historical approval with an unknown revision without rewriting the
     throw new TypeError('Expected a review context with a latest review token');
   }
   const second = await fixture.request(
-    `${fixture.documentPath()}/applications/${flowIds.application}/reviews`,
+    `${fixture.documentPath()}/teams/${flowIds.team}/reviews`,
     {
       actor: 'staff',
       method: 'POST',
@@ -256,7 +253,7 @@ it.each(['prepared', 'current'])(
       });
     } else {
       const response = await fixture.request(
-        `${fixture.documentPath()}/applications/${flowIds.application}/reviews`,
+        `${fixture.documentPath()}/teams/${flowIds.team}/reviews`,
         {
           actor: 'staff',
           method: 'POST',
@@ -289,7 +286,7 @@ it.each(['prepared', 'current'])(
     };
     const now = new Date();
     const summaries = await repository.findSubmittedSummaries(
-      flowIds.application,
+      flowIds.team,
       [flowIds.document],
       now,
     );
@@ -297,21 +294,21 @@ it.each(['prepared', 'current'])(
     const details = await repository.findSubmissionsForCollection(
       [flowIds.document],
       now,
-      [flowIds.application],
+      [flowIds.team],
     );
     expect(details.map((item) => item.review)).toEqual([expected]);
     const snapshot = await collection.withSnapshot((store) =>
-      store.findDetails([flowIds.document], [flowIds.application], now),
+      store.findDetails([flowIds.document], [flowIds.team], now),
     );
     expect(snapshot.map((item) => item.review)).toEqual([expected]);
     const legacySnapshot = await repository.withCollectionSnapshot((store) =>
       store.findSubmissionsForCollection([flowIds.document], now, [
-        flowIds.application,
+        flowIds.team,
       ]),
     );
     expect(legacySnapshot.map((item) => item.review)).toEqual([expected]);
     await expect(
-      repository.findLatestReview(flowIds.document, flowIds.application),
+      repository.findLatestReview(flowIds.document, flowIds.team),
     ).resolves.toEqual({ id: review.id, decision: 'CHANGES_REQUESTED' });
     await expect(
       repository.withTransaction((store) =>
@@ -326,10 +323,7 @@ it.each(['prepared', 'current'])(
 it('appends repeated decisions for one revision without overwriting the previous review', async () => {
   expect((await fixture.submit('append-only review')).status).toBe(201);
   const endpoint =
-    fixture.documentPath() +
-    '/applications/' +
-    flowIds.application +
-    '/reviews';
+    fixture.documentPath() + '/teams/' + flowIds.team + '/reviews';
   const first = await fixture.request(endpoint, {
     actor: 'staff',
     method: 'POST',

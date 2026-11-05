@@ -164,7 +164,15 @@ describe('registration reset persistence', () => {
       },
     });
     await prisma.team.create({
-      data: { id: teamId, programId, name: 'Synthetic', leaderId: admin.id, applicantId: admin.id, answers: {}, applicationTemplateVersion: 1 },
+      data: {
+        id: teamId,
+        programId,
+        name: 'Synthetic',
+        leaderId: admin.id,
+        applicantId: admin.id,
+        answers: {},
+        applicationTemplateVersion: 1,
+      },
     });
     await prisma.teamInvitation.create({
       data: {

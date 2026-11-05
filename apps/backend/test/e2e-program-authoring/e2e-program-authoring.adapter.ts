@@ -284,9 +284,9 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       throw new E2eAdapterError(409);
     } else {
       const job = await this.prisma.repositoryProvisionJob.findFirst({
-    where: { teamId: application.id },
-    select: { status: true }
-});
+        where: { teamId: application.id },
+        select: { status: true },
+      });
       if (job?.status !== 'SUCCEEDED') throw new E2eAdapterError(409);
     }
     await exerciseSmtpFailure(this.deadlines);
@@ -312,9 +312,9 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       throw new E2eAdapterError(409);
     }
     const job = await this.prisma.repositoryProvisionJob.findFirst({
-    where: { teamId: application.id },
-    select: { nextAttemptAt: true, status: true }
-});
+      where: { teamId: application.id },
+      select: { nextAttemptAt: true, status: true },
+    });
     if (job === null) throw new E2eAdapterError(409);
     if (job.status === 'SUCCEEDED') return;
     await this.runProvisionWorker(
@@ -335,15 +335,15 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
 
   private async removePrismaAggregate(): Promise<void> {
     const program = await this.prisma.program.findFirst({
-    where: {
+      where: {
         createdById: E2E_STAFF_ID,
-        idempotencyKey: 'e2e-program-core'
-    },
-    select: {
+        idempotencyKey: 'e2e-program-core',
+      },
+      select: {
         id: true,
-        authoringUploads: { select: { id: true, storageKey: true } }
-    }
-});
+        authoringUploads: { select: { id: true, storageKey: true } },
+      },
+    });
     if (program === null) return;
     await this.prisma.$transaction(async (transaction) => {
       await transaction.milestoneDocumentTemplateFile.deleteMany({

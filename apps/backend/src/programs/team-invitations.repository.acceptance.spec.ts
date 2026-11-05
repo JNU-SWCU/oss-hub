@@ -103,7 +103,8 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
             : options.invitee,
         ),
       },
-      team: { update: jest.fn(),
+      team: {
+        update: jest.fn(),
         findMany: jest
           .fn()
           .mockResolvedValue([...(options.approvedNewApplications ?? [])]),

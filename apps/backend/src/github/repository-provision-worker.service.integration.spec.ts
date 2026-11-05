@@ -139,37 +139,37 @@ describe('RepositoryProvisionWorkerService integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.create({
-    data: {
+      data: {
         id: APPLICANT_ID,
         githubId: APPLICANT_GITHUB_ID,
         nickname: APPLICANT_LOGIN,
         type: MemberKind.STUDENT,
-        approvalStatus: ApprovalStatus.NOT_REQUIRED
-    }
-});
+        approvalStatus: ApprovalStatus.NOT_REQUIRED,
+      },
+    });
     await prisma.user.createMany({
-    data: [
+      data: [
         ...[MEMBER_USER, GHOST_USER].map((user) => ({
-            id: user.id,
-            githubId: user.githubId,
-            nickname: user.nickname,
-            type: MemberKind.STUDENT,
-            approvalStatus: ApprovalStatus.NOT_REQUIRED,
+          id: user.id,
+          githubId: user.githubId,
+          nickname: user.nickname,
+          type: MemberKind.STUDENT,
+          approvalStatus: ApprovalStatus.NOT_REQUIRED,
         })),
         {
-            id: CONNECTION_ACTOR_ID,
-            githubId: CONNECTION_ACTOR_GITHUB_ID,
-            nickname: 'synthetic-worker-connection-staff',
-            type: MemberKind.STAFF,
-            approvalStatus: ApprovalStatus.APPROVED,
-            name: 'Synthetic staff',
-            department: 'Synthetic department',
-            profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-            profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-            departmentType: DepartmentType.DEPARTMENT
-        }
-    ]
-});
+          id: CONNECTION_ACTOR_ID,
+          githubId: CONNECTION_ACTOR_GITHUB_ID,
+          nickname: 'synthetic-worker-connection-staff',
+          type: MemberKind.STAFF,
+          approvalStatus: ApprovalStatus.APPROVED,
+          name: 'Synthetic staff',
+          department: 'Synthetic department',
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          departmentType: DepartmentType.DEPARTMENT,
+        },
+      ],
+    });
 
     const { policy } = await new ConsentsService(
       new UserPolicyRepository(prisma),
@@ -183,6 +183,9 @@ describe('RepositoryProvisionWorkerService integration', () => {
   });
 
   afterEach(async () => {
+    await prisma.teamHistory.deleteMany({
+      where: { teamId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.repositoryIssuanceHistory.deleteMany({
       where: { teamId: { in: [...APPLICATION_IDS] } },
     });
@@ -208,48 +211,45 @@ describe('RepositoryProvisionWorkerService integration', () => {
       },
     });
     await prisma.repositoryProvisionJob.deleteMany({
-    where: { teamId: { in: [...APPLICATION_IDS] } }
-});
+      where: { teamId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.githubRepository.deleteMany({
-    where: { teamId: { in: [...APPLICATION_IDS] } }
-});
+      where: { teamId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.githubRepository.deleteMany({
-    where: {
+      where: {
         githubRepositoryId: {
-            in: [
-                OWN_GITHUB_REPOSITORY_ID,
-                PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
-                CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
-                NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
-                OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
-                OWN_ORG_CREATE_GITHUB_REPOSITORY_ID
-            ]
-        }
-    }
-});
-    await prisma.team.deleteMany({
-    where: { id: { in: [...APPLICATION_IDS] } }
-});
+          in: [
+            OWN_GITHUB_REPOSITORY_ID,
+            PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
+            CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
+            NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
+            OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
+            OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
+          ],
+        },
+      },
+    });
     await prisma.teamMember.deleteMany({
-    where: { teamId: { in: [...APPLICATION_IDS] } }
-});
+      where: { teamId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.team.deleteMany({
-    where: { id: { in: [...APPLICATION_IDS] } }
-});
+      where: { id: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.program.deleteMany({
-    where: { id: { in: APPLICATION_IDS.map(programId) } }
-});
+      where: { id: { in: APPLICATION_IDS.map(programId) } },
+    });
   });
 
   afterAll(async () => {
     await prisma.userPolicy.deleteMany({ where: { userId: APPLICANT_ID } });
 
     await prisma.user.deleteMany({
-    where: { id: { in: [APPLICANT_ID, MEMBER_USER.id, GHOST_USER.id] } }
-});
+      where: { id: { in: [APPLICANT_ID, MEMBER_USER.id, GHOST_USER.id] } },
+    });
     await prisma.$disconnect();
   });
 
@@ -286,15 +286,15 @@ describe('RepositoryProvisionWorkerService integration', () => {
         NOW.getTime() + DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
       );
       await prisma.program.update({
-    where: { id: programId(teamId) },
-    data: { lifecycle }
-});
+        where: { id: programId(teamId) },
+        data: { lifecycle },
+      });
       const applicationBefore = await prisma.team.findUniqueOrThrow({
-    where: { id: teamId }
-});
+        where: { id: teamId },
+      });
       const repositoriesBefore = await prisma.githubRepository.findMany({
-    where: { teamId }
-});
+        where: { teamId },
+      });
       const invitationsBefore = await prisma.repositoryInvitation.findMany({
         where: { repository: { teamId } },
       });
@@ -326,8 +326,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
       expect(github.revokeCollaborator).not.toHaveBeenCalled();
       expect(
         await prisma.team.findUniqueOrThrow({
-    where: { id: teamId }
-}),
+          where: { id: teamId },
+        }),
       ).toEqual(applicationBefore);
       expect(
         await prisma.githubRepository.findMany({ where: { teamId } }),
@@ -339,8 +339,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
       ).toEqual(invitationsBefore);
       expect(
         await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+          where: { teamId },
+        }),
       ).toMatchObject({
         status: RepositoryProvisionJobStatus.FAILED_FINAL,
         lastErrorCode: PROVISION_ERROR_CODES.FEATURE_DISABLED,
@@ -370,12 +370,12 @@ describe('RepositoryProvisionWorkerService integration', () => {
     github.createRepository.mockImplementationOnce(
       async (name, description) => {
         await prisma.teamMember.deleteMany({
-    where: { teamId: teamId }
-});
+          where: { teamId: teamId },
+        });
         await prisma.program.update({
-    where: { id: programId(teamId) },
-    data: { lifecycle: ProgramLifecycle.DELETED }
-});
+          where: { id: programId(teamId) },
+          data: { lifecycle: ProgramLifecycle.DELETED },
+        });
         return repositoryMetadata(name, description);
       },
     );
@@ -393,9 +393,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       kind: 'FAILED_FINAL',
       errorCode: PROVISION_ERROR_CODES.FEATURE_DISABLED,
     });
-    expect(
-      await prisma.githubRepository.count({ where: { teamId } }),
-    ).toBe(0);
+    expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(0);
     expect(github.ensureCollaborator).not.toHaveBeenCalled();
     expect(github.revokeCollaborator).not.toHaveBeenCalled();
   });
@@ -410,9 +408,9 @@ describe('RepositoryProvisionWorkerService integration', () => {
     await outbox.consumeNext('outbox-worker-a', NOW);
     const requestId = (
       await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId },
-    select: { currentEventId: true }
-})
+        where: { teamId },
+        select: { currentEventId: true },
+      })
     ).currentEventId;
     expect(requestId).not.toBeNull();
     const github = githubClient();
@@ -434,9 +432,9 @@ describe('RepositoryProvisionWorkerService integration', () => {
 
     expect(result.kind).toBe('SUCCEEDED');
     const repository = await prisma.githubRepository.findUniqueOrThrow({
-    where: { teamId },
-    include: { invitations: { orderBy: { githubLogin: 'asc' } } }
-});
+      where: { teamId },
+      include: { invitations: { orderBy: { githubLogin: 'asc' } } },
+    });
     expect(repository.visibility).toBe(RepositoryVisibility.PRIVATE);
     expect(repository.nextRunAt.getTime()).toBeLessThanOrEqual(Date.now());
     expect(repository.failureCount).toBe(0);
@@ -478,8 +476,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+        where: { teamId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       attemptCount: 1,
@@ -508,14 +506,14 @@ describe('RepositoryProvisionWorkerService integration', () => {
     await createApplicationAndEvent(teamId, [APPLICANT_LOGIN]);
     await outbox.consumeNext('outbox-worker-terminal-failure', NOW);
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId },
-    select: { currentEventId: true }
-});
+      where: { teamId },
+      select: { currentEventId: true },
+    });
     expect(job.currentEventId).not.toBeNull();
     await prisma.team.update({
-    where: { id: teamId },
-    data: { status: ApplicationStatus.REJECTED }
-});
+      where: { id: teamId },
+      data: { status: ApplicationStatus.REJECTED },
+    });
     const worker = new RepositoryProvisionWorkerService(
       jobs,
       state,
@@ -585,8 +583,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
       );
     });
     const afterR2 = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     expect(afterR2).toMatchObject({
       status: RepositoryProvisionJobStatus.PENDING,
       attemptCount: 0,
@@ -663,15 +661,15 @@ describe('RepositoryProvisionWorkerService integration', () => {
     await createApplicationAndEvent(teamId, [APPLICANT_LOGIN]);
     await outbox.consumeNext('outbox-worker-current-relink', NOW);
     const previous = await prisma.githubRepository.create({
-    data: {
+      data: {
         teamId: null,
         githubRepositoryId: PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
         nameWithOwner: `synthetic-org/${teamId}-previous`,
         visibility: RepositoryVisibility.PRIVATE,
         source: RepositorySource.ORG_PROVISIONED,
-        presence: CollectionRepositoryPresence.PRESENT
-    }
-});
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
     await prisma.repositoryInvitation.create({
       data: {
         repositoryId: previous.id,
@@ -680,19 +678,19 @@ describe('RepositoryProvisionWorkerService integration', () => {
       },
     });
     const current = await prisma.githubRepository.create({
-    data: {
+      data: {
         teamId,
         githubRepositoryId: CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
         nameWithOwner: `synthetic-org/${teamId}-current`,
         visibility: RepositoryVisibility.PRIVATE,
         source: RepositorySource.ORG_PROVISIONED,
-        presence: CollectionRepositoryPresence.PRESENT
-    }
-});
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
     await prisma.repositoryProvisionJob.update({
-    where: { teamId },
-    data: { repositoryId: current.id }
-});
+      where: { teamId },
+      data: { repositoryId: current.id },
+    });
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(
       COLLABORATOR_OUTCOMES.SUCCEEDED,
@@ -743,23 +741,25 @@ describe('RepositoryProvisionWorkerService integration', () => {
     await createApplicationAndEvent(teamId, [APPLICANT_LOGIN]);
     await outbox.consumeNext('outbox-worker-new-external', NOW);
     await prisma.githubRepository.create({
-    data: {
+      data: {
         teamId,
         githubRepositoryId: NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
         nameWithOwner: `synthetic-student/${teamId}-external`,
         visibility: RepositoryVisibility.PUBLIC,
         source: RepositorySource.EXTERNAL_PUBLIC,
-        presence: CollectionRepositoryPresence.PRESENT
-    }
-});
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
     await prisma.repositoryProvisionJob.update({
-    where: { teamId },
-    data: {
-        repositoryId: (await prisma.githubRepository.findUniqueOrThrow({
+      where: { teamId },
+      data: {
+        repositoryId: (
+          await prisma.githubRepository.findUniqueOrThrow({
             where: { teamId },
-        })).id
-    }
-});
+          })
+        ).id,
+      },
+    });
     const github = githubClient();
     const worker = new RepositoryProvisionWorkerService(
       jobs,
@@ -797,19 +797,19 @@ describe('RepositoryProvisionWorkerService integration', () => {
     });
     await outbox.consumeNext('outbox-worker-own-managed', NOW);
     const current = await prisma.githubRepository.create({
-    data: {
+      data: {
         teamId,
         githubRepositoryId: OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
         nameWithOwner: `synthetic-org/${teamId}-managed`,
         visibility: RepositoryVisibility.PRIVATE,
         source: RepositorySource.ORG_PROVISIONED,
-        presence: CollectionRepositoryPresence.PRESENT
-    }
-});
+        presence: CollectionRepositoryPresence.PRESENT,
+      },
+    });
     await prisma.repositoryProvisionJob.update({
-    where: { teamId },
-    data: { repositoryId: current.id }
-});
+      where: { teamId },
+      data: { repositoryId: current.id },
+    });
     const github = githubClient();
     github.ensureCollaborator.mockResolvedValue(
       COLLABORATOR_OUTCOMES.SUCCEEDED,
@@ -846,8 +846,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     ]);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+        where: { teamId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       repositoryId: current.id,
@@ -893,8 +893,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
       [teamId, APPLICANT_LOGIN],
     ]);
     const recorded = await prisma.githubRepository.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     expect(recorded).toMatchObject({
       githubRepositoryId: OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
       source: RepositorySource.ORG_PROVISIONED,
@@ -912,8 +912,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     ]);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+        where: { teamId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       repositoryId: recorded.id,
@@ -967,8 +967,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     ).resolves.toBe(1);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+        where: { teamId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       attemptCount: 2,
@@ -992,8 +992,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     );
     await worker.runNext('provision-worker-cap-initial', NOW);
     const repository = await prisma.githubRepository.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     await prisma.repositoryInvitation.updateMany({
       where: { repositoryId: repository.id },
       data: {
@@ -1029,8 +1029,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     );
     await worker.runNext('provision-worker-exhaust-initial', NOW);
     const repository = await prisma.githubRepository.findUniqueOrThrow({
-    where: { teamId }
-});
+      where: { teamId },
+    });
     await prisma.repositoryInvitation.updateMany({
       where: { repositoryId: repository.id },
       data: {
@@ -1092,8 +1092,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
 
     expect(result.kind).toBe('SUCCEEDED');
     const enrolled = await prisma.githubRepository.findFirstOrThrow({
-    where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID }
-});
+      where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+    });
     expect(enrolled).toMatchObject({
       source: 'EXTERNAL_PUBLIC',
       nameWithOwner: OWN_NAME_WITH_OWNER,
@@ -1123,14 +1123,14 @@ describe('RepositoryProvisionWorkerService integration', () => {
       });
       await outbox.consumeNext('outbox-own-r1', NOW);
       await prisma.githubRepository.create({
-    data: {
-        teamId,
-        githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
-        nameWithOwner: OWN_NAME_WITH_OWNER,
-        source: RepositorySource.EXTERNAL_PUBLIC,
-        visibility: RepositoryVisibility.PUBLIC
-    }
-});
+        data: {
+          teamId,
+          githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+          nameWithOwner: OWN_NAME_WITH_OWNER,
+          source: RepositorySource.EXTERNAL_PUBLIC,
+          visibility: RepositoryVisibility.PUBLIC,
+        },
+      });
       const r2 = await prisma.$transaction(async (transaction) => {
         const event = await transaction.outboxEvent.create({
           data: {
@@ -1178,16 +1178,16 @@ describe('RepositoryProvisionWorkerService integration', () => {
         repositoryUrl: OWN_REPOSITORY_URL,
       });
       await prisma.repositoryProvisionJob.update({
-    where: { teamId },
-    data: {
-        status: RepositoryProvisionJobStatus.PENDING,
-        attemptCount: 0,
-        lockedAt: null,
-        lockedBy: null,
-        startedAt: null,
-        nextAttemptAt: NOW
-    }
-});
+        where: { teamId },
+        data: {
+          status: RepositoryProvisionJobStatus.PENDING,
+          attemptCount: 0,
+          lockedAt: null,
+          lockedBy: null,
+          startedAt: null,
+          nextAttemptAt: NOW,
+        },
+      });
       await outbox.consumeNext('outbox-own-r2', NOW);
       const github = githubClient();
       const worker = new RepositoryProvisionWorkerService(
@@ -1206,13 +1206,13 @@ describe('RepositoryProvisionWorkerService integration', () => {
         expect(result).toMatchObject({ kind: 'FAILED_FINAL' });
         await expect(
           prisma.githubRepository.findUnique({
-    where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID }
-}),
+            where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+          }),
         ).resolves.toMatchObject({ teamId });
         await expect(
           prisma.team.findUnique({
-    where: { id: teamId }
-}),
+            where: { id: teamId },
+          }),
         ).resolves.toMatchObject({
           repositoryConnectionMode: 'OWN',
           repositoryUrl: OWN_REPOSITORY_URL,
@@ -1224,9 +1224,9 @@ describe('RepositoryProvisionWorkerService integration', () => {
       expect(github.findPublicRepository.mock.calls).toHaveLength(0);
       await expect(
         prisma.team.findUniqueOrThrow({
-    where: { id: teamId },
-    include: { repository: true }
-}),
+          where: { id: teamId },
+          include: { repository: true },
+        }),
       ).resolves.toMatchObject({
         repositoryConnectionMode: 'NEW',
         repositoryUrl: null,
@@ -1237,19 +1237,26 @@ describe('RepositoryProvisionWorkerService integration', () => {
       });
       await expect(
         prisma.githubRepository.findUnique({
-    where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID }
-}),
+          where: { githubRepositoryId: OWN_GITHUB_REPOSITORY_ID },
+        }),
       ).resolves.toBeNull();
-      const auditEntries = await prisma.auditLog.findMany({
-        where: {
-          targetId: teamId,
-          action: 'REPOSITORY_CONNECTION_CHANGED',
-        },
+      const auditEntries = await prisma.teamHistory.findMany({
+        where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
       });
       expect(auditEntries).toHaveLength(1);
-      expect(auditEntries[0]?.metadata).toMatchObject({
-        deletedRepositoryUrl: `https://github.com/${OWN_NAME_WITH_OWNER}`,
-        deletedCounts: { repositories: 1 },
+      const connected = await prisma.githubRepository.findUniqueOrThrow({
+        where: { teamId },
+      });
+      expect(auditEntries[0]?.data).toMatchObject({
+        metadata: {
+          before: {
+            repositoryUrl: `https://github.com/${OWN_NAME_WITH_OWNER}`,
+          },
+          after: {
+            repositoryUrl: `https://github.com/${connected.nameWithOwner}`,
+          },
+          deletedCounts: { repositories: 1 },
+        },
       });
     },
   );
@@ -1291,11 +1298,11 @@ describe('RepositoryProvisionWorkerService integration', () => {
     );
 
     await prisma.teamMember.deleteMany({
-    where: {
+      where: {
         teamId: teamId,
-        userId: { in: [MEMBER_USER.id, GHOST_USER.id] }
-    }
-});
+        userId: { in: [MEMBER_USER.id, GHOST_USER.id] },
+      },
+    });
     const afterLeave = await state.loadContext(
       job.id,
       'state-worker-revoke',
@@ -1400,8 +1407,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     );
 
     await prisma.teamMember.deleteMany({
-    where: { teamId: teamId, userId: MEMBER_USER.id }
-});
+      where: { teamId: teamId, userId: MEMBER_USER.id },
+    });
     await state.completeJob(
       job.id,
       'state-worker-stale',
@@ -1414,8 +1421,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
 
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+        where: { teamId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.PENDING,
       attemptCount: 0,
@@ -1441,8 +1448,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
     );
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+        where: { teamId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: reconciliationAt,
@@ -1461,8 +1468,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
       job.requestId,
     );
     await prisma.teamMember.deleteMany({
-    where: { teamId: teamId, userId: MEMBER_USER.id }
-});
+      where: { teamId: teamId, userId: MEMBER_USER.id },
+    });
 
     await state.failJob({
       jobId: job.id,
@@ -1477,8 +1484,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
 
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-    where: { teamId }
-}),
+        where: { teamId },
+      }),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.PENDING,
       attemptCount: 0,
@@ -1509,8 +1516,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
       repositoryId,
     );
     await prisma.teamMember.deleteMany({
-    where: { teamId: teamId }
-});
+      where: { teamId: teamId },
+    });
     await state.prepareInvitations(
       job.id,
       'state-worker-cas',
@@ -1556,33 +1563,29 @@ describe('RepositoryProvisionWorkerService integration', () => {
   });
 });
 
-async function addTeamMember(
-  teamId: string,
-  userId: string,
-): Promise<void> {
+async function addTeamMember(teamId: string, userId: string): Promise<void> {
   await prisma.teamMember.create({
     data: {
-        teamId: teamId,
-        programId: programId(teamId),
-        userId
-    }
-});
+      teamId: teamId,
+      programId: programId(teamId),
+      userId,
+    },
+  });
 }
 
-async function createProvisionedRepository(
-  teamId: string,
-): Promise<string> {
+async function createProvisionedRepository(teamId: string): Promise<string> {
   const repository = await prisma.githubRepository.create({
     data: {
-        teamId,
-        githubRepositoryId: 8600000000n +
-            BigInt((APPLICATION_IDS as readonly string[]).indexOf(teamId) + 1),
-        nameWithOwner: `synthetic-org/${teamId}`,
-        visibility: RepositoryVisibility.PRIVATE,
-        source: RepositorySource.ORG_PROVISIONED,
-        presence: CollectionRepositoryPresence.PRESENT
-    }
-});
+      teamId,
+      githubRepositoryId:
+        8600000000n +
+        BigInt((APPLICATION_IDS as readonly string[]).indexOf(teamId) + 1),
+      nameWithOwner: `synthetic-org/${teamId}`,
+      visibility: RepositoryVisibility.PRIVATE,
+      source: RepositorySource.ORG_PROVISIONED,
+      presence: CollectionRepositoryPresence.PRESENT,
+    },
+  });
   return repository.id;
 }
 
@@ -1691,55 +1694,57 @@ async function createApplicationAndEvent(
   const program = programId(teamId);
   await prisma.program.create({
     data: {
-        startAt: new Date('2026-01-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000),
-        id: program,
-        name: 'Synthetic Program',
-        organizer: 'synthetic-organizer',
-        trackType: ProgramTrackType.EXTRACURRICULAR,
-        category: ProgramCategory.BASIC,
-        applicationTemplateKey: 'synthetic-template',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-        applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        description: 'synthetic-description',
-        repositoryProvisioningEnabled: true
-    }
-});
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
+      ),
+      id: program,
+      name: 'Synthetic Program',
+      organizer: 'synthetic-organizer',
+      trackType: ProgramTrackType.EXTRACURRICULAR,
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'synthetic-template',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      description: 'synthetic-description',
+      repositoryProvisioningEnabled: true,
+    },
+  });
   await prisma.team.create({
     data: {
-        id: teamId,
-        programId: program,
-        name: `${teamId}-team`,
-        leaderId: APPLICANT_ID,
-        applicantId: APPLICANT_ID,
-        answers: { title: `${teamId}-team` },
-        applicationTemplateVersion: 1
-    }
-});
+      id: teamId,
+      programId: program,
+      name: `${teamId}-team`,
+      leaderId: APPLICANT_ID,
+      applicantId: APPLICANT_ID,
+      answers: { title: `${teamId}-team` },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.create({
     data: {
-        teamId,
-        programId: program,
-        userId: APPLICANT_ID
-    }
-});
+      teamId,
+      programId: program,
+      userId: APPLICANT_ID,
+    },
+  });
   await prisma.team.update({
     where: { id: teamId },
     data: {
-        programId: program,
-        applicantId: APPLICANT_ID,
-        answers: { synthetic: true },
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.APPROVED,
-        ...(own === undefined
-            ? {}
-            : {
-                repositoryConnectionMode: own.connectionMode,
-                repositoryUrl: own.repositoryUrl,
-            })
-    }
-});
+      programId: program,
+      applicantId: APPLICANT_ID,
+      answers: { synthetic: true },
+      applicationTemplateVersion: 1,
+      status: ApplicationStatus.APPROVED,
+      ...(own === undefined
+        ? {}
+        : {
+            repositoryConnectionMode: own.connectionMode,
+            repositoryUrl: own.repositoryUrl,
+          }),
+    },
+  });
   await prisma.$transaction(async (transaction) => {
     const event = await transaction.outboxEvent.create({
       data: {

@@ -7,7 +7,10 @@ import { migrationStatements } from './program-authoring-migration-test-support'
 const schema = 'team_application_merge_fixture';
 const backup = 'team_application_merge_fixture_backup';
 const migration = readFileSync(
-  resolve(__dirname, 'migrations/20261105100100_merge_applications_into_teams/migration.sql'),
+  resolve(
+    __dirname,
+    'migrations/20261105100100_merge_applications_into_teams/migration.sql',
+  ),
   'utf8',
 ).replaceAll('program_team_backup', backup);
 
@@ -15,25 +18,36 @@ export async function withinTeamMergeFixture<T>(
   prisma: PrismaService,
   operation: (transaction: Prisma.TransactionClient) => Promise<T>,
 ): Promise<T> {
-  return prisma.$transaction(async (transaction) => {
-    await transaction.$executeRawUnsafe(`SET LOCAL search_path TO "${schema}"`);
-    return operation(transaction);
-  }, { timeout: 30_000 });
+  return prisma.$transaction(
+    async (transaction) => {
+      await transaction.$executeRawUnsafe(
+        `SET LOCAL search_path TO "${schema}"`,
+      );
+      return operation(transaction);
+    },
+    { timeout: 30_000 },
+  );
 }
 
-export async function dropTeamMergeFixture(prisma: PrismaService): Promise<void> {
+export async function dropTeamMergeFixture(
+  prisma: PrismaService,
+): Promise<void> {
   await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${schema}" CASCADE`);
   await prisma.$executeRawUnsafe(`DROP SCHEMA IF EXISTS "${backup}" CASCADE`);
 }
 
-export async function applyTeamMergeFixture(prisma: PrismaService): Promise<void> {
+export async function applyTeamMergeFixture(
+  prisma: PrismaService,
+): Promise<void> {
   await withinTeamMergeFixture(prisma, async (transaction) => {
     for (const statement of migrationStatements(migration))
       await transaction.$executeRawUnsafe(statement);
   });
 }
 
-export async function resetTeamMergeFixture(prisma: PrismaService): Promise<void> {
+export async function resetTeamMergeFixture(
+  prisma: PrismaService,
+): Promise<void> {
   await dropTeamMergeFixture(prisma);
   await prisma.$executeRawUnsafe(`CREATE SCHEMA "${schema}"`);
   await withinTeamMergeFixture(prisma, async (tx) => {
@@ -41,7 +55,9 @@ export async function resetTeamMergeFixture(prisma: PrismaService): Promise<void
       CREATE TYPE "ApplicationStatus" AS ENUM ('SUBMITTED','APPROVED','REJECTED');
       CREATE TYPE "RepositoryConnectionMode" AS ENUM ('NEW','OWN');
       CREATE TYPE "HistorySource" AS ENUM ('APPLICATION','MIGRATION','BOOTSTRAP');
-      CREATE TYPE "TeamHistoryEvent" AS ENUM (${Object.values(TeamHistoryEvent).map((event) => `'${event}'`).join(',')});
+      CREATE TYPE "TeamHistoryEvent" AS ENUM (${Object.values(TeamHistoryEvent)
+        .map((event) => `'${event}'`)
+        .join(',')});
       CREATE TABLE "User" (id TEXT PRIMARY KEY, name TEXT, login TEXT NOT NULL);
       CREATE TABLE "Team" (
         id TEXT PRIMARY KEY, "programId" TEXT NOT NULL, name TEXT NOT NULL,
@@ -101,7 +117,8 @@ export async function resetTeamMergeFixture(prisma: PrismaService): Promise<void
         "aggregateId" TEXT NOT NULL, "idempotencyKey" TEXT NOT NULL
       );
     `;
-    for (const statement of migrationStatements(ddl)) await tx.$executeRawUnsafe(statement);
+    for (const statement of migrationStatements(ddl))
+      await tx.$executeRawUnsafe(statement);
     const seed = `
       INSERT INTO "User" SELECT 'user-' || n, 'Synthetic ' || n, 'synthetic-' || n FROM generate_series(1,72) n;
       INSERT INTO "Team" (id,"programId",name,"leaderId")
@@ -158,6 +175,7 @@ export async function resetTeamMergeFixture(prisma: PrismaService): Promise<void
         SELECT 'event-' || n,jsonb_build_object('applicationId','application-' || n,'teamId','team-' || n),
           'Application','application-' || n,'repository-provision:application-' || n FROM generate_series(1,5) n;
     `;
-    for (const statement of migrationStatements(seed)) await tx.$executeRawUnsafe(statement);
+    for (const statement of migrationStatements(seed))
+      await tx.$executeRawUnsafe(statement);
   });
 }

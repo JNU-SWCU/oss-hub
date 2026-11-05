@@ -214,10 +214,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
 
   it('한 장도 안 낸 팀은 폴더를 만들지 않지만 현황표에는 미제출로 남는다', () => {
     const result = plan({
-      teams: [
-        team(),
-        team({ teamId: 'cuid-b', teamName: '오픈테이블' }),
-      ],
+      teams: [team(), team({ teamId: 'cuid-b', teamName: '오픈테이블' })],
       submissions: [fileSubmission()],
     });
 
@@ -307,10 +304,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
     it('같은 이름의 두 팀이 서로를 덮어쓰지 않는다', () => {
       const result = plan({
         teams: [team(), team({ teamId: 'cuid-b' })],
-        submissions: [
-          fileSubmission(),
-          fileSubmission({ teamId: 'cuid-b' }),
-        ],
+        submissions: [fileSubmission(), fileSubmission({ teamId: 'cuid-b' })],
       });
 
       expect(result.entries.map((entry) => entry.path)).toEqual([
@@ -321,11 +315,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
 
     it('세 번째부터도 계속 비켜 간다', () => {
       const result = plan({
-        teams: [
-          team(),
-          team({ teamId: 'cuid-b' }),
-          team({ teamId: 'cuid-c' }),
-        ],
+        teams: [team(), team({ teamId: 'cuid-b' }), team({ teamId: 'cuid-c' })],
         submissions: [
           fileSubmission(),
           fileSubmission({ teamId: 'cuid-b' }),
@@ -341,10 +331,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
     it('현황표가 가리키는 경로도 비킨 뒤의 경로다', () => {
       const result = plan({
         teams: [team(), team({ teamId: 'cuid-b' })],
-        submissions: [
-          fileSubmission(),
-          fileSubmission({ teamId: 'cuid-b' }),
-        ],
+        submissions: [fileSubmission(), fileSubmission({ teamId: 'cuid-b' })],
       });
 
       expect(result.manifest[1]?.cells[0]?.path).toBe(
@@ -375,10 +362,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
           team({ teamName: 'Alpha' }),
           team({ teamId: 'cuid-b', teamName: 'alpha' }),
         ],
-        submissions: [
-          fileSubmission(),
-          fileSubmission({ teamId: 'cuid-b' }),
-        ],
+        submissions: [fileSubmission(), fileSubmission({ teamId: 'cuid-b' })],
       });
 
       expect(result.entries.map((entry) => entry.path)).toEqual([
@@ -397,10 +381,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
           team({ teamName: composed }),
           team({ teamId: 'cuid-b', teamName: decomposed }),
         ],
-        submissions: [
-          fileSubmission(),
-          fileSubmission({ teamId: 'cuid-b' }),
-        ],
+        submissions: [fileSubmission(), fileSubmission({ teamId: 'cuid-b' })],
       });
 
       expect(result.entries[1]?.path.endsWith(' (2).hwp')).toBe(true);

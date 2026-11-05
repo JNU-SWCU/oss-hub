@@ -49,14 +49,24 @@ export interface PublicUserIdentity {
 }
 
 const PROJECT_ROW_SELECT = {
-  id: true, githubRepositoryId: true, nameWithOwner: true, publishedAt: true,
-  team: { select: { programId: true, name: true, _count: { select: { members: true } },
-    program: { select: { name: true, trackType: true } },
-    applicant: { select: { nickname: true } },
-  } },
+  id: true,
+  githubRepositoryId: true,
+  nameWithOwner: true,
+  publishedAt: true,
+  team: {
+    select: {
+      programId: true,
+      name: true,
+      _count: { select: { members: true } },
+      program: { select: { name: true, trackType: true } },
+      applicant: { select: { nickname: true } },
+    },
+  },
 } satisfies Prisma.GithubRepositorySelect;
 
-type ProjectRowSelection = Prisma.GithubRepositoryGetPayload<{ select: typeof PROJECT_ROW_SELECT }>;
+type ProjectRowSelection = Prisma.GithubRepositoryGetPayload<{
+  select: typeof PROJECT_ROW_SELECT;
+}>;
 
 function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
   return [
@@ -100,63 +110,69 @@ export class PublicProjectsRepository {
           })();
 
     const rows = await this.prisma.githubRepository.findMany({
-    where: {
+      where: {
         visibility: 'PUBLIC',
         team: { program: { lifecycle: { not: 'DELETED' } } },
         publishedAt: publishedAtWhere,
         ...(cursor === null
-            ? {}
-            : {
-                OR: [
-                    { publishedAt: { lt: cursor.publishedAt } },
-                    { publishedAt: cursor.publishedAt, id: { lt: cursor.id } },
-                ],
-            })
-    },
-    orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-    take,
-    select: PROJECT_ROW_SELECT
-});
-    return rows.flatMap(row => { const project = toProjectRow(row); return project === null ? [] : [project]; });
+          ? {}
+          : {
+              OR: [
+                { publishedAt: { lt: cursor.publishedAt } },
+                { publishedAt: cursor.publishedAt, id: { lt: cursor.id } },
+              ],
+            }),
+      },
+      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      take,
+      select: PROJECT_ROW_SELECT,
+    });
+    return rows.flatMap((row) => {
+      const project = toProjectRow(row);
+      return project === null ? [] : [project];
+    });
   }
 
   async findById(projectId: string): Promise<PublicProjectRow | null> {
     if (!/^[0-9]+$/.test(projectId)) return null;
 
     const row = await this.prisma.githubRepository.findFirst({
-    where: {
+      where: {
         githubRepositoryId: BigInt(projectId),
         visibility: 'PUBLIC',
         team: { program: { lifecycle: { not: 'DELETED' } } },
-        publishedAt: { not: null }
-    },
-    select: PROJECT_ROW_SELECT
-});
+        publishedAt: { not: null },
+      },
+      select: PROJECT_ROW_SELECT,
+    });
     return row === null ? null : toProjectRow(row);
   }
 
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
     const rows = await this.prisma.githubRepository.findMany({
-    where: {
+      where: {
         visibility: 'PUBLIC',
         team: { program: { lifecycle: { not: 'DELETED' } } },
         publishedAt: { not: null },
         OR: [
-            { team: { leaderId: userId } },
-            { team: { members: { some: { userId } } } }
-        ]
-    },
-    orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-    select: PROJECT_ROW_SELECT
-});
-    return rows.flatMap(row => { const project = toProjectRow(row); return project === null ? [] : [project]; });
+          { team: { leaderId: userId } },
+          { team: { members: { some: { userId } } } },
+        ],
+      },
+      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      select: PROJECT_ROW_SELECT,
+    });
+    return rows.flatMap((row) => {
+      const project = toProjectRow(row);
+      return project === null ? [] : [project];
+    });
   }
 
   async findUserIdentity(userId: string): Promise<PublicUserIdentity | null> {
     const user = await this.prisma.user.findUnique({
-    where: { id: userId },
-    select: { id: true, nickname: true, avatarUrl: true, githubId: true }
-});
+      where: { id: userId },
+      select: { id: true, nickname: true, avatarUrl: true, githubId: true },
+    });
     return user === null
       ? null
       : {

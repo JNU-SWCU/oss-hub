@@ -96,7 +96,14 @@ beforeAll(async () => {
       RepositoryPublishService,
       {
         provide: StudentRepositoryUrlService,
-        useValue: new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never),
+        useValue: new StudentRepositoryUrlService(
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+          {} as never,
+        ),
       },
       TeamMembershipService,
       TeamRepository,
@@ -204,13 +211,13 @@ beforeEach(() => {
                 },
               ],
               id: TEAM_ID,
-                  status: 'APPROVED',
-                  repository: {
-                    id: 'synthetic-repository',
-                    nameWithOwner: 'synthetic-org/synthetic-repo',
-                    lastSuccessAt: new Date('2026-08-10T00:00:00Z'),
-                    failureCount: 0,
-                  },
+              status: 'APPROVED',
+              repository: {
+                id: 'synthetic-repository',
+                nameWithOwner: 'synthetic-org/synthetic-repo',
+                lastSuccessAt: new Date('2026-08-10T00:00:00Z'),
+                failureCount: 0,
+              },
             }
           : null,
       ),

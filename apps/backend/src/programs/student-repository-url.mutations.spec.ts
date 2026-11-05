@@ -31,8 +31,18 @@ const context: StudentRepositoryUrlContext = {
     nameWithOwner: 'synthetic/old',
   },
 };
-const leader = { id: 'leader', nickname: 'synthetic-actor', isLeader: true, isStaff: false };
-const staff = { id: 'staff', nickname: 'synthetic-staff', isLeader: false, isStaff: true };
+const leader = {
+  id: 'leader',
+  nickname: 'synthetic-actor',
+  isLeader: true,
+  isStaff: false,
+};
+const staff = {
+  id: 'staff',
+  nickname: 'synthetic-staff',
+  isLeader: false,
+  isStaff: true,
+};
 const member = {
   id: 'member',
   nickname: 'synthetic-member',
@@ -50,9 +60,17 @@ function fixture(
   const teamContext: TeamRepositoryUrlContext = { ...context, editor };
   const database = new PrismaService();
   const history = jest.spyOn(database.teamHistory, 'create').mockResolvedValue({
-    id: 'synthetic-history', teamId: 'team', programId: 'program', actorId: editor.id,
-    event: 'REPOSITORY_URL_CHANGED', source: 'APPLICATION', sourceTable: null, sourceId: null,
-    occurredAt: new Date('2026-01-01'), recordedAt: new Date('2026-01-01'), data: {},
+    id: 'synthetic-history',
+    teamId: 'team',
+    programId: 'program',
+    actorId: editor.id,
+    event: 'REPOSITORY_URL_CHANGED',
+    source: 'APPLICATION',
+    sourceTable: null,
+    sourceId: null,
+    occurredAt: new Date('2026-01-01'),
+    recordedAt: new Date('2026-01-01'),
+    data: {},
   });
   const transaction = new StudentRepositoryUrlTransactionRepository(
     database,
@@ -103,13 +121,20 @@ function fixture(
       events.push(`collect:${githubRepositoryId}`);
     }),
   };
-  const service = new StudentRepositoryUrlService(repository, {
-    findActiveStudentByGithubId: jest.fn().mockResolvedValue({
+  const service = new StudentRepositoryUrlService(
+    repository,
+    {
+      findActiveStudentByGithubId: jest.fn().mockResolvedValue({
         id: studentId,
         nickname: 'synthetic-actor',
         name: null,
-    }),
-}, resolver, consents, collection, new RepositoryProvisionEventService());
+      }),
+    },
+    resolver,
+    consents,
+    collection,
+    new RepositoryProvisionEventService(),
+  );
   return {
     service,
     repository,
@@ -250,12 +275,17 @@ it('records old and new identities with the actor snapshot in the transaction', 
   const calls: readonly (readonly unknown[])[] = history.mock.calls;
   const record = calls[0]?.[0];
   expect(record).toMatchObject({
-    data: { event: 'REPOSITORY_URL_CHANGED', data: { metadata: {
-      actorGithubLogin: 'synthetic-actor',
-      schemaVersion: 2,
-      before: { repositoryId: 'old' },
-      after: { repositoryId: 'target' },
-    } } },
+    data: {
+      event: 'REPOSITORY_URL_CHANGED',
+      data: {
+        metadata: {
+          actorGithubLogin: 'synthetic-actor',
+          schemaVersion: 2,
+          before: { repositoryId: 'old' },
+          after: { repositoryId: 'target' },
+        },
+      },
+    },
   });
 });
 it('passes a managed organization private replacement through the transaction without applicant consent', async () => {
@@ -319,8 +349,13 @@ it('lets staff outside the team save with the same history action and the applic
   expect(relink).toHaveBeenCalledTimes(1);
   const calls: readonly (readonly unknown[])[] = history.mock.calls;
   expect(calls[0]?.[0]).toMatchObject({
-    data: { actorId: 'staff', event: 'REPOSITORY_URL_CHANGED', teamId: 'team',
-      data: { metadata: { actorGithubLogin: 'synthetic-staff', teamId: 'team' } },
+    data: {
+      actorId: 'staff',
+      event: 'REPOSITORY_URL_CHANGED',
+      teamId: 'team',
+      data: {
+        metadata: { actorGithubLogin: 'synthetic-staff', teamId: 'team' },
+      },
     },
   });
 });

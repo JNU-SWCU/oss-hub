@@ -117,14 +117,25 @@ async function upsertApplication(
       userId: params.applicantId,
     });
   }
-  return upsertTracked(stats, 'Team', () => prisma.team.findUnique({ where: { id: teamId } }), () => prisma.team.update({ where: { id: teamId }, data: { programId: params.programId,
-applicantId: params.applicantId,
-answers,
-applicationTemplateVersion: 1,
-status: params.status,
-rejectionReason: params.rejectionReason,
-processedById: params.processedById,
-processedAt: params.processedAt } }));
+  return upsertTracked(
+    stats,
+    'Team',
+    () => prisma.team.findUnique({ where: { id: teamId } }),
+    () =>
+      prisma.team.update({
+        where: { id: teamId },
+        data: {
+          programId: params.programId,
+          applicantId: params.applicantId,
+          answers,
+          applicationTemplateVersion: 1,
+          status: params.status,
+          rejectionReason: params.rejectionReason,
+          processedById: params.processedById,
+          processedAt: params.processedAt,
+        },
+      }),
+  );
 }
 
 async function upsertTeam(
@@ -142,18 +153,18 @@ async function upsertTeam(
     () => prisma.team.findUnique({ where: { id: params.id } }),
     () =>
       prisma.team.upsert({
-    where: { id: params.id },
-    update: { name: params.name },
-    create: {
-        id: params.id,
-        programId: params.programId,
-        name: params.name,
-        leaderId: params.leaderId,
-        applicantId: params.leaderId,
-        answers: { title: params.name },
-        applicationTemplateVersion: 1
-    }
-}),
+        where: { id: params.id },
+        update: { name: params.name },
+        create: {
+          id: params.id,
+          programId: params.programId,
+          name: params.name,
+          leaderId: params.leaderId,
+          applicantId: params.leaderId,
+          answers: { title: params.name },
+          applicationTemplateVersion: 1,
+        },
+      }),
   );
 }
 
@@ -193,7 +204,7 @@ async function createTeamWithApplication(
     leaderId: string;
     memberIds: readonly string[];
   },
-): Promise<{ teamId: string; }> {
+): Promise<{ teamId: string }> {
   const teamId = seedId('intake', params.scenarioId, 'team');
   await upsertTeam(stats, {
     id: teamId,
@@ -221,7 +232,7 @@ async function createTeamWithApplication(
     status: ApplicationStatus.SUBMITTED,
     scenarioId: params.scenarioId,
   });
-  return { teamId, };
+  return { teamId };
 }
 
 const PROGRAM_WITH_APPLICATIONS_ID = seedId(

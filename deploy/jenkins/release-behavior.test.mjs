@@ -1095,7 +1095,9 @@ for (const mode of ['ok', 'status', 'transport'])
         assert.ok(upload.url.endsWith('/milestone-document-files'));
         assert.ok(upload.args.includes('milestoneId=smoke'));
         assert.ok(upload.args.includes('documentId=smoke'));
-        assert.ok(!upload.args.some((arg) => /^(applicationId|teamId)=/.test(arg)));
+        assert.ok(
+          !upload.args.some((arg) => /^(applicationId|teamId)=/.test(arg)),
+        );
       }
       assert.deepEqual(
         calls.filter((c) => c.bytes).map((c) => c.bytes),

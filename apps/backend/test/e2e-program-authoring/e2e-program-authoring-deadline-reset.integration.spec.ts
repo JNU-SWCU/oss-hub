@@ -32,17 +32,17 @@ beforeAll(async () => {
   await prisma.$connect();
   await prisma.user.create({
     data: {
-        ...canonicalUserCreate({
-            id: staffId,
-            githubId: 8100091n,
-            nickname: 'synthetic-global-staff',
-            memberKind: MemberKind.STAFF,
-            hasStaffAccess: true,
-        }),
-        notifyEnabled: true,
-        notificationEmail: 'global-staff@fixture.invalid'
-    }
-});
+      ...canonicalUserCreate({
+        id: staffId,
+        githubId: 8100091n,
+        nickname: 'synthetic-global-staff',
+        memberKind: MemberKind.STAFF,
+        hasStaffAccess: true,
+      }),
+      notifyEnabled: true,
+      notificationEmail: 'global-staff@fixture.invalid',
+    },
+  });
 });
 
 afterEach(async () => {
@@ -60,27 +60,27 @@ async function ensureMissingSubmission(): Promise<void> {
   await fixture.ensure();
   const team = await prisma.team.create({
     data: {
-        programId: E2E_PROGRAM_ID,
-        name: 'synthetic-reset-team',
-        leaderId: E2E_STUDENT_ID,
-        members: {
-            create: { userId: E2E_STUDENT_ID }
-        },
-        applicantId: E2E_STUDENT_ID,
-        answers: { title: 'synthetic-reset-team' },
-        applicationTemplateVersion: 1
-    }
-});
+      programId: E2E_PROGRAM_ID,
+      name: 'synthetic-reset-team',
+      leaderId: E2E_STUDENT_ID,
+      members: {
+        create: { userId: E2E_STUDENT_ID },
+      },
+      applicantId: E2E_STUDENT_ID,
+      answers: { title: 'synthetic-reset-team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.team.update({
     where: { id: team.id },
     data: {
-        programId: E2E_PROGRAM_ID,
-        applicantId: E2E_STUDENT_ID,
-        status: 'APPROVED',
-        answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+      programId: E2E_PROGRAM_ID,
+      applicantId: E2E_STUDENT_ID,
+      status: 'APPROVED',
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
 }
 
 async function sendDigest(): Promise<void> {

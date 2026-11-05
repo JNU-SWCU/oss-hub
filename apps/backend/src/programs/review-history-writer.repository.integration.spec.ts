@@ -35,8 +35,8 @@ async function cleanup(): Promise<void> {
     where: { teamId: { startsWith: PREFIX } },
   });
   await prisma.teamMember.deleteMany({
-    where: { teamId: { startsWith: PREFIX } }
-});
+    where: { teamId: { startsWith: PREFIX } },
+  });
   await prisma.team.deleteMany({ where: { id: { startsWith: PREFIX } } });
   await prisma.program.deleteMany({ where: { id: { startsWith: PREFIX } } });
   await prisma.user.deleteMany({ where: { id: { startsWith: PREFIX } } });
@@ -45,79 +45,81 @@ async function cleanup(): Promise<void> {
 async function seed(): Promise<void> {
   await prisma.user.createMany({
     data: [
-        {
-            id: ACTOR_ID,
-            githubId: 9320000001n,
-            nickname: 'review-history-actor',
-            accountStatus: 'ACTIVE',
-            type: MemberKind.STAFF,
-            approvalStatus: 'APPROVED',
-            name: 'Synthetic staff',
-            department: 'Synthetic department',
-            profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-            profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-            departmentType: 'DEPARTMENT'
-        },
-        {
-            id: APPLICANT_A_ID,
-            githubId: 9320000002n,
-            nickname: 'review-history-applicant-a',
-            accountStatus: 'ACTIVE',
-            type: MemberKind.STUDENT,
-            approvalStatus: 'NOT_REQUIRED'
-        },
-        {
-            id: APPLICANT_B_ID,
-            githubId: 9320000003n,
-            nickname: 'review-history-applicant-b',
-            accountStatus: 'ACTIVE',
-            type: MemberKind.STUDENT,
-            approvalStatus: 'NOT_REQUIRED'
-        }
-    ]
-});
+      {
+        id: ACTOR_ID,
+        githubId: 9320000001n,
+        nickname: 'review-history-actor',
+        accountStatus: 'ACTIVE',
+        type: MemberKind.STAFF,
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
+      },
+      {
+        id: APPLICANT_A_ID,
+        githubId: 9320000002n,
+        nickname: 'review-history-applicant-a',
+        accountStatus: 'ACTIVE',
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
+      },
+      {
+        id: APPLICANT_B_ID,
+        githubId: 9320000003n,
+        nickname: 'review-history-applicant-b',
+        accountStatus: 'ACTIVE',
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
+      },
+    ],
+  });
   await prisma.program.create({
     data: {
-        startAt: new Date('2026-01-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000),
-        id: PROGRAM_ID,
-        name: '이력 writer 검증 프로그램',
-        organizer: 'OSS Center',
-        category: ProgramCategory.BASIC,
-        applicationTemplateKey: 'basic',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-        applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        description: '이력 append 원자성 검증'
-    }
-});
+      startAt: new Date('2026-01-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
+      ),
+      id: PROGRAM_ID,
+      name: '이력 writer 검증 프로그램',
+      organizer: 'OSS Center',
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'basic',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      description: '이력 append 원자성 검증',
+    },
+  });
   for (const [teamId, applicantId] of [
     [TEAM_A_ID, APPLICANT_A_ID],
     [TEAM_B_ID, APPLICANT_B_ID],
   ] as const) {
     await prisma.team.create({
-    data: {
+      data: {
         id: teamId,
         programId: PROGRAM_ID,
         name: `팀 ${teamId}`,
         leaderId: applicantId,
         applicantId: applicantId,
         answers: { title: `팀 ${teamId}` },
-        applicationTemplateVersion: 1
-    }
-});
+        applicationTemplateVersion: 1,
+      },
+    });
     await prisma.teamMember.create({
-    data: { teamId, programId: PROGRAM_ID, userId: applicantId }
-});
+      data: { teamId, programId: PROGRAM_ID, userId: applicantId },
+    });
     await prisma.team.update({
-    where: { id: teamId },
-    data: {
+      where: { id: teamId },
+      data: {
         programId: PROGRAM_ID,
         applicantId,
         answers: {},
-        applicationTemplateVersion: 1
-    }
-});
+        applicationTemplateVersion: 1,
+      },
+    });
   }
 }
 
@@ -149,30 +151,44 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
   });
 
   it('상태 갱신 뒤 이력 insert가 실패하면 상태 갱신까지 함께 롤백된다', async () => {
-    await prisma.$executeRawUnsafe(`ALTER TABLE "TeamHistory" ADD CONSTRAINT "synthetic_review_history_write_failure" CHECK ("teamId" <> '${TEAM_A_ID}')`);
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "TeamHistory" ADD CONSTRAINT "synthetic_review_history_write_failure" CHECK ("teamId" <> '${TEAM_A_ID}')`,
+    );
     try {
-      await expect(prisma.$transaction(async transaction => {
-        await transaction.team.update({ where: { id: TEAM_A_ID }, data: { status: 'APPROVED' } });
-        await new TeamHistoryRepository().appendReviewHistory(transaction, entry(TeamHistoryEvent.APPROVED, TEAM_A_ID));
-      })).rejects.toThrow('synthetic_review_history_write_failure');
-      expect(await prisma.team.findUniqueOrThrow({ where: { id: TEAM_A_ID } })).toMatchObject({ status: 'SUBMITTED' });
-      expect(await prisma.teamHistory.count({ where: { teamId: TEAM_A_ID } })).toBe(0);
+      await expect(
+        prisma.$transaction(async (transaction) => {
+          await transaction.team.update({
+            where: { id: TEAM_A_ID },
+            data: { status: 'APPROVED' },
+          });
+          await new TeamHistoryRepository().appendReviewHistory(
+            transaction,
+            entry(TeamHistoryEvent.APPROVED, TEAM_A_ID),
+          );
+        }),
+      ).rejects.toThrow('synthetic_review_history_write_failure');
+      expect(
+        await prisma.team.findUniqueOrThrow({ where: { id: TEAM_A_ID } }),
+      ).toMatchObject({ status: 'SUBMITTED' });
+      expect(
+        await prisma.teamHistory.count({ where: { teamId: TEAM_A_ID } }),
+      ).toBe(0);
     } finally {
-      await prisma.$executeRawUnsafe('ALTER TABLE "TeamHistory" DROP CONSTRAINT "synthetic_review_history_write_failure"');
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "TeamHistory" DROP CONSTRAINT "synthetic_review_history_write_failure"',
+      );
     }
   });
 
   it('회차 증가와 이력 행이 같은 커밋에 함께 들어간다', async () => {
     await repository.withTransaction((store) =>
-      store.appendReviewHistory(
-        entry(TeamHistoryEvent.RESUBMITTED, TEAM_A_ID),
-      ),
+      store.appendReviewHistory(entry(TeamHistoryEvent.RESUBMITTED, TEAM_A_ID)),
     );
 
     const application = await prisma.team.findUniqueOrThrow({
-    where: { id: TEAM_A_ID },
-    select: { revision: true }
-});
+      where: { id: TEAM_A_ID },
+      select: { revision: true },
+    });
     const rows = await prisma.teamHistory.findMany({
       where: { teamId: TEAM_A_ID },
     });
@@ -194,9 +210,9 @@ describe('판정 이력 append writer — 트랜잭션 경계와 삭제 연쇄',
 
     expect(failure).not.toBeNull();
     const application = await prisma.team.findUniqueOrThrow({
-    where: { id: TEAM_A_ID },
-    select: { revision: true }
-});
+      where: { id: TEAM_A_ID },
+      select: { revision: true },
+    });
     expect(application.revision).toBe(1);
     await expect(
       prisma.teamHistory.count({

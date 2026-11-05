@@ -1,22 +1,30 @@
-import { StudentRepositoryUrlService, TeamApplicationService, ApplicationAnswersService } from './team-application.service';
-import type { ApplicationsRepository, TeamManagementListPage } from './team.repository';
+import {
+  StudentRepositoryUrlService,
+  TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
+import type {
+  ApplicationsRepository,
+  TeamManagementListPage,
+} from './team.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { TeamsController, ProgramApplicationsController } from './teams.controller';
+import {
+  TeamsController,
+  ProgramApplicationsController,
+} from './teams.controller';
 import type {
   TeamRepository,
   StaffTeamDetailRecord,
-  StaffTeamRecord,
   TeamProgramRecord,
 } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
@@ -66,18 +74,40 @@ const TEAM_MEMBER_VIEWS = [
   { userId: 'user-b', name: null, nickname: 'login-b', isLeader: false },
 ];
 
-const STAFF_TEAM: StaffTeamRecord = {
-  id: 'team-1',
-  name: '오픈소스팀',
-  leaderId: 'user-a',
-  members: TEAM_MEMBER_RECORDS,
-};
-
 const STAFF_TEAM_PAGE: TeamManagementListPage = {
-  items: [{ id: TEAM_ID, programId: PROGRAM_ID, teamMinSize: 2, status: 'SUBMITTED', submittedAt: new Date('2026-08-01T00:00:00.000Z'), rejectionReason: null, applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' }, team: { id: TEAM_ID, name: '오픈소스팀', memberCount: 2, members: TEAM_MEMBER_RECORDS.map(member => ({ id: member.userId, name: member.name, nickname: member.nickname })) } }],
-  page: 1, pageSize: 20, totalItems: 1, totalPages: 1,
+  items: [
+    {
+      id: TEAM_ID,
+      programId: PROGRAM_ID,
+      teamMinSize: 2,
+      status: 'SUBMITTED',
+      submittedAt: new Date('2026-08-01T00:00:00.000Z'),
+      rejectionReason: null,
+      applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+      team: {
+        id: TEAM_ID,
+        name: '오픈소스팀',
+        memberCount: 2,
+        members: TEAM_MEMBER_RECORDS.map((member) => ({
+          id: member.userId,
+          name: member.name,
+          nickname: member.nickname,
+        })),
+      },
+    },
+  ],
+  page: 1,
+  pageSize: 20,
+  totalItems: 1,
+  totalPages: 1,
 };
-const STAFF_TEAM_BODY = { ...STAFF_TEAM_PAGE, items: STAFF_TEAM_PAGE.items.map(item => ({ ...item, submittedAt: item.submittedAt.toISOString() })) };
+const STAFF_TEAM_BODY = {
+  ...STAFF_TEAM_PAGE,
+  items: STAFF_TEAM_PAGE.items.map((item) => ({
+    ...item,
+    submittedAt: item.submittedAt.toISOString(),
+  })),
+};
 
 const STAFF_TEAM_DETAIL: StaffTeamDetailRecord = {
   id: TEAM_ID,
@@ -144,9 +174,15 @@ function staffOnlyProblem(instance: string) {
     type: 'about:blank',
     title: 'FORBIDDEN',
     status: 403,
-    detail: instance === LIST_INSTANCE ? '승인된 교직원 또는 운영자만 조회할 수 있습니다.' : STAFF_ONLY_DETAIL,
+    detail:
+      instance === LIST_INSTANCE
+        ? '승인된 교직원 또는 운영자만 조회할 수 있습니다.'
+        : STAFF_ONLY_DETAIL,
     instance,
-    code: instance === LIST_INSTANCE ? ApplicationsErrorCode.STAFF_LIST_ONLY : TeamsErrorCode.STAFF_ONLY,
+    code:
+      instance === LIST_INSTANCE
+        ? ApplicationsErrorCode.STAFF_LIST_ONLY
+        : TeamsErrorCode.STAFF_ONLY,
   };
 }
 
@@ -161,10 +197,33 @@ const repository = {
   findStaffTeamDetail,
 } as unknown as TeamRepository;
 
-const service = new TeamMembershipService(repository, stubTeamDeletionRepository(), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
+const service = new TeamMembershipService(
+  repository,
+  stubTeamDeletionRepository(),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
+);
 
-const applicationService = new TeamApplicationService(repository as unknown as ApplicationsRepository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
-const listForProgramView = jest.fn((...args: Parameters<TeamApplicationService['listForProgramView']>) => applicationService.listForProgramView(...args));
+const applicationService = new TeamApplicationService(
+  repository as unknown as ApplicationsRepository,
+  new RepositoryUrlService(),
+  new ApplicationAnswersService(),
+  new RepositoryProvisionEventService(),
+);
+const listForProgramView = jest.fn(
+  (...args: Parameters<TeamApplicationService['listForProgramView']>) =>
+    applicationService.listForProgramView(...args),
+);
 const getForStaff = jest.fn(
   (...args: Parameters<TeamMembershipService['getForStaff']>) =>
     service.getForStaff(...args),
@@ -340,13 +399,24 @@ it('ACTIVE STAFF 는 팀 목록 페이지를 200 으로 받는다', async () => 
   ]) {
     expect(serialized).not.toContain(forbidden);
   }
-  expect(listForProgramView).toHaveBeenCalledWith(PROGRAM_ID, expect.objectContaining({ view: 'team-management' }));
-  expect(listTeamManagementForProgram).toHaveBeenCalledWith(PROGRAM_ID, expect.objectContaining({ page: 1, pageSize: 20, view: 'team-management' }));
+  expect(listForProgramView).toHaveBeenCalledWith(
+    PROGRAM_ID,
+    expect.objectContaining({ view: 'team-management' }),
+  );
+  expect(listTeamManagementForProgram).toHaveBeenCalledWith(
+    PROGRAM_ID,
+    expect.objectContaining({ page: 1, pageSize: 20, view: 'team-management' }),
+  );
 });
 
 it('교직원 권한이 없는 ACTIVE ADMIN 은 거부한다', async () => {
   findUnique.mockResolvedValue(ADMIN_USER);
-  listTeamManagementForProgram.mockResolvedValue({ ...STAFF_TEAM_PAGE, items: [], totalItems: 0, totalPages: 0 });
+  listTeamManagementForProgram.mockResolvedValue({
+    ...STAFF_TEAM_PAGE,
+    items: [],
+    totalItems: 0,
+    totalPages: 0,
+  });
 
   const response = await getTeams(await sessionCookieFor(5002n));
 
@@ -428,7 +498,10 @@ it.each(inputCells)(
 
     if (path.startsWith('?') && status === 200) {
       expect(response.status).toBe(400);
-      await expect(response.json()).resolves.toMatchObject({ code: 'SYS_003', status: 400 });
+      await expect(response.json()).resolves.toMatchObject({
+        code: 'SYS_003',
+        status: 400,
+      });
       expect(listForProgramView).not.toHaveBeenCalled();
     } else {
       expect(response.status).toBe(status);

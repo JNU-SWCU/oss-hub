@@ -83,30 +83,61 @@ describe('program storage invariants', () => {
     'uses the composite membership key and applies the final-member rule for %s',
     async (status) => {
       await prisma.program.create({ data: program });
-      await prisma.team.create({ data: {
-        id: prefix, programId: prefix, name: 'Synthetic team', leaderId: prefix,
-        applicantId: prefix, answers: {}, applicationTemplateVersion: 1, status,
-      } });
+      await prisma.team.create({
+        data: {
+          id: prefix,
+          programId: prefix,
+          name: 'Synthetic team',
+          leaderId: prefix,
+          applicantId: prefix,
+          answers: {},
+          applicationTemplateVersion: 1,
+          status,
+        },
+      });
       await prisma.$executeRaw`
         INSERT INTO "TeamMember" ("teamId", "programId", "userId")
         VALUES (${prefix}, ${prefix}, ${prefix})
       `;
-      const repository = new TeamRepository(prisma, new ProgramTeamRepositoryEvidenceRepository(prisma), new PlatformRepository(), new TeamHistoryRepository());
+      const repository = new TeamRepository(
+        prisma,
+        new ProgramTeamRepositoryEvidenceRepository(prisma),
+        new PlatformRepository(),
+        new TeamHistoryRepository(),
+      );
 
-      const result = await repository.leave(prefix, prefix, () => Promise.resolve());
+      const result = await repository.leave(prefix, prefix, () =>
+        Promise.resolve(),
+      );
 
       if (status === 'APPROVED') {
         expect(result).toBe('last-member-with-application');
         expect(await prisma.team.count({ where: { id: prefix } })).toBe(1);
-        expect(await prisma.teamMember.count({ where: { programId: prefix } })).toBe(1);
-        expect(await prisma.teamHistory.count({ where: { teamId: prefix } })).toBe(0);
+        expect(
+          await prisma.teamMember.count({ where: { programId: prefix } }),
+        ).toBe(1);
+        expect(
+          await prisma.teamHistory.count({ where: { teamId: prefix } }),
+        ).toBe(0);
       } else {
         expect(result).toBe('removed');
         expect(await prisma.team.count({ where: { id: prefix } })).toBe(0);
-        expect(await prisma.teamMember.count({ where: { programId: prefix } })).toBe(0);
-        const history = await prisma.teamHistory.findMany({ where: { teamId: prefix } });
+        expect(
+          await prisma.teamMember.count({ where: { programId: prefix } }),
+        ).toBe(0);
+        const history = await prisma.teamHistory.findMany({
+          where: { teamId: prefix },
+        });
         expect(history).toHaveLength(1);
-        expect(history[0]).toMatchObject({ event: 'DELETED', actorId: prefix, data: { reason: 'LAST_MEMBER_LEFT', status, deletedCounts: { teams: 1, members: 1 } } });
+        expect(history[0]).toMatchObject({
+          event: 'DELETED',
+          actorId: prefix,
+          data: {
+            reason: 'LAST_MEMBER_LEFT',
+            status,
+            deletedCounts: { teams: 1, members: 1 },
+          },
+        });
       }
     },
   );

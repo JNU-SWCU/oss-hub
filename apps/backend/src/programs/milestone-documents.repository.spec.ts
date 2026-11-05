@@ -80,9 +80,7 @@ function attachMembershipFence(
         return Promise.resolve(null);
       }
       return Promise.resolve(
-        currentMemberIds.includes(candidateId)
-          ? { id: syntheticTeamId }
-          : null,
+        currentMemberIds.includes(candidateId) ? { id: syntheticTeamId } : null,
       );
     },
   );
@@ -135,7 +133,8 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
           {
             id: syntheticTeamId,
             applicant: { name: '합성 신청자' },
-            name: '가나다팀', members: [],
+            name: '가나다팀',
+            members: [],
           },
         ]),
       },
@@ -1477,10 +1476,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     );
 
     const result = await repository.withTransaction((store) =>
-      store.findSubmissionForReview(
-        syntheticDocumentId,
-        syntheticTeamId,
-      ),
+      store.findSubmissionForReview(syntheticDocumentId, syntheticTeamId),
     );
 
     expect(submissionFindUnique).toHaveBeenCalledWith({
@@ -1533,10 +1529,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     );
 
     const result = await repository.withTransaction((store) =>
-      store.findSubmissionForReview(
-        syntheticDocumentId,
-        syntheticTeamId,
-      ),
+      store.findSubmissionForReview(syntheticDocumentId, syntheticTeamId),
     );
 
     expect(result).toBeNull();
@@ -1804,10 +1797,11 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       {
         id: syntheticTeamId,
         applicant: { name: '합성 신청자' },
-        name: '가나다팀', members: [
-            { user: { nickname: 'synthetic-leader' } },
-            { user: { nickname: 'synthetic-member' } },
-          ],
+        name: '가나다팀',
+        members: [
+          { user: { nickname: 'synthetic-leader' } },
+          { user: { nickname: 'synthetic-member' } },
+        ],
       },
     ]);
     const prisma = { team: { findMany } } as unknown as PrismaService;
@@ -1867,7 +1861,8 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       {
         id: syntheticTeamId,
         applicant: { name: '프로필 이름' },
-        name: '가나다팀', members: [],
+        name: '가나다팀',
+        members: [],
       },
     ]);
     const prisma = { team: { findMany } } as unknown as PrismaService;
@@ -2548,10 +2543,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticTeamId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(result[0]).toEqual({
@@ -2594,10 +2588,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticTeamId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     expect(result[0]?.review).toBeNull();
     expect(result[0]?.historyComplete).toBe(true);
@@ -2628,9 +2621,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     );
 
     await expect(
-      repository.findSubmittedSummaries(syntheticTeamId, [
-        syntheticDocumentId,
-      ]),
+      repository.findSubmittedSummaries(syntheticTeamId, [syntheticDocumentId]),
     ).resolves.toEqual([expect.objectContaining({ historyComplete: false })]);
   });
 
@@ -2647,10 +2638,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticTeamId,
-      [],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, []);
 
     expect(findMany).not.toHaveBeenCalled();
     expect(result).toEqual([]);
@@ -2687,10 +2675,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       } as unknown as PrismaService),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticTeamId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     const call = firstCallArgument<{
       select: { files: { select: Record<string, unknown> } };
@@ -2736,10 +2723,9 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       } as unknown as PrismaService),
     );
 
-    const result = await repository.findSubmittedSummaries(
-      syntheticTeamId,
-      [syntheticDocumentId],
-    );
+    const result = await repository.findSubmittedSummaries(syntheticTeamId, [
+      syntheticDocumentId,
+    ]);
 
     expect(result[0]).toEqual(
       expect.objectContaining({
@@ -2822,9 +2808,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
-    const result = await repository.findApplicationProgramId(
-      syntheticTeamId,
-    );
+    const result = await repository.findApplicationProgramId(syntheticTeamId);
 
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: syntheticTeamId },

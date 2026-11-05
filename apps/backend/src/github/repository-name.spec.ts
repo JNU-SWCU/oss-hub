@@ -65,13 +65,9 @@ describe('buildRepositoryOwnershipMarker', () => {
     const teamId = 'application-sensitive-fixture-id';
 
     const first =
-      repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
-        teamId,
-      );
+      repositoryProvisionGithubService.buildRepositoryOwnershipMarker(teamId);
     const repeated =
-      repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
-        teamId,
-      );
+      repositoryProvisionGithubService.buildRepositoryOwnershipMarker(teamId);
     const different =
       repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
         'other-application-id',

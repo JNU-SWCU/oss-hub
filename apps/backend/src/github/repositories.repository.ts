@@ -89,13 +89,8 @@ export interface RepositoriesTransactionStore {
   claimProvisionEvent(
     input: ClaimProvisionEventInput,
   ): Promise<ClaimedProvisionEvent | null>;
-  upsertProvisionJob(
-    teamId: string,
-    now: Date,
-  ): Promise<ProvisionJobReference>;
-  findProvisionJob(
-    teamId: string,
-  ): Promise<ProvisionJobReference | null>;
+  upsertProvisionJob(teamId: string, now: Date): Promise<ProvisionJobReference>;
+  findProvisionJob(teamId: string): Promise<ProvisionJobReference | null>;
   confirmSupersededProvisionEvent(
     eventId: string,
     teamId: string,
@@ -175,7 +170,8 @@ export class RepositoriesRepository {
             program: {
               select: { name: true },
             },
-            name: true, _count: { select: { members: true } },
+            name: true,
+            _count: { select: { members: true } },
             repository: {
               select: {
                 id: true,

@@ -18,7 +18,6 @@ import {
 } from '../platform/repository-provision-generation.repository';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import type { GithubRepositoryMetadata } from './github-app.client';
-import { REPOSITORY_CONNECTION_AUDIT_ACTIONS } from '../platform/repository-audit-metadata.config';
 import type { RepositoryConnectionAuditMetadata } from '../platform/repository-audit-metadata.config';
 import {
   DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
@@ -318,9 +317,13 @@ export class RepositoryProvisionStateRepository {
       }
     }
 
-    const deletedCounts = current !== null && current.id !== target?.id
-      ? await this.repositoryDeletion.deleteRepositoryWithFacts(transaction, current.id)
-      : null;
+    const deletedCounts =
+      current !== null && current.id !== target?.id
+        ? await this.repositoryDeletion.deleteRepositoryWithFacts(
+            transaction,
+            current.id,
+          )
+        : null;
     const source =
       target?.source === RepositorySource.ORG_PROVISIONED
         ? RepositorySource.ORG_PROVISIONED
@@ -349,7 +352,7 @@ export class RepositoryProvisionStateRepository {
       const claimed = await transaction.githubRepository.updateMany({
         where: {
           id: target.id,
-          teamId: input.teamId,
+          OR: [{ teamId: null }, { teamId: input.teamId }],
         },
         data: {
           teamId: input.teamId,
@@ -380,19 +383,44 @@ export class RepositoryProvisionStateRepository {
         where: { githubId: input.connectionAudit.actorGithubId },
         select: { id: true },
       });
-      const scope = await transaction.team.findUniqueOrThrow({ where: { id: input.teamId }, select: { programId: true, program: { select: { name: true } } } });
-      const actor = await transaction.user.findUniqueOrThrow({ where: { id: auditActor.id }, select: { nickname: true } });
-      await transaction.teamHistory.create({ data: {
-        teamId: input.teamId, programId: scope.programId, actorId: auditActor.id,
-        event: 'REPOSITORY_URL_CHANGED', source: 'APPLICATION',
-        data: { schemaVersion: 1, metadata: {
-          schemaVersion: 2, teamId: input.teamId, programId: scope.programId, programName: scope.program.name,
-          actorGithubLogin: actor.nickname,
-          before: { repositoryId: current?.id ?? null, repositoryUrl: input.currentRepositoryUrl },
-          after: { repositoryId: repository.id, repositoryUrl: input.repositoryUrl },
-          ...(deletedCounts === null ? {} : { deletedCounts }),
-        } },
-      } });
+      const scope = await transaction.team.findUniqueOrThrow({
+        where: { id: input.teamId },
+        select: { programId: true, program: { select: { name: true } } },
+      });
+      const actor = await transaction.user.findUniqueOrThrow({
+        where: { id: auditActor.id },
+        select: { nickname: true },
+      });
+      await transaction.teamHistory.create({
+        data: {
+          teamId: input.teamId,
+          programId: scope.programId,
+          actorId: auditActor.id,
+          event: 'REPOSITORY_URL_CHANGED',
+          source: 'APPLICATION',
+          data: {
+            schemaVersion: 1,
+            metadata: {
+              schemaVersion: 2,
+              teamId: input.teamId,
+              programId: scope.programId,
+              programName: scope.program.name,
+              actorGithubLogin: actor.nickname,
+              before: {
+                repositoryId: current?.id ?? null,
+                repositoryUrl: current
+                  ? `https://github.com/${current.nameWithOwner}`
+                  : null,
+              },
+              after: {
+                repositoryId: repository.id,
+                repositoryUrl: `https://github.com/${repository.nameWithOwner}`,
+              },
+              ...(deletedCounts === null ? {} : { deletedCounts }),
+            },
+          },
+        },
+      });
     }
     return repository;
   }
@@ -490,10 +518,7 @@ export class RepositoryProvisionStateRepository {
   ): Promise<OwnedProvisionedRepositoryRow> {
     try {
       return await this.prisma.$transaction(async (transaction) => {
-        await this.lockApplicationForRepositoryClaim(
-          transaction,
-          input.teamId,
-        );
+        await this.lockApplicationForRepositoryClaim(transaction, input.teamId);
         await this.assertAvailableRequest(
           transaction,
           input.jobId,

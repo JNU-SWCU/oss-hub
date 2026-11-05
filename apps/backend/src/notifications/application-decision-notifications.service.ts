@@ -100,14 +100,8 @@ function parseApplicationDecisionNotification(
   ) {
     return null;
   }
-  const {
-    schemaVersion,
-    teamId,
-    programId,
-    programName,
-    decision,
-    decidedAt,
-  } = payload;
+  const { schemaVersion, teamId, programId, programName, decision, decidedAt } =
+    payload;
   if (
     schemaVersion !== 1 ||
     typeof teamId !== 'string' ||

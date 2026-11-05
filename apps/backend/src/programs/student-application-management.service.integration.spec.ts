@@ -48,50 +48,52 @@ const NOW = new Date('2026-07-15T00:00:00.000Z');
 async function seedApplication(): Promise<void> {
   await prisma.program.create({
     data: {
-        startAt: new Date('2026-07-01T00:00:00.000Z'),
-        endAt: new Date(new Date('2026-07-31T23:59:59.000Z').getTime() + 365 * 86400000),
-        id: PROGRAM_ID,
-        name: 'Student application race program',
-        organizer: 'Synthetic organizer',
-        category: ProgramCategory.BASIC,
-        applicationTemplateKey: 'basic',
-        applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
-        applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
-        description: 'Synthetic description'
-    }
-});
+      startAt: new Date('2026-07-01T00:00:00.000Z'),
+      endAt: new Date(
+        new Date('2026-07-31T23:59:59.000Z').getTime() + 365 * 86400000,
+      ),
+      id: PROGRAM_ID,
+      name: 'Student application race program',
+      organizer: 'Synthetic organizer',
+      category: ProgramCategory.BASIC,
+      applicationTemplateKey: 'basic',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+      applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
+      description: 'Synthetic description',
+    },
+  });
   await prisma.team.create({
     data: {
-        id: TEAM_ID,
-        programId: PROGRAM_ID,
-        name: 'student-application-race-team',
-        leaderId: STUDENT_ID,
-        applicantId: STUDENT_ID,
-        answers: { title: 'student-application-race-team' },
-        applicationTemplateVersion: 1
-    }
-});
+      id: TEAM_ID,
+      programId: PROGRAM_ID,
+      name: 'student-application-race-team',
+      leaderId: STUDENT_ID,
+      applicantId: STUDENT_ID,
+      answers: { title: 'student-application-race-team' },
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.teamMember.createMany({
     data: [STUDENT_ID, MEMBER_ID].map((userId) => ({
-        teamId: TEAM_ID,
-        programId: PROGRAM_ID,
-        userId,
-    }))
-});
+      teamId: TEAM_ID,
+      programId: PROGRAM_ID,
+      userId,
+    })),
+  });
   await prisma.team.update({
     where: { id: TEAM_ID },
     data: {
-        programId: PROGRAM_ID,
-        applicantId: STUDENT_ID,
-        answers: {
-            applicantName: 'Synthetic Student',
-            title: 'Original title',
-            summary: 'Original summary'
-        },
-        applicationTemplateVersion: 1
-    }
-});
+      programId: PROGRAM_ID,
+      applicantId: STUDENT_ID,
+      answers: {
+        applicantName: 'Synthetic Student',
+        title: 'Original title',
+        summary: 'Original summary',
+      },
+      applicationTemplateVersion: 1,
+    },
+  });
 }
 
 async function expectDomainCode(
@@ -130,20 +132,20 @@ describe('StudentApplicationManagementService integration races', () => {
       },
     ]) {
       await prisma.user.create({
-    data: {
-        id: student.id,
-        githubId: student.githubId,
-        nickname: student.nickname,
-        name: 'Synthetic user',
-        studentId: student.studentId,
-        department: 'Synthetic department',
-        type: MemberKind.STUDENT,
-        departmentType: DepartmentType.DEPARTMENT,
-        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        approvalStatus: 'NOT_REQUIRED'
-    }
-});
+        data: {
+          id: student.id,
+          githubId: student.githubId,
+          nickname: student.nickname,
+          name: 'Synthetic user',
+          studentId: student.studentId,
+          department: 'Synthetic department',
+          type: MemberKind.STUDENT,
+          departmentType: DepartmentType.DEPARTMENT,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          approvalStatus: 'NOT_REQUIRED',
+        },
+      });
     }
   });
 
@@ -159,8 +161,8 @@ describe('StudentApplicationManagementService integration races', () => {
 
   afterAll(async () => {
     await prisma.user.deleteMany({
-    where: { id: { in: [STUDENT_ID, MEMBER_ID] } }
-});
+      where: { id: { in: [STUDENT_ID, MEMBER_ID] } },
+    });
     await prisma.$disconnect();
   });
 
@@ -170,9 +172,9 @@ describe('StudentApplicationManagementService integration races', () => {
       ApplicationsErrorCode.APPLICATION_NOT_FOUND,
     );
 
-    await expect(
-      prisma.team.count({ where: { id: TEAM_ID } }),
-    ).resolves.toBe(1);
+    await expect(prisma.team.count({ where: { id: TEAM_ID } })).resolves.toBe(
+      1,
+    );
   });
 
   it('일반 팀원의 수정을 거절하고 답변을 그대로 둔다', async () => {
@@ -190,9 +192,9 @@ describe('StudentApplicationManagementService integration races', () => {
     );
 
     const stored = await prisma.team.findUnique({
-    where: { id: TEAM_ID },
-    select: { answers: true }
-});
+      where: { id: TEAM_ID },
+      select: { answers: true },
+    });
     expect(stored?.answers).toMatchObject({ title: 'Original title' });
   });
 
@@ -212,9 +214,9 @@ describe('StudentApplicationManagementService integration races', () => {
       service.cancelMine(GITHUB_ID, PROGRAM_ID, NOW),
     ).resolves.toEqual({ cancelled: true });
 
-    await expect(
-      prisma.team.count({ where: { id: TEAM_ID } }),
-    ).resolves.toBe(0);
+    await expect(prisma.team.count({ where: { id: TEAM_ID } })).resolves.toBe(
+      0,
+    );
   });
 
   it.each(['update', 'cancel'] as const)(
@@ -222,9 +224,9 @@ describe('StudentApplicationManagementService integration races', () => {
     async (operation) => {
       const closeProgram = async () => {
         await prisma.program.update({
-    where: { id: PROGRAM_ID },
-    data: { applicationEndAt: new Date('2026-07-14T23:59:59.000Z') }
-});
+          where: { id: PROGRAM_ID },
+          data: { applicationEndAt: new Date('2026-07-14T23:59:59.000Z') },
+        });
       };
 
       if (operation === 'update') {
@@ -350,29 +352,29 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
       },
     ]) {
       await prisma.user.create({
-    data: {
-        id: student.id,
-        githubId: student.githubId,
-        nickname: student.nickname,
-        name: 'Synthetic user',
-        studentId: student.studentId,
-        department: 'Synthetic department',
-        type: MemberKind.STUDENT,
-        departmentType: DepartmentType.DEPARTMENT,
-        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        approvalStatus: 'NOT_REQUIRED'
-    }
-});
+        data: {
+          id: student.id,
+          githubId: student.githubId,
+          nickname: student.nickname,
+          name: 'Synthetic user',
+          studentId: student.studentId,
+          department: 'Synthetic department',
+          type: MemberKind.STUDENT,
+          departmentType: DepartmentType.DEPARTMENT,
+          profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+          approvalStatus: 'NOT_REQUIRED',
+        },
+      });
     }
   });
 
   beforeEach(async () => {
     await seedApplication();
     await prisma.team.update({
-    where: { id: TEAM_ID },
-    data: { status: 'REJECTED', rejectionReason: '서류가 비었습니다' }
-});
+      where: { id: TEAM_ID },
+      data: { status: 'REJECTED', rejectionReason: '서류가 비었습니다' },
+    });
   });
 
   afterEach(async () => {
@@ -384,8 +386,8 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
 
   afterAll(async () => {
     await prisma.user.deleteMany({
-    where: { id: { in: [STUDENT_ID, MEMBER_ID] } }
-});
+      where: { id: { in: [STUDENT_ID, MEMBER_ID] } },
+    });
     await prisma.$disconnect();
   });
 
@@ -400,9 +402,9 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
     expect(updated.status).toBe('SUBMITTED');
     expect(updated.rejectionReason).toBeNull();
     const stored = await prisma.team.findUniqueOrThrow({
-    where: { id: TEAM_ID },
-    select: { status: true, rejectionReason: true, revision: true }
-});
+      where: { id: TEAM_ID },
+      select: { status: true, rejectionReason: true, revision: true },
+    });
     expect(stored).toEqual({
       status: 'SUBMITTED',
       rejectionReason: null,
@@ -422,9 +424,9 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
 
   it('검토대기 신청의 수정은 이력도 회차도 건드리지 않는다', async () => {
     await prisma.team.update({
-    where: { id: TEAM_ID },
-    data: { status: 'SUBMITTED', rejectionReason: null }
-});
+      where: { id: TEAM_ID },
+      data: { status: 'SUBMITTED', rejectionReason: null },
+    });
 
     await service.updateMine(
       GITHUB_ID,
@@ -440,9 +442,9 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
     ).resolves.toBe(0);
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: TEAM_ID },
-    select: { revision: true }
-}),
+        where: { id: TEAM_ID },
+        select: { revision: true },
+      }),
     ).resolves.toEqual({ revision: 1 });
   });
 
@@ -459,9 +461,9 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
 
     await expect(
       prisma.team.findUniqueOrThrow({
-    where: { id: TEAM_ID },
-    select: { status: true, revision: true }
-}),
+        where: { id: TEAM_ID },
+        select: { status: true, revision: true },
+      }),
     ).resolves.toEqual({ status: 'REJECTED', revision: 1 });
     await expect(
       prisma.teamHistory.count({
@@ -479,9 +481,9 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
     );
 
     await prisma.team.update({
-    where: { id: TEAM_ID },
-    data: { status: 'REJECTED', rejectionReason: '아직 부족합니다' }
-});
+      where: { id: TEAM_ID },
+      data: { status: 'REJECTED', rejectionReason: '아직 부족합니다' },
+    });
 
     await service.updateMine(
       GITHUB_ID,
@@ -496,8 +498,14 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
       select: { event: true, data: true },
     });
     expect(history).toEqual([
-      { event: 'RESUBMITTED', data: { schemaVersion: 1, revision: 2, rejectionReason: null } },
-      { event: 'RESUBMITTED', data: { schemaVersion: 1, revision: 3, rejectionReason: null } },
+      {
+        event: 'RESUBMITTED',
+        data: { schemaVersion: 1, revision: 2, rejectionReason: null },
+      },
+      {
+        event: 'RESUBMITTED',
+        data: { schemaVersion: 1, revision: 3, rejectionReason: null },
+      },
     ]);
   });
 });

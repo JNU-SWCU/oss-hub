@@ -64,18 +64,18 @@ async function ensureApplication(
     () => prisma.team.findUnique({ where: { id: teamId } }),
     () =>
       prisma.team.upsert({
-    where: { id: teamId },
-    update: {},
-    create: {
-        id: teamId,
-        programId: PROGRAM_ID,
-        name: `${scenarioId} 1인 팀`,
-        leaderId: applicant.id,
-        applicantId: applicant.id,
-        answers: { title: `${scenarioId} 1인 팀` },
-        applicationTemplateVersion: 1
-    }
-}),
+        where: { id: teamId },
+        update: {},
+        create: {
+          id: teamId,
+          programId: PROGRAM_ID,
+          name: `${scenarioId} 1인 팀`,
+          leaderId: applicant.id,
+          applicantId: applicant.id,
+          answers: { title: `${scenarioId} 1인 팀` },
+          applicationTemplateVersion: 1,
+        },
+      }),
   );
   await upsertTracked(
     stats,
@@ -95,12 +95,23 @@ async function ensureApplication(
         },
       }),
   );
-  await upsertTracked(stats, 'Team', () => prisma.team.findUnique({ where: { id: teamId } }), () => prisma.team.update({ where: { id: teamId }, data: { programId: PROGRAM_ID,
-applicantId: applicant.id,
-answers: { seedPlaceholder: true, scenarioId },
-applicationTemplateVersion: 1,
-status: ApplicationStatus.APPROVED,
-processedAt: offsetDays(-2) } }));
+  await upsertTracked(
+    stats,
+    'Team',
+    () => prisma.team.findUnique({ where: { id: teamId } }),
+    () =>
+      prisma.team.update({
+        where: { id: teamId },
+        data: {
+          programId: PROGRAM_ID,
+          applicantId: applicant.id,
+          answers: { seedPlaceholder: true, scenarioId },
+          applicationTemplateVersion: 1,
+          status: ApplicationStatus.APPROVED,
+          processedAt: offsetDays(-2),
+        },
+      }),
+  );
   return { teamId, applicantId: applicant.id };
 }
 
@@ -160,17 +171,17 @@ async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
     () => prisma.githubRepository.findUnique({ where: { id: repositoryId } }),
     () =>
       prisma.githubRepository.upsert({
-    where: { id: repositoryId },
-    update: {},
-    create: {
-        id: repositoryId,
-        teamId,
-        githubRepositoryId: seedRepositoryId(scenarioId),
-        nameWithOwner: seedNameWithOwner(scenarioId),
-        source: RepositorySource.ORG_PROVISIONED,
-        visibility: RepositoryVisibility.PRIVATE
-    }
-}),
+        where: { id: repositoryId },
+        update: {},
+        create: {
+          id: repositoryId,
+          teamId,
+          githubRepositoryId: seedRepositoryId(scenarioId),
+          nameWithOwner: seedNameWithOwner(scenarioId),
+          source: RepositorySource.ORG_PROVISIONED,
+          visibility: RepositoryVisibility.PRIVATE,
+        },
+      }),
   );
 
   const jobId = seedId('repositories', scenarioId, 'job');
@@ -226,10 +237,7 @@ async function seedRepoJobFailedRetryable(stats: SeedStats): Promise<void> {
 
 async function seedRepositoryReady(stats: SeedStats): Promise<void> {
   const scenarioId = 'repository-ready';
-  const { teamId, applicantId } = await ensureApplication(
-    stats,
-    scenarioId,
-  );
+  const { teamId, applicantId } = await ensureApplication(stats, scenarioId);
 
   const repositoryId = seedId('repositories', scenarioId, 'repository');
   await upsertTracked(
@@ -238,17 +246,17 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
     () => prisma.githubRepository.findUnique({ where: { id: repositoryId } }),
     () =>
       prisma.githubRepository.upsert({
-    where: { id: repositoryId },
-    update: {},
-    create: {
-        id: repositoryId,
-        teamId,
-        githubRepositoryId: seedRepositoryId(scenarioId),
-        nameWithOwner: seedNameWithOwner(scenarioId),
-        source: RepositorySource.ORG_PROVISIONED,
-        visibility: RepositoryVisibility.PRIVATE
-    }
-}),
+        where: { id: repositoryId },
+        update: {},
+        create: {
+          id: repositoryId,
+          teamId,
+          githubRepositoryId: seedRepositoryId(scenarioId),
+          nameWithOwner: seedNameWithOwner(scenarioId),
+          source: RepositorySource.ORG_PROVISIONED,
+          visibility: RepositoryVisibility.PRIVATE,
+        },
+      }),
   );
 
   const invitationId = seedId('repositories', scenarioId, 'invitation');
@@ -287,18 +295,18 @@ async function seedRepositoryPublic(stats: SeedStats): Promise<void> {
     () => prisma.githubRepository.findUnique({ where: { id: repositoryId } }),
     () =>
       prisma.githubRepository.upsert({
-    where: { id: repositoryId },
-    update: { publishedAt: null },
-    create: {
-        id: repositoryId,
-        teamId,
-        githubRepositoryId: seedRepositoryId(scenarioId),
-        nameWithOwner: seedNameWithOwner(scenarioId),
-        source: RepositorySource.ORG_PROVISIONED,
-        visibility: RepositoryVisibility.PUBLIC,
-        publishedAt: null
-    }
-}),
+        where: { id: repositoryId },
+        update: { publishedAt: null },
+        create: {
+          id: repositoryId,
+          teamId,
+          githubRepositoryId: seedRepositoryId(scenarioId),
+          nameWithOwner: seedNameWithOwner(scenarioId),
+          source: RepositorySource.ORG_PROVISIONED,
+          visibility: RepositoryVisibility.PUBLIC,
+          publishedAt: null,
+        },
+      }),
   );
 }
 

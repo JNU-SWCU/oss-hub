@@ -144,23 +144,23 @@ async function seed(): Promise<void> {
   await prisma.team.createMany({
     data: [
       {
-    id: TEAM_A_ID,
-    programId: PROGRAM_A_ID,
-    name: TEAM_A_NAME,
-    leaderId: NAMED_LEADER_ID,
-    applicantId: NAMED_LEADER_ID,
-    answers: {},
-    applicationTemplateVersion: 1
-},
+        id: TEAM_A_ID,
+        programId: PROGRAM_A_ID,
+        name: TEAM_A_NAME,
+        leaderId: NAMED_LEADER_ID,
+        applicantId: NAMED_LEADER_ID,
+        answers: {},
+        applicationTemplateVersion: 1,
+      },
       {
-    id: TEAM_B_ID,
-    programId: PROGRAM_B_ID,
-    name: TEAM_B_NAME,
-    leaderId: HANDLE_ONLY_LEADER_ID,
-    applicantId: HANDLE_ONLY_LEADER_ID,
-    answers: {},
-    applicationTemplateVersion: 1
-},
+        id: TEAM_B_ID,
+        programId: PROGRAM_B_ID,
+        name: TEAM_B_NAME,
+        leaderId: HANDLE_ONLY_LEADER_ID,
+        applicantId: HANDLE_ONLY_LEADER_ID,
+        answers: {},
+        applicationTemplateVersion: 1,
+      },
     ],
   });
 

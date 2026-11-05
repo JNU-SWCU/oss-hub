@@ -2,17 +2,13 @@ import { StudentRepositoryUrlService } from './team-application.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { TeamsController } from './teams.controller';
-import type {
-  TeamRepository,
-  StaffTeamDetailRecord,
-} from './team.repository';
+import type { TeamRepository, StaffTeamDetailRecord } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -65,7 +61,22 @@ const findStaffTeamDetail = jest.fn();
 const readScopeCounts = jest.fn();
 const findUnique = jest.fn();
 
-const service = new TeamMembershipService({ findStaffTeamDetail } as unknown as TeamRepository, stubTeamDeletionRepository({ readScopeCounts }), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
+const service = new TeamMembershipService(
+  { findStaffTeamDetail } as unknown as TeamRepository,
+  stubTeamDeletionRepository({ readScopeCounts }),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
+);
 
 const getForStaff = jest.fn(
   (...args: Parameters<TeamMembershipService['getForStaff']>) =>

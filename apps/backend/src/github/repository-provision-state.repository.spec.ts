@@ -295,7 +295,9 @@ function jobRow(
           ? 'https://github.com/synthetic-owner/synthetic-repo'
           : null,
       name: team?.name ?? 'Synthetic solo team',
-      members: (team?.nicknames ?? []).map(nickname => ({ user: { nickname } })),
+      members: (team?.nicknames ?? []).map((nickname) => ({
+        user: { nickname },
+      })),
       repository: {
         id: REPOSITORY_ID,
         source,
@@ -396,7 +398,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     await expect(
       serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
     ).rejects.toMatchObject({
-      code: 'REPOSITORY_PROVISION_MEMBERSHIP_UNAVAILABLE',
+      code: PROVISION_ERROR_CODES.FEATURE_DISABLED,
       retryable: false,
     });
   });
@@ -972,7 +974,7 @@ describe('RepositoryProvisionStateRepository.failJob', () => {
 
 it('loadContext 실패는 재시도하지 않는 provision 실패 타입이다', async () => {
   const db = createDb();
-  db.repositoryProvisionJob.findFirst.mockResolvedValue(jobRow(null));
+  db.team.count.mockResolvedValue(0);
 
   await expect(
     serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),

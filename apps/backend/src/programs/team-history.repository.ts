@@ -58,7 +58,10 @@ export class TeamHistoryRepository {
         data: {
           schemaVersion: 1,
           revision: team.revision,
-          rejectionReason: input.eventKind === TeamHistoryEvent.REJECTED ? input.rejectionReason : null,
+          rejectionReason:
+            input.eventKind === TeamHistoryEvent.REJECTED
+              ? input.rejectionReason
+              : null,
         },
       },
     });

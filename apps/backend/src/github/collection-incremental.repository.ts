@@ -957,7 +957,11 @@ export class CollectionIncrementalStoreRepository {
       where: { id: repositoryId },
       select: {
         teamId: true,
-        team: { select: { program: { select: { id: true, startAt: true, endAt: true } } } },
+        team: {
+          select: {
+            program: { select: { id: true, startAt: true, endAt: true } },
+          },
+        },
         outsider: true,
       },
     });

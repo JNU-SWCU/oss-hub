@@ -1,7 +1,6 @@
 import { StudentRepositoryUrlService } from './team-application.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
@@ -10,10 +9,7 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { TeamsController } from './teams.controller';
-import type {
-  TeamRepository,
-  TeamActorAuthority,
-} from './team.repository';
+import type { TeamRepository, TeamActorAuthority } from './team.repository';
 import type { TeamDeletionResult } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
@@ -130,7 +126,22 @@ const repository = {
   findActorAuthorityByGithubId,
 } as unknown as TeamRepository;
 
-const service = new TeamMembershipService(repository, stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
+const service = new TeamMembershipService(
+  repository,
+  stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
+  new AuditLogMetadataService(),
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
+);
 
 const deleteForStaff = jest.fn(
   (...args: Parameters<TeamMembershipService['deleteForStaff']>) =>

@@ -15,12 +15,8 @@ import {
 } from './team.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
 import { TeamApplicationService } from './team-application.service';
-import type { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
-
-const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
 const APPLICATION_ID = 'synthetic-application';
 const SUBMITTED_AT = new Date('2026-08-05T05:32:00.000Z');
@@ -53,7 +49,8 @@ function applicationRow(
     repository: null,
     program: { repositoryProvisioningEnabled: true },
     applicant: { id: 'synthetic-applicant', name: null, nickname: 'applicant' },
-    name: '합성 팀', _count: { members: 3 },
+    name: '합성 팀',
+    _count: { members: 3 },
     ...overrides,
   };
 }
@@ -108,7 +105,12 @@ function detailTransaction(
 
 function mapItem(source: ApplicationListSource | null | undefined) {
   return source
-    ? new TeamApplicationService(undefined as never, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService())['toApplicationListItem'](source.row, source.outbox, source.job)
+    ? new TeamApplicationService(
+        undefined as never,
+        new RepositoryUrlService(),
+        new ApplicationAnswersService(),
+        new RepositoryProvisionEventService(),
+      )['toApplicationListItem'](source.row, source.outbox, source.job)
     : undefined;
 }
 
@@ -119,7 +121,12 @@ describe('TeamApplicationService.getForStaff', () => {
       findApplicationForStaff,
       listReviewHistory: jest.fn().mockResolvedValue([]),
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
 
     await expect(service.getForStaff(APPLICATION_ID)).rejects.toMatchObject({
       errorCode: {
@@ -140,7 +147,12 @@ describe('TeamApplicationService.getForStaff', () => {
       }),
       listReviewHistory: jest.fn().mockResolvedValue(reviewHistory),
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
 
     jest
       .spyOn(
@@ -161,7 +173,12 @@ describe('TeamApplicationService.getForStaff', () => {
       findApplicationForStaff: jest.fn().mockResolvedValue(null),
       listReviewHistory,
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
+    const service = new TeamApplicationService(
+      repository,
+      new RepositoryUrlService(),
+      new ApplicationAnswersService(),
+      new RepositoryProvisionEventService(),
+    );
 
     await expect(service.getForStaff(APPLICATION_ID)).rejects.toBeDefined();
     expect(listReviewHistory).toHaveBeenCalledWith(APPLICATION_ID);
@@ -188,7 +205,8 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
     await detailRepository.findApplicationForStaff(APPLICATION_ID);
 
     const list = {
-      team: { findMany: jest.fn().mockResolvedValue([applicationRow()]),
+      team: {
+        findMany: jest.fn().mockResolvedValue([applicationRow()]),
         count: jest.fn().mockResolvedValue(1),
       },
       outboxEvent: { findMany: jest.fn().mockResolvedValue([]) },

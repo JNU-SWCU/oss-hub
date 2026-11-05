@@ -238,28 +238,28 @@ describe('collection incremental migration — DB invariants', () => {
     });
 
     await prisma.team.createMany({
-    data: [
+      data: [
         {
-            id: `${TEST_PREFIX}team:default`,
-            programId: `${TEST_PREFIX}program`,
-            name: `${TEST_PREFIX}team-default`,
-            leaderId: `${TEST_PREFIX}user`,
-            applicantId: `${TEST_PREFIX}user`,
-            answers: { title: `${TEST_PREFIX}team-default` },
-            applicationTemplateVersion: 1
+          id: `${TEST_PREFIX}team:default`,
+          programId: `${TEST_PREFIX}program`,
+          name: `${TEST_PREFIX}team-default`,
+          leaderId: `${TEST_PREFIX}user`,
+          applicantId: `${TEST_PREFIX}user`,
+          answers: { title: `${TEST_PREFIX}team-default` },
+          applicationTemplateVersion: 1,
         },
         {
-            id: `${TEST_PREFIX}team:explicit-false`,
-            programId: `${TEST_PREFIX}program`,
-            name: `${TEST_PREFIX}team-explicit-false`,
-            leaderId: `${TEST_PREFIX}user:second`,
+          id: `${TEST_PREFIX}team:explicit-false`,
+          programId: `${TEST_PREFIX}program`,
+          name: `${TEST_PREFIX}team-explicit-false`,
+          leaderId: `${TEST_PREFIX}user:second`,
           isRepositoryPublicationPlanned: false,
-            applicantId: `${TEST_PREFIX}user:second`,
-            answers: { title: `${TEST_PREFIX}team-explicit-false` },
-            applicationTemplateVersion: 1
-        }
-    ]
-});
+          applicantId: `${TEST_PREFIX}user:second`,
+          answers: { title: `${TEST_PREFIX}team-explicit-false` },
+          applicationTemplateVersion: 1,
+        },
+      ],
+    });
     await prisma.teamMember.createMany({
       data: [
         {
@@ -275,10 +275,14 @@ describe('collection incremental migration — DB invariants', () => {
       ],
     });
 
-    const defaulted = await prisma.team.findUniqueOrThrow({ where: { id: `${TEST_PREFIX}team:default` } });
+    const defaulted = await prisma.team.findUniqueOrThrow({
+      where: { id: `${TEST_PREFIX}team:default` },
+    });
     expect(defaulted.isRepositoryPublicationPlanned).toBe(true);
 
-    const explicitFalse = await prisma.team.findUniqueOrThrow({ where: { id: `${TEST_PREFIX}team:explicit-false` } });
+    const explicitFalse = await prisma.team.findUniqueOrThrow({
+      where: { id: `${TEST_PREFIX}team:explicit-false` },
+    });
     expect(explicitFalse.isRepositoryPublicationPlanned).toBe(false);
 
     const reread = await prisma.team.findUniqueOrThrow({
