@@ -73,13 +73,13 @@ describe('ProgramEditorRepository edit counts', () => {
       teamMaxSize: 1,
       repositoryProvisioningEnabled: false,
       description: 'overview',
-      _count: { applications: 2, teams: 1, boardPosts: 3 },
+      _count: { teams: 2, boardPosts: 3 },
       milestones: [],
     });
     const queryRaw = jest.fn().mockResolvedValue([
       {
         applications: 2n,
-        teams: 1n,
+        teams: 2n,
         boardPosts: 3n,
         submissions: 4n,
         submissionEvents: 5n,
@@ -110,10 +110,10 @@ describe('ProgramEditorRepository edit counts', () => {
 
     expect(result).toMatchObject({
       applicationCount: 2,
-      teamCount: 1,
+      teamCount: 2,
       deletionScopeCounts: {
         applications: 2,
-        teams: 1,
+        teams: 2,
         boardPosts: 3,
         submissions: 4,
         submissionEvents: 5,
@@ -124,7 +124,7 @@ describe('ProgramEditorRepository edit counts', () => {
       include: {
         cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
         _count: {
-          select: { applications: true, teams: true, boardPosts: true },
+          select: { teams: true, boardPosts: true },
         },
         milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
       },
@@ -138,13 +138,11 @@ describe('ProgramEditorRepository edit counts', () => {
       readonly strings: readonly string[];
       readonly values: readonly string[];
     };
-    expect(query.strings.join('')).toContain(
-      'SELECT count(*) FROM "Application"',
-    );
+    expect(query.strings.join('')).toContain('SELECT count(*) FROM "Team"');
     expect(query.strings.join('')).toContain(
       'SELECT count(*) FROM "MilestoneDocumentSubmission"',
     );
-    expect(query.values).toHaveLength(33);
-    expect(query.values).toEqual(Array(33).fill('program-1'));
+    expect(query.values).toHaveLength(30);
+    expect(query.values).toEqual(Array(30).fill('program-1'));
   });
 });

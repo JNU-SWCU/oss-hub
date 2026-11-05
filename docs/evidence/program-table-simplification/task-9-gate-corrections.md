@@ -19,3 +19,9 @@ The owner approved rewording the preservation checkpoint and force-with-lease up
 ## Performance
 
 The owner's final ruling is migration first. The existing p50 samples are informational only, not a merge condition. No further latency measurement, analysis, or optimization is being performed.
+
+## CI backend unit correction
+
+Run 42018739020 failed 20 suites and 66 assertions (362 suites and 6067 tests passed). The failures were stale Application delegates and relation shapes, pre-cutover HTTP paths, both architecture route snapshots, deletion-scope fields, and a backfilled Team fixture with a GitHub ownership marker for a different ID. Each failed suite was rerun against the canonical Team contract without skipping tests. Historical migration assertions now check the unchanged historical SQL instead of expecting retired runtime Prisma models.
+
+The actual route inventory remains 130 routes. Fourteen old method/path pairs were replaced; existing route access levels did not change. The merged Team list remains STAFF/403 and now uses APP_018 for both views. The deployment directory has no old application route, template path, or application-decision notification path. No production behavior or migration SQL was changed by these CI test corrections.

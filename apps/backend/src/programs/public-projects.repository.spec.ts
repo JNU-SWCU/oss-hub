@@ -41,10 +41,15 @@ const PROJECT_ROW_SELECT = {
   githubRepositoryId: true,
   nameWithOwner: true,
   publishedAt: true,
-  programId: true,
-  program: { select: { name: true, trackType: true } },
-  team: { select: { name: true, _count: { select: { members: true } } } },
-  application: { select: { applicant: { select: { nickname: true } } } },
+  team: {
+    select: {
+      programId: true,
+      name: true,
+      _count: { select: { members: true } },
+      program: { select: { name: true, trackType: true } },
+      applicant: { select: { nickname: true } },
+    },
+  },
 };
 
 const RAW_ROW = {
@@ -52,13 +57,16 @@ const RAW_ROW = {
   githubRepositoryId: 9001n,
   nameWithOwner: 'synthetic-org/synthetic-repo',
   publishedAt: new Date('2026-07-20T00:00:00.000Z'),
-  programId: 'synthetic-program-1',
-  program: {
-    name: 'synthetic-program',
-    trackType: 'CURRICULAR' as ProgramTrackType,
+  team: {
+    programId: 'synthetic-program-1',
+    name: 'synthetic-team',
+    _count: { members: 1 },
+    program: {
+      name: 'synthetic-program',
+      trackType: 'CURRICULAR' as ProgramTrackType,
+    },
+    applicant: { nickname: 'synthetic-applicant' },
   },
-  team: null,
-  application: { applicant: { nickname: 'synthetic-applicant' } },
 };
 
 describe('PublicProjectsRepository', () => {
@@ -73,24 +81,11 @@ describe('PublicProjectsRepository', () => {
         where: {
           visibility: 'PUBLIC',
           publishedAt: { not: null },
-          program: { lifecycle: { not: 'DELETED' } },
+          team: { program: { lifecycle: { not: 'DELETED' } } },
         },
         orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
         take: 21,
-        select: {
-          id: true,
-          githubRepositoryId: true,
-          nameWithOwner: true,
-          publishedAt: true,
-          programId: true,
-          program: { select: { name: true, trackType: true } },
-          team: {
-            select: { name: true, _count: { select: { members: true } } },
-          },
-          application: {
-            select: { applicant: { select: { nickname: true } } },
-          },
-        },
+        select: PROJECT_ROW_SELECT,
       });
       expect(rows).toEqual([
         {
@@ -102,8 +97,8 @@ describe('PublicProjectsRepository', () => {
           programId: 'synthetic-program-1',
           programName: 'synthetic-program',
           trackType: 'CURRICULAR',
-          teamName: null,
-          teamMemberCount: 0,
+          teamName: 'synthetic-team',
+          teamMemberCount: 1,
           applicantNickname: 'synthetic-applicant',
         },
       ]);
@@ -123,7 +118,7 @@ describe('PublicProjectsRepository', () => {
         expect.objectContaining({
           where: {
             visibility: 'PUBLIC',
-            program: { lifecycle: { not: 'DELETED' } },
+            team: { program: { lifecycle: { not: 'DELETED' } } },
             publishedAt: { not: null },
             OR: [
               { publishedAt: { lt: cursor.publishedAt } },
@@ -145,7 +140,7 @@ describe('PublicProjectsRepository', () => {
         expect.objectContaining({
           where: {
             visibility: 'PUBLIC',
-            program: { lifecycle: { not: 'DELETED' } },
+            team: { program: { lifecycle: { not: 'DELETED' } } },
             publishedAt: {
               gte: new Date('2025-12-31T15:00:00.000Z'),
               lt: new Date('2026-12-31T15:00:00.000Z'),
@@ -193,7 +188,7 @@ describe('PublicProjectsRepository', () => {
         where: {
           githubRepositoryId: 9001n,
           visibility: 'PUBLIC',
-          program: { lifecycle: { not: 'DELETED' } },
+          team: { program: { lifecycle: { not: 'DELETED' } } },
           publishedAt: { not: null },
         },
         select: PROJECT_ROW_SELECT,
@@ -226,7 +221,7 @@ describe('PublicProjectsRepository', () => {
   });
 
   describe('listForUser', () => {
-    it('단독 지원자/팀 리더/팀 멤버 세 경로를 OR로 한 번에 조회한다', async () => {
+    it('현재 팀장과 팀 구성원의 공개 프로젝트를 조회한다', async () => {
       const findMany = jest.fn().mockResolvedValue([]);
       const { repository } = repositoryWith({ repositoryFindMany: findMany });
 
@@ -235,13 +230,9 @@ describe('PublicProjectsRepository', () => {
       expect(findMany).toHaveBeenCalledWith({
         where: {
           visibility: 'PUBLIC',
-          program: { lifecycle: { not: 'DELETED' } },
+          team: { program: { lifecycle: { not: 'DELETED' } } },
           publishedAt: { not: null },
           OR: [
-            {
-              teamId: null,
-              application: { applicantId: 'synthetic-user-1' },
-            },
             { team: { leaderId: 'synthetic-user-1' } },
             { team: { members: { some: { userId: 'synthetic-user-1' } } } },
           ],

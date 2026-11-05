@@ -49,14 +49,12 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
             milestoneId: 'milestone-current',
           },
         },
-        application: {
+        team: {
           is: {
             program: {
               is: { milestones: { some: { id: 'milestone-current' } } },
             },
-            team: {
-              is: { members: { some: { user: { is: activeStudent } } } },
-            },
+            members: { some: { user: { is: activeStudent } } },
           },
         },
       },
@@ -94,7 +92,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     });
   });
 
-  it('신청을 고르는 문은 program·team 둘뿐이다 — 승인 상태도 applicant도 묻지 않는다', async () => {
+  it('팀을 고르는 조건은 program·members 둘뿐이다 — 승인 상태도 applicant도 묻지 않는다', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const repository = new MilestoneDocumentCurrentFileRepository({
       milestoneDocumentSubmission: { findFirst },
@@ -107,12 +105,9 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     );
 
     const [{ where }] = findFirst.mock.calls[0] as [
-      { where: { application: { is: Record<string, unknown> } } },
+      { where: { team: { is: Record<string, unknown> } } },
     ];
-    expect(Object.keys(where.application.is).sort()).toEqual([
-      'program',
-      'team',
-    ]);
+    expect(Object.keys(where.team.is).sort()).toEqual(['members', 'program']);
   });
 
   it('팀을 고르는 문은 현재 팀원 행 하나뿐이다 — 팀장 갈래도 OR 분기도 없다', async () => {
@@ -128,10 +123,10 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     );
 
     const [{ where }] = findFirst.mock.calls[0] as [
-      { where: { application: { is: { team: { is: unknown } } } } },
+      { where: { team: { is: Record<string, unknown> } } },
     ];
-    const team = where.application.is.team.is as Record<string, unknown>;
-    expect(Object.keys(team)).toEqual(['members']);
+    const team = where.team.is;
+    expect(Object.keys(team).sort()).toEqual(['members', 'program']);
     expect(
       JSON.stringify(team, (_key, value: unknown) =>
         typeof value === 'bigint' ? value.toString() : value,

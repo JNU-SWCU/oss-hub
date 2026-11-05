@@ -5,7 +5,7 @@ import { DeleteTeamRequestDto } from './delete-team-request.dto';
 
 function validScope() {
   return {
-    applications: 1,
+    teams: 1,
     members: 3,
     invitations: 2,
     submissions: 4,

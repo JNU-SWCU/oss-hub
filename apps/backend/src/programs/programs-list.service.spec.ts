@@ -344,7 +344,7 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
   const findMany = jest.fn();
   const groupBy = jest.fn();
   const prisma = {
-    application: { findMany, groupBy },
+    team: { findMany, groupBy },
   } as unknown as PrismaService;
   const repository = new ProgramsRepository(
     prisma,
@@ -372,7 +372,7 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         programId: { in: ['program-a', 'program-b', 'program-c'] },
-        team: { members: { some: { userId: 'student-1' } } },
+        members: { some: { userId: 'student-1' } },
       },
       select: { programId: true, status: true },
     });
@@ -392,12 +392,10 @@ describe('ProgramsRepository viewer personalization batch queries', () => {
     const [{ where }] = findMany.mock.calls[0] as [
       { where: Record<string, unknown> },
     ];
-    expect(Object.keys(where).sort()).toEqual(['programId', 'team']);
+    expect(Object.keys(where).sort()).toEqual(['members', 'programId']);
     expect(where).not.toHaveProperty('OR');
     expect(where).not.toHaveProperty('applicantId');
-    expect(where.team).toEqual({
-      members: { some: { userId: 'ex-member-1' } },
-    });
+    expect(where.members).toEqual({ some: { userId: 'ex-member-1' } });
   });
 
   it('findViewerApplicationStatuses 는 멤버십에서 빠진 프로그램을 상태 맵에 담지 않는다', async () => {

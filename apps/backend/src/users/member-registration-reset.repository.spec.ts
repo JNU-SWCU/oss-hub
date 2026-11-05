@@ -80,9 +80,8 @@ function harness() {
   };
 }
 it.each([
-  ['Application.applicantId', 'applications'],
-  ['Application.processedById', 'processedApplications'],
-  ['ApplicationReviewHistory.actorId', 'applicationReviewHistories'],
+  ['Team.applicantId', 'submittedTeams'],
+  ['Team.processedById', 'processedTeams'],
   ['Team.leaderId', 'ledTeams'],
   ['TeamMember.userId', 'teamMemberships'],
   ['TeamInvitation.inviteeId', 'receivedTeamInvitations'],
@@ -114,7 +113,13 @@ it.each([
   );
   expect(await h.repository.hasActivity(h.prisma, 'target')).toBe(true);
 });
-it('does not treat social, consent or history-only records as activity', async () => {
+it('blocks a review actor recorded in TeamHistory', async () => {
+  const h = harness();
+  h.prisma.teamHistory.findFirst.mockResolvedValue({ id: 'review-history' });
+  expect(await h.repository.hasActivity(h.prisma, 'target')).toBe(true);
+  expect(h.count).not.toHaveBeenCalled();
+});
+it('does not treat social, consent or user-history-only records as activity', async () => {
   const h = harness();
   h.count.mockImplementation((args) =>
     Promise.resolve(

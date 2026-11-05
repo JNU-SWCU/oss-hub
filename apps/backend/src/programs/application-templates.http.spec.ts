@@ -81,12 +81,11 @@ afterAll(async () => {
   await application?.close();
 });
 
-describe('GET /api/v1/programs/application-templates', () => {
-  it('application-templates를 program :id로 캡처하지 않고 템플릿 목록을 반환한다', async () => {
-    const response = await fetch(
-      `${baseUrl}/api/v1/programs/application-templates`,
-      { headers: { connection: 'close' } },
-    );
+describe('GET /api/v1/programs/team-templates', () => {
+  it('team-templates를 program :id로 캡처하지 않고 템플릿 목록을 반환한다', async () => {
+    const response = await fetch(`${baseUrl}/api/v1/programs/team-templates`, {
+      headers: { connection: 'close' },
+    });
     const body = (await readJson(response)) as {
       items: Array<{
         key: string;
@@ -125,17 +124,16 @@ describe('GET /api/v1/programs/application-templates', () => {
     );
   });
 
-  it('실제 없는 program id 상세는 404이며 application-templates 경로와 충돌하지 않는다', async () => {
+  it('실제 없는 program id 상세는 404이며 team-templates 경로와 충돌하지 않는다', async () => {
     const missing = await fetch(
       `${baseUrl}/api/v1/programs/not-a-real-program`,
       { headers: { connection: 'close' } },
     );
     expect(missing.status).toBe(404);
 
-    const templates = await fetch(
-      `${baseUrl}/api/v1/programs/application-templates`,
-      { headers: { connection: 'close' } },
-    );
+    const templates = await fetch(`${baseUrl}/api/v1/programs/team-templates`, {
+      headers: { connection: 'close' },
+    });
     expect(templates.status).toBe(200);
   });
 });

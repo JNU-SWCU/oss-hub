@@ -43,7 +43,7 @@ let sessionCookie = '';
 async function postApplication(
   body: Record<string, unknown>,
 ): Promise<Response> {
-  return fetch(`${baseUrl}/api/v1/programs/synthetic-program/applications`, {
+  return fetch(`${baseUrl}/api/v1/programs/synthetic-program/teams`, {
     method: 'POST',
     headers: {
       connection: 'close',
@@ -130,7 +130,7 @@ it('미허용 키 teamId 가 있으면 400 SYS_003 이고 service.create 는 호
   expect(await response.json()).toMatchObject({
     status: 400,
     code: 'SYS_003',
-    instance: '/api/v1/programs/synthetic-program/applications',
+    instance: '/api/v1/programs/synthetic-program/teams',
   });
   expect(create).not.toHaveBeenCalled();
 });

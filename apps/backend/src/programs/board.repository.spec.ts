@@ -21,7 +21,7 @@ describe('BoardRepository authorization', () => {
     'requires an approved application with current team membership: %s',
     async (result) => {
       const findFirst = jest.fn().mockResolvedValue(result);
-      const prisma = { application: { findFirst } } as unknown as PrismaService;
+      const prisma = { team: { findFirst } } as unknown as PrismaService;
       await expect(
         new BoardRepository(
           prisma,
@@ -32,7 +32,7 @@ describe('BoardRepository authorization', () => {
         where: {
           programId: syntheticProgramId,
           status: ApplicationStatus.APPROVED,
-          team: { members: { some: { userId: syntheticAuthorId } } },
+          members: { some: { userId: syntheticAuthorId } },
         },
         select: { id: true },
       });
