@@ -20,7 +20,7 @@ describe('Program authoring schema contract', () => {
   });
 
   it('declares actor-owned upload lifecycle and idempotent create request foundations', () => {
-    expect(schema).toContain('model ProgramAuthoringUpload');
+    expect(schema).toContain('model File');
     expect(schema).toContain('enum FileLifecycle');
     expect(schema).toContain('sha256');
     expect(schema).toContain('deleteClaimExpiresAt');
@@ -28,7 +28,7 @@ describe('Program authoring schema contract', () => {
     expect(schema).toContain('idempotencyKey');
     expect(schema).toContain('payloadHash');
     expect(schema).toContain('createdById');
-    expect(schema).toMatch(/authoringUploads\s+ProgramAuthoringUpload\[\]/);
+    expect(schema).toMatch(/files\s+File\[\]\s+@relation\("ProgramFiles"\)/);
   });
 
   it('preflights before DDL, backfills, then applies required checks', () => {

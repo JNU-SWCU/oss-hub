@@ -47,13 +47,11 @@ describe('readProgramDeletionScopeCounts', () => {
     const sql = query?.strings?.join('?') ?? '';
     expect(sql).toContain('FROM "MilestoneDocumentSubmission"');
     expect(sql).toContain('FROM "MilestoneDocumentSubmissionHistory"');
-    expect(sql).toContain('FROM "SubmissionFile"');
-    expect(sql).toContain('OR "milestoneDocumentSubmissionHistoryId" IN');
+    expect(sql).toContain('FROM "File" file');
+    expect(sql).toContain('OR file."submissionHistoryId" IN');
     expect(sql).toContain('FROM "BoardComment"');
-    expect(sql).toContain('FROM "MilestoneDocumentTemplateFile"');
     expect(sql).toContain('FROM "TeamMember"');
     expect(sql).toContain('FROM "TeamInvitation"');
-    expect(sql).toContain('FROM "ProgramAuthoringUpload"');
     expect(sql).toContain('AS "scopeFingerprint"');
     expect(sql).not.toContain('FROM "Submission"');
     expect(sql).not.toContain('FROM "SubmissionRevision"');
