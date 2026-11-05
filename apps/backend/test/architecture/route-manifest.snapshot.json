@@ -6,11 +6,6 @@
   },
   {
     "method": "GET",
-    "path": "/api/v1/application-preparations/programs/:programId/me",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
     "path": "/api/v1/applications/:id",
     "access": "PROTECTED"
   },
