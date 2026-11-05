@@ -36,10 +36,11 @@ export function ReviewHistoryTimeline({
               {entry.actor.name ?? entry.actor.nickname} (@
               {entry.actor.nickname})
             </span>
-
-            <span className="text-xs tabular-nums text-muted-foreground">
-              {entry.revision}차
-            </span>
+            {entry.revision !== null ? (
+              <span className="text-xs tabular-nums text-muted-foreground">
+                {entry.revision}차
+              </span>
+            ) : null}
           </div>
           {entry.rejectionReason !== null ? (
             <p className="text-small break-keep text-muted-foreground [overflow-wrap:anywhere]">
