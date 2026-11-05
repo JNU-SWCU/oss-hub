@@ -78,7 +78,7 @@ function member(
 }
 
 const collected: TeamActivity = {
-  applicationId: 'application-1',
+  teamId: 'application-1',
   repository: { id: 'repo-1', url: 'https://github.com/synthetic/team' },
   status: 'COLLECTED',
   lastSuccessAt: '2026-08-17T01:00:00.000Z',

@@ -7,7 +7,7 @@ export const TEAM_DELETE_FAILED_MESSAGE =
   '팀을 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
 const TEAM_DELETE_COUNT_ITEMS = [
-  ['applications', '지원서', '건'],
+  ['teams', '지원서', '건'],
   ['members', '팀원', '명'],
   ['invitations', '초대', '건'],
   ['submissions', '제출물', '건'],
@@ -25,7 +25,7 @@ function isTeamDeletionScope(value: unknown): value is TeamDeletionScope {
   if (typeof value !== 'object' || value === null) return false;
   const record = value as Record<string, unknown>;
   return (
-    isCount(record.applications) &&
+    isCount(record.teams) &&
     isCount(record.members) &&
     isCount(record.invitations) &&
     isCount(record.submissions) &&

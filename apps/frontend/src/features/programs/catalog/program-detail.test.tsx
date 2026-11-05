@@ -277,7 +277,7 @@ describe('ActivityPanelBody', () => {
           kind: 'ready',
           activities: [
             {
-              applicationId: 'application-1',
+              teamId: 'application-1',
               label: '학생',
               commitCount: 2,
               pullRequestCount: 3,
@@ -311,7 +311,7 @@ describe('ActivityPanelBody', () => {
           kind: 'ready',
           activities: [
             {
-              applicationId: 'application-1',
+              teamId: 'application-1',
               label: '학생',
               commitCount: 0,
               pullRequestCount: 0,

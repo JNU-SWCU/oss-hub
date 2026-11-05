@@ -48,8 +48,7 @@ export function splitDashboardItems(
     ),
     applying: items.filter((item) => item.applicationStatus !== 'APPROVED'),
     primaryApplicationId:
-      active.find((item) => canSubmit(item.nextMilestone, now))
-        ?.applicationId ?? null,
+      active.find((item) => canSubmit(item.nextMilestone, now))?.teamId ?? null,
   };
 }
 
@@ -68,9 +67,9 @@ export function feedbackByApplication(
 ): ReadonlyMap<string, readonly DashboardFeedbackItem[]> {
   const groups = new Map<string, DashboardFeedbackItem[]>();
   for (const item of items) {
-    const group = groups.get(item.applicationId);
+    const group = groups.get(item.teamId);
     if (group) group.push(item);
-    else groups.set(item.applicationId, [item]);
+    else groups.set(item.teamId, [item]);
   }
   return groups;
 }

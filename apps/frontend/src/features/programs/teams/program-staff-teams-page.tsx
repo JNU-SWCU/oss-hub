@@ -95,7 +95,6 @@ export function ProgramStaffTeamsPage({
     readonly next: ApplicationStatus;
   } | null>(null);
   const [reason, setReason] = useState('');
-  const [reasonError, setReasonError] = useState(false);
 
   const [decisionError, setDecisionError] = useState<string | null>(null);
   const cancelled = useRef(false);
@@ -123,17 +122,13 @@ export function ProgramStaffTeamsPage({
       why: string,
     ) => {
       const input = decisionInputFor(next, why);
-      if (input === null) {
-        setReasonError(true);
-        return;
-      }
 
       const dialogOpen =
         next === 'REJECTED' ||
         (next === 'APPROVED' && item.status === 'REJECTED');
       setBusyId(item.id);
       const result = await runDecisionWithRefetch({
-        decide: () => decide({ applicationId: item.id, input }),
+        decide: () => decide({ teamId: item.id, input }),
         refetch: () =>
           queryClient.fetchQuery({
             queryKey: programFeatureKey(programId, 'applications', item.id),
@@ -151,7 +146,6 @@ export function ProgramStaffTeamsPage({
       if (applied) {
         setPending(null);
         setReason('');
-        setReasonError(false);
         setDecisionError(null);
       } else if (dialogOpen) {
         setDecisionError(message);
@@ -185,7 +179,6 @@ export function ProgramStaffTeamsPage({
         (next === 'APPROVED' && item.status === 'REJECTED');
       if (needsConfirm) {
         setReason('');
-        setReasonError(false);
         setDecisionError(null);
         setPending({ item, next });
         return;
@@ -415,18 +408,13 @@ export function ProgramStaffTeamsPage({
           }
           teamName={pending.item.team?.name ?? null}
           reason={reason}
-          reasonError={reasonError}
           busy={busyId === pending.item.id}
           errorMessage={decisionError}
           returnFocusId={`team-management-status-${pending.item.id}`}
-          onReasonChange={(value) => {
-            setReason(value);
-            if (value.trim() !== '') setReasonError(false);
-          }}
+          onReasonChange={setReason}
           onCancel={() => {
             setPending(null);
             setReason('');
-            setReasonError(false);
             setDecisionError(null);
           }}
           onConfirm={() => {

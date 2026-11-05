@@ -104,7 +104,7 @@ const team: ProgramTeam = {
   memberCount: 1,
   minMembers: 1,
   maxMembers: 4,
-  hasApplication: false,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: true,
@@ -128,6 +128,7 @@ function readyContext(nextTeam: ProgramTeam | null): ReadyContext {
     kind: 'ready',
     mode: 'create',
     rejectionReason: null,
+    isRejected: false,
     program,
     template: {
       key: 'oss-contest',
@@ -143,7 +144,7 @@ function readyContext(nextTeam: ProgramTeam | null): ReadyContext {
     teamId: nextTeam?.id ?? null,
     teamMinimum: null,
     team: nextTeam,
-    applicationId: null,
+
     canManage: true,
     initialValues: {
       isRepositoryPublicationPlanned: true,
@@ -303,7 +304,7 @@ describe('ProgramApplyPage — 초대 검색', () => {
     loadProgramApplyContextMock.mockResolvedValue(
       readyContext({
         ...team,
-        hasApplication: true,
+        status: 'SUBMITTED',
         canInvite: false,
         canRemoveMembers: false,
         canLeave: false,

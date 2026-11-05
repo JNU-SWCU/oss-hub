@@ -8,7 +8,7 @@ export type SubmissionBlockedReason =
 
 export interface SubmissionFormData {
   readonly fileUpload: SubmissionUploadLimit;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly milestone: {
     readonly id: string;
@@ -87,7 +87,7 @@ export interface SubmissionChecklistItem {
 
 export interface SubmissionChecklist {
   readonly fileUpload: SubmissionUploadLimit;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicationMode: 'PERSONAL' | 'TEAM';
   readonly items: readonly SubmissionChecklistItem[];
 }
@@ -130,7 +130,7 @@ export interface MatrixCell {
 }
 
 export interface MatrixRow {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicationMode: MatrixApplicationMode;
   readonly displayName: string;
   readonly githubLogins: readonly string[];

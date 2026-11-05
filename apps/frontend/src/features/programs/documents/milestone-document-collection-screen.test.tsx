@@ -49,12 +49,9 @@ vi.mock('./milestone-document-collection-api', async (importOriginal) => ({
   getMilestoneDocumentHistory: getMilestoneDocumentHistoryMock,
 }));
 
-function row(
-  applicationId: string,
-  teamName: string,
-): MilestoneDocumentCollectionRow {
+function row(teamId: string, teamName: string): MilestoneDocumentCollectionRow {
   return {
-    applicationId,
+    teamId,
     deliveryStatus: 'MISSING',
     teamName,
     applicantName: '김철수',

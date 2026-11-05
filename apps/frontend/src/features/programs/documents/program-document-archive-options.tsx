@@ -20,11 +20,11 @@ export function ProgramDocumentArchiveOptions({
   onGroupingChange,
 }: {
   readonly program: ProgramDetail;
-  readonly teams: readonly StaffProgramTeam[];
+  readonly teams: readonly Pick<StaffProgramTeam, 'teamId' | 'name'>[];
   readonly kind: ProgramDocumentArchiveScope['kind'];
   readonly grouping: ProgramDocumentArchiveGrouping;
   readonly selectedMilestone: ProgramMilestone | undefined;
-  readonly selectedTeam: StaffProgramTeam | undefined;
+  readonly selectedTeam: Pick<StaffProgramTeam, 'teamId' | 'name'> | undefined;
   readonly busy: boolean;
   readonly onKindChange: (value: ProgramDocumentArchiveScope['kind']) => void;
   readonly onMilestoneChange: (value: string) => void;

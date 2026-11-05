@@ -122,7 +122,7 @@ for (const width of [1440, 390]) {
             remainingMilestones: [],
             milestoneDocuments: [],
           }),
-        [`GET /api/v1/programs/${programId}/applications`]: (route) =>
+        [`GET /api/v1/programs/${programId}/teams`]: (route) =>
           fulfillJson(route, {
             items: [row],
             page: 1,
@@ -130,9 +130,9 @@ for (const width of [1440, 390]) {
             totalItems: 1,
             totalPages: 1,
           }),
-        [`GET /api/v1/applications/${row.id}`]: (route) =>
+        [`GET /api/v1/teams/${row.id}`]: (route) =>
           fulfillJson(route, application),
-        [`PATCH /api/v1/applications/${row.id}`]: async (route) => {
+        [`PATCH /api/v1/teams/${row.id}`]: async (route) => {
           expect(route.request().postDataJSON()).toEqual({ action: 'APPROVE' });
           await fulfillJson(
             route,
@@ -142,7 +142,7 @@ for (const width of [1440, 390]) {
               status: 422,
               code: 'APP_019',
               detail: '팀 최소 인원을 충족해야 승인할 수 있습니다.',
-              instance: `/api/v1/applications/${row.id}`,
+              instance: `/api/v1/teams/${row.id}`,
               memberCount: 1,
               teamMinSize: 2,
             },

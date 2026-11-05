@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 import { authenticatedSessionBody } from './support/session-mock';
 import type {
   ProgramActivity,
@@ -12,7 +13,7 @@ const programId = 'activity-deep-link';
 const activities: readonly ProgramActivity[] = Array.from(
   { length: 6 },
   (_, index) => ({
-    applicationId: `application-${index + 1}`,
+    teamId: `application-${index + 1}`,
     label: `참여 저장소 ${index + 1}`,
     commitCount: 12 + index,
     pullRequestCount: 3 + index,
@@ -69,6 +70,10 @@ async function installProgramRoutes(
     const method = route.request().method();
     if (method !== 'GET') {
       throw new Error(`Unexpected activity fixture request: ${method} ${path}`);
+    }
+    if (path === '/api/v1/consents/current') {
+      await route.fulfill({ json: CONSENTED_RESPONSE });
+      return;
     }
     if (path === '/api/v1/auth/session') {
       await route.fulfill({ json: authenticatedSessionBody('staff') });
@@ -195,7 +200,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'b',
+        teamId: 'b',
         label: '합성 팀 B',
         commitCount: 20,
         pullRequestCount: 4,
@@ -212,7 +217,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'empty',
+        teamId: 'empty',
         label: '합성 활동 대기 팀',
         collectionStatus: 'EMPTY',
         commitCount: 0,
@@ -222,7 +227,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'unlinked',
+        teamId: 'unlinked',
         label: '합성 미연결 팀',
         collectionStatus: 'NOT_CONNECTED',
         commitCount: 0,
@@ -232,7 +237,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'failed',
+        teamId: 'failed',
         label: '합성 수집 실패 팀',
         collectionStatus: 'FAILED',
         commitCount: 0,

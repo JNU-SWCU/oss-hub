@@ -123,7 +123,7 @@ describe('submissions api', () => {
     expect(init.headers).toBeUndefined();
     expect(init.body).toBeInstanceOf(FormData);
     const body = init.body as FormData;
-    expect(body.get('applicationId')).toBe('application-1');
+    expect(body.get('teamId')).toBe('application-1');
     expect(body.get('milestoneId')).toBe('milestone-1');
     expect(body.get('file')).toBe(file);
   });
@@ -158,7 +158,7 @@ describe('submissions api', () => {
     if (!(init?.body instanceof FormData)) {
       throw new Error('expected FormData body');
     }
-    expect(init.body.get('applicationId')).toBe('application-1');
+    expect(init.body.get('teamId')).toBe('application-1');
     expect(init.body.get('milestoneId')).toBe('milestone-1');
     expect(init.body.get('submissionId')).toBe('submission-1');
     expect(init.body.get('baseRevision')).toBe('3');
@@ -185,7 +185,7 @@ describe('submissions api', () => {
   });
   it('program과 milestone 식별자를 인코딩해 폼을 조회한다', async () => {
     const response = {
-      applicationId: 'application-1',
+      teamId: 'application-1',
       applicationMode: 'PERSONAL',
       fileUpload: submissionUploadLimit(),
       milestone: {
@@ -233,7 +233,7 @@ describe('submissions api', () => {
     );
     vi.stubGlobal('fetch', request);
     const input = {
-      applicationId: 'application-1',
+      teamId: 'application-1',
       milestoneId: 'milestone-1',
       content: { type: 'TEXT' as const, text: '합성 제출 내용' },
       comment: '합성 코멘트',
@@ -251,7 +251,7 @@ describe('submissions api', () => {
 
   it('program 식별자를 인코딩해 내 체크리스트를 조회한다', async () => {
     const checklist = {
-      applicationId: 'application-personal',
+      teamId: 'application-personal',
       applicationMode: 'PERSONAL',
       fileUpload: submissionUploadLimit(),
       items: [

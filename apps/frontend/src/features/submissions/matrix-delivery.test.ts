@@ -15,7 +15,7 @@ function row(
   statuses: readonly ('MISSING' | 'LATE' | 'COMPLETE' | 'NO_REQUIRED_ITEMS')[],
 ): MatrixRow {
   return {
-    applicationId: 'application',
+    teamId: 'application',
     applicationMode: 'TEAM',
     displayName: '합성팀',
     githubLogins: [],

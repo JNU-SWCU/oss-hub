@@ -53,14 +53,14 @@ describe('selectCollectionDocument', () => {
 });
 
 function row(
-  applicationId: string,
+  teamId: string,
   submitted: readonly boolean[],
   overrides: Partial<MilestoneDocumentCollectionRow> = {},
 ): MilestoneDocumentCollectionRow {
   return {
-    applicationId,
+    teamId,
     deliveryStatus: 'MISSING',
-    teamName: `${applicationId}팀`,
+    teamName: `${teamId}팀`,
     applicantName: '김철수',
     memberNicknames: ['chulsoo'],
     cells: submitted.map((isSubmitted, index) => ({

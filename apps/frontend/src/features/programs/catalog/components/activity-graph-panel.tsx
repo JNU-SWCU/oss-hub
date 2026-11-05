@@ -74,7 +74,7 @@ export function ActivityPanelBody({
         {state.activities.map((activity) => (
           <li
             className="grid min-w-0 gap-3 border-b pb-6 last:border-0 last:pb-0"
-            key={activity.applicationId}
+            key={activity.teamId}
           >
             <strong className="break-words">{activity.label}</strong>
             {activity.collectionStatus === 'NOT_CONNECTED' && (
@@ -195,10 +195,10 @@ export function ActivityPanelBody({
 
 export function ActivityGraphContent({
   programId,
-  applicationId,
+  teamId,
 }: {
   readonly programId: string;
-  readonly applicationId?: string;
+  readonly teamId?: string;
 }) {
   const query = useProgramActivityQuery(programId);
   const state: ActivityState = query.isPending
@@ -208,11 +208,11 @@ export function ActivityGraphContent({
       : { kind: 'ready', activities: query.data };
 
   const visibleState =
-    state.kind === 'ready' && applicationId !== undefined
+    state.kind === 'ready' && teamId !== undefined
       ? {
           kind: 'ready' as const,
           activities: state.activities.filter(
-            (activity) => activity.applicationId === applicationId,
+            (activity) => activity.teamId === teamId,
           ),
         }
       : state;
@@ -220,7 +220,7 @@ export function ActivityGraphContent({
     <ActivityPanelBody
       state={visibleState}
       onRetry={() => void query.refetch()}
-      compareTeams={applicationId === undefined}
+      compareTeams={teamId === undefined}
     />
   );
 }

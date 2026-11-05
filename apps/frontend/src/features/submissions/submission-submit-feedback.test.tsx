@@ -74,7 +74,7 @@ vi.mock('./api', () => ({
 }));
 
 const FILE_FORM: SubmissionFormData = {
-  applicationId: 'application-1',
+  teamId: 'application-1',
   applicationMode: 'TEAM',
   fileUpload: submissionUploadLimit(),
   milestone: {
@@ -92,7 +92,7 @@ const FILE_FORM: SubmissionFormData = {
 };
 
 const CHECKLIST: SubmissionChecklist = {
-  applicationId: 'application-1',
+  teamId: 'application-1',
   applicationMode: 'TEAM',
   fileUpload: submissionUploadLimit(),
   items: [

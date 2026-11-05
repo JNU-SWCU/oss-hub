@@ -54,6 +54,7 @@ export async function resetTeamMergeFixture(
     const ddl = `
       CREATE TYPE "ApplicationStatus" AS ENUM ('SUBMITTED','APPROVED','REJECTED');
       CREATE TYPE "RepositoryConnectionMode" AS ENUM ('NEW','OWN');
+      CREATE TYPE "ApplicationReviewEventKind" AS ENUM ('SUBMITTED','APPROVED','REJECTED','REVERTED','RESUBMITTED');
       CREATE TYPE "HistorySource" AS ENUM ('APPLICATION','MIGRATION','BOOTSTRAP');
       CREATE TYPE "TeamHistoryEvent" AS ENUM (${Object.values(TeamHistoryEvent)
         .map((event) => `'${event}'`)
@@ -76,7 +77,7 @@ export async function resetTeamMergeFixture(
         CONSTRAINT "Application_teamId_fkey" FOREIGN KEY ("teamId") REFERENCES "Team"(id)
       );
       CREATE TABLE "ApplicationReviewHistory" (
-        id TEXT PRIMARY KEY, "applicationId" TEXT NOT NULL, "eventKind" TEXT NOT NULL,
+        id TEXT PRIMARY KEY, "applicationId" TEXT NOT NULL, "eventKind" "ApplicationReviewEventKind" NOT NULL,
         revision INTEGER NOT NULL, "actorId" TEXT NOT NULL, "occurredAt" TIMESTAMP(3) NOT NULL,
         "rejectionReason" TEXT
       );

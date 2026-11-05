@@ -54,10 +54,10 @@ describe('splitDashboardItems', () => {
     expect(
       splitDashboardItems([fresh, resubmit, reviewing], NOW)
         .primaryApplicationId,
-    ).toBe(resubmit.applicationId);
+    ).toBe(resubmit.teamId);
     expect(
       splitDashboardItems([fresh, reviewing], NOW).primaryApplicationId,
-    ).toBe(fresh.applicationId);
+    ).toBe(fresh.teamId);
   });
 
   it('낼 서류가 없으면 주 행동을 두지 않는다', () => {
@@ -85,11 +85,11 @@ describe('splitDashboardItems', () => {
 
     expect(
       splitDashboardItems([overdue, fresh], NOW).primaryApplicationId,
-    ).toBe(fresh.applicationId);
+    ).toBe(fresh.teamId);
     expect(
       splitDashboardItems([overdue, overdueResubmit, fresh], NOW)
         .primaryApplicationId,
-    ).toBe(overdueResubmit.applicationId);
+    ).toBe(overdueResubmit.teamId);
     expect(splitDashboardItems([overdue], NOW).primaryApplicationId).toBeNull();
   });
 });
@@ -108,7 +108,7 @@ describe('submissionActionLabel', () => {
     const item = dashboardItem('grace', 'APPROVED', milestone);
     expect(
       splitDashboardItems([item], new Date(now)).primaryApplicationId,
-    ).toBe(label === '서류 내기' ? item.applicationId : null);
+    ).toBe(label === '서류 내기' ? item.teamId : null);
   });
 
   it.each([
@@ -152,11 +152,8 @@ describe('feedbackByApplication', () => {
 
     const groups = feedbackByApplication([newest, middle, oldest]);
 
-    expect([...groups.keys()]).toEqual([
-      first.applicationId,
-      second.applicationId,
-    ]);
-    expect(groups.get(first.applicationId)).toEqual([newest, oldest]);
-    expect(groups.get(second.applicationId)).toEqual([middle]);
+    expect([...groups.keys()]).toEqual([first.teamId, second.teamId]);
+    expect(groups.get(first.teamId)).toEqual([newest, oldest]);
+    expect(groups.get(second.teamId)).toEqual([middle]);
   });
 });

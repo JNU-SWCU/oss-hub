@@ -68,7 +68,7 @@ async function installProgram(page: Page) {
           application: null,
           repositoryContributions: null,
           deletionScope: {
-            applications: 0,
+            teams: 0,
             members: 0,
             invitations: 0,
             submissions: 0,
@@ -81,7 +81,7 @@ async function installProgram(page: Page) {
         route,
       ) =>
         fulfillJson(route, {
-          applicationId: null,
+          teamId: null,
           repository: null,
           status: 'NOT_CONNECTED',
           lastSuccessAt: null,
@@ -225,7 +225,7 @@ test('팀 상세에서 뒤로 가면 teams search와 page를 복원한다', asyn
   const programId = PROGRAM_ID;
   const requests: URL[] = [];
   await page.route(
-    '**/api/v1/programs/' + programId + '/applications?*',
+    '**/api/v1/programs/' + programId + '/teams?*',
     async (route) => {
       const url = new URL(route.request().url());
       requests.push(url);

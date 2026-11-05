@@ -19,7 +19,7 @@ export interface ProgramTeam {
   readonly memberCount: number;
   readonly minMembers: number | null;
   readonly maxMembers: number;
-  readonly hasApplication: boolean;
+  readonly status: ApplicationStatus;
   readonly canInvite: boolean;
   readonly canRemoveMembers: boolean;
   readonly canLeave: boolean;
@@ -56,7 +56,7 @@ export interface StaffTeamDetailApplication {
 }
 
 export interface TeamDeletionScope {
-  readonly applications: number;
+  readonly teams: number;
   readonly members: number;
   readonly invitations: number;
   readonly submissions: number;

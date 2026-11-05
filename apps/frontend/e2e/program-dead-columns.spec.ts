@@ -66,7 +66,7 @@ const team: ProgramTeam = {
   memberCount: 1,
   minMembers: 1,
   maxMembers: 4,
-  hasApplication: true,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: false,
@@ -96,7 +96,7 @@ const application: StudentApplication = {
   canCancel: true,
 };
 const activity: TeamActivity = {
-  applicationId: application.id,
+  teamId: application.id,
   repository: null,
   status: 'NOT_CONNECTED',
   lastSuccessAt: null,
@@ -127,9 +127,9 @@ for (const width of [1440, 390]) {
           fulfillJson(route, overview),
         [`GET /api/v1/programs/${programId}/viewer`]: (route) =>
           fulfillJson(route, program),
-        [`GET /api/v1/programs/${programId}/teams/me`]: (route) =>
+        [`GET /api/v1/programs/${programId}/teams/me/membership`]: (route) =>
           fulfillJson(route, { membership: 'LEADER', team }),
-        [`GET /api/v1/programs/${programId}/applications/me`]: (route) =>
+        [`GET /api/v1/programs/${programId}/teams/me`]: (route) =>
           fulfillJson(route, { status: application.status, application }),
         [`GET /api/v1/team-invitations/teams/${teamId}/sent`]: (route) =>
           fulfillJson(route, []),
@@ -183,7 +183,7 @@ for (const width of [1440, 390]) {
       },
       repositoryContributions: null,
       deletionScope: {
-        applications: 1,
+        teams: 1,
         members: 1,
         invitations: 0,
         submissions: 0,
@@ -240,7 +240,7 @@ for (const width of [1440, 390]) {
           fulfillJson(route, detail()),
         [`GET /api/v1/team-invitations/teams/${teamId}/sent`]: (route) =>
           fulfillJson(route, []),
-        [`GET /api/v1/applications/${application.id}`]: (route) =>
+        [`GET /api/v1/teams/${teamId}`]: (route) =>
           fulfillJson(route, staffApplication),
         [`GET /api/v1/programs/${programId}/teams/${teamId}/activity`]: (
           route,
