@@ -45,3 +45,5 @@ Prisma 모델에서도 두 컬럼과 두 준비 모델·enum을 제외했다. �
 최종 구조 검사는 CreatedTeam 제거 뒤 EXIT=0이다. 최종 소스 Chrome도 2 tests / EXIT=0이며 기존 공개 첨부를 이 캡처로 갱신했다. 릴리스 자산 첨부만 수행했고 새 release 발행·배포는 하지 않았다.
 
 과거 user-consolidation drift 하네스가 현재 도메인 schema와 옛 User fixture를 합치는 경계도 확인했다. 삭제된 두 준비 관계가 미정의 모델을 가리키므로 옛 User fixture의 두 관계 선언만 제거했다. 과거 물리 migration·fixture SQL은 보존했다. 실제 격리 DB의 user-consolidation-migration 1 suite / 11 tests와 before/after drift 대조가 EXIT=0이다.
+
+CI의 backend 전체 unit에서 1 failed / 6306 passed (389 suites 중 1개 실패)를 확인했다. test/architecture/route-manifest.snapshot.json에 폐기한 GET 한 항목이 남은 원인이다. 실제 컨트롤러로 전체 manifest를 만드는 테스트는 유지하고 이 경로만 committed fixture에서 제거했다. 로컬에서는 해당 스냅샷 대상만 다시 검증하며 전체 suite는 실행하지 않는다.
