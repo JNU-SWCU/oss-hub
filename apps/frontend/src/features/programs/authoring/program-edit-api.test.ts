@@ -31,7 +31,6 @@ const editableProgram: EditableProgram = {
   name: 'OSS',
   organizer: 'Center',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'PUBLISHED',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 0,
@@ -64,11 +63,11 @@ describe('program edit API', () => {
     vi.unstubAllGlobals();
   });
 
-  it.each(['PUBLISHED', 'ARCHIVED', undefined] as const)(
-    '편집 조회와 저장 응답의 기존 상태 및 필드 부재 %s를 보존한다',
-    async (lifecycle) => {
+  it.each([{}, { lifecycle: 'PUBLISHED' }])(
+    '이전 서버가 게시 상태 %o를 실어 보내도 편집 조회와 저장 응답을 그대로 돌려준다',
+    async (extra) => {
       const response: unknown = JSON.parse(
-        JSON.stringify({ ...editableProgram, lifecycle }),
+        JSON.stringify({ ...editableProgram, ...extra }),
       );
       fetchMock.mockImplementation(async () => jsonResponse(response));
 
@@ -79,25 +78,6 @@ describe('program edit API', () => {
           buildProgramEditInput(toProgramEditForm(editableProgram)),
         ),
       ).resolves.toEqual(response);
-    },
-  );
-
-  it.each(['DRAFT', null, 0, false])(
-    '편집 조회와 저장 응답의 잘못된 게시 상태 %s를 거부한다',
-    async (lifecycle) => {
-      fetchMock.mockImplementation(async () =>
-        jsonResponse({ ...editableProgram, lifecycle }),
-      );
-
-      await expect(getEditableProgram('program-1')).rejects.toThrow(
-        '프로그램 게시 상태 응답 형식이 올바르지 않습니다.',
-      );
-      await expect(
-        updateProgram(
-          'program-1',
-          buildProgramEditInput(toProgramEditForm(editableProgram)),
-        ),
-      ).rejects.toThrow('프로그램 게시 상태 응답 형식이 올바르지 않습니다.');
     },
   );
 

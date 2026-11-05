@@ -32,7 +32,6 @@ const REJECTED_PROGRAM = {
   organizer: '합성 운영기관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '반려 사유 도달을 보기 위한 합성 프로그램.',
   repositoryProvisioningEnabled: false,
   applicationPeriod: {

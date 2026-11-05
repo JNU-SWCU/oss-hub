@@ -339,7 +339,6 @@ const programWithoutMilestones: ProgramDetail = {
   organizer: '운영기관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
-  lifecycle: 'PUBLISHED',
   description: '프로그램 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -542,14 +541,8 @@ describe('ProgramDetailPage states', () => {
       applicationStatus: null,
     } as const satisfies ProgramDetail['viewer'];
 
-    const archived: ProgramDetail = {
-      ...programWithoutMilestones,
-      lifecycle: 'ARCHIVED',
-      viewer: studentViewer,
-    };
     const dateEnded: ProgramDetail = {
       ...programWithoutMilestones,
-      lifecycle: 'PUBLISHED',
       operatingPeriod: {
         startsAt: '2026-06-01T00:00:00+09:00',
         endsAt: '2026-08-10T23:59:59+09:00',
@@ -558,7 +551,6 @@ describe('ProgramDetailPage states', () => {
     };
     const live: ProgramDetail = {
       ...programWithoutMilestones,
-      lifecycle: 'PUBLISHED',
       operatingPeriod: {
         startsAt: '2026-06-01T00:00:00+09:00',
         endsAt: '2026-12-31T23:59:59+09:00',
@@ -566,10 +558,7 @@ describe('ProgramDetailPage states', () => {
       viewer: studentViewer,
     };
 
-    const endedCases = [
-      { kind: '내린 프로그램', program: archived },
-      { kind: '종료일이 지난 프로그램', program: dateEnded },
-    ];
+    const endedCases = [{ kind: '종료일이 지난 프로그램', program: dateEnded }];
 
     function titleSlotOf(program: ProgramDetail): string {
       const html = renderToStaticMarkup(
@@ -592,7 +581,6 @@ describe('ProgramDetailPage states', () => {
         name: program.name,
         organizer: program.organizer,
         trackType: program.trackType,
-        lifecycle: program.lifecycle,
         applicationStartAt: program.applicationPeriod.startsAt,
         applicationEndAt: program.applicationPeriod.endsAt,
         endAt: program.operatingPeriod?.endsAt ?? null,
@@ -760,7 +748,6 @@ const overviewBase: ProgramOverview = {
   programId: 'program-1',
   name: 'OSS 경진대회',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'PUBLISHED',
   milestoneCount: 1,
   boardPostCount: 0,
   participantCount: 12,

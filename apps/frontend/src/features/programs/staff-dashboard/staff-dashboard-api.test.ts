@@ -27,7 +27,6 @@ const validResponse = {
         endsAt: '2026-07-31T23:59:59.000Z',
       },
       endAt: '9999-12-31T23:59:59.999Z',
-      lifecycle: 'PUBLISHED',
       applications: {
         total: 1,
         submitted: 1,
@@ -69,27 +68,14 @@ describe('getStaffDashboardSummary', () => {
     expect(apiClient).toHaveBeenCalledWith('dashboard/staff/summary');
   });
 
-  it('게시 상태 필드가 없는 후속 응답도 그대로 읽는다', async () => {
-    const program = { ...validResponse.programs[0] };
-    Reflect.deleteProperty(program, 'lifecycle');
-    const response = { programs: [program] };
+  it('이전 서버가 게시 상태 PUBLISHED를 실어 보내도 응답을 그대로 읽는다', async () => {
+    const response = {
+      programs: [{ ...validResponse.programs[0], lifecycle: 'PUBLISHED' }],
+    };
     apiClient.mockResolvedValue(response);
 
     await expect(getStaffDashboardSummary()).resolves.toEqual(response);
   });
-
-  it.each(['DRAFT', null, 0, false])(
-    '게시 상태가 제공됐지만 잘못된 값 %s이면 거부한다',
-    async (lifecycle) => {
-      apiClient.mockResolvedValue({
-        programs: [{ ...validResponse.programs[0], lifecycle }],
-      });
-
-      await expect(getStaffDashboardSummary()).rejects.toBeInstanceOf(
-        StaffDashboardResponseError,
-      );
-    },
-  );
 
   it.each([
     { endAt: null },
@@ -97,9 +83,8 @@ describe('getStaffDashboardSummary', () => {
     { name: '' },
     { applications: { total: -1 } },
     { teamManagementPath: '/programs/other/teams' },
-  ])('게시 상태가 없어도 다른 잘못된 필드는 거부한다: %s', async (invalid) => {
+  ])('잘못된 필드는 거부한다: %s', async (invalid) => {
     const program = { ...validResponse.programs[0], ...invalid };
-    Reflect.deleteProperty(program, 'lifecycle');
     apiClient.mockResolvedValue({ programs: [program] });
 
     await expect(getStaffDashboardSummary()).rejects.toBeInstanceOf(

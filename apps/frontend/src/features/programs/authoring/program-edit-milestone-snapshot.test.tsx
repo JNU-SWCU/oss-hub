@@ -74,7 +74,6 @@ const program: EditableProgram = {
   name: 'OSS',
   organizer: 'Center',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'PUBLISHED',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 0,

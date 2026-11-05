@@ -6,9 +6,8 @@ import type {
   ProgramActivity,
 } from './dto';
 import { apiClient, ApiError } from '@/lib/api-client';
-import { parseProgramLifecycle } from '../program-lifecycle';
 
-export async function listPrograms(
+export function listPrograms(
   params: ProgramListParams,
 ): Promise<ProgramListPage> {
   const search = new URLSearchParams({
@@ -20,11 +19,7 @@ export async function listPrograms(
   if (params.sort) search.set('sort', params.sort);
   if (params.direction) search.set('direction', params.direction);
   if (params.year !== undefined) search.set('year', String(params.year));
-  const page = await apiClient<ProgramListPage>(
-    'programs?' + search.toString(),
-  );
-  page.items.forEach(parseProgramLifecycle);
-  return page;
+  return apiClient<ProgramListPage>('programs?' + search.toString());
 }
 
 export function getProgramStatusCounts(): Promise<ProgramStatusCounts> {
@@ -41,12 +36,10 @@ export async function getProgramEndedYears(
   return years;
 }
 
-export async function getPublicProgramDetail(
+export function getPublicProgramDetail(
   programId: string,
 ): Promise<ProgramDetail> {
-  return parseProgramLifecycle(
-    await apiClient<ProgramDetail>(`programs/${encodeURIComponent(programId)}`),
-  );
+  return apiClient<ProgramDetail>(`programs/${encodeURIComponent(programId)}`);
 }
 
 export async function getProgramDetail(
@@ -55,10 +48,8 @@ export async function getProgramDetail(
 ): Promise<ProgramDetail> {
   const encodedId = encodeURIComponent(programId);
   try {
-    return parseProgramLifecycle(
-      await apiClient<ProgramDetail>(
-        `programs/${encodedId}/viewer${operationsView ? '?view=operations' : ''}`,
-      ),
+    return await apiClient<ProgramDetail>(
+      `programs/${encodedId}/viewer${operationsView ? '?view=operations' : ''}`,
     );
   } catch (error: unknown) {
     if (!(error instanceof ApiError) || error.problem.status !== 401)

@@ -49,7 +49,6 @@ function archiveProgram(
     organizer: '합성 운영기관',
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'basic',
-    lifecycle: 'PUBLISHED',
     description: '합성 설명',
     repositoryProvisioningEnabled: false,
     applicationPeriod: {
