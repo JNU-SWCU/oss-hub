@@ -1,17 +1,9 @@
 {
   "version": 1,
-  "name": "team-application-retirement",
-  "expectedHeadMigration": "20261105050000_retire_submission_axis",
-  "preflight": ["preflight.sql"],
+  "name": "team-application-retire",
+  "expectedHeadMigration": "20261105100100_merge_applications_into_teams",
+  "preflight": ["retire-preflight.sql"],
   "stages": [
-    {
-      "id": "cutover",
-      "apply": [
-        "../../../../apps/backend/prisma/migrations/20261105100000_prepare_team_application_events/migration.sql",
-        "../../../../apps/backend/prisma/migrations/20261105100100_merge_applications_into_teams/migration.sql"
-      ],
-      "reconcile": ["reconcile.sql"]
-    },
     {
       "id": "retire",
       "apply": [

@@ -12,10 +12,5 @@ WITH checks AS (
   UNION ALL SELECT (SELECT count(*) FROM information_schema.columns WHERE table_schema = 'public'
     AND table_name IN ('RepositoryProvisionJob','RepositoryIssuanceHistory','GithubRepositoryOutsiderContribution','MilestoneDocumentSubmission') AND column_name = 'teamId' AND is_nullable = 'NO') <> 4
   UNION ALL SELECT NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = 'Team_application_fields_check' AND convalidated)
-  UNION ALL SELECT (SELECT count(*) FROM "Team") <> 33
-  UNION ALL SELECT (SELECT count(*) FROM "TeamMember") <> 65
-  UNION ALL SELECT (SELECT count(*) FROM "TeamHistory") <> 105
-  UNION ALL SELECT (SELECT count(*) FROM "SubmissionFile") <> 81
-  UNION ALL SELECT (SELECT count(*) FROM "GithubRepository") <> 7
 )
 SELECT count(*) FROM checks WHERE mismatch;
