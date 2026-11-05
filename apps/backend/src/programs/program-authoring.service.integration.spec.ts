@@ -12,7 +12,7 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
 import { ProgramTrackType, FileLifecycle } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
-import { type AuditLogService } from '../platform/audit-log.service';
+import { ProgramHistoryRepository } from './programs.repository';
 import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
 import {
@@ -55,7 +55,7 @@ describe('ProgramAuthoringService integration', () => {
         new ProgramAuthoringUploadTransactionRepository(),
       ),
     ),
-    { record: jest.fn() } as unknown as AuditLogService,
+    new ProgramHistoryRepository(),
     new AuditLogMetadataService(),
     new ProgramScheduleService(),
     new ProgramTemplatesService(),

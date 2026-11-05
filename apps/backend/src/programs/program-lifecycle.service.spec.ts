@@ -1,8 +1,6 @@
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
+import { ProgramHistoryRepository } from './programs.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
@@ -87,26 +85,11 @@ function setup(
       return operation(prisma);
     },
   });
-  const audit = new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(metadata),
-  );
-  const record = jest.spyOn(audit, 'record').mockResolvedValue({
-    id: 'audit-1',
-    actor: 'synthetic-actor',
-    actorHandle: null,
-    action: 'PROGRAM_DELETED',
-    targetType: 'PROGRAM',
-    targetId: 'program-1',
-    target: 'Synthetic program',
-    targetHandle: null,
-    occurredAt: new Date('2026-11-04T00:00:00Z'),
-    legacy: true,
-    metadata: null,
-  });
+  const programHistory = new ProgramHistoryRepository();
+  const record = jest.spyOn(programHistory, 'append').mockResolvedValue();
   const service = new ProgramLifecycleService(
     repository,
-    audit,
+    programHistory,
     metadata,
     new PrismaSerializationRetryRepository(),
   );
@@ -124,11 +107,10 @@ describe('ProgramLifecycleService status deletion', () => {
           : await service.purge(1001n, 'program-1', scope);
       expect(result).toMatchObject({ id: 'program-1', deleted: true });
       expect(markDeleted).toHaveBeenCalledTimes(1);
-      expect(record.mock.calls[0]?.[0]).toMatchObject({
+      expect(record.mock.calls[0]?.[1]).toMatchObject({
         actorGithubId: 1001n,
-        action: 'PROGRAM_DELETED',
-        targetType: 'PROGRAM',
-        targetId: 'program-1',
+        event: 'DELETED',
+        programId: 'program-1',
         metadata: {
           programName: 'Synthetic program',
           lifecycle: ProgramLifecycle.PUBLISHED,
@@ -137,10 +119,10 @@ describe('ProgramLifecycleService status deletion', () => {
     },
   );
 
-  it('keeps the original archived state in the deletion audit', async () => {
+  it('keeps the original archived state in the deletion history', async () => {
     const { service, record } = setup({ lifecycle: ProgramLifecycle.ARCHIVED });
     await service.purge(1001n, 'program-1', scope);
-    expect(record.mock.calls[0]?.[0]).toMatchObject({
+    expect(record.mock.calls[0]?.[1]).toMatchObject({
       metadata: { lifecycle: ProgramLifecycle.ARCHIVED },
     });
   });

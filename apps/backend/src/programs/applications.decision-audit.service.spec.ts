@@ -23,10 +23,6 @@ const ACTOR_GITHUB_ID = 4242n;
 const ACTOR = { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID };
 const PRIOR_PROCESSED_AT = new Date('2026-07-01T00:00:00.000Z');
 
-const auditLogWriter = {
-  auditLog: {},
-} as ApplicationsTransactionStore['auditLogWriter'];
-
 function baseApplication(
   overrides: Partial<{
     status: ApplicationStatus;
@@ -81,7 +77,6 @@ function createHarness(
     >()
     .mockResolvedValue({ revision: 1 });
   const store: ApplicationsTransactionStore = {
-    auditLogWriter,
     findTeamMinSize: jest.fn().mockResolvedValue(1),
     countTeamMembers: jest.fn().mockResolvedValue(1),
     isCurrentTeamMember: jest.fn().mockResolvedValue(false),

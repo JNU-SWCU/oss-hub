@@ -774,11 +774,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     });
 
     expect(
-      await harness.prisma.auditLog.count({
+      await harness.prisma.teamHistory.count({
         where: {
-          targetType: 'REPOSITORY',
-          action: 'REPOSITORY_PUBLISHED',
-          targetId: gateRepoForAdmin.repositoryId,
+          event: 'REPOSITORY_PUBLISHED',
+          data: { path: ['targetId'], equals: gateRepoForAdmin.repositoryId },
         },
       }),
     ).toBe(0);
@@ -795,15 +794,19 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       visibility: RepositoryVisibility.PUBLIC,
     });
 
-    const auditRows = await harness.prisma.auditLog.findMany({
-      where: { targetType: 'REPOSITORY', action: 'REPOSITORY_PUBLISHED' },
-    });
-    expect(
-      auditRows.some((row) => row.targetId === gateRepoForStaff.repositoryId),
-    ).toBe(true);
-    expect(
-      auditRows.some((row) => row.targetId === gateRepoForAdmin.repositoryId),
-    ).toBe(true);
+    for (const repositoryId of [
+      gateRepoForStaff.repositoryId,
+      gateRepoForAdmin.repositoryId,
+    ]) {
+      expect(
+        await harness.prisma.teamHistory.count({
+          where: {
+            event: 'REPOSITORY_PUBLISHED',
+            data: { path: ['targetId'], equals: repositoryId },
+          },
+        }),
+      ).toBe(1);
+    }
   });
 
   it('GET /audit-logs — 익명은 401, STUDENT/STAFF는 403(ADMIN 전용), ADMIN만 200이고 action registry·no-forbidden-key를 만족한다', async () => {
@@ -841,34 +844,42 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         departmentType: 'DEPARTMENT',
       },
     });
-    await harness.prisma.auditLog.create({
+    await harness.prisma.userHistory.create({
       data: {
+        userId: FOREIGN_SUITE_ACTOR_ID,
         actorId: FOREIGN_SUITE_ACTOR_ID,
-        action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
-        targetType: 'ROLE_REQUEST',
-        targetId: FOREIGN_SUITE_ROLE_REQUEST_ID,
-        metadata: auditLogMetadataService.createAccessAuditMetadata({
-          eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
-          rejectionReason: 'synthetic-foreign-suite-rejection-reason',
-          actor: {
-            githubLogin: `${FOREIGN_SUITE_ACTOR_ID}-login`,
-            displayName: null,
-          },
-          target: {
-            githubLogin: `${FOREIGN_SUITE_ROLE_REQUEST_ID}-login`,
-            displayName: null,
-          },
-          before: {
-            role: null,
-            accountStatus: AccountStatus.ACTIVE,
-            requestStatus: StaffAccessRequestStatus.PENDING,
-          },
-          after: {
-            role: null,
-            accountStatus: AccountStatus.ACTIVE,
-            requestStatus: StaffAccessRequestStatus.REJECTED,
-          },
-        }),
+        event: 'REJECTED',
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          recordKind: 'DOMAIN_EVENT',
+          action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
+          targetType: 'ROLE_REQUEST',
+          targetId: FOREIGN_SUITE_ROLE_REQUEST_ID,
+          request: null,
+          metadata: auditLogMetadataService.createAccessAuditMetadata({
+            eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
+            rejectionReason: 'synthetic-foreign-suite-rejection-reason',
+            actor: {
+              githubLogin: `${FOREIGN_SUITE_ACTOR_ID}-login`,
+              displayName: null,
+            },
+            target: {
+              githubLogin: `${FOREIGN_SUITE_ROLE_REQUEST_ID}-login`,
+              displayName: null,
+            },
+            before: {
+              role: null,
+              accountStatus: AccountStatus.ACTIVE,
+              requestStatus: StaffAccessRequestStatus.PENDING,
+            },
+            after: {
+              role: null,
+              accountStatus: AccountStatus.ACTIVE,
+              requestStatus: StaffAccessRequestStatus.REJECTED,
+            },
+          }),
+        },
       },
     });
 

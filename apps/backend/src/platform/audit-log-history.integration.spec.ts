@@ -1,8 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from './prisma.service';
-import { AuditLogRepository } from './audit-log.repository';
-import { AuditLogService } from './audit-log.service';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { AuditLogReadRepository } from './audit-log-read.repository';
 import { AuditLogReadService } from './audit-log-read.service';
 import {
   HISTORY_FEED_DAY,
@@ -17,10 +15,7 @@ assertIsolatedIntegrationDatabase({
 
 describe('Combined owned audit feed', () => {
   const prisma = new PrismaService();
-  const service = new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(new AuditLogMetadataService()),
-  );
+  const service = new AuditLogReadService(new AuditLogReadRepository(prisma));
   const query = {
     from: HISTORY_FEED_DAY,
     to: HISTORY_FEED_DAY,
@@ -52,7 +47,7 @@ describe('Combined owned audit feed', () => {
       `${HISTORY_FEED_PREFIX}audit:4`,
       `${HISTORY_FEED_PREFIX}audit:3`,
       `${HISTORY_FEED_PREFIX}audit:2`,
-      `${HISTORY_FEED_PREFIX}audit:1`,
+      `program-audit:${HISTORY_FEED_PREFIX}audit:1`,
     ]);
   });
 

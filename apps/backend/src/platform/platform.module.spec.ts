@@ -22,7 +22,7 @@ import {
 } from './object-storage.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
 import { S3ObjectStorageClient } from './s3-object-storage.client';
-import { AuditLogService } from './audit-log.service';
+import { AuditLogReadService } from './audit-log-read.service';
 import { AuthConfig } from './auth.config';
 import { AuthSessionService } from './auth-session.service';
 import { PlatformModule } from './platform.module';
@@ -116,7 +116,7 @@ describe('PlatformModule', () => {
       OBJECT_STORAGE,
       OBJECT_INVENTORY,
       AuditLogMetadataService,
-      AuditLogService,
+      AuditLogReadService,
       RolesGuard,
       PlatformRepository,
       PrismaSerializationRetryRepository,

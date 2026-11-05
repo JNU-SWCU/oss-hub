@@ -75,8 +75,21 @@ export async function seedHistoryFeed(prisma: PrismaService): Promise<void> {
       metadata: original.metadata,
       occurredAt: new Date(`${HISTORY_FEED_DAY}T00:00:04.000Z`),
     };
-    await prisma.auditLog.create({ data: row });
-    if (original.number === 3 || original.number === 4) {
+    if (original.number === 1) {
+      await prisma.programHistory.create({
+        data: {
+          id: `program-audit:${row.id}`,
+          programId: original.targetId,
+          actorId,
+          event: 'CREATED',
+          occurredAt: row.occurredAt,
+          source: 'MIGRATION',
+          sourceTable: 'AuditLog',
+          sourceId: row.id,
+          data: { schemaVersion: 1, metadata: original.metadata },
+        },
+      });
+    } else {
       const data = {
         schemaVersion: 1,
         recordKind: 'AUDIT_EVENT',

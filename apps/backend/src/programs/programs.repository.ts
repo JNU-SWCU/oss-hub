@@ -9,6 +9,7 @@ import {
   Prisma,
   ProgramCategory,
   type ProgramTrackType,
+  type ProgramHistoryEvent,
   type ProgramLifecycle,
   type Prisma as PrismaTypes,
 } from '@prisma/client';
@@ -22,7 +23,6 @@ import {
   ProgramCoverRepository,
   ProgramAuthoringUploadTransactionRepository,
 } from './files.repository';
-import { type AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import {
   type ProgramAuthoringProgramPlan,
   type ProgramExternalCover,
@@ -382,7 +382,8 @@ export class ProgramsRepository {
   }
   withCreateTransaction<T>(
     operation: (
-      writer: Pick<Prisma.TransactionClient, 'program' | 'auditLog'>,
+      writer: Pick<Prisma.TransactionClient, 'program'> &
+        ProgramHistoryWriterClient,
     ) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) => operation(transaction));
@@ -687,8 +688,42 @@ export class ProgramLifecycleRepository {
     );
   }
 }
+export type ProgramHistoryWriterClient = Pick<
+  Prisma.TransactionClient,
+  'user' | 'programHistory'
+>;
+
+export interface AppendProgramHistoryInput {
+  readonly programId: string;
+  readonly actorGithubId: bigint;
+  readonly event: ProgramHistoryEvent;
+  readonly metadata: Prisma.InputJsonObject;
+}
+
+@Injectable()
+export class ProgramHistoryRepository {
+  async append(
+    client: ProgramHistoryWriterClient,
+    input: AppendProgramHistoryInput,
+  ): Promise<void> {
+    const actor = await client.user.findUniqueOrThrow({
+      where: { githubId: input.actorGithubId },
+      select: { id: true },
+    });
+    await client.programHistory.create({
+      data: {
+        programId: input.programId,
+        actorId: actor.id,
+        event: input.event,
+        source: 'APPLICATION',
+        data: { schemaVersion: 1, metadata: input.metadata },
+      },
+    });
+  }
+}
+
 export interface ProgramAuthoringTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly historyWriter: ProgramHistoryWriterClient;
   createProgram(
     plan: ProgramAuthoringProgramPlan,
     cover?:
@@ -742,7 +777,7 @@ export class ProgramAuthoringRepository {
     prisma: Prisma.TransactionClient,
   ): ProgramAuthoringTransactionStore {
     return {
-      auditLogWriter: prisma,
+      historyWriter: prisma,
       createProgram: this.createProgramIn.bind(this, prisma),
       createRequest: this.createRequestIn.bind(this, prisma),
       lockUploads: this.lockUploadsIn.bind(this, prisma),

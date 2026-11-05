@@ -1,133 +1,211 @@
-import { Injectable } from '@nestjs/common';
+import { Inject, Injectable } from '@nestjs/common';
 import { UserType } from '@prisma/client';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
-import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
-import { StaffAccessRequestStatus } from '../users/user-contract.config';
-import type { AuditLogRecord, AuditLogRow } from './audit-log.repository';
+import { DomainException } from './error-code.error';
 import {
-  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
-  type AuditLogMetadataEvidence,
-} from './audit-log-metadata.config';
+  AUDIT_LOG_ERROR_CODES,
+  AuditLogErrorCode,
+  InvalidAuditLogMetadataError,
+} from './audit-log-error-code.error';
+import { StaffAccessRequestStatus } from '../users/user-contract.config';
+import { INDEPENDENT_AUTHORITY_AUDIT_ACTIONS } from './audit-log-metadata.config';
 import type { HistoryAuditMetadataView } from './audit-log-history-metadata.config';
+import {
+  AuditLogReadRepository,
+  type AuditLogListQuery,
+  type AuditLogRow,
+} from './audit-log-read.repository';
 
-export interface AuditTargetJoinMaps {
-  readonly programNameById: ReadonlyMap<string, string>;
-  readonly repositoryFullNameById: ReadonlyMap<string, string>;
-  readonly applicationLabelById: ReadonlyMap<string, string>;
+export interface AuditLogListRequest {
+  readonly actor?: string;
+  readonly action?: string;
+  readonly from?: string;
+  readonly to?: string;
+  readonly page?: number;
+  readonly limit?: number;
 }
+
+type AuditLogMetadataEvidence = Readonly<Record<string, unknown>>;
+
+type AuditLogRecordBase = {
+  readonly id: string;
+  readonly actor: string;
+  readonly actorHandle: string | null;
+  readonly action: string;
+  readonly targetType: string;
+  readonly targetId: string;
+  readonly target: string;
+  readonly targetHandle: string | null;
+  readonly occurredAt: Date;
+};
+
+export type AuditLogRecord = AuditLogRecordBase &
+  (
+    | { readonly legacy: true; readonly metadata: null }
+    | { readonly legacy: false; readonly metadata: AuditLogMetadataEvidence }
+  );
+
+export type AuditLogPage = {
+  readonly items: readonly AuditLogRecord[];
+  readonly total: number;
+  readonly page: number;
+  readonly limit: number;
+};
+
+type PersonSnapshot = {
+  readonly displayName: string | null;
+  readonly githubLogin: string;
+};
+
+const STORED_METADATA_SCHEMA_VERSIONS: readonly unknown[] = [1, 2];
 
 @Injectable()
 export class AuditLogReadService {
-  constructor(private readonly parser: AuditLogMetadataService) {}
+  constructor(
+    @Inject(AuditLogReadRepository)
+    private readonly repository: Pick<AuditLogReadRepository, 'list'>,
+  ) {}
 
-  metadata(row: AuditLogRow): AuditLogMetadataEvidence {
-    if (row.historyKind) {
-      if (
-        row.historyKind === 'BOOTSTRAP' &&
-        row.action !== INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.GRANT_ADMIN_ACCESS &&
-        row.action !== INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.REVOKE_ADMIN_ACCESS
-      )
-        throw new InvalidAuditLogMetadataError();
-      const history = parseHistoryMetadata(row.metadata, row.historyKind);
-      if (!history) throw new InvalidAuditLogMetadataError();
-      return { legacy: false, metadata: history };
-    }
-    try {
-      return this.parser.parseAuditLogMetadata(row.metadata);
-    } catch (error) {
-      if (row.legacySource && error instanceof InvalidAuditLogMetadataError) {
-        return { legacy: true, metadata: null };
-      }
-      throw error;
-    }
+  listQueryFromRequest(request: AuditLogListRequest): AuditLogListQuery {
+    return {
+      ...(request.actor === undefined ? {} : { actor: request.actor }),
+      ...(request.action === undefined ? {} : { action: request.action }),
+      ...(request.from === undefined ? {} : { from: request.from }),
+      ...(request.to === undefined ? {} : { to: request.to }),
+      page: request.page ?? 1,
+      limit: request.limit ?? 20,
+    };
   }
 
-  record(
-    log: AuditLogRow,
-    evidence: AuditLogMetadataEvidence,
-    joinMaps: AuditTargetJoinMaps,
-  ): AuditLogRecord {
-    const people = resolveAuditPeople(log, evidence);
-    const base = {
-      id: log.id,
-      actor: people.actor,
-      actorHandle: people.actorHandle,
-      action: log.action,
-      targetType: log.targetType,
-      targetId: log.targetId,
-      target: resolveAuditTargetLabel(log, evidence, joinMaps),
-      targetHandle: people.targetHandle,
-      occurredAt: log.occurredAt,
+  listFromRequest(request: AuditLogListRequest): Promise<AuditLogPage> {
+    return this.list(this.listQueryFromRequest(request));
+  }
+
+  async list(query: AuditLogListQuery): Promise<AuditLogPage> {
+    if (query.from && query.to && query.from > query.to) {
+      throw new DomainException(
+        AUDIT_LOG_ERROR_CODES[AuditLogErrorCode.INVALID_DATE_RANGE],
+      );
+    }
+    const { rows, total } = await this.repository.list(query);
+    return {
+      items: rows.map(auditLogRecord),
+      total,
+      page: query.page,
+      limit: query.limit,
     };
-    return evidence.legacy
-      ? { ...base, legacy: true, metadata: null }
-      : { ...base, legacy: false, metadata: evidence.metadata };
   }
 }
 
-function personLabel(snapshot: {
-  readonly displayName: string | null;
-  readonly githubLogin: string;
-}): string {
+function auditLogRecord(row: AuditLogRow): AuditLogRecord {
+  const metadata = recordMetadata(row);
+  const people = resolveAuditPeople(row, metadata);
+  const base = {
+    id: row.id,
+    actor: people.actor,
+    actorHandle: people.actorHandle,
+    action: row.action,
+    targetType: row.targetType,
+    targetId: row.targetId,
+    target: resolveAuditTargetLabel(row, metadata),
+    targetHandle: people.targetHandle,
+    occurredAt: row.occurredAt,
+  };
+  return metadata === null
+    ? { ...base, legacy: true, metadata: null }
+    : { ...base, legacy: false, metadata };
+}
+
+function recordMetadata(row: AuditLogRow): AuditLogMetadataEvidence | null {
+  if (row.historyKind) {
+    if (
+      row.historyKind === 'BOOTSTRAP' &&
+      row.action !== INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.GRANT_ADMIN_ACCESS &&
+      row.action !== INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.REVOKE_ADMIN_ACCESS
+    )
+      throw new InvalidAuditLogMetadataError();
+    const history = parseHistoryMetadata(row.metadata, row.historyKind);
+    if (!history) throw new InvalidAuditLogMetadataError();
+    return history;
+  }
+  return storedMetadata(row);
+}
+
+function storedMetadata(row: AuditLogRow): AuditLogMetadataEvidence | null {
+  const metadata = row.metadata;
+  if (
+    !isObject(metadata) ||
+    'recordKind' in metadata ||
+    !STORED_METADATA_SCHEMA_VERSIONS.includes(metadata.schemaVersion)
+  )
+    return null;
+  if (
+    row.action === 'USER_PHONE_UPDATED' &&
+    metadata.transition !== 'SET' &&
+    metadata.transition !== 'REPLACED'
+  )
+    return null;
+  return metadata;
+}
+
+function personSnapshot(value: unknown): PersonSnapshot | null {
+  if (!isObject(value) || !isNonEmptyString(value.githubLogin)) return null;
+  if (value.displayName !== null && typeof value.displayName !== 'string')
+    return null;
+  return { displayName: value.displayName, githubLogin: value.githubLogin };
+}
+
+function personLabel(snapshot: PersonSnapshot): string {
   return snapshot.displayName?.trim() || snapshot.githubLogin;
 }
 
 function resolveAuditPeople(
-  log: AuditLogRow,
-  evidence: AuditLogMetadataEvidence,
+  row: AuditLogRow,
+  metadata: AuditLogMetadataEvidence | null,
 ): {
   readonly actor: string;
   readonly actorHandle: string | null;
   readonly targetHandle: string | null;
 } {
-  if (!evidence.legacy && 'actor' in evidence.metadata) {
-    const actorSnapshot = evidence.metadata.actor;
-    const targetSnapshot =
-      'target' in evidence.metadata ? evidence.metadata.target : null;
+  const actorSnapshot = personSnapshot(metadata?.actor);
+  if (actorSnapshot) {
     return {
       actor: personLabel(actorSnapshot),
       actorHandle: actorSnapshot.githubLogin,
-      targetHandle: targetSnapshot?.githubLogin ?? null,
+      targetHandle: personSnapshot(metadata?.target)?.githubLogin ?? null,
     };
   }
   return {
-    actor: log.actor?.nickname ?? 'SYSTEM',
-    actorHandle: log.actor?.nickname ?? null,
+    actor: row.actor?.nickname ?? 'SYSTEM',
+    actorHandle: row.actor?.nickname ?? null,
     targetHandle: null,
   };
 }
 
 function resolveAuditTargetLabel(
-  log: AuditLogRow,
-  evidence: AuditLogMetadataEvidence,
-  joinMaps: AuditTargetJoinMaps,
+  row: AuditLogRow,
+  metadata: AuditLogMetadataEvidence | null,
 ): string {
-  if (!evidence.legacy && 'target' in evidence.metadata) {
-    return personLabel(evidence.metadata.target);
-  }
-  if (!evidence.legacy && 'applicantGithubLogin' in evidence.metadata) {
-    return `${evidence.metadata.programName} · @${evidence.metadata.applicantGithubLogin}`;
-  }
-  if (
-    !evidence.legacy &&
-    'teamName' in evidence.metadata &&
-    'programName' in evidence.metadata
-  ) {
-    return `${evidence.metadata.programName} · ${evidence.metadata.teamName}`;
-  }
-  if (!evidence.legacy && 'programName' in evidence.metadata)
-    return evidence.metadata.programName;
-  if (!evidence.legacy && 'repositoryFullName' in evidence.metadata)
-    return evidence.metadata.repositoryFullName;
-  const joined =
-    log.targetType === 'PROGRAM'
-      ? joinMaps.programNameById.get(log.targetId)
-      : log.targetType === 'REPOSITORY'
-        ? joinMaps.repositoryFullNameById.get(log.targetId)
-        : log.targetType === 'APPLICATION'
-          ? joinMaps.applicationLabelById.get(log.targetId)
-          : undefined;
-  return joined || `${log.targetType} / ${log.targetId}`;
+  const targetSnapshot = personSnapshot(metadata?.target);
+  if (targetSnapshot) return personLabel(targetSnapshot);
+  const programName = nonEmptyStringOrNull(metadata?.programName);
+  const applicantLogin = nonEmptyStringOrNull(metadata?.applicantGithubLogin);
+  if (programName && applicantLogin)
+    return `${programName} · @${applicantLogin}`;
+  const teamName = nonEmptyStringOrNull(metadata?.teamName);
+  if (programName && teamName) return `${programName} · ${teamName}`;
+  return (
+    programName ??
+    nonEmptyStringOrNull(metadata?.repositoryFullName) ??
+    (row.joinedTarget || `${row.targetType} / ${row.targetId}`)
+  );
+}
+
+function nonEmptyStringOrNull(value: unknown): string | null {
+  return isNonEmptyString(value) ? value : null;
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.length > 0;
 }
 
 function parseHistoryMetadata(

@@ -4,8 +4,7 @@ import { PrismaSerializationRetryRepository } from './prisma-serialization-retry
 import { PlatformRepository } from './platform.repository';
 import { LockProgramTreeRepository } from './lock-program-tree.repository';
 import { Global, Module } from '@nestjs/common';
-import { AuditLogRepository } from './audit-log.repository';
-import { AuditLogService } from './audit-log.service';
+import { AuditLogReadRepository } from './audit-log-read.repository';
 import { AuditLogReadService } from './audit-log-read.service';
 import { AuthConfig } from './auth.config';
 import { AuthSessionService } from './auth-session.service';
@@ -47,9 +46,8 @@ import { RolesGuard } from './roles.guard';
     HealthRepository,
     LockProgramTreeRepository,
     HealthService,
-    AuditLogRepository,
+    AuditLogReadRepository,
     AuditLogMetadataService,
-    AuditLogService,
     AuditLogReadService,
     RolesGuard,
     AuthConfig,
@@ -64,7 +62,7 @@ import { RolesGuard } from './roles.guard';
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
     AuditLogMetadataService,
-    AuditLogService,
+    AuditLogReadService,
     RolesGuard,
     PlatformRepository,
     PrismaSerializationRetryRepository,

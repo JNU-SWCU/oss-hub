@@ -11,7 +11,6 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogService } from '../platform/audit-log.service';
 import type { GithubAppClient } from './github-app.client';
 import type {
   OwnedProvisionJob,
@@ -96,8 +95,10 @@ describe('repository-own-enrollment.service', () => {
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
+const ACTOR_USER_ID = 'synthetic-actor-user-id';
 const targetRow = {
   id: 'synthetic-repository-id',
+  team: { id: 'synthetic-team-id', programId: 'synthetic-program-id' },
   githubRepositoryId: 987654321n,
   nameWithOwner: 'synthetic-org/synthetic-repository',
   visibility: RepositoryVisibility.PRIVATE,
@@ -114,15 +115,25 @@ const target = {
 
 function dependencies() {
   const store = {
-    auditLogWriter: {} as RepositoriesTransactionStore['auditLogWriter'],
+    historyWriter: {
+      user: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ id: ACTOR_USER_ID }),
+      },
+      teamHistory: { create: jest.fn().mockResolvedValue({}) },
+    },
     findPublishTarget: jest.fn().mockResolvedValue(targetRow),
     publishRepositoryIfPrivate: jest.fn().mockResolvedValue(true),
   } as jest.Mocked<
     Pick<
       RepositoriesTransactionStore,
-      'auditLogWriter' | 'findPublishTarget' | 'publishRepositoryIfPrivate'
+      'findPublishTarget' | 'publishRepositoryIfPrivate'
     >
-  >;
+  > & {
+    readonly historyWriter: {
+      readonly user: { readonly findUniqueOrThrow: jest.Mock };
+      readonly teamHistory: { readonly create: jest.Mock };
+    };
+  };
   const repository = {
     findPublishTarget: jest.fn().mockResolvedValue(targetRow),
     listOwnedProvisionJobs: jest.fn().mockResolvedValue([]),
@@ -146,18 +157,14 @@ function dependencies() {
       description: null,
     }),
   } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-  const auditLog = {
-    record: jest.fn().mockResolvedValue(undefined),
-  } as jest.Mocked<Pick<AuditLogService, 'record'>>;
   const organization = { requireOrganization: jest.fn(() => 'synthetic-org') };
-  return { repository, github, auditLog, organization, store };
+  return { repository, github, organization, store };
 }
 
 function serviceFrom(deps: ReturnType<typeof dependencies>) {
   return new RepositoriesService(
     deps.repository as unknown as RepositoriesRepository,
     deps.github as unknown as GithubAppClient,
-    deps.auditLog as unknown as AuditLogService,
     new AuditLogMetadataService(),
     new RepositoryUrlService(),
   );
@@ -197,7 +204,7 @@ function job(
 
 describe('RepositoriesReadService.getMyRepositories', () => {
   it('returns an empty projection for an approved team with no provision job', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([]);
 
     await expect(
@@ -205,13 +212,12 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         ...dependencies(),
         repository,
         github,
-        auditLog,
       }).getMyRepositories(123n),
     ).resolves.toEqual([]);
   });
 
   it('maps personal and team jobs into the safe response contract', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         lastErrorCode: 'PROVISION_RETRYABLE',
@@ -248,7 +254,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     });
 
     const result = await service.getMyRepositories(123n);
@@ -289,7 +294,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
   });
 
   it('returns OWN external URLs without throwing on the org identity invariant', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     const externalUrl =
       'https://github.com/synthetic-student/synthetic-own-repo';
     repository.listOwnedProvisionJobs.mockResolvedValue([
@@ -316,7 +321,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     });
 
     const result = await service.getMyRepositories(123n);
@@ -341,7 +345,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
   });
 
   it('keeps a persisted repository visible while an access reconciliation job is failing', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
@@ -364,7 +368,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     }).getMyRepositories(123n);
 
     expect(result).toEqual([
@@ -387,7 +390,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
   });
 
   it('reports the persisted invitation row instead of inferring revocation from job status', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.PROCESSING,
@@ -407,7 +410,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     }).getMyRepositories(123n);
 
     expect(result[0]).toMatchObject({
@@ -417,7 +419,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
   });
 
   it('fails closed on invalid repository identity in a pre-success phase', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.PROCESSING,
@@ -438,13 +440,12 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         ...dependencies(),
         repository,
         github,
-        auditLog,
       }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
 
   it('fails closed when a succeeded job has no repository', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({ status: RepositoryProvisionJobStatus.SUCCEEDED }),
     ]);
@@ -454,7 +455,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         ...dependencies(),
         repository,
         github,
-        auditLog,
       }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
@@ -476,7 +476,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       'https://github.com/synthetic-org/synthetic/completed',
     ],
   ])('fails closed on %s repository identity', async (_case, _name, url) => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -497,12 +497,11 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         ...dependencies(),
         repository,
         github,
-        auditLog,
       }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
   it('classifies a direct link to an organization repository as OWN when the team records OWN', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         team: {
@@ -528,7 +527,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     }).getMyRepositories(123n);
 
     expect(result).toMatchObject({
@@ -538,7 +536,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
     });
   });
   it('classifies a valid external relink from persisted source on an immutable NEW team', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     const externalUrl =
       'https://github.com/synthetic-student/synthetic-relinked-repo';
     repository.listOwnedProvisionJobs.mockResolvedValue([
@@ -566,7 +564,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     }).getMyRepositories(123n);
 
     expect(result).toEqual([
@@ -589,7 +586,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
   });
 
   it('fails closed when a managed identity does not match the persisted organization source', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.listOwnedProvisionJobs.mockResolvedValue([
       job({
         team: {
@@ -616,7 +613,6 @@ describe('RepositoriesReadService.getMyRepositories', () => {
         ...dependencies(),
         repository,
         github,
-        auditLog,
       }).getMyRepositories(123n),
     ).rejects.toBeInstanceOf(RepositoryProvisionStateError);
   });
@@ -624,7 +620,7 @@ describe('RepositoriesReadService.getMyRepositories', () => {
 
 describe('RepositoriesService.publish', () => {
   it('이미 public인 repository는 GitHub를 다시 호출하지 않는다', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github, store } = dependencies();
     repository.findPublishTarget.mockResolvedValue({
       ...targetRow,
       visibility: RepositoryVisibility.PUBLIC,
@@ -634,7 +630,6 @@ describe('RepositoriesService.publish', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     });
 
     const result = await service.publish(
@@ -646,17 +641,16 @@ describe('RepositoriesService.publish', () => {
     expect(result.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(github.publishRepository.mock.calls).toHaveLength(0);
     expect(repository.withTransaction.mock.calls).toHaveLength(0);
-    expect(auditLog.record.mock.calls).toHaveLength(0);
+    expect(store.historyWriter.teamHistory.create.mock.calls).toHaveLength(0);
   });
 
   it('GitHub 공개 결과의 identity를 확인한 뒤 승자가 정확히 1건의 typed audit을 남긴다', async () => {
-    const { repository, github, auditLog, store } = dependencies();
+    const { repository, github, store } = dependencies();
     store.publishRepositoryIfPrivate.mockResolvedValue(true);
     const service = serviceFrom({
       ...dependencies(),
       repository,
       github,
-      auditLog,
     });
 
     const result = await service.publish(
@@ -669,22 +663,31 @@ describe('RepositoriesService.publish', () => {
     expect(store.publishRepositoryIfPrivate.mock.calls).toEqual([
       [target.id, target.githubRepositoryId, NOW],
     ]);
-    expect(auditLog.record.mock.calls).toHaveLength(1);
-    expect(auditLog.record.mock.calls[0]![0]).toMatchObject({
-      actorGithubId: ACTOR_GITHUB_ID,
-      action: 'REPOSITORY_PUBLISHED',
-      targetType: 'REPOSITORY',
-      targetId: target.id,
-      metadata: {
-        repositoryId: target.id,
-        before: { visibility: RepositoryVisibility.PRIVATE },
-        after: {
-          visibility: RepositoryVisibility.PUBLIC,
-          publishedAt: NOW.toISOString(),
+    const historyCalls = store.historyWriter.teamHistory.create.mock
+      .calls as unknown[][];
+    expect(historyCalls).toHaveLength(1);
+    expect(historyCalls[0]?.[0]).toMatchObject({
+      data: {
+        teamId: targetRow.team.id,
+        programId: targetRow.team.programId,
+        actorId: ACTOR_USER_ID,
+        event: 'REPOSITORY_PUBLISHED',
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          targetType: 'REPOSITORY',
+          targetId: target.id,
+          metadata: {
+            repositoryId: target.id,
+            before: { visibility: RepositoryVisibility.PRIVATE },
+            after: {
+              visibility: RepositoryVisibility.PUBLIC,
+              publishedAt: NOW.toISOString(),
+            },
+          },
         },
       },
     });
-    expect(auditLog.record.mock.calls[0]![1]).toBe(store.auditLogWriter);
     expect(result).toMatchObject({
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: NOW,
@@ -692,7 +695,7 @@ describe('RepositoriesService.publish', () => {
   });
 
   it('CAS에서 진 patron은 감사 기록 없이 승자가 커밋한 상태를 재조회한다', async () => {
-    const { repository, github, auditLog, store } = dependencies();
+    const { repository, github, store } = dependencies();
     const winnerCommittedState = {
       ...targetRow,
       visibility: RepositoryVisibility.PUBLIC,
@@ -704,7 +707,6 @@ describe('RepositoriesService.publish', () => {
       ...dependencies(),
       repository,
       github,
-      auditLog,
     });
 
     const result = await service.publish(
@@ -716,7 +718,7 @@ describe('RepositoriesService.publish', () => {
     expect(store.publishRepositoryIfPrivate.mock.calls).toEqual([
       [target.id, target.githubRepositoryId, NOW],
     ]);
-    expect(auditLog.record.mock.calls).toHaveLength(0);
+    expect(store.historyWriter.teamHistory.create.mock.calls).toHaveLength(0);
     expect(result).toEqual({
       ...target,
       visibility: winnerCommittedState.visibility,
@@ -725,13 +727,12 @@ describe('RepositoriesService.publish', () => {
   });
 
   it('없는 repository는 GitHub 호출 전에 중단한다', async () => {
-    const { repository, github, auditLog } = dependencies();
+    const { repository, github } = dependencies();
     repository.findPublishTarget.mockResolvedValue(null);
     const service = serviceFrom({
       ...dependencies(),
       repository,
       github,
-      auditLog,
     });
 
     const publish = service.publish(

@@ -1,13 +1,16 @@
-import type { Prisma } from '@prisma/client';
 import { AuditLogReadService } from './audit-log-read.service';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
-import type { AuditLogRow } from './audit-log.repository';
+import type { AuditLogRow } from './audit-log-read.repository';
 
-const reader = new AuditLogReadService(new AuditLogMetadataService());
 const occurredAt = new Date('2026-11-02T00:00:00.000Z');
 
-function selectionRow(metadata: Prisma.JsonValue): AuditLogRow {
+function read(row: AuditLogRow) {
+  return new AuditLogReadService({
+    list: () => Promise.resolve({ rows: [row], total: 1 }),
+  }).list({ page: 1, limit: 20 });
+}
+
+function selectionRow(metadata: unknown): AuditLogRow {
   return {
     id: 'user:synthetic-type-selection',
     actor: { nickname: 'selected-user' },
@@ -16,7 +19,7 @@ function selectionRow(metadata: Prisma.JsonValue): AuditLogRow {
     targetId: 'synthetic:type-selection-user',
     occurredAt,
     historyKind: 'TYPE_SELECTION',
-    legacySource: false,
+    joinedTarget: null,
     metadata,
   };
 }
@@ -28,22 +31,18 @@ describe('TYPE_SELECTION audit display', () => {
     ['STAFF', 'UNSELECTED'],
   ])(
     'preserves %s -> %s without inventing access snapshots',
-    (before, after) => {
-      const row = selectionRow({
-        schemaVersion: 1,
-        recordKind: 'TYPE_SELECTION',
-        before,
-        after,
-        actor: { displayName: 'not a snapshot', githubLogin: 'must-not-win' },
-      });
+    async (before, after) => {
+      const result = await read(
+        selectionRow({
+          schemaVersion: 1,
+          recordKind: 'TYPE_SELECTION',
+          before,
+          after,
+          actor: { displayName: 'not a snapshot', githubLogin: 'must-not-win' },
+        }),
+      );
 
-      const result = reader.record(row, reader.metadata(row), {
-        programNameById: new Map(),
-        repositoryFullNameById: new Map(),
-        applicationLabelById: new Map(),
-      });
-
-      expect(result).toEqual({
+      expect(result.items[0]).toEqual({
         id: 'user:synthetic-type-selection',
         actor: 'selected-user',
         actorHandle: 'selected-user',
@@ -69,17 +68,19 @@ describe('TYPE_SELECTION audit display', () => {
     { before: 'UNSELECTED', after: 'ADMIN' },
     { before: { role: 'STAFF' }, after: 'STUDENT' },
     { before: 'STUDENT' },
-  ])('rejects invalid identity values %p', (values) => {
+  ])('rejects invalid identity values %p', async (values) => {
     const row = selectionRow({
       schemaVersion: 1,
       recordKind: 'TYPE_SELECTION',
       ...values,
     });
 
-    expect(() => reader.metadata(row)).toThrow(InvalidAuditLogMetadataError);
+    await expect(read(row)).rejects.toBeInstanceOf(
+      InvalidAuditLogMetadataError,
+    );
   });
 
-  it('rejects unsupported selection versions', () => {
+  it('rejects unsupported selection versions', async () => {
     const row = selectionRow({
       schemaVersion: 2,
       recordKind: 'TYPE_SELECTION',
@@ -87,6 +88,8 @@ describe('TYPE_SELECTION audit display', () => {
       after: 'STAFF',
     });
 
-    expect(() => reader.metadata(row)).toThrow(InvalidAuditLogMetadataError);
+    await expect(read(row)).rejects.toBeInstanceOf(
+      InvalidAuditLogMetadataError,
+    );
   });
 });

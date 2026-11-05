@@ -3,8 +3,7 @@ import { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AccountStatus, ApprovalStatus, UserType } from '@prisma/client';
 import { AuditLogController } from '../../src/admin/audit-log.controller';
-import { AuditLogRepository } from '../../src/platform/audit-log.repository';
-import { AuditLogService } from '../../src/platform/audit-log.service';
+import { AuditLogReadRepository } from '../../src/platform/audit-log-read.repository';
 import { AuditLogReadService } from '../../src/platform/audit-log-read.service';
 import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
 import { ApplicationsRepository } from '../../src/programs/team.repository';
@@ -302,7 +301,6 @@ describe('Audience authorization HTTP characterization', () => {
         AuditLogMetadataService,
         AdminAccessMutationService,
         AdminProfileMutationService,
-        AuditLogService,
         AuditLogReadService,
         SystemStatusService,
         CollectionScheduleService,
@@ -472,11 +470,10 @@ describe('Audience authorization HTTP characterization', () => {
           useValue: { withTransaction },
         },
         {
-          provide: AuditLogRepository,
+          provide: AuditLogReadRepository,
           useValue: {
             findActorByGithubId: findActor,
             list: () => Promise.resolve({ rows: [], total: 0 }),
-            record: () => Promise.resolve({}),
           },
         },
         {

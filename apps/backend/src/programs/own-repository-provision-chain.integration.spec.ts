@@ -355,13 +355,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         actorId: STAFF_ACTOR_ID,
       });
       await expect(
-        prisma.auditLog.count({
-          where: {
-            targetType: 'APPLICATION',
-            targetId: AUTHORITY_APPLICATION_ID,
-          },
+        prisma.teamHistory.count({
+          where: { teamId: AUTHORITY_APPLICATION_ID },
         }),
-      ).resolves.toBe(0);
+      ).resolves.toBe(1);
     });
   });
 

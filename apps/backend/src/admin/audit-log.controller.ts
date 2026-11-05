@@ -1,5 +1,5 @@
 import { Controller, Get, Query } from '@nestjs/common';
-import { AuditLogService } from '../platform/audit-log.service';
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { AuditLogListRequestDto } from './dto/audit-log-list-request.dto';
 import { AuditLogPageResponseDto } from './dto/audit-log-page-response.dto';
 import { Protected } from '../auth/auth-route.decorator';
@@ -16,7 +16,7 @@ const adminOnly = () =>
 
 @Controller('audit-logs')
 export class AuditLogController {
-  constructor(private readonly service: AuditLogService) {}
+  constructor(private readonly service: AuditLogReadService) {}
 
   @Get()
   @Protected()

@@ -97,7 +97,7 @@ import {
   type IndependentAuthorityAuditMetadataInput,
   type RepositoryPublishAuditMetadataInput,
   type ProgramLifecycleAuditMetadataInput,
-} from './audit-log.repository';
+} from './audit-log-metadata.config';
 
 @Injectable()
 export class AuditLogMetadataService {

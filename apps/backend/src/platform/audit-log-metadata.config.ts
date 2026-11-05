@@ -137,7 +137,7 @@ type ApplicationDecisionAuditMetadataV1 =
 export type ApplicationDecisionAuditMetadataV2 =
   ApplicationDecisionAuditMetadataBaseV2;
 
-export type ApplicationDecisionAuditMetadata =
+type ApplicationDecisionAuditMetadata =
   ApplicationDecisionAuditMetadataV1 | ApplicationDecisionAuditMetadataV2;
 
 export type ApplicationDecisionAuditMetadataView =
@@ -214,7 +214,7 @@ type RepositoryPublishAuditMetadataV1 = RepositoryPublishAuditMetadataBaseV1;
 export type RepositoryPublishAuditMetadataV2 =
   RepositoryPublishAuditMetadataBaseV2;
 
-export type RepositoryPublishAuditMetadata =
+type RepositoryPublishAuditMetadata =
   RepositoryPublishAuditMetadataV1 | RepositoryPublishAuditMetadataV2;
 
 export type RepositoryPublishAuditMetadataView = RepositoryPublishAuditMetadata;
@@ -241,7 +241,7 @@ type ProgramLifecycleAuditMetadataV1 = ProgramLifecycleAuditMetadataBaseV1;
 export type ProgramLifecycleAuditMetadataV2 =
   ProgramLifecycleAuditMetadataBaseV2;
 
-export type ProgramLifecycleAuditMetadata =
+type ProgramLifecycleAuditMetadata =
   ProgramLifecycleAuditMetadataV1 | ProgramLifecycleAuditMetadataV2;
 
 export type ProgramLifecycleAuditMetadataView = ProgramLifecycleAuditMetadata;
@@ -427,35 +427,61 @@ export type AuditLogMetadataEvidence =
   | { readonly legacy: true; readonly metadata: null }
   | { readonly legacy: false; readonly metadata: AuditLogMetadataView };
 
-export const COLLECTION_TRIGGER_AUDIT_ACTIONS = {
-  COLLECTION_SYNC_TRIGGERED: 'COLLECTION_SYNC_TRIGGERED',
-} as const;
-
-export const SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS = {
-  SUBMISSION_FILE_CLEANUP_RETRY_RESET: 'SUBMISSION_FILE_CLEANUP_RETRY_RESET',
-} as const;
-
-export const REPOSITORY_PUBLISH_AUDIT_ACTIONS = {
-  REPOSITORY_PUBLISHED: 'REPOSITORY_PUBLISHED',
-} as const;
-
-export const PROGRAM_DELETION_AUDIT_ACTIONS = {
-  PROGRAM_DELETED: 'PROGRAM_DELETED',
-} as const;
-
 export const USER_PROFILE_AUDIT_ACTIONS = {
   PROFILE_UPDATED: 'USER_PROFILE_UPDATED',
   PHONE_UPDATED: 'USER_PHONE_UPDATED',
 } as const;
 
-export const PROGRAM_CREATED_AUDIT_ACTIONS = {
-  PROGRAM_CREATED: 'PROGRAM_CREATED',
-} as const;
-
-export const TEAM_JOINED_AUDIT_ACTIONS = {
-  TEAM_JOINED: 'TEAM_JOINED',
-} as const;
-
 export const TEAM_MEMBERSHIP_AUDIT_ACTIONS = {
   TEAM_MEMBERSHIP_CHANGED: 'TEAM_MEMBERSHIP_CHANGED',
 } as const;
+
+export type AccessAuditAction =
+  (typeof ACCESS_AUDIT_ACTIONS)[keyof typeof ACCESS_AUDIT_ACTIONS];
+
+type DistributiveOmit<T, Key extends PropertyKey> = T extends T
+  ? Omit<T, Key>
+  : never;
+
+export type AccessAuditMetadataInput = DistributiveOmit<
+  AccessAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type ApplicationDecisionAuditMetadataInput = Omit<
+  ApplicationDecisionAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type IndependentAuthorityAuditAction =
+  (typeof INDEPENDENT_AUTHORITY_AUDIT_ACTIONS)[keyof typeof INDEPENDENT_AUTHORITY_AUDIT_ACTIONS];
+
+export type IndependentAuthorityAuditMetadataInput = Omit<
+  IndependentAuthorityAuditMetadata,
+  'schemaVersion' | 'eventKind'
+>;
+
+export type RepositoryPublishAuditMetadataInput = Omit<
+  RepositoryPublishAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type ProgramLifecycleAuditMetadataInput = Omit<
+  ProgramLifecycleAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type UserProfileAuditAction =
+  (typeof USER_PROFILE_AUDIT_ACTIONS)[keyof typeof USER_PROFILE_AUDIT_ACTIONS];
+
+export type AuditLogRecordInput = {
+  readonly actorGithubId: bigint;
+  readonly action: string;
+  readonly targetType: string;
+  readonly targetId: string;
+  readonly metadata:
+    | AccessAuditMetadata
+    | IndependentAuthorityAuditMetadata
+    | UserProfileAuditMetadata
+    | UserPhoneAuditMetadata;
+};

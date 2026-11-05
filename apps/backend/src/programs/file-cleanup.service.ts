@@ -1,7 +1,5 @@
 import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
-import { AuditLogService } from '../platform/audit-log.service';
-import { SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import {
   FilesRepository,
   FileCleanupRepository,
@@ -9,15 +7,10 @@ import {
 } from './files.repository';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 @Injectable()
 export class FileCleanupRetryService {
-  constructor(
-    private readonly files: FilesRepository,
-    private readonly auditLog: AuditLogService,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
-  ) {}
+  constructor(private readonly files: FilesRepository) {}
 
   async retry(operatorId: string, fileId: string): Promise<void> {
     const operator = await this.files.findCleanupOperator(operatorId);
@@ -32,18 +25,6 @@ export class FileCleanupRetryService {
     if (!reset) {
       throw new Error('Cleanup retry target is unavailable');
     }
-
-    await this.auditLog.record({
-      actorGithubId: operator.githubId,
-      action:
-        SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS.SUBMISSION_FILE_CLEANUP_RETRY_RESET,
-      targetType: 'SUBMISSION_FILE',
-      targetId: fileId,
-      metadata:
-        this.auditLogMetadataService.createSubmissionFileCleanupAuditMetadata({
-          fileId,
-        }),
-    });
   }
 }
 

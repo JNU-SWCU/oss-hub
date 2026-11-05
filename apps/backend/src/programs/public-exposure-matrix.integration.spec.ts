@@ -1,5 +1,4 @@
 import { FileMetadataRepository } from './files.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -13,12 +12,10 @@ import {
   RepositorySource,
   RepositoryVisibility,
   ProgramTrackType,
+  TeamHistoryEvent,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -76,10 +73,6 @@ const rankingService = new RankingService(
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-const auditLogService = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogReadService(new AuditLogMetadataService()),
-);
 const repositoriesRepository = new RepositoriesRepository(
   prisma,
   new RepositoryProvisionGenerationRepository(),
@@ -87,7 +80,6 @@ const repositoriesRepository = new RepositoriesRepository(
 const repositoriesService = new RepositoriesService(
   repositoriesRepository,
   github as unknown as GithubAppClient,
-  auditLogService,
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
 );
@@ -807,14 +799,13 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     expect(second.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(second.publishedAt).toEqual(first.publishedAt);
     expect(github.publishRepository).toHaveBeenCalledTimes(1);
-    const auditRows = await prisma.auditLog.findMany({
+    const historyRows = await prisma.teamHistory.findMany({
       where: {
-        targetType: 'REPOSITORY',
-        targetId: outcome8.repositoryId,
-        action: REPOSITORY_PUBLISH_AUDIT_ACTIONS.REPOSITORY_PUBLISHED,
+        event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
+        data: { path: ['targetId'], equals: outcome8.repositoryId },
       },
     });
-    expect(auditRows).toHaveLength(1);
+    expect(historyRows).toHaveLength(1);
     const page = await publicProjectsService.findPage(undefined, 50);
     expect(page.items.some((item) => item.id === outcome8.repositoryId)).toBe(
       true,

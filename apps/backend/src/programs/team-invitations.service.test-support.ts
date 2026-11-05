@@ -1,7 +1,6 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import type { AuditLogService } from '../platform/audit-log.service';
 import {
   type AcceptInvitationOnOk,
   TeamInvitationsRepository,
@@ -55,13 +54,9 @@ export type MockRepository = TeamInvitationsRepository & {
   withAcceptTransaction: jest.Mock;
 };
 
-export function buildService(
-  overrides: Partial<MockRepository> = {},
-  auditLog?: Pick<AuditLogService, 'record'>,
-): {
+export function buildService(overrides: Partial<MockRepository> = {}): {
   readonly service: TeamInvitationsService;
   readonly repository: MockRepository;
-  readonly auditLog: Pick<AuditLogService, 'record'>;
 } {
   const repository = {
     findUserIdByGithubId: jest.fn().mockResolvedValue(syntheticUserId),
@@ -99,7 +94,7 @@ export function buildService(
         onOk?: AcceptInvitationOnOk,
       ) => {
         await onOk?.(
-          { auditLogWriter: {} as never },
+          { historyWriter: { teamHistory: { create: jest.fn() } } as never },
           {
             teamId: syntheticTeamId,
             programId: syntheticProgramId,
@@ -116,15 +111,12 @@ export function buildService(
     ),
     ...overrides,
   } as unknown as MockRepository;
-  const resolvedAuditLog = auditLog ?? { record: jest.fn() };
   return {
     service: new TeamInvitationsService(
       repository,
-      resolvedAuditLog as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
     ),
     repository,
-    auditLog: resolvedAuditLog,
   };
 }

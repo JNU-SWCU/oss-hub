@@ -14,7 +14,7 @@ export type RepositoryDeletionCounts = {
   readonly contributorYearAggregates: number;
 };
 
-export type ApplicationRepositoryUrlAuditMetadata = {
+type ApplicationRepositoryUrlAuditMetadata = {
   readonly deletedCounts?: RepositoryDeletionCounts;
   readonly schemaVersion: 2;
   readonly programId: string;

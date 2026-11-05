@@ -1,6 +1,5 @@
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PlatformRepository } from '../platform/platform.repository';
 import { AccountStatus, UserType, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -633,7 +632,7 @@ export class TeamInvitationsRepository {
 
         if (onOk) {
           await onOk(
-            { auditLogWriter: tx },
+            { historyWriter: tx },
             {
               teamId,
               programId,
@@ -708,7 +707,7 @@ interface LockedUserRow {
 }
 
 type AcceptInvitationOkStore = {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly historyWriter: Pick<Prisma.TransactionClient, 'teamHistory'>;
 };
 
 export type AcceptInvitationOnOk = (

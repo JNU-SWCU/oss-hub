@@ -1,11 +1,11 @@
-import { AuditLogService } from '../../platform/audit-log.service';
+import { AuditLogReadService } from '../../platform/audit-log-read.service';
 import 'reflect-metadata';
 import { validate } from 'class-validator';
 import { AuditLogListRequestDto } from './audit-log-list-request.dto';
 
 const auditLogService = Object.create(
-  AuditLogService.prototype,
-) as AuditLogService;
+  AuditLogReadService.prototype,
+) as AuditLogReadService;
 
 describe('AuditLogListRequestDto', () => {
   it('기간 필터는 한국 날짜 선택기의 YYYY-MM-DD만 허용한다', async () => {

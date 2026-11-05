@@ -8,12 +8,10 @@ import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import { AuditLogService } from '../platform/audit-log.service';
 import { CollectionCutoverRepository } from '../github/repository-provision-job.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionAdminController } from './collection-admin.controller';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
@@ -100,8 +98,6 @@ describe('Collection admin authorization HTTP characterization', () => {
           provide: CollectionCutoverRepository,
           useValue: { isQuiesced: () => false },
         },
-        AuditLogMetadataService,
-        { provide: AuditLogService, useValue: { record: () => undefined } },
       ],
     }).compile();
     const config = module.get(AuthConfig);

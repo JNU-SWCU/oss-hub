@@ -286,7 +286,6 @@ async function deleteAllSeeded(): Promise<void> {
   const [
     submissionFilesByTeam,
     submissionFilesByMilestone,
-    auditLogActors,
     notificationUsers,
     loginHistoryUsers,
     submissionFileUploaders,
@@ -303,11 +302,6 @@ async function deleteAllSeeded(): Promise<void> {
         documents: { some: { files: { some: { kind: 'SUBMISSION' } } } },
       },
       select: { id: true },
-    }),
-    prisma.auditLog.findMany({
-      where: { actorId: { startsWith: seedPrefix } },
-      select: { actorId: true },
-      distinct: ['actorId'],
     }),
     prisma.notification.findMany({
       where: { userId: { startsWith: seedPrefix } },
@@ -352,7 +346,6 @@ async function deleteAllSeeded(): Promise<void> {
       .filter((id): id is string => id !== null),
   );
   const protectedUserIds = new Set([
-    ...auditLogActors.map((row) => row.actorId),
     ...notificationUsers.map((row) => row.userId),
     ...loginHistoryUsers.map((row) => row.userId),
     ...submissionFileUploaders
