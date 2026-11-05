@@ -89,14 +89,6 @@ const PURGE_RELATIONS = [
     covers: ['MilestoneDocument->MilestoneDocumentTemplateFile'],
   },
   {
-    id: 'milestone-document-review-histories',
-    operation: 'DELETE',
-    covers: [
-      'MilestoneDocumentSubmission->MilestoneDocumentReviewHistory',
-      'MilestoneDocumentSubmissionHistory->MilestoneDocumentReviewHistory',
-    ],
-  },
-  {
     id: 'milestone-document-submission-histories',
     operation: 'DELETE',
     covers: ['MilestoneDocumentSubmission->MilestoneDocumentSubmissionHistory'],

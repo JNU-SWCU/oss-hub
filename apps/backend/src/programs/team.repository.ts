@@ -3272,14 +3272,6 @@ async function deleteTeamTree(
     },
     data: detachedFileFks,
   });
-
-  await tx.$executeRaw(Prisma.sql`
-    DELETE FROM "MilestoneDocumentReviewHistory"
-    WHERE "milestoneDocumentSubmissionId" IN (
-      SELECT "id" FROM "MilestoneDocumentSubmission"
-      WHERE "applicationId" = ANY(${applicationIds}::text[])
-    )
-  `);
   const milestoneDocumentSubmissionHistories =
     await tx.milestoneDocumentSubmissionHistory.deleteMany({
       where: { submission: { application: { teamId } } },
