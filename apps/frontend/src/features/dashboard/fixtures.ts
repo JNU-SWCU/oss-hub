@@ -182,7 +182,6 @@ export const feedbackItemFixture: DashboardFeedbackItem = {
   decision: 'CHANGES_REQUESTED',
   comment: '표지와 목차를 보완해 주세요.',
   reviewedAt: '2026-07-22T06:00:00.000Z',
-  resubmissionDueAt: '2026-07-26T14:59:59.000Z',
   applicationId: 'application-solo-team',
   programId: 'program-capstone',
   milestoneId: 'milestones-upcoming',

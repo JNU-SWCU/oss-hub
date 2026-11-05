@@ -1,5 +1,4 @@
 'use client';
-
 import { useCallback, useState } from 'react';
 import { EmptyState, ListPanel, ListRow, SectionHeading } from '@/components';
 import Link from 'next/link';
@@ -22,7 +21,6 @@ import {
 } from '@/features/submissions/components/submission-checklist-view';
 import { SubmissionDialog } from '@/features/submissions/components/submission-dialog';
 import { submissionTriggerId } from '@/features/submissions/components/submission-checklist-row';
-
 function RequirementRow({
   programId,
   milestone,
@@ -103,7 +101,6 @@ function RequirementRow({
     </ListRow>
   );
 }
-
 export function RequirementChecklistPage({
   programId,
   milestoneId,
@@ -135,8 +132,7 @@ export function RequirementChecklistPage({
     return <ChecklistParticipationRequired programId={programId} />;
   }
   const milestones = program.milestones.filter(
-    (milestone) =>
-      milestone.submissionType !== null || milestone.submissionItemCount > 0,
+    (milestone) => milestone.submissionItemCount > 0,
   );
   const selectedId = milestoneId;
   const selected = milestones.find((milestone) => milestone.id === selectedId);

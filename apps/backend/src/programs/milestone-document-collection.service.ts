@@ -1,7 +1,7 @@
 import type { Response } from 'express';
 import { DownloadResponseService } from './download-response.service';
 import { Inject, Injectable, StreamableFile } from '@nestjs/common';
-import { MilestoneSubmissionType } from '@prisma/client';
+import { RequirementSubmissionType } from '@prisma/client';
 import type { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
@@ -167,9 +167,9 @@ export class MilestoneDocumentCollectionService {
     if (typeof stored !== 'object' || stored === null) return null;
     const content = stored as Record<string, unknown>;
     switch (content.type) {
-      case MilestoneSubmissionType.TEXT:
+      case RequirementSubmissionType.TEXT:
         return typeof content.text === 'string'
-          ? { type: MilestoneSubmissionType.TEXT, text: content.text }
+          ? { type: RequirementSubmissionType.TEXT, text: content.text }
           : null;
       default:
         return null;
@@ -293,7 +293,7 @@ export class MilestoneDocumentCollectionService {
           ],
         );
       const [documents, applications] = await Promise.all([
-        store.findDocuments(milestoneId, query.scope === 'all'),
+        store.findDocuments(milestoneId),
         store.findApplications(milestone.programId),
       ]);
       if (

@@ -10,7 +10,6 @@ describe('ProgramEditMilestoneScheduleEditor', () => {
       name: '기획서',
       startAt: '2026-09-10T00:00:00.000Z',
       dueAt: '2026-09-20T00:00:00.000Z',
-      submissionType: 'TEXT',
       instructions: null,
     });
     const contextEvents = [

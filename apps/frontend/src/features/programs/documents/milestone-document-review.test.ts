@@ -90,7 +90,6 @@ describe('milestoneDocumentCellDisplay', () => {
         decision: 'CHANGES_REQUESTED',
         comment: '표지를 고쳐 주세요.',
         reviewedAt: '2026-08-01T00:00:00.000Z',
-        resubmissionDueAt: null,
       },
     };
 
@@ -200,24 +199,17 @@ describe('isMilestoneDocumentDeadlineLocked', () => {
       ).toBe(locked);
     },
   );
-  it.each([null, '2000-01-01T00:00:00Z', '2099-12-31T00:00:00Z'])(
-    'ignores the retired review expiry %s',
-    (resubmissionDueAt) => {
-      expect(
-        isMilestoneDocumentDeadlineLocked(
-          true,
-          viewer({
-            status: 'CHANGES_REQUESTED',
-            review: {
-              comment: null,
-              reviewedAt: '2026-08-01T00:00:00Z',
-              resubmissionDueAt,
-            },
-          }),
-        ),
-      ).toBe(false);
-    },
-  );
+  it('keeps a changes request open after the milestone deadline', () => {
+    expect(
+      isMilestoneDocumentDeadlineLocked(
+        true,
+        viewer({
+          status: 'CHANGES_REQUESTED',
+          review: { comment: null, reviewedAt: '2026-08-01T00:00:00Z' },
+        }),
+      ),
+    ).toBe(false);
+  });
 });
 
 describe('isMilestoneDocumentResubmissionFinal', () => {
@@ -339,7 +331,6 @@ describe('milestoneDocumentReviewVersionOf', () => {
           decision: 'CHANGES_REQUESTED',
           comment: '표지를 고쳐 주세요.',
           reviewedAt: '2026-07-29T00:00:00.000Z',
-          resubmissionDueAt: null,
         },
       }),
     ).toEqual({

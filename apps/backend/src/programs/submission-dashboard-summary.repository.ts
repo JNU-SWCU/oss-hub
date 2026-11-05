@@ -1,30 +1,23 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
-  type MilestoneSubmissionType,
   Prisma,
   type SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-
 const dashboardApplicationSelect = {
   id: true,
   programId: true,
-} as const;
-
+} satisfies Prisma.ApplicationSelect;
 const dashboardMilestoneSelect = {
   id: true,
   programId: true,
-  submissionType: true,
-} as const;
-
+} satisfies Prisma.MilestoneSelect;
 const dashboardMilestoneDocumentSelect = {
   id: true,
   milestoneId: true,
   milestone: { select: { programId: true } },
-} as const satisfies Prisma.MilestoneDocumentSelect;
-
+} satisfies Prisma.MilestoneDocumentSelect;
 const dashboardDocumentSubmissionSelect = {
   applicationId: true,
   milestoneDocumentId: true,
@@ -32,30 +25,24 @@ const dashboardDocumentSubmissionSelect = {
   application: { select: { programId: true } },
   milestoneDocument: {
     select: {
-      kind: true,
       milestoneId: true,
       milestone: { select: { programId: true } },
     },
   },
-} as const satisfies Prisma.MilestoneDocumentSubmissionSelect;
-
+} satisfies Prisma.MilestoneDocumentSubmissionSelect;
 export type DashboardApplicationRow = Prisma.ApplicationGetPayload<{
   select: typeof dashboardApplicationSelect;
 }>;
-
 export type DashboardMilestoneRow = Prisma.MilestoneGetPayload<{
   select: typeof dashboardMilestoneSelect;
 }>;
-
 export type DashboardMilestoneDocumentRow = Prisma.MilestoneDocumentGetPayload<{
   select: typeof dashboardMilestoneDocumentSelect;
 }>;
-
 export type DashboardDocumentSubmissionRow =
   Prisma.MilestoneDocumentSubmissionGetPayload<{
     select: typeof dashboardDocumentSubmissionSelect;
   }>;
-
 export interface SubmissionDashboardSummaryDataSource {
   readonly application: {
     findMany(args: {
@@ -82,32 +69,26 @@ export interface SubmissionDashboardSummaryDataSource {
     }): Promise<readonly DashboardDocumentSubmissionRow[]>;
   };
 }
-
 export interface SubmissionDashboardApplicationRecord {
   readonly id: string;
   readonly programId: string;
 }
-
 export interface SubmissionDashboardMilestoneRecord {
   readonly id: string;
   readonly programId: string;
-  readonly submissionType: MilestoneSubmissionType | null;
 }
-
-export interface SubmissionDashboardSubmissionRecord {
+interface SubmissionDashboardSubmissionRecord {
   readonly applicationId: string;
   readonly applicationProgramId: string;
   readonly milestoneId: string;
   readonly milestoneProgramId: string;
   readonly status: SubmissionStatus;
 }
-
 export interface SubmissionDashboardMilestoneDocumentRecord {
   readonly id: string;
   readonly milestoneId: string;
   readonly milestoneProgramId: string;
 }
-
 export interface SubmissionDashboardDocumentSubmissionRecord {
   readonly applicationId: string;
   readonly applicationProgramId: string;
@@ -116,7 +97,6 @@ export interface SubmissionDashboardDocumentSubmissionRecord {
   readonly milestoneProgramId: string;
   readonly status: SubmissionStatus;
 }
-
 export interface SubmissionDashboardSummaryRecords {
   readonly applications: readonly SubmissionDashboardApplicationRecord[];
   readonly milestones: readonly SubmissionDashboardMilestoneRecord[];
@@ -124,20 +104,17 @@ export interface SubmissionDashboardSummaryRecords {
   readonly milestoneDocuments: readonly SubmissionDashboardMilestoneDocumentRecord[];
   readonly documentSubmissions: readonly SubmissionDashboardDocumentSubmissionRecord[];
 }
-
 export interface SubmissionDashboardSummaryRepositoryPort {
   listRecords(
     programIds: readonly string[],
   ): Promise<SubmissionDashboardSummaryRecords>;
 }
-
 @Injectable()
 export class SubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
   constructor(
     @Inject(PrismaService)
     private readonly prisma: SubmissionDashboardSummaryDataSource,
   ) {}
-
   async listRecords(
     programIds: readonly string[],
   ): Promise<SubmissionDashboardSummaryRecords> {
@@ -150,7 +127,6 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
         documentSubmissions: [],
       };
     }
-
     const programFilter = { in: [...programIds] };
     const [applications, milestones, milestoneDocuments, targetSubmissions] =
       await Promise.all([
@@ -165,11 +141,9 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
           where: { programId: programFilter },
           select: dashboardMilestoneSelect,
         }),
-
         this.prisma.milestoneDocument.findMany({
           where: {
             required: true,
-            kind: MilestoneDocumentKind.DOCUMENT,
             milestone: { is: { programId: programFilter } },
           },
           select: dashboardMilestoneDocumentSelect,
@@ -185,48 +159,27 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
             milestoneDocument: {
               is: {
                 milestone: { is: { programId: programFilter } },
-                OR: [
-                  {
-                    kind: MilestoneDocumentKind.DOCUMENT,
-                    required: true,
-                  },
-                  { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
-                ],
+                required: true,
               },
             },
           },
           select: dashboardDocumentSubmissionSelect,
         }),
       ]);
-
     const submissions: SubmissionDashboardSubmissionRecord[] = [];
     const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
       [];
     for (const submission of targetSubmissions) {
       const { milestoneDocument } = submission;
-      if (
-        milestoneDocument.kind ===
-        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION
-      ) {
-        submissions.push({
-          applicationId: submission.applicationId,
-          applicationProgramId: submission.application.programId,
-          milestoneId: milestoneDocument.milestoneId,
-          milestoneProgramId: milestoneDocument.milestone.programId,
-          status: submission.status,
-        });
-      } else if (milestoneDocument.kind === MilestoneDocumentKind.DOCUMENT) {
-        documentSubmissions.push({
-          applicationId: submission.applicationId,
-          applicationProgramId: submission.application.programId,
-          milestoneDocumentId: submission.milestoneDocumentId,
-          milestoneId: milestoneDocument.milestoneId,
-          milestoneProgramId: milestoneDocument.milestone.programId,
-          status: submission.status,
-        });
-      }
+      documentSubmissions.push({
+        applicationId: submission.applicationId,
+        applicationProgramId: submission.application.programId,
+        milestoneDocumentId: submission.milestoneDocumentId,
+        milestoneId: milestoneDocument.milestoneId,
+        milestoneProgramId: milestoneDocument.milestone.programId,
+        status: submission.status,
+      });
     }
-
     return {
       applications,
       milestones,

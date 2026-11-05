@@ -58,7 +58,6 @@ const milestone: EditableMilestone = {
   name: '기획서',
   startAt: '2026-08-16T09:30:59.000Z',
   dueAt: '2026-08-20T09:30:59.000Z',
-  submissionType: null,
   instructions: null,
 };
 

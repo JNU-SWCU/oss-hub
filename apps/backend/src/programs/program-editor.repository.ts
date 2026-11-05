@@ -1,3 +1,4 @@
+import type { RequirementSubmissionType } from '@prisma/client';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
   ProgramCoverRepository,
@@ -5,10 +6,8 @@ import {
 } from './program-cover.repository';
 import { Injectable } from '@nestjs/common';
 import {
-  MilestoneDocumentKind,
   SubmissionFileLifecycle,
   type Prisma as PrismaTypes,
-  type MilestoneSubmissionType,
   type ProgramTrackType,
   type ProgramLifecycle,
 } from '@prisma/client';
@@ -25,40 +24,37 @@ import {
 } from './program-authoring-upload-transaction.repository';
 import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
-
 export type ProgramAuthority = PrismaTypes.UserGetPayload<{
-  select: typeof USER_AUTHORITY_SELECT & { id: true; accountStatus: true };
+  select: typeof USER_AUTHORITY_SELECT & {
+    id: true;
+    accountStatus: true;
+  };
 }>;
-
 export type ProgramMilestoneView = {
   readonly id: string;
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType | null;
   readonly instructions: string | null;
 };
-
 export type ProgramMilestoneDocumentView = {
+  readonly submissionType: RequirementSubmissionType;
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
   readonly templateFileName: string | null;
 };
-
 type ProgramMilestoneOperationView = {
   readonly startAt: Date;
   readonly endAt: Date;
 };
-
 export type ProgramMilestoneEditView = {
   readonly milestone: ProgramMilestoneView;
   readonly operation: ProgramMilestoneOperationView;
   readonly documents: readonly ProgramMilestoneDocumentView[];
   readonly fingerprint: string;
 };
-
 export type LockedProgramMilestoneEdit = {
   readonly programId: string;
   readonly view: Omit<ProgramMilestoneEditView, 'fingerprint'>;
@@ -72,7 +68,6 @@ export type LockedProgramMilestoneEdit = {
     readonly storageKey: string | null;
   }[];
 };
-
 type ApplyProgramMilestoneEditInput = {
   readonly actorId: string;
   readonly milestoneId: string;
@@ -88,12 +83,10 @@ type ApplyProgramMilestoneEditInput = {
   }[];
   readonly uploads: readonly ProgramAuthoringUploadToken[];
 };
-
 export type EditableProgramRow = Omit<EditableProgramView, 'coverImageUrl'> & {
   readonly coverId: string | null;
   readonly coverExternalImageUrl: string | null;
 };
-
 export type EditableProgramView = {
   readonly externalCover?: ProgramExternalCover | null;
   readonly coverImageUrl?: string | null;
@@ -106,7 +99,6 @@ export type EditableProgramView = {
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
   readonly teamCount: number;
-
   readonly deletionScopeCounts?: ProgramDeletionScopeCounts;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
@@ -119,28 +111,23 @@ export type EditableProgramView = {
   readonly description: string;
   readonly milestones: readonly ProgramMilestoneView[];
 };
-
 type ProgramSchedule = {
   readonly id: string;
   readonly startAt: Date;
   readonly endAt: Date;
 };
-
 type ProgramMilestoneDeleteTarget = {
   readonly id: string;
   readonly programId: string;
-
   readonly documentSubmissionCount: number;
   readonly programMilestoneCount: number;
   readonly programRepositoryProvisioningEnabled: boolean;
 };
-
 type ProgramMilestoneTarget = ProgramMilestoneView & {
   readonly programId: string;
   readonly programStartAt: Date;
   readonly endAt: Date;
 };
-
 type ProgramUpdateInput = {
   readonly coverChange?: ProgramCoverChange;
   readonly programId: string;
@@ -160,23 +147,18 @@ type ProgramUpdateInput = {
   readonly notifyOnDeadline: boolean;
   readonly description: string;
 };
-
 export type ProgramMilestoneInput = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType?: MilestoneSubmissionType | null;
   readonly instructions: string | null;
 };
-
 type ProgramMilestoneCreateInput = ProgramMilestoneInput & {
   readonly programId: string;
 };
-
 type ProgramMilestoneUpdateInput = ProgramMilestoneInput & {
   readonly milestoneId: string;
 };
-
 export interface ProgramEditorTransactionStore {
   findLatestDocumentGraceDueAt(programId: string): Promise<Date | null>;
   findEarliestDocumentGraceDueAt(
@@ -199,11 +181,9 @@ export interface ProgramEditorTransactionStore {
   createMilestone(
     input: ProgramMilestoneCreateInput,
   ): Promise<ProgramMilestoneView>;
-
   findMilestoneForUpdate(
     milestoneId: string,
   ): Promise<ProgramMilestoneTarget | null>;
-
   updateMilestone(
     input: ProgramMilestoneUpdateInput,
   ): Promise<ProgramMilestoneView>;
@@ -226,12 +206,10 @@ export interface ProgramEditorTransactionStore {
   ): Promise<readonly ProgramAuthoringUploadToken[]>;
   applyMilestoneEdit(input: ApplyProgramMilestoneEditInput): Promise<void>;
 }
-
 type ProgramRecord = PrismaTypes.ProgramGetPayload<{
   include: typeof editableProgramInclude;
 }>;
 type MilestoneRecord = PrismaTypes.MilestoneGetPayload<Record<string, never>>;
-
 @Injectable()
 export class ProgramEditorRepository {
   constructor(
@@ -241,7 +219,6 @@ export class ProgramEditorRepository {
     private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
     private readonly programCoverRepository: ProgramCoverRepository,
   ) {}
-
   withTransaction<T>(
     operation: (store: ProgramEditorTransactionStore) => Promise<T>,
   ): Promise<T> {
@@ -249,7 +226,6 @@ export class ProgramEditorRepository {
       operation(this.programEditorStore(transaction)),
     );
   }
-
   private programEditorStore(
     transaction: PrismaTypes.TransactionClient,
   ): ProgramEditorTransactionStore {
@@ -297,7 +273,6 @@ export class ProgramEditorRepository {
       deleteMilestone: this.deleteMilestoneIn.bind(this, transaction),
     };
   }
-
   private findUserAuthorityByGithubIdIn(
     transaction: PrismaTypes.TransactionClient,
     githubId: bigint,
@@ -311,7 +286,6 @@ export class ProgramEditorRepository {
       },
     });
   }
-
   private async findEditableProgramByIdIn(
     transaction: PrismaTypes.TransactionClient,
     programId: string,
@@ -325,7 +299,6 @@ export class ProgramEditorRepository {
     ]);
     return program ? toEditableProgramView(program, deletionScopeCounts) : null;
   }
-
   private async findEditableProgramForUpdateIn(
     transaction: PrismaTypes.TransactionClient,
     programId: string,
@@ -338,7 +311,6 @@ export class ProgramEditorRepository {
       ? this.findEditableProgramByIdIn(transaction, programId)
       : null;
   }
-
   private async updateProgramIn(
     transaction: PrismaTypes.TransactionClient,
     input: ProgramUpdateInput,
@@ -389,7 +361,6 @@ export class ProgramEditorRepository {
       await this.readDeletionScopeCountsIn(transaction, input.programId),
     );
   }
-
   private readDeletionScopeCountsIn(
     transaction: PrismaTypes.TransactionClient,
     programId: string,
@@ -399,7 +370,6 @@ export class ProgramEditorRepository {
       programId,
     );
   }
-
   private async findProgramScheduleForMilestoneCreateIn(
     transaction: PrismaTypes.TransactionClient,
     programId: string,
@@ -414,7 +384,6 @@ export class ProgramEditorRepository {
       select: { id: true, startAt: true, endAt: true },
     });
   }
-
   private async createMilestoneIn(
     transaction: PrismaTypes.TransactionClient,
     input: ProgramMilestoneCreateInput,
@@ -433,7 +402,6 @@ export class ProgramEditorRepository {
     });
     return toMilestoneView(milestone);
   }
-
   private async findMilestoneForUpdateIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -470,18 +438,16 @@ export class ProgramEditorRepository {
       endAt: milestone.program.endAt,
     };
   }
-
   private async findLatestDocumentGraceDueAtIn(
     transaction: PrismaTypes.TransactionClient,
     programId: string,
   ): Promise<Date | null> {
     const result = await transaction.milestoneDocument.aggregate({
-      where: { milestone: { programId }, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { milestone: { programId } },
       _max: { graceDueAt: true },
     });
     return result._max.graceDueAt;
   }
-
   private async findEarliestDocumentGraceDueAtIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -490,14 +456,12 @@ export class ProgramEditorRepository {
     const result = await transaction.milestoneDocument.aggregate({
       where: {
         milestoneId,
-        kind: MilestoneDocumentKind.DOCUMENT,
         id: { notIn: [...excludedDocumentIds] },
       },
       _min: { graceDueAt: true },
     });
     return result._min.graceDueAt;
   }
-
   private async updateMilestoneIn(
     transaction: PrismaTypes.TransactionClient,
     input: ProgramMilestoneUpdateInput,
@@ -508,13 +472,11 @@ export class ProgramEditorRepository {
         name: input.name,
         startAt: input.startAt,
         dueAt: input.dueAt,
-        submissionType: input.submissionType,
         instructions: input.instructions,
       },
     });
     return toMilestoneView(milestone);
   }
-
   private async lockMilestoneEditIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -548,7 +510,6 @@ export class ProgramEditorRepository {
       },
     );
   }
-
   private async readMilestoneEditIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -560,7 +521,6 @@ export class ProgramEditorRepository {
     if (programId === null) return null;
     return this.readMilestoneEditWithIn(transaction, milestoneId, programId);
   }
-
   private async readMilestoneEditWithIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -575,7 +535,6 @@ export class ProgramEditorRepository {
         name: true,
         startAt: true,
         dueAt: true,
-        submissionType: true,
         instructions: true,
         updatedAt: true,
         program: { select: { startAt: true, endAt: true } },
@@ -584,7 +543,7 @@ export class ProgramEditorRepository {
     if (milestone === null || milestone.programId !== programId) return null;
     await lockDocuments?.();
     const documents = await transaction.milestoneDocument.findMany({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { milestoneId },
       orderBy: { id: 'asc' },
       select: {
         id: true,
@@ -592,6 +551,7 @@ export class ProgramEditorRepository {
         required: true,
         sortOrder: true,
         updatedAt: true,
+        submissionType: true,
         templateFile: { select: { storageKey: true, originalFileName: true } },
       },
     });
@@ -604,7 +564,6 @@ export class ProgramEditorRepository {
           name: milestone.name,
           startAt: milestone.startAt,
           dueAt: milestone.dueAt,
-          submissionType: milestone.submissionType,
           instructions: milestone.instructions,
         },
         operation: {
@@ -619,6 +578,7 @@ export class ProgramEditorRepository {
             required: document.required,
             sortOrder: document.sortOrder,
             templateFileName: document.templateFile?.originalFileName ?? null,
+            submissionType: document.submissionType,
           })),
       },
       fingerprintDocuments: documents.map((document) => ({
@@ -631,7 +591,6 @@ export class ProgramEditorRepository {
       })),
     };
   }
-
   private async countSubmissionHistoriesForDocumentsIn(
     transaction: PrismaTypes.TransactionClient,
     documentIds: readonly string[],
@@ -645,7 +604,6 @@ export class ProgramEditorRepository {
       },
     });
   }
-
   private lockAttachableUploadsIn(
     transaction: PrismaTypes.TransactionClient,
     actorId: string,
@@ -657,7 +615,6 @@ export class ProgramEditorRepository {
       tokenIds,
     );
   }
-
   private async applyMilestoneEditIn(
     transaction: PrismaTypes.TransactionClient,
     input: ApplyProgramMilestoneEditInput,
@@ -677,7 +634,6 @@ export class ProgramEditorRepository {
     const existing = await transaction.milestoneDocument.findMany({
       where: {
         milestoneId: input.milestoneId,
-        kind: MilestoneDocumentKind.DOCUMENT,
       },
       select: { id: true },
     });
@@ -689,7 +645,7 @@ export class ProgramEditorRepository {
         where: { milestoneDocumentId: { in: deletedIds } },
       });
       await transaction.milestoneDocument.deleteMany({
-        where: { id: { in: deletedIds }, kind: MilestoneDocumentKind.DOCUMENT },
+        where: { id: { in: deletedIds } },
       });
     }
     const consumptions: ProgramAuthoringPendingUploadConsumption[] = [];
@@ -703,7 +659,6 @@ export class ProgramEditorRepository {
               name: document.name,
               required: document.required,
               sortOrder: index + 1,
-              kind: MilestoneDocumentKind.DOCUMENT,
             },
             select: { id: true },
           })
@@ -712,7 +667,6 @@ export class ProgramEditorRepository {
         await transaction.milestoneDocument.update({
           where: {
             id: milestoneDocumentId,
-            kind: MilestoneDocumentKind.DOCUMENT,
           },
           data: {
             name: document.name,
@@ -737,7 +691,6 @@ export class ProgramEditorRepository {
       consumptions,
     );
   }
-
   private async findMilestoneForDeleteIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -760,7 +713,6 @@ export class ProgramEditorRepository {
     if (lockedMilestone === null || lockedMilestone.programId !== programId) {
       return null;
     }
-
     await this.locks.lockProgramTree(transaction, {
       stage: 'documents',
       after: lockedMilestone,
@@ -773,7 +725,6 @@ export class ProgramEditorRepository {
       },
     });
     if (milestone === null || milestone.programId !== programId) return null;
-
     const documentSubmissionCount =
       await transaction.milestoneDocumentSubmission.count({
         where: { milestoneDocument: { milestoneId } },
@@ -787,7 +738,6 @@ export class ProgramEditorRepository {
         milestone.program.repositoryProvisioningEnabled,
     };
   }
-
   private async deleteMilestoneIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -800,7 +750,6 @@ export class ProgramEditorRepository {
     });
     await transaction.milestone.delete({ where: { id: milestoneId } });
   }
-
   private async findMilestoneProgramIdIn(
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
@@ -812,13 +761,11 @@ export class ProgramEditorRepository {
     return milestone?.programId ?? null;
   }
 }
-
 const editableProgramInclude = {
   cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
   _count: { select: { applications: true, teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
-
 function toEditableProgramView(
   program: ProgramRecord,
   deletionScopeCounts: ProgramDeletionScopeCounts,
@@ -855,14 +802,12 @@ function toEditableProgramView(
     milestones: program.milestones.map(toMilestoneView),
   };
 }
-
 function toMilestoneView(milestone: MilestoneRecord): ProgramMilestoneView {
   return {
     id: milestone.id,
     name: milestone.name,
     startAt: milestone.startAt,
     dueAt: milestone.dueAt,
-    submissionType: milestone.submissionType,
     instructions: milestone.instructions,
   };
 }

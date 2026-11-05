@@ -1,7 +1,7 @@
+import { Prisma } from '@prisma/client';
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
@@ -21,44 +21,34 @@ import {
   upsertTracked,
 } from './helpers';
 import { setSeedAdmin, upsertConsent, upsertSeedProfile } from './user';
-
 const PROGRAM_ID = seedId('oss-hub', 'program');
 const TEAM_ID = seedId('oss-hub', 'team');
 const APPLICATION_ID = seedId('oss-hub', 'application');
 const REPOSITORY_ID = seedId('oss-hub', 'repository');
 const PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
-
 const OSS_HUB_REPOSITORY_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub';
 const PROGRAM_NAME = '오픈소스 플랫폼 구축';
 const PROGRAM_ORGANIZER = '오픈소스 SW 개발 사업단';
-
 const OSS_HUB_GITHUB_REPOSITORY_ID = 1297138137n;
 const PROGRAM_DESCRIPTION =
   '오픈소스 SW 개발 사업단이 주관하는 오픈소스 플랫폼 구축 프로그램. 참여 팀은 마일스톤별로 진행 상황과 산출물을 제출하고, GitHub 저장소를 통해 결과물을 공개한다. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
-
 const PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
 const PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
 const PRACTICE_APPLICATION_ID = seedId('oss-hub-practice', 'application');
 const PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
 const PRACTICE_PROVISION_JOB_ID = seedId('oss-hub-practice', 'provision-job');
 const PRACTICE_PROGRAM_NAME = '오픈소스 실습 배포 퀘스트';
-
 const OSS_HUB_PRACTICE_REPOSITORY_URL =
   'https://github.com/JNU-SWCU/oss-hub-practice';
-
 const OSS_HUB_PRACTICE_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub-practice';
-
 const OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID = 1296567792n;
-
 const OSS_HUB_PRACTICE_CREATED_AT = kstMidnight('2026-07-10');
 const OSS_HUB_PRACTICE_DESCRIPTION =
   'JNU OSS Hub practice repository for student fork and deployment quests (학생 fork/배포 퀘스트 실습용). 기본 브랜치는 main입니다.';
 const PRACTICE_PROGRAM_DESCRIPTION = `학생이 ${OSS_HUB_PRACTICE_REPOSITORY_URL}를 fork하고 배포까지 완료하는 실습 퀘스트 프로그램입니다. ${OSS_HUB_PRACTICE_DESCRIPTION}`;
-
 function kstMidnight(isoDate: string): Date {
   return new Date(`${isoDate}T00:00:00+09:00`);
 }
-
 async function upsertConfiguredUser(
   stats: SeedStats,
   account: OssHubTeamAccount,
@@ -87,7 +77,6 @@ async function upsertConfiguredUser(
         return seeded;
       }),
   );
-
   const displayName = account.displayName;
   if (displayName !== undefined) {
     await upsertSeedProfile({
@@ -103,7 +92,6 @@ async function upsertConfiguredUser(
   await upsertConsent(stats, user.id);
   return user;
 }
-
 type OssHubMilestoneSeed = {
   readonly id: string;
   readonly name: string;
@@ -112,12 +100,10 @@ type OssHubMilestoneSeed = {
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string;
 };
-
 const PROGRAM_APPLICATION_START_AT = kstMidnight('2026-07-01');
 const PROGRAM_APPLICATION_END_AT = kstMidnight('2026-08-01');
 const PROGRAM_START_AT = kstMidnight('2026-08-02');
 const PROGRAM_END_AT = kstMidnight('2026-09-01');
-
 export async function seedOssHub(
   stats: SeedStats,
   accounts: readonly OssHubTeamAccount[],
@@ -126,7 +112,6 @@ export async function seedOssHub(
   for (const account of accounts) {
     users.push(await upsertConfiguredUser(stats, account));
   }
-
   await upsertTracked(
     stats,
     'Program',
@@ -168,7 +153,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'Team',
@@ -188,7 +172,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'Application',
@@ -216,7 +199,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   const milestones: readonly OssHubMilestoneSeed[] = [
     {
       id: seedId('oss-hub', 'milestone', 'aws-staging'),
@@ -281,7 +263,6 @@ export async function seedOssHub(
         '릴리스 체크리스트·운영 문서·복구 연습·최종 QA를 모두 완료합니다.',
     },
   ] as const;
-
   const newMilestoneIds = milestones.map((milestone) => milestone.id);
   const staleMilestones = await prisma.milestone.findMany({
     where: { programId: PROGRAM_ID, id: { notIn: newMilestoneIds } },
@@ -289,13 +270,14 @@ export async function seedOssHub(
   });
   const staleMilestoneIds = staleMilestones.map((milestone) => milestone.id);
   if (staleMilestoneIds.length > 0) {
-    await prisma.milestoneDocumentReviewHistory.deleteMany({
-      where: {
-        milestoneDocumentSubmission: {
-          milestoneDocument: { milestoneId: { in: staleMilestoneIds } },
-        },
-      },
-    });
+    await prisma.$executeRaw(Prisma.sql`
+          DELETE FROM "MilestoneDocumentReviewHistory"
+          WHERE "milestoneDocumentSubmissionId" IN (
+            SELECT submission."id" FROM "MilestoneDocumentSubmission" submission
+            JOIN "MilestoneDocument" requirement ON requirement."id" = submission."milestoneDocumentId"
+            WHERE requirement."milestoneId" = ANY(${staleMilestoneIds}::text[])
+          )
+        `);
     await prisma.milestoneDocumentSubmissionHistory.deleteMany({
       where: {
         submission: {
@@ -327,7 +309,6 @@ export async function seedOssHub(
             name: milestone.name,
             startAt: milestone.startAt,
             dueAt: milestone.dueAt,
-            submissionType: milestone.submissionType,
             instructions: milestone.instructions,
           },
           create: {
@@ -336,14 +317,12 @@ export async function seedOssHub(
             name: milestone.name,
             startAt: milestone.startAt,
             dueAt: milestone.dueAt,
-            submissionType: milestone.submissionType,
             instructions: milestone.instructions,
           },
         }),
     );
   }
   const [awsStagingMilestone, intakeFreezeMilestone] = milestones;
-
   await prisma.teamMember.deleteMany({
     where: { teamId: TEAM_ID, userId: { notIn: users.map((user) => user.id) } },
   });
@@ -371,7 +350,6 @@ export async function seedOssHub(
         }),
     );
   }
-
   const awsStagingContent = {
     type: MilestoneSubmissionType.TEXT,
     text: 'staging 배포와 HTTPS·헬스체크·롤백 절차 검증을 완료했습니다 (seed fixture).',
@@ -380,7 +358,6 @@ export async function seedOssHub(
     type: MilestoneSubmissionType.TEXT,
     text: '프로그램 조회·신청·팀 구성·저장소 흐름의 happy/failure 경로 테스트를 마치고 기능을 동결했습니다 (seed fixture).',
   };
-
   const awsStagingDocumentId = seedId(
     'oss-hub',
     'milestone-document',
@@ -419,7 +396,6 @@ export async function seedOssHub(
           name: 'AWS Staging 결과',
           required: true,
           sortOrder: 0,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
       }),
   );
@@ -494,7 +470,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   const intakeFreezeDocumentId = seedId(
     'oss-hub',
     'milestone-document',
@@ -529,7 +504,6 @@ export async function seedOssHub(
           name: 'Intake 기능 동결 요약',
           required: true,
           sortOrder: 0,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
       }),
   );
@@ -584,7 +558,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'GithubRepository',
@@ -631,7 +604,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'Program',
@@ -673,7 +645,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'Team',
@@ -693,7 +664,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   for (const user of users) {
     await upsertTracked(
       stats,
@@ -722,7 +692,6 @@ export async function seedOssHub(
         }),
     );
   }
-
   await upsertTracked(
     stats,
     'Application',
@@ -750,7 +719,6 @@ export async function seedOssHub(
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'GithubRepository',

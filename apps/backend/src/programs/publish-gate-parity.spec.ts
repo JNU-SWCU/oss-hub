@@ -1,9 +1,6 @@
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
-  MilestoneDocumentKind,
-  MilestoneSubmissionType,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   SubmissionStatus,
@@ -26,15 +23,12 @@ import {
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
 const PROGRAM_ENDS_LATER = new Date('2026-08-01T00:00:00.000Z');
-const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
-
+const ACTOR_GITHUB_ID = 9600000000100001n;
 type ReviewApplication = ReviewContextRow['application'];
 type ReviewRepository = NonNullable<ReviewApplication['repository']>;
-
 function eligibleRow(): ReviewContextRow {
   return {
     id: 'submission-1',
@@ -54,8 +48,7 @@ function eligibleRow(): ReviewContextRow {
         milestones: [
           {
             id: 'milestone-1',
-            submissionType: MilestoneSubmissionType.FILE,
-            documents: [],
+            documents: [{ id: 'legacy-submission-document-1' }],
           },
         ],
       },
@@ -65,7 +58,6 @@ function eligibleRow(): ReviewContextRow {
           milestoneDocument: {
             id: 'legacy-submission-document-1',
             milestoneId: 'milestone-1',
-            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
         },
       ],
@@ -76,6 +68,7 @@ function eligibleRow(): ReviewContextRow {
       },
     },
     milestoneDocument: {
+      id: 'legacy-submission-document-1',
       milestone: { id: 'milestone-1', name: 'Final submission' },
     },
     histories: [
@@ -91,7 +84,6 @@ function eligibleRow(): ReviewContextRow {
     ],
   };
 }
-
 function eligibleEligibility(): RepositoryPublishEligibility {
   return {
     repositoryId: 'repository-1',
@@ -102,7 +94,6 @@ function eligibleEligibility(): RepositoryPublishEligibility {
     programEndAt: PROGRAM_ENDED_AT,
   };
 }
-
 const SCENARIOS = [
   {
     label: '저장소 프로비저닝이 아직 안 끝났다',
@@ -155,7 +146,6 @@ const SCENARIOS = [
           milestoneDocument: {
             id: 'legacy-submission-document-1',
             milestoneId: 'milestone-1',
-            kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           },
         },
       ]),
@@ -165,7 +155,6 @@ const SCENARIOS = [
     }),
   },
 ] as const;
-
 function brokenRow(
   breakRow: (
     repository: ReviewRepository,
@@ -178,7 +167,6 @@ function brokenRow(
   breakRow(repository, row.application);
   return row;
 }
-
 function eligibilityRow(
   eligibility: RepositoryPublishEligibility,
 ): PublishEligibilityRow {
@@ -200,12 +188,11 @@ function eligibilityRow(
         endAt: eligibility.programEndAt,
         milestones: eligibility.requiredMilestonesApproved
           ? []
-          : [{ id: 'milestone-1', submissionType: 'FILE', documents: [] }],
+          : [{ id: 'milestone-1', documents: [{ id: 'required-document' }] }],
       },
     },
   };
 }
-
 function serviceFor(eligibility: RepositoryPublishEligibility | null) {
   const repositories = {
     publish: jest.fn().mockResolvedValue({
@@ -236,22 +223,18 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
     ),
   };
 }
-
 describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이트를 본다', () => {
   it('네 게이트를 모두 통과하면 화면은 버튼을 열고 서버는 공개한다', async () => {
     const row = eligibleRow();
     const { service, repositories } = serviceFor(eligibleEligibility());
-
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
-
     expect(context.repository).toMatchObject({
       publishEligible: true,
       blockedReasons: [],
     });
     expect(repositories.publish).toHaveBeenCalled();
   });
-
   it('종료일이 지금과 같은 순간이면 이미 종료로 본다', async () => {
     const row = eligibleRow();
     row.application.program.endAt = NOW;
@@ -259,14 +242,11 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       ...eligibleEligibility(),
       programEndAt: NOW,
     });
-
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
     await service.publishRepository('repository-1', ACTOR_GITHUB_ID, NOW);
-
     expect(context.repository?.blockedReasons).toEqual([]);
     expect(repositories.publish).toHaveBeenCalled();
   });
-
   it.each(SCENARIOS)(
     '$label — 화면이 차단하는 사유와 서버가 거절하는 코드가 같은 게이트다',
     async ({ reason, errorCode, breakRow, breakEligibility }) => {
@@ -274,14 +254,12 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       const { service, repositories } = serviceFor(
         breakEligibility(eligibleEligibility()),
       );
-
       const context = serviceFor(null).service['toReviewContext'](row, NOW);
       const publish = service.publishRepository(
         'repository-1',
         ACTOR_GITHUB_ID,
         NOW,
       );
-
       await expect(publish).rejects.toMatchObject({
         errorCode: { code: errorCode },
       });
@@ -290,20 +268,16 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       expect(context.repository?.blockedReasons).toContain(reason);
     },
   );
-
   it('선언된 차단 사유는 모두 화면이 실제로 낼 수 있다', () => {
     const row = brokenRow((repository, application) => {
       for (const scenario of SCENARIOS)
         scenario.breakRow(repository, application);
     });
-
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
-
     expect(new Set(context.repository?.blockedReasons)).toEqual(
       new Set<PublishBlockedReason>(Object.values(PUBLISH_BLOCKED_REASONS)),
     );
   });
-
   it('게이트가 한꺼번에 막히면 화면은 게이트 순서대로 나열하고 서버는 첫 게이트로 거절한다', async () => {
     const row = brokenRow((repository, application) => {
       for (const scenario of SCENARIOS)
@@ -317,27 +291,23 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       isRepositoryPublicationPlanned: false,
       programEndAt: new Date('2026-12-31T00:00:00.000Z'),
     });
-
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
       NOW,
     );
-
     expect(context.repository?.blockedReasons).toEqual([
       PUBLISH_BLOCKED_REASONS.REPOSITORY_NOT_READY,
       PUBLISH_BLOCKED_REASONS.REPOSITORY_PUBLICATION_NOT_PLANNED,
       PUBLISH_BLOCKED_REASONS.PROGRAM_NOT_ENDED,
       PUBLISH_BLOCKED_REASONS.REQUIRED_MILESTONES_NOT_APPROVED,
     ]);
-
     await expect(publish).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY },
     });
     expect(repositories.publish).not.toHaveBeenCalled();
   });
-
   it('저장소 조회가 게이트 재료를 DB 값 그대로 옮긴다', async () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'repository-1',
@@ -350,7 +320,12 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         },
         program: {
           endAt: PROGRAM_ENDED_AT,
-          milestones: [{ id: 'milestone-1', documents: [] }],
+          milestones: [
+            {
+              id: 'milestone-1',
+              documents: [{ id: 'legacy-submission-document-1' }],
+            },
+          ],
         },
         milestoneDocumentSubmissions: [
           {
@@ -358,7 +333,6 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
             milestoneDocument: {
               id: 'legacy-submission-document-1',
               milestoneId: 'milestone-1',
-              kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
             },
           },
         ],
@@ -369,16 +343,8 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         githubRepository: { findUnique },
       } as unknown as PrismaService,
       new PlatformRepository(),
-      new SubmissionsRepository(
-        {
-          githubRepository: { findUnique },
-        } as unknown as PrismaService,
-        new PlatformRepository(),
-      ),
     );
-
     const eligibility = await repository.findPublishEligibility('repository-1');
-
     expect(
       serviceFor(null).service['toPublishEligibility'](
         eligibility!.application,
@@ -392,7 +358,6 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       programEndAt: PROGRAM_ENDED_AT,
     });
   });
-
   it('다른 저장소의 프로비저닝 작업은 준비 상태로 세지 않는다', async () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'repository-1',
@@ -412,16 +377,8 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         githubRepository: { findUnique },
       } as unknown as PrismaService,
       new PlatformRepository(),
-      new SubmissionsRepository(
-        {
-          githubRepository: { findUnique },
-        } as unknown as PrismaService,
-        new PlatformRepository(),
-      ),
     );
-
     const eligibility = await repository.findPublishEligibility('repository-1');
-
     expect(
       serviceFor(null).service['toPublishEligibility'](
         eligibility!.application,
@@ -429,31 +386,25 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
       ).provisionStatus,
     ).toBeNull();
   });
-
   it('저장소를 찾지 못하면 준비되지 않은 것으로 거절한다', async () => {
     const { service, repositories } = serviceFor(null);
-
     const publish = service.publishRepository(
       'repository-1',
       ACTOR_GITHUB_ID,
       NOW,
     );
-
     await expect(publish).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY },
     });
     expect(repositories.publish).not.toHaveBeenCalled();
   });
-
   it('이미 공개된 저장소는 게이트를 적용하지 않는다', () => {
     const row = brokenRow((repository, application) => {
       for (const scenario of SCENARIOS)
         scenario.breakRow(repository, application);
       repository.visibility = RepositoryVisibility.PUBLIC;
     });
-
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
-
     expect(context.repository).toMatchObject({
       visibility: RepositoryVisibility.PUBLIC,
       publishEligible: true,

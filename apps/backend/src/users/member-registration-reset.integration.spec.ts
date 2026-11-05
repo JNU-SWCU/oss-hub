@@ -22,7 +22,6 @@ import { UserHistoryRepository } from './user-history.repository';
 import { TeamInvitationsRepository } from '../programs/team-invitations.repository';
 import { TeamHistoryRepository } from '../programs/team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -55,7 +54,6 @@ let sequence = 0;
 const at = new Date('2026-01-01T00:00:00.000Z');
 beforeAll(() => prisma.$connect());
 afterAll(() => prisma.$disconnect());
-
 async function create(
   data: Omit<Prisma.UserCreateInput, 'id' | 'githubId' | 'nickname'> = {},
 ) {
@@ -97,7 +95,6 @@ function expectState(user: {
     expectedApprovalRequestId: user.approvalRequestId,
   };
 }
-
 describe('registration reset persistence', () => {
   it.each(['actorId', 'inviteeId', 'invitedById'] as const)(
     '3b protects history-only activity through %s',
@@ -202,7 +199,6 @@ describe('registration reset persistence', () => {
       prisma.teamHistory.count({ where: { sourceId: invitationId } }),
     ).resolves.toBe(1);
   });
-
   it('keeps the session identity, clears membership and returns staff re-registration to normal approval', async () => {
     const admin = await actor();
     const user = await create();
@@ -365,7 +361,11 @@ describe('registration reset persistence', () => {
   });
 });
 function userWithoutAdmin(
-  user: Prisma.UserGetPayload<{ include: { admin: true } }>,
+  user: Prisma.UserGetPayload<{
+    include: {
+      admin: true;
+    };
+  }>,
 ) {
   const { admin, ...row } = user;
   void admin;

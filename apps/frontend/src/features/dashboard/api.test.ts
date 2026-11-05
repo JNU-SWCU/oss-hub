@@ -475,12 +475,11 @@ describe('fetchStudentFeedback', () => {
     );
   });
 
-  it('의견과 재제출 기한이 없는 판정도 받는다', async () => {
+  it('의견이 없는 판정도 받는다', async () => {
     const item = {
       ...feedbackItemFixture,
       decision: 'APPROVED',
       comment: null,
-      resubmissionDueAt: null,
     } as const;
     respondWith({ items: [item] });
 
@@ -491,7 +490,7 @@ describe('fetchStudentFeedback', () => {
     ['items가 배열이 아님', { items: null }],
     ['판정이 검토 대기 상태', { decision: 'SUBMITTED' }],
     ['검토 시각이 날짜가 아님', { reviewedAt: 'not-a-date' }],
-    ['재제출 기한이 날짜가 아님', { resubmissionDueAt: 'tomorrow' }],
+    ['주소가 문자열이 아님', { href: 42 }],
     ['의견이 문자열이 아님', { comment: 42 }],
     ['항목 이름이 공백뿐', { itemName: '   ' }],
     ['마일스톤 이름 칸이 없음', { milestoneName: undefined }],

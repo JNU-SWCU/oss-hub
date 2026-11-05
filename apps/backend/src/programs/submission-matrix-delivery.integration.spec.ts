@@ -1,3 +1,4 @@
+import { MilestoneCompletionService } from './milestone-completion.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { INestApplication } from '@nestjs/common';
@@ -25,6 +26,7 @@ const repository = new SubmissionMatrixRepository(
 const service = new SubmissionMatrixService(
   repository,
   new MilestoneDocumentCollectionService({} as never),
+  new MilestoneCompletionService(),
 );
 const first = new Date(fixture.dueSoon.getTime() - 1);
 const late = new Date(fixture.dueSoon.getTime() + 1);
@@ -112,11 +114,11 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
           {
             milestoneId: fixture.notifyMilestone,
             deliveryStatus: 'COMPLETE',
-            status: 'NOT_SUBMITTED',
-            submissionId: null,
-            revision: null,
-            submittedAt: null,
-            reviewUrl: null,
+            status: 'REJECTED',
+            submissionId: fixture.documentSubmission,
+            revision: 2,
+            submittedAt: late.toISOString(),
+            reviewUrl: `/programs/${fixture.notifyProgram}/submissions/${fixture.documentSubmission}/review`,
             changesRequestedCount: 0,
           },
         ],
@@ -157,14 +159,23 @@ it.each([
 );
 
 it.each([
-  ['optional', false, 'DOCUMENT'],
-  ['internal legacy slot', true, 'LEGACY_MILESTONE_SUBMISSION'],
+  [
+    'optional',
+    false,
+    [
+      'NO_REQUIRED_ITEMS',
+      'NO_REQUIRED_ITEMS',
+      'NO_REQUIRED_ITEMS',
+      'NO_REQUIRED_ITEMS',
+    ],
+  ],
+  ['required', true, ['COMPLETE', 'MISSING', 'MISSING', 'MISSING']],
 ] as const)(
-  'does not require an %s item for delivery completion',
-  async (_, required, kind) => {
+  'uses the required flag for %s item delivery completion',
+  async (_, required, expected) => {
     await harness.prisma.milestoneDocument.update({
       where: { id: fixture.notifyDocument },
-      data: { required, kind },
+      data: { required },
     });
 
     const matrix = await service.matrix(fixture.notifyProgram, {
@@ -176,10 +187,10 @@ it.each([
 
     expect(matrix.rows).toHaveLength(4);
     expect(
-      matrix.rows.flatMap((row) =>
-        row.cells.map((cell) => cell.deliveryStatus),
-      ),
-    ).toEqual(Array(4).fill('NO_REQUIRED_ITEMS'));
+      matrix.rows
+        .flatMap((row) => row.cells.map((cell) => cell.deliveryStatus))
+        .sort(),
+    ).toEqual([...expected].sort());
   },
 );
 

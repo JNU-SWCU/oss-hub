@@ -351,11 +351,6 @@
   },
   {
     "method": "GET",
-    "path": "/api/v1/programs/:programId/milestones/:milestoneId/submission-form",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
     "path": "/api/v1/programs/:programId/overview",
     "access": "PROTECTED"
   },
@@ -367,11 +362,6 @@
   {
     "method": "GET",
     "path": "/api/v1/programs/:programId/submissions/matrix",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/programs/:programId/submissions/me",
     "access": "PROTECTED"
   },
   {
@@ -495,11 +485,6 @@
     "access": "PROTECTED"
   },
   {
-    "method": "POST",
-    "path": "/api/v1/submission-files",
-    "access": "PROTECTED"
-  },
-  {
     "method": "GET",
     "path": "/api/v1/submission-files/:fileId",
     "access": "PROTECTED"
@@ -510,23 +495,8 @@
     "access": "PROTECTED"
   },
   {
-    "method": "POST",
-    "path": "/api/v1/submissions",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "POST",
-    "path": "/api/v1/submissions/:submissionId/resubmissions",
-    "access": "PROTECTED"
-  },
-  {
     "method": "GET",
     "path": "/api/v1/submissions/:submissionId/review-context",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "POST",
-    "path": "/api/v1/submissions/:submissionId/reviews",
     "access": "PROTECTED"
   },
   {

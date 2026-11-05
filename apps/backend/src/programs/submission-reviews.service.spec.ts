@@ -79,7 +79,7 @@ function eligibilityRow(
         endAt: eligibility.programEndAt,
         milestones: eligibility.requiredMilestonesApproved
           ? []
-          : [{ id: 'milestone-1', submissionType: 'FILE', documents: [] }],
+          : [{ id: 'milestone-1', documents: [{ id: 'required-document' }] }],
       },
     },
   };

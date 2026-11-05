@@ -1,13 +1,7 @@
-import {
-  MilestoneDocumentKind,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import type { RecentMilestoneDocumentReview } from './milestone-document-feedback.repository';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
-
 const NOW = new Date('2026-09-23T03:00:00.000Z');
-
 function review(
   overrides: Partial<RecentMilestoneDocumentReview> = {},
 ): RecentMilestoneDocumentReview {
@@ -16,19 +10,16 @@ function review(
     decision: ReviewDecision.CHANGES_REQUESTED,
     comment: '표지를 보완해 주세요.',
     reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
-    resubmissionDueAt: new Date('2026-09-27T14:59:00.000Z'),
     applicationId: 'synthetic-application',
     programId: 'synthetic-program',
     milestoneId: 'seed:milestone',
     milestoneName: '중간 보고',
     documentName: '합성 계획서',
-    documentKind: MilestoneDocumentKind.DOCUMENT,
     submissionId: 'submission-1',
     submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
     ...overrides,
   };
 }
-
 function serviceWith(
   reviews: readonly RecentMilestoneDocumentReview[],
   now: Date = NOW,
@@ -42,7 +33,6 @@ function serviceWith(
     findRecentForParticipant,
   };
 }
-
 describe('MilestoneDocumentFeedbackService', () => {
   it('판정을 저장소가 준 순서대로 신청 ID·학생 서류 화면 주소와 함께 싣는다', async () => {
     const { service } = serviceWith([
@@ -52,19 +42,15 @@ describe('MilestoneDocumentFeedbackService', () => {
         decision: ReviewDecision.APPROVED,
         comment: null,
         reviewedAt: new Date('2026-09-19T01:00:00.000Z'),
-        resubmissionDueAt: null,
       }),
     ]);
-
-    const response = await service.recentForParticipant(34_290_200n);
-
+    const response = await service.recentForParticipant(34290200n);
     expect(response.items).toEqual([
       {
         id: 'review-1',
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '표지를 보완해 주세요.',
         reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
-        resubmissionDueAt: null,
         applicationId: 'synthetic-application',
         programId: 'synthetic-program',
         milestoneId: 'seed:milestone',
@@ -75,11 +61,9 @@ describe('MilestoneDocumentFeedbackService', () => {
         id: 'review-0',
         decision: ReviewDecision.APPROVED,
         comment: null,
-        resubmissionDueAt: null,
       }),
     ]);
   });
-
   it.each([
     [
       '서울 0시 30분(UTC로는 전날)',
@@ -94,30 +78,23 @@ describe('MilestoneDocumentFeedbackService', () => {
         [],
         new Date(now),
       );
-
-      await service.recentForParticipant(34_290_204n);
-
+      await service.recentForParticipant(34290204n);
       expect(findRecentForParticipant).toHaveBeenCalledWith(
-        34_290_204n,
+        34290204n,
         new Date(reviewedSince),
       );
     },
   );
-
-  it('옛 단일 제출 슬롯의 판정은 슬롯 이름 대신 지금 마일스톤 이름을 항목 이름으로 쓴다', async () => {
+  it('이관한 항목의 판정도 항목 이름으로 표시한다', async () => {
     const { service } = serviceWith([
       review({
-        documentKind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         documentName: '이관 당시 마일스톤 이름',
         milestoneName: '최종 보고',
       }),
     ]);
-
-    const response = await service.recentForParticipant(34_290_201n);
-
-    expect(response.items[0]?.itemName).toBe('최종 보고');
+    const response = await service.recentForParticipant(34290201n);
+    expect(response.items[0]?.itemName).toBe('이관 당시 마일스톤 이름');
   });
-
   it('옛 기한 값이 있어도 모든 판정에 기한 없는 호환 응답을 보낸다', async () => {
     const { service } = serviceWith([
       review({
@@ -137,18 +114,18 @@ describe('MilestoneDocumentFeedbackService', () => {
         reviewedAt: new Date('2026-09-18T01:00:00.000Z'),
       }),
     ]);
-
-    const response = await service.recentForParticipant(34_290_203n);
-
+    const response = await service.recentForParticipant(34290203n);
     expect(
-      response.items.map((item) => [item.id, item.resubmissionDueAt]),
+      response.items.map((item) => [
+        item.id,
+        Object.hasOwn(item, 'resubmissionDueAt'),
+      ]),
     ).toEqual([
-      ['review-3', null],
-      ['review-2', null],
-      ['review-1', null],
+      ['review-3', false],
+      ['review-2', false],
+      ['review-1', false],
     ]);
   });
-
   it('응답 항목에 검토자 정보와 카드 제목이 이미 가진 프로그램 이름을 싣지 않는다', async () => {
     const { service } = serviceWith([
       {
@@ -158,9 +135,7 @@ describe('MilestoneDocumentFeedbackService', () => {
         programName: '합성 프로그램',
       } as RecentMilestoneDocumentReview,
     ]);
-
-    const response = await service.recentForParticipant(34_290_202n);
-
+    const response = await service.recentForParticipant(34290202n);
     expect(Object.keys(response.items[0] ?? {}).sort()).toEqual([
       'applicationId',
       'comment',
@@ -170,7 +145,6 @@ describe('MilestoneDocumentFeedbackService', () => {
       'milestoneId',
       'milestoneName',
       'programId',
-      'resubmissionDueAt',
       'reviewedAt',
     ]);
   });

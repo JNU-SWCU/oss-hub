@@ -35,7 +35,6 @@ it.each([
           name: 'Final',
           startAt: null,
           dueAt: new Date('2026-08-20T00:00:00Z'),
-          submissionType: null,
           instructions: null,
           updatedAt: new Date('2026-08-16T00:00:00Z'),
           program: {
@@ -91,7 +90,7 @@ it.each([
     method === 'findMilestoneForUpdate'
       ? [['p'], ['m']]
       : method === 'lockMilestoneEdit'
-        ? [['p'], ['m'], ['m', 'DOCUMENT']]
+        ? [['p'], ['m'], ['m']]
         : [['p'], ['m'], ['m']],
   );
 });

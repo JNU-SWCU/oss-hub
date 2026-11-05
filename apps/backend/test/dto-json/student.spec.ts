@@ -4,9 +4,7 @@ import { MyRepositoriesResponseDto } from '../../src/student/dto/my-repositories
 import { StudentDashboardResponseDto } from '../../src/student/dto/student-dashboard-response.dto';
 import type { MyRepositoryResult } from '../../src/github/repositories-read.types';
 import { type StudentDashboardItem } from '../../src/student/student-dashboard.service';
-
 const at = (iso: string): Date => new Date(iso);
-
 const repository: MyRepositoryResult = {
   repositoryId: 'repository-1',
   applicationId: 'application-1',
@@ -22,7 +20,6 @@ const repository: MyRepositoryResult = {
   lastErrorCode: null,
   updatedAt: at('2026-01-02T03:04:05.000Z'),
 };
-
 const dashboardItem: StudentDashboardItem = {
   coverImageUrl: '/api/v1/programs/program-1/cover',
   applicationId: 'application-1',
@@ -50,7 +47,6 @@ const dashboardItem: StudentDashboardItem = {
     githubUrl: 'https://github.com/org/team-a',
   },
 };
-
 const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'ActivityTimelineResponseDto',
@@ -99,7 +95,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             decision: 'CHANGES_REQUESTED',
             comment: 'Fix it',
             reviewedAt: at('2026-03-01T00:00:00.000Z'),
-            resubmissionDueAt: at('2026-03-08T00:00:00.000Z'),
             applicationId: 'application-1',
             programId: 'program 1',
             milestoneId: 'milestone/1',
@@ -111,7 +106,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             decision: 'APPROVED',
             comment: null,
             reviewedAt: at('2026-03-02T00:00:00.000Z'),
-            resubmissionDueAt: null,
             applicationId: 'application-1',
             programId: 'program-1',
             milestoneId: 'milestone-2',
@@ -174,7 +168,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       ]),
   ],
 ];
-
 describe('student response DTO JSON', () => {
   it.each(cases)('%s', (_name, build) => {
     expect(JSON.stringify(build())).toMatchSnapshot();

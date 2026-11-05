@@ -352,7 +352,6 @@ describe('MilestoneDocumentCollectionView 표', () => {
                 decision: 'CHANGES_REQUESTED',
                 comment: '표지를 고쳐 주세요.',
                 reviewedAt: '2026-07-15T00:00:00.000Z',
-                resubmissionDueAt: null,
               },
             }),
             cell('d2', {
@@ -363,7 +362,6 @@ describe('MilestoneDocumentCollectionView 표', () => {
                 decision: 'APPROVED',
                 comment: null,
                 reviewedAt: '2026-07-15T00:00:00.000Z',
-                resubmissionDueAt: null,
               },
             }),
           ],
@@ -392,7 +390,6 @@ describe('MilestoneDocumentCollectionView 표', () => {
                 decision: 'CHANGES_REQUESTED',
                 comment: '표지를 고쳐 주세요.',
                 reviewedAt: '2026-07-15T00:00:00.000Z',
-                resubmissionDueAt: null,
               },
             }),
             missingCell('d2'),

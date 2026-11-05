@@ -10,7 +10,6 @@ import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   ApplicationStatus,
-  MilestoneSubmissionType,
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
@@ -25,16 +24,13 @@ import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { type DeadlineDigestMail } from '../notifications/gmail-mail.client';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
-const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
-
+const DATABASE_CONNECTION_TIMEOUT_MS = 60000;
 const TEST_PREFIX = 'test:program-editor:deadline-notification:';
-const STAFF_GITHUB_ID = 9_127_000_001n;
+const STAFF_GITHUB_ID = 9127000001n;
 const PROGRAM_ID = `${TEST_PREFIX}program`;
 const MILESTONE_ID = `${TEST_PREFIX}milestone`;
 const DOCUMENT_REQUIRED_ID = `${TEST_PREFIX}document:required`;
@@ -43,10 +39,8 @@ const TEAM_ID = `${TEST_PREFIX}team`;
 const APPLICATION_ID = `${TEST_PREFIX}application`;
 const LEADER_ID = `${TEST_PREFIX}leader`;
 const MEMBER_ID = `${TEST_PREFIX}member`;
-
 const NOW = new Date('2026-08-18T00:00:00.000Z');
 const MILESTONE_DUE_AT = new Date('2026-08-18T12:00:00.000Z');
-
 const prisma = new PrismaService();
 const editor = new ProgramEditorService(
   new ProgramEditorRepository(
@@ -69,7 +63,6 @@ const editor = new ProgramEditorService(
   ),
   new UserProfileService(),
 );
-
 const sentMails: DeadlineDigestMail[] = [];
 const digest = new DeadlineDigestService(
   new DeadlineDigestRepository(prisma),
@@ -82,7 +75,6 @@ const digest = new DeadlineDigestService(
   { FRONTEND_URL: 'https://oss-hub.invalid' },
   new DeadlineDigestMailService(),
 );
-
 function updateRequest(notifyOnDeadline: boolean) {
   return {
     name: '마감 알림 검증 프로그램',
@@ -98,11 +90,9 @@ function updateRequest(notifyOnDeadline: boolean) {
     description: '마감 알림 스위치 왕복 검증',
   };
 }
-
 function errorCode(error: unknown): string | null {
   return error instanceof DomainException ? error.errorCode.code : null;
 }
-
 async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: { applicationId: APPLICATION_ID },
@@ -117,7 +107,6 @@ async function cleanup(): Promise<void> {
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
 }
-
 async function seed(): Promise<void> {
   await prisma.user.createMany({
     data: [
@@ -136,7 +125,7 @@ async function seed(): Promise<void> {
       },
       {
         id: LEADER_ID,
-        githubId: 9_127_000_002n,
+        githubId: 9127000002n,
         nickname: 'deadline-leader',
         accountStatus: 'ACTIVE',
         notifyEnabled: true,
@@ -146,7 +135,7 @@ async function seed(): Promise<void> {
       },
       {
         id: MEMBER_ID,
-        githubId: 9_127_000_003n,
+        githubId: 9127000003n,
         nickname: 'deadline-member',
         accountStatus: 'ACTIVE',
         notifyEnabled: true,
@@ -179,7 +168,6 @@ async function seed(): Promise<void> {
       name: '중간 보고',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: MILESTONE_DUE_AT,
-      submissionType: MilestoneSubmissionType.FILE,
     },
   });
   await prisma.milestoneDocument.createMany({
@@ -226,51 +214,42 @@ async function seed(): Promise<void> {
     },
   });
 }
-
 describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까지', () => {
   beforeAll(async () => {
     await prisma.$connect();
   }, DATABASE_CONNECTION_TIMEOUT_MS);
-
   beforeEach(async () => {
     await cleanup();
     sentMails.length = 0;
     await seed();
   });
-
   afterEach(cleanup);
-
   afterAll(async () => {
     await cleanup();
     await prisma.$disconnect();
   });
-
   it('꺼진 프로그램은 미제출 팀이 있어도 발송 대상 조회 자체가 막힌다', async () => {
     const stored = await prisma.program.findUnique({
       where: { id: PROGRAM_ID },
       select: { notifyOnDeadline: true },
     });
     expect(stored?.notifyOnDeadline).toBe(false);
-
     const failure = await digest
       .previewProgram(PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);
     expect(errorCode(failure)).toBe(NotificationsErrorCode.DEADLINE_DISABLED);
   });
-
   it('편집에서 켜면 미제출 팀원이 실제로 발송 대상으로 돌아온다', async () => {
     await editor.updateProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
       updateRequest(true),
     );
-
     const stored = await prisma.program.findUnique({
       where: { id: PROGRAM_ID },
       select: { notifyOnDeadline: true },
     });
     expect(stored?.notifyOnDeadline).toBe(true);
-
     const preview = await digest.previewProgram(PROGRAM_ID, NOW);
     expect(preview).toMatchObject({
       applicationCount: 1,
@@ -280,17 +259,14 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       optedOutCount: 0,
       noEmailCount: 0,
     });
-
     expect(sentMails).toEqual([]);
   });
-
   it('필수 서류를 낸 팀은 켠 뒤에도 발송 대상에서 빠진다', async () => {
     await editor.updateProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
       updateRequest(true),
     );
-
     await prisma.milestoneDocumentSubmission.create({
       data: {
         milestoneDocumentId: DOCUMENT_REQUIRED_ID,
@@ -298,14 +274,12 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
         submittedById: LEADER_ID,
       },
     });
-
     const preview = await digest.previewProgram(PROGRAM_ID, NOW);
     expect(preview).toMatchObject({
       applicationCount: 0,
       recipientCount: 0,
     });
   });
-
   it('편집에서 다시 끄면 발송 대상 조회가 다시 막힌다', async () => {
     await editor.updateProgram(
       STAFF_GITHUB_ID,
@@ -315,13 +289,11 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     expect((await digest.previewProgram(PROGRAM_ID, NOW)).recipientCount).toBe(
       2,
     );
-
     await editor.updateProgram(
       STAFF_GITHUB_ID,
       PROGRAM_ID,
       updateRequest(false),
     );
-
     const failure = await digest
       .previewProgram(PROGRAM_ID, NOW)
       .catch((caught: unknown) => caught);

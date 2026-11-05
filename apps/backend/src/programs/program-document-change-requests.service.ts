@@ -16,18 +16,16 @@ import {
   type ProgramDocumentChangeRequestScope,
 } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { createHash } from 'node:crypto';
-
 @Injectable()
 export class ProgramDocumentChangeRequestsService {
   constructor(
     private readonly repository: MilestoneDocumentsRepository,
     @Inject(MilestoneDocumentArchiveRepository)
     private readonly programs: ProgramArchiveReader,
-    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
+    private readonly milestoneDocumentSubmissionRepository: SubmissionsRepository,
   ) {}
-
   changeRequestTargetStatuses(
     includeFinalDecisions: boolean,
   ): readonly SubmissionStatus[] {
@@ -35,21 +33,17 @@ export class ProgramDocumentChangeRequestsService {
       ? [...OPEN_STATUSES, ...FINAL_STATUSES]
       : OPEN_STATUSES;
   }
-
   changeRequestTargetsVersion(
     candidates: readonly ProgramDocumentChangeRequestCandidate[],
   ): string {
     const lines = candidates
       .map(
         (candidate) =>
-          `${candidate.milestoneDocumentId}:${candidate.applicationId}:${
-            OPEN_STATUSES.includes(candidate.status) ? 'open' : 'final'
-          }`,
+          `${candidate.milestoneDocumentId}:${candidate.applicationId}:${OPEN_STATUSES.includes(candidate.status) ? 'open' : 'final'}`,
       )
       .sort();
     return createHash('sha256').update(lines.join('\n')).digest('hex');
   }
-
   toProgramDocumentChangeRequestScope(
     scope: ProgramDocumentChangeRequestScope['kind'],
     teamId: string | null | undefined,
@@ -64,13 +58,11 @@ export class ProgramDocumentChangeRequestsService {
       ],
     );
   }
-
   toProgramDocumentChangeRequestInput(body: {
     readonly scope: ProgramDocumentChangeRequestScope['kind'];
     readonly teamId?: string | null;
     readonly includeFinalDecisions: boolean;
     readonly comment?: string;
-    readonly resubmissionDueAt?: unknown;
     readonly expectedVersion: string;
   }): ProgramDocumentChangeRequestInput {
     const comment = body.comment?.trim() || null;
@@ -81,7 +73,6 @@ export class ProgramDocumentChangeRequestsService {
       expectedVersion: body.expectedVersion,
     };
   }
-
   targetsFromRequest(
     programId: string,
     request: {
@@ -94,21 +85,21 @@ export class ProgramDocumentChangeRequestsService {
       this.toProgramDocumentChangeRequestScope(request.scope, request.teamId),
     );
   }
-
   requestChangesFromRequest(
     reviewerId: string,
     programId: string,
     request: Parameters<
       ProgramDocumentChangeRequestsService['toProgramDocumentChangeRequestInput']
     >[0],
-  ): Promise<{ readonly requestedCount: number }> {
+  ): Promise<{
+    readonly requestedCount: number;
+  }> {
     return this.requestChanges(
       reviewerId,
       programId,
       this.toProgramDocumentChangeRequestInput(request),
     );
   }
-
   async targets(
     programId: string,
     scope: ProgramDocumentChangeRequestScope,
@@ -132,15 +123,15 @@ export class ProgramDocumentChangeRequestsService {
       version: this.changeRequestTargetsVersion(candidates),
     };
   }
-
   async requestChanges(
     reviewerId: string,
     programId: string,
     input: ProgramDocumentChangeRequestInput,
     now: () => Date = () => new Date(),
-  ): Promise<{ readonly requestedCount: number }> {
+  ): Promise<{
+    readonly requestedCount: number;
+  }> {
     await this.assertProgram(programId);
-
     const requestedCount = await this.repository.withTransaction(
       async (store) => {
         if (!(await store.lockProgramForReview(programId))) {
@@ -166,7 +157,6 @@ export class ProgramDocumentChangeRequestsService {
         const targets = candidates.filter((candidate) =>
           statuses.includes(candidate.status),
         );
-
         for (const target of targets) {
           const submission = await store.findSubmissionForReview(
             target.milestoneDocumentId,
@@ -197,16 +187,13 @@ export class ProgramDocumentChangeRequestsService {
         return targets.length;
       },
     );
-
     return { requestedCount };
   }
-
   private async assertProgram(programId: string): Promise<void> {
     if ((await this.programs.findProgram(programId)) === null) {
       throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
     }
   }
-
   private async applicationIdsInScope(
     programId: string,
     scope: ProgramDocumentChangeRequestScope,
@@ -218,17 +205,14 @@ export class ProgramDocumentChangeRequestsService {
     );
     return teams.map((team) => team.applicationId);
   }
-
   private error(code: MilestoneDocumentsErrorCode): DomainException {
     return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
 }
-
 const OPEN_STATUSES: readonly SubmissionStatus[] = [
   SubmissionStatus.SUBMITTED,
   SubmissionStatus.CHANGES_REQUESTED,
 ];
-
 const FINAL_STATUSES: readonly SubmissionStatus[] = [
   SubmissionStatus.APPROVED,
   SubmissionStatus.REJECTED,

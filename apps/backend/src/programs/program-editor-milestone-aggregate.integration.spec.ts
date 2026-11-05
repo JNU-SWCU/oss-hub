@@ -5,7 +5,6 @@ import { MilestoneDocumentFileNameService } from './milestone-document-file-name
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { DownloadResponseService } from './download-response.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
@@ -13,11 +12,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import {
-  MilestoneDocumentKind,
-  ProgramAuthoringUploadLifecycle,
-  Prisma,
-} from '@prisma/client';
+import { ProgramAuthoringUploadLifecycle, Prisma } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { Readable } from 'node:stream';
 import type { UnwrapTuple } from '@prisma/client/runtime/library';
@@ -34,7 +29,7 @@ import type { ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   cleanup,
@@ -50,20 +45,16 @@ import {
 } from './program-editor.integration-fixtures';
 import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
-const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
+const DATABASE_CONNECTION_TIMEOUT_MS = 60000;
 let studentSequence = 0;
-
 describe('ProgramEditorService milestone aggregate integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
   }, DATABASE_CONNECTION_TIMEOUT_MS);
-
   beforeEach(async () => {
     await resetGraph();
     await prisma.user.create({
@@ -82,14 +73,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       },
     });
   });
-
   afterEach(resetGraph);
-
   afterAll(async () => {
     await resetGraph();
     await prisma.$disconnect();
   });
-
   it('atomically applies metadata, document create/update/delete, and request order', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -97,7 +85,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       STAFF_GITHUB_ID,
       milestoneId,
     );
-
     const result = await editor.updateMilestoneEdit(
       STAFF_GITHUB_ID,
       milestoneId,
@@ -117,7 +104,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         ],
       },
     );
-
     expect(result.milestone).toMatchObject({
       id: milestoneId,
       name: 'Updated milestone',
@@ -150,7 +136,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toBeNull();
   });
-
   it('allows existing zero documents to remain empty but rejects deleting the last document', async () => {
     const { milestoneId } = await seedGraph({ documentCount: 0 });
     const empty = await editor.getMilestoneEdit(STAFF_GITHUB_ID, milestoneId);
@@ -161,7 +146,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         request(empty, []),
       ),
     ).resolves.toMatchObject({ documents: [] });
-
     const withDocument = await seedGraph();
     const snapshot = await editor.getMilestoneEdit(
       STAFF_GITHUB_ID,
@@ -175,7 +159,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ),
     ).rejects.toMatchObject({ errorCode: { code: 'MSD_030' } });
   });
-
   it('allows one same-fingerprint save and rejects the stale concurrent save', async () => {
     const { milestoneId } = await seedGraph();
     const snapshot = await editor.getMilestoneEdit(
@@ -196,7 +179,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           request(snapshot, snapshot.documents),
         ),
     );
-
     expect([first.status, second.status].sort()).toEqual([
       'fulfilled',
       'rejected',
@@ -208,7 +190,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       );
     }
   });
-
   it('transfers a locked pending upload into a template and removes only its pending row', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload('template-transfer');
@@ -216,7 +197,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       STAFF_GITHUB_ID,
       milestoneId,
     );
-
     await editor.updateMilestoneEdit(
       STAFF_GITHUB_ID,
       milestoneId,
@@ -230,7 +210,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         ...snapshot.documents.slice(1),
       ]),
     );
-
     expect(
       await prisma.programAuthoringUpload.findUnique({
         where: { id: uploadId },
@@ -244,7 +223,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toEqual({ storageKey: `program-authoring/${uploadId}` });
   });
-
   it('rejects a snapshot made before direct same-row template key replacement', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -267,16 +245,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new SubmissionsRepository(new PlatformRepository()),
         new MilestoneDocumentCollectionReadRepository(prisma),
       ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(
-          prisma,
-          new PlatformRepository(),
-          new SubmissionsRepository(prisma, new PlatformRepository()),
-        ),
+        new SubmissionFilesRepository(prisma, new PlatformRepository()),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -295,7 +269,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       firstDocumentId,
       pdfUpload(),
     );
-
     await expect(
       editor.updateMilestoneEdit(
         STAFF_GITHUB_ID,
@@ -318,8 +291,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).not.toBeNull();
   });
-
-  it('preserves a legacy submission slot while replacing the editable DOCUMENT graph', async () => {
+  it('edits a converted typed requirement without changing its submission type', async () => {
     const { milestoneId } = await seedGraph({ documentCount: 0 });
     const legacyId = `${TEST_PREFIX}legacy:${crypto.randomUUID()}`;
     await prisma.milestoneDocument.create({
@@ -327,9 +299,9 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         id: legacyId,
         milestoneId,
         name: 'Legacy slot',
+        submissionType: 'TEXT',
         required: true,
         sortOrder: -1,
-        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
       },
     });
     const snapshot = await editor.getMilestoneEdit(
@@ -339,17 +311,18 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     await editor.updateMilestoneEdit(
       STAFF_GITHUB_ID,
       milestoneId,
-      request(snapshot, [{ id: null, name: 'New document', required: true }]),
+      request(snapshot, [
+        { id: legacyId, name: 'Renamed typed item', required: true },
+        { id: null, name: 'New document', required: true },
+      ]),
     );
-
     expect(
       await prisma.milestoneDocument.findUnique({
         where: { id: legacyId },
-        select: { kind: true },
+        select: { name: true, submissionType: true },
       }),
-    ).toEqual({ kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION });
+    ).toEqual({ name: 'Renamed typed item', submissionType: 'TEXT' });
   });
-
   it('rejects expired and foreign pending upload tokens without changing the graph', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const expired = await createPendingUpload(
@@ -364,7 +337,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       where: { id: milestoneId },
       select: { name: true },
     });
-
     await expect(
       editor.updateMilestoneEdit(
         STAFF_GITHUB_ID,
@@ -397,7 +369,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toEqual(original);
   });
-
   it('returns DOCUMENT_NOT_FOUND after aggregate deletion and never recreates a template pointer', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -417,16 +388,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new SubmissionsRepository(new PlatformRepository()),
         new MilestoneDocumentCollectionReadRepository(prisma),
       ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(
-          prisma,
-          new PlatformRepository(),
-          new SubmissionsRepository(prisma, new PlatformRepository()),
-        ),
+        new SubmissionFilesRepository(prisma, new PlatformRepository()),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -440,7 +407,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new DownloadResponseService(),
       new UserProfileService(),
     );
-
     await expect(
       files.uploadTemplate(
         `${TEST_PREFIX}staff`,
@@ -456,7 +422,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toBeNull();
   });
-
   it('pauses direct template storage completion before its document lock while aggregate deletes, then rejects without pointer resurrection', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -466,7 +431,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new SubmissionsRepository(new PlatformRepository()),
         new MilestoneDocumentCollectionReadRepository(prisma),
       ),
       {
@@ -480,11 +445,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           })),
       },
       new SubmissionFilesService(
-        new SubmissionFilesRepository(
-          prisma,
-          new PlatformRepository(),
-          new SubmissionsRepository(prisma, new PlatformRepository()),
-        ),
+        new SubmissionFilesRepository(prisma, new PlatformRepository()),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -516,7 +477,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     gate.resolve();
-
     await expect(direct).rejects.toMatchObject({
       errorCode: { code: 'MSD_004' },
     });
@@ -527,7 +487,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toBeNull();
   });
-
   it('serializes a real student submission lock before aggregate deletion and preserves its history', async () => {
     const { programId, milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -539,7 +498,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const locked = deferred<void>();
     const release = deferred<void>();
     const submissionPrisma = pausingSubmissionPrisma(locked, release);
-    const submission = new MilestoneDocumentSubmissionRepository(
+    const submission = new SubmissionsRepository(
       new PlatformRepository(),
     ).upsertMilestoneDocumentSubmission(submissionPrisma, {
       milestoneDocumentId: firstDocumentId,
@@ -559,7 +518,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     release.resolve();
-
     await expect(submission).resolves.toMatchObject({ status: 'SUBMITTED' });
     await expect(aggregate).rejects.toMatchObject({
       errorCode: { code: 'PRG_009' },
@@ -576,7 +534,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).not.toBeNull();
   });
-
   it('deletes first and makes the real student submission refuse the missing document without resurrection', async () => {
     const { programId, milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -592,9 +549,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         { id: secondDocumentId, name: 'Document 2', required: true },
       ]),
     );
-
     await expect(
-      new MilestoneDocumentSubmissionRepository(
+      new SubmissionsRepository(
         new PlatformRepository(),
       ).upsertMilestoneDocumentSubmission(prisma, {
         milestoneDocumentId: firstDocumentId,
@@ -612,7 +568,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toBe(0);
   });
-
   it('serializes aggregate-first replacement and a subsequent direct template write', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const snapshot = await editor.getMilestoneEdit(
@@ -638,16 +593,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new SubmissionsRepository(new PlatformRepository()),
         new MilestoneDocumentCollectionReadRepository(prisma),
       ),
       memoryStorage(),
       new SubmissionFilesService(
-        new SubmissionFilesRepository(
-          prisma,
-          new PlatformRepository(),
-          new SubmissionsRepository(prisma, new PlatformRepository()),
-        ),
+        new SubmissionFilesRepository(prisma, new PlatformRepository()),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -676,7 +627,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toEqual({ uploadedById: `${TEST_PREFIX}staff` });
   });
-
   it('rejects a cleanup-claimed DELETE_PENDING token before graph mutation', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload(
@@ -696,7 +646,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       milestoneId,
     );
     const baseline = await graphBaseline(milestoneId, uploadId);
-
     await expect(
       editor.updateMilestoneEdit(
         STAFF_GITHUB_ID,
@@ -724,7 +673,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     });
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
   });
-
   it('lets aggregate consume win while an actual cleanup claim skips its locked token', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload('cleanup-overlap');
@@ -777,7 +725,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toEqual({ storageKey: `program-authoring/${uploadId}` });
   });
-
   it('lets an actual cleanup claim win while aggregate is open before token locking', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload('cleanup-wins-overlap');
@@ -838,7 +785,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).toEqual({ lifecycle: ProgramAuthoringUploadLifecycle.DELETE_PENDING });
   });
-
   it('rolls back the complete graph after real aggregate writes when the transaction callback aborts before commit', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -849,7 +795,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     );
     const baseline = await graphBaseline(milestoneId, uploadId);
     const faultingEditor = createFaultingEditor('applyMilestoneEdit');
-
     await expect(
       faultingEditor.updateMilestoneEdit(STAFF_GITHUB_ID, milestoneId, {
         ...request(snapshot, [
@@ -865,7 +810,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         instructions: 'Changed instructions',
       }),
     ).rejects.toThrow('Injected aggregate transaction fault');
-
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
     expect(
       await prisma.milestoneDocument.findUnique({
@@ -874,7 +818,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).not.toBeNull();
   });
-
   it('rolls back after token locking and after deletion eligibility checks before any graph write', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload('rollback-lock');
@@ -892,7 +835,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       },
       ...snapshot.documents.slice(1),
     ]);
-
     await expect(
       createFaultingEditor('lockAttachableUploads').updateMilestoneEdit(
         STAFF_GITHUB_ID,
@@ -901,7 +843,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ),
     ).rejects.toThrow('Injected aggregate transaction fault');
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
-
     await expect(
       createFaultingEditor(
         'countSubmissionHistoriesForDocuments',
@@ -909,7 +850,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     ).rejects.toThrow('Injected aggregate transaction fault');
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
   });
-
   it('rolls back a no-file aggregate callback immediately before commit', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
@@ -919,7 +859,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       milestoneId,
     );
     const baseline = await graphBaseline(milestoneId, uploadId);
-
     await expect(
       createFaultingEditor('applyMilestoneEdit').updateMilestoneEdit(
         STAFF_GITHUB_ID,
@@ -945,7 +884,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).not.toBeNull();
   });
-
   it.each([
     ['milestone metadata update', 'Milestone', 'UPDATE', 'id'],
     ['new document insert', 'MilestoneDocument', 'INSERT', 'milestoneId'],
@@ -1008,7 +946,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }
     },
   );
-
   it.each(['INSERT', 'UPDATE'] as const)(
     'rolls back template upsert %s and pending-token consumption after its real DB statement faults',
     async (event) => {
@@ -1059,7 +996,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }
     },
   );
-
   it('rolls back template pointer and graph when AFTER pending-upload DELETE faults', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload('pending-delete');
@@ -1095,7 +1031,6 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       await drop();
     }
   });
-
   it('rolls back at the real deferred constraint trigger commit boundary', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload('deferred-commit');
@@ -1133,15 +1068,17 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     }
   });
 });
-
 async function resetGraph(): Promise<void> {
   await prisma.teamMember.deleteMany({
     where: { teamId: { startsWith: `${TEST_PREFIX}team:` } },
   });
   await cleanup();
 }
-
-async function seedGraph(options: { readonly documentCount?: number } = {}) {
+async function seedGraph(
+  options: {
+    readonly documentCount?: number;
+  } = {},
+) {
   const programId = `${TEST_PREFIX}program:aggregate:${crypto.randomUUID()}`;
   const milestoneId = `${TEST_PREFIX}milestone:aggregate:${crypto.randomUUID()}`;
   await createProgram(programId, false);
@@ -1153,7 +1090,6 @@ async function seedGraph(options: { readonly documentCount?: number } = {}) {
         data: {
           id: `${TEST_PREFIX}document:aggregate:${crypto.randomUUID()}`,
           milestoneId,
-          kind: MilestoneDocumentKind.DOCUMENT,
           name: `Document ${index + 1}`,
           required: true,
           sortOrder: index + 1,
@@ -1169,7 +1105,6 @@ async function seedGraph(options: { readonly documentCount?: number } = {}) {
     secondDocumentId: documents[1]?.id ?? '',
   };
 }
-
 async function createSubmissionApplication(programId: string) {
   const studentId = `${TEST_PREFIX}student:${crypto.randomUUID()}`;
   const teamId = `${TEST_PREFIX}team:${crypto.randomUUID()}`;
@@ -1177,7 +1112,7 @@ async function createSubmissionApplication(programId: string) {
   await prisma.user.create({
     data: {
       id: studentId,
-      githubId: 9_102_000_000n + BigInt(++studentSequence),
+      githubId: 9102000000n + BigInt(++studentSequence),
       nickname: `student-${studentId.slice(-8)}`,
       accountStatus: 'ACTIVE',
       type: MemberKind.STUDENT,
@@ -1192,7 +1127,6 @@ async function createSubmissionApplication(programId: string) {
       leaderId: studentId,
     },
   });
-
   await prisma.teamMember.create({
     data: {
       teamId,
@@ -1212,7 +1146,6 @@ async function createSubmissionApplication(programId: string) {
   });
   return { id: applicationId, studentId };
 }
-
 function request(
   snapshot: Awaited<ReturnType<typeof editor.getMilestoneEdit>>,
   documents: readonly {
@@ -1231,7 +1164,6 @@ function request(
     documents,
   };
 }
-
 async function createPendingUpload(
   label: string,
   expiresAt = new Date('2027-09-01T00:00:00.000Z'),
@@ -1252,7 +1184,6 @@ async function createPendingUpload(
   });
   return id;
 }
-
 function createFaultingEditor(
   method:
     | 'applyMilestoneEdit'
@@ -1326,14 +1257,12 @@ function createFaultingEditor(
     new UserProfileService(),
   );
 }
-
 function pausingAggregateEditor(
   locked: ReturnType<typeof deferred<void>>,
   release: ReturnType<typeof deferred<void>>,
 ): ProgramEditorService {
   return pausingAggregateEditorAt('lockAttachableUploads', locked, release);
 }
-
 function pausingAggregateEditorAt(
   method: 'lockAttachableUploads' | 'countSubmissionHistoriesForDocuments',
   locked: ReturnType<typeof deferred<void>>,
@@ -1403,7 +1332,6 @@ function pausingAggregateEditorAt(
     new UserProfileService(),
   );
 }
-
 function instrumentStore(
   store: ProgramEditorTransactionStore,
   overrides: Partial<ProgramEditorTransactionStore>,
@@ -1443,7 +1371,6 @@ function instrumentStore(
       ((input) => store.applyMilestoneEdit(input)),
   };
 }
-
 async function graphBaseline(milestoneId: string, uploadId: string) {
   const [milestone, documents, upload] = await Promise.all([
     prisma.milestone.findUniqueOrThrow({
@@ -1460,7 +1387,6 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
       orderBy: { id: 'asc' },
       select: {
         id: true,
-        kind: true,
         name: true,
         required: true,
         sortOrder: true,
@@ -1481,7 +1407,6 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
   ]);
   return { milestone, documents, upload };
 }
-
 function memoryStorage(): ObjectStoragePort {
   return {
     put: (input) =>
@@ -1495,7 +1420,6 @@ function memoryStorage(): ObjectStoragePort {
     delete: () => Promise.resolve(),
   };
 }
-
 function pdfUpload() {
   const buffer = Buffer.from('%PDF-1.4\\n');
   return {
@@ -1505,7 +1429,6 @@ function pdfUpload() {
     size: buffer.byteLength,
   };
 }
-
 function deferred<T>() {
   let resolve!: (value: T) => void;
   const promise = new Promise<T>((next) => {
@@ -1513,14 +1436,12 @@ function deferred<T>() {
   });
   return { promise, resolve };
 }
-
 function pausingSubmissionPrisma(
   locked: ReturnType<typeof deferred<void>>,
   release: ReturnType<typeof deferred<void>>,
 ): PrismaService {
   return new PausingSubmissionPrisma(locked, release);
 }
-
 class PausingSubmissionPrisma extends PrismaService {
   constructor(
     private readonly locked: ReturnType<typeof deferred<void>>,
@@ -1528,7 +1449,6 @@ class PausingSubmissionPrisma extends PrismaService {
   ) {
     super();
   }
-
   override $transaction<P extends Prisma.PrismaPromise<unknown>[]>(
     operations: [...P],
     options?: {
@@ -1558,7 +1478,6 @@ class PausingSubmissionPrisma extends PrismaService {
     }
     return prisma.$transaction([...operation], options);
   }
-
   private interactiveTransaction<T>(
     operation: (transaction: Prisma.TransactionClient) => Promise<T>,
     options?: {

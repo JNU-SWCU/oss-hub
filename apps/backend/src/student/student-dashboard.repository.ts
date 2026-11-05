@@ -1,34 +1,26 @@
 import { Injectable } from '@nestjs/common';
-import {
-  type ApplicationStatus,
-  MilestoneDocumentKind,
-  type MilestoneSubmissionType,
-  Prisma,
-} from '@prisma/client';
+import { type ApplicationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { submissionCompletionTargetSelect } from '../programs/submission-completion.config';
 import type { SubmissionCompletionTargetRow } from '../programs/submission-completion.config';
 import { PlatformRepository } from '../platform/platform.repository';
-
 interface StudentDashboardMilestoneRow {
   readonly id: string;
   readonly name: string;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType | null;
   readonly documents: readonly {
     readonly id: string;
     readonly graceDueAt: Date | null;
   }[];
 }
-
 export interface StudentDashboardApplicationRow {
   readonly id: string;
   readonly status: ApplicationStatus;
-  readonly team: { readonly name: string };
+  readonly team: {
+    readonly name: string;
+  };
   readonly program: {
     readonly id: string;
     readonly name: string;
-
     readonly cover?: {
       readonly id: string;
       readonly imageUrl?: string | null;
@@ -37,7 +29,6 @@ export interface StudentDashboardApplicationRow {
   };
   readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
 }
-
 const studentDashboardApplicationSelect = {
   id: true,
   status: true,
@@ -53,27 +44,27 @@ const studentDashboardApplicationSelect = {
           id: true,
           name: true,
           dueAt: true,
-          submissionType: true,
-
           documents: {
-            where: { required: true, kind: MilestoneDocumentKind.DOCUMENT },
+            where: { required: true },
             select: { id: true, graceDueAt: true },
           },
         },
       },
     },
   },
-
-  milestoneDocumentSubmissions: { select: submissionCompletionTargetSelect },
-} as const satisfies Prisma.ApplicationSelect;
-
+  milestoneDocumentSubmissions: {
+    select: {
+      status: true,
+      milestoneDocument: { select: { id: true, milestoneId: true } },
+    } satisfies Prisma.MilestoneDocumentSubmissionSelect,
+  },
+} satisfies Prisma.ApplicationSelect;
 @Injectable()
 export class StudentDashboardRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
   ) {}
-
   async findParticipatingApplications(
     sessionGithubId: bigint,
   ): Promise<readonly StudentDashboardApplicationRow[]> {
@@ -82,7 +73,6 @@ export class StudentDashboardRepository {
       select: { id: true },
     });
     if (user === null) return [];
-
     return this.prisma.application.findMany({
       where: this.platformRepository.programApplicationParticipantWhere(
         user.id,

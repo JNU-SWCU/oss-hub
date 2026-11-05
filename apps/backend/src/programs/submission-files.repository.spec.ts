@@ -1,16 +1,13 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-
 const mockLockSubmissionMembership = jest.fn<
   ReturnType<PlatformRepository['lockSubmissionMembership']>,
   Parameters<PlatformRepository['lockSubmissionMembership']>
 >();
-
 jest.mock('../platform/platform.repository', () => {
   const actual = jest.requireActual<
     typeof import('../platform/platform.repository')
@@ -30,9 +27,7 @@ jest.mock('../platform/platform.repository', () => {
     },
   };
 });
-
 const lockMembership = mockLockSubmissionMembership;
-
 describe('SubmissionFilesRepository exhausted cleanup query', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
@@ -43,18 +38,14 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
   const repository = new SubmissionFilesRepository(
     prisma,
     new PlatformRepository(),
-    new SubmissionsRepository(prisma, new PlatformRepository()),
   );
-
   beforeEach(() => {
     findMany.mockReset();
     findUnique.mockReset();
     findMany.mockResolvedValue([]);
   });
-
   it('selects only operator-safe columns and filters to retry-exhausted DELETE_PENDING rows', async () => {
     await repository.findExhaustedCleanups();
-
     const calls = findMany.mock.calls as unknown[][];
     const args = calls[0]![0] as {
       where: Record<string, unknown>;
@@ -71,35 +62,29 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
       'lastDeleteError',
     ]);
   });
-
   it('treats only ACTIVE administrators as authorized operators', async () => {
     findUnique.mockResolvedValueOnce({
       admin: { userId: 'admin-1' },
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(repository.findActiveAdminByGithubId(1n)).resolves.toBe(true);
-
     findUnique.mockResolvedValueOnce({
       admin: null,
       accountStatus: AccountStatus.ACTIVE,
     });
     await expect(repository.findActiveAdminByGithubId(2n)).resolves.toBe(false);
-
     findUnique.mockResolvedValueOnce({
       admin: { userId: 'admin-1' },
       accountStatus: AccountStatus.DEACTIVATED,
     });
     await expect(repository.findActiveAdminByGithubId(3n)).resolves.toBe(false);
-
     findUnique.mockResolvedValueOnce(null);
     await expect(repository.findActiveAdminByGithubId(4n)).resolves.toBe(false);
   });
 });
-
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const FUTURE = new Date('2027-01-01T00:00:00.000Z');
 const PAST = new Date('2026-01-01T00:00:00.000Z');
-
 interface StoredFileRow {
   readonly id: string;
   readonly lifecycle: SubmissionFileLifecycle;
@@ -110,13 +95,10 @@ interface StoredFileRow {
   readonly originalFileName: string;
   readonly mimeType: string;
   readonly sizeBytes: number;
-
   readonly teamLeaderId: string;
   readonly teamMemberIds: readonly string[];
 }
-
 type Filter = Record<string, unknown>;
-
 interface DownloadableFileRow {
   readonly id: string;
   readonly storageKey: string;
@@ -125,7 +107,6 @@ interface DownloadableFileRow {
   readonly sizeBytes: number;
   readonly expiresAt: Date | null;
 }
-
 function matchesTeam(teamWhere: Filter, row: StoredFileRow): boolean {
   const keys = Object.keys(teamWhere);
   if (keys.length !== 1 || keys[0] !== 'members') {
@@ -133,7 +114,9 @@ function matchesTeam(teamWhere: Filter, row: StoredFileRow): boolean {
       `Expected the canonical current-TeamMember filter, got: ${keys.join(', ')}`,
     );
   }
-  const members = teamWhere.members as { some?: Filter };
+  const members = teamWhere.members as {
+    some?: Filter;
+  };
   const memberKeys = Object.keys(members);
   const some = members.some;
   if (
@@ -154,7 +137,6 @@ function matchesTeam(teamWhere: Filter, row: StoredFileRow): boolean {
   }
   return row.teamMemberIds.includes(userId);
 }
-
 function matchesFile(where: Filter, row: StoredFileRow): boolean {
   return Object.entries(where).every(([key, value]) => {
     switch (key) {
@@ -163,19 +145,32 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
       case 'lifecycle':
         return row.lifecycle === value;
       case 'milestoneDocumentSubmissionHistoryId':
-        if ((value as { not?: unknown }).not !== null) {
+        if (
+          (
+            value as {
+              not?: unknown;
+            }
+          ).not !== null
+        ) {
           throw new Error('Unsupported attachment filter.');
         }
         return row.milestoneDocumentSubmissionHistoryId !== null;
       case 'expiresAt': {
-        const gt = (value as { gt?: Date }).gt;
+        const gt = (
+          value as {
+            gt?: Date;
+          }
+        ).gt;
         if (!(gt instanceof Date))
           throw new Error('Unsupported expiry filter.');
         return row.expiresAt !== null && row.expiresAt.getTime() > gt.getTime();
       }
-
       case 'application': {
-        const inner = (value as { is?: Filter }).is;
+        const inner = (
+          value as {
+            is?: Filter;
+          }
+        ).is;
         const team = inner?.team as Filter | undefined;
         if (team === undefined) {
           throw new Error('Unsupported application filter.');
@@ -187,21 +182,16 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
     }
   });
 }
-
 describe('SubmissionFilesRepository.findDownloadableFile membership fence', () => {
   const FORMER_UPLOADER = 'user-former-uploader';
   const CURRENT_MEMBER = 'user-current-member';
-
   const DEPARTED_LEADER = 'user-departed-leader';
-
   const MEMBER_LEADER = 'user-member-leader';
-
   const attachedFile: StoredFileRow = {
     id: 'file-attached',
     lifecycle: SubmissionFileLifecycle.ATTACHED,
     milestoneDocumentSubmissionHistoryId: 'history-1',
     expiresAt: FUTURE,
-
     uploaderId: FORMER_UPLOADER,
     storageKey: 'submission-files/private-key',
     originalFileName: 'report.pdf',
@@ -230,11 +220,14 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     expiresAt: PAST,
   };
   const rows = [attachedFile, leaderTeamFile, pendingFile, expiredFile];
-
   const findUnique = jest.fn();
   const findFirst = jest.fn<
     Promise<DownloadableFileRow | null>,
-    [{ where: Filter }]
+    [
+      {
+        where: Filter;
+      },
+    ]
   >();
   const prisma = {
     user: { findUnique },
@@ -243,9 +236,7 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
   const repository = new SubmissionFilesRepository(
     prisma,
     new PlatformRepository(),
-    new SubmissionsRepository(prisma, new PlatformRepository()),
   );
-
   function requester(overrides: {
     readonly id: string;
     readonly hasStaffAccess?: boolean;
@@ -263,7 +254,6 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
       admin: overrides.hasAdminAccess ? { userId: overrides.id } : null,
     });
   }
-
   beforeEach(() => {
     findUnique.mockReset();
     findFirst.mockReset();
@@ -280,28 +270,22 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
       });
     });
   });
-
   it('denies an active former uploader who is no longer on the team', async () => {
     requester({ id: FORMER_UPLOADER });
-
     const file = await repository.findDownloadableFile(
       11n,
       'file-attached',
       NOW,
     );
-
     expect(file).toBeNull();
   });
-
   it('allows a current team member who never uploaded the file', async () => {
     requester({ id: CURRENT_MEMBER });
-
     const file = await repository.findDownloadableFile(
       12n,
       'file-attached',
       NOW,
     );
-
     expect(file).toEqual({
       id: 'file-attached',
       storageKey: 'submission-files/private-key',
@@ -311,28 +295,21 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
       expiresAt: FUTURE,
     });
   });
-
   it('denies a departed leader left only on the team leaderId column', async () => {
     requester({ id: DEPARTED_LEADER });
-
     await expect(
       repository.findDownloadableFile(13n, 'file-attached', NOW),
     ).resolves.toBeNull();
   });
-
   it('allows a leader who still holds the TeamMember row', async () => {
     requester({ id: MEMBER_LEADER });
-
     await expect(
       repository.findDownloadableFile(16n, 'file-leader-team', NOW),
     ).resolves.toMatchObject({ id: 'file-leader-team' });
   });
-
   it('never puts the historical uploader into the non-staff authorization filter', async () => {
     requester({ id: CURRENT_MEMBER });
-
     await repository.findDownloadableFile(12n, 'file-attached', NOW);
-
     const where = findFirst.mock.calls[0]![0].where;
     expect(where).toEqual({
       id: 'file-attached',
@@ -346,7 +323,6 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     expect(JSON.stringify(where)).not.toContain('uploaderId');
     expect(JSON.stringify(where)).not.toContain('leaderId');
   });
-
   it.each([
     ['staff', { hasStaffAccess: true }, true],
     ['admin', { hasAdminAccess: true }, false],
@@ -354,13 +330,11 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     'limits the active %s exception to approved staff',
     async (_label, access, allowed) => {
       requester({ id: 'user-staff', ...access });
-
       const file = await repository.findDownloadableFile(
         14n,
         'file-attached',
         NOW,
       );
-
       if (allowed) {
         expect(file).toMatchObject({ id: 'file-attached' });
       } else {
@@ -368,7 +342,6 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
       }
     },
   );
-
   it.each([
     ['a deactivated current member', CURRENT_MEMBER],
     ['a deactivated staff account', 'user-staff'],
@@ -378,13 +351,11 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
       hasStaffAccess: id === 'user-staff',
       accountStatus: AccountStatus.DEACTIVATED,
     });
-
     await expect(
       repository.findDownloadableFile(15n, 'file-attached', NOW),
     ).resolves.toBeNull();
     expect(findFirst).not.toHaveBeenCalled();
   });
-
   it.each([
     ['a PENDING file', 'file-pending'],
     ['an expired file', 'file-expired'],
@@ -393,14 +364,12 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     'keeps %s indistinguishable from a denied file for a current member',
     async (_label, fileId) => {
       requester({ id: CURRENT_MEMBER });
-
       await expect(
         repository.findDownloadableFile(12n, fileId, NOW),
       ).resolves.toBeNull();
     },
   );
 });
-
 describe('SubmissionFilesRepository.createPending membership lock', () => {
   const input = {
     uploaderId: 'user-current-member',
@@ -414,7 +383,6 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     resolveExpiresAt: (programEndAt: Date) =>
       new ProgramScheduleService().addOneCalendarYear(programEndAt),
   };
-
   const queryRaw = jest.fn<Promise<unknown[]>, [Prisma.Sql]>();
   const aggregate = jest.fn();
   const create = jest.fn();
@@ -431,16 +399,13 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
   const repository = new SubmissionFilesRepository(
     prisma,
     new PlatformRepository(),
-    new SubmissionsRepository(prisma, new PlatformRepository()),
   );
-
   beforeEach(() => {
     queryRaw.mockReset();
     aggregate.mockReset();
     create.mockReset();
     lockMembership.mockReset();
     lockMembership.mockResolvedValue(true);
-
     queryRaw
       .mockResolvedValueOnce([{ endAt: new Date('2027-02-28T09:30:00.000Z') }])
       .mockResolvedValueOnce([{ id: input.uploaderId }]);
@@ -456,16 +421,13 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
       expiresAt: new Date('2028-02-28T09:30:00.000Z'),
     });
   });
-
   it('takes the shared Program→Team membership lock before any User or quota work', async () => {
     await repository.createPending(input);
-
     expect(lockMembership).toHaveBeenCalledWith(
       transactionClient,
       input.applicationId,
       input.uploaderId,
     );
-
     const lockOrder = lockMembership.mock.invocationCallOrder[0]!;
     const rawOrders = queryRaw.mock.invocationCallOrder;
     const aggregateOrder = aggregate.mock.invocationCallOrder[0]!;
@@ -475,15 +437,12 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     expect(JSON.stringify(queryRaw.mock.calls[0]![0])).toContain('Program');
     expect(JSON.stringify(queryRaw.mock.calls[1]![0])).toContain('User');
   });
-
   it('rejects with SubmissionMembershipChangedError without creating a pending row', async () => {
     lockMembership.mockResolvedValue(false);
-
     const rejection = await repository
       .createPending(input)
       .catch((caught: unknown) => caught);
     expect(rejection).toBeInstanceOf(SubmissionMembershipChangedError);
-
     expect(rejection).toMatchObject({
       applicationId: input.applicationId,
       userId: input.uploaderId,
@@ -492,10 +451,8 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     expect(aggregate).not.toHaveBeenCalled();
     expect(create).not.toHaveBeenCalled();
   });
-
   it('still reserves the pending row with the retention expiry for a current member', async () => {
     const created = await repository.createPending(input);
-
     expect(created).toMatchObject({ id: 'file-opaque' });
     const reservedData: unknown = expect.objectContaining({
       lifecycle: SubmissionFileLifecycle.PENDING,
@@ -506,17 +463,14 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
       expect.objectContaining({ data: reservedData }),
     );
   });
-
   it('keeps the retention-unavailable branch when the locked Program row is missing', async () => {
     queryRaw.mockReset();
     queryRaw.mockResolvedValueOnce([]);
-
     await expect(repository.createPending(input)).rejects.toMatchObject({
       name: 'SubmissionFileRetentionUnavailableError',
     });
     expect(create).not.toHaveBeenCalled();
   });
-
   it.each([
     ['the retained file count is at the limit', { _all: 100 }, 0],
     [
@@ -529,7 +483,6 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
       _count: count,
       _sum: { sizeBytes },
     });
-
     await expect(repository.createPending(input)).rejects.toMatchObject({
       name: 'SubmissionFileQuotaExceededError',
     });

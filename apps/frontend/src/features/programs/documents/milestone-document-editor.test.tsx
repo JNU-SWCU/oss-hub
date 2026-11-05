@@ -119,6 +119,7 @@ describe('ReadOnlyMilestoneDocuments', () => {
           milestoneId="milestone-1"
           canonicalDocuments={[
             {
+              submissionType: 'FILE_OR_TEXT' as const,
               id: 'canonical',
               name: '저장된 결과물',
               required: false,

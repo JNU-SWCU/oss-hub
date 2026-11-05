@@ -1,19 +1,16 @@
 import type { ReviewDecision } from '@prisma/client';
 import type { MilestoneDocumentFeedbackResult } from '../milestone-document-feedback.service';
-
 export class MilestoneDocumentFeedbackItemResponseDto {
   declare readonly id: string;
   declare readonly decision: ReviewDecision;
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
-  declare readonly resubmissionDueAt: string | null;
   declare readonly applicationId: string;
   declare readonly programId: string;
   declare readonly milestoneId: string;
   declare readonly milestoneName: string;
   declare readonly itemName: string;
   declare readonly href: string;
-
   static from(
     item: MilestoneDocumentFeedbackResult['items'][number],
   ): MilestoneDocumentFeedbackItemResponseDto {
@@ -22,7 +19,6 @@ export class MilestoneDocumentFeedbackItemResponseDto {
       decision: item.decision,
       comment: item.comment,
       reviewedAt: item.reviewedAt.toISOString(),
-      resubmissionDueAt: item.resubmissionDueAt?.toISOString() ?? null,
       applicationId: item.applicationId,
       programId: item.programId,
       milestoneId: item.milestoneId,
@@ -32,10 +28,8 @@ export class MilestoneDocumentFeedbackItemResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentFeedbackResponseDto {
   declare readonly items: readonly MilestoneDocumentFeedbackItemResponseDto[];
-
   static from(
     result: MilestoneDocumentFeedbackResult,
   ): MilestoneDocumentFeedbackResponseDto {

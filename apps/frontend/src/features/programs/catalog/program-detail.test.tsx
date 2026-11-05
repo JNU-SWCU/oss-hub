@@ -60,8 +60,7 @@ const milestone: ProgramMilestone = {
   dDay: 5,
   deadlineLabel: 'D-5',
   description: 'PDF 기획서를 제출해 주세요.',
-  submissionType: 'FILE',
-  submissionItemCount: 0,
+  submissionItemCount: 1,
   viewerSubmissionStatus: 'REJECTED',
   applicationSubmissionSummary: null,
 };
@@ -101,7 +100,7 @@ describe('MilestoneRow', () => {
     expect(html).toContain('>반려<');
   });
 
-  it('신규 제출 항목 모델은 작동하지 않는 레거시 제출 버튼을 노출하지 않는다', () => {
+  it('항목이 있는 마일스톤은 항목 제출 화면으로 연결한다', () => {
     const html = renderToStaticMarkup(
       <MilestoneRow
         programId="program-1"
@@ -109,18 +108,18 @@ describe('MilestoneRow', () => {
         nameId="milestone-1-name"
         milestone={{
           ...milestone,
-          submissionType: null,
           submissionItemCount: 2,
-          viewerSubmissionStatus: null,
+          dueAt: '2099-08-10T23:59:59+09:00',
+          viewerSubmissionStatus: 'NOT_SUBMITTED',
         }}
         viewerRole="STUDENT"
         submissionAccess={access('STUDENT', 'APPROVED')}
       />,
     );
 
-    expect(html).toContain('아래 제출 항목에서 내용이나 파일을 제출하세요');
-    expect(html).not.toContain('제출하기');
-    expect(html).not.toContain('/documents?milestoneId=');
+    expect(html).toContain('미제출');
+    expect(html).toContain('제출하기');
+    expect(html).toContain('/documents?milestoneId=milestone-1');
   });
 
   it('제출 항목이 없는 신규 마일스톤은 승인이 아니라 안내용으로 표시한다', () => {
@@ -131,7 +130,6 @@ describe('MilestoneRow', () => {
         nameId="milestone-1-name"
         milestone={{
           ...milestone,
-          submissionType: null,
           submissionItemCount: 0,
           viewerSubmissionStatus: null,
         }}
@@ -153,7 +151,6 @@ describe('MilestoneRow', () => {
         nameId="milestone-1-name"
         milestone={{
           ...milestone,
-          submissionType: null,
           submissionItemCount: 2,
           viewerSubmissionStatus: null,
         }}

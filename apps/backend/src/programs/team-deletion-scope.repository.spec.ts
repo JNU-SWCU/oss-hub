@@ -74,7 +74,6 @@ describe('readTeamDeletionScopeCounts', () => {
       'TeamInvitation',
       'MilestoneDocumentSubmission',
       'MilestoneDocumentSubmissionHistory',
-      'MilestoneDocumentReviewHistory',
       'SubmissionFile',
       'RepositoryProvisionJob',
       'GithubRepository',

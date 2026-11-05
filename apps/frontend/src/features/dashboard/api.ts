@@ -13,11 +13,9 @@ import type {
   StudentDashboard,
   ApplicationDecisionNotice,
 } from './types';
-
 function isNonEmptyString(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
-
 function isSafePathSegment(value: string): boolean {
   return (
     value !== '.' &&
@@ -25,7 +23,6 @@ function isSafePathSegment(value: string): boolean {
     /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)
   );
 }
-
 function isProgramPath(
   value: unknown,
   programId: string,
@@ -33,13 +30,11 @@ function isProgramPath(
 ): value is string {
   return value === `/programs/${encodeURIComponent(programId)}${suffix}`;
 }
-
 function isApplicationStatus(
   value: unknown,
 ): value is DashboardApplicationStatus {
   return value === 'SUBMITTED' || value === 'APPROVED' || value === 'REJECTED';
 }
-
 function isSubmissionStatus(
   value: unknown,
 ): value is DashboardSubmissionStatus {
@@ -51,7 +46,6 @@ function isSubmissionStatus(
     value === 'REJECTED'
   );
 }
-
 function isRepositoryProvisionStatus(
   value: unknown,
 ): value is DashboardRepositoryProvisionStatus {
@@ -64,7 +58,6 @@ function isRepositoryProvisionStatus(
     value === 'FAILED_FINAL'
   );
 }
-
 function isRepositoryInvitationStatus(
   value: unknown,
 ): value is DashboardRepositoryInvitationStatus {
@@ -76,7 +69,6 @@ function isRepositoryInvitationStatus(
     value === 'FAILED_FINAL'
   );
 }
-
 function isSafeGithubUrl(value: string, repositoryName: string): boolean {
   if (!/^[A-Za-z0-9][A-Za-z0-9._-]{0,99}$/.test(repositoryName)) return false;
   try {
@@ -99,7 +91,6 @@ function isSafeGithubUrl(value: string, repositoryName: string): boolean {
     return false;
   }
 }
-
 function isRepository(
   value: unknown,
 ): value is NonNullable<DashboardItem['repository']> {
@@ -107,7 +98,6 @@ function isRepository(
     return false;
   }
   if (!isRepositoryInvitationStatus(value.invitationStatus)) return false;
-
   if (value.provisionStatus !== 'SUCCEEDED') {
     return (
       value.repositoryName === null &&
@@ -115,18 +105,15 @@ function isRepository(
       value.githubUrl === null
     );
   }
-
   return (
     isNonEmptyString(value.repositoryName) &&
     isNonEmptyString(value.githubUrl) &&
     isSafeGithubUrl(value.githubUrl, value.repositoryName)
   );
 }
-
 function isCount(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value >= 0;
 }
-
 function hasItemCounts(value: Record<string, unknown>): boolean {
   const { requiredItemCount, remainingItemCount } = value;
   if (requiredItemCount === undefined && remainingItemCount === undefined) {
@@ -138,10 +125,8 @@ function hasItemCounts(value: Record<string, unknown>): boolean {
     remainingItemCount <= requiredItemCount
   );
 }
-
 function isMilestone(value: unknown): value is DashboardMilestone {
   if (!isRecord(value)) return false;
-
   return (
     isNonEmptyString(value.id) &&
     isNonEmptyString(value.name) &&
@@ -155,7 +140,6 @@ function isMilestone(value: unknown): value is DashboardMilestone {
     hasItemCounts(value)
   );
 }
-
 function isProgress(value: unknown): value is DashboardProgress {
   return (
     isRecord(value) &&
@@ -165,15 +149,12 @@ function isProgress(value: unknown): value is DashboardProgress {
     value.approvedCount + value.inReviewCount <= value.totalCount
   );
 }
-
 function isDashboardItem(value: unknown): value is DashboardItem {
   if (!isRecord(value)) return false;
-
   const applicationStatus = value.applicationStatus;
   const nextMilestone = value.nextMilestone;
   const progress = value.progress ?? null;
   const programId = value.programId;
-
   return (
     isNonEmptyString(value.applicationId) &&
     isNonEmptyString(programId) &&
@@ -194,7 +175,6 @@ function isDashboardItem(value: unknown): value is DashboardItem {
     (applicationStatus === 'APPROVED' || value.repository === null)
   );
 }
-
 function parseStudentDashboard(value: unknown): StudentDashboard {
   if (
     !isRecord(value) ||
@@ -203,23 +183,18 @@ function parseStudentDashboard(value: unknown): StudentDashboard {
   ) {
     throw new Error('학생 대시보드 응답 형식이 올바르지 않습니다.');
   }
-
   return { items: value.items };
 }
-
 export async function fetchStudentDashboard(): Promise<StudentDashboard> {
   const response = await apiClient<unknown>('dashboard/student');
   return parseStudentDashboard(response);
 }
-
 function isDateString(value: unknown): value is string {
   return isNonEmptyString(value) && !Number.isNaN(Date.parse(value));
 }
-
 function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
   if (!isRecord(value)) return false;
   const { programId, milestoneId } = value;
-
   return (
     isNonEmptyString(value.id) &&
     (value.decision === 'APPROVED' ||
@@ -227,8 +202,6 @@ function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
       value.decision === 'REJECTED') &&
     (value.comment === null || typeof value.comment === 'string') &&
     isDateString(value.reviewedAt) &&
-    (value.resubmissionDueAt === null ||
-      isDateString(value.resubmissionDueAt)) &&
     isNonEmptyString(value.applicationId) &&
     isNonEmptyString(programId) &&
     isSafePathSegment(programId) &&
@@ -238,7 +211,6 @@ function isFeedbackItem(value: unknown): value is DashboardFeedbackItem {
     value.href === programDocumentsHref(programId, milestoneId)
   );
 }
-
 export async function fetchStudentFeedback(): Promise<
   readonly DashboardFeedbackItem[]
 > {
@@ -252,7 +224,6 @@ export async function fetchStudentFeedback(): Promise<
   }
   return response.items;
 }
-
 function isApplicationDecisionNotice(
   value: unknown,
 ): value is ApplicationDecisionNotice {
@@ -270,7 +241,6 @@ function isApplicationDecisionNotice(
     !Number.isNaN(Date.parse(value.decidedAt))
   );
 }
-
 export async function fetchUnreadApplicationDecisionNotices(): Promise<
   readonly ApplicationDecisionNotice[]
 > {
@@ -285,7 +255,6 @@ export async function fetchUnreadApplicationDecisionNotices(): Promise<
   }
   return response;
 }
-
 export async function markApplicationDecisionNoticeRead(
   notificationId: string,
 ): Promise<void> {

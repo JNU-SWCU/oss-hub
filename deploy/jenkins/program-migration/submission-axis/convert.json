@@ -1,0 +1,27 @@
+{
+  "version": 1,
+  "name": "submission-axis-convert",
+  "expectedHeadMigration": "20261105030000_retire_invitation_status_and_preparations",
+  "preflight": ["check-before.sql"],
+  "stages": [
+    {
+      "id": "convert",
+      "apply": [
+        "../../../../apps/backend/prisma/migrations/20261105040000_convert_submission_axis/migration.sql"
+      ],
+      "reconcile": ["check-conversion.sql"]
+    }
+  ],
+  "backupBeforeStage": "convert",
+  "counts": [
+    { "name": "submissions", "file": "count-submissions.sql" },
+    { "name": "histories", "file": "count-histories.sql" },
+    { "name": "reviews", "file": "count-reviews.sql" },
+    { "name": "files", "file": "count-files.sql" },
+    { "name": "requirements", "file": "count-requirements.sql" },
+    {
+      "name": "historical-unknown-revision",
+      "file": "count-unknown-revision.sql"
+    }
+  ]
+}

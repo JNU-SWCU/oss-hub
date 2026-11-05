@@ -20,7 +20,7 @@ const TARGET_SELECT = {
   staffNumber: true,
   ...USER_AUTHORITY_SELECT,
   ...USER_APPROVAL_SELECT,
-} as const satisfies Prisma.UserSelect;
+} satisfies Prisma.UserSelect;
 export type MemberRegistrationResetTarget = Prisma.UserGetPayload<{
   select: typeof TARGET_SELECT;
 }>;
@@ -115,7 +115,6 @@ export class MemberRegistrationResetRepository implements MemberRegistrationRese
             { uploadedFiles: { some: {} } },
             { milestoneDocumentSubmissions: { some: {} } },
             { milestoneDocumentSubmissionHistories: { some: {} } },
-            { milestoneDocumentReviewHistories: { some: {} } },
             { uploadedMilestoneDocumentTemplateFiles: { some: {} } },
             { programAuthoringUploads: { some: {} } },
             { createdPrograms: { some: {} } },

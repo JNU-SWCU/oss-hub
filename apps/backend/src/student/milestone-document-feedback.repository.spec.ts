@@ -1,7 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
@@ -41,14 +40,12 @@ describe('MilestoneDocumentFeedbackRepository', () => {
           event: ReviewDecision.CHANGES_REQUESTED,
           comment: '표지를 보완해 주세요.',
           createdAt: REVIEWED_AT,
-          resubmissionDueAt: null,
           submission: {
             id: 'submission-1',
             status: SubmissionStatus.CHANGES_REQUESTED,
             applicationId: 'application-1',
             milestoneDocument: {
               name: '합성 계획서',
-              kind: MilestoneDocumentKind.DOCUMENT,
               milestone: {
                 id: 'milestone-1',
                 name: '중간 보고',
@@ -100,13 +97,11 @@ describe('MilestoneDocumentFeedbackRepository', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '표지를 보완해 주세요.',
         reviewedAt: REVIEWED_AT,
-        resubmissionDueAt: null,
         applicationId: 'application-1',
         programId: 'program-1',
         milestoneId: 'milestone-1',
         milestoneName: '중간 보고',
         documentName: '합성 계획서',
-        documentKind: MilestoneDocumentKind.DOCUMENT,
         submissionId: 'submission-1',
         submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
       },

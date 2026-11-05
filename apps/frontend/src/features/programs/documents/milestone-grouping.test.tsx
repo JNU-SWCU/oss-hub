@@ -43,7 +43,6 @@ function milestoneOf(
     dDay: 5,
     deadlineLabel: 'D-5',
     description: `${name} 안내`,
-    submissionType: 'FILE',
     submissionItemCount: 1,
     viewerSubmissionStatus: 'NOT_SUBMITTED',
     applicationSubmissionSummary: null,

@@ -39,7 +39,6 @@ const queuedFiles: ProgramPurgeDeletedCounts = {
   milestoneDocuments: 0,
   milestoneDocumentSubmissions: 0,
   milestoneDocumentSubmissionHistories: 0,
-  milestoneDocumentReviewHistories: 0,
   milestoneDocumentTemplateFiles: 0,
   programAuthoringUploads: 1,
   programCreateRequests: 0,

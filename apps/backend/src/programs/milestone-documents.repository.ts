@@ -15,7 +15,6 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   type ReviewDecision,
@@ -32,15 +31,19 @@ import {
 } from '../platform/user-profile-read.config';
 import {
   type UpsertMilestoneDocumentSubmissionInput,
-  MilestoneDocumentSubmissionRepository,
+  SubmissionsRepository,
 } from './submissions.repository';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
-
 export type MilestoneDocumentViewer = Prisma.UserGetPayload<{
-  select: typeof USER_AUTHORITY_SELECT & { id: true; accountStatus: true };
-}> & { readonly hasStaffAccess: boolean; readonly hasAdminAccess: boolean };
-
+  select: typeof USER_AUTHORITY_SELECT & {
+    id: true;
+    accountStatus: true;
+  };
+}> & {
+  readonly hasStaffAccess: boolean;
+  readonly hasAdminAccess: boolean;
+};
 export interface MilestoneDocumentContext {
   readonly id: string;
   readonly milestoneId: string;
@@ -51,31 +54,25 @@ export interface MilestoneDocumentContext {
   readonly required: boolean;
   readonly submissionType: RequirementSubmissionType;
 }
-
 export interface StudentApplicationContext {
   readonly applicationId: string;
   readonly approved: boolean;
   readonly programEndAt: Date;
 }
-
 export interface MilestoneDocumentSubmissionSummary {
   readonly milestoneDocumentId: string;
   readonly submittedAt: Date;
   readonly revision: number;
   readonly status: SubmissionStatus;
   readonly hasCurrentFile: boolean;
-
   readonly currentFileName: string | null;
   readonly historyComplete: boolean;
-
   readonly review: MilestoneDocumentReviewRecord | null;
 }
-
 export interface MilestoneDocumentSubmissionCoordinate {
   readonly milestoneDocumentId: string;
   readonly applicationId: string;
 }
-
 interface MilestoneDocumentCollectionHistoryRecord {
   readonly event: MilestoneDocumentSubmissionHistoryEvent;
   readonly revision: number | null;
@@ -83,11 +80,9 @@ interface MilestoneDocumentCollectionHistoryRecord {
   readonly comment: string | null;
   readonly createdAt: Date;
   readonly fileName: string | null;
-
   readonly downloadableFileId: string | null;
   readonly content: Prisma.JsonValue | null;
 }
-
 export interface MilestoneDocumentHistoryPage {
   readonly items: readonly (MilestoneDocumentCollectionHistoryRecord & {
     readonly id: string;
@@ -95,7 +90,6 @@ export interface MilestoneDocumentHistoryPage {
   readonly nextCursor: string | null;
   readonly isComplete: boolean;
 }
-
 export interface MilestoneDocumentArchiveSubmissionRecord {
   readonly milestoneDocumentId: string;
   readonly applicationId: string;
@@ -109,7 +103,6 @@ export interface MilestoneDocumentArchiveSubmissionRecord {
     readonly sizeBytes: number;
   } | null;
 }
-
 interface CreateMilestoneDocumentReviewInput {
   readonly milestoneDocumentSubmissionId: string;
   readonly submissionHistoryId: string;
@@ -117,15 +110,12 @@ interface CreateMilestoneDocumentReviewInput {
   readonly reviewerId: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
-
   readonly reviewedAt: Date;
 }
-
 export interface LatestMilestoneDocumentReview {
   readonly id: string;
   readonly decision: ReviewDecision;
 }
-
 export interface StaffDownloadableMilestoneDocumentFile {
   readonly storageKey: string;
   readonly originalFileName: string;
@@ -133,7 +123,6 @@ export interface StaffDownloadableMilestoneDocumentFile {
   readonly sizeBytes: number;
   readonly teamName: string;
 }
-
 interface MilestoneDocumentTemplateInput {
   readonly milestoneDocumentId: string;
   readonly uploadedById: string;
@@ -143,66 +132,55 @@ interface MilestoneDocumentTemplateInput {
   readonly sizeBytes: number;
   readonly uploadedAt: Date;
 }
-
 export interface DownloadableMilestoneDocumentTemplate {
   readonly storageKey: string;
   readonly originalFileName: string;
   readonly mimeType: string;
   readonly sizeBytes: number;
 }
-
 export interface UpdateMilestoneDocumentInput {
   readonly name: string;
   readonly required: boolean;
 }
-
 interface LockedMilestone {
   readonly id: string;
   readonly dueAt: Date;
 }
-
 interface LockedMilestoneDocument {
   readonly id: string;
   readonly milestoneId: string;
 }
-
 export interface MilestoneDocumentWriteStore {
   lockProgramForReview(programId: string): Promise<boolean>;
-  lockMilestoneForGrace(
-    milestoneId: string,
-  ): Promise<(LockedMilestone & { readonly programEndAt: Date }) | null>;
+  lockMilestoneForGrace(milestoneId: string): Promise<
+    | (LockedMilestone & {
+        readonly programEndAt: Date;
+      })
+    | null
+  >;
   updateGraceDueAt(documentId: string, graceDueAt: Date | null): Promise<void>;
-
   isApplicationParticipant(
     applicationId: string,
     userId: string,
   ): Promise<boolean>;
-
   lockMilestone(milestoneId: string): Promise<LockedMilestone | null>;
-
   lockDocument(documentId: string): Promise<LockedMilestoneDocument | null>;
-
   upsertTemplateFile(input: MilestoneDocumentTemplateInput): Promise<void>;
-
   lockDocumentIdsOfMilestone(milestoneId: string): Promise<readonly string[]>;
   countSubmissionsForDocument(documentId: string): Promise<number>;
-
   createDocument(
     milestoneId: string,
     input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord>;
-
   updateDocument(
     documentId: string,
     input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord>;
-
   applyDocumentOrder(
     milestoneId: string,
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentRecord[]>;
   deleteDocument(documentId: string): Promise<void>;
-
   findSubmissionForReview(
     milestoneDocumentId: string,
     applicationId: string,
@@ -212,31 +190,24 @@ export interface MilestoneDocumentWriteStore {
     readonly submissionHistoryId: string;
     readonly latestHistoryCreatedAt: Date | null;
   } | null>;
-
   findLatestReviewIdForSubmission(submissionId: string): Promise<string | null>;
-
   createReview(
     input: CreateMilestoneDocumentReviewInput,
   ): Promise<CreatedMilestoneDocumentReview>;
-
   updateSubmissionStatus(
     submissionId: string,
     status: SubmissionStatus,
   ): Promise<void>;
-
   lockProgramDocumentIds(programId: string): Promise<readonly string[]>;
-
   lockApprovedApplicationIds(
     programId: string,
     teamId: string | undefined,
   ): Promise<readonly string[]>;
-
   findChangeRequestCandidates(input: {
     readonly documentIds: readonly string[];
     readonly applicationIds: readonly string[];
   }): Promise<readonly ProgramDocumentChangeRequestCandidate[]>;
 }
-
 export interface MilestoneDocumentCollectionReadStore {
   findMilestone(milestoneId: string): Promise<MilestoneContext | null>;
   findByMilestoneId(
@@ -254,14 +225,12 @@ export interface MilestoneDocumentCollectionReadStore {
     applicationIds: readonly string[],
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]>;
 }
-
 const attachedFileSelect = {
   id: true,
   originalFileName: true,
   mimeType: true,
   sizeBytes: true,
-} as const;
-
+} satisfies Prisma.SubmissionFileSelect;
 const documentRecordSelect = {
   id: true,
   milestoneId: true,
@@ -271,8 +240,7 @@ const documentRecordSelect = {
   sortOrder: true,
   graceDueAt: true,
   templateFile: { select: { id: true, originalFileName: true } },
-} as const;
-
+} satisfies Prisma.MilestoneDocumentSelect;
 function toDocumentRecord(row: {
   id: string;
   milestoneId: string;
@@ -281,7 +249,10 @@ function toDocumentRecord(row: {
   submissionType: RequirementSubmissionType;
   sortOrder: number;
   graceDueAt: Date | null;
-  templateFile: { id: string; originalFileName: string } | null;
+  templateFile: {
+    id: string;
+    originalFileName: string;
+  } | null;
 }): MilestoneDocumentRecord {
   return {
     id: row.id,
@@ -295,7 +266,6 @@ function toDocumentRecord(row: {
     templateFileName: row.templateFile?.originalFileName ?? null,
   };
 }
-
 const collectionApplicationSelect = {
   id: true,
   applicant: { select: USER_PROFILE_NAME_SELECT },
@@ -308,15 +278,13 @@ const collectionApplicationSelect = {
       },
     },
   },
-} as const;
-
+} satisfies Prisma.ApplicationSelect;
 function unexpiredAttachedFileWhere(now: Date) {
   return {
     lifecycle: SubmissionFileLifecycle.ATTACHED,
     expiresAt: { gt: now },
   } as const;
 }
-
 function isDownloadableSubmissionFile(
   file: {
     readonly lifecycle: SubmissionFileLifecycle;
@@ -331,7 +299,6 @@ function isDownloadableSubmissionFile(
     file.expiresAt.getTime() > now.getTime()
   );
 }
-
 const currentRevisionFileOrderBy: Prisma.SubmissionFileOrderByWithRelationInput[] =
   [
     {
@@ -341,7 +308,6 @@ const currentRevisionFileOrderBy: Prisma.SubmissionFileOrderByWithRelationInput[
     },
     { createdAt: 'desc' },
   ];
-
 function countSubmissionsForDocumentWith(
   client: Prisma.TransactionClient,
   documentId: string,
@@ -350,22 +316,19 @@ function countSubmissionsForDocumentWith(
     where: { milestoneDocumentId: documentId },
   });
 }
-
 type MilestoneDocumentWriteScope = {
   readonly transaction: Prisma.TransactionClient;
   milestoneLock: MilestoneLock | null;
 };
-
 @Injectable()
 export class MilestoneDocumentsRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly locks: LockProgramTreeRepository,
     private readonly platformRepository: PlatformRepository,
-    private readonly milestoneDocumentSubmissionRepository: MilestoneDocumentSubmissionRepository,
+    private readonly milestoneDocumentSubmissionRepository: SubmissionsRepository,
     private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
   ) {}
-
   withTransaction<T>(
     operation: (store: MilestoneDocumentWriteStore) => Promise<T>,
   ): Promise<T> {
@@ -373,7 +336,6 @@ export class MilestoneDocumentsRepository {
       operation(this.milestoneDocumentWriteStore(transaction)),
     );
   }
-
   findChangeRequestCandidates(
     programId: string,
     applicationIds: readonly string[],
@@ -383,7 +345,6 @@ export class MilestoneDocumentsRepository {
       where: {
         applicationId: { in: [...applicationIds] },
         milestoneDocument: {
-          kind: MilestoneDocumentKind.DOCUMENT,
           milestone: { programId },
         },
       },
@@ -391,7 +352,6 @@ export class MilestoneDocumentsRepository {
       select: { milestoneDocumentId: true, applicationId: true, status: true },
     });
   }
-
   withCollectionSnapshot<T>(
     operation: (store: MilestoneDocumentCollectionReadStore) => Promise<T>,
   ): Promise<T> {
@@ -401,22 +361,18 @@ export class MilestoneDocumentsRepository {
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
-
   async findByMilestoneId(
     milestoneId: string,
-    includeLegacy = false,
   ): Promise<MilestoneDocumentRecord[]> {
     const documents = await this.prisma.milestoneDocument.findMany({
       where: {
         milestoneId,
-        ...(includeLegacy ? {} : { kind: MilestoneDocumentKind.DOCUMENT }),
       },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
     });
     return documents.map(toDocumentRecord);
   }
-
   async findActiveUser(
     githubId: bigint,
   ): Promise<MilestoneDocumentViewer | null> {
@@ -433,10 +389,9 @@ export class MilestoneDocumentsRepository {
           hasAdminAccess: user.admin !== null,
         };
   }
-
-  async findActiveStudentByGithubId(
-    githubId: bigint,
-  ): Promise<{ readonly id: string } | null> {
+  async findActiveStudentByGithubId(githubId: bigint): Promise<{
+    readonly id: string;
+  } | null> {
     return this.prisma.user.findFirst({
       where: {
         githubId,
@@ -446,14 +401,12 @@ export class MilestoneDocumentsRepository {
       select: { id: true },
     });
   }
-
   async findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
     return this.prisma.milestone.findUnique({
       where: { id: milestoneId },
       select: { id: true, programId: true, name: true, dueAt: true },
     });
   }
-
   async findDocumentContext(
     documentId: string,
   ): Promise<MilestoneDocumentContext | null> {
@@ -481,7 +434,6 @@ export class MilestoneDocumentsRepository {
       submissionType: document.submissionType,
     };
   }
-
   async findStudentApplication(
     userId: string,
     programId: string,
@@ -504,7 +456,6 @@ export class MilestoneDocumentsRepository {
       programEndAt: application.program.endAt,
     };
   }
-
   async findSubmittedSummaries(
     applicationId: string,
     documentIds: readonly string[],
@@ -553,7 +504,6 @@ export class MilestoneDocumentsRepository {
     });
     return submissions.map((submission) => {
       const review = submission.histories[0] ?? null;
-
       const currentFile =
         submission.files[0]?.submissionHistory?.revision === submission.revision
           ? (submission.files[0] ?? null)
@@ -574,12 +524,10 @@ export class MilestoneDocumentsRepository {
                 decision: submissionReviewDecision(review.event),
                 comment: review.comment,
                 reviewedAt: review.createdAt,
-                resubmissionDueAt: null,
               },
       };
     });
   }
-
   async findLatestReview(
     milestoneDocumentId: string,
     applicationId: string,
@@ -600,7 +548,6 @@ export class MilestoneDocumentsRepository {
           decision: submissionReviewDecision(review.event),
         };
   }
-
   async findSubmissionHistoryPage(
     milestoneDocumentId: string,
     applicationId: string,
@@ -668,7 +615,6 @@ export class MilestoneDocumentsRepository {
         files: {
           orderBy: { createdAt: 'desc' },
           take: 1,
-
           select: {
             id: true,
             originalFileName: true,
@@ -702,13 +648,11 @@ export class MilestoneDocumentsRepository {
       isComplete: submission._count.histories === submission.revision,
     };
   }
-
   async countApprovedApplications(programId: string): Promise<number> {
     return this.prisma.application.count({
       where: { programId, status: ApplicationStatus.APPROVED },
     });
   }
-
   async countSubmissionsByDocument(
     programId: string,
     documentIds: readonly string[],
@@ -726,13 +670,11 @@ export class MilestoneDocumentsRepository {
       grouped.map((row) => [row.milestoneDocumentId, row._count._all]),
     );
   }
-
   async findApprovedApplicationsForCollection(
     programId: string,
   ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
     const applications = await this.prisma.application.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
-
       orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
       select: collectionApplicationSelect,
     });
@@ -745,7 +687,6 @@ export class MilestoneDocumentsRepository {
       ),
     }));
   }
-
   async findSubmissionCoordinatesForCollection(
     documentIds: readonly string[],
   ): Promise<readonly MilestoneDocumentSubmissionCoordinate[]> {
@@ -755,7 +696,6 @@ export class MilestoneDocumentsRepository {
       select: { milestoneDocumentId: true, applicationId: true },
     });
   }
-
   async findSubmissionsForCollection(
     documentIds: readonly string[],
     now: Date,
@@ -773,7 +713,6 @@ export class MilestoneDocumentsRepository {
         milestoneDocumentId: true,
         applicationId: true,
         submittedAt: true,
-
         revision: true,
         status: true,
         content: true,
@@ -822,12 +761,10 @@ export class MilestoneDocumentsRepository {
                 decision: submissionReviewDecision(review.event),
                 comment: review.comment,
                 reviewedAt: review.createdAt,
-                resubmissionDueAt: null,
               },
       };
     });
   }
-
   async findSubmissionsForArchive(
     documentIds: readonly string[],
     now: Date,
@@ -884,7 +821,6 @@ export class MilestoneDocumentsRepository {
       };
     });
   }
-
   async findApplicationProgramId(
     applicationId: string,
   ): Promise<string | null> {
@@ -894,7 +830,6 @@ export class MilestoneDocumentsRepository {
     });
     return application?.programId ?? null;
   }
-
   async findSubmissionFileForStaffDownload(
     milestoneDocumentId: string,
     applicationId: string,
@@ -942,14 +877,13 @@ export class MilestoneDocumentsRepository {
       teamName: submission.application.team.name,
     };
   }
-
   async findTemplateForDownload(
     documentId: string,
   ): Promise<DownloadableMilestoneDocumentTemplate | null> {
     return this.prisma.milestoneDocumentTemplateFile.findFirst({
       where: {
         milestoneDocumentId: documentId,
-        milestoneDocument: { kind: MilestoneDocumentKind.DOCUMENT },
+        milestoneDocument: {},
       },
       select: {
         storageKey: true,
@@ -959,7 +893,6 @@ export class MilestoneDocumentsRepository {
       },
     });
   }
-
   async upsertSubmission(
     input: UpsertMilestoneDocumentSubmissionInput,
   ): Promise<MilestoneDocumentSubmissionDetail> {
@@ -968,7 +901,6 @@ export class MilestoneDocumentsRepository {
       input,
     );
   }
-
   async findMySubmission(
     milestoneDocumentId: string,
     applicationId: string,
@@ -1019,7 +951,6 @@ export class MilestoneDocumentsRepository {
           : [],
     };
   }
-
   private milestoneDocumentWriteStore(
     transaction: Prisma.TransactionClient,
   ): MilestoneDocumentWriteStore {
@@ -1066,13 +997,14 @@ export class MilestoneDocumentsRepository {
       ),
     };
   }
-
   private async lockProgramForReviewIn(
     scope: MilestoneDocumentWriteScope,
     programId: string,
   ): Promise<boolean> {
     const rows = await scope.transaction.$queryRaw<
-      readonly { id: string }[]
+      readonly {
+        id: string;
+      }[]
     >(Prisma.sql`
       SELECT "id" FROM "Program"
       WHERE "id" = ${programId} AND "lifecycle" <> 'DELETED'
@@ -1080,7 +1012,6 @@ export class MilestoneDocumentsRepository {
     `);
     return rows.length === 1;
   }
-
   private async isApplicationParticipantIn(
     scope: MilestoneDocumentWriteScope,
     applicationId: string,
@@ -1095,7 +1026,6 @@ export class MilestoneDocumentsRepository {
     });
     return application !== null;
   }
-
   private async lockMilestoneIn(
     scope: MilestoneDocumentWriteScope,
     milestoneId: string,
@@ -1110,7 +1040,6 @@ export class MilestoneDocumentsRepository {
       select: { id: true, dueAt: true },
     });
   }
-
   private async lockMilestoneForGraceIn(
     scope: MilestoneDocumentWriteScope,
     milestoneId: string,
@@ -1141,7 +1070,6 @@ export class MilestoneDocumentsRepository {
       programEndAt: milestone.program.endAt,
     };
   }
-
   private async lockDocumentIn(
     scope: MilestoneDocumentWriteScope,
     documentId: string,
@@ -1156,19 +1084,17 @@ export class MilestoneDocumentsRepository {
     `);
     return rows[0] ?? null;
   }
-
   private async updateGraceDueAtIn(
     scope: MilestoneDocumentWriteScope,
     documentId: string,
     graceDueAt: Date | null,
   ): Promise<void> {
     await scope.transaction.milestoneDocument.update({
-      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { id: documentId },
       data: { graceDueAt },
       select: { id: true },
     });
   }
-
   private async upsertTemplateFileIn(
     scope: MilestoneDocumentWriteScope,
     input: MilestoneDocumentTemplateInput,
@@ -1194,7 +1120,6 @@ export class MilestoneDocumentsRepository {
       },
     });
   }
-
   private async lockDocumentIdsOfMilestoneIn(
     scope: MilestoneDocumentWriteScope,
     milestoneId: string,
@@ -1212,21 +1137,19 @@ export class MilestoneDocumentsRepository {
     });
     return result.documentIds;
   }
-
   private countSubmissionsForDocumentIn(
     scope: MilestoneDocumentWriteScope,
     documentId: string,
   ): Promise<number> {
     return countSubmissionsForDocumentWith(scope.transaction, documentId);
   }
-
   private async createDocumentIn(
     scope: MilestoneDocumentWriteScope,
     milestoneId: string,
     input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
     const last = await scope.transaction.milestoneDocument.aggregate({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { milestoneId },
       _max: { sortOrder: true },
     });
     const sortOrder = (last._max.sortOrder ?? 0) + 1;
@@ -1235,7 +1158,6 @@ export class MilestoneDocumentsRepository {
         milestoneId,
         ...input,
         sortOrder,
-        kind: MilestoneDocumentKind.DOCUMENT,
       },
       select: {
         id: true,
@@ -1253,20 +1175,18 @@ export class MilestoneDocumentsRepository {
       templateFileName: null,
     };
   }
-
   private async updateDocumentIn(
     scope: MilestoneDocumentWriteScope,
     documentId: string,
     input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
     const updated = await scope.transaction.milestoneDocument.update({
-      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { id: documentId },
       data: input,
       select: documentRecordSelect,
     });
     return toDocumentRecord(updated);
   }
-
   private async applyDocumentOrderIn(
     scope: MilestoneDocumentWriteScope,
     milestoneId: string,
@@ -1277,20 +1197,18 @@ export class MilestoneDocumentsRepository {
         where: {
           id: documentId,
           milestoneId,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
         data: { sortOrder: index + 1 },
         select: { id: true },
       });
     }
     const documents = await scope.transaction.milestoneDocument.findMany({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { milestoneId },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
     });
     return documents.map(toDocumentRecord);
   }
-
   private async deleteDocumentIn(
     scope: MilestoneDocumentWriteScope,
     documentId: string,
@@ -1299,10 +1217,9 @@ export class MilestoneDocumentsRepository {
       where: { milestoneDocumentId: documentId },
     });
     await scope.transaction.milestoneDocument.delete({
-      where: { id: documentId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { id: documentId },
     });
   }
-
   private findSubmissionForReviewIn(
     scope: MilestoneDocumentWriteScope,
     milestoneDocumentId: string,
@@ -1319,7 +1236,6 @@ export class MilestoneDocumentsRepository {
       applicationId,
     );
   }
-
   private async findSubmissionForReviewWithHistoryIn(
     scope: MilestoneDocumentWriteScope,
     milestoneDocumentId: string,
@@ -1384,7 +1300,6 @@ export class MilestoneDocumentsRepository {
       latestHistoryCreatedAt: latestHistory?.createdAt ?? null,
     };
   }
-
   private async findLatestReviewIdForSubmissionIn(
     scope: MilestoneDocumentWriteScope,
     submissionId: string,
@@ -1400,7 +1315,6 @@ export class MilestoneDocumentsRepository {
       });
     return review?.id ?? null;
   }
-
   private async createReviewIn(
     scope: MilestoneDocumentWriteScope,
     input: CreateMilestoneDocumentReviewInput,
@@ -1414,11 +1328,9 @@ export class MilestoneDocumentsRepository {
       decision: submissionReviewDecision(created.event),
       comment: created.comment,
       reviewedAt: created.createdAt,
-      resubmissionDueAt: null,
       reviewerNickname: created.actor.nickname,
     };
   }
-
   private async updateSubmissionStatusIn(
     scope: MilestoneDocumentWriteScope,
     submissionId: string,
@@ -1430,25 +1342,24 @@ export class MilestoneDocumentsRepository {
       select: { id: true },
     });
   }
-
   private async lockProgramDocumentIdsIn(
     scope: MilestoneDocumentWriteScope,
     programId: string,
   ): Promise<readonly string[]> {
-    const rows = await scope.transaction.$queryRaw<readonly { id: string }[]>(
-      Prisma.sql`
+    const rows = await scope.transaction.$queryRaw<
+      readonly {
+        id: string;
+      }[]
+    >(Prisma.sql`
         SELECT document."id"
         FROM "MilestoneDocument" document
         JOIN "Milestone" milestone ON milestone."id" = document."milestoneId"
         WHERE milestone."programId" = ${programId}
-          AND document."kind" = 'DOCUMENT'
         ORDER BY document."id"
         FOR UPDATE OF document
-      `,
-    );
+      `);
     return rows.map((row) => row.id);
   }
-
   private async lockApprovedApplicationIdsIn(
     scope: MilestoneDocumentWriteScope,
     programId: string,
@@ -1461,8 +1372,7 @@ export class MilestoneDocumentsRepository {
         teamId: string | null;
         teamProgramId: string | null;
       }[]
-    >(
-      Prisma.sql`
+    >(Prisma.sql`
         SELECT
           application."id",
           application."status",
@@ -1473,8 +1383,7 @@ export class MilestoneDocumentsRepository {
         WHERE application."programId" = ${programId}
         ORDER BY application."id"
         FOR SHARE OF application
-      `,
-    );
+      `);
     return rows
       .filter(
         (row) =>
@@ -1484,7 +1393,6 @@ export class MilestoneDocumentsRepository {
       )
       .map((row) => row.id);
   }
-
   private findChangeRequestCandidatesIn(
     scope: MilestoneDocumentWriteScope,
     input: {
@@ -1504,7 +1412,6 @@ export class MilestoneDocumentsRepository {
       select: { milestoneDocumentId: true, applicationId: true, status: true },
     });
   }
-
   private milestoneDocumentCollectionReadStore(
     transaction: Prisma.TransactionClient,
   ): MilestoneDocumentCollectionReadStore {
@@ -1521,7 +1428,6 @@ export class MilestoneDocumentsRepository {
       ),
     };
   }
-
   private async findMilestoneIn(
     transaction: Prisma.TransactionClient,
     milestoneId: string,
@@ -1531,19 +1437,17 @@ export class MilestoneDocumentsRepository {
       select: { id: true, programId: true, name: true, dueAt: true },
     });
   }
-
   private async findByMilestoneIdIn(
     transaction: Prisma.TransactionClient,
     milestoneId: string,
   ): Promise<readonly MilestoneDocumentRecord[]> {
     const documents = await transaction.milestoneDocument.findMany({
-      where: { milestoneId, kind: MilestoneDocumentKind.DOCUMENT },
+      where: { milestoneId },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
     });
     return documents.map(toDocumentRecord);
   }
-
   private async findApprovedApplicationsForCollectionIn(
     transaction: Prisma.TransactionClient,
     programId: string,
@@ -1562,7 +1466,6 @@ export class MilestoneDocumentsRepository {
       ),
     }));
   }
-
   private async findSubmissionCoordinatesForCollectionIn(
     transaction: Prisma.TransactionClient,
     documentIds: readonly string[],
@@ -1573,7 +1476,6 @@ export class MilestoneDocumentsRepository {
       select: { milestoneDocumentId: true, applicationId: true },
     });
   }
-
   private async findSubmissionsForCollectionIn(
     transaction: Prisma.TransactionClient,
     documentIds: readonly string[],
@@ -1638,13 +1540,11 @@ export class MilestoneDocumentsRepository {
                 decision: submissionReviewDecision(review.event),
                 comment: review.comment,
                 reviewedAt: review.createdAt,
-                resubmissionDueAt: null,
               },
       };
     });
   }
 }
-
 function submissionReviewDecision(event: string): ReviewDecision {
   if (
     event === 'APPROVED' ||

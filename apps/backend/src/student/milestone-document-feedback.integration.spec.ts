@@ -2,7 +2,6 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
   ProgramCategory,
   ReviewDecision,
 } from '@prisma/client';
@@ -11,14 +10,12 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prefix = 'dashboard-feedback';
-const studentGithubId = 9_600_000_000_995_001n;
+const studentGithubId = 9600000000995001n;
 const users = {
   student: `${prefix}-student`,
   other: `${prefix}-other`,
@@ -31,12 +28,8 @@ const service = new MilestoneDocumentFeedbackService(
   new MilestoneDocumentFeedbackRepository(prisma, new PlatformRepository()),
   () => now,
 );
-
 async function cleanup(): Promise<void> {
   const owned = { startsWith: prefix };
-  await prisma.milestoneDocumentReviewHistory.deleteMany({
-    where: { id: owned },
-  });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { id: owned },
   });
@@ -49,13 +42,11 @@ async function cleanup(): Promise<void> {
   await prisma.program.deleteMany({ where: { id: owned } });
   await prisma.user.deleteMany({ where: { id: owned } });
 }
-
 async function createProgram(key: string, name: string): Promise<void> {
   await prisma.program.create({
     data: {
       startAt: new Date('2026-01-01'),
-      endAt: new Date(new Date('2026-01-02').getTime() + 365 * 86_400_000),
-
+      endAt: new Date(new Date('2026-01-02').getTime() + 365 * 86400000),
       id: `${prefix}-${key}-program`,
       name,
       organizer: 'OSS Hub',
@@ -68,11 +59,9 @@ async function createProgram(key: string, name: string): Promise<void> {
       milestones: {
         create: {
           startAt: new Date('2026-01-01'),
-
           id: `${prefix}-${key}-milestone`,
           name: milestoneName,
           dueAt: new Date('2026-12-31'),
-          submissionType: 'TEXT',
           documents: {
             create: [
               {
@@ -86,7 +75,6 @@ async function createProgram(key: string, name: string): Promise<void> {
                 name: '이관 당시 마일스톤 이름',
                 required: true,
                 sortOrder: -1,
-                kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
               },
             ],
           },
@@ -95,7 +83,6 @@ async function createProgram(key: string, name: string): Promise<void> {
     },
   });
 }
-
 async function createApplication(input: {
   readonly key: string;
   readonly program: string;
@@ -130,7 +117,6 @@ async function createApplication(input: {
     },
   });
 }
-
 async function createReviews(input: {
   readonly application: string;
   readonly document: string;
@@ -149,16 +135,6 @@ async function createReviews(input: {
       submittedById: users.student,
     },
   });
-  await prisma.milestoneDocumentReviewHistory.createMany({
-    data: input.reviews.map((review) => ({
-      id: `${prefix}-review-${review.key}`,
-      milestoneDocumentSubmissionId: submissionId,
-      reviewerId: users.staff,
-      decision: review.decision ?? ReviewDecision.CHANGES_REQUESTED,
-      comment: `합성 의견 ${review.key}`,
-      reviewedAt: new Date(review.reviewedAt),
-    })),
-  });
   await prisma.milestoneDocumentSubmissionHistory.createMany({
     data: input.reviews.map((review) => ({
       id: `${prefix}-review-${review.key}`,
@@ -171,7 +147,6 @@ async function createReviews(input: {
     })),
   });
 }
-
 describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -293,17 +268,14 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
       ],
     });
   });
-
   afterAll(async () => {
     await cleanup();
     await prisma.$disconnect();
   });
-
   it('지금 팀원인 승인 신청의 판정 중 서울 날짜로 7일 전 0시 이후 것을 모두 최신순으로 돌려준다', async () => {
     const { items } = await service
       .recentForParticipant(studentGithubId)
       .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
-
     expect(items.map((item) => item.id)).toEqual([
       `${prefix}-review-legacy`,
       `${prefix}-review-document-5`,
@@ -315,7 +287,6 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
       `${prefix}-review-window-start`,
     ]);
   });
-
   it('판정마다 그 판정을 받은 신청 ID를 실어 프로그램 카드에 나눠 붙일 수 있게 한다', async () => {
     const { items } = await service
       .recentForParticipant(studentGithubId)
@@ -323,7 +294,6 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
     const applicationIdOf = new Map(
       items.map((item) => [item.id, item.applicationId]),
     );
-
     expect(applicationIdOf.get(`${prefix}-review-document-1`)).toBe(
       `${prefix}-mine-application`,
     );
@@ -331,24 +301,21 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
       `${prefix}-second-application`,
     );
   });
-
-  it('옛 단일 제출 슬롯은 마일스톤 이름으로, 서류는 서류 이름으로 부르고 검토자를 싣지 않는다', async () => {
+  it('이관한 항목도 항목 이름으로 부르고 검토자를 싣지 않는다', async () => {
     const { items } = await service
       .recentForParticipant(studentGithubId)
       .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
     const href = `/programs/${prefix}-main-program/documents?milestoneId=${prefix}-main-milestone`;
-
     expect(items[0]).toEqual({
       id: `${prefix}-review-legacy`,
       decision: ReviewDecision.APPROVED,
       comment: '합성 의견 legacy',
       reviewedAt: '2026-09-20T00:06:00.000Z',
-      resubmissionDueAt: null,
       applicationId: `${prefix}-mine-application`,
       programId: `${prefix}-main-program`,
       milestoneId: `${prefix}-main-milestone`,
       milestoneName,
-      itemName: milestoneName,
+      itemName: '이관 당시 마일스톤 이름',
       href,
     });
     expect(items[1]).toMatchObject({ itemName: '합성 계획서', href });

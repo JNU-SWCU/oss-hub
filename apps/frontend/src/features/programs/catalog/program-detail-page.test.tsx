@@ -230,7 +230,7 @@ describe('ProgramDetailPage — 세션 유무별 호출', () => {
               deadlineLabel: 'D-1',
               description: null,
               submissionType: 'TEXT',
-              submissionItemCount: 0,
+              submissionItemCount: 1,
               viewerSubmissionStatus: submitted ? 'SUBMITTED' : 'NOT_SUBMITTED',
               applicationSubmissionSummary: null,
             },

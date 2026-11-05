@@ -60,7 +60,13 @@ export function ReviewSubmission(props: ReviewSubmissionProps) {
         </Button>
       ) : null}
       {props.needsLatestRevision ? null : (
-        <RevisionCard revision={latest} current />
+        <RevisionCard
+          revision={latest}
+          current
+          hasUnversionedReview={Boolean(
+            props.context.unversionedReviews?.length,
+          )}
+        />
       )}
     </section>
   );

@@ -1,5 +1,4 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramsRepository } from './programs.repository';
@@ -12,9 +11,7 @@ import {
   ApplicationStatus,
   BoardPostCategory,
   CollectionStreamType,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
-  MilestoneSubmissionType,
   Prisma,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
@@ -51,22 +48,18 @@ import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.ser
 import { ProgramLifecycleService } from './programs.service';
 import { ProgramLifecycleRepository } from './programs.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
-const DATABASE_CONNECTION_TIMEOUT_MS = 60_000;
+const DATABASE_CONNECTION_TIMEOUT_MS = 60000;
 const PREFIX = 'test:purge7:';
 const OBJECT_PREFIX = 'integration/program-purge-7';
 const COVER_OBJECT_PREFIX = 'program-covers/integration-program-purge-7';
 const NOW = new Date('2026-08-12T00:00:00.000Z');
-const ADMIN_GITHUB_ID = 9_875_000_001n;
-const STAFF_GITHUB_ID = 9_875_000_002n;
-
-const STUDENT_GITHUB_ID = 9_875_000_003n;
-
+const ADMIN_GITHUB_ID = 9875000001n;
+const STAFF_GITHUB_ID = 9875000002n;
+const STUDENT_GITHUB_ID = 9875000003n;
 const prisma = new PrismaService();
 const concurrentPrisma = new PrismaService();
 const auditLog = new AuditLogService(
@@ -91,21 +84,15 @@ const s3 = new S3Client({
   },
 });
 const storage = new S3ObjectStorageClient(storageConfig, s3);
-
 const purgeFileCleanup = new ProgramPurgeFileCleanupService(
   new ProgramPurgeFileCleanupRepository(prisma),
   storage,
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const submissionFileCleanup = new SubmissionFileCleanupService(
-  new SubmissionFilesRepository(
-    prisma,
-    new PlatformRepository(),
-    new SubmissionsRepository(prisma, new PlatformRepository()),
-  ),
+  new SubmissionFilesRepository(prisma, new PlatformRepository()),
   storage,
 );
-
 type Fixture = {
   readonly programId: string;
   readonly milestoneId: string;
@@ -131,7 +118,6 @@ type Fixture = {
   readonly publishedRepositoryId: string;
   readonly publishedGithubRepositoryId: bigint;
 };
-
 async function objectExists(key: string): Promise<boolean> {
   try {
     await s3.send(
@@ -143,13 +129,15 @@ async function objectExists(key: string): Promise<boolean> {
     throw error;
   }
 }
-
 function isNotFound(error: unknown): boolean {
   if (typeof error !== 'object' || error === null) return false;
-  const withMetadata = error as { $metadata?: { httpStatusCode?: unknown } };
+  const withMetadata = error as {
+    $metadata?: {
+      httpStatusCode?: unknown;
+    };
+  };
   return withMetadata.$metadata?.httpStatusCode === 404;
 }
-
 async function cleanup(): Promise<void> {
   await prisma.teamHistory.deleteMany({
     where: { programId: { startsWith: PREFIX } },
@@ -188,16 +176,6 @@ async function cleanup(): Promise<void> {
   });
   await storage.delete(`${OBJECT_PREFIX}/submission-file.pdf`).catch(() => {});
   await storage.delete(`${OBJECT_PREFIX}/template-file.pdf`).catch(() => {});
-
-  await prisma.milestoneDocumentReviewHistory.deleteMany({
-    where: {
-      milestoneDocumentSubmission: {
-        milestoneDocument: {
-          milestone: { program: { id: { startsWith: PREFIX } } },
-        },
-      },
-    },
-  });
   await prisma.submissionFile.deleteMany({
     where: {
       OR: [
@@ -239,7 +217,6 @@ async function cleanup(): Promise<void> {
   await prisma.repositoryIssuanceHistory.deleteMany({
     where: { applicationId: { startsWith: PREFIX } },
   });
-
   await prisma.repositoryInvitation.deleteMany({
     where: { repository: { nameWithOwner: { startsWith: 'purge7-org/' } } },
   });
@@ -276,16 +253,13 @@ async function cleanup(): Promise<void> {
   await prisma.milestone.deleteMany({
     where: { program: { id: { startsWith: PREFIX } } },
   });
-
   await prisma.outboxEvent.deleteMany({
     where: { aggregateId: { startsWith: PREFIX } },
   });
-
   await prisma.notification.deleteMany({
     where: { user: { id: { startsWith: PREFIX } } },
   });
   await prisma.program.deleteMany({ where: { id: { startsWith: PREFIX } } });
-
   await prisma.admin.deleteMany({
     where: {
       user: {
@@ -301,13 +275,11 @@ async function cleanup(): Promise<void> {
     },
   });
 }
-
 function labelOrdinal(label: string): bigint {
   return BigInt(
     [...label].reduce((sum, value) => sum + value.charCodeAt(0), 0),
   );
 }
-
 async function ensureGlobalActors(): Promise<void> {
   await prisma.user.upsert({
     where: { githubId: ADMIN_GITHUB_ID },
@@ -350,7 +322,6 @@ async function ensureGlobalActors(): Promise<void> {
     },
   });
 }
-
 async function seedFullChildGraph(
   label: string,
   programLifecycle: ProgramLifecycle = ProgramLifecycle.PUBLISHED,
@@ -374,17 +345,16 @@ async function seedFullChildGraph(
   const templateFileStorageKey = `${OBJECT_PREFIX}/${label}/template-file.pdf`;
   const coverStorageKey = `${COVER_OBJECT_PREFIX}-${label}`;
   const externalRepositoryId = p('external-repo');
-  const externalGithubRepositoryId = 9_875_500_000n + ordinal;
+  const externalGithubRepositoryId = 9875500000n + ordinal;
   const publishedRepositoryId = p('published-repo');
-  const publishedGithubRepositoryId = 9_875_800_000n + ordinal;
+  const publishedGithubRepositoryId = 9875800000n + ordinal;
   const publishedApplicantId = p('published-applicant');
-
   await ensureGlobalActors();
   await prisma.user.createMany({
     data: [
       {
         id: applicantId,
-        githubId: 9_875_100_000n + ordinal,
+        githubId: 9875100000n + ordinal,
         nickname: `synthetic-purge7-applicant-${label}`,
         accountStatus: AccountStatus.ACTIVE,
         type: MemberKind.STUDENT,
@@ -392,7 +362,7 @@ async function seedFullChildGraph(
       },
       {
         id: leaderId,
-        githubId: 9_875_200_000n + ordinal,
+        githubId: 9875200000n + ordinal,
         nickname: `synthetic-purge7-leader-${label}`,
         accountStatus: AccountStatus.ACTIVE,
         type: MemberKind.STUDENT,
@@ -400,7 +370,7 @@ async function seedFullChildGraph(
       },
       {
         id: publishedApplicantId,
-        githubId: 9_875_900_000n + ordinal,
+        githubId: 9875900000n + ordinal,
         nickname: `synthetic-purge7-published-applicant-${label}`,
         accountStatus: AccountStatus.ACTIVE,
         type: MemberKind.STUDENT,
@@ -408,7 +378,7 @@ async function seedFullChildGraph(
       },
       {
         id: staffId,
-        githubId: 9_875_300_000n + ordinal,
+        githubId: 9875300000n + ordinal,
         nickname: `synthetic-purge7-staff-${label}`,
         accountStatus: AccountStatus.ACTIVE,
         type: MemberKind.STAFF,
@@ -422,7 +392,6 @@ async function seedFullChildGraph(
     ],
     skipDuplicates: true,
   });
-
   await prisma.program.create({
     data: {
       id: programId,
@@ -456,7 +425,6 @@ async function seedFullChildGraph(
     contentType: 'image/png',
     body: Buffer.from('synthetic-cover'),
   });
-
   await prisma.milestone.create({
     data: {
       id: milestoneId,
@@ -464,11 +432,9 @@ async function seedFullChildGraph(
       name: `합성 마일스톤 ${label}`,
       startAt: new Date('2026-08-06T00:00:00.000Z'),
       dueAt: new Date('2026-09-01T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.FILE,
       instructions: 'Synthetic instructions',
     },
   });
-
   await prisma.team.create({
     data: {
       id: teamId,
@@ -518,7 +484,6 @@ async function seedFullChildGraph(
       invitedById: leaderId,
     },
   });
-
   await prisma.application.create({
     data: {
       id: applicationId,
@@ -532,7 +497,6 @@ async function seedFullChildGraph(
       processedAt: NOW,
     },
   });
-
   await prisma.team.create({
     data: {
       id: p('published-team'),
@@ -561,9 +525,8 @@ async function seedFullChildGraph(
       processedAt: NOW,
     },
   });
-
   const provisionedRepositoryId = p('provisioned-repo');
-  const provisionedGithubRepositoryId = 9_875_400_000n + ordinal;
+  const provisionedGithubRepositoryId = 9875400000n + ordinal;
   await prisma.githubRepository.create({
     data: {
       id: provisionedRepositoryId,
@@ -601,7 +564,6 @@ async function seedFullChildGraph(
       closedAt: NOW,
     },
   });
-
   const repositoryInvitationId = p('repository-invitation');
   await prisma.repositoryInvitation.create({
     data: {
@@ -625,7 +587,7 @@ async function seedFullChildGraph(
   await prisma.contribution.create({
     data: {
       repositoryId: contributionRepositoryId,
-      githubId: 9_875_100_000n + ordinal,
+      githubId: 9875100000n + ordinal,
       date: new Date('2026-08-06T00:00:00.000Z'),
       commitCount: 1,
     },
@@ -644,7 +606,7 @@ async function seedFullChildGraph(
     data: {
       id: collectionPullRequestFactId,
       repositoryId: provisionedRepositoryId,
-      githubPullRequestId: 9_875_600_000n + ordinal,
+      githubPullRequestId: 9875600000n + ordinal,
       state: 'MERGED',
       createdAt: NOW,
     },
@@ -654,11 +616,10 @@ async function seedFullChildGraph(
     data: {
       id: collectionReleaseFactId,
       repositoryId: provisionedRepositoryId,
-      githubReleaseId: 9_875_700_000n + ordinal,
+      githubReleaseId: 9875700000n + ordinal,
       publishedAt: NOW,
     },
   });
-
   await prisma.githubRepository.create({
     data: {
       id: externalRepositoryId,
@@ -669,7 +630,6 @@ async function seedFullChildGraph(
       visibility: RepositoryVisibility.PUBLIC,
     },
   });
-
   await prisma.githubRepository.create({
     data: {
       id: publishedRepositoryId,
@@ -683,7 +643,6 @@ async function seedFullChildGraph(
       publishedAt: NOW,
     },
   });
-
   await prisma.boardPost.create({
     data: {
       id: boardPostId,
@@ -702,7 +661,6 @@ async function seedFullChildGraph(
       body: 'Synthetic comment',
     },
   });
-
   await prisma.milestoneDocument.create({
     data: {
       id: documentId,
@@ -710,7 +668,6 @@ async function seedFullChildGraph(
       name: '합성 서류 항목',
       required: true,
       sortOrder: 1,
-      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
     },
   });
   await storage.put({
@@ -751,14 +708,19 @@ async function seedFullChildGraph(
       actorId: applicantId,
     },
   });
-  await prisma.milestoneDocumentReviewHistory.create({
+  await prisma.milestoneDocumentSubmissionHistory.create({
     data: {
       id: p('document-review-history'),
       milestoneDocumentSubmissionId: documentSubmissionId,
-      submissionHistoryId: documentSubmissionHistoryId,
-      reviewerId: staffId,
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      event: ReviewDecision.CHANGES_REQUESTED,
+      actorId: staffId,
       comment: 'Synthetic changes requested',
+      revision: (
+        await prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
+          where: { id: documentSubmissionHistoryId },
+          select: { revision: true },
+        })
+      ).revision,
     },
   });
   await storage.put({
@@ -783,7 +745,6 @@ async function seedFullChildGraph(
       expiresAt: new Date('2030-01-01T00:00:00.000Z'),
     },
   });
-
   await prisma.program.update({
     where: { id: programId },
     data: {
@@ -810,7 +771,6 @@ async function seedFullChildGraph(
       expiresAt: new Date('2030-01-01T00:00:00.000Z'),
     },
   });
-
   await prisma.outboxEvent.create({
     data: {
       id: p('outbox-event'),
@@ -821,7 +781,6 @@ async function seedFullChildGraph(
       payload: { seedPlaceholder: true },
     },
   });
-
   const applicationOutboxEventId = p('application-outbox-event');
   await prisma.outboxEvent.create({
     data: {
@@ -833,7 +792,6 @@ async function seedFullChildGraph(
       payload: { applicationId, programId },
     },
   });
-
   const applicationDecisionNotificationId = p(
     'application-decision-notification',
   );
@@ -855,7 +813,6 @@ async function seedFullChildGraph(
       },
     },
   });
-
   const applicationDecisionAcknowledgedNotificationId = p(
     'application-decision-acknowledged-notification',
   );
@@ -873,7 +830,6 @@ async function seedFullChildGraph(
       },
     },
   });
-
   const deadlineDigestNotificationId = p('deadline-digest-notification');
   await prisma.notification.create({
     data: {
@@ -887,7 +843,6 @@ async function seedFullChildGraph(
       sentAt: NOW,
     },
   });
-
   return {
     programId,
     milestoneId,
@@ -914,7 +869,6 @@ async function seedFullChildGraph(
     publishedGithubRepositoryId,
   };
 }
-
 async function seedStandaloneProgram(label: string): Promise<string> {
   const programId = `${PREFIX}${label}:program`;
   await prisma.program.create({
@@ -939,7 +893,6 @@ async function seedStandaloneProgram(label: string): Promise<string> {
   });
   return programId;
 }
-
 async function currentDeletionScopeCounts(programId: string) {
   return prisma.$transaction((transaction) =>
     new ProgramDeletionScopeRepository().readProgramDeletionScopeCounts(
@@ -948,7 +901,6 @@ async function currentDeletionScopeCounts(programId: string) {
     ),
   );
 }
-
 async function programChildRowCounts(
   programId: string,
   applicationIds: readonly string[] = [],
@@ -968,7 +920,6 @@ async function programChildRowCounts(
     milestoneDocumentTemplateFiles,
     milestoneDocumentSubmissions,
     milestoneDocumentSubmissionHistories,
-    milestoneDocumentReviewHistories,
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
@@ -1012,13 +963,6 @@ async function programChildRowCounts(
     prisma.milestoneDocumentSubmissionHistory.count({
       where: {
         submission: {
-          milestoneDocument: { milestone: { programId } },
-        },
-      },
-    }),
-    prisma.milestoneDocumentReviewHistory.count({
-      where: {
-        milestoneDocumentSubmission: {
           milestoneDocument: { milestone: { programId } },
         },
       },
@@ -1071,7 +1015,6 @@ async function programChildRowCounts(
     milestoneDocumentTemplateFiles,
     milestoneDocumentSubmissions,
     milestoneDocumentSubmissionHistories,
-    milestoneDocumentReviewHistories,
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
@@ -1079,22 +1022,17 @@ async function programChildRowCounts(
     programLinkedNotifications,
   };
 }
-
 describe('Program purge integration — full child graph, worker file deletion, EXTERNAL_PUBLIC preservation', () => {
   beforeAll(async () => {
     await Promise.all([prisma.$connect(), concurrentPrisma.$connect()]);
   }, DATABASE_CONNECTION_TIMEOUT_MS);
-
   beforeEach(cleanup);
-
   afterEach(cleanup);
-
   afterAll(async () => {
     await cleanup();
     s3.destroy();
     await Promise.all([prisma.$disconnect(), concurrentPrisma.$disconnect()]);
   });
-
   it.each([
     ProgramLifecycle.PUBLISHED,
     ProgramLifecycle.ARCHIVED,
@@ -1128,7 +1066,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       expect(studentLock).toBe(status !== ProgramLifecycle.DELETED);
     },
   );
-
   it('ordinary deletion queues a cover and a failed storage deletion remains retryable', async () => {
     await ensureGlobalActors();
     const programId = `${PREFIX}cover-delete`;
@@ -1136,8 +1073,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     await prisma.program.create({
       data: {
         startAt: NOW,
-        endAt: new Date(NOW.getTime() + 365 * 86_400_000),
-
+        endAt: new Date(NOW.getTime() + 365 * 86400000),
         id: programId,
         name: '합성 표지 삭제 프로그램',
         organizer: 'Synthetic OSS Center',
@@ -1156,9 +1092,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       contentType: 'image/png',
       body: Buffer.from('synthetic-cover'),
     });
-
     await lifecycle.delete(ADMIN_GITHUB_ID, programId);
-
     await expect(
       prisma.program.findUnique({ where: { id: programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
@@ -1174,7 +1108,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     await expect(failingCleanup.runDue()).resolves.toBe(1);
     await expect(objectExists(storageKey)).resolves.toBe(true);
     const nextDeleteAttemptAt = new Date(
-      attemptedAt.getTime() + 60 * 60 * 1_000,
+      attemptedAt.getTime() + 60 * 60 * 1000,
     );
     await expect(
       prisma.programPurgeFileTombstone.findUnique({ where: { storageKey } }),
@@ -1183,7 +1117,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       deleteAttemptCount: 1,
       nextDeleteAttemptAt,
     });
-
     const retryCleanup = new ProgramPurgeFileCleanupService(
       new ProgramPurgeFileCleanupRepository(prisma),
       storage,
@@ -1197,7 +1130,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
     });
   });
-
   it('retains the entire child graph and repository links while workers delete only stored bytes', async () => {
     const fixture = await seedFullChildGraph(
       'full',
@@ -1232,7 +1164,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
           githubRepositoryId: true,
         },
       });
-
     const before = await programChildRowCounts(fixture.programId, [
       fixture.applicationId,
     ]);
@@ -1246,11 +1177,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
 
     expect(before.applications).toBe(2);
     expect(before.milestoneDocumentSubmissions).toBe(1);
-    expect(before.milestoneDocumentSubmissionHistories).toBe(1);
-    expect(before.milestoneDocumentReviewHistories).toBe(1);
+    expect(before.milestoneDocumentSubmissionHistories).toBe(2);
     expect(before.outboxEvents).toBe(2);
     expect(before.programLinkedNotifications).toBe(2);
-
     await expect(
       prisma.repositoryInvitation.findUnique({
         where: { id: fixture.repositoryInvitationId },
@@ -1276,12 +1205,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.collectionReleaseFactId },
       }),
     ).resolves.not.toBeNull();
-
     const beforePurgePage = await publicProjects.listPage(null, 50);
     expect(
       beforePurgePage.some((row) => row.id === fixture.publishedRepositoryId),
     ).toBe(true);
-
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     const result = await lifecycle.purge(
       ADMIN_GITHUB_ID,
@@ -1298,11 +1225,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
         submissionFiles: 1,
         milestoneDocumentSubmissions: 0,
         milestoneDocumentSubmissionHistories: 0,
-        milestoneDocumentReviewHistories: 0,
         programPurgeFileTombstones: 2,
       },
     });
-
     const after = await programChildRowCounts(fixture.programId, [
       fixture.applicationId,
     ]);
@@ -1321,7 +1246,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         select: { id: true, githubId: true, accountStatus: true },
       }),
     ).resolves.toEqual(applicantBefore);
-
     await expect(
       prisma.notification.findUnique({
         where: { id: fixture.applicationDecisionNotificationId },
@@ -1337,13 +1261,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.deadlineDigestNotificationId },
       }),
     ).resolves.not.toBeNull();
-
     await expect(
       prisma.outboxEvent.findUnique({
         where: { id: fixture.applicationOutboxEventId },
       }),
     ).resolves.not.toBeNull();
-
     await expect(
       prisma.repositoryIssuanceHistory.findUnique({
         where: { id: fixture.repositoryIssuanceHistoryId },
@@ -1353,7 +1275,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       outcome: RepositoryIssuanceOutcome.SUCCEEDED,
       repositoryId: fixture.provisionedRepositoryId,
     });
-
     await expect(
       prisma.repositoryInvitation.findUnique({
         where: { id: fixture.repositoryInvitationId },
@@ -1384,7 +1305,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.collectionReleaseFactId },
       }),
     ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
-
     const orphanSubmissionFile = await prisma.submissionFile.findFirst({
       where: { storageKey: fixture.submissionFileStorageKey },
     });
@@ -1393,7 +1313,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       ...submissionFileBefore,
     });
     expect(await objectExists(fixture.submissionFileStorageKey)).toBe(true);
-
     const tombstone = await prisma.programPurgeFileTombstone.findUnique({
       where: { storageKey: fixture.templateFileStorageKey },
     });
@@ -1409,12 +1328,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
     });
     expect(await objectExists(fixture.coverStorageKey)).toBe(true);
-
     const submissionFileCleanupClaims = await submissionFileCleanup.runDue();
     expect(submissionFileCleanupClaims).toBeGreaterThanOrEqual(1);
     const templateFileCleanupClaims = await purgeFileCleanup.runDue();
     expect(templateFileCleanupClaims).toBeGreaterThanOrEqual(1);
-
     expect(await objectExists(fixture.submissionFileStorageKey)).toBe(false);
     expect(await objectExists(fixture.templateFileStorageKey)).toBe(false);
     expect(await objectExists(fixture.coverStorageKey)).toBe(false);
@@ -1439,7 +1356,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toMatchObject({
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
     });
-
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },
     });
@@ -1448,7 +1364,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       githubRepositoryId: fixture.externalGithubRepositoryId,
       source: RepositorySource.EXTERNAL_PUBLIC,
     });
-
     const provisionedRepositories = await prisma.githubRepository.findMany({
       where: { nameWithOwner: { startsWith: 'purge7-org/full-provisioned' } },
     });
@@ -1459,24 +1374,20 @@ describe('Program purge integration — full child graph, worker file deletion, 
       teamId: fixture.teamId,
       source: RepositorySource.ORG_PROVISIONED,
     });
-
     const publishedRepositoryAfter = await prisma.githubRepository.findUnique({
       where: { id: fixture.publishedRepositoryId },
     });
     expect(publishedRepositoryAfter).toMatchObject(publishedRepositoryBefore);
-
     const afterPurgePage = await publicProjects.listPage(null, 50);
     expect(
       afterPurgePage.some((row) => row.id === fixture.publishedRepositoryId),
     ).toBe(false);
-
     const audit = await prisma.auditLog.findFirst({
       where: { targetType: 'PROGRAM', targetId: fixture.programId },
       orderBy: { occurredAt: 'desc' },
     });
     expect(audit?.action).toBe('PROGRAM_DELETED');
   });
-
   it('purges a populated ARCHIVED program while preserving its account and unrelated programs', async () => {
     const fixture = await seedFullChildGraph(
       'archived',
@@ -1491,14 +1402,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
       where: { id: applicant.applicantId },
       select: { id: true, githubId: true, accountStatus: true },
     });
-
     await expect(
       prisma.program.findUnique({
         where: { id: fixture.programId },
         select: { lifecycle: true },
       }),
     ).resolves.toEqual({ lifecycle: ProgramLifecycle.ARCHIVED });
-
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     expect(expectedScope).toMatchObject({
       applications: 2,
@@ -1520,7 +1429,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         submissionFiles: 1,
       },
     });
-
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
@@ -1556,12 +1464,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const unrelatedProgram = await prisma.program.findUniqueOrThrow({
       where: { id: unrelatedProgramId },
     });
-
     const expectedScope = await currentDeletionScopeCounts(programId);
     await expect(
       lifecycle.purge(ADMIN_GITHUB_ID, programId, expectedScope),
     ).resolves.toMatchObject({ id: programId, deleted: true });
-
     await expect(
       prisma.program.findUnique({ where: { id: programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
@@ -1613,7 +1519,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         deletedAt,
       },
     });
-
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     await expect(
       lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
@@ -1622,7 +1527,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       deleted: true,
       deletedCounts: { submissionFiles: 1 },
     });
-
     await expect(
       prisma.submissionFile.findUnique({ where: { id: deletedFileId } }),
     ).resolves.toMatchObject({
@@ -1634,22 +1538,18 @@ describe('Program purge integration — full child graph, worker file deletion, 
       milestoneDocumentSubmissionHistoryId: history.id,
     });
   });
-
   it('STAFF가 purge하면 삭제 상태가 되고 감사 로그의 행위자가 그 교직원이다', async () => {
     const fixture = await seedFullChildGraph('staff-allowed');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
-
     const result = await lifecycle.purge(
       STAFF_GITHUB_ID,
       fixture.programId,
       expectedScope,
     );
     expect(result).toMatchObject({ id: fixture.programId, deleted: true });
-
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
-
     const staff = await prisma.user.findUniqueOrThrow({
       where: { githubId: STAFF_GITHUB_ID },
       select: { id: true },
@@ -1661,11 +1561,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(audit?.action).toBe('PROGRAM_DELETED');
     expect(audit?.actorId).toBe(staff.id);
   });
-
   it('STAFF의 purge도 확인 후 자식 행이 생기면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {
     const fixture = await seedFullChildGraph('staff-toctou-race');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
-
     const raceBoardPostId = `${fixture.programId}-staff-race-board-post`;
     const applicant = await prisma.application.findUniqueOrThrow({
       where: { id: fixture.applicationId },
@@ -1681,7 +1579,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         body: 'Inserted after scope confirmation, before staff purge',
       },
     });
-
     await expect(
       lifecycle.purge(STAFF_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toBeInstanceOf(DomainException);
@@ -1690,7 +1587,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.PROGRAM_PURGE_SCOPE_CHANGED },
     });
-
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
@@ -1701,10 +1597,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after.applications).toBe(2);
     expect(after.boardPosts).toBe(2);
   });
-
   it('STAFF의 일반 삭제도 모든 자식 행을 보존한다', async () => {
     const fixture = await seedFullChildGraph('staff-blocked');
-
     const before = await programChildRowCounts(fixture.programId);
     await expect(
       lifecycle.delete(STAFF_GITHUB_ID, fixture.programId),
@@ -1716,10 +1610,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
   });
-
   it('stale_state: purge 이후 같은 프로그램에 대한 기존 가드 delete는 정지된 blockingCounts가 아니라 PROGRAM_NOT_FOUND를 던진다', async () => {
     const fixture = await seedFullChildGraph('stale-state');
-
     const staleStateExpectedScope = await currentDeletionScopeCounts(
       fixture.programId,
     );
@@ -1728,7 +1620,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.programId,
       staleStateExpectedScope,
     );
-
     await expect(
       lifecycle.delete(ADMIN_GITHUB_ID, fixture.programId),
     ).rejects.toMatchObject({
@@ -1744,15 +1635,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
       errorCode: { code: ProgramErrorCode.PROGRAM_NOT_FOUND },
     });
   });
-
   it('atomicity: 트랜잭션 중간에 실패를 유도하면 전부 롤백되고 부분 삭제가 남지 않는다', async () => {
     const fixture = await seedFullChildGraph('atomic-rollback');
     const before = await programChildRowCounts(fixture.programId, [
       fixture.applicationId,
     ]);
     expect(before.milestones).toBe(1);
-    expect(before.milestoneDocumentReviewHistories).toBe(1);
-
     const failingAuditLog = {
       record: jest.fn().mockRejectedValue(new Error('induced audit failure')),
     } as unknown as AuditLogService;
@@ -1766,11 +1654,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
       new PrismaSerializationRetryRepository(),
     );
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
-
     await expect(
       failingLifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toThrow('induced audit failure');
-
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
@@ -1795,10 +1681,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(externalRepository?.programId).toBe(fixture.programId);
   });
-
   it('전체 삭제는 프로그램 상태만 DELETED로 바꾼다', async () => {
     const fixture = await seedFullChildGraph('unprotected');
-
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     const result = await lifecycle.purge(
       ADMIN_GITHUB_ID,
@@ -1810,10 +1694,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
   });
-
   it('race: 확인 후·purge 전에 생긴 자식 행이 있으면 409 PRG_014로 거부하고 아무것도 지우지 않는다', async () => {
     const fixture = await seedFullChildGraph('toctou-race');
-
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     expect(expectedScope).toMatchObject({
       applications: 2,
@@ -1823,7 +1705,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       submissionEvents: 3,
     });
     expect(expectedScope.scopeFingerprint).toMatch(/^[0-9a-f]{32}$/);
-
     const raceBoardPostId = `${fixture.programId}-race-board-post`;
     const applicant = await prisma.application.findUniqueOrThrow({
       where: { id: fixture.applicationId },
@@ -1839,7 +1720,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         body: 'Inserted after scope confirmation, before purge',
       },
     });
-
     await expect(
       lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toMatchObject({
@@ -1853,7 +1733,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         },
       },
     });
-
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
@@ -1869,7 +1748,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after.boardPosts).toBe(2);
     expect(after.milestoneDocumentSubmissions).toBe(1);
   });
-
   it('race: 확인 뒤 추가된 댓글은 요약 건수가 같아도 지문 변경으로 삭제를 중단한다', async () => {
     const fixture = await seedFullChildGraph('toctou-comment-race');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
@@ -1886,7 +1764,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         body: '확인 화면 이후에 추가된 댓글',
       },
     });
-
     await expect(
       lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
     ).rejects.toMatchObject({
@@ -1905,7 +1782,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.boardComment.findUnique({ where: { id: commentId } }),
     ).resolves.not.toBeNull();
   });
-
   const IN_TRANSACTION_RACE_CASES: readonly {
     readonly scopeField:
       'applications' | 'teams' | 'boardPosts' | 'submissions';
@@ -1990,7 +1866,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
             name: 'Committed target document during purge',
             required: true,
             sortOrder: 2,
-            kind: MilestoneDocumentKind.DOCUMENT,
           },
         });
         await concurrentPrisma.milestoneDocumentSubmission.create({
@@ -2011,7 +1886,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     },
   ];
-
   it.each(IN_TRANSACTION_RACE_CASES)(
     'race: 상태 삭제는 자식을 지우지 않으므로 확인 snapshot 이후 추가된 $scopeField를 보존하고 성공한다',
     async ({ scopeField, insertRacingChildRow }) => {
@@ -2062,7 +1936,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
         new PrismaSerializationRetryRepository(),
       );
       const raceRowId = `${fixture.programId}-in-tx-race-${scopeField}`;
-
       const purge = pausingLifecycle.purge(
         ADMIN_GITHUB_ID,
         fixture.programId,
@@ -2074,7 +1947,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       } finally {
         resumePurge.resolve();
       }
-
       await expect(purge).resolves.toMatchObject({
         id: fixture.programId,
         deleted: true,
@@ -2110,30 +1982,25 @@ describe('Program purge integration — full child graph, worker file deletion, 
       ).resolves.toBeNull();
     },
   );
-
   it('purge는 클라이언트가 보낸 expectedScope가 현재 범위와 일치하면 성공한다', async () => {
     const fixture = await seedFullChildGraph('scope-matches');
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
-
     const result = await lifecycle.purge(
       ADMIN_GITHUB_ID,
       fixture.programId,
       expectedScope,
     );
-
     expect(result).toMatchObject({ id: fixture.programId, deleted: true });
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
   });
 });
-
 type InteractiveTransactionOptions = {
   readonly maxWait?: number;
   readonly timeout?: number;
   readonly isolationLevel?: Prisma.TransactionIsolationLevel;
 };
-
 function deferred(): {
   readonly promise: Promise<void>;
   readonly resolve: () => void;
@@ -2144,7 +2011,6 @@ function deferred(): {
   });
   return { promise, resolve: () => resolve() };
 }
-
 function pausingScopeReadPrisma(
   onScopeRead: () => Promise<void>,
   captureOptions: (options: InteractiveTransactionOptions | undefined) => void,

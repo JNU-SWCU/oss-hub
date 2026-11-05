@@ -3,11 +3,7 @@ import { ProgramScheduleService } from '../src/programs/program-schedule.service
 import { SubmissionFileAdmissionService } from '../src/programs/submission-file-admission.service';
 import { ProgramAuthoringUploadService } from '../src/programs/program-authoring-upload.service';
 import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
-import {
-  AccountStatus,
-  MilestoneSubmissionType,
-  ProgramTrackType,
-} from '@prisma/client';
+import { AccountStatus, ProgramTrackType } from '@prisma/client';
 import {
   ProgramEditorService,
   type UpdateProgramCommand,
@@ -18,7 +14,6 @@ import type {
   ProgramEditorTransactionStore,
 } from '../src/programs/program-editor.repository';
 import { ProgramCoverUrlService } from '../src/programs/program-cover-url.service';
-
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',
   organizer: '  SW Center  ',
@@ -33,14 +28,12 @@ export const updateInput: UpdateProgramCommand = {
   teamMinSize: 2,
   teamMaxSize: 4,
 };
-
 export const milestoneInput: UpsertMilestoneCommand = {
   name: '  Final  ',
   startAt: '2026-08-16T00:00:00.000Z',
   dueAt: '2026-08-20T00:00:00.000Z',
   instructions: '  tag v1.0.0  ',
 };
-
 export const editableProgram = {
   coverId: null,
   coverExternalImageUrl: null,
@@ -65,14 +58,12 @@ export const editableProgram = {
       name: 'Existing',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.FILE,
       instructions: null,
     },
   ],
   teamMinSize: 1,
   teamMaxSize: 1,
 } as const;
-
 export function createProgramEditorServiceHarness(): {
   readonly service: ProgramEditorService;
   readonly store: jest.Mocked<ProgramEditorTransactionStore>;
@@ -89,7 +80,6 @@ export function createProgramEditorServiceHarness(): {
     updateMilestone: jest.fn(),
     findLatestDocumentGraceDueAt: jest.fn().mockResolvedValue(null),
     findEarliestDocumentGraceDueAt: jest.fn().mockResolvedValue(null),
-
     findMilestoneForDelete: jest.fn(),
     deleteMilestone: jest.fn(),
     lockMilestoneEdit: jest.fn(),

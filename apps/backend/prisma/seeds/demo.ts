@@ -1,7 +1,7 @@
+import { Prisma } from '@prisma/client';
 import {
   ApplicationStatus,
   BoardPostCategory,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
@@ -18,13 +18,10 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertConsent, upsertSeedProfile, upsertSeedUser } from './user';
-
 const DEMO_SUBMISSION_FILE_STORAGE_PREFIX = 'submission-files/seed-demo/';
-
 function demoSubmissionFileStorageKey(fileId: string): string {
   return `${DEMO_SUBMISSION_FILE_STORAGE_PREFIX}${fileId}`;
 }
-
 function demoSubmissionFilePlaceholderBody(originalFileName: string): Buffer {
   return Buffer.from(
     `이 파일은 oss-hub demo profile이 만든 시연용 placeholder입니다.\n` +
@@ -32,7 +29,6 @@ function demoSubmissionFilePlaceholderBody(originalFileName: string): Buffer {
     'utf-8',
   );
 }
-
 type DemoStudent = {
   readonly slug: string;
   readonly name: string;
@@ -40,7 +36,6 @@ type DemoStudent = {
   readonly department: string;
   readonly emailLocalPart: string;
 };
-
 const DEMO_STUDENTS: readonly DemoStudent[] = [
   {
     slug: 'kim-doyoon',
@@ -141,16 +136,15 @@ const DEMO_STUDENTS: readonly DemoStudent[] = [
     emailLocalPart: 'baek.hyunwoo',
   },
 ] as const;
-
 const DEMO_STAFF_NAME = '합성 사업단 담당자';
 const DEMO_STAFF_DEPARTMENT = '오픈소스 SW 개발 사업단';
-
 const DEMO_STAFF_CONTACT_EMAIL = 'sw-center.inquiry@demo.invalid';
-
 async function upsertDemoStudent(
   stats: SeedStats,
   student: DemoStudent,
-): Promise<{ readonly id: string }> {
+): Promise<{
+  readonly id: string;
+}> {
   const id = seedId('demo', 'user', student.slug);
   const user = await upsertSeedUser(stats, { id, role: 'STUDENT' });
   await upsertConsent(stats, user.id);
@@ -170,11 +164,12 @@ async function upsertDemoStudent(
   });
   return user;
 }
-
 async function upsertDemoStaff(
   stats: SeedStats,
   slug: string,
-): Promise<{ readonly id: string }> {
+): Promise<{
+  readonly id: string;
+}> {
   const id = seedId('demo', 'user', slug);
   const user = await upsertSeedUser(stats, { id, role: 'STAFF' });
   await upsertConsent(stats, user.id);
@@ -194,14 +189,12 @@ async function upsertDemoStaff(
   });
   return user;
 }
-
 type DemoTeamSeed = {
   readonly teamSlug: string;
   readonly teamName: string;
   readonly leader: DemoStudent;
   readonly members: readonly DemoStudent[];
 };
-
 async function upsertDemoTeam(
   stats: SeedStats,
   programId: string,
@@ -229,7 +222,6 @@ async function upsertDemoTeam(
         },
       }),
   );
-
   for (const memberUserId of memberUserIds) {
     await upsertTracked(
       stats,
@@ -246,10 +238,8 @@ async function upsertDemoTeam(
         }),
     );
   }
-
   return teamId;
 }
-
 async function upsertDemoApplication(
   stats: SeedStats,
   params: {
@@ -290,7 +280,6 @@ async function upsertDemoApplication(
       }),
   );
 }
-
 type DemoMilestoneSeed = {
   readonly id: string;
   readonly programId: string;
@@ -300,7 +289,6 @@ type DemoMilestoneSeed = {
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions: string;
 };
-
 async function upsertDemoMilestone(
   stats: SeedStats,
   params: DemoMilestoneSeed,
@@ -316,7 +304,6 @@ async function upsertDemoMilestone(
           name: params.name,
           startAt: params.startAt,
           dueAt: params.dueAt,
-          submissionType: params.submissionType,
           instructions: params.instructions,
         },
         create: {
@@ -325,13 +312,24 @@ async function upsertDemoMilestone(
           name: params.name,
           startAt: params.startAt,
           dueAt: params.dueAt,
-          submissionType: params.submissionType,
           instructions: params.instructions,
         },
       }),
   );
+  const requirementId = seedId('demo', 'milestone-document', params.id);
+  await prisma.milestoneDocument.upsert({
+    where: { id: requirementId },
+    update: { name: params.name, submissionType: params.submissionType },
+    create: {
+      id: requirementId,
+      milestoneId: params.id,
+      name: params.name,
+      required: true,
+      sortOrder: -1,
+      submissionType: params.submissionType,
+    },
+  });
 }
-
 type DemoSubmissionContent =
   | {
       readonly kind: typeof MilestoneSubmissionType.TEXT;
@@ -339,19 +337,16 @@ type DemoSubmissionContent =
     }
   | {
       readonly kind: typeof MilestoneSubmissionType.FILE;
-
       readonly comment: string;
       readonly originalFileName: string;
       readonly mimeType: string;
     };
-
 type DemoReview = {
   readonly decision:
     typeof ReviewDecision.APPROVED | typeof ReviewDecision.CHANGES_REQUESTED;
   readonly comment: string;
   readonly reviewedAt: Date;
 };
-
 async function upsertDemoSubmission(
   stats: SeedStats,
   storage: ObjectStoragePort,
@@ -379,10 +374,10 @@ async function upsertDemoSubmission(
         create: {
           id: documentId,
           milestoneId: params.milestoneId,
-          name: '내부 제출 자료',
+          name: '제출 자료',
+          submissionType: params.content.kind,
           required: true,
           sortOrder: -1,
-          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       }),
   );
@@ -465,11 +460,9 @@ async function upsertDemoSubmission(
         },
       }),
   );
-
   const fileContent = params.content;
   if (fileContent.kind === MilestoneSubmissionType.FILE) {
     const storageKey = demoSubmissionFileStorageKey(fileId);
-
     const storedFile = await storage.put({
       objectKey: storageKey,
       originalName: fileContent.originalFileName,
@@ -507,7 +500,6 @@ async function upsertDemoSubmission(
         }),
     );
   }
-
   if (params.review && params.reviewerId) {
     const review = params.review;
     const reviewerId = params.reviewerId;
@@ -546,7 +538,6 @@ async function upsertDemoSubmission(
     );
   }
 }
-
 async function upsertDemoBoardPost(
   stats: SeedStats,
   params: {
@@ -585,7 +576,6 @@ async function upsertDemoBoardPost(
       }),
   );
 }
-
 async function upsertDemoBoardComment(
   stats: SeedStats,
   params: {
@@ -614,7 +604,6 @@ async function upsertDemoBoardComment(
       }),
   );
 }
-
 async function upsertDemoProgram(
   stats: SeedStats,
   params: {
@@ -664,27 +653,28 @@ async function upsertDemoProgram(
           teamMinSize: params.teamMinSize,
           teamMaxSize: params.teamMaxSize,
           description: params.description,
-
           repositoryProvisioningEnabled: false,
         },
       }),
   );
 }
-
 function inquiryParagraph(): string {
   return (
     `문의 안내: 프로그램 운영·일정 관련 문의는 담당자 이메일(${DEMO_STAFF_CONTACT_EMAIL}, 시연용 ` +
     '합성 주소)로 접수해 주세요. 답변은 접수 순서대로 영업일 기준 2일 이내 드립니다 (seed fixture).'
   );
 }
-
 export async function seedDemo(
   stats: SeedStats,
   storage: ObjectStoragePort,
 ): Promise<void> {
   const staff = await upsertDemoStaff(stats, 'staff-lead');
-
-  const students = new Map<string, { readonly id: string }>();
+  const students = new Map<
+    string,
+    {
+      readonly id: string;
+    }
+  >();
   for (const student of DEMO_STUDENTS) {
     students.set(student.slug, await upsertDemoStudent(stats, student));
   }
@@ -692,7 +682,6 @@ export async function seedDemo(
     DEMO_STUDENTS.find((student) => student.slug === slug)!;
   const studentId = (slug: DemoStudent['slug']): string =>
     students.get(slug)!.id;
-
   const internshipProgramId = seedId('demo', 'program', 'summer-internship');
   await upsertDemoProgram(stats, {
     id: internshipProgramId,
@@ -799,7 +788,6 @@ export async function seedDemo(
     body: '네, 자유 양식이며 A4 1장 내외를 권장합니다 (seed fixture).',
     createdAt: offsetDays(-8),
   });
-
   const contestProgramId = seedId('demo', 'program', 'oss-developer-contest');
   await upsertDemoProgram(stats, {
     id: contestProgramId,
@@ -825,7 +813,6 @@ export async function seedDemo(
     teamMinSize: 2,
     teamMaxSize: 4,
   });
-
   type ContestTeamSeed = {
     readonly teamSlug: string;
     readonly teamName: string;
@@ -835,24 +822,19 @@ export async function seedDemo(
     readonly summary: string;
     readonly submittedAt: Date;
     readonly processedAt: Date;
-
     readonly demoDaySubmissionSlug?: string;
-
     readonly demoDayOriginalFileName?: string;
-
     readonly demoDaySubmission: {
       readonly status: SubmissionStatus;
       readonly comment: string;
       readonly review?: DemoReview;
     };
-
     readonly finalSubmission?: {
       readonly status: SubmissionStatus;
       readonly text: string;
       readonly review?: DemoReview;
     };
   };
-
   const CONTEST_TEAMS: readonly ContestTeamSeed[] = [
     {
       teamSlug: 'oss-contest-hanbit',
@@ -864,7 +846,6 @@ export async function seedDemo(
         '학사 일정 알림을 구독형으로 제공하는 오픈소스 프로젝트(합성 fixture).',
       submittedAt: offsetDays(-32),
       processedAt: offsetDays(-29),
-
       demoDaySubmissionSlug: 'oss-contest-demo-day',
       demoDayOriginalFileName: 'oss-contest-demo-day-draft.pdf',
       demoDaySubmission: {
@@ -972,7 +953,6 @@ export async function seedDemo(
       },
     },
   ];
-
   const contestMilestoneId = seedId(
     'demo',
     'milestone',
@@ -1005,7 +985,6 @@ export async function seedDemo(
       '운영 방식: 최종 산출물 요약과 시연 영상(또는 링크)을 정리해 제출합니다. 발표는 대회 ' +
       '종료 주간에 별도 공지된 일정으로 진행합니다 (seed fixture).',
   });
-
   for (const team of CONTEST_TEAMS) {
     const leaderUserId = studentId(team.leaderSlug);
     const memberUserIds = team.memberSlugs.map((slug) => studentId(slug));
@@ -1032,7 +1011,6 @@ export async function seedDemo(
       submittedAt: team.submittedAt,
       processedAt: team.processedAt,
     });
-
     const demoDaySubmissionSlug =
       team.demoDaySubmissionSlug ?? `${team.teamSlug}-demo-day`;
     const demoDayOriginalFileName =
@@ -1053,7 +1031,6 @@ export async function seedDemo(
       review: team.demoDaySubmission.review,
       reviewerId: team.demoDaySubmission.review ? staff.id : undefined,
     });
-
     if (team.finalSubmission) {
       await upsertDemoSubmission(stats, storage, {
         slug: `${team.teamSlug}-final`,
@@ -1071,7 +1048,6 @@ export async function seedDemo(
       });
     }
   }
-
   const contestPostId = seedId('demo', 'board-post', 'oss-contest-1');
   await upsertDemoBoardPost(stats, {
     id: contestPostId,
@@ -1103,7 +1079,6 @@ export async function seedDemo(
     pinned: true,
     createdAt: offsetDays(-1),
   });
-
   const freshmenProgramId = seedId('demo', 'program', 'freshmen-sw-bootcamp');
   await upsertDemoProgram(stats, {
     id: freshmenProgramId,
@@ -1199,7 +1174,6 @@ export async function seedDemo(
     body: '멘토링 시간은 별도로 조율하나요 (seed fixture)?',
     createdAt: offsetDays(-11),
   });
-
   const mileageProgramId = seedId('demo', 'program', 'sojoong-mileage');
   await upsertDemoProgram(stats, {
     id: mileageProgramId,
@@ -1311,32 +1285,28 @@ export async function seedDemo(
     createdAt: offsetDays(-28),
   });
 }
-
 export async function teardownDemo(
   stats: SeedStats,
   storage: ObjectStoragePort,
 ): Promise<void> {
   const seedDemoPrefix = 'seed:demo:';
   const seedIdFilter = { id: { startsWith: seedDemoPrefix } } as const;
-
   const countAndDelete = async (
     model: string,
-    deleteMany: () => Promise<{ readonly count: number }>,
+    deleteMany: () => Promise<{
+      readonly count: number;
+    }>,
   ): Promise<void> => {
     const result = await deleteMany();
     for (let i = 0; i < result.count; i += 1) {
       stats.updated(model);
     }
   };
-
-  await countAndDelete('MilestoneDocumentReviewHistory', () =>
-    prisma.milestoneDocumentReviewHistory.deleteMany({
-      where: {
-        milestoneDocumentSubmissionId: { startsWith: seedDemoPrefix },
-      },
-    }),
-  );
-
+  await countAndDelete('MilestoneDocumentReviewHistory', async () => ({
+    count: await prisma.$executeRaw(
+      Prisma.sql`DELETE FROM "MilestoneDocumentReviewHistory" WHERE left("milestoneDocumentSubmissionId", length(${seedDemoPrefix})) = ${seedDemoPrefix}`,
+    ),
+  }));
   const demoSubmissionFiles = await prisma.submissionFile.findMany({
     where: seedIdFilter,
     select: { storageKey: true },

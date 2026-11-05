@@ -147,9 +147,6 @@ async function cleanupTeamScope(): Promise<void> {
   await prisma.submissionFile.deleteMany({
     where: { uploaderId: { startsWith: TEST_PREFIX } },
   });
-  await prisma.milestoneDocumentReviewHistory.deleteMany({
-    where: { reviewerId: { startsWith: TEST_PREFIX } },
-  });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { actorId: { startsWith: TEST_PREFIX } },
   });
@@ -314,13 +311,18 @@ async function seedApprovedTeam(
         },
       },
     });
-    await prisma.milestoneDocumentReviewHistory.create({
+    await prisma.milestoneDocumentSubmissionHistory.create({
       data: {
         id: reviewHistoryId,
         milestoneDocumentSubmissionId: submissionId,
-        submissionHistoryId: historyId,
-        reviewerId: STAFF_ID,
-        decision: ReviewDecision.APPROVED,
+        event: ReviewDecision.APPROVED,
+        actorId: STAFF_ID,
+        revision: (
+          await prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
+            where: { id: historyId },
+            select: { revision: true },
+          })
+        ).revision,
       },
     });
     await prisma.submissionFile.create({
@@ -613,11 +615,6 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
   await expect(
     prisma.milestoneDocumentSubmissionHistory.count({
       where: { id: fixture.historyId },
-    }),
-  ).resolves.toBe(0);
-  await expect(
-    prisma.milestoneDocumentReviewHistory.count({
-      where: { id: fixture.reviewHistoryId },
     }),
   ).resolves.toBe(0);
   await expect(

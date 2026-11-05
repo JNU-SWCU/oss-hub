@@ -2,7 +2,7 @@ import { MilestoneDocumentFileNameService } from './milestone-document-file-name
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
@@ -12,12 +12,10 @@ import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-
 const prefix = 'qa152-program-archive';
 export const archiveId = (suffix: string) => `${prefix}-${suffix}`;
 const archiveNow = new Date('2026-09-03T00:00:00Z');
 export const retainedImage = Buffer.from([0x89, 0x50, 0x4e, 0x47]);
-
 export class ProgramArchiveIntegrationFixture {
   readonly prisma = new PrismaService();
   readonly storage = new S3ObjectStorageClient(new ObjectStorageConfig());
@@ -26,7 +24,7 @@ export class ProgramArchiveIntegrationFixture {
       this.prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(this.prisma),
     ),
     this.storage,
@@ -35,7 +33,6 @@ export class ProgramArchiveIntegrationFixture {
     new MilestoneDocumentFileNameService(),
     new DownloadResponseService(),
   );
-
   async seed(): Promise<void> {
     await this.prisma.$connect();
     await this.clear();
@@ -78,12 +75,10 @@ export class ProgramArchiveIntegrationFixture {
       await this.prisma.milestone.create({
         data: {
           startAt: new Date('2026-02-02'),
-
           id: archiveId(stage),
           programId: archiveId(program),
           name: `단계 ${stage}`,
           dueAt: new Date('2026-12-01'),
-          submissionType: stage === 'a1' ? 'TEXT' : null,
           documents: {
             create: {
               id: archiveId(`doc-${stage}`),
@@ -99,10 +94,9 @@ export class ProgramArchiveIntegrationFixture {
       data: {
         id: archiveId('legacy'),
         milestoneId: archiveId('a1'),
-        name: '숨긴 레거시',
+        name: '전환된 항목',
         required: false,
         sortOrder: 2,
-        kind: 'LEGACY_MILESTONE_SUBMISSION',
       },
     });
     for (const index of [0, 1, 2, 3]) {
@@ -169,7 +163,6 @@ export class ProgramArchiveIntegrationFixture {
     await this.addFile('a1', 2, retainedImage, 'png');
     await this.addFile('a2', 1, Buffer.from('%PDF-omitted-on-revision'), 'pdf');
   }
-
   private async addFile(
     stage: string,
     revision: number,
@@ -203,7 +196,6 @@ export class ProgramArchiveIntegrationFixture {
       },
     });
   }
-
   async clear(): Promise<void> {
     const programs = { in: [archiveId('a'), archiveId('b')] };
     const files = await this.prisma.submissionFile.findMany({
@@ -234,7 +226,6 @@ export class ProgramArchiveIntegrationFixture {
     await this.prisma.program.deleteMany({ where: { id: programs } });
     await this.prisma.user.deleteMany({ where: { id: archiveId('user') } });
   }
-
   async stop(): Promise<void> {
     await this.clear();
     await this.prisma.$disconnect();

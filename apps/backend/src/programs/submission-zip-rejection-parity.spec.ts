@@ -4,7 +4,6 @@ import { MilestoneDocumentSubmissionWindowService } from './milestone-document-s
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneSubmissionType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
@@ -25,11 +24,9 @@ import {
   SubmissionZipRejection,
   type SubmissionZipRejection as SubmissionZipRejectionType,
 } from './submission-zip.error';
-
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
 const UPLOAD_NOW = new Date('2026-09-01T00:00:00.000Z');
-
 const ARCHIVES: ReadonlyArray<readonly [string, () => Buffer]> = [
   ['중첩 압축', () => signatureValidZip([{ name: 'nested.zip' }])],
   [
@@ -48,7 +45,7 @@ const ARCHIVES: ReadonlyArray<readonly [string, () => Buffer]> = [
     '항목 수 초과',
     () =>
       signatureValidZip(
-        Array.from({ length: 1_001 }, (_, index) => ({
+        Array.from({ length: 1001 }, (_, index) => ({
           name: `entry-${index}.txt`,
         })),
       ),
@@ -72,8 +69,8 @@ const ARCHIVES: ReadonlyArray<readonly [string, () => Buffer]> = [
         {
           name: 'entry-ratio.txt',
           compressionMethod: 8,
-          compressedSize: 1_024,
-          uncompressedSize: 101 * 1_024,
+          compressedSize: 1024,
+          uncompressedSize: 101 * 1024,
         },
       ]),
   ],
@@ -83,13 +80,11 @@ const ARCHIVES: ReadonlyArray<readonly [string, () => Buffer]> = [
       signatureValidZip([{ name: 'unsupported.txt', compressionMethod: 99 }]),
   ],
 ];
-
 function submissionService() {
   const repository = {
     findActiveStudentByGithubId: jest.fn().mockResolvedValue('student-opaque'),
     findUploadAuthorization: jest.fn().mockResolvedValue({
       applicationApproved: true,
-      submissionType: MilestoneSubmissionType.FILE,
       dueAt: new Date('2099-01-01T00:00:00.000Z'),
       programEndAt: new Date('2099-12-31T00:00:00.000Z'),
       resubmissionStatus: null,
@@ -106,7 +101,6 @@ function submissionService() {
     new DownloadResponseService(),
   );
 }
-
 function milestoneDocumentService() {
   const repository = {
     findActiveUser: jest.fn().mockResolvedValue({
@@ -154,7 +148,6 @@ function milestoneDocumentService() {
     new UserProfileService(),
   );
 }
-
 async function rejectionCodeOf(promise: Promise<unknown>): Promise<string> {
   const [settled] = await Promise.allSettled([promise]);
   if (settled?.status !== 'rejected') {
@@ -165,7 +158,6 @@ async function rejectionCodeOf(promise: Promise<unknown>): Promise<string> {
   }
   return settled.reason.errorCode.code;
 }
-
 describe('제출 경로와 서류 경로는 같은 압축 파일에 같은 구분으로 답한다', () => {
   it.each(ARCHIVES)('%s', async (_scenario, build) => {
     const archive = build();
@@ -175,14 +167,8 @@ describe('제출 경로와 서류 경로는 같은 압축 파일에 같은 구�
       mimetype: 'application/zip',
       size: archive.byteLength,
     };
-
     const submissionCode = await rejectionCodeOf(
-      submissionService().upload(
-        1n,
-        'application-opaque',
-        'milestone-opaque',
-        file,
-      ),
+      submissionService().check(file),
     );
     const documentCode = await rejectionCodeOf(
       milestoneDocumentService().upload(
@@ -193,7 +179,6 @@ describe('제출 경로와 서류 경로는 같은 압축 파일에 같은 구�
         UPLOAD_NOW,
       ),
     );
-
     const submission =
       SUBMISSIONS_ERROR_CODES[submissionCode as SubmissionsErrorCode];
     const document =
@@ -208,12 +193,10 @@ describe('제출 경로와 서류 경로는 같은 압축 파일에 같은 구�
     );
   });
 });
-
 describe('두 경로의 사유 표는 같은 갈래를 덮는다', () => {
   const reasons = Object.values(
     SubmissionZipRejection,
   ) as SubmissionZipRejectionType[];
-
   it('여덟 갈래 모두 양쪽에 코드가 있다', () => {
     for (const reason of reasons) {
       expect(SUBMISSION_ZIP_REJECTION_ERROR_CODES[reason]).toBeDefined();
@@ -222,7 +205,6 @@ describe('두 경로의 사유 표는 같은 갈래를 덮는다', () => {
       ).toBeDefined();
     }
   });
-
   it.each(
     Object.values(SubmissionZipRejection) as SubmissionZipRejectionType[],
   )('%s의 문구와 상태가 두 경로에서 같다', (reason) => {
@@ -232,12 +214,10 @@ describe('두 경로의 사유 표는 같은 갈래를 덮는다', () => {
       MILESTONE_DOCUMENTS_ERROR_CODES[
         MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[reason]
       ];
-
     expect(document.message).toBe(submission.message);
     expect(document.status).toBe(submission.status);
     expect(submission.status).toBe(422);
   });
-
   it('갈래마다 서로 다른 코드를 쓴다', () => {
     const submissionCodes = reasons.map(
       (reason) => SUBMISSION_ZIP_REJECTION_ERROR_CODES[reason],

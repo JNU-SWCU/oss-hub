@@ -23,9 +23,6 @@ const dueAt = '2099-06-30T14:59:59.000Z';
 
 async function clearExtra(): Promise<void> {
   const where = { applicationId: extra.application };
-  await fixture.prisma.milestoneDocumentReviewHistory.deleteMany({
-    where: { milestoneDocumentSubmission: where },
-  });
   await fixture.prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { submission: where },
   });

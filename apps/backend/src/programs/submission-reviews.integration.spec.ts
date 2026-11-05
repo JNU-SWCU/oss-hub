@@ -1,6 +1,5 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { randomUUID } from 'node:crypto';
@@ -41,14 +40,11 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-
 const repositoryUrlService = new RepositoryUrlService();
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const github = {
   publishRepository: jest.fn(),
@@ -69,11 +65,7 @@ const repositories = new RepositoriesService(
   new RepositoryUrlService(),
 );
 const service = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(
-    prisma,
-    new PlatformRepository(),
-    new SubmissionsRepository(prisma, new PlatformRepository()),
-  ),
+  new SubmissionReviewsRepository(prisma, new PlatformRepository()),
   repositories,
   new RepositoryPublishService(),
   new RepositoryUrlService(),
@@ -95,7 +87,6 @@ const CHANGES_REQUESTED_SUBMISSION_ID = seedId(
   'submission-changes-requested',
   'submission',
 );
-
 async function createFreshPrivateRepository(): Promise<{
   readonly repositoryId: string;
   readonly githubRepositoryId: bigint;
@@ -175,24 +166,14 @@ async function createFreshPrivateRepository(): Promise<{
   });
   return { repositoryId, githubRepositoryId, nameWithOwner, name, url };
 }
-
 describe('SubmissionReviewsService integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await seedMilestones(new SeedStats());
     await seedRepositories(new SeedStats());
   });
-
   beforeEach(() => github.publishRepository.mockReset());
-
   afterAll(async () => {
-    await prisma.milestoneDocumentReviewHistory.deleteMany({
-      where: {
-        milestoneDocumentSubmission: {
-          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
-        },
-      },
-    });
     await prisma.milestoneDocumentSubmissionHistory.deleteMany({
       where: {
         submission: {
@@ -218,7 +199,6 @@ describe('SubmissionReviewsService integration', () => {
     });
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
-
     await prisma.repositoryInvitation.deleteMany({
       where: { repository: { programId: REPOSITORIES_PROGRAM_ID } },
     });
@@ -254,7 +234,6 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.$disconnect();
     await seedPrisma.$disconnect();
   });
-
   it('seed 팀형 최신 revision 판정을 트랜잭션으로 저장하고 중복을 막는다', async () => {
     const before = await service.context(EXISTING_SUBMISSION_ID);
     expect(before.application).toMatchObject({
@@ -262,13 +241,11 @@ describe('SubmissionReviewsService integration', () => {
       displayName: 'seed-milestones-team',
     });
     expect(before.currentRevision.review).toBeNull();
-
     await service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
       revision: 1,
       decision: ReviewDecision.APPROVED,
       comment: null,
     });
-
     await expect(
       prisma.milestoneDocumentSubmission.findUniqueOrThrow({
         where: { id: EXISTING_SUBMISSION_ID },
@@ -294,16 +271,13 @@ describe('SubmissionReviewsService integration', () => {
       errorCode: { code: SubmissionReviewsErrorCode.ALREADY_REVIEWED },
     });
   });
-
   it('seed 보완요청의 판정 코멘트를 검토 문맥에 보존한다', async () => {
     const context = await service.context(CHANGES_REQUESTED_SUBMISSION_ID);
-
     expect(context.currentRevision.review).toMatchObject({
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '누락된 항목을 보완해 재제출해 주세요 (seed fixture)',
     });
   });
-
   it('provision 성공 seed 저장소를 공개하고 DB 상태를 갱신하며 정확히 1건의 typed audit을 남긴다', async () => {
     const scenarioId = 'repo-job-succeeded';
     const repositoryId = seedId('repositories', scenarioId, 'repository');
@@ -323,16 +297,13 @@ describe('SubmissionReviewsService integration', () => {
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
-
     await service.publishRepository(repositoryId, REVIEWER_GITHUB_ID);
-
     const published = await prisma.githubRepository.findUniqueOrThrow({
       where: { id: repositoryId },
     });
     expect(published.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(published.publishedAt).toBeInstanceOf(Date);
     expect(github.publishRepository).toHaveBeenCalledWith(repositoryName);
-
     const auditRows = await prisma.auditLog.findMany({
       where: {
         targetType: 'REPOSITORY',
@@ -341,28 +312,24 @@ describe('SubmissionReviewsService integration', () => {
       },
     });
     expect(auditRows).toHaveLength(1);
-
     const publicRow = await publicProjects.findById(
       repository.githubRepositoryId.toString(),
     );
     expect(publicRow).not.toBeNull();
     expect(publicRow?.publishedAt).toEqual(published.publishedAt);
   });
-
   it('provision job이 없는 repository-ready seed는 공개를 막고 GitHub를 호출하지 않으며 audit도 남기지 않는다', async () => {
     const repositoryId = seedId(
       'repositories',
       'repository-ready',
       'repository',
     );
-
     await expect(
       service.publishRepository(repositoryId, REVIEWER_GITHUB_ID),
     ).rejects.toMatchObject({
       errorCode: { code: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY },
     });
     expect(github.publishRepository).not.toHaveBeenCalled();
-
     const auditRows = await prisma.auditLog.findMany({
       where: {
         targetType: 'REPOSITORY',
@@ -372,7 +339,6 @@ describe('SubmissionReviewsService integration', () => {
     });
     expect(auditRows).toHaveLength(0);
   });
-
   it('이미 public인 seed 저장소는 반복 요청에도 외부 호출 없이 수렴한다', async () => {
     const target = await createFreshPrivateRepository();
     await prisma.githubRepository.update({
@@ -382,7 +348,6 @@ describe('SubmissionReviewsService integration', () => {
         publishedAt: new Date('2026-07-01T00:00:00.000Z'),
       },
     });
-
     const first = await service.publishRepository(
       target.repositoryId,
       REVIEWER_GITHUB_ID,
@@ -391,12 +356,10 @@ describe('SubmissionReviewsService integration', () => {
       target.repositoryId,
       REVIEWER_GITHUB_ID,
     );
-
     expect(first.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(second).toEqual(first);
     expect(github.publishRepository).not.toHaveBeenCalled();
   });
-
   it('동시에 두 요청이 경합해도 정확히 1건의 typed audit만 남고, 패자는 승자가 커밋한 상태를 재조회하며 공개 조회에 즉시 반영된다', async () => {
     const target = await createFreshPrivateRepository();
     const barrierRepository = new BarrierRepositoriesRepository(
@@ -418,12 +381,10 @@ describe('SubmissionReviewsService integration', () => {
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
-
     const beforePublish = await publicProjects.findById(
       target.githubRepositoryId.toString(),
     );
     expect(beforePublish).toBeNull();
-
     const [first, second] = await Promise.all([
       concurrentRepositories.publish(
         { repositoryId: target.repositoryId },
@@ -436,18 +397,15 @@ describe('SubmissionReviewsService integration', () => {
         publishedAt,
       ),
     ]);
-
     expect(first.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(second.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(first.publishedAt).toEqual(publishedAt);
     expect(second.publishedAt).toEqual(publishedAt);
-
     const finalRepository = await prisma.githubRepository.findUniqueOrThrow({
       where: { id: target.repositoryId },
     });
     expect(finalRepository.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(finalRepository.publishedAt).toEqual(publishedAt);
-
     const auditRows = await prisma.auditLog.findMany({
       where: {
         targetType: 'REPOSITORY',
@@ -456,7 +414,6 @@ describe('SubmissionReviewsService integration', () => {
       },
     });
     expect(auditRows).toHaveLength(1);
-
     const publicRow = await publicProjects.findById(
       target.githubRepositoryId.toString(),
     );

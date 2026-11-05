@@ -809,10 +809,7 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
     expect(html).toContain('>7월 22일</time> 검토');
     expect(html).not.toContain('재제출 기한');
     expect(
-      withFeedback(
-        [first],
-        [dashboardFeedback(first, 'a', { resubmissionDueAt: null })],
-      ),
+      withFeedback([first], [dashboardFeedback(first, 'a', {})]),
     ).not.toContain('재제출 기한');
     expect(
       withFeedback(
@@ -823,21 +820,10 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
   });
 
   it('이전 보완 기한이 지나도 만료 안내를 표시하지 않는다', () => {
-    const passed = withFeedback(
-      [first],
-      [
-        dashboardFeedback(first, 'a', {
-          resubmissionDueAt: '2026-07-21T14:59:59.000Z',
-        }),
-      ],
-    );
+    const passed = withFeedback([first], [dashboardFeedback(first, 'a', {})]);
     const passedToday = withFeedback(
       [first],
-      [
-        dashboardFeedback(first, 'a', {
-          resubmissionDueAt: '2026-07-23T00:00:00.000Z',
-        }),
-      ],
+      [dashboardFeedback(first, 'a', {})],
     );
 
     expect(passed + passedToday).not.toContain('재제출 기한');

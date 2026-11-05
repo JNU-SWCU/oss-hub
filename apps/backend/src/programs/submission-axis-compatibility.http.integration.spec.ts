@@ -2,10 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
-  MilestoneDocumentSubmissionRepository,
-  SubmissionsRepository,
-} from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { EventEmitter, once } from 'node:events';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
@@ -15,43 +12,35 @@ import {
   MilestoneDocumentFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const fixture = new MilestoneDocumentFlowFixture();
 const platform = new PlatformRepository();
 const writeRepository = new MilestoneDocumentsRepository(
   fixture.prisma,
   new LockProgramTreeRepository(),
   platform,
-  new MilestoneDocumentSubmissionRepository(platform),
+  new SubmissionsRepository(platform),
   new MilestoneDocumentCollectionReadRepository(fixture.prisma),
 );
-
 beforeAll(() => fixture.start());
 beforeEach(async () => {
   await fixture.reset();
-  await fixture.prisma.milestone.update({
-    where: { id: flowIds.milestone },
-    data: { submissionType: 'TEXT' },
-  });
   await fixture.prisma.milestoneDocument.update({
     where: { id: flowIds.document },
-    data: { kind: 'LEGACY_MILESTONE_SUBMISSION' },
+    data: { submissionType: 'TEXT' },
   });
 });
 afterAll(() => fixture.stop());
-
-it('holds the same submission row lock used by the old review API before reading the item review version', async () => {
+it('holds the submission row lock before reading the item review version', async () => {
   expect((await fixture.submit('initial content')).status).toBe(201);
   const repository = new MilestoneDocumentsRepository(
     fixture.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
-    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new SubmissionsRepository(new PlatformRepository()),
     new MilestoneDocumentCollectionReadRepository(fixture.prisma),
   );
   const contender = new PrismaService();
@@ -73,160 +62,132 @@ it('holds the same submission row lock used by the old review API before reading
     await contender.$disconnect();
   }
 });
-
-it('keeps the old document list stable and exposes legacy items only to the opt-in client', async () => {
-  const previous = await fixture.request(
+it('returns all requirements in the ordinary document list', async () => {
+  const response = await fixture.request(
     `milestones/${flowIds.milestone}/documents`,
   );
-  expect(previous.status).toBe(200);
-  expect(await previous.json()).toMatchObject({ documents: [] });
-
-  const next = await fixture.request(
-    `milestones/${flowIds.milestone}/documents?scope=all`,
-  );
-
-  expect(next.status).toBe(200);
-  expect(await next.json()).toMatchObject({
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
     documents: [expect.objectContaining({ id: flowIds.document })],
   });
 });
-
-it('returns the current submission and latest review through the student checklist endpoint', async () => {
+it('returns the current submission and latest review through the requirement list', async () => {
   expect((await fixture.submit('checklist content')).status).toBe(201);
-  const submission =
-    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { milestoneDocumentId: flowIds.document },
-      select: { id: true },
-    });
-  const review = await fixture.request(`submissions/${submission.id}/reviews`, {
-    actor: 'staff',
-    method: 'POST',
-    json: {
-      revision: 1,
-      decision: 'CHANGES_REQUESTED',
-      comment: 'checklist review',
-    },
-  });
-  expect(review.status).toBe(201);
-
-  const response = await fixture.request(
-    `programs/${flowIds.program}/submissions/me`,
-  );
-
-  expect(response.status).toBe(200);
-  expect(await response.json()).toMatchObject({
-    applicationId: flowIds.application,
-    items: [
-      {
-        milestoneId: flowIds.milestone,
-        submission: {
-          id: submission.id,
-          currentRevision: 1,
-          status: 'CHANGES_REQUESTED',
-          decision: 'CHANGES_REQUESTED',
-          reviewComment: 'checklist review',
-        },
-      },
-    ],
-  });
-});
-
-it('reads and replaces an old-client submission through the requirement API without creating a second submission', async () => {
-  const previous = await fixture.request('submissions', {
-    method: 'POST',
-    json: {
-      applicationId: flowIds.application,
-      milestoneId: flowIds.milestone,
-      content: { type: 'TEXT', text: 'old client content' },
-      comment: 'original comment',
-    },
-  });
-  expect(previous.status).toBe(201);
-
-  const next = await fixture.submit('requirement client content');
-
-  expect(next.status).toBe(201);
-  const submissions = await fixture.prisma.milestoneDocumentSubmission.findMany(
-    {
-      where: { milestoneDocumentId: flowIds.document },
-      select: { id: true, revision: true, content: true },
-    },
-  );
-  expect(
-    submissions.map(({ revision, content }) => ({ revision, content })),
-  ).toEqual([
-    {
-      revision: 2,
-      content: { type: 'TEXT', text: 'requirement client content' },
-    },
-  ]);
-  const submission = submissions[0];
-  if (submission === undefined) throw new Error('Expected one submission');
-  expect(await previous.json()).toMatchObject({ submissionId: submission.id });
-  const context = await fixture.request(
-    `submissions/${submission.id}/review-context`,
-    {
-      actor: 'staff',
-    },
-  );
-  expect(context.status).toBe(200);
-  expect(await context.json()).toMatchObject({
-    submissionId: submission.id,
-    currentRevision: { number: 2 },
-    history: [expect.objectContaining({ number: 1 })],
-  });
-});
-
-it('rejects a stale requirement review after the old review API has decided the same revision', async () => {
-  expect((await fixture.submit('requirement client content')).status).toBe(201);
-  const submission =
-    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { milestoneDocumentId: flowIds.document },
-      select: { id: true },
-    });
-  const previous = await fixture.request(
-    `submissions/${submission.id}/reviews`,
-    {
-      actor: 'staff',
-      method: 'POST',
-      json: { revision: 1, decision: 'APPROVED' },
-    },
-  );
-  expect(previous.status).toBe(201);
-
-  const next = await fixture.request(
-    `${fixture.documentPath()}/applications/${flowIds.application}/reviews`,
+  const reviewed = await fixture.request(
+    fixture.documentPath() +
+      '/applications/' +
+      flowIds.application +
+      '/reviews',
     {
       actor: 'staff',
       method: 'POST',
       json: {
-        decision: 'REJECTED',
-        comment: 'stale decision',
+        decision: 'CHANGES_REQUESTED',
+        comment: 'checklist review',
         expectedRevision: 1,
         expectedLatestReviewId: null,
       },
     },
   );
-
-  expect(next.status).toBe(409);
+  expect(reviewed.status).toBe(201);
+  const response = await fixture.request(
+    `milestones/${flowIds.milestone}/documents`,
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    documents: [
+      {
+        id: flowIds.document,
+        viewerSubmission: {
+          status: 'CHANGES_REQUESTED',
+          review: { comment: 'checklist review' },
+        },
+      },
+    ],
+  });
+});
+it('keeps the existing public PK and history when the requirement API replaces a submission', async () => {
+  expect((await fixture.submit('original content')).status).toBe(201);
+  const original =
+    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+      where: { milestoneDocumentId: flowIds.document },
+    });
+  const publicId = 'synthetic-public-submission';
+  await fixture.prisma.milestoneDocumentSubmission.update({
+    where: { id: original.id },
+    data: { id: publicId },
+  });
   expect(
-    await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+    (
+      await fixture.request(fixture.documentPath() + '/submissions', {
+        method: 'POST',
+        json: {
+          content: { text: 'replacement content' },
+          expectedRevision: 1,
+          expectedLatestReviewId: null,
+        },
+      })
+    ).status,
+  ).toBe(201);
+  const response = await fixture.request(
+    `submissions/${publicId}/review-context`,
+    { actor: 'staff' },
+  );
+  expect(response.status).toBe(200);
+  expect(await response.json()).toMatchObject({
+    requirementId: flowIds.document,
+    submissionId: publicId,
+    currentRevision: { number: 2 },
+    history: [{ number: 1 }],
+  });
+  expect(
+    await fixture.prisma.milestoneDocumentSubmission.count({
       where: {
-        milestoneDocumentSubmissionId: submission.id,
-        event: 'APPROVED',
+        milestoneDocumentId: flowIds.document,
+        applicationId: flowIds.application,
       },
     }),
   ).toBe(1);
+});
+it('rejects a stale requirement review after another reviewer decides the same revision', async () => {
+  expect((await fixture.submit('initial content')).status).toBe(201);
+  const path =
+    fixture.documentPath() +
+    '/applications/' +
+    flowIds.application +
+    '/reviews';
+  expect(
+    (
+      await fixture.request(path, {
+        actor: 'staff',
+        method: 'POST',
+        json: {
+          decision: 'APPROVED',
+          expectedRevision: 1,
+          expectedLatestReviewId: null,
+        },
+      })
+    ).status,
+  ).toBe(201);
+  const stale = await fixture.request(path, {
+    actor: 'staff',
+    method: 'POST',
+    json: {
+      decision: 'CHANGES_REQUESTED',
+      expectedRevision: 1,
+      expectedLatestReviewId: null,
+    },
+  });
+  expect(stale.status).toBe(409);
   expect(
     await fixture.prisma.milestoneDocumentSubmissionHistory.count({
       where: {
-        milestoneDocumentSubmissionId: submission.id,
-        event: 'REJECTED',
+        submission: { milestoneDocumentId: flowIds.document },
+        event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
       },
     }),
-  ).toBe(0);
+  ).toBe(1);
 });
-
 it('preserves the observed revision and optional comment when two requirement clients replace the same submission', async () => {
   const submit = (text: string, expectedRevision: number) =>
     fixture.request(fixture.documentPath() + '/submissions', {
@@ -266,7 +227,6 @@ it('preserves the observed revision and optional comment when two requirement cl
     ],
   });
 });
-
 it('accepts an explicitly empty optional comment from a requirement client', async () => {
   const response = await fixture.request(
     fixture.documentPath() + '/submissions',
@@ -290,20 +250,11 @@ it('accepts an explicitly empty optional comment from a requirement client', asy
     });
   expect(history.comment).toBeNull();
 });
-
 it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
-  'keeps a new %s event while the obsolete image query misses the review',
+  'shows each canonical %s review event without the retired review model',
   async (decision) => {
-    expect((await fixture.submit('rollback compatibility')).status).toBe(201);
-    const submittedHistory =
-      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-        where: {
-          event: 'SUBMITTED',
-          submission: { milestoneDocumentId: flowIds.document },
-        },
-        select: { id: true },
-      });
-    const response = await fixture.request(
+    expect((await fixture.submit('canonical review')).status).toBe(201);
+    const reviewed = await fixture.request(
       fixture.documentPath() +
         '/applications/' +
         flowIds.application +
@@ -313,70 +264,40 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
         method: 'POST',
         json: {
           decision,
-          comment: 'retained rollback reason',
+          comment: 'retained review reason',
           expectedRevision: 1,
           expectedLatestReviewId: null,
         },
       },
     );
-    expect(response.status).toBe(201);
-    const event =
-      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-        where: {
-          submission: { milestoneDocumentId: flowIds.document },
-          event: decision,
-        },
+    expect(reviewed.status).toBe(201);
+    const submission =
+      await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+        where: { milestoneDocumentId: flowIds.document },
       });
-    const oldView =
-      await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
-        where: { id: event.milestoneDocumentSubmissionId },
-        select: {
-          status: true,
-          histories: {
-            where: { revision: 1, event: 'SUBMITTED' },
-            select: {
-              id: true,
-              revision: true,
-              reviewHistories: {
-                orderBy: { reviewedAt: 'desc' },
-                select: {
-                  id: true,
-                  decision: true,
-                  comment: true,
-                  reviewerId: true,
-                  reviewedAt: true,
-                },
-              },
-            },
-          },
-        },
-      });
-    expect(oldView.status).toBe(decision);
-    expect(oldView.histories).toEqual([
-      {
-        id: submittedHistory.id,
-        revision: 1,
-        reviewHistories: [],
+    expect(submission.status).toBe(decision);
+    const response = await fixture.request(
+      `submissions/${submission.id}/review-context`,
+      { actor: 'staff' },
+    );
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      requirementId: flowIds.document,
+      currentRevision: {
+        number: 1,
+        review: { decision, comment: 'retained review reason' },
       },
-    ]);
-    expect(
-      await fixture.prisma.milestoneDocumentReviewHistory.count({
-        where: {
-          milestoneDocumentSubmissionId: event.milestoneDocumentSubmissionId,
-        },
-      }),
-    ).toBe(0);
+    });
     expect(
       await fixture.prisma.milestoneDocumentSubmissionHistory.count({
         where: {
-          milestoneDocumentSubmissionId: event.milestoneDocumentSubmissionId,
+          milestoneDocumentSubmissionId: submission.id,
           event: decision,
         },
       }),
     ).toBe(1);
   },
 );
-
 it('rolls back the review event when updating the submission fails', async () => {
   expect((await fixture.submit('atomic rollback')).status).toBe(201);
   const submission =
@@ -408,11 +329,6 @@ it('rolls back the review event when updating the submission fails', async () =>
     }),
   ).rejects.toMatchObject({ code: 'P2025' });
   expect(
-    await fixture.prisma.milestoneDocumentReviewHistory.count({
-      where: { milestoneDocumentSubmissionId: submission.id },
-    }),
-  ).toBe(0);
-  expect(
     await fixture.prisma.milestoneDocumentSubmissionHistory.count({
       where: {
         milestoneDocumentSubmissionId: submission.id,
@@ -428,7 +344,6 @@ it('rolls back the review event when updating the submission fails', async () =>
     ).status,
   ).toBe('SUBMITTED');
 });
-
 it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
   'rejects %s writes to a DELETED program without changing submission records',
   async (operation) => {
@@ -458,7 +373,7 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     const where = { milestoneDocumentId: flowIds.document };
     const before = await fixture.prisma.milestoneDocumentSubmission.findMany({
       where,
-      include: { histories: true, reviewHistories: true },
+      include: { histories: true },
     });
     await fixture.prisma.program.update({
       where: { id: flowIds.program },
@@ -500,12 +415,11 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     expect(
       await fixture.prisma.milestoneDocumentSubmission.findMany({
         where,
-        include: { histories: true, reviewHistories: true },
+        include: { histories: true },
       }),
     ).toEqual(before);
   },
 );
-
 it('rejects an admitted item submission if the program was deleted before its write transaction', async () => {
   await fixture.prisma.program.update({
     where: { id: flowIds.program },
@@ -533,7 +447,6 @@ it('rejects an admitted item submission if the program was deleted before its wr
     }),
   ).toBe(0);
 });
-
 it('rejects a bulk review write scope if the program was deleted after admission', async () => {
   await fixture.prisma.program.update({
     where: { id: flowIds.program },
@@ -545,18 +458,13 @@ it('rejects a bulk review write scope if the program was deleted after admission
     ),
   ).toBe(false);
 });
-
-it('serializes legacy review commit before program deletion with two transactions and no sleeps', async () => {
+it('serializes review commit before program deletion with two transactions and no sleeps', async () => {
   expect((await fixture.submit('legacy delete race')).status).toBe(201);
   const submission =
     await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
       where: { milestoneDocumentId: flowIds.document },
     });
-  const repository = new SubmissionReviewsRepository(
-    fixture.prisma,
-    platform,
-    new SubmissionsRepository(fixture.prisma, platform),
-  );
+  const repository = new SubmissionReviewsRepository(fixture.prisma, platform);
   const contender = new PrismaService();
   await contender.$connect();
   const signals = new EventEmitter();
@@ -655,10 +563,14 @@ it('serializes legacy review commit before program deletion with two transaction
         event: 'APPROVED',
       },
     });
+  expect(event.revision).toBe(1);
   expect(
-    await fixture.prisma.milestoneDocumentReviewHistory.findUnique({
-      where: { id: event.id },
-      select: { milestoneDocumentSubmissionId: true },
+    await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+      where: {
+        milestoneDocumentSubmissionId: submission.id,
+        event: 'APPROVED',
+        revision: 1,
+      },
     }),
-  ).toBeNull();
+  ).toBe(1);
 });

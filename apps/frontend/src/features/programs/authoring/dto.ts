@@ -1,6 +1,5 @@
-import type { ProgramTrackType, SubmissionType } from '../program-contract';
+import type { ProgramTrackType } from '../program-contract';
 import type { ProgramLifecycle } from '../program-lifecycle';
-
 interface CreateProgramInput {
   readonly name: string;
   readonly organizer: string;
@@ -12,24 +11,21 @@ interface CreateProgramInput {
   readonly teamMaxSize: number | null;
   readonly description: string;
 }
-
 export interface EditableMilestone {
   readonly id: string;
   readonly name: string;
   readonly startAt: string;
   readonly dueAt: string;
-  readonly submissionType: SubmissionType | null;
   readonly instructions: string | null;
 }
-
 export interface EditableMilestoneDocument {
+  readonly submissionType: 'FILE' | 'TEXT' | 'FILE_OR_TEXT';
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
   readonly templateFileName: string | null;
 }
-
 export interface EditableMilestoneEditSnapshot {
   readonly milestone: EditableMilestone;
   readonly operation: {
@@ -45,14 +41,12 @@ export interface EditableMilestoneEditSnapshot {
   };
   readonly fingerprint: string;
 }
-
 export type UpdateEditableMilestoneDocumentInput = {
   readonly id: string | null;
   readonly name: string;
   readonly required: boolean;
   readonly templateUploadId?: string;
 };
-
 export type UpdateEditableMilestoneInput = {
   readonly expectedFingerprint: string;
   readonly name: string;
@@ -61,9 +55,10 @@ export type UpdateEditableMilestoneInput = {
   readonly instructions: string | null;
   readonly documents: readonly UpdateEditableMilestoneDocumentInput[];
 };
-
 export type EditableMilestoneSnapshotFailure =
-  | { readonly kind: 'conflict' }
+  | {
+      readonly kind: 'conflict';
+    }
   | {
       readonly kind: 'known';
       readonly message: string;
@@ -73,8 +68,9 @@ export type EditableMilestoneSnapshotFailure =
         readonly code: string;
       }[];
     }
-  | { readonly kind: 'unknown' };
-
+  | {
+      readonly kind: 'unknown';
+    };
 export interface ProgramDeletionScopeCounts {
   readonly applications: number;
   readonly teams: number;
@@ -83,7 +79,6 @@ export interface ProgramDeletionScopeCounts {
   readonly submissionEvents: number;
   readonly scopeFingerprint: string;
 }
-
 export interface EditableProgram {
   readonly coverImageUrl?: string | null;
   readonly externalCover?:
@@ -96,11 +91,9 @@ export interface EditableProgram {
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
-
   readonly deletionScopeCounts?: ProgramDeletionScopeCounts;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
-
   readonly startAt: string;
   readonly endAt: string | null;
   readonly repositoryProvisioningEnabled: boolean;
@@ -110,7 +103,6 @@ export interface EditableProgram {
   readonly teamMaxSize: number | null;
   readonly milestones: readonly EditableMilestone[];
 }
-
 export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
   readonly coverUploadId?: string | null;
   readonly externalCover?:
@@ -120,14 +112,12 @@ export type UpdateProgramInput = Omit<CreateProgramInput, 'endAt'> & {
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
 };
-
 export interface UpsertMilestoneInput {
   readonly name: string;
   readonly startAt: string;
   readonly dueAt: string;
   readonly instructions: string | null;
 }
-
 export interface ProgramPurgeDeletedCounts {
   readonly applications: number;
   readonly teams: number;
@@ -143,7 +133,6 @@ export interface ProgramPurgeDeletedCounts {
   readonly milestoneDocuments: number;
   readonly milestoneDocumentSubmissions: number;
   readonly milestoneDocumentSubmissionHistories: number;
-  readonly milestoneDocumentReviewHistories: number;
   readonly milestoneDocumentTemplateFiles: number;
   readonly programAuthoringUploads: number;
   readonly programCreateRequests: number;
@@ -153,7 +142,6 @@ export interface ProgramPurgeDeletedCounts {
   readonly notifications: number;
   readonly programPurgeFileTombstones: number;
 }
-
 export interface ProgramPurgeResult {
   readonly id: string;
   readonly deleted: true;

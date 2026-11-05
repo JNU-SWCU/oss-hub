@@ -25,6 +25,7 @@ const authSessionService = new AuthSessionService();
 const secret = new Uint8Array(32).fill(47);
 const origin = 'https://jnu-oss-hub.com';
 const record = {
+  submissionType: 'FILE_OR_TEXT' as const,
   id: 'document',
   milestoneId: 'milestone',
   name: '합성 서류',

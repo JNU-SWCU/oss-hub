@@ -1,7 +1,7 @@
 import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { TeamDeletionScopeRepository } from './team.repository';
 import { ReviewHistoryWriterRepository } from './team-history.repository';
@@ -90,9 +90,6 @@ import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsController } from './submissions.controller';
 import { ProgramSubmissionsController } from './program-submissions.controller';
 import { SubmissionFilesController } from './submission-files.controller';
-import { SubmissionFormsController } from './submission-forms.controller';
-import { SubmissionsRepository } from './submissions.repository';
-import { SubmissionsService } from './submissions.service';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
@@ -122,8 +119,6 @@ import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { SubmissionInputService } from './submission-input.service';
-
 @Module({
   imports: [PlatformModule, GithubModule, UsersModule],
   controllers: [
@@ -143,7 +138,6 @@ import { SubmissionInputService } from './submission-input.service';
     PublicUserProfileController,
     SubmissionFilesController,
     ProgramSubmissionsController,
-    SubmissionFormsController,
     SubmissionsController,
     SubmissionRepositoryPublishingController,
     ProgramDocumentArchivesController,
@@ -152,14 +146,13 @@ import { SubmissionInputService } from './submission-input.service';
     MilestoneDocumentFilesController,
   ],
   providers: [
-    SubmissionsRepository,
     SubmissionReviewsRepository,
     SubmissionMatrixRepository,
     MilestoneDocumentCollectionReadRepository,
     StudentRepositoryUrlContextRepository,
     ProgramListStatusFilterRepository,
     ProgramAuthoringUploadTransactionRepository,
-    MilestoneDocumentSubmissionRepository,
+    SubmissionsRepository,
     ProgramCoverUrlService,
     ApplicationAnswersService,
     DownloadResponseService,
@@ -169,7 +162,6 @@ import { SubmissionInputService } from './submission-input.service';
     ProgramScheduleService,
     ProgramTemplatesService,
     SubmissionFileAdmissionService,
-    SubmissionInputService,
     ProgramsService,
     ProgramsRepository,
     ProgramCreationService,
@@ -222,12 +214,10 @@ import { SubmissionInputService } from './submission-input.service';
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,
       useValue: () => new Date(),
     },
-    SubmissionsRepository,
     SubmissionFilesRepository,
     SubmissionFilesService,
     SubmissionFileCleanupService,
     SubmissionFileCleanupRetryService,
-    SubmissionsService,
     SubmissionDashboardSummaryRepository,
     SubmissionDashboardSummaryService,
     SubmissionMatrixRepository,

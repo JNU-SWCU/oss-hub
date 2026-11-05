@@ -1,15 +1,15 @@
 import { PageBody, PageHeader } from '@/components';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { applicationModeLabel } from '../review-format';
+import { DECISION_PRESENTATION, formatReviewDate } from '../review-format';
+import { StatusBadge } from '@/components';
 import type { ReviewDecisionInput } from '../review-form';
 import type { ReviewContext, ReviewDecision } from '../types';
 import { RepositoryPublishCard } from './repository-publish-card';
 import { RevisionCard } from './revision-history';
 import { ReviewForm } from './review-form';
 import { ReviewSubmission } from './review-submission';
-
 const REVIEW_WIDTH = 'max-w-5xl';
-
 export interface SubmissionReviewViewProps {
   readonly context: ReviewContext;
   readonly needsLatestRevision?: boolean;
@@ -30,7 +30,6 @@ export interface SubmissionReviewViewProps {
   readonly onCancel: () => void;
   readonly onPublish: () => void;
 }
-
 function EmptyHistoryNotice({
   currentNumber,
 }: {
@@ -44,7 +43,6 @@ function EmptyHistoryNotice({
     </p>
   );
 }
-
 export function SubmissionReviewView(props: SubmissionReviewViewProps) {
   const reviewContext = props.context;
   return (
@@ -80,6 +78,25 @@ export function SubmissionReviewView(props: SubmissionReviewViewProps) {
           >
             이전 제출본과 검토 이력
           </h2>
+          {reviewContext.unversionedReviews?.map((review) => (
+            <div
+              key={review.id}
+              className="grid gap-2 rounded-card border border-border p-card"
+            >
+              <h3 className="font-medium">제출 버전 미상 심사</h3>
+              <StatusBadge
+                variant={DECISION_PRESENTATION[review.decision].variant}
+              >
+                {DECISION_PRESENTATION[review.decision].label}
+              </StatusBadge>
+              <p className="text-sm text-muted-foreground">
+                {formatReviewDate(review.reviewedAt)}
+              </p>
+              <p className="text-sm whitespace-pre-wrap">
+                {review.comment ?? '사유 없이 저장되었습니다.'}
+              </p>
+            </div>
+          ))}
           {reviewContext.history.length > 0 ? (
             reviewContext.history.map((revision) => (
               <RevisionCard key={revision.number} revision={revision} />

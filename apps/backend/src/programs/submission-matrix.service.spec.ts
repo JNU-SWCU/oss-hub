@@ -1,3 +1,4 @@
+import { MilestoneCompletionService } from './milestone-completion.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -25,6 +26,11 @@ interface FakeFixtures {
   readonly applications?: readonly MatrixApplicationRecord[];
   readonly total?: number;
   readonly submissions?: readonly MatrixSubmissionRecord[];
+  readonly firstSubmissions?: readonly {
+    readonly applicationId: string;
+    readonly milestoneDocumentId: string;
+    readonly firstSubmittedAt: Date;
+  }[];
   readonly changeRequests?: readonly MatrixDocumentChangeRequest[];
 }
 
@@ -72,7 +78,7 @@ class FakeSubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
     return Promise.resolve(this.fixtures.submissions ?? []);
   }
   findDocumentFirstSubmissions() {
-    return Promise.resolve([]);
+    return Promise.resolve(this.fixtures.firstSubmissions ?? []);
   }
   findDocumentChangeRequests() {
     return Promise.resolve(this.fixtures.changeRequests ?? []);
@@ -91,6 +97,7 @@ describe('SubmissionMatrixService', () => {
     const service = new SubmissionMatrixService(
       repository,
       new MilestoneDocumentCollectionService({} as never),
+      new MilestoneCompletionService(),
     );
 
     await expect(
@@ -109,13 +116,13 @@ describe('SubmissionMatrixService', () => {
           id: 'milestone-1',
           name: '기획서',
           dueAt: new Date('2026-08-20T00:00:00.000Z'),
-          requiredDocumentIds: [],
+          requiredDocumentIds: ['required-1'],
         },
         {
           id: 'milestone-2',
           name: '최종 제출',
           dueAt: new Date('2026-09-20T00:00:00.000Z'),
-          requiredDocumentIds: [],
+          requiredDocumentIds: ['required-2'],
         },
       ],
       applications: [
@@ -136,11 +143,19 @@ describe('SubmissionMatrixService', () => {
       submissions: [
         {
           id: 'submission-1',
+          milestoneDocumentId: 'required-1',
           applicationId: 'application-personal',
           milestoneId: 'milestone-1',
           status: SubmissionStatus.CHANGES_REQUESTED,
           currentRevision: 2,
           submittedAt,
+        },
+      ],
+      firstSubmissions: [
+        {
+          applicationId: 'application-personal',
+          milestoneDocumentId: 'required-1',
+          firstSubmittedAt: new Date('2026-08-18T01:00:00Z'),
         },
       ],
       changeRequests: [
@@ -151,6 +166,7 @@ describe('SubmissionMatrixService', () => {
     const service = new SubmissionMatrixService(
       repository,
       new MilestoneDocumentCollectionService({} as never),
+      new MilestoneCompletionService(),
     );
 
     const matrix = await service.matrix(PROGRAM_ID, query());
@@ -184,7 +200,7 @@ describe('SubmissionMatrixService', () => {
               revision: 2,
               status: SubmissionStatus.CHANGES_REQUESTED,
               submittedAt,
-              deliveryStatus: 'NO_REQUIRED_ITEMS',
+              deliveryStatus: 'COMPLETE',
               changesRequestedCount: 0,
             },
             {
@@ -193,7 +209,7 @@ describe('SubmissionMatrixService', () => {
               revision: null,
               status: 'NOT_SUBMITTED',
               submittedAt: null,
-              deliveryStatus: 'NO_REQUIRED_ITEMS',
+              deliveryStatus: 'MISSING',
               changesRequestedCount: 0,
             },
           ],
@@ -210,7 +226,7 @@ describe('SubmissionMatrixService', () => {
               revision: null,
               status: 'NOT_SUBMITTED',
               submittedAt: null,
-              deliveryStatus: 'NO_REQUIRED_ITEMS',
+              deliveryStatus: 'MISSING',
               changesRequestedCount: 0,
             },
             {
@@ -219,7 +235,7 @@ describe('SubmissionMatrixService', () => {
               revision: null,
               status: 'NOT_SUBMITTED',
               submittedAt: null,
-              deliveryStatus: 'NO_REQUIRED_ITEMS',
+              deliveryStatus: 'MISSING',
               changesRequestedCount: 2,
             },
           ],
@@ -244,6 +260,7 @@ describe('SubmissionMatrixService', () => {
     const service = new SubmissionMatrixService(
       repository,
       new MilestoneDocumentCollectionService({} as never),
+      new MilestoneCompletionService(),
     );
 
     const matrix = await service.matrix(PROGRAM_ID, query());
@@ -260,6 +277,7 @@ describe('SubmissionMatrixService', () => {
     const service = new SubmissionMatrixService(
       repository,
       new MilestoneDocumentCollectionService({} as never),
+      new MilestoneCompletionService(),
     );
 
     const matrix = await service.matrix(

@@ -9,13 +9,11 @@ import type {
   SubmissionRevisionRecord,
   SubmissionRevisionContent,
 } from '../submission-reviews.repository';
-
 export class SubmissionReviewResponseDto {
   declare readonly id: string;
   declare readonly decision: ReviewDecision;
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
-
   static from(review: SubmissionReviewRecord): SubmissionReviewResponseDto {
     return {
       id: review.id,
@@ -25,7 +23,6 @@ export class SubmissionReviewResponseDto {
     };
   }
 }
-
 export class SubmissionReviewFileResponseDto {
   declare readonly fileId: string;
   declare readonly fileName: string;
@@ -33,7 +30,6 @@ export class SubmissionReviewFileResponseDto {
   declare readonly size: number;
   declare readonly expiresAt: string;
   declare readonly downloadUrl: string;
-
   static from(
     file: SubmissionReviewFileRecord,
   ): SubmissionReviewFileResponseDto {
@@ -47,7 +43,6 @@ export class SubmissionReviewFileResponseDto {
     };
   }
 }
-
 export class SubmissionRevisionResponseDto {
   declare readonly number: number;
   declare readonly content: SubmissionRevisionContent;
@@ -55,7 +50,6 @@ export class SubmissionRevisionResponseDto {
   declare readonly submittedAt: string;
   declare readonly files: readonly SubmissionReviewFileResponseDto[];
   declare readonly review: SubmissionReviewResponseDto | null;
-
   static from(
     revision: SubmissionRevisionRecord,
   ): SubmissionRevisionResponseDto {
@@ -73,13 +67,15 @@ export class SubmissionRevisionResponseDto {
     };
   }
 }
-
 export class SubmissionReviewContextResponseDto {
+  declare readonly latestReviewId: string | null;
+  declare readonly requirementId: string;
   declare readonly submissionId: string;
   declare readonly application: SubmissionReviewContext['application'];
   declare readonly milestone: SubmissionReviewContext['milestone'];
   declare readonly currentRevision: SubmissionRevisionResponseDto;
   declare readonly history: readonly SubmissionRevisionResponseDto[];
+  declare readonly unversionedReviews?: readonly SubmissionReviewResponseDto[];
   declare readonly repository: {
     readonly id: string;
     readonly url: string;
@@ -87,11 +83,12 @@ export class SubmissionReviewContextResponseDto {
     readonly publishEligible: boolean;
     readonly blockedReasons: readonly PublishBlockedReason[];
   } | null;
-
   static from(
     context: SubmissionReviewContext,
   ): SubmissionReviewContextResponseDto {
     return {
+      requirementId: context.requirementId,
+      latestReviewId: context.latestReviewId,
       submissionId: context.submissionId,
       application: context.application,
       milestone: context.milestone,
@@ -101,15 +98,18 @@ export class SubmissionReviewContextResponseDto {
       history: context.history.map((revision) =>
         SubmissionRevisionResponseDto.from(revision),
       ),
+      unversionedReviews: context.unversionedReviews?.length
+        ? context.unversionedReviews.map((review) =>
+            SubmissionReviewResponseDto.from(review),
+          )
+        : undefined,
       repository: context.repository,
     };
   }
 }
-
 export class CreateSubmissionReviewResponseDto {
   declare readonly reviewId: string;
   declare readonly submissionStatus: SubmissionReviewResult['submissionStatus'];
-
   static from(
     result: SubmissionReviewResult,
   ): CreateSubmissionReviewResponseDto {
@@ -119,12 +119,10 @@ export class CreateSubmissionReviewResponseDto {
     };
   }
 }
-
 export class RepositoryPublishResponseDto {
   declare readonly repositoryId: string;
   declare readonly visibility: RepositoryPublishResult['visibility'];
   declare readonly publishedAt: string;
-
   static from(result: RepositoryPublishResult): RepositoryPublishResponseDto {
     return {
       repositoryId: result.repositoryId,

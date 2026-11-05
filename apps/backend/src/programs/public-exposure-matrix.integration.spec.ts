@@ -1,6 +1,5 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
@@ -41,18 +40,14 @@ import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-
 const repositoryUrlService = new RepositoryUrlService();
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const SYNTHETIC_SESSION_SECRET = Buffer.from(
   'synthetic-public-projects-integration-secret',
 ).toString('base64url');
-
 const prisma = new PrismaService();
 const metrics = new PublicProjectMetricsRepository(
   prisma,
@@ -76,7 +71,6 @@ const rankingService = new RankingService(
   new RankingYearService(),
   new CollectionScheduleService(),
 );
-
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
@@ -96,23 +90,16 @@ const repositoriesService = new RepositoriesService(
   new RepositoryUrlService(),
 );
 const submissionReviewsService = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(
-    prisma,
-    new PlatformRepository(),
-    new SubmissionsRepository(prisma, new PlatformRepository()),
-  ),
+  new SubmissionReviewsRepository(prisma, new PlatformRepository()),
   repositoriesService,
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new SubmissionFileAdmissionService(),
 );
-
 const PREFIX = 'synthetic-exposure-matrix';
 const now = () => new Date();
-
 const RANKING_PAGE_SIZE = 100;
-
 async function collectRankingEntries(): Promise<
   Awaited<ReturnType<typeof rankingService.findPage>>['items']
 > {
@@ -135,30 +122,23 @@ async function collectRankingEntries(): Promise<
   }
   return items;
 }
-
 const PROGRAM_ENDED_ID = `${PREFIX}-program-ended`;
 const PROGRAM_NOT_ENDED_ID = `${PREFIX}-program-not-ended`;
-
 const REVIEWER_ID = `${PREFIX}-reviewer`;
-const REVIEWER_GITHUB_ID = 8_999_000_000_000n;
-
-const GITHUB_ID_BASE = 8_910_000_000_000n;
-const REPOSITORY_ID_BASE = 8_920_000_000_000n;
+const REVIEWER_GITHUB_ID = 8999000000000n;
+const GITHUB_ID_BASE = 8910000000000n;
+const REPOSITORY_ID_BASE = 8920000000000n;
 let githubIdSequence = 0n;
 let repositoryIdSequence = 0n;
-
 function nextGithubId(): bigint {
   githubIdSequence += 1n;
   return GITHUB_ID_BASE + githubIdSequence;
 }
-
 function nextGithubRepositoryId(): bigint {
   repositoryIdSequence += 1n;
   return REPOSITORY_ID_BASE + repositoryIdSequence;
 }
-
-let studentIdSequence = 910_000;
-
+let studentIdSequence = 910000;
 function canonicalStudentFields(name: string, department: string) {
   studentIdSequence += 1;
   const studentId = String(studentIdSequence);
@@ -174,14 +154,12 @@ function canonicalStudentFields(name: string, department: string) {
     },
   };
 }
-
 function applicantProfileFields(key: string) {
   return canonicalStudentFields(
     `synthetic-${key}-applicant-name`,
     `synthetic-${key}-applicant-department`,
   );
 }
-
 function contributorProfileFields(githubId: bigint) {
   const suffix = githubId.toString();
   return canonicalStudentFields(
@@ -189,7 +167,6 @@ function contributorProfileFields(githubId: bigint) {
     `synthetic-contributor-${suffix}-department`,
   );
 }
-
 async function createScenario(params: {
   readonly key: string;
   readonly programId: string;
@@ -216,7 +193,6 @@ async function createScenario(params: {
       approvalStatus: 'NOT_REQUIRED',
     },
   });
-
   const applicationId = `${PREFIX}-${params.key}-application`;
   const teamId = `${PREFIX}-${params.key}-team`;
   await prisma.team.create({
@@ -247,7 +223,6 @@ async function createScenario(params: {
       processedAt: now(),
     },
   });
-
   const repositoryId = `${PREFIX}-${params.key}-repository`;
   const githubRepositoryId = nextGithubRepositoryId();
   const nameWithOwner = `synthetic-org/${PREFIX}-${params.key}`;
@@ -264,7 +239,6 @@ async function createScenario(params: {
       publishedAt: params.publishedAt,
     },
   });
-
   await prisma.repositoryProvisionJob.create({
     data: {
       id: `${PREFIX}-${params.key}-job`,
@@ -276,7 +250,6 @@ async function createScenario(params: {
       finishedAt: now(),
     },
   });
-
   return {
     applicantId,
     applicationId,
@@ -287,7 +260,6 @@ async function createScenario(params: {
       repositoryUrlService.repositoryNameFromNameWithOwner(nameWithOwner),
   };
 }
-
 async function observeCollection(params: {
   readonly githubRepositoryId: bigint;
   readonly visibility: RepositoryVisibility;
@@ -297,7 +269,7 @@ async function observeCollection(params: {
   await prisma.githubRepository.update({
     where: { githubRepositoryId: params.githubRepositoryId },
     data: {
-      githubOrganizationId: 8_900_000_000_000n,
+      githubOrganizationId: 8900000000000n,
       defaultBranch: 'main',
       archived: false,
       visibility: params.visibility,
@@ -306,7 +278,6 @@ async function observeCollection(params: {
     },
   });
 }
-
 async function seedContributors(
   repositoryId: string,
   ownerGithubId: bigint,
@@ -331,7 +302,6 @@ async function seedContributors(
       },
     });
   }
-
   await prisma.contribution.createMany({
     data: [
       {
@@ -353,11 +323,9 @@ async function seedContributors(
     ],
   });
 }
-
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 const BEFORE_PUBLISH = new Date('2026-05-01T00:00:00.000Z');
 const AFTER_PUBLISH = new Date('2026-06-15T00:00:00.000Z');
-
 let outcome1: Awaited<ReturnType<typeof createScenario>>;
 let outcome2: Awaited<ReturnType<typeof createScenario>>;
 let outcome3: Awaited<ReturnType<typeof createScenario>>;
@@ -366,11 +334,9 @@ let outcome5: Awaited<ReturnType<typeof createScenario>>;
 let outcome6: Awaited<ReturnType<typeof createScenario>>;
 let outcome7: Awaited<ReturnType<typeof createScenario>>;
 let outcome8: Awaited<ReturnType<typeof createScenario>>;
-
 describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
   beforeAll(async () => {
     await prisma.$connect();
-
     await prisma.program.create({
       data: {
         id: PROGRAM_ENDED_ID,
@@ -403,7 +369,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         description: 'synthetic-description — program never ended',
       },
     });
-
     await prisma.user.create({
       data: {
         id: REVIEWER_ID,
@@ -412,7 +377,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         ...{ admin: { create: { origin: 'MIGRATION' as const } } },
       },
     });
-
     outcome1 = await createScenario({
       key: 'outcome-1',
       programId: PROGRAM_ENDED_ID,
@@ -420,7 +384,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PRIVATE,
       publishedAt: null,
     });
-
     outcome2 = await createScenario({
       key: 'outcome-2',
       programId: PROGRAM_ENDED_ID,
@@ -436,12 +399,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     });
     await seedContributors(
       outcome2.repositoryId,
-      GITHUB_ID_BASE + 900_001n,
+      GITHUB_ID_BASE + 900001n,
       `${PREFIX}-outcome-2-owner-login`,
-      GITHUB_ID_BASE + 900_002n,
+      GITHUB_ID_BASE + 900002n,
       `${PREFIX}-outcome-2-other-login`,
     );
-
     outcome3 = await createScenario({
       key: 'outcome-3',
       programId: PROGRAM_ENDED_ID,
@@ -449,7 +411,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: PUBLISHED_AT,
     });
-
     outcome4 = await createScenario({
       key: 'outcome-4',
       programId: PROGRAM_ENDED_ID,
@@ -470,15 +431,13 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         publishedAt: PUBLISHED_AT,
       },
     });
-
     await seedContributors(
       outcome4.repositoryId,
-      GITHUB_ID_BASE + 900_005n,
+      GITHUB_ID_BASE + 900005n,
       `${PREFIX}-outcome-4-applicant-login`,
-      GITHUB_ID_BASE + 900_006n,
+      GITHUB_ID_BASE + 900006n,
       `${PREFIX}-outcome-4-other-login`,
     );
-
     outcome5 = await createScenario({
       key: 'outcome-5',
       programId: PROGRAM_ENDED_ID,
@@ -494,12 +453,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     });
     await seedContributors(
       outcome5.repositoryId,
-      GITHUB_ID_BASE + 900_007n,
+      GITHUB_ID_BASE + 900007n,
       `${PREFIX}-outcome-5-applicant-login`,
-      GITHUB_ID_BASE + 900_008n,
+      GITHUB_ID_BASE + 900008n,
       `${PREFIX}-outcome-5-other-login`,
     );
-
     outcome6 = await createScenario({
       key: 'outcome-6',
       programId: PROGRAM_ENDED_ID,
@@ -509,12 +467,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     });
     await seedContributors(
       outcome6.repositoryId,
-      GITHUB_ID_BASE + 900_009n,
+      GITHUB_ID_BASE + 900009n,
       `${PREFIX}-outcome-6-applicant-login`,
-      GITHUB_ID_BASE + 900_010n,
+      GITHUB_ID_BASE + 900010n,
       `${PREFIX}-outcome-6-other-login`,
     );
-
     outcome7 = await createScenario({
       key: 'outcome-7',
       programId: PROGRAM_NOT_ENDED_ID,
@@ -524,12 +481,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     });
     await seedContributors(
       outcome7.repositoryId,
-      GITHUB_ID_BASE + 900_011n,
+      GITHUB_ID_BASE + 900011n,
       `${PREFIX}-outcome-7-applicant-login`,
-      GITHUB_ID_BASE + 900_012n,
+      GITHUB_ID_BASE + 900012n,
       `${PREFIX}-outcome-7-other-login`,
     );
-
     outcome8 = await createScenario({
       key: 'outcome-8',
       programId: PROGRAM_ENDED_ID,
@@ -539,13 +495,12 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
     });
     await seedContributors(
       outcome8.repositoryId,
-      GITHUB_ID_BASE + 900_003n,
+      GITHUB_ID_BASE + 900003n,
       `${PREFIX}-outcome-8-owner-login`,
-      GITHUB_ID_BASE + 900_004n,
+      GITHUB_ID_BASE + 900004n,
       `${PREFIX}-outcome-8-other-login`,
     );
   });
-
   afterAll(async () => {
     try {
       await prisma.contribution.deleteMany({
@@ -554,7 +509,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-
       await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
@@ -567,7 +521,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.team.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-
       await prisma.admin.deleteMany({
         where: {
           user: { id: { startsWith: `${PREFIX}-` }, NOT: { id: REVIEWER_ID } },
@@ -583,7 +536,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.$disconnect();
     }
   });
-
   it(
     'outcome-1: platform-private 저장소는 발행 전이라 list/detail/profile에는 나타나지 ' +
       '않지만, 가입자 전원 노출 정책상 ranking에는 0/0/0 행으로 나타난다(집계 대상 ' +
@@ -593,7 +545,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       expect(page.items.some((item) => item.id === outcome1.repositoryId)).toBe(
         false,
       );
-
       await expect(
         publicProjectsService.findDetail(
           outcome1.githubRepositoryId.toString(),
@@ -601,13 +552,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).rejects.toMatchObject({
         errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
       });
-
       await expect(
         publicProjectsService.findProfile(outcome1.applicantId),
       ).rejects.toMatchObject({
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
-
       const rankingEntries = await collectRankingEntries();
       const outcome1Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-1-applicant-login`,
@@ -623,13 +572,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       });
     },
   );
-
   it('outcome-2: 발행 후 collection이 최신 관측으로 PUBLIC/PRESENT를 확인하면 list/detail/profile/ranking 전부에 노출되고 기여자 2명이 정확히 분리된다', async () => {
     const page = await publicProjectsService.findPage(undefined, 50);
     expect(page.items.some((item) => item.id === outcome2.repositoryId)).toBe(
       true,
     );
-
     const detail = await publicProjectsService.findDetail(
       outcome2.githubRepositoryId.toString(),
     );
@@ -640,13 +587,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         `${PREFIX}-outcome-2-other-login`,
       ].sort(),
     );
-
     const profile = await publicProjectsService.findProfile(
       outcome2.applicantId,
     );
     expect(profile.projects).toHaveLength(1);
     expect(profile.projects[0]?.observed).toBe(true);
-
     const rankedLogins = (await collectRankingEntries()).map(
       (entry) => entry.githubLogin,
     );
@@ -657,7 +602,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ]),
     );
   });
-
   it(
     "outcome-3 [알려진 갭 — report-don't-fix]: 발행됐지만 collection이 아직 " +
       '한 번도 (재)관측하지 않은 저장소도 list/detail/profile에는 보이고, #617 단계 D 이후 ' +
@@ -669,27 +613,22 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       expect(page.items.some((item) => item.id === outcome3.repositoryId)).toBe(
         true,
       );
-
       await expect(
         publicProjectsService.findDetail(
           outcome3.githubRepositoryId.toString(),
         ),
       ).resolves.toMatchObject({ row: { id: outcome3.repositoryId } });
-
       const profile = await publicProjectsService.findProfile(
         outcome3.applicantId,
       );
       expect(profile.projects).toHaveLength(1);
-
       expect(profile.projects[0]?.observed).toBe(true);
       expect(profile.projects[0]?.metrics).toEqual({
         commitCount: 0,
         pullRequestCount: 0,
         releaseCount: 0,
       });
-
       expect(profile.projects[0]?.hasCollectedData).toBe(false);
-
       const rankingEntries = await collectRankingEntries();
       const outcome3Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-3-applicant-login`,
@@ -705,7 +644,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       });
     },
   );
-
   it(
     'outcome-4: collection이 PRIVATE/PRESENT로 관측했고 그 관측이 발행 이전(stale)이면 ' +
       'list/detail/profile은 그대로 노출하고(stale-allow), ranking은 저장소 축 기여를 ' +
@@ -715,13 +653,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       expect(page.items.some((item) => item.id === outcome4.repositoryId)).toBe(
         true,
       );
-
       await expect(
         publicProjectsService.findDetail(
           outcome4.githubRepositoryId.toString(),
         ),
       ).resolves.toMatchObject({ row: { id: outcome4.repositoryId } });
-
       const rankingEntries = await collectRankingEntries();
       const outcome4Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-4-applicant-login`,
@@ -737,7 +673,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       });
     },
   );
-
   it(
     'outcome-5: collection이 private/missing으로 관측했고 발행 이후(out-of-band 변경)면 ' +
       '즉시 회수되어 list/detail/profile에는 없고, ranking은 저장소 축을 읽지 않으므로 ' +
@@ -747,7 +682,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       expect(page.items.some((item) => item.id === outcome5.repositoryId)).toBe(
         false,
       );
-
       await expect(
         publicProjectsService.findDetail(
           outcome5.githubRepositoryId.toString(),
@@ -755,13 +689,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).rejects.toMatchObject({
         errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
       });
-
       await expect(
         publicProjectsService.findProfile(outcome5.applicantId),
       ).rejects.toMatchObject({
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
-
       const rankingEntries = await collectRankingEntries();
       const outcome5Entry = rankingEntries.find(
         (entry) => entry.githubLogin === `${PREFIX}-outcome-5-applicant-login`,
@@ -777,7 +709,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       });
     },
   );
-
   it(
     "outcome-6 [알려진 갭 — report-don't-fix]: 공개 계획이 OFF라 수동 공개가 " +
       'REPOSITORY_PUBLICATION_NOT_PLANNED로 막혀 platform Repository는 PRIVATE로 남지만, ' +
@@ -794,13 +725,11 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
           code: SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED,
         },
       });
-
       const persisted = await prisma.githubRepository.findUniqueOrThrow({
         where: { id: outcome6.repositoryId },
       });
       expect(persisted.visibility).toBe(RepositoryVisibility.PRIVATE);
       expect(persisted.publishedAt).toBeNull();
-
       const page = await publicProjectsService.findPage(undefined, 50);
       expect(page.items.some((item) => item.id === outcome6.repositoryId)).toBe(
         false,
@@ -812,7 +741,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).rejects.toMatchObject({
         errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
       });
-
       const rankingEntries = await collectRankingEntries();
       expect(
         rankingEntries.some(
@@ -822,7 +750,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).toBe(true);
     },
   );
-
   it(
     "outcome-7 [알려진 갭 — report-don't-fix]: 프로그램 미종료라 수동 공개가 " +
       'PROGRAM_NOT_ENDED로 막혀 platform Repository는 PRIVATE로 남지만, ranking은 이번에도 ' +
@@ -836,17 +763,14 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).rejects.toMatchObject({
         errorCode: { code: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED },
       });
-
       const persisted = await prisma.githubRepository.findUniqueOrThrow({
         where: { id: outcome7.repositoryId },
       });
       expect(persisted.visibility).toBe(RepositoryVisibility.PRIVATE);
-
       const page = await publicProjectsService.findPage(undefined, 50);
       expect(page.items.some((item) => item.id === outcome7.repositoryId)).toBe(
         false,
       );
-
       const rankingEntries = await collectRankingEntries();
       expect(
         rankingEntries.some(
@@ -856,7 +780,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).toBe(true);
     },
   );
-
   it('outcome-8: 4중 게이트를 전부 통과하면 CAS로 정확히 1건만 전이되고(중복 확인 클릭은 no-op) 감사 로그는 REPOSITORY_PUBLISHED exactly-1이며, 이후 list/detail/profile에 즉시 노출된다', async () => {
     github.publishRepository.mockResolvedValue({
       githubRepositoryId: outcome8.githubRepositoryId,
@@ -868,25 +791,21 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
-
     const publishedAt = new Date('2026-05-20T00:00:00.000Z');
     const first = await submissionReviewsService.publishRepository(
       outcome8.repositoryId,
       REVIEWER_GITHUB_ID,
       publishedAt,
     );
-
     const second = await submissionReviewsService.publishRepository(
       outcome8.repositoryId,
       REVIEWER_GITHUB_ID,
       new Date('2026-05-21T00:00:00.000Z'),
     );
-
     expect(first.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(second.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(second.publishedAt).toEqual(first.publishedAt);
     expect(github.publishRepository).toHaveBeenCalledTimes(1);
-
     const auditRows = await prisma.auditLog.findMany({
       where: {
         targetType: 'REPOSITORY',
@@ -895,24 +814,20 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       },
     });
     expect(auditRows).toHaveLength(1);
-
     const page = await publicProjectsService.findPage(undefined, 50);
     expect(page.items.some((item) => item.id === outcome8.repositoryId)).toBe(
       true,
     );
-
     const detail = await publicProjectsService.findDetail(
       outcome8.githubRepositoryId.toString(),
     );
     expect(detail.contributors).toHaveLength(2);
-
     const profile = await publicProjectsService.findProfile(
       outcome8.applicantId,
     );
     expect(profile.projects).toHaveLength(1);
     expect(profile.projects[0]?.observed).toBe(true);
   });
-
   it('outcome-9: 공개 가능한 기여가 하나도 없는 사용자는 존재하지 않는 사용자와 동일한 404이고, list/detail/profile/ranking 직렬화 결과 어디에도 금지 키(실명/학번/이메일/역할/계정상태/제출내용/거절사유/provision 에러 등)가 없다 — 학과는 ranking 전용 공개 필드로만 나간다', async () => {
     const bystanderId = `${PREFIX}-outcome-9-bystander`;
     await prisma.user.create({
@@ -930,7 +845,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         approvalStatus: 'NOT_REQUIRED',
       },
     });
-
     try {
       await expect(
         publicProjectsService.findProfile(bystanderId),
@@ -942,7 +856,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).rejects.toMatchObject({
         errorCode: { code: PublicProjectsErrorCode.USER_PROFILE_NOT_FOUND },
       });
-
       const page = await publicProjectsService.findPage(undefined, 50);
       const detail = await publicProjectsService.findDetail(
         outcome2.githubRepositoryId.toString(),
@@ -951,7 +864,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         outcome2.applicantId,
       );
       const rankingEntries = await collectRankingEntries();
-
       const bigintSafeStringify = (value: unknown): string =>
         JSON.stringify(value, (_key: string, val: unknown) =>
           typeof val === 'bigint' ? val.toString() : val,
@@ -962,10 +874,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         bigintSafeStringify(profile),
         bigintSafeStringify(rankingEntries),
       ].join('\n');
-
       expect(serialized).not.toContain('synthetic-forbidden-real-name');
       expect(serialized).not.toContain(`${PREFIX}-forbidden-student-id`);
-
       const serializedWithoutRanking = [
         bigintSafeStringify(page),
         bigintSafeStringify(detail),
@@ -998,7 +908,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
         '"watermark"',
         '"cursor"',
         '"runId"',
-
         '"nextRunAt"',
         '"lastSuccessAt"',
         '"failureCount"',

@@ -8,6 +8,7 @@ const noOp = () => undefined;
 
 function context(overrides?: Partial<ReviewContext>): ReviewContext {
   return {
+    latestReviewId: null,
     requirementId: 'requirement-1',
     submissionId: 'submission-existing',
     application: {
@@ -57,6 +58,26 @@ function render(reviewContext: ReviewContext): string {
 }
 
 describe('SubmissionReviewView', () => {
+  it('제출 버전 미상 심사를 제출본에 배정하지 않고 별도 이력으로 보여 준다', () => {
+    const reviewContext = context({
+      unversionedReviews: [
+        {
+          id: 'historical-review',
+          decision: 'APPROVED',
+          comment: '보존된 승인 사유',
+          reviewedAt: '2026-01-15T12:00:00Z',
+        },
+      ],
+    });
+
+    const html = render(reviewContext);
+
+    expect(html).toContain('제출 버전 미상 심사');
+    expect(html).toContain('보존된 승인 사유');
+    expect(html).toContain('제출본 연결 미상');
+    expect(html).not.toContain('미검토');
+  });
+
   it('판정 선택 오류를 라디오 그룹에 연결한다', () => {
     const html = renderToStaticMarkup(
       <SubmissionReviewView

@@ -208,6 +208,7 @@ const SESSION_GITHUB_ID = 342_900_002n;
 
 const listForViewer = jest.fn().mockResolvedValue([
   {
+    submissionType: 'FILE_OR_TEXT' as const,
     id: 'synthetic-document',
     milestoneId: 'synthetic-milestone',
     name: '개인정보 수집·이용 동의서',
@@ -458,8 +459,6 @@ it('서류 목록은 브라우저·공유 캐시에 저장하지 않는다', asy
   expect(listForViewer).toHaveBeenCalledWith(
     SESSION_GITHUB_ID,
     'synthetic-milestone',
-    expect.any(Date),
-    false,
   );
 });
 
@@ -1160,7 +1159,6 @@ describe('교직원 서류 제출물 판정', () => {
     const body = {
       decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
-      resubmissionDueAt,
       ...seenVersion,
     };
 
@@ -1179,7 +1177,6 @@ describe('교직원 서류 제출물 판정', () => {
       decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt: '2026-09-18T09:00:00.000Z',
-      resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       reviewerNickname: 'synthetic-staff',
     });
 
@@ -1229,7 +1226,6 @@ describe('교직원 서류 제출물 판정', () => {
   it('보완 요청에 사유가 없어도 null 사유로 전달한다', async () => {
     const body = {
       decision: 'CHANGES_REQUESTED',
-      resubmissionDueAt,
       ...seenVersion,
     };
 
@@ -1300,7 +1296,7 @@ describe('교직원 서류 제출물 판정', () => {
     );
   });
 
-  it('반려에 실려 온 기한은 서비스로 넘기지 않는다', async () => {
+  it('폐기된 심사 기한 필드를 400으로 거절한다', async () => {
     const body = {
       decision: 'REJECTED',
       comment: '기한을 넘겼습니다.',
@@ -1317,19 +1313,8 @@ describe('교직원 서류 제출물 판정', () => {
       },
     );
 
-    expect(response.status).toBe(201);
-    expect(review).toHaveBeenCalledWith(
-      SYNTHETIC_STAFF_PRINCIPAL.id,
-      'synthetic-milestone',
-      'synthetic-document',
-      'synthetic-application',
-      {
-        decision: 'REJECTED',
-        comment: '기한을 넘겼습니다.',
-        expectedRevision: 3,
-        expectedLatestReviewId: null,
-      },
-    );
+    expect(response.status).toBe(400);
+    expect(review).not.toHaveBeenCalled();
   });
 
   it('알 수 없는 decision은 400으로 거절한다', async () => {

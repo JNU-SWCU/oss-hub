@@ -302,7 +302,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
     review: {
       comment: '표지를 고쳐 주세요.',
       reviewedAt: '2026-08-02T00:00:00.000Z',
-      resubmissionDueAt: null,
     },
   });
   const APPROVED = documentWithViewer({
@@ -316,7 +315,6 @@ describe('제출과 판정이 부딪혔을 때', () => {
     review: {
       comment: '잘 받았습니다.',
       reviewedAt: '2026-08-03T00:00:00.000Z',
-      resubmissionDueAt: null,
     },
   });
 
@@ -858,7 +856,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
           review: {
             comment: '고쳐 주세요.',
             reviewedAt: '2026-08-02T00:00:00.000Z',
-            resubmissionDueAt: null,
           },
         },
         '보완 요청',
@@ -869,7 +866,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
           review: {
             comment: '기한을 넘겼습니다.',
             reviewedAt: '2026-08-02T00:00:00.000Z',
-            resubmissionDueAt: null,
           },
         },
         '반려',
@@ -1212,7 +1208,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
         review: {
           comment: '표지의 이름이 신청서와 다릅니다.',
           reviewedAt: '2026-08-02T01:20:00.000Z',
-          resubmissionDueAt: null,
         },
       }),
     );
@@ -1235,7 +1230,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
         review: {
           comment: '제출 기한을 두 주 넘겼습니다.',
           reviewedAt: '2026-08-02T01:20:00.000Z',
-          resubmissionDueAt: null,
         },
       }),
     );
@@ -1250,7 +1244,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
         review: {
           comment: '잘 받았습니다. 다음 단계는 개별로 안내드릴게요.',
           reviewedAt: '2026-08-02T01:20:00.000Z',
-          resubmissionDueAt: null,
         },
       }),
     );
@@ -1271,7 +1264,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
         review: {
           comment: '수고했습니다.',
           reviewedAt: '2026-08-02T01:20:00.000Z',
-          resubmissionDueAt: null,
         },
       }),
     );
@@ -1288,7 +1280,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
         review: {
           comment: null,
           reviewedAt: '2026-08-02T01:20:00.000Z',
-          resubmissionDueAt: null,
         },
       }),
     );
@@ -1358,7 +1349,6 @@ describe('학생 행이 판정을 읽는 방식', () => {
         review: {
           comment: '3쪽 서명이 빠졌습니다.',
           reviewedAt: '2026-08-02T00:00:00.000Z',
-          resubmissionDueAt: null,
         },
       }),
       true,
@@ -1399,8 +1389,7 @@ describe('학생 행이 판정을 읽는 방식', () => {
   });
 });
 
-describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
-  const resubmissionDueAt = '2026-09-26T09:00:00.000Z';
+describe('시간이 지나도 보완 요청에는 별도 재제출 기한이 없다', () => {
   let container: HTMLDivElement;
   let root: Root;
 
@@ -1429,7 +1418,6 @@ describe('열어 둔 화면에서 재제출 기한이 지나는 순간', () => {
       review: {
         comment: '3쪽 서명이 빠졌습니다.',
         reviewedAt: '2026-09-20T00:00:00.000Z',
-        resubmissionDueAt,
       },
       history: { hasHistory: false, isComplete: true },
     };

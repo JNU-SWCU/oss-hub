@@ -3,7 +3,7 @@ import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -100,7 +100,7 @@ describe('ProgramEditorService integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new SubmissionsRepository(new PlatformRepository()),
         new MilestoneDocumentCollectionReadRepository(prisma),
       ),
       new MilestoneDocumentSubmissionWindowService(
@@ -108,7 +108,7 @@ describe('ProgramEditorService integration', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new UserProfileService(),
     );
     const results = await runTogether(

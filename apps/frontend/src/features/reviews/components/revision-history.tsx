@@ -19,10 +19,20 @@ import {
 } from '../review-format';
 import type { SubmissionRevision, SubmissionRevisionFile } from '../types';
 
-function ReviewResult({ revision }: { readonly revision: SubmissionRevision }) {
+function ReviewResult({
+  revision,
+  hasUnversionedReview = false,
+}: {
+  readonly revision: SubmissionRevision;
+  readonly hasUnversionedReview?: boolean;
+}) {
   const review = revision.review;
   if (!review) {
-    return <StatusBadge variant="pending">미검토</StatusBadge>;
+    return (
+      <StatusBadge variant="pending">
+        {hasUnversionedReview ? '제출본 연결 미상' : '미검토'}
+      </StatusBadge>
+    );
   }
   const presentation = DECISION_PRESENTATION[review.decision];
   return (
@@ -45,9 +55,11 @@ function ReviewResult({ revision }: { readonly revision: SubmissionRevision }) {
 export function RevisionCard({
   revision,
   current = false,
+  hasUnversionedReview = false,
 }: {
   readonly revision: SubmissionRevision;
   readonly current?: boolean;
+  readonly hasUnversionedReview?: boolean;
 }) {
   const links = revisionLinks(revision);
   const contentText = revisionContent(revision);
@@ -119,7 +131,10 @@ export function RevisionCard({
         ) : null}
         <div className="grid gap-1">
           <h3 className="text-sm font-medium">결과</h3>
-          <ReviewResult revision={revision} />
+          <ReviewResult
+            revision={revision}
+            hasUnversionedReview={hasUnversionedReview}
+          />
         </div>
       </CardContent>
     </Card>

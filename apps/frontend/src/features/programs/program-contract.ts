@@ -5,8 +5,6 @@ export type ApplicationStatus = 'SUBMITTED' | 'APPROVED' | 'REJECTED';
 export type SubmissionStatus =
   'NOT_SUBMITTED' | 'SUBMITTED' | 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
 
-export type SubmissionType = 'FILE' | 'TEXT';
-
 export type ProgramParticipation = 'individual' | 'team';
 
 export const PROGRAM_TRACK_TYPES = ['CURRICULAR', 'EXTRACURRICULAR'] as const;

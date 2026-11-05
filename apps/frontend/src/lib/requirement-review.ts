@@ -1,37 +1,25 @@
 import { apiClient } from './api-client';
-
 export const MILESTONE_DOCUMENT_REVIEW_DECISIONS = [
   'APPROVED',
   'CHANGES_REQUESTED',
   'REJECTED',
 ] as const;
-
 export type MilestoneDocumentReviewDecision =
   (typeof MILESTONE_DOCUMENT_REVIEW_DECISIONS)[number];
-
 export interface MilestoneDocumentReviewInput {
   readonly decision: MilestoneDocumentReviewDecision;
-
   readonly comment?: string;
-
   readonly expectedRevision: number;
-
   readonly expectedLatestReviewId: string | null;
 }
-
 export interface CreatedMilestoneDocumentReview {
   readonly id: string;
   readonly decision: MilestoneDocumentReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
-
-  readonly resubmissionDueAt: string | null;
-
   readonly reviewerNickname: string;
 }
-
-export const MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH = 2_000;
-
+export const MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH = 2000;
 function reviewsPath(
   milestoneId: string,
   documentId: string,
@@ -39,7 +27,6 @@ function reviewsPath(
 ): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/reviews`;
 }
-
 export function createMilestoneDocumentReview(
   milestoneId: string,
   documentId: string,
@@ -54,7 +41,6 @@ export function createMilestoneDocumentReview(
     },
   );
 }
-
 export function milestoneDocumentReviewFormError(
   decision: MilestoneDocumentReviewDecision | null,
   comment: string,

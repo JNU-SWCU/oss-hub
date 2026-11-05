@@ -20,21 +20,15 @@ import type {
 import { milestoneRowSubmitGate } from '../milestone-submit-gate';
 import type { ProgramMilestone } from '../../catalog/dto';
 import type { ViewerRole } from '../../program-contract';
-
 interface MilestoneRowProps {
   readonly programId: string;
   readonly milestone: ProgramMilestone;
-
   readonly position: number;
-
   readonly nameId: string;
-
   readonly disclosureContentId?: string;
   readonly viewerRole: ViewerRole;
-
   readonly submissionAccess: MilestoneSubmissionAccess;
 }
-
 function BlockedState({
   access,
 }: {
@@ -46,7 +40,6 @@ function BlockedState({
     </p>
   );
 }
-
 function MilestoneHeadText({
   milestone,
   nameId,
@@ -85,32 +78,18 @@ function MilestoneHeadText({
     </span>
   );
 }
-
 function StudentState({
   programId,
   milestone,
   submissionAccess,
 }: Pick<MilestoneRowProps, 'programId' | 'milestone' | 'submissionAccess'>) {
-  if (milestone.submissionType === null) {
-    if (milestone.submissionItemCount === 0) {
-      return (
-        <p className="text-small font-semibold text-muted-foreground">
-          제출 없음 · 안내용
-        </p>
-      );
-    }
-    if (submissionAccess.kind === 'blocked') {
-      return <BlockedState access={submissionAccess} />;
-    }
+  if (milestone.submissionItemCount === 0) {
     return (
       <p className="text-small font-semibold text-muted-foreground">
-        {submissionAccess.kind === 'unchanged'
-          ? '신청 승인 후 제출할 수 있습니다'
-          : '아래 제출 항목에서 내용이나 파일을 제출하세요'}
+        제출 없음 · 안내용
       </p>
     );
   }
-
   const gate = milestoneRowSubmitGate(milestone, submissionAccess);
   if (gate.kind === 'unchanged') {
     return (
@@ -145,17 +124,14 @@ function StudentState({
     </div>
   );
 }
-
 const DISCLOSURE_TRIGGER_CLASS = [
   'group flex w-full items-start justify-between gap-3 rounded-sm text-left',
   'outline-none focus-visible:ring-3 focus-visible:ring-ring/50',
 ].join(' ');
-
 const DISCLOSURE_CHEVRON_CLASS = [
   'mt-0.5 size-4 shrink-0 text-muted-foreground transition-transform',
   'group-data-[state=open]:rotate-180 motion-reduce:transition-none',
 ].join(' ');
-
 export function MilestoneRow({
   programId,
   milestone,
@@ -206,11 +182,9 @@ export function MilestoneRow({
           )}
           {viewerRole === 'STAFF' ? (
             <>
-              {milestone.submissionType === null ? (
+              {milestone.submissionItemCount === 0 ? (
                 <p className="text-small font-semibold text-muted-foreground">
-                  {milestone.submissionItemCount === 0
-                    ? '제출 없음 · 안내용'
-                    : `제출 항목 ${milestone.submissionItemCount}개`}
+                  제출 없음 · 안내용
                 </p>
               ) : summary ? (
                 <p className="text-small">

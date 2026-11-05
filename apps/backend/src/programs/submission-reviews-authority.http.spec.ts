@@ -76,14 +76,6 @@ const routes = [
   ],
   [
     'POST',
-    '/submissions/missing/reviews',
-    { revision: 1, decision: 'APPROVED' },
-    404,
-    'SUB_001',
-    '제출을 찾을 수 없습니다.',
-  ],
-  [
-    'POST',
     '/repositories/missing/publish',
     { isConfirmed: true },
     409,
@@ -172,24 +164,13 @@ it.each(
   [1, 2, 5].flatMap((actorIndex) => [
     {
       actorIndex,
-      path: '/submissions/missing/reviews',
-      body: { revision: 0, decision: 'INVALID' },
-      origin: 'http://frontend.test',
-      status: 403,
-      code: 'SUB_002',
-    },
-    {
-      actorIndex,
       path: '/repositories/missing/publish',
       body: { isConfirmed: 'INVALID' },
       origin: 'http://frontend.test',
       status: 403,
       code: 'SUB_002',
     },
-    ...[
-      '/submissions/missing/reviews',
-      '/repositories/missing/publish',
-    ].flatMap((path) => [
+    ...['/repositories/missing/publish'].flatMap((path) => [
       {
         actorIndex,
         path,
@@ -289,6 +270,36 @@ it.each(
       code,
       detail,
       instance: `/api/v1${path}`,
+    });
+  },
+);
+
+it.each(
+  actors.flatMap((_actor, actorIndex) =>
+    ['http://frontend.test', 'http://evil.test', undefined].map((origin) => ({
+      actorIndex,
+      origin,
+    })),
+  ),
+)(
+  'retired review POST returns 404 for actor $actorIndex and origin $origin',
+  async ({ actorIndex, origin }) => {
+    const response = await fetch(
+      baseUrl + '/api/v1/submissions/missing/reviews',
+      {
+        method: 'POST',
+        headers: {
+          'x-actor': String(actorIndex),
+          'content-type': 'application/json',
+          ...(origin === undefined ? {} : { origin }),
+        },
+        body: JSON.stringify({ revision: 0, decision: 'INVALID' }),
+      },
+    );
+    expect(response.status).toBe(404);
+    await expect(response.json()).resolves.toMatchObject({
+      status: 404,
+      instance: '/api/v1/submissions/missing/reviews',
     });
   },
 );

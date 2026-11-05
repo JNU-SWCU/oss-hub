@@ -6,7 +6,6 @@ import { Injectable } from '@nestjs/common';
 import {
   type Program,
   ApplicationStatus,
-  MilestoneDocumentKind,
   Prisma,
   ProgramCategory,
   type ProgramTrackType,
@@ -20,7 +19,6 @@ import {
   ProgramListStatusFilterRepository,
   type ProgramListQuery,
 } from './program-list-status-filter.repository';
-import { submissionCompletionTargetSelect } from './submission-completion.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCoverRepository } from './program-cover.repository';
 import { type AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
@@ -37,7 +35,6 @@ import {
 } from './program-authoring-upload-transaction.repository';
 import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
 import { ProgramAuthoringAttachmentRaceError } from './program-authoring.error';
-
 export type ProgramListRecord = {
   readonly id: string;
   readonly name: string;
@@ -54,7 +51,6 @@ export type ProgramListRecord = {
   readonly coverId?: string | null;
   readonly coverExternalImageUrl?: string | null;
 };
-
 export type ProgramStatusCounts = {
   readonly all: number;
   readonly recruiting: number;
@@ -62,7 +58,6 @@ export type ProgramStatusCounts = {
   readonly upcoming: number;
   readonly ended: number;
 };
-
 function emptyProgramStatusCounts(): ProgramStatusCounts {
   return {
     all: 0,
@@ -72,12 +67,10 @@ function emptyProgramStatusCounts(): ProgramStatusCounts {
     ended: 0,
   };
 }
-
 export interface ProgramApplicationCounts {
   readonly total: number;
   readonly pending: number;
 }
-
 @Injectable()
 export class ProgramsRepository {
   constructor(
@@ -85,7 +78,6 @@ export class ProgramsRepository {
     private readonly platformRepository: PlatformRepository,
     private readonly programListStatusFilterRepository: ProgramListStatusFilterRepository,
   ) {}
-
   listPrograms(query: ProgramListQuery, now: Date) {
     const where: Prisma.ProgramWhereInput = {
       ...this.programListStatusFilterRepository.programListPrismaWhere(
@@ -148,11 +140,12 @@ export class ProgramsRepository {
       this.prisma.program.count({ where }),
     ]);
   }
-
   async findEndedYears(now: Date): Promise<readonly number[]> {
     const programEndYearSql = Prisma.sql`EXTRACT(YEAR FROM p."endAt" AT TIME ZONE 'UTC' AT TIME ZONE 'Asia/Seoul')::int`;
     const rows = await this.prisma.$queryRaw<
-      readonly { readonly year: number }[]
+      readonly {
+        readonly year: number;
+      }[]
     >(Prisma.sql`
       SELECT DISTINCT ${programEndYearSql} AS year
       FROM "Program" AS p
@@ -162,7 +155,6 @@ export class ProgramsRepository {
     `);
     return rows.map((row) => row.year);
   }
-
   async countProgramsByStatus(now: Date): Promise<ProgramStatusCounts> {
     const rows = await this.prisma.$queryRaw<
       readonly {
@@ -183,7 +175,6 @@ export class ProgramsRepository {
       ended: row.ended,
     };
   }
-
   findProgramDetail(programId: string) {
     return this.prisma.program.findUnique({
       where: { id: programId, lifecycle: { not: 'DELETED' } },
@@ -211,19 +202,16 @@ export class ProgramsRepository {
             startAt: true,
             dueAt: true,
             instructions: true,
-            submissionType: true,
             _count: {
               select: {
                 documents: {
-                  where: { kind: MilestoneDocumentKind.DOCUMENT },
+                  where: {},
                 },
               },
             },
-
             documents: {
               where: {
                 required: true,
-                kind: MilestoneDocumentKind.DOCUMENT,
               },
               select: { id: true },
             },
@@ -232,7 +220,6 @@ export class ProgramsRepository {
       },
     });
   }
-
   async findStudentApplication(programId: string, userId: string) {
     return this.prisma.application.findFirst({
       where: {
@@ -243,23 +230,27 @@ export class ProgramsRepository {
         id: true,
         status: true,
         milestoneDocumentSubmissions: {
-          select: submissionCompletionTargetSelect,
+          select: {
+            status: true,
+            milestoneDocument: { select: { id: true, milestoneId: true } },
+          } satisfies Prisma.MilestoneDocumentSubmissionSelect,
         },
       },
     });
   }
-
   async findApprovedApplications(programId: string) {
     return this.prisma.application.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
         milestoneDocumentSubmissions: {
-          select: submissionCompletionTargetSelect,
+          select: {
+            status: true,
+            milestoneDocument: { select: { id: true, milestoneId: true } },
+          } satisfies Prisma.MilestoneDocumentSubmissionSelect,
         },
       },
     });
   }
-
   async findViewerApplicationStatuses(
     programIds: readonly string[],
     userId: string,
@@ -279,7 +270,6 @@ export class ProgramsRepository {
       ]),
     );
   }
-
   async countApplicationsByProgram(
     programIds: readonly string[],
   ): Promise<ReadonlyMap<string, ProgramApplicationCounts>> {
@@ -289,7 +279,13 @@ export class ProgramsRepository {
       where: { programId: { in: [...programIds] } },
       _count: { _all: true },
     });
-    const counts = new Map<string, { total: number; pending: number }>();
+    const counts = new Map<
+      string,
+      {
+        total: number;
+        pending: number;
+      }
+    >();
     for (const row of rows) {
       const bucket = counts.get(row.programId) ?? { total: 0, pending: 0 };
       bucket.total += row._count._all;
@@ -300,7 +296,6 @@ export class ProgramsRepository {
     }
     return counts;
   }
-
   async findProgramRepositories(
     programId: string,
     studentUserId: string | null,
@@ -341,7 +336,6 @@ export class ProgramsRepository {
         },
       },
     });
-
     return repositories
       .filter((repository) => repository.application !== null)
       .map((repository) => ({
@@ -357,7 +351,6 @@ export class ProgramsRepository {
         },
       }));
   }
-
   async findStudentActivityApplications(userId: string) {
     return this.prisma.application.findMany({
       where: {
@@ -382,7 +375,6 @@ export class ProgramsRepository {
       },
     });
   }
-
   findViewer(githubId: bigint) {
     return this.prisma.user.findUnique({
       where: { githubId },
@@ -393,7 +385,6 @@ export class ProgramsRepository {
       },
     });
   }
-
   withCreateTransaction<T>(
     operation: (
       writer: Pick<Prisma.TransactionClient, 'program' | 'auditLog'>,
@@ -401,7 +392,6 @@ export class ProgramsRepository {
   ): Promise<T> {
     return this.prisma.$transaction((transaction) => operation(transaction));
   }
-
   createProgram(
     data: {
       readonly createdByGithubId: bigint;
@@ -431,18 +421,14 @@ export class ProgramsRepository {
     });
   }
 }
-
 export type ProgramDeletionScopeCounts = {
   readonly applications: number;
   readonly teams: number;
   readonly boardPosts: number;
   readonly submissions: number;
-
   readonly submissionEvents: number;
-
   readonly scopeFingerprint: string;
 };
-
 type DeletionScopeCountsRow = Readonly<{
   applications: bigint;
   teams: bigint;
@@ -451,7 +437,6 @@ type DeletionScopeCountsRow = Readonly<{
   submissionEvents: bigint;
   scopeFingerprint: string;
 }>;
-
 @Injectable()
 export class ProgramDeletionScopeRepository {
   async readProgramDeletionScopeCounts(
@@ -460,8 +445,7 @@ export class ProgramDeletionScopeRepository {
   ): Promise<ProgramDeletionScopeCounts> {
     const [row] = await transaction.$queryRaw<
       readonly DeletionScopeCountsRow[]
-    >(
-      Prisma.sql`
+    >(Prisma.sql`
       SELECT
         (SELECT count(*) FROM "Application" WHERE "programId" = ${programId}) AS applications,
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
@@ -490,14 +474,6 @@ export class ProgramDeletionScopeRepository {
           )
           +
           (SELECT count(*) FROM "MilestoneDocumentSubmissionHistory" WHERE "milestoneDocumentSubmissionId" IN (
-            SELECT document_submission.id
-            FROM "MilestoneDocumentSubmission" AS document_submission
-            INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
-            WHERE milestone."programId" = ${programId}
-          ))
-          +
-          (SELECT count(*) FROM "MilestoneDocumentReviewHistory" WHERE "milestoneDocumentSubmissionId" IN (
             SELECT document_submission.id
             FROM "MilestoneDocumentSubmission" AS document_submission
             INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
@@ -547,14 +523,6 @@ export class ProgramDeletionScopeRepository {
             FROM "MilestoneDocumentSubmissionHistory" AS history
             INNER JOIN "MilestoneDocumentSubmission" AS document_submission
               ON document_submission.id = history."milestoneDocumentSubmissionId"
-            INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
-            WHERE milestone."programId" = ${programId}
-            UNION ALL
-            SELECT CONCAT('MilestoneDocumentReviewHistory:', review.id)
-            FROM "MilestoneDocumentReviewHistory" AS review
-            INNER JOIN "MilestoneDocumentSubmission" AS document_submission
-              ON document_submission.id = review."milestoneDocumentSubmissionId"
             INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
@@ -628,8 +596,7 @@ export class ProgramDeletionScopeRepository {
             )
           ) AS scope
         ) AS "scopeFingerprint"
-    `,
-    );
+    `);
     if (!row) throw new Error('Deletion scope count query returned no result.');
     return {
       applications: Number(row.applications),
@@ -641,7 +608,6 @@ export class ProgramDeletionScopeRepository {
     };
   }
 }
-
 export type ProgramPurgeDeletedCounts = {
   readonly applications: number;
   readonly teams: number;
@@ -657,7 +623,6 @@ export type ProgramPurgeDeletedCounts = {
   readonly milestoneDocuments: number;
   readonly milestoneDocumentSubmissions: number;
   readonly milestoneDocumentSubmissionHistories: number;
-  readonly milestoneDocumentReviewHistories: number;
   readonly milestoneDocumentTemplateFiles: number;
   readonly programAuthoringUploads: number;
   readonly programCreateRequests: number;
@@ -667,22 +632,18 @@ export type ProgramPurgeDeletedCounts = {
   readonly notifications: number;
   readonly programPurgeFileTombstones: number;
 };
-
 type ProgramLifecycleTransaction = Prisma.TransactionClient;
-
 @Injectable()
 export class ProgramLifecycleRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly programDeletionScope: ProgramDeletionScopeRepository,
   ) {}
-
   withDeleteTransaction<T>(
     operation: (transaction: ProgramLifecycleTransaction) => Promise<T>,
   ): Promise<T> {
     return this.withPurgeTransaction(operation);
   }
-
   withPurgeTransaction<T>(
     operation: (transaction: ProgramLifecycleTransaction) => Promise<T>,
   ): Promise<T> {
@@ -690,13 +651,11 @@ export class ProgramLifecycleRepository {
       isolationLevel: Prisma.TransactionIsolationLevel.Serializable,
     });
   }
-
   readScopeCounts(programId: string): Promise<ProgramDeletionScopeCounts> {
     return this.prisma.$transaction((transaction) =>
       this.readScopeCountsInTransaction(transaction, programId),
     );
   }
-
   readScopeCountsInTransaction(
     transaction: ProgramLifecycleTransaction,
     programId: string,
@@ -706,7 +665,6 @@ export class ProgramLifecycleRepository {
       programId,
     );
   }
-
   findProgramForDeletion(
     transaction: ProgramLifecycleTransaction,
     programId: string,
@@ -716,7 +674,6 @@ export class ProgramLifecycleRepository {
       select: { id: true, name: true, lifecycle: true },
     });
   }
-
   async deleteProgram(
     transaction: ProgramLifecycleTransaction,
     programId: string,
@@ -726,7 +683,6 @@ export class ProgramLifecycleRepository {
       data: { lifecycle: 'DELETED' },
     });
   }
-
   async purgeProgramTree(
     transaction: ProgramLifecycleTransaction,
     programId: string,
@@ -801,7 +757,6 @@ export class ProgramLifecycleRepository {
       milestoneDocuments: 0,
       milestoneDocumentSubmissions: 0,
       milestoneDocumentSubmissionHistories: 0,
-      milestoneDocumentReviewHistories: 0,
       milestoneDocumentTemplateFiles: 0,
       programCreateRequests: 0,
       repositoryProvisionJobs: 0,
@@ -813,7 +768,6 @@ export class ProgramLifecycleRepository {
       programPurgeFileTombstones: tombstones.count,
     };
   }
-
   isForeignKeyConflict(error: unknown): boolean {
     return (
       error instanceof Prisma.PrismaClientKnownRequestError &&
@@ -821,7 +775,6 @@ export class ProgramLifecycleRepository {
     );
   }
 }
-
 export interface ProgramAuthoringTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   createProgram(
@@ -831,7 +784,9 @@ export interface ProgramAuthoringTransactionStore {
           readonly actorId: string;
           readonly upload: ProgramAuthoringUploadToken;
         }
-      | { readonly externalCover: ProgramExternalCover },
+      | {
+          readonly externalCover: ProgramExternalCover;
+        },
   ): Promise<ProgramAuthoringProgram>;
   createRequest(input: ProgramAuthoringCreateRequestInput): Promise<string>;
   lockUploads(
@@ -852,7 +807,6 @@ export interface ProgramAuthoringTransactionStore {
     tokenIds: readonly string[],
   ): Promise<void>;
 }
-
 @Injectable()
 export class ProgramAuthoringRepository {
   constructor(
@@ -860,7 +814,6 @@ export class ProgramAuthoringRepository {
     private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
     private readonly programCoverRepository: ProgramCoverRepository,
   ) {}
-
   async findReplay(
     actorId: string,
     idempotencyKey: string,
@@ -871,7 +824,6 @@ export class ProgramAuthoringRepository {
     if (program === null || program.payloadHash === null) return null;
     return { payloadHash: program.payloadHash, program };
   }
-
   withTransaction<T>(
     operation: (store: ProgramAuthoringTransactionStore) => Promise<T>,
   ): Promise<T> {
@@ -879,7 +831,6 @@ export class ProgramAuthoringRepository {
       operation(this.programAuthoringTransactionStore(transaction)),
     );
   }
-
   private programAuthoringTransactionStore(
     prisma: Prisma.TransactionClient,
   ): ProgramAuthoringTransactionStore {
@@ -894,7 +845,6 @@ export class ProgramAuthoringRepository {
       attachUploads: this.attachUploadsIn.bind(this, prisma),
     };
   }
-
   private async createProgramIn(
     prisma: Prisma.TransactionClient,
     plan: ProgramAuthoringProgramPlan,
@@ -903,7 +853,9 @@ export class ProgramAuthoringRepository {
           readonly actorId: string;
           readonly upload: ProgramAuthoringUploadToken;
         }
-      | { readonly externalCover: ProgramExternalCover },
+      | {
+          readonly externalCover: ProgramExternalCover;
+        },
   ): Promise<ProgramAuthoringProgram> {
     const program = await prisma.program.create({
       data: plan,
@@ -924,7 +876,6 @@ export class ProgramAuthoringRepository {
     }
     return program;
   }
-
   private async createRequestIn(
     prisma: Prisma.TransactionClient,
     input: ProgramAuthoringCreateRequestInput,
@@ -940,7 +891,6 @@ export class ProgramAuthoringRepository {
     });
     return program.id;
   }
-
   private lockUploadsIn(
     prisma: Prisma.TransactionClient,
     tokenIds: readonly string[],
@@ -950,7 +900,6 @@ export class ProgramAuthoringRepository {
       tokenIds,
     );
   }
-
   private async createMilestoneIn(
     prisma: Prisma.TransactionClient,
     programId: string,
@@ -962,13 +911,11 @@ export class ProgramAuthoringRepository {
         name: plan.name,
         startAt: plan.startAt,
         dueAt: plan.dueAt,
-        submissionType: plan.submissionType,
         instructions: plan.instructions,
       },
     });
     return milestone.id;
   }
-
   private async createDocumentIn(
     prisma: Prisma.TransactionClient,
     milestoneId: string,
@@ -984,7 +931,6 @@ export class ProgramAuthoringRepository {
     });
     return document.id;
   }
-
   private async createTemplateIn(
     prisma: Prisma.TransactionClient,
     input: ProgramAuthoringTemplateInput,
@@ -1000,7 +946,6 @@ export class ProgramAuthoringRepository {
       },
     });
   }
-
   private async attachUploadsIn(
     prisma: Prisma.TransactionClient,
     actorId: string,

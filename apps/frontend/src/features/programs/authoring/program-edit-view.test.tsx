@@ -52,7 +52,6 @@ const editableProgram: EditableProgram = {
       name: '기획서 제출',
       startAt: '2026-08-16T09:30:59.000Z',
       dueAt: '2026-08-20T12:30:59.000Z',
-      submissionType: 'TEXT',
       instructions: '최종 결과를 글로 제출해 주세요.',
     },
   ],

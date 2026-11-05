@@ -1,3 +1,4 @@
+import { MilestoneCompletionService } from './milestone-completion.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionStatus } from '@prisma/client';
@@ -46,16 +47,23 @@ function setup(firstTimes: readonly (Date | null)[]) {
         total: 1,
       }),
     findCurrentSubmissions: () =>
-      Promise.resolve([
-        {
-          id: 'legacy-review',
-          applicationId: 'application',
-          milestoneId: 'stage',
-          currentRevision: 3,
-          status: SubmissionStatus.REJECTED,
-          submittedAt: afterDue,
-        },
-      ]),
+      Promise.resolve(
+        firstTimes.flatMap((time, index) =>
+          time === null
+            ? []
+            : [
+                {
+                  id: `submission-${index}`,
+                  milestoneDocumentId: `required-${index}`,
+                  applicationId: 'application',
+                  milestoneId: 'stage',
+                  currentRevision: 3,
+                  status: SubmissionStatus.REJECTED,
+                  submittedAt: afterDue,
+                },
+              ],
+        ),
+      ),
     findDocumentChangeRequests: () => Promise.resolve([]),
     findDocumentFirstSubmissions: (
       applicationIds: readonly string[],
@@ -81,6 +89,7 @@ function setup(firstTimes: readonly (Date | null)[]) {
     service: new SubmissionMatrixService(
       repository,
       new MilestoneDocumentCollectionService({} as never),
+      new MilestoneCompletionService(),
     ),
     repository,
     calls,
@@ -113,11 +122,18 @@ it.each([
 
     expect(result.rows[0]?.cells[0]).toMatchObject({
       deliveryStatus: status,
-      status: 'REJECTED',
-      revision: 3,
-      submittedAt: afterDue.toISOString(),
-      submissionId: 'legacy-review',
-      reviewUrl: '/programs/program/submissions/legacy-review/review',
+      status: times.some((time) => time !== null)
+        ? 'REJECTED'
+        : 'NOT_SUBMITTED',
+      revision: times.length === 1 && times[0] !== null ? 3 : null,
+      submittedAt:
+        times.length === 1 && times[0] !== null ? afterDue.toISOString() : null,
+      submissionId:
+        times.length === 1 && times[0] !== null ? 'submission-0' : null,
+      reviewUrl:
+        times.length === 1 && times[0] !== null
+          ? '/programs/program/submissions/submission-0/review'
+          : null,
     });
   },
 );

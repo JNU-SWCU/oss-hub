@@ -144,7 +144,7 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(query.strings.join('')).toContain(
       'SELECT count(*) FROM "MilestoneDocumentSubmission"',
     );
-    expect(query.values).toHaveLength(35);
-    expect(query.values).toEqual(Array(35).fill('program-1'));
+    expect(query.values).toHaveLength(33);
+    expect(query.values).toEqual(Array(33).fill('program-1'));
   });
 });

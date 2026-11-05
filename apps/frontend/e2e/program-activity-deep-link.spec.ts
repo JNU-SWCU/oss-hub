@@ -51,7 +51,6 @@ async function installProgramRoutes(
         dDay: 10,
         deadlineLabel: 'D-10',
         description: null,
-        submissionType: 'FILE',
         submissionItemCount: 1,
         viewerSubmissionStatus: null,
         applicationSubmissionSummary: {

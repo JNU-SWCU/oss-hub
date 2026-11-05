@@ -1,14 +1,9 @@
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import {
-  MilestoneDocumentKind,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   MilestoneDocumentFlowFixture,
@@ -22,29 +17,23 @@ import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const fixture = new MilestoneDocumentFlowFixture();
 const documentReviews = new MilestoneDocumentReviewsService(
   new MilestoneDocumentsRepository(
     fixture.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
-    new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+    new SubmissionsRepository(new PlatformRepository()),
     new MilestoneDocumentCollectionReadRepository(fixture.prisma),
   ),
-  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new SubmissionsRepository(new PlatformRepository()),
 );
 const legacyReviews = new SubmissionReviewsService(
-  new SubmissionReviewsRepository(
-    fixture.prisma,
-    new PlatformRepository(),
-    new SubmissionsRepository(fixture.prisma, new PlatformRepository()),
-  ),
+  new SubmissionReviewsRepository(fixture.prisma, new PlatformRepository()),
   { publish: jest.fn() },
   new RepositoryPublishService(),
   new RepositoryUrlService(),
@@ -57,7 +46,6 @@ const operators = [
   { kind: 'staff', hasStaffAccess: true, hasAdminAccess: false },
   { kind: 'staff-admin', hasStaffAccess: true, hasAdminAccess: true },
 ] as const;
-
 async function review(
   path: ReviewPath,
   actorGithubId: bigint,
@@ -83,7 +71,7 @@ async function review(
   }
   await fixture.prisma.milestoneDocument.update({
     where: { id: flowIds.document },
-    data: { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
+    data: {},
   });
   const submission =
     await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
@@ -101,7 +89,6 @@ async function review(
     comment: '합성 검토 사유',
   });
 }
-
 async function expectSubmissionUnchanged(): Promise<void> {
   const submission =
     await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
@@ -109,18 +96,15 @@ async function expectSubmissionUnchanged(): Promise<void> {
       select: {
         status: true,
         revision: true,
-        reviewHistories: { select: { id: true } },
         histories: { select: { event: true } },
       },
     });
   expect(submission).toEqual({
     status: SubmissionStatus.SUBMITTED,
     revision: 1,
-    reviewHistories: [],
     histories: [{ event: 'SUBMITTED' }],
   });
 }
-
 describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
   beforeAll(() => fixture.start());
   beforeEach(async () => {
@@ -128,7 +112,6 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
     expect((await fixture.submit('합성 팀 제출')).status).toBe(201);
   });
   afterAll(() => fixture.stop());
-
   it.each(
     operators.flatMap((operator) =>
       Object.values(ReviewDecision).map((decision) => ({
@@ -159,7 +142,6 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
             : {}),
         },
       });
-
       await expect(
         review(path, flowGithubIds.student, testCase.decision),
       ).rejects.toMatchObject({
@@ -171,7 +153,6 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
       await expectSubmissionUnchanged();
     },
   );
-
   it('제출자나 팀장이 아닌 현재 팀원도 자기 팀을 검토하지 못한다', async () => {
     await fixture.prisma.teamMember.create({
       data: {
@@ -180,7 +161,6 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
         userId: flowIds.staff,
       },
     });
-
     await expect(
       review(path, flowGithubIds.staff, ReviewDecision.APPROVED),
     ).rejects.toMatchObject({
@@ -191,7 +171,6 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
     });
     await expectSubmissionUnchanged();
   });
-
   it.each(operators)(
     '다른 팀 $kind 운영자는 계속 검토한다',
     async (operator) => {
@@ -215,9 +194,7 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
             : {}),
         },
       });
-
       await review(path, flowGithubIds.staff, ReviewDecision.APPROVED);
-
       await expect(
         fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
           where: { applicationId: flowIds.application },

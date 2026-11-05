@@ -24,10 +24,8 @@ import {
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
-
 let application: INestApplication | undefined;
 let baseUrl = '';
-
 const store: jest.Mocked<ProgramEditorTransactionStore> = {
   findUserAuthorityByGithubId: jest.fn(),
   findEditableProgramById: jest.fn(),
@@ -39,7 +37,6 @@ const store: jest.Mocked<ProgramEditorTransactionStore> = {
   updateMilestone: jest.fn(),
   findLatestDocumentGraceDueAt: jest.fn().mockResolvedValue(null),
   findEarliestDocumentGraceDueAt: jest.fn().mockResolvedValue(null),
-
   findMilestoneForDelete: jest.fn(),
   deleteMilestone: jest.fn(),
   lockMilestoneEdit: jest.fn(),
@@ -48,23 +45,19 @@ const store: jest.Mocked<ProgramEditorTransactionStore> = {
   lockAttachableUploads: jest.fn(),
   applyMilestoneEdit: jest.fn(),
 };
-
 const repository: Pick<ProgramEditorRepository, 'withTransaction'> = {
   withTransaction: (operation) => operation(store),
 };
-
 function sessionGuard(context: ExecutionContext): boolean {
-  const request = context
-    .switchToHttp()
-    .getRequest<{ sessionGithubId: bigint }>();
+  const request = context.switchToHttp().getRequest<{
+    sessionGithubId: bigint;
+  }>();
   request.sessionGithubId = 101n;
   return true;
 }
-
 async function readJson(response: Response): Promise<unknown> {
   return JSON.parse(await response.text());
 }
-
 async function patchProgram(body: object): Promise<Response> {
   return fetch(`${baseUrl}/api/v1/programs/program-1`, {
     method: 'PATCH',
@@ -72,7 +65,6 @@ async function patchProgram(body: object): Promise<Response> {
     body: JSON.stringify(body),
   });
 }
-
 async function patchMilestone(body: object): Promise<Response> {
   return fetch(`${baseUrl}/api/v1/milestones/milestone-1`, {
     method: 'PATCH',
@@ -80,13 +72,11 @@ async function patchMilestone(body: object): Promise<Response> {
     body: JSON.stringify(body),
   });
 }
-
 async function getMilestoneEdit(): Promise<Response> {
   return fetch(`${baseUrl}/api/v1/milestones/milestone-1/edit`, {
     headers: { connection: 'close' },
   });
 }
-
 async function patchLifecycle(body: object): Promise<Response> {
   return fetch(`${baseUrl}/api/v1/programs/program-1/lifecycle`, {
     method: 'PATCH',
@@ -94,7 +84,6 @@ async function patchLifecycle(body: object): Promise<Response> {
     body: JSON.stringify(body),
   });
 }
-
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramsController, MilestonesController],
@@ -118,7 +107,6 @@ beforeAll(async () => {
     .overrideGuard(OriginGuard)
     .useValue({ canActivate: () => true })
     .compile();
-
   application = moduleRef.createNestApplication();
   application.setGlobalPrefix('api/v1');
   application.useGlobalPipes(
@@ -128,7 +116,6 @@ beforeAll(async () => {
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
 });
-
 it.each([
   { coverUploadId: null, externalCover: null },
   {
@@ -157,7 +144,6 @@ it.each([
     expect(store.updateProgram.mock.calls).toHaveLength(0);
   },
 );
-
 beforeEach(() => {
   jest.clearAllMocks();
   const milestone = editableProgram.milestones[0];
@@ -203,7 +189,6 @@ beforeEach(() => {
     name: 'Milestone',
     startAt: new Date('2026-08-16T00:00:00.000Z'),
     dueAt: new Date('2026-08-20T00:00:00.000Z'),
-    submissionType: null,
     instructions: null,
   });
   store.updateMilestone.mockResolvedValue({
@@ -211,28 +196,22 @@ beforeEach(() => {
     name: 'Legacy milestone',
     startAt: new Date('2026-08-16T00:00:00.000Z'),
     dueAt: new Date('2026-08-20T00:00:00.000Z'),
-    submissionType: null,
     instructions: null,
   });
 });
-
 afterAll(async () => {
   await application?.close();
 });
-
 it('does not expose the removed lifecycle mutation route', async () => {
   const response = await patchLifecycle({ lifecycle: 'ARCHIVED' });
-
   expect(response.status).toBe(404);
   expect(store.updateProgram.mock.calls).toHaveLength(0);
 });
-
 it('returns field errors for an invalid application period through the API ProblemDetail contract', async () => {
   const response = await patchProgram({
     ...updateInput,
     applicationEndAt: '2026-07-31T00:00:00.000Z',
   });
-
   expect(response.status).toBe(422);
   expect(response.headers.get('content-type')).toContain(
     'application/problem+json',
@@ -249,14 +228,12 @@ it('returns field errors for an invalid application period through the API Probl
   });
   expect(store.updateProgram.mock.calls).toHaveLength(0);
 });
-
 it('returns field errors for an invalid team range through the API ProblemDetail contract', async () => {
   const response = await patchProgram({
     ...updateInput,
     teamMinSize: 4,
     teamMaxSize: 2,
   });
-
   expect(response.status).toBe(400);
   expect(await readJson(response)).toMatchObject({
     status: 400,
@@ -269,21 +246,18 @@ it('returns field errors for an invalid team range through the API ProblemDetail
   });
   expect(store.updateProgram.mock.calls).toHaveLength(0);
 });
-
 it('accepts metadata with explicit dates without selecting aggregate validation', async () => {
   const response = await patchMilestone({
     name: 'Updated milestone',
     startAt: '2026-08-16T00:00:00.000Z',
     dueAt: '2026-08-20T00:00:00.000Z',
   });
-
   expect(response.status).toBe(200);
   expect(store.findMilestoneForUpdate.mock.calls).toHaveLength(1);
   expect(store.updateMilestone.mock.calls).toHaveLength(1);
   expect(store.lockMilestoneEdit.mock.calls).toHaveLength(0);
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
-
 it('EXPAND exception: legacy metadata PATCH omits concurrency checking for old clients only', async () => {
   const response = await patchMilestone({
     name: ' Legacy milestone ',
@@ -291,14 +265,12 @@ it('EXPAND exception: legacy metadata PATCH omits concurrency checking for old c
     dueAt: '2026-08-20T00:00:00.000Z',
     instructions: ' legacy instructions ',
   });
-
   expect(response.status).toBe(200);
   expect(store.findMilestoneForUpdate.mock.calls).toHaveLength(1);
   expect(store.updateMilestone.mock.calls).toHaveLength(1);
   expect(store.lockMilestoneEdit.mock.calls).toHaveLength(0);
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
-
 it('rejects an aggregate body without a fingerprint before either write path', async () => {
   const response = await patchMilestone({
     name: 'Aggregate missing fingerprint',
@@ -307,7 +279,6 @@ it('rejects an aggregate body without a fingerprint before either write path', a
     instructions: null,
     documents: [],
   });
-
   expect(response.status).toBe(400);
   expect(store.findMilestoneForUpdate.mock.calls).toHaveLength(0);
   expect(store.updateMilestone.mock.calls).toHaveLength(0);
@@ -315,7 +286,6 @@ it('rejects an aggregate body without a fingerprint before either write path', a
   expect(store.lockAttachableUploads.mock.calls).toHaveLength(0);
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
-
 it('rejects 21 documents before entering the transaction store', async () => {
   const response = await patchMilestone({
     expectedFingerprint: 'a'.repeat(64),
@@ -329,12 +299,10 @@ it('rejects 21 documents before entering the transaction store', async () => {
       required: true,
     })),
   });
-
   expect(response.status).toBe(400);
   expect(store.lockMilestoneEdit.mock.calls).toHaveLength(0);
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
-
 it('rejects malformed aggregate-shaped input without dispatching either path', async () => {
   const response = await patchMilestone({
     expectedFingerprint: 'a'.repeat(64),
@@ -343,14 +311,12 @@ it('rejects malformed aggregate-shaped input without dispatching either path', a
     dueAt: '2026-08-20T00:00:00.000Z',
     instructions: null,
   });
-
   expect(response.status).toBe(400);
   expect(store.findMilestoneForUpdate.mock.calls).toHaveLength(0);
   expect(store.updateMilestone.mock.calls).toHaveLength(0);
   expect(store.lockMilestoneEdit.mock.calls).toHaveLength(0);
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
-
 it('keeps stale supplied aggregate fingerprints on the conflict path', async () => {
   const response = await patchMilestone({
     expectedFingerprint: 'b'.repeat(64),
@@ -360,12 +326,10 @@ it('keeps stale supplied aggregate fingerprints on the conflict path', async () 
     instructions: null,
     documents: [],
   });
-
   expect(response.status).toBe(409);
   expect(store.findMilestoneForUpdate.mock.calls).toHaveLength(0);
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
-
 it('returns a generic 400 for an expired upload token without exposing its ID', async () => {
   const snapshot = requireMilestoneEditSnapshot(
     await readJson(await getMilestoneEdit()),
@@ -388,14 +352,12 @@ it('returns a generic 400 for an expired upload token without exposing its ID', 
       },
     ],
   });
-
   expect(response.status).toBe(400);
   const body = JSON.stringify(await readJson(response));
   expect(body).not.toContain('upload-sensitive');
   expect(body).not.toContain('EXPIRED');
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);
 });
-
 it('returns a staff edit snapshot and accepts its full PATCH shape', async () => {
   const snapshotResponse = await getMilestoneEdit();
   expect(snapshotResponse.status).toBe(200);
@@ -407,7 +369,6 @@ it('returns a staff edit snapshot and accepts its full PATCH shape', async () =>
     startAt: '2026-08-16T00:00:00.000Z',
     endAt: '2026-08-31T00:00:00.000Z',
   });
-
   const patchResponse = await patchMilestone({
     expectedFingerprint: snapshot.fingerprint,
     name: snapshot.milestone.name,
@@ -419,11 +380,16 @@ it('returns a staff edit snapshot and accepts its full PATCH shape', async () =>
   expect(patchResponse.status).toBe(200);
   expect(store.applyMilestoneEdit.mock.calls).toHaveLength(1);
 });
-
 function requireMilestoneEditSnapshot(value: unknown): {
   readonly fingerprint: string;
-  readonly operation: { readonly startAt: string; readonly endAt: string };
-  readonly milestone: { readonly name: string; readonly dueAt: string };
+  readonly operation: {
+    readonly startAt: string;
+    readonly endAt: string;
+  };
+  readonly milestone: {
+    readonly name: string;
+    readonly dueAt: string;
+  };
 } {
   if (!isRecord(value)) {
     throw new TypeError('Expected milestone edit snapshot.');
@@ -460,7 +426,6 @@ function requireMilestoneEditSnapshot(value: unknown): {
     },
   };
 }
-
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null;
 }

@@ -15,7 +15,6 @@ import { MILESTONE_NOT_SUBMITTED } from '../programs/milestone-completion.config
 import type { MilestoneCompletionStatus } from '../programs/milestone-completion.config';
 import { MilestoneCompletionService } from '../programs/milestone-completion.service';
 import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
-
 export interface StudentDashboardMilestone {
   readonly id: string;
   readonly name: string;
@@ -30,13 +29,11 @@ export interface StudentDashboardMilestone {
   readonly requiredItemCount: number;
   readonly remainingItemCount: number;
 }
-
 interface StudentDashboardProgress {
   readonly approvedCount: number;
   readonly inReviewCount: number;
   readonly totalCount: number;
 }
-
 export interface StudentDashboardItem {
   readonly coverImageUrl?: string | null;
   readonly applicationId: string;
@@ -51,18 +48,15 @@ export interface StudentDashboardItem {
   readonly checklistUrl: string;
   readonly repository: StudentDashboardRepositoryItem | null;
 }
-
 export interface StudentDashboardRepositoryItem {
   readonly repositoryName: string | null;
   readonly provisionStatus: 'NOT_STARTED' | RepositoryProvisionJobStatus;
   readonly invitationStatus: RepositoryInvitationStatus | null;
   readonly githubUrl: string | null;
 }
-
 function isNonEmptyString(value: string | null | undefined): value is string {
   return typeof value === 'string' && value.trim().length > 0;
 }
-
 function isSafeProgramId(value: string): boolean {
   return (
     value !== '.' &&
@@ -70,22 +64,18 @@ function isSafeProgramId(value: string): boolean {
     /^[A-Za-z0-9][A-Za-z0-9._:-]*$/.test(value)
   );
 }
-
 function detailUrlFor(status: ApplicationStatus, programId: string): string {
   const program = `/programs/${encodeURIComponent(programId)}`;
   return status === ApplicationStatus.APPROVED ? program : `${program}/apply`;
 }
-
 function teamUrlFor(programId: string): string {
   return `/programs/${encodeURIComponent(programId)}/my-team`;
 }
-
 interface MilestoneStatuses {
   readonly status: MilestoneCompletionStatus;
   readonly itemStatuses: readonly MilestoneCompletionStatus[];
   readonly lateSubmissionDueAt: Date | null;
 }
-
 function progressOf(
   milestoneStatuses: ReadonlyMap<string, MilestoneStatuses>,
 ): StudentDashboardProgress {
@@ -102,7 +92,6 @@ function progressOf(
     totalCount: required.length,
   };
 }
-
 @Injectable()
 export class StudentDashboardService {
   constructor(
@@ -115,7 +104,6 @@ export class StudentDashboardService {
     private readonly milestoneCompletionService: MilestoneCompletionService,
     private readonly programCoverUrlService: ProgramCoverUrlService,
   ) {}
-
   async getStudentDashboard(
     sessionGithubId: bigint,
   ): Promise<readonly StudentDashboardItem[]> {
@@ -129,7 +117,6 @@ export class StudentDashboardService {
         repository,
       ]),
     );
-
     const items: StudentDashboardItem[] = [];
     for (const application of applications) {
       if (
@@ -139,7 +126,6 @@ export class StudentDashboardService {
       ) {
         continue;
       }
-
       const milestoneStatuses =
         application.status === ApplicationStatus.APPROVED
           ? this.milestoneStatusesFor(application)
@@ -149,7 +135,6 @@ export class StudentDashboardService {
           ? null
           : this.nextMilestoneFor(application, milestoneStatuses);
       if (nextMilestone === 'invalid') continue;
-
       items.push({
         coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           application.program.id,
@@ -170,10 +155,8 @@ export class StudentDashboardService {
         repository: this.repositoryFor(application, repositoryByApplication),
       });
     }
-
     return items;
   }
-
   private nextMilestoneFor(
     application: StudentDashboardApplicationRow,
     milestoneStatuses: ReadonlyMap<string, MilestoneStatuses>,
@@ -194,7 +177,6 @@ export class StudentDashboardService {
     ) {
       return 'invalid';
     }
-
     const statuses = milestoneStatuses.get(milestone.id);
     const itemStatuses = statuses?.itemStatuses ?? [];
     return {
@@ -211,7 +193,6 @@ export class StudentDashboardService {
       ).length,
     };
   }
-
   private repositoryFor(
     application: StudentDashboardApplicationRow,
     repositoryByApplication: ReadonlyMap<
@@ -220,7 +201,6 @@ export class StudentDashboardService {
     >,
   ): StudentDashboardRepositoryItem | null {
     if (application.status !== ApplicationStatus.APPROVED) return null;
-
     const projectedRepository = repositoryByApplication.get(application.id);
     if (projectedRepository === undefined) {
       return {
@@ -230,7 +210,6 @@ export class StudentDashboardService {
         githubUrl: null,
       };
     }
-
     const invitationStatus =
       projectedRepository.provisionStatus ===
         RepositoryProvisionJobStatus.SUCCEEDED &&
@@ -238,7 +217,6 @@ export class StudentDashboardService {
       projectedRepository.connectionMode === RepositoryConnectionMode.NEW
         ? RepositoryInvitationStatus.FAILED_FINAL
         : projectedRepository.invitationStatus;
-
     return {
       repositoryName: projectedRepository.repositoryName,
       provisionStatus: projectedRepository.provisionStatus,
@@ -246,7 +224,6 @@ export class StudentDashboardService {
       githubUrl: projectedRepository.githubUrl,
     };
   }
-
   private milestoneStatusesFor(
     application: StudentDashboardApplicationRow,
   ): ReadonlyMap<string, MilestoneStatuses> {
@@ -269,7 +246,7 @@ export class StudentDashboardService {
     return new Map(
       application.program.milestones.map((milestone) => {
         const input = {
-          submissionAxisInUse: milestone.submissionType !== null,
+          submissionAxisInUse: false,
           requiredDocumentStatuses: milestone.documents.map(
             (document) => statusByDocument.get(document.id) ?? null,
           ),

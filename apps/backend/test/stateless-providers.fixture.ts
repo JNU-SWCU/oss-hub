@@ -2,7 +2,7 @@ import { PlatformRepository } from '../src/platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../src/platform/prisma-serialization-retry.repository';
 import { RepositoryProvisionGenerationRepository } from '../src/platform/repository-provision-generation.repository';
 import { ProgramAuthoringUploadTransactionRepository } from '../src/programs/program-authoring-upload-transaction.repository';
-import { MilestoneDocumentSubmissionRepository } from '../src/programs/submissions.repository';
+import { SubmissionsRepository } from '../src/programs/submissions.repository';
 import { ProgramListStatusFilterRepository } from '../src/programs/program-list-status-filter.repository';
 import { StudentRepositoryUrlContextRepository } from '../src/programs/team.repository';
 import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.repository';
@@ -24,18 +24,16 @@ import { ProgramCoverUrlService } from '../src/programs/program-cover-url.servic
 import { ProgramScheduleService } from '../src/programs/program-schedule.service';
 import { ProgramTemplatesService } from '../src/programs/team-application.service';
 import { SubmissionFileAdmissionService } from '../src/programs/submission-file-admission.service';
-import { SubmissionInputService } from '../src/programs/submission-input.service';
 import { RankingYearService } from '../src/ranking/ranking-year.service';
 import { StaffInsightsQueryService } from '../src/staff/staff-insights-query.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
 import { AdminProfileMutationService } from '../src/users/admin-profile-mutation.service';
-
 export const STATELESS_PROVIDERS = [
   PlatformRepository,
   PrismaSerializationRetryRepository,
   RepositoryProvisionGenerationRepository,
   ProgramAuthoringUploadTransactionRepository,
-  MilestoneDocumentSubmissionRepository,
+  SubmissionsRepository,
   ProgramListStatusFilterRepository,
   StudentRepositoryUrlContextRepository,
   AdminAccessHistoryRepository,
@@ -57,7 +55,6 @@ export const STATELESS_PROVIDERS = [
   ProgramScheduleService,
   ProgramTemplatesService,
   SubmissionFileAdmissionService,
-  SubmissionInputService,
   RankingYearService,
   StaffInsightsQueryService,
   AdminAccessMutationService,
