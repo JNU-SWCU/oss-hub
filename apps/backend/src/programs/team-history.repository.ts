@@ -12,6 +12,40 @@ interface InvitationSnapshot {
 
 @Injectable()
 export class TeamHistoryRepository {
+  async recordTeamInvitationsDeleted(
+    transaction: Pick<
+      Prisma.TransactionClient,
+      'teamInvitation' | 'teamHistory'
+    >,
+    teamId: string,
+    actorId: string,
+    occurredAt: Date,
+  ): Promise<void> {
+    const invitations = await transaction.teamInvitation.findMany({
+      where: { teamId },
+      orderBy: { id: 'asc' },
+    });
+    for (const invitation of invitations) {
+      if (invitation.status !== 'PENDING') {
+        await this.archiveInvitation(
+          transaction,
+          invitation,
+          actorId,
+          occurredAt,
+        );
+        continue;
+      }
+      await this.recordInvitationClosed(
+        transaction,
+        invitation,
+        'INVITATION_CANCELLED',
+        actorId,
+        occurredAt,
+        'TEAM_DELETED',
+      );
+    }
+  }
+
   async archiveInvitation(
     transaction: Pick<Prisma.TransactionClient, 'teamHistory'>,
     invitation: InvitationSnapshot & {

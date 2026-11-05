@@ -34,6 +34,7 @@ const teamsService = new ProgramTeamsService(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   ),
   new AuditLogService(
     new AuditLogRepository(prisma),
@@ -206,6 +207,7 @@ it('projects current repository facts and URL audit history without reading or m
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   ).findStaffTeamDetail(programId, teamId);
 
   expect(detail?.repositoryContributions?.members).toEqual([
@@ -325,6 +327,7 @@ it('shows the outsider totals only while they were counted for this program wind
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   );
   const detail = await teams.findStaffTeamDetail(scoped.program, scoped.team);
 
@@ -429,6 +432,7 @@ it('reads contributions of a program that never set an end date', async () => {
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(detail?.repositoryContributions).toMatchObject({
@@ -542,6 +546,7 @@ it('counts issues for team members, so an issue-only member has observations', a
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   ).findStaffTeamDetail(scopedProgramId, scopedTeamId);
 
   expect(

@@ -4,6 +4,7 @@ import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -91,6 +92,7 @@ describe('program storage invariants', () => {
       prisma,
       new ProgramTeamRepositoryEvidenceRepository(prisma),
       new PlatformRepository(),
+      new TeamHistoryRepository(),
     );
     const events: string[] = [];
 

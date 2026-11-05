@@ -160,7 +160,7 @@ describe('registration reset persistence', () => {
     },
   );
 
-  it('image rollback preserves legacy activity detection and refuses registration reset after invitation decline', async () => {
+  it('closes the invitation by deleting the row while current activity detection still refuses registration reset, which fixes the image rollback floor above v0.24.44', async () => {
     const admin = await actor();
     const user = await create();
     const programId = `${user.id}:program`;
@@ -186,9 +186,6 @@ describe('registration reset persistence', () => {
     await prisma.team.create({
       data: { id: teamId, programId, name: 'Synthetic', leaderId: admin.id },
     });
-    await expect(legacyRepository.hasActivity(prisma, user.id)).resolves.toBe(
-      false,
-    );
     await prisma.teamInvitation.create({
       data: {
         id: invitationId,
@@ -203,13 +200,11 @@ describe('registration reset persistence', () => {
       prisma,
       new PlatformRepository(),
     );
-    await expect(legacyRepository.hasActivity(prisma, user.id)).resolves.toBe(
-      true,
-    );
 
     await expect(
       invitations.declinePendingInvitationAsInvitee(invitationId, user.id, at),
     ).resolves.toEqual({ kind: 'ok' });
+
     await expect(repository.hasActivity(prisma, user.id)).resolves.toBe(true);
     await expect(
       service.resetFromRequest(admin.githubId, user.id, expectState(user)),
@@ -219,33 +214,21 @@ describe('registration reset persistence', () => {
     ).resolves.toMatchObject({ type: 'STUDENT', studentId: user.studentId });
     await expect(
       prisma.teamInvitation.findUnique({ where: { id: invitationId } }),
-    ).resolves.toMatchObject({ status: 'DECLINED', respondedAt: at });
+    ).resolves.toBeNull();
     await expect(
       prisma.teamHistory.count({ where: { sourceId: invitationId } }),
     ).resolves.toBe(1);
     await expect(legacyRepository.hasActivity(prisma, user.id)).resolves.toBe(
-      true,
+      false,
+    );
+    await legacyService.resetFromRequest(
+      admin.githubId,
+      user.id,
+      expectState(user),
     );
     await expect(
-      legacyService.resetFromRequest(
-        admin.githubId,
-        user.id,
-        expectState(user),
-      ),
-    ).rejects.toMatchObject({ errorCode: { code: 'ROL_025' } });
-    await expect(
       prisma.user.findUnique({ where: { id: user.id } }),
-    ).resolves.toMatchObject({
-      type: user.type,
-      studentId: user.studentId,
-      name: user.name,
-      department: user.department,
-      profileCreatedAt: user.profileCreatedAt,
-      profileUpdatedAt: user.profileUpdatedAt,
-      approvalStatus: user.approvalStatus,
-      approvalRequestId: user.approvalRequestId,
-      sessionVersion: user.sessionVersion,
-    });
+    ).resolves.toMatchObject({ type: 'UNSELECTED', studentId: null });
   });
 
   it('keeps the session identity, clears membership and returns staff re-registration to normal approval', async () => {

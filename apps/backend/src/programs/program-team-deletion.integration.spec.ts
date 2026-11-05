@@ -87,6 +87,7 @@ const service = new ProgramTeamsService(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   ),
   auditLog,
   deletionRepository,

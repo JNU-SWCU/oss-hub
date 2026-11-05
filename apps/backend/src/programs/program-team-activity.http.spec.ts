@@ -13,6 +13,7 @@ import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { ProgramTeamsController } from './program-teams.controller';
 import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
 import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ProgramTeamsService } from './program-teams.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -107,6 +108,7 @@ beforeAll(async () => {
       },
       ProgramTeamsService,
       ProgramTeamsRepository,
+      TeamHistoryRepository,
       ProgramTeamRepositoryEvidenceRepository,
       { provide: ProgramTeamDeletionRepository, useValue: {} },
       AuditLogMetadataService,

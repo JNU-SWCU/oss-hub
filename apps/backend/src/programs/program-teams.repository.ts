@@ -21,6 +21,7 @@ import {
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
@@ -187,6 +188,7 @@ export class ProgramTeamsRepository {
     private readonly prisma: PrismaService,
     private readonly evidence: ProgramTeamRepositoryEvidenceRepository,
     private readonly platformRepository: PlatformRepository,
+    private readonly history: TeamHistoryRepository,
   ) {}
 
   async findActiveStudentByGithubId(
@@ -616,6 +618,12 @@ export class ProgramTeamsRepository {
         await tx.teamMember.delete({
           where: { teamId_userId: { teamId, userId } },
         });
+        await this.history.recordTeamInvitationsDeleted(
+          tx,
+          teamId,
+          userId,
+          now,
+        );
         await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
         await tx.team.delete({ where: { id: teamId } });
         await recordAudit(
@@ -771,6 +779,12 @@ export class ProgramTeamsRepository {
         await tx.teamMember.delete({
           where: { teamId_userId: { teamId, userId: targetUserId } },
         });
+        await this.history.recordTeamInvitationsDeleted(
+          tx,
+          teamId,
+          actorUserId,
+          now,
+        );
         await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
         await tx.team.delete({ where: { id: teamId } });
         await recordAudit(

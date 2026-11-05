@@ -1,5 +1,6 @@
 import { StudentRepositoryUrlService } from './student-repository-url.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AccountStatus, RepositoryProvisionJobStatus } from '@prisma/client';
@@ -369,6 +370,7 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
         prisma as never,
         new ProgramTeamRepositoryEvidenceRepository(prisma as never),
         new PlatformRepository(),
+        new TeamHistoryRepository(),
       ),
       teamFindFirst,
       applicationFindFirst,

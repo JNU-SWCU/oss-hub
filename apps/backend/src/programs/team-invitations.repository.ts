@@ -438,9 +438,8 @@ export class TeamInvitationsRepository {
         return { kind: 'not-pending' };
       }
 
-      const closed = await tx.teamInvitation.updateMany({
+      const closed = await tx.teamInvitation.deleteMany({
         where: { id: invitationId, status: TeamInvitationStatus.PENDING },
-        data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
       });
       if (closed.count === 0) return { kind: 'not-pending' };
       await this.history.recordInvitationClosed(
@@ -466,13 +465,12 @@ export class TeamInvitationsRepository {
       if (!invitation) return { kind: 'not-found' };
       if ((await lockTeamRow(tx, invitation.teamId)).length === 0)
         return { kind: 'not-found' };
-      const closed = await tx.teamInvitation.updateMany({
+      const closed = await tx.teamInvitation.deleteMany({
         where: {
           id: invitationId,
           inviteeId,
           status: TeamInvitationStatus.PENDING,
         },
-        data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
       });
       if (closed.count === 0) {
         const own = await tx.teamInvitation.findUnique({
@@ -617,9 +615,8 @@ export class TeamInvitationsRepository {
         const memberCount = await tx.teamMember.count({ where: { teamId } });
         if (memberCount >= maxSize) return { kind: 'team-full' };
 
-        const updated = await tx.teamInvitation.updateMany({
+        const updated = await tx.teamInvitation.deleteMany({
           where: { id: invitationId, status: TeamInvitationStatus.PENDING },
-          data: { status: TeamInvitationStatus.ACCEPTED, respondedAt: now },
         });
         if (updated.count === 0) return { kind: 'not-pending' };
         await this.history.recordInvitationClosed(
@@ -644,9 +641,8 @@ export class TeamInvitationsRepository {
           orderBy: { id: 'asc' },
         });
         for (const other of otherInvitations) {
-          const closed = await tx.teamInvitation.updateMany({
+          const closed = await tx.teamInvitation.deleteMany({
             where: { id: other.id, status: TeamInvitationStatus.PENDING },
-            data: { status: TeamInvitationStatus.DECLINED, respondedAt: now },
           });
           if (closed.count === 1)
             await this.history.recordInvitationClosed(

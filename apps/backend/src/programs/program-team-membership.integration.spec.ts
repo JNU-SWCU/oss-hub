@@ -76,6 +76,7 @@ const repository = new ProgramTeamsRepository(
   prisma,
   new ProgramTeamRepositoryEvidenceRepository(prisma),
   new PlatformRepository(),
+  new TeamHistoryRepository(),
 );
 const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
@@ -613,40 +614,175 @@ describe('program team membership transactions integration', () => {
     expect(await membershipAuditRows(teamId)).toHaveLength(0);
   });
 
-  it('deletes the sole unapplied team together with its pending invitations', async () => {
-    const teamId = `${RUN_PREFIX}team-sole`;
-    await seedTeam(teamId, LEADER_ID, [
-      {
-        userId: LEADER_ID,
-        createdAt: JOINED_FIRST,
-      },
-    ]);
-    const invitationId = await seedPendingInvitation(teamId, LEADER_ID);
+  it.each(['leave', 'staff removal'])(
+    '%s deletes the sole unapplied team and preserves every invitation fact',
+    async (operation) => {
+      const teamId = `${RUN_PREFIX}team-sole:${operation}`;
+      await seedTeam(teamId, LEADER_ID, [
+        {
+          userId: LEADER_ID,
+          createdAt: JOINED_FIRST,
+        },
+      ]);
+      const invitationId = await seedPendingInvitation(teamId, LEADER_ID);
+      const pending = await prisma.teamInvitation.findUniqueOrThrow({
+        where: { id: invitationId },
+      });
+      const legacy = await Promise.all(
+        [
+          TeamInvitationStatus.ACCEPTED,
+          TeamInvitationStatus.DECLINED,
+          TeamInvitationStatus.EXPIRED,
+        ].map((status) =>
+          prisma.teamInvitation.create({
+            data: {
+              id: `${teamId}:${status}`,
+              teamId,
+              programId: PROGRAM_ID,
+              inviteeId: INVITEE_ID,
+              invitedById: LEADER_ID,
+              status,
+              createdAt: JOINED_FIRST,
+              respondedAt: status === 'EXPIRED' ? null : JOINED_SECOND,
+              updatedAt: JOINED_SECOND,
+            },
+          }),
+        ),
+      );
 
-    await service.leave(githubIdOf(LEADER_ID), PROGRAM_ID);
+      if (operation === 'leave') {
+        await service.leave(githubIdOf(LEADER_ID), PROGRAM_ID);
+      } else {
+        await service.removeMemberForStaff(
+          githubIdOf(STAFF_ID),
+          PROGRAM_ID,
+          teamId,
+          LEADER_ID,
+        );
+      }
 
-    await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(0);
-    await expect(prisma.teamMember.count({ where: { teamId } })).resolves.toBe(
-      0,
-    );
-    await expect(
-      prisma.teamInvitation.count({ where: { id: invitationId } }),
-    ).resolves.toBe(0);
+      await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(
+        0,
+      );
+      await expect(
+        prisma.teamMember.count({ where: { teamId } }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.teamInvitation.count({ where: { teamId } }),
+      ).resolves.toBe(0);
+      const actorId = operation === 'leave' ? LEADER_ID : STAFF_ID;
+      const histories = await prisma.teamHistory.findMany({
+        where: { teamId },
+      });
+      expect(histories).toHaveLength(4);
+      for (const invitation of [pending, ...legacy]) {
+        expect(
+          histories.filter((history) => history.sourceId === invitation.id),
+        ).toEqual([
+          expect.objectContaining({
+            teamId,
+            programId: PROGRAM_ID,
+            actorId,
+            event:
+              invitation.status === 'PENDING'
+                ? 'INVITATION_CANCELLED'
+                : 'INVITATION_ARCHIVED',
+            source: 'APPLICATION',
+            sourceTable: 'TeamInvitation',
+            data: {
+              schemaVersion: 1,
+              reason: 'TEAM_DELETED',
+              invitation: {
+                id: invitation.id,
+                inviteeId: INVITEE_ID,
+                invitedById: LEADER_ID,
+                createdAt: invitation.createdAt.toISOString(),
+                ...(invitation.status === 'PENDING'
+                  ? {}
+                  : {
+                      status: invitation.status,
+                      respondedAt:
+                        invitation.respondedAt?.toISOString() ?? null,
+                      updatedAt: invitation.updatedAt.toISOString(),
+                    }),
+              },
+            },
+          }),
+        ]);
+      }
 
-    await expect(
-      prisma.user.count({ where: { id: INVITEE_ID } }),
-    ).resolves.toBe(1);
+      await expect(
+        prisma.user.count({ where: { id: INVITEE_ID } }),
+      ).resolves.toBe(1);
 
-    const audits = await membershipAuditRows(teamId);
-    expect(audits).toHaveLength(1);
-    expect(audits[0]!.metadata).toMatchObject({
-      operation: 'LEAVE',
-      removedUserId: LEADER_ID,
-      previousLeaderId: LEADER_ID,
+      const audits = await membershipAuditRows(teamId);
+      expect(audits).toHaveLength(1);
+      expect(audits[0]!.metadata).toMatchObject({
+        operation: operation === 'leave' ? 'LEAVE' : 'REMOVE',
+        removedUserId: LEADER_ID,
+        previousLeaderId: LEADER_ID,
 
-      nextLeaderId: null,
-    });
-  });
+        nextLeaderId: null,
+      });
+    },
+  );
+
+  it.each([
+    ['leave', 'recordInvitationClosed'],
+    ['leave', 'archiveInvitation'],
+    ['staff removal', 'recordInvitationClosed'],
+    ['staff removal', 'archiveInvitation'],
+  ] as const)(
+    '%s rolls back the sole team, member and invitation when %s fails',
+    async (operation, method) => {
+      const teamId = `${RUN_PREFIX}history-rollback:${operation}:${method}`;
+      await seedTeam(teamId, LEADER_ID, [
+        { userId: LEADER_ID, createdAt: JOINED_FIRST },
+      ]);
+      const invitationId = await seedPendingInvitation(teamId, LEADER_ID);
+      if (method === 'archiveInvitation') {
+        await prisma.teamInvitation.update({
+          where: { id: invitationId },
+          data: { status: 'EXPIRED' },
+        });
+      }
+      const invitation = await prisma.teamInvitation.findUniqueOrThrow({
+        where: { id: invitationId },
+      });
+      const original = TeamHistoryRepository.prototype[method];
+      const failure = jest
+        .spyOn(TeamHistoryRepository.prototype, method)
+        .mockImplementationOnce(async (...args) => {
+          await Reflect.apply(original, new TeamHistoryRepository(), args);
+          throw new Error('synthetic invitation history failure');
+        });
+      try {
+        await expect(
+          operation === 'leave'
+            ? service.leave(githubIdOf(LEADER_ID), PROGRAM_ID)
+            : service.removeMemberForStaff(
+                githubIdOf(STAFF_ID),
+                PROGRAM_ID,
+                teamId,
+                LEADER_ID,
+              ),
+        ).rejects.toThrow('synthetic invitation history failure');
+      } finally {
+        failure.mockRestore();
+      }
+      await expect(
+        prisma.team.findUnique({ where: { id: teamId } }),
+      ).resolves.toMatchObject({ leaderId: LEADER_ID });
+      expect(await rosterOf(teamId)).toEqual([LEADER_ID]);
+      await expect(
+        prisma.teamInvitation.findUnique({ where: { id: invitationId } }),
+      ).resolves.toEqual(invitation);
+      await expect(
+        prisma.teamHistory.count({ where: { teamId } }),
+      ).resolves.toBe(0);
+      expect(await membershipAuditRows(teamId)).toHaveLength(0);
+    },
+  );
 
   it('rolls back the leadership handover when the same-transaction audit write fails', async () => {
     const teamId = `${RUN_PREFIX}team-audit-rollback`;
@@ -787,13 +923,9 @@ describe('program team membership transactions integration', () => {
     await expect(
       prisma.teamInvitation.findUnique({
         where: { id: invitationId },
-        select: { id: true, status: true, respondedAt: true },
+        select: { id: true },
       }),
-    ).resolves.toEqual({
-      id: invitationId,
-      status: TeamInvitationStatus.ACCEPTED,
-      respondedAt,
-    });
+    ).resolves.toBeNull();
     await expect(
       prisma.teamHistory.findMany({
         where: { sourceId: invitationId },

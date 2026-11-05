@@ -33,6 +33,7 @@ const teams = new ProgramTeamsRepository(
   prisma,
   new ProgramTeamRepositoryEvidenceRepository(prisma),
   platform,
+  new TeamHistoryRepository(),
 );
 const invitations = new TeamInvitationsRepository(
   new TeamHistoryRepository(),
