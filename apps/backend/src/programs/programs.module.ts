@@ -66,7 +66,6 @@ import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { TeamInvitationsService } from './team-invitations.service';
-import { ApplicationPreparationsController } from './application-preparations.controller';
 import { ApplicationsController } from './applications.controller';
 import { ApplicationsRepository } from './applications.repository';
 import { ApplicationsService } from './applications.service';
@@ -128,7 +127,6 @@ import { SubmissionInputService } from './submission-input.service';
 @Module({
   imports: [PlatformModule, GithubModule, UsersModule],
   controllers: [
-    ApplicationPreparationsController,
     StudentRepositoryUrlController,
     StudentApplicationsController,
     ProgramApplicationsController,

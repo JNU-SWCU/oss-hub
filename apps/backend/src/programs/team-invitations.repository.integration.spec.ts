@@ -6,7 +6,6 @@ import {
   ProgramCategory,
   ProgramTrackType,
   RepositoryConnectionMode,
-  TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -240,26 +239,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     },
   );
 
-  it('3b rejects legacy close writes and keeps the pending invitation visible', async () => {
-    await expect(
-      prisma.teamInvitation.update({
-        where: { id: INVITATION_ID },
-        data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
-      }),
-    ).rejects.toThrow('TeamInvitation_pending_only');
-    await expect(
-      repository.findByTeamId(TARGET_TEAM_ID),
-    ).resolves.toMatchObject([
-      { id: INVITATION_ID, status: 'PENDING', respondedAt: null },
-    ]);
-    await expect(repository.findByInviteeId(INVITEE_ID)).resolves.toMatchObject(
-      [{ id: INVITATION_ID, status: 'PENDING', respondedAt: null }],
-    );
-    await expect(
-      prisma.teamInvitation.count({ where: { id: INVITATION_ID } }),
-    ).resolves.toBe(1);
-  });
-
   it('3a rolls back the close, history and membership when the transaction fails', async () => {
     await expect(
       repository.withAcceptTransaction(
@@ -271,7 +250,10 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     ).rejects.toThrow('synthetic failure after history');
     const [invitation, membership] =
       await storedInvitationAndTargetMembership();
-    expect(invitation).toMatchObject({ status: 'PENDING', respondedAt: null });
+    expect(invitation).toMatchObject({
+      id: INVITATION_ID,
+      inviteeId: INVITEE_ID,
+    });
     expect(membership).toBeNull();
     await expect(
       prisma.teamHistory.count({ where: { programId: PROGRAM_ID } }),
@@ -353,7 +335,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     ).resolves.toBe(1);
   });
 
-  it('3a rolls back invitation status when the history insert fails', async () => {
+  it('rolls back invitation deletion when the history insert fails', async () => {
     await prisma.teamHistory.create({
       data: {
         teamId: TARGET_TEAM_ID,
@@ -382,14 +364,17 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     });
     const [invitation, membership] =
       await storedInvitationAndTargetMembership();
-    expect(invitation).toMatchObject({ status: 'PENDING', respondedAt: null });
+    expect(invitation).toMatchObject({
+      id: INVITATION_ID,
+      inviteeId: INVITEE_ID,
+    });
     expect(membership).toBeNull();
     await expect(
       prisma.teamHistory.count({ where: { sourceId: INVITATION_ID } }),
     ).resolves.toBe(1);
   });
 
-  it('3b permits reinvitation after a decline and fences legacy status writes', async () => {
+  it('permits reinvitation after a decline', async () => {
     await repository.declinePendingInvitationAsInvitee(
       INVITATION_ID,
       INVITEE_ID,
@@ -398,12 +383,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     await expect(
       prisma.teamInvitation.findUnique({ where: { id: INVITATION_ID } }),
     ).resolves.toBeNull();
-    await expect(
-      prisma.teamInvitation.updateMany({
-        where: { id: INVITATION_ID, status: 'PENDING' },
-        data: { status: 'ACCEPTED', respondedAt: RESPONDED_AT },
-      }),
-    ).resolves.toEqual({ count: 0 });
     const next = await prisma.teamInvitation.create({
       data: {
         teamId: TARGET_TEAM_ID,
@@ -412,19 +391,13 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         invitedById: LEADER_ID,
       },
     });
-    expect(next.status).toBe('PENDING');
-    await expect(
-      prisma.teamInvitation.updateMany({
-        where: { id: next.id, status: 'PENDING' },
-        data: { status: 'DECLINED', respondedAt: RESPONDED_AT },
-      }),
-    ).rejects.toThrow('TeamInvitation_pending_only');
+    expect(next.inviteeId).toBe(INVITEE_ID);
     await expect(repository.findByInviteeId(INVITEE_ID)).resolves.toMatchObject(
-      [{ id: next.id, status: 'PENDING' }],
+      [{ id: next.id }],
     );
     await expect(
       prisma.teamInvitation.findUnique({ where: { id: next.id } }),
-    ).resolves.toMatchObject({ status: 'PENDING', respondedAt: null });
+    ).resolves.toMatchObject({ id: next.id, inviteeId: INVITEE_ID });
     await expect(
       prisma.teamHistory.count({ where: { programId: PROGRAM_ID } }),
     ).resolves.toBe(1);
@@ -439,7 +412,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       programId: PROGRAM_ID,
       inviteeId: INVITEE_ID,
       invitedById: LEADER_ID,
-      status: TeamInvitationStatus.PENDING,
       invitee: {
         id: INVITEE_ID,
         nickname: 'atomic-invitee',
@@ -474,7 +446,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       programId: PROGRAM_ID,
       inviteeId: FILLER_ID,
       invitedById: LEADER_ID,
-      status: TeamInvitationStatus.PENDING,
     });
     expect(outcome.invitation.invitee).toEqual({
       id: FILLER_ID,
@@ -598,8 +569,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     const [invitation, membership] =
       await storedInvitationAndTargetMembership();
     expect(outcome).toEqual({ kind: 'team-full' });
-    expect(invitation?.status).toBe(TeamInvitationStatus.PENDING);
-    expect(invitation?.respondedAt).toBeNull();
+    expect(invitation?.id).toBe(INVITATION_ID);
     expect(membership).toBeNull();
   });
 
@@ -629,8 +599,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
     const [invitation, membership] =
       await storedInvitationAndTargetMembership();
     expect(outcome).toEqual({ kind: 'already-in-team' });
-    expect(invitation?.status).toBe(TeamInvitationStatus.PENDING);
-    expect(invitation?.respondedAt).toBeNull();
+    expect(invitation?.id).toBe(INVITATION_ID);
     expect(membership).toBeNull();
   });
 
@@ -864,7 +833,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       const [invitation, membership] =
         await storedInvitationAndTargetMembership();
       expect(outcome).toEqual({ kind: 'team-full' });
-      expect(invitation?.status).toBe(TeamInvitationStatus.PENDING);
+      expect(invitation?.id).toBe(INVITATION_ID);
       expect(membership).toBeNull();
       await expect(storedAccessSyncEvents()).resolves.toEqual([]);
     });

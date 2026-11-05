@@ -121,7 +121,6 @@ async function seed(lifecycle: ProgramLifecycle): Promise<void> {
       programId,
       inviteeId,
       invitedById: leaderId,
-      status: 'PENDING',
     },
   });
   await prisma.boardPost.create({

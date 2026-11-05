@@ -190,7 +190,7 @@ function StaffTeamMembersRoster({
   const roster = orderedRoster(members);
   const memberIds = new Set(roster.map((member) => member.userId));
   const pendingInvitations = invitation.sentInvitations.filter(
-    (item) => item.status === 'PENDING' && !memberIds.has(item.invitee.id),
+    (item) => !memberIds.has(item.invitee.id),
   );
   const inviteActionError = invitation.inviteActionError;
   const retryCancelId =

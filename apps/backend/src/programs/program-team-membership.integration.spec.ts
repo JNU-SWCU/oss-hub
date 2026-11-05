@@ -13,7 +13,6 @@ import {
   ProgramTrackType,
   SubmissionFileLifecycle,
   SubmissionStatus,
-  TeamInvitationStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -629,11 +628,7 @@ describe('program team membership transactions integration', () => {
         where: { id: invitationId },
       });
       const legacy = await Promise.all(
-        [
-          TeamInvitationStatus.ACCEPTED,
-          TeamInvitationStatus.DECLINED,
-          TeamInvitationStatus.EXPIRED,
-        ].map((status) =>
+        ['ACCEPTED', 'DECLINED', 'EXPIRED'].map((status) =>
           prisma.teamHistory.create({
             data: {
               id: `${teamId}:${status}`,

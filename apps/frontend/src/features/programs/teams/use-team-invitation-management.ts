@@ -32,7 +32,7 @@ const NO_CANDIDATES: readonly InvitationCandidate[] = [];
 
 export interface TeamInvitationManagementInput {
   readonly programId: string;
-  readonly team: Pick<ProgramTeam, 'id' | 'canInvite' | 'preparation'> | null;
+  readonly team: Pick<ProgramTeam, 'id' | 'canInvite'> | null;
   readonly sessionKey: string | null;
   readonly refetchInterval?: number;
 }
@@ -75,12 +75,10 @@ export function useTeamInvitationManagement(
   const [inviteQuery, setInviteQuery] = useState('');
   const [immediateQuery, setImmediateQuery] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const preparation = input.team?.preparation === true;
   const sentQuery = useSentInvitationsQuery(
     input.programId,
     teamId,
     identityKey,
-    preparation,
     input.refetchInterval,
   );
   const debouncedInviteQuery = useDebouncedValue(
@@ -95,7 +93,6 @@ export function useTeamInvitationManagement(
     input.programId,
     teamId,
     identityKey,
-    preparation,
     searchQuery,
     searchEnabled,
   );
@@ -123,8 +120,6 @@ export function useTeamInvitationManagement(
   const cancelingInvitationIdRef = useRef<string | null>(null);
   const identityKeyRef = useRef(identityKey);
   const teamIdRef = useRef(teamId);
-  const preparationRef = useRef(input.team?.preparation === true);
-  preparationRef.current = input.team?.preparation === true;
   const inviteQueryRef = useRef(inviteQuery);
   identityKeyRef.current = identityKey;
   teamIdRef.current = teamId;
@@ -193,11 +188,7 @@ export function useTeamInvitationManagement(
       setInvitingUserId(candidate.id);
       setInviteActionError(null);
       try {
-        await createInvitation(
-          targetTeamId,
-          candidate.id,
-          preparationRef.current,
-        );
+        await createInvitation(targetTeamId, candidate.id);
         if (!stillCurrent(epoch, key)) return;
 
         await loadSent();
@@ -235,7 +226,7 @@ export function useTeamInvitationManagement(
       setCancelingInvitationId(invitationId);
       setInviteActionError(null);
       try {
-        await cancelInvitation(invitationId, preparationRef.current);
+        await cancelInvitation(invitationId);
         if (!stillCurrent(epoch, key)) return;
         await loadSent();
       } catch (error: unknown) {

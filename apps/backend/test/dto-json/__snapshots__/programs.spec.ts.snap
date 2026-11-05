@@ -140,9 +140,7 @@ exports[`programs response DTO JSON PublicUserProfileResponseDto 1`] = `"{"userI
 
 exports[`programs response DTO JSON PurgeProgramResponseDto 1`] = `"{"id":"program-1","deleted":true,"deletedCounts":{"applications":1,"teams":2,"teamMembers":3,"teamInvitations":4,"boardPosts":5,"boardComments":6,"submissions":7,"submissionRevisions":8,"reviews":9,"submissionFiles":10,"milestones":11,"milestoneDocuments":12,"milestoneDocumentSubmissions":13,"milestoneDocumentSubmissionHistories":14,"milestoneDocumentReviewHistories":15,"milestoneDocumentTemplateFiles":16,"programAuthoringUploads":17,"programCreateRequests":18,"repositoryProvisionJobs":19,"githubRepositoriesDetached":20,"outboxEvents":21,"notifications":22,"programPurgeFileTombstones":23}}"`;
 
-exports[`programs response DTO JSON ReceivedTeamInvitationResponseDto 1`] = `"{"id":"invitation-1","teamId":"team-1","programId":"program-1","invitedById":"user-1","status":"PENDING","invitedAt":"2026-01-10T00:00:00.000Z","respondedAt":null,"teamName":"Team A","programName":"Program A","invitedByDisplayName":"Octo","memberCount":2,"teamMaxSize":4}"`;
-
-exports[`programs response DTO JSON ReceivedTeamInvitationResponseDto preparation 1`] = `"{"preparation":true,"id":"invitation-2","teamId":"team-1","programId":"program-1","invitedById":"user-1","status":"DECLINED","invitedAt":"2026-01-10T00:00:00.000Z","respondedAt":"2026-01-11T00:00:00.000Z","teamName":"Team A","programName":"Program A","invitedByDisplayName":"Octo","memberCount":2,"teamMaxSize":4}"`;
+exports[`programs response DTO JSON ReceivedTeamInvitationResponseDto 1`] = `"{"id":"invitation-1","teamId":"team-1","programId":"program-1","invitedById":"user-1","invitedAt":"2026-01-10T00:00:00.000Z","teamName":"Team A","programName":"Program A","invitedByDisplayName":"Octo","memberCount":2,"teamMaxSize":4}"`;
 
 exports[`programs response DTO JSON RemainingMilestoneResponseDto 1`] = `"{"label":"Kickoff","dueAt":"2026-02-10T00:00:00.000Z"}"`;
 
@@ -192,7 +190,7 @@ exports[`programs response DTO JSON TeamApplicationResponseDto 1`] = `"{"id":"ap
 
 exports[`programs response DTO JSON TeamInvitationInviteeResponseDto 1`] = `"{"id":"user-2","nickname":"cat","name":null,"avatarUrl":"https://avatars.example/cat.png"}"`;
 
-exports[`programs response DTO JSON TeamInvitationResponseDto 1`] = `"{"id":"invitation-1","teamId":"team-1","programId":"program-1","invitedById":"user-1","status":"PENDING","invitedAt":"2026-01-10T00:00:00.000Z","respondedAt":null,"invitee":{"id":"user-2","nickname":"cat","name":null,"avatarUrl":"https://avatars.example/cat.png"}}"`;
+exports[`programs response DTO JSON TeamInvitationResponseDto 1`] = `"{"id":"invitation-1","teamId":"team-1","programId":"program-1","invitedById":"user-1","invitedAt":"2026-01-10T00:00:00.000Z","invitee":{"id":"user-2","nickname":"cat","name":null,"avatarUrl":"https://avatars.example/cat.png"}}"`;
 
 exports[`programs response DTO JSON TeamManagementListItemResponseDto 1`] = `"{"id":"application-1","programId":"program-1","teamMinSize":2,"status":"APPROVED","submittedAt":"2026-01-05T00:00:00.000Z","rejectionReason":null,"applicant":{"id":"user-1","name":"Octo","nickname":"octo"},"team":{"id":"team-1","name":"Team A","memberCount":2,"members":[{"id":"user-1","name":"Octo","nickname":"octo"},{"id":"user-2","name":null,"nickname":"cat"}]}}"`;
 

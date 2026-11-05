@@ -108,10 +108,7 @@ export function TeamInvitePanel({
   }, [open, returnFocusRef]);
 
   const pendingInviteeIds = new Set(
-    selectedInviteeIds ??
-      sentInvitations
-        .filter((item) => item.status === 'PENDING')
-        .map((item) => item.invitee.id),
+    selectedInviteeIds ?? sentInvitations.map((item) => item.invitee.id),
   );
 
   const listboxState = resolveListboxState(

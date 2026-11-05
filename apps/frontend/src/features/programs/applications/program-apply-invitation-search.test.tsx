@@ -2,7 +2,7 @@ import { act } from 'react';
 import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 type Root = ReturnType<typeof createRoot>;
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createApplicationPreparation, removeMyTeamMember } from '../teams/api';
+import { removeMyTeamMember } from '../teams/api';
 import type { ProgramTeam } from '../teams/dto';
 import {
   loadProgramApplyContext,
@@ -48,12 +48,10 @@ vi.mock('./load-program-apply-context', () => ({
 
 vi.mock('./api', () => ({
   createApplication: vi.fn(),
-  createApplicationPreparation: vi.fn(),
   removeMyTeamMember: vi.fn(),
 }));
 vi.mock('../teams/api', () => ({
   createApplication: vi.fn(),
-  createApplicationPreparation: vi.fn(),
   removeMyTeamMember: vi.fn(),
 }));
 
@@ -75,9 +73,6 @@ const searchInvitationCandidatesMock = vi.mocked(searchInvitationCandidates);
 const createInvitationMock = vi.mocked(createInvitation);
 const cancelInvitationMock = vi.mocked(cancelInvitation);
 const removeMyTeamMemberMock = vi.mocked(removeMyTeamMember);
-const createApplicationPreparationMock = vi.mocked(
-  createApplicationPreparation,
-);
 
 const sessionUser = {
   name: '합성 학생',
@@ -167,9 +162,7 @@ function pendingInvitation(id: string, nickname: string): SentTeamInvitation {
     teamId: team.id,
     programId: program.id,
     invitedById: 'u1',
-    status: 'PENDING',
     invitedAt: '2026-07-02T00:00:00.000Z',
-    respondedAt: null,
     invitee: { id: 'u9', nickname, name: null, avatarUrl: null },
   };
 }
@@ -202,7 +195,6 @@ beforeEach(() => {
   searchInvitationCandidatesMock.mockReset();
   createInvitationMock.mockReset();
   cancelInvitationMock.mockReset();
-  createApplicationPreparationMock.mockReset();
   removeMyTeamMemberMock.mockReset().mockResolvedValue(undefined);
 });
 
@@ -339,7 +331,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
     typeInto(teamNameInput, '오픈소스팀');
     expect(container.querySelector('[aria-label="팀원 초대"]')).toBeNull();
     expect(searchInput()).toBeNull();
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(listSentInvitationsMock).not.toHaveBeenCalled();
     expect(searchInvitationCandidatesMock).not.toHaveBeenCalled();
   });
@@ -369,7 +360,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
     expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
       'team-1',
       'oct',
-      false,
     );
     expect(document.body.textContent).toContain('octo9');
   });
@@ -400,7 +390,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
       1,
       'team-1',
       'aa',
-      false,
     );
 
     typeQuery('bb');
@@ -409,7 +398,6 @@ describe('ProgramApplyPage — 초대 검색', () => {
       2,
       'team-1',
       'bb',
-      false,
     );
 
     await act(async () => {
@@ -456,10 +444,9 @@ describe('ProgramApplyPage — 초대 검색', () => {
     expect(createInvitationMock).toHaveBeenCalledExactlyOnceWith(
       'team-1',
       'u9',
-      false,
     );
 
-    expect(listSentInvitationsMock).toHaveBeenLastCalledWith('team-1', false);
+    expect(listSentInvitationsMock).toHaveBeenLastCalledWith('team-1');
   });
 
   it('대기 중인 초대는 로스터에서 취소하고, 레이어는 그 목록을 다시 그리지 않는다', async () => {
@@ -481,10 +468,7 @@ describe('ProgramApplyPage — 초대 검색', () => {
       '초대 취소 요청',
     );
 
-    expect(cancelInvitationMock).toHaveBeenCalledExactlyOnceWith(
-      'inv-1',
-      false,
-    );
+    expect(cancelInvitationMock).toHaveBeenCalledExactlyOnceWith('inv-1');
 
     expect(searchInput()).toBeNull();
   });

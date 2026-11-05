@@ -155,14 +155,6 @@ const PURGE_RELATIONS = [
     operation: 'TOMBSTONE',
     covers: ['Program->ProgramCover'],
   },
-  {
-    id: 'application-preparations-cascade',
-    operation: 'DELETE',
-    covers: [
-      'ApplicationPreparation->ApplicationPreparationParticipant',
-      'Program->ApplicationPreparation',
-    ],
-  },
 ] as const satisfies readonly PurgeDeletionStep[];
 
 export const PROGRAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =

@@ -1,4 +1,3 @@
-import { TeamInvitationStatus } from '@prisma/client';
 import type {
   SentTeamInvitationRecord,
   TeamInvitationInvitee,
@@ -27,9 +26,7 @@ export class TeamInvitationResponseDto {
   declare readonly teamId: string;
   declare readonly programId: string;
   declare readonly invitedById: string;
-  declare readonly status: TeamInvitationStatus;
   declare readonly invitedAt: string;
-  declare readonly respondedAt: string | null;
   declare readonly invitee: TeamInvitationInviteeResponseDto;
 
   static from(record: SentTeamInvitationRecord): TeamInvitationResponseDto {
@@ -38,9 +35,7 @@ export class TeamInvitationResponseDto {
       teamId: record.teamId,
       programId: record.programId,
       invitedById: record.invitedById,
-      status: record.status,
       invitedAt: record.invitedAt.toISOString(),
-      respondedAt: record.respondedAt?.toISOString() ?? null,
       invitee: TeamInvitationInviteeResponseDto.from(record.invitee),
     };
   }

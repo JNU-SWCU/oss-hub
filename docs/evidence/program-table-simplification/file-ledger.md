@@ -152,7 +152,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | --- | --- | --- | ---: | --- | ---: | --- |
 | `apps/backend/src/programs/application-answers.service.ts` | merge | `team-application.service.ts` | 9 | present | 159 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침 |
 | `apps/backend/src/programs/application-preparation.error.ts` | delete | - | 8 | deleted | 52 | 3b에서 폐기한 준비 경로의 타입 제거 |
-| `apps/backend/src/programs/application-preparations.controller.ts` | delete | - | 8 | present | 153 | 구 프론트 호환 GET NONE만 유지, DB reader 없음 |
+| `apps/backend/src/programs/application-preparations.controller.ts` | delete | - | 8 | deleted | 153 | 최종 전환에서 호환 GET과 컨트롤러 제거 |
 | `apps/backend/src/programs/application-preparations.repository.ts` | delete | - | 8 | deleted | 397 | 0건 확인 후 3b에서 reader·consumer 제거 |
 | `apps/backend/src/programs/application-preparations.service.ts` | delete | - | 8 | deleted | 190 | 0건 확인 후 3b에서 준비 작업 제거 |
 | `apps/backend/src/programs/team-history.repository.ts` | keep | - | 8 | present | 0 | 범용 TeamHistory의 초대 종료 사건 기록 |
@@ -205,7 +205,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/dto/milestone-document-response.dto.ts` | keep | `dto/milestone-document-response.dto.ts` | 4 | present | 152 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/milestone-document-review-response.dto.ts` | keep | `dto/milestone-document-review-response.dto.ts` | 4 | present | 25 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/milestone-document-submission-response.dto.ts` | keep | `dto/milestone-document-submission-response.dto.ts` | 4 | present | 45 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/my-application-preparation-response.dto.ts` | delete | - | 8 | present | 20 | 구 프론트 NONE 응답 계약만 유지 |
+| `apps/backend/src/programs/dto/my-application-preparation-response.dto.ts` | delete | - | 8 | deleted | 20 | 최종 전환에서 호환 NONE DTO 제거 |
 | `apps/backend/src/programs/dto/my-program-team-response.dto.ts` | keep | `dto/my-program-team-response.dto.ts` | 9 | present | 15 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/my-student-application-response.dto.ts` | keep | `dto/my-student-application-response.dto.ts` | 9 | present | 17 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
 | `apps/backend/src/programs/dto/patch-application-decision-request.dto.ts` | keep | `dto/patch-application-decision-request.dto.ts` | 9 | present | 11 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
@@ -664,3 +664,13 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 | programs 제품 파일 (같은 제외 규칙) | 245 | 37779 | 246 | 37817 |
 
 `milestone-document-submission.repository.ts`의 구현은 `submissions.repository.ts`로 병합했고 원본 파일을 삭제했다. 기존 API와 주입 계약을 유지하기 위해 준비 단계에서는 두 저장소 클래스를 같은 파일에 둔다. 목록의 opt-in 범위 DTO와 심사 이벤트 상수 파일이 추가되어 파일 수는 순증 1개다. 레거시 API·판별 분기·물리 컬럼 및 심사 테이블 삭제는 후속 단계다.
+
+## Todo 8 최종 코드 전환
+
+기준은 `484bb8f82`다. 남은 준비 GET 컨트롤러와 NONE DTO를 삭제하고 프론트의 준비 안내·초대 API 선택 분기를 제거했다. 초대 응답에는 status·respondedAt이 없으며, 행의 존재만 대기 상태를 뜻한다. Prisma에서도 두 컬럼·준비 모델·enum을 제외하여 기본 SELECT와 INSERT가 더는 이를 참조하지 않는다. 물리 status에는 기존 PENDING DB 기본값이 남아 있어 이 릴리스의 생성은 그대로 동작한다. DB DROP과 전체 유니크·invitee 인덱스 정리는 다음 릴리스의 별도 draft다.
+
+| 범위 | Before files | Before lines | After files | After lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 234 | 36908 | 232 | 36768 |
+
+새 사용자 문구나 화면 배치는 추가하지 않는다. 현재 지명 지원 가이드가 이미 최종 흐름을 설명하며 폐기 준비 화면은 현재 데이터에서 접근할 수 없다. 실제 Chrome에서 지원 제출·팀 대기 초대·정원 오류·기간 종료를 두 폭으로 검증했다. 종료 초대의 archive fallback은 pending-only CHECK로 도달할 수 없어 삭제했다. 과거 사실의 JSON과 migration은 유지한다. 이전 이미지 실행을 위한 전용 등록 초기화 fixture는 소유자의 복구 계약에 따라 삭제하고, 현재 TeamHistory 활동 보호 회귀는 유지한다.

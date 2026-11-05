@@ -5,7 +5,6 @@ import {
   AccountStatus,
   ProgramCategory,
   ProgramTrackType,
-  TeamInvitationStatus,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -180,8 +179,7 @@ async function expectPendingWithoutMembership(): Promise<void> {
       where: { teamId_userId: { teamId: TEAM_ID, userId: INVITEE_ID } },
     }),
   ]);
-  expect(invitation.status).toBe(TeamInvitationStatus.PENDING);
-  expect(invitation.respondedAt).toBeNull();
+  expect(invitation.id).toBe(INVITATION_ID);
   expect(membership).toBeNull();
 }
 
@@ -379,16 +377,16 @@ describe('Team invitation acceptance transaction races', () => {
     await expect(
       prisma.teamInvitation.findUniqueOrThrow({
         where: { id: INVITATION_ID },
-        select: { status: true },
+        select: { id: true },
       }),
-    ).resolves.toEqual({ status: TeamInvitationStatus.PENDING });
+    ).resolves.toEqual({ id: INVITATION_ID });
 
     await expect(
       invitations.cancelPendingInvitationAsLeader(INVITATION_ID, MEMBER_ID),
     ).resolves.toEqual({ kind: 'ok' });
     const cancelled = await prisma.teamInvitation.findUnique({
       where: { id: INVITATION_ID },
-      select: { status: true, respondedAt: true },
+      select: { id: true },
     });
     expect(cancelled).toBeNull();
     await expect(
@@ -435,7 +433,7 @@ describe('Team invitation acceptance transaction races', () => {
 
     const invitations = await prisma.teamInvitation.findMany({
       where: { teamId: TEAM_ID },
-      select: { inviteeId: true, status: true },
+      select: { inviteeId: true },
       orderBy: { id: 'asc' },
     });
     const accepted = await prisma.teamHistory.findMany({
@@ -447,10 +445,6 @@ describe('Team invitation acceptance transaction races', () => {
     expect(accepted[0]?.data).toMatchObject({
       invitation: { inviteeId: joined[0] },
     });
-    expect(
-      invitations.filter(
-        (invitation) => invitation.status === TeamInvitationStatus.PENDING,
-      ),
-    ).toHaveLength(1);
+    expect(invitations).toHaveLength(1);
   });
 });

@@ -144,10 +144,6 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(query.strings.join('')).toContain(
       'SELECT count(*) FROM "MilestoneDocumentSubmission"',
     );
-    expect(query.strings.join('')).not.toContain('"ApplicationPreparation"');
-    expect(query.strings.join('')).not.toContain(
-      '"ApplicationPreparationParticipant"',
-    );
     expect(query.values).toHaveLength(35);
     expect(query.values).toEqual(Array(35).fill('program-1'));
   });

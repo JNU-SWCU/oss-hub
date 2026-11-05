@@ -4,7 +4,6 @@ import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   ProgramCategory,
-  TeamInvitationStatus,
   ProgramTrackType,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
@@ -286,8 +285,7 @@ describe('TeamInvitationsRepository eligibility integration', () => {
       }),
     ]);
     expect(outcome).toEqual({ kind: 'invitee-not-eligible' });
-    expect(invitation.status).toBe(TeamInvitationStatus.PENDING);
-    expect(invitation.respondedAt).toBeNull();
+    expect(invitation.id).toBe(INVITATION_ID);
     expect(membership).toBeNull();
   });
 });

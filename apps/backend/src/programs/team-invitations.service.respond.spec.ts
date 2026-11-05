@@ -5,7 +5,6 @@ import {
   AccountStatus,
   ApplicationStatus,
   RepositoryConnectionMode,
-  TeamInvitationStatus,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import type { AuditLogService } from '../platform/audit-log.service';
@@ -79,7 +78,6 @@ describe('TeamInvitationsService.cancel', () => {
 
   it.each([
     ['not-found', TeamInvitationErrorCode.INVITATION_NOT_FOUND],
-    ['not-pending', TeamInvitationErrorCode.INVITATION_NOT_PENDING],
   ] as const)('취소 outcome %s는 %s로 매핑된다', async (kind, expectedCode) => {
     const { service } = cancelService(kind);
 
@@ -121,13 +119,13 @@ describe('TeamInvitationsService.decline', () => {
     });
   });
 
-  it('이미 응답된 초대면 TIV_011로 거부한다', async () => {
-    const { service } = declineService('not-pending');
+  it('이미 지워진 초대면 TIV_010으로 거부한다', async () => {
+    const { service } = declineService('not-found');
 
     await expect(
       service.decline(syntheticGithubId, INVITATION_ID),
     ).rejects.toMatchObject({
-      errorCode: { code: TeamInvitationErrorCode.INVITATION_NOT_PENDING },
+      errorCode: { code: TeamInvitationErrorCode.INVITATION_NOT_FOUND },
     });
   });
 });
@@ -228,7 +226,6 @@ describe('TeamInvitationsService.accept', () => {
   it.each([
     ['not-found', TeamInvitationErrorCode.INVITATION_NOT_FOUND],
     ['forbidden', TeamInvitationErrorCode.NOT_INVITEE],
-    ['not-pending', TeamInvitationErrorCode.INVITATION_NOT_PENDING],
     ['already-in-team', TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM],
     ['team-full', TeamInvitationErrorCode.TEAM_FULL],
     ['invitee-not-eligible', TeamInvitationErrorCode.INVITEE_NOT_ELIGIBLE],
@@ -255,7 +252,6 @@ describe('acceptTeamInvitationTransaction', () => {
       inviteeId: syntheticUserId,
       invitedById: syntheticLeaderId,
       createdAt: new Date('2026-08-01'),
-      status: TeamInvitationStatus.PENDING,
       team: {
         name: '합성 팀',
         program: { teamMaxSize: 4, name: '합성 프로그램' },
@@ -345,7 +341,6 @@ describe('acceptTeamInvitationTransaction', () => {
       where: {
         programId: syntheticProgramId,
         inviteeId: syntheticUserId,
-        status: TeamInvitationStatus.PENDING,
         id: { not: INVITATION_ID },
       },
       orderBy: { id: 'asc' },
@@ -353,7 +348,6 @@ describe('acceptTeamInvitationTransaction', () => {
     expect(tx.teamInvitation.deleteMany).toHaveBeenCalledWith({
       where: {
         id: OTHER_TEAM_INVITATION_ID,
-        status: TeamInvitationStatus.PENDING,
       },
     });
     expect(tx.teamHistory.create).toHaveBeenCalledTimes(2);
@@ -384,11 +378,9 @@ describe('acceptTeamInvitationTransaction', () => {
     const tx = buildTx();
     tx.teamInvitation.findUnique
       .mockResolvedValueOnce(invitationRow())
-      .mockResolvedValueOnce(
-        invitationRow({ status: TeamInvitationStatus.ACCEPTED }),
-      );
+      .mockResolvedValueOnce(null);
 
-    await expect(run(tx)).resolves.toEqual({ kind: 'not-pending' });
+    await expect(run(tx)).resolves.toEqual({ kind: 'not-found' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
@@ -462,11 +454,11 @@ describe('acceptTeamInvitationTransaction', () => {
     expect(tx.outboxEvent.createMany).not.toHaveBeenCalled();
   });
 
-  it('잠금 뒤 CAS가 0건이면 not-pending으로 되돌린다', async () => {
+  it('잠금 뒤 CAS가 0건이면 not-found으로 되돌린다', async () => {
     const tx = buildTx();
     tx.teamInvitation.deleteMany.mockResolvedValueOnce({ count: 0 });
 
-    await expect(run(tx)).resolves.toEqual({ kind: 'not-pending' });
+    await expect(run(tx)).resolves.toEqual({ kind: 'not-found' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 

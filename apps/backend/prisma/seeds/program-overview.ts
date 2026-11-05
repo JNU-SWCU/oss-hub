@@ -5,7 +5,6 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   SubmissionStatus,
-  TeamInvitationStatus,
 } from '@prisma/client';
 import {
   offsetDays,
@@ -448,14 +447,13 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         where: {
           id: seedId('program-overview', 'team-invitation', 'pending'),
         },
-        update: { status: TeamInvitationStatus.PENDING },
+        update: {},
         create: {
           id: seedId('program-overview', 'team-invitation', 'pending'),
           teamId: TEAM_ID,
           programId: PROGRAM_ID,
           inviteeId: INVITEE_ID,
           invitedById: leader.id,
-          status: TeamInvitationStatus.PENDING,
           createdAt: offsetDays(-3),
         },
       }),

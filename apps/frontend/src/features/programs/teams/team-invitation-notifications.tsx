@@ -13,11 +13,7 @@ import {
   PopoverTrigger,
 } from '@/components/ui/popover';
 import { ApiError } from '@/lib/api-client';
-import {
-  programApplyHref,
-  programMyTeamHref,
-  programOverviewHref,
-} from '@/lib/program-route';
+import { programMyTeamHref, programOverviewHref } from '@/lib/program-route';
 import { cn } from '@/lib/utils';
 import { acceptInvitation, declineInvitation } from './team-invitation-api';
 import type { ReceivedTeamInvitation } from './team-invitation-dto';
@@ -78,7 +74,7 @@ export function TeamInvitationNotifications({
     query.data !== undefined
       ? {
           kind: 'ready',
-          items: query.data.filter((item) => item.status === 'PENDING'),
+          items: query.data,
           refreshError: query.isError ? errorMessage(query.error) : null,
         }
       : query.isError
@@ -119,17 +115,9 @@ export function TeamInvitationNotifications({
 
       try {
         const accepted =
-          action === 'accept'
-            ? await acceptInvitation(
-                invitation.id,
-                invitation.preparation === true,
-              )
-            : null;
+          action === 'accept' ? await acceptInvitation(invitation.id) : null;
         if (action === 'decline') {
-          await declineInvitation(
-            invitation.id,
-            invitation.preparation === true,
-          );
+          await declineInvitation(invitation.id);
         }
 
         if (!isCurrentIdentity()) return;
@@ -151,11 +139,7 @@ export function TeamInvitationNotifications({
         });
         if (accepted) {
           void invalidateProgram(queryClient, accepted.programId);
-          router.push(
-            invitation.preparation
-              ? programApplyHref(accepted.programId)
-              : programMyTeamHref(accepted.programId),
-          );
+          router.push(programMyTeamHref(accepted.programId));
           router.refresh();
         }
       } catch (error: unknown) {

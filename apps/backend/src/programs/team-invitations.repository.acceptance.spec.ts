@@ -48,7 +48,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
   interface TxOptions {
     readonly invitation?: typeof invitationRow | null;
 
-    readonly lockedStatus?: { readonly status: string } | null;
+    readonly lockedInvitation?: { readonly id: string } | null;
     readonly invitee?: {
       readonly id: string;
       readonly accountStatus: AccountStatus;
@@ -66,14 +66,16 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
   function buildTx(options: TxOptions = {}) {
     const invitation =
       options.invitation === undefined ? invitationRow : options.invitation;
-    const lockedStatus =
-      options.lockedStatus === undefined
-        ? { status: 'PENDING' }
-        : options.lockedStatus;
+    const lockedInvitation =
+      options.lockedInvitation === undefined
+        ? { id: syntheticInvitationId }
+        : options.lockedInvitation;
     let invitationReads = 0;
     const findUnique = jest.fn(() => {
       invitationReads += 1;
-      return Promise.resolve(invitationReads === 1 ? invitation : lockedStatus);
+      return Promise.resolve(
+        invitationReads === 1 ? invitation : lockedInvitation,
+      );
     });
     return {
       teamInvitation: {
@@ -156,7 +158,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
-  it('Program → Team → User 순서로 잠근 뒤 status=PENDING 조건으로 원자 전이한다', async () => {
+  it('Program → Team → User 순서로 잠근 뒤 초대 행을 원자적으로 삭제한다', async () => {
     const tx = buildTx();
 
     const outcome = await accept(tx);
@@ -172,10 +174,10 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(lockCalls[2]![0].values).toEqual([syntheticInviteeId]);
     expect(tx.teamInvitation.findUnique).toHaveBeenNthCalledWith(2, {
       where: { id: syntheticInvitationId },
-      select: { status: true },
+      select: { id: true },
     });
     expect(tx.teamInvitation.deleteMany).toHaveBeenNthCalledWith(1, {
-      where: { id: syntheticInvitationId, status: 'PENDING' },
+      where: { id: syntheticInvitationId },
     });
     expect(outcome).toEqual({
       kind: 'ok',
@@ -216,7 +218,6 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       where: {
         programId: syntheticProgramId,
         inviteeId: syntheticInviteeId,
-        status: 'PENDING',
         id: { not: syntheticInvitationId },
       },
       orderBy: { id: 'asc' },
@@ -335,29 +336,19 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     expect(onOk).not.toHaveBeenCalled();
   });
 
-  it('팀 잠금 뒤 초대 상태를 다시 읽어 이미 응답된 초대를 거부한다', async () => {
-    const tx = buildTx({ lockedStatus: { status: 'ACCEPTED' } });
-
-    const outcome = await accept(tx);
-
-    expect(outcome).toEqual({ kind: 'not-pending' });
-    expect(tx.teamInvitation.deleteMany).not.toHaveBeenCalled();
-    expect(tx.teamMember.create).not.toHaveBeenCalled();
-  });
-
   it('잠금 뒤 초대 행이 사라졌으면 not-found를 반환한다', async () => {
-    const tx = buildTx({ lockedStatus: null });
+    const tx = buildTx({ lockedInvitation: null });
 
     await expect(accept(tx)).resolves.toEqual({ kind: 'not-found' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 
-  it('deleteMany count가 0이면 not-pending을 반환하고 멤버를 만들지 않는다', async () => {
+  it('deleteMany count가 0이면 not-found을 반환하고 멤버를 만들지 않는다', async () => {
     const tx = buildTx({ acceptedCount: 0 });
 
     const outcome = await accept(tx);
 
-    expect(outcome).toEqual({ kind: 'not-pending' });
+    expect(outcome).toEqual({ kind: 'not-found' });
     expect(tx.teamMember.create).not.toHaveBeenCalled();
   });
 

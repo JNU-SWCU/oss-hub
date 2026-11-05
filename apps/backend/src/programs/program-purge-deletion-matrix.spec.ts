@@ -181,8 +181,6 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       'Program->ProgramCover',
       'Program->GithubRepository',
       'Program->Application',
-      'Program->ApplicationPreparation',
-      'ApplicationPreparation->ApplicationPreparationParticipant',
       'logical:Program->OutboxEvent',
       'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
     ]) {

@@ -1,7 +1,6 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { TeamInvitationStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
   type AcceptInvitationOnOk,
@@ -35,9 +34,7 @@ export function sentInvitationRecord(
     programId: syntheticProgramId,
     inviteeId: syntheticUserId,
     invitedById: syntheticLeaderId,
-    status: TeamInvitationStatus.PENDING,
     invitedAt: new Date('2026-08-01T00:00:00.000Z'),
-    respondedAt: null,
     invitee: { ...syntheticInviteeProjection },
     ...overrides,
   };

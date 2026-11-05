@@ -4,7 +4,6 @@ import { configureHttpApp } from '../configure-http-app';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
-import { ApplicationPreparationsController } from './application-preparations.controller';
 import { StudentApplicationManagementService } from './student-application-management.service';
 import { StudentApplicationsController } from './student-applications.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -35,10 +34,7 @@ let cookie: string;
 
 beforeAll(async () => {
   const module = await Test.createTestingModule({
-    controllers: [
-      StudentApplicationsController,
-      ApplicationPreparationsController,
-    ],
+    controllers: [StudentApplicationsController],
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
@@ -121,37 +117,5 @@ describe('GET programs/:programId/applications/me', () => {
       },
     });
     expect(response.cacheControl).toBe('private, no-store');
-  });
-});
-
-describe('retired Preparation compatibility', () => {
-  it('keeps the old frontend fallback without a Preparation repository', async () => {
-    const response = await getJson(
-      'application-preparations/programs/program-1/me',
-    );
-    expect(response.status).toBe(200);
-    expect(JSON.parse(response.text)).toEqual({ membership: 'NONE' });
-  });
-
-  it.each([
-    ['POST', 'programs/program-1'],
-    ['POST', 'preparation-1/invitations'],
-    ['GET', 'preparation-1/sent'],
-    ['GET', 'preparation-1/search'],
-    ['POST', 'invitations/invitation-1/accept'],
-    ['POST', 'invitations/invitation-1/decline'],
-    ['POST', 'invitations/invitation-1/cancel'],
-    ['DELETE', 'programs/program-1/me'],
-    ['DELETE', 'programs/program-1/members/user-2'],
-  ])('retires %s %s', async (method, suffix) => {
-    const response = await fetch(
-      baseUrl + '/api/v1/application-preparations/' + suffix,
-      {
-        method,
-        headers: { connection: 'close', cookie, origin },
-      },
-    );
-    expect(response.status).toBe(404);
-    await response.text();
   });
 });

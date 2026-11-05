@@ -73,9 +73,7 @@ function sentInvitation(
     teamId: leaderTeam.id,
     programId: 'program-1',
     invitedById: 'u1',
-    status: 'PENDING',
     invitedAt: '2026-07-01T00:00:00.000Z',
-    respondedAt: null,
     invitee: {
       id: `user-${id}`,
       nickname: invitee.nickname,
@@ -370,11 +368,7 @@ describe('useTeamInvitationManagement — 검색', () => {
     await act(async () => {
       current().onSearch();
     });
-    expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
-      'team-1',
-      'aa',
-      false,
-    );
+    expect(searchInvitationCandidatesMock).toHaveBeenCalledWith('team-1', 'aa');
 
     await act(async () => {
       current().onInviteQueryChange('a');
@@ -468,7 +462,6 @@ describe('useTeamInvitationManagement — 검색', () => {
     expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
       'team-1',
       'oct',
-      false,
     );
     expect(current().inviteCandidates.map((item) => item.id)).toEqual(['u9']);
   });
@@ -506,7 +499,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     });
 
     expect(createInvitationMock).toHaveBeenCalledTimes(1);
-    expect(createInvitationMock).toHaveBeenCalledWith('team-1', 'u2', false);
+    expect(createInvitationMock).toHaveBeenCalledWith('team-1', 'u2');
     expect(current().invitingUserId).toBe('u2');
   });
 
@@ -538,7 +531,6 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     expect(searchInvitationCandidatesMock).toHaveBeenCalledWith(
       'team-1',
       'octo',
-      false,
     );
     expect(current().invitingUserId).toBeNull();
   });
@@ -568,7 +560,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
   });
 
   it('초대 취소 실패 원인을 보여준다', async () => {
-    cancelInvitationMock.mockRejectedValue(new ApiError(problem('TIV_011')));
+    cancelInvitationMock.mockRejectedValue(new ApiError(problem('TIV_010')));
     await render(leaderProps);
 
     await act(async () => {
@@ -577,7 +569,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     await flush();
 
     expect(current().inviteActionError).toBe(
-      '이미 처리된 초대입니다. 초대 목록을 다시 확인해 주세요.',
+      '초대를 찾을 수 없습니다. 초대 목록을 다시 확인해 주세요.',
     );
     expect(current().cancelingInvitationId).toBeNull();
   });
@@ -596,7 +588,7 @@ describe('useTeamInvitationManagement — 초대 생성·취소', () => {
     });
     await flush();
 
-    expect(cancelInvitationMock).toHaveBeenCalledWith('inv-1', false);
+    expect(cancelInvitationMock).toHaveBeenCalledWith('inv-1');
     expect(listSentInvitationsMock).toHaveBeenCalledTimes(2);
     expect(current().sentInvitations).toEqual([]);
     expect(current().inviteActionError).toBeNull();

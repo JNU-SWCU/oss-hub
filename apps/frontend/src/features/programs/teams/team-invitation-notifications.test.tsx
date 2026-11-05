@@ -50,7 +50,7 @@ function problem(detail: string, status = 409): ApiError {
     status,
     detail,
     instance: 'urn:test:team-invitation-accept',
-    code: 'TIV_011',
+    code: 'TIV_009',
   };
   return new ApiError(body);
 }
@@ -77,9 +77,7 @@ function pendingInvitation(
     teamId: 'team-1',
     programId: 'program-1',
     invitedById: 'user-9',
-    status: 'PENDING',
     invitedAt: '2026-07-01T00:00:00.000Z',
-    respondedAt: null,
     teamName: '오픈소스팀',
     programName: '캡스톤 2026',
     invitedByDisplayName: '팀장',
@@ -159,14 +157,7 @@ describe('TeamInvitationNotifications', () => {
   });
 
   it('받은 초대의 팀·프로그램 요약과 대기 건수를 보여 준다', async () => {
-    mocks.listReceivedInvitations.mockResolvedValue([
-      pendingInvitation(),
-      pendingInvitation({
-        id: 'inv-closed',
-        status: 'DECLINED',
-        teamName: '닫힌 팀',
-      }),
-    ]);
+    mocks.listReceivedInvitations.mockResolvedValue([pendingInvitation()]);
 
     await act(async () => {
       root.render(<TeamInvitationNotifications identityKey="student-a" />);
@@ -323,59 +314,11 @@ describe('TeamInvitationNotifications', () => {
     });
 
     await settleUntil(() => {
-      expect(mocks.acceptInvitation).toHaveBeenCalledWith('inv-1', false);
+      expect(mocks.acceptInvitation).toHaveBeenCalledWith('inv-1');
     });
     expect(mocks.push).toHaveBeenCalledWith('/programs/prog%3A1/team');
     expect(mocks.push).not.toHaveBeenCalledWith(
       expect.stringContaining('/apply'),
-    );
-    expect(mocks.push).not.toHaveBeenCalledWith(
-      expect.stringContaining('teamId='),
-    );
-    expect(mocks.refresh).toHaveBeenCalled();
-    await settleUntil(() => {
-      expect(document.body.textContent ?? '').not.toContain('오픈소스팀');
-    });
-  });
-
-  it('신청 준비 초대 수락은 공식 팀 대신 신청 준비 화면을 연다', async () => {
-    mocks.listReceivedInvitations.mockResolvedValue([
-      pendingInvitation({
-        programId: 'stale-program',
-        teamId: 'stale-team',
-        preparation: true,
-      }),
-    ]);
-    mocks.acceptInvitation.mockResolvedValue({
-      teamId: 'team:accepted',
-      programId: 'prog:1',
-    });
-
-    await act(async () => {
-      root.render(<TeamInvitationNotifications identityKey="student-a" />);
-    });
-    await settleUntil(() => {
-      expect(
-        document.querySelector('[data-slot="team-invitation-count"]'),
-      ).not.toBeNull();
-    });
-    await act(async () => {
-      findButton('팀 초대 알림').click();
-    });
-    await settleUntil(() => {
-      expect(document.body.textContent ?? '').toContain('오픈소스팀');
-    });
-
-    await act(async () => {
-      findButton('오픈소스팀 팀 초대 수락').click();
-    });
-
-    await settleUntil(() => {
-      expect(mocks.acceptInvitation).toHaveBeenCalledWith('inv-1', true);
-    });
-    expect(mocks.push).toHaveBeenCalledWith('/programs/prog%3A1/apply');
-    expect(mocks.push).not.toHaveBeenCalledWith(
-      expect.stringContaining('/team'),
     );
     expect(mocks.push).not.toHaveBeenCalledWith(
       expect.stringContaining('teamId='),
@@ -473,7 +416,7 @@ describe('TeamInvitationNotifications', () => {
     });
 
     await settleUntil(() => {
-      expect(mocks.declineInvitation).toHaveBeenCalledWith('inv-1', false);
+      expect(mocks.declineInvitation).toHaveBeenCalledWith('inv-1');
     });
     expect(mocks.push).not.toHaveBeenCalled();
     expect(events.programIds).toEqual([]);

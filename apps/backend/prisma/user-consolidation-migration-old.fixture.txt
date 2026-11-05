@@ -49,8 +49,6 @@ model User {
   consents                               Consent[]
   applications                           Application[]                        @relation("ApplicationApplicant")
   processedApplications                  Application[]                        @relation("ApplicationProcessedBy")
-  applicationPreparations                ApplicationPreparation[]
-  preparationParticipants                ApplicationPreparationParticipant[]
   ledTeams                               Team[]                               @relation("TeamLeader")
   teamMemberships                        TeamMember[]
   sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")

@@ -295,7 +295,7 @@ describe('TeamInvitationsRepository received invitation summary integration', ()
       PENDING_B_ID,
     ]);
     expect(
-      invitations.find((invitation) => invitation.id === DECLINED_A_ID)?.status,
+      invitations.find((invitation) => invitation.id === DECLINED_A_ID),
     ).toBeUndefined();
   });
 });
