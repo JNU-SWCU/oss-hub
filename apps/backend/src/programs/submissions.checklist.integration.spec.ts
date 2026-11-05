@@ -108,13 +108,13 @@ async function seedChangesRequestedSubmission(params: {
   await prisma.milestoneDocumentSubmissionHistory.createMany({
     data: histories,
   });
-  await prisma.milestoneDocumentReviewHistory.create({
+  await prisma.milestoneDocumentSubmissionHistory.create({
     data: {
       id: `${params.id}-target-review`,
       milestoneDocumentSubmissionId: targetId,
-      submissionHistoryId: `${params.id}-target-history-${revisionCount}`,
-      reviewerId: REVIEWER_ID,
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      revision: revisionCount,
+      actorId: REVIEWER_ID,
+      event: ReviewDecision.CHANGES_REQUESTED,
       comment: '보완 후 재제출해 주세요 (합성)',
     },
   });
@@ -443,8 +443,7 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       include: {
         histories: {
           where: { revision: { not: null } },
-          orderBy: { revision: 'asc' },
-          include: { reviewHistories: true },
+          orderBy: [{ revision: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
         },
       },
     });
@@ -452,22 +451,27 @@ describe('SubmissionsService checklist/resubmission integration', () => {
       status: SubmissionStatus.SUBMITTED,
       revision: 2,
     });
-    expect(stored.histories).toHaveLength(2);
-    expect(stored.histories[0]).toMatchObject({
-      revision: 1,
-      content: { type: 'TEXT', text: '합성 revision 1' },
-    });
-    expect(stored.histories[0]?.reviewHistories[0]).toMatchObject({
-      decision: ReviewDecision.CHANGES_REQUESTED,
-      comment: '보완 후 재제출해 주세요 (합성)',
-    });
-    expect(stored.histories[1]).toMatchObject({
-      revision: 2,
-      actorId: PERSONAL_USER_ID,
-      content: { type: 'TEXT', text: '보완한 본문' },
-      comment: '실행 화면을 추가했습니다',
-      reviewHistories: [],
-    });
+    expect(stored.histories).toHaveLength(3);
+    expect(stored.histories).toMatchObject([
+      {
+        event: 'SUBMITTED',
+        revision: 1,
+        content: { type: 'TEXT', text: '합성 revision 1' },
+      },
+      {
+        event: ReviewDecision.CHANGES_REQUESTED,
+        revision: 1,
+        actorId: REVIEWER_ID,
+        comment: '보완 후 재제출해 주세요 (합성)',
+      },
+      {
+        event: 'RESUBMITTED',
+        revision: 2,
+        actorId: PERSONAL_USER_ID,
+        content: { type: 'TEXT', text: '보완한 본문' },
+        comment: '실행 화면을 추가했습니다',
+      },
+    ]);
   });
 
   it('오래된 baseRevision 재제출은 409 STALE_SUBMISSION_REVISION이다', async () => {
@@ -496,10 +500,21 @@ describe('SubmissionsService checklist/resubmission integration', () => {
     });
     const stored = await prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: { id: submissionId },
-      include: { histories: { where: { revision: { not: null } } } },
+      include: {
+        histories: {
+          where: { revision: { not: null } },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        },
+      },
     });
     expect(stored.revision).toBe(2);
-    expect(stored.histories).toHaveLength(2);
+    expect(
+      stored.histories.map(({ event, revision }) => ({ event, revision })),
+    ).toEqual([
+      { event: 'SUBMITTED', revision: 1 },
+      { event: 'RESUBMITTED', revision: 2 },
+      { event: 'CHANGES_REQUESTED', revision: 2 },
+    ]);
   });
 
   it('마감 후 SUBMITTED·APPROVED 교체와 REJECTED 교체를 차단한다', async () => {
