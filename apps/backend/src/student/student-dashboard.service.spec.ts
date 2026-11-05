@@ -1,7 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
-  MilestoneSubmissionType,
   type Prisma,
   RepositoryInvitationStatus,
   RepositoryProvisionJobStatus,
@@ -20,7 +19,10 @@ import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
 const SECOND_DUE_AT = new Date('2026-08-02T00:00:00.000Z');
-function legacySubmission(milestoneId: string, status: SubmissionStatus) {
+function singleRequirementSubmission(
+  milestoneId: string,
+  status: SubmissionStatus,
+) {
   return {
     status,
     milestoneDocument: {
@@ -42,13 +44,12 @@ function documentSubmission(
     },
   };
 }
-function legacyMilestone(id: string, name: string, dueAt: Date) {
+function singleRequirementMilestone(id: string, name: string, dueAt: Date) {
   return {
     id,
     name,
     dueAt,
-    submissionType: MilestoneSubmissionType.FILE,
-    documents: [],
+    documents: [{ id: `${id}-legacy-slot`, graceDueAt: null }],
   };
 }
 function documentMilestone(
@@ -61,7 +62,6 @@ function documentMilestone(
     id,
     name,
     dueAt,
-    submissionType: null,
     documents: requiredDocumentIds.map((documentId) => ({
       id: documentId,
       graceDueAt: null,
@@ -82,7 +82,7 @@ function application(
     status: ApplicationStatus.APPROVED,
     team: { name: 'Synthetic Solo Team' },
     program: program([
-      legacyMilestone('milestone-1', 'First milestone', DUE_AT),
+      singleRequirementMilestone('milestone-1', 'First milestone', DUE_AT),
     ]),
     milestoneDocumentSubmissions: [],
     ...overrides,
@@ -249,7 +249,13 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([
       application({
         program: program(
-          [legacyMilestone('milestone-1', 'First milestone', DUE_AT)],
+          [
+            singleRequirementMilestone(
+              'milestone-1',
+              'First milestone',
+              DUE_AT,
+            ),
+          ],
           'program:1',
         ),
       }),
@@ -286,18 +292,21 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([
       application({
         program: program([
-          legacyMilestone('milestone-1', 'First', DUE_AT),
-          legacyMilestone('milestone-2', 'Second', SECOND_DUE_AT),
+          singleRequirementMilestone('milestone-1', 'First', DUE_AT),
+          singleRequirementMilestone('milestone-2', 'Second', SECOND_DUE_AT),
         ]),
         milestoneDocumentSubmissions: [
-          legacySubmission('milestone-1', SubmissionStatus.APPROVED),
-          legacySubmission('milestone-2', SubmissionStatus.CHANGES_REQUESTED),
+          singleRequirementSubmission('milestone-1', SubmissionStatus.APPROVED),
+          singleRequirementSubmission(
+            'milestone-2',
+            SubmissionStatus.CHANGES_REQUESTED,
+          ),
         ],
       }),
       application({
         id: 'application-2',
         milestoneDocumentSubmissions: [
-          legacySubmission('milestone-1', SubmissionStatus.APPROVED),
+          singleRequirementSubmission('milestone-1', SubmissionStatus.APPROVED),
         ],
       }),
     ]);
@@ -413,7 +422,11 @@ describe('StudentDashboardService', () => {
       application({
         program: program([
           {
-            ...legacyMilestone('milestone-1', 'First milestone', DUE_AT),
+            ...singleRequirementMilestone(
+              'milestone-1',
+              'First milestone',
+              DUE_AT,
+            ),
             documents: [{ id: 'document-1', graceDueAt: null }],
           },
         ]),
@@ -423,7 +436,7 @@ describe('StudentDashboardService', () => {
             'document-1',
             SubmissionStatus.SUBMITTED,
           ),
-          legacySubmission('milestone-1', SubmissionStatus.APPROVED),
+          singleRequirementSubmission('milestone-1', SubmissionStatus.APPROVED),
         ],
       }),
     ]);
@@ -458,7 +471,7 @@ describe('StudentDashboardService', () => {
             'document-3',
             'document-4',
           ]),
-          legacyMilestone('milestone-3', 'Legacy in review', DUE_AT),
+          singleRequirementMilestone('milestone-3', 'Legacy in review', DUE_AT),
           documentMilestone('milestone-4', 'Not started', DUE_AT, [
             'document-5',
           ]),
@@ -484,7 +497,10 @@ describe('StudentDashboardService', () => {
             'document-4',
             SubmissionStatus.SUBMITTED,
           ),
-          legacySubmission('milestone-3', SubmissionStatus.SUBMITTED),
+          singleRequirementSubmission(
+            'milestone-3',
+            SubmissionStatus.SUBMITTED,
+          ),
         ],
       }),
     ]);
@@ -660,7 +676,10 @@ describe('StudentDashboardService', () => {
         application({
           status,
           milestoneDocumentSubmissions: [
-            legacySubmission('milestone-1', SubmissionStatus.APPROVED),
+            singleRequirementSubmission(
+              'milestone-1',
+              SubmissionStatus.APPROVED,
+            ),
           ],
         }),
       ]);

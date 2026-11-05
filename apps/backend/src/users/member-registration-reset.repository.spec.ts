@@ -94,10 +94,6 @@ it.each([
     'milestoneDocumentSubmissionHistories',
   ],
   [
-    'MilestoneDocumentReviewHistory.reviewerId',
-    'milestoneDocumentReviewHistories',
-  ],
-  [
     'MilestoneDocumentTemplateFile.uploadedById',
     'uploadedMilestoneDocumentTemplateFiles',
   ],

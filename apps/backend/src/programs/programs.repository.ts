@@ -480,14 +480,6 @@ export class ProgramDeletionScopeRepository {
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
           ))
-          +
-          (SELECT count(*) FROM "MilestoneDocumentReviewHistory" WHERE "milestoneDocumentSubmissionId" IN (
-            SELECT document_submission.id
-            FROM "MilestoneDocumentSubmission" AS document_submission
-            INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
-            WHERE milestone."programId" = ${programId}
-          ))
         ) AS "submissionEvents",
         (
           SELECT MD5(COALESCE(STRING_AGG(scope."key", '|' ORDER BY scope."key"), ''))
