@@ -16,7 +16,7 @@ const repository = {
   blockedReasons: [],
 };
 const scope = {
-  applications: 1,
+  teams: 1,
   members: 1,
   invitations: 0,
   submissions: 0,

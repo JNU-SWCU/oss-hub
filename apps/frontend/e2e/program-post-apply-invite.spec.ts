@@ -132,7 +132,7 @@ for (const width of [1440, 390]) {
           }),
         'GET /api/v1/team-invitations/received': (route) =>
           fulfillJson(route, []),
-        'GET /api/v1/programs/application-templates': (route) =>
+        'GET /api/v1/programs/team-templates': (route) =>
           fulfillJson(route, {
             items: [
               {
@@ -178,7 +178,7 @@ for (const width of [1440, 390]) {
             remainingMilestones: [],
             milestoneDocuments: [],
           }),
-        [`GET /api/v1/programs/${programId}/teams/me`]: (route) =>
+        [`GET /api/v1/programs/${programId}/teams/me/membership`]: (route) =>
           fulfillJson(
             route,
             submitted
@@ -188,7 +188,7 @@ for (const width of [1440, 390]) {
         [`GET /api/v1/team-invitations/programs/${programId}/search`]: (
           route,
         ) => fulfillJson(route, [candidate]),
-        [`POST /api/v1/programs/${programId}/applications`]: async (route) => {
+        [`POST /api/v1/programs/${programId}/teams`]: async (route) => {
           expect(route.request().postDataJSON()).toMatchObject({
             teamName: team.name,
             inviteeUserIds: [candidate.id],
@@ -197,7 +197,7 @@ for (const width of [1440, 390]) {
           sent = true;
           await fulfillJson(route, application, 201);
         },
-        [`GET /api/v1/programs/${programId}/applications/me`]: (route) =>
+        [`GET /api/v1/programs/${programId}/teams/me`]: (route) =>
           fulfillJson(route, { status: application.status, application }),
         [`GET /api/v1/team-invitations/teams/${teamId}/sent`]: (route) =>
           fulfillJson(route, sent ? [invitation] : []),

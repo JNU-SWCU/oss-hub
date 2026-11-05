@@ -28,6 +28,20 @@ function sessionBody(authority: SyntheticAuthority) {
   };
 }
 
+export const CONSENTED_RESPONSE = {
+  policyVersion: '2026-11-01',
+  requiredItems: [
+    {
+      key: 'privacy',
+      label: '개인정보 수집·이용',
+      documentUrl: '/policies/privacy',
+    },
+  ],
+  acceptedPolicyVersion: '2026-11-01',
+  consented: true,
+  nextUrl: '/dashboard',
+} as const;
+
 export async function fulfillJson(
   route: Route,
   body: unknown,
@@ -67,6 +81,9 @@ export async function installSyntheticAuthority(
   await installExactApiRouter(page, () => ({
     'GET /api/v1/auth/session': async (route) => {
       await fulfillJson(route, sessionBody(authority));
+    },
+    'GET /api/v1/consents/current': async (route) => {
+      await fulfillJson(route, CONSENTED_RESPONSE);
     },
     ...extraHandlers,
   }));

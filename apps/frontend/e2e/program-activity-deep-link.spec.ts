@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 
+import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 import { authenticatedSessionBody } from './support/session-mock';
 import type {
   ProgramActivity,
@@ -69,6 +70,10 @@ async function installProgramRoutes(
     const method = route.request().method();
     if (method !== 'GET') {
       throw new Error(`Unexpected activity fixture request: ${method} ${path}`);
+    }
+    if (path === '/api/v1/consents/current') {
+      await route.fulfill({ json: CONSENTED_RESPONSE });
+      return;
     }
     if (path === '/api/v1/auth/session') {
       await route.fulfill({ json: authenticatedSessionBody('staff') });
