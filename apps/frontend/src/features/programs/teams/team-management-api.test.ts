@@ -66,7 +66,7 @@ describe('listTeamManagementApplications', () => {
     });
 
     const { url } = lastRequest();
-    expect(url).toContain(apiPath('programs/program%201/applications?'));
+    expect(url).toContain(apiPath('programs/program%201/teams?'));
     expect(url).toContain('view=team-management');
     expect(url).toContain('page=2');
     expect(url).toContain('status=SUBMITTED');
@@ -114,7 +114,7 @@ describe('getApplicationDetailWithHistory', () => {
     await getApplicationDetailWithHistory('synthetic/application');
 
     const { url, init } = lastRequest();
-    expect(url).toBe(apiPath('applications/synthetic%2Fapplication'));
+    expect(url).toBe(apiPath('teams/synthetic%2Fapplication'));
     expect(init.method ?? 'GET').toBe('GET');
     expect(init.body).toBeUndefined();
   });

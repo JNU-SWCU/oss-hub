@@ -394,7 +394,7 @@ describe('milestoneDocumentReviewVersionError', () => {
 });
 
 describe('nextMilestoneDocumentReviewState', () => {
-  const target = { applicationId: 'a1', documentId: 'd1' };
+  const target = { teamId: 'a1', documentId: 'd1' };
   const version = {
     expectedRevision: 1,
     expectedLatestReviewId: null,
@@ -429,7 +429,7 @@ describe('nextMilestoneDocumentReviewState', () => {
     };
     const next = nextMilestoneDocumentReviewState(
       open,
-      { applicationId: 'a2', documentId: 'd1' },
+      { teamId: 'a2', documentId: 'd1' },
       {
         expectedRevision: 3,
         expectedLatestReviewId: 'review-2',
@@ -437,7 +437,7 @@ describe('nextMilestoneDocumentReviewState', () => {
     );
 
     expect(next).not.toBeNull();
-    expect(next?.target).toEqual({ applicationId: 'a2', documentId: 'd1' });
+    expect(next?.target).toEqual({ teamId: 'a2', documentId: 'd1' });
     expect(next?.comment).toBe('');
     expect(next?.decision).toBeNull();
 
@@ -452,20 +452,20 @@ describe('isSameMilestoneDocumentReviewTarget', () => {
   it('팀과 서류가 둘 다 같아야 같은 칸이다', () => {
     expect(
       isSameMilestoneDocumentReviewTarget(
-        { applicationId: 'a1', documentId: 'd1' },
-        { applicationId: 'a1', documentId: 'd1' },
+        { teamId: 'a1', documentId: 'd1' },
+        { teamId: 'a1', documentId: 'd1' },
       ),
     ).toBe(true);
     expect(
       isSameMilestoneDocumentReviewTarget(
-        { applicationId: 'a1', documentId: 'd1' },
-        { applicationId: 'a1', documentId: 'd2' },
+        { teamId: 'a1', documentId: 'd1' },
+        { teamId: 'a1', documentId: 'd2' },
       ),
     ).toBe(false);
     expect(
       isSameMilestoneDocumentReviewTarget(
-        { applicationId: 'a1', documentId: 'd1' },
-        { applicationId: 'a2', documentId: 'd1' },
+        { teamId: 'a1', documentId: 'd1' },
+        { teamId: 'a2', documentId: 'd1' },
       ),
     ).toBe(false);
   });

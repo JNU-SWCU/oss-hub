@@ -23,18 +23,18 @@ export const MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH = 2000;
 function reviewsPath(
   milestoneId: string,
   documentId: string,
-  applicationId: string,
+  teamId: string,
 ): string {
-  return `milestones/${encodeURIComponent(milestoneId)}/documents/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/reviews`;
+  return `milestones/${encodeURIComponent(milestoneId)}/documents/${encodeURIComponent(documentId)}/teams/${encodeURIComponent(teamId)}/reviews`;
 }
 export function createMilestoneDocumentReview(
   milestoneId: string,
   documentId: string,
-  applicationId: string,
+  teamId: string,
   input: MilestoneDocumentReviewInput,
 ): Promise<CreatedMilestoneDocumentReview> {
   return apiClient<CreatedMilestoneDocumentReview>(
-    reviewsPath(milestoneId, documentId, applicationId),
+    reviewsPath(milestoneId, documentId, teamId),
     {
       method: 'POST',
       body: JSON.stringify(input),

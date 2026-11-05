@@ -360,7 +360,7 @@ describe('submitResubmissionRevision', () => {
     const phases: string[] = [];
 
     const result = await submitResubmissionRevision({
-      applicationId: 'application-1',
+      teamId: 'application-1',
       milestoneId: 'milestone-file',
       submission: { id: 'submission-1', currentRevision: 3 },
       submissionType: 'FILE',
@@ -406,7 +406,7 @@ describe('submitResubmissionRevision', () => {
         status: 'SUBMITTED',
       });
     const input = {
-      applicationId: 'application-1',
+      teamId: 'application-1',
       milestoneId: 'milestone-file',
       submission: { id: 'submission-1', currentRevision: 3 },
       submissionType: 'FILE' as const,
@@ -453,7 +453,7 @@ describe('applyResubmission', () => {
       dueAt: '2026-09-10T14:59:59.000Z',
     });
     const checklist: SubmissionChecklist = {
-      applicationId: 'application-personal',
+      teamId: 'application-personal',
       applicationMode: 'PERSONAL',
       fileUpload: submissionUploadLimit(),
       items: [target, other],

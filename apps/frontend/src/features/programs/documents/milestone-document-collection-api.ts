@@ -66,24 +66,24 @@ export function getMilestoneDocumentCollection(
 export function milestoneDocumentSubmissionFileHref(
   milestoneId: string,
   documentId: string,
-  applicationId: string,
+  teamId: string,
 ): string {
   return apiPath(
-    `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/file`,
+    `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/teams/${encodeURIComponent(teamId)}/file`,
   );
 }
 
 export function getMilestoneDocumentHistory(
   milestoneId: string,
   documentId: string,
-  applicationId: string,
+  teamId: string,
   cursor: string | null = null,
 ): Promise<MilestoneDocumentHistoryPage> {
   const params = new URLSearchParams();
   params.set('limit', '20');
   if (cursor?.trim()) params.set('cursor', cursor);
   return apiClient<MilestoneDocumentHistoryPage>(
-    `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/applications/${encodeURIComponent(applicationId)}/history?${params.toString()}`,
+    `${documentsPath(milestoneId)}/${encodeURIComponent(documentId)}/teams/${encodeURIComponent(teamId)}/history?${params.toString()}`,
   );
 }
 

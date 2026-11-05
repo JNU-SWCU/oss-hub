@@ -4,9 +4,9 @@ export function programHref(programId: string, suffix = ''): string {
 
 export function staffApplicationDetailHref(
   programId: string,
-  applicationId: string,
+  teamId: string,
 ): string {
-  return `/programs/${encodeURIComponent(programId)}/applications/${encodeURIComponent(applicationId)}`;
+  return `/programs/${encodeURIComponent(programId)}/teams/${encodeURIComponent(teamId)}`;
 }
 
 export function decodeRouteProgramId(rawId: string): string {

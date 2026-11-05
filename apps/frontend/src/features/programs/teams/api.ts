@@ -50,7 +50,9 @@ function parseProgramTeam(value: unknown): ProgramTeam {
     typeof value.memberCount !== 'number' ||
     !(value.minMembers === null || typeof value.minMembers === 'number') ||
     typeof value.maxMembers !== 'number' ||
-    typeof value.hasApplication !== 'boolean' ||
+    (value.status !== 'SUBMITTED' &&
+      value.status !== 'APPROVED' &&
+      value.status !== 'REJECTED') ||
     typeof value.canInvite !== 'boolean' ||
     typeof value.canRemoveMembers !== 'boolean' ||
     typeof value.canLeave !== 'boolean' ||
@@ -66,7 +68,7 @@ function parseProgramTeam(value: unknown): ProgramTeam {
     memberCount: value.memberCount,
     minMembers: value.minMembers,
     maxMembers: value.maxMembers,
-    hasApplication: value.hasApplication,
+    status: value.status,
     canInvite: value.canInvite,
     canRemoveMembers: value.canRemoveMembers,
     canLeave: value.canLeave,
@@ -79,7 +81,7 @@ export async function getMyTeam(
   programId: string,
 ): Promise<ProgramTeam | null> {
   const body = await apiClient<unknown>(
-    `programs/${encodeURIComponent(programId)}/teams/me`,
+    `programs/${encodeURIComponent(programId)}/teams/me/membership`,
   );
   if (!isRecord(body)) throw new ProgramTeamResponseError();
   if (body.membership === 'NONE' && body.team === null) return null;
@@ -90,9 +92,12 @@ export async function getMyTeam(
 }
 
 export function leaveMyTeam(programId: string): Promise<void> {
-  return apiClient<void>(`programs/${encodeURIComponent(programId)}/teams/me`, {
-    method: 'DELETE',
-  });
+  return apiClient<void>(
+    `programs/${encodeURIComponent(programId)}/teams/me/membership`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 export function removeMyTeamMember(

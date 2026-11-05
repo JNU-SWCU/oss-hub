@@ -40,7 +40,7 @@ export function listApplicationTemplates(): Promise<
   readonly ApplicationFormTemplate[]
 > {
   return apiClient<ApplicationTemplateListApiResponse>(
-    'programs/application-templates',
+    'programs/team-templates',
   ).then((response) => response.items.map(mapApplicationTemplate));
 }
 
@@ -49,7 +49,7 @@ export function createApplication(
   input: CreateApplicationInput,
 ): Promise<CreatedApplication> {
   return apiClient<CreatedApplication>(
-    `programs/${encodeURIComponent(programId)}/applications`,
+    `programs/${encodeURIComponent(programId)}/teams`,
     {
       method: 'POST',
       body: serializeCreateApplication(input),
@@ -63,23 +63,21 @@ export function listTeamManagementApplications(
 ): Promise<TeamManagementListPage> {
   const search = serializeTeamManagementQuery(params);
   return apiClient<TeamManagementListPage>(
-    `programs/${encodeURIComponent(programId)}/applications?${search}`,
+    `programs/${encodeURIComponent(programId)}/teams?${search}`,
   );
 }
 
 export function getApplicationDetail(
-  applicationId: string,
+  teamId: string,
 ): Promise<ApplicationListItem> {
-  return apiClient<ApplicationListItem>(
-    `applications/${encodeURIComponent(applicationId)}`,
-  );
+  return apiClient<ApplicationListItem>(`teams/${encodeURIComponent(teamId)}`);
 }
 
 export async function getApplicationDetailWithHistory(
-  applicationId: string,
+  teamId: string,
 ): Promise<ApplicationDetail> {
   const detail = await apiClient<ApplicationDetail>(
-    `applications/${encodeURIComponent(applicationId)}`,
+    `teams/${encodeURIComponent(teamId)}`,
   );
 
   return Array.isArray(detail.reviewHistory)
@@ -88,11 +86,11 @@ export async function getApplicationDetailWithHistory(
 }
 
 export function decideApplication(
-  applicationId: string,
+  teamId: string,
   input: ApplicationDecisionInput,
 ): Promise<ApplicationDecisionResponse> {
   return apiClient<ApplicationDecisionResponse>(
-    `applications/${encodeURIComponent(applicationId)}`,
+    `teams/${encodeURIComponent(teamId)}`,
     {
       method: 'PATCH',
       body: JSON.stringify(input),

@@ -29,7 +29,7 @@ const submittedCell: MatrixCell = {
 };
 
 const teamRow: MatrixRow = {
-  applicationId: 'application-team',
+  teamId: 'application-team',
   applicationMode: 'TEAM',
   displayName: '오픈소스팀',
   githubLogins: ['login-a', 'login-b', 'login-c'],
@@ -37,7 +37,7 @@ const teamRow: MatrixRow = {
 };
 
 const personalRow: MatrixRow = {
-  applicationId: 'application-personal',
+  teamId: 'application-personal',
   applicationMode: 'PERSONAL',
   displayName: '홍길동',
   githubLogins: ['hong'],

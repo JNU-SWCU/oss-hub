@@ -27,7 +27,7 @@ export function dashboardItem(
   const programPath = `/programs/program-${key}`;
   const approved = applicationStatus === 'APPROVED';
   return {
-    applicationId: `application-${key}`,
+    teamId: `application-${key}`,
     programId: `program-${key}`,
     programName: `합성 프로그램 ${key}`,
     teamName: `합성 팀 ${key}`,
@@ -52,8 +52,8 @@ export function dashboardFeedback(
 ): DashboardFeedbackItem {
   return {
     ...feedbackItemFixture,
-    id: `review-${item.applicationId}-${key}`,
-    applicationId: item.applicationId,
+    id: `review-${item.teamId}-${key}`,
+    teamId: item.teamId,
     programId: item.programId,
     itemName: `합성 서류 ${key}`,
     href: `/programs/${item.programId}/documents?milestoneId=${feedbackItemFixture.milestoneId}`,
@@ -64,7 +64,7 @@ export function dashboardFeedback(
 export const dashboardFixture: StudentDashboard = {
   items: [
     {
-      applicationId: 'application-solo-team',
+      teamId: 'application-solo-team',
       programId: 'program-capstone',
       programName: '캡스톤 2026',
 
@@ -85,7 +85,7 @@ export const dashboardFixture: StudentDashboard = {
       },
     },
     {
-      applicationId: 'application-team',
+      teamId: 'application-team',
       programId: 'program-oss-contest',
       programName: 'OSS 경진대회',
       teamName: '합성 오픈소스 팀',
@@ -110,7 +110,7 @@ export const dashboardFixture: StudentDashboard = {
 export const pendingDashboardFixture: StudentDashboard = {
   items: [
     {
-      applicationId: 'application-pending',
+      teamId: 'application-pending',
       programId: 'program-oss-contest',
       programName: 'OSS 경진대회',
       teamName: '합성 대기 팀',
@@ -126,7 +126,7 @@ export const pendingDashboardFixture: StudentDashboard = {
 export const completedDashboardFixture: StudentDashboard = {
   items: [
     {
-      applicationId: 'application-approved',
+      teamId: 'application-approved',
       programId: 'program-study',
       programName: '오픈소스 스터디',
       teamName: '합성 스터디 팀',
@@ -146,7 +146,7 @@ export const completedDashboardFixture: StudentDashboard = {
 export const rejectedDashboardFixture: StudentDashboard = {
   items: [
     {
-      applicationId: 'application-rejected',
+      teamId: 'application-rejected',
       programId: 'program-rejected',
       programName: '기여 캠프',
       teamName: '합성 반려 팀',
@@ -182,7 +182,7 @@ export const feedbackItemFixture: DashboardFeedbackItem = {
   decision: 'CHANGES_REQUESTED',
   comment: '표지와 목차를 보완해 주세요.',
   reviewedAt: '2026-07-22T06:00:00.000Z',
-  applicationId: 'application-solo-team',
+  teamId: 'application-solo-team',
   programId: 'program-capstone',
   milestoneId: 'milestones-upcoming',
   milestoneName: '중간 보고',

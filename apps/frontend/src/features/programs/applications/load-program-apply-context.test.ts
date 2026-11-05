@@ -189,7 +189,7 @@ describe('loadProgramApplyContext', () => {
       ...application,
       answers: { ...application.answers, title: 'Old cached title' },
     });
-    queryClient.setQueryData(featureKey('application-templates'), []);
+    queryClient.setQueryData(featureKey('team-templates'), []);
     const pending = Promise.withResolvers<ProgramDetail>();
     vi.mocked(getProgramDetail).mockReturnValue(pending.promise);
     const shared = queryClient.fetchQuery({
@@ -333,7 +333,7 @@ describe('loadProgramApplyContext', () => {
       teamId: null,
       teamMinimum: { memberCount: 1, teamMinSize: 2 },
       team: null,
-      applicationId: null,
+      teamId: null,
       rejectionReason: null,
 
       canManage: true,
@@ -395,7 +395,7 @@ describe('loadProgramApplyContext', () => {
       teamId: 'team-1',
       teamMinimum: { memberCount: 2, teamMinSize: 2 },
       team: leaderTeam,
-      applicationId: null,
+      teamId: null,
       rejectionReason: null,
       canManage: true,
       initialValues: {
@@ -435,7 +435,7 @@ describe('loadProgramApplyContext', () => {
       teamId: 'team-1',
       teamMinimum: null,
       team: leaderTeam,
-      applicationId: 'application-1',
+      teamId: 'application-1',
       rejectionReason: null,
       canManage: true,
       initialValues: {

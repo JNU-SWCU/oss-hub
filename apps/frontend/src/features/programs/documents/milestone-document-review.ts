@@ -118,7 +118,7 @@ export function milestoneDocumentReviewCommentPayload(
 }
 
 export interface MilestoneDocumentReviewTarget {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly documentId: string;
 }
 
@@ -150,7 +150,7 @@ export function isSameMilestoneDocumentReviewTarget(
   a: MilestoneDocumentReviewTarget,
   b: MilestoneDocumentReviewTarget,
 ): boolean {
-  return a.applicationId === b.applicationId && a.documentId === b.documentId;
+  return a.teamId === b.teamId && a.documentId === b.documentId;
 }
 
 export interface MilestoneDocumentReviewFormState {

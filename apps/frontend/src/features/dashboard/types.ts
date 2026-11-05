@@ -26,7 +26,7 @@ export interface DashboardProgress {
 }
 export interface DashboardItem {
   readonly coverImageUrl?: string | null;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly programName: string;
   readonly teamName: string;
@@ -46,7 +46,7 @@ export interface StudentDashboard {
 }
 export interface ApplicationDecisionNotice {
   readonly id: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly programName: string;
   readonly decision: 'APPROVED' | 'REJECTED' | 'SUBMITTED';
@@ -58,7 +58,7 @@ export interface DashboardFeedbackItem {
   readonly decision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
   readonly comment: string | null;
   readonly reviewedAt: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly milestoneId: string;
   readonly milestoneName: string;

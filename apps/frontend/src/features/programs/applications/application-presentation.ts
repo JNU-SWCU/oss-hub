@@ -93,8 +93,8 @@ function isRevertBlockedDecisionError(problem: {
 
 export function applicationDecisionTriggerId(
   action: ApplicationDecisionAction,
-  applicationId?: string,
+  teamId?: string,
 ): string {
-  const scope = applicationId === undefined ? '' : `-${applicationId}`;
+  const scope = teamId === undefined ? '' : `-${teamId}`;
   return `application-decision-${action.toLowerCase()}${scope}`;
 }

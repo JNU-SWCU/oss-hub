@@ -38,9 +38,7 @@ describe('student application API', () => {
 
     const result = await getMyApplication('program-1');
 
-    expect(apiClient).toHaveBeenCalledWith(
-      'programs/program-1/applications/me',
-    );
+    expect(apiClient).toHaveBeenCalledWith('programs/program-1/teams/me');
     expect(result).toEqual(response);
   });
 
@@ -59,7 +57,7 @@ describe('student application API', () => {
     });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'programs/program-1/applications/me',
+      'programs/program-1/teams/me',
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({
@@ -75,9 +73,8 @@ describe('student application API', () => {
 
     await cancelMyApplication('program-1');
 
-    expect(apiClient).toHaveBeenCalledWith(
-      'programs/program-1/applications/me',
-      { method: 'DELETE' },
-    );
+    expect(apiClient).toHaveBeenCalledWith('programs/program-1/teams/me', {
+      method: 'DELETE',
+    });
   });
 });
