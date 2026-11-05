@@ -6,6 +6,8 @@
 
 ## 위치와 검사 계약
 
+2026-11-05 Todo 8 종료 초대 이관 PR #1741을 #1742 포함 main에 rebase했다. 제품 파일 변경·삭제·병합은 없으므로 기존 파일 원장 상태와 제품 파일 수·줄 수는 그대로다. 추가 보정은 purge import와 마지막 팀원 삭제의 통합 픽스처이며, 종료 사실은 TeamHistory에서 보존하고 대기 초대 취소·실패 원자성을 검사한다.
+
 계획의 `.omo/evidence/program-table-simplification/file-ledger.md`는 `.gitignore:35`의 `.omo/` 규칙에 걸린다. CI에서 읽을 추적 사본을 이 경로 `docs/evidence/program-table-simplification/file-ledger.md`에 둔다. `bun scripts/check-file-ledger.ts`의 기본 입력도 이 사본이다. 원장 경로를 첫 인수로 전달해 독립 검사가 가능하다.
 
 Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(`present`/`deleted`)다. 병합·삭제 예정인 파일도 현재는 present이므로 존재해야 한다. 후속 Todo에서 파일을 제거한 뒤에만 deleted로 바꾼다. deleted 행의 원본이 남아 있거나, present 경로가 없거나, keep을 deleted로 표시하면 exit 1이다. Target은 최종 목적지이므로 아직 없는 경로를 허용한다. 병합 후에는 목적지의 별도 행을 추가하고 실제 전후 수치를 갱신한다. 현재 원본 삭제와 목표 경로 생성을 혼동하지 않는다.

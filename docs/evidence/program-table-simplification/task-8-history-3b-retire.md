@@ -1,4 +1,22 @@
-# Todo 8 3b 데이터 이관 draft
+# Todo 8 3b 데이터 이관
+
+## 2026-11-05 병합 준비
+
+main `ed413a92dd8930b9ec0b1feecbd18a096aa59cde`(v0.24.51, #1742 포함)에 rebase했다. 충돌은 없었다. `program-purge.integration.spec.ts`의 미사용 `TeamInvitationStatus` import를 제거했다. #1742가 추가한 마지막 팀원 탈퇴·교직원 제거 테스트는 종료 초대를 직접 생성하므로 새 CHECK에서 실패했다. 재현은 1 suite / 4 failed / 20 passed / 24 total, `RED_INTEGRATION_EXIT=1`이다.
+
+종료 픽스처는 실제 이관 후 구조인 TeamHistory에 원본 세 상태의 사실을 넣고 삭제 후 행 전체가 동일한지 검사한다. 대기 취소 이력의 행위자와 데이터 검증은 유지한다. 실패 원자성 테스트는 더 이상 생성할 수 없는 EXPIRED 쓰기 대신 실제 마지막 팀원 경로의 `recordTeamInvitationsDeleted` 실패를 주입한다. 테스트 삭제·skip·CHECK 해제는 없다.
+
+제품 코드는 #1742와 같다. 마지막 팀원 두 경로와 교직원 팀 삭제는 `recordTeamInvitationsDeleted`를 호출한 뒤 초대 행을 삭제한다. 전체 backend 제품 소스에서 초대 create/createMany 두 곳은 기본 PENDING만 만들고 update/upsert와 terminal status 쓰기는 없다. 수락·거절·취소의 행 삭제와 TeamHistory 기록을 유지한다.
+
+main의 마지막 migration은 `20261104180000_prepare_invitation_archival`이며 retire manifest의 expected head와 같다. `20261104190000_retire_terminal_invitations`는 그 뒤에 정렬된다. SQL은 수정하지 않았고 SHA-256은 `1fa708e4fd21d770a9edf2a02e40d5a3169ba8095630b5114a88a4a117bed485`다. 기존 서버 내부 리허설 결과를 유지하며 이번에는 리허설을 다시 실행하지 않았다. 아래 과거 image rollback 설명보다 2026-11-05 소유자 결정이 우선한다. 전환 오류를 허용하고 복구는 백업 복원이며 구 이미지 호환 작업은 추가하지 않는다.
+
+2026-11-05 운영 읽기 전용 재집계 `PRODUCTION_RECOUNT_EXIT=0`: ACCEPTED 20, DECLINED 5, PENDING 3, 종료 합계 25, 팀 40, 구성원 72, Preparation 0, participant 0. 운영 migration head도 `20261104180000_prepare_invitation_archival`이었다. 승인 수량과 차이는 없고 SQL 가드는 변경하지 않았다. 운영 쓰기·배포·merge는 하지 않았다.
+
+최종 타깃 통합은 `BACKEND_INTEGRATION_TEST_PATTERN='(terminal-invitation-migration|program-team-membership|program-purge|program-team-deletion|team-invitations.received-summary|team-invitations.repository)\.integration\.spec\.ts$' bash apps/backend/test/run-integration.sh`로 실행했다. 6 suites / 127 tests 통과, `TARGETED_INTEGRATION_EXIT=0`이다. 새 빈 DB에 모든 migration 적용도 이 실행에서 성공했다. 전체 suite는 이번에 실행하지 않으며 CI 관문으로 남긴다.
+
+타깃 통합 뒤 backend typecheck와 lint를 순서대로 실행해 `BACKEND_TYPECHECK_EXIT=0`, `BACKEND_LINT_EXIT=0`을 확인했다. 루트 format:check, lint:structure, check:file-ledger도 각각 `FORMAT_CHECK_EXIT=0`, `STRUCTURE_EXIT=0`, `FILE_LEDGER_EXIT=0`이다. 기존 boundaries mode 폐기 예정 경고와 원장 실행의 package type 경고는 남아 있으나 오류는 없다. dirty worktree에는 이번 수정 네 파일만 있었으며 의미 없는 성공 출력은 실제 6 suites / 127 tests 수로 배제했다. flaky 재시도는 하지 않았고 새 타깃 실행은 한 번에 통과했다.
+
+정리 검사에서 이 worktree 라벨의 잔존 Docker 컨테이너는 0개다. 각 격리 runner가 컨테이너·볼륨·네트워크를 정리한 뒤 EXIT=0으로 끝났다. 별도 서버·브라우저·운영 임시 자원을 만들지 않았다. PR 본문 임시 파일은 게시 후 제거한다. #1745가 작업 중 main `48f0fb76f`에 추가됐으며, 이 PR의 검증 기준은 요청받은 `ed413a92d`다. #1745는 새 migration을 추가하지 않으며 최종 통합 CI와 독립 gate가 병합 관문이다.
 
 이 draft는 코드 선행 PR #1738과 종료 시 행 삭제 PR #1742가 모두 운영에 배포되고 구 writer가 종료된 뒤에만 적용한다. migration의 선행 head는 `20261104180000_prepare_invitation_archival`이다. 물리 컬럼·테이블 DROP은 포함하지 않는다.
 
