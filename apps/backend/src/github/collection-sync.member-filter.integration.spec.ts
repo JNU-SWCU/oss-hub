@@ -421,7 +421,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     );
   });
 
-  it('등록 레포의 teamId 백필 전에도 가입하지 않은 작성자는 적재하지 않는다', async () => {
+  it('팀 연결이 끊긴 등록 레포는 수집 대상이 아니므로 어떤 작성자의 기록도 적재하지 않는다', async () => {
     await seed();
     await prisma.githubRepository.update({
       where: { id: REPOSITORY_ID },
@@ -465,59 +465,23 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
       select: { id: true },
     });
-    const commitFacts = await prisma.collectionCommitFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { sha: true, authorGithubId: true },
-    });
-    expect(commitFacts).toEqual([
-      {
-        sha: 'synthetic-member-commit',
-        authorGithubId: MEMBER_GITHUB_ID,
-      },
-    ]);
-    const pullRequestFacts = await prisma.collectionPullRequestFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { githubPullRequestId: true, authorGithubId: true },
-    });
-    expect(pullRequestFacts).toEqual([
-      {
-        githubPullRequestId: 9_000_000_680_206n,
-        authorGithubId: MEMBER_GITHUB_ID,
-      },
-    ]);
-    const releaseFacts = await prisma.collectionReleaseFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { githubReleaseId: true, authorGithubId: true },
-    });
-    expect(releaseFacts).toEqual([
-      {
-        githubReleaseId: 9_000_000_680_306n,
-        authorGithubId: MEMBER_GITHUB_ID,
-      },
-    ]);
+    await expect(
+      prisma.collectionCommitFact.count({
+        where: { repositoryId: collected.id },
+      }),
+    ).resolves.toBe(0);
     await expect(
       prisma.collectionPullRequestFact.count({
-        where: {
-          repositoryId: collected.id,
-          authorGithubId: BigInt(OUTSIDER_GITHUB_ID),
-        },
+        where: { repositoryId: collected.id },
       }),
     ).resolves.toBe(0);
     await expect(
       prisma.collectionReleaseFact.count({
-        where: {
-          repositoryId: collected.id,
-          authorGithubId: BigInt(OUTSIDER_GITHUB_ID),
-        },
+        where: { repositoryId: collected.id },
       }),
     ).resolves.toBe(0);
     await expect(
-      prisma.contribution.count({
-        where: {
-          repositoryId: collected.id,
-          githubId: BigInt(OUTSIDER_GITHUB_ID),
-        },
-      }),
+      prisma.contribution.count({ where: { repositoryId: collected.id } }),
     ).resolves.toBe(0);
   });
 

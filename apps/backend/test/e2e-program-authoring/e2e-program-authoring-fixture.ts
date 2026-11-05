@@ -1,6 +1,7 @@
 import {
   AccountStatus,
   ApplicationStatus,
+  Prisma,
   ProgramCategory,
   ProgramLifecycle,
 } from '@prisma/client';
@@ -27,6 +28,12 @@ export const E2E_DOCUMENT_ID = `${PREFIX}document`;
 export const E2E_STAFF_GITHUB_ID = 8100001n;
 export const E2E_STUDENT_GITHUB_ID = 8100002n;
 export const E2E_FOREIGN_STUDENT_GITHUB_ID = 8100003n;
+export const E2E_REPOSITORY_WHERE = {
+  OR: [
+    { team: { programId: E2E_PROGRAM_ID } },
+    { teamId: null, id: { startsWith: `${E2E_PROGRAM_ID}-` } },
+  ],
+} satisfies Prisma.GithubRepositoryWhereInput;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 export const E2E_NOW = new Date(Date.now() + 2 * ONE_HOUR_MS);
@@ -64,10 +71,10 @@ export class E2eProgramAuthoringFixture {
         where: { teamId: { in: teamIds } },
       });
       await transaction.repositoryInvitation.deleteMany({
-        where: { repository: { team: { programId: E2E_PROGRAM_ID } } },
+        where: { repository: E2E_REPOSITORY_WHERE },
       });
       await transaction.githubRepository.deleteMany({
-        where: { team: { programId: E2E_PROGRAM_ID } },
+        where: E2E_REPOSITORY_WHERE,
       });
       await transaction.submissionFile.deleteMany({
         where: { teamId: { in: teamIds } },

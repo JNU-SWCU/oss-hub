@@ -356,75 +356,83 @@ describe('B가 수집된 뒤', () => {
   });
 });
 
-it('변경 이력은 옛 연결 기록과 새 URL 기록을 한 시간순 커서로 함께 넘긴다', async () => {
-  const legacyMetadata = {
+it('변경 이력은 이관된 URL 기록과 새 URL 기록을 한 시간순 커서로 함께 넘긴다', async () => {
+  const migratedMetadata = {
     schemaVersion: 1,
+    programId,
     teamId,
-    before: {
-      repositoryId: null,
-      nameWithOwner: null,
-      connectionMode: 'NEW',
-      repositoryUrl: null,
-    },
+    programName: 'Synthetic program',
+    actorGithubLogin: 'staff',
+    reason: 'Connect repository',
+    before: { repositoryId: null, repositoryUrl: null },
     after: {
       repositoryId: repositoryA,
-      nameWithOwner: 'synthetic/a',
-      connectionMode: 'NEW',
-      repositoryUrl: null,
+      repositoryUrl: 'https://github.com/synthetic/a',
     },
   };
-  await prisma.auditLog.createMany({
+  await prisma.teamHistory.createMany({
     data: [
       {
         id: `${prefix}-connected`,
+        teamId,
+        programId,
         actorId: people.staff.id,
-        action: 'REPOSITORY_CONNECTION_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'MIGRATION',
+        sourceTable: 'AuditLog',
+        sourceId: `${prefix}-connected`,
         occurredAt: new Date('2026-08-02T00:00:00Z'),
-        metadata: legacyMetadata,
+        data: { schemaVersion: 1, metadata: migratedMetadata },
       },
       {
         id: `${prefix}-relinked`,
+        teamId,
+        programId,
         actorId: people.leader.id,
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
         occurredAt: new Date('2026-08-10T00:00:00Z'),
-        metadata: {
-          schemaVersion: 2,
-          programId,
-          teamId,
-          programName: 'Synthetic program',
-          actorGithubLogin: 'lead-at-change',
-          before: {
-            repositoryId: repositoryA,
-            repositoryUrl: 'https://github.com/synthetic/a',
-          },
-          after: {
-            repositoryId: repositoryB,
-            repositoryUrl: 'https://github.com/synthetic/b',
+        data: {
+          schemaVersion: 1,
+          metadata: {
+            schemaVersion: 2,
+            programId,
+            teamId,
+            programName: 'Synthetic program',
+            actorGithubLogin: 'lead-at-change',
+            before: {
+              repositoryId: repositoryA,
+              repositoryUrl: 'https://github.com/synthetic/a',
+            },
+            after: {
+              repositoryId: repositoryB,
+              repositoryUrl: 'https://github.com/synthetic/b',
+            },
           },
         },
       },
-
       {
         id: `${prefix}-foreign`,
+        teamId: `${prefix}-other`,
+        programId,
         actorId: people.staff.id,
-        action: 'REPOSITORY_CONNECTION_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
         occurredAt: new Date('2026-08-05T00:00:00Z'),
-        metadata: { ...legacyMetadata, teamId: `${prefix}-other` },
+        data: {
+          schemaVersion: 1,
+          metadata: { ...migratedMetadata, teamId: `${prefix}-other` },
+        },
       },
       {
         id: `${prefix}-submitted`,
+        teamId,
+        programId,
         actorId: people.leader.id,
-        action: 'APPLICATION_SUBMITTED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
+        event: 'SUBMITTED',
+        source: 'APPLICATION',
         occurredAt: new Date('2026-08-06T00:00:00Z'),
-        metadata: {},
+        data: { schemaVersion: 1, revision: 1, rejectionReason: null },
       },
     ],
   });
