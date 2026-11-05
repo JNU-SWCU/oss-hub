@@ -21,7 +21,8 @@ File 92행과 Program은 지우지 않는다. 제품 파일 수는 1단계와 �
 
 ## 멈추는 조건
 
-마이그레이션 `20261105210000_retire_file_tables`(sha256 `837652646e270fa619ef8c4cf27e84093b06313e305e58014868082f4a3423aa`)는 지우기 전에 두 가지를 본다.
+마이그레이션 `20261105225000_retire_file_tables`(sha256 `837652646e270fa619ef8c4cf27e84093b06313e305e58014868082f4a3423aa`)는 지우기 전에 두 가지를 본다.
+처음 이름은 `20261105210000_retire_file_tables`였다. R2가 적용되면 그 이름이 `20261105220100_copy_audit_log_to_domain_history`보다 앞에 끼어 Jenkins 원장 점검이 `noncontiguous-migration-ledger`로 멈추므로 이름만 R2 뒤로 옮겼고 SQL과 해시는 같다.
 
 - 원본 건수가 `81, 3, 5, 3, 2` 또는 전부 0이 아니면 `file retire aborted: source count mismatch`로 멈춘다.
 - 원본 storageKey가 File에 없으면 `file retire aborted: ... source storage keys are missing from File`로 멈춘다.
@@ -31,7 +32,7 @@ File 92행과 Program은 지우지 않는다. 제품 파일 수는 1단계와 �
 
 ## 최종 head 전체 검증
 
-1단계가 #1754 위로 옮겨진 뒤의 head `bc5c53990`(1단계 `793dc610e` 포함)에서는 소유자가 정한 범위대로 아래만 다시 돌렸다. 이 뒤의 커밋은 문서만 바꾼다.
+1단계가 #1754 위로 옮겨지고 2단계 마이그레이션 이름을 바꾼 head `8fe1928a4`(1단계 `793dc610e` 포함)에서는 소유자가 정한 범위대로 아래만 다시 돌렸다. 이 뒤의 커밋은 문서만 바꾼다.
 이 2단계는 1단계가 운영에 배포된 뒤의 릴리스이고, 전체 실행은 그 릴리스의 최종 head에서 다시 필요하다.
 
 | 명령 | 결과 |
@@ -39,6 +40,7 @@ File 92행과 Program은 지우지 않는다. 제품 파일 수는 1단계와 �
 | `pnpm --filter backend typecheck` | exit 0 |
 | `pnpm --filter frontend typecheck` | exit 0 |
 | `node --test deploy/jenkins/program-migration/*.test.mjs` | exit 0 · 46 pass / 0 fail |
+| `node --test deploy/jenkins/user-consolidation*.test.mjs` | exit 0 · 90 pass / 0 fail |
 | `pnpm --filter backend test:integration` (`file-retirement-migration`, `team-application-retirement` 두 spec) | exit 0 · Test Suites: 2 passed, 2 total / Tests: 21 passed, 21 total |
 
 아래 전체 표는 #1754를 합치기 전 head의 기록이다. 대상 코드 head는 2단계 `18109f177`, 1단계 `86d085829`, 팀 브랜치 `84b295d04`다.
@@ -91,5 +93,6 @@ File 92행과 Program은 지우지 않는다. 제품 파일 수는 1단계와 �
 
 - 1단계 릴리스가 운영에서 확인되기 전에는 이 PR을 내보내지 않는다. 코드는 이 순서를 강제하지 않는다.
 - 코드가 강제하는 멈춤은 마이그레이션의 건수·storageKey guard뿐이다.
+- `files/retire.json`의 `expectedHeadMigration`은 아직 `20261105200000_unify_files`다. R2가 운영에 나간 뒤 이 PR을 main 위로 옮길 때 R2의 마지막 마이그레이션 `20261105220100_copy_audit_log_to_domain_history`로 바꾸고 리허설을 다시 돌린다.
 - 기준선 재측정은 소유자 결정에 따라 마이그레이션이 모두 끝난 뒤 한 번만 한다.
 - 머지 후 배포와 읽기 전용 검증은 아직이다.
