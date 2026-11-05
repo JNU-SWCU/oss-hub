@@ -223,7 +223,6 @@ describe('RepositoriesRepository.listOwnedProvisionJobs integration', () => {
     expect(byApplication.get(MEMBER_APPLICATION_ID)).toEqual({
       team: {
         id: MEMBER_APPLICATION_ID,
-        teamId: MEMBER_TEAM_ID,
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         applicant: { nickname: `${PREFIX}-other` },
         program: { name: `${PREFIX}-program` },

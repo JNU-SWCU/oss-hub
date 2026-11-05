@@ -174,21 +174,26 @@ it('projects current repository facts and URL audit history without reading or m
       repositoryUrl: 'https://github.com/synthetic/current',
     },
   };
-  await prisma.auditLog.createMany({
+  await prisma.teamHistory.createMany({
     data: [
       {
+        teamId,
+        programId,
         actorId: memberId,
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
-        metadata,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
+        data: { schemaVersion: 1, metadata },
       },
       {
+        teamId: `${prefix}-unrelated-team`,
+        programId,
         actorId: memberId,
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
-        metadata: { ...metadata, teamId: 'unrelated-team' },
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          metadata: { ...metadata, teamId: `${prefix}-unrelated-team` },
+        },
       },
     ],
   });

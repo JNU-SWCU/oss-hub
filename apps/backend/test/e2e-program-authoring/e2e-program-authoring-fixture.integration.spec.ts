@@ -185,6 +185,18 @@ it('removes detached fixture repository facts while preserving a neighboring pro
   });
   const detachedId = `${E2E_PROGRAM_ID}-detached`;
   const neighborRepositoryId = `${neighborId}-repository`;
+  const neighborTeamId = `${neighborId}-team`;
+  await prisma.team.create({
+    data: {
+      id: neighborTeamId,
+      programId: neighborId,
+      name: 'Synthetic neighboring team',
+      leaderId: E2E_STUDENT_ID,
+      applicantId: E2E_STUDENT_ID,
+      answers: {},
+      applicationTemplateVersion: 1,
+    },
+  });
   await prisma.githubRepository.createMany({
     data: [
       {
@@ -195,6 +207,7 @@ it('removes detached fixture repository facts while preserving a neighboring pro
       },
       {
         id: neighborRepositoryId,
+        teamId: neighborTeamId,
         githubRepositoryId: 9910002n,
         nameWithOwner: 'synthetic/neighbor',
         source: 'EXTERNAL_PUBLIC',

@@ -183,7 +183,7 @@ it('counts only current linked activity and never substitutes detached or unrela
     prisma.githubRepository.findUniqueOrThrow({
       where: { id: linkedRepositoryId },
     }),
-  ).resolves.toMatchObject({ programId, teamId });
+  ).resolves.toMatchObject({ teamId: null });
 
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
