@@ -39,6 +39,10 @@ const CONTRIBUTOR_IDS = Array.from({ length: 5 }, (_, index) =>
   BigInt(9_000_000_400 + index),
 );
 
+const TEAM_MEMBER_COUNT = CONTRIBUTOR_IDS.length;
+const TEAM_COMMIT_REQUESTS_PER_RUN = 2 * TEAM_MEMBER_COUNT;
+const OUTSIDER_FIRST_OBSERVATION_REQUESTS = 3;
+const SCALE_PROGRAM_PREFIX = 'synthetic-scale-program-';
 const REPO_COUNT = 100;
 const ANCHOR = Date.parse('2026-01-01T00:00:00.000Z');
 const HOUR = 3_600_000;
@@ -131,11 +135,12 @@ function issueCount(seed: SyntheticRepositorySeed): number {
 
 function firstBackfillRequestCost(seed: SyntheticRepositorySeed): number {
   return (
-    syntheticPageCount(seed.commits.length) +
+    TEAM_COMMIT_REQUESTS_PER_RUN +
     syntheticPageCount(seed.pullRequests.length) +
     1 +
     syntheticPageCount(seed.releases.length) +
-    syntheticPageCount(issueCount(seed) + seed.pullRequests.length)
+    syntheticPageCount(issueCount(seed) + seed.pullRequests.length) +
+    OUTSIDER_FIRST_OBSERVATION_REQUESTS
   );
 }
 
@@ -327,7 +332,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
   const seeds = buildSeeds();
   const clock = fakeClock();
   const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);
-  const provider = new SyntheticGithubProvider(seeds);
+  const provider = new SyntheticGithubProvider(seeds, { rateLimit: 100_000 });
   const dispatchTimes: number[] = [];
   const runtime = createSyntheticSyncRuntime(provider, queue, (input, init) => {
     dispatchTimes.push(clock.now());
@@ -354,10 +359,10 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       })),
       skipDuplicates: true,
     });
-    await prisma.program.create({
-      data: {
-        id: 'synthetic-scale-program',
-        name: 'Synthetic registered repository scale',
+    await prisma.program.createMany({
+      data: seeds.map((seed) => ({
+        id: `${SCALE_PROGRAM_PREFIX}${seed.id}`,
+        name: `Synthetic registered repository scale ${seed.id}`,
         organizer: 'Synthetic',
         category: 'BASIC',
         trackType: 'EXTRACURRICULAR',
@@ -367,41 +372,38 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         applicationStartAt: new Date('2025-01-01T00:00:00Z'),
         applicationEndAt: new Date('2025-12-01T00:00:00Z'),
         startAt: new Date('2025-12-01T00:00:00Z'),
-        endAt: new Date('2027-01-01T00:00:00Z'),
-      },
+        endAt: new Date('2026-01-01T00:00:00Z'),
+      })),
     });
-    for (const seed of seeds) {
-      const id = `synthetic-scale-${seed.id}`;
-      await prisma.team.create({
-        data: {
-          id,
-          programId: 'synthetic-scale-program',
-          name: seed.name,
-          leaderId: 'synthetic-scale-contributor-0',
-          applicantId: 'synthetic-scale-contributor-0',
-          answers: { title: seed.name },
-          applicationTemplateVersion: 1,
-        },
-      });
-      await prisma.team.update({
-        where: { id: id },
-        data: {
-          programId: 'synthetic-scale-program',
-          applicantId: 'synthetic-scale-contributor-0',
-          answers: {},
-          applicationTemplateVersion: 1,
-        },
-      });
-      await prisma.githubRepository.create({
-        data: {
-          githubRepositoryId: BigInt(seed.id),
-          githubOrganizationId: GITHUB_ORGANIZATION_ID,
-          teamId: id,
-          nameWithOwner: `${seed.owner}/${seed.name}`,
-          source: 'ORG_PROVISIONED',
-        },
-      });
-    }
+    await prisma.team.createMany({
+      data: seeds.map((seed) => ({
+        id: `synthetic-scale-${seed.id}`,
+        programId: `${SCALE_PROGRAM_PREFIX}${seed.id}`,
+        name: seed.name,
+        leaderId: 'synthetic-scale-contributor-0',
+        applicantId: 'synthetic-scale-contributor-0',
+        answers: {},
+        applicationTemplateVersion: 1,
+      })),
+    });
+    await prisma.teamMember.createMany({
+      data: seeds.flatMap((seed) =>
+        CONTRIBUTOR_IDS.map((_, index) => ({
+          teamId: `synthetic-scale-${seed.id}`,
+          programId: `${SCALE_PROGRAM_PREFIX}${seed.id}`,
+          userId: `synthetic-scale-contributor-${index}`,
+        })),
+      ),
+    });
+    await prisma.githubRepository.createMany({
+      data: seeds.map((seed) => ({
+        githubRepositoryId: BigInt(seed.id),
+        githubOrganizationId: GITHUB_ORGANIZATION_ID,
+        teamId: `synthetic-scale-${seed.id}`,
+        nameWithOwner: `${seed.owner}/${seed.name}`,
+        source: 'ORG_PROVISIONED',
+      })),
+    });
 
     const commitSpy = jest.spyOn(
       CollectionIncrementalStoreRepository.prototype,
@@ -508,13 +510,15 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       GITHUB_ORGANIZATION_ID,
     );
-    await prisma.team.deleteMany({
-      where: { programId: 'synthetic-scale-program' },
+    await prisma.teamMember.deleteMany({
+      where: { programId: { startsWith: SCALE_PROGRAM_PREFIX } },
     });
     await prisma.team.deleteMany({
-      where: { programId: 'synthetic-scale-program' },
+      where: { programId: { startsWith: SCALE_PROGRAM_PREFIX } },
     });
-    await prisma.program.delete({ where: { id: 'synthetic-scale-program' } });
+    await prisma.program.deleteMany({
+      where: { id: { startsWith: SCALE_PROGRAM_PREFIX } },
+    });
     await prisma.user.deleteMany({
       where: { id: { startsWith: 'synthetic-scale-contributor-' } },
     });
@@ -660,7 +664,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(provider.counters.total).toBeLessThan(naiveFullRefetchBaseline);
   }, 120_000);
 
-  it('a settled steady-state run performs zero fact writes and only conditional-style requests, except the no-ETag repository which pays extra requests for the same correctness', async () => {
+  it('a settled steady-state run performs zero fact writes, re-reads commits per team member, and sends only conditional-style requests otherwise, except the no-ETag repository which pays extra requests for the same correctness', async () => {
     expect(initialDrainRuns.length).toBeGreaterThan(0);
 
     const settleResult = await service.run(OWNER_ID);
@@ -703,20 +707,26 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     const kindDeltaThisRun = kindDelta(beforeByKind, afterByKind);
     expect(kindDeltaThisRun['installation']).toBe(0);
     expect(kindDeltaThisRun['repository']).toBe(REPO_COUNT);
-    expect(kindDeltaThisRun['commit-probe']).toBe(REPO_COUNT);
+    expect(kindDeltaThisRun['user-node']).toBe(TEAM_MEMBER_COUNT * REPO_COUNT);
+    expect(kindDeltaThisRun['commit-history']).toBe(
+      TEAM_MEMBER_COUNT * REPO_COUNT,
+    );
+    expect(kindDeltaThisRun['commit-count']).toBe(0);
+    expect(kindDeltaThisRun['commit-probe']).toBe(0);
     expect(kindDeltaThisRun['release-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['pull-list']).toBe(REPO_COUNT);
 
     expect(kindDeltaThisRun['issue-list']).toBe(REPO_COUNT);
 
-    expect(kindDeltaThisRun['commit-list']).toBe(1);
+    expect(kindDeltaThisRun['commit-list']).toBe(0);
 
     expect(kindDeltaThisRun['release-list']).toBe(1);
 
     const noEtagAfter = repoKindSnapshot(provider, noEtagKey);
     const stableAfter = repoKindSnapshot(provider, stableKey);
-    expect(totalKindDelta(stableBefore, stableAfter)).toBe(5);
-    expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(7);
+    const stableRequests = 4 + TEAM_MEMBER_COUNT;
+    expect(totalKindDelta(stableBefore, stableAfter)).toBe(stableRequests);
+    expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(stableRequests + 1);
 
     const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
     if (!tiesSeed) throw new Error('fixture missing PR-ties repo');
@@ -732,7 +742,7 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(repoKindSnapshot(provider, tiesKey)['pull-list']).toBeGreaterThan(0);
   }, 60_000);
 
-  it('a disconnected (rewritten) commit history triggers a full recovery scan limited to only the affected repository', async () => {
+  it('a disconnected (rewritten) commit history is picked up by the per-member re-listing at no extra request cost, adding facts only to the affected repository', async () => {
     const seed = seeds.find((s) => s.name === DISCONNECTED_NAME);
     if (!seed) throw new Error('fixture missing disconnected repo');
     const rewritten = buildCommits(0, 8, '-rewritten');
@@ -741,13 +751,18 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     });
     seed.commits = rewritten;
 
+    const commitWritesBefore = commitWrites.length;
     const beforeByKind = { ...provider.counters.byKind };
     const result = await service.run(OWNER_ID);
     expect(result.cycleCompleted).toBe(true);
     const afterByKind = { ...provider.counters.byKind };
     const delta = kindDelta(beforeByKind, afterByKind);
 
-    expect(delta['commit-list']).toBe(syntheticPageCount(rewritten.length) + 1);
+    expect(delta['commit-list']).toBe(0);
+    expect(delta['commit-history']).toBe(TEAM_MEMBER_COUNT * REPO_COUNT);
+    expect(
+      commitWrites.slice(commitWritesBefore).reduce((a, b) => a + b, 0),
+    ).toBe(rewritten.length);
 
     const repoRow = await repository.findRepositoryByLogicalKey(
       BigInt(seed.id),
