@@ -236,7 +236,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
 
     expect(onOk).toHaveBeenCalledTimes(1);
     expect(onOk).toHaveBeenCalledWith(
-      { auditLogWriter: tx },
+      { historyWriter: tx },
       {
         teamId: syntheticTeamId,
         programId: syntheticProgramId,
@@ -286,7 +286,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     });
 
     expect(onOk).toHaveBeenCalledWith(
-      { auditLogWriter: tx },
+      { historyWriter: tx },
       expect.objectContaining({ teamId: syntheticTeamId }),
     );
   });

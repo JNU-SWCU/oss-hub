@@ -1,8 +1,6 @@
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { AuditLogService } from '../platform/audit-log.service';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
+import { ProgramHistoryRepository } from './program-history.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -33,10 +31,7 @@ const repository = new ProgramLifecycleRepository(prisma, scopeRepository);
 const metadata = new AuditLogMetadataService();
 const service = new ProgramLifecycleService(
   repository,
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(metadata),
-  ),
+  new ProgramHistoryRepository(),
   metadata,
   new PrismaSerializationRetryRepository(),
 );
@@ -182,10 +177,7 @@ it.each(['delete', 'purge'] as const)(
 it('legacy POST /programs records its known actor without an invented idempotency key', async () => {
   const creation = new ProgramCreationService(
     programs,
-    new AuditLogService(
-      new AuditLogRepository(prisma),
-      new AuditLogReadService(metadata),
-    ),
+    new ProgramHistoryRepository(),
     metadata,
     new ProgramScheduleService(),
     new ProgramTemplatesService(),

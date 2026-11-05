@@ -1,5 +1,4 @@
 import { FileMetadataRepository } from './files.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -11,8 +10,6 @@ import { AccountStatus } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { Test } from '@nestjs/testing';
 import { AuditLogController } from '../admin/audit-log.controller';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthenticationGuard } from '../auth/authentication.guard';
 import { AuthService } from '../auth/auth.service';
@@ -105,10 +102,6 @@ export class PublicExposurePersonaHttpHarness {
     const github = {
       publishRepository: jest.fn(),
     } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-    const auditLogService = new AuditLogService(
-      new AuditLogRepository(this.prisma),
-      new AuditLogReadService(new AuditLogMetadataService()),
-    );
     const repositoriesRepository = new RepositoriesRepository(
       this.prisma,
       new RepositoryProvisionGenerationRepository(),
@@ -116,7 +109,6 @@ export class PublicExposurePersonaHttpHarness {
     const repositoriesService = new RepositoriesService(
       repositoriesRepository,
       github as unknown as GithubAppClient,
-      auditLogService,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
     );
@@ -153,7 +145,6 @@ export class PublicExposurePersonaHttpHarness {
           provide: SubmissionReviewsService,
           useValue: submissionReviewsService,
         },
-        { provide: AuditLogService, useValue: auditLogService },
         AuthSessionService,
         AuthenticationGuard,
         OriginGuard,

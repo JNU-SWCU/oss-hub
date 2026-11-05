@@ -20,7 +20,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../platform/audit-log-metadata.config';
-import type { AccessAuditAction } from '../platform/audit-log.repository';
+import type { AccessAuditAction } from '../platform/audit-log-metadata.config';
 import type { AccessAuditMetadata } from '../platform/audit-log-metadata.config';
 import {
   type AdminAccessActor,

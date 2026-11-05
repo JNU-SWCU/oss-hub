@@ -102,7 +102,7 @@ describe('application named invitees integration', () => {
     const readProgram = findProgram.getMockImplementation();
     if (readProgram === undefined)
       throw new Error('findProgramById spy has no original implementation');
-    const auditCount = await prisma.auditLog.count();
+    const historyCount = await prisma.teamHistory.count();
     findProgram.mockImplementationOnce(async function (
       this: ApplicationsRepository,
       id: string,
@@ -124,7 +124,7 @@ describe('application named invitees integration', () => {
     ).resolves.toMatchObject({ lifecycle: 'DELETED' });
     await expectNoApplication();
     expect(await prisma.teamMember.count({ where: { programId } })).toBe(0);
-    expect(await prisma.auditLog.count()).toBe(auditCount);
+    expect(await prisma.teamHistory.count()).toBe(historyCount);
   });
 
   it('searches eligible registered students without needing a team', async () => {

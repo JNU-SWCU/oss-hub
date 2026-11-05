@@ -10,7 +10,6 @@ import { canonicalUserCreateFromLabel } from './canonical-user-fixture';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import type { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogRepository } from '../platform/audit-log.repository';
 import { UserHistoryRepository } from './user-history.repository';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -63,7 +62,6 @@ export class AdminAccessHttpHarness {
         AdminProfileRepository,
         AdminProfileMutationService,
         UserHistoryRepository,
-        AuditLogRepository,
         AuditLogMetadataService,
         UserProfileService,
         AuthSessionService,

@@ -2,7 +2,6 @@ import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { Readable } from 'node:stream';
 import { type ExecutionContext, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import { AuditLogService } from '../platform/audit-log.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
@@ -58,7 +57,6 @@ beforeAll(async () => {
       ProgramAuthoringUploadService,
       ProgramCoverService,
       ProgramAuthoringService,
-      { provide: AuditLogService, useValue: { record: jest.fn() } },
       { provide: ProgramAuthoringRepository, useValue: {} },
       {
         provide: ProgramAuthoringUploadRepository,

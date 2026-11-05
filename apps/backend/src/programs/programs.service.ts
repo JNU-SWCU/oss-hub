@@ -53,11 +53,8 @@ import {
   ProgramNoticeFetchClient,
   type ProgramNoticePreview,
 } from './program-notice-fetch.client';
-import { AuditLogService } from '../platform/audit-log.service';
-import {
-  PROGRAM_CREATED_AUDIT_ACTIONS,
-  PROGRAM_DELETION_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.config';
+import { ProgramHistoryRepository } from './program-history.repository';
+import {} from '../platform/audit-log-metadata.config';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import {
   type ProgramAuthoringRequest,
@@ -555,7 +552,7 @@ export class ProgramAuthoringService {
   constructor(
     @Inject(ProgramAuthoringRepository)
     private readonly repository: ProgramAuthoringStore,
-    private readonly auditLog: AuditLogService,
+    private readonly programHistory: ProgramHistoryRepository,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly programScheduleService: ProgramScheduleService,
     private readonly programTemplatesService: ProgramTemplatesService,
@@ -665,19 +662,14 @@ export class ProgramAuthoringService {
     } catch (error) {
       throw new ProgramAuthoringIdempotencyRaceError(error);
     }
-    await this.auditLog.record(
-      {
-        actorGithubId: githubId,
-        action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
-        targetType: 'PROGRAM',
-        targetId: program.id,
-        metadata:
-          this.auditLogMetadataService.createProgramCreatedAuditMetadata({
-            programName: program.name,
-          }),
-      },
-      store.auditLogWriter,
-    );
+    await this.programHistory.append(store.historyWriter, {
+      programId: program.id,
+      actorGithubId: githubId,
+      event: 'CREATED',
+      metadata: this.auditLogMetadataService.createProgramCreatedAuditMetadata({
+        programName: program.name,
+      }),
+    });
     for (const milestone of plan.milestones) {
       const milestoneId = await store.createMilestone(program.id, milestone);
       for (const document of milestone.documents) {
@@ -943,7 +935,7 @@ export type ProgramPurgeResult = {
 export class ProgramLifecycleService {
   constructor(
     private readonly repository: ProgramLifecycleRepository,
-    private readonly auditLog: AuditLogService,
+    private readonly programHistory: ProgramHistoryRepository,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
   ) {}
@@ -970,21 +962,17 @@ export class ProgramLifecycleService {
       );
       await this.repository.purgeProgramTree(transaction, programId);
       await this.repository.deleteProgram(transaction, programId);
-      await this.auditLog.record(
-        {
-          actorGithubId: githubId,
-          action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
-          targetType: 'PROGRAM',
-          targetId: programId,
-          metadata:
-            this.auditLogMetadataService.createProgramDeletionAuditMetadata({
-              programName: program.name,
-              lifecycle: program.lifecycle,
-              blockingCounts,
-            }),
-        },
-        transaction,
-      );
+      await this.programHistory.append(transaction, {
+        programId,
+        actorGithubId: githubId,
+        event: 'DELETED',
+        metadata:
+          this.auditLogMetadataService.createProgramDeletionAuditMetadata({
+            programName: program.name,
+            lifecycle: program.lifecycle,
+            blockingCounts,
+          }),
+      });
       return { id: programId, deleted: true as const };
     });
   }
@@ -1022,26 +1010,22 @@ export class ProgramLifecycleService {
           programId,
         );
         await this.repository.deleteProgram(transaction, programId);
-        await this.auditLog.record(
-          {
-            actorGithubId: githubId,
-            action: PROGRAM_DELETION_AUDIT_ACTIONS.PROGRAM_DELETED,
-            targetType: 'PROGRAM',
-            targetId: programId,
-            metadata:
-              this.auditLogMetadataService.createProgramDeletionAuditMetadata({
-                programName: program.name,
-                lifecycle: program.lifecycle,
-                blockingCounts: {
-                  applications: 0,
-                  teams: 0,
-                  submissions: 0,
-                  boardPosts: 0,
-                },
-              }),
-          },
-          transaction,
-        );
+        await this.programHistory.append(transaction, {
+          programId,
+          actorGithubId: githubId,
+          event: 'DELETED',
+          metadata:
+            this.auditLogMetadataService.createProgramDeletionAuditMetadata({
+              programName: program.name,
+              lifecycle: program.lifecycle,
+              blockingCounts: {
+                applications: 0,
+                teams: 0,
+                submissions: 0,
+                boardPosts: 0,
+              },
+            }),
+        });
         return { id: programId, deleted: true as const, deletedCounts };
       });
     } catch (error) {

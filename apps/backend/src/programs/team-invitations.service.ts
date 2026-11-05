@@ -1,8 +1,6 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, UserType } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
-import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import {
   TEAM_INVITATION_ERROR_CODES,
@@ -27,7 +25,6 @@ import {
 export class TeamInvitationsService {
   constructor(
     private readonly repository: TeamInvitationsRepository,
-    private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly userProfileService: UserProfileService,
   ) {}
@@ -171,20 +168,23 @@ export class TeamInvitationsService {
       actorId,
       new Date(),
       async (store, names) => {
-        await this.auditLog.record(
-          {
-            actorGithubId: githubId,
-            action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
-            targetType: 'TEAM',
-            targetId: names.teamId,
-            metadata:
-              this.auditLogMetadataService.createTeamJoinedAuditMetadata({
-                programName: names.programName,
-                teamName: names.teamName,
-              }),
+        await store.historyWriter.teamHistory.create({
+          data: {
+            teamId: names.teamId,
+            programId: names.programId,
+            actorId,
+            event: 'JOINED',
+            source: 'APPLICATION',
+            data: {
+              schemaVersion: 1,
+              metadata:
+                this.auditLogMetadataService.createTeamJoinedAuditMetadata({
+                  programName: names.programName,
+                  teamName: names.teamName,
+                }),
+            },
           },
-          store.auditLogWriter,
-        );
+        });
       },
     );
     switch (outcome.kind) {

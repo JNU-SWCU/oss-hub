@@ -10,8 +10,7 @@ import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramCoverRepository } from './files.repository';
 import { ProgramCategory, type ProgramTrackType } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
+import { ProgramHistoryRepository } from './program-history.repository';
 import { DomainException } from '../platform/error-code.error';
 import { ProgramsRepository } from './programs.repository';
 import {
@@ -96,7 +95,7 @@ const INVALID_END_AT_FIELD_ERROR = {
 export class ProgramCreationService {
   constructor(
     private readonly repository: ProgramsRepository,
-    private readonly auditLog: AuditLogService,
+    private readonly programHistory: ProgramHistoryRepository,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly programScheduleService: ProgramScheduleService,
     private readonly programTemplatesService: ProgramTemplatesService,
@@ -174,19 +173,15 @@ export class ProgramCreationService {
         },
         writer,
       );
-      await this.auditLog.record(
-        {
-          actorGithubId: githubId,
-          action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
-          targetType: 'PROGRAM',
-          targetId: program.id,
-          metadata:
-            this.auditLogMetadataService.createProgramCreatedAuditMetadata({
-              programName: program.name,
-            }),
-        },
-        writer,
-      );
+      await this.programHistory.append(writer, {
+        programId: program.id,
+        actorGithubId: githubId,
+        event: 'CREATED',
+        metadata:
+          this.auditLogMetadataService.createProgramCreatedAuditMetadata({
+            programName: program.name,
+          }),
+      });
       return program;
     });
   }

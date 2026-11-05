@@ -22,7 +22,7 @@ import {
   ProgramCoverRepository,
   ProgramAuthoringUploadTransactionRepository,
 } from './files.repository';
-import { type AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
+import type { ProgramHistoryWriterClient } from './program-history.repository';
 import {
   type ProgramAuthoringProgramPlan,
   type ProgramExternalCover,
@@ -382,7 +382,8 @@ export class ProgramsRepository {
   }
   withCreateTransaction<T>(
     operation: (
-      writer: Pick<Prisma.TransactionClient, 'program' | 'auditLog'>,
+      writer: Pick<Prisma.TransactionClient, 'program'> &
+        ProgramHistoryWriterClient,
     ) => Promise<T>,
   ): Promise<T> {
     return this.prisma.$transaction((transaction) => operation(transaction));
@@ -688,7 +689,7 @@ export class ProgramLifecycleRepository {
   }
 }
 export interface ProgramAuthoringTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly historyWriter: ProgramHistoryWriterClient;
   createProgram(
     plan: ProgramAuthoringProgramPlan,
     cover?:
@@ -742,7 +743,7 @@ export class ProgramAuthoringRepository {
     prisma: Prisma.TransactionClient,
   ): ProgramAuthoringTransactionStore {
     return {
-      auditLogWriter: prisma,
+      historyWriter: prisma,
       createProgram: this.createProgramIn.bind(this, prisma),
       createRequest: this.createRequestIn.bind(this, prisma),
       lockUploads: this.lockUploadsIn.bind(this, prisma),

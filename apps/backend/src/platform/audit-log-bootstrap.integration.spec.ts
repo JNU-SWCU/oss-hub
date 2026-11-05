@@ -1,8 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from './prisma.service';
-import { AuditLogRepository } from './audit-log.repository';
-import { AuditLogService } from './audit-log.service';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { AuditLogReadRepository } from './audit-log-read.repository';
 import { AuditLogReadService } from './audit-log-read.service';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
 
@@ -14,10 +12,7 @@ assertIsolatedIntegrationDatabase({
 const HISTORY_FEED_PREFIX = 'test:audit-bootstrap:';
 describe('Bootstrap audit feed', () => {
   const prisma = new PrismaService();
-  const service = new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(new AuditLogMetadataService()),
-  );
+  const service = new AuditLogReadService(new AuditLogReadRepository(prisma));
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.create({

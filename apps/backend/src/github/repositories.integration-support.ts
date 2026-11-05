@@ -30,8 +30,8 @@ class BarrierRepositoriesTransactionStore implements RepositoriesTransactionStor
     private readonly barrier: TwoPartyBarrier,
   ) {}
 
-  get auditLogWriter() {
-    return this.store.auditLogWriter;
+  get historyWriter() {
+    return this.store.historyWriter;
   }
 
   findPublishTarget(

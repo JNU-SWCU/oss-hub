@@ -82,13 +82,11 @@ function buildService(overrides: {
     return Promise.resolve(CREATED);
   });
 
-  const auditLogWriter = {} as ApplicationCreateStore['auditLogWriter'];
   const appendReviewHistory = jest.fn().mockResolvedValue({ revision: 1 });
   const createApplicationInvitations = jest.fn().mockResolvedValue(undefined);
   const store: ApplicationCreateStore = {
     validateApplicationParticipants: jest.fn().mockResolvedValue('ok'),
     createApplicationInvitations,
-    auditLogWriter,
     appendReviewHistory,
     lockProgramForApply: jest.fn().mockResolvedValue(
       overrides.program === null
@@ -136,7 +134,6 @@ function buildService(overrides: {
     createApplicationInvitations,
     createTeamWithLeader,
     appendReviewHistory,
-    auditLogWriter,
   };
 }
 

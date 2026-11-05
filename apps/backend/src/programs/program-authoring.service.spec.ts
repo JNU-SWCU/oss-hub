@@ -18,12 +18,11 @@ import {
 } from './programs.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
-import { AuditLogService } from '../platform/audit-log.service';
+import { ProgramHistoryRepository } from './program-history.repository';
 import {
   ProgramAuthoringRepository,
   type ProgramAuthoringTransactionStore,
 } from './programs.repository';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import {
   ProgramAuthoringIdempotencyRaceError,
   ProgramAuthoringIdempotencyConflictError,
@@ -188,12 +187,11 @@ function program(): ProgramAuthoringProgram {
 }
 
 function setup() {
-  const auditLogWriter =
-    {} as ProgramAuthoringTransactionStore['auditLogWriter'];
-  const record = jest.fn().mockResolvedValue(undefined);
-  const auditLog = { record } as unknown as AuditLogService;
+  const historyWriter = {} as ProgramAuthoringTransactionStore['historyWriter'];
+  const append = jest.fn().mockResolvedValue(undefined);
+  const programHistory = { append } as unknown as ProgramHistoryRepository;
   const transaction: jest.Mocked<ProgramAuthoringTransactionStore> = {
-    auditLogWriter,
+    historyWriter,
     createProgram: jest.fn().mockResolvedValue(program()),
     createRequest: jest.fn().mockResolvedValue('request-id'),
     lockUploads: jest.fn().mockResolvedValue([]),
@@ -213,10 +211,10 @@ function setup() {
   return {
     repository,
     transaction,
-    record,
+    append,
     service: new ProgramAuthoringService(
       repository,
-      auditLog,
+      programHistory,
       new AuditLogMetadataService(),
       new ProgramScheduleService(),
       new ProgramTemplatesService(),
@@ -303,7 +301,7 @@ describe('ProgramAuthoringService', () => {
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
         AuditLogMetadataService,
-        { provide: AuditLogService, useValue: { record: jest.fn() } },
+        { provide: ProgramHistoryRepository, useValue: { append: jest.fn() } },
       ],
     }).compile();
 
@@ -370,29 +368,25 @@ describe('ProgramAuthoringService', () => {
     expect(transaction.createProgram.mock.calls).toEqual([]);
   });
 
-  it('records PROGRAM_CREATED once inside the success transaction', async () => {
-    const { service, record, transaction } = setup();
+  it('records the CREATED history once inside the success transaction', async () => {
+    const { service, append, transaction } = setup();
 
     await service.create(ACTOR, 'key', request());
 
-    expect(record).toHaveBeenCalledTimes(1);
-    expect(record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorGithubId: GITHUB_ID,
-        action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
-        targetType: 'PROGRAM',
-        targetId: 'program-id',
-        metadata: {
-          schemaVersion: 1,
-          programName: 'Program',
-        },
-      }),
-      transaction.auditLogWriter,
-    );
+    expect(append).toHaveBeenCalledTimes(1);
+    expect(append).toHaveBeenCalledWith(transaction.historyWriter, {
+      programId: 'program-id',
+      actorGithubId: GITHUB_ID,
+      event: 'CREATED',
+      metadata: {
+        schemaVersion: 1,
+        programName: 'Program',
+      },
+    });
   });
 
   it('does not record on idempotent replay', async () => {
-    const { service, repository, record } = setup();
+    const { service, repository, append } = setup();
     const created = program();
     repository.findReplay.mockResolvedValue({
       payloadHash: programAuthoringService.hashProgramAuthoringPayload(
@@ -403,11 +397,11 @@ describe('ProgramAuthoringService', () => {
 
     await service.create(ACTOR, 'key', request());
 
-    expect(record).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
   });
 
   it('does not record when the idempotency race replays', async () => {
-    const { service, repository, record, transaction } = setup();
+    const { service, repository, append, transaction } = setup();
     transaction.createRequest.mockRejectedValue(
       new ProgramAuthoringIdempotencyRaceError(new Error('p2002')),
     );
@@ -420,6 +414,6 @@ describe('ProgramAuthoringService', () => {
 
     await service.create(ACTOR, 'key', request());
 
-    expect(record).not.toHaveBeenCalled();
+    expect(append).not.toHaveBeenCalled();
   });
 });

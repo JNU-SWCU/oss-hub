@@ -459,3 +459,53 @@ export const TEAM_JOINED_AUDIT_ACTIONS = {
 export const TEAM_MEMBERSHIP_AUDIT_ACTIONS = {
   TEAM_MEMBERSHIP_CHANGED: 'TEAM_MEMBERSHIP_CHANGED',
 } as const;
+
+export type AccessAuditAction =
+  (typeof ACCESS_AUDIT_ACTIONS)[keyof typeof ACCESS_AUDIT_ACTIONS];
+
+type DistributiveOmit<T, Key extends PropertyKey> = T extends T
+  ? Omit<T, Key>
+  : never;
+
+export type AccessAuditMetadataInput = DistributiveOmit<
+  AccessAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type ApplicationDecisionAuditMetadataInput = Omit<
+  ApplicationDecisionAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type IndependentAuthorityAuditAction =
+  (typeof INDEPENDENT_AUTHORITY_AUDIT_ACTIONS)[keyof typeof INDEPENDENT_AUTHORITY_AUDIT_ACTIONS];
+
+export type IndependentAuthorityAuditMetadataInput = Omit<
+  IndependentAuthorityAuditMetadata,
+  'schemaVersion' | 'eventKind'
+>;
+
+export type RepositoryPublishAuditMetadataInput = Omit<
+  RepositoryPublishAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type ProgramLifecycleAuditMetadataInput = Omit<
+  ProgramLifecycleAuditMetadataV2,
+  'schemaVersion'
+>;
+
+export type UserProfileAuditAction =
+  (typeof USER_PROFILE_AUDIT_ACTIONS)[keyof typeof USER_PROFILE_AUDIT_ACTIONS];
+
+export type AuditLogRecordInput = {
+  readonly actorGithubId: bigint;
+  readonly action: string;
+  readonly targetType: string;
+  readonly targetId: string;
+  readonly metadata:
+    | AccessAuditMetadata
+    | IndependentAuthorityAuditMetadata
+    | UserProfileAuditMetadata
+    | UserPhoneAuditMetadata;
+};

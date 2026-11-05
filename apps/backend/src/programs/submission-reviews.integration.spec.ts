@@ -1,5 +1,4 @@
 import { FileMetadataRepository } from './files.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
@@ -12,11 +11,9 @@ import {
   RepositoryVisibility,
   ReviewDecision,
   SubmissionStatus,
+  TeamHistoryEvent,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import { AuditLogService } from '../platform/audit-log.service';
 import {
   prisma as seedPrisma,
   seedGithubId,
@@ -51,10 +48,6 @@ const prisma = new PrismaService();
 const github = {
   publishRepository: jest.fn(),
 } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
-const auditLog = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogReadService(new AuditLogMetadataService()),
-);
 const repositoriesRepository = new RepositoriesRepository(
   prisma,
   new RepositoryProvisionGenerationRepository(),
@@ -62,7 +55,6 @@ const repositoriesRepository = new RepositoriesRepository(
 const repositories = new RepositoriesService(
   repositoriesRepository,
   github as unknown as GithubAppClient,
-  auditLog,
   new AuditLogMetadataService(),
   new RepositoryUrlService(),
 );
@@ -304,21 +296,20 @@ describe('SubmissionReviewsService integration', () => {
     expect(published.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(published.publishedAt).toBeInstanceOf(Date);
     expect(github.publishRepository).toHaveBeenCalledWith(repositoryName);
-    const auditRows = await prisma.auditLog.findMany({
+    const historyRows = await prisma.teamHistory.findMany({
       where: {
-        targetType: 'REPOSITORY',
-        targetId: repositoryId,
-        action: REPOSITORY_PUBLISH_AUDIT_ACTIONS.REPOSITORY_PUBLISHED,
+        event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
+        data: { path: ['targetId'], equals: repositoryId },
       },
     });
-    expect(auditRows).toHaveLength(1);
+    expect(historyRows).toHaveLength(1);
     const publicRow = await publicProjects.findById(
       repository.githubRepositoryId.toString(),
     );
     expect(publicRow).not.toBeNull();
     expect(publicRow?.publishedAt).toEqual(published.publishedAt);
   });
-  it('provision job이 없는 repository-ready seed는 공개를 막고 GitHub를 호출하지 않으며 audit도 남기지 않는다', async () => {
+  it('provision job이 없는 repository-ready seed는 공개를 막고 GitHub를 호출하지 않으며 이력도 남기지 않는다', async () => {
     const repositoryId = seedId(
       'repositories',
       'repository-ready',
@@ -330,14 +321,13 @@ describe('SubmissionReviewsService integration', () => {
       errorCode: { code: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY },
     });
     expect(github.publishRepository).not.toHaveBeenCalled();
-    const auditRows = await prisma.auditLog.findMany({
+    const historyRows = await prisma.teamHistory.findMany({
       where: {
-        targetType: 'REPOSITORY',
-        targetId: repositoryId,
-        action: REPOSITORY_PUBLISH_AUDIT_ACTIONS.REPOSITORY_PUBLISHED,
+        event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
+        data: { path: ['targetId'], equals: repositoryId },
       },
     });
-    expect(auditRows).toHaveLength(0);
+    expect(historyRows).toHaveLength(0);
   });
   it('이미 public인 seed 저장소는 반복 요청에도 외부 호출 없이 수렴한다', async () => {
     const target = await createFreshPrivateRepository();
@@ -368,7 +358,6 @@ describe('SubmissionReviewsService integration', () => {
     const concurrentRepositories = new RepositoriesService(
       barrierRepository as unknown as RepositoriesRepository,
       github as unknown as GithubAppClient,
-      auditLog,
       new AuditLogMetadataService(),
       new RepositoryUrlService(),
     );
@@ -406,14 +395,13 @@ describe('SubmissionReviewsService integration', () => {
     });
     expect(finalRepository.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(finalRepository.publishedAt).toEqual(publishedAt);
-    const auditRows = await prisma.auditLog.findMany({
+    const historyRows = await prisma.teamHistory.findMany({
       where: {
-        targetType: 'REPOSITORY',
-        targetId: target.repositoryId,
-        action: REPOSITORY_PUBLISH_AUDIT_ACTIONS.REPOSITORY_PUBLISHED,
+        event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
+        data: { path: ['targetId'], equals: target.repositoryId },
       },
     });
-    expect(auditRows).toHaveLength(1);
+    expect(historyRows).toHaveLength(1);
     const publicRow = await publicProjects.findById(
       target.githubRepositoryId.toString(),
     );
