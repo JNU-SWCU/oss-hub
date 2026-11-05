@@ -43,3 +43,5 @@ Prisma 모델에서도 두 컬럼과 두 준비 모델·enum을 제외했다. �
 정적 검사: backend·frontend typecheck와 lint, format:check, check:file-ledger는 EXIT=0이다. lint의 기존 boundaries 경고와 프론트 링크 목 4개 경고는 유지했다. 구조 검사의 미사용 CreatedTeam은 폐기 API의 반환 타입이므로 제거했고 후속 structure 결과로 확인한다. 파일 원장은 FILE_LEDGER_OK 261 paths다. 설치 시도는 자동 설치를 금지하지 않은 임시 Prisma schema 위치에서 실패했으며 재설치 프롬프트에는 응답하지 않았다. 이후 자동 설치 금지와 작업 트리 전용 client 출력으로 생성했다. lockfile 변경은 없다.
 
 최종 구조 검사는 CreatedTeam 제거 뒤 EXIT=0이다. 최종 소스 Chrome도 2 tests / EXIT=0이며 기존 공개 첨부를 이 캡처로 갱신했다. 릴리스 자산 첨부만 수행했고 새 release 발행·배포는 하지 않았다.
+
+과거 user-consolidation drift 하네스가 현재 도메인 schema와 옛 User fixture를 합치는 경계도 확인했다. 삭제된 두 준비 관계가 미정의 모델을 가리키므로 옛 User fixture의 두 관계 선언만 제거했다. 과거 물리 migration·fixture SQL은 보존했다. 실제 격리 DB의 user-consolidation-migration 1 suite / 11 tests와 before/after drift 대조가 EXIT=0이다.
