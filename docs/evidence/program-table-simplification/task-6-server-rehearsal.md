@@ -11,11 +11,13 @@
 | --- | --- | --- |
 | `20261105110000_retire_application_storage` | R2, #1754 | `174a94c2267f19ab9d28533b8783763a3c2f725615fb9c747d54174272245722` |
 | `20261105200000_unify_files` | R2, 이 1단계 | `b5218a3ac3d34a4ef0a564f4d7e793fe364f90b92562bfeea9ae0e5d6eda1cbd` |
-| `20261105210000_retire_file_tables` | R3, 2단계 | `837652646e270fa619ef8c4cf27e84093b06313e305e58014868082f4a3423aa` |
+| `20261105225000_retire_file_tables` | R3, 2단계 | `837652646e270fa619ef8c4cf27e84093b06313e305e58014868082f4a3423aa` |
 
 코드 head는 1단계 `7f2341166`(#1754 `28d7ced7b`와 main `2039af172` 포함)과 그 위에 2단계를 병합한 로컬 트리였고, 두 worktree 모두 깨끗했다.
-그 뒤 두 단계에 들어온 변경은 통합 테스트 fixture와 문서뿐이다. 위 세 해시와
-`team-application/retire.json`, `files/prepare.json`, `files/retire.json`은 PR head에서도 같다.
+그 뒤 두 단계에 들어온 변경은 통합 테스트 fixture와 문서, 그리고 2단계 마이그레이션의 디렉터리 이름뿐이다.
+리허설 때 이름은 `20261105210000_retire_file_tables`였고, R2 뒤로 정렬되도록 `20261105225000`으로 옮겼다.
+위 세 해시와 `team-application/retire.json`, `files/prepare.json`은 PR head에서도 같다.
+`files/retire.json`은 적용 경로의 디렉터리 이름과, R2 배포 뒤 시작 head를 `20261105220100_copy_audit_log_to_domain_history`로 옮긴 값만 다르다.
 입력은 운영 데이터가 아니라 합성 시드다. Todo 9 리허설 시드를 실제 마이그레이션 체인으로
 `20261105100100_merge_applications_into_teams`까지 올린 뒤, 그 시드에 없는 파일 원본 행을 더해 덤프를 만들었다.
 모든 경로는 이 덤프에서 시작한다. 건수만 R1 뒤 운영에 맞췄다(Application 33, 파일 원본 81, 3, 5, 3, 2).

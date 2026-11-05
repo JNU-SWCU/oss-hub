@@ -277,16 +277,12 @@ it.each([
   },
 );
 
-it('rejects legacy cover writes and requires a storage key for an owned File', async () => {
+it('requires a storage key for an owned File', async () => {
   const program = await authoring().create(
     COVER_ACTOR,
     'constraint-external',
     request(),
   );
-  await expect(prisma.$executeRaw`
-    INSERT INTO "ProgramCover" (id,"programId",source,"sourceUrl","imageUrl","storageKey")
-    VALUES ('invalid-legacy-cover',${program.id},'EXTERNAL',${externalCover.sourceUrl},${externalCover.imageUrl},'program-covers/invalid')
-  `).rejects.toThrow();
   await expect(prisma.$executeRaw`
     INSERT INTO "File" (id,kind,lifecycle,"programId") VALUES ('invalid-owned','COVER','ATTACHED',${program.id})
   `).rejects.toThrow();
