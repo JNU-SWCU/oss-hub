@@ -580,8 +580,6 @@ interface LockedProgramPolicy {
   readonly applicationTemplateVersion: number;
 }
 
-type ApplicationLockedTeamRow = Readonly<{ id: string; leaderId: string }>;
-
 export interface ApplicationsTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findTeamMinSize(programId: string): Promise<number | null>;
@@ -660,9 +658,6 @@ export interface ApplicationCreateStore {
     userId: string,
   ): Promise<CreatedTeamForApplication | null>;
 
-  lockTeamForApply(teamId: string, userId: string): Promise<boolean>;
-
-  countTeamMembers(teamId: string): Promise<number>;
   validateApplicationParticipants(input: {
     readonly programId: string;
     readonly actorId: string;
@@ -1297,14 +1292,12 @@ export class ApplicationsRepository {
         this,
         database,
       ),
-      countTeamMembers: this.countTeamMembersIn.bind(this, database),
       validateApplicationParticipants:
         this.validateApplicationParticipantsIn.bind(this, database),
       createApplicationInvitations: this.createApplicationInvitationsIn.bind(
         this,
         database,
       ),
-      lockTeamForApply: this.lockTeamForApplyIn.bind(this, database),
       createTeamWithLeader: this.createTeamWithLeaderIn.bind(this, database),
     };
   }
@@ -1405,26 +1398,6 @@ export class ApplicationsRepository {
     teamId: string,
   ): Promise<number> {
     return database.teamMember.count({ where: { teamId } });
-  }
-
-  private async lockTeamForApplyIn(
-    database: ApplicationDatabase,
-    teamId: string,
-    userId: string,
-  ): Promise<boolean> {
-    const rows = await database.$queryRaw<readonly ApplicationLockedTeamRow[]>(
-      Prisma.sql`SELECT "id", "leaderId" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
-    );
-    const locked = rows[0];
-    if (!locked || locked.leaderId !== userId) {
-      return false;
-    }
-
-    const membership = await database.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
-      select: { userId: true },
-    });
-    return membership !== null;
   }
 
   private async createTeamWithLeaderIn(
@@ -3117,29 +3090,18 @@ async function deleteTeamTree(
   teamId: string,
 ): Promise<TeamDeletedCounts> {
   const now = new Date();
-  const teamIds = [teamId];
 
-  if (teamIds.length > 0) {
-    await tx.outboxEvent.deleteMany({
-      where: {
-        aggregateType: 'Team',
-        aggregateId: { in: teamIds },
-      },
-    });
-  }
+  await tx.outboxEvent.deleteMany({
+    where: { aggregateType: 'Team', aggregateId: teamId },
+  });
 
-  const decisionNotifications =
-    teamIds.length > 0
-      ? await tx.notification.findMany({
-          where: {
-            type: 'APPLICATION_DECISION',
-            OR: teamIds.map((teamId) => ({
-              payload: { path: ['teamId'], equals: teamId },
-            })),
-          },
-          select: { id: true },
-        })
-      : [];
+  const decisionNotifications = await tx.notification.findMany({
+    where: {
+      type: 'APPLICATION_DECISION',
+      payload: { path: ['teamId'], equals: teamId },
+    },
+    select: { id: true },
+  });
   if (decisionNotifications.length > 0) {
     const decisionNotificationIds = decisionNotifications.map(
       (notification) => notification.id,
