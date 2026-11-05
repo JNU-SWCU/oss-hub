@@ -90,7 +90,7 @@ it.each([
     method === 'findMilestoneForUpdate'
       ? [['p'], ['m']]
       : method === 'lockMilestoneEdit'
-        ? [['p'], ['m'], ['m', 'DOCUMENT']]
+        ? [['p'], ['m'], ['m']]
         : [['p'], ['m'], ['m']],
   );
 });

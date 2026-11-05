@@ -1,0 +1,4899 @@
+{
+  "schemaVersion": 1,
+  "surface": "real repositories; includes output assertions, transaction control SQL and team evidence SQL; SQL count excludes separately recorded pool-health SELECT 1; timing includes all work; not HTTP latency",
+  "clock": "2026-06-15T12:00:00.000Z",
+  "database": "PostgreSQL 17.11 (Debian 17.11-1.pgdg13+2) on aarch64-unknown-linux-gnu, compiled by gcc (Debian 14.2.0-19) 14.2.0, 64-bit",
+  "seedSize": {
+    "programs": 1,
+    "users": 20,
+    "teams": 10,
+    "members": 20,
+    "applications": 10,
+    "milestones": 2,
+    "documents": 4,
+    "submissions": 40,
+    "histories": 80,
+    "files": 40,
+    "repositories": 10,
+    "provisionJobs": 10,
+    "outboxEvents": 10,
+    "auditLogs": 10,
+    "contributions": 10
+  },
+  "warmups": 5,
+  "sampleCount": 100,
+  "measurements": [
+    {
+      "name": "program-overview",
+      "arm": "base",
+      "p50Ms": 3.1487294999997175,
+      "sqlCount": 3,
+      "samples": [
+        {
+          "milliseconds": 1.7012919999997393,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.8874589999995806,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.6549169999998412,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.7769590000007156,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.6627499999995052,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.6065420000004451,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.5692909999997937,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.392624999999498,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.495083999999224,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.2890830000005735,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.513915999999881,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.9880000000002838,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.951625000000604,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.860624999999345,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.458000000000538,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.9616249999999127,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.8567910000001575,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.9771670000000086,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.155041999999412,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.568167000000358,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.221875000000182,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.8783329999996567,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.6422499999998763,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.564209000000119,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.099417000000358,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.377792000000227,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 7.712916999999834,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.321624999999585,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.951000000000022,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.8946659999992335,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.346875000000182,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.0782919999992373,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.8752089999998134,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.3551670000006197,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.145292000000154,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.361584000000221,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.0179169999992155,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.6518340000002354,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.4065410000002885,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.133624999999483,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.140957999999955,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.452541999999994,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.347791000000143,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.79095899999993,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.065166000000318,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.7904579999994894,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.346165999999357,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.707416999999623,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.520166000000245,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.744916999999987,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 7.1154579999993075,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 7.3064580000000205,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.3331669999997757,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.537083999999595,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.574166999999761,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.344542000000729,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.143000000000029,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.8174589999998716,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.7632919999996375,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9269169999997757,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.6480830000000424,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.3545420000000377,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.150875000000269,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.7067919999999503,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.3378750000001673,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.29895900000065,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.6811250000000655,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.536417000000256,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.9283750000004147,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.1309170000004087,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.3839170000001104,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.539582999999766,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.0139170000002196,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.6725829999995767,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.4402909999998883,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.853041000000303,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.6242920000004233,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.9042080000008355,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.70837500000016,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.0232919999998558,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.860541000000012,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.7382499999994252,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.149583999999777,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9092919999993683,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.870958000000428,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.61266599999999,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.404208999999355,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.6123340000003736,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.5412909999995463,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.142417000000023,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.699333000000479,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.079000000000633,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.2802500000007058,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.8126249999995707,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.421875,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.7894999999998618,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.266458999999486,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.399042000000009,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.6575419999999212,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.899333000000297,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    },
+    {
+      "name": "program-overview",
+      "arm": "candidate",
+      "p50Ms": 2.9948334999999133,
+      "sqlCount": 3,
+      "samples": [
+        {
+          "milliseconds": 1.8466249999992215,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.6595419999994192,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9112080000004426,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.7422090000000026,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.712666999999783,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.4391249999998763,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 80.66708299999937,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.1235420000002705,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.674040999999306,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.745457999999417,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.560124999999971,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.578708000000006,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.813125000000582,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.948624999999993,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.8659999999999854,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.381083999999646,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.1875419999996666,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.9509580000003552,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.4545829999997295,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.0272500000000946,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.6225839999997334,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.32720800000061,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.394540999999663,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.4945830000006026,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 6.887375000000247,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.540458000000399,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.727957999999489,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.5800829999998314,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.0099589999999807,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.484582999999475,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.298666000000594,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.041957999999795,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9557919999997466,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9868340000002718,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.3117910000000848,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.153584000000592,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.167124999999942,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.3051660000000993,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.0333330000003116,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.563709000000017,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.973541000000296,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.53650000000016,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.380041999999776,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.009499999999207,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.7629589999996824,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.3677499999994325,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.655791999999565,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 7.2858750000004875,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.922040999999808,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.421624999999949,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.630583000000115,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.8597919999992882,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.7497080000002825,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.979707999999846,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.632249999999658,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.209708000000319,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9753330000003189,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.6985420000000886,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.892417000000023,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9688750000004802,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.6914999999999054,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.7440829999995913,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.857750000000124,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.359292000000096,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.7893749999993815,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.7195419999998194,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.685707999999977,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.316083000000617,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.253458999999566,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.083332999999584,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.393500000000131,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.9485829999994166,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.057165999999597,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.573207999999795,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.5421669999996084,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.9452080000000933,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.4347090000001117,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.6592920000002778,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.378125000000182,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.0797499999998763,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.4602500000000873,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.7429169999995793,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.918374999999287,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 1.7695829999993293,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.730208999999377,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.5991250000006403,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.509874999999738,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.672833999999966,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.6733750000003056,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.7997499999992215,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.640749999999571,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.0288330000003043,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 4.238624999999956,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 5.188750000000255,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.9596249999995052,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.011207999999897,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 2.771333999999115,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 6.244166999999834,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 3.813208000000486,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 6.72241699999995,
+          "sqlCount": 3,
+          "transportSqlCount": 3,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    },
+    {
+      "name": "submission-matrix",
+      "arm": "base",
+      "p50Ms": 16.43189600000005,
+      "sqlCount": 12,
+      "samples": [
+        {
+          "milliseconds": 11.45916699999998,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.885124999999789,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.116834000000381,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.939833000000363,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.132375000000138,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.723541999999725,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.643583000000035,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.145708000000013,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.453416999999718,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.909708000000137,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.43237500000032,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.752416999999696,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.165874999999687,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.707916999999725,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.80029100000047,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.823083000000224,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.878958999999668,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.611042000000452,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.438708000000588,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.093915999999808,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.438208999999915,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.71783300000061,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.671207999999751,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.420124999999643,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.86908299999959,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.6776660000005,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.06745900000078,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.054583000000093,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.100792000000183,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 32.20087500000045,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.98425000000043,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.432874999999513,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.243999999999687,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 33.615208000000166,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 45.644624999999905,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.872333000000253,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.985458000000108,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.44000000000051,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.568209000000024,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.078749999999673,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.520125000000007,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.608540999999605,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.540542000000642,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.455541000000267,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.709208999999646,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.373916999999892,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.86816699999963,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.13433299999997,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.94458399999985,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.848125000000437,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.975125000000844,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.387917000000016,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.51550000000134,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.894250000001193,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.6145000000015,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.49445899999955,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 71.3192080000008,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.44212499999958,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.31500000000051,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.05812499999956,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 70.65295900000092,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 58.34391700000015,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 33.16729099999975,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 43.48579199999949,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 32.96008299999994,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 41.76445799999965,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.182457999999315,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.22645900000134,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.895124999999098,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.435749999998734,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.141375000001062,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.349958000000697,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.940416000001278,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.181500000000597,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.934124999999767,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.378499999998894,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.139916000000085,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.372166999999536,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.700291999999536,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.989292000000205,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.879042000000481,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.704291999998532,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.98975000000064,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.338666000001467,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.177834000000075,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.613499999999476,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.475875000000087,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.48554200000035,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 33.06987499999923,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.261500000000524,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.831624999998894,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 24.1260829999992,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.44079099999908,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 48.30029099999956,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 56.84458300000006,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.33733299999949,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 45.05791700000009,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.12420799999927,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.868665999998484,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.015041999999085,
+          "sqlCount": 12,
+          "transportSqlCount": 12,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    },
+    {
+      "name": "submission-matrix",
+      "arm": "candidate",
+      "p50Ms": 17.29902099999981,
+      "sqlCount": 13,
+      "samples": [
+        {
+          "milliseconds": 10.972582999999759,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.352249999999913,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.67620800000077,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.62895799999933,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.85991699999977,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.65704199999982,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.133791000000201,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.690416999999798,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.960375000000568,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.333292000000256,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.989083000000392,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.505791999999929,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.464167000000089,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.899833000000399,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.817957999999635,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.030917000000045,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.055832999999438,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.131500000000415,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.284959000000526,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.88433299999997,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.284709000000475,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.539458000000195,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.075417000000016,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.28729199999998,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.599041999999827,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 27.35149999999976,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.60283299999992,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.16254200000003,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 58.392792000000554,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 27.646208999999544,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.315875000000233,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.541125000000648,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 33.56670800000029,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.629040999999233,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.19066699999985,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.665624999999636,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.354457999999795,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.228957999999693,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.211083000000144,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.879125000000386,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.337375000000065,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.264749999999367,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.349833000000217,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.865083000000595,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.176707999999962,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.51654199999939,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.36895899999945,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.26329100000021,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.30408299999999,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.473916000000827,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.333457999999155,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.15387499999997,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.34954199999993,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.084000000000742,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.711291999999958,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.0401669999992,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.6452500000014,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 39.22679199999948,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.13299999999981,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 41.903166000000056,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 39.28629099999853,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.56999999999971,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 45.33979200000067,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.08929100000023,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 42.18449999999939,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.56066600000122,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.559040999998615,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.427207999999155,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 24.893583000000945,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.941124999999374,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.54358300000058,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.116833000000042,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.611666000000696,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.242792000000918,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.495124999999462,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.96454199999971,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.368499999998676,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.437292000000525,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.02100000000064,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.921040999999605,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.066125000001193,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.602708000000348,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.001624999998967,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.313625000000684,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.71441699999923,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.585624999999709,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.974582999999257,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.130541999998968,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 48.48225000000093,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 34.89191600000049,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.088415999998688,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.87170800000058,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.16641600000003,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 38.126124999998865,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 42.562542000001486,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 34.02283399999942,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.836499999999432,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.825417000000016,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.288749999999709,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.667083000000275,
+          "sqlCount": 13,
+          "transportSqlCount": 13,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    },
+    {
+      "name": "document-collection",
+      "arm": "base",
+      "p50Ms": 30.37202100000013,
+      "sqlCount": 18,
+      "samples": [
+        {
+          "milliseconds": 44.82324999999946,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 65.56274999999914,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 48.60687499999949,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 48.38591699999961,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 40.72108300000036,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.999125000000276,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.734209000000192,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.707500000000437,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.98058300000048,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.73250000000007,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.55500000000029,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 62.66554200000064,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 47.141749999998865,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 76.52962500000103,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.28950000000077,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 60.502833000000464,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 55.29229200000009,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 40.98554100000001,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 52.29991700000028,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 61.97858300000007,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 51.38658299999952,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 33.69145900000149,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.846874999999272,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.205250000000888,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.931624999999258,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.582625000000917,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.161416999999346,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.674582999999984,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.158042000000933,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 45.7020420000008,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.62066700000105,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.930249999999432,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.63654200000019,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.85279199999968,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.960707999998704,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 24.136083999999755,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.75916700000016,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.101458000001,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 53.417958,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 59.96650000000045,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 46.5982499999991,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 49.078208000000814,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 49.83741699999882,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 48.984458000000814,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 42.52170800000022,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 43.716167000000496,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 49.98191600000064,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 34.581999999998516,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 49.48191699999916,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 38.0557919999992,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 41.815833999999086,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 56.18291700000009,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 69.44495800000004,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.74329200000102,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.343290999999226,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.806958000001032,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.369667000000845,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.73491599999943,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.20537499999955,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.791041000000405,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.636000000000422,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 24.9245409999985,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.070582999998805,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 41.99945799999841,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 50.43645800000013,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 55.213582999998835,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 49.60950000000048,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 75.43949999999677,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 52.59654099999898,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 46.681541000001744,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 50.34524999999849,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.917875000002823,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.0435830000024,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.40033300000141,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 34.05995800000164,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 52.05220900000131,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.184000000001106,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.161291000000347,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.620249999999942,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.238000000001193,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.99275000000125,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.786917000001267,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.07958299999882,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.485083000003215,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.650417000000743,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.934042000000773,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.508459000000585,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.32758399999875,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.117291999998997,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.895125000002736,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.51604199999929,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.224459000000934,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.920583999999508,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.050584000000526,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.307458999999653,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.552416999998968,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.692541999997047,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.995500000000902,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.610250000001543,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.86133400000108,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    },
+    {
+      "name": "document-collection",
+      "arm": "candidate",
+      "p50Ms": 29.67127049999999,
+      "sqlCount": 18,
+      "samples": [
+        {
+          "milliseconds": 77.07558400000016,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 51.36283299999923,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 44.126750000001266,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 32.12504199999967,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 46.008874999999534,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 24.04937500000051,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.589791000000332,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.763084000000163,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.492792000000918,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.833708000000115,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 47.44487499999923,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 67.83579199999986,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 54.015625,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 60.59795800000029,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 55.065958999999566,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 51.47766700000102,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 51.05320799999936,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.454915999998775,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 55.97700000000077,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 44.06616699999904,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 50.90154200000143,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 44.66533300000083,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.441832999998951,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.54320799999914,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.675499999999374,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.022792000001573,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 44.269874999999956,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.976874999998472,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 27.718167000000903,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 34.33158299999923,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.726125000001048,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.480999999999767,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.853958000001512,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.188750000001164,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.69391699999869,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 27.779207999999926,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.73016699999971,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.032791999999972,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 66.75337500000023,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 68.68825000000106,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 52.61570799999936,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 50.64808300000004,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.23658400000022,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 37.10100000000057,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 40.3744999999999,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.067333000000872,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 41.604833999999755,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 32.97608300000138,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 54.52954200000022,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 46.31254199999967,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.34150000000045,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 41.844084000000294,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 40.42954099999952,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.834500000000844,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 41.15483300000051,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 32.74545799999942,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.86987500000032,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.28320800000074,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.27483299999949,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.311125000000175,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.190499999998792,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.976458000001003,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.508832999999868,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.04479099999844,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 79.37637500000164,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 54.975000000000364,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 48.11099999999897,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 52.13945900000181,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 47.28383300000132,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 52.92304200000217,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 49.09737500000119,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 55.856667000000016,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.737333000000945,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.705916000002617,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 48.28166699999929,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 45.460957999999664,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.675250000000233,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.9632500000007,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.598165999999765,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.097583999999188,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.846708000000945,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.216458999999304,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.552958999996918,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.720666000001074,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.071208999997907,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.574666999997135,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.43249999999898,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.923374999998487,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.603917000000365,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.439792000001034,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.672499999996944,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.034958000000188,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.263082999998005,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.66779200000019,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.58729200000016,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.56487500000003,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 33.48766700000124,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.0010829999992,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.744416000001365,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.600125000000844,
+          "sqlCount": 18,
+          "transportSqlCount": 18,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    },
+    {
+      "name": "staff-team-detail",
+      "arm": "base",
+      "p50Ms": 16.66131249999853,
+      "sqlCount": 16,
+      "samples": [
+        {
+          "milliseconds": 9.651582999998936,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.114792000000307,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.720582999998442,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.968999999997322,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.50170799999978,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.049582999999984,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.308333000000857,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.102459000001545,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.200000000000728,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.29070800000045,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.873417000002519,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.153290999998717,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.102125000001251,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.27074999999968,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.421708000001672,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.282415999998193,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.507582999998704,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.621500000001106,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.465790999998717,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.301416000002064,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.782250000000204,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.414084000000003,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.77625000000262,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.26195799999914,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.718457999999373,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.86895799999911,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.534374999999272,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.154124999997293,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.547915999999532,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.553042000003188,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 32.38695899999948,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 43.59862500000236,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 54.824540999998135,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.520667000000685,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.626916999997775,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.457417000001442,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.447040999999444,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.590041999999812,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.536708999999973,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.66649999999936,
+          "sqlCount": 16,
+          "transportSqlCount": 17,
+          "poolHealthSqlCount": 1
+        },
+        {
+          "milliseconds": 13.299290999999357,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.14654199999859,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.46679099999892,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.967917000001762,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.59808300000077,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.132291000001715,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.859707999999955,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.386083999997936,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.942417000002024,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.002917000001617,
+          "sqlCount": 16,
+          "transportSqlCount": 17,
+          "poolHealthSqlCount": 1
+        },
+        {
+          "milliseconds": 14.746040999998513,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.604166999997688,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.344457999999577,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.452958000001672,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.83479200000147,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.897875000002387,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.35833300000013,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.55266699999993,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.78191599999991,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.075125000003027,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 49.981416999999055,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 39.84962500000256,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 39.55674999999974,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.50683299999946,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 32.44658399999753,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 27.818250000000262,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 34.975125000000844,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 55.027750000001106,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.66558399999849,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.34991699999955,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.88400000000183,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.734416999999667,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.723166000003403,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.731583999997383,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.67620900000111,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.69591600000058,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.524334000001545,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.202584000002389,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.08062499999869,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.139333999999508,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.1909169999999,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.939417000001413,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 8.960332999999082,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.72966599999927,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.7846669999999,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.201208999998926,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.007375000001048,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.148791999999958,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.732875000001513,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.906582999999955,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.91520799999853,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.78912499999933,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 40.87491600000067,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 42.84308299999975,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 52.665750000000116,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.58137500000157,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.754917000002024,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.859707999999955,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 26.877666000000318,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 29.85083300000042,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    },
+    {
+      "name": "staff-team-detail",
+      "arm": "candidate",
+      "p50Ms": 17.891812500000015,
+      "sqlCount": 16,
+      "samples": [
+        {
+          "milliseconds": 11.788167000002431,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.433875000002445,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.339875000001484,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.49029100000189,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.014250000000175,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.32683299999917,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.655665999998746,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 9.643541999997979,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.10887499999808,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.45483299999978,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.91937500000131,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.084500000000844,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.013249999999971,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.44104199999856,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.718082999999751,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.60408400000233,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.523125000003347,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.312834000000294,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.586624999999913,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.580165999999736,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.995833000000857,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.54595899999913,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.733916999997746,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.992582999999286,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.119833000000654,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.144374999999854,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.52375000000029,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.131541999999172,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.630417000000307,
+          "sqlCount": 16,
+          "transportSqlCount": 17,
+          "poolHealthSqlCount": 1
+        },
+        {
+          "milliseconds": 27.602582999999868,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 39.96708299999955,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.370208999996976,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 45.46191700000054,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.05595799999719,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.973458999997092,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.6117090000007,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 27.625041999999667,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.936624999998457,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.784416999998939,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.070791000001918,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 13.515292000000045,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.741500000000087,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.186957999998413,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.233916999997746,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.956249999999272,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.29383300000336,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.316499999997177,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.45954200000051,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.779624999999214,
+          "sqlCount": 16,
+          "transportSqlCount": 17,
+          "poolHealthSqlCount": 1
+        },
+        {
+          "milliseconds": 12.720958000001701,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.009125000000495,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.736709000000701,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.378749999999854,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 18.14416600000186,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 17.774499999999534,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 16.295125000000553,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.4653330000001,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.505333000000974,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 27.639333999999508,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 24.335917000000336,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.730374999999185,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.78387499999735,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 47.57283300000199,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 40.61345799999981,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 39.49591599999985,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.600165999996534,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.618125000000873,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 51.320167000001675,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.56316700000025,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.95499999999811,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.46362500000032,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.35966600000029,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 19.48054200000115,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 30.54675000000134,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 21.45941600000151,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.556541000001744,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 23.916000000001077,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 72.54149999999936,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.90008300000045,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 12.25641700000051,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.548249999999825,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 10.833125000001019,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 14.789208999998664,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 11.605834000001778,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 15.13433399999849,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 22.55462500000067,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 28.79329200000211,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 24.806916000001365,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 35.62774999999965,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 38.533416000002035,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.7811249999977,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.525082999996812,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 47.30295800000022,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.40716600000087,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 36.32179199999882,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 43.60795800000051,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 25.25749999999971,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 20.962625000000116,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 31.96520800000144,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        },
+        {
+          "milliseconds": 67.80120899999747,
+          "sqlCount": 16,
+          "transportSqlCount": 16,
+          "poolHealthSqlCount": 0
+        }
+      ]
+    }
+  ],
+  "baseSource": "04ed6b30c",
+  "candidateSource": "0d3d44556",
+  "sourceHashes": {
+    "apps/backend/src/programs/program-overview.repository.ts": "858163cddd03d806f8b3026e11972fa0cf5d7b33f669924d29bf88b2776334d5",
+    "apps/backend/src/programs/submission-matrix.repository.ts": "573a4621abd86085579356e54f54e9c66c8b547fdc3d48fc9b4cc9a7af2fe6c0",
+    "apps/backend/src/programs/milestone-document-collection-read.repository.ts": "4b5b6ad50b791f355654c5428dfcb60145407792a2fb7600e0eab3e545aa7ad9",
+    "apps/backend/src/programs/program-teams.repository.ts": "6bf9f2f8b334e0f70ac84de0903573b2bcc0b8f78ec81436867e3b65afbe606c"
+  }
+}

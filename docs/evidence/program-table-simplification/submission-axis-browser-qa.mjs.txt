@@ -1,0 +1,66 @@
+import { chromium } from '@playwright/test';
+import { mkdir, writeFile } from 'node:fs/promises';
+const arm = process.argv[2];
+const origin = 'http://127.0.0.1:3124';
+const output = '/tmp/todo4-axis-captures';
+await mkdir(output, { recursive: true });
+const browser = await chromium.launch({ channel: 'chrome', headless: true });
+const results = [];
+const program = { id:'axis-qa', name:'항목 제출 검증', organizer:'합성 기관', trackType:'EXTRACURRICULAR', applicationTemplateKey:'basic', lifecycle:'PUBLISHED', description:'합성 데이터로 제출과 검토를 확인합니다.', repositoryProvisioningEnabled:false, applicationPeriod:{startsAt:'2026-01-01T00:00:00Z',endsAt:'2099-12-31T00:00:00Z'}, viewer:{role:'STAFF',applicationStatus:null}, milestones:[{id:'axis-milestone',name:'최종 제출',dueAt:'2099-12-31T00:00:00Z',dDay:10,deadlineLabel:'D-10',description:null,submissionType:'TEXT',submissionItemCount:1,viewerSubmissionStatus:null,applicationSubmissionSummary:{notSubmitted:0,submitted:0,approved:1,changesRequested:0,rejected:0,total:1}}] };
+const initialContext={ requirementId:'axis-item', latestReviewId:'axis-old-review', submissionId:'axis-submission',application:{id:'axis-application',applicationMode:'PERSONAL',displayName:'합성 신청자'},milestone:{id:'axis-milestone',name:'최종 제출'},currentRevision:{number:1,content:{type:'TEXT',text:'제출 항목의 원래 내용입니다.'},comment:null,submittedAt:'2026-09-01T01:00:00.000Z',files:[],review:null},history:[],unversionedReviews:[{id:'axis-old-review',decision:'APPROVED',comment:'기존 승인을 그대로 보존합니다.',reviewedAt:'2026-09-02T01:00:00.000Z'}],repository:null };
+try {
+ for (const [width,height,scheme] of [[1440,900,'light'],[390,844,'light'],[1440,900,'dark'],[390,844,'dark'],...(arm==='after'?[[2560,1440,'light'],[1728,1000,'light']]:[])]) {
+  const context=await browser.newContext({viewport:{width,height},locale:'ko-KR',timezoneId:'Asia/Seoul',colorScheme:scheme});
+  try {
+   const page=await context.newPage(); const errors=[]; const unknown=[]; let reviewContext=structuredClone(initialContext); let savedBody=null;
+   page.on('pageerror',error=>errors.push(error.message));
+   await page.route('**/api/v1/**',async route=>{
+    const req=route.request(); const p=new URL(req.url()).pathname; let data;
+    if(p==='/api/v1/auth/session')data={isAuthenticated:true,user:{nickname:'synthetic-session',name:'합성 교직원',email:null,avatarUrl:null,isProfileComplete:true,memberKind:'STAFF',hasStaffAccess:true,hasAdminAccess:false}};
+    else if(p==='/api/v1/consents/current')data={policyVersion:'synthetic-v1',requiredItems:[{key:'PRIVACY',label:'합성 개인정보 안내',documentUrl:'/policies/privacy'}],consented:true,acceptedPolicyVersion:'synthetic-v1',nextUrl:'/dashboard'};
+    else if(p==='/api/v1/submissions/axis-submission/review-context')data=reviewContext;
+    else if(p==='/api/v1/milestones/axis-milestone/documents/axis-item/applications/axis-application/reviews'&&req.method()==='POST'){
+      savedBody=req.postDataJSON();if(savedBody.expectedRevision!==1||savedBody.expectedLatestReviewId!=='axis-old-review')throw Error('incorrect review token');
+      reviewContext={...reviewContext,latestReviewId:'axis-new-review',currentRevision:{...reviewContext.currentRevision,review:{id:'axis-new-review',decision:'APPROVED',comment:null,reviewedAt:'2026-11-05T00:00:00Z'}}};
+      return route.fulfill({status:201,json:{id:'axis-new-review',decision:'APPROVED',comment:null,reviewedAt:'2026-11-05T00:00:00Z',reviewerNickname:'합성 교직원'}});
+    }
+    else if(p==='/api/v1/milestones/axis-milestone/documents')data={documents:[{id:'axis-item',milestoneId:'axis-milestone',name:'최종 제출 항목',kind:'LEGACY_MILESTONE_SUBMISSION',required:true,sortOrder:0,submissionType:'TEXT',hasTemplateFile:false,templateFileName:null,viewerSubmission:null,submittedCount:1,applicationCount:1}],fileUpload:{maxBytes:10485760,maxLabel:'10 MiB',accept:'.pdf',formatLabel:'PDF'}};
+    else if(p==='/api/v1/programs/axis-qa'||p==='/api/v1/programs/axis-qa/viewer')data=program;
+    else if(p==='/api/v1/programs/axis-qa/overview')data={programId:'axis-qa',name:program.name,trackType:program.trackType,lifecycle:program.lifecycle,milestoneCount:1,boardPostCount:0,participantCount:1,teamCount:1,connectedRepositoryCount:0,viewerRole:'STAFF',viewerDocumentsCompleted:null,viewerDocumentsTotal:null,fullySubmittedParticipantCount:1,remainingMilestones:[{label:'최종 제출',dueAt:'2099-12-31T00:00:00Z'}],milestoneDocuments:[]};
+    else if(p.endsWith('/activity'))data=[];
+    else {unknown.push(req.method()+' '+p);data={items:[],total:0};}
+    return route.fulfill({json:data});
+   });
+   await page.goto(origin+'/programs/axis-qa/submissions/axis-submission/review');
+   await page.evaluate(scheme=>document.documentElement.classList.toggle('dark',scheme==='dark'),scheme);
+   await page.getByRole('heading',{name:'최종 제출 검토',exact:true}).waitFor({timeout:10000}).catch(async error=>{console.log(JSON.stringify({url:page.url(),text:await page.locator('body').innerText(),errors,unknown}));await page.screenshot({path:output+'/diagnostic.png',fullPage:true});throw error;});
+   if(arm==='after')await page.getByRole('heading',{name:'제출 버전 미상 심사',exact:true}).waitFor();
+   const label=arm+'-'+width+'-'+scheme;
+   await page.screenshot({path:output+'/todo4-'+label+'-review.png',fullPage:true});
+   if(width===1440&&scheme==='light'){
+    await page.locator('[aria-label="검토 대상 제출본"]').screenshot({path:output+'/todo4-'+arm+'-element-current.png'});
+    await page.locator('section:has(> #revision-history-title)').screenshot({path:output+'/todo4-'+arm+'-element-history.png'});
+   }
+   const metrics=await page.evaluate(()=>({width:innerWidth,scrollWidth:document.documentElement.scrollWidth,background:getComputedStyle(document.body).backgroundColor,text:document.body.innerText}));
+   if(metrics.scrollWidth>width)throw Error('horizontal overflow '+label);
+   if(arm==='after'&&(!metrics.text.includes('제출본 연결 미상')||!metrics.text.includes('기존 승인을 그대로 보존합니다.')))throw Error('missing historical review '+label);
+   if(arm==='after'&&width===1440&&scheme==='light'){
+     await page.locator('input[value="APPROVED"]').check(); await page.getByRole('button',{name:'저장',exact:true}).click();
+     await page.getByText('승인을 저장했습니다.',{exact:false}).waitFor({timeout:10000});
+     if(savedBody?.expectedLatestReviewId!=='axis-old-review')throw Error('missing canonical write');
+   }
+   await page.goto(origin+'/programs/axis-qa');
+   await page.evaluate(scheme=>document.documentElement.classList.toggle('dark',scheme==='dark'),scheme);
+   await page.locator('h1').filter({hasText:program.name}).waitFor({timeout:10000}).catch(async error=>{console.log(JSON.stringify({url:page.url(),text:await page.locator('body').innerText(),errors,unknown}));await page.screenshot({path:output+'/detail-diagnostic.png',fullPage:true});throw error;});
+   await page.locator('[data-testid="milestone-row"]').first().waitFor();
+   await page.screenshot({path:output+'/todo4-'+label+'-milestone.png',fullPage:true});
+   if(width===1440&&scheme==='light')await page.locator('[data-testid="milestone-row"]').first().screenshot({path:output+'/todo4-'+arm+'-element-milestone.png'});
+   const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth);if(overflow)throw Error('detail overflow '+label);
+   results.push({arm,width,height,scheme,metrics:{width:metrics.width,scrollWidth:metrics.scrollWidth,background:metrics.background},errors,unknown,savedBody});
+  } finally {await context.close();}
+ }
+ await writeFile(output+'/todo4-'+arm+'-qa.json',JSON.stringify(results,null,2));
+ console.log('BROWSER_QA_OK arm='+arm+' cases='+results.length);
+} finally {await browser.close();}
+
+

@@ -80,61 +80,27 @@ exports[`CreateMilestoneDocumentSubmissionRequestDto validation parity missing 1
 
 exports[`CreateMilestoneDocumentSubmissionRequestDto validation parity text 1`] = `"{"ok":true,"value":{"content":{"text":" t "}},"command":{"text":"t","fileId":null}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity bad date 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","resubmissionDueAt":"nope","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"command":{"scope":{"kind":"PROGRAM"},"includeFinalDecisions":true,"comment":"fix","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity bad date 1`] = `"{"ok":false,"response":{"message":["property resubmissionDueAt should not exist"],"error":"Bad Request","statusCode":400}}"`;
 
 exports[`CreateProgramDocumentChangeRequestRequestDto validation parity bad scope 1`] = `"{"ok":false,"response":{"message":["scope must be one of the following values: PROGRAM, TEAM"],"error":"Bad Request","statusCode":400}}"`;
 
 exports[`CreateProgramDocumentChangeRequestRequestDto validation parity bad version 1`] = `"{"ok":false,"response":{"message":["expectedVersion must match /^[0-9a-f]{64}$/ regular expression"],"error":"Bad Request","statusCode":400}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity blank comment 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":"  ","resubmissionDueAt":"2026-07-01T00:00:00.000Z","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"command":{"scope":{"kind":"PROGRAM"},"includeFinalDecisions":true,"comment":null,"expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity blank comment 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":"  ","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"command":{"scope":{"kind":"PROGRAM"},"includeFinalDecisions":true,"comment":null,"expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity calendar invalid date 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","resubmissionDueAt":"2026-02-30","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"command":{"scope":{"kind":"PROGRAM"},"includeFinalDecisions":true,"comment":"fix","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity calendar invalid date 1`] = `"{"ok":false,"response":{"message":["property resubmissionDueAt should not exist"],"error":"Bad Request","statusCode":400}}"`;
 
 exports[`CreateProgramDocumentChangeRequestRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["scope must be one of the following values: PROGRAM, TEAM","includeFinalDecisions must be a boolean value","expectedVersion must match /^[0-9a-f]{64}$/ regular expression"],"error":"Bad Request","statusCode":400}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity null team id 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","resubmissionDueAt":"2026-07-01T00:00:00.000Z","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","teamId":null},"thrown":{"name":"DomainException","message":"요청 값을 확인해 주세요.","errorCode":{"code":"MSD_019","status":400,"message":"요청 값을 확인해 주세요."},"extensions":{}}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity null team id 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","teamId":null},"thrown":{"name":"DomainException","message":"요청 값을 확인해 주세요.","errorCode":{"code":"MSD_019","status":400,"message":"요청 값을 확인해 주세요."},"extensions":{}}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity program 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","resubmissionDueAt":"2026-07-01T00:00:00.000Z","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"command":{"scope":{"kind":"PROGRAM"},"includeFinalDecisions":true,"comment":"fix","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity program 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"command":{"scope":{"kind":"PROGRAM"},"includeFinalDecisions":true,"comment":"fix","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity program with team id 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","resubmissionDueAt":"2026-07-01T00:00:00.000Z","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","teamId":"t1"},"thrown":{"name":"DomainException","message":"요청 값을 확인해 주세요.","errorCode":{"code":"MSD_019","status":400,"message":"요청 값을 확인해 주세요."},"extensions":{}}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity program with team id 1`] = `"{"ok":true,"value":{"scope":"PROGRAM","includeFinalDecisions":true,"comment":" fix ","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","teamId":"t1"},"thrown":{"name":"DomainException","message":"요청 값을 확인해 주세요.","errorCode":{"code":"MSD_019","status":400,"message":"요청 값을 확인해 주세요."},"extensions":{}}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity team 1`] = `"{"ok":true,"value":{"scope":"TEAM","includeFinalDecisions":true,"comment":" fix ","resubmissionDueAt":"2026-07-01T00:00:00.000Z","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","teamId":"t1"},"command":{"scope":{"kind":"TEAM","teamId":"t1"},"includeFinalDecisions":true,"comment":"fix","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity team 1`] = `"{"ok":true,"value":{"scope":"TEAM","includeFinalDecisions":true,"comment":" fix ","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa","teamId":"t1"},"command":{"scope":{"kind":"TEAM","teamId":"t1"},"includeFinalDecisions":true,"comment":"fix","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"}}"`;
 
-exports[`CreateProgramDocumentChangeRequestRequestDto validation parity team without id 1`] = `"{"ok":true,"value":{"scope":"TEAM","includeFinalDecisions":true,"comment":" fix ","resubmissionDueAt":"2026-07-01T00:00:00.000Z","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"thrown":{"name":"DomainException","message":"요청 값을 확인해 주세요.","errorCode":{"code":"MSD_019","status":400,"message":"요청 값을 확인해 주세요."},"extensions":{}}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity bad revision 1`] = `"{"ok":false,"response":{"message":["baseRevision must not be less than 1"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity blank file 1`] = `"{"ok":true,"value":{"baseRevision":1,"content":{"type":"FILE","fileId":"  "}},"thrown":{"name":"DomainException","message":"제출 내용을 입력해 주세요.","errorCode":{"code":"SUB_011","status":422,"message":"제출 내용을 입력해 주세요."},"extensions":{}}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity blank text 1`] = `"{"ok":true,"value":{"baseRevision":1,"content":{"type":"TEXT","text":"  "}},"thrown":{"name":"DomainException","message":"제출 내용을 입력해 주세요.","errorCode":{"code":"SUB_011","status":422,"message":"제출 내용을 입력해 주세요."},"extensions":{}}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity file content 1`] = `"{"ok":true,"value":{"baseRevision":1,"content":{"type":"FILE","fileId":" f1 "}},"command":{"baseRevision":1,"content":{"type":"FILE","fileId":"f1"},"comment":null}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity long text 1`] = `"{"ok":false,"response":{"message":["content.text must be shorter than or equal to 10000 characters"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["baseRevision must not be less than 1","baseRevision must be an integer number","content should not be null or undefined","content must be an object"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity text content 1`] = `"{"ok":true,"value":{"baseRevision":1,"content":{"type":"TEXT","text":" hello "}},"command":{"baseRevision":1,"content":{"type":"TEXT","text":"hello"},"comment":null}}"`;
-
-exports[`CreateResubmissionRequestDto validation parity unknown type 1`] = `"{"ok":true,"value":{"baseRevision":1,"content":{"type":"NOPE"}},"thrown":{"name":"DomainException","message":"마일스톤에 지정된 제출 유형과 내용 유형이 다릅니다.","errorCode":{"code":"SUB_007","status":422,"message":"마일스톤에 지정된 제출 유형과 내용 유형이 다릅니다."},"extensions":{}}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity blank comment 1`] = `"{"ok":true,"value":{"applicationId":"a1","milestoneId":"m1","content":{"type":"TEXT","text":"x"},"comment":"  "},"command":{"applicationId":"a1","milestoneId":"m1","content":{"type":"TEXT","text":"x"},"comment":null}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity blank file 1`] = `"{"ok":true,"value":{"applicationId":"a1","milestoneId":"m1","content":{"type":"FILE","fileId":"  "},"comment":" c "},"thrown":{"name":"DomainException","message":"제출 내용을 입력해 주세요.","errorCode":{"code":"SUB_011","status":422,"message":"제출 내용을 입력해 주세요."},"extensions":{}}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity blank text 1`] = `"{"ok":true,"value":{"applicationId":"a1","milestoneId":"m1","content":{"type":"TEXT","text":"  "},"comment":" c "},"thrown":{"name":"DomainException","message":"제출 내용을 입력해 주세요.","errorCode":{"code":"SUB_011","status":422,"message":"제출 내용을 입력해 주세요."},"extensions":{}}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity file content 1`] = `"{"ok":true,"value":{"applicationId":"a1","milestoneId":"m1","content":{"type":"FILE","fileId":" f1 "},"comment":" c "},"command":{"applicationId":"a1","milestoneId":"m1","content":{"type":"FILE","fileId":"f1"},"comment":"c"}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity long text 1`] = `"{"ok":false,"response":{"message":["content.text must be shorter than or equal to 10000 characters"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["applicationId should not be empty","applicationId must be a string","milestoneId should not be empty","milestoneId must be a string","content should not be null or undefined","content must be an object"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity non-object content 1`] = `"{"ok":false,"response":{"message":["content must be an object","nested property content must be either object or array"],"error":"Bad Request","statusCode":400}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity text content 1`] = `"{"ok":true,"value":{"applicationId":"a1","milestoneId":"m1","content":{"type":"TEXT","text":" hello "},"comment":" c "},"command":{"applicationId":"a1","milestoneId":"m1","content":{"type":"TEXT","text":"hello"},"comment":"c"}}"`;
-
-exports[`CreateSubmissionRequestDto validation parity unknown type 1`] = `"{"ok":true,"value":{"applicationId":"a1","milestoneId":"m1","content":{"type":"NOPE"},"comment":" c "},"thrown":{"name":"DomainException","message":"마일스톤에 지정된 제출 유형과 내용 유형이 다릅니다.","errorCode":{"code":"SUB_007","status":422,"message":"마일스톤에 지정된 제출 유형과 내용 유형이 다릅니다."},"extensions":{}}}"`;
+exports[`CreateProgramDocumentChangeRequestRequestDto validation parity team without id 1`] = `"{"ok":true,"value":{"scope":"TEAM","includeFinalDecisions":true,"comment":" fix ","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"thrown":{"name":"DomainException","message":"요청 값을 확인해 주세요.","errorCode":{"code":"MSD_019","status":400,"message":"요청 값을 확인해 주세요."},"extensions":{}}}"`;
 
 exports[`PatchAdminAccessRequestDto validation parity approve 1`] = `"{"ok":true,"value":{"expectedRole":"STUDENT","desiredRole":"STAFF","expectedAccountStatus":"ACTIVE","desiredAccountStatus":"ACTIVE","expectedPendingRequest":{"id":"r1","status":"PENDING"},"requestDecision":{"decision":"APPROVE"}},"command":{"expectedRole":"STUDENT","desiredRole":"STAFF","expectedAccountStatus":"ACTIVE","desiredAccountStatus":"ACTIVE","expectedPendingRequest":{"id":"r1","status":"PENDING"},"requestDecision":{"decision":"APPROVE"}}}"`;
 

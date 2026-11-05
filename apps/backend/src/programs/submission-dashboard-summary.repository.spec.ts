@@ -1,8 +1,4 @@
-import {
-  ApplicationStatus,
-  MilestoneSubmissionType,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import {
   type DashboardApplicationRow,
   type DashboardMilestoneRow,
@@ -101,23 +97,13 @@ describe('SubmissionDashboardSummaryRepository', () => {
         {
           id: 'milestone-a',
           programId: 'program-a',
-          submissionType: MilestoneSubmissionType.FILE,
         },
         {
           id: 'milestone-b',
           programId: 'program-b',
-          submissionType: MilestoneSubmissionType.FILE,
         },
       ],
-      submissions: [
-        {
-          applicationId: 'approved-application',
-          applicationProgramId: 'program-a',
-          milestoneId: 'milestone-a',
-          milestoneProgramId: 'program-a',
-          status: SubmissionStatus.SUBMITTED,
-        },
-      ],
+      submissions: [],
       milestoneDocuments: [
         {
           id: 'document-a',
@@ -134,6 +120,14 @@ describe('SubmissionDashboardSummaryRepository', () => {
           milestoneProgramId: 'program-a',
           status: SubmissionStatus.APPROVED,
         },
+        {
+          applicationId: 'approved-application',
+          applicationProgramId: 'program-a',
+          milestoneDocumentId: 'legacy-document-a',
+          milestoneId: 'milestone-a',
+          milestoneProgramId: 'program-a',
+          status: SubmissionStatus.SUBMITTED,
+        },
       ],
     });
     expect(applications.calls).toHaveLength(1);
@@ -147,7 +141,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     });
     expect(milestones.calls[0]).toEqual({
       where: { programId: { in: ['program-a', 'program-b'] } },
-      select: { id: true, programId: true, submissionType: true },
+      select: { id: true, programId: true },
     });
     expect(milestoneDocuments.calls[0]).toEqual({
       where: {
@@ -173,12 +167,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
             milestone: {
               is: { programId: { in: ['program-a', 'program-b'] } },
             },
-            OR: [
-              {
-                required: true,
-              },
-              {},
-            ],
+            required: true,
           },
         },
       },
@@ -189,7 +178,6 @@ describe('SubmissionDashboardSummaryRepository', () => {
         application: { select: { programId: true } },
         milestoneDocument: {
           select: {
-            kind: true,
             milestoneId: true,
             milestone: { select: { programId: true } },
           },

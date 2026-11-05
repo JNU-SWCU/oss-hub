@@ -348,7 +348,6 @@ const CHANGE_REQUEST_BASE = {
   scope: 'PROGRAM',
   includeFinalDecisions: true,
   comment: ' fix ',
-  resubmissionDueAt: '2026-07-01T00:00:00.000Z',
   expectedVersion: 'a'.repeat(64),
 };
 parityCases(

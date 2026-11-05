@@ -6,7 +6,6 @@ import { LockProgramTreeRepository } from '../platform/lock-program-tree.reposit
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   ReviewDecision,
@@ -1416,7 +1415,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt: new Date('2026-09-18T09:00:00.000Z'),
-      resubmissionDueAt: null,
       reviewer: { nickname: 'synthetic-staff' },
     });
     const historyCreate = jest.fn().mockResolvedValue({
@@ -1424,7 +1422,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       event: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       createdAt: new Date('2026-09-18T09:00:00.000Z'),
-      resubmissionDueAt: null,
       actor: { nickname: 'synthetic-staff' },
     });
     const historyFindFirst = jest
@@ -1639,8 +1636,6 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
-
-      resubmissionDueAt: null,
       reviewerNickname: 'synthetic-staff',
     });
   });
@@ -2138,7 +2133,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
             event: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             createdAt: reviewedAt,
-            resubmissionDueAt: null,
             actor: { nickname: 'synthetic-staff-2' },
             revision: 1,
           },
@@ -2147,7 +2141,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
             event: ReviewDecision.APPROVED,
             comment: null,
             createdAt: firstReviewedAt,
-            resubmissionDueAt: null,
             actor: { nickname: 'synthetic-staff-1' },
             revision: 1,
           },
@@ -2192,7 +2185,6 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
-      resubmissionDueAt: null,
     });
   });
 
@@ -2581,7 +2573,6 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt,
-        resubmissionDueAt: null,
       },
     });
   });
@@ -2770,7 +2761,6 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     const findFirst = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
       event: ReviewDecision.APPROVED,
-      resubmissionDueAt: null,
     });
     const prisma = {
       milestoneDocumentSubmissionHistory: { findFirst },
@@ -3280,10 +3270,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
     expect(lockSql).toContain('FROM "MilestoneDocument"');
     expect(lockSql).toContain('ORDER BY "id"');
     expect(lockSql).toContain('FOR UPDATE');
-    expect(lockQueries[1]?.values).toEqual([
-      syntheticMilestoneId,
-      MilestoneDocumentKind.DOCUMENT,
-    ]);
+    expect(lockQueries[1]?.values).toEqual([syntheticMilestoneId]);
   });
 
   it('rejects document locks before the milestone stage without issuing SQL', async () => {

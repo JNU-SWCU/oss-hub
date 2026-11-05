@@ -77,7 +77,7 @@ export interface SubmissionDashboardMilestoneRecord {
   readonly id: string;
   readonly programId: string;
 }
-export interface SubmissionDashboardSubmissionRecord {
+interface SubmissionDashboardSubmissionRecord {
   readonly applicationId: string;
   readonly applicationProgramId: string;
   readonly milestoneId: string;

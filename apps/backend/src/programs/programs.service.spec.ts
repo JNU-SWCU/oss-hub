@@ -36,8 +36,8 @@ const publicProgram = {
       startAt: new Date('2026-07-01T00:00:00+09:00'),
       dueAt: new Date('2026-07-21T23:59:59+09:00'),
       instructions: '설명',
-      documents: [],
-      _count: { documents: 0 },
+      documents: [{ id: 'today-item' }],
+      _count: { documents: 1 },
     },
     {
       id: 'overdue',
@@ -45,8 +45,8 @@ const publicProgram = {
       startAt: new Date('2026-07-01T00:00:00+09:00'),
       dueAt: new Date('2026-07-20T23:59:59+09:00'),
       instructions: null,
-      documents: [],
-      _count: { documents: 0 },
+      documents: [{ id: 'overdue-item' }],
+      _count: { documents: 1 },
     },
   ],
 };
@@ -130,7 +130,7 @@ describe('ProgramsService detail', () => {
         {
           status: SubmissionStatus.REJECTED,
           milestoneDocument: {
-            id: 'today-internal-submission',
+            id: 'today-item',
             milestoneId: 'today',
           },
         },
@@ -170,7 +170,7 @@ describe('ProgramsService detail', () => {
           select: {
             status: true,
             milestoneDocument: {
-              select: { id: true, milestoneId: true, kind: true },
+              select: { id: true, milestoneId: true },
             },
           },
         },
@@ -209,7 +209,7 @@ describe('ProgramsService detail', () => {
           {
             status: SubmissionStatus.SUBMITTED,
             milestoneDocument: {
-              id: 'today-internal-submission-1',
+              id: 'today-item',
               milestoneId: 'today',
             },
           },
@@ -220,7 +220,7 @@ describe('ProgramsService detail', () => {
           {
             status: SubmissionStatus.CHANGES_REQUESTED,
             milestoneDocument: {
-              id: 'today-internal-submission-2',
+              id: 'today-item',
               milestoneId: 'today',
             },
           },
@@ -262,7 +262,7 @@ describe('ProgramsService detail', () => {
           select: {
             status: true,
             milestoneDocument: {
-              select: { id: true, milestoneId: true, kind: true },
+              select: { id: true, milestoneId: true },
             },
           },
         },
@@ -373,7 +373,6 @@ describe('ProgramsService detail', () => {
       milestones: [
         {
           ...publicProgram.milestones[0],
-          submissionType: null,
           documents: [],
           _count: { documents: 0 },
         },
@@ -390,7 +389,6 @@ describe('ProgramsService detail', () => {
       role: 'STUDENT',
     });
     expect(detail.milestones[0]).toMatchObject({
-      submissionType: null,
       submissionItemCount: 0,
       viewerSubmissionStatus: null,
       applicationSubmissionSummary: null,
@@ -402,7 +400,11 @@ function programWithRequiredDocuments() {
     ...publicProgram,
     milestones: publicProgram.milestones.map((milestone, index) =>
       index === 0
-        ? { ...milestone, documents: [{ id: 'doc-1' }, { id: 'doc-2' }] }
+        ? {
+            ...milestone,
+            documents: [{ id: 'doc-1' }, { id: 'doc-2' }],
+            _count: { documents: 2 },
+          }
         : milestone,
     ),
   };

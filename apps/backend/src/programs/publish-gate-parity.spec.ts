@@ -320,7 +320,12 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
         },
         program: {
           endAt: PROGRAM_ENDED_AT,
-          milestones: [{ id: 'milestone-1', documents: [] }],
+          milestones: [
+            {
+              id: 'milestone-1',
+              documents: [{ id: 'legacy-submission-document-1' }],
+            },
+          ],
         },
         milestoneDocumentSubmissions: [
           {

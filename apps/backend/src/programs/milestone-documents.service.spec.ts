@@ -531,7 +531,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
-            resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
           },
         },
       ]),
@@ -564,8 +563,6 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       review: {
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
-
-        resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       },
       history: { hasHistory: true, isComplete: true },
     });
@@ -2574,6 +2571,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           milestoneDocumentId: syntheticDocumentId,
           applicationId: syntheticApplicationId,
           submittedAt: new Date('2026-09-19T08:00:00.000Z'),
+          revision: 2,
           status: SubmissionStatus.SUBMITTED,
           content: null,
           file: null,
@@ -2582,7 +2580,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
             decision: ReviewDecision.CHANGES_REQUESTED,
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
-            resubmissionDueAt: new Date('2026-09-25T09:00:00.000Z'),
           },
         },
       ]),
@@ -2606,6 +2603,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       documentId: syntheticDocumentId,
       isSubmitted: true,
       submittedAt: '2026-09-19T08:00:00.000Z',
+      revision: 2,
       file: null,
       content: null,
       status: SubmissionStatus.SUBMITTED,
@@ -2614,7 +2612,6 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
-        resubmissionDueAt: '2026-09-25T09:00:00.000Z',
       },
     });
   });

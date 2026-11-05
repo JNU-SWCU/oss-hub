@@ -168,7 +168,7 @@ it('검토 화면 컨텍스트를 ISO 시간 DTO로 반환한다', async () => {
   });
 });
 
-it('판정 저장 API가 201과 현재 Submission 상태를 반환한다', async () => {
+it('폐기된 마일스톤 단위 심사 API는 404로 종료한다', async () => {
   const response = await fetch(
     `${baseUrl}/api/v1/submissions/submission-1/reviews`,
     {
@@ -178,20 +178,8 @@ it('판정 저장 API가 201과 현재 Submission 상태를 반환한다', async
     },
   );
 
-  expect(response.status).toBe(201);
-  await expect(response.json()).resolves.toEqual({
-    reviewId: 'review-1',
-    submissionStatus: SubmissionStatus.APPROVED,
-  });
-  expect(service.review).toHaveBeenCalledWith(
-    'synthetic-staff',
-    'submission-1',
-    {
-      revision: 2,
-      decision: ReviewDecision.APPROVED,
-      comment: null,
-    },
-  );
+  expect(response.status).toBe(404);
+  expect(service.review).not.toHaveBeenCalled();
 });
 
 it('저장소 공개 API가 200과 공개 완료 시각을 반환한다', async () => {

@@ -281,3 +281,69 @@ it.each(['prepared', 'current'])(
     ).resolves.toBe(review.id);
   },
 );
+
+it('appends repeated decisions for one revision without overwriting the previous review', async () => {
+  expect((await fixture.submit('append-only review')).status).toBe(201);
+  const endpoint =
+    fixture.documentPath() +
+    '/applications/' +
+    flowIds.application +
+    '/reviews';
+  const first = await fixture.request(endpoint, {
+    actor: 'staff',
+    method: 'POST',
+    json: {
+      decision: 'CHANGES_REQUESTED',
+      comment: 'first decision',
+      expectedRevision: 1,
+      expectedLatestReviewId: null,
+    },
+  });
+  expect(first.status).toBe(201);
+  const previous =
+    await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
+      where: {
+        submission: { milestoneDocumentId: flowIds.document },
+        event: 'CHANGES_REQUESTED',
+      },
+    });
+  const second = await fixture.request(endpoint, {
+    actor: 'staff',
+    method: 'POST',
+    json: {
+      decision: 'APPROVED',
+      comment: 'second decision',
+      expectedRevision: 1,
+      expectedLatestReviewId: previous.id,
+    },
+  });
+  expect(second.status).toBe(201);
+  expect(
+    await fixture.prisma.milestoneDocumentSubmissionHistory.findUnique({
+      where: { id: previous.id },
+    }),
+  ).toEqual(previous);
+  const reviews =
+    await fixture.prisma.milestoneDocumentSubmissionHistory.findMany({
+      where: {
+        milestoneDocumentSubmissionId: previous.milestoneDocumentSubmissionId,
+        event: { in: ['CHANGES_REQUESTED', 'APPROVED'] },
+      },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { event: true, revision: true, actorId: true, comment: true },
+    });
+  expect(reviews).toEqual([
+    {
+      event: 'CHANGES_REQUESTED',
+      revision: 1,
+      actorId: flowIds.staff,
+      comment: 'first decision',
+    },
+    {
+      event: 'APPROVED',
+      revision: 1,
+      actorId: flowIds.staff,
+      comment: 'second decision',
+    },
+  ]);
+});

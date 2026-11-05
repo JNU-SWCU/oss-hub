@@ -49,7 +49,6 @@ it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 �
       review: {
         comment: '보완',
         reviewedAt: '2026-10-20T01:02:03.123Z',
-        resubmissionDueAt: null,
       },
       history: { hasHistory: true, isComplete: false },
     },
@@ -129,7 +128,6 @@ it('피드백의 마감 null과 기존 URL 인코딩을 보존한다', () => {
     decision: 'APPROVED',
     comment: null,
     reviewedAt: '2026-10-20T01:02:03.123Z',
-    resubmissionDueAt: null,
     applicationId: 'application',
     programId: 'program/1',
     milestoneId: 'seed:milestone?1',
