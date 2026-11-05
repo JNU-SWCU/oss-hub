@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import {
   ApplicationStatus,
   BoardPostCategory,
@@ -1302,11 +1301,6 @@ export async function teardownDemo(
       stats.updated(model);
     }
   };
-  await countAndDelete('MilestoneDocumentReviewHistory', async () => ({
-    count: await prisma.$executeRaw(
-      Prisma.sql`DELETE FROM "MilestoneDocumentReviewHistory" WHERE left("milestoneDocumentSubmissionId", length(${seedDemoPrefix})) = ${seedDemoPrefix}`,
-    ),
-  }));
   const demoSubmissionFiles = await prisma.submissionFile.findMany({
     where: seedIdFilter,
     select: { storageKey: true },

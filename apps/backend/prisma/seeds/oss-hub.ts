@@ -1,4 +1,3 @@
-import { Prisma } from '@prisma/client';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -270,14 +269,6 @@ export async function seedOssHub(
   });
   const staleMilestoneIds = staleMilestones.map((milestone) => milestone.id);
   if (staleMilestoneIds.length > 0) {
-    await prisma.$executeRaw(Prisma.sql`
-          DELETE FROM "MilestoneDocumentReviewHistory"
-          WHERE "milestoneDocumentSubmissionId" IN (
-            SELECT submission."id" FROM "MilestoneDocumentSubmission" submission
-            JOIN "MilestoneDocument" requirement ON requirement."id" = submission."milestoneDocumentId"
-            WHERE requirement."milestoneId" = ANY(${staleMilestoneIds}::text[])
-          )
-        `);
     await prisma.milestoneDocumentSubmissionHistory.deleteMany({
       where: {
         submission: {
