@@ -23,10 +23,11 @@ Todo 10의 중복 방지 기준:
 
 최종 실행 직전 여유 디스크 8,033,440 KiB, 가용 메모리 11,013,268 KiB였다. 덤프 3,595,623 bytes, 권한 0600이었다. 격리 복원본에서 공식 `rehearse.sh`로 백업, 이관, 대조, 백업 복원을 실행했다. 최종 EXIT는 0이다.
 
-| SQL                                            | SHA-256                                                          |
-| ---------------------------------------------- | ---------------------------------------------------------------- |
-| 20261105100000_prepare_team_application_events | a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7 |
-| 20261105100100_merge_applications_into_teams   | 21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1 |
+| SQL | SHA-256 | 상태 |
+| --- | --- | --- |
+| 20261105100000_prepare_team_application_events | a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7 | 리허설한 SQL과 현재 SQL이 같다 |
+| 20261105100100_merge_applications_into_teams | 21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1 | 리허설한 옛 SQL |
+| 20261105100100_merge_applications_into_teams | 3354049b5a54f08389ab1006d705adc2250932c0290fd4331822f2becfd95fc7 | 현재 SQL, 리허설 전 |
 
 | 테이블                               | 원본 행 | 복사·재지정                           | 삭제 | 백업 복원 행 |
 | ------------------------------------ | ------: | ------------------------------------- | ---: | -----------: |
@@ -59,7 +60,7 @@ Todo 10의 중복 방지 기준:
 - 새 저장 계약 red: 1 suite, 1 test 실패, EXIT 1. 기존 Team에 지원 필드가 없어서 실패했다.
 - 최초 빈 DB green: 1 suite, 1 test, EXIT 0.
 - 최종 이관 통합 테스트: 1 suite, 6 tests, EXIT 0. 73개 사건 보존, 원래 심사 시각, teamId 참조, 1:1 위반·1초 초과·소유권 불일치·삭제 건수 변경의 중단을 검사했다.
-- 나머지 백엔드 행동·타입·lint·format·file-ledger·성능 및 프론트 검증은 진행 중이다.
+- 커밋 30adabfee 전체 실행: backend 통합 154 suites·1220 tests, backend 단위 382 suites·6119 tests, frontend 440 files·4739 tests, 모두 실패 0. 이후 커밋의 수치는 PR 본문 `## 검증`이 원본이다.
 
 ## 준비 오류 정리
 
@@ -87,4 +88,6 @@ Todo 10의 중복 방지 기준:
 | staff detail |      16.553 |   17.461 |       +0.908 |  +5.49% |      16→14 |
 
 최신 운영 스키마의 clone 리허설은 커밋 34dd768441adb379fcfff927399461866ee2dceb에서 EXIT 0이다. 선행 migration은 20261105050000_retire_submission_axis이며 14개 원본 행 수의 backup 복구가 일치했다. Team 40→33, TeamMember 72→65, TeamHistory 25→105이고 지원 사건 73개와 빈 팀 삭제 7개를 보존한다. 볼륨 inventory 1→1, 추가·삭제 0, hash 동일; 임시 컨테이너·덤프 0. 공개 영수증은 task-9-team-rehearsal.txt다.
+
+이 영수증은 현재 SQL을 증명하지 않는다. 커밋 afc154e1d가 merge migration에 TeamHistory 기준선 25행과 최종 105행 검사를 더해 해시를 바꿨고, preflight.sql도 고쳤다. 커밋 01699fb6e는 reconcile.sql을 고쳤다. 현재 SQL로 clone 리허설을 다시 실행하고 영수증을 새로 남기기 전에는 릴리스하지 않는다.
 
