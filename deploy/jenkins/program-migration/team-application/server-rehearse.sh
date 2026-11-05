@@ -4,6 +4,7 @@ set +x
 umask 077
 
 root="$1"
+manifest="${2:-$root/deploy/jenkins/program-migration/team-application/prepare.json}"
 live=oss-hub-postgres-1
 container="oss-hub-todo9-rehearsal-$(date +%s)-$$"
 dump="$root/production.sql"
@@ -75,5 +76,5 @@ pid="$(docker inspect --format '{{.State.Pid}}' "$container")"
 
 export PM_PG_CONTAINER="$container" PM_DUMP_FILE="$dump"
 nice -n 19 bash "$root/deploy/jenkins/program-migration/rehearse.sh" \
-  "$root/deploy/jenkins/program-migration/team-application/prepare.json"
+  "$manifest"
 printf 'TEAM_SERVER_REHEARSAL_EXIT=0\n'
