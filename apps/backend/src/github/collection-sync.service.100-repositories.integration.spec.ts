@@ -347,15 +347,15 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.createMany({
-      data: CONTRIBUTOR_IDS.map((githubId, index) => ({
+    data: CONTRIBUTOR_IDS.map((githubId, index) => ({
         id: `synthetic-scale-contributor-${index}`,
         githubId,
         nickname: `synthetic-contributor-${index}`,
-      })),
-      skipDuplicates: true,
-    });
+    })),
+    skipDuplicates: true
+});
     await prisma.program.create({
-      data: {
+    data: {
         id: 'synthetic-scale-program',
         name: 'Synthetic registered repository scale',
         organizer: 'Synthetic',
@@ -367,38 +367,40 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         applicationStartAt: new Date('2025-01-01T00:00:00Z'),
         applicationEndAt: new Date('2025-12-01T00:00:00Z'),
         startAt: new Date('2025-12-01T00:00:00Z'),
-        endAt: new Date('2027-01-01T00:00:00Z'),
-      },
-    });
+        endAt: new Date('2027-01-01T00:00:00Z')
+    }
+});
     for (const seed of seeds) {
       const id = `synthetic-scale-${seed.id}`;
       await prisma.team.create({
-        data: {
-          id,
-          programId: 'synthetic-scale-program',
-          name: seed.name,
-          leaderId: 'synthetic-scale-contributor-0',
-        },
-      });
-      await prisma.application.create({
-        data: {
-          id,
-          programId: 'synthetic-scale-program',
-          teamId: id,
-          applicantId: 'synthetic-scale-contributor-0',
-          answers: {},
-          applicationTemplateVersion: 1,
-        },
-      });
+    data: {
+        id,
+        programId: 'synthetic-scale-program',
+        name: seed.name,
+        leaderId: 'synthetic-scale-contributor-0',
+        applicantId: 'synthetic-scale-contributor-0',
+        answers: { title: seed.name },
+        applicationTemplateVersion: 1
+    }
+});
+      await prisma.team.update({
+    where: { id: id },
+    data: {
+        programId: 'synthetic-scale-program',
+        applicantId: 'synthetic-scale-contributor-0',
+        answers: {},
+        applicationTemplateVersion: 1
+    }
+});
       await prisma.githubRepository.create({
-        data: {
-          githubRepositoryId: BigInt(seed.id),
-          githubOrganizationId: GITHUB_ORGANIZATION_ID,
-          applicationId: id,
-          nameWithOwner: `${seed.owner}/${seed.name}`,
-          source: 'ORG_PROVISIONED',
-        },
-      });
+    data: {
+        githubRepositoryId: BigInt(seed.id),
+        githubOrganizationId: GITHUB_ORGANIZATION_ID,
+        teamId: id,
+        nameWithOwner: `${seed.owner}/${seed.name}`,
+        source: 'ORG_PROVISIONED'
+    }
+});
     }
 
     const commitSpy = jest.spyOn(
@@ -506,16 +508,16 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       GITHUB_ORGANIZATION_ID,
     );
-    await prisma.application.deleteMany({
-      where: { programId: 'synthetic-scale-program' },
-    });
     await prisma.team.deleteMany({
-      where: { programId: 'synthetic-scale-program' },
-    });
+    where: { programId: 'synthetic-scale-program' }
+});
+    await prisma.team.deleteMany({
+    where: { programId: 'synthetic-scale-program' }
+});
     await prisma.program.delete({ where: { id: 'synthetic-scale-program' } });
     await prisma.user.deleteMany({
-      where: { id: { startsWith: 'synthetic-scale-contributor-' } },
-    });
+    where: { id: { startsWith: 'synthetic-scale-contributor-' } }
+});
     await prisma.$disconnect();
   });
 

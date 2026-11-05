@@ -26,18 +26,17 @@ import { MilestoneCompletionService } from './milestone-completion.service';
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
 const PROGRAM_ENDS_LATER = new Date('2026-08-01T00:00:00.000Z');
-const ACTOR_GITHUB_ID = 9600000000100001n;
-type ReviewApplication = ReviewContextRow['application'];
+const ACTOR_GITHUB_ID = 9_600_000_000_100_001n;
+
+type ReviewApplication = ReviewContextRow['team'];
 type ReviewRepository = NonNullable<ReviewApplication['repository']>;
 function eligibleRow(): ReviewContextRow {
   return {
     id: 'submission-1',
     revision: 1,
-    application: {
-      id: 'application-1',
-      teamId: 'team-1',
+    team: {
+      id: 'team-1',
       applicant: { nickname: 'applicant', name: 'Applicant' },
-      team: { name: 'Synthetic Team' },
       isRepositoryPublicationPlanned: true,
       provisionJob: {
         status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -66,6 +65,7 @@ function eligibleRow(): ReviewContextRow {
         nameWithOwner: 'synthetic-org/synthetic-repository',
         visibility: RepositoryVisibility.PRIVATE,
       },
+      name: 'Synthetic Team',
     },
     milestoneDocument: {
       id: 'legacy-submission-document-1',
@@ -99,11 +99,8 @@ const SCENARIOS = [
     label: '저장소 프로비저닝이 아직 안 끝났다',
     reason: PUBLISH_BLOCKED_REASONS.REPOSITORY_NOT_READY,
     errorCode: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
-    breakRow: (
-      _repository: ReviewRepository,
-      application: ReviewApplication,
-    ) => {
-      application.provisionJob = {
+    breakRow: (_repository: ReviewRepository, team: ReviewApplication) => {
+      team.provisionJob = {
         status: RepositoryProvisionJobStatus.PROCESSING,
         repositoryId: 'repository-1',
       };
@@ -117,8 +114,8 @@ const SCENARIOS = [
     label: '지원서가 저장소 공개를 계획하지 않았다',
     reason: PUBLISH_BLOCKED_REASONS.REPOSITORY_PUBLICATION_NOT_PLANNED,
     errorCode: SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED,
-    breakRow: (_repository: ReviewRepository, application: ReviewApplication) =>
-      void (application.isRepositoryPublicationPlanned = false),
+    breakRow: (_repository: ReviewRepository, team: ReviewApplication) =>
+      void (team.isRepositoryPublicationPlanned = false),
     breakEligibility: (eligibility: RepositoryPublishEligibility) => ({
       ...eligibility,
       isRepositoryPublicationPlanned: false,
@@ -128,8 +125,8 @@ const SCENARIOS = [
     label: '프로그램 종료일이 아직 지나지 않았다',
     reason: PUBLISH_BLOCKED_REASONS.PROGRAM_NOT_ENDED,
     errorCode: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED,
-    breakRow: (_repository: ReviewRepository, application: ReviewApplication) =>
-      void (application.program.endAt = PROGRAM_ENDS_LATER),
+    breakRow: (_repository: ReviewRepository, team: ReviewApplication) =>
+      void (team.program.endAt = PROGRAM_ENDS_LATER),
     breakEligibility: (eligibility: RepositoryPublishEligibility) => ({
       ...eligibility,
       programEndAt: PROGRAM_ENDS_LATER,
@@ -139,8 +136,8 @@ const SCENARIOS = [
     label: '필수 마일스톤이 아직 승인되지 않았다',
     reason: PUBLISH_BLOCKED_REASONS.REQUIRED_MILESTONES_NOT_APPROVED,
     errorCode: SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED,
-    breakRow: (_repository: ReviewRepository, application: ReviewApplication) =>
-      void (application.milestoneDocumentSubmissions = [
+    breakRow: (_repository: ReviewRepository, team: ReviewApplication) =>
+      void (team.milestoneDocumentSubmissions = [
         {
           status: SubmissionStatus.SUBMITTED,
           milestoneDocument: {
@@ -156,15 +153,12 @@ const SCENARIOS = [
   },
 ] as const;
 function brokenRow(
-  breakRow: (
-    repository: ReviewRepository,
-    application: ReviewApplication,
-  ) => void,
+  breakRow: (repository: ReviewRepository, team: ReviewApplication) => void,
 ): ReviewContextRow {
   const row = eligibleRow();
-  const repository = row.application.repository;
+  const repository = row.team.repository;
   if (repository === null) throw new Error('fixture: repository is required');
-  breakRow(repository, row.application);
+  breakRow(repository, row.team);
   return row;
 }
 function eligibilityRow(
@@ -237,7 +231,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
   });
   it('종료일이 지금과 같은 순간이면 이미 종료로 본다', async () => {
     const row = eligibleRow();
-    row.application.program.endAt = NOW;
+    row.team.program.endAt = NOW;
     const { service, repositories } = serviceFor({
       ...eligibleEligibility(),
       programEndAt: NOW,
@@ -269,9 +263,8 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     },
   );
   it('선언된 차단 사유는 모두 화면이 실제로 낼 수 있다', () => {
-    const row = brokenRow((repository, application) => {
-      for (const scenario of SCENARIOS)
-        scenario.breakRow(repository, application);
+    const row = brokenRow((repository, team) => {
+      for (const scenario of SCENARIOS) scenario.breakRow(repository, team);
     });
     const context = serviceFor(null).service['toReviewContext'](row, NOW);
     expect(new Set(context.repository?.blockedReasons)).toEqual(
@@ -279,9 +272,8 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     );
   });
   it('게이트가 한꺼번에 막히면 화면은 게이트 순서대로 나열하고 서버는 첫 게이트로 거절한다', async () => {
-    const row = brokenRow((repository, application) => {
-      for (const scenario of SCENARIOS)
-        scenario.breakRow(repository, application);
+    const row = brokenRow((repository, team) => {
+      for (const scenario of SCENARIOS) scenario.breakRow(repository, team);
     });
     const { service, repositories } = serviceFor({
       repositoryId: 'repository-1',
@@ -312,7 +304,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     const findUnique = jest.fn().mockResolvedValue({
       id: 'repository-1',
       visibility: RepositoryVisibility.PRIVATE,
-      application: {
+      team: {
         isRepositoryPublicationPlanned: false,
         provisionJob: {
           status: RepositoryProvisionJobStatus.PROCESSING,
@@ -362,7 +354,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     const findUnique = jest.fn().mockResolvedValue({
       id: 'repository-1',
       visibility: RepositoryVisibility.PRIVATE,
-      application: {
+      team: {
         isRepositoryPublicationPlanned: true,
         provisionJob: {
           status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -399,9 +391,8 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
     expect(repositories.publish).not.toHaveBeenCalled();
   });
   it('이미 공개된 저장소는 게이트를 적용하지 않는다', () => {
-    const row = brokenRow((repository, application) => {
-      for (const scenario of SCENARIOS)
-        scenario.breakRow(repository, application);
+    const row = brokenRow((repository, team) => {
+      for (const scenario of SCENARIOS) scenario.breakRow(repository, team);
       repository.visibility = RepositoryVisibility.PUBLIC;
     });
     const context = serviceFor(null).service['toReviewContext'](row, NOW);

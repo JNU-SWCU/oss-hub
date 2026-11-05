@@ -68,9 +68,9 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
     });
     await expect(
       prisma.user.findUniqueOrThrow({
-        include: { admin: true },
-        where: { id: target.id },
-      }),
+    include: { admin: true },
+    where: { id: target.id }
+}),
     ).resolves.toMatchObject({
       approvalStatus: 'APPROVED',
       admin: null,
@@ -97,9 +97,9 @@ describe('Admin access account status transitions (PR04H, formerly StaffAccessRe
     });
     await expect(
       prisma.user.findUniqueOrThrow({
-        include: { admin: true },
-        where: { id: target.id },
-      }),
+    include: { admin: true },
+    where: { id: target.id }
+}),
     ).resolves.toMatchObject({
       approvalStatus: 'APPROVED',
       admin: null,
@@ -121,12 +121,12 @@ async function createUser(
   sequence += 1;
   return prisma.user.create({
     data: canonicalUserCreateFromLabel(role, {
-      id: `${label}:user`,
-      githubId: 9004800000n + BigInt(sequence),
-      nickname: `synthetic-pr04h-${sequence}`,
+        id: `${label}:user`,
+        githubId: 9004800000n + BigInt(sequence),
+        nickname: `synthetic-pr04h-${sequence}`,
     }),
-    select: { id: true, githubId: true },
-  });
+    select: { id: true, githubId: true }
+});
 }
 async function createPreservedAssets(
   prefix: string,
@@ -151,58 +151,56 @@ async function createPreservedAssets(
   ]);
   const program = await prisma.program.create({
     data: {
-      startAt: new Date('2026-07-01T00:00:00.000Z'),
-      endAt: new Date(
-        new Date('2026-07-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
-      ),
-
-      id: `${prefix}program`,
-      name: 'Synthetic PR04H Program',
-      organizer: 'Synthetic Organizer',
-      trackType: ProgramTrackType.EXTRACURRICULAR,
-      category: ProgramCategory.BASIC,
-      applicationTemplateKey: 'synthetic-pr04h-template',
-      applicationTemplateVersion: 1,
-      applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
-      applicationEndAt: new Date('2026-07-31T00:00:00.000Z'),
-      description: 'Synthetic account lifecycle fixture (PR04H)',
-    },
-  });
+        startAt: new Date('2026-07-01T00:00:00.000Z'),
+        endAt: new Date(new Date('2026-07-31T00:00:00.000Z').getTime() + 365 * 86400000),
+        id: `${prefix}program`,
+        name: 'Synthetic PR04H Program',
+        organizer: 'Synthetic Organizer',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+        category: ProgramCategory.BASIC,
+        applicationTemplateKey: 'synthetic-pr04h-template',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
+        applicationEndAt: new Date('2026-07-31T00:00:00.000Z'),
+        description: 'Synthetic account lifecycle fixture (PR04H)'
+    }
+});
   const team = await prisma.team.create({
     data: {
-      id: `${prefix}team`,
-      programId: program.id,
-      name: `${prefix}team`,
-      leaderId: staffId,
-    },
-  });
+        id: `${prefix}team`,
+        programId: program.id,
+        name: `${prefix}team`,
+        leaderId: staffId,
+        applicantId: staffId,
+        answers: { title: `${prefix}team` },
+        applicationTemplateVersion: 1
+    }
+});
   await prisma.teamMember.create({
     data: {
-      teamId: team.id,
-      programId: program.id,
-      userId: staffId,
-    },
-  });
-  const application = await prisma.application.create({
+        teamId: team.id,
+        programId: program.id,
+        userId: staffId
+    }
+});
+  const application = await prisma.team.update({
+    where: { id: team.id },
     data: {
-      id: `${prefix}application`,
-      programId: program.id,
-      applicantId: staffId,
-      teamId: team.id,
-      answers: { synthetic: true },
-      applicationTemplateVersion: 1,
-    },
-  });
+        programId: program.id,
+        applicantId: staffId,
+        answers: { synthetic: true },
+        applicationTemplateVersion: 1
+    }
+});
   await prisma.githubRepository.create({
     data: {
-      id: `${prefix}repository`,
-      applicationId: application.id,
-      programId: program.id,
-      githubRepositoryId: 9004800000n + BigInt(sequence),
-      nameWithOwner: `synthetic-org/synthetic-pr04h-repository-${sequence}`,
-      source: RepositorySource.ORG_PROVISIONED,
-    },
-  });
+        id: `${prefix}repository`,
+        teamId: application.id,
+        githubRepositoryId: 9004800000n + BigInt(sequence),
+        nameWithOwner: `synthetic-org/synthetic-pr04h-repository-${sequence}`,
+        source: RepositorySource.ORG_PROVISIONED
+    }
+});
 }
 async function countPreservedAssets(
   prefix: string,
@@ -219,7 +217,7 @@ async function countPreservedAssets(
       prisma.userPolicy.count({ where: { userId: staffId } }),
       prisma.loginHistory.count({ where: { userId: staffId } }),
       prisma.program.count({ where: { id: `${prefix}program` } }),
-      prisma.application.count({ where: { applicantId: staffId } }),
+      prisma.team.count({ where: { applicantId: staffId } }),
       prisma.githubRepository.count({ where: { id: `${prefix}repository` } }),
     ]);
   return {

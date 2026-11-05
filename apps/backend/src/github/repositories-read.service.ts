@@ -31,7 +31,7 @@ export class RepositoriesReadService {
   ): Promise<readonly MyRepositoryResult[]> {
     const jobs = await this.repository.listOwnedProvisionJobs(githubId);
     return jobs.map((job) => {
-      const row = job.application.repository;
+      const row = job.team.repository;
       const repository = row && {
         ...row,
         name: this.repositoryUrlService.repositoryNameFromNameWithOwner(
@@ -57,25 +57,25 @@ export class RepositoriesReadService {
       }
 
       const applicationMode: 'PERSONAL' | 'TEAM' =
-        (job.application.team?._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL';
+        (job.team._count.members ?? 0) > 1 ? 'TEAM' : 'PERSONAL';
 
       const connectionMode =
         repository === null ||
-        job.application.repositoryConnectionMode ===
+        job.team.repositoryConnectionMode ===
           RepositoryConnectionMode.OWN
-          ? job.application.repositoryConnectionMode
+          ? job.team.repositoryConnectionMode
           : connectionModeFromSource(repository.source);
 
       return {
         repositoryId: repository?.id ?? null,
-        applicationId: job.application.id,
+        teamId: job.team.id,
         connectionMode,
         applicationMode,
-        programName: job.application.program.name,
+        programName: job.team.program.name,
         displayName:
           applicationMode === 'TEAM'
-            ? (job.application.team?.name ?? job.application.applicant.nickname)
-            : job.application.applicant.nickname,
+            ? (job.team.name ?? job.team.applicant.nickname)
+            : job.team.applicant.nickname,
         repositoryName: repository?.name ?? null,
         githubUrl: repository?.url ?? null,
         provisionStatus: job.status,

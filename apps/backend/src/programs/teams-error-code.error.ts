@@ -19,9 +19,21 @@ export enum TeamsErrorCode {
   TEAM_DELETE_FORBIDDEN = 'TEAM_018',
 
   TEAM_DELETE_SCOPE_CHANGED = 'TEAM_019',
+  LEADER_TRANSFER_REQUIRED = 'TEAM_020',
+  TEAM_HAS_ACTIVITY = 'TEAM_021',
 }
 
 export const TEAMS_ERROR_CODES: Record<TeamsErrorCode, ErrorCode> = {
+  [TeamsErrorCode.LEADER_TRANSFER_REQUIRED]: {
+    code: TeamsErrorCode.LEADER_TRANSFER_REQUIRED,
+    status: 409,
+    message: '다른 팀원에게 팀장을 넘긴 후 탈퇴해 주세요.',
+  },
+  [TeamsErrorCode.TEAM_HAS_ACTIVITY]: {
+    code: TeamsErrorCode.TEAM_HAS_ACTIVITY,
+    status: 409,
+    message: '제출물이나 연결된 저장소가 있는 팀은 취소할 수 없습니다.',
+  },
   [TeamsErrorCode.STUDENT_ONLY]: {
     code: TeamsErrorCode.STUDENT_ONLY,
     status: 403,
@@ -45,7 +57,7 @@ export const TEAMS_ERROR_CODES: Record<TeamsErrorCode, ErrorCode> = {
   [TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM]: {
     code: TeamsErrorCode.ALREADY_IN_PROGRAM_TEAM,
     status: 409,
-    message: '이미 이 프로그램의 팀에 소속되어 있습니다.',
+    message: '현재 팀에서 탈퇴한 후 초대를 수락해 주세요.',
   },
   [TeamsErrorCode.TEAM_FULL]: {
     code: TeamsErrorCode.TEAM_FULL,
@@ -60,7 +72,7 @@ export const TEAMS_ERROR_CODES: Record<TeamsErrorCode, ErrorCode> = {
   [TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION]: {
     code: TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION,
     status: 409,
-    message: '신청 기록이 있는 팀의 마지막 구성원은 나갈 수 없습니다.',
+    message: '승인된 팀의 마지막 구성원은 나갈 수 없습니다.',
   },
   [TeamsErrorCode.TEAM_LEADER_REQUIRED]: {
     code: TeamsErrorCode.TEAM_LEADER_REQUIRED,

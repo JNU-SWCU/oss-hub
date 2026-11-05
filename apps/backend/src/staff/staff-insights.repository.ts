@@ -54,17 +54,17 @@ export class StaffInsightsRepository {
   async listApprovedParticipations(): Promise<
     readonly StaffInsightsParticipationRecord[]
   > {
-    const rows = await this.prisma.application.findMany({
+    const rows = await this.prisma.team.findMany({
       where: { status: 'APPROVED' },
       select: {
         programId: true,
         applicantId: true,
         program: { select: { name: true } },
-        team: { select: { members: { select: { userId: true } } } },
+        members: { select: { userId: true } },
       },
     });
     return rows.map((row) => {
-      const memberIds = row.team.members.map((member) => member.userId);
+      const memberIds = row.members.map((member) => member.userId);
       return {
         programId: row.programId,
         programName: row.program.name,

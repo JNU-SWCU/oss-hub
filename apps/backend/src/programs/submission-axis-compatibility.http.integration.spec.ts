@@ -54,7 +54,7 @@ it('holds the submission row lock before reading the item review version', async
       await expect(contender.$queryRaw`
         SELECT "id" FROM "MilestoneDocumentSubmission"
         WHERE "milestoneDocumentId" = ${flowIds.document}
-          AND "applicationId" = ${flowIds.application}
+          AND "teamId" = ${flowIds.application}
         FOR UPDATE NOWAIT
       `).rejects.toMatchObject({ code: 'P2010', meta: { code: '55P03' } });
     });
@@ -144,7 +144,7 @@ it('keeps the existing public PK and history when the requirement API replaces a
     await fixture.prisma.milestoneDocumentSubmission.count({
       where: {
         milestoneDocumentId: flowIds.document,
-        applicationId: flowIds.application,
+        teamId: flowIds.application,
       },
     }),
   ).toBe(1);
@@ -428,7 +428,7 @@ it('rejects an admitted item submission if the program was deleted before its wr
   await expect(
     writeRepository.upsertSubmission({
       milestoneDocumentId: flowIds.document,
-      applicationId: flowIds.application,
+      teamId: flowIds.application,
       submittedById: flowIds.student,
       submittedAt: new Date(),
       content: { type: 'TEXT', text: 'must not persist' },

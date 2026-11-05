@@ -10,7 +10,7 @@ it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로�
     ],
     rows: [
       {
-        applicationId: 'application',
+        teamId: 'application',
         applicationMode: 'TEAM',
         displayName: '합성 팀',
         githubLogins: ['leader', 'member'],
@@ -56,7 +56,7 @@ it('행·셀 순서, 집계, 페이지와 nullable 제출 시각·검토 경로�
     ],
     rows: [
       {
-        applicationId: 'application',
+        teamId: 'application',
         applicationMode: 'TEAM',
         displayName: '합성 팀',
         githubLogins: ['leader', 'member'],

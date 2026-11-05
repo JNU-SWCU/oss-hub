@@ -105,9 +105,8 @@ export class MemberRegistrationResetRepository implements MemberRegistrationRese
         where: {
           id: userId,
           OR: [
-            { applications: { some: {} } },
-            { processedApplications: { some: {} } },
-            { applicationReviewHistories: { some: {} } },
+            { submittedTeams: { some: {} } },
+            { processedTeams: { some: {} } },
             { ledTeams: { some: {} } },
             { teamMemberships: { some: {} } },
             { receivedTeamInvitations: { some: {} } },

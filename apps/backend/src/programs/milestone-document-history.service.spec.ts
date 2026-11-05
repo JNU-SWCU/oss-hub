@@ -142,7 +142,7 @@ describe('MilestoneDocumentsService history download links', () => {
         admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: 'application-1',
+        teamId: 'application-1',
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),

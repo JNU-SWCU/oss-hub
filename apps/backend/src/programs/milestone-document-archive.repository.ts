@@ -17,13 +17,13 @@ export interface ArchiveProgram {
   }[];
 }
 export interface MilestoneDocumentArchiveTeam {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly teamName: string;
   readonly applicantName: string | null;
   readonly memberNicknames: readonly string[];
 }
 export interface MilestoneDocumentArchiveSubmission {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneDocumentId: string;
   readonly submittedAt: Date;
   readonly status: SubmissionStatus;
@@ -70,33 +70,28 @@ export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader 
     programId: string,
     teamId?: string,
   ): Promise<readonly MilestoneDocumentArchiveTeam[]> {
-    const applications = await this.prisma.application.findMany({
+    const applications = await this.prisma.team.findMany({
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        team: { programId },
         ...(teamId === undefined ? {} : { teamId }),
       },
-      orderBy: [{ team: { name: 'asc' } }, { id: 'asc' }],
+      orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
         applicant: { select: USER_PROFILE_NAME_SELECT },
-        team: {
-          select: {
-            name: true,
-            members: {
-              orderBy: { createdAt: 'asc' },
-              select: { user: { select: { nickname: true } } },
-            },
-          },
+        name: true,
+        members: {
+          orderBy: { createdAt: 'asc' },
+          select: { user: { select: { nickname: true } } },
         },
       },
     });
     return applications.map((application) => ({
-      applicationId: application.id,
-      teamName: application.team.name,
+      teamId: application.id,
+      teamName: application.name,
       applicantName: application.applicant.name ?? null,
-      memberNicknames: application.team.members.map(
+      memberNicknames: application.members.map(
         (member) => member.user.nickname,
       ),
     }));

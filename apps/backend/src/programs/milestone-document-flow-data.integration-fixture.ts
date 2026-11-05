@@ -89,13 +89,15 @@ export async function seedMilestoneDocumentFlow(
       name: '합성 팀',
       leaderId: flowIds.student,
       members: { create: { userId: flowIds.student } },
+      applicantId: flowIds.student,
+      answers: { title: '합성 팀' },
+      applicationTemplateVersion: 1,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: flowIds.team },
     data: {
-      id: flowIds.application,
       programId: flowIds.program,
-      teamId: flowIds.team,
       applicantId: flowIds.student,
       status: 'APPROVED',
       answers: { synthetic: true },

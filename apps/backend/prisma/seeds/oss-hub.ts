@@ -22,7 +22,7 @@ import {
 import { setSeedAdmin, upsertConsent, upsertSeedProfile } from './user';
 const PROGRAM_ID = seedId('oss-hub', 'program');
 const TEAM_ID = seedId('oss-hub', 'team');
-const APPLICATION_ID = seedId('oss-hub', 'application');
+const APPLICATION_ID = seedId('oss-hub', 'team');
 const REPOSITORY_ID = seedId('oss-hub', 'repository');
 const PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub';
@@ -33,7 +33,7 @@ const PROGRAM_DESCRIPTION =
   '오픈소스 SW 개발 사업단이 주관하는 오픈소스 플랫폼 구축 프로그램. 참여 팀은 마일스톤별로 진행 상황과 산출물을 제출하고, GitHub 저장소를 통해 결과물을 공개한다. 공지 예시: [모집홍보] 2026 오픈소스 개발자대회 모집 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=922); ｢모집홍보｣ 『LLMOps 파이프라인 개발』 교육 2026학년 2학기 자유학기(자유교과목) 신청 안내 (https://sojoong.kr/notice/notice-board/?mod=document&uid=939).';
 const PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
 const PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
-const PRACTICE_APPLICATION_ID = seedId('oss-hub-practice', 'application');
+const PRACTICE_APPLICATION_ID = seedId('oss-hub-practice', 'team');
 const PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
 const PRACTICE_PROVISION_JOB_ID = seedId('oss-hub-practice', 'provision-job');
 const PRACTICE_PROGRAM_NAME = '오픈소스 실습 배포 퀘스트';
@@ -168,24 +168,22 @@ export async function seedOssHub(
           programId: PROGRAM_ID,
           name: 'oss-hub',
           leaderId: users[0]!.id,
+          applicantId: users[0]!.id,
+          answers: { title: 'oss-hub' },
+          applicationTemplateVersion: 1,
         },
       }),
   );
   await upsertTracked(
     stats,
-    'Application',
-    () => prisma.application.findUnique({ where: { id: APPLICATION_ID } }),
+    'Team',
+    () => prisma.team.findUnique({ where: { id: TEAM_ID } }),
     () =>
-      prisma.application.upsert({
-        where: { id: APPLICATION_ID },
-        update: {
-          status: ApplicationStatus.APPROVED,
-        },
-        create: {
-          id: APPLICATION_ID,
+      prisma.team.update({
+        where: { id: TEAM_ID },
+        data: {
           programId: PROGRAM_ID,
           applicantId: users[0]!.id,
-          teamId: TEAM_ID,
           answers: {
             applicantName: 'oss-hub',
             title: 'oss-hub 오픈소스 트래킹 플랫폼 구축',
@@ -409,7 +407,7 @@ export async function seedOssHub(
         create: {
           id: awsStagingSubmissionId,
           milestoneDocumentId: awsStagingDocumentId,
-          applicationId: APPLICATION_ID,
+          teamId: APPLICATION_ID,
           status: SubmissionStatus.APPROVED,
           content: awsStagingContent,
           revision: 1,
@@ -517,7 +515,7 @@ export async function seedOssHub(
         create: {
           id: intakeFreezeSubmissionId,
           milestoneDocumentId: intakeFreezeDocumentId,
-          applicationId: APPLICATION_ID,
+          teamId: APPLICATION_ID,
           status: SubmissionStatus.SUBMITTED,
           content: intakeFreezeContent,
           revision: 1,
@@ -562,9 +560,7 @@ export async function seedOssHub(
         },
         create: {
           id: REPOSITORY_ID,
-          applicationId: APPLICATION_ID,
-          programId: PROGRAM_ID,
-          teamId: TEAM_ID,
+          teamId: APPLICATION_ID,
           githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
           nameWithOwner: OSS_HUB_REPOSITORY_NAME_WITH_OWNER,
           source: RepositorySource.ORG_PROVISIONED,
@@ -586,7 +582,7 @@ export async function seedOssHub(
         update: { status: RepositoryProvisionJobStatus.SUCCEEDED },
         create: {
           id: PROVISION_JOB_ID,
-          applicationId: APPLICATION_ID,
+          teamId: APPLICATION_ID,
           repositoryId: REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: offsetDays(-30),
@@ -652,6 +648,9 @@ export async function seedOssHub(
           programId: PRACTICE_PROGRAM_ID,
           name: 'oss-hub-practice',
           leaderId: users[0]!.id,
+          applicantId: users[0]!.id,
+          answers: { title: 'oss-hub-practice' },
+          applicationTemplateVersion: 1,
         },
       }),
   );
@@ -685,20 +684,14 @@ export async function seedOssHub(
   }
   await upsertTracked(
     stats,
-    'Application',
+    'Team',
+    () => prisma.team.findUnique({ where: { id: PRACTICE_TEAM_ID } }),
     () =>
-      prisma.application.findUnique({ where: { id: PRACTICE_APPLICATION_ID } }),
-    () =>
-      prisma.application.upsert({
-        where: { id: PRACTICE_APPLICATION_ID },
-        update: {
-          status: ApplicationStatus.APPROVED,
-        },
-        create: {
-          id: PRACTICE_APPLICATION_ID,
+      prisma.team.update({
+        where: { id: PRACTICE_TEAM_ID },
+        data: {
           programId: PRACTICE_PROGRAM_ID,
           applicantId: users[0]!.id,
-          teamId: PRACTICE_TEAM_ID,
           answers: {
             applicantName: 'oss-hub',
             title: 'oss-hub-practice 학생 실습 저장소',
@@ -726,9 +719,7 @@ export async function seedOssHub(
         },
         create: {
           id: PRACTICE_REPOSITORY_ID,
-          applicationId: PRACTICE_APPLICATION_ID,
-          programId: PRACTICE_PROGRAM_ID,
-          teamId: PRACTICE_TEAM_ID,
+          teamId: PRACTICE_APPLICATION_ID,
           githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
           nameWithOwner: OSS_HUB_PRACTICE_NAME_WITH_OWNER,
           source: RepositorySource.ORG_PROVISIONED,
@@ -750,7 +741,7 @@ export async function seedOssHub(
         update: { status: RepositoryProvisionJobStatus.SUCCEEDED },
         create: {
           id: PRACTICE_PROVISION_JOB_ID,
-          applicationId: PRACTICE_APPLICATION_ID,
+          teamId: PRACTICE_APPLICATION_ID,
           repositoryId: PRACTICE_REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: OSS_HUB_PRACTICE_CREATED_AT,

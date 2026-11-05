@@ -210,38 +210,36 @@ export class PublicExposurePersonaHttpHarness {
     const canonicalStudentId =
       memberKind === MemberKind.STUDENT ? String(970000 + this.sequence) : null;
     return this.prisma.user.create({
-      data: {
+    data: {
         ...canonicalUserCreateFromLabel(role, {
-          id: `${this.fixtureNamespace}-http-${label}-${this.sequence}`,
-          githubId,
-          nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,
-          accountStatus: 'ACTIVE',
+            id: `${this.fixtureNamespace}-http-${label}-${this.sequence}`,
+            githubId,
+            nickname: `${this.fixtureNamespace}-http-${label}-${this.sequence}-login`,
+            accountStatus: 'ACTIVE',
         }),
         ...(memberKind === undefined
-          ? {}
-          : {
-              ...{
-                name: canonicalName,
-                studentId: canonicalStudentId,
-                department: canonicalDepartment,
-                type: memberKind,
-                approvalStatus:
-                  memberKind === MemberKind.STAFF
-                    ? role === 'STAFF'
-                      ? 'APPROVED'
-                      : 'PENDING'
-                    : 'NOT_REQUIRED',
-                departmentType:
-                  memberKind === MemberKind.STUDENT
-                    ? DepartmentType.DEPARTMENT
-                    : DepartmentType.PROGRAM_OFFICE,
-                profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-                profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-              },
-            }),
-      },
-      select: { id: true, githubId: true, nickname: true },
-    });
+            ? {}
+            : {
+                ...{
+                    name: canonicalName,
+                    studentId: canonicalStudentId,
+                    department: canonicalDepartment,
+                    type: memberKind,
+                    approvalStatus: memberKind === MemberKind.STAFF
+                        ? role === 'STAFF'
+                            ? 'APPROVED'
+                            : 'PENDING'
+                        : 'NOT_REQUIRED',
+                    departmentType: memberKind === MemberKind.STUDENT
+                        ? DepartmentType.DEPARTMENT
+                        : DepartmentType.PROGRAM_OFFICE,
+                    profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+                    profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+                },
+            })
+    },
+    select: { id: true, githubId: true, nickname: true }
+});
   }
   async request(
     method: 'GET' | 'POST',

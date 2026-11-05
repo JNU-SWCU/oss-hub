@@ -1,19 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import {
-  prisma,
-  service,
-  resolver,
-  collectionTrigger,
-  githubId,
-  programId,
-  applicationId,
-  teamId,
-  oldId,
-  targetId,
-  targetGithubId,
-  input,
-} from './student-repository-url.integration.fixture';
+import { prisma, service, resolver, collectionTrigger, githubId, programId, teamId, oldId, targetId, targetGithubId, input } from './student-repository-url.integration.fixture';
 import { CollectionAppClient } from '../github/collection-app.client';
 import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
@@ -57,8 +44,8 @@ const fingerprint = {
 it('collects new facts only on the replacement when an external application repository is relinked', async () => {
   await prisma.githubRepository.update({
     where: { id: oldId },
-    data: { source: 'EXTERNAL_PUBLIC' },
-  });
+    data: { source: 'EXTERNAL_PUBLIC' }
+});
   await service.updateMine(githubId, programId, input);
   const tokens = {
     getToken: () => Promise.resolve('synthetic-unused'),
@@ -163,8 +150,8 @@ it('keeps a linked private or absent external repository eligible for recovery',
   await service.updateMine(githubId, programId, input);
   await prisma.githubRepository.update({
     where: { id: targetId },
-    data: { visibility: 'PRIVATE', presence: 'ABSENT' },
-  });
+    data: { visibility: 'PRIVATE', presence: 'ABSENT' }
+});
 
   const selected = await collection.listExternalRepositories();
 
@@ -177,8 +164,8 @@ it('stops selecting a linked external repository once deletion clears every link
   await service.updateMine(githubId, programId, input);
   await prisma.githubRepository.update({
     where: { id: targetId },
-    data: { applicationId: null, programId: null, teamId: null },
-  });
+    data: { teamId: null }
+});
 
   const selected = await collection.listExternalRepositories();
 
@@ -188,8 +175,8 @@ it('stops selecting a linked external repository once deletion clears every link
 it('does not revive a detached external repository when it is enrolled again', async () => {
   await prisma.githubRepository.update({
     where: { id: oldId },
-    data: { source: 'EXTERNAL_PUBLIC' },
-  });
+    data: { source: 'EXTERNAL_PUBLIC' }
+});
   await service.updateMine(githubId, programId, input);
 
   await collection.enrollExternalRepository({
@@ -210,8 +197,8 @@ it('does not revive a detached external repository when it is enrolled again', a
 it('selects a historical external repository again when the application reattaches it', async () => {
   await prisma.githubRepository.update({
     where: { id: oldId },
-    data: { source: 'EXTERNAL_PUBLIC' },
-  });
+    data: { source: 'EXTERNAL_PUBLIC' }
+});
   await service.updateMine(githubId, programId, input);
   resolver.resolve.mockResolvedValue({
     kind: 'EXTERNAL',
@@ -237,7 +224,7 @@ it('selects a historical external repository again when the application reattach
     expect.arrayContaining([
       expect.objectContaining({
         githubRepositoryId: targetGithubId + 1n,
-        applicationId,
+        teamId,
       }),
     ]),
   );
@@ -330,15 +317,15 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
   async (source) => {
     const repositoryName = `synthetic/${oldId}`;
     await prisma.githubRepository.update({
-      where: { id: oldId },
-      data: {
+    where: { id: oldId },
+    data: {
         nameWithOwner: repositoryName,
         source,
         presence: 'PRESENT',
         visibility: 'PUBLIC',
-        defaultBranch: 'main',
-      },
-    });
+        defaultBranch: 'main'
+    }
+});
     await prisma.collectionCommitFact.create({
       data: {
         repositoryId: oldId,
@@ -404,9 +391,9 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
       where: { repositoryId: oldId },
     });
     await prisma.program.update({
-      where: { id: programId },
-      data: { lifecycle: 'DELETED' },
-    });
+    where: { id: programId },
+    data: { lifecycle: 'DELETED' }
+});
 
     expect(
       await sync.runRepository('synthetic-deleted', targetGithubId + 1n),
@@ -415,14 +402,13 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     expect(provider.getRepository).not.toHaveBeenCalled();
     await expect(
       prisma.githubRepository.create({
-        data: {
-          githubRepositoryId: targetGithubId + 2n,
-          nameWithOwner: `synthetic/${oldId}-duplicate`,
-          programId,
-          teamId,
-          source,
-        },
-      }),
+    data: {
+        githubRepositoryId: targetGithubId + 2n,
+        nameWithOwner: `synthetic/${oldId}-duplicate`,
+        teamId,
+        source
+    }
+}),
     ).rejects.toMatchObject({
       code: 'P2002',
       meta: { target: ['teamId'] },

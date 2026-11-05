@@ -296,7 +296,7 @@ const collectionResult: MilestoneDocumentCollectionResult = {
   rows: [
     {
       application: {
-        applicationId: 'application-1',
+        teamId: 'application-1',
         teamName: 'Team A',
         applicantName: 'Octo',
         memberNicknames: ['octo', 'cat'],
@@ -304,7 +304,7 @@ const collectionResult: MilestoneDocumentCollectionResult = {
       cells: [
         {
           milestoneDocumentId: 'document-1',
-          applicationId: 'application-1',
+          teamId: 'application-1',
           submittedAt: at('2026-02-09T00:00:00.000Z'),
           revision: 2,
           status: 'CHANGES_REQUESTED',
@@ -319,7 +319,7 @@ const collectionResult: MilestoneDocumentCollectionResult = {
         },
         {
           milestoneDocumentId: 'document-2',
-          applicationId: 'application-1',
+          teamId: 'application-1',
           submittedAt: at('2026-02-09T01:00:00.000Z'),
           revision: 1,
           status: 'SUBMITTED',
@@ -331,7 +331,7 @@ const collectionResult: MilestoneDocumentCollectionResult = {
     },
     {
       application: {
-        applicationId: 'application-2',
+        teamId: 'application-2',
         teamName: 'Solo',
         applicantName: null,
         memberNicknames: [],
@@ -475,7 +475,7 @@ const programTeam: ProgramTeamView = {
   memberCount: 2,
   minMembers: 1,
   maxMembers: 4,
-  hasApplication: false,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: false,
@@ -558,7 +558,7 @@ const staffTeamDetail: StaffTeamDetailView = {
     },
   },
   deletionScope: {
-    applications: 1,
+    teams: 1,
     members: 2,
     invitations: 0,
     submissions: 3,
@@ -581,7 +581,7 @@ const staffTeamDetail: StaffTeamDetailView = {
   },
 };
 const teamActivity: TeamActivityView = {
-  applicationId: 'application-1',
+  teamId: 'application-1',
   repository: { id: 'repository-1', url: 'https://github.com/org/team-a' },
   status: 'COLLECTED',
   lastSuccessAt: '2026-05-01T00:00:00.000Z',
@@ -703,7 +703,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       ApplicationDecisionResponseDto.from({
         kind: 'APPROVED',
-        applicationId: 'application-1',
+        teamId: 'application-1',
         status: 'APPROVED',
         repositoryProvisioning: {
           enabled: true,
@@ -717,7 +717,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       ApplicationDecisionResponseDto.from({
         kind: 'REJECTED',
-        applicationId: 'application-1',
+        teamId: 'application-1',
         status: 'REJECTED',
         rejectionReason: 'No',
       }),
@@ -727,7 +727,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       ApplicationDecisionResponseDto.from({
         kind: 'REVERTED',
-        applicationId: 'application-1',
+        teamId: 'application-1',
         status: 'SUBMITTED',
       }),
   ],
@@ -1034,7 +1034,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     'ProgramActivityResponseDto',
     () =>
       ProgramActivityResponseDto.from({
-        applicationId: 'application-1',
+        teamId: 'application-1',
         label: 'Team A',
         commitCount: 1,
         pullRequestCount: 2,
@@ -1176,7 +1176,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         teamId: 'team-1',
         deleted: true,
         deletedCounts: {
-          applications: 1,
+          teams: 1,
           members: 2,
           invitations: 3,
           submissions: 4,
@@ -1292,7 +1292,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           ],
           rows: [
             {
-              applicationId: 'application-1',
+              teamId: 'application-1',
               applicationMode: 'TEAM',
               displayName: 'Team A',
               githubLogins: ['octo', 'cat'],

@@ -14,13 +14,11 @@ type ApplicationActivity = Awaited<
 function application(): ApplicationActivity {
   return {
     id: 'application-1',
-    team: {
-      name: '팀 A',
+    name: '팀 A',
       members: [
         { user: { githubId: 11n, nickname: 'student-a' } },
         { user: { githubId: 12n, nickname: 'student-b' } },
       ],
-    },
     repository: {
       failureCount: 0,
       streams: [{ lastRunAt: new Date('2026-07-24T00:00:00.000Z') }],
@@ -66,7 +64,7 @@ describe('ProgramActivityService', () => {
     ]);
     const result = await subject.activity('program-1', staff);
     expect(result[0]).toMatchObject({
-      applicationId: 'application-1',
+      teamId: 'application-1',
       label: '팀 A',
       commitCount: 2,
       pullRequestCount: 1,

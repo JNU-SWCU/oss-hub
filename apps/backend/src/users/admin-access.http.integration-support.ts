@@ -111,14 +111,14 @@ export class AdminAccessHttpHarness {
   ) {
     this.sequence += 1;
     return this.prisma.user.create({
-      data: canonicalUserCreateFromLabel(role, {
+    data: canonicalUserCreateFromLabel(role, {
         id: `test:pr03:admin-access-http:${this.fixtureNamespace}:${label}:${this.sequence}`,
         githubId: this.githubIdBase + BigInt(this.sequence),
         nickname: `synthetic-http-${label}-${this.sequence}`,
         accountStatus,
-      }),
-      select: { id: true, githubId: true, nickname: true },
-    });
+    }),
+    select: { id: true, githubId: true, nickname: true }
+});
   }
   async request(
     method: 'GET' | 'PATCH',

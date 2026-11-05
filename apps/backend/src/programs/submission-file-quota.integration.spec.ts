@@ -30,7 +30,7 @@ const FILE_BYTES_LIMIT = 5 * 1024 * 1024;
 function pendingRow(suffix: string, sizeBytes: number) {
   return {
     uploaderId: UPLOADER_ID,
-    applicationId: APPLICATION_ID,
+    teamId: APPLICATION_ID,
     milestoneId: MILESTONE_ID,
     storageKey: `${PREFIX}/${suffix}`,
     originalFileName: `${suffix}.pdf`,

@@ -27,7 +27,7 @@ interface FakeFixtures {
   readonly total?: number;
   readonly submissions?: readonly MatrixSubmissionRecord[];
   readonly firstSubmissions?: readonly {
-    readonly applicationId: string;
+    readonly teamId: string;
     readonly milestoneDocumentId: string;
     readonly firstSubmittedAt: Date;
   }[];
@@ -73,8 +73,8 @@ class FakeSubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
     });
   }
 
-  findCurrentSubmissions(applicationIds: readonly string[]) {
-    this.submissionCalls.push(applicationIds);
+  findCurrentSubmissions(teamIds: readonly string[]) {
+    this.submissionCalls.push(teamIds);
     return Promise.resolve(this.fixtures.submissions ?? []);
   }
   findDocumentFirstSubmissions() {
@@ -144,7 +144,7 @@ describe('SubmissionMatrixService', () => {
         {
           id: 'submission-1',
           milestoneDocumentId: 'required-1',
-          applicationId: 'application-personal',
+          teamId: 'application-personal',
           milestoneId: 'milestone-1',
           status: SubmissionStatus.CHANGES_REQUESTED,
           currentRevision: 2,
@@ -153,14 +153,14 @@ describe('SubmissionMatrixService', () => {
       ],
       firstSubmissions: [
         {
-          applicationId: 'application-personal',
+          teamId: 'application-personal',
           milestoneDocumentId: 'required-1',
           firstSubmittedAt: new Date('2026-08-18T01:00:00Z'),
         },
       ],
       changeRequests: [
-        { applicationId: 'application-team', milestoneId: 'milestone-2' },
-        { applicationId: 'application-team', milestoneId: 'milestone-2' },
+        { teamId: 'application-team', milestoneId: 'milestone-2' },
+        { teamId: 'application-team', milestoneId: 'milestone-2' },
       ],
     });
     const service = new SubmissionMatrixService(
@@ -189,7 +189,7 @@ describe('SubmissionMatrixService', () => {
       ],
       rows: [
         {
-          applicationId: 'application-personal',
+          teamId: 'application-personal',
           applicationMode: 'PERSONAL',
           displayName: '합성 신청자',
           githubLogins: ['synthetic-hong'],
@@ -215,7 +215,7 @@ describe('SubmissionMatrixService', () => {
           ],
         },
         {
-          applicationId: 'application-team',
+          teamId: 'application-team',
           applicationMode: 'TEAM',
           displayName: '합성 오픈소스팀',
           githubLogins: ['synthetic-leader', 'synthetic-member'],
@@ -364,8 +364,8 @@ describe('submissionMatrixApplicationWhere', () => {
           applicant: { name: contains },
         },
         { applicant: { nickname: contains } },
-        { team: { name: contains } },
-        { team: { members: { some: { user: { nickname: contains } } } } },
+        { name: contains },
+        { members: { some: { user: { nickname: contains } } } },
       ],
     });
   });

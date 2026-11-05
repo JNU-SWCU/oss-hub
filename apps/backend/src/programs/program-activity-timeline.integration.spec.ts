@@ -19,7 +19,6 @@ const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const studentId = `${prefix}-student`;
 const programId = `${prefix}-program`;
 const teamId = `${prefix}-team`;
-const applicationId = `${prefix}-application`;
 const linkedRepositoryId = `${prefix}-linked`;
 const unlinkedRepositoryId = `${prefix}-unlinked`;
 
@@ -32,67 +31,65 @@ afterAll(async () => {
 
 it('counts only current linked activity and never substitutes detached or unrelated repository facts', async () => {
   await prisma.user.create({
-    data: { id: studentId, githubId, nickname: 'synthetic-student' },
-  });
+    data: { id: studentId, githubId, nickname: 'synthetic-student' }
+});
   await prisma.program.create({
     data: {
-      startAt: new Date('2026-07-01Z'),
-      endAt: new Date(new Date('2026-07-31Z').getTime() + 365 * 86_400_000),
-
-      id: programId,
-      name: 'Synthetic program',
-      organizer: 'Synthetic',
-      category: 'BASIC',
-      applicationTemplateKey: 'synthetic',
-      applicationTemplateVersion: 1,
-      description: 'Synthetic',
-      applicationStartAt: new Date('2026-07-01Z'),
-      applicationEndAt: new Date('2026-07-31Z'),
-    },
-  });
+        startAt: new Date('2026-07-01Z'),
+        endAt: new Date(new Date('2026-07-31Z').getTime() + 365 * 86400000),
+        id: programId,
+        name: 'Synthetic program',
+        organizer: 'Synthetic',
+        category: 'BASIC',
+        applicationTemplateKey: 'synthetic',
+        applicationTemplateVersion: 1,
+        description: 'Synthetic',
+        applicationStartAt: new Date('2026-07-01Z'),
+        applicationEndAt: new Date('2026-07-31Z')
+    }
+});
   await prisma.team.create({
     data: {
-      id: teamId,
-      programId,
-      name: 'Synthetic team',
-      leaderId: studentId,
-    },
-  });
+        id: teamId,
+        programId,
+        name: 'Synthetic team',
+        leaderId: studentId,
+        applicantId: studentId,
+        answers: { title: 'Synthetic team' },
+        applicationTemplateVersion: 1
+    }
+});
   await prisma.teamMember.create({
-    data: { teamId, programId, userId: studentId },
-  });
-  await prisma.application.create({
+    data: { teamId, programId, userId: studentId }
+});
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
-      programId,
-      teamId,
-      applicantId: studentId,
-      status: 'APPROVED',
-      answers: {},
-      applicationTemplateVersion: 1,
-    },
-  });
+        programId,
+        applicantId: studentId,
+        status: 'APPROVED',
+        answers: {},
+        applicationTemplateVersion: 1
+    }
+});
   await prisma.githubRepository.createMany({
     data: [
-      {
-        id: linkedRepositoryId,
-        githubRepositoryId: githubId + 1n,
-        nameWithOwner: 'synthetic/linked',
-        source: 'EXTERNAL_PUBLIC',
-        applicationId,
-        programId,
-        teamId,
-      },
-      {
-        id: unlinkedRepositoryId,
-        githubRepositoryId: githubId + 2n,
-        nameWithOwner: 'synthetic/unlinked',
-        source: 'ORG_PROVISIONED',
-        programId,
-        teamId: null,
-      },
-    ],
-  });
+        {
+    id: linkedRepositoryId,
+    githubRepositoryId: githubId + 1n,
+    nameWithOwner: 'synthetic/linked',
+    source: 'EXTERNAL_PUBLIC',
+    teamId
+},
+        {
+    id: unlinkedRepositoryId,
+    githubRepositoryId: githubId + 2n,
+    nameWithOwner: 'synthetic/unlinked',
+    source: 'ORG_PROVISIONED',
+    teamId: null
+}
+    ]
+});
   await prisma.githubIssueHistory.createMany({
     data: [
       {
@@ -169,8 +166,8 @@ it('counts only current linked activity and never substitutes detached or unrela
   ).toBe(1);
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
-    data: { applicationId: null },
-  });
+    data: { teamId: null }
+});
   const detached = await service.activityTimeline(
     { githubId, userId: studentId },
     'MONTH',
@@ -184,14 +181,14 @@ it('counts only current linked activity and never substitutes detached or unrela
   ).toBe(1);
   await expect(
     prisma.githubRepository.findUniqueOrThrow({
-      where: { id: linkedRepositoryId },
-    }),
+    where: { id: linkedRepositoryId }
+}),
   ).resolves.toMatchObject({ programId, teamId });
 
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
-    data: { applicationId },
-  });
+    data: { teamId }
+});
   await prisma.collectionCommitFact.deleteMany({
     where: { repositoryId: linkedRepositoryId },
   });

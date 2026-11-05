@@ -57,8 +57,10 @@ const staffGithubId = 9878100004n;
 const recordAudit = jest.fn(async () => {});
 async function cleanup(): Promise<void> {
   await prisma.teamHistory.deleteMany({ where: { programId } });
-  await prisma.githubRepository.deleteMany({ where: { programId } });
-  await prisma.application.deleteMany({ where: { programId } });
+  await prisma.githubRepository.deleteMany({
+    where: { team: { programId: programId } },
+  });
+  await prisma.team.deleteMany({ where: { programId } });
   await prisma.milestone.deleteMany({ where: { programId } });
   await prisma.boardComment.deleteMany({ where: { post: { programId } } });
   await prisma.boardPost.deleteMany({ where: { programId } });
@@ -102,7 +104,14 @@ async function seed(lifecycle: ProgramLifecycle): Promise<void> {
       teamMinSize: 1,
       teamMaxSize: 4,
       teams: {
-        create: { id: teamId, name: 'Retained team', leaderId },
+        create: {
+          id: teamId,
+          name: 'Retained team',
+          leaderId,
+          applicantId: leaderId,
+          answers: {},
+          applicationTemplateVersion: 1,
+        },
       },
     },
   });
@@ -228,13 +237,7 @@ const membershipWrites = [
   {
     name: 'staff transfer leader',
     run: () =>
-      teams.transferLeaderForStaff(
-        programId,
-        teamId,
-        staffId,
-        memberId,
-        recordAudit,
-      ),
+      teams.transferLeader(programId, teamId, staffId, memberId, recordAudit),
     accepted: 'transferred',
     rejected: 'not-found',
   },
@@ -287,7 +290,6 @@ describe.each([
       staffId,
       scope,
       recordAudit,
-      recordAudit,
     );
     if (lifecycle === ProgramLifecycle.DELETED) {
       expect(result).toEqual({ outcome: 'not-found' });
@@ -324,10 +326,10 @@ describe.each([
     else expect(locked).toMatchObject({ id: milestone.id, programId });
   });
   it('resolves repository publication eligibility only in an available program', async () => {
-    const application = await prisma.application.create({
+    const application = await prisma.team.update({
+      where: { id: teamId },
       data: {
         programId,
-        teamId,
         applicantId: leaderId,
         answers: {},
         applicationTemplateVersion: 1,
@@ -337,9 +339,7 @@ describe.each([
     const repository = await prisma.githubRepository.create({
       data: {
         githubRepositoryId: 9878100101n,
-        programId,
         teamId,
-        applicationId: application.id,
         nameWithOwner: 'synthetic/deleted-write',
         source: 'ORG_PROVISIONED',
       },

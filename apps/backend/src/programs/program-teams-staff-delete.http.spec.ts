@@ -10,7 +10,10 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { TeamsController } from './teams.controller';
-import type { TeamRepository, TeamActorAuthority } from './team.repository';
+import type {
+  TeamRepository,
+  TeamActorAuthority,
+} from './team.repository';
 import type { TeamDeletionResult } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
@@ -31,7 +34,7 @@ const TEAM_ID = 'synthetic-team';
 const INSTANCE = `/api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}`;
 
 const EXPECTED_SCOPE = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 2,
   submissions: 4,
@@ -41,7 +44,7 @@ const EXPECTED_SCOPE = {
 };
 
 const DELETED_COUNTS = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 2,
   submissions: 4,
@@ -127,24 +130,7 @@ const repository = {
   findActorAuthorityByGithubId,
 } as unknown as TeamRepository;
 
-const service = new TeamMembershipService(
-  repository,
-  { record: jest.fn() } as unknown as AuditLogService,
-  stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
-  new AuditLogMetadataService(),
-  new RepositoryPublishService(),
-  new RepositoryUrlService(),
-  new MilestoneCompletionService(),
-  new StudentRepositoryUrlService(
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-    {} as never,
-  ),
-);
+const service = new TeamMembershipService(repository, stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
 
 const deleteForStaff = jest.fn(
   (...args: Parameters<TeamMembershipService['deleteForStaff']>) =>
@@ -332,7 +318,6 @@ it('확인한 범위를 그대로 보내면 200 과 지운 수치를 받는다',
     TEAM_ID,
     STAFF_AUTHORITY.id,
     EXPECTED_SCOPE,
-    expect.any(Function),
     expect.any(Function),
   );
 });

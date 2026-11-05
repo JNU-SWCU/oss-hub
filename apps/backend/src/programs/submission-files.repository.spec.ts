@@ -165,15 +165,15 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
           throw new Error('Unsupported expiry filter.');
         return row.expiresAt !== null && row.expiresAt.getTime() > gt.getTime();
       }
-      case 'application': {
+      case 'team': {
         const inner = (
           value as {
             is?: Filter;
           }
         ).is;
-        const team = inner?.team as Filter | undefined;
+        const team = inner;
         if (team === undefined) {
-          throw new Error('Unsupported application filter.');
+          throw new Error('Unsupported team filter.');
         }
         return matchesTeam(team, row);
       }
@@ -316,8 +316,8 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
       lifecycle: SubmissionFileLifecycle.ATTACHED,
       milestoneDocumentSubmissionHistoryId: { not: null },
       expiresAt: { gt: NOW },
-      application: {
-        is: { team: { members: { some: { userId: CURRENT_MEMBER } } } },
+      team: {
+        is: { members: { some: { userId: CURRENT_MEMBER } } },
       },
     });
     expect(JSON.stringify(where)).not.toContain('uploaderId');
@@ -373,7 +373,7 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
 describe('SubmissionFilesRepository.createPending membership lock', () => {
   const input = {
     uploaderId: 'user-current-member',
-    applicationId: 'application-opaque',
+    teamId: 'application-opaque',
     milestoneId: 'milestone-opaque',
     storageKey: 'submission-files/opaque',
     originalFileName: 'report.pdf',
@@ -425,7 +425,7 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     await repository.createPending(input);
     expect(lockMembership).toHaveBeenCalledWith(
       transactionClient,
-      input.applicationId,
+      input.teamId,
       input.uploaderId,
     );
     const lockOrder = lockMembership.mock.invocationCallOrder[0]!;
@@ -444,7 +444,7 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
       .catch((caught: unknown) => caught);
     expect(rejection).toBeInstanceOf(SubmissionMembershipChangedError);
     expect(rejection).toMatchObject({
-      applicationId: input.applicationId,
+      teamId: input.teamId,
       userId: input.uploaderId,
     });
     expect(queryRaw).not.toHaveBeenCalled();

@@ -96,15 +96,7 @@ beforeAll(async () => {
       RepositoryPublishService,
       {
         provide: StudentRepositoryUrlService,
-        useValue: new StudentRepositoryUrlService(
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-        ),
+        useValue: new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never),
       },
       TeamMembershipService,
       TeamRepository,
@@ -148,7 +140,7 @@ beforeAll(async () => {
               .fn()
               .mockResolvedValue({ id: 'synthetic-application' }),
           },
-          auditLog: { findMany: auditFindMany },
+          $queryRaw: auditFindMany,
         },
       },
     ],
@@ -211,9 +203,7 @@ beforeEach(() => {
                   user: { githubId: ACTORS.member.githubId, nickname: 'mate' },
                 },
               ],
-              applications: [
-                {
-                  id: 'synthetic-application',
+              id: TEAM_ID,
                   status: 'APPROVED',
                   repository: {
                     id: 'synthetic-repository',
@@ -221,8 +211,6 @@ beforeEach(() => {
                     lastSuccessAt: new Date('2026-08-10T00:00:00Z'),
                     failureCount: 0,
                   },
-                },
-              ],
             }
           : null,
       ),
@@ -269,7 +257,7 @@ it('팀장·팀원·교직원이 canEditRepositoryUrl 말고는 같은 본문을
   expect(member?.shared).toEqual(leader?.shared);
   expect(staff?.shared).toEqual(leader?.shared);
   expect(bodies[0]).toEqual({
-    applicationId: 'synthetic-application',
+    teamId: TEAM_ID,
     repository: {
       id: 'synthetic-repository',
       url: 'https://github.com/synthetic-org/synthetic-repo',

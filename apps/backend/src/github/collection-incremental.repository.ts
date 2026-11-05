@@ -68,9 +68,8 @@ export interface CollectionRepositoryRow {
 
   failureCount?: number;
 
-  applicationId?: string | null;
-  programId?: string | null;
   teamId?: string | null;
+  programId?: string | null;
 }
 
 export interface RepositoryTeamMemberAccount {
@@ -948,7 +947,7 @@ export class CollectionIncrementalStoreRepository {
   }
 
   async findOutsiderCountingWindow(repositoryId: string): Promise<{
-    applicationId: string;
+    teamId: string;
     programId: string;
     startAt: Date;
     endAt: Date;
@@ -957,24 +956,24 @@ export class CollectionIncrementalStoreRepository {
     const row = await this.db.githubRepository.findUnique({
       where: { id: repositoryId },
       select: {
-        applicationId: true,
-        program: { select: { id: true, startAt: true, endAt: true } },
+        teamId: true,
+        team: { select: { program: { select: { id: true, startAt: true, endAt: true } } } },
         outsider: true,
       },
     });
-    if (!row || row.applicationId === null || row.program === null) return null;
+    if (!row || row.teamId === null || row.team === null) return null;
     const counted = row.outsider;
     const sameBasis =
       counted !== null &&
-      counted.applicationId === row.applicationId &&
-      counted.programId === row.program.id &&
-      counted.windowStartAt.getTime() === row.program.startAt.getTime() &&
-      counted.windowEndAt.getTime() === row.program.endAt.getTime();
+      counted.teamId === row.teamId &&
+      counted.programId === row.team.program.id &&
+      counted.windowStartAt.getTime() === row.team.program.startAt.getTime() &&
+      counted.windowEndAt.getTime() === row.team.program.endAt.getTime();
     return {
-      applicationId: row.applicationId,
-      programId: row.program.id,
-      startAt: row.program.startAt,
-      endAt: row.program.endAt,
+      teamId: row.teamId,
+      programId: row.team.program.id,
+      startAt: row.team.program.startAt,
+      endAt: row.team.program.endAt,
       countedThrough: sameBasis ? counted.observedAt : null,
     };
   }
@@ -997,7 +996,7 @@ export class CollectionIncrementalStoreRepository {
 
   async saveOutsiderContribution(input: {
     repositoryId: string;
-    applicationId: string;
+    teamId: string;
     programId: string;
     windowStartAt: Date;
     windowEndAt: Date;

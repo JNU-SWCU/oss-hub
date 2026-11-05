@@ -1,5 +1,5 @@
 export type TeamDeletionScopeCounts = {
-  readonly applications: number;
+  readonly teams: number;
   readonly members: number;
   readonly invitations: number;
   readonly submissions: number;

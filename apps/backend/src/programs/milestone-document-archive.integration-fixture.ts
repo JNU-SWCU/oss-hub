@@ -37,7 +37,7 @@ export class ProgramArchiveIntegrationFixture {
     await this.prisma.$connect();
     await this.clear();
     await this.prisma.user.create({
-      data: {
+    data: {
         id: archiveId('user'),
         githubId: 960000001135099n,
         nickname: archiveId('user'),
@@ -47,25 +47,25 @@ export class ProgramArchiveIntegrationFixture {
         department: 'Synthetic department',
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        departmentType: 'DEPARTMENT',
-      },
-    });
+        departmentType: 'DEPARTMENT'
+    }
+});
     for (const suffix of ['a', 'b']) {
       await this.prisma.program.create({
-        data: {
-          id: archiveId(suffix),
-          name: `합성 프로그램 ${suffix}`,
-          organizer: 'OSS Hub',
-          category: 'CAPSTONE',
-          applicationTemplateKey: 'capstone-v1',
-          applicationTemplateVersion: 1,
-          applicationStartAt: new Date('2026-01-01'),
-          applicationEndAt: new Date('2026-02-01'),
-          startAt: new Date('2026-02-02'),
-          endAt: new Date('2099-12-31'),
-          description: 'synthetic archive fixture',
-        },
-      });
+    data: {
+        id: archiveId(suffix),
+        name: `합성 프로그램 ${suffix}`,
+        organizer: 'OSS Hub',
+        category: 'CAPSTONE',
+        applicationTemplateKey: 'capstone-v1',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-01-01'),
+        applicationEndAt: new Date('2026-02-01'),
+        startAt: new Date('2026-02-02'),
+        endAt: new Date('2099-12-31'),
+        description: 'synthetic archive fixture'
+    }
+});
     }
     for (const [stage, program] of [
       ['a1', 'a'],
@@ -102,27 +102,28 @@ export class ProgramArchiveIntegrationFixture {
     for (const index of [0, 1, 2, 3]) {
       const programId = archiveId(index === 3 ? 'b' : 'a');
       await this.prisma.team.create({
-        data: {
-          id: archiveId(`team-${index}`),
-          programId,
-          name: `합성 팀 ${index}`,
-          leaderId: archiveId('user'),
-        },
-      });
-      await this.prisma.application.create({
-        data: {
-          id: archiveId(`app-${index}`),
-          programId,
-          teamId: archiveId(`team-${index}`),
-          applicantId: archiveId('user'),
-          answers: {},
-          applicationTemplateVersion: 1,
-          status:
-            index === 2
-              ? ApplicationStatus.SUBMITTED
-              : ApplicationStatus.APPROVED,
-        },
-      });
+    data: {
+        id: archiveId(`team-${index}`),
+        programId,
+        name: `합성 팀 ${index}`,
+        leaderId: archiveId('user'),
+        applicantId: archiveId('user'),
+        answers: { title: `합성 팀 ${index}` },
+        applicationTemplateVersion: 1
+    }
+});
+      await this.prisma.team.update({
+    where: { id: archiveId(`team-${index}`) },
+    data: {
+        programId,
+        applicantId: archiveId('user'),
+        answers: {},
+        applicationTemplateVersion: 1,
+        status: index === 2
+            ? ApplicationStatus.SUBMITTED
+            : ApplicationStatus.APPROVED
+    }
+});
     }
     for (const [team, stage, status] of [
       [0, 'a1', SubmissionStatus.REJECTED],
@@ -132,32 +133,31 @@ export class ProgramArchiveIntegrationFixture {
       [3, 'b1', SubmissionStatus.SUBMITTED],
     ] as const) {
       await this.prisma.milestoneDocumentSubmission.create({
-        data: {
-          id: archiveId(`submission-${team}-${stage}`),
-          milestoneDocumentId: archiveId(`doc-${stage}`),
-          applicationId: archiveId(`app-${team}`),
-          submittedById: archiveId('user'),
-          submittedAt: archiveNow,
-          revision: 2,
-          status,
-          content: { type: 'TEXT', text: `current-${team}-${stage}` },
-          histories: {
+    data: {
+        id: archiveId(`submission-${team}-${stage}`),
+        milestoneDocumentId: archiveId(`doc-${stage}`),
+        teamId: archiveId(`app-${team}`),
+        submittedById: archiveId('user'),
+        submittedAt: archiveNow,
+        revision: 2,
+        status,
+        content: { type: 'TEXT', text: `current-${team}-${stage}` },
+        histories: {
             create: [1, 2].map((revision) => ({
-              id: archiveId(`history-${team}-${stage}-${revision}`),
-              event: revision === 1 ? 'SUBMITTED' : 'RESUBMITTED',
-              revision,
-              actorId: archiveId('user'),
-              content: {
-                type: 'TEXT',
-                text:
-                  revision === 1
-                    ? 'previous-revision-must-not-export'
-                    : `current-${team}-${stage}`,
-              },
-            })),
-          },
-        },
-      });
+                id: archiveId(`history-${team}-${stage}-${revision}`),
+                event: revision === 1 ? 'SUBMITTED' : 'RESUBMITTED',
+                revision,
+                actorId: archiveId('user'),
+                content: {
+                    type: 'TEXT',
+                    text: revision === 1
+                        ? 'previous-revision-must-not-export'
+                        : `current-${team}-${stage}`,
+                },
+            }))
+        }
+    }
+});
     }
     await this.addFile('a1', 1, Buffer.from('%PDF-previous'), 'pdf');
     await this.addFile('a1', 2, retainedImage, 'png');
@@ -178,50 +178,48 @@ export class ProgramArchiveIntegrationFixture {
       objectKey: storageKey,
     });
     await this.prisma.submissionFile.create({
-      data: {
+    data: {
         id: archiveId(`file-${stage}-${revision}`),
         uploaderId: archiveId('user'),
-        applicationId: archiveId('app-0'),
+        teamId: archiveId('app-0'),
         milestoneId: archiveId(stage),
         milestoneDocumentSubmissionId: archiveId(`submission-0-${stage}`),
-        milestoneDocumentSubmissionHistoryId: archiveId(
-          `history-0-${stage}-${revision}`,
-        ),
+        milestoneDocumentSubmissionHistoryId: archiveId(`history-0-${stage}-${revision}`),
         lifecycle: 'ATTACHED',
         expiresAt: new Date('2099-12-31'),
         storageKey,
         originalFileName: originalName,
         mimeType: 'application/octet-stream',
-        sizeBytes: body.length,
-      },
-    });
+        sizeBytes: body.length
+    }
+});
   }
   async clear(): Promise<void> {
     const programs = { in: [archiveId('a'), archiveId('b')] };
     const files = await this.prisma.submissionFile.findMany({
-      where: { uploaderId: archiveId('user') },
-      select: { storageKey: true },
-    });
+    where: { uploaderId: archiveId('user') },
+    select: { storageKey: true }
+});
     await Promise.all(
       files.map((file) => this.storage.delete(file.storageKey)),
     );
     await this.prisma.submissionFile.deleteMany({
-      where: { uploaderId: archiveId('user') },
-    });
-    const submissions = { application: { programId: programs } };
+    where: { uploaderId: archiveId('user') }
+});
+    const submissions = { team: { programId: programs } };
     await this.prisma.milestoneDocumentSubmissionHistory.deleteMany({
-      where: { submission: submissions },
-    });
+    where: { submission: submissions }
+});
     await this.prisma.milestoneDocumentSubmission.deleteMany({
-      where: submissions,
-    });
+    where: submissions
+});
     await this.prisma.milestoneDocument.deleteMany({
       where: { milestone: { programId: programs } },
     });
     await this.prisma.milestone.deleteMany({ where: { programId: programs } });
-    await this.prisma.application.deleteMany({
-      where: { programId: programs },
-    });
+    await this.prisma.team.deleteMany({
+    where: { programId: programs }
+});
     await this.prisma.team.deleteMany({ where: { programId: programs } });
     await this.prisma.program.deleteMany({ where: { id: programs } });
     await this.prisma.user.deleteMany({ where: { id: archiveId('user') } });

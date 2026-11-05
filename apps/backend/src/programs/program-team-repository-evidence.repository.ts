@@ -98,7 +98,7 @@ interface TeamActivityCounts {
 }
 
 export interface TeamActivityView {
-  readonly applicationId: string | null;
+  readonly teamId: string | null;
   readonly repository: { readonly id: string; readonly url: string } | null;
   readonly status: 'NOT_CONNECTED' | 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR';
   readonly lastSuccessAt: string | null;
@@ -139,7 +139,7 @@ export interface ProgramTeamView {
   readonly memberCount: number;
   readonly minMembers: number;
   readonly maxMembers: number;
-  readonly hasApplication: boolean;
+  readonly status: ApplicationStatus;
   readonly canInvite: boolean;
   readonly canRemoveMembers: boolean;
   readonly canLeave: boolean;
@@ -236,58 +236,20 @@ export class ProgramTeamRepositoryEvidenceRepository {
     scope: {
       readonly programId: string;
       readonly teamId: string;
-      readonly applicationId: string;
     },
     cursor?: RepositoryUrlHistoryCursor,
   ): Promise<RepositoryUrlHistoryRows> {
-    const rows = await this.prisma.auditLog.findMany({
-      where: {
-        targetType: 'APPLICATION',
-        targetId: scope.applicationId,
-        AND: [
-          {
-            OR: [
-              {
-                action: APPLICATION_REPOSITORY_URL_CHANGED,
-                AND: [
-                  {
-                    metadata: { path: ['programId'], equals: scope.programId },
-                  },
-                  { metadata: { path: ['teamId'], equals: scope.teamId } },
-                ],
-              },
-
-              {
-                action: REPOSITORY_CONNECTION_CHANGED,
-                metadata: {
-                  path: ['applicationId'],
-                  equals: scope.applicationId,
-                },
-              },
-            ],
-          },
-          ...(cursor
-            ? [
-                {
-                  OR: [
-                    { occurredAt: { lt: cursor.occurredAt } },
-                    { occurredAt: cursor.occurredAt, id: { lt: cursor.id } },
-                  ],
-                },
-              ]
-            : []),
-        ],
-      },
-      select: {
-        id: true,
-        action: true,
-        occurredAt: true,
-        metadata: true,
-        actor: { select: { nickname: true } },
-      },
-      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      take: 21,
-    });
+    const rows = await this.prisma.$queryRaw<RepositoryUrlHistoryRow[]>`
+      SELECT h.id, 'APPLICATION_REPOSITORY_URL_CHANGED' AS action, h."occurredAt",
+        h.data->'metadata' AS metadata, jsonb_build_object('nickname', u.login) AS actor
+      FROM "TeamHistory" h LEFT JOIN "User" u ON u.id = h."actorId"
+      WHERE h."teamId" = ${scope.teamId} AND h."programId" = ${scope.programId}
+        AND h.event = 'REPOSITORY_URL_CHANGED'
+        AND (${cursor?.occurredAt ?? null}::timestamp IS NULL
+          OR h."occurredAt" < ${cursor?.occurredAt ?? null}
+          OR (h."occurredAt" = ${cursor?.occurredAt ?? null} AND h.id < ${cursor?.id ?? null}))
+      ORDER BY h."occurredAt" DESC, h.id DESC LIMIT 21
+    `;
     return { rows: rows.slice(0, 20), hasMore: rows.length > 20 };
   }
 
@@ -365,7 +327,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
       });
     if (
       row === null ||
-      row.applicationId !== application.id ||
+      row.teamId !== application.id ||
       row.programId !== program.id ||
       row.windowStartAt.getTime() !== program.startAt.getTime() ||
       row.windowEndAt.getTime() !== program.endAt.getTime()
@@ -407,7 +369,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
         })
       : [];
     return {
-      applicationId: team.application?.id ?? null,
+      teamId: team.application?.id ?? null,
       repository: repository && {
         id: repository.id,
         nameWithOwner: repository.nameWithOwner,

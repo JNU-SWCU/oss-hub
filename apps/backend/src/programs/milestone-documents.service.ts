@@ -174,7 +174,7 @@ export class MilestoneDocumentsService {
       );
       if (application !== null) {
         const summaries = await this.repository.findSubmittedSummaries(
-          application.applicationId,
+          application.teamId,
           documentIds,
           now,
         );
@@ -242,7 +242,7 @@ export class MilestoneDocumentsService {
           query,
         );
       const pageApplicationIds = coordinatePage.rows.map(
-        (row) => row.application.applicationId,
+        (row) => row.application.teamId,
       );
       const submissions = await store.findSubmissionsForCollection(
         documentIds,
@@ -251,7 +251,7 @@ export class MilestoneDocumentsService {
       );
       const detailByCell = new Map(
         submissions.map((submission) => [
-          `${submission.applicationId}::${submission.milestoneDocumentId}`,
+          `${submission.teamId}::${submission.milestoneDocumentId}`,
           this.milestoneDocumentCollectionService.toMilestoneDocumentCollectionCell(
             submission,
           ),
@@ -263,9 +263,8 @@ export class MilestoneDocumentsService {
           application: row.application,
           cells: documents.map(
             (document) =>
-              detailByCell.get(
-                `${row.application.applicationId}::${document.id}`,
-              ) ?? null,
+              detailByCell.get(`${row.application.teamId}::${document.id}`) ??
+              null,
           ),
         })),
       };
@@ -284,7 +283,7 @@ export class MilestoneDocumentsService {
   async historyForStaff(
     milestoneId: string,
     documentId: string,
-    applicationId: string,
+    teamId: string,
     request: {
       readonly cursor?: string | null;
       readonly limit?: number;
@@ -296,11 +295,11 @@ export class MilestoneDocumentsService {
       throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
     }
     const applicationProgramId =
-      await this.repository.findApplicationProgramId(applicationId);
+      await this.repository.findApplicationProgramId(teamId);
     if (applicationProgramId !== document.programId) {
       throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
     }
-    const page = await this.findHistoryPage(documentId, applicationId, query);
+    const page = await this.findHistoryPage(documentId, teamId, query);
     return {
       items: page.items.map((item) => ({
         event: item.event,
@@ -346,7 +345,7 @@ export class MilestoneDocumentsService {
     }
     const page = await this.findHistoryPage(
       documentId,
-      application.applicationId,
+      application.teamId,
       query,
     );
     return {
@@ -554,11 +553,11 @@ export class MilestoneDocumentsService {
     }
     const latestReview = await this.repository.findLatestReview(
       documentId,
-      application.applicationId,
+      application.teamId,
     );
     const currentSubmission = await this.repository.findMySubmission(
       documentId,
-      application.applicationId,
+      application.teamId,
     );
     const latestDecision = latestReview?.decision ?? null;
     const submissionStatus = currentSubmission?.status ?? null;
@@ -593,7 +592,7 @@ export class MilestoneDocumentsService {
     try {
       const detail = await this.repository.upsertSubmission({
         milestoneDocumentId: documentId,
-        applicationId: application.applicationId,
+        teamId: application.teamId,
         submittedById: viewer.id,
         submittedAt: now,
         deadline: {
@@ -654,19 +653,14 @@ export class MilestoneDocumentsService {
   }
   private async findHistoryPage(
     documentId: string,
-    applicationId: string,
+    teamId: string,
     query: {
       readonly cursor: string | null;
       readonly limit: number;
     },
   ) {
     const page = await this.repository
-      .findSubmissionHistoryPage(
-        documentId,
-        applicationId,
-        query.cursor,
-        query.limit,
-      )
+      .findSubmissionHistoryPage(documentId, teamId, query.cursor, query.limit)
       .catch((error: unknown) => {
         if (error instanceof InvalidMilestoneDocumentHistoryCursorError) {
           throw this.error(MilestoneDocumentsErrorCode.INVALID_REQUEST);

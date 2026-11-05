@@ -76,9 +76,9 @@ async function review(
   const submission =
     await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
       where: {
-        milestoneDocumentId_applicationId: {
+        milestoneDocumentId_teamId: {
           milestoneDocumentId: flowIds.document,
-          applicationId: flowIds.application,
+          teamId: flowIds.application,
         },
       },
       select: { id: true },
@@ -92,7 +92,7 @@ async function review(
 async function expectSubmissionUnchanged(): Promise<void> {
   const submission =
     await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { applicationId: flowIds.application },
+      where: { teamId: flowIds.application },
       select: {
         status: true,
         revision: true,
@@ -197,7 +197,7 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
       await review(path, flowGithubIds.staff, ReviewDecision.APPROVED);
       await expect(
         fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-          where: { applicationId: flowIds.application },
+          where: { teamId: flowIds.application },
           select: {
             status: true,
             histories: {

@@ -10,7 +10,7 @@ function review(
     decision: ReviewDecision.CHANGES_REQUESTED,
     comment: '표지를 보완해 주세요.',
     reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
-    applicationId: 'synthetic-application',
+    teamId: 'synthetic-application',
     programId: 'synthetic-program',
     milestoneId: 'seed:milestone',
     milestoneName: '중간 보고',
@@ -51,7 +51,7 @@ describe('MilestoneDocumentFeedbackService', () => {
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: '표지를 보완해 주세요.',
         reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
-        applicationId: 'synthetic-application',
+        teamId: 'synthetic-application',
         programId: 'synthetic-program',
         milestoneId: 'seed:milestone',
         milestoneName: '중간 보고',
@@ -137,7 +137,6 @@ describe('MilestoneDocumentFeedbackService', () => {
     ]);
     const response = await service.recentForParticipant(34290202n);
     expect(Object.keys(response.items[0] ?? {}).sort()).toEqual([
-      'applicationId',
       'comment',
       'decision',
       'id',
@@ -146,6 +145,7 @@ describe('MilestoneDocumentFeedbackService', () => {
       'milestoneName',
       'programId',
       'reviewedAt',
-    ]);
+      'teamId',
+    ].sort());
   });
 });

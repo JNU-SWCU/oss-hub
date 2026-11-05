@@ -9,21 +9,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from '../github/repository-provision-event.config';
-import {
-  prisma,
-  service,
-  applications,
-  audit,
-  resolver,
-  githubId,
-  programId,
-  applicationId,
-  teamId,
-  oldId,
-  targetId,
-  targetGithubId,
-  input,
-} from './student-repository-url.integration.fixture';
+import { prisma, service, applications, audit, resolver, githubId, programId, teamId, oldId, targetId, targetGithubId, input } from './student-repository-url.integration.fixture';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { TeamApplicationService } from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -33,14 +19,7 @@ const parseProvisionPayload = (payload: unknown) =>
   new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
 
 const auditLogMetadataService = new AuditLogMetadataService();
-const applicationsService = new TeamApplicationService(
-  applications,
-  audit,
-  auditLogMetadataService,
-  new RepositoryUrlService(),
-  new ApplicationAnswersService(),
-  new RepositoryProvisionEventService(),
-);
+const applicationsService = new TeamApplicationService(applications, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -73,13 +52,13 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
   expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
   expect(
     await prisma.githubRepository.count({
-      where: { id: { in: [oldId, targetId] }, teamId: null },
-    }),
+    where: { id: { in: [oldId, targetId] }, teamId: null }
+}),
   ).toBe(0);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({
-    applicationId,
+    teamId,
     presence: 'PRESENT',
     failureCount: 0,
     archived: false,
@@ -87,13 +66,13 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
     source: RepositorySource.EXTERNAL_PUBLIC,
   });
   expect(
-    await prisma.application.findUnique({ where: { id: applicationId } }),
+    await prisma.team.findUnique({ where: { id: teamId } }),
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,
   });
   const entries = await prisma.auditLog.findMany({
-    where: { targetId: applicationId },
+    where: { targetId: teamId },
   });
   expect(entries).toMatchObject([
     {
@@ -111,15 +90,15 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
 
 it('rejects a repository relink after the program is deleted and keeps its current binding', async () => {
   const before = await prisma.githubRepository.findUniqueOrThrow({
-    where: { id: oldId },
-  });
+    where: { id: oldId }
+});
   const targetBefore = await prisma.githubRepository.findUniqueOrThrow({
-    where: { id: targetId },
-  });
+    where: { id: targetId }
+});
   await prisma.program.update({
     where: { id: programId },
-    data: { lifecycle: 'DELETED' },
-  });
+    data: { lifecycle: 'DELETED' }
+});
 
   await expect(
     service.updateMine(githubId, programId, input),
@@ -141,15 +120,15 @@ it('rolls back binding and queue changes when the audit write fails', async () =
   );
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId });
+  ).toMatchObject({ teamId });
   expect(
     await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
   ).toEqual([expect.objectContaining({ commitCount: 7 })]);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ applicationId: null, presence: 'ABSENT', failureCount: 4 });
+  ).toMatchObject({ teamId: null, presence: 'ABSENT', failureCount: 4 });
   expect(
-    await prisma.application.findUnique({ where: { id: applicationId } }),
+    await prisma.team.findUnique({ where: { id: teamId } }),
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.NEW,
     repositoryUrl: null,
@@ -158,17 +137,17 @@ it('rolls back binding and queue changes when the audit write fails', async () =
 it('rejects a processing provision job without detaching the current repository', async () => {
   await prisma.repositoryProvisionJob.create({
     data: {
-      applicationId,
-      repositoryId: oldId,
-      status: RepositoryProvisionJobStatus.PROCESSING,
-    },
-  });
+        teamId,
+        repositoryId: oldId,
+        status: RepositoryProvisionJobStatus.PROCESSING
+    }
+});
   await expect(
     service.updateMine(githubId, programId, input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_030' } });
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId });
+  ).toMatchObject({ teamId });
 });
 it('serializes duplicate edits into one audit entry', async () => {
   await Promise.all([
@@ -176,7 +155,7 @@ it('serializes duplicate edits into one audit entry', async () => {
     service.updateMine(githubId, programId, input),
   ]);
   expect(
-    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+    await prisma.auditLog.count({ where: { targetId: teamId } }),
   ).toBe(1);
   expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
 });
@@ -199,7 +178,7 @@ it('같은 URL을 다시 등록해도 레포와 수집 기록 및 감사 이력�
     await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
   ).toEqual([expect.objectContaining({ commitCount: 3 })]);
   expect(
-    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+    await prisma.auditLog.count({ where: { targetId: teamId } }),
   ).toBe(1);
 });
 
@@ -241,14 +220,14 @@ it('projects a successful relink without an original provision outbox', async ()
   await service.updateMine(githubId, programId, input);
   expect(
     await prisma.repositoryProvisionJob.findUnique({
-      where: { applicationId },
-    }),
+    where: { teamId }
+}),
   ).toMatchObject({
     repositoryId: targetId,
     status: RepositoryProvisionJobStatus.SUCCEEDED,
   });
   expect(
-    (await applicationsService.getForStaff(applicationId)).application,
+    (await applicationsService.getForStaff(teamId)).application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: input.repositoryUrl,
@@ -258,20 +237,20 @@ it('projects a successful relink without an original provision outbox', async ()
 it('takes a manual link out of the membership access sync on a provisioning-on program', async () => {
   await prisma.program.update({
     where: { id: programId },
-    data: { repositoryProvisioningEnabled: true },
-  });
+    data: { repositoryProvisioningEnabled: true }
+});
   expect(
-    await prisma.application.count({
-      where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId),
-    }),
+    await prisma.team.count({
+    where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId)
+}),
   ).toBe(1);
 
   await service.updateMine(githubId, programId, input);
 
   expect(
-    await prisma.application.count({
-      where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId),
-    }),
+    await prisma.team.count({
+    where: new PlatformRepository().repositoryAccessSyncTargetWhere(teamId)
+}),
   ).toBe(0);
 });
 it('links a managed organization repository without re-arming provisioning', async () => {
@@ -280,13 +259,12 @@ it('links a managed organization repository without re-arming provisioning', asy
     const event = await transaction.outboxEvent.create({
       data: {
         type: REPOSITORY_PROVISION_EVENT_TYPE,
-        aggregateType: 'Application',
-        aggregateId: applicationId,
-        idempotencyKey: `repository-provision:${applicationId}`,
+        aggregateType: 'Team',
+        aggregateId: teamId,
+        idempotencyKey: `repository-provision:${teamId}`,
         payload: {
-          applicationId,
-          programId,
           teamId,
+          programId,
           requestedAt: now.toISOString(),
           collaboratorGithubLogins: ['synthetic-relink-user'],
           repositoryConnectionMode: 'NEW',
@@ -297,7 +275,7 @@ it('links a managed organization repository without re-arming provisioning', asy
     });
     await new RepositoryProvisionGenerationRepository().transferProvisionGeneration(
       transaction,
-      { applicationId, newEventId: event.id, now },
+      { teamId, newEventId: event.id, now },
       parseProvisionPayload,
     );
     return event;
@@ -320,7 +298,7 @@ it('links a managed organization repository without re-arming provisioning', asy
   });
 
   expect(
-    await prisma.application.findUnique({ where: { id: applicationId } }),
+    await prisma.team.findUnique({ where: { id: teamId } }),
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryUrl: 'https://github.com/synthetic-org/target',
@@ -328,12 +306,12 @@ it('links a managed organization repository without re-arming provisioning', asy
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({
-    applicationId,
+    teamId,
     source: RepositorySource.ORG_PROVISIONED,
   });
   expect(
     await prisma.outboxEvent.findMany({
-      where: { aggregateId: applicationId },
+      where: { aggregateId: teamId },
       select: { id: true },
     }),
   ).toEqual([{ id: pending.id }]);
@@ -345,8 +323,8 @@ it('links a managed organization repository without re-arming provisioning', asy
 
   expect(
     await prisma.repositoryProvisionJob.findUniqueOrThrow({
-      where: { applicationId },
-    }),
+    where: { teamId }
+}),
   ).toMatchObject({
     repositoryId: targetId,
     status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -364,9 +342,9 @@ it('links a managed organization repository without re-arming provisioning', asy
 it('checks the program end after acquiring the transaction lock', async () => {
   jest.spyOn(resolver, 'resolve').mockImplementationOnce(async () => {
     await prisma.program.update({
-      where: { id: programId },
-      data: { endAt: new Date('2026-02-01') },
-    });
+    where: { id: programId },
+    data: { endAt: new Date('2026-02-01') }
+});
     return {
       kind: 'EXTERNAL',
       repository: {
@@ -414,7 +392,7 @@ it('serializes different targets into a continuous audit chain', async () => {
     }),
   ]);
   const rows = await prisma.auditLog.findMany({
-    where: { targetId: applicationId },
+    where: { targetId: teamId },
   });
   const history = rows.map((row) =>
     auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(
@@ -429,7 +407,7 @@ it('serializes different targets into a continuous audit chain', async () => {
   expect(first).toBeDefined();
   expect(second).toBeDefined();
   expect(
-    await prisma.githubRepository.findUnique({ where: { applicationId } }),
+    await prisma.githubRepository.findUnique({ where: { teamId } }),
   ).toMatchObject({ id: second?.after.repositoryId });
 });
 
@@ -437,32 +415,31 @@ it('rejects a repository carrying another program history without detaching the 
   const otherProgramId = `${programId}-foreign`;
   await prisma.program.create({
     data: {
-      startAt: new Date('2026-01-01'),
-      endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86_400_000),
-
-      id: otherProgramId,
-      name: 'Synthetic foreign program',
-      organizer: 'Synthetic',
-      category: 'BASIC',
-      applicationTemplateKey: 'basic',
-      applicationTemplateVersion: 1,
-      applicationStartAt: new Date('2026-01-01'),
-      applicationEndAt: new Date('2026-01-31'),
-      description: 'Synthetic',
-    },
-  });
+        startAt: new Date('2026-01-01'),
+        endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86400000),
+        id: otherProgramId,
+        name: 'Synthetic foreign program',
+        organizer: 'Synthetic',
+        category: 'BASIC',
+        applicationTemplateKey: 'basic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-01-01'),
+        applicationEndAt: new Date('2026-01-31'),
+        description: 'Synthetic'
+    }
+});
   await prisma.githubRepository.update({
     where: { id: targetId },
-    data: { programId: otherProgramId },
-  });
+    data: {}
+});
   await expect(
     service.updateMine(githubId, programId, input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_029' } });
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId });
+  ).toMatchObject({ teamId });
   expect(
-    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+    await prisma.auditLog.count({ where: { targetId: teamId } }),
   ).toBe(0);
 });
 
@@ -470,32 +447,34 @@ it('rejects another team history that lands on the target after it was read', as
   const otherProgramId = `${programId}-race`;
   const otherTeamId = `${teamId}-race`;
   const { id: leaderId } = await prisma.user.findUniqueOrThrow({
-    where: { githubId },
-  });
+    where: { githubId }
+});
   await prisma.program.create({
     data: {
-      startAt: new Date('2026-01-01'),
-      endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86_400_000),
-
-      id: otherProgramId,
-      name: 'Synthetic race program',
-      organizer: 'Synthetic',
-      category: 'BASIC',
-      applicationTemplateKey: 'basic',
-      applicationTemplateVersion: 1,
-      applicationStartAt: new Date('2026-01-01'),
-      applicationEndAt: new Date('2026-01-31'),
-      description: 'Synthetic',
-    },
-  });
+        startAt: new Date('2026-01-01'),
+        endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86400000),
+        id: otherProgramId,
+        name: 'Synthetic race program',
+        organizer: 'Synthetic',
+        category: 'BASIC',
+        applicationTemplateKey: 'basic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-01-01'),
+        applicationEndAt: new Date('2026-01-31'),
+        description: 'Synthetic'
+    }
+});
   await prisma.team.create({
     data: {
-      id: otherTeamId,
-      programId: otherProgramId,
-      name: 'Synthetic race team',
-      leaderId,
-    },
-  });
+        id: otherTeamId,
+        programId: otherProgramId,
+        name: 'Synthetic race team',
+        leaderId,
+        applicantId: leaderId,
+        answers: { title: 'Synthetic race team' },
+        applicationTemplateVersion: 1
+    }
+});
   let reportLocked!: () => void;
   let release!: () => void;
   const locked = new Promise<void>((resolve) => {
@@ -509,9 +488,9 @@ it('rejects another team history that lands on the target after it was read', as
     reportLocked();
     await released;
     await transaction.githubRepository.update({
-      where: { id: targetId },
-      data: { programId: otherProgramId, teamId: otherTeamId },
-    });
+    where: { id: targetId },
+    data: { teamId: otherTeamId }
+});
   });
   await locked;
 
@@ -527,15 +506,14 @@ it('rejects another team history that lands on the target after it was read', as
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({
-    applicationId: null,
+    teamId: null,
     programId: otherProgramId,
-    teamId: otherTeamId,
   });
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId });
+  ).toMatchObject({ teamId });
   expect(
-    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+    await prisma.auditLog.count({ where: { targetId: teamId } }),
   ).toBe(0);
 });
 
@@ -556,15 +534,15 @@ async function waitForGithubRepositoryUpdateWaiter(): Promise<void> {
 
 it('lets the original applicant read but rejects writes after leadership changes', async () => {
   const successor = await prisma.user.create({
-    data: { githubId: targetGithubId + 5n, nickname: 'synthetic-successor' },
-  });
+    data: { githubId: targetGithubId + 5n, nickname: 'synthetic-successor' }
+});
   await prisma.teamMember.create({
-    data: { teamId, programId, userId: successor.id },
-  });
+    data: { teamId, programId, userId: successor.id }
+});
   await prisma.team.update({
     where: { id: teamId },
-    data: { leaderId: successor.id },
-  });
+    data: { leaderId: successor.id }
+});
   expect(await service.getMine(githubId, programId)).toEqual({
     repositoryUrl: 'https://github.com/synthetic/old',
     canEditRepositoryUrl: false,
@@ -575,9 +553,9 @@ it('lets the original applicant read but rejects writes after leadership changes
   ).rejects.toMatchObject({ errorCode: { code: 'APP_001' } });
   expect(resolver.resolve).not.toHaveBeenCalled();
   expect(
-    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+    await prisma.auditLog.count({ where: { targetId: teamId } }),
   ).toBe(0);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId });
+  ).toMatchObject({ teamId });
 });

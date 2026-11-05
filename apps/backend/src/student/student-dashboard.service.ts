@@ -36,7 +36,7 @@ interface StudentDashboardProgress {
 }
 export interface StudentDashboardItem {
   readonly coverImageUrl?: string | null;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly programName: string;
   readonly teamName: string;
@@ -113,7 +113,7 @@ export class StudentDashboardService {
     ]);
     const repositoryByApplication = new Map(
       projectedRepositories.map((repository) => [
-        repository.applicationId,
+        repository.teamId,
         repository,
       ]),
     );
@@ -122,7 +122,7 @@ export class StudentDashboardService {
       if (
         !isSafeProgramId(application.program.id) ||
         !isNonEmptyString(application.program.name) ||
-        !isNonEmptyString(application.team.name)
+        !isNonEmptyString(application.name)
       ) {
         continue;
       }
@@ -141,10 +141,10 @@ export class StudentDashboardService {
           application.program.cover?.id,
           application.program.cover?.imageUrl,
         ),
-        applicationId: application.id,
+        teamId: application.id,
         programId: application.program.id,
         programName: application.program.name,
-        teamName: application.team.name,
+        teamName: application.name,
         teamUrl: teamUrlFor(application.program.id),
         applicationStatus: application.status,
         nextMilestone,

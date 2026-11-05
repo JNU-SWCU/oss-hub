@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import type { ProgramTrackType } from '@prisma/client';
+import type { Prisma, ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
@@ -49,26 +49,14 @@ export interface PublicUserIdentity {
 }
 
 const PROJECT_ROW_SELECT = {
-  id: true,
-  githubRepositoryId: true,
-  nameWithOwner: true,
-  publishedAt: true,
-  programId: true,
-  program: { select: { name: true, trackType: true } },
-  team: { select: { name: true, _count: { select: { members: true } } } },
-  application: { select: { applicant: { select: { nickname: true } } } },
-} as const;
+  id: true, githubRepositoryId: true, nameWithOwner: true, publishedAt: true,
+  team: { select: { programId: true, name: true, _count: { select: { members: true } },
+    program: { select: { name: true, trackType: true } },
+    applicant: { select: { nickname: true } },
+  } },
+} satisfies Prisma.GithubRepositorySelect;
 
-type ProjectRowSelection = {
-  id: string;
-  githubRepositoryId: bigint;
-  nameWithOwner: string;
-  publishedAt: Date | null;
-  programId: string | null;
-  program: { name: string; trackType: ProgramTrackType | null } | null;
-  team: { name: string; _count: { members: number } } | null;
-  application: { applicant: { nickname: string } } | null;
-};
+type ProjectRowSelection = Prisma.GithubRepositoryGetPayload<{ select: typeof PROJECT_ROW_SELECT }>;
 
 function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
   return [
@@ -77,19 +65,20 @@ function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
   ];
 }
 
-function toProjectRow(row: ProjectRowSelection): PublicProjectRow {
+function toProjectRow(row: ProjectRowSelection): PublicProjectRow | null {
+  if (row.team === null || row.publishedAt === null) return null;
   return {
     id: row.id,
     projectId: row.githubRepositoryId.toString(),
     githubRepositoryId: row.githubRepositoryId,
     nameWithOwner: row.nameWithOwner,
-    publishedAt: row.publishedAt!,
-    programId: row.programId!,
-    programName: row.program!.name,
-    trackType: row.program!.trackType,
+    publishedAt: row.publishedAt,
+    programId: row.team.programId,
+    programName: row.team.program.name,
+    trackType: row.team.program.trackType,
     teamName: row.team?.name ?? null,
     teamMemberCount: row.team?._count?.members ?? 0,
-    applicantNickname: row.application!.applicant.nickname,
+    applicantNickname: row.team.applicant.nickname,
   };
 }
 
@@ -111,64 +100,63 @@ export class PublicProjectsRepository {
           })();
 
     const rows = await this.prisma.githubRepository.findMany({
-      where: {
+    where: {
         visibility: 'PUBLIC',
-        program: { lifecycle: { not: 'DELETED' } },
+        team: { program: { lifecycle: { not: 'DELETED' } } },
         publishedAt: publishedAtWhere,
         ...(cursor === null
-          ? {}
-          : {
-              OR: [
-                { publishedAt: { lt: cursor.publishedAt } },
-                { publishedAt: cursor.publishedAt, id: { lt: cursor.id } },
-              ],
-            }),
-      },
-      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-      take,
-      select: PROJECT_ROW_SELECT,
-    });
-    return rows.map(toProjectRow);
+            ? {}
+            : {
+                OR: [
+                    { publishedAt: { lt: cursor.publishedAt } },
+                    { publishedAt: cursor.publishedAt, id: { lt: cursor.id } },
+                ],
+            })
+    },
+    orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+    take,
+    select: PROJECT_ROW_SELECT
+});
+    return rows.flatMap(row => { const project = toProjectRow(row); return project === null ? [] : [project]; });
   }
 
   async findById(projectId: string): Promise<PublicProjectRow | null> {
     if (!/^[0-9]+$/.test(projectId)) return null;
 
     const row = await this.prisma.githubRepository.findFirst({
-      where: {
+    where: {
         githubRepositoryId: BigInt(projectId),
         visibility: 'PUBLIC',
-        program: { lifecycle: { not: 'DELETED' } },
-        publishedAt: { not: null },
-      },
-      select: PROJECT_ROW_SELECT,
-    });
+        team: { program: { lifecycle: { not: 'DELETED' } } },
+        publishedAt: { not: null }
+    },
+    select: PROJECT_ROW_SELECT
+});
     return row === null ? null : toProjectRow(row);
   }
 
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
     const rows = await this.prisma.githubRepository.findMany({
-      where: {
+    where: {
         visibility: 'PUBLIC',
-        program: { lifecycle: { not: 'DELETED' } },
+        team: { program: { lifecycle: { not: 'DELETED' } } },
         publishedAt: { not: null },
         OR: [
-          { teamId: null, application: { applicantId: userId } },
-          { team: { leaderId: userId } },
-          { team: { members: { some: { userId } } } },
-        ],
-      },
-      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
-      select: PROJECT_ROW_SELECT,
-    });
-    return rows.map(toProjectRow);
+            { team: { leaderId: userId } },
+            { team: { members: { some: { userId } } } }
+        ]
+    },
+    orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+    select: PROJECT_ROW_SELECT
+});
+    return rows.flatMap(row => { const project = toProjectRow(row); return project === null ? [] : [project]; });
   }
 
   async findUserIdentity(userId: string): Promise<PublicUserIdentity | null> {
     const user = await this.prisma.user.findUnique({
-      where: { id: userId },
-      select: { id: true, nickname: true, avatarUrl: true, githubId: true },
-    });
+    where: { id: userId },
+    select: { id: true, nickname: true, avatarUrl: true, githubId: true }
+});
     return user === null
       ? null
       : {

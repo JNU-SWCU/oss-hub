@@ -16,7 +16,7 @@ import { ProgramCreationService } from './program-creation.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ApplicationsRepository } from './team.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
 
@@ -48,7 +48,7 @@ const programs = new ProgramsRepository(
 const now = new Date('2026-11-04T00:00:00Z');
 const dashboard = new ApplicationsRepository(
   prisma,
-  new ReviewHistoryWriterRepository(),
+  new TeamHistoryRepository(),
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );

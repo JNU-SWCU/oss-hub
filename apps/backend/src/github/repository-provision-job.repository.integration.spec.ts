@@ -42,65 +42,65 @@ const APPLICATION_IDS = [
 ] as const;
 const SHARED_REPOSITORY_ID = 'synthetic-job-shared-repository';
 
-function repositoryIdFor(applicationId: string): string {
-  return `${applicationId}-repository`;
+function repositoryIdFor(teamId: string): string {
+  return `${teamId}-repository`;
 }
 
-function requestIdFor(applicationId: string): string {
-  return `${applicationId}-provision-event`;
+function requestIdFor(teamId: string): string {
+  return `${teamId}-provision-event`;
 }
 
 describe('RepositoryProvisionJobRepository integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.create({
-      data: {
+    data: {
         id: APPLICANT_ID,
-        githubId: 8_200_000_000_001n,
+        githubId: 8200000000001n,
         nickname: 'synthetic-provision-job-applicant',
         type: MemberKind.STUDENT,
-        approvalStatus: 'NOT_REQUIRED',
-      },
-    });
+        approvalStatus: 'NOT_REQUIRED'
+    }
+});
   });
 
   afterEach(async () => {
     await prisma.repositoryProvisionJob.deleteMany({
-      where: { applicationId: { in: [...APPLICATION_IDS] } },
-    });
+    where: { teamId: { in: [...APPLICATION_IDS] } }
+});
     await prisma.repositoryInvitation.deleteMany({
-      where: { repository: { applicationId: { in: [...APPLICATION_IDS] } } },
+      where: { repository: { teamId: { in: [...APPLICATION_IDS] } } },
     });
     await prisma.githubRepository.deleteMany({
-      where: {
+    where: {
         OR: [
-          {
-            id: {
-              in: [
-                ...APPLICATION_IDS.map(repositoryIdFor),
-                SHARED_REPOSITORY_ID,
-              ],
+            {
+                id: {
+                    in: [
+                        ...APPLICATION_IDS.map(repositoryIdFor),
+                        SHARED_REPOSITORY_ID
+                    ]
+                }
             },
-          },
-          { applicationId: { in: [...APPLICATION_IDS] } },
-        ],
-      },
-    });
+            { teamId: { in: [...APPLICATION_IDS] } }
+        ]
+    }
+});
     await prisma.outboxEvent.deleteMany({
       where: { id: { in: APPLICATION_IDS.map(requestIdFor) } },
     });
-    await prisma.application.deleteMany({
-      where: { id: { in: [...APPLICATION_IDS] } },
-    });
-    await prisma.teamMember.deleteMany({
-      where: { teamId: { in: APPLICATION_IDS.map(teamIdFor) } },
-    });
     await prisma.team.deleteMany({
-      where: { id: { in: APPLICATION_IDS.map(teamIdFor) } },
-    });
+    where: { id: { in: [...APPLICATION_IDS] } }
+});
+    await prisma.teamMember.deleteMany({
+    where: { teamId: { in: [...APPLICATION_IDS] } }
+});
+    await prisma.team.deleteMany({
+    where: { id: { in: [...APPLICATION_IDS] } }
+});
     await prisma.program.deleteMany({
-      where: { id: { in: APPLICATION_IDS.map(programId) } },
-    });
+    where: { id: { in: APPLICATION_IDS.map(programId) } }
+});
   });
 
   afterAll(async () => {
@@ -109,8 +109,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('동시 claim에서도 PENDING job을 한 worker에게만 임대한다', async () => {
-    const applicationId = APPLICATION_IDS[0];
-    await createJob(applicationId, RepositoryProvisionJobStatus.PENDING, NOW);
+    const teamId = APPLICATION_IDS[0];
+    await createJob(teamId, RepositoryProvisionJobStatus.PENDING, NOW);
 
     const claims = await Promise.all([
       repository.claimNext({
@@ -128,8 +128,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
     expect(claims.filter((claim) => claim !== null)).toHaveLength(1);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
-      }),
+    where: { teamId }
+}),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.PROCESSING,
       attemptCount: 1,
@@ -152,69 +152,68 @@ describe('RepositoryProvisionJobRepository integration', () => {
       NOW,
     );
     await prisma.githubRepository.create({
-      data: {
+    data: {
         id: SHARED_REPOSITORY_ID,
-        programId: programId(firstApplicationId),
-        teamId: teamIdFor(firstApplicationId),
-        githubRepositoryId: 8_200_000_099_001n,
+        teamId: firstApplicationId,
+        githubRepositoryId: 8200000099001n,
         nameWithOwner: 'synthetic-org/shared-history',
         source: RepositorySource.ORG_PROVISIONED,
-        visibility: RepositoryVisibility.PRIVATE,
-      },
-    });
+        visibility: RepositoryVisibility.PRIVATE
+    }
+});
 
     await prisma.repositoryProvisionJob.update({
-      where: { applicationId: firstApplicationId },
-      data: { repositoryId: SHARED_REPOSITORY_ID },
-    });
+    where: { teamId: firstApplicationId },
+    data: { repositoryId: SHARED_REPOSITORY_ID }
+});
     await prisma.repositoryProvisionJob.update({
-      where: { applicationId: secondApplicationId },
-      data: { repositoryId: SHARED_REPOSITORY_ID },
-    });
+    where: { teamId: secondApplicationId },
+    data: { repositoryId: SHARED_REPOSITORY_ID }
+});
 
     await expect(
       prisma.repositoryProvisionJob.count({
-        where: { repositoryId: SHARED_REPOSITORY_ID },
-      }),
+    where: { repositoryId: SHARED_REPOSITORY_ID }
+}),
     ).resolves.toBe(2);
     await expect(
       prisma.githubRepository.findUniqueOrThrow({
-        where: { id: SHARED_REPOSITORY_ID },
-      }),
-    ).resolves.toMatchObject({ applicationId: null });
+    where: { id: SHARED_REPOSITORY_ID }
+}),
+    ).resolves.toMatchObject({ teamId: null });
     await expect(
       prisma.repositoryProvisionJob.update({
-        where: { applicationId: secondApplicationId },
-        data: { repositoryId: 'synthetic-missing-repository' },
-      }),
+    where: { teamId: secondApplicationId },
+    data: { repositoryId: 'synthetic-missing-repository' }
+}),
     ).rejects.toMatchObject({ code: 'P2003' });
     await expect(
       prisma.repositoryProvisionJob.count({
-        where: { repositoryId: SHARED_REPOSITORY_ID },
-      }),
+    where: { repositoryId: SHARED_REPOSITORY_ID }
+}),
     ).resolves.toBe(2);
   });
 
   it('reconciles a live ORG_PROVISIONED current link even when the canonical repository URL is stored', async () => {
-    const applicationId = APPLICATION_IDS[0];
-    await createJob(applicationId, RepositoryProvisionJobStatus.SUCCEEDED, NOW);
+    const teamId = APPLICATION_IDS[0];
+    await createJob(teamId, RepositoryProvisionJobStatus.SUCCEEDED, NOW);
     const current = await prisma.githubRepository.create({
-      data: {
-        applicationId,
-        githubRepositoryId: 8_133_900_001n,
+    data: {
+        teamId,
+        githubRepositoryId: 8133900001n,
         nameWithOwner: 'synthetic/relinked',
         source: 'ORG_PROVISIONED',
-        invitations: { create: { githubLogin: 'synthetic-invitee' } },
-      },
-    });
-    await prisma.application.update({
-      where: { id: applicationId },
-      data: { repositoryUrl: 'https://github.com/synthetic/relinked' },
-    });
+        invitations: { create: { githubLogin: 'synthetic-invitee' } }
+    }
+});
+    await prisma.team.update({
+    where: { id: teamId },
+    data: { repositoryUrl: 'https://github.com/synthetic/relinked' }
+});
     await prisma.repositoryProvisionJob.update({
-      where: { applicationId },
-      data: { repositoryId: current.id },
-    });
+    where: { teamId },
+    data: { repositoryId: current.id }
+});
     await expect(
       repository.claimNextReconciliation({
         workerId: 'synthetic-reconciliation-worker',
@@ -222,7 +221,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
         leaseMs: LEASE_MS,
       }),
     ).resolves.toMatchObject({
-      applicationId,
+      teamId,
       repositoryId: current.id,
     });
   });
@@ -244,12 +243,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('세대를 증명할 수 없는 legacy job은 두 claim 경로 모두 fail closed 한다', async () => {
-    const applicationId = APPLICATION_IDS[11];
-    await createJob(applicationId, RepositoryProvisionJobStatus.PENDING, NOW);
+    const teamId = APPLICATION_IDS[11];
+    await createJob(teamId, RepositoryProvisionJobStatus.PENDING, NOW);
     await prisma.repositoryProvisionJob.update({
-      where: { applicationId },
-      data: { currentEventId: null },
-    });
+    where: { teamId },
+    data: { currentEventId: null }
+});
 
     await expect(
       repository.claimNext({
@@ -259,12 +258,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
       }),
     ).resolves.toBeNull();
     await prisma.repositoryProvisionJob.update({
-      where: { applicationId },
-      data: {
+    where: { teamId },
+    data: {
         status: RepositoryProvisionJobStatus.SUCCEEDED,
-        nextAttemptAt: NOW,
-      },
-    });
+        nextAttemptAt: NOW
+    }
+});
     await expect(
       repository.claimNextReconciliation({
         workerId: 'worker-legacy',
@@ -274,8 +273,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
     ).resolves.toBeNull();
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
-      }),
+    where: { teamId }
+}),
     ).resolves.toMatchObject({
       currentEventId: null,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -305,17 +304,17 @@ describe('RepositoryProvisionJobRepository integration', () => {
       leaseMs: LEASE_MS,
     });
 
-    expect(claim?.applicationId).toBe(APPLICATION_IDS[2]);
+    expect(claim?.teamId).toBe(APPLICATION_IDS[2]);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId: APPLICATION_IDS[3] },
-      }),
+    where: { teamId: APPLICATION_IDS[3] }
+}),
     ).resolves.toMatchObject({ lockedBy: 'previous-worker' });
   });
 
   it('갱신한 lease는 보호하고 회수 뒤 이전 worker 갱신은 거절한다', async () => {
-    const applicationId = APPLICATION_IDS[4];
-    await createJob(applicationId, RepositoryProvisionJobStatus.PENDING, NOW);
+    const teamId = APPLICATION_IDS[4];
+    await createJob(teamId, RepositoryProvisionJobStatus.PENDING, NOW);
     const claim = await repository.claimNext({
       workerId: 'worker-a',
       now: NOW,
@@ -357,9 +356,9 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('대기 초대가 없어도 관리형 NEW 완료 job을 재조회 시각에 다시 임대한다', async () => {
-    const applicationId = 'synthetic-job-recurring';
+    const teamId = 'synthetic-job-recurring';
     await createJob(
-      applicationId,
+      teamId,
       RepositoryProvisionJobStatus.SUCCEEDED,
       NOW,
       {
@@ -367,9 +366,9 @@ describe('RepositoryProvisionJobRepository integration', () => {
       },
     );
     await prisma.repositoryProvisionJob.update({
-      where: { applicationId },
-      data: { attemptCount: 5 },
-    });
+    where: { teamId },
+    data: { attemptCount: 5 }
+});
 
     const claim = await repository.claimNextReconciliation({
       workerId: 'worker-reconcile',
@@ -377,12 +376,12 @@ describe('RepositoryProvisionJobRepository integration', () => {
       leaseMs: LEASE_MS,
     });
 
-    expect(claim?.applicationId).toBe(applicationId);
+    expect(claim?.teamId).toBe(teamId);
     expect(claim?.attemptCount).toBe(1);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
-      }),
+    where: { teamId }
+}),
     ).resolves.toMatchObject({
       status: RepositoryProvisionJobStatus.PROCESSING,
       lockedBy: 'worker-reconcile',
@@ -418,9 +417,9 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 
   it('reconciliation follows current ORG_PROVISIONED link even when application mode is still OWN', async () => {
-    const applicationId = 'synthetic-job-org-on-own';
+    const teamId = 'synthetic-job-org-on-own';
     await createJob(
-      applicationId,
+      teamId,
       RepositoryProvisionJobStatus.SUCCEEDED,
       NOW,
       {
@@ -436,15 +435,15 @@ describe('RepositoryProvisionJobRepository integration', () => {
         leaseMs: LEASE_MS,
       }),
     ).resolves.toMatchObject({
-      applicationId,
-      repositoryId: repositoryIdFor(applicationId),
+      teamId,
+      repositoryId: repositoryIdFor(teamId),
     });
   });
 
   it('동시 재조회 claim에서도 한 worker만 임대한다', async () => {
-    const applicationId = 'synthetic-job-race';
+    const teamId = 'synthetic-job-race';
     await createJob(
-      applicationId,
+      teamId,
       RepositoryProvisionJobStatus.SUCCEEDED,
       NOW,
       {
@@ -468,8 +467,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
     const claimed = claims.filter((claim) => claim !== null);
     expect(claimed).toHaveLength(1);
     const job = await prisma.repositoryProvisionJob.findUniqueOrThrow({
-      where: { applicationId },
-    });
+    where: { teamId }
+});
     const loser = job.lockedBy === 'worker-x' ? 'worker-y' : 'worker-x';
     await expect(
       repository.renewLease(job.id, loser, job.currentEventId!, NOW),
@@ -477,12 +476,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
   });
 });
 
-function programId(applicationId: string): string {
-  return `${applicationId}-program`;
-}
-
-function teamIdFor(applicationId: string): string {
-  return `${applicationId}-team`;
+function programId(teamId: string): string {
+  return `${teamId}-program`;
 }
 
 interface CreateJobOptions {
@@ -493,61 +488,59 @@ interface CreateJobOptions {
 }
 
 async function createJob(
-  applicationId: string,
+  teamId: string,
   status: RepositoryProvisionJobStatus,
   nextAttemptAt: Date,
   options: CreateJobOptions = {},
 ): Promise<void> {
   const lockedAt = options.lockedAt ?? null;
-  const program = programId(applicationId);
-  const teamId = teamIdFor(applicationId);
-  const requestId = requestIdFor(applicationId);
+  const program = programId(teamId);
+  const requestId = requestIdFor(teamId);
   await prisma.program.create({
     data: {
-      startAt: new Date('2026-01-01T00:00:00.000Z'),
-      endAt: new Date(
-        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
-      ),
-
-      id: program,
-      name: `program-${applicationId}`,
-      organizer: 'synthetic-organizer',
-      trackType: ProgramTrackType.EXTRACURRICULAR,
-      category: ProgramCategory.BASIC,
-      applicationTemplateKey: 'synthetic-template',
-      applicationTemplateVersion: 1,
-      applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-      applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-      description: 'synthetic-description',
-      repositoryProvisioningEnabled: true,
-    },
-  });
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+        endAt: new Date(new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000),
+        id: program,
+        name: `program-${teamId}`,
+        organizer: 'synthetic-organizer',
+        trackType: ProgramTrackType.EXTRACURRICULAR,
+        category: ProgramCategory.BASIC,
+        applicationTemplateKey: 'synthetic-template',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+        applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+        description: 'synthetic-description',
+        repositoryProvisioningEnabled: true
+    }
+});
   await prisma.team.create({
     data: {
-      id: teamId,
-      programId: program,
-      name: `${applicationId}-team`,
-      leaderId: APPLICANT_ID,
-    },
-  });
+        id: teamId,
+        programId: program,
+        name: `${teamId}-team`,
+        leaderId: APPLICANT_ID,
+        applicantId: APPLICANT_ID,
+        answers: { title: `${teamId}-team` },
+        applicationTemplateVersion: 1
+    }
+});
   await prisma.teamMember.create({
     data: {
-      teamId,
-      programId: program,
-      userId: APPLICANT_ID,
-    },
-  });
+        teamId,
+        programId: program,
+        userId: APPLICANT_ID
+    }
+});
   await prisma.outboxEvent.create({
     data: {
       id: requestId,
       type: REPOSITORY_PROVISION_EVENT_TYPE,
-      aggregateType: 'Application',
-      aggregateId: applicationId,
-      idempotencyKey: `repository-provision:${applicationId}`,
+      aggregateType: 'Team',
+      aggregateId: teamId,
+      idempotencyKey: `repository-provision:${teamId}`,
       payload: {
-        applicationId,
-        programId: program,
         teamId,
+        programId: program,
         requestedAt: NOW.toISOString(),
         collaboratorGithubLogins: ['synthetic-provision-job-applicant'],
         repositoryConnectionMode:
@@ -561,56 +554,48 @@ async function createJob(
       availableAt: NOW,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
-      programId: program,
-      applicantId: APPLICANT_ID,
-      teamId,
-      answers: { synthetic: true },
-      applicationTemplateVersion: 1,
-      status: ApplicationStatus.APPROVED,
-      repositoryConnectionMode:
-        options.connectionMode ?? RepositoryConnectionMode.NEW,
-      repositoryUrl:
-        options.connectionMode === RepositoryConnectionMode.OWN
-          ? 'https://github.com/synthetic-student/synthetic-own-repo'
-          : null,
-      provisionJob: {
-        create: {
-          currentEventId: requestId,
-          status,
-          nextAttemptAt,
-          lockedAt,
-          lockedBy: lockedAt ? 'previous-worker' : null,
-        },
-      },
-    },
-  });
+        programId: program,
+        applicantId: APPLICANT_ID,
+        answers: { synthetic: true },
+        applicationTemplateVersion: 1,
+        status: ApplicationStatus.APPROVED,
+        repositoryConnectionMode: options.connectionMode ?? RepositoryConnectionMode.NEW,
+        repositoryUrl: options.connectionMode === RepositoryConnectionMode.OWN
+            ? 'https://github.com/synthetic-student/synthetic-own-repo'
+            : null,
+        provisionJob: {
+            create: {
+                currentEventId: requestId,
+                status,
+                nextAttemptAt,
+                lockedAt,
+                lockedBy: lockedAt ? 'previous-worker' : null
+            }
+        }
+    }
+});
   if (options.attachRepository !== true) {
     return;
   }
-  const repositoryId = repositoryIdFor(applicationId);
+  const repositoryId = repositoryIdFor(teamId);
   await prisma.githubRepository.create({
     data: {
-      id: repositoryId,
-      githubRepositoryId: BigInt(
-        8_300_000_000_000 +
-          APPLICATION_IDS.findIndex((id) => id === applicationId),
-      ),
-      nameWithOwner: `synthetic-org/${applicationId}`,
-      source:
-        options.source ??
-        (options.connectionMode === RepositoryConnectionMode.OWN
-          ? RepositorySource.EXTERNAL_PUBLIC
-          : RepositorySource.ORG_PROVISIONED),
-      applicationId,
-      programId: program,
-      teamId,
-    },
-  });
+        id: repositoryId,
+        githubRepositoryId: BigInt(8300000000000 +
+            APPLICATION_IDS.findIndex((id) => id === teamId)),
+        nameWithOwner: `synthetic-org/${teamId}`,
+        source: options.source ??
+            (options.connectionMode === RepositoryConnectionMode.OWN
+                ? RepositorySource.EXTERNAL_PUBLIC
+                : RepositorySource.ORG_PROVISIONED),
+        teamId
+    }
+});
   await prisma.repositoryProvisionJob.update({
-    where: { applicationId },
-    data: { repositoryId },
-  });
+    where: { teamId },
+    data: { repositoryId }
+});
 }

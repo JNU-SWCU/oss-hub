@@ -35,7 +35,7 @@ export class StudentDashboardMilestoneResponseDto {
 
 export class StudentDashboardItemResponseDto {
   declare readonly coverImageUrl: string | null;
-  declare readonly applicationId: string;
+  declare readonly teamId: string;
   declare readonly programId: string;
   declare readonly programName: string;
 
@@ -61,7 +61,7 @@ export class StudentDashboardItemResponseDto {
   static from(item: StudentDashboardItem): StudentDashboardItemResponseDto {
     return {
       coverImageUrl: item.coverImageUrl ?? null,
-      applicationId: item.applicationId,
+      teamId: item.teamId,
       programId: item.programId,
       programName: item.programName,
       teamName: item.teamName,

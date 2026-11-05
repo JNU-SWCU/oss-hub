@@ -40,14 +40,7 @@ describe('TeamApplicationService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary,
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(
-      repository,
-      noopAuditLog,
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
+    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
 
     await expect(service.staffSummary()).resolves.toEqual(summary);
     expect(listStaffDashboardSummary).toHaveBeenCalledTimes(1);
@@ -57,14 +50,7 @@ describe('TeamApplicationService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary: jest.fn().mockResolvedValue({ programs: [] }),
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(
-      repository,
-      noopAuditLog,
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
+    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
 
     await expect(service.staffSummary()).resolves.toEqual({
       programs: [],

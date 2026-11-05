@@ -32,7 +32,7 @@ import {
 
 export interface ProvisionedRepository {
   readonly id: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly githubRepositoryId: bigint;
   readonly name: string;
   readonly url: string;
@@ -46,13 +46,12 @@ export interface RepositoryProvisionContext {
   readonly requestedByGithubId: bigint | null;
   readonly currentConnectionMode: RepositoryConnectionMode;
   readonly currentRepositoryUrl: string | null;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicantGithubId: bigint;
   readonly applicationStatus: ApplicationStatus;
   readonly programId: string;
   readonly programName: string;
   readonly repositoryProvisioningEnabled: boolean;
-  readonly teamId: string | null;
   readonly subjectName: string;
   readonly repository: ProvisionedRepository | null;
 
@@ -73,9 +72,8 @@ export interface RecordProvisionedRepositoryInput {
   readonly jobId: string;
   readonly workerId: string;
   readonly requestId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
-  readonly teamId: string | null;
   readonly connectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
   readonly currentConnectionMode: RepositoryConnectionMode;
@@ -150,7 +148,7 @@ export interface RepositoryProvisionStateStore {
   completeInvitation(input: CompleteRepositoryInvitationInput): Promise<void>;
   failInvitation(input: FailRepositoryInvitationInput): Promise<void>;
   recordSupersededRequest(
-    applicationId: string,
+    teamId: string,
     requestId: string,
     now: Date,
   ): Promise<void>;
@@ -169,7 +167,7 @@ export interface RepositoryProvisionStateStore {
 
 interface LockedRepositoryClaimTarget {
   readonly id: string;
-  readonly applicationId: string | null;
+  readonly teamId: string | null;
   readonly source: RepositorySource;
 }
 
@@ -182,14 +180,14 @@ export interface RepositoryConnectionAudit {
 
 export interface ProvisionedRepositoryRow {
   readonly id: string;
-  readonly applicationId: string | null;
+  readonly teamId: string | null;
   readonly githubRepositoryId: bigint;
   readonly nameWithOwner: string;
   readonly visibility: RepositoryVisibility;
 }
 
 export interface OwnedProvisionedRepositoryRow extends ProvisionedRepositoryRow {
-  readonly applicationId: string;
+  readonly teamId: string;
 }
 
 function failedInvitationStatus(
@@ -244,10 +242,10 @@ export class RepositoryProvisionStateRepository {
   assertOwnedRepository(
     row: ProvisionedRepositoryRow,
   ): OwnedProvisionedRepositoryRow {
-    if (row.applicationId === null) {
+    if (row.teamId === null) {
       throw new RepositoryProvisionLeaseLostError();
     }
-    return { ...row, applicationId: row.applicationId };
+    return { ...row, teamId: row.teamId };
   }
 
   private isPrismaUniqueConstraintError(error: unknown): boolean {
@@ -259,15 +257,15 @@ export class RepositoryProvisionStateRepository {
 
   private async lockApplicationForRepositoryClaim(
     transaction: Prisma.TransactionClient,
-    applicationId: string,
+    teamId: string,
   ): Promise<void> {
     const rows = await transaction.$queryRaw<
       readonly { readonly id: string }[]
     >(
       Prisma.sql`
       SELECT "id"
-      FROM "Application"
-      WHERE "id" = ${applicationId}
+      FROM "Team"
+      WHERE "id" = ${teamId}
       FOR UPDATE
     `,
     );
@@ -279,9 +277,7 @@ export class RepositoryProvisionStateRepository {
   private async claimGithubRepositoryForApplication(
     transaction: Prisma.TransactionClient,
     input: {
-      readonly applicationId: string;
-      readonly programId: string;
-      readonly teamId: string | null;
+      readonly teamId: string;
       readonly metadata: GithubRepositoryMetadata;
       readonly source: RepositorySource;
       readonly currentConnectionMode: RepositoryConnectionMode;
@@ -295,7 +291,7 @@ export class RepositoryProvisionStateRepository {
       (
         await transaction.$queryRaw<readonly LockedRepositoryClaimTarget[]>(
           Prisma.sql`
-          SELECT "id", "applicationId", "source"
+          SELECT "id", "teamId", "source"
           FROM "GithubRepository"
           WHERE "githubRepositoryId" = ${input.metadata.githubRepositoryId}
           FOR UPDATE
@@ -304,14 +300,14 @@ export class RepositoryProvisionStateRepository {
       )[0] ?? null;
     if (
       target !== null &&
-      target.applicationId !== null &&
-      target.applicationId !== input.applicationId
+      target.teamId !== null &&
+      target.teamId !== input.teamId
     ) {
       throw new GithubRepositoryClaimConflictError();
     }
 
     const current = await transaction.githubRepository.findUnique({
-      where: { applicationId: input.applicationId },
+      where: { teamId: input.teamId },
       select: { id: true, nameWithOwner: true },
     });
     if (current !== null && current.id !== target?.id) {
@@ -320,12 +316,11 @@ export class RepositoryProvisionStateRepository {
           PROVISION_ERROR_CODES.INVALID_EVENT,
         );
       }
-      await transaction.githubRepository.update({
-        where: { id: current.id },
-        data: { applicationId: null, teamId: null, publishedAt: null },
-      });
     }
 
+    const deletedCounts = current !== null && current.id !== target?.id
+      ? await this.repositoryDeletion.deleteRepositoryWithFacts(transaction, current.id)
+      : null;
     const source =
       target?.source === RepositorySource.ORG_PROVISIONED
         ? RepositorySource.ORG_PROVISIONED
@@ -335,8 +330,6 @@ export class RepositoryProvisionStateRepository {
       try {
         repository = await transaction.githubRepository.create({
           data: {
-            applicationId: input.applicationId,
-            programId: input.programId,
             teamId: input.teamId,
             githubRepositoryId: input.metadata.githubRepositoryId,
             nameWithOwner: input.metadata.nameWithOwner,
@@ -356,11 +349,9 @@ export class RepositoryProvisionStateRepository {
       const claimed = await transaction.githubRepository.updateMany({
         where: {
           id: target.id,
-          OR: [{ applicationId: null }, { applicationId: input.applicationId }],
+          teamId: input.teamId,
         },
         data: {
-          applicationId: input.applicationId,
-          programId: input.programId,
           teamId: input.teamId,
           nameWithOwner: input.metadata.nameWithOwner,
           visibility: input.metadata.visibility,
@@ -377,58 +368,31 @@ export class RepositoryProvisionStateRepository {
       });
     }
 
-    await transaction.application.update({
-      where: { id: input.applicationId },
+    await transaction.team.update({
+      where: { id: input.teamId },
       data: {
         repositoryConnectionMode: input.connectionMode,
         repositoryUrl: input.repositoryUrl,
       },
     });
-    const deletedCounts =
-      current !== null && current.id !== repository.id
-        ? await this.repositoryDeletion.deleteRepositoryWithFacts(
-            transaction,
-            current.id,
-          )
-        : null;
     if (input.connectionAudit !== undefined) {
       const auditActor = await transaction.user.findUniqueOrThrow({
         where: { githubId: input.connectionAudit.actorGithubId },
         select: { id: true },
       });
-      await transaction.auditLog.create({
-        data: {
-          actorId: auditActor.id,
-          action:
-            REPOSITORY_CONNECTION_AUDIT_ACTIONS.REPOSITORY_CONNECTION_CHANGED,
-          targetType: 'APPLICATION',
-          targetId: input.applicationId,
-          metadata: {
-            ...input.connectionAudit.buildMetadata({
-              applicationId: input.applicationId,
-              before: {
-                repositoryId: current?.id ?? null,
-                nameWithOwner: current?.nameWithOwner ?? null,
-
-                connectionMode: input.currentConnectionMode,
-                repositoryUrl: input.currentRepositoryUrl,
-              },
-              after: {
-                repositoryId: repository.id,
-                nameWithOwner: repository.nameWithOwner,
-                connectionMode: input.connectionMode,
-                repositoryUrl: input.repositoryUrl,
-              },
-            }),
-            ...(deletedCounts === null || current === null
-              ? {}
-              : {
-                  deletedRepositoryUrl: `https://github.com/${current.nameWithOwner}`,
-                  deletedCounts,
-                }),
-          },
-        },
-      });
+      const scope = await transaction.team.findUniqueOrThrow({ where: { id: input.teamId }, select: { programId: true, program: { select: { name: true } } } });
+      const actor = await transaction.user.findUniqueOrThrow({ where: { id: auditActor.id }, select: { nickname: true } });
+      await transaction.teamHistory.create({ data: {
+        teamId: input.teamId, programId: scope.programId, actorId: auditActor.id,
+        event: 'REPOSITORY_URL_CHANGED', source: 'APPLICATION',
+        data: { schemaVersion: 1, metadata: {
+          schemaVersion: 2, teamId: input.teamId, programId: scope.programId, programName: scope.program.name,
+          actorGithubLogin: actor.nickname,
+          before: { repositoryId: current?.id ?? null, repositoryUrl: input.currentRepositoryUrl },
+          after: { repositoryId: repository.id, repositoryUrl: input.repositoryUrl },
+          ...(deletedCounts === null ? {} : { deletedCounts }),
+        } },
+      } });
     }
     return repository;
   }
@@ -438,7 +402,7 @@ export class RepositoryProvisionStateRepository {
     input: RecordProvisionedRepositoryInput,
   ): boolean {
     return (
-      repository.applicationId === input.applicationId &&
+      repository.teamId === input.teamId &&
       repository.githubRepositoryId === input.metadata.githubRepositoryId &&
       repository.nameWithOwner === input.metadata.nameWithOwner &&
       repository.visibility === input.metadata.visibility
@@ -447,15 +411,15 @@ export class RepositoryProvisionStateRepository {
 
   private readonly repositorySelection = {
     id: true,
-    applicationId: true,
+    teamId: true,
     githubRepositoryId: true,
     nameWithOwner: true,
     visibility: true,
-  } as const;
+  } satisfies Prisma.GithubRepositorySelect;
 
   private readonly teamMemberLoginSelection = {
     user: { select: { nickname: true } },
-  } as const;
+  } satisfies Prisma.TeamMemberSelect;
 
   async loadContext(jobId: string, workerId: string, requestId: string) {
     return this.prisma.$transaction(async (transaction) => {
@@ -473,12 +437,11 @@ export class RepositoryProvisionStateRepository {
         select: {
           currentEventId: true,
           repositoryId: true,
-          application: {
+          team: {
             select: {
               id: true,
               status: true,
               programId: true,
-              teamId: true,
               repositoryConnectionMode: true,
               repositoryUrl: true,
               applicant: { select: { githubId: true, nickname: true } },
@@ -489,14 +452,8 @@ export class RepositoryProvisionStateRepository {
                 },
               },
 
-              team: {
-                select: {
-                  name: true,
-                  members: {
-                    select: this.teamMemberLoginSelection,
-                  },
-                },
-              },
+              name: true,
+              members: { select: this.teamMemberLoginSelection },
               repository: {
                 select: {
                   ...this.repositorySelection,
@@ -535,7 +492,7 @@ export class RepositoryProvisionStateRepository {
       return await this.prisma.$transaction(async (transaction) => {
         await this.lockApplicationForRepositoryClaim(
           transaction,
-          input.applicationId,
+          input.teamId,
         );
         await this.assertAvailableRequest(
           transaction,
@@ -546,8 +503,6 @@ export class RepositoryProvisionStateRepository {
         const repository = await this.claimGithubRepositoryForApplication(
           transaction,
           {
-            applicationId: input.applicationId,
-            programId: input.programId,
             teamId: input.teamId,
             metadata: input.metadata,
             source: input.source,
@@ -666,7 +621,7 @@ export class RepositoryProvisionStateRepository {
       where: {
         repositoryId,
         repository: {
-          application: { program: { lifecycle: { not: 'DELETED' } } },
+          team: { program: { lifecycle: { not: 'DELETED' } } },
         },
         OR: [
           {
@@ -772,7 +727,7 @@ export class RepositoryProvisionStateRepository {
   }
 
   async recordSupersededRequest(
-    applicationId: string,
+    teamId: string,
     requestId: string,
     now: Date,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
@@ -782,7 +737,7 @@ export class RepositoryProvisionStateRepository {
         transaction,
         {
           requestId,
-          applicationId,
+          teamId,
 
           repositoryId: null,
           source: null,
@@ -805,7 +760,7 @@ export class RepositoryProvisionStateRepository {
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const { applicationId } = await this.assertAvailableRequest(
+      const { teamId } = await this.assertAvailableRequest(
         transaction,
         jobId,
         workerId,
@@ -815,7 +770,7 @@ export class RepositoryProvisionStateRepository {
         isMembershipCurrent === undefined
           ? false
           : !isMembershipCurrent(
-              await this.currentMemberLogins(transaction, applicationId),
+              await this.currentMemberLogins(transaction, teamId),
             );
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: this.repositoryProvisionJobRepository.claimedJobWhere(
@@ -849,7 +804,7 @@ export class RepositoryProvisionStateRepository {
           transaction,
           {
             requestId,
-            applicationId,
+            teamId,
             repositoryId,
             source: repository.source,
             outcome: RepositoryIssuanceOutcome.SUCCEEDED,
@@ -874,9 +829,9 @@ export class RepositoryProvisionStateRepository {
         workerId,
         requestId,
       );
-    const available = await transaction.application.count({
+    const available = await transaction.team.count({
       where: {
-        id: job.applicationId,
+        id: job.teamId,
         program: { lifecycle: { not: 'DELETED' } },
       },
     });
@@ -890,17 +845,17 @@ export class RepositoryProvisionStateRepository {
 
   private async currentMemberLogins(
     transaction: Prisma.TransactionClient,
-    applicationId: string,
+    teamId: string,
   ): Promise<readonly string[]> {
-    const application = await transaction.application.findUnique({
-      where: { id: applicationId },
-      select: { teamId: true },
+    const application = await transaction.team.findUnique({
+      where: { id: teamId },
+      select: { id: true },
     });
-    if (application?.teamId == null) {
+    if (application === null) {
       return [];
     }
     const members = await transaction.teamMember.findMany({
-      where: { teamId: application.teamId },
+      where: { teamId: application.id },
       select: this.teamMemberLoginSelection,
     });
     return members.map((member) => member.user.nickname);
@@ -912,7 +867,7 @@ export class RepositoryProvisionStateRepository {
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
     await this.prisma.$transaction(async (transaction) => {
-      const { applicationId, repositoryId } =
+      const { teamId, repositoryId } =
         await this.repositoryProvisionJobRepository.assertCurrentRequest(
           transaction,
           input.jobId,
@@ -924,7 +879,7 @@ export class RepositoryProvisionStateRepository {
         input.errorCode === PROVISION_ERROR_CODES.FEATURE_DISABLED
           ? false
           : !isMembershipCurrent(
-              await this.currentMemberLogins(transaction, applicationId),
+              await this.currentMemberLogins(transaction, teamId),
             );
       const updated = await transaction.repositoryProvisionJob.updateMany({
         where: this.repositoryProvisionJobRepository.claimedJobWhere(
@@ -960,7 +915,7 @@ export class RepositoryProvisionStateRepository {
           transaction,
           {
             requestId: input.requestId,
-            applicationId,
+            teamId,
             repositoryId,
             source: repository?.source ?? null,
             outcome: RepositoryIssuanceOutcome.FAILED_FINAL,

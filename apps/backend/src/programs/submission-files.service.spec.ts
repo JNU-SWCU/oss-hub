@@ -44,7 +44,7 @@ function authorization(
 ) {
   return {
     uploaderId: 'student-opaque',
-    applicationId: 'application-opaque',
+    teamId: 'application-opaque',
     milestoneId: 'milestone-opaque',
     milestoneDocumentId: 'requirement-opaque',
     applicationApproved: true,
@@ -130,7 +130,7 @@ describe('SubmissionFilesService', () => {
     const { service, repository, storage } = setup();
     const input: Omit<CreatePendingSubmissionFileInput, 'resolveExpiresAt'> = {
       uploaderId: 'student-opaque',
-      applicationId: 'app-opaque',
+      teamId: 'app-opaque',
       milestoneId: 'milestone-opaque',
       storageKey: 'submission-files/pending-key',
       originalFileName: 'report.pdf',
@@ -164,7 +164,7 @@ describe('SubmissionFilesService', () => {
       await expect(
         service.createPending({
           uploaderId: 'student-opaque',
-          applicationId: 'app-opaque',
+          teamId: 'app-opaque',
           milestoneId: 'milestone-opaque',
           storageKey: 'submission-files/pending-key',
           originalFileName: 'report.pdf',

@@ -1,6 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
@@ -48,14 +48,7 @@ const EMPTY_PAGE: ApplicationListPage = {
 
 function mapItem(source: ApplicationListSource | null | undefined) {
   return source
-    ? new TeamApplicationService(
-        undefined as never,
-        undefined as never,
-        new AuditLogMetadataService(),
-        new RepositoryUrlService(),
-        new ApplicationAnswersService(),
-        new RepositoryProvisionEventService(),
-      )['toApplicationListItem'](source.row, source.outbox, source.job)
+    ? new TeamApplicationService(undefined as never, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService())['toApplicationListItem'](source.row, source.outbox, source.job)
     : undefined;
 }
 
@@ -66,14 +59,7 @@ describe('TeamApplicationService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(null),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(
-      repository,
-      noopAuditLog,
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
+    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
 
     await expect(
       service.listForProgram(PROGRAM_ID, {
@@ -117,7 +103,7 @@ describe('TeamApplicationService.listForProgram', () => {
             name: '합성 학생',
             nickname: 'login-1',
           },
-          team: null,
+          team: { id: 'app-1', name: 'Synthetic team', memberCount: 1 },
           answers: {
             applicantName: '합성 학생',
             title: '제목',
@@ -149,7 +135,7 @@ describe('TeamApplicationService.listForProgram', () => {
             name: '팀장',
             nickname: 'leader',
           },
-          team: { id: 'team-1', name: '합성 팀', memberCount: 3 },
+          team: { id: 'app-2', name: '합성 팀', memberCount: 3 },
           answers: {
             applicantName: '팀장',
             title: '팀 제목',
@@ -169,14 +155,7 @@ describe('TeamApplicationService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(
-      repository,
-      noopAuditLog,
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
+    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
     const query = {
       page: 2,
       pageSize: 10,
@@ -197,14 +176,7 @@ describe('TeamApplicationService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram: jest.fn().mockResolvedValue(EMPTY_PAGE),
     } as unknown as ApplicationsRepository;
-    const service = new TeamApplicationService(
-      repository,
-      noopAuditLog,
-      new AuditLogMetadataService(),
-      new RepositoryUrlService(),
-      new ApplicationAnswersService(),
-      new RepositoryProvisionEventService(),
-    );
+    const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
 
     await expect(
       service.listForProgram(PROGRAM_ID, {
@@ -248,8 +220,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     lastErrorCode = null,
   }: ProjectionSource) => {
     const transaction = {
-      application: {
-        findMany: jest.fn().mockResolvedValue([
+      team: { findMany: jest.fn().mockResolvedValue([
           {
             id: 'app-1',
             status: applicationStatus,
@@ -260,7 +231,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
             answers: {},
             program: { repositoryProvisioningEnabled: enabled },
             applicant: { id: 'student-1', name: null, nickname: 'student' },
-            team: null,
+            name: 'Synthetic team', _count: { members: 1 },
           },
         ]),
         count: jest.fn().mockResolvedValue(1),
@@ -284,7 +255,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
             ? []
             : [
                 {
-                  applicationId: 'app-1',
+                  teamId: 'app-1',
                   status: jobStatus,
                   updatedAt: jobUpdatedAt,
                   lastErrorCode,
@@ -303,7 +274,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
     };
     const repository = new ApplicationsRepository(
       prisma as never,
-      new ReviewHistoryWriterRepository(),
+      new TeamHistoryRepository(),
       new RepositoryProvisionGenerationRepository(),
       new PlatformRepository(),
     );
@@ -538,11 +509,11 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
           repository,
           program: { repositoryProvisioningEnabled: true },
           applicant: { id: 'student-1', name: null, nickname: 'student' },
-          team: { id: 'team-1', name: '합성 팀', _count: { members: 2 } },
+          name: '합성 팀', _count: { members: 2 },
         },
       ]);
       const transaction = {
-        application: { findMany, count: jest.fn().mockResolvedValue(1) },
+        team: { findMany, count: jest.fn().mockResolvedValue(1) },
         outboxEvent: { findMany: jest.fn().mockResolvedValue([]) },
         repositoryProvisionJob: { findMany: jest.fn().mockResolvedValue([]) },
       };
@@ -556,7 +527,7 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
       };
       const repositoryUnderTest = new ApplicationsRepository(
         prisma as never,
-        new ReviewHistoryWriterRepository(),
+        new TeamHistoryRepository(),
         new RepositoryProvisionGenerationRepository(),
         new PlatformRepository(),
       );
@@ -596,10 +567,9 @@ describe('ApplicationsRepository.listApplicationsForProgram', () => {
       expect(select).toMatchObject({
         repository: { select: { nameWithOwner: true, visibility: true } },
       });
-      expect(select).toHaveProperty('team');
-      expect(
-        (select as { team: { select: Record<string, unknown> } }).team.select,
-      ).not.toHaveProperty('repositories');
+      expect(select).toHaveProperty('name', true);
+      expect(select).toHaveProperty('_count.select.members', true);
+      expect(select).not.toHaveProperty('repositories');
     });
   });
 });

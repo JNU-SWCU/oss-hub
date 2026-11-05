@@ -173,7 +173,7 @@ const githubTimestamp = (at: Date): string =>
   at.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
-  repository.applicationId != null;
+  repository.teamId != null;
 
 @Injectable()
 export class CollectionSyncService {
@@ -1043,7 +1043,7 @@ export class CollectionSyncService {
       }
       await this.incrementalRepository.saveOutsiderContribution({
         repositoryId: repository.id,
-        applicationId: window.applicationId,
+        teamId: window.teamId,
         programId: window.programId,
         windowStartAt: window.startAt,
         windowEndAt: window.endAt,

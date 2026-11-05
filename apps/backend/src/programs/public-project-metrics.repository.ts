@@ -27,7 +27,6 @@ function programLinkedRepositoryFilter(
   return {
     AND: [
       platformRepository.linkedRepositoryFilter(),
-      { OR: [{ programId: { not: null } }, { teamId: { not: null } }] },
     ],
   };
 }

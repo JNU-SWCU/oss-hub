@@ -64,24 +64,7 @@ function buildService(overrides: {
     findProgramById,
     listStaffTeams,
   } as unknown as TeamRepository;
-  const service = new TeamMembershipService(
-    repository,
-    { record: jest.fn() } as unknown as AuditLogService,
-    stubTeamDeletionRepository(),
-    new AuditLogMetadataService(),
-    new RepositoryPublishService(),
-    new RepositoryUrlService(),
-    new MilestoneCompletionService(),
-    new StudentRepositoryUrlService(
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-    ),
-  );
+  const service = new TeamMembershipService(repository, stubTeamDeletionRepository(), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
   return { service, findProgramById, listStaffTeams, findActorByGithubId };
 }
 

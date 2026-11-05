@@ -36,7 +36,7 @@ interface ProblemDetailProgramDeletionScopeCounts extends ProblemDetailBlockingC
 }
 
 export interface ProblemDetailTeamDeletionScopeCounts {
-  readonly applications: number;
+  readonly teams: number;
   readonly members: number;
   readonly invitations: number;
   readonly submissions: number;

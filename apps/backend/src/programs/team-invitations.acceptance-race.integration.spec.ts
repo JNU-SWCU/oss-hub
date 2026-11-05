@@ -43,50 +43,49 @@ async function seedFixture(): Promise<void> {
     [SECOND_INVITEE_ID, 9_301_000_004n, 'acceptance-race-invitee-second'],
   ] as const) {
     await prisma.user.create({
-      data: canonicalUserCreateFromLabel('STUDENT', {
+    data: canonicalUserCreateFromLabel('STUDENT', {
         id,
         githubId,
         nickname,
         name: 'Synthetic user',
-      }),
-    });
+    })
+});
   }
   await prisma.program.create({
     data: {
-      startAt: new Date('2026-08-01T00:00:00.000Z'),
-      endAt: new Date(
-        new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
-      ),
-
-      id: PROGRAM_ID,
-      name: 'Invitation acceptance race program',
-      organizer: 'Synthetic organizer',
-      trackType: ProgramTrackType.CURRICULAR,
-      category: ProgramCategory.BASIC,
-      applicationTemplateKey: 'capstone-v1',
-      applicationTemplateVersion: 1,
-      applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
-      applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
-      description: 'Synthetic invitation acceptance race fixture',
-      teamMinSize: 1,
-
-      teamMaxSize: 3,
-    },
-  });
+        startAt: new Date('2026-08-01T00:00:00.000Z'),
+        endAt: new Date(new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000),
+        id: PROGRAM_ID,
+        name: 'Invitation acceptance race program',
+        organizer: 'Synthetic organizer',
+        trackType: ProgramTrackType.CURRICULAR,
+        category: ProgramCategory.BASIC,
+        applicationTemplateKey: 'capstone-v1',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-08-01T00:00:00.000Z'),
+        applicationEndAt: new Date('2026-08-31T00:00:00.000Z'),
+        description: 'Synthetic invitation acceptance race fixture',
+        teamMinSize: 1,
+        teamMaxSize: 3
+    }
+});
   await prisma.team.create({
     data: {
-      id: TEAM_ID,
-      programId: PROGRAM_ID,
-      name: 'Acceptance race team',
-      leaderId: LEADER_ID,
-    },
-  });
+        id: TEAM_ID,
+        programId: PROGRAM_ID,
+        name: 'Acceptance race team',
+        leaderId: LEADER_ID,
+        applicantId: LEADER_ID,
+        answers: { title: 'Acceptance race team' },
+        applicationTemplateVersion: 1
+    }
+});
   await prisma.teamMember.createMany({
     data: [
-      { teamId: TEAM_ID, programId: PROGRAM_ID, userId: LEADER_ID },
-      { teamId: TEAM_ID, programId: PROGRAM_ID, userId: MEMBER_ID },
-    ],
-  });
+        { teamId: TEAM_ID, programId: PROGRAM_ID, userId: LEADER_ID },
+        { teamId: TEAM_ID, programId: PROGRAM_ID, userId: MEMBER_ID }
+    ]
+});
   await prisma.teamInvitation.createMany({
     data: [
       {
@@ -112,7 +111,7 @@ async function cleanup(): Promise<void> {
   await prisma.teamInvitation.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
-  await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
+  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
@@ -176,8 +175,8 @@ async function expectPendingWithoutMembership(): Promise<void> {
   const [invitation, membership] = await Promise.all([
     prisma.teamInvitation.findUniqueOrThrow({ where: { id: INVITATION_ID } }),
     prisma.teamMember.findUnique({
-      where: { teamId_userId: { teamId: TEAM_ID, userId: INVITEE_ID } },
-    }),
+    where: { teamId_userId: { teamId: TEAM_ID, userId: INVITEE_ID } }
+}),
   ]);
   expect(invitation.id).toBe(INVITATION_ID);
   expect(membership).toBeNull();
@@ -228,9 +227,9 @@ describe('Team invitation acceptance transaction races', () => {
         pidCapturingPrisma(prisma, updateBackend.capture).$transaction(
           async (transaction) => {
             await transaction.user.update({
-              where: { id: INVITEE_ID },
-              data: updateData,
-            });
+    where: { id: INVITEE_ID },
+    data: updateData
+});
             updated.resolve();
             await releaseUpdate.promise;
           },
@@ -288,13 +287,13 @@ describe('Team invitation acceptance transaction races', () => {
     });
     const [team, members] = await Promise.all([
       prisma.team.findUniqueOrThrow({
-        where: { id: TEAM_ID },
-        select: { leaderId: true },
-      }),
+    where: { id: TEAM_ID },
+    select: { leaderId: true }
+}),
       prisma.teamMember.findMany({
-        where: { teamId: TEAM_ID },
-        select: { userId: true },
-      }),
+    where: { teamId: TEAM_ID },
+    select: { userId: true }
+}),
     ]);
 
     expect(team.leaderId).toBe(MEMBER_ID);
@@ -419,9 +418,9 @@ describe('Team invitation acceptance transaction races', () => {
       'team-full',
     ]);
     const members = await prisma.teamMember.findMany({
-      where: { teamId: TEAM_ID },
-      select: { userId: true },
-    });
+    where: { teamId: TEAM_ID },
+    select: { userId: true }
+});
 
     expect(members).toHaveLength(3);
     const joined = members

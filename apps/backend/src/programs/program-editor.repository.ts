@@ -278,13 +278,13 @@ export class ProgramEditorRepository {
     githubId: bigint,
   ) {
     return transaction.user.findUnique({
-      where: { githubId },
-      select: {
+    where: { githubId },
+    select: {
         id: true,
         ...USER_AUTHORITY_SELECT,
-        accountStatus: true,
-      },
-    });
+        accountStatus: true
+    }
+});
   }
   private async findEditableProgramByIdIn(
     transaction: PrismaTypes.TransactionClient,
@@ -292,9 +292,9 @@ export class ProgramEditorRepository {
   ): Promise<EditableProgramRow | null> {
     const [program, deletionScopeCounts] = await Promise.all([
       transaction.program.findUnique({
-        where: { id: programId, lifecycle: { not: 'DELETED' } },
-        include: editableProgramInclude,
-      }),
+    where: { id: programId, lifecycle: { not: 'DELETED' } },
+    include: editableProgramInclude
+}),
       this.readDeletionScopeCountsIn(transaction, programId),
     ]);
     return program ? toEditableProgramView(program, deletionScopeCounts) : null;
@@ -323,22 +323,22 @@ export class ProgramEditorRepository {
     }
     if (input.liveFileExpiresAt !== null) {
       await transaction.submissionFile.updateMany({
-        where: {
-          application: { programId: input.programId },
-          lifecycle: {
+    where: {
+        team: { programId: input.programId },
+        lifecycle: {
             in: [
-              SubmissionFileLifecycle.PENDING,
-              SubmissionFileLifecycle.ATTACHED,
-            ],
-          },
-          deletedAt: null,
+                SubmissionFileLifecycle.PENDING,
+                SubmissionFileLifecycle.ATTACHED
+            ]
         },
-        data: { expiresAt: input.liveFileExpiresAt },
-      });
+        deletedAt: null
+    },
+    data: { expiresAt: input.liveFileExpiresAt }
+});
     }
     const program = await transaction.program.update({
-      where: { id: input.programId },
-      data: {
+    where: { id: input.programId },
+    data: {
         name: input.name,
         organizer: input.organizer,
         trackType: input.trackType,
@@ -352,10 +352,10 @@ export class ProgramEditorRepository {
         teamMaxSize: input.teamMaxSize,
         repositoryProvisioningEnabled: input.repositoryProvisioningEnabled,
         notifyOnDeadline: input.notifyOnDeadline,
-        description: input.description,
-      },
-      include: editableProgramInclude,
-    });
+        description: input.description
+    },
+    include: editableProgramInclude
+});
     return toEditableProgramView(
       program,
       await this.readDeletionScopeCountsIn(transaction, input.programId),
@@ -380,9 +380,9 @@ export class ProgramEditorRepository {
     });
     if (!locked) return null;
     return transaction.program.findUnique({
-      where: { id: programId },
-      select: { id: true, startAt: true, endAt: true },
-    });
+    where: { id: programId },
+    select: { id: true, startAt: true, endAt: true }
+});
   }
   private async createMilestoneIn(
     transaction: PrismaTypes.TransactionClient,
@@ -597,12 +597,12 @@ export class ProgramEditorRepository {
   ): Promise<number> {
     if (documentIds.length === 0) return 0;
     return transaction.milestoneDocumentSubmissionHistory.count({
-      where: {
+    where: {
         submission: {
-          milestoneDocumentId: { in: [...documentIds] },
-        },
-      },
-    });
+            milestoneDocumentId: { in: [...documentIds] }
+        }
+    }
+});
   }
   private lockAttachableUploadsIn(
     transaction: PrismaTypes.TransactionClient,
@@ -727,8 +727,8 @@ export class ProgramEditorRepository {
     if (milestone === null || milestone.programId !== programId) return null;
     const documentSubmissionCount =
       await transaction.milestoneDocumentSubmission.count({
-        where: { milestoneDocument: { milestoneId } },
-      });
+    where: { milestoneDocument: { milestoneId } }
+});
     return {
       id: milestone.id,
       programId: milestone.programId,
@@ -763,7 +763,7 @@ export class ProgramEditorRepository {
 }
 const editableProgramInclude = {
   cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
-  _count: { select: { applications: true, teams: true, boardPosts: true } },
+  _count: { select: { teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
 function toEditableProgramView(
@@ -787,7 +787,7 @@ function toEditableProgramView(
     lifecycle: program.lifecycle,
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,
-    applicationCount: program._count.applications,
+    applicationCount: program._count.teams,
     teamCount: program._count.teams,
     deletionScopeCounts,
     applicationStartAt: program.applicationStartAt,

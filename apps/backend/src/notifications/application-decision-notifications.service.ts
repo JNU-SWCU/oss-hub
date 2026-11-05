@@ -102,7 +102,7 @@ function parseApplicationDecisionNotification(
   }
   const {
     schemaVersion,
-    applicationId,
+    teamId,
     programId,
     programName,
     decision,
@@ -110,8 +110,8 @@ function parseApplicationDecisionNotification(
   } = payload;
   if (
     schemaVersion !== 1 ||
-    typeof applicationId !== 'string' ||
-    applicationId.length === 0 ||
+    typeof teamId !== 'string' ||
+    teamId.length === 0 ||
     typeof programId !== 'string' ||
     programId.length === 0 ||
     typeof programName !== 'string' ||
@@ -127,7 +127,7 @@ function parseApplicationDecisionNotification(
   if (Number.isNaN(parsedDate.getTime())) return null;
   return {
     id: notification.id,
-    applicationId,
+    teamId,
     programId,
     programName,
     decision,

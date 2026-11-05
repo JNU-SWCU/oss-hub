@@ -52,7 +52,7 @@ export const TEAM_INVITATION_ERROR_CODES: Record<
   [TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM]: {
     code: TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM,
     status: 409,
-    message: '이미 이 프로그램의 다른 팀에 소속된 사용자입니다.',
+    message: '현재 팀에서 탈퇴한 후 초대를 수락해 주세요.',
   },
   [TeamInvitationErrorCode.ALREADY_INVITED]: {
     code: TeamInvitationErrorCode.ALREADY_INVITED,

@@ -49,7 +49,7 @@ const PENDING_STAFF_ID = 'synthetic-matrix-pending-staff';
 const DEACTIVATED_STAFF_ID = 'synthetic-matrix-deactivated-staff';
 const PENDING_REQUEST_ID = 'synthetic-matrix-pending-request';
 const ROWHOLDER_ID = 'synthetic-matrix-rowholder';
-const UNSUBMITTED_APPLICATION_ID = 'synthetic-matrix-unsubmitted-application';
+const UNSUBMITTED_TEAM_ID = 'synthetic-matrix-unsubmitted-application-team';
 
 const EXPECTED_MILESTONE_ORDER = [
   MILESTONE_SCENARIOS['milestones-overdue'][0],
@@ -78,12 +78,12 @@ function cellFor(row: MatrixRowResult, milestoneId: string) {
 
 function rowFor(
   rows: readonly MatrixRowResult[],
-  applicationId: string,
+  teamId: string,
 ): MatrixRowResult {
   const row = rows.find(
-    (candidate) => candidate.applicationId === applicationId,
+    (candidate) => candidate.teamId === teamId,
   );
-  if (!row) throw new Error(`application 행 누락: ${applicationId}`);
+  if (!row) throw new Error(`application 행 누락: ${teamId}`);
   return row;
 }
 
@@ -147,98 +147,86 @@ describe('SubmissionMatrixService integration', () => {
         },
       ].map((data) =>
         prisma.user.upsert({
-          where: { id: data.id },
-          update: {},
-          create: data,
-        }),
+    where: { id: data.id },
+    update: {},
+    create: data
+}),
       ),
     );
     await prisma.user.update({
-      where: { id: ROWHOLDER_ID },
-      data: {
+    where: { id: ROWHOLDER_ID },
+    data: {
         name: 'Synthetic Nameholder',
         studentId: '261097',
         department: '합성 학과',
         type: MemberKind.STUDENT,
         departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      },
-    });
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z')
+    }
+});
     await prisma.user.update({
-      where: { id: PENDING_STAFF_ID },
-      data: {
+    where: { id: PENDING_STAFF_ID },
+    data: {
         type: UserType.STAFF,
         approvalStatus: ApprovalStatus.PENDING,
         approvalRequestId: PENDING_REQUEST_ID,
-        approvalRequestedAt: new Date('2026-01-01T00:00:00.000Z'),
-      },
-    });
-    const unsubmittedTeamId = `${UNSUBMITTED_APPLICATION_ID}-team`;
+        approvalRequestedAt: new Date('2026-01-01T00:00:00.000Z')
+    }
+});
+    const unsubmittedTeamId = UNSUBMITTED_TEAM_ID;
     await prisma.team.upsert({
-      where: { id: unsubmittedTeamId },
-      update: {},
-      create: {
+    where: { id: unsubmittedTeamId },
+    update: { status: ApplicationStatus.APPROVED },
+    create: {
         id: unsubmittedTeamId,
         programId: PROGRAM_ID,
-        name: `${UNSUBMITTED_APPLICATION_ID}-team`,
+        name: UNSUBMITTED_TEAM_ID,
         leaderId: ROWHOLDER_ID,
-      },
-    });
-    await prisma.teamMember.upsert({
-      where: {
-        teamId_userId: {
-          teamId: unsubmittedTeamId,
-          userId: ROWHOLDER_ID,
-        },
-      },
-      update: {},
-      create: {
-        teamId: unsubmittedTeamId,
-        programId: PROGRAM_ID,
-        userId: ROWHOLDER_ID,
-      },
-    });
-    await prisma.application.upsert({
-      where: { id: UNSUBMITTED_APPLICATION_ID },
-      update: { status: ApplicationStatus.APPROVED },
-      create: {
-        id: UNSUBMITTED_APPLICATION_ID,
-        programId: PROGRAM_ID,
         applicantId: ROWHOLDER_ID,
+        answers: { title: UNSUBMITTED_TEAM_ID },
+        applicationTemplateVersion: 1, status: ApplicationStatus.APPROVED
+    }
+});
+    await prisma.teamMember.upsert({
+    where: {
+        teamId_userId: {
+            teamId: unsubmittedTeamId,
+            userId: ROWHOLDER_ID
+        }
+    },
+    update: {},
+    create: {
         teamId: unsubmittedTeamId,
-        answers: { synthetic: true },
-        applicationTemplateVersion: 1,
-        status: ApplicationStatus.APPROVED,
-      },
-    });
+        programId: PROGRAM_ID,
+        userId: ROWHOLDER_ID
+    }
+});
+
   });
 
   afterAll(async () => {
-    await prisma.application.deleteMany({
-      where: { id: UNSUBMITTED_APPLICATION_ID },
-    });
     await prisma.teamMember.deleteMany({
-      where: { teamId: `${UNSUBMITTED_APPLICATION_ID}-team` },
-    });
+    where: { teamId: UNSUBMITTED_TEAM_ID }
+});
     await prisma.team.deleteMany({
-      where: { id: `${UNSUBMITTED_APPLICATION_ID}-team` },
-    });
+    where: { id: UNSUBMITTED_TEAM_ID }
+});
     await prisma.admin.deleteMany({ where: { userId: ADMIN_VIEWER_ID } });
     await prisma.user.deleteMany({
-      where: {
+    where: {
         id: {
-          in: [
-            STAFF_VIEWER_ID,
-            ADMIN_VIEWER_ID,
-            STUDENT_VIEWER_ID,
-            PENDING_STAFF_ID,
-            DEACTIVATED_STAFF_ID,
-            ROWHOLDER_ID,
-          ],
-        },
-      },
-    });
+            in: [
+                STAFF_VIEWER_ID,
+                ADMIN_VIEWER_ID,
+                STUDENT_VIEWER_ID,
+                PENDING_STAFF_ID,
+                DEACTIVATED_STAFF_ID,
+                ROWHOLDER_ID
+            ]
+        }
+    }
+});
     await Promise.all([prisma.$disconnect(), seedPrisma.$disconnect()]);
   });
 
@@ -256,16 +244,16 @@ describe('SubmissionMatrixService integration', () => {
         .filter((id) => seedMilestoneIds.has(id)),
     ).toEqual(EXPECTED_MILESTONE_ORDER);
 
-    expect(matrix.rows.map((row) => row.applicationId)).toEqual([
+    expect(matrix.rows.map((row) => row.teamId)).toEqual([
       PERSONAL_APPLICATION_ID,
       TEAM_APPLICATION_ID,
-      UNSUBMITTED_APPLICATION_ID,
+      UNSUBMITTED_TEAM_ID,
     ]);
     expect(matrix.total).toBe(3);
 
     const personal = rowFor(matrix.rows, PERSONAL_APPLICATION_ID);
     const team = rowFor(matrix.rows, TEAM_APPLICATION_ID);
-    const unsubmitted = rowFor(matrix.rows, UNSUBMITTED_APPLICATION_ID);
+    const unsubmitted = rowFor(matrix.rows, UNSUBMITTED_TEAM_ID);
 
     expect(personal).toMatchObject({
       applicationMode: 'PERSONAL',
@@ -356,7 +344,7 @@ describe('SubmissionMatrixService integration', () => {
   });
 
   it.each([
-    ['신청자 이름', 'nameHOLDER', [UNSUBMITTED_APPLICATION_ID]],
+    ['신청자 이름', 'nameHOLDER', [UNSUBMITTED_TEAM_ID]],
     ['팀명', 'MILESTONES-TEAM', [TEAM_APPLICATION_ID]],
     ['팀원 GitHub 핸들', 'USER-TEAM-MEMBER', [TEAM_APPLICATION_ID]],
     ['신청자 GitHub 핸들', 'APPLICANT-PERSONAL', [PERSONAL_APPLICATION_ID]],
@@ -366,7 +354,7 @@ describe('SubmissionMatrixService integration', () => {
     async (_, q, expectedIds) => {
       const matrix = await service.matrix(PROGRAM_ID, query({ q }));
 
-      expect(matrix.rows.map((row) => row.applicationId)).toEqual([
+      expect(matrix.rows.map((row) => row.teamId)).toEqual([
         ...expectedIds,
       ]);
       expect(matrix.total).toBe(expectedIds.length);
@@ -380,18 +368,18 @@ describe('SubmissionMatrixService integration', () => {
       service.matrix(PROGRAM_ID, query({})),
     ]);
 
-    expect(personalOnly.rows.map((row) => row.applicationId)).toEqual(
-      noFilter.rows.map((row) => row.applicationId),
+    expect(personalOnly.rows.map((row) => row.teamId)).toEqual(
+      noFilter.rows.map((row) => row.teamId),
     );
-    expect(teamOnly.rows.map((row) => row.applicationId)).toEqual(
-      noFilter.rows.map((row) => row.applicationId),
+    expect(teamOnly.rows.map((row) => row.teamId)).toEqual(
+      noFilter.rows.map((row) => row.teamId),
     );
     expect(personalOnly.total).toBe(noFilter.total);
     expect(teamOnly.total).toBe(noFilter.total);
-    expect(noFilter.rows.map((row) => row.applicationId)).toEqual([
+    expect(noFilter.rows.map((row) => row.teamId)).toEqual([
       PERSONAL_APPLICATION_ID,
       TEAM_APPLICATION_ID,
-      UNSUBMITTED_APPLICATION_ID,
+      UNSUBMITTED_TEAM_ID,
     ]);
   });
 
@@ -401,7 +389,7 @@ describe('SubmissionMatrixService integration', () => {
       service.matrix(PROGRAM_ID, query({ page: 9, pageSize: 1 })),
     ]);
 
-    expect(secondPage.rows.map((row) => row.applicationId)).toEqual([
+    expect(secondPage.rows.map((row) => row.teamId)).toEqual([
       TEAM_APPLICATION_ID,
     ]);
     expect(secondPage).toMatchObject({ page: 2, pageSize: 1, total: 3 });

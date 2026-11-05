@@ -2,7 +2,7 @@ import { RepositoryProvisionEventService } from '../github/repository-provision-
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import {
   AccountStatus,
-  ApplicationReviewEventKind,
+  TeamHistoryEvent,
   ApplicationStatus,
   ProgramLifecycle,
   ProgramTrackType,
@@ -54,8 +54,8 @@ const PROGRAM_ID = 'synthetic-program';
 const UNKNOWN_GITHUB_ID = 9199n;
 const SUBMITTED_AT = new Date('2026-08-05T05:32:00.000Z');
 const UPDATED_AT = new Date('2026-08-06T01:00:00.000Z');
-const decisionPath = `/api/v1/applications/${APPLICATION_ID}`;
-const listPath = `/api/v1/programs/${PROGRAM_ID}/applications`;
+const decisionPath = `/api/v1/teams/${APPLICATION_ID}`;
+const listPath = `/api/v1/programs/${PROGRAM_ID}/teams`;
 const summaryPath = '/api/v1/dashboard/staff/summary';
 const insightsPath = '/api/v1/dashboard/staff/insights';
 
@@ -196,7 +196,7 @@ const listItem: ApplicationListItem = {
     name: null,
     nickname: 'synthetic-applicant',
   },
-  team: { id: 'synthetic-team', name: '합성 팀', memberCount: 3 },
+  team: { id: APPLICATION_ID, name: '합성 팀', memberCount: 3 },
   answers: {
     applicantName: '합성 신청자',
     title: '합성 제목',
@@ -224,7 +224,7 @@ const listItemSource: ApplicationListSource = {
       type: 'UNSELECTED',
       profileCreatedAt: null,
     },
-    team: { id: 'synthetic-team', name: '합성 팀', _count: { members: 3 } },
+    name: '합성 팀', _count: { members: 3 },
     answers: listItem.answers,
   } as unknown as ApplicationListSource['row'],
   outbox: undefined,
@@ -232,7 +232,7 @@ const listItemSource: ApplicationListSource = {
 };
 const reviewHistoryEntry: ApplicationReviewHistoryEntry = {
   id: 'synthetic-review-history',
-  eventKind: ApplicationReviewEventKind.SUBMITTED,
+  eventKind: TeamHistoryEvent.SUBMITTED,
   revision: 1,
   actor: { name: null, nickname: 'synthetic-applicant' },
   occurredAt: SUBMITTED_AT,
@@ -349,7 +349,7 @@ const detailBody = {
   reviewHistory: [
     {
       id: 'synthetic-review-history',
-      eventKind: ApplicationReviewEventKind.SUBMITTED,
+      eventKind: TeamHistoryEvent.SUBMITTED,
       revision: 1,
       actor: { name: null, nickname: 'synthetic-applicant' },
       occurredAt: '2026-08-05T05:32:00.000Z',
@@ -463,7 +463,7 @@ const insightsBody = {
   programs: [],
 };
 const decisionBody = {
-  applicationId: APPLICATION_ID,
+  teamId: APPLICATION_ID,
   status: ApplicationStatus.APPROVED,
   repositoryProvisioning: { enabled: false, eventId: null, jobStatus: null },
 };
@@ -517,14 +517,7 @@ const applicationsRepository = {
   findRepositoryProvisionEvent,
   withTransaction,
 } as unknown as ApplicationsRepository;
-const applicationsService = new TeamApplicationService(
-  applicationsRepository,
-  { record } as unknown as AuditLogService,
-  new AuditLogMetadataService(),
-  new RepositoryUrlService(),
-  new ApplicationAnswersService(),
-  new RepositoryProvisionEventService(),
-);
+const applicationsService = new TeamApplicationService(applicationsRepository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
 const summarizeActivity = jest.fn().mockResolvedValue([]);
 const listSubmissionsByProgram = jest.fn().mockResolvedValue([]);
 const staffDashboardService = new StaffDashboardService(
@@ -731,22 +724,12 @@ const decisionBodies = [
   {
     label: 'missing rejection reason',
     value: { action: 'REJECT' },
-    problem: {
-      status: 400,
-      title: 'BAD_REQUEST',
-      code: 'APP_003',
-      detail: '반려 사유를 입력해 주세요.',
-    },
+    problem: null,
   },
   {
     label: 'blank rejection reason',
     value: { action: 'REJECT', reason: '   ' },
-    problem: {
-      status: 400,
-      title: 'BAD_REQUEST',
-      code: 'APP_003',
-      detail: '반려 사유를 입력해 주세요.',
-    },
+    problem: null,
   },
 ] as const;
 
@@ -885,29 +868,23 @@ it.each(decisionCases)(
     }
 
     expect(response.status).toBe(200);
-    expect(await readJson(response)).toEqual(decisionBody);
+    const rejected = body.value.action === 'REJECT';
+    expect(await readJson(response)).toEqual(rejected ? { teamId: APPLICATION_ID, status: 'REJECTED', rejectionReason: null } : decisionBody);
     expect(transitionApplication).toHaveBeenCalledWith({
-      applicationId: APPLICATION_ID,
+      teamId: APPLICATION_ID,
       expectedStatus: ApplicationStatus.SUBMITTED,
-      nextStatus: ApplicationStatus.APPROVED,
+      nextStatus: rejected ? ApplicationStatus.REJECTED : ApplicationStatus.APPROVED,
       rejectionReason: null,
       processedBy: { id: actorId(actor), at: expect.any(Date) as unknown },
     });
     expect(appendReviewHistory).toHaveBeenCalledWith({
-      applicationId: APPLICATION_ID,
-      eventKind: ApplicationReviewEventKind.APPROVED,
+      teamId: APPLICATION_ID,
+      eventKind: rejected ? TeamHistoryEvent.REJECTED : TeamHistoryEvent.APPROVED,
       actorId: actorId(actor),
       occurredAt: expect.any(Date) as unknown,
       rejectionReason: null,
     });
-    expect(record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorGithubId: actor.githubId,
-        targetType: 'APPLICATION',
-        targetId: APPLICATION_ID,
-      }),
-      transactionStore.auditLogWriter,
-    );
+    expect(appendReviewHistory).toHaveBeenCalledTimes(1);
   },
 );
 

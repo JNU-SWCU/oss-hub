@@ -247,7 +247,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
           .fn()
           .mockResolvedValue({ id: syntheticUserId }),
         findStudentApplication: jest.fn().mockResolvedValue({
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           approved: true,
         }),
         findSubmittedSummaries: jest.fn().mockResolvedValue([
@@ -387,7 +387,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -457,7 +457,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -514,7 +514,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1276,7 +1276,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1312,7 +1312,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1353,7 +1353,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1391,7 +1391,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1426,7 +1426,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
       deadline: {
@@ -1498,7 +1498,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         required: true,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: false,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1543,7 +1543,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         required: true,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1578,7 +1578,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
       deadline: {
@@ -1608,7 +1608,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         required: true,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1650,7 +1650,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
       milestoneDocumentId: syntheticDocumentId,
-      applicationId: syntheticApplicationId,
+      teamId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
       deadline: {
@@ -1677,7 +1677,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         .fn()
         .mockResolvedValue({ id: syntheticUserId }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1736,7 +1736,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         required: true,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1782,7 +1782,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         required: true,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -1834,7 +1834,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
         required: true,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -2036,7 +2036,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         submittedById: syntheticUserId,
       }),
     );
@@ -2063,7 +2063,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
         required: true,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-12-31T00:00:00.000Z'),
       }),
@@ -2222,13 +2222,13 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ]),
       findApprovedApplicationsForCollection: jest.fn().mockResolvedValue([
         {
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           teamName: '가나다팀',
           applicantName: '합성 신청자',
           memberNicknames: ['synthetic-leader', 'synthetic-member'],
         },
         {
-          applicationId: secondApplicationId,
+          teamId: secondApplicationId,
           teamName: '라마바팀',
           applicantName: null,
           memberNicknames: ['synthetic-solo'],
@@ -2381,7 +2381,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           revision: 1,
           status: SubmissionStatus.SUBMITTED,
@@ -2391,7 +2391,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
         {
           milestoneDocumentId: secondDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
 
           revision: 2,
@@ -2454,7 +2454,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
           content: null,
@@ -2500,7 +2500,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
           milestoneDocumentId: secondDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
           content: { type: 'TEXT', text: longText },
@@ -2535,7 +2535,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
           milestoneDocumentId: secondDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
           content: { type: 'TEXT' },
@@ -2569,7 +2569,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-19T08:00:00.000Z'),
           revision: 2,
           status: SubmissionStatus.SUBMITTED,
@@ -2622,7 +2622,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
           milestoneDocumentId: syntheticDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.APPROVED,
           content: null,
@@ -2636,7 +2636,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         },
         {
           milestoneDocumentId: secondDocumentId,
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.REJECTED,
           content: null,
@@ -2700,7 +2700,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
   it('좌표를 읽은 뒤 제출이 들어와도 같은 snapshot의 count·행·cell을 함께 반환한다', async () => {
     const oldCoordinates: readonly {
-      applicationId: string;
+      teamId: string;
       milestoneDocumentId: string;
     }[] = [];
     const snapshotStore = {
@@ -2713,7 +2713,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       findByMilestoneId: jest.fn().mockResolvedValue([baseDocument()]),
       findApprovedApplicationsForCollection: jest.fn().mockResolvedValue([
         {
-          applicationId: syntheticApplicationId,
+          teamId: syntheticApplicationId,
           teamName: '가나다팀',
           applicantName: '합성 신청자',
           memberNicknames: [],
@@ -2725,7 +2725,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           outsideSubmissionQuery.mockResolvedValue([
             {
               milestoneDocumentId: syntheticDocumentId,
-              applicationId: syntheticApplicationId,
+              teamId: syntheticApplicationId,
             },
           ]);
           return Promise.resolve(oldCoordinates);
@@ -2791,7 +2791,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: true,
         programEndAt: new Date('2026-10-01T00:00:00.000Z'),
       }),
@@ -2874,7 +2874,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: false,
         programEndAt: new Date('2026-10-01T00:00:00.000Z'),
       }),
@@ -2944,7 +2944,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         admin: null,
       }),
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: false,
         programEndAt: new Date('2026-10-01T00:00:00.000Z'),
       }),
@@ -3071,13 +3071,13 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
   const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
   function submission(
-    applicationId: string,
+    teamId: string,
     milestoneDocumentId: string,
     status: SubmissionStatus = SubmissionStatus.SUBMITTED,
   ) {
     return {
       milestoneDocumentId,
-      applicationId,
+      teamId,
       submittedAt,
       status,
       content: null,
@@ -3101,25 +3101,25 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ]),
       findApprovedApplicationsForCollection: jest.fn().mockResolvedValue([
         {
-          applicationId: bothApplicationId,
+          teamId: bothApplicationId,
           teamName: '가나다팀',
           applicantName: '합성 신청자',
           memberNicknames: ['synthetic-a'],
         },
         {
-          applicationId: requiredOnlyApplicationId,
+          teamId: requiredOnlyApplicationId,
           teamName: '라마바팀',
           applicantName: null,
           memberNicknames: ['synthetic-b'],
         },
         {
-          applicationId: optionalOnlyApplicationId,
+          teamId: optionalOnlyApplicationId,
           teamName: '사아자팀',
           applicantName: null,
           memberNicknames: ['synthetic-c'],
         },
         {
-          applicationId: noneApplicationId,
+          teamId: noneApplicationId,
           teamName: '차카타팀',
           applicantName: null,
           memberNicknames: ['synthetic-d'],
@@ -3127,19 +3127,19 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ]),
       findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([
         {
-          applicationId: bothApplicationId,
+          teamId: bothApplicationId,
           milestoneDocumentId: requiredDocumentId,
         },
         {
-          applicationId: bothApplicationId,
+          teamId: bothApplicationId,
           milestoneDocumentId: optionalDocumentId,
         },
         {
-          applicationId: requiredOnlyApplicationId,
+          teamId: requiredOnlyApplicationId,
           milestoneDocumentId: requiredDocumentId,
         },
         {
-          applicationId: optionalOnlyApplicationId,
+          teamId: optionalOnlyApplicationId,
           milestoneDocumentId: optionalDocumentId,
         },
       ]),

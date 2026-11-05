@@ -40,9 +40,8 @@ export interface ProvisionJobReference {
   readonly currentEventId: string | null;
 }
 export interface OwnedProvisionJob {
-  readonly application: {
+  readonly team: {
     readonly id: string;
-    readonly teamId: string | null;
     readonly repositoryConnectionMode: RepositoryConnectionMode;
     readonly applicant: {
       readonly nickname: string;
@@ -50,10 +49,8 @@ export interface OwnedProvisionJob {
     readonly program: {
       readonly name: string;
     };
-    readonly team: {
-      readonly name: string;
-      readonly _count: { readonly members: number };
-    } | null;
+    readonly name: string;
+    readonly _count: { readonly members: number };
 
     readonly repository: {
       readonly id: string;
@@ -93,15 +90,15 @@ export interface RepositoriesTransactionStore {
     input: ClaimProvisionEventInput,
   ): Promise<ClaimedProvisionEvent | null>;
   upsertProvisionJob(
-    applicationId: string,
+    teamId: string,
     now: Date,
   ): Promise<ProvisionJobReference>;
   findProvisionJob(
-    applicationId: string,
+    teamId: string,
   ): Promise<ProvisionJobReference | null>;
   confirmSupersededProvisionEvent(
     eventId: string,
-    applicationId: string,
+    teamId: string,
     now: Date,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void>;
@@ -157,12 +154,10 @@ export class RepositoriesRepository {
 
     const jobs = await this.prisma.repositoryProvisionJob.findMany({
       where: {
-        application: {
+        team: {
           status: ApplicationStatus.APPROVED,
 
-          team: {
-            members: { some: { user: { githubId } } },
-          },
+          members: { some: { user: { githubId } } },
         },
       },
       orderBy: { updatedAt: 'desc' },
@@ -170,10 +165,9 @@ export class RepositoriesRepository {
         status: true,
         lastErrorCode: true,
         updatedAt: true,
-        application: {
+        team: {
           select: {
             id: true,
-            teamId: true,
             repositoryConnectionMode: true,
             applicant: {
               select: { nickname: true },
@@ -181,9 +175,7 @@ export class RepositoriesRepository {
             program: {
               select: { name: true },
             },
-            team: {
-              select: { name: true, _count: { select: { members: true } } },
-            },
+            name: true, _count: { select: { members: true } },
             repository: {
               select: {
                 id: true,
@@ -207,7 +199,7 @@ export class RepositoriesRepository {
     });
     return jobs.map((job) => ({
       ...job,
-      application: job.application,
+      team: job.team,
     }));
   }
 
@@ -300,7 +292,7 @@ export class RepositoriesRepository {
             ${REPOSITORY_PROVISION_EVENT_TYPE},
             ${REPOSITORY_ACCESS_SYNC_EVENT_TYPE}
           )
-          AND "aggregateType" = 'Application'
+          AND "aggregateType" = 'Team'
           AND "availableAt" <= ${input.now}
           AND (
             "status" = CAST(${OutboxEventStatus.PENDING} AS "OutboxEventStatus")
@@ -328,28 +320,28 @@ export class RepositoriesRepository {
 
   private async upsertProvisionJobIn(
     transaction: Prisma.TransactionClient,
-    applicationId: string,
+    teamId: string,
     now: Date,
   ): Promise<ProvisionJobReference> {
-    const available = await transaction.application.count({
-      where: { id: applicationId, program: { lifecycle: { not: 'DELETED' } } },
+    const available = await transaction.team.count({
+      where: { id: teamId, program: { lifecycle: { not: 'DELETED' } } },
     });
     if (available === 0) throw new InvalidRepositoryProvisionEventError();
     const locked = await transaction.$queryRaw<LockedProvisionJobRow[]>(
       Prisma.sql`
         SELECT "id", "status", "nextAttemptAt", "currentEventId"
         FROM "RepositoryProvisionJob"
-        WHERE "applicationId" = ${applicationId}
+        WHERE "teamId" = ${teamId}
         FOR UPDATE
       `,
     );
     const existing = locked[0];
     if (existing === undefined) {
       return transaction.repositoryProvisionJob.upsert({
-        where: { applicationId },
+        where: { teamId },
         update: {},
         create: {
-          applicationId,
+          teamId,
           status: RepositoryProvisionJobStatus.PENDING,
           nextAttemptAt: now,
         },
@@ -402,12 +394,12 @@ export class RepositoriesRepository {
 
   private async findProvisionJobIn(
     transaction: Prisma.TransactionClient,
-    applicationId: string,
+    teamId: string,
   ): Promise<ProvisionJobReference | null> {
     return transaction.repositoryProvisionJob.findUnique({
       where: {
-        applicationId,
-        application: { program: { lifecycle: { not: 'DELETED' } } },
+        teamId,
+        team: { program: { lifecycle: { not: 'DELETED' } } },
       },
       select: { id: true, currentEventId: true },
     });
@@ -416,7 +408,7 @@ export class RepositoriesRepository {
   private async confirmSupersededProvisionEventIn(
     transaction: Prisma.TransactionClient,
     eventId: string,
-    applicationId: string,
+    teamId: string,
     now: Date,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
@@ -424,7 +416,7 @@ export class RepositoriesRepository {
       transaction,
       {
         requestId: eventId,
-        applicationId,
+        teamId,
         repositoryId: null,
         source: null,
         outcome: RepositoryIssuanceOutcome.SUPERSEDED,

@@ -97,7 +97,7 @@ async function createPending(options: {
   return prisma.submissionFile.create({
     data: {
       uploaderId: USER_ID,
-      applicationId: APPLICATION_ID,
+      teamId: APPLICATION_ID,
       milestoneId: MILESTONE_ID,
       storageKey: `${PREFIX}/${options.suffix}`,
       originalFileName: options.originalFileName ?? 'synthetic.pdf',
@@ -131,7 +131,7 @@ async function createSubmissionHistory(suffix: string): Promise<{
     data: {
       id: submissionId,
       milestoneDocumentId: documentId,
-      applicationId: APPLICATION_ID,
+      teamId: APPLICATION_ID,
       status: SubmissionStatus.SUBMITTED,
       revision: 1,
       submittedById: USER_ID,

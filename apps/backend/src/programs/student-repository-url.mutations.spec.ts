@@ -17,13 +17,13 @@ import type {
 } from './team.repository';
 
 const context: StudentRepositoryUrlContext = {
-  id: 'application',
+  id: 'team',
   programId: 'program',
   teamId: 'team',
   status: ApplicationStatus.APPROVED,
   applicantId: 'student',
   applicant: { githubId: 1n },
-  team: { leaderId: 'leader' },
+  leaderId: 'leader',
   program: { name: 'Synthetic program', endAt: new Date('2099-01-01') },
   repository: {
     id: 'old',
@@ -31,9 +31,10 @@ const context: StudentRepositoryUrlContext = {
     nameWithOwner: 'synthetic/old',
   },
 };
-const leader = { nickname: 'synthetic-actor', isLeader: true, isStaff: false };
-const staff = { nickname: 'synthetic-staff', isLeader: false, isStaff: true };
+const leader = { id: 'leader', nickname: 'synthetic-actor', isLeader: true, isStaff: false };
+const staff = { id: 'staff', nickname: 'synthetic-staff', isLeader: false, isStaff: true };
 const member = {
+  id: 'member',
   nickname: 'synthetic-member',
   isLeader: false,
   isStaff: false,
@@ -47,8 +48,14 @@ function fixture(
   studentId = 'leader',
 ) {
   const teamContext: TeamRepositoryUrlContext = { ...context, editor };
+  const database = new PrismaService();
+  const history = jest.spyOn(database.teamHistory, 'create').mockResolvedValue({
+    id: 'synthetic-history', teamId: 'team', programId: 'program', actorId: editor.id,
+    event: 'REPOSITORY_URL_CHANGED', source: 'APPLICATION', sourceTable: null, sourceId: null,
+    occurredAt: new Date('2026-01-01'), recordedAt: new Date('2026-01-01'), data: {},
+  });
   const transaction = new StudentRepositoryUrlTransactionRepository(
-    new PrismaService(),
+    database,
     new RepositoryProvisionGenerationRepository(),
     new StudentRepositoryUrlContextRepository(new PlatformRepository()),
     new RepositoryDeletionRepository(),
@@ -91,33 +98,24 @@ function fixture(
     }),
   };
   const consents = { requireCurrent: jest.fn().mockResolvedValue(undefined) };
-  const audit = { record: jest.fn().mockResolvedValue(undefined) };
   const collection = {
     collectRepository: jest.fn((githubRepositoryId: bigint) => {
       events.push(`collect:${githubRepositoryId}`);
     }),
   };
-  const service = new StudentRepositoryUrlService(
-    repository,
-    {
-      findActiveStudentByGithubId: jest.fn().mockResolvedValue({
+  const service = new StudentRepositoryUrlService(repository, {
+    findActiveStudentByGithubId: jest.fn().mockResolvedValue({
         id: studentId,
         nickname: 'synthetic-actor',
         name: null,
-      }),
-    },
-    resolver,
-    consents,
-    audit,
-    collection,
-    new RepositoryProvisionEventService(),
-  );
+    }),
+}, resolver, consents, collection, new RepositoryProvisionEventService());
   return {
     service,
     repository,
     resolver,
     consents,
-    audit,
+    history,
     collection,
     events,
     lockTeamContext,
@@ -166,8 +164,8 @@ it('requires the applicant consent for an external repository even when the lead
   expect(consents.requireCurrent).toHaveBeenCalledWith(1n);
   expect(relink).not.toHaveBeenCalled();
 });
-it('does not mutate or audit when the current canonical repository is submitted again', async () => {
-  const { service, resolver, audit, relink, collection } = fixture();
+it('does not mutate or record history when the current canonical repository is submitted again', async () => {
+  const { service, resolver, history, relink, collection } = fixture();
   resolver.resolve.mockResolvedValue({
     kind: 'ORGANIZATION',
     repository: { githubRepositoryId: 2n, nameWithOwner: 'synthetic/old' },
@@ -177,7 +175,7 @@ it('does not mutate or audit when the current canonical repository is submitted 
     repositoryUrl: 'https://github.com/synthetic/old/',
   });
   expect(relink).not.toHaveBeenCalled();
-  expect(audit.record).not.toHaveBeenCalled();
+  expect(history).not.toHaveBeenCalled();
   expect(collection.collectRepository).not.toHaveBeenCalled();
 });
 it('starts collecting the new repository once, after the relink commits', async () => {
@@ -220,11 +218,11 @@ it.each([
   await expect(service.updateMine(1n, 'program', input)).rejects.toBe(error);
   expect(collection.collectRepository).not.toHaveBeenCalled();
 });
-it('does not collect when the audit write rolls the relink back', async () => {
-  const { service, audit, collection } = fixture();
-  audit.record.mockRejectedValue(new Error('Synthetic audit outage'));
+it('does not collect when the history write rejects before commit', async () => {
+  const { service, history, collection } = fixture();
+  history.mockRejectedValue(new Error('Synthetic history outage'));
   await expect(service.updateMine(1n, 'program', input)).rejects.toThrow(
-    'Synthetic audit outage',
+    'Synthetic history outage',
   );
   expect(collection.collectRepository).not.toHaveBeenCalled();
 });
@@ -241,24 +239,23 @@ it('rechecks the program end after the context is locked', async () => {
   expect(relink).not.toHaveBeenCalled();
 });
 it('records old and new identities with the actor snapshot in the transaction', async () => {
-  const { service, audit, relink } = fixture();
+  const { service, history, relink } = fixture();
   const result = await service.updateMine(1n, 'program', input);
   expect(result.repositoryUrl).toBe(input.repositoryUrl);
   expect(relink).toHaveBeenCalledWith(
-    expect.objectContaining({ id: 'application' }),
+    expect.objectContaining({ id: 'team' }),
     expect.objectContaining({ kind: 'EXTERNAL' }),
     expect.any(Function),
   );
-  const calls: readonly (readonly unknown[])[] = audit.record.mock.calls;
+  const calls: readonly (readonly unknown[])[] = history.mock.calls;
   const record = calls[0]?.[0];
   expect(record).toMatchObject({
-    action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-    metadata: {
+    data: { event: 'REPOSITORY_URL_CHANGED', data: { metadata: {
       actorGithubLogin: 'synthetic-actor',
       schemaVersion: 2,
       before: { repositoryId: 'old' },
       after: { repositoryId: 'target' },
-    },
+    } } },
   });
 });
 it('passes a managed organization private replacement through the transaction without applicant consent', async () => {
@@ -277,7 +274,7 @@ it('passes a managed organization private replacement through the transaction wi
   });
   expect(consents.requireCurrent).not.toHaveBeenCalled();
   expect(relink).toHaveBeenCalledWith(
-    expect.objectContaining({ id: 'application' }),
+    expect.objectContaining({ id: 'team' }),
     expect.objectContaining({ kind: 'ORGANIZATION' }),
     expect.any(Function),
   );
@@ -296,17 +293,17 @@ it('denies the original applicant after leadership has changed', async () => {
 });
 
 it('rechecks leadership after locking before relinking', async () => {
-  const { service, lockTeamContext, relink, audit } = fixture();
+  const { service, lockTeamContext, relink, history } = fixture();
   lockTeamContext.mockResolvedValue({ ...context, editor: member });
   await expect(service.updateMine(1n, 'program', input)).rejects.toMatchObject({
     errorCode: { code: 'APP_001' },
   });
   expect(relink).not.toHaveBeenCalled();
-  expect(audit.record).not.toHaveBeenCalled();
+  expect(history).not.toHaveBeenCalled();
 });
 
-it('lets staff outside the team save with the same audit action and the applicant consent', async () => {
-  const { service, repository, consents, relink, audit } = fixture(staff);
+it('lets staff outside the team save with the same history action and the applicant consent', async () => {
+  const { service, repository, consents, relink, history } = fixture(staff);
   await expect(
     service.updateForTeam(9n, 'program', 'team', input),
   ).resolves.toEqual({
@@ -320,11 +317,11 @@ it('lets staff outside the team save with the same audit action and the applican
   );
   expect(consents.requireCurrent).toHaveBeenCalledWith(1n);
   expect(relink).toHaveBeenCalledTimes(1);
-  const calls: readonly (readonly unknown[])[] = audit.record.mock.calls;
+  const calls: readonly (readonly unknown[])[] = history.mock.calls;
   expect(calls[0]?.[0]).toMatchObject({
-    actorGithubId: 9n,
-    action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-    metadata: { actorGithubLogin: 'synthetic-staff', teamId: 'team' },
+    data: { actorId: 'staff', event: 'REPOSITORY_URL_CHANGED', teamId: 'team',
+      data: { metadata: { actorGithubLogin: 'synthetic-staff', teamId: 'team' } },
+    },
   });
 });
 it.each([
@@ -354,13 +351,13 @@ it('answers an unknown team or inactive actor with 404 before GitHub', async () 
   expect(resolver.resolve).not.toHaveBeenCalled();
 });
 it('rechecks staff access after locking before relinking', async () => {
-  const { service, lockTeamContext, relink, audit } = fixture(staff);
+  const { service, lockTeamContext, relink, history } = fixture(staff);
   lockTeamContext.mockResolvedValue({ ...context, editor: member });
   await expect(
     service.updateForTeam(9n, 'program', 'team', input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_001' } });
   expect(relink).not.toHaveBeenCalled();
-  expect(audit.record).not.toHaveBeenCalled();
+  expect(history).not.toHaveBeenCalled();
 });
 
 import { repositoryUrlError } from './applications-error-code.error';

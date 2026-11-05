@@ -152,7 +152,7 @@ export class BoardRepository {
     programId: string,
     userId: string,
   ): Promise<boolean> {
-    const participant = await this.prisma.application.findFirst({
+    const participant = await this.prisma.team.findFirst({
       where: {
         programId,
         status: ApplicationStatus.APPROVED,

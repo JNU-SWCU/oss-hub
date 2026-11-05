@@ -7,7 +7,7 @@ describe('MyRepositoriesResponseDto', () => {
     (connectionMode) => {
       const item: MyRepositoryResult = {
         repositoryId: 'synthetic-repository',
-        applicationId: 'synthetic-application',
+        teamId: 'synthetic-application',
         connectionMode,
         applicationMode: 'TEAM',
         programName: '합성 프로그램',

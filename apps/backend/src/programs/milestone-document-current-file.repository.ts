@@ -60,42 +60,40 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
       ...STUDENT_MEMBER_WHERE,
     } as const;
     const submission = await this.prisma.milestoneDocumentSubmission.findFirst({
-      where: {
+    where: {
         milestoneDocumentId: documentId,
         milestoneDocument: {
-          is: {
-            milestoneId,
-          },
+            is: {
+                milestoneId
+            }
         },
-        application: {
-          is: {
-            program: { is: { milestones: { some: { id: milestoneId } } } },
-            team: {
-              is: { members: { some: { user: { is: activeStudent } } } },
-            },
-          },
-        },
-      },
-      select: {
+        team: {
+            is: {
+                program: { is: { milestones: { some: { id: milestoneId } } } },
+                members: { some: { user: { is: activeStudent } } }
+            }
+        }
+    },
+    select: {
         revision: true,
         files: {
-          where: {
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
-            expiresAt: { gt: new Date() },
-          },
-          orderBy: [
-            {
-              submissionHistory: {
-                revision: { sort: 'desc', nulls: 'last' },
-              },
+            where: {
+                lifecycle: SubmissionFileLifecycle.ATTACHED,
+                expiresAt: { gt: new Date() }
             },
-            { createdAt: 'desc' },
-          ],
-          take: 1,
-          select: currentFileSelect.files.select,
-        },
-      },
-    });
+            orderBy: [
+                {
+                    submissionHistory: {
+                        revision: { sort: 'desc', nulls: 'last' }
+                    }
+                },
+                { createdAt: 'desc' }
+            ],
+            take: 1,
+            select: currentFileSelect.files.select
+        }
+    }
+});
     const file = submission?.files[0];
     if (
       submission == null ||

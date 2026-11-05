@@ -33,14 +33,14 @@ export async function stateForE2eProgramGraph(
     prisma.milestoneDocument.count({
       where: { milestone: { programId: graph.programId } },
     }),
-    prisma.application.count({ where: { programId: graph.programId } }),
+    prisma.team.count({ where: { programId: graph.programId } }),
     prisma.team.count({ where: { programId: graph.programId } }),
     prisma.repositoryProvisionJob.count({
-      where: { application: { programId: graph.programId } },
-    }),
+    where: { team: { programId: graph.programId } }
+}),
     prisma.githubRepository.count({
-      where: { application: { programId: graph.programId } },
-    }),
+    where: { team: { programId: graph.programId } }
+}),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
     prisma.milestoneDocumentTemplateFile.findMany({
       where: {
@@ -49,12 +49,12 @@ export async function stateForE2eProgramGraph(
       select: { storageKey: true },
     }),
     prisma.submissionFile.findMany({
-      where: {
-        application: { programId: graph.programId },
-        lifecycle: SubmissionFileLifecycle.ATTACHED,
-      },
-      select: { storageKey: true },
-    }),
+    where: {
+        team: { programId: graph.programId },
+        lifecycle: SubmissionFileLifecycle.ATTACHED
+    },
+    select: { storageKey: true }
+}),
     prisma.programAuthoringUpload.count({
       where: {
         actorId: actorIds[0],
@@ -62,11 +62,11 @@ export async function stateForE2eProgramGraph(
       },
     }),
     prisma.submissionFile.count({
-      where: {
-        application: { programId: graph.programId },
-        lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
-      },
-    }),
+    where: {
+        team: { programId: graph.programId },
+        lifecycle: { in: ['PENDING', 'DELETE_PENDING'] }
+    }
+}),
 
     prisma.programAuthoringUpload.findMany({
       where: { actorId: actorIds[0], lifecycle: 'ATTACHED' },

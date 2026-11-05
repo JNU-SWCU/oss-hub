@@ -1,7 +1,7 @@
 import type { TeamActivityView } from '../program-team-repository-evidence.repository';
 
 export class TeamActivityResponseDto {
-  declare readonly applicationId: string | null;
+  declare readonly teamId: string | null;
   declare readonly repository: TeamActivityView['repository'];
   declare readonly status: TeamActivityView['status'];
   declare readonly lastSuccessAt: string | null;
@@ -11,7 +11,7 @@ export class TeamActivityResponseDto {
 
   static from(view: TeamActivityView): TeamActivityResponseDto {
     return {
-      applicationId: view.applicationId,
+      teamId: view.teamId,
       repository: view.repository,
       status: view.status,
       lastSuccessAt: view.lastSuccessAt,

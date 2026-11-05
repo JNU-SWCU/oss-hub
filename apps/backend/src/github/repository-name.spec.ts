@@ -13,7 +13,7 @@ describe('buildRepositoryNames', () => {
       programName: 'Open Source Camp',
       programId: 'program-fixture-id',
       subjectName: 'Team Alpha',
-      applicationId: 'application-fixture-id',
+      teamId: 'application-fixture-id',
     };
 
     const result = repositoryProvisionGithubService.buildRepositoryNames(input);
@@ -29,7 +29,7 @@ describe('buildRepositoryNames', () => {
       programName: '공개소프트웨어 경진대회',
       programId: 'programfixture123',
       subjectName: '한글팀',
-      applicationId: 'applicationfixture456',
+      teamId: 'applicationfixture456',
     };
 
     const result = repositoryProvisionGithubService.buildRepositoryNames(input);
@@ -45,7 +45,7 @@ describe('buildRepositoryNames', () => {
       programName: `program-${'a'.repeat(80)}`,
       programId: 'program-fixture-id',
       subjectName: `team-${'b'.repeat(80)}`,
-      applicationId: 'application-fixture-id',
+      teamId: 'application-fixture-id',
     };
 
     const result = repositoryProvisionGithubService.buildRepositoryNames(input);
@@ -62,15 +62,15 @@ describe('buildRepositoryNames', () => {
 
 describe('buildRepositoryOwnershipMarker', () => {
   it('application ID를 노출하지 않는 결정적 marker를 만든다', () => {
-    const applicationId = 'application-sensitive-fixture-id';
+    const teamId = 'application-sensitive-fixture-id';
 
     const first =
       repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
-        applicationId,
+        teamId,
       );
     const repeated =
       repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
-        applicationId,
+        teamId,
       );
     const different =
       repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
@@ -79,7 +79,7 @@ describe('buildRepositoryOwnershipMarker', () => {
 
     expect(first).toBe(repeated);
     expect(first).not.toBe(different);
-    expect(first).not.toContain(applicationId);
+    expect(first).not.toContain(teamId);
     expect(first).toMatch(/^oss-hub:[a-f0-9]{64}$/);
   });
 });

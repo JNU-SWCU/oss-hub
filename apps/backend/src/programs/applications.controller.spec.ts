@@ -51,7 +51,7 @@ describe('ApplicationsController', () => {
   it('승인 결과를 저장소 프로비저닝 응답으로 변환한다', async () => {
     const decide = jest.fn().mockResolvedValue({
       kind: 'APPROVED',
-      applicationId: 'synthetic-application',
+      teamId: 'synthetic-application',
       status: ApplicationStatus.APPROVED,
       repositoryProvisioning: {
         enabled: true,
@@ -73,7 +73,7 @@ describe('ApplicationsController', () => {
     expect(decide).toHaveBeenCalledWith(STAFF, 'synthetic-application', body);
 
     expect(response).toEqual({
-      applicationId: 'synthetic-application',
+      teamId: 'synthetic-application',
       status: ApplicationStatus.APPROVED,
       repositoryProvisioning: {
         enabled: true,
@@ -83,26 +83,13 @@ describe('ApplicationsController', () => {
     });
   });
 
-  it('공백 반려 사유를 APP 오류로 거부한다', () => {
+  it('공백 반려 사유를 null로 정규화한다', () => {
     const body = Object.assign(new PatchApplicationDecisionRequestDto(), {
-      action: 'REJECT',
-      reason: '   ',
+      action: 'REJECT', reason: '   ',
     });
-
-    let thrown: unknown;
-    try {
-      applicationAnswersService.applicationDecisionAction(body);
-    } catch (error) {
-      thrown = error;
-    }
-
-    expect(thrown).toBeInstanceOf(DomainException);
-    if (!(thrown instanceof DomainException)) {
-      throw new Error('DomainException이 발생해야 합니다.');
-    }
-    expect(thrown.errorCode.code).toBe(
-      ApplicationsErrorCode.REJECTION_REASON_REQUIRED,
-    );
+    expect(applicationAnswersService.applicationDecisionAction(body)).toEqual({
+      action: 'REJECT', reason: null,
+    });
   });
 
   it('PATCH 처리에 세션·Origin guard를 적용한다', () => {

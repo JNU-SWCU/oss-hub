@@ -14,7 +14,7 @@ export class RepositoryProvisionEventService {
     if (!isRecord(value)) {
       throw new InvalidRepositoryProvisionEventError();
     }
-    const applicationId = requiredString(value, 'applicationId');
+    const teamId = requiredString(value, 'teamId');
     const programId = requiredString(value, 'programId');
     const requestedAt = requiredString(value, 'requestedAt');
     const requestedTimestamp = Date.parse(requestedAt);
@@ -22,10 +22,6 @@ export class RepositoryProvisionEventService {
       Number.isNaN(requestedTimestamp) ||
       new Date(requestedTimestamp).toISOString() !== requestedAt
     ) {
-      throw new InvalidRepositoryProvisionEventError();
-    }
-    const teamId = value.teamId;
-    if (teamId !== null && !isNonEmptyString(teamId)) {
       throw new InvalidRepositoryProvisionEventError();
     }
     const collaboratorGithubLogins = value.collaboratorGithubLogins;
@@ -91,9 +87,8 @@ export class RepositoryProvisionEventService {
     }
 
     return {
-      applicationId,
-      programId,
       teamId,
+      programId,
       requestedAt,
       collaboratorGithubLogins,
       repositoryConnectionMode,
@@ -116,7 +111,6 @@ export class RepositoryProvisionEventService {
       throw new InvalidRepositoryProvisionEventError();
     }
     return {
-      applicationId: requiredString(value, 'applicationId'),
       teamId: requiredString(value, 'teamId'),
       requestedAt: requiredIsoTimestamp(value, 'requestedAt'),
     };
@@ -149,7 +143,6 @@ function isGithubLogin(value: unknown): value is string {
 }
 
 const ACCESS_SYNC_PAYLOAD_KEYS = [
-  'applicationId',
   'teamId',
   'requestedAt',
 ] as const;

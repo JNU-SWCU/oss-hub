@@ -223,13 +223,13 @@ export class AuditLogRepository {
   }
 
   findApplicationProgramNames(ids: readonly string[]) {
-    return this.prisma.application.findMany({
-      where: { id: { in: [...ids] } },
-      select: {
-        id: true,
-        program: { select: { name: true } },
-      },
-    });
+    return this.prisma.$queryRaw<{ id: string; program: { name: string } }[]>`
+      SELECT mapping."applicationId" AS id, jsonb_build_object('name', p.name) AS program
+      FROM program_team_backup.application_team_map mapping
+      JOIN "Team" t ON t.id = mapping."teamId"
+      JOIN "Program" p ON p.id = t."programId"
+      WHERE mapping."applicationId" = ANY(${[...ids]}::text[])
+    `;
   }
 
   async record(

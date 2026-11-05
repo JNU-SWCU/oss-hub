@@ -52,7 +52,7 @@ export class MatrixCellResponseDto {
 }
 
 export class MatrixRowResponseDto {
-  declare readonly applicationId: string;
+  declare readonly teamId: string;
   declare readonly applicationMode: MatrixApplicationMode;
   declare readonly displayName: string;
   declare readonly githubLogins: readonly string[];
@@ -63,7 +63,7 @@ export class MatrixRowResponseDto {
     programId: string,
   ): MatrixRowResponseDto {
     return {
-      applicationId: row.applicationId,
+      teamId: row.teamId,
       applicationMode: row.applicationMode,
       displayName: row.displayName,
       githubLogins: row.githubLogins,

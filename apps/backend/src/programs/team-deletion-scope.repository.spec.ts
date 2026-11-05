@@ -4,7 +4,7 @@ import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { TEAM_PURGE_DELETION_ORDER } from './program-lifecycle.config';
 
 const SCOPE: TeamDeletionScopeCounts = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 2,
   submissions: 4,
@@ -16,7 +16,7 @@ const SCOPE: TeamDeletionScopeCounts = {
 function queryRawStub() {
   return jest.fn().mockResolvedValue([
     {
-      applications: 1n,
+      teams: 1n,
       members: 3n,
       invitations: 2n,
       submissions: 4n,
@@ -69,7 +69,7 @@ describe('readTeamDeletionScopeCounts', () => {
     const sql = capturedSql(queryRaw);
 
     for (const table of [
-      'Application',
+      'Team',
       'TeamMember',
       'TeamInvitation',
       'MilestoneDocumentSubmission',
@@ -107,12 +107,10 @@ describe('readTeamDeletionScopeCounts', () => {
     const sql = capturedSql(queryRaw);
 
     expect(sql).toContain("'GithubRepository:'");
-    expect(sql).toContain('repository."programId"');
-    expect(sql).toContain('repository."applicationId"');
     expect(sql).toContain('repository."teamId"');
   });
 
-  it('판정 알림은 payload.applicationId 로 이 팀의 신청에만 묶는다', async () => {
+  it('판정 알림은 payload.teamId 로 이 팀의 신청에만 묶는다', async () => {
     const queryRaw = queryRawStub();
     const transaction = { $queryRaw: queryRaw } as unknown as PrismaService;
     await new TeamDeletionScopeRepository().readTeamDeletionScopeCounts(
@@ -121,24 +119,25 @@ describe('readTeamDeletionScopeCounts', () => {
     );
     const sql = capturedSql(queryRaw);
 
-    expect(sql).toContain("payload->>'applicationId'");
+    expect(sql).toContain("payload->>'teamId'");
 
     expect(sql).not.toContain('DEADLINE_DIGEST');
   });
 
   it('세는 축은 좁힌 삭제 순서가 실제로 지우는 축과 같은 이름을 쓴다', () => {
     const covered = TEAM_PURGE_DELETION_ORDER.flatMap((step) => step.covers);
-    expect(covered).toContain('Team->Application');
+    expect(covered).toContain('Team->MilestoneDocumentSubmission');
+    expect(covered).toContain('Team->RepositoryProvisionJob');
     expect(covered).toContain('Team->TeamMember');
     expect(covered).toContain('Team->TeamInvitation');
     expect(Object.keys(SCOPE).sort()).toEqual([
-      'applications',
       'detachedRepositories',
       'invitations',
       'members',
       'scopeFingerprint',
       'submissionEvents',
       'submissions',
+      'teams',
     ]);
   });
 });
@@ -156,7 +155,7 @@ describe('sameTeamDeletionScopeCounts', () => {
 
   it('수치가 하나라도 다르면 어긋난 것으로 본다', () => {
     for (const key of [
-      'applications',
+      'teams',
       'members',
       'invitations',
       'submissions',

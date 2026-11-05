@@ -7,7 +7,7 @@ import { type StudentDashboardItem } from '../../src/student/student-dashboard.s
 const at = (iso: string): Date => new Date(iso);
 const repository: MyRepositoryResult = {
   repositoryId: 'repository-1',
-  applicationId: 'application-1',
+  teamId: 'application-1',
   connectionMode: 'NEW',
   applicationMode: 'TEAM',
   programName: 'Program A',
@@ -22,7 +22,7 @@ const repository: MyRepositoryResult = {
 };
 const dashboardItem: StudentDashboardItem = {
   coverImageUrl: '/api/v1/programs/program-1/cover',
-  applicationId: 'application-1',
+  teamId: 'application-1',
   programId: 'program-1',
   programName: 'Program A',
   teamName: 'Team A',
@@ -95,7 +95,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             decision: 'CHANGES_REQUESTED',
             comment: 'Fix it',
             reviewedAt: at('2026-03-01T00:00:00.000Z'),
-            applicationId: 'application-1',
+            teamId: 'application-1',
             programId: 'program 1',
             milestoneId: 'milestone/1',
             milestoneName: 'Kickoff',
@@ -106,7 +106,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
             decision: 'APPROVED',
             comment: null,
             reviewedAt: at('2026-03-02T00:00:00.000Z'),
-            applicationId: 'application-1',
+            teamId: 'application-1',
             programId: 'program-1',
             milestoneId: 'milestone-2',
             milestoneName: 'Final',
@@ -140,7 +140,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       StudentDashboardResponseDto.from([
         dashboardItem,
         {
-          applicationId: 'application-2',
+          teamId: 'application-2',
           programId: 'program-2',
           programName: 'Program B',
           teamName: 'Solo',
@@ -162,7 +162,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         },
         {
           ...dashboardItem,
-          applicationId: 'application-3',
+          teamId: 'application-3',
           nextMilestone: null,
         },
       ]),

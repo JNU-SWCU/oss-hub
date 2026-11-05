@@ -16,7 +16,7 @@ const TEAM_DELETION_NOTIFICATION_MESSAGE_MAX_LENGTH = 500;
 export class DeleteTeamExpectedScopeRequestDto {
   @IsInt()
   @Min(0)
-  readonly applications!: number;
+  readonly teams!: number;
 
   @IsInt()
   @Min(0)

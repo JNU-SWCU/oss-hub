@@ -202,14 +202,14 @@ export class ProgramOverviewService {
       return { ...EMPTY_VIEWER_STATS, role: 'STUDENT' };
     }
 
-    const [applicationId, catalog] = await Promise.all([
+    const [teamId, catalog] = await Promise.all([
       this.repository.findViewerApplicationId(programId, userId),
       this.repository.findMilestoneDocumentCatalog(programId),
     ]);
     const allDocumentIds = catalog.flatMap((entry) => entry.documentIds);
-    const submittedDocumentIds = applicationId
+    const submittedDocumentIds = teamId
       ? await this.repository.findSubmittedDocumentIds(
-          applicationId,
+          teamId,
           allDocumentIds,
         )
       : new Set<string>();
@@ -293,7 +293,7 @@ export class ProgramOverviewService {
     const memberCountByTeam = await this.repository.countTeamMembers(
       programId,
       applications
-        .map((application) => application.teamId)
+        .map((application) => application.id)
         .filter((teamId): teamId is string => teamId !== null),
     );
     return applications
@@ -306,8 +306,8 @@ export class ProgramOverviewService {
       .reduce(
         (total, application) =>
           total +
-          (application.teamId
-            ? (memberCountByTeam.get(application.teamId) ?? 0)
+          (application.id
+            ? (memberCountByTeam.get(application.id) ?? 0)
             : 1),
         0,
       );
@@ -347,7 +347,7 @@ export class ProgramOverviewService {
           )
         ) {
           completedTeamIds.add(
-            application.teamId ?? `application:${application.id}`,
+            application.id,
           );
         }
       }
@@ -366,9 +366,9 @@ export class ProgramOverviewService {
     );
     const byApplication = new Map<string, Set<string>>();
     for (const row of rows) {
-      const set = byApplication.get(row.applicationId) ?? new Set<string>();
+      const set = byApplication.get(row.teamId) ?? new Set<string>();
       set.add(row.milestoneDocumentId);
-      byApplication.set(row.applicationId, set);
+      byApplication.set(row.teamId, set);
     }
     return byApplication;
   }

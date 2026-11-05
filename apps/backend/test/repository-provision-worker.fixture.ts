@@ -22,7 +22,7 @@ export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 
 export const PROVISION_REPOSITORY: ProvisionedRepository = {
   id: 'synthetic-repository-id',
-  applicationId: 'synthetic-application-id',
+  teamId: 'synthetic-application-id',
   githubRepositoryId: 987654321n,
   name: 'synthetic-program-synthetic-student',
   url: 'https://github.com/synthetic-org/synthetic-program-synthetic-student',
@@ -65,7 +65,7 @@ export const OWN_REPOSITORY_URL =
 
 export const OWN_PROVISION_REPOSITORY: ProvisionedRepository = {
   id: 'synthetic-own-repository-id',
-  applicationId: 'synthetic-application-id',
+  teamId: 'synthetic-application-id',
   githubRepositoryId: 1_111_222_333n,
   name: 'synthetic-own-repo',
   url: OWN_REPOSITORY_URL,
@@ -82,13 +82,12 @@ export function provisionContext(
     requestedByGithubId: null,
     currentConnectionMode: 'NEW',
     currentRepositoryUrl: null,
-    applicationId: 'synthetic-application-id',
+    teamId: 'synthetic-application-id',
     applicantGithubId: 9_000_000_730_101n,
     applicationStatus: ApplicationStatus.APPROVED,
     programId: 'synthetic-program-id',
     programName: 'Synthetic Program',
     repositoryProvisioningEnabled: true,
-    teamId: null,
     subjectName: 'Synthetic Student',
     repository: null,
     currentRepositorySource: null,
@@ -117,7 +116,7 @@ export function jobRepositoryMock(): jest.Mocked<
   return {
     claimNext: jest.fn().mockResolvedValue({
       id: 'synthetic-job-id',
-      applicationId: 'synthetic-application-id',
+      teamId: 'synthetic-application-id',
       requestId: 'synthetic-request-id',
       repositoryId: null,
       attemptCount: 1,

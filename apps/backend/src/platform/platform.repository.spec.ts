@@ -2,7 +2,6 @@ import { Prisma } from '@prisma/client';
 import { PlatformRepository } from './platform.repository';
 
 describe('submission-membership-lock.repository', () => {
-  const APPLICATION_ID = 'synthetic-application';
   const PROGRAM_ID = 'synthetic-program';
   const TEAM_ID = 'synthetic-team';
   const MEMBER_ID = 'synthetic-member';
@@ -15,9 +14,9 @@ describe('submission-membership-lock.repository', () => {
   }>;
 
   type Fixture = Readonly<{
-    application?: Readonly<{
+    coordinates?: Readonly<{
       programId: string;
-      teamId: string;
+      id: string;
       applicantId: string;
     }> | null;
 
@@ -31,7 +30,7 @@ describe('submission-membership-lock.repository', () => {
   }
 
   function evaluateParticipantWhere(
-    where: Prisma.ApplicationWhereInput,
+    where: Prisma.TeamWhereInput,
     team: TeamState,
   ): boolean {
     const forbidden = ['applicantId', 'OR', 'uploaderId', 'submittedById'];
@@ -40,23 +39,20 @@ describe('submission-membership-lock.repository', () => {
         throw new Error(`권한 술어에 기록 기반 절이 들어 있다: ${key}`);
       }
     }
-    const teamWhere = where.team as unknown as
-      | { members?: { some?: { userId?: string } }; leaderId?: string }
-      | undefined;
-    const candidateId = teamWhere?.members?.some?.userId;
-    if (candidateId === undefined) {
+    const candidateId = where.members?.some?.userId;
+    if (typeof candidateId !== 'string') {
       throw new Error('현재 TeamMember 술어 없이 권한을 판정했다');
     }
-    if (teamWhere?.leaderId !== undefined) {
+    if (where.leaderId !== undefined) {
       throw new Error('팀장 자리를 권한으로 썼다');
     }
     return team.memberUserIds.includes(candidateId);
   }
 
   function buildHarness(fixture: Fixture = {}) {
-    const application = fixture.application ?? {
+    const coordinates = fixture.coordinates ?? {
       programId: PROGRAM_ID,
-      teamId: TEAM_ID,
+      id: TEAM_ID,
       applicantId: DEPARTED_ID,
     };
     const team = fixture.team ?? {
@@ -68,25 +64,25 @@ describe('submission-membership-lock.repository', () => {
     const findUnique = jest.fn(
       (args: { where: { id: string }; select: unknown }) => {
         order.push('read:coordinates');
-        if (fixture.application === null || args.where.id !== APPLICATION_ID) {
+        if (fixture.coordinates === null || args.where.id !== TEAM_ID) {
           return Promise.resolve(null);
         }
         return Promise.resolve({
-          programId: application.programId,
-          teamId: application.teamId,
+          programId: coordinates.programId,
+          id: coordinates.id,
         });
       },
     );
 
     const findFirst = jest.fn(
-      (args: { where: Prisma.ApplicationWhereInput; select: unknown }) => {
+      (args: { where: Prisma.TeamWhereInput; select: unknown }) => {
         order.push('read:membership');
         const where = args.where;
-        if ((where.id as unknown as string) !== APPLICATION_ID) {
+        if (where.id !== TEAM_ID) {
           return Promise.resolve(null);
         }
         return Promise.resolve(
-          evaluateParticipantWhere(where, team) ? { id: APPLICATION_ID } : null,
+          evaluateParticipantWhere(where, team) ? { id: TEAM_ID } : null,
         );
       },
     );
@@ -111,7 +107,7 @@ describe('submission-membership-lock.repository', () => {
     });
 
     const tx = {
-      application: { findUnique, findFirst },
+      team: { findUnique, findFirst },
       $queryRaw: queryRaw,
     } as unknown as Prisma.TransactionClient;
 
@@ -124,7 +120,7 @@ describe('submission-membership-lock.repository', () => {
 
       const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         MEMBER_ID,
       );
 
@@ -136,8 +132,8 @@ describe('submission-membership-lock.repository', () => {
         'read:membership',
       ]);
       expect(findUnique).toHaveBeenCalledWith({
-        where: { id: APPLICATION_ID },
-        select: { programId: true, teamId: true },
+        where: { id: TEAM_ID },
+        select: { programId: true, id: true },
       });
       const [programSql, teamSql] = queryRaw.mock.calls.map((call) => call[0]);
       expect(programSql?.values).toContain(PROGRAM_ID);
@@ -149,7 +145,7 @@ describe('submission-membership-lock.repository', () => {
 
       await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         MEMBER_ID,
       );
 
@@ -158,11 +154,11 @@ describe('submission-membership-lock.repository', () => {
     });
 
     it('신청서가 없으면 아무 행도 잠그지 않고 false 를 돌려준다', async () => {
-      const { tx, order, queryRaw } = buildHarness({ application: null });
+      const { tx, order, queryRaw } = buildHarness({ coordinates: null });
 
       const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         MEMBER_ID,
       );
 
@@ -176,7 +172,7 @@ describe('submission-membership-lock.repository', () => {
 
       const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         MEMBER_ID,
       );
 
@@ -189,7 +185,7 @@ describe('submission-membership-lock.repository', () => {
 
       const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         MEMBER_ID,
       );
 
@@ -205,7 +201,7 @@ describe('submission-membership-lock.repository', () => {
 
       const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         MEMBER_ID,
       );
 
@@ -214,9 +210,9 @@ describe('submission-membership-lock.repository', () => {
 
     it('팀을 떠난 최초 신청자에게는 false 를 돌려준다 — applicantId 는 기록이다', async () => {
       const { tx } = buildHarness({
-        application: {
+        coordinates: {
           programId: PROGRAM_ID,
-          teamId: TEAM_ID,
+          id: TEAM_ID,
           applicantId: DEPARTED_ID,
         },
         team: { leaderId: LEADER_ID, memberUserIds: [LEADER_ID, MEMBER_ID] },
@@ -224,7 +220,7 @@ describe('submission-membership-lock.repository', () => {
 
       const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         DEPARTED_ID,
       );
 
@@ -238,7 +234,7 @@ describe('submission-membership-lock.repository', () => {
 
       const allowed = await new PlatformRepository().lockSubmissionMembership(
         tx,
-        APPLICATION_ID,
+        TEAM_ID,
         LEADER_ID,
       );
 
@@ -253,7 +249,7 @@ describe('submission-membership-lock.repository', () => {
       await expect(
         new PlatformRepository().lockSubmissionMembership(
           tx,
-          APPLICATION_ID,
+          TEAM_ID,
           MEMBER_ID,
         ),
       ).rejects.toBe(failure);
@@ -268,7 +264,7 @@ describe('submission-membership-lock.repository', () => {
       await expect(
         new PlatformRepository().lockSubmissionMembership(
           tx,
-          APPLICATION_ID,
+          TEAM_ID,
           MEMBER_ID,
         ),
       ).rejects.toBe(failure);

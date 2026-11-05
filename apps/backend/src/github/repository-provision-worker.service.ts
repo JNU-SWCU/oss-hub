@@ -215,14 +215,14 @@ export class RepositoryProvisionWorkerService {
       if (error instanceof RepositoryProvisionSupersededError) {
         const supersededAt = now();
         await this.state.recordSupersededRequest(
-          job.applicationId,
+          job.teamId,
           error.staleRequestId,
           supersededAt,
         );
         this.logger.log({
           event: 'repositories.provision.superseded',
           jobId: job.id,
-          applicationId: job.applicationId,
+          teamId: job.teamId,
           requestId: error.staleRequestId,
         });
         return {
@@ -259,7 +259,7 @@ export class RepositoryProvisionWorkerService {
       this.logger.warn({
         event: 'repositories.provision.failed',
         jobId: job.id,
-        applicationId: job.applicationId,
+        teamId: job.teamId,
         attempt: job.attemptCount,
         errorCode: failure.code,
       });
@@ -318,7 +318,7 @@ export class RepositoryProvisionWorkerService {
     );
     this.validateContext(reloaded);
     if (
-      reloaded.applicationId !== claimed.applicationId ||
+      reloaded.teamId !== claimed.teamId ||
       reloaded.programId !== claimed.programId ||
       reloaded.requestId !== claimed.requestId
     ) {
@@ -332,7 +332,7 @@ export class RepositoryProvisionWorkerService {
       reloaded.currentRepositorySource === null ||
       current.id !== recorded.id ||
       current.githubRepositoryId !== recorded.githubRepositoryId ||
-      current.applicationId !== claimed.applicationId
+      current.teamId !== claimed.teamId
     ) {
       throw RepositoryProvisionFailure.final(
         PROVISION_ERROR_CODES.REPOSITORY_MISMATCH,
@@ -367,10 +367,10 @@ export class RepositoryProvisionWorkerService {
           programName: context.programName,
           programId: context.programId,
           subjectName: context.subjectName,
-          applicationId: context.applicationId,
+          teamId: context.teamId,
         }),
         this.repositoryProvisionGithubService.buildRepositoryOwnershipMarker(
-          context.applicationId,
+          context.teamId,
         ),
       ));
 
@@ -382,9 +382,8 @@ export class RepositoryProvisionWorkerService {
       jobId,
       workerId,
       requestId,
-      applicationId: context.applicationId,
-      programId: context.programId,
       teamId: context.teamId,
+      programId: context.programId,
       connectionMode,
       repositoryUrl,
       currentConnectionMode: context.currentConnectionMode,
@@ -539,7 +538,7 @@ export class RepositoryProvisionWorkerService {
       event: 'repositories.provision.completed',
       eventId: context.requestId,
       jobId,
-      applicationId: context.applicationId,
+      teamId: context.teamId,
       attempt,
       status,
     });

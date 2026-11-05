@@ -22,10 +22,10 @@ const programDocumentChangeRequestsService =
 const programId = 'synthetic-program';
 const now = new Date('2026-10-12T03:00:00.000Z');
 function candidate(
-  applicationId: string,
+  teamId: string,
   status: SubmissionStatus,
 ): ProgramDocumentChangeRequestCandidate {
-  return { milestoneDocumentId: 'document-1', applicationId, status };
+  return { milestoneDocumentId: 'document-1', teamId, status };
 }
 const previewed = [
   candidate('application-a', SubmissionStatus.SUBMITTED),
@@ -42,9 +42,9 @@ function programs(
   return {
     findProgram: jest.fn().mockResolvedValue({ name: '합성', milestones: [] }),
     findApprovedTeams: jest.fn().mockResolvedValue(
-      teams.map((applicationId) => ({
-        applicationId,
-        teamName: applicationId,
+      teams.map((teamId) => ({
+        teamId,
+        teamName: teamId,
         applicantName: null,
         memberNicknames: [],
       })),
@@ -62,11 +62,11 @@ function writeStore(
       .mockResolvedValue(['application-a', 'application-b', 'application-c']),
     findChangeRequestCandidates: jest.fn().mockResolvedValue(candidates),
     findSubmissionForReview: jest.fn(
-      (milestoneDocumentId: string, applicationId: string) =>
+      (milestoneDocumentId: string, teamId: string) =>
         Promise.resolve({
-          id: `${applicationId}:${milestoneDocumentId}`,
+          id: `${teamId}:${milestoneDocumentId}`,
           revision: 2,
-          submissionHistoryId: `history:${applicationId}`,
+          submissionHistoryId: `history:${teamId}`,
           latestHistoryCreatedAt: new Date('2026-10-11T00:00:00.000Z'),
         }),
     ),
@@ -197,7 +197,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     expect(store.lockProgramDocumentIds).toHaveBeenCalledWith(programId);
     expect(store.findChangeRequestCandidates).toHaveBeenCalledWith({
       documentIds: ['document-1'],
-      applicationIds: ['application-a', 'application-b', 'application-c'],
+      teamIds: ['application-a', 'application-b', 'application-c'],
     });
     expect(store.createReview).toHaveBeenCalledTimes(2);
     expect(store.createReview).toHaveBeenCalledWith({
@@ -233,7 +233,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     );
     expect(store.findChangeRequestCandidates).toHaveBeenCalledWith({
       documentIds: ['document-1'],
-      applicationIds: ['application-a'],
+      teamIds: ['application-a'],
     });
     expect(
       store.lockProgramDocumentIds.mock.invocationCallOrder[0],

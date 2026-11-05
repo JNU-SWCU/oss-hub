@@ -92,7 +92,6 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
         create: options.create ?? jest.fn().mockResolvedValue(undefined),
       },
       teamHistory: { create: jest.fn().mockResolvedValue({}) },
-      team: { update: jest.fn() },
       user: {
         findUnique: jest.fn().mockResolvedValue(
           options.invitee === undefined
@@ -104,7 +103,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
             : options.invitee,
         ),
       },
-      application: {
+      team: { update: jest.fn(),
         findMany: jest
           .fn()
           .mockResolvedValue([...(options.approvedNewApplications ?? [])]),
@@ -258,9 +257,9 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       programId: syntheticProgramId,
     });
 
-    expect(tx.application.findMany).toHaveBeenCalledWith({
+    expect(tx.team.findMany).toHaveBeenCalledWith({
       where: {
-        teamId: syntheticTeamId,
+        id: syntheticTeamId,
         status: ApplicationStatus.APPROVED,
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         program: { repositoryProvisioningEnabled: true },
@@ -272,12 +271,11 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       data: [
         {
           type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-          aggregateType: 'Application',
+          aggregateType: 'Team',
           aggregateId: syntheticApplicationId,
           idempotencyKey: `repository-access-sync:${syntheticApplicationId}:${requestedAt}`,
           payload: {
-            applicationId: syntheticApplicationId,
-            teamId: syntheticTeamId,
+            teamId: syntheticApplicationId,
             requestedAt,
           },
           availableAt: acceptedAt,
@@ -300,7 +298,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
       teamId: syntheticTeamId,
       programId: syntheticProgramId,
     });
-    expect(tx.application.findMany).toHaveBeenCalledTimes(1);
+    expect(tx.team.findMany).toHaveBeenCalledTimes(1);
     expect(tx.outboxEvent.createMany).not.toHaveBeenCalled();
   });
 
@@ -308,7 +306,7 @@ describe('TeamInvitationsRepository.withAcceptTransaction', () => {
     const tx = buildTx({ memberCount: 4 });
 
     await expect(accept(tx)).resolves.toEqual({ kind: 'team-full' });
-    expect(tx.application.findMany).not.toHaveBeenCalled();
+    expect(tx.team.findMany).not.toHaveBeenCalled();
     expect(tx.outboxEvent.createMany).not.toHaveBeenCalled();
   });
 

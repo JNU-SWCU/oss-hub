@@ -91,7 +91,7 @@ const seedSize = {
   repositories: 10,
   provisionJobs: 10,
   outboxEvents: 10,
-  auditLogs: 10,
+  teamHistories: 10,
   contributions: 10,
 } as const;
 
@@ -151,7 +151,6 @@ async function seed(): Promise<void> {
       for (let team = 0; team < seedSize.teams; team += 1) {
         const leaderId = id(`user-${team * 2}`);
         const teamId = id(`team-${team}`);
-        const applicationId = id(`application-${team}`);
         const repositoryId = id(`repository-${team}`);
         await tx.team.create({
           data: {
@@ -159,6 +158,11 @@ async function seed(): Promise<void> {
             programId,
             name: `Team ${team}`,
             leaderId,
+            applicantId: leaderId,
+            answers: [],
+            applicationTemplateVersion: 1,
+            status: 'APPROVED',
+            submittedAt: now,
             members: {
               create: [0, 1].map((member) => ({
                 userId: id(`user-${team * 2 + member}`),
@@ -167,26 +171,12 @@ async function seed(): Promise<void> {
             },
           },
         });
-        await tx.application.create({
-          data: {
-            id: applicationId,
-            programId,
-            teamId,
-            applicantId: leaderId,
-            answers: [],
-            applicationTemplateVersion: 1,
-            status: 'APPROVED',
-            submittedAt: now,
-          },
-        });
         await tx.githubRepository.create({
           data: {
             id: repositoryId,
             githubRepositoryId: 9_700_000_000_000_000n + BigInt(team),
             nameWithOwner: `baseline/team-${team}`,
             source: 'ORG_PROVISIONED',
-            applicationId,
-            programId,
             teamId,
             contributions: {
               create: {
@@ -200,7 +190,7 @@ async function seed(): Promise<void> {
         await tx.repositoryProvisionJob.create({
           data: {
             id: id(`job-${team}`),
-            applicationId,
+            teamId,
             repositoryId,
             status: 'SUCCEEDED',
           },
@@ -209,22 +199,37 @@ async function seed(): Promise<void> {
           data: {
             id: id(`outbox-${team}`),
             type: 'REPOSITORY_PROVISION_REQUESTED',
-            aggregateType: 'Application',
-            aggregateId: applicationId,
-            idempotencyKey: `repository-provision:${applicationId}`,
-            payload: { applicationId },
+            aggregateType: 'Team',
+            aggregateId: teamId,
+            idempotencyKey: `repository-provision:${teamId}`,
+            payload: { teamId },
             status: 'PROCESSED',
           },
         });
-        await tx.auditLog.create({
+        await tx.teamHistory.create({
           data: {
             id: id(`audit-${team}`),
+            teamId,
+            programId,
             actorId: leaderId,
-            action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-            targetType: 'APPLICATION',
-            targetId: applicationId,
-            metadata: { programId, teamId },
+            event: 'REPOSITORY_URL_CHANGED',
+            source: 'APPLICATION',
             occurredAt: now,
+            data: {
+              schemaVersion: 1,
+              metadata: {
+                schemaVersion: 2,
+                programId,
+                teamId,
+                programName: 'Program read baseline',
+                actorGithubLogin: `baseline-${team * 2}`,
+                before: { repositoryId: null, repositoryUrl: null },
+                after: {
+                  repositoryId,
+                  repositoryUrl: `https://github.com/baseline/team-${team}`,
+                },
+              },
+            },
           },
         });
         for (let document = 0; document < seedSize.documents; document += 1) {
@@ -236,7 +241,7 @@ async function seed(): Promise<void> {
               milestoneDocumentId: id(
                 `document-${Math.floor(document / 2)}-${document % 2}`,
               ),
-              applicationId,
+              teamId,
               submittedById: leaderId,
               submittedAt: now,
               createdAt: now,
@@ -255,7 +260,7 @@ async function seed(): Promise<void> {
             data: {
               id: id(`file-${team}-${document}`),
               uploaderId: leaderId,
-              applicationId,
+              teamId,
               milestoneId: id(`milestone-${Math.floor(document / 2)}`),
               milestoneDocumentSubmissionId: submissionId,
               milestoneDocumentSubmissionHistoryId: historyId,
@@ -299,7 +304,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     users: await prisma.user.count({ where: { id: { startsWith: prefix } } }),
     teams: await prisma.team.count({ where: { programId } }),
     members: await prisma.teamMember.count({ where: { programId } }),
-    applications: await prisma.application.count({ where: { programId } }),
+    applications: await prisma.team.count({ where: { programId } }),
     milestones: await prisma.milestone.count({ where: { programId } }),
     documents: await prisma.milestoneDocument.count({
       where: { id: { startsWith: prefix } },
@@ -313,14 +318,16 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     files: await prisma.submissionFile.count({
       where: { id: { startsWith: prefix } },
     }),
-    repositories: await prisma.githubRepository.count({ where: { programId } }),
+    repositories: await prisma.githubRepository.count({
+      where: { team: { programId } },
+    }),
     provisionJobs: await prisma.repositoryProvisionJob.count({
       where: { id: { startsWith: prefix } },
     }),
     outboxEvents: await prisma.outboxEvent.count({
       where: { id: { startsWith: prefix } },
     }),
-    auditLogs: await prisma.auditLog.count({
+    teamHistories: await prisma.teamHistory.count({
       where: { id: { startsWith: prefix } },
     }),
     contributions: await prisma.contribution.count({
@@ -370,14 +377,14 @@ it('records four real repository read paths with twenty warm samples and SQL cou
           0,
           20,
         );
-        const applicationIds = page.items.map((row) => row.id);
+        const teamIds = page.items.map((row) => row.id);
         const documents = milestones.flatMap((row) => row.requiredDocumentIds);
-        const submissions = await matrix.findCurrentSubmissions(applicationIds);
+        const submissions = await matrix.findCurrentSubmissions(teamIds);
         const coordinates = await matrix.findDocumentFirstSubmissions(
-          applicationIds,
+          teamIds,
           documents,
         );
-        const changes = await matrix.findDocumentChangeRequests(applicationIds);
+        const changes = await matrix.findDocumentChangeRequests(teamIds);
         expect([
           milestones.length,
           page.total,
@@ -398,16 +405,9 @@ it('records four real repository read paths with twenty warm samples and SQL cou
           const documents = await store.findDocuments(id('milestone-0'));
           const applications = await store.findApplications(programId);
           const documentIds = documents.map((row) => row.id);
-          const applicationIds = applications.map((row) => row.applicationId);
-          const coordinates = await store.findCoordinates(
-            documentIds,
-            applicationIds,
-          );
-          const details = await store.findDetails(
-            documentIds,
-            applicationIds,
-            now,
-          );
+          const teamIds = applications.map((row) => row.teamId);
+          const coordinates = await store.findCoordinates(documentIds, teamIds);
+          const details = await store.findDetails(documentIds, teamIds, now);
           expect(milestone?.id).toBe(id('milestone-0'));
           expect([
             documents.length,
@@ -431,7 +431,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
       run: async () => {
         const row = await teams.findStaffTeamDetail(programId, id('team-0'));
         expect(row?.members).toHaveLength(2);
-        expect(row?.application?.id).toBe(id('application-0'));
+        expect(row?.application?.id).toBe(id('team-0'));
         expect(row?.repositoryContributions?.members).toHaveLength(2);
         expect(row?.repositoryUrlHistory.rows).toHaveLength(1);
       },

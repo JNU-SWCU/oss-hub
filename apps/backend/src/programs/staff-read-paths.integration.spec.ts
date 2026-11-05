@@ -1,10 +1,10 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
-  ApplicationReviewEventKind,
+  TeamHistoryEvent,
   ApplicationStatus,
   ProgramCategory,
 } from '@prisma/client';
@@ -41,10 +41,10 @@ const FIXTURES = [
 ] as const;
 
 const EXPECTED_ORDER = [
-  `${PREFIX}application-b`,
-  `${PREFIX}application-a`,
-  `${PREFIX}application-d`,
-  `${PREFIX}application-c`,
+  `${PREFIX}team-b`,
+  `${PREFIX}team-a`,
+  `${PREFIX}team-d`,
+  `${PREFIX}team-c`,
 ];
 
 const SEARCH_ONLY_MEMBER_NAME = '검색전용팀원이름';
@@ -53,21 +53,11 @@ const SEARCH_ONLY_MEMBER_NICKNAME = 'search-only-login';
 const prisma = new PrismaService();
 const repository = new ApplicationsRepository(
   prisma,
-  new ReviewHistoryWriterRepository(),
+  new TeamHistoryRepository(),
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );
-const service = new TeamApplicationService(
-  repository,
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(new AuditLogMetadataService()),
-  ),
-  new AuditLogMetadataService(),
-  new RepositoryUrlService(),
-  new ApplicationAnswersService(),
-  new RepositoryProvisionEventService(),
-);
+const service = new TeamApplicationService(repository, new RepositoryUrlService(), new ApplicationAnswersService(), new RepositoryProvisionEventService());
 const STAFF_GITHUB_ID = 9_410_000_000n;
 
 function query(overrides: Partial<ApplicationListQuery> = {}) {
@@ -82,15 +72,12 @@ function query(overrides: Partial<ApplicationListQuery> = {}) {
 }
 
 async function cleanup(): Promise<void> {
-  await prisma.applicationReviewHistory.deleteMany({
-    where: { applicationId: { startsWith: PREFIX } },
-  });
-  await prisma.application.deleteMany({
-    where: { id: { startsWith: PREFIX } },
-  });
-  await prisma.teamMember.deleteMany({
+  await prisma.teamHistory.deleteMany({
     where: { teamId: { startsWith: PREFIX } },
   });
+  await prisma.teamMember.deleteMany({
+    where: { teamId: { startsWith: PREFIX } }
+});
   await prisma.team.deleteMany({ where: { id: { startsWith: PREFIX } } });
   await prisma.program.deleteMany({ where: { id: { startsWith: PREFIX } } });
 
@@ -105,57 +92,54 @@ async function createStudent(
 ): Promise<void> {
   await prisma.user.create({
     data: {
-      id,
-      githubId,
-      nickname,
-      accountStatus: 'ACTIVE',
-      name,
-      studentId: `${900000 + Number(githubId % 1000n)}`,
-      department: '합성 학과',
-      type: MemberKind.STUDENT,
-      departmentType: DepartmentType.DEPARTMENT,
-      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      approvalStatus: 'NOT_REQUIRED',
-    },
-  });
+        id,
+        githubId,
+        nickname,
+        accountStatus: 'ACTIVE',
+        name,
+        studentId: `${900000 + Number(githubId % 1000n)}`,
+        department: '합성 학과',
+        type: MemberKind.STUDENT,
+        departmentType: DepartmentType.DEPARTMENT,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        approvalStatus: 'NOT_REQUIRED'
+    }
+});
 }
 
 async function seed(): Promise<void> {
   await prisma.user.create({
     data: {
-      id: STAFF_ID,
-      githubId: STAFF_GITHUB_ID,
-      nickname: 'staff-reviewer',
-      accountStatus: 'ACTIVE',
-      name: '합성 교직원',
-      studentId: null,
-      department: '합성 지원단',
-      type: MemberKind.STAFF,
-      departmentType: DepartmentType.PROGRAM_OFFICE,
-      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      approvalStatus: 'APPROVED',
-    },
-  });
+        id: STAFF_ID,
+        githubId: STAFF_GITHUB_ID,
+        nickname: 'staff-reviewer',
+        accountStatus: 'ACTIVE',
+        name: '합성 교직원',
+        studentId: null,
+        department: '합성 지원단',
+        type: MemberKind.STAFF,
+        departmentType: DepartmentType.PROGRAM_OFFICE,
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        approvalStatus: 'APPROVED'
+    }
+});
   await prisma.program.create({
     data: {
-      startAt: new Date('2026-01-01T00:00:00.000Z'),
-      endAt: new Date(
-        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
-      ),
-
-      id: PROGRAM_ID,
-      name: '교직원 읽기 경로 검증 프로그램',
-      organizer: 'OSS Center',
-      category: ProgramCategory.BASIC,
-      applicationTemplateKey: 'basic',
-      applicationTemplateVersion: 1,
-      applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-      applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-      description: 'lean projection 과 검토 이력 읽기 검증',
-    },
-  });
+        startAt: new Date('2026-01-01T00:00:00.000Z'),
+        endAt: new Date(new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000),
+        id: PROGRAM_ID,
+        name: '교직원 읽기 경로 검증 프로그램',
+        organizer: 'OSS Center',
+        category: ProgramCategory.BASIC,
+        applicationTemplateKey: 'basic',
+        applicationTemplateVersion: 1,
+        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
+        applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
+        description: 'lean projection 과 검토 이력 읽기 검증'
+    }
+});
 
   let githubSeq = 9_410_000_001n;
   for (const fixture of FIXTURES) {
@@ -169,16 +153,19 @@ async function seed(): Promise<void> {
     );
     githubSeq += 1n;
     await prisma.team.create({
-      data: {
+    data: {
         id: teamId,
         programId: PROGRAM_ID,
         name: `팀 ${fixture.key}`,
         leaderId,
-      },
-    });
+        applicantId: leaderId,
+        answers: { title: `팀 ${fixture.key}` },
+        applicationTemplateVersion: 1
+    }
+});
     await prisma.teamMember.create({
-      data: { teamId, programId: PROGRAM_ID, userId: leaderId },
-    });
+    data: { teamId, programId: PROGRAM_ID, userId: leaderId }
+});
     if (fixture.key === 'c') {
       const memberId = `${PREFIX}member-c`;
       await createStudent(
@@ -189,23 +176,21 @@ async function seed(): Promise<void> {
       );
       githubSeq += 1n;
       await prisma.teamMember.create({
-        data: { teamId, programId: PROGRAM_ID, userId: memberId },
-      });
+    data: { teamId, programId: PROGRAM_ID, userId: memberId }
+});
     }
-    await prisma.application.create({
-      data: {
-        id: `${PREFIX}application-${fixture.key}`,
+    await prisma.team.update({
+    where: { id: teamId },
+    data: {
         programId: PROGRAM_ID,
         applicantId: leaderId,
-        teamId,
         answers: { applicantName: `팀장 ${fixture.key}`, title: '제목' },
         applicationTemplateVersion: 1,
         status: fixture.status,
         submittedAt: new Date(`${fixture.submittedAt}T00:00:00.000Z`),
-        rejectionReason:
-          fixture.status === ApplicationStatus.REJECTED ? '서류 미비' : null,
-      },
-    });
+        rejectionReason: fixture.status === ApplicationStatus.REJECTED ? '서류 미비' : null
+    }
+});
   }
 }
 
@@ -244,8 +229,8 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
     );
 
     expect(page.items.map((item) => item.id)).toEqual([
-      `${PREFIX}application-b`,
-      `${PREFIX}application-a`,
+      `${PREFIX}team-b`,
+      `${PREFIX}team-a`,
     ]);
     expect(page.totalItems).toBe(2);
   });
@@ -278,7 +263,7 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
     );
 
     expect(page.items.map((item) => item.id)).toEqual([
-      `${PREFIX}application-c`,
+      `${PREFIX}team-c`,
     ]);
   });
 
@@ -289,7 +274,7 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
     );
 
     expect(page.items.map((item) => item.id)).toEqual([
-      `${PREFIX}application-c`,
+      `${PREFIX}team-c`,
     ]);
   });
 
@@ -330,7 +315,7 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
     }
   });
 
-  it('기존 목록 projection 의 응답 모양은 그대로다 — 중간 배포에서 옛 화면이 산다', async () => {
+  it('기본 목록은 연결 방식과 발급 상태 및 현재 저장소를 반환한다', async () => {
     const page = await service.listForProgram(
       PROGRAM_ID,
       query({ view: 'default' }),
@@ -347,38 +332,55 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('검토 이력을 최신순으로 돌려주고 표시 가능한 actor 값만 싣는다', async () => {
-    const applicationId = `${PREFIX}application-a`;
-    await prisma.applicationReviewHistory.createMany({
+    const teamId = `${PREFIX}team-a`;
+    await prisma.teamHistory.createMany({
       data: [
         {
-          id: `${PREFIX}history-1`,
-          applicationId,
-          eventKind: ApplicationReviewEventKind.SUBMITTED,
-          revision: 1,
-          actorId: `${PREFIX}leader-a`,
-          occurredAt: new Date('2026-01-03T00:00:00.000Z'),
-        },
+    id: `${PREFIX}history-1`,
+    teamId,
+    actorId: `${PREFIX}leader-a`,
+    occurredAt: new Date('2026-01-03T00:00:00.000Z'),
+    programId: PROGRAM_ID,
+    event: TeamHistoryEvent.SUBMITTED,
+    source: "APPLICATION",
+    data: {
+        schemaVersion: 1,
+        revision: 1,
+        rejectionReason: null
+    }
+},
         {
-          id: `${PREFIX}history-2`,
-          applicationId,
-          eventKind: ApplicationReviewEventKind.REJECTED,
-          revision: 1,
-          actorId: STAFF_ID,
-          occurredAt: new Date('2026-01-05T00:00:00.000Z'),
-          rejectionReason: '서류 미비',
-        },
+    id: `${PREFIX}history-2`,
+    teamId,
+    actorId: STAFF_ID,
+    occurredAt: new Date('2026-01-05T00:00:00.000Z'),
+    programId: PROGRAM_ID,
+    event: TeamHistoryEvent.REJECTED,
+    source: "APPLICATION",
+    data: {
+        schemaVersion: 1,
+        revision: 1,
+        rejectionReason: '서류 미비'
+    }
+},
         {
-          id: `${PREFIX}history-3`,
-          applicationId,
-          eventKind: ApplicationReviewEventKind.RESUBMITTED,
-          revision: 2,
-          actorId: `${PREFIX}leader-a`,
-          occurredAt: new Date('2026-01-07T00:00:00.000Z'),
-        },
+    id: `${PREFIX}history-3`,
+    teamId,
+    actorId: `${PREFIX}leader-a`,
+    occurredAt: new Date('2026-01-07T00:00:00.000Z'),
+    programId: PROGRAM_ID,
+    event: TeamHistoryEvent.RESUBMITTED,
+    source: "APPLICATION",
+    data: {
+        schemaVersion: 1,
+        revision: 2,
+        rejectionReason: null
+    }
+},
       ],
     });
 
-    const history = await repository.listReviewHistory(applicationId);
+    const history = await repository.listReviewHistory(teamId);
 
     expect(history.map((entry) => entry.eventKind)).toEqual([
       'RESUBMITTED',
@@ -398,31 +400,37 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
   });
 
   it('다른 신청의 이력은 섞이지 않는다', async () => {
-    await prisma.applicationReviewHistory.create({
+    await prisma.teamHistory.create({
       data: {
-        id: `${PREFIX}history-other`,
-        applicationId: `${PREFIX}application-b`,
-        eventKind: ApplicationReviewEventKind.SUBMITTED,
+    id: `${PREFIX}history-other`,
+    teamId: `${PREFIX}team-b`,
+    actorId: `${PREFIX}leader-b`,
+    occurredAt: new Date('2026-01-01T00:00:00.000Z'),
+    programId: PROGRAM_ID,
+    event: TeamHistoryEvent.SUBMITTED,
+    source: "APPLICATION",
+    data: {
+        schemaVersion: 1,
         revision: 1,
-        actorId: `${PREFIX}leader-b`,
-        occurredAt: new Date('2026-01-01T00:00:00.000Z'),
-      },
+        rejectionReason: null
+    }
+},
     });
 
     await expect(
-      repository.listReviewHistory(`${PREFIX}application-a`),
+      repository.listReviewHistory(`${PREFIX}team-a`),
     ).resolves.toEqual([]);
     await expect(
-      repository.listReviewHistory(`${PREFIX}application-b`),
+      repository.listReviewHistory(`${PREFIX}team-b`),
     ).resolves.toHaveLength(1);
   });
 
   it('없는 신청은 이력도 빈 배열이고 신청 조회도 null 이다 — 부재와 비공개가 같은 모양이다', async () => {
     await expect(
-      repository.listReviewHistory(`${PREFIX}application-missing`),
+      repository.listReviewHistory(`${PREFIX}team-missing`),
     ).resolves.toEqual([]);
     await expect(
-      repository.findApplicationForStaff(`${PREFIX}application-missing`),
+      repository.findApplicationForStaff(`${PREFIX}team-missing`),
     ).resolves.toBeNull();
   });
 
@@ -436,12 +444,9 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
       '팀장 z',
     );
     await prisma.program.create({
-      data: {
+    data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
-        endAt: new Date(
-          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
-        ),
-
+        endAt: new Date(new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000),
         id: otherProgramId,
         name: '다른 프로그램',
         organizer: 'OSS Center',
@@ -450,34 +455,36 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
         applicationTemplateVersion: 1,
         applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-12-31T00:00:00.000Z'),
-        description: '섞임 검증',
-      },
-    });
+        description: '섞임 검증'
+    }
+});
     await prisma.team.create({
-      data: {
+    data: {
         id: `${PREFIX}team-other`,
         programId: otherProgramId,
         name: '팀 z',
         leaderId: otherLeaderId,
-      },
-    });
+        applicantId: otherLeaderId,
+        answers: { title: '팀 z' },
+        applicationTemplateVersion: 1
+    }
+});
     await prisma.teamMember.create({
-      data: {
+    data: {
         teamId: `${PREFIX}team-other`,
         programId: otherProgramId,
-        userId: otherLeaderId,
-      },
-    });
-    await prisma.application.create({
-      data: {
-        id: `${PREFIX}application-other`,
+        userId: otherLeaderId
+    }
+});
+    await prisma.team.update({
+    where: { id: `${PREFIX}team-other` },
+    data: {
         programId: otherProgramId,
         applicantId: otherLeaderId,
-        teamId: `${PREFIX}team-other`,
         answers: {},
-        applicationTemplateVersion: 1,
-      },
-    });
+        applicationTemplateVersion: 1
+    }
+});
 
     const page = await repository.listTeamManagementForProgram(
       PROGRAM_ID,

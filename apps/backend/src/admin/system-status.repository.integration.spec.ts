@@ -31,13 +31,13 @@ beforeAll(async () => {
     where: { id: ADMIN_ID },
     update: {},
     create: {
-      id: ADMIN_ID,
-      githubId: ADMIN_GITHUB_ID,
-      nickname: 'synthetic-system-status-admin',
-      admin: { create: { origin: 'BOOTSTRAP' } },
-      accountStatus: 'ACTIVE',
-    },
-  });
+        id: ADMIN_ID,
+        githubId: ADMIN_GITHUB_ID,
+        nickname: 'synthetic-system-status-admin',
+        admin: { create: { origin: 'BOOTSTRAP' } },
+        accountStatus: 'ACTIVE'
+    }
+});
 });
 afterAll(async () => {
   await prisma.admin.deleteMany({ where: { userId: ADMIN_ID } });
@@ -58,8 +58,8 @@ it('drops a detached organization repository from the tracked set so its missing
 it('counts the new external link instead of the detached external one', async () => {
   await prisma.githubRepository.update({
     where: { id: oldId },
-    data: { source: 'EXTERNAL_PUBLIC' },
-  });
+    data: { source: 'EXTERNAL_PUBLIC' }
+});
   const before = await status.getExternalCollectionStatus();
 
   await service.updateMine(githubId, programId, input);
@@ -72,17 +72,17 @@ it('drops an external repository from the tracked count once deletion clears its
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: {
-      source: 'EXTERNAL_PUBLIC',
-      presence: 'PRESENT',
-      visibility: 'PUBLIC',
-    },
-  });
+        source: 'EXTERNAL_PUBLIC',
+        presence: 'PRESENT',
+        visibility: 'PUBLIC'
+    }
+});
   const linked = await status.getExternalCollectionStatus();
 
   await prisma.githubRepository.update({
     where: { id: oldId },
-    data: { applicationId: null, programId: null, teamId: null },
-  });
+    data: { teamId: null }
+});
 
   const cleared = await status.getExternalCollectionStatus();
   expect(cleared.trackedRepositoryCount).toBe(

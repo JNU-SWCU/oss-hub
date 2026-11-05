@@ -27,18 +27,18 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
 
   it('관리자 자격이 있는 학생 팀원은 자기 팀 서류를 낸다', async () => {
     await fixture.prisma.user.update({
-      where: { id: flowIds.student },
-      data: { admin: { create: { origin: 'MIGRATION' } } },
-    });
+    where: { id: flowIds.student },
+    data: { admin: { create: { origin: 'MIGRATION' } } }
+});
 
     expect((await fixture.submit('여러 권한 학생의 제출')).status).toBe(201);
     await expect(
       fixture.prisma.milestoneDocumentSubmission.findFirst({
-        where: { milestoneDocumentId: flowIds.document },
-        select: { applicationId: true, submittedById: true },
-      }),
+    where: { milestoneDocumentId: flowIds.document },
+    select: { teamId: true, submittedById: true }
+}),
     ).resolves.toEqual({
-      applicationId: flowIds.application,
+      teamId: flowIds.application,
       submittedById: flowIds.student,
     });
   });
@@ -54,17 +54,17 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
 
   it('학생 유형인 교직원도 자기가 속하지 않은 팀의 서류는 내지 못한다', async () => {
     await fixture.prisma.user.update({
-      where: { id: flowIds.staff },
-      data: {
+    where: { id: flowIds.staff },
+    data: {
         name: '합성 여러 권한 학생',
         department: '합성 학과',
         type: MemberKind.STUDENT,
         approvalStatus: 'NOT_REQUIRED',
         departmentType: DepartmentType.DEPARTMENT,
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-      },
-    });
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z')
+    }
+});
 
     const response = await staffSubmit();
 
@@ -74,8 +74,8 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
     });
     await expect(
       fixture.prisma.milestoneDocumentSubmission.count({
-        where: { milestoneDocumentId: flowIds.document },
-      }),
+    where: { milestoneDocumentId: flowIds.document }
+}),
     ).resolves.toBe(0);
   });
 });

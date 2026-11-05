@@ -20,7 +20,7 @@ function dashboardItem(
   overrides: Record<string, unknown> = {},
 ): Record<string, unknown> {
   return {
-    applicationId: 'application-1',
+    teamId: 'application-1',
     programId: 'program-1',
     programName: 'Synthetic Program',
     teamName: '합성 팀',
@@ -132,7 +132,6 @@ describe('StudentDashboardController', () => {
     expect(item).not.toHaveProperty('applicationMode');
     expect(item).not.toHaveProperty('displayName');
     expect(Object.keys(item ?? {}).sort()).toEqual([
-      'applicationId',
       'applicationStatus',
       'checklistUrl',
       'coverImageUrl',
@@ -144,7 +143,8 @@ describe('StudentDashboardController', () => {
       'repository',
       'teamName',
       'teamUrl',
-    ]);
+      'teamId',
+    ].sort());
   });
 
   it('leaves unauthenticated handling to the global authentication guard', () => {

@@ -35,8 +35,8 @@ let baseUrl: string;
 
 async function cleanHistories() {
   await harness.prisma.milestoneDocumentSubmissionHistory.deleteMany({
-    where: { milestoneDocumentSubmissionId: fixture.documentSubmission },
-  });
+    where: { milestoneDocumentSubmissionId: fixture.documentSubmission }
+});
 }
 beforeAll(async () => {
   await harness.connect();
@@ -48,8 +48,8 @@ beforeEach(async () => {
   await harness.reset();
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
-    data: { createdAt: first, submittedAt: late },
-  });
+    data: { createdAt: first, submittedAt: late }
+});
 });
 afterAll(async () => {
   await cleanHistories();
@@ -70,34 +70,34 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
     data: {
-      createdAt: late,
-      submittedAt: late,
-      revision: 2,
-      status: 'REJECTED',
-      histories: {
-        create: [
-          {
-            event: 'SUBMITTED',
-            revision: 1,
-            actorId: fixture.studentSubmitted,
-            createdAt: first,
-          },
-          {
-            event: 'SUBMITTED',
-            revision: 2,
-            actorId: fixture.studentSubmitted,
-            createdAt: late,
-          },
-          {
-            event: 'RESUBMITTED',
-            revision: 2,
-            actorId: fixture.studentSubmitted,
-            createdAt: late,
-          },
-        ],
-      },
-    },
-  });
+        createdAt: late,
+        submittedAt: late,
+        revision: 2,
+        status: 'REJECTED',
+        histories: {
+            create: [
+                {
+                    event: 'SUBMITTED',
+                    revision: 1,
+                    actorId: fixture.studentSubmitted,
+                    createdAt: first
+                },
+                {
+                    event: 'SUBMITTED',
+                    revision: 2,
+                    actorId: fixture.studentSubmitted,
+                    createdAt: late
+                },
+                {
+                    event: 'RESUBMITTED',
+                    revision: 2,
+                    actorId: fixture.studentSubmitted,
+                    createdAt: late
+                }
+            ]
+        }
+    }
+});
 
   const response = await requestMatrix();
 
@@ -109,7 +109,7 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
     'rows',
     expect.arrayContaining([
       expect.objectContaining({
-        applicationId: fixture.submittedApplication,
+        teamId: fixture.submittedApplication,
         cells: [
           {
             milestoneId: fixture.notifyMilestone,
@@ -124,7 +124,7 @@ it('exposes on-time delivery over the real route despite a late rejected revisio
         ],
       }),
       expect.objectContaining({
-        applicationId: fixture.missingApplication,
+        teamId: fixture.missingApplication,
         cells: [expect.objectContaining({ deliveryStatus: 'MISSING' })],
       }),
     ]),
@@ -138,9 +138,9 @@ it.each([
   'uses persisted creation time when first history is absent: %s',
   async (_, createdAt, deliveryStatus) => {
     await harness.prisma.milestoneDocumentSubmission.update({
-      where: { id: fixture.documentSubmission },
-      data: { createdAt },
-    });
+    where: { id: fixture.documentSubmission },
+    data: { createdAt }
+});
 
     const response = await requestMatrix();
 
@@ -150,7 +150,7 @@ it.each([
       'rows',
       expect.arrayContaining([
         expect.objectContaining({
-          applicationId: fixture.submittedApplication,
+          teamId: fixture.submittedApplication,
           cells: [expect.objectContaining({ deliveryStatus })],
         }),
       ]),
@@ -198,25 +198,25 @@ it('does not mistake an unrelated history event or later revision for the first 
   await harness.prisma.milestoneDocumentSubmission.update({
     where: { id: fixture.documentSubmission },
     data: {
-      createdAt: late,
-      histories: {
-        create: [
-          {
-            event: 'SUBMITTED',
-            revision: 2,
-            actorId: fixture.studentSubmitted,
-            createdAt: first,
-          },
-          {
-            event: 'APPROVED',
-            revision: 1,
-            actorId: fixture.studentSubmitted,
-            createdAt: first,
-          },
-        ],
-      },
-    },
-  });
+        createdAt: late,
+        histories: {
+            create: [
+                {
+                    event: 'SUBMITTED',
+                    revision: 2,
+                    actorId: fixture.studentSubmitted,
+                    createdAt: first
+                },
+                {
+                    event: 'APPROVED',
+                    revision: 1,
+                    actorId: fixture.studentSubmitted,
+                    createdAt: first
+                }
+            ]
+        }
+    }
+});
 
   const matrix = await service.matrix(fixture.notifyProgram, {
     q: '',
@@ -227,16 +227,16 @@ it('does not mistake an unrelated history event or later revision for the first 
 
   expect(
     matrix.rows.find(
-      (row) => row.applicationId === fixture.submittedApplication,
+      (row) => row.teamId === fixture.submittedApplication,
     )?.cells[0],
   ).toMatchObject({ deliveryStatus: 'LATE' });
 });
 
 it('excludes a rejected application and keeps the other program isolated', async () => {
-  await harness.prisma.application.update({
+  await harness.prisma.team.update({
     where: { id: fixture.submittedApplication },
-    data: { status: 'REJECTED' },
-  });
+    data: { status: 'REJECTED' }
+});
 
   const matrix = await service.matrix(fixture.notifyProgram, {
     q: '',
@@ -246,7 +246,7 @@ it('excludes a rejected application and keeps the other program isolated', async
   });
 
   expect(matrix.total).toBe(3);
-  expect(matrix.rows.map((row) => row.applicationId)).not.toContain(
+  expect(matrix.rows.map((row) => row.teamId)).not.toContain(
     fixture.submittedApplication,
   );
   expect(matrix.milestones.map((milestone) => milestone.id)).toEqual([

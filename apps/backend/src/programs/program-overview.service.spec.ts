@@ -42,18 +42,17 @@ function completionRows(
   return {
     findProgramApplications: jest.fn().mockResolvedValue(
       teams.map((_, index) => ({
-        id: `app-${index}`,
-        teamId: `team-${index}`,
+        id: `team-${index}`,
       })),
     ),
     findSubmittedDocumentPairs: jest.fn(
-      (_applicationIds: readonly string[], documentIds: readonly string[]) =>
+      (_teamIds: readonly string[], documentIds: readonly string[]) =>
         Promise.resolve(
           teams.flatMap((team, index) =>
             team.submitted
               .filter((documentId) => documentIds.includes(documentId))
               .map((documentId) => ({
-                applicationId: `app-${index}`,
+                teamId: `team-${index}`,
                 milestoneDocumentId: documentId,
               })),
           ),

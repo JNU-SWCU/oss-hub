@@ -15,7 +15,7 @@ const MAX_RETAINED_FILE_COUNT = 100;
 const MAX_RETAINED_FILE_BYTES = 500 * 1024 * 1024;
 export interface CreatePendingSubmissionFileInput {
   readonly uploaderId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneId: string;
   readonly milestoneDocumentId?: string;
   readonly storageKey: string;
@@ -145,7 +145,7 @@ export class SubmissionFilesRepository {
     }
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
-      application: {
+      team: {
         is: this.platformRepository.programApplicationParticipantWhere(user.id),
       },
     });
@@ -155,12 +155,12 @@ export class SubmissionFilesRepository {
       const stillMember =
         await this.platformRepository.lockSubmissionMembership(
           transaction,
-          input.applicationId,
+          input.teamId,
           input.uploaderId,
         );
       if (!stillMember) {
         throw new SubmissionMembershipChangedError(
-          input.applicationId,
+          input.teamId,
           input.uploaderId,
         );
       }
@@ -171,9 +171,9 @@ export class SubmissionFilesRepository {
       >(Prisma.sql`
         SELECT program."endAt"
         FROM "Program" AS program
-        INNER JOIN "Application" AS application
+        INNER JOIN "Team" AS application
           ON application."programId" = program."id"
-        WHERE application."id" = ${input.applicationId}
+        WHERE application."id" = ${input.teamId}
         FOR UPDATE OF program
       `);
       const program = programs[0];
@@ -208,7 +208,7 @@ export class SubmissionFilesRepository {
       return transaction.submissionFile.create({
         data: {
           uploaderId: input.uploaderId,
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           milestoneId: input.milestoneId,
           milestoneDocumentId: input.milestoneDocumentId,
           storageKey: input.storageKey,

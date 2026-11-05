@@ -5,7 +5,10 @@ import { ProgramTeamRepositoryEvidenceRepository } from './program-team-reposito
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AccountStatus, RepositoryProvisionJobStatus } from '@prisma/client';
 import { StaffTeamDetailResponseDto } from './dto/staff-team-detail-response.dto';
-import { TeamRepository, type StaffTeamDetailRecord } from './team.repository';
+import {
+  TeamRepository,
+  type StaffTeamDetailRecord,
+} from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.error';
@@ -49,24 +52,7 @@ function buildService(overrides: {
     findStaffTeamDetail,
   } as unknown as TeamRepository;
   const deletionRepository = stubTeamDeletionRepository();
-  const service = new TeamMembershipService(
-    repository,
-    { record: jest.fn() } as unknown as AuditLogService,
-    deletionRepository,
-    new AuditLogMetadataService(),
-    new RepositoryPublishService(),
-    new RepositoryUrlService(),
-    new MilestoneCompletionService(),
-    new StudentRepositoryUrlService(
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-      {} as never,
-    ),
-  );
+  const service = new TeamMembershipService(repository, deletionRepository, new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never));
   return {
     service,
     findStaffTeamDetail,
@@ -291,7 +277,7 @@ describe('TeamMembershipService.getForStaff', () => {
       },
 
       deletionScope: {
-        applications: 0,
+        teams: 0,
         members: 0,
         invitations: 0,
         submissions: 0,
@@ -352,15 +338,14 @@ describe('TeamRepository.findStaffTeamDetail', () => {
       .mockResolvedValue(overrides.outbox ?? null);
     const jobFindUnique = jest.fn().mockResolvedValue(overrides.job ?? null);
     const prisma = {
-      team: { findFirst: teamFindFirst },
-      application: { findFirst: applicationFindFirst },
+      team: { findFirst: (args: { select: { status?: boolean } }) => args.select.status ? applicationFindFirst(args) : teamFindFirst(args) },
       outboxEvent: { findUnique: outboxFindUnique },
       repositoryProvisionJob: { findUnique: jobFindUnique },
       contribution: { groupBy: jest.fn().mockResolvedValue([]) },
       githubRepositoryOutsiderContribution: {
         findUnique: jest.fn().mockResolvedValue(null),
       },
-      auditLog: { findMany: jest.fn().mockResolvedValue([]) },
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
     return {
       repository: new TeamRepository(
@@ -387,7 +372,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
     );
   });
 
-  it('팀은 있지만 신청이 없으면 application: null 이고 Application 조회로 저장소를 읽는다', async () => {
+  it('팀이 두 번째 조회 전에 사라지면 지원 상태는 null이다', async () => {
     const { repository, applicationFindFirst } = buildRepository({
       team: {
         id: TEAM_ID,
@@ -408,7 +393,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
     expect(result?.application).toBeNull();
     expect(applicationFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { programId: PROGRAM_ID, teamId: TEAM_ID },
+        where: { programId: PROGRAM_ID, id: TEAM_ID },
       }),
     );
   });
@@ -470,24 +455,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
     const result = await repository.findStaffTeamDetail(PROGRAM_ID, TEAM_ID);
 
     expect(
-      new TeamMembershipService(
-        undefined as never,
-        undefined as never,
-        undefined as never,
-        new AuditLogMetadataService(),
-        new RepositoryPublishService(),
-        new RepositoryUrlService(),
-        new MilestoneCompletionService(),
-        new StudentRepositoryUrlService(
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-        ),
-      )['toTeamApplicationView'](result!.application!).repository,
+      new TeamMembershipService(undefined as never, undefined as never, new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never))['toTeamApplicationView'](result!.application!).repository,
     ).toMatchObject({
       id: 'repository-1',
       publishEligible: true,

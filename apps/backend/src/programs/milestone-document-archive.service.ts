@@ -89,8 +89,8 @@ export interface BuildMilestoneDocumentArchivePlanInput {
   readonly layout: MilestoneDocumentArchiveLayout;
 }
 
-function cellKey(applicationId: string, documentId: string): string {
-  return `${applicationId}::${documentId}`;
+function cellKey(teamId: string, documentId: string): string {
+  return `${teamId}::${documentId}`;
 }
 
 function archiveOmissionLabel(
@@ -598,7 +598,7 @@ export class MilestoneDocumentArchiveService {
     const cellIndex = new Map<string, MilestoneDocumentArchiveSubmission>();
     for (const submission of submissions) {
       cellIndex.set(
-        cellKey(submission.applicationId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.milestoneDocumentId),
         submission,
       );
     }
@@ -614,7 +614,7 @@ export class MilestoneDocumentArchiveService {
       team,
       cells: documents.map((document) => {
         const submission =
-          cellIndex.get(cellKey(team.applicationId, document.id)) ?? null;
+          cellIndex.get(cellKey(team.teamId, document.id)) ?? null;
         if (submission === null) {
           return {
             documentId: document.id,

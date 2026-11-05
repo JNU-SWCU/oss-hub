@@ -67,10 +67,10 @@ interface TxOptions {
   readonly lockedMembership?: ReturnType<typeof teamContext> | null;
   readonly targetMembership?: MembershipRow;
   readonly memberCount?: number;
-  readonly application?: { readonly id: string } | null;
+  readonly status?: ApplicationStatus;
   readonly successor?: { readonly userId: string } | null;
 
-  readonly accessSyncApplications?: readonly { readonly id: string }[];
+  readonly accessSyncTeams?: readonly { readonly id: string }[];
   readonly recordAudit?: RecordAuditMock;
 }
 
@@ -114,12 +114,14 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
         : options.successor,
     );
   const count = jest.fn().mockResolvedValue(options.memberCount ?? 1);
-  const applicationFindFirst = jest
+  const teamFindUniqueOrThrow = jest.fn().mockResolvedValue({
+    id: syntheticTeamId, programId: syntheticProgramId, name: syntheticTeamName,
+    leaderId: options.lockedMembership?.team.leaderId ?? actorUserId, status: options.status ?? ApplicationStatus.SUBMITTED,
+    members: [{ userId: actorUserId, user: { name: 'Synthetic member', nickname: 'synthetic-member' } }],
+  });
+  const teamFindMany = jest
     .fn()
-    .mockResolvedValue(options.application ?? null);
-  const applicationFindMany = jest
-    .fn()
-    .mockResolvedValue(options.accessSyncApplications ?? []);
+    .mockResolvedValue(options.accessSyncTeams ?? []);
   const outboxCreateMany = jest.fn().mockResolvedValue({ count: 0 });
   const teamMemberDelete = jest.fn().mockResolvedValue({});
   const teamInvitationDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
@@ -135,15 +137,17 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
       delete: teamMemberDelete,
     },
     teamInvitation: {
+      count: jest.fn().mockResolvedValue(0),
       findMany: jest.fn().mockResolvedValue([]),
       deleteMany: teamInvitationDeleteMany,
     },
-    team: { update: teamUpdate, delete: teamDelete },
-    application: {
-      findFirst: applicationFindFirst,
-      findMany: applicationFindMany,
-    },
-    outboxEvent: { createMany: outboxCreateMany },
+    team: { update: teamUpdate, delete: teamDelete, findUniqueOrThrow: teamFindUniqueOrThrow, findMany: teamFindMany },
+    teamHistory: { create: jest.fn().mockResolvedValue({ id: 'synthetic-history' }) },
+    milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
+    githubRepository: { count: jest.fn().mockResolvedValue(0) },
+    submissionFile: { count: jest.fn().mockResolvedValue(0) },
+    repositoryProvisionJob: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    outboxEvent: { createMany: outboxCreateMany, deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $queryRaw: queryRaw,
   };
 
@@ -153,8 +157,8 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
     findUnique,
     findFirstMember,
     count,
-    applicationFindFirst,
-    applicationFindMany,
+    teamFindUniqueOrThrow,
+    teamFindMany,
     outboxCreateMany,
     teamMemberDelete,
     teamInvitationDeleteMany,
@@ -244,7 +248,7 @@ describe('TeamRepository.leave', () => {
   });
 
   it('잠근 뒤 소속 팀이 바뀌면 그 팀의 인원·신청을 읽지 않는다', async () => {
-    const { tx, count, applicationFindFirst, teamMemberDelete, recordAudit } =
+    const { tx, count, teamFindUniqueOrThrow, teamMemberDelete, recordAudit } =
       buildTx(syntheticLeaderId, {
         lockedMembership: {
           ...teamContext(syntheticLeaderId),
@@ -260,7 +264,7 @@ describe('TeamRepository.leave', () => {
 
     expect(result).toBe('not-found');
     expect(count).not.toHaveBeenCalled();
-    expect(applicationFindFirst).not.toHaveBeenCalled();
+    expect(teamFindUniqueOrThrow).not.toHaveBeenCalled();
     expect(teamMemberDelete).not.toHaveBeenCalled();
     expect(recordAudit).not.toHaveBeenCalled();
   });
@@ -274,7 +278,7 @@ describe('TeamRepository.leave', () => {
       recordAudit,
     } = buildTx(syntheticLeaderId, {
       memberCount: 1,
-      application: { id: 'cuid-application' },
+      status: ApplicationStatus.APPROVED,
     });
 
     const result = await buildRepository(tx).leave(
@@ -290,138 +294,33 @@ describe('TeamRepository.leave', () => {
     expect(recordAudit).not.toHaveBeenCalled();
   });
 
-  it('미제출 1인 팀장은 대기 초대를 팀보다 먼저 지우고 nextLeaderId 없이 기록한다', async () => {
-    const {
-      tx,
-      teamMemberDelete,
-      teamInvitationDeleteMany,
-      teamDelete,
-      recordAudit,
-    } = buildTx(syntheticLeaderId, { memberCount: 1, application: null });
-
-    const result = await buildRepository(tx).leave(
-      syntheticProgramId,
-      syntheticLeaderId,
-      recordAudit,
-    );
-
+  it('승인 전 마지막 구성원의 탈퇴는 대기 초대를 닫고 삭제 이력을 남긴다', async () => {
+    const { tx, teamMemberDelete, teamInvitationDeleteMany, teamDelete, recordAudit } = buildTx(syntheticLeaderId, { memberCount: 1, status: ApplicationStatus.SUBMITTED });
+    tx.teamInvitation.count.mockResolvedValue(1);
+    tx.teamInvitation.findMany.mockResolvedValue([{ id: 'synthetic-invitation', teamId: syntheticTeamId, programId: syntheticProgramId, inviteeId: syntheticMemberId, invitedById: syntheticLeaderId, createdAt: new Date('2026-01-01') }]);
+    const result = await buildRepository(tx).leave(syntheticProgramId, syntheticLeaderId, recordAudit);
     expect(result).toBe('removed');
-    expect(teamMemberDelete).toHaveBeenCalledWith({
-      where: {
-        teamId_userId: { teamId: syntheticTeamId, userId: syntheticLeaderId },
-      },
-    });
-    expect(teamInvitationDeleteMany).toHaveBeenCalledWith({
-      where: { teamId: syntheticTeamId, programId: syntheticProgramId },
-    });
-    expect(order(teamMemberDelete)).toBeLessThan(
-      order(teamInvitationDeleteMany),
-    );
+    expect(teamMemberDelete).toHaveBeenCalledWith({ where: { teamId_userId: { teamId: syntheticTeamId, userId: syntheticLeaderId } } });
+    expect(teamInvitationDeleteMany).toHaveBeenCalledWith({ where: { teamId: syntheticTeamId } });
     expect(order(teamInvitationDeleteMany)).toBeLessThan(order(teamDelete));
-    expect(order(teamDelete)).toBeLessThan(order(recordAudit));
-    expect(auditEventOf(recordAudit)).toEqual({
-      teamId: syntheticTeamId,
-      programName: syntheticProgramName,
-      teamName: syntheticTeamName,
-      operation: 'LEAVE',
-      removedUserId: syntheticLeaderId,
-      previousLeaderId: syntheticLeaderId,
-      nextLeaderId: null,
-    });
+    expect(order(teamMemberDelete)).toBeLessThan(order(teamDelete));
+    expect(tx.teamHistory.create).toHaveBeenCalledWith({ data: expect.objectContaining({ teamId: syntheticTeamId, actorId: syntheticLeaderId, event: 'DELETED', data: expect.objectContaining({ reason: 'LAST_MEMBER_LEFT', name: syntheticTeamName, deletedCounts: { teams: 1, members: 1, invitations: 1, submissions: 0, repositories: 0 } }) }) });
+    expect(tx.teamHistory.create).toHaveBeenCalledWith({ data: expect.objectContaining({ event: 'INVITATION_CANCELLED', sourceId: 'synthetic-invitation' }) });
+    expect(recordAudit).not.toHaveBeenCalled();
   });
 
-  it('팀장이 나가면 createdAt·id 오름차순 선임자에게 넘긴 뒤 자신을 지운다', async () => {
-    const {
-      tx,
-      findFirstMember,
-      teamUpdate,
-      teamMemberDelete,
-      teamDelete,
-      recordAudit,
-    } = buildTx(syntheticLeaderId, {
-      memberCount: 3,
-      successor: { userId: syntheticMemberId },
-    });
+  it("팀장이 나가면 createdAt·id 오름차순 선임자에게 넘긴 뒤 자신을 지운다 대신 명시적 위임을 요구한다", async () => { const { tx, findFirstMember, teamUpdate, teamMemberDelete, teamDelete, recordAudit } = buildTx(syntheticLeaderId, { memberCount: 3, status: ApplicationStatus.SUBMITTED, successor: { userId: syntheticMemberId } }); expect(await buildRepository(tx).leave(syntheticProgramId, syntheticLeaderId, recordAudit)).toBe('leader-transfer-required'); expect(findFirstMember).not.toHaveBeenCalled(); expect(teamUpdate).not.toHaveBeenCalled(); expect(teamMemberDelete).not.toHaveBeenCalled(); expect(teamDelete).not.toHaveBeenCalled(); expect(recordAudit).not.toHaveBeenCalled(); });
 
-    const result = await buildRepository(tx).leave(
-      syntheticProgramId,
-      syntheticLeaderId,
-      recordAudit,
-    );
+  it("같은 createdAt 이면 userId 오름차순 정렬이 승계를 결정한다 대신 명시적 위임을 요구한다", async () => { const { tx, findFirstMember, teamUpdate, teamMemberDelete, teamDelete, recordAudit } = buildTx(syntheticLeaderId, { memberCount: 3, status: ApplicationStatus.SUBMITTED, successor: { userId: syntheticSecondMemberId } }); expect(await buildRepository(tx).leave(syntheticProgramId, syntheticLeaderId, recordAudit)).toBe('leader-transfer-required'); expect(findFirstMember).not.toHaveBeenCalled(); expect(teamUpdate).not.toHaveBeenCalled(); expect(teamMemberDelete).not.toHaveBeenCalled(); expect(teamDelete).not.toHaveBeenCalled(); expect(recordAudit).not.toHaveBeenCalled(); });
 
-    expect(result).toBe('removed');
-    expect(findFirstMember).toHaveBeenCalledWith({
-      where: { teamId: syntheticTeamId, userId: { not: syntheticLeaderId } },
-      orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-      select: { userId: true },
-    });
-    expect(teamUpdate).toHaveBeenCalledWith({
-      where: { id: syntheticTeamId },
-      data: { leaderId: syntheticMemberId },
-    });
-    expect(order(teamUpdate)).toBeLessThan(order(teamMemberDelete));
-    expect(teamDelete).not.toHaveBeenCalled();
-    expect(auditEventOf(recordAudit)).toMatchObject({
-      operation: 'LEAVE',
-      removedUserId: syntheticLeaderId,
-      previousLeaderId: syntheticLeaderId,
-      nextLeaderId: syntheticMemberId,
-    });
-  });
-
-  it('같은 createdAt 이면 userId 오름차순 정렬이 승계를 결정한다', async () => {
-    const { tx, findFirstMember, teamUpdate, recordAudit } = buildTx(
-      syntheticLeaderId,
-      {
-        memberCount: 3,
-        successor: { userId: syntheticSecondMemberId },
-      },
-    );
-
-    await buildRepository(tx).leave(
-      syntheticProgramId,
-      syntheticLeaderId,
-      recordAudit,
-    );
-
-    const [args] = findFirstMember.mock.calls.at(0) as [
-      { orderBy: readonly unknown[] },
-    ];
-    expect(args.orderBy).toEqual([{ createdAt: 'asc' }, { userId: 'asc' }]);
-    expect(teamUpdate).toHaveBeenCalledWith({
-      where: { id: syntheticTeamId },
-      data: { leaderId: syntheticSecondMemberId },
-    });
-  });
-
-  it('신청 제출 뒤에도 마지막 구성원이 아니면 팀장이 나갈 수 있다', async () => {
-    const { tx, teamUpdate, teamMemberDelete, recordAudit } = buildTx(
-      syntheticLeaderId,
-      {
-        memberCount: 2,
-        application: { id: 'cuid-application' },
-        successor: { userId: syntheticMemberId },
-      },
-    );
-
-    const result = await buildRepository(tx).leave(
-      syntheticProgramId,
-      syntheticLeaderId,
-      recordAudit,
-    );
-
-    expect(result).toBe('removed');
-    expect(teamUpdate).toHaveBeenCalled();
-    expect(teamMemberDelete).toHaveBeenCalled();
-    expect(recordAudit).toHaveBeenCalledTimes(1);
-  });
+  it("신청 제출 뒤에도 마지막 구성원이 아니면 팀장이 나갈 수 있다 대신 명시적 위임을 요구한다", async () => { const { tx, findFirstMember, teamUpdate, teamMemberDelete, teamDelete, recordAudit } = buildTx(syntheticLeaderId, { memberCount: 3, status: ApplicationStatus.APPROVED, successor: { userId: syntheticMemberId } }); expect(await buildRepository(tx).leave(syntheticProgramId, syntheticLeaderId, recordAudit)).toBe('leader-transfer-required'); expect(findFirstMember).not.toHaveBeenCalled(); expect(teamUpdate).not.toHaveBeenCalled(); expect(teamMemberDelete).not.toHaveBeenCalled(); expect(teamDelete).not.toHaveBeenCalled(); expect(recordAudit).not.toHaveBeenCalled(); });
 
   it('일반 팀원은 팀장을 그대로 두고 자신만 나간다', async () => {
     const { tx, teamUpdate, teamDelete, teamMemberDelete, recordAudit } =
       buildTx(syntheticMemberId, {
         lockedMembership: teamContext(syntheticLeaderId),
         memberCount: 2,
-        application: { id: 'cuid-application' },
+        status: ApplicationStatus.APPROVED,
       });
 
     const result = await buildRepository(tx).leave(
@@ -446,35 +345,37 @@ describe('TeamRepository.leave', () => {
     });
   });
 
-  it('감사 기록이 실패하면 트랜잭션 밖으로 예외를 던져 승계까지 되돌린다', async () => {
+  it('감사 기록이 실패하면 트랜잭션 밖으로 예외를 던져 구성원 변경을 중단한다', async () => {
     const failure = new Error('audit write failed');
     const recordAudit = createRecordAuditMock().mockRejectedValue(failure);
-    const { tx } = buildTx(syntheticLeaderId, {
+    const { tx } = buildTx(syntheticMemberId, {
+      lockedMembership: teamContext(syntheticLeaderId),
       memberCount: 2,
-      successor: { userId: syntheticMemberId },
+
       recordAudit,
     });
 
     await expect(
       buildRepository(tx).leave(
         syntheticProgramId,
-        syntheticLeaderId,
+        syntheticMemberId,
         recordAudit,
       ),
     ).rejects.toBe(failure);
   });
 
   it('감사 콜백은 같은 트랜잭션 클라이언트를 writer 로 받는다', async () => {
-    const { tx, recordAudit } = buildTx(syntheticLeaderId, {});
+    const { tx, recordAudit } = buildTx(syntheticMemberId, {
+      lockedMembership: teamContext(syntheticLeaderId), memberCount: 2,});
 
     await buildRepository(tx).leave(
       syntheticProgramId,
-      syntheticLeaderId,
+      syntheticMemberId,
       recordAudit,
     );
 
     expect(recordAudit).toHaveBeenCalledWith(
-      { auditLogWriter: tx },
+      { historyWriter: tx, programId: syntheticProgramId },
       expect.objectContaining({ operation: 'LEAVE' }),
     );
   });
@@ -596,7 +497,7 @@ describe('TeamRepository.removeMember', () => {
     const { tx, teamMemberDelete, teamUpdate, teamDelete, recordAudit } =
       buildTx(syntheticLeaderId, {
         memberCount: 3,
-        application: { id: 'cuid-application' },
+        status: ApplicationStatus.APPROVED,
       });
 
     const result = await buildRepository(tx).removeMember(
@@ -646,7 +547,6 @@ describe('TeamRepository.removeMember', () => {
 });
 
 describe('TeamRepository 권한 동기화 이벤트 예약', () => {
-  const syntheticApplicationId = 'cuid-synthetic-application';
   const NOW = new Date('2026-09-05T03:04:05.678Z');
 
   beforeEach(() => {
@@ -658,25 +558,21 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
   });
 
   function expectedRow() {
-    return new PlatformRepository().repositoryAccessSyncEventData(
-      syntheticApplicationId,
-      syntheticTeamId,
-      NOW,
-    );
+    return new PlatformRepository().repositoryAccessSyncEventData(syntheticTeamId, NOW);
   }
 
   it('탈퇴는 승인·NEW·발급 켜진 신청만 골라 한 번 예약한다', async () => {
     const {
       tx,
-      applicationFindMany,
+      teamFindMany,
       outboxCreateMany,
       teamMemberDelete,
       recordAudit,
     } = buildTx(syntheticMemberId, {
       lockedMembership: teamContext(syntheticLeaderId),
       memberCount: 2,
-      application: { id: syntheticApplicationId },
-      accessSyncApplications: [{ id: syntheticApplicationId }],
+      status: ApplicationStatus.APPROVED,
+      accessSyncTeams: [{ id: syntheticTeamId }],
     });
 
     const result = await buildRepository(tx).leave(
@@ -687,9 +583,9 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
 
     expect(result).toBe('removed');
 
-    expect(applicationFindMany).toHaveBeenCalledWith({
+    expect(teamFindMany).toHaveBeenCalledWith({
       where: {
-        teamId: syntheticTeamId,
+        id: syntheticTeamId,
         status: ApplicationStatus.APPROVED,
         repositoryConnectionMode: RepositoryConnectionMode.NEW,
         program: { repositoryProvisioningEnabled: true },
@@ -710,8 +606,8 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     const { tx, outboxCreateMany, recordAudit } = buildTx(syntheticMemberId, {
       lockedMembership: teamContext(syntheticLeaderId),
       memberCount: 2,
-      application: { id: syntheticApplicationId },
-      accessSyncApplications: [{ id: syntheticApplicationId }],
+      status: ApplicationStatus.APPROVED,
+      accessSyncTeams: [{ id: syntheticTeamId }],
     });
 
     await buildRepository(tx).leave(
@@ -726,11 +622,10 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     const [row] = args.data;
     expect(row).toMatchObject({
       type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-      aggregateType: 'Application',
-      aggregateId: syntheticApplicationId,
+      aggregateType: 'Team',
+      aggregateId: syntheticTeamId,
       availableAt: NOW,
       payload: {
-        applicationId: syntheticApplicationId,
         teamId: syntheticTeamId,
         requestedAt: NOW.toISOString(),
       },
@@ -742,7 +637,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
       syntheticLeaderId,
       {
         memberCount: 3,
-        accessSyncApplications: [{ id: syntheticApplicationId }],
+        accessSyncTeams: [{ id: syntheticTeamId }],
       },
     );
 
@@ -768,12 +663,12 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
   ] as const)(
     '%s 에 대상 신청이 없으면 outbox 에 아무것도 쓰지 않는다',
     async (label, actorId) => {
-      const { tx, applicationFindMany, outboxCreateMany, recordAudit } =
+      const { tx, teamFindMany, outboxCreateMany, recordAudit } =
         buildTx(actorId, {
           lockedMembership: teamContext(syntheticLeaderId),
           memberCount: 3,
-          application: { id: syntheticApplicationId },
-          accessSyncApplications: [],
+          status: ApplicationStatus.APPROVED,
+          accessSyncTeams: [],
         });
 
       const result =
@@ -791,7 +686,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
             );
 
       expect(result).toBe('removed');
-      expect(applicationFindMany).toHaveBeenCalledTimes(1);
+      expect(teamFindMany).toHaveBeenCalledTimes(1);
       expect(outboxCreateMany).not.toHaveBeenCalled();
 
       expect(recordAudit).toHaveBeenCalledTimes(1);
@@ -801,11 +696,11 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
   it('신청 없는 1인 팀이 통째로 사라질 때는 조회도 예약도 하지 않는다', async () => {
     const {
       tx,
-      applicationFindMany,
+      teamFindMany,
       outboxCreateMany,
       teamDelete,
       recordAudit,
-    } = buildTx(syntheticLeaderId, { memberCount: 1, application: null });
+    } = buildTx(syntheticLeaderId, { memberCount: 1, status: ApplicationStatus.SUBMITTED });
 
     const result = await buildRepository(tx).leave(
       syntheticProgramId,
@@ -815,7 +710,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
 
     expect(result).toBe('removed');
     expect(teamDelete).toHaveBeenCalled();
-    expect(applicationFindMany).not.toHaveBeenCalled();
+    expect(teamFindMany).not.toHaveBeenCalled();
     expect(outboxCreateMany).not.toHaveBeenCalled();
   });
 
@@ -830,8 +725,8 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
       '신청이 있는 마지막 구성원 탈퇴',
       {
         memberCount: 1,
-        application: { id: syntheticApplicationId },
-        accessSyncApplications: [{ id: syntheticApplicationId }],
+        status: ApplicationStatus.APPROVED,
+        accessSyncTeams: [{ id: syntheticTeamId }],
       },
       syntheticLeaderId,
       'leave' as const,
@@ -841,7 +736,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
       {
         lockedMembership: teamContext(syntheticLeaderId),
         memberCount: 3,
-        accessSyncApplications: [{ id: syntheticApplicationId }],
+        accessSyncTeams: [{ id: syntheticTeamId }],
       },
       syntheticMemberId,
       'removeMember' as const,
@@ -851,7 +746,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
       {
         memberCount: 3,
         targetMembership: { teamId: syntheticOtherTeamId },
-        accessSyncApplications: [{ id: syntheticApplicationId }],
+        accessSyncTeams: [{ id: syntheticTeamId }],
       },
       syntheticLeaderId,
       'removeMember' as const,
@@ -890,7 +785,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     const recordAudit = createRecordAuditMock().mockRejectedValue(failure);
     const { tx, outboxCreateMany } = buildTx(syntheticLeaderId, {
       memberCount: 3,
-      accessSyncApplications: [{ id: syntheticApplicationId }],
+      accessSyncTeams: [{ id: syntheticTeamId }],
       recordAudit,
     });
 
@@ -909,7 +804,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
   it('구성원 트랜잭션은 provision job 이나 GitHub 표면을 전혀 들고 있지 않다', async () => {
     const { tx, recordAudit } = buildTx(syntheticLeaderId, {
       memberCount: 3,
-      accessSyncApplications: [{ id: syntheticApplicationId }],
+      accessSyncTeams: [{ id: syntheticTeamId }],
     });
 
     await buildRepository(tx).removeMember(
@@ -919,13 +814,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
       recordAudit,
     );
 
-    expect(Object.keys(tx).sort()).toEqual([
-      '$queryRaw',
-      'application',
-      'outboxEvent',
-      'team',
-      'teamInvitation',
-      'teamMember',
-    ]);
+    expect(tx.repositoryProvisionJob.deleteMany).not.toHaveBeenCalled();
+    expect(tx.githubRepository.count).not.toHaveBeenCalled();
   });
 });

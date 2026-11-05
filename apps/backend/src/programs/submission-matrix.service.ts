@@ -45,7 +45,7 @@ interface MatrixCellResult {
 }
 
 export interface MatrixRowResult {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicationMode: MatrixApplicationMode;
   readonly displayName: string;
   readonly githubLogins: readonly string[];
@@ -103,32 +103,30 @@ export class SubmissionMatrixService {
       ),
     ]);
 
-    const applicationIds = applications.items.map(
-      (application) => application.id,
-    );
+    const teamIds = applications.items.map((application) => application.id);
     const [submissions, firstSubmissions, changeRequests] = await Promise.all([
-      this.repository.findCurrentSubmissions(applicationIds),
+      this.repository.findCurrentSubmissions(teamIds),
       this.repository.findDocumentFirstSubmissions(
-        applicationIds,
+        teamIds,
         milestones.flatMap((milestone) => milestone.requiredDocumentIds),
       ),
-      this.repository.findDocumentChangeRequests(applicationIds),
+      this.repository.findDocumentChangeRequests(teamIds),
     ]);
     const cellIndex = new Map<string, MatrixSubmissionRecord[]>();
     for (const submission of submissions) {
-      const key = cellKey(submission.applicationId, submission.milestoneId);
+      const key = cellKey(submission.teamId, submission.milestoneId);
       const group = cellIndex.get(key);
       if (group) group.push(submission);
       else cellIndex.set(key, [submission]);
     }
     const changeRequestCounts = new Map<string, number>();
     for (const request of changeRequests) {
-      const key = cellKey(request.applicationId, request.milestoneId);
+      const key = cellKey(request.teamId, request.milestoneId);
       changeRequestCounts.set(key, (changeRequestCounts.get(key) ?? 0) + 1);
     }
     const firstSubmissionIndex = new Map(
       firstSubmissions.map((submission) => [
-        cellKey(submission.applicationId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.milestoneDocumentId),
         submission.firstSubmittedAt,
       ]),
     );
@@ -166,7 +164,7 @@ export class SubmissionMatrixService {
     },
   ): MatrixRowResult {
     return {
-      applicationId: application.id,
+      teamId: application.id,
 
       applicationMode: isSoloTeam(application) ? 'PERSONAL' : 'TEAM',
       displayName: isSoloTeam(application)
@@ -202,8 +200,8 @@ export class SubmissionMatrixService {
   }
 }
 
-function cellKey(applicationId: string, milestoneId: string): string {
-  return `${applicationId}::${milestoneId}`;
+function cellKey(teamId: string, milestoneId: string): string {
+  return `${teamId}::${milestoneId}`;
 }
 
 function isSoloTeam(application: MatrixApplicationRecord): boolean {

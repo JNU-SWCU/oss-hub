@@ -69,7 +69,7 @@ const repository: SubmissionMatrixRepositoryPort = {
       {
         id: 'synthetic-submission',
         milestoneDocumentId: 'synthetic-required-document',
-        applicationId: 'synthetic-application-personal',
+        teamId: 'synthetic-application-personal',
         milestoneId: 'synthetic-milestone',
         status: SubmissionStatus.SUBMITTED,
         currentRevision: 2,
@@ -80,7 +80,7 @@ const repository: SubmissionMatrixRepositoryPort = {
   findDocumentFirstSubmissions: () =>
     Promise.resolve([
       {
-        applicationId: 'synthetic-application-personal',
+        teamId: 'synthetic-application-personal',
         milestoneDocumentId: 'synthetic-required-document',
         firstSubmittedAt: new Date('2026-08-19T01:00:00.000Z'),
       },
@@ -186,7 +186,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
     ],
     rows: [
       {
-        applicationId: 'synthetic-application-personal',
+        teamId: 'synthetic-application-personal',
         applicationMode: 'PERSONAL',
         displayName: '합성 신청자',
         githubLogins: ['synthetic-hong'],
@@ -204,7 +204,7 @@ it('STAFF 세션은 매트릭스를 캐시 금지 헤더와 함께 직렬화한�
         ],
       },
       {
-        applicationId: 'synthetic-application-team',
+        teamId: 'synthetic-application-team',
         applicationMode: 'TEAM',
         displayName: '합성 오픈소스팀',
         githubLogins: ['synthetic-leader', 'synthetic-member'],

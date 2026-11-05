@@ -1,3 +1,4 @@
+import { PrismaService } from '../platform/prisma.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
@@ -14,7 +15,7 @@ import type {
   TeamRenameResult,
   TeamStudentActor,
 } from './team.repository';
-import type { TeamDeletionResult } from './team.repository';
+import type { TeamDeletionResult, ProgramTeamDeletionRepository, TeamDeletionNotificationStore } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import {
   EMPTY_TEAM_DELETION_SCOPE,
@@ -50,7 +51,7 @@ const TEAM_PROGRAM: TeamProgramRecord = {
 };
 
 const DELETED_COUNTS = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 2,
   submissions: 4,
@@ -59,13 +60,14 @@ const DELETED_COUNTS = {
 };
 
 const DETAIL: TeamDetailRecord = {
+  hasActivity: false,
   id: 'synthetic-team',
   name: '오픈소스팀',
   leaderId: STUDENT.id,
   programId: PROGRAM_ID,
   teamMinSize: 2,
   teamMaxSize: 4,
-  hasApplication: false,
+  status: 'SUBMITTED',
   members: [
     {
       userId: STUDENT.id,
@@ -89,9 +91,18 @@ function buildService(overrides: {
       overrides.program === undefined ? TEAM_PROGRAM : overrides.program,
     );
 
-  const record = jest
-    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
-    .mockResolvedValue(undefined);
+  jest.spyOn(MEMBERSHIP_HISTORY_WRITER.user, 'findUniqueOrThrow').mockResolvedValue({
+    id: STUDENT.id, githubId: GITHUB_ID, nickname: STUDENT.nickname, avatarUrl: null, phone: null,
+    accountStatus: 'ACTIVE', sessionVersion: 0, notificationEmail: null, notifyEnabled: false,
+    type: 'STUDENT', name: STUDENT.name, studentId: 'synthetic-student-number', staffNumber: null,
+    department: 'Synthetic department', departmentType: 'DEPARTMENT', profileCreatedAt: null, profileUpdatedAt: null,
+    approvalStatus: 'NOT_REQUIRED', approvalRequestId: null, approvalRequestedAt: null, approvalDecidedAt: null,
+    approvalDecidedById: null, approvalReason: null, createdAt: new Date('2026-01-01'), updatedAt: new Date('2026-01-01'),
+  });
+  const record = jest.spyOn(MEMBERSHIP_HISTORY_WRITER.teamHistory, 'create').mockResolvedValue({
+    id: 'synthetic-history', teamId: DETAIL.id, programId: PROGRAM_ID, actorId: STUDENT.id, event: 'MEMBER_LEFT',
+    source: 'APPLICATION', sourceTable: null, sourceId: null, occurredAt: new Date('2026-01-01'), recordedAt: new Date('2026-01-01'), data: {},
+  });
   const repository = {
     findActiveStudentByGithubId: jest
       .fn()
@@ -105,6 +116,7 @@ function buildService(overrides: {
         overrides.detail === undefined ? DETAIL : overrides.detail,
       ),
     leave: jest.fn().mockResolvedValue('removed'),
+    transferLeader: jest.fn().mockResolvedValue('transferred'),
     removeMember: jest.fn().mockResolvedValue('removed'),
     findActorAuthorityByGithubId: jest
       .fn()
@@ -118,7 +130,7 @@ function buildService(overrides: {
       .mockResolvedValue(overrides.renameResult ?? 'renamed'),
   } as unknown as TeamRepository;
 
-  const deleteTeam = jest.fn<Promise<TeamDeletionResult>, unknown[]>(() =>
+  const deleteTeam = jest.fn<Promise<TeamDeletionResult>, Parameters<ProgramTeamDeletionRepository['deleteTeam']>>(() =>
     Promise.resolve(
       overrides.deletionResult ?? {
         outcome: 'deleted',
@@ -129,30 +141,14 @@ function buildService(overrides: {
   const deletionRepository = stubTeamDeletionRepository({ deleteTeam });
 
   return {
-    service: new TeamMembershipService(
-      repository,
-      { record } as unknown as AuditLogService,
-      deletionRepository,
-      new AuditLogMetadataService(),
-      new RepositoryPublishService(),
-      new RepositoryUrlService(),
-      new MilestoneCompletionService(),
-      new StudentRepositoryUrlService(
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-        {} as never,
-      ),
-    ),
+    service: new TeamMembershipService(repository, deletionRepository, new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never)),
     repository,
     deletionRepository,
     deleteTeam,
     findProgramById,
     record,
     leave: jest.spyOn(repository, 'leave'),
+    transferLeader: jest.spyOn(repository, 'transferLeader'),
     removeMember: jest.spyOn(repository, 'removeMember'),
     renameTeam: jest.spyOn(repository, 'renameTeam'),
     findActorAuthorityByGithubId: jest.spyOn(
@@ -167,8 +163,7 @@ const LEADER_AUTHORITY: TeamActorAuthority = {
   isStaff: false,
 };
 
-const MEMBERSHIP_AUDIT_WRITER =
-  {} as TeamMembershipAuditStore['auditLogWriter'];
+const MEMBERSHIP_HISTORY_WRITER = new PrismaService();
 
 const LEAVE_EVENT: TeamMembershipAuditEvent = {
   teamId: 'synthetic-team',
@@ -193,7 +188,7 @@ async function invokeAuditCallback(
     throw new TypeError('Expected the audit callback as the last argument');
   }
   const recordAudit = lastArgument as RecordTeamMembershipAudit;
-  await recordAudit({ auditLogWriter: MEMBERSHIP_AUDIT_WRITER }, event);
+  await recordAudit({ historyWriter: MEMBERSHIP_HISTORY_WRITER, programId: PROGRAM_ID }, event);
 }
 
 function expectCode(error: unknown, code: TeamsErrorCode) {
@@ -226,7 +221,7 @@ describe('TeamMembershipService', () => {
     const { service } = buildService({
       detail: {
         ...DETAIL,
-        hasApplication: true,
+        status: 'APPROVED',
         members: [
           ...DETAIL.members,
           {
@@ -246,11 +241,11 @@ describe('TeamMembershipService', () => {
       memberCount: 2,
       minMembers: 2,
       maxMembers: 4,
-      hasApplication: true,
+      status: 'APPROVED',
       isLeader: true,
       canInvite: true,
       canRemoveMembers: true,
-      canLeave: true,
+      canLeave: false,
       members: [
         {
           userId: STUDENT.id,
@@ -270,16 +265,16 @@ describe('TeamMembershipService', () => {
     expect(result).not.toHaveProperty('locked');
   });
 
-  it('신청한 1인 팀장은 나갈 수도 제외할 수도 없다고 미리 알린다', async () => {
+  it('승인된 1인 팀장은 나갈 수도 제외할 수도 없다고 미리 알린다', async () => {
     const { service } = buildService({
-      detail: { ...DETAIL, hasApplication: true },
+      detail: { ...DETAIL, status: 'APPROVED' },
     });
 
     const result = present(await service.getMe(GITHUB_ID, PROGRAM_ID), '내 팀');
 
     expect(result).toMatchObject({
       memberCount: 1,
-      hasApplication: true,
+      status: 'APPROVED',
       isLeader: true,
       canInvite: true,
       canRemoveMembers: false,
@@ -287,7 +282,7 @@ describe('TeamMembershipService', () => {
     });
   });
 
-  it('미제출 1인 팀장은 나갈 수 있다', async () => {
+  it('승인 전 1인 팀장은 나갈 수 있다', async () => {
     const { service } = buildService({ detail: DETAIL });
 
     const result = present(await service.getMe(GITHUB_ID, PROGRAM_ID), '내 팀');
@@ -300,7 +295,7 @@ describe('TeamMembershipService', () => {
       detail: {
         ...DETAIL,
         leaderId: 'member-2',
-        hasApplication: true,
+        status: 'APPROVED',
         members: [
           ...DETAIL.members,
           { userId: 'member-2', nickname: 'member2', name: null },
@@ -413,40 +408,20 @@ describe('TeamMembershipService', () => {
     await service.leave(GITHUB_ID, PROGRAM_ID);
     await invokeAuditCallback(leave, LEAVE_EVENT);
 
-    expect(record).toHaveBeenCalledWith(
-      {
-        actorGithubId: GITHUB_ID,
-        action: TEAM_MEMBERSHIP_AUDIT_ACTIONS.TEAM_MEMBERSHIP_CHANGED,
-        targetType: 'TEAM',
-        targetId: LEAVE_EVENT.teamId,
-        metadata: {
-          schemaVersion: 1,
-          programName: LEAVE_EVENT.programName,
-          teamName: LEAVE_EVENT.teamName,
-          operation: 'LEAVE',
-          removedUserId: STUDENT.id,
-          previousLeaderId: STUDENT.id,
-          nextLeaderId: 'member-2',
-        },
-      },
-      MEMBERSHIP_AUDIT_WRITER,
-    );
+    expect(record).toHaveBeenCalledWith({ data: {
+      teamId: LEAVE_EVENT.teamId, programId: PROGRAM_ID, actorId: STUDENT.id, event: 'MEMBER_LEFT', source: 'APPLICATION',
+      data: { schemaVersion: 1, name: LEAVE_EVENT.teamName, removedUserId: STUDENT.id, previousLeaderId: STUDENT.id, nextLeaderId: 'member-2' },
+    } });
   });
 
-  it('팀 삭제 탈퇴는 nextLeaderId 없이 기록한다', async () => {
-    const { service, leave, record } = buildService({});
-    leave.mockResolvedValue('removed');
-
-    await service.leave(GITHUB_ID, PROGRAM_ID);
-    await invokeAuditCallback(leave, { ...LEAVE_EVENT, nextLeaderId: null });
-
-    const metadataMatcher: unknown = expect.objectContaining({
-      nextLeaderId: null,
-    });
-    expect(record).toHaveBeenCalledWith(
-      expect.objectContaining({ metadata: metadataMatcher }),
-      MEMBERSHIP_AUDIT_WRITER,
-    );
+  it('팀장 위임 이력은 구성원 제거 없이 새 팀장을 기록한다', async () => {
+    const { service, transferLeader, record } = buildService({});
+    await service.transferLeader(GITHUB_ID, PROGRAM_ID, 'member-2');
+    await invokeAuditCallback(transferLeader, { ...LEAVE_EVENT, operation: 'TRANSFER_LEADER', removedUserId: null });
+    expect(record).toHaveBeenCalledWith({ data: {
+      teamId: LEAVE_EVENT.teamId, programId: PROGRAM_ID, actorId: STUDENT.id, event: 'LEADER_TRANSFERRED', source: 'APPLICATION',
+      data: { schemaVersion: 1, name: LEAVE_EVENT.teamName, removedUserId: null, previousLeaderId: STUDENT.id, nextLeaderId: 'member-2' },
+    } });
   });
 
   it('감사 기록이 실패하면 콜백이 던져 repository 트랜잭션을 되돌린다', async () => {
@@ -518,24 +493,10 @@ describe('TeamMembershipService.removeMember', () => {
       nextLeaderId: STUDENT.id,
     });
 
-    expect(record).toHaveBeenCalledWith(
-      {
-        actorGithubId: GITHUB_ID,
-        action: TEAM_MEMBERSHIP_AUDIT_ACTIONS.TEAM_MEMBERSHIP_CHANGED,
-        targetType: 'TEAM',
-        targetId: LEAVE_EVENT.teamId,
-        metadata: {
-          schemaVersion: 1,
-          programName: LEAVE_EVENT.programName,
-          teamName: LEAVE_EVENT.teamName,
-          operation: 'REMOVE',
-          removedUserId: 'member-2',
-          previousLeaderId: STUDENT.id,
-          nextLeaderId: STUDENT.id,
-        },
-      },
-      MEMBERSHIP_AUDIT_WRITER,
-    );
+    expect(record).toHaveBeenCalledWith({ data: {
+      teamId: LEAVE_EVENT.teamId, programId: PROGRAM_ID, actorId: STUDENT.id, event: 'MEMBER_REMOVED', source: 'APPLICATION',
+      data: { schemaVersion: 1, name: LEAVE_EVENT.teamName, removedUserId: 'member-2', previousLeaderId: STUDENT.id, nextLeaderId: STUDENT.id },
+    } });
   });
 });
 
@@ -565,24 +526,7 @@ describe('TeamMembershipService membership transaction boundary', () => {
       .mockResolvedValue(undefined);
 
     return {
-      service: new TeamMembershipService(
-        repository,
-        { record } as unknown as AuditLogService,
-        stubTeamDeletionRepository(),
-        new AuditLogMetadataService(),
-        new RepositoryPublishService(),
-        new RepositoryUrlService(),
-        new MilestoneCompletionService(),
-        new StudentRepositoryUrlService(
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-          {} as never,
-        ),
-      ),
+      service: new TeamMembershipService(repository, stubTeamDeletionRepository(), new AuditLogMetadataService(), new RepositoryPublishService(), new RepositoryUrlService(), new MilestoneCompletionService(), new StudentRepositoryUrlService({} as never, {} as never, {} as never, {} as never, {} as never, {} as never)),
       accessed,
       leave,
       removeMember,
@@ -672,7 +616,7 @@ describe('TeamMembershipService.rename', () => {
         store: TeamMembershipAuditStore,
         event: TeamRenameAuditEvent,
       ) => Promise<void>
-    )({ auditLogWriter: MEMBERSHIP_AUDIT_WRITER }, RENAME_EVENT);
+    )({ historyWriter: MEMBERSHIP_HISTORY_WRITER, programId: PROGRAM_ID }, RENAME_EVENT);
   }
 
   it('팀장이 바꾸면 바뀐 이름을 돌려주고 잠금 판정을 repository 에 넘긴다', async () => {
@@ -749,21 +693,10 @@ describe('TeamMembershipService.rename', () => {
     await service.rename(GITHUB_ID, PROGRAM_ID, TEAM_ID, '알잘딱팀');
     await invokeRenameAudit(renameTeam);
 
-    expect(record).toHaveBeenCalledWith(
-      {
-        actorGithubId: GITHUB_ID,
-        action: TEAM_RENAMED_AUDIT_ACTIONS.TEAM_RENAMED,
-        targetType: 'TEAM',
-        targetId: TEAM_ID,
-        metadata: {
-          schemaVersion: 1,
-          programName: TEAM_PROGRAM.name,
-          teamName: '알잘딱팀',
-          previousName: '오픈소스팀',
-        },
-      },
-      MEMBERSHIP_AUDIT_WRITER,
-    );
+    expect(record).toHaveBeenCalledWith({ data: {
+      teamId: TEAM_ID, programId: PROGRAM_ID, actorId: STUDENT.id, event: 'RENAMED', source: 'APPLICATION',
+      data: { schemaVersion: 1, previousName: '오픈소스팀', name: '알잘딱팀' },
+    } });
   });
 });
 
@@ -772,7 +705,7 @@ describe('TeamMembershipService.deleteForStaff', () => {
   const STAFF_AUTHORITY = { id: 'staff-1', isStaff: true } as const;
   const EXPECTED_SCOPE = {
     ...EMPTY_TEAM_DELETION_SCOPE,
-    applications: 1,
+    teams: 1,
     members: 3,
   };
 
@@ -793,7 +726,6 @@ describe('TeamMembershipService.deleteForStaff', () => {
       TEAM_ID,
       STAFF_AUTHORITY.id,
       EXPECTED_SCOPE,
-      expect.any(Function),
       expect.any(Function),
     );
   });
@@ -869,7 +801,7 @@ describe('TeamMembershipService.deleteForStaff', () => {
   it('신청·제출이 있는 팀도 범위만 맞으면 지워진다', async () => {
     const heavyScope = {
       ...EMPTY_TEAM_DELETION_SCOPE,
-      applications: 1,
+      teams: 1,
       members: 4,
       submissions: 6,
       submissionEvents: 12,
@@ -888,59 +820,23 @@ describe('TeamMembershipService.deleteForStaff', () => {
       STAFF_AUTHORITY.id,
       heavyScope,
       expect.any(Function),
-      expect.any(Function),
     );
   });
 
-  it('감사에는 팀 이름과 함께 사라진 수치를 남긴다', async () => {
-    const { service, deleteTeam, record } = buildService({
-      actorAuthority: STAFF_AUTHORITY,
+  it('삭제 알림은 팀과 프로그램 이름을 수신자별로 기록한다', async () => {
+    const { service, deleteTeam } = buildService({ actorAuthority: STAFF_AUTHORITY });
+    await service.deleteForStaff(GITHUB_ID, PROGRAM_ID, TEAM_ID, EXPECTED_SCOPE);
+    const enqueue = deleteTeam.mock.calls.at(0)?.[4];
+    if (!enqueue) throw new TypeError('Expected the notification callback');
+    const createTeamDeletedNotifications = jest.fn<Promise<void>, Parameters<TeamDeletionNotificationStore['createTeamDeletedNotifications']>>().mockResolvedValue(undefined);
+    await enqueue({ createTeamDeletedNotifications }, {
+      teamId: TEAM_ID, teamName: '오픈소스팀', programId: PROGRAM_ID, programName: TEAM_PROGRAM.name,
+      recipientUserIds: [STUDENT.id], deletedAt: new Date('2026-07-15T00:00:00Z'),
     });
-
-    await service.deleteForStaff(
-      GITHUB_ID,
-      PROGRAM_ID,
-      TEAM_ID,
-      EXPECTED_SCOPE,
-    );
-    const recordAudit = deleteTeam.mock.calls.at(0)?.at(4);
-    if (typeof recordAudit !== 'function') {
-      throw new TypeError('Expected an audit callback argument');
-    }
-    await (
-      recordAudit as (
-        store: TeamMembershipAuditStore,
-        event: {
-          readonly teamId: string;
-          readonly programName: string;
-          readonly teamName: string;
-          readonly deletedCounts: typeof DELETED_COUNTS;
-        },
-      ) => Promise<void>
-    )(
-      { auditLogWriter: MEMBERSHIP_AUDIT_WRITER },
-      {
-        teamId: TEAM_ID,
-        programName: TEAM_PROGRAM.name,
-        teamName: '오픈소스팀',
-        deletedCounts: DELETED_COUNTS,
-      },
-    );
-
-    expect(record).toHaveBeenCalledWith(
-      {
-        actorGithubId: GITHUB_ID,
-        action: TEAM_DELETED_AUDIT_ACTIONS.TEAM_DELETED,
-        targetType: 'TEAM',
-        targetId: TEAM_ID,
-        metadata: {
-          schemaVersion: 1,
-          programName: TEAM_PROGRAM.name,
-          teamName: '오픈소스팀',
-          deletedCounts: DELETED_COUNTS,
-        },
-      },
-      MEMBERSHIP_AUDIT_WRITER,
-    );
+    expect(createTeamDeletedNotifications).toHaveBeenCalledWith([{
+      userId: STUDENT.id, type: 'TEAM_DELETED', channel: 'IN_APP', status: 'UNREAD',
+      idempotencyKey: `team-deleted:${TEAM_ID}:${STUDENT.id}`,
+      payload: { schemaVersion: 1, teamId: TEAM_ID, teamName: '오픈소스팀', programId: PROGRAM_ID, programName: TEAM_PROGRAM.name, message: null, deletedAt: '2026-07-15T00:00:00.000Z' },
+    }]);
   });
 });

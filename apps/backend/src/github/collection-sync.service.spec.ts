@@ -160,13 +160,15 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       },
 
       findUnique: ({
-        where,
+        where, select,
       }: {
         where: { githubRepositoryId: bigint };
+        select?: { teamId?: boolean };
       }): Row | null => {
         const key = repoKey(where.githubRepositoryId);
         const base = box.store.repositories.get(key);
         const owning = box.store.owningRepositories.get(key);
+        if (select?.teamId) return owning ?? null;
         if (base === undefined && owning === undefined) return null;
         return { ...(base ?? {}), ...(owning ?? {}) };
       },
@@ -586,7 +588,7 @@ function createFakeDb(): {
     visibility: 'PUBLIC',
     presence: 'PRESENT',
     source: 'ORG_PROVISIONED',
-    applicationId: 'application-default',
+    teamId: 'application-default',
   });
   const db = makeFacade(box, control) as PrismaService;
   return { db, box, control };
@@ -644,7 +646,7 @@ function seedRegisteredRepositories(
       visibility: repository.private ? 'PRIVATE' : 'PUBLIC',
       presence: 'PRESENT',
       source: 'ORG_PROVISIONED',
-      applicationId: `application-${index + 1}`,
+      teamId: `application-${index + 1}`,
     });
   });
 }
@@ -885,7 +887,7 @@ describe('CollectionSyncService — GR-6 external 저장소는 org sweep에서 �
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
 
-      applicationId: 'application-external',
+      teamId: 'application-external',
     });
     const repoA = providerRepository({
       id: '100',
@@ -924,7 +926,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
 
-      applicationId: 'application-external',
+      teamId: 'application-external',
     });
 
     const client = createClient([]);
@@ -967,7 +969,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
 
-      applicationId: 'application-external',
+      teamId: 'application-external',
     });
     const client = createClient([]);
     client.getRepository.mockRejectedValue(
@@ -1002,7 +1004,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
 
-      applicationId: 'application-external',
+      teamId: 'application-external',
     });
     const client = createClient([]);
     client.getRepository.mockResolvedValue(
@@ -1043,7 +1045,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
 
-      applicationId: 'application-external',
+      teamId: 'application-external',
     });
     const client = createClient([]);
     quietStreams(client);
@@ -1084,7 +1086,7 @@ describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
       source: 'EXTERNAL_PUBLIC',
       lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
 
-      applicationId: 'application-external',
+      teamId: 'application-external',
     });
     const client = createClient([]);
     client.getRepository.mockRejectedValue(
@@ -1158,7 +1160,7 @@ describe('CollectionSyncService — new/VERIFYING repository backfill', () => {
       visibility: 'PUBLIC',
       presence: 'PRESENT',
       source: 'ORG_PROVISIONED',
-      applicationId: 'application-default',
+      teamId: 'application-default',
       lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
     });
     box.store.streams.set('repo-1:COMMIT', {
@@ -1200,7 +1202,7 @@ describe('CollectionSyncService — READY repository conditional polling', () =>
       visibility: 'PUBLIC',
       presence: 'PRESENT',
       source: 'ORG_PROVISIONED',
-      applicationId: 'application-default',
+      teamId: 'application-default',
       lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
     });
     box.store.streams.set('repo-1:COMMIT', {
@@ -1255,7 +1257,7 @@ describe('CollectionSyncService — 새것이 없는 확인도 확인 시각을 
       visibility: 'PUBLIC',
       presence: 'PRESENT',
       source: 'ORG_PROVISIONED',
-      applicationId: 'application-default',
+      teamId: 'application-default',
       lastCompleteInventoryObservedAt: PREVIOUS,
     });
     const ready = (streamType: string, frontier: Row) =>
@@ -1704,7 +1706,6 @@ const seedOwningRepository = (
   box.store.owningRepositories.set(repoKey(githubRepositoryId), {
     githubRepositoryId,
     teamId,
-    ...(teamId === null ? {} : { applicationId: `application:${teamId}` }),
   });
   members.forEach((member, index) => {
     const id = `${String(githubRepositoryId)}:${index}`;
@@ -1768,7 +1769,7 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
     expect(stream?.etag).toBeNull();
   });
 
-  it('팀이 없는 저장소는 기존 저장소 전량 REST 경로로 떨어진다', async () => {
+  it('팀이 없는 저장소는 수집하지 않는다', async () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();
 
@@ -1783,12 +1784,11 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
     const service = createService(db, client);
     await service.run('owner-1');
 
-    expect(client.listCommitsUntilKnownSha).toHaveBeenCalled();
+    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
     expect(client.listDefaultBranchCommitsByAuthor).not.toHaveBeenCalled();
     expect(client.resolveUserNodeId).not.toHaveBeenCalled();
-    const stream = box.store.streams.get('repo-1:COMMIT');
-    expect(stream?.status).toBe('READY');
-    expect(stream?.frontierSha).toBe('head-sha');
+    expect(box.store.streams.get('repo-1:COMMIT')).toBeUndefined();
+    expect(box.store.commitFacts.size).toBe(0);
   });
 
   it('나중에 합류한 팀원의 과거 이력이 다음 run에 그대로 들어온다', async () => {
@@ -1865,7 +1865,7 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
 describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', () => {
   const NOW = new Date('2026-08-01T00:00:00.000Z');
   const WINDOW = {
-    applicationId: 'application-1',
+    teamId: 'application-1',
     programId: 'program-1',
     startAt: new Date('2026-07-09T15:00:00.000Z'),
     endAt: new Date('9999-12-31T23:59:59.999Z'),
@@ -1991,7 +1991,7 @@ describe('CollectionSyncService — 팀원이 아닌 사람의 기여(#1133)', (
     expect(save).toHaveBeenCalledTimes(1);
     expect(save).toHaveBeenCalledWith({
       repositoryId: 'repo-1',
-      applicationId: 'application-1',
+      teamId: 'application-1',
       programId: 'program-1',
       windowStartAt: WINDOW.startAt,
       windowEndAt: WINDOW.endAt,
@@ -3295,11 +3295,9 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     presence: 'PRESENT',
     source: 'ORG_PROVISIONED',
     lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
-    applicationId: 'application-1',
-    programId: 'program-1',
-    teamId: 'team-1',
-    ...overrides,
-  });
+    teamId: 'application-1',
+    ...overrides
+});
   const providerCallCount = (client: ClientMock): number =>
     (Object.values(client) as jest.Mock[]).reduce<number>(
       (total, mock) => total + mock.mock.calls.length,
@@ -3397,16 +3395,15 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       },
     ],
     ['기본 브랜치를 아직 모르는 저장소', { defaultBranch: null }],
-    ['연결이 풀리고 팀 이력만 남은 저장소', { applicationId: null }],
+    ['연결이 풀리고 팀 이력만 남은 저장소', { teamId: null }],
     [
       '프로그램 삭제로 연결이 모두 풀린 조직 밖 저장소',
       {
         source: 'EXTERNAL_PUBLIC',
         visibility: 'PUBLIC',
         githubOrganizationId: null,
-        applicationId: null,
-        programId: null,
         teamId: null,
+        programId: null,
       },
     ],
     ['사라진 저장소', { presence: 'ABSENT' }],
@@ -3501,8 +3498,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
         id: 'repo-b',
         githubRepositoryId: 200n,
         nameWithOwner: 'synthetic-org/repo-b',
-        applicationId: 'application-b',
-        teamId: 'team-b',
+        teamId: 'application-b',
       }),
     );
     const client = createClient([
@@ -3517,7 +3513,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       if (repo === 'repo-a') {
         box.store.repositories.set(repoKey(200n), {
           ...box.store.repositories.get(repoKey(200n)),
-          applicationId: null,
+          teamId: null,
         });
       }
       return Promise.resolve({

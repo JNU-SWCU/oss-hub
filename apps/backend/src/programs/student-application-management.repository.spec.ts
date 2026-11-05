@@ -1,5 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { StudentApplicationManagementRepository } from './team.repository';
@@ -16,7 +16,7 @@ const APPLICATION = {
   programId: 'program-1',
   status: ApplicationStatus.SUBMITTED,
   teamId: 'team-1',
-  team: { leaderId: 'student-1' },
+  leaderId: 'student-1',
   applicant: {
     id: 'applicant-1',
     nickname: 'applicant',
@@ -34,21 +34,19 @@ const APPLICATION = {
 };
 
 const MEMBERSHIP_WHERE = {
-  team: { members: { some: { userId: 'student-1' } } },
+  members: { some: { userId: 'student-1' } },
 };
 const MANAGER_WHERE = {
-  team: {
-    leaderId: 'student-1',
-    members: { some: { userId: 'student-1' } },
-  },
+  leaderId: 'student-1',
+  members: { some: { userId: 'student-1' } },
 };
 
 describe('StudentApplicationManagementRepository', () => {
   it('scopes the owner read path to current team membership only', async () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
-      createPrisma({ application: { findFirst } }),
-      new ReviewHistoryWriterRepository(),
+      createPrisma({ team: { findFirst } }),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -68,8 +66,8 @@ describe('StudentApplicationManagementRepository', () => {
   it('selects the rejection reason on the owner read path', async () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
-      createPrisma({ application: { findFirst } }),
-      new ReviewHistoryWriterRepository(),
+      createPrisma({ team: { findFirst } }),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -92,8 +90,8 @@ describe('StudentApplicationManagementRepository', () => {
       .fn()
       .mockResolvedValue({ ...APPLICATION, rejectionReason: '합성 반려 사유' });
     const repository = new StudentApplicationManagementRepository(
-      createPrisma({ application: { findFirst } }),
-      new ReviewHistoryWriterRepository(),
+      createPrisma({ team: { findFirst } }),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -109,8 +107,8 @@ describe('StudentApplicationManagementRepository', () => {
   it('keeps the original applicant on the read record while scoping by membership', async () => {
     const findFirst = jest.fn().mockResolvedValue(APPLICATION);
     const repository = new StudentApplicationManagementRepository(
-      createPrisma({ application: { findFirst } }),
-      new ReviewHistoryWriterRepository(),
+      createPrisma({ team: { findFirst } }),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -136,14 +134,14 @@ describe('StudentApplicationManagementRepository', () => {
         .mockResolvedValueOnce({ id: APPLICATION.id })
         .mockResolvedValueOnce(APPLICATION);
       const transaction = createTransaction({
-        application: {
+        team: {
           findFirst,
           update: jest.fn().mockResolvedValue(APPLICATION),
         },
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
-        new ReviewHistoryWriterRepository(),
+        new TeamHistoryRepository(),
         new PlatformRepository(),
         () => NOW,
       );
@@ -161,10 +159,10 @@ describe('StudentApplicationManagementRepository', () => {
   );
 
   it.each(['update', 'delete'] as const)(
-    'locks Program then Team then Application on the %s path',
+    'locks Program then Team then the selected Team on the %s path',
     async (operation) => {
       const transaction = createTransaction({
-        application: {
+        team: {
           findFirst: jest
             .fn()
             .mockResolvedValueOnce({ id: APPLICATION.id })
@@ -174,7 +172,7 @@ describe('StudentApplicationManagementRepository', () => {
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
-        new ReviewHistoryWriterRepository(),
+        new TeamHistoryRepository(),
         new PlatformRepository(),
         () => NOW,
       );
@@ -184,7 +182,7 @@ describe('StudentApplicationManagementRepository', () => {
       expect(lockedTables(transaction)).toEqual([
         'Program',
         'Team',
-        'Application',
+        'Team',
       ]);
     },
   );
@@ -200,7 +198,7 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const transaction = createTransaction({
       teamMember: { findUnique: membershipFindUnique },
-      application: {
+      team: {
         findFirst: jest
           .fn()
           .mockResolvedValueOnce({ id: APPLICATION.id })
@@ -216,7 +214,7 @@ describe('StudentApplicationManagementRepository', () => {
     );
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
-      new ReviewHistoryWriterRepository(),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -233,7 +231,7 @@ describe('StudentApplicationManagementRepository', () => {
       'membership',
       'lock:Team',
       'membership',
-      'lock:Application',
+      'lock:Team',
     ]);
   });
 
@@ -243,11 +241,11 @@ describe('StudentApplicationManagementRepository', () => {
       const applicationFindFirst = jest.fn();
       const transaction = createTransaction({
         teamMember: { findUnique: jest.fn().mockResolvedValue(null) },
-        application: { findFirst: applicationFindFirst },
+        team: { findFirst: applicationFindFirst },
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
-        new ReviewHistoryWriterRepository(),
+        new TeamHistoryRepository(),
         new PlatformRepository(),
         () => NOW,
       );
@@ -256,8 +254,8 @@ describe('StudentApplicationManagementRepository', () => {
         kind: 'application-not-found',
       });
       expect(applicationFindFirst).not.toHaveBeenCalled();
-      expect(transaction.application.update).not.toHaveBeenCalled();
-      expect(transaction.application.delete).not.toHaveBeenCalled();
+      expect(transaction.team.update).not.toHaveBeenCalled();
+      expect(transaction.team.delete).not.toHaveBeenCalled();
       expect(lockedTables(transaction)).toEqual(['Program']);
     },
   );
@@ -275,11 +273,11 @@ describe('StudentApplicationManagementRepository', () => {
       const applicationFindFirst = jest.fn();
       const transaction = createTransaction({
         teamMember: { findUnique: membershipFindUnique },
-        application: { findFirst: applicationFindFirst },
+        team: { findFirst: applicationFindFirst },
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
-        new ReviewHistoryWriterRepository(),
+        new TeamHistoryRepository(),
         new PlatformRepository(),
         () => NOW,
       );
@@ -288,8 +286,8 @@ describe('StudentApplicationManagementRepository', () => {
         kind: 'application-not-found',
       });
       expect(applicationFindFirst).not.toHaveBeenCalled();
-      expect(transaction.application.update).not.toHaveBeenCalled();
-      expect(transaction.application.delete).not.toHaveBeenCalled();
+      expect(transaction.team.update).not.toHaveBeenCalled();
+      expect(transaction.team.delete).not.toHaveBeenCalled();
 
       expect(lockedTables(transaction)).toEqual(['Program', 'Team']);
     },
@@ -311,7 +309,7 @@ describe('StudentApplicationManagementRepository', () => {
       });
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
-        new ReviewHistoryWriterRepository(),
+        new TeamHistoryRepository(),
         new PlatformRepository(),
         () => NOW,
       );
@@ -319,15 +317,15 @@ describe('StudentApplicationManagementRepository', () => {
       await expect(run(repository, operation)).resolves.toEqual({
         kind: 'application-not-found',
       });
-      expect(transaction.application.update).not.toHaveBeenCalled();
-      expect(transaction.application.delete).not.toHaveBeenCalled();
+      expect(transaction.team.update).not.toHaveBeenCalled();
+      expect(transaction.team.delete).not.toHaveBeenCalled();
     },
   );
 
   it('locks and revalidates the program and owned application before updating', async () => {
     const update = jest.fn().mockResolvedValue(APPLICATION);
     const transaction = createTransaction({
-      application: {
+      team: {
         findFirst: jest
           .fn()
           .mockResolvedValueOnce({ id: APPLICATION.id })
@@ -337,7 +335,7 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
-      new ReviewHistoryWriterRepository(),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -363,7 +361,7 @@ describe('StudentApplicationManagementRepository', () => {
 
   it('returns template-version-mismatch without writing when the form moved on', async () => {
     const transaction = createTransaction({
-      application: {
+      team: {
         findFirst: jest
           .fn()
           .mockResolvedValueOnce({ id: APPLICATION.id })
@@ -373,7 +371,7 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
-      new ReviewHistoryWriterRepository(),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -386,16 +384,16 @@ describe('StudentApplicationManagementRepository', () => {
         applicationTemplateVersion: 2,
       }),
     ).resolves.toEqual({ kind: 'template-version-mismatch' });
-    expect(transaction.application.update).not.toHaveBeenCalled();
+    expect(transaction.team.update).not.toHaveBeenCalled();
   });
 
   it('returns application-not-found when cancellation wins a race', async () => {
     const transaction = createTransaction({
-      application: { findFirst: jest.fn().mockResolvedValue(null) },
+      team: { findFirst: jest.fn().mockResolvedValue(null) },
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
-      new ReviewHistoryWriterRepository(),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -412,7 +410,7 @@ describe('StudentApplicationManagementRepository', () => {
 
   it('returns already-decided when approval wins a race', async () => {
     const transaction = createTransaction({
-      application: {
+      team: {
         findFirst: jest
           .fn()
           .mockResolvedValueOnce({ id: APPLICATION.id })
@@ -424,7 +422,7 @@ describe('StudentApplicationManagementRepository', () => {
     });
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
-      new ReviewHistoryWriterRepository(),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -442,7 +440,7 @@ describe('StudentApplicationManagementRepository', () => {
     transaction.$queryRaw.mockResolvedValue([]);
     const repository = new StudentApplicationManagementRepository(
       createPrisma({ transaction }),
-      new ReviewHistoryWriterRepository(),
+      new TeamHistoryRepository(),
       new PlatformRepository(),
       () => NOW,
     );
@@ -470,7 +468,7 @@ describe('StudentApplicationManagementRepository', () => {
         applicationLockRequested = resolve;
       });
       const transaction = createTransaction({
-        application: {
+        team: {
           findFirst: jest
             .fn()
             .mockResolvedValueOnce({ id: APPLICATION.id })
@@ -480,7 +478,7 @@ describe('StudentApplicationManagementRepository', () => {
       });
       transaction.$queryRaw.mockImplementation(
         (strings: { readonly raw: readonly string[] }) => {
-          if (tableOf(strings) === 'Application') {
+          if (tableOf(strings) === 'Team') {
             applicationLockRequested?.();
             return applicationLock;
           }
@@ -490,7 +488,7 @@ describe('StudentApplicationManagementRepository', () => {
       const clock = jest.fn(() => NOW);
       const repository = new StudentApplicationManagementRepository(
         createPrisma({ transaction }),
-        new ReviewHistoryWriterRepository(),
+        new TeamHistoryRepository(),
         new PlatformRepository(),
         clock,
       );
@@ -502,8 +500,8 @@ describe('StudentApplicationManagementRepository', () => {
       releaseApplicationLock?.();
 
       await expect(result).resolves.toEqual({ kind: 'period-closed' });
-      expect(transaction.application.update).not.toHaveBeenCalled();
-      expect(transaction.application.delete).not.toHaveBeenCalled();
+      expect(transaction.team.update).not.toHaveBeenCalled();
+      expect(transaction.team.delete).not.toHaveBeenCalled();
     },
   );
 });
@@ -557,7 +555,7 @@ function firstWhere(findFirst: jest.Mock): Record<string, unknown> {
 
 function createTransaction(input?: {
   readonly teamMember?: { readonly findUnique?: jest.Mock };
-  readonly application?: {
+  readonly team?: {
     readonly findFirst?: jest.Mock;
     readonly update?: jest.Mock;
     readonly delete?: jest.Mock;
@@ -566,7 +564,16 @@ function createTransaction(input?: {
   return {
     $queryRaw: jest.fn().mockResolvedValue([{ id: 'locked' }]),
     program: { findUnique: jest.fn().mockResolvedValue(POLICY) },
+    teamHistory: { create: jest.fn().mockResolvedValue({}) },
+    teamInvitation: { count: jest.fn().mockResolvedValue(0), findMany: jest.fn().mockResolvedValue([]), deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
+    githubRepository: { count: jest.fn().mockResolvedValue(0) },
+    submissionFile: { count: jest.fn().mockResolvedValue(0) },
+    repositoryProvisionJob: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
+    outboxEvent: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     teamMember: {
+      count: jest.fn().mockResolvedValue(1),
+      deleteMany: jest.fn().mockResolvedValue({ count: 1 }),
       findUnique:
         input?.teamMember?.findUnique ??
         jest.fn().mockResolvedValue({
@@ -574,23 +581,24 @@ function createTransaction(input?: {
           team: { leaderId: 'student-1' },
         }),
     },
-    application: {
-      findFirst: input?.application?.findFirst ?? jest.fn(),
-      update: input?.application?.update ?? jest.fn(),
-      delete: input?.application?.delete ?? jest.fn(),
+    team: {
+      findUniqueOrThrow: jest.fn().mockResolvedValue({ name: 'Team', programId: APPLICATION.programId, leaderId: 'student-1', status: APPLICATION.status, members: [] }),
+      findFirst: input?.team?.findFirst ?? jest.fn(),
+      update: input?.team?.update ?? jest.fn(),
+      delete: input?.team?.delete ?? jest.fn(),
     },
   };
 }
 
 function createPrisma(input: {
-  readonly application?: { readonly findFirst?: jest.Mock };
+  readonly team?: { readonly findFirst?: jest.Mock };
   readonly transaction?: Transaction;
 }): PrismaService {
   const prisma = new PrismaService();
   const transaction = input.transaction ?? createTransaction();
   Object.defineProperties(prisma, {
-    application: {
-      value: { findFirst: input.application?.findFirst ?? jest.fn() },
+    team: {
+      value: { findFirst: input.team?.findFirst ?? jest.fn() },
     },
     $transaction: {
       value: (operation: (client: Transaction) => Promise<unknown>) =>

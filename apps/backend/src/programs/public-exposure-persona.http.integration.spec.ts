@@ -107,68 +107,68 @@ async function createRepositoryFixture(params: {
   const githubRepositoryId = 8_930_000_000_000n + BigInt(hashKey(params.key));
   await harness.prisma.user.create({
     data: {
-      id: applicantId,
-      githubId: 8_940_000_000_000n + BigInt(hashKey(params.key)),
-      nickname: `${PREFIX}-${params.key}-applicant-login`,
-      type: MemberKind.STUDENT,
-      approvalStatus: 'NOT_REQUIRED',
-    },
-  });
-  const applicationId = `${PREFIX}-${params.key}-application`;
-  const teamId = `${PREFIX}-${params.key}-team`;
+        id: applicantId,
+        githubId: 8940000000000n + BigInt(hashKey(params.key)),
+        nickname: `${PREFIX}-${params.key}-applicant-login`,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED'
+    }
+});
+  const teamId = `${PREFIX}-${params.key}-application`;
   await harness.prisma.team.create({
     data: {
-      id: teamId,
-      programId: PROGRAM_ID,
-      name: `${PREFIX}-${params.key}-team`,
-      leaderId: applicantId,
-    },
-  });
+        id: teamId,
+        programId: PROGRAM_ID,
+        name: `${PREFIX}-${params.key}-team`,
+        leaderId: applicantId,
+        applicantId: applicantId,
+        answers: { title: `${PREFIX}-${params.key}-team` },
+        applicationTemplateVersion: 1
+    }
+});
   await harness.prisma.teamMember.create({
     data: {
-      teamId,
-      programId: PROGRAM_ID,
-      userId: applicantId,
-    },
-  });
-  await harness.prisma.application.create({
+        teamId,
+        programId: PROGRAM_ID,
+        userId: applicantId
+    }
+});
+  await harness.prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
-      programId: PROGRAM_ID,
-      applicantId,
-      teamId,
-      answers: { syntheticFixture: true },
-      applicationTemplateVersion: 1,
-      status: ApplicationStatus.APPROVED,
-      isRepositoryPublicationPlanned: true,
-      processedAt: new Date(),
-    },
-  });
+        programId: PROGRAM_ID,
+        applicantId,
+        answers: { syntheticFixture: true },
+        applicationTemplateVersion: 1,
+        status: ApplicationStatus.APPROVED,
+        isRepositoryPublicationPlanned: true,
+        processedAt: new Date()
+    }
+});
   const repositoryId = `${PREFIX}-${params.key}-repository`;
   const repositoryName = `${PREFIX}-${params.key}-repo`;
   await harness.prisma.githubRepository.create({
     data: {
-      id: repositoryId,
-      applicationId,
-      programId: PROGRAM_ID,
-      githubRepositoryId,
-      nameWithOwner: `synthetic-org/${repositoryName}`,
-      source: RepositorySource.ORG_PROVISIONED,
-      visibility: params.visibility,
-      publishedAt: params.publishedAt,
-    },
-  });
+        id: repositoryId,
+        teamId,
+        githubRepositoryId,
+        nameWithOwner: `synthetic-org/${repositoryName}`,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: params.visibility,
+        publishedAt: params.publishedAt
+    }
+});
   await harness.prisma.repositoryProvisionJob.create({
     data: {
-      id: `${PREFIX}-${params.key}-job`,
-      applicationId,
-      repositoryId,
-      status: RepositoryProvisionJobStatus.SUCCEEDED,
-      nextAttemptAt: new Date(),
-      startedAt: new Date(),
-      finishedAt: new Date(),
-    },
-  });
+        id: `${PREFIX}-${params.key}-job`,
+        teamId,
+        repositoryId,
+        status: RepositoryProvisionJobStatus.SUCCEEDED,
+        nextAttemptAt: new Date(),
+        startedAt: new Date(),
+        finishedAt: new Date()
+    }
+});
   return { applicantId, repositoryId, githubRepositoryId, repositoryName };
 }
 
@@ -185,9 +185,8 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await harness.start();
 
     await harness.prisma.program.create({
-      data: {
+    data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
-
         id: PROGRAM_ID,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
@@ -198,9 +197,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
         applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
         endAt: new Date('2026-05-15T00:00:00.000Z'),
-        description: 'synthetic-description — program already ended',
-      },
-    });
+        description: 'synthetic-description — program already ended'
+    }
+});
 
     studentPersona = await harness.createUser(
       'student',
@@ -235,14 +234,14 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     publicProject = published;
 
     await harness.prisma.githubRepository.update({
-      where: { id: published.repositoryId },
-      data: {
-        githubOrganizationId: 8_900_000_000_001n,
+    where: { id: published.repositoryId },
+    data: {
+        githubOrganizationId: 8900000000001n,
         defaultBranch: 'main',
         presence: CollectionRepositoryPresence.PRESENT,
-        lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
-      },
-    });
+        lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z')
+    }
+});
     await harness.prisma.contribution.createMany({
       data: [
         {
@@ -257,14 +256,14 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     });
 
     await harness.prisma.user.update({
-      where: { id: studentPersona.id },
-      data: {
+    where: { id: studentPersona.id },
+    data: {
         ...{
-          name: NAMED_PERSONA_REAL_NAME,
-          department: NAMED_PERSONA_DEPARTMENT,
-        },
-      },
-    });
+            name: NAMED_PERSONA_REAL_NAME,
+            department: NAMED_PERSONA_DEPARTMENT,
+        }
+    }
+});
     await harness.prisma.githubUserActivityHistory.createMany({
       data: [
         {
@@ -313,30 +312,30 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         where: { githubId: studentPersona.githubId },
       });
       await harness.prisma.repositoryProvisionJob.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
+    where: { id: { startsWith: `${PREFIX}-` } }
+});
       await harness.prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
-      await harness.prisma.application.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
-      await harness.prisma.teamMember.deleteMany({
-        where: { teamId: { startsWith: `${PREFIX}-` } },
-      });
+    where: { id: { startsWith: `${PREFIX}-` } }
+});
       await harness.prisma.team.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
+    where: { id: { startsWith: `${PREFIX}-` } }
+});
+      await harness.prisma.teamMember.deleteMany({
+    where: { teamId: { startsWith: `${PREFIX}-` } }
+});
+      await harness.prisma.team.deleteMany({
+    where: { id: { startsWith: `${PREFIX}-` } }
+});
 
       await harness.prisma.user.deleteMany({
-        where: {
-          id: { startsWith: `${PREFIX}-` },
-          NOT: { id: { in: [staffPersona.id, adminPersona.id] } },
-        },
-      });
+    where: {
+        id: { startsWith: `${PREFIX}-` },
+        NOT: { id: { in: [staffPersona.id, adminPersona.id] } }
+    }
+});
       await harness.prisma.program.deleteMany({
-        where: { id: PROGRAM_ID },
-      });
+    where: { id: PROGRAM_ID }
+});
     } finally {
       await harness.stop();
     }
@@ -646,9 +645,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     expect(JSON.stringify(admin.items)).toBe(JSON.stringify(student.items));
 
     const canonicalOnlyProfile = await harness.prisma.user.findUnique({
-      where: { id: canonicalOnlyStudentPersona.id },
-      select: { name: true },
-    });
+    where: { id: canonicalOnlyStudentPersona.id },
+    select: { name: true }
+});
     const canonicalOnlyEntry = staff.items.find(
       (item) => item.githubLogin === canonicalOnlyStudentPersona.nickname,
     );
@@ -832,9 +831,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     await expect(staff.json()).resolves.toMatchObject({ code: 'AUD_001' });
 
     await harness.prisma.user.create({
-      data: {
+    data: {
         id: FOREIGN_SUITE_ACTOR_ID,
-        githubId: 8_970_000_000_001n,
+        githubId: 8970000000001n,
         nickname: `${FOREIGN_SUITE_ACTOR_ID}-login`,
         type: MemberKind.STAFF,
         approvalStatus: 'APPROVED',
@@ -842,9 +841,9 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         department: 'Synthetic department',
         profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
         profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
-        departmentType: 'DEPARTMENT',
-      },
-    });
+        departmentType: 'DEPARTMENT'
+    }
+});
     await harness.prisma.auditLog.create({
       data: {
         actorId: FOREIGN_SUITE_ACTOR_ID,
