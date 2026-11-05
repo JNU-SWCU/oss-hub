@@ -111,10 +111,10 @@ function rejectionFetch(
   if (url.pathname === apiPath(`programs/${PROGRAM_ID}/viewer`)) {
     return Promise.resolve(jsonResponse(REJECTED_PROGRAM));
   }
-  if (url.pathname === apiPath('programs/application-templates')) {
+  if (url.pathname === apiPath('programs/team-templates')) {
     return Promise.resolve(jsonResponse({ items: [] }));
   }
-  if (url.pathname === apiPath(`programs/${PROGRAM_ID}/applications/me`)) {
+  if (url.pathname === apiPath(`programs/${PROGRAM_ID}/teams/me`)) {
     return Promise.resolve(
       jsonResponse({ status: 'REJECTED', application: REJECTED_APPLICATION }),
     );
