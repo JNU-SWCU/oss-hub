@@ -427,7 +427,7 @@ describe('TeamApplicationService integration', () => {
       const editorReady = new Promise<number>((resolve) => {
         markEditorReady = resolve;
       });
-      const auditCount = await prisma.auditLog.count({
+      const historyCount = await prisma.teamHistory.count({
         where: { actorId: APPLICANT_ID },
       });
       const editor = prisma.$transaction(
@@ -520,7 +520,7 @@ describe('TeamApplicationService integration', () => {
             await prisma.teamHistory.count({
               where: { actorId: APPLICANT_ID },
             }),
-          ).toBe(auditCount);
+          ).toBe(historyCount);
         } else {
           expect(outcome).toMatchObject({ status: 'fulfilled' });
           const applications = await prisma.team.findMany({
@@ -540,7 +540,7 @@ describe('TeamApplicationService integration', () => {
             await prisma.teamHistory.count({
               where: { actorId: APPLICANT_ID },
             }),
-          ).toBe(auditCount + 1);
+          ).toBe(historyCount + 1);
         }
       } finally {
         releaseEditor();
