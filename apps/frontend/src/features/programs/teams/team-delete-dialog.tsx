@@ -93,7 +93,7 @@ export function TeamDeleteDialog({
     <DialogShell
       kind="alert"
       title="팀을 삭제할까요?"
-      description={`${teamName} 팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
+      description={`${teamName}을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.`}
 
       className="max-w-lg"
 

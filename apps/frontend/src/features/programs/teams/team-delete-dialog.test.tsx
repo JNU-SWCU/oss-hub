@@ -139,7 +139,7 @@ describe('TeamDeleteDialog', () => {
     expect(dialog.textContent).toContain('오픈소스팀');
     expect(dialog.textContent).toContain('지원서 1건 · 팀원 3명');
     expect(dialog.textContent).toContain(
-      '오픈소스팀 팀을 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
+      '오픈소스팀을(를) 삭제합니다. 이 작업은 되돌릴 수 없습니다.',
     );
     expect(dialog.textContent).toContain(
       'OSS Hub의 저장소 등록 정보 1건과 해당 수집 기록을 삭제합니다.',
