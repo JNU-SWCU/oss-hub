@@ -1,5 +1,5 @@
 import type { PrismaService } from '../platform/prisma.service';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team.repository';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { TEAM_PURGE_DELETION_ORDER } from './program-lifecycle.config';
 

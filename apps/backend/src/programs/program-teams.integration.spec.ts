@@ -3,7 +3,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -88,7 +88,7 @@ describe('program storage invariants', () => {
       INSERT INTO "TeamMember" ("teamId", "programId", "userId")
       VALUES (${prefix}, ${prefix}, ${prefix})
     `;
-    const repository = new ProgramTeamsRepository(
+    const repository = new TeamRepository(
       prisma,
       new ProgramTeamRepositoryEvidenceRepository(prisma),
       new PlatformRepository(),

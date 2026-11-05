@@ -25,15 +25,15 @@ import {
   input,
 } from './student-repository-url.integration.fixture';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ApplicationsService } from './applications.service';
+import { TeamApplicationService } from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 const parseProvisionPayload = (payload: unknown) =>
   new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
 
 const auditLogMetadataService = new AuditLogMetadataService();
-const applicationsService = new ApplicationsService(
+const applicationsService = new TeamApplicationService(
   applications,
   audit,
   auditLogMetadataService,

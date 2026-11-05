@@ -1,4 +1,4 @@
-import { ProgramTemplatesService } from '../../src/programs/program-templates.service';
+import { ProgramTemplatesService } from '../../src/programs/team-application.service';
 import { AcceptTeamInvitationResponseDto } from '../../src/programs/dto/accept-team-invitation-response.dto';
 import { ApplicationDecisionResponseDto } from '../../src/programs/dto/application-decision-response.dto';
 import {
@@ -119,7 +119,7 @@ import { UploadedSubmissionFileResponseDto } from '../../src/programs/dto/upload
 import {
   type ApplicationListItem,
   type TeamManagementListItem,
-} from '../../src/programs/applications.repository';
+} from '../../src/programs/team.repository';
 import {
   type MilestoneDocumentCollectionResult,
   type MilestoneDocumentViewerResult,

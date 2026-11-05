@@ -1,27 +1,13 @@
-import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import { Injectable, Logger } from '@nestjs/common';
-import {
-  ApplicationStatus,
-  OutboxEventStatus,
-  RepositoryConnectionMode,
-  RepositoryProvisionJobStatus,
-  ProgramLifecycle,
-  ApplicationReviewEventKind,
-} from '@prisma/client';
-import {
-  RepositoryEventAlreadyExistsError,
-  ApplicationDuplicateError,
-  ApplicationTeamMembershipConflictError,
-} from './applications.error';
+import { Injectable, Logger, Inject } from '@nestjs/common';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import {
+  ApplicationDecisionCommand,
+  ApplicationDecisionAction,
   ApplicationListItem,
   ApplicationRepositoryProvisioning,
   RepositoryProvisioningSafeErrorClass,
   ApplicationListAnswers,
   ApplicationsRepository,
-  ApplicationDecisionCommand,
-  ApplicationDecisionAction,
   type ApplicationListQuery,
   type ApplicationListPage,
   type CreatedApplication,
@@ -36,13 +22,15 @@ import {
   type ApplicationListRow,
   type ApplicationListOutbox,
   type ApplicationListProvisionJob,
-} from './applications.repository';
-import { AuditLogService } from '../platform/audit-log.service';
-import {
-  APPLICATION_DECISION_AUDIT_ACTIONS,
-  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
-  TEAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.config';
+  type ApplyProgramRecord,
+  type UpdateStudentApplicationInput,
+  StudentApplicationManagementRepository,
+  type OwnedStudentApplication,
+  type StudentApplicationMutationFailure,
+  StudentRepositoryUrlRepository,
+  type StudentRepositoryUrlContext,
+  type TeamRepositoryUrlContext,
+} from './team.repository';
 import {
   DomainException,
   type ProblemDetailExtensions,
@@ -50,10 +38,281 @@ import {
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
+  repositoryUrlError,
 } from './applications-error-code.error';
+import {
+  ProgramCategory,
+  ApplicationStatus,
+  OutboxEventStatus,
+  RepositoryConnectionMode,
+  RepositoryProvisionJobStatus,
+  ProgramLifecycle,
+  ApplicationReviewEventKind,
+} from '@prisma/client';
+import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
+import {
+  RepositoryEventAlreadyExistsError,
+  ApplicationDuplicateError,
+  ApplicationTeamMembershipConflictError,
+} from './applications.error';
+import { AuditLogService } from '../platform/audit-log.service';
+import {
+  APPLICATION_DECISION_AUDIT_ACTIONS,
+  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
+  TEAM_CREATED_AUDIT_ACTIONS,
+} from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import {
+  CANCELLABLE_STATUSES,
+  RESUBMITTABLE_STATUSES,
+} from './student-application-management.config';
+import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/repository-audit-metadata.config';
+import { ConsentsService } from '../users/consents.service';
+import { CollectionTriggerService } from '../github/collection-trigger.service';
+import { GithubOperationsError } from '../github/github-app.error';
+import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
+import { RepositoryProvisionFailure } from '../github/repository-provision-state.error';
+
+@Injectable()
+export class ApplicationAnswersService {
+  applicationAnswerTooLongMessage(key: ApplicationAnswerKey): string {
+    const limit = APPLICATION_ANSWER_MAX_LENGTHS[key];
+    return `${APPLICATION_ANSWER_LABELS[key]}은(는) ${limit.toLocaleString('ko-KR')}자를 넘을 수 없습니다.`;
+  }
+
+  normalizeAndValidateApplicationAnswers(
+    clientAnswers: unknown,
+    applicantName: string,
+    lengthMode: ApplicationAnswersLengthMode,
+  ): ApplicationAnswersValidationResult {
+    if (!isPlainObject(clientAnswers)) {
+      return { ok: false, reason: 'INVALID_SHAPE' };
+    }
+
+    const allowedKeys = lengthMode === 'skip-length' ? READ_KEYS : CLIENT_KEYS;
+    const clientKeys = Object.keys(clientAnswers).filter(
+      (key) => key !== 'applicantName',
+    );
+    const unknownKeys = clientKeys.filter((key) => !allowedKeys.has(key));
+    if (unknownKeys.length > 0) {
+      return { ok: false, reason: 'UNKNOWN_KEYS', unknownKeys };
+    }
+
+    const title = clientAnswers.title;
+    if (!isNonEmptyString(applicantName)) {
+      const missingKeys: string[] = [];
+      if (!isNonEmptyString(applicantName)) missingKeys.push('applicantName');
+      return { ok: false, reason: 'MISSING_REQUIRED', missingKeys };
+    }
+
+    const answers = {
+      applicantName: applicantName.trim(),
+      title: isNonEmptyString(title) ? title.trim() : '',
+    };
+
+    if (lengthMode === 'enforce-length') {
+      const tooLongKeys = (
+        Object.keys(
+          APPLICATION_ANSWER_MAX_LENGTHS,
+        ) as readonly ApplicationAnswerKey[]
+      ).filter(
+        (key) => answers[key].length > APPLICATION_ANSWER_MAX_LENGTHS[key],
+      );
+      if (tooLongKeys.length > 0) {
+        return { ok: false, reason: 'TOO_LONG', tooLongKeys };
+      }
+    }
+
+    return { ok: true, answers };
+  }
+
+  checkApplicationTemplateVersion(
+    submittedVersion: number,
+    stampedVersion: number,
+  ): TemplateVersionCheckResult {
+    if (
+      !Number.isInteger(submittedVersion) ||
+      !Number.isInteger(stampedVersion) ||
+      submittedVersion !== stampedVersion
+    ) {
+      return { ok: false, reason: 'VERSION_MISMATCH' };
+    }
+    return { ok: true };
+  }
+
+  applicationDecisionAction(
+    input: ApplicationDecisionCommand,
+  ): ApplicationDecisionAction {
+    switch (input.action) {
+      case APPLICATION_DECISION_ACTIONS.APPROVE:
+        return { action: APPLICATION_DECISION_ACTIONS.APPROVE };
+      case APPLICATION_DECISION_ACTIONS.REJECT: {
+        const reason = input.reason?.trim();
+        if (!reason) {
+          throw new DomainException(
+            APPLICATIONS_ERROR_CODES[
+              ApplicationsErrorCode.REJECTION_REASON_REQUIRED
+            ],
+          );
+        }
+        return { action: APPLICATION_DECISION_ACTIONS.REJECT, reason };
+      }
+      case APPLICATION_DECISION_ACTIONS.REVERT:
+        return { action: APPLICATION_DECISION_ACTIONS.REVERT };
+      default:
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[
+            ApplicationsErrorCode.INVALID_DECISION_ACTION
+          ],
+        );
+    }
+  }
+}
+
+const CLIENT_KEYS = new Set(['title']);
+
+const LEGACY_READ_KEYS = new Set(['summary']);
+
+const READ_KEYS = new Set([...CLIENT_KEYS, ...LEGACY_READ_KEYS]);
+
+const APPLICATION_ANSWER_LABELS = {
+  title: '제목',
+} as const satisfies Readonly<Record<ApplicationAnswerKey, string>>;
+
+function isPlainObject(value: unknown): value is Record<string, unknown> {
+  return typeof value === 'object' && value !== null && !Array.isArray(value);
+}
+
+function isNonEmptyString(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length > 0;
+}
+
+export const APPLICATION_ANSWER_MAX_LENGTHS = {
+  title: 200,
+} as const;
+
+export type ApplicationAnswerKey = keyof typeof APPLICATION_ANSWER_MAX_LENGTHS;
+
+type ApplicationAnswersValidationFailure = {
+  readonly ok: false;
+  readonly reason:
+    'INVALID_SHAPE' | 'UNKNOWN_KEYS' | 'MISSING_REQUIRED' | 'TOO_LONG';
+  readonly unknownKeys?: readonly string[];
+  readonly missingKeys?: readonly string[];
+  readonly tooLongKeys?: readonly ApplicationAnswerKey[];
+};
+
+export type ApplicationAnswersLengthMode = 'enforce-length' | 'skip-length';
+
+type ApplicationAnswersValidationSuccess = {
+  readonly ok: true;
+  readonly answers: ApplicationAnswers;
+};
+
+export type ApplicationAnswersValidationResult =
+  ApplicationAnswersValidationSuccess | ApplicationAnswersValidationFailure;
+
+export type TemplateVersionCheckResult =
+  | { readonly ok: true }
+  | { readonly ok: false; readonly reason: 'VERSION_MISMATCH' };
+
+type ApplicationAnswers = {
+  readonly applicantName: string;
+  readonly title: string;
+};
+
+export const PROGRAM_PARTICIPATION = {
+  TEAM: 'TEAM',
+} as const;
+
+const APPLICATION_FIELD_TYPES = {
+  AUTO: 'auto',
+  TEXT: 'text',
+  TEXTAREA: 'textarea',
+} as const;
+
+@Injectable()
+export class ProgramTemplatesService {
+  getProgramTemplate(category: ProgramCategory): ProgramTemplate {
+    return PROGRAM_TEMPLATES[category];
+  }
+
+  listProgramTemplates(): readonly ProgramTemplate[] {
+    return Object.values(PROGRAM_TEMPLATES);
+  }
+
+  getTemplateByKey(key: string): ProgramTemplate | undefined {
+    return this.listProgramTemplates().find((item) => item.key === key);
+  }
+}
+
+export const V1_APPLICATION_FIELDS: readonly FieldDef[] = [
+  {
+    key: 'applicantName',
+    type: APPLICATION_FIELD_TYPES.AUTO,
+    label: '신청자',
+    required: true,
+  },
+] as const;
+
+function template(key: string, name: string): ProgramTemplate {
+  return {
+    key,
+    version: 1,
+    name,
+    participation: PROGRAM_PARTICIPATION.TEAM,
+    teamSize: { defaultMin: 1, defaultMax: 1, editable: true },
+    fields: V1_APPLICATION_FIELDS,
+  };
+}
+
+const PROGRAM_TEMPLATES: Readonly<Record<ProgramCategory, ProgramTemplate>> = {
+  [ProgramCategory.BASIC]: template('basic', '기본 신청서'),
+  [ProgramCategory.SW_VALUE_SPREAD]: template(
+    'sw-value-spread',
+    'SW가치확산 신청서',
+  ),
+  [ProgramCategory.OSS_CONTEST]: template('oss-contest', 'OSS경진대회 신청서'),
+  [ProgramCategory.CAPSTONE]: template('capstone', '캡스톤 신청서'),
+  [ProgramCategory.SW_CONVERGENCE]: template('sw-convergence', 'SW융합 신청서'),
+  [ProgramCategory.GLOBAL_MAKERTHON]: template(
+    'global-makerthon',
+    '글로벌메이커톤 신청서',
+  ),
+  [ProgramCategory.CORPORATE_INTERNSHIP]: template(
+    'corporate-internship',
+    '기업인턴십 신청서',
+  ),
+};
+
+export interface ProgramTemplate {
+  readonly key: string;
+  readonly version: number;
+  readonly name: string;
+  readonly participation: ProgramParticipation;
+  readonly teamSize: {
+    readonly defaultMin: number;
+    readonly defaultMax: number;
+    readonly editable: boolean;
+  };
+  readonly fields: readonly FieldDef[];
+}
+
+export type ProgramParticipation =
+  (typeof PROGRAM_PARTICIPATION)[keyof typeof PROGRAM_PARTICIPATION];
+
+type ApplicationFieldType =
+  (typeof APPLICATION_FIELD_TYPES)[keyof typeof APPLICATION_FIELD_TYPES];
+
+type ApplicationFieldKey = 'applicantName';
+
+export interface FieldDef {
+  readonly key: ApplicationFieldKey;
+  readonly type: ApplicationFieldType;
+  readonly label: string;
+  readonly required: boolean;
+}
 
 type ApplicationDecisionPlan = {
   readonly provisionJob: RepositoryProvisionJobSnapshot | null;
@@ -125,8 +384,8 @@ export interface CreateApplicationRequest {
 }
 
 @Injectable()
-export class ApplicationsService {
-  private readonly logger = new Logger(ApplicationsService.name);
+export class TeamApplicationService {
+  private readonly logger = new Logger(TeamApplicationService.name);
 
   constructor(
     private readonly repository: ApplicationsRepository,
@@ -1056,4 +1315,487 @@ function parseListAnswers(value: unknown): ApplicationListAnswers {
     title: typeof record.title === 'string' ? record.title : '',
     summary: typeof record.summary === 'string' ? record.summary : '',
   };
+}
+
+export interface StudentApplicationView {
+  readonly id: string;
+  readonly programId: string;
+  readonly status: ApplicationStatus;
+  readonly teamId: string | null;
+  readonly answers: ApplicationAnswers;
+  readonly submittedAt: Date;
+  readonly updatedAt: Date;
+  readonly isRepositoryPublicationPlanned: boolean;
+
+  readonly rejectionReason: string | null;
+
+  readonly isManager: boolean;
+  readonly canManage: boolean;
+}
+
+function isProgramApplicationManager(
+  userId: string,
+  application: { readonly teamLeaderId: string },
+): boolean {
+  return application.teamLeaderId === userId;
+}
+
+interface StudentApplicationContext {
+  readonly studentId: string;
+  readonly application: OwnedStudentApplication;
+  readonly policy: ApplyProgramRecord;
+  readonly isManager: boolean;
+}
+
+@Injectable()
+export class StudentApplicationManagementService {
+  constructor(
+    private readonly repository: StudentApplicationManagementRepository,
+    private readonly applicationsRepository: ApplicationsRepository,
+    private readonly applicationAnswersService: ApplicationAnswersService,
+  ) {}
+
+  async getMine(
+    githubId: bigint,
+    programId: string,
+    now: Date = new Date(),
+  ): Promise<StudentApplicationView | null> {
+    const context = await this.findContext(githubId, programId);
+    if (!context) return null;
+    const editable = this.isEditable(context.application, context.policy, now);
+    return this.toView(context.application, context.isManager, editable);
+  }
+
+  async updateMine(
+    githubId: bigint,
+    programId: string,
+    input: UpdateStudentApplicationInput,
+    now: Date = new Date(),
+  ): Promise<StudentApplicationView> {
+    const context = await this.requireContext(githubId, programId);
+    this.requireManager(context);
+    this.requireMutable(
+      context.application,
+      context.policy,
+      now,
+      RESUBMITTABLE_STATUSES,
+    );
+    const versionCheck =
+      this.applicationAnswersService.checkApplicationTemplateVersion(
+        input.applicationTemplateVersion,
+        context.policy.applicationTemplateVersion,
+      );
+    if (!versionCheck.ok) {
+      throw this.error(ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH);
+    }
+    const answers =
+      this.applicationAnswersService.normalizeAndValidateApplicationAnswers(
+        input.answers,
+        this.resolveApplicantName(context.application),
+        'enforce-length',
+      );
+    if (!answers.ok) {
+      if (answers.reason === 'TOO_LONG')
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.ANSWER_TOO_LONG],
+          {
+            fieldErrors: (answers.tooLongKeys ?? []).map((key) => ({
+              field: key,
+              code: ApplicationsErrorCode.ANSWER_TOO_LONG,
+              message:
+                this.applicationAnswersService.applicationAnswerTooLongMessage(
+                  key,
+                ),
+            })),
+          },
+        );
+      throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
+    }
+    const result = await this.repository.updatePendingApplication({
+      programId,
+      studentId: context.studentId,
+      answers: answers.answers,
+      applicationTemplateVersion: input.applicationTemplateVersion,
+    });
+    if (result.kind !== 'updated') this.throwMutationFailure(result);
+    return this.toView(result.application, true, true);
+  }
+
+  async cancelMine(
+    githubId: bigint,
+    programId: string,
+    now: Date = new Date(),
+  ): Promise<{ readonly cancelled: true }> {
+    const context = await this.requireContext(githubId, programId);
+    this.requireManager(context);
+    this.requireMutable(
+      context.application,
+      context.policy,
+      now,
+      CANCELLABLE_STATUSES,
+    );
+    const result = await this.repository.deletePendingApplication({
+      programId,
+      studentId: context.studentId,
+    });
+    if (result.kind !== 'cancelled') this.throwMutationFailure(result);
+    return { cancelled: true };
+  }
+
+  private async requireContext(
+    githubId: bigint,
+    programId: string,
+  ): Promise<StudentApplicationContext> {
+    const context = await this.findContext(githubId, programId);
+    if (!context) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+    }
+    return context;
+  }
+
+  private async findContext(
+    githubId: bigint,
+    programId: string,
+  ): Promise<StudentApplicationContext | null> {
+    const student =
+      await this.applicationsRepository.findActiveStudentByGithubId(githubId);
+    if (!student) throw this.error(ApplicationsErrorCode.STUDENT_ONLY);
+    const [application, policy] = await Promise.all([
+      this.repository.findOwnedApplication(programId, student.id),
+      this.applicationsRepository.findProgramById(programId),
+    ]);
+    if (!policy) throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
+    if (!application) return null;
+    return {
+      studentId: student.id,
+      application,
+      policy,
+
+      isManager: isProgramApplicationManager(student.id, {
+        teamLeaderId: application.teamLeaderId,
+      }),
+    };
+  }
+
+  private requireManager(context: StudentApplicationContext): void {
+    if (!context.isManager) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
+    }
+  }
+
+  private throwMutationFailure(
+    failure: StudentApplicationMutationFailure,
+  ): never {
+    const code = {
+      'program-not-found': ApplicationsErrorCode.PROGRAM_NOT_FOUND,
+      'application-not-found': ApplicationsErrorCode.APPLICATION_NOT_FOUND,
+      'already-decided': ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED,
+      'period-closed': ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED,
+      'template-version-mismatch':
+        ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,
+    }[failure.kind];
+    throw this.error(code);
+  }
+
+  private requireMutable(
+    application: OwnedStudentApplication,
+    policy: ApplyProgramRecord,
+    now: Date,
+    allowedStatuses: readonly ApplicationStatus[],
+  ): void {
+    if (!allowedStatuses.includes(application.status)) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_ALREADY_DECIDED);
+    }
+    if (!this.isPeriodOpen(policy, now)) {
+      throw this.error(ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED);
+    }
+  }
+
+  private isEditable(
+    application: OwnedStudentApplication,
+    policy: ApplyProgramRecord,
+    now: Date,
+  ): boolean {
+    return (
+      RESUBMITTABLE_STATUSES.includes(application.status) &&
+      this.isPeriodOpen(policy, now)
+    );
+  }
+
+  private isPeriodOpen(policy: ApplyProgramRecord, now: Date): boolean {
+    return policy.applicationStartAt <= now && now <= policy.applicationEndAt;
+  }
+
+  private toView(
+    application: OwnedStudentApplication,
+    isManager: boolean,
+    editable: boolean,
+  ): StudentApplicationView {
+    const answers =
+      this.applicationAnswersService.normalizeAndValidateApplicationAnswers(
+        application.answers,
+        this.resolveApplicantName(application),
+        'skip-length',
+      );
+    if (!answers.ok) {
+      throw this.error(ApplicationsErrorCode.INVALID_ANSWERS);
+    }
+    return {
+      id: application.id,
+      programId: application.programId,
+      status: application.status,
+      teamId: application.teamId,
+      answers: answers.answers,
+      submittedAt: application.submittedAt,
+      updatedAt: application.updatedAt,
+      isRepositoryPublicationPlanned:
+        application.isRepositoryPublicationPlanned,
+      rejectionReason: application.rejectionReason,
+      isManager,
+      canManage: isManager && editable,
+    };
+  }
+
+  private resolveApplicantName(application: OwnedStudentApplication): string {
+    return (
+      application.applicant.name ?? application.applicant.nickname
+    ).trim();
+  }
+
+  private error(code: ApplicationsErrorCode): DomainException {
+    return new DomainException(APPLICATIONS_ERROR_CODES[code]);
+  }
+}
+
+export type StudentRepositoryUrlView = {
+  readonly repositoryUrl: string | null;
+  readonly canEditRepositoryUrl: boolean;
+};
+
+export type UpdateStudentRepositoryUrlInput = {
+  readonly repositoryUrl: string;
+};
+
+@Injectable()
+export class StudentRepositoryUrlService {
+  constructor(
+    @Inject(StudentRepositoryUrlRepository)
+    private readonly repository: Pick<
+      StudentRepositoryUrlRepository,
+      'findContext' | 'findTeamContext' | 'withTransaction'
+    >,
+    @Inject(ApplicationsRepository)
+    private readonly applications: Pick<
+      ApplicationsRepository,
+      'findActiveStudentByGithubId'
+    >,
+    @Inject(OwnRepositoryUrlValidationService)
+    private readonly resolver: Pick<
+      OwnRepositoryUrlValidationService,
+      'resolve'
+    >,
+    @Inject(ConsentsService)
+    private readonly consents: Pick<ConsentsService, 'requireCurrent'>,
+    @Inject(AuditLogService)
+    private readonly audit: Pick<AuditLogService, 'record'>,
+    @Inject(CollectionTriggerService)
+    private readonly collection: Pick<
+      CollectionTriggerService,
+      'collectRepository'
+    >,
+    private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
+  ) {}
+
+  canEditStudentRepositoryUrl(
+    context: {
+      readonly status: ApplicationStatus;
+      readonly endAt: Date;
+      readonly isManager: boolean;
+    },
+    now: Date,
+  ): boolean {
+    return (
+      context.isManager &&
+      context.status === ApplicationStatus.APPROVED &&
+      now < context.endAt
+    );
+  }
+
+  async getMine(
+    githubId: bigint,
+    programId: string,
+  ): Promise<StudentRepositoryUrlView> {
+    const actor = await this.requireActor(githubId);
+    const context = await this.repository.findContext(programId, actor.id);
+    if (!context)
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
+      );
+    return this.view(context, actor.id);
+  }
+
+  async updateMine(
+    githubId: bigint,
+    programId: string,
+    input: UpdateStudentRepositoryUrlInput,
+  ): Promise<StudentRepositoryUrlView> {
+    const actor = await this.requireActor(githubId);
+    const context = await this.repository.findContext(programId, actor.id);
+    if (!context)
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
+      );
+    return this.updateForTeam(githubId, programId, context.teamId, input);
+  }
+
+  async updateForTeam(
+    githubId: bigint,
+    programId: string,
+    teamId: string,
+    input: UpdateStudentRepositoryUrlInput,
+  ): Promise<StudentRepositoryUrlView> {
+    const context = await this.repository.findTeamContext(
+      programId,
+      teamId,
+      githubId,
+    );
+    this.requireEditable(context);
+    const resolution = await this.resolve(input.repositoryUrl);
+    if (resolution.kind === 'EXTERNAL')
+      await this.consents.requireCurrent(context.applicant.githubId);
+    const { view, relinked } = await this.repository.withTransaction(
+      async (store) => {
+        const current = await store.lockTeamContext(
+          programId,
+          teamId,
+          githubId,
+        );
+        this.requireEditable(current);
+        if (
+          current.repository?.githubRepositoryId ===
+            resolution.repository.githubRepositoryId &&
+          this.url(current)?.toLowerCase() ===
+            `https://github.com/${resolution.repository.nameWithOwner}`.toLowerCase()
+        )
+          return {
+            view: {
+              repositoryUrl: this.url(current),
+              canEditRepositoryUrl: true,
+            },
+            relinked: false,
+          };
+        const { repositoryId, deletedCounts } = await store
+          .relink(current, resolution, (stored) =>
+            this.repositoryProvisionEventService.parseRepositoryProvisionEvent(
+              stored,
+            ),
+          )
+          .catch((error: unknown) => {
+            throw store.isStudentRepositoryUrlConflict(error)
+              ? repositoryUrlError('conflict')
+              : error;
+          });
+        const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
+        await this.audit.record(
+          {
+            actorGithubId: githubId,
+            action: APPLICATION_REPOSITORY_URL_CHANGED,
+            targetType: 'APPLICATION',
+            targetId: current.id,
+            metadata: {
+              schemaVersion: 2,
+              programId,
+              teamId: current.teamId,
+              programName: current.program.name,
+              actorGithubLogin: current.editor.nickname,
+              before: {
+                repositoryId: current.repository?.id ?? null,
+                repositoryUrl: this.url(current),
+              },
+              after: { repositoryId, repositoryUrl },
+              ...(deletedCounts === null ? {} : { deletedCounts }),
+            },
+          },
+          store.auditLogWriter,
+        );
+        return {
+          view: { repositoryUrl, canEditRepositoryUrl: true },
+          relinked: true,
+        };
+      },
+    );
+
+    if (relinked)
+      this.collection.collectRepository(
+        resolution.repository.githubRepositoryId,
+      );
+    return view;
+  }
+
+  private async resolve(url: string) {
+    try {
+      return await this.resolver.resolve(url);
+    } catch (error) {
+      if (error instanceof RepositoryProvisionFailure)
+        throw new DomainException(
+          APPLICATIONS_ERROR_CODES[
+            ApplicationsErrorCode.OWN_REPOSITORY_URL_UNREACHABLE
+          ],
+        );
+      if (error instanceof GithubOperationsError)
+        throw repositoryUrlError('unavailable');
+      throw error;
+    }
+  }
+
+  private async requireActor(githubId: bigint) {
+    const actor = await this.applications.findActiveStudentByGithubId(githubId);
+    if (!actor)
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.STUDENT_ONLY],
+      );
+    return actor;
+  }
+
+  private requireEditable(
+    context: TeamRepositoryUrlContext | null,
+  ): asserts context is TeamRepositoryUrlContext {
+    const isManager =
+      context !== null && (context.editor.isLeader || context.editor.isStaff);
+
+    if (!context || !isManager)
+      throw new DomainException(
+        APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
+      );
+    if (
+      !this.canEditStudentRepositoryUrl(
+        { status: context.status, endAt: context.program.endAt, isManager },
+        new Date(),
+      )
+    )
+      throw repositoryUrlError('closed');
+  }
+
+  private view(
+    context: StudentRepositoryUrlContext,
+    studentId: string,
+  ): StudentRepositoryUrlView {
+    return {
+      repositoryUrl: this.url(context),
+      canEditRepositoryUrl: this.canEditStudentRepositoryUrl(
+        {
+          status: context.status,
+          endAt: context.program.endAt,
+          isManager: context.team.leaderId === studentId,
+        },
+        new Date(),
+      ),
+    };
+  }
+
+  private url(context: StudentRepositoryUrlContext): string | null {
+    return context.repository
+      ? `https://github.com/${context.repository.nameWithOwner}`
+      : null;
+  }
 }

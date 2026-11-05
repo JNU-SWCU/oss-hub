@@ -1,9 +1,9 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { ProgramCategory } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import type {
-  ProgramTeamsRepository,
+  TeamRepository,
   RecordTeamMembershipAudit,
   TeamDetailRecord,
   TeamActorAuthority,
@@ -13,9 +13,9 @@ import type {
   TeamRenameAuditEvent,
   TeamRenameResult,
   TeamStudentActor,
-} from './program-teams.repository';
-import type { TeamDeletionResult } from './program-team-deletion.repository';
-import { ProgramTeamsService } from './program-teams.service';
+} from './team.repository';
+import type { TeamDeletionResult } from './team.repository';
+import { TeamMembershipService } from './team-membership.service';
 import {
   EMPTY_TEAM_DELETION_SCOPE,
   stubTeamDeletionRepository,
@@ -116,7 +116,7 @@ function buildService(overrides: {
     renameTeam: jest
       .fn()
       .mockResolvedValue(overrides.renameResult ?? 'renamed'),
-  } as unknown as ProgramTeamsRepository;
+  } as unknown as TeamRepository;
 
   const deleteTeam = jest.fn<Promise<TeamDeletionResult>, unknown[]>(() =>
     Promise.resolve(
@@ -129,7 +129,7 @@ function buildService(overrides: {
   const deletionRepository = stubTeamDeletionRepository({ deleteTeam });
 
   return {
-    service: new ProgramTeamsService(
+    service: new TeamMembershipService(
       repository,
       { record } as unknown as AuditLogService,
       deletionRepository,
@@ -206,13 +206,13 @@ function present<T>(value: T | null, what: string): T {
   return value;
 }
 
-describe('ProgramTeamsService', () => {
+describe('TeamMembershipService', () => {
   it('참여코드 합류 표면을 노출하지 않는다', () => {
     const { service } = buildService({});
     const surface = service as unknown as Record<string, unknown>;
 
     expect(surface.join).toBeUndefined();
-    const methods = Object.getOwnPropertyNames(ProgramTeamsService.prototype);
+    const methods = Object.getOwnPropertyNames(TeamMembershipService.prototype);
     expect(methods).not.toContain('join');
   });
 
@@ -461,7 +461,7 @@ describe('ProgramTeamsService', () => {
   });
 });
 
-describe('ProgramTeamsService.removeMember', () => {
+describe('TeamMembershipService.removeMember', () => {
   it('팀장은 다른 팀원을 제외한다', async () => {
     const { service, removeMember } = buildService({});
     removeMember.mockResolvedValue('removed');
@@ -539,7 +539,7 @@ describe('ProgramTeamsService.removeMember', () => {
   });
 });
 
-describe('ProgramTeamsService membership transaction boundary', () => {
+describe('TeamMembershipService membership transaction boundary', () => {
   const EXTERNAL_SURFACE =
     /outbox|enqueue|provision|collaborator|revoke|accesssync|githubapp|repositorysync/i;
 
@@ -559,13 +559,13 @@ describe('ProgramTeamsService membership transaction boundary', () => {
         }
         return Reflect.get(target, key, receiver);
       },
-    }) as unknown as ProgramTeamsRepository;
+    }) as unknown as TeamRepository;
     const record = jest
       .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
       .mockResolvedValue(undefined);
 
     return {
-      service: new ProgramTeamsService(
+      service: new TeamMembershipService(
         repository,
         { record } as unknown as AuditLogService,
         stubTeamDeletionRepository(),
@@ -627,12 +627,12 @@ describe('ProgramTeamsService membership transaction boundary', () => {
   it.each([
     [
       'leave',
-      async (service: ProgramTeamsService) =>
+      async (service: TeamMembershipService) =>
         service.leave(GITHUB_ID, PROGRAM_ID),
     ],
     [
       'removeMember',
-      async (service: ProgramTeamsService) =>
+      async (service: TeamMembershipService) =>
         service.removeMember(GITHUB_ID, PROGRAM_ID, 'member-2'),
     ],
   ] as const)(
@@ -647,7 +647,7 @@ describe('ProgramTeamsService membership transaction boundary', () => {
   );
 });
 
-describe('ProgramTeamsService.rename', () => {
+describe('TeamMembershipService.rename', () => {
   const TEAM_ID = 'synthetic-team';
   const RENAME_EVENT: TeamRenameAuditEvent = {
     teamId: TEAM_ID,
@@ -767,7 +767,7 @@ describe('ProgramTeamsService.rename', () => {
   });
 });
 
-describe('ProgramTeamsService.deleteForStaff', () => {
+describe('TeamMembershipService.deleteForStaff', () => {
   const TEAM_ID = 'synthetic-team';
   const STAFF_AUTHORITY = { id: 'staff-1', isStaff: true } as const;
   const EXPECTED_SCOPE = {

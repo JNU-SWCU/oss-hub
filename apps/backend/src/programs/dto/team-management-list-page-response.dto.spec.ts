@@ -6,7 +6,7 @@ import {
 import {
   type TeamManagementListItem,
   type TeamManagementListPage,
-} from '../applications.repository';
+} from '../team.repository';
 
 const ITEM: TeamManagementListItem = {
   id: 'synthetic-application',

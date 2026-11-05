@@ -1,5 +1,5 @@
 import { ProgramScheduleService } from '../programs/program-schedule.service';
-import { ProgramTemplatesService } from '../programs/program-templates.service';
+import { ProgramTemplatesService } from '../programs/team-application.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
 import { ProgramListStatusFilterRepository } from '../programs/program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';

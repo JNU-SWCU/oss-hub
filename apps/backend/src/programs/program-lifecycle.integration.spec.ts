@@ -14,9 +14,9 @@ import { ProgramsRepository } from './programs.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { ProgramTemplatesService } from './program-templates.service';
-import { ApplicationsRepository } from './applications.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ProgramTemplatesService } from './team-application.service';
+import { ApplicationsRepository } from './team.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { DeadlineDigestRepository } from '../notifications/deadline-digest.repository';
 

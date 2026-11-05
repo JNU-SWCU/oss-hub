@@ -1,5 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   type TeamActivityView,
   type RepositoryUrlHistoryCursor,
@@ -30,7 +29,7 @@ import {
 } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import {
-  ProgramTeamsRepository,
+  TeamRepository,
   type StaffTeamDetailRecord,
   type StaffTeamRecord,
   type TeamDetailRecord,
@@ -38,23 +37,21 @@ import {
   type TeamMembershipAuditStore,
   type TeamRenameAuditEvent,
   type TeamApplicationRow,
-} from './program-teams.repository';
-import {
   ProgramTeamDeletionRepository,
   type TeamDeletionAuditEvent,
   type TeamDeletionAuditStore,
   type TeamDeletionNotificationEvent,
   type TeamDeletionNotificationStore,
-} from './program-team-deletion.repository';
+} from './team.repository';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
-import type { TeamDeletionScopeCounts } from './team-deletion-scope.config';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { REPOSITORY_CONNECTION_AUDIT_ACTIONS } from '../platform/repository-audit-metadata.config';
 import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';
 
@@ -93,9 +90,9 @@ interface RepositoryUrlHistoryScope {
 }
 
 @Injectable()
-export class ProgramTeamsService {
+export class TeamMembershipService {
   constructor(
-    private readonly repository: ProgramTeamsRepository,
+    private readonly repository: TeamRepository,
     private readonly auditLog: AuditLogService,
     private readonly deletionRepository: ProgramTeamDeletionRepository,
     private readonly auditLogMetadataService: AuditLogMetadataService,

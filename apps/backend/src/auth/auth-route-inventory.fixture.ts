@@ -24,7 +24,6 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'ProgramDocumentChangeRequestsController',
   'ProgramOverviewController',
   'ProgramSubmissionsController',
-  'ProgramTeamsController',
   'ProgramsController',
   'PublicProjectsController',
   'PublicUserProfileController',
@@ -40,6 +39,7 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'SubmissionsController',
   'SystemStatusController',
   'TeamInvitationsController',
+  'TeamsController',
   'UserAccessController',
   'UsersController',
 ] as const;

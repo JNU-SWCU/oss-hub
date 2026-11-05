@@ -9,11 +9,11 @@ import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
-import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
+import { ProgramTeamDeletionRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamRepository } from './team.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team.repository';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -29,7 +29,7 @@ const board = new BoardService(
   new BoardRepository(prisma, platform),
   new UserProfileService(),
 );
-const teams = new ProgramTeamsRepository(
+const teams = new TeamRepository(
   prisma,
   new ProgramTeamRepositoryEvidenceRepository(prisma),
   platform,

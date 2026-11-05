@@ -1,4 +1,4 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import type { AuditLogService } from '../platform/audit-log.service';
@@ -9,13 +9,10 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { ProgramTeamsController } from './program-teams.controller';
-import type {
-  ProgramTeamsRepository,
-  TeamActorAuthority,
-} from './program-teams.repository';
-import type { TeamDeletionResult } from './program-team-deletion.repository';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamsController } from './teams.controller';
+import type { TeamRepository, TeamActorAuthority } from './team.repository';
+import type { TeamDeletionResult } from './team.repository';
+import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -128,9 +125,9 @@ const repositoryDeleteTeam = jest.fn<Promise<TeamDeletionResult>, unknown[]>();
 
 const repository = {
   findActorAuthorityByGithubId,
-} as unknown as ProgramTeamsRepository;
+} as unknown as TeamRepository;
 
-const service = new ProgramTeamsService(
+const service = new TeamMembershipService(
   repository,
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
@@ -150,7 +147,7 @@ const service = new ProgramTeamsService(
 );
 
 const deleteForStaff = jest.fn(
-  (...args: Parameters<ProgramTeamsService['deleteForStaff']>) =>
+  (...args: Parameters<TeamMembershipService['deleteForStaff']>) =>
     service.deleteForStaff(...args),
 );
 
@@ -254,14 +251,14 @@ async function sessionCookieFor(githubId: bigint): Promise<string> {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramTeamsController],
+    controllers: [TeamsController],
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
       {
-        provide: ProgramTeamsService,
+        provide: TeamMembershipService,
         useValue: Object.assign(
-          Object.create(ProgramTeamsService.prototype) as object,
+          Object.create(TeamMembershipService.prototype) as object,
           { deleteForStaff },
         ),
       },

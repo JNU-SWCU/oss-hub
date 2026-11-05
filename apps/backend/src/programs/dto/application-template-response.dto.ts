@@ -2,7 +2,7 @@ import type {
   ProgramTemplate,
   FieldDef,
   ProgramParticipation,
-} from '../program-templates.service';
+} from '../team-application.service';
 
 export class ApplicationFieldResponseDto {
   declare readonly key: FieldDef['key'];

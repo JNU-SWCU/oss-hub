@@ -1,9 +1,9 @@
 import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -17,10 +17,10 @@ import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
-import { ProgramTeamsRepository } from './program-teams.repository';
-import { ProgramTeamsService } from './program-teams.service';
-import { ProgramTeamsController } from './program-teams.controller';
+import { ProgramTeamDeletionRepository } from './team.repository';
+import { TeamRepository } from './team.repository';
+import { TeamMembershipService } from './team-membership.service';
+import { TeamsController } from './teams.controller';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
@@ -54,8 +54,8 @@ async function cleanup(): Promise<void> {
 
 beforeAll(async () => {
   await prisma.$connect();
-  const service = new ProgramTeamsService(
-    new ProgramTeamsRepository(
+  const service = new TeamMembershipService(
+    new TeamRepository(
       prisma,
       new ProgramTeamRepositoryEvidenceRepository(prisma),
       new PlatformRepository(),
@@ -86,9 +86,9 @@ beforeAll(async () => {
     ),
   );
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramTeamsController],
+    controllers: [TeamsController],
     providers: [
-      { provide: ProgramTeamsService, useValue: service },
+      { provide: TeamMembershipService, useValue: service },
       AuthSessionService,
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,

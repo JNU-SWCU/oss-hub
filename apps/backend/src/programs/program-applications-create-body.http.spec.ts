@@ -6,8 +6,8 @@ import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramApplicationsController } from './program-applications.controller';
-import { ApplicationsService } from './applications.service';
+import { ProgramApplicationsController } from './teams.controller';
+import { TeamApplicationService } from './team-application.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
@@ -62,9 +62,9 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       AuthSessionService,
       {
-        provide: ApplicationsService,
+        provide: TeamApplicationService,
         useValue: Object.assign(
-          Object.create(ApplicationsService.prototype) as object,
+          Object.create(TeamApplicationService.prototype) as object,
           { create },
         ),
       },

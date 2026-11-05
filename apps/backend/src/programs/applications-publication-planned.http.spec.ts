@@ -14,7 +14,7 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { ApplicationsController } from './applications.controller';
+import { ApplicationsController } from './teams.controller';
 import type {
   ApplicationsRepository,
   ApplicationListItem,
@@ -24,9 +24,9 @@ import type {
   ApplicationDecisionTarget,
   ApplicationListSource,
   ApplicationListSourcePage,
-} from './applications.repository';
-import { ApplicationsService } from './applications.service';
-import { ProgramApplicationsController } from './program-applications.controller';
+} from './team.repository';
+import { TeamApplicationService } from './team-application.service';
+import { ProgramApplicationsController } from './teams.controller';
 import { StaffDashboardController } from '../staff/staff-dashboard.controller';
 import { StaffDashboardService } from '../staff/staff-dashboard.service';
 import type { StaffInsightsRepository } from '../staff/staff-insights.repository';
@@ -37,7 +37,7 @@ import { RankingYearService } from '../ranking/ranking-year.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { StaffInsightsQueryService } from '../staff/staff-insights-query.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
@@ -517,7 +517,7 @@ const applicationsRepository = {
   findRepositoryProvisionEvent,
   withTransaction,
 } as unknown as ApplicationsRepository;
-const applicationsService = new ApplicationsService(
+const applicationsService = new TeamApplicationService(
   applicationsRepository,
   { record } as unknown as AuditLogService,
   new AuditLogMetadataService(),
@@ -789,7 +789,7 @@ beforeAll(async () => {
       AuthSessionService,
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
-      { provide: ApplicationsService, useValue: applicationsService },
+      { provide: TeamApplicationService, useValue: applicationsService },
       { provide: StaffDashboardService, useValue: staffDashboardService },
       { provide: StaffInsightsService, useValue: staffInsightsService },
       { provide: AuthService, useValue: { getMe } },

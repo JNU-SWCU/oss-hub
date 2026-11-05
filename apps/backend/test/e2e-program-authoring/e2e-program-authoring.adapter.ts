@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { ApplicationStatus } from '@prisma/client';
-import { ApplicationsService } from '../../src/programs/applications.service';
+import { TeamApplicationService } from '../../src/programs/team-application.service';
 import { RepositoryOutboxConsumerService } from '../../src/github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../../src/github/repository-provision-worker.service';
 import { MilestoneDocumentCurrentFileService } from '../../src/programs/milestone-document-collection.service';
@@ -60,7 +60,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
   constructor(
     private readonly prisma: PrismaService,
     private readonly moduleRef: ModuleRef,
-    private readonly applications: ApplicationsService,
+    private readonly applications: TeamApplicationService,
     private readonly deadlines: DeadlineDigestService,
     private readonly uploads: ProgramAuthoringUploadService,
     private readonly uploadMaintenance: ProgramAuthoringUploadMaintenanceService,

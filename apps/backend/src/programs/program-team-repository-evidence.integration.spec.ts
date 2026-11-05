@@ -1,9 +1,9 @@
 import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -12,10 +12,10 @@ import {
   ProgramActivityRepository,
   ProgramActivitySummaryRepository,
 } from './program-activity.repository';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamRepository } from './team.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
-import { ProgramTeamsService } from './program-teams.service';
-import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
+import { TeamMembershipService } from './team-membership.service';
+import { ProgramTeamDeletionRepository } from './team.repository';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -29,8 +29,8 @@ assertIsolatedIntegrationDatabase({
 });
 
 const prisma = new PrismaService();
-const teamsService = new ProgramTeamsService(
-  new ProgramTeamsRepository(
+const teamsService = new TeamMembershipService(
+  new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
@@ -203,7 +203,7 @@ it('projects current repository facts and URL audit history without reading or m
     ],
   });
 
-  const detail = await new ProgramTeamsRepository(
+  const detail = await new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
@@ -323,7 +323,7 @@ it('shows the outsider totals only while they were counted for this program wind
       observedAt: new Date('2026-09-01T00:00:00Z'),
     },
   });
-  const teams = new ProgramTeamsRepository(
+  const teams = new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
@@ -428,7 +428,7 @@ it('reads contributions of a program that never set an end date', async () => {
     },
   });
 
-  const detail = await new ProgramTeamsRepository(
+  const detail = await new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
@@ -542,7 +542,7 @@ it('counts issues for team members, so an issue-only member has observations', a
     ].map((row) => ({ ...row, repositoryId: scopedRepositoryId })),
   });
 
-  const detail = await new ProgramTeamsRepository(
+  const detail = await new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),

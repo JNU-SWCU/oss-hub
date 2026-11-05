@@ -4,7 +4,7 @@ import { AuthConfig } from '../platform/auth.config';
 import { OriginGuard } from '../platform/origin.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { ApplicationTemplatesController } from './application-templates.controller';
+import { ApplicationTemplatesController } from './teams.controller';
 import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramCreationService } from './program-creation.service';
@@ -13,7 +13,7 @@ import { ProgramViewerService } from './program-viewer.service';
 import { ProgramsController } from './programs.controller';
 import { ProgramsService } from './programs.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { V1_APPLICATION_FIELDS } from './program-templates.service';
+import { V1_APPLICATION_FIELDS } from './team-application.service';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;

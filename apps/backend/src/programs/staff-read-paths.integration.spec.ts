@@ -1,7 +1,7 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationReviewEventKind,
@@ -14,13 +14,13 @@ import { PrismaService } from '../platform/prisma.service';
 import {
   ApplicationsRepository,
   type ApplicationListQuery,
-} from './applications.repository';
-import { ApplicationsService } from './applications.service';
+} from './team.repository';
+import { TeamApplicationService } from './team-application.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -57,7 +57,7 @@ const repository = new ApplicationsRepository(
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );
-const service = new ApplicationsService(
+const service = new TeamApplicationService(
   repository,
   new AuditLogService(
     new AuditLogRepository(prisma),

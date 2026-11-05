@@ -1,4 +1,4 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -9,14 +9,14 @@ import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { ProgramTeamsController } from './program-teams.controller';
+import { TeamsController } from './teams.controller';
 import type {
-  ProgramTeamsRepository,
+  TeamRepository,
   StaffTeamDetailRecord,
   StaffTeamRecord,
   TeamProgramRecord,
-} from './program-teams.repository';
-import { ProgramTeamsService } from './program-teams.service';
+} from './team.repository';
+import { TeamMembershipService } from './team-membership.service';
 import {
   EMPTY_TEAM_DELETION_SCOPE,
   stubTeamDeletionRepository,
@@ -157,9 +157,9 @@ const repository = {
   findProgramById,
   listStaffTeams,
   findStaffTeamDetail,
-} as unknown as ProgramTeamsRepository;
+} as unknown as TeamRepository;
 
-const service = new ProgramTeamsService(
+const service = new TeamMembershipService(
   repository,
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository(),
@@ -179,11 +179,11 @@ const service = new ProgramTeamsService(
 );
 
 const listForStaff = jest.fn(
-  (...args: Parameters<ProgramTeamsService['listForStaff']>) =>
+  (...args: Parameters<TeamMembershipService['listForStaff']>) =>
     service.listForStaff(...args),
 );
 const getForStaff = jest.fn(
-  (...args: Parameters<ProgramTeamsService['getForStaff']>) =>
+  (...args: Parameters<TeamMembershipService['getForStaff']>) =>
     service.getForStaff(...args),
 );
 
@@ -278,11 +278,14 @@ async function sessionCookieFor(githubId: bigint): Promise<string> {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramTeamsController],
+    controllers: [TeamsController],
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      { provide: ProgramTeamsService, useValue: { listForStaff, getForStaff } },
+      {
+        provide: TeamMembershipService,
+        useValue: { listForStaff, getForStaff },
+      },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {

@@ -1,4 +1,4 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { ApplicationStatus } from '@prisma/client';
 
 const studentRepositoryUrlService = new StudentRepositoryUrlService(

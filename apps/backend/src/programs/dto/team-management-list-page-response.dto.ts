@@ -3,7 +3,7 @@ import type {
   TeamManagementListItem,
   TeamManagementListPage,
   TeamManagementMember,
-} from '../applications.repository';
+} from '../team.repository';
 
 export class TeamManagementListItemResponseDto {
   declare readonly id: string;

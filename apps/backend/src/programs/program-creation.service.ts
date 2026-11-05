@@ -20,7 +20,7 @@ import {
 } from './program-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { ProgramTemplatesService } from './program-templates.service';
+import { ProgramTemplatesService } from './team-application.service';
 
 export type CreatedProgram = {
   readonly id: string;

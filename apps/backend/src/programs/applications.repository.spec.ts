@@ -1,8 +1,8 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { Prisma, ProgramLifecycle } from '@prisma/client';
-import { ApplicationsRepository } from './applications.repository';
+import { ApplicationsRepository } from './team.repository';
 import type { PrismaService } from '../platform/prisma.service';
 
 const TEAM_ID = 'synthetic-team';

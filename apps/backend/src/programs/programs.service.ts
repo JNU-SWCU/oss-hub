@@ -38,7 +38,7 @@ import { ProgramScheduleService } from './program-schedule.service';
 import {
   ProgramTemplatesService,
   PROGRAM_PARTICIPATION,
-} from './program-templates.service';
+} from './team-application.service';
 import {
   ProgramAuthoringUploadTokenError,
   ProgramAuthoringAttachmentRaceError,

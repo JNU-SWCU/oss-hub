@@ -6,10 +6,10 @@ import {
 import { RolesGuard } from '../platform/roles.guard';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { OriginGuard } from '../platform/origin.guard';
-import { ApplicationsService } from './applications.service';
+import { TeamApplicationService } from './team-application.service';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
-import { ProgramApplicationsController } from './program-applications.controller';
+import { ProgramApplicationsController } from './teams.controller';
 
 function readGuards(target: object, methodName: 'create' | 'list'): unknown[] {
   const method: unknown = Object.getOwnPropertyDescriptor(
@@ -46,13 +46,13 @@ describe('ProgramApplicationsController', () => {
       repositoryUrl: null,
     });
     const service = Object.assign(
-      Object.create(ApplicationsService.prototype) as object,
+      Object.create(TeamApplicationService.prototype) as object,
       {
         create,
         listForProgram: jest.fn(),
         listTeamManagementForProgram: jest.fn(),
       },
-    ) as unknown as ApplicationsService;
+    ) as unknown as TeamApplicationService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -96,13 +96,13 @@ describe('ProgramApplicationsController', () => {
       repositoryUrl: null,
     });
     const service = Object.assign(
-      Object.create(ApplicationsService.prototype) as object,
+      Object.create(TeamApplicationService.prototype) as object,
       {
         create,
         listForProgram: jest.fn(),
         listTeamManagementForProgram: jest.fn(),
       },
-    ) as unknown as ApplicationsService;
+    ) as unknown as TeamApplicationService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -136,13 +136,13 @@ describe('ProgramApplicationsController', () => {
       repositoryUrl: null,
     });
     const service = Object.assign(
-      Object.create(ApplicationsService.prototype) as object,
+      Object.create(TeamApplicationService.prototype) as object,
       {
         create,
         listForProgram: jest.fn(),
         listTeamManagementForProgram: jest.fn(),
       },
-    ) as unknown as ApplicationsService;
+    ) as unknown as TeamApplicationService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -178,13 +178,13 @@ describe('ProgramApplicationsController', () => {
       repositoryUrl: null,
     });
     const service = Object.assign(
-      Object.create(ApplicationsService.prototype) as object,
+      Object.create(TeamApplicationService.prototype) as object,
       {
         create,
         listForProgram: jest.fn(),
         listTeamManagementForProgram: jest.fn(),
       },
-    ) as unknown as ApplicationsService;
+    ) as unknown as TeamApplicationService;
     const controller = new ProgramApplicationsController(service);
     const body = Object.assign(new CreateApplicationRequestDto(), {
       answers: { title: '제목', summary: '요약' },
@@ -244,13 +244,13 @@ describe('ProgramApplicationsController', () => {
       totalPages: 1,
     });
     const service = Object.assign(
-      Object.create(ApplicationsService.prototype) as object,
+      Object.create(TeamApplicationService.prototype) as object,
       {
         create: jest.fn(),
         listForProgram,
         listTeamManagementForProgram: jest.fn(),
       },
-    ) as unknown as ApplicationsService;
+    ) as unknown as TeamApplicationService;
     const controller = new ProgramApplicationsController(service);
     const query = Object.assign(new ApplicationListRequestDto(), {
       page: 1,

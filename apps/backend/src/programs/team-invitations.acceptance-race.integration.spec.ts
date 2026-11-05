@@ -9,7 +9,7 @@ import {
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamRepository } from './team.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import {
   backendPid,
@@ -149,7 +149,7 @@ function startPausedLeaderLeave(): {
   const leaveBackend = backendPid();
   const paused = deferred();
   const release = deferred();
-  const teams = new ProgramTeamsRepository(
+  const teams = new TeamRepository(
     pidCapturingPrisma(prisma, leaveBackend.capture),
     new ProgramTeamRepositoryEvidenceRepository(
       pidCapturingPrisma(prisma, leaveBackend.capture),

@@ -1,9 +1,9 @@
 import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
@@ -29,10 +29,10 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamDeletionRepository } from './team.repository';
+import { TeamRepository } from './team.repository';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamMembershipService } from './team-membership.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -82,8 +82,8 @@ const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogReadService(new AuditLogMetadataService()),
 );
-const service = new ProgramTeamsService(
-  new ProgramTeamsRepository(
+const service = new TeamMembershipService(
+  new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),

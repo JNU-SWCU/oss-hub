@@ -1,6 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
@@ -12,13 +12,13 @@ import {
 import {
   ApplicationsRepository,
   type ApplicationListSource,
-} from './applications.repository';
+} from './team.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsService } from './applications.service';
+import { TeamApplicationService } from './team-application.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -108,7 +108,7 @@ function detailTransaction(
 
 function mapItem(source: ApplicationListSource | null | undefined) {
   return source
-    ? new ApplicationsService(
+    ? new TeamApplicationService(
         undefined as never,
         undefined as never,
         new AuditLogMetadataService(),
@@ -119,14 +119,14 @@ function mapItem(source: ApplicationListSource | null | undefined) {
     : undefined;
 }
 
-describe('ApplicationsService.getForStaff', () => {
+describe('TeamApplicationService.getForStaff', () => {
   it('없는 신청이면 404 APPLICATION_NOT_FOUND 를 던진다', async () => {
     const findApplicationForStaff = jest.fn().mockResolvedValue(null);
     const repository = {
       findApplicationForStaff,
       listReviewHistory: jest.fn().mockResolvedValue([]),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),
@@ -154,7 +154,7 @@ describe('ApplicationsService.getForStaff', () => {
       }),
       listReviewHistory: jest.fn().mockResolvedValue(reviewHistory),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),
@@ -182,7 +182,7 @@ describe('ApplicationsService.getForStaff', () => {
       findApplicationForStaff: jest.fn().mockResolvedValue(null),
       listReviewHistory,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),

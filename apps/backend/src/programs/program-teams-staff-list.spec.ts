@@ -1,4 +1,4 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
@@ -6,11 +6,11 @@ import { ProgramCategory, AccountStatus } from '@prisma/client';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { StaffProgramTeamResponseDto } from './dto/program-team-response.dto';
 import {
-  ProgramTeamsRepository,
+  TeamRepository,
   type StaffTeamRecord,
   type TeamProgramRecord,
-} from './program-teams.repository';
-import { ProgramTeamsService } from './program-teams.service';
+} from './team.repository';
+import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -63,8 +63,8 @@ function buildService(overrides: {
   const repository = {
     findProgramById,
     listStaffTeams,
-  } as unknown as ProgramTeamsRepository;
-  const service = new ProgramTeamsService(
+  } as unknown as TeamRepository;
+  const service = new TeamMembershipService(
     repository,
     { record: jest.fn() } as unknown as AuditLogService,
     stubTeamDeletionRepository(),
@@ -85,7 +85,7 @@ function buildService(overrides: {
   return { service, findProgramById, listStaffTeams, findActorByGithubId };
 }
 
-describe('ProgramTeamsService.listForStaff', () => {
+describe('TeamMembershipService.listForStaff', () => {
   it('팀 순서를 유지하고 각 팀에서 팀장을 멤버 배열 맨 앞으로 올린다', async () => {
     const { service } = buildService({
       teams: [
@@ -217,7 +217,7 @@ describe('ProgramTeamsService.listForStaff', () => {
   });
 });
 
-describe('ProgramTeamsRepository.listStaffTeams', () => {
+describe('TeamRepository.listStaffTeams', () => {
   function readCallArgs(spy: jest.Mock): { select: Record<string, unknown> } {
     const calls = spy.mock.calls as unknown as {
       select: Record<string, unknown>;
@@ -233,7 +233,7 @@ describe('ProgramTeamsRepository.listStaffTeams', () => {
     const findMany = jest.fn().mockResolvedValue(rows);
     const prisma = { team: { findMany } };
     return {
-      repository: new ProgramTeamsRepository(
+      repository: new TeamRepository(
         prisma as never,
         new ProgramTeamRepositoryEvidenceRepository(prisma as never),
         new PlatformRepository(),

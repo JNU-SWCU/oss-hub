@@ -4,8 +4,8 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { ProgramTeamsController } from './program-teams.controller';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamsController } from './teams.controller';
+import { TeamMembershipService } from './team-membership.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
@@ -46,11 +46,11 @@ async function sessionCookieFor(githubId: bigint): Promise<string> {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramTeamsController],
+    controllers: [TeamsController],
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      { provide: ProgramTeamsService, useValue: { getForStaff } },
+      { provide: TeamMembershipService, useValue: { getForStaff } },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {

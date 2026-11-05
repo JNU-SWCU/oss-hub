@@ -1,4 +1,4 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -8,12 +8,9 @@ import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { ProgramTeamsController } from './program-teams.controller';
-import type {
-  ProgramTeamsRepository,
-  StaffTeamDetailRecord,
-} from './program-teams.repository';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamsController } from './teams.controller';
+import type { TeamRepository, StaffTeamDetailRecord } from './team.repository';
+import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -65,8 +62,8 @@ const findStaffTeamDetail = jest.fn();
 const readScopeCounts = jest.fn();
 const findUnique = jest.fn();
 
-const service = new ProgramTeamsService(
-  { findStaffTeamDetail } as unknown as ProgramTeamsRepository,
+const service = new TeamMembershipService(
+  { findStaffTeamDetail } as unknown as TeamRepository,
   { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ readScopeCounts }),
   new AuditLogMetadataService(),
@@ -85,7 +82,7 @@ const service = new ProgramTeamsService(
 );
 
 const getForStaff = jest.fn(
-  (...args: Parameters<ProgramTeamsService['getForStaff']>) =>
+  (...args: Parameters<TeamMembershipService['getForStaff']>) =>
     service.getForStaff(...args),
 );
 
@@ -113,11 +110,11 @@ async function sessionCookieFor(githubId: bigint): Promise<string> {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [ProgramTeamsController],
+    controllers: [TeamsController],
     providers: [
       ...STATELESS_PROVIDERS,
       AuthSessionService,
-      { provide: ProgramTeamsService, useValue: { getForStaff } },
+      { provide: TeamMembershipService, useValue: { getForStaff } },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
       {

@@ -1,6 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
@@ -16,13 +16,13 @@ import {
   type ApplyProgramRecord,
   type ApplicationListPage,
   type ApplicationListSource,
-} from './applications.repository';
+} from './team.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsService } from './applications.service';
+import { TeamApplicationService } from './team-application.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
@@ -48,7 +48,7 @@ const EMPTY_PAGE: ApplicationListPage = {
 
 function mapItem(source: ApplicationListSource | null | undefined) {
   return source
-    ? new ApplicationsService(
+    ? new TeamApplicationService(
         undefined as never,
         undefined as never,
         new AuditLogMetadataService(),
@@ -59,14 +59,14 @@ function mapItem(source: ApplicationListSource | null | undefined) {
     : undefined;
 }
 
-describe('ApplicationsService.listForProgram', () => {
+describe('TeamApplicationService.listForProgram', () => {
   it('프로그램이 없으면 404 를 던진다', async () => {
     const listApplicationsForProgram = jest.fn();
     const repository = {
       findProgramById: jest.fn().mockResolvedValue(null),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),
@@ -169,7 +169,7 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),
@@ -197,7 +197,7 @@ describe('ApplicationsService.listForProgram', () => {
       findProgramById: jest.fn().mockResolvedValue(OPEN_PROGRAM),
       listApplicationsForProgram: jest.fn().mockResolvedValue(EMPTY_PAGE),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),
@@ -218,7 +218,7 @@ describe('ApplicationsService.listForProgram', () => {
   });
 });
 
-describe('ApplicationsService.listTeamManagementForProgram', () => {});
+describe('TeamApplicationService.listTeamManagementForProgram', () => {});
 
 describe('ApplicationsRepository.listApplicationsForProgram', () => {
   const applicationUpdatedAt = new Date('2026-07-25T01:00:00.000Z');

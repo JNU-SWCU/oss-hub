@@ -7,9 +7,9 @@ import { AuditLogRepository } from '../../src/platform/audit-log.repository';
 import { AuditLogService } from '../../src/platform/audit-log.service';
 import { AuditLogReadService } from '../../src/platform/audit-log-read.service';
 import { StaffDashboardController } from '../../src/staff/staff-dashboard.controller';
-import { ApplicationsRepository } from '../../src/programs/applications.repository';
+import { ApplicationsRepository } from '../../src/programs/team.repository';
 import { StaffInsightsRepository } from '../../src/staff/staff-insights.repository';
-import { ApplicationsService } from '../../src/programs/applications.service';
+import { TeamApplicationService } from '../../src/programs/team-application.service';
 import { StaffDashboardService } from '../../src/staff/staff-dashboard.service';
 import { StaffInsightsService } from '../../src/staff/staff-insights.service';
 import { AuthConfig } from '../../src/platform/auth.config';
@@ -292,7 +292,7 @@ describe('Audience authorization HTTP characterization', () => {
         RepositoriesReadService,
         StaffDashboardService,
         StaffInsightsService,
-        ApplicationsService,
+        TeamApplicationService,
         ProgramActivitySummaryService,
         SubmissionDashboardSummaryService,
         AdminAccessService,

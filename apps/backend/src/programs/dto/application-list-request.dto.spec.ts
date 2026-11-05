@@ -1,12 +1,12 @@
-import { ApplicationsService } from '../applications.service';
+import { TeamApplicationService } from '../team-application.service';
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { ApplicationListRequestDto } from './application-list-request.dto';
 
 const applicationsService = Object.create(
-  ApplicationsService.prototype,
-) as ApplicationsService;
+  TeamApplicationService.prototype,
+) as TeamApplicationService;
 
 describe('ApplicationListRequestDto', () => {
   it('빈 쿼리에서 기본 페이지·필터를 사용한다', async () => {
