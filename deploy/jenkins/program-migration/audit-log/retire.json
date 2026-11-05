@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "name": "audit-log-retire",
+  "expectedHeadMigration": "20261105220100_copy_audit_log_to_domain_history",
+  "preflight": ["check-before.sql"],
+  "stages": [
+    {
+      "id": "retire",
+      "apply": [
+        "../../../../apps/backend/prisma/migrations/20261106000000_retire_audit_log/migration.sql"
+      ],
+      "reconcile": ["check-retired.sql"]
+    }
+  ],
+  "backupBeforeStage": "retire",
+  "counts": [
+    {
+      "name": "audit-log",
+      "file": "count-AuditLog.sql"
+    },
+    {
+      "name": "team-history",
+      "file": "count-TeamHistory.sql"
+    },
+    {
+      "name": "program-history",
+      "file": "count-ProgramHistory.sql"
+    },
+    {
+      "name": "program",
+      "file": "count-Program.sql"
+    },
+    {
+      "name": "team",
+      "file": "count-Team.sql"
+    }
+  ]
+}

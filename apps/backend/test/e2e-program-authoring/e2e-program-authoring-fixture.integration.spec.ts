@@ -143,20 +143,20 @@ describe('E2eProgramAuthoringFixture persistence', () => {
   it('resets the graph while preserving append-only fixture actor history', async () => {
     await fixture.reset();
     await fixture.ensure();
-    await prisma.auditLog.create({
+    const history = await prisma.userHistory.create({
       data: {
+        userId: E2E_STAFF_ID,
         actorId: E2E_STAFF_ID,
-        action: 'E2E_FIXTURE_RESET',
-        targetType: 'PROGRAM',
-        targetId: E2E_PROGRAM_ID,
-        metadata: {},
+        event: 'PROFILE_UPDATED',
+        source: 'APPLICATION',
+        data: { schemaVersion: 1 },
       },
     });
 
     await fixture.reset();
 
     await expect(
-      prisma.auditLog.count({ where: { actorId: E2E_STAFF_ID } }),
+      prisma.userHistory.count({ where: { id: history.id } }),
     ).resolves.toBe(1);
     await expect(
       prisma.user.findUnique({ where: { id: E2E_STAFF_ID } }),
