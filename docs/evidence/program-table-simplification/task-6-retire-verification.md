@@ -31,7 +31,17 @@ File 92행과 Program은 지우지 않는다. 제품 파일 수는 1단계와 �
 
 ## 최종 head 전체 검증
 
-대상 코드 head는 2단계 `18109f177`, 1단계 `86d085829`, 팀 브랜치 `84b295d04`다. 이 뒤의 커밋은 문서만 바꾼다.
+1단계가 #1754 위로 옮겨진 뒤의 head `bc5c53990`(1단계 `793dc610e` 포함)에서는 소유자가 정한 범위대로 아래만 다시 돌렸다. 이 뒤의 커밋은 문서만 바꾼다.
+이 2단계는 1단계가 운영에 배포된 뒤의 릴리스이고, 전체 실행은 그 릴리스의 최종 head에서 다시 필요하다.
+
+| 명령 | 결과 |
+| --- | --- |
+| `pnpm --filter backend typecheck` | exit 0 |
+| `pnpm --filter frontend typecheck` | exit 0 |
+| `node --test deploy/jenkins/program-migration/*.test.mjs` | exit 0 · 46 pass / 0 fail |
+| `pnpm --filter backend test:integration` (`file-retirement-migration`, `team-application-retirement` 두 spec) | exit 0 · Test Suites: 2 passed, 2 total / Tests: 21 passed, 21 total |
+
+아래 전체 표는 #1754를 합치기 전 head의 기록이다. 대상 코드 head는 2단계 `18109f177`, 1단계 `86d085829`, 팀 브랜치 `84b295d04`다.
 `CI=true`로 `.github/workflows/ci.yml`의 잡을 로컬에서 재현했다. GitHub CI 결과를 근거로 삼지 않았다.
 
 | 명령 | 결과 |
@@ -73,7 +83,7 @@ File 92행과 Program은 지우지 않는다. 제품 파일 수는 1단계와 �
 
 ## 리허설
 
-현재 SQL은 로컬 합성 데이터로만 리허설했다. 절차와 중단 경로 결과는
+현재 SQL은 #1754와 1단계를 실제로 적용한 덤프에서 시작해 로컬 합성 데이터로만 리허설했다. 절차와 중단 경로 결과는
 [서버 리허설](task-6-server-rehearsal.md)의 첫 절에 있다. 운영 덤프 리허설은 옛 해시의 기록이므로
 배포 전에 현재 SQL로 다시 실행해야 한다.
 
