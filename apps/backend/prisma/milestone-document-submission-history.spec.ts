@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
@@ -11,10 +12,20 @@ const migration = readFileSync(
 );
 
 describe('MilestoneDocumentSubmissionHistory append-only contract', () => {
-  it('makes the milestone-level submission type nullable for transition reads', () => {
-    const milestone =
-      /model Milestone \{([\s\S]*?)\n\}/.exec(schema)?.[1] ?? '';
-    expect(milestone).toMatch(/submissionType\s+MilestoneSubmissionType\?/);
+  it('exposes submission type only on the requirement ORM model', () => {
+    const milestone = Prisma.dmmf.datamodel.models.find(
+      (model) => model.name === 'Milestone',
+    );
+    const requirement = Prisma.dmmf.datamodel.models.find(
+      (model) => model.name === 'MilestoneDocument',
+    );
+    expect(milestone).toBeDefined();
+    expect(milestone?.fields.map((field) => field.name)).not.toContain(
+      'submissionType',
+    );
+    expect(
+      requirement?.fields.find((field) => field.name === 'submissionType'),
+    ).toMatchObject({ type: 'RequirementSubmissionType', isRequired: true });
   });
 
   it('stores every submission and decision event with actor, revision, time, and immutable file relation', () => {

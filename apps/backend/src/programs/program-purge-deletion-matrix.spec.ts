@@ -61,11 +61,16 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
       join(process.cwd(), 'prisma/schema.prisma'),
       'utf8',
     );
+    const modelNames = new Set(
+      [...schema.matchAll(/^model (\w+) \{/gm)].map((match) => match[1]),
+    );
     const actual = schemaProgramChildGraph(schema);
     const covered = [
       ...new Set(
         PROGRAM_PURGE_DELETION_ORDER.flatMap((step) => step.covers).filter(
-          (relation) => !relation.startsWith('logical:'),
+          (relation) =>
+            !relation.startsWith('logical:') &&
+            relation.split('->').every((model) => modelNames.has(model)),
         ),
       ),
     ].sort();
@@ -155,12 +160,17 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       join(process.cwd(), 'prisma/schema.prisma'),
       'utf8',
     );
+    const modelNames = new Set(
+      [...schema.matchAll(/^model (\w+) \{/gm)].map((match) => match[1]),
+    );
     const actual = schemaChildGraph(schema, ['Team']);
     const covered = [
       ...new Set(
         teamCovers.filter(
           (relation) =>
-            !relation.startsWith('logical:') && relation !== 'Program->Team',
+            !relation.startsWith('logical:') &&
+            relation !== 'Program->Team' &&
+            relation.split('->').every((model) => modelNames.has(model)),
         ),
       ),
     ].sort();

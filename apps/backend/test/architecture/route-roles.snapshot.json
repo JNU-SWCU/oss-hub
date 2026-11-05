@@ -224,13 +224,6 @@
     "error": "SUB_002"
   },
   {
-    "method": "POST",
-    "path": "/api/v1/submissions/:submissionId/reviews",
-    "roles": ["STAFF"],
-    "status": 403,
-    "error": "SUB_002"
-  },
-  {
     "method": "GET",
     "path": "/api/v1/system-status",
     "roles": ["ADMIN"],

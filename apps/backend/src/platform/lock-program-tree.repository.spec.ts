@@ -41,9 +41,7 @@ describe('lockProgramTree', () => {
         }),
       ).toEqual({ documentIds: ['d'] });
       const sql = query.mock.calls[2]?.[0];
-      expect(sql?.values).toEqual(
-        documentKind === 'DOCUMENT' ? ['m', 'DOCUMENT'] : ['m'],
-      );
+      expect(sql?.values).toEqual(['m']);
       expect(sql?.strings.join('')).toContain('ORDER BY "id"');
       await expect(
         locks.lockProgramTree(tx, {

@@ -5,7 +5,6 @@ import { ProgramListStatusFilterRepository } from '../programs/program-list-stat
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
   ProgramCategory,
   SubmissionStatus,
 } from '@prisma/client';
@@ -93,15 +92,14 @@ function documentRow(
   documentId: string,
   milestoneId: string,
   required: boolean,
-  kind: MilestoneDocumentKind = MilestoneDocumentKind.DOCUMENT,
+  sortOrder = 1,
 ) {
   return {
     id: documentId,
     milestoneId,
     name: `synthetic ${documentId}`,
     required,
-    sortOrder: kind === MilestoneDocumentKind.DOCUMENT ? 1 : -1,
-    kind,
+    sortOrder,
   };
 }
 async function setSubmissions(
@@ -193,18 +191,8 @@ async function seed(): Promise<void> {
       documentRow(OPTIONAL_FIRST, DOCUMENT_MILESTONE_FIRST, false),
       documentRow(REQUIRED_SECOND, DOCUMENT_MILESTONE_SECOND, true),
       documentRow(MIXED_REQUIRED, MIXED_MILESTONE, true),
-      documentRow(
-        LEGACY_SLOT,
-        LEGACY_MILESTONE,
-        true,
-        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-      ),
-      documentRow(
-        MIXED_SLOT,
-        MIXED_MILESTONE,
-        true,
-        MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-      ),
+      documentRow(LEGACY_SLOT, LEGACY_MILESTONE, true, -1),
+      documentRow(MIXED_SLOT, MIXED_MILESTONE, true, -1),
     ],
   });
   await prisma.team.createMany({
