@@ -1087,7 +1087,8 @@ for (const mode of ['ok', 'status', 'transport'])
       assert.ok(calls.some((c) => c.url === 'https://public.example.test/'));
       assert.ok(
         calls.some(
-          (c) => c.url.endsWith('/Submission-Files') && c.method === 'POST',
+          (c) =>
+            c.url.endsWith('/Submission-Files/checks') && c.method === 'POST',
         ),
       );
       assert.deepEqual(
