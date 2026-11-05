@@ -473,7 +473,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
               </Alert>
             ) : null}
             <div className="flex flex-wrap justify-end gap-2">
-              {hasEditableAnswers ? (
+              {hasEditableAnswers || isRejected ? (
                 <Button
                   ref={submitButtonRef}
                   type="button"
