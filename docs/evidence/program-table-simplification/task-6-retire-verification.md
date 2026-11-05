@@ -1,0 +1,85 @@
+# Todo 6 다음 릴리스의 옛 파일 테이블 삭제
+
+1단계(File 생성·복사·코드 전환)가 운영에 배포된 뒤 별도 릴리스에서 적용한다. 두 단계를 같은 배포에 넣지 않는다.
+소유자가 정한 묶음에서 이 단계는 Todo 10 2단계와 같은 릴리스다.
+이 PR은 draft이며 머지·배포·Jenkins 실행을 수행하지 않았다.
+
+## 삭제 대상과 보존 경계
+
+| 대상 | 삭제 직전 고정 건수 | 처리 |
+| --- | ---: | --- |
+| SubmissionFile | 81 | 건수·storageKey 대조 후 테이블 삭제 |
+| ProgramAuthoringUpload | 3 | 건수·storageKey 대조 후 테이블 삭제 |
+| MilestoneDocumentTemplateFile | 5 | 건수·storageKey 대조 후 테이블 삭제 |
+| ProgramCover | 3 | 건수·storageKey 대조 후 테이블 삭제 |
+| ProgramPurgeFileTombstone | 2 | 건수·storageKey 대조 후 테이블 삭제 |
+
+함께 지우는 것은 함수 `reject_retired_file_write`와 enum 넷(`SubmissionFileLifecycle`,
+`ProgramAuthoringUploadLifecycle`, `ProgramPurgeFileTombstoneLifecycle`, `ProgramCoverSource`)이다.
+함께 더하는 것은 `File_kind_lifecycle_check`와 `Program_cover_file_or_external_check`다.
+File 92행과 Program은 지우지 않는다. 제품 파일 수는 1단계와 같다.
+
+## 멈추는 조건
+
+마이그레이션 `20261105210000_retire_file_tables`(sha256 `837652646e270fa619ef8c4cf27e84093b06313e305e58014868082f4a3423aa`)는 지우기 전에 두 가지를 본다.
+
+- 원본 건수가 `81, 3, 5, 3, 2` 또는 전부 0이 아니면 `file retire aborted: source count mismatch`로 멈춘다.
+- 원본 storageKey가 File에 없으면 `file retire aborted: ... source storage keys are missing from File`로 멈춘다.
+
+전부 0을 허용하는 까닭은 원본 행이 없는 새 DB에서도 같은 마이그레이션을 적용해야 하기 때문이다.
+마이그레이션은 한 트랜잭션이라 멈추면 아무것도 지워지지 않는다.
+
+## 최종 head 전체 검증
+
+대상 코드 head는 2단계 `18109f177`, 1단계 `86d085829`, 팀 브랜치 `84b295d04`다. 이 뒤의 커밋은 문서만 바꾼다.
+`CI=true`로 `.github/workflows/ci.yml`의 잡을 로컬에서 재현했다. GitHub CI 결과를 근거로 삼지 않았다.
+
+| 명령 | 결과 |
+| --- | --- |
+| `pnpm --filter backend exec prisma generate` | exit 0 |
+| `node --test deploy/frontend/select-release-deploy-scope.test.mjs` | exit 0 · ℹ pass 32 / ℹ fail 0 |
+| `bash -n (dev.sh, deploy, prisma, test, .github의 sh 전부)` | exit 0 |
+| `bash apps/backend/prisma/check-host-db-url.test.sh` | exit 0 |
+| `bash .githooks/pre-commit.test.sh` | exit 0 |
+| `node --check (deploy, .design-sync의 mjs 전부)` | exit 0 |
+| `docker compose -f compose.yml config --no-interpolate --quiet` | exit 0 |
+| `node --test deploy/jenkins/release-behavior.test.mjs` | exit 0 · ℹ pass 92 / ℹ fail 0 |
+| `node --test deploy/jenkins/user-consolidation*.test.mjs` | exit 0 · ℹ pass 90 / ℹ fail 0 |
+| `node --test deploy/jenkins/program-migration/*.test.mjs` | exit 0 · ℹ pass 46 / ℹ fail 0 |
+| `shellcheck (koalaman/shellcheck 고정 이미지)` | exit 0 |
+| `node --test deploy/jenkins/validate-production-env.test.mjs` | exit 0 · ℹ pass 78 / ℹ fail 0 |
+| `node --test deploy/jenkins/validate-github-app-credentials.test.mjs` | exit 0 · ℹ pass 4 / ℹ fail 0 |
+| `workflow에 옛 Jenkins 참조 없음 grep` | exit 0 |
+| `bash deploy/jenkins/prune-deploy-backups.test.sh` | exit 0 |
+| `pnpm lint:structure` | exit 0 |
+| `pnpm format:check` | exit 0 |
+| `node --test .design-sync/contract.test.mjs` | exit 0 · ℹ pass 7 / ℹ fail 0 |
+| `pnpm --filter frontend lint` | exit 0 |
+| `pnpm --filter frontend typecheck` | exit 0 |
+| `pnpm --filter frontend test --maxWorkers=2` | exit 0 · Test Files 440 passed (440) / Tests 4739 passed (4739) |
+| `pnpm --filter frontend build` | exit 0 |
+| `pnpm --filter backend lint` | exit 0 |
+| `pnpm --filter backend typecheck` | exit 0 |
+| `pnpm --filter backend test:unit` | exit 0 · Test Suites: 382 passed, 382 total / Tests: 6118 passed, 6118 total |
+| `bash apps/backend/test/run-integration.test.sh` | exit 0 · Test Suites: 1 passed, 1 total / Tests: 1 passed, 1 total |
+| `pnpm --filter backend build` | exit 0 |
+| `pnpm --filter backend test:storage-reconcile` | exit 0 · Test Suites: 1 passed, 1 total / Tests: 5 passed, 5 total |
+| `bun scripts/check-file-ledger.ts` | exit 0 · FILE_LEDGER_OK 271 paths |
+| `pnpm exec commitlint --from <base> --to HEAD` | exit 0 |
+| `bash .github/check-public-safe.test.sh` | exit 0 |
+| `gitleaks git --log-opts=<base>..HEAD` | exit 0 · no leaks found |
+| `bash .github/check-public-safe.sh <base>` | exit 0 |
+| `pnpm --filter backend test:integration` | exit 0 · Test Suites: 157 passed, 157 total / Tests: 1246 passed, 1246 total |
+
+## 리허설
+
+현재 SQL은 로컬 합성 데이터로만 리허설했다. 절차와 중단 경로 결과는
+[서버 리허설](task-6-server-rehearsal.md)의 첫 절에 있다. 운영 덤프 리허설은 옛 해시의 기록이므로
+배포 전에 현재 SQL로 다시 실행해야 한다.
+
+## 남은 게이트
+
+- 1단계 릴리스가 운영에서 확인되기 전에는 이 PR을 내보내지 않는다. 코드는 이 순서를 강제하지 않는다.
+- 코드가 강제하는 멈춤은 마이그레이션의 건수·storageKey guard뿐이다.
+- 기준선 재측정은 소유자 결정에 따라 마이그레이션이 모두 끝난 뒤 한 번만 한다.
+- 머지 후 배포와 읽기 전용 검증은 아직이다.
