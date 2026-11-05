@@ -302,9 +302,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await prisma.notification.deleteMany({
       where: { type: 'APPLICATION_DECISION' },
     });
-    await prisma.team.deleteMany({
-      where: { id: { in: [...APPLICATION_IDS] } },
-    });
     await prisma.teamMember.deleteMany({
       where: { teamId: { in: [...APPLICATION_IDS] } },
     });

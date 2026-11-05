@@ -78,7 +78,6 @@ describe('application named invitees integration', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     await prisma.teamInvitation.deleteMany({ where: { programId } });
-    await prisma.team.deleteMany({ where: { programId } });
     await prisma.teamMember.deleteMany({ where: { programId } });
     await prisma.team.deleteMany({ where: { programId } });
     await prisma.program.delete({ where: { id: programId } });

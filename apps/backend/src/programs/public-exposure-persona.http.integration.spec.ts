@@ -317,9 +317,6 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await harness.prisma.team.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
       await harness.prisma.teamMember.deleteMany({
         where: { teamId: { startsWith: `${PREFIX}-` } },
       });

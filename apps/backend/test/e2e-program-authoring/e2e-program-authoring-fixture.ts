@@ -78,9 +78,6 @@ export class E2eProgramAuthoringFixture {
       await transaction.milestoneDocumentSubmission.deleteMany({
         where: { teamId: { in: teamIds } },
       });
-      await transaction.team.deleteMany({
-        where: { id: { in: teamIds } },
-      });
       await transaction.teamInvitation.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
       });
