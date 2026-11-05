@@ -1,7 +1,7 @@
 BEGIN;
 SET LOCAL TIME ZONE 'UTC';
 
-LOCK TABLE "Application", "ApplicationReviewHistory", "Team", "TeamHistory",
+LOCK TABLE "Application", "ApplicationReviewHistory", "Team", "TeamHistory", "AuditLog",
   "GithubRepository", "RepositoryProvisionJob", "RepositoryIssuanceHistory",
   "GithubRepositoryOutsiderContribution", "MilestoneDocumentSubmission",
   "SubmissionFile", "Notification", "OutboxEvent" IN ACCESS EXCLUSIVE MODE;
@@ -32,13 +32,52 @@ BEGIN
     SELECT 1 FROM "ApplicationReviewHistory" r
     JOIN program_team_backup.application_team_map m ON m."applicationId" = r."applicationId"
     LEFT JOIN "TeamHistory" h ON h."sourceTable" = 'ApplicationReviewHistory' AND h."sourceId" = r.id
-    WHERE h.id IS NULL OR h."teamId" <> m."teamId"
-      OR h."occurredAt" <> r."occurredAt" OR h."actorId" <> r."actorId"
-      OR h.event::TEXT <> r."eventKind"::TEXT
-      OR (h.data->>'revision')::INTEGER <> r.revision
-      OR h.data->>'rejectionReason' IS DISTINCT FROM r."rejectionReason"
+    WHERE h.id IS NULL OR ROW(h."teamId", h."programId", h."occurredAt", h."actorId", h.event::TEXT,
+        (h.data->>'revision')::INTEGER, h.data->>'rejectionReason', h.data->>'applicationId')
+      IS DISTINCT FROM ROW(m."teamId", m."programId", r."occurredAt", r."actorId", r."eventKind"::TEXT,
+        r.revision, r."rejectionReason", r."applicationId")
   ) THEN
     RAISE EXCEPTION 'Team retirement review history mismatch';
+  END IF;
+  CREATE TEMP TABLE team_retire_expected_pairs ON COMMIT DROP AS
+    SELECT r.id AS "reviewId", a.id AS "auditId"
+    FROM "ApplicationReviewHistory" r
+    JOIN "Application" application ON application.id = r."applicationId"
+    JOIN "AuditLog" a ON a."targetType" = 'APPLICATION'
+      AND a."targetId" = r."applicationId"
+      AND a.action = 'APPLICATION_' || r."eventKind"::TEXT
+      AND a."actorId" IS NOT DISTINCT FROM r."actorId"
+      AND abs(extract(epoch FROM a."occurredAt" - r."occurredAt")) <= 1;
+  IF (SELECT count(*) FROM team_retire_expected_pairs) <> review_count
+     OR EXISTS (SELECT "reviewId" FROM team_retire_expected_pairs GROUP BY "reviewId" HAVING count(*) <> 1)
+     OR EXISTS (SELECT "auditId" FROM team_retire_expected_pairs GROUP BY "auditId" HAVING count(*) <> 1) THEN
+    RAISE EXCEPTION 'Team retirement paired audit cardinality mismatch';
+  END IF;
+  IF EXISTS (
+    SELECT 1 FROM team_retire_expected_pairs p
+    JOIN "AuditLog" a ON a.id = p."auditId"
+    LEFT JOIN "TeamHistory" h ON h."sourceTable" = 'ApplicationReviewHistory' AND h."sourceId" = p."reviewId"
+    WHERE h.id IS NULL OR ROW(h.data->>'pairedAuditId', h.data->'pairedAuditOccurredAt', h.data->'pairedAuditMetadata')
+      IS DISTINCT FROM ROW(a.id, to_jsonb(a."occurredAt"), COALESCE(a.metadata, 'null'::JSONB))
+  ) THEN
+    RAISE EXCEPTION 'Team retirement paired audit mismatch';
+  END IF;
+  IF EXISTS (
+    WITH source AS (
+      SELECT a.*, m."teamId", m."programId",
+        substring(a.action FROM 13) AS event
+      FROM "AuditLog" a
+      JOIN program_team_backup.application_team_map m ON m."applicationId" = a."targetId"
+      WHERE a."targetType" = 'APPLICATION'
+        AND NOT EXISTS (SELECT 1 FROM team_retire_expected_pairs p WHERE p."auditId" = a.id)
+    ), copied AS (SELECT * FROM "TeamHistory" WHERE id LIKE 'application-audit:%')
+    SELECT 1 FROM source a FULL JOIN copied h ON h."sourceId" = a.id
+    WHERE a.id IS NULL OR h.id IS NULL OR ROW(h."sourceTable", h.source::TEXT, h."teamId", h."programId",
+      h."actorId", h."occurredAt", h.event::TEXT, h.data->'metadata', h.data->>'applicationId')
+      IS DISTINCT FROM ROW('AuditLog'::TEXT, 'MIGRATION'::TEXT, a."teamId", a."programId",
+        a."actorId", a."occurredAt", a.event, COALESCE(a.metadata, 'null'::JSONB), a."targetId")
+  ) THEN
+    RAISE EXCEPTION 'Team retirement copied audit mismatch';
   END IF;
   IF legacy_count = 33 AND (
     (SELECT count(*) FROM "TeamHistory" WHERE id LIKE 'application-review:%') <> 9
