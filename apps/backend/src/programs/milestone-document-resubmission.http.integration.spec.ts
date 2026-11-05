@@ -40,7 +40,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   beforeEach(() => fixture.reset());
   afterAll(() => fixture.stop());
 
-  it('stores one canonical review event and one rollback-compatible review', async () => {
+  it('stores one review event without a compatibility row and returns it to staff and students', async () => {
     expect((await fixture.submit('최초 제출')).status).toBe(201);
 
     const response = await review(ReviewDecision.CHANGES_REQUESTED, {
@@ -71,7 +71,27 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
           },
         },
       }),
-    ).toBe(1);
+    ).toBe(0);
+    for (const [path, actor] of [
+      [`${fixture.documentPath()}/history`, 'student'],
+      [
+        `${fixture.documentPath()}/applications/${flowIds.application}/history`,
+        'staff',
+      ],
+    ] as const) {
+      const history = await fixture.request(path, { actor });
+      expect(history.status).toBe(200);
+      expect(await history.json()).toHaveProperty(
+        'items',
+        expect.arrayContaining([
+          expect.objectContaining({
+            event: 'CHANGES_REQUESTED',
+            revision: 1,
+            comment: '보완해 주세요.',
+          }),
+        ]),
+      );
+    }
   });
 
   it('accepts a changes request without reason or resubmission deadline', async () => {

@@ -292,7 +292,7 @@ it('accepts an explicitly empty optional comment from a requirement client', asy
 });
 
 it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
-  'keeps a new %s decision readable by the old image query',
+  'keeps a new %s event while the obsolete image query misses the review',
   async (decision) => {
     expect((await fixture.submit('rollback compatibility')).status).toBe(201);
     const submittedHistory =
@@ -356,15 +356,7 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
       {
         id: submittedHistory.id,
         revision: 1,
-        reviewHistories: [
-          {
-            id: event.id,
-            decision,
-            comment: 'retained rollback reason',
-            reviewerId: event.actorId,
-            reviewedAt: event.createdAt,
-          },
-        ],
+        reviewHistories: [],
       },
     ]);
     expect(
@@ -373,7 +365,7 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
           milestoneDocumentSubmissionId: event.milestoneDocumentSubmissionId,
         },
       }),
-    ).toBe(1);
+    ).toBe(0);
     expect(
       await fixture.prisma.milestoneDocumentSubmissionHistory.count({
         where: {
@@ -385,17 +377,24 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
   },
 );
 
-it('rolls back both review stores when the compatibility revision link fails', async () => {
+it('rolls back the review event when updating the submission fails', async () => {
   expect((await fixture.submit('atomic rollback')).status).toBe(201);
   const submission =
     await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
       where: { milestoneDocumentId: flowIds.document },
     });
+  const history =
+    await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
+      where: {
+        milestoneDocumentSubmissionId: submission.id,
+        event: 'SUBMITTED',
+      },
+    });
   await expect(
     fixture.prisma.$transaction(async (transaction) => {
       await new PlatformRepository().appendSubmissionReviewEvent(transaction, {
         milestoneDocumentSubmissionId: submission.id,
-        submissionHistoryId: 'missing-revision',
+        submissionHistoryId: history.id,
         revision: 1,
         reviewerId: flowIds.staff,
         decision: 'REJECTED',
@@ -403,11 +402,11 @@ it('rolls back both review stores when the compatibility revision link fails', a
         reviewedAt: new Date(),
       });
       await transaction.milestoneDocumentSubmission.update({
-        where: { id: submission.id },
+        where: { id: 'missing-submission' },
         data: { status: 'REJECTED' },
       });
     }),
-  ).rejects.toMatchObject({ code: 'P2003' });
+  ).rejects.toMatchObject({ code: 'P2025' });
   expect(
     await fixture.prisma.milestoneDocumentReviewHistory.count({
       where: { milestoneDocumentSubmissionId: submission.id },
@@ -661,5 +660,5 @@ it('serializes legacy review commit before program deletion with two transaction
       where: { id: event.id },
       select: { milestoneDocumentSubmissionId: true },
     }),
-  ).toEqual({ milestoneDocumentSubmissionId: submission.id });
+  ).toBeNull();
 });

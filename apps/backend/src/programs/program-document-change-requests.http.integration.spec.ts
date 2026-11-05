@@ -117,10 +117,10 @@ function sendChangeRequest(
 }
 
 function changeRequestReviewCount(): Promise<number> {
-  return fixture.prisma.milestoneDocumentReviewHistory.count({
+  return fixture.prisma.milestoneDocumentSubmissionHistory.count({
     where: {
-      decision: ReviewDecision.CHANGES_REQUESTED,
-      milestoneDocumentSubmission: { milestoneDocumentId: flowIds.document },
+      event: ReviewDecision.CHANGES_REQUESTED,
+      submission: { milestoneDocumentId: flowIds.document },
     },
   });
 }
@@ -233,16 +233,16 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
       SubmissionStatus.APPROVED,
     );
     const review =
-      await fixture.prisma.milestoneDocumentReviewHistory.findFirstOrThrow({
+      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
         where: {
-          milestoneDocumentSubmission: { applicationId: flowIds.application },
+          submission: { applicationId: flowIds.application },
+          event: ReviewDecision.CHANGES_REQUESTED,
         },
-        select: { decision: true, comment: true, resubmissionDueAt: true },
+        select: { event: true, comment: true },
       });
     expect(review).toEqual({
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      event: ReviewDecision.CHANGES_REQUESTED,
       comment: '양식을 바꿔 다시 내 주세요.',
-      resubmissionDueAt: null,
     });
     await expect(
       fixture.prisma.milestoneDocumentSubmissionHistory.count({
@@ -303,10 +303,10 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
       SubmissionStatus.APPROVED,
     );
     await expect(
-      fixture.prisma.milestoneDocumentReviewHistory.count({
+      fixture.prisma.milestoneDocumentSubmissionHistory.count({
         where: {
-          decision: ReviewDecision.CHANGES_REQUESTED,
-          milestoneDocumentSubmission: {
+          event: ReviewDecision.CHANGES_REQUESTED,
+          submission: {
             milestoneDocumentId: flowIds.document,
           },
         },

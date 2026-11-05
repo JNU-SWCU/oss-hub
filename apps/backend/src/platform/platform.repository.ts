@@ -108,7 +108,7 @@ export class PlatformRepository {
   async appendSubmissionReviewEvent(
     transaction: Pick<
       Prisma.TransactionClient,
-      'milestoneDocumentSubmissionHistory' | 'milestoneDocumentReviewHistory'
+      'milestoneDocumentSubmissionHistory'
     >,
     input: SubmissionReviewEventInput,
   ) {
@@ -127,18 +127,6 @@ export class PlatformRepository {
         comment: true,
         createdAt: true,
         actor: { select: { nickname: true } },
-      },
-    });
-    await transaction.milestoneDocumentReviewHistory.create({
-      data: {
-        id: event.id,
-        milestoneDocumentSubmissionId: input.milestoneDocumentSubmissionId,
-        submissionHistoryId: input.submissionHistoryId,
-        reviewerId: input.reviewerId,
-        decision: input.decision,
-        comment: input.comment,
-        reviewedAt: input.reviewedAt,
-        resubmissionDueAt: null,
       },
     });
     return event;
