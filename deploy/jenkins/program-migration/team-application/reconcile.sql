@@ -30,7 +30,7 @@ WITH checks AS (
   UNION ALL SELECT EXISTS (
     SELECT 1 FROM "ApplicationReviewHistory" r
     LEFT JOIN "TeamHistory" h ON h."sourceTable" = 'ApplicationReviewHistory' AND h."sourceId" = r.id
-    WHERE h.id IS NULL OR h."occurredAt" <> r."occurredAt" OR h."actorId" <> r."actorId"
+    WHERE h.id IS NULL OR h."occurredAt" <> r."occurredAt" OR h."actorId" IS DISTINCT FROM r."actorId"
   )
   UNION ALL SELECT EXISTS (SELECT 1 FROM "Notification" WHERE payload ? 'applicationId')
   UNION ALL SELECT EXISTS (SELECT 1 FROM "OutboxEvent" WHERE payload ? 'applicationId' OR "aggregateType" = 'Application')
