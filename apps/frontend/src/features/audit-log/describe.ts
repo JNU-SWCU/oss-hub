@@ -11,7 +11,6 @@ import { SENTENCE_TEMPLATES } from './describe-templates';
 
 export {
   AUDIT_LOG_TARGET_TYPE_LABELS,
-  TARGETLESS_FALLBACK_TARGET_TYPES,
   describeTargetType,
   isFallbackTarget,
   type AuditLogDescription,

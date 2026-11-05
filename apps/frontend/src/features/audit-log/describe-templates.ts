@@ -215,19 +215,9 @@ export const SENTENCE_TEMPLATES: Readonly<
 
   REPOSITORY_PUBLISHED: (record) =>
     prefixedNameSentence(record, '님이 저장소 ', '을(를) 공개로 전환했습니다'),
-  REPOSITORY_CONNECTION_CHANGED: (record) =>
-    nameTargetSentence(
-      record,
-      '의 저장소 연결을 변경했습니다',
-      '의 저장소 연결을 변경했습니다',
-    ),
 
   PROGRAM_CREATED: (record) =>
     nameTargetSentence(record, '을(를) 만들었습니다', '을(를) 만들었습니다'),
-  PROGRAM_ARCHIVED: (record) =>
-    prefixedNameSentence(record, '님이 프로그램 ', '을(를) 보관했습니다'),
-  PROGRAM_RESTORED: (record) =>
-    prefixedNameSentence(record, '님이 프로그램 ', '을(를) 복구했습니다'),
   PROGRAM_DELETED: (record) =>
     nameTargetSentence(record, '을(를) 삭제했습니다', '을(를) 삭제했습니다'),
   TEAM_CREATED: (record) =>
@@ -249,14 +239,6 @@ export const SENTENCE_TEMPLATES: Readonly<
         : `의 이름을 「${record.teamPreviousName}」에서 바꿨습니다`;
     return nameTargetSentence(record, clause, clause);
   },
-  COLLECTION_SYNC_TRIGGERED: (record) => [
-    actorSegment(record),
-    text('님이 데이터 수집을 수동 실행했습니다'),
-  ],
-  SUBMISSION_FILE_CLEANUP_RETRY_RESET: (record) => [
-    actorSegment(record),
-    text('님이 제출 파일 정리 재시도를 초기화했습니다'),
-  ],
 
   APPLICATION_SUBMITTED: (record) =>
     nameTargetSentence(record, '에 신청했습니다', '에 신청했습니다'),

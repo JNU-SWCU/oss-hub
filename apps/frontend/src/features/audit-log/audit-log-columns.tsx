@@ -5,7 +5,6 @@ import {
   describeAuditLog,
   describeTargetType,
   isFallbackTarget,
-  TARGETLESS_FALLBACK_TARGET_TYPES,
 } from './describe';
 import type { AuditLogRecord } from './types';
 
@@ -49,12 +48,6 @@ function formatRelativeTime(value: string, now: Date): string {
 }
 
 function renderTargetCell(record: AuditLogRecord) {
-  const hideTarget =
-    isFallbackTarget(record) &&
-    TARGETLESS_FALLBACK_TARGET_TYPES.has(record.targetType);
-  if (hideTarget) {
-    return <span className="text-muted-foreground text-sm">—</span>;
-  }
   return (
     <div className="flex flex-col gap-0.5 text-sm">
       <span className="font-medium break-keep">{record.target}</span>
@@ -73,9 +66,6 @@ function renderContentCell(record: AuditLogRecord) {
     record.action,
     record.typeSelection,
   );
-  const hideTargetReference =
-    isFallbackTarget(record) &&
-    TARGETLESS_FALLBACK_TARGET_TYPES.has(record.targetType);
 
   return (
     <div className="flex flex-col gap-1.5 py-0.5">
@@ -87,16 +77,12 @@ function renderContentCell(record: AuditLogRecord) {
           {label}
         </StatusBadge>
         <span>{describeTargetType(record.targetType)}</span>
-        {!hideTargetReference ? (
-          <>
-            <span aria-hidden="true">·</span>
-            {!isFallbackTarget(record) ? (
-              <span className="text-xs">{record.target}</span>
-            ) : (
-              <span className="font-mono text-xs">{record.targetId}</span>
-            )}
-          </>
-        ) : null}
+        <span aria-hidden="true">·</span>
+        {!isFallbackTarget(record) ? (
+          <span className="text-xs">{record.target}</span>
+        ) : (
+          <span className="font-mono text-xs">{record.targetId}</span>
+        )}
       </p>
     </div>
   );

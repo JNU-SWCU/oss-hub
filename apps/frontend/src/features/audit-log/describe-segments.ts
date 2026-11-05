@@ -6,8 +6,6 @@ export const AUDIT_LOG_TARGET_TYPE_LABELS = {
   REPOSITORY: '저장소',
   PROGRAM: '프로그램',
   TEAM: '팀',
-  COLLECTION_SYNC: '데이터 수집',
-  SUBMISSION_FILE: '제출 파일',
   APPLICATION: '신청',
 } as const satisfies Readonly<Record<string, string>>;
 
@@ -38,10 +36,6 @@ export interface AuditLogDescription {
 export function isFallbackTarget(record: AuditLogRecord): boolean {
   return record.target === `${record.targetType} / ${record.targetId}`;
 }
-
-export const TARGETLESS_FALLBACK_TARGET_TYPES: ReadonlySet<string> = new Set([
-  'COLLECTION_SYNC',
-]);
 
 export function actorSegment(record: AuditLogRecord): AuditLogSentenceSegment {
   return { kind: 'actor', value: record.actor };

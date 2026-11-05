@@ -193,15 +193,15 @@ describe('AuditLogView', () => {
     expect(html).toContain('repository-synthetic-1');
   });
 
-  it('PROGRAM_ARCHIVED 행이 이름을 받으면 서술문과 메타 라인 모두 cuid 대신 이름을 "@" 없이 보여준다', () => {
+  it('PROGRAM_CREATED 행이 이름을 받으면 서술문과 메타 라인 모두 cuid 대신 이름을 "@" 없이 보여준다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
         records={[
           {
-            id: 'audit-program-archived',
+            id: 'audit-program-created',
             actor: 'synthetic-staff',
-            action: 'PROGRAM_ARCHIVED',
+            action: 'PROGRAM_CREATED',
             targetType: 'PROGRAM',
             targetId: 'cuid-synthetic-program-1',
             target: '합성 프로그램 이름',
@@ -219,15 +219,15 @@ describe('AuditLogView', () => {
     expect(html).not.toContain('cuid-synthetic-program-1');
   });
 
-  it('PROGRAM_ARCHIVED 행이 이름을 모르면(폴백) 메타 라인에 여전히 targetId(cuid)를 코드체로 보여준다', () => {
+  it('PROGRAM_CREATED 행이 이름을 모르면(폴백) 메타 라인에 여전히 targetId(cuid)를 코드체로 보여준다', () => {
     const html = renderToStaticMarkup(
       <AuditLogView
         {...baseProps}
         records={[
           {
-            id: 'audit-program-archived-fallback',
+            id: 'audit-program-created-fallback',
             actor: 'synthetic-staff',
-            action: 'PROGRAM_ARCHIVED',
+            action: 'PROGRAM_CREATED',
             targetType: 'PROGRAM',
             targetId: 'cuid-synthetic-program-2',
             target: 'PROGRAM / cuid-synthetic-program-2',
@@ -367,56 +367,6 @@ describe('AuditLogView', () => {
     expect(html.match(/hidden[^\"]*md:table-cell/g)).toHaveLength(6);
     expect(html).toContain('whitespace-normal');
     expect(html).toContain('님의 전화번호를 변경했습니다');
-  });
-
-  it('COLLECTION_SYNC_TRIGGERED 행은 폴백이어도 메타 라인에 runId를 보여주지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-collection-sync',
-            actor: 'synthetic-admin',
-            action: 'COLLECTION_SYNC_TRIGGERED',
-            targetType: 'COLLECTION_SYNC',
-            targetId: 'run-synthetic-1',
-
-            target: 'COLLECTION_SYNC / run-synthetic-1',
-            occurredAt: '2026-07-24T05:00:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).not.toContain('run-synthetic-1');
-
-    expect(html).toContain('데이터 수집');
-    expect(html).toContain('님이 데이터 수집을 수동 실행했습니다');
-  });
-
-  it('COLLECTION_SYNC 생략은 다른 targetType의 폴백 행으로 번지지 않는다', () => {
-    const html = renderToStaticMarkup(
-      <AuditLogView
-        {...baseProps}
-        records={[
-          {
-            id: 'audit-program-archived-fallback-2',
-            actor: 'synthetic-staff',
-            action: 'PROGRAM_ARCHIVED',
-            targetType: 'PROGRAM',
-            targetId: 'cuid-synthetic-program-3',
-            target: 'PROGRAM / cuid-synthetic-program-3',
-            occurredAt: '2026-07-24T05:01:00.000Z',
-          },
-        ]}
-        isLoading={false}
-        errorMessage={null}
-      />,
-    );
-
-    expect(html).toContain('cuid-synthetic-program-3');
   });
 
   it('알 수 없는 action도 원본 값을 담은 폴백 문장으로 숨기지 않고 보여준다', () => {

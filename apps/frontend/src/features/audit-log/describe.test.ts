@@ -99,68 +99,6 @@ describe('describeAuditLog', () => {
     );
   });
 
-  it('PROGRAM_ARCHIVED 폴백 target(이름을 모름)은 targetId를 코드체로 서술한다', () => {
-    const record: AuditLogRecord = {
-      id: 'audit-program-archived-fallback',
-      actor: 'synthetic-staff',
-      action: 'PROGRAM_ARCHIVED',
-      targetType: 'PROGRAM',
-      targetId: 'program-synthetic-1',
-      target: 'PROGRAM / program-synthetic-1',
-      occurredAt: '2026-07-24T04:30:00.000Z',
-    };
-
-    const { sentence } = describeAuditLog(record);
-    const targetSegment = sentence.find((segment) => segment.kind === 'target');
-    expect(targetSegment).toMatchObject({
-      kind: 'target',
-      value: 'program-synthetic-1',
-      variant: 'fallback',
-    });
-    expect(sentenceText(record)).toBe(
-      'synthetic-staff님이 프로그램 program-synthetic-1을(를) 보관했습니다',
-    );
-  });
-
-  it('PROGRAM_ARCHIVED가 이름 스냅샷/join으로 찾은 이름을 받으면 이름을 "@" 없이 서술한다', () => {
-    const record: AuditLogRecord = {
-      id: 'audit-program-archived-name',
-      actor: 'synthetic-staff',
-      action: 'PROGRAM_ARCHIVED',
-      targetType: 'PROGRAM',
-      targetId: 'program-synthetic-2',
-      target: '합성 프로그램 이름',
-      occurredAt: '2026-07-24T04:31:00.000Z',
-    };
-
-    const { sentence } = describeAuditLog(record);
-    const targetSegment = sentence.find((segment) => segment.kind === 'target');
-    expect(targetSegment).toMatchObject({
-      kind: 'target',
-      value: '합성 프로그램 이름',
-      variant: 'name',
-    });
-    expect(sentenceText(record)).toBe(
-      'synthetic-staff님이 프로그램 합성 프로그램 이름을(를) 보관했습니다',
-    );
-  });
-
-  it('PROGRAM_RESTORED가 이름을 받으면 이름으로 서술한다', () => {
-    const record: AuditLogRecord = {
-      id: 'audit-program-restored-name',
-      actor: 'synthetic-staff',
-      action: 'PROGRAM_RESTORED',
-      targetType: 'PROGRAM',
-      targetId: 'program-synthetic-3',
-      target: '합성 프로그램 이름',
-      occurredAt: '2026-07-24T04:32:00.000Z',
-    };
-
-    expect(sentenceText(record)).toBe(
-      'synthetic-staff님이 프로그램 합성 프로그램 이름을(를) 복구했습니다',
-    );
-  });
-
   it('PROGRAM_CREATED는 이름 하나만으로 "만들었습니다"를 쓴다', () => {
     const record: AuditLogRecord = {
       id: 'audit-program-created-name',
@@ -301,24 +239,6 @@ describe('describeAuditLog', () => {
       'synthetic-student님이 합성 프로그램 · 합성 팀에 신청했습니다',
     );
     expect(sentenceText(record)).not.toContain('님의 신청을 승인했습니다');
-  });
-
-  it('target이 없는 action(COLLECTION_SYNC_TRIGGERED)은 target 조각을 만들지 않는다', () => {
-    const record: AuditLogRecord = {
-      id: 'audit-collection-sync',
-      actor: 'synthetic-admin',
-      action: 'COLLECTION_SYNC_TRIGGERED',
-      targetType: 'COLLECTION_SYNC',
-      targetId: 'run-synthetic-1',
-      target: 'COLLECTION_SYNC / run-synthetic-1',
-      occurredAt: '2026-07-24T05:00:00.000Z',
-    };
-
-    const { sentence } = describeAuditLog(record);
-    expect(sentence.some((segment) => segment.kind === 'target')).toBe(false);
-    expect(sentenceText(record)).toBe(
-      'synthetic-admin님이 데이터 수집을 수동 실행했습니다',
-    );
   });
 
   it('APPLICATION_APPROVED 폴백 target은 존칭 없이 "신청 {id}을(를) 승인했습니다"로 서술한다', () => {
