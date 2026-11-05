@@ -468,7 +468,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
             ) : null}
             {serverError ? (
               <Alert variant="destructive">
-                <AlertTitle>저장 실패</AlertTitle>
+                <AlertTitle>처리 실패</AlertTitle>
                 <AlertDescription>{serverError}</AlertDescription>
               </Alert>
             ) : null}

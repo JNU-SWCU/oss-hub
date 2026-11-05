@@ -843,6 +843,21 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(pushMock).toHaveBeenCalledWith('/dashboard');
   });
 
+  it('신청 취소 실패를 저장 실패로 부르지 않고 이유를 함께 보여 준다', async () => {
+    loadProgramApplyContextMock.mockResolvedValue(
+      readyContext('program-withdraw', '제출된 제목', 'team-withdraw', {
+        mode: 'edit',
+      }),
+    );
+    vi.mocked(cancelMyApplication).mockRejectedValue(new Error('network'));
+    await renderPage('program-withdraw');
+    await act(async () => button('신청 취소').click());
+    await act(async () => button('신청 취소', true).click());
+    expect(container.textContent).toContain('처리 실패');
+    expect(container.textContent).not.toContain('저장 실패');
+    expect(pushMock).not.toHaveBeenCalled();
+  });
+
   it('새 신청서에 입력한 뒤 이전 identity의 context가 늦게 도착해도 현재 입력과 화면을 유지한다', async () => {
     const stale = deferredContext();
     const current = deferredContext();
