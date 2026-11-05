@@ -195,7 +195,6 @@ describe('SubmissionReviewsService integration', () => {
         },
       },
     });
-    await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.milestoneDocument.deleteMany({
@@ -214,9 +213,6 @@ describe('SubmissionReviewsService integration', () => {
     });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { startsWith: seedId('repositories') } },
-    });
-    await prisma.team.deleteMany({
-      where: { programId: REPOSITORIES_PROGRAM_ID },
     });
     await prisma.teamMember.deleteMany({
       where: { programId: REPOSITORIES_PROGRAM_ID },

@@ -257,9 +257,6 @@ async function cleanup(): Promise<void> {
   await prisma.team.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });
-  await prisma.team.deleteMany({
-    where: { programId: { startsWith: PREFIX } },
-  });
   await prisma.file.deleteMany({
     where: { kind: 'UPLOAD', uploaderId: { startsWith: PREFIX } },
   });

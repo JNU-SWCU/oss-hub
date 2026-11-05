@@ -41,7 +41,6 @@ const MILESTONE_ID = `${TEST_PREFIX}milestone`;
 const DOCUMENT_REQUIRED_ID = `${TEST_PREFIX}document:required`;
 const DOCUMENT_OPTIONAL_ID = `${TEST_PREFIX}document:optional`;
 const TEAM_ID = `${TEST_PREFIX}team`;
-const APPLICATION_ID = `${TEST_PREFIX}team`;
 const LEADER_ID = `${TEST_PREFIX}leader`;
 const MEMBER_ID = `${TEST_PREFIX}member`;
 const NOW = new Date('2026-08-18T00:00:00.000Z');
@@ -100,9 +99,8 @@ function errorCode(error: unknown): string | null {
 }
 async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { teamId: APPLICATION_ID },
+    where: { teamId: TEAM_ID },
   });
-  await prisma.team.deleteMany({ where: { id: APPLICATION_ID } });
   await prisma.milestoneDocument.deleteMany({
     where: { milestoneId: MILESTONE_ID },
   });
@@ -277,7 +275,7 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
     await prisma.milestoneDocumentSubmission.create({
       data: {
         milestoneDocumentId: DOCUMENT_REQUIRED_ID,
-        teamId: APPLICATION_ID,
+        teamId: TEAM_ID,
         submittedById: LEADER_ID,
       },
     });
