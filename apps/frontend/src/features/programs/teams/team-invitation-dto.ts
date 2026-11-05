@@ -1,14 +1,9 @@
-type TeamInvitationStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'EXPIRED';
-
 interface TeamInvitation {
-  readonly preparation?: true;
   readonly id: string;
   readonly teamId: string;
   readonly programId: string;
   readonly invitedById: string;
-  readonly status: TeamInvitationStatus;
   readonly invitedAt: string;
-  readonly respondedAt: string | null;
 }
 
 export interface ReceivedTeamInvitation extends TeamInvitation {

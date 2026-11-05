@@ -155,7 +155,6 @@ export function useSentInvitationsQuery(
   programId: string,
   teamId: string | null,
   identityKey: string | null,
-  preparation: boolean,
   refetchInterval: number | false = false,
 ) {
   const query = useQuery({
@@ -165,11 +164,10 @@ export function useSentInvitationsQuery(
       'sent',
       teamId,
       identityKey,
-      preparation,
     ),
     queryFn:
       teamId !== null && identityKey !== null
-        ? () => listSentInvitations(teamId, preparation)
+        ? () => listSentInvitations(teamId)
         : skipToken,
     refetchOnWindowFocus: refetchInterval !== false,
     refetchInterval,
@@ -185,7 +183,6 @@ export function useInvitationCandidatesQuery(
   programId: string,
   teamId: string | null,
   identityKey: string | null,
-  preparation: boolean,
   query: string,
   enabled: boolean,
 ) {
@@ -196,12 +193,11 @@ export function useInvitationCandidatesQuery(
       'search',
       teamId,
       identityKey,
-      preparation,
       query,
     ),
     queryFn:
       teamId !== null && identityKey !== null && enabled
-        ? () => searchInvitationCandidates(teamId, query, preparation)
+        ? () => searchInvitationCandidates(teamId, query)
         : skipToken,
   });
 }

@@ -515,7 +515,7 @@ describe('loadProgramApplyContext', () => {
       githubHandle: 'shared-applicant',
     });
   });
-  it('ignores retired preparation cache when no official team exists', async () => {
+  it('ignores unrelated cached team data when no team exists', async () => {
     vi.mocked(getProgramDetail).mockResolvedValue({
       ...program,
       applicationPeriod: openPeriod,
@@ -524,10 +524,9 @@ describe('loadProgramApplyContext', () => {
     vi.mocked(getMyTeam).mockResolvedValue(null);
     const queryClient = createTestQueryClient();
     queryClient.setQueryData(
-      programFeatureKey('program-1', 'teams', 'preparation'),
+      programFeatureKey('program-1', 'teams', 'unrelated'),
       {
         ...leaderTeam,
-        preparation: true,
       },
     );
 

@@ -122,7 +122,7 @@ describe('application named invitees integration', () => {
     expect(await prisma.auditLog.count()).toBe(auditCount);
   });
 
-  it('searches eligible registered students without needing a team or preparation', async () => {
+  it('searches eligible registered students without needing a team', async () => {
     await prisma.user.update({
       where: { id: member },
       data: { accountStatus: 'DEACTIVATED' },
@@ -170,12 +170,9 @@ describe('application named invitees integration', () => {
       await prisma.teamInvitation.findMany({
         where: { teamId: application.teamId },
         orderBy: { inviteeId: 'asc' },
-        select: { inviteeId: true, status: true },
+        select: { inviteeId: true },
       }),
-    ).toEqual([
-      { inviteeId: member, status: 'PENDING' },
-      { inviteeId: replacement, status: 'PENDING' },
-    ]);
+    ).toEqual([{ inviteeId: member }, { inviteeId: replacement }]);
     const pending = await prisma.teamInvitation.findMany({
       where: { teamId: application.teamId },
       select: { id: true, inviteeId: true },

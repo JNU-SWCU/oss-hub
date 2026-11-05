@@ -74,9 +74,7 @@ const invitation: SentTeamInvitation = {
   teamId,
   programId,
   invitedById: 'synthetic-user',
-  status: 'PENDING',
   invitedAt: '2026-08-15T00:00:00Z',
-  respondedAt: null,
   invitee: candidate,
 };
 
@@ -190,9 +188,6 @@ for (const width of [1440, 390]) {
         [`GET /api/v1/team-invitations/programs/${programId}/search`]: (
           route,
         ) => fulfillJson(route, [candidate]),
-        [`GET /api/v1/application-preparations/programs/${programId}/me`]: (
-          route,
-        ) => fulfillJson(route, { membership: 'NONE', preparation: null }),
         [`POST /api/v1/programs/${programId}/applications`]: async (route) => {
           expect(route.request().postDataJSON()).toMatchObject({
             teamName: team.name,

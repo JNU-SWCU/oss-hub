@@ -6,12 +6,6 @@ import type {
   AcceptedTeamInvitation,
 } from './team-invitation-dto';
 
-const teamBase = (preparation: boolean) =>
-  preparation ? 'application-preparations' : 'team-invitations/teams';
-
-const invitationBase = (preparation: boolean) =>
-  preparation ? 'application-preparations/invitations' : 'team-invitations';
-
 export function listReceivedInvitations(): Promise<
   readonly ReceivedTeamInvitation[]
 > {
@@ -22,31 +16,28 @@ export function listReceivedInvitations(): Promise<
 
 export function listSentInvitations(
   teamId: string,
-  preparation = false,
 ): Promise<readonly SentTeamInvitation[]> {
   return apiClient<readonly SentTeamInvitation[]>(
-    `${teamBase(preparation)}/${encodeURIComponent(teamId)}/sent`,
+    `team-invitations/teams/${encodeURIComponent(teamId)}/sent`,
   );
 }
 
 export function searchInvitationCandidates(
   teamId: string,
   query: string,
-  preparation = false,
 ): Promise<readonly InvitationCandidate[]> {
   const search = new URLSearchParams({ query });
   return apiClient<readonly InvitationCandidate[]>(
-    `${teamBase(preparation)}/${encodeURIComponent(teamId)}/search?${search.toString()}`,
+    `team-invitations/teams/${encodeURIComponent(teamId)}/search?${search.toString()}`,
   );
 }
 
 export function createInvitation(
   teamId: string,
   inviteeUserId: string,
-  preparation = false,
 ): Promise<SentTeamInvitation> {
   return apiClient<SentTeamInvitation>(
-    `${teamBase(preparation)}/${encodeURIComponent(teamId)}/invitations`,
+    `team-invitations/teams/${encodeURIComponent(teamId)}/invitations`,
     {
       method: 'POST',
       body: JSON.stringify({ inviteeUserId }),
@@ -54,32 +45,25 @@ export function createInvitation(
   );
 }
 
-export function cancelInvitation(
-  invitationId: string,
-  preparation = false,
-): Promise<void> {
+export function cancelInvitation(invitationId: string): Promise<void> {
   return apiClient<void>(
-    `${invitationBase(preparation)}/${encodeURIComponent(invitationId)}/cancel`,
+    `team-invitations/${encodeURIComponent(invitationId)}/cancel`,
     { method: 'POST' },
   );
 }
 
-export function declineInvitation(
-  invitationId: string,
-  preparation = false,
-): Promise<void> {
+export function declineInvitation(invitationId: string): Promise<void> {
   return apiClient<void>(
-    `${invitationBase(preparation)}/${encodeURIComponent(invitationId)}/decline`,
+    `team-invitations/${encodeURIComponent(invitationId)}/decline`,
     { method: 'POST' },
   );
 }
 
 export function acceptInvitation(
   invitationId: string,
-  preparation = false,
 ): Promise<AcceptedTeamInvitation> {
   return apiClient<AcceptedTeamInvitation>(
-    `${invitationBase(preparation)}/${encodeURIComponent(invitationId)}/accept`,
+    `team-invitations/${encodeURIComponent(invitationId)}/accept`,
     { method: 'POST' },
   );
 }

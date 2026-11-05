@@ -631,7 +631,6 @@ describe('ApplicationsService integration', () => {
       where: {
         teamId: application.teamId,
         inviteeId: 'synthetic-decision-member',
-        status: 'PENDING',
       },
     });
     expect(

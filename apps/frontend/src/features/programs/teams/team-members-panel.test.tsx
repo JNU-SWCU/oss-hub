@@ -59,9 +59,7 @@ function sentInvitation(
     teamId: 'team-1',
     programId: 'program-1',
     invitedById: 'leader-1',
-    status: 'PENDING',
     invitedAt: '2026-07-01T00:00:00Z',
-    respondedAt: null,
     invitee: {
       id: 'user-1',
       nickname: 'synthetic-one',
@@ -452,20 +450,7 @@ describe('TeamMembersPanel — 초대 대기', () => {
   it('대기 초대를 팀원과 구분해 보여 주고 인원수에 섞지 않는다', async () => {
     await render({}, 'synthetic-leader', {
       invitation: invitationManagement({
-        sentInvitations: [
-          sentInvitation(),
-          sentInvitation({
-            id: 'inv-2',
-            status: 'ACCEPTED',
-            respondedAt: '2026-07-02T00:00:00Z',
-            invitee: {
-              id: 'user-2',
-              nickname: 'synthetic-two',
-              name: null,
-              avatarUrl: null,
-            },
-          }),
-        ],
+        sentInvitations: [sentInvitation()],
       }),
     });
 

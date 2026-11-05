@@ -1,4 +1,4 @@
-import type { Prisma, TeamInvitationStatus } from '@prisma/client';
+import type { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 
 interface InvitationSnapshot {
@@ -26,15 +26,6 @@ export class TeamHistoryRepository {
       orderBy: { id: 'asc' },
     });
     for (const invitation of invitations) {
-      if (invitation.status !== 'PENDING') {
-        await this.archiveInvitation(
-          transaction,
-          invitation,
-          actorId,
-          occurredAt,
-        );
-        continue;
-      }
       await this.recordInvitationClosed(
         transaction,
         invitation,
@@ -44,53 +35,6 @@ export class TeamHistoryRepository {
         'TEAM_DELETED',
       );
     }
-  }
-
-  async archiveInvitation(
-    transaction: Pick<Prisma.TransactionClient, 'teamHistory'>,
-    invitation: InvitationSnapshot & {
-      readonly status: TeamInvitationStatus;
-      readonly respondedAt: Date | null;
-      readonly updatedAt: Date;
-    },
-    actorId: string,
-    occurredAt: Date,
-  ): Promise<void> {
-    const existing = await transaction.teamHistory.findUnique({
-      where: {
-        sourceTable_sourceId: {
-          sourceTable: 'TeamInvitation',
-          sourceId: invitation.id,
-        },
-      },
-      select: { id: true },
-    });
-    if (existing) return;
-    await transaction.teamHistory.create({
-      data: {
-        teamId: invitation.teamId,
-        programId: invitation.programId,
-        actorId,
-        event: 'INVITATION_ARCHIVED',
-        occurredAt,
-        source: 'APPLICATION',
-        sourceTable: 'TeamInvitation',
-        sourceId: invitation.id,
-        data: {
-          schemaVersion: 1,
-          reason: 'TEAM_DELETED',
-          invitation: {
-            id: invitation.id,
-            inviteeId: invitation.inviteeId,
-            invitedById: invitation.invitedById,
-            createdAt: invitation.createdAt.toISOString(),
-            status: invitation.status,
-            respondedAt: invitation.respondedAt?.toISOString() ?? null,
-            updatedAt: invitation.updatedAt.toISOString(),
-          },
-        },
-      },
-    });
   }
 
   async recordInvitationClosed(

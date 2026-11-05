@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/tooltip';
 import { ListPanel, ListRow } from '@/components/list-panel';
 import { ApiError } from '@/lib/api-client';
-import { removePreparationMember, removeMyTeamMember } from './api';
+import { removeMyTeamMember } from './api';
 import type { ProgramTeam, TeamMember } from './dto';
 import { ApplicationActionDialog } from '../applications/application-confirmation-dialog';
 import { mapTeamError } from './program-teams-flow';
@@ -129,7 +129,7 @@ function TeamMembersPanelInstance({
   const memberIds = new Set(roster.map((member) => member.userId));
 
   const pendingInvitations = (invitation?.sentInvitations ?? []).filter(
-    (item) => item.status === 'PENDING' && !memberIds.has(item.invitee.id),
+    (item) => !memberIds.has(item.invitee.id),
   );
 
   const inviteActionError = invitation?.inviteActionError ?? null;
@@ -156,7 +156,7 @@ function TeamMembersPanelInstance({
           : null;
 
   function canRemove(member: TeamMember): boolean {
-    if (mode !== 'manage' && team?.preparation !== true) return false;
+    if (mode !== 'manage') return false;
     if (team === null || !team.canRemoveMembers) return false;
     if (member.isLeader) return false;
     return member.nickname !== sessionNickname;
@@ -168,9 +168,7 @@ function TeamMembersPanelInstance({
     setBusy(true);
     setError(null);
     try {
-      if (team?.preparation)
-        await removePreparationMember(programId, member.userId);
-      else await removeMyTeamMember(programId, member.userId);
+      await removeMyTeamMember(programId, member.userId);
 
       if (!active.current) return;
       setTarget(null);

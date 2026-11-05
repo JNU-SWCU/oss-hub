@@ -1549,10 +1549,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
   });
 
-  it('신청 준비가 폐기된 상태에서 프로그램을 삭제하고 다른 프로그램과 계정을 보존한다', async () => {
+  it('프로그램을 삭제하고 다른 프로그램과 계정을 보존한다', async () => {
     await ensureGlobalActors();
-    const programId = await seedStandaloneProgram('preparation-purge');
-    const unrelatedProgramId = await seedStandaloneProgram('preparation-keep');
+    const programId = await seedStandaloneProgram('isolated-purge');
+    const unrelatedProgramId = await seedStandaloneProgram('isolated-keep');
     const unrelatedProgram = await prisma.program.findUniqueOrThrow({
       where: { id: unrelatedProgramId },
     });
@@ -1565,10 +1565,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     await expect(
       prisma.program.findUnique({ where: { id: programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
-    await expect(prisma.applicationPreparation.count()).resolves.toBe(0);
-    await expect(
-      prisma.applicationPreparationParticipant.count(),
-    ).resolves.toBe(0);
     await expect(
       prisma.program.findUnique({
         where: { id: unrelatedProgramId },
@@ -1582,50 +1578,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
       }),
     ).resolves.toBe(2);
   });
-
-  it.each(['preparation', 'participant'] as const)(
-    'race: 확인 뒤 신청 준비 데이터(%s) 재생성을 거부하고 원래 범위로 삭제한다',
-    async (addedRow) => {
-      await ensureGlobalActors();
-      const programId = await seedStandaloneProgram(
-        `preparation-${addedRow}-race`,
-      );
-      const expectedScope = await currentDeletionScopeCounts(programId);
-      if (addedRow === 'participant') {
-        await expect(
-          prisma.$executeRaw`
-            INSERT INTO "ApplicationPreparationParticipant"
-              (id, "preparationId", "programId", "userId")
-            VALUES (${`${programId}-participant`}, ${`${programId}-preparation`},
-              ${programId}, ${`${PREFIX}global:staff`})
-          `,
-        ).rejects.toThrow('ApplicationPreparationParticipant_retired');
-      } else {
-        await expect(
-          prisma.$executeRaw`
-            INSERT INTO "ApplicationPreparation" (id, "programId", "leaderId", name)
-            VALUES (${`${programId}-preparation`}, ${programId},
-              ${`${PREFIX}global:student`}, 'Late preparation')
-          `,
-        ).rejects.toThrow('ApplicationPreparation_retired');
-      }
-
-      await expect(
-        lifecycle.purge(ADMIN_GITHUB_ID, programId, expectedScope),
-      ).resolves.toMatchObject({ id: programId, deleted: true });
-      await expect(
-        prisma.program.findUnique({ where: { id: programId } }),
-      ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
-      await expect(
-        prisma.applicationPreparation.count({ where: { programId } }),
-      ).resolves.toBe(0);
-      await expect(
-        prisma.applicationPreparationParticipant.count({
-          where: { programId },
-        }),
-      ).resolves.toBe(0);
-    },
-  );
 
   it('이미 삭제 완료된 SubmissionFile은 상태와 원래 FK를 그대로 보존한다', async () => {
     const fixture = await seedFullChildGraph('deleted-submission-file');

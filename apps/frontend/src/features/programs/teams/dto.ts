@@ -14,7 +14,6 @@ export interface TeamMember {
 }
 
 export interface ProgramTeam {
-  readonly preparation?: true;
   readonly id: string;
   readonly name: string;
   readonly memberCount: number;
@@ -26,12 +25,6 @@ export interface ProgramTeam {
   readonly canLeave: boolean;
   readonly isLeader: boolean;
   readonly members: readonly TeamMember[];
-}
-
-export interface CreatedTeam {
-  readonly id: string;
-  readonly name: string;
-  readonly memberCount: number;
 }
 
 export interface StaffProgramTeamMember {

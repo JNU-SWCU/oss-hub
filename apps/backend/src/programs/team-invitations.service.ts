@@ -142,8 +142,6 @@ export class TeamInvitationsService {
         throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
       case 'not-team-leader':
         throw this.error(TeamInvitationErrorCode.NOT_TEAM_LEADER);
-      case 'not-pending':
-        throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
       case 'ok':
         return;
     }
@@ -158,8 +156,6 @@ export class TeamInvitationsService {
     switch (outcome.kind) {
       case 'not-found':
         throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
-      case 'not-pending':
-        throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
       case 'ok':
         return;
     }
@@ -196,8 +192,6 @@ export class TeamInvitationsService {
         throw this.error(TeamInvitationErrorCode.INVITATION_NOT_FOUND);
       case 'forbidden':
         throw this.error(TeamInvitationErrorCode.NOT_INVITEE);
-      case 'not-pending':
-        throw this.error(TeamInvitationErrorCode.INVITATION_NOT_PENDING);
       case 'already-in-team':
         throw this.error(TeamInvitationErrorCode.INVITEE_ALREADY_IN_TEAM);
       case 'team-full':

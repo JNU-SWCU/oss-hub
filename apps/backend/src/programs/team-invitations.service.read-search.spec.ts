@@ -1,4 +1,4 @@
-import { AccountStatus, TeamInvitationStatus } from '@prisma/client';
+import { AccountStatus } from '@prisma/client';
 import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
 import {
   buildService,
@@ -29,9 +29,7 @@ describe('TeamInvitationsService.listReceived', () => {
         programId: syntheticProgramId,
         inviteeId: syntheticUserId,
         invitedById: syntheticLeaderId,
-        status: TeamInvitationStatus.PENDING,
         invitedAt: new Date('2026-08-01T00:00:00.000Z'),
-        respondedAt: null,
       },
     ];
     const { service, repository } = buildService({

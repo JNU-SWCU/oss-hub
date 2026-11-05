@@ -1,5 +1,4 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { TeamInvitationStatus } from '@prisma/client';
 import { OriginGuard } from '../platform/origin.guard';
 import { CreateTeamInvitationRequestDto } from './dto/create-team-invitation-request.dto';
 import { SearchInvitationCandidatesRequestDto } from './dto/search-invitation-candidates-request.dto';
@@ -13,9 +12,7 @@ const receivedRecord = {
   programId: 'cuid-program',
   inviteeId: 'cuid-invitee',
   invitedById: 'cuid-leader',
-  status: TeamInvitationStatus.PENDING,
   invitedAt: new Date('2026-08-01T00:00:00.000Z'),
-  respondedAt: null,
   teamName: '합성 팀',
   programName: '합성 프로그램',
   invitedByDisplayName: '합성 팀장',
@@ -29,9 +26,7 @@ const sentRecord = {
   programId: 'cuid-program',
   inviteeId: 'cuid-invitee',
   invitedById: 'cuid-leader',
-  status: TeamInvitationStatus.PENDING,
   invitedAt: new Date('2026-08-01T00:00:00.000Z'),
-  respondedAt: null,
   invitee: {
     id: 'cuid-invitee',
     nickname: 'synthetic-invitee',
@@ -120,9 +115,7 @@ describe('TeamInvitationsController', () => {
         teamId: 'cuid-team',
         programId: 'cuid-program',
         invitedById: 'cuid-leader',
-        status: TeamInvitationStatus.PENDING,
         invitedAt: '2026-08-01T00:00:00.000Z',
-        respondedAt: null,
         teamName: '합성 팀',
         programName: '합성 프로그램',
         invitedByDisplayName: '합성 팀장',
@@ -152,9 +145,7 @@ describe('TeamInvitationsController', () => {
         teamId: 'cuid-team',
         programId: 'cuid-program',
         invitedById: 'cuid-leader',
-        status: TeamInvitationStatus.PENDING,
         invitedAt: '2026-08-01T00:00:00.000Z',
-        respondedAt: null,
         invitee: {
           id: 'cuid-invitee',
           nickname: 'synthetic-invitee',
@@ -191,9 +182,7 @@ describe('TeamInvitationsController', () => {
       programId: 'cuid-program',
       inviteeId: 'cuid-invitee',
       invitedById: 'cuid-leader',
-      status: TeamInvitationStatus.PENDING,
       invitedAt: new Date('2026-08-01T00:00:00.000Z'),
-      respondedAt: null,
       invitee: {
         id: 'cuid-invitee',
         nickname: 'synthetic-invitee',
@@ -228,9 +217,7 @@ describe('TeamInvitationsController', () => {
       teamId: 'cuid-team',
       programId: 'cuid-program',
       invitedById: 'cuid-leader',
-      status: TeamInvitationStatus.PENDING,
       invitedAt: '2026-08-01T00:00:00.000Z',
-      respondedAt: null,
       invitee: {
         id: 'cuid-invitee',
         nickname: 'synthetic-invitee',

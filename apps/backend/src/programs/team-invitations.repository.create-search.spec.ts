@@ -1,6 +1,6 @@
 import { TeamHistoryRepository } from './team-history.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { Prisma, TeamInvitationStatus } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 
@@ -16,9 +16,7 @@ const SENT_TEAM_INVITATION_SELECT = {
   programId: true,
   inviteeId: true,
   invitedById: true,
-  status: true,
   createdAt: true,
-  respondedAt: true,
   invitee: {
     select: {
       id: true,
@@ -27,7 +25,7 @@ const SENT_TEAM_INVITATION_SELECT = {
       avatarUrl: true,
     },
   },
-} as const;
+} satisfies Prisma.TeamInvitationSelect;
 
 const selectedInvitationRow = {
   id: 'cuid-invitation',
@@ -35,9 +33,7 @@ const selectedInvitationRow = {
   programId: syntheticProgramId,
   inviteeId: syntheticInviteeId,
   invitedById: syntheticLeaderId,
-  status: TeamInvitationStatus.PENDING,
   createdAt: invitedAt,
-  respondedAt: null,
   invitee: {
     id: syntheticInviteeId,
     nickname: 'synthetic-invitee',
@@ -116,7 +112,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
     const result = await repository.findByTeamId(syntheticTeamId);
 
     expect(findMany).toHaveBeenCalledWith({
-      where: { teamId: syntheticTeamId, status: TeamInvitationStatus.PENDING },
+      where: { teamId: syntheticTeamId },
       orderBy: { createdAt: 'desc' },
       select: SENT_TEAM_INVITATION_SELECT,
     });
@@ -127,9 +123,7 @@ describe('TeamInvitationsRepository.findByTeamId', () => {
         programId: syntheticProgramId,
         inviteeId: syntheticInviteeId,
         invitedById: syntheticLeaderId,
-        status: TeamInvitationStatus.PENDING,
         invitedAt,
-        respondedAt: null,
         invitee: projectedInvitee,
       },
     ]);

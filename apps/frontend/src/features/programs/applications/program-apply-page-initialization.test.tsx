@@ -8,11 +8,7 @@ import {
   type ProgramApplyContext,
 } from './load-program-apply-context';
 import { createApplication } from './api';
-import {
-  createApplicationPreparation,
-  leaveApplicationPreparation,
-  removeMyTeamMember,
-} from '../teams/api';
+import { removeMyTeamMember } from '../teams/api';
 import { ProgramApplyPage } from './program-apply-page';
 import {
   cancelMyApplication,
@@ -49,15 +45,11 @@ vi.mock('./load-program-apply-context', () => ({
 
 vi.mock('./api', () => ({
   createApplication: vi.fn(),
-  createApplicationPreparation: vi.fn(),
-  leaveApplicationPreparation: vi.fn(),
 
   removeMyTeamMember: vi.fn(),
 }));
 vi.mock('../teams/api', () => ({
   createApplication: vi.fn(),
-  createApplicationPreparation: vi.fn(),
-  leaveApplicationPreparation: vi.fn(),
 
   removeMyTeamMember: vi.fn(),
 }));
@@ -79,9 +71,6 @@ vi.mock('../teams/team-invitation-api', () => ({
 }));
 
 const loadProgramApplyContextMock = vi.mocked(loadProgramApplyContext);
-const createApplicationPreparationMock = vi.mocked(
-  createApplicationPreparation,
-);
 const createApplicationMock = vi.mocked(createApplication);
 const updateMyApplicationMock = vi.mocked(updateMyApplication);
 const createInvitationMock = vi.mocked(createInvitation);
@@ -106,7 +95,6 @@ function readyContext(
   teamId: string | null = null,
   extras: {
     readonly mode?: 'create' | 'edit';
-    readonly preparation?: true;
     readonly memberCount?: number;
     readonly members?: Roster;
     readonly isLeader?: boolean;
@@ -164,7 +152,6 @@ function readyContext(
       teamId === null
         ? null
         : {
-            ...(extras.preparation ? { preparation: true } : {}),
             id: teamId,
             name: '합성 팀',
             memberCount: extras.memberCount ?? members.length,
@@ -226,7 +213,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
   let root: Root;
 
   beforeEach(() => {
-    createApplicationPreparationMock.mockReset();
     pushMock.mockReset();
     refreshMock.mockReset();
     createApplicationMock.mockReset();
@@ -391,7 +377,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.querySelector('#personal-data-consent')).not.toBeNull();
     expect(button('신청 제출')).toBeTruthy();
 
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
     expect(listSentInvitationsMock).not.toHaveBeenCalled();
     expect(inviteSearchInput()).toBeNull();
@@ -409,7 +394,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     await enterText('#apply-team-name', '합성 팀');
     expect(container.querySelector('[aria-label="팀원 초대"]')).toBeNull();
     expect(button('신청 제출').disabled).toBe(false);
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(createInvitationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
   });
@@ -461,7 +445,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       await Promise.resolve();
     });
 
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(inviteSearchInput()).toBeNull();
     expect(container.textContent).toContain('팀 이름을 입력해 주세요.');
     expect(document.activeElement).toBe(teamName);
@@ -523,8 +506,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       await Promise.resolve();
     });
     await settleUntil(() => inviteSearchInput() !== null, '초대 레이어 열림');
-
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
   });
 
   it('지원 실패는 입력한 이름과 화면을 그대로 두고 이유를 남긴다', async () => {
@@ -547,7 +528,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(
       container.querySelector<HTMLInputElement>('#apply-team-name')?.value,
     ).toBe('실패할 팀');
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(button('신청 제출').disabled).toBe(false);
   });
 
@@ -610,7 +590,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
 
     expect(container.querySelector('[role="alertdialog"]')).toBeNull();
     expect(container.textContent).toContain('팀 이름을 입력해 주세요.');
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
     expect(document.activeElement).toBe(teamName);
     expect(scroll).toHaveBeenCalledWith({ block: 'center' });
@@ -620,11 +599,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     loadProgramApplyContextMock
       .mockResolvedValueOnce(readyContext('program-alone', ''))
       .mockResolvedValue(readyContext('program-alone', '', 'team-alone'));
-    createApplicationPreparationMock.mockResolvedValue({
-      id: 'team-alone',
-      name: '나 혼자 팀',
-      memberCount: 1,
-    });
     createApplicationMock.mockResolvedValue({
       id: 'app-alone',
       programId: 'program-alone',
@@ -641,7 +615,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       button('신청 제출').click();
       await Promise.resolve();
     });
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
 
     await act(async () => {
       button('신청서 제출', true).click();
@@ -652,7 +625,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       '제출 성공 화면',
     );
 
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).toHaveBeenCalledWith(
       'program-alone',
       expect.objectContaining({ teamName: '나 혼자 팀' }),
@@ -700,7 +672,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       () => container.textContent?.includes('신청이 접수되었습니다') === true,
       '지연 제출 성공 화면',
     );
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).toHaveBeenCalledWith(
       'program-delayed',
       expect.objectContaining({ teamName: '지연 팀' }),
@@ -712,11 +683,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     loadProgramApplyContextMock
       .mockResolvedValueOnce(readyContext('program-retry', ''))
       .mockResolvedValue(readyContext('program-retry', '', 'team-retry'));
-    createApplicationPreparationMock.mockResolvedValue({
-      id: 'team-retry',
-      name: '재시도 팀',
-      memberCount: 1,
-    });
     createApplicationMock
       .mockRejectedValueOnce(new Error('network'))
       .mockResolvedValue({
@@ -750,7 +716,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       '제출 실패 안내',
     );
 
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(
       container.querySelector<HTMLInputElement>('#apply-team-name')?.value,
     ).toBe('재시도 팀');
@@ -778,7 +743,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
       '재시도 성공 화면',
     );
 
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).toHaveBeenCalledTimes(2);
   });
 
@@ -813,7 +777,6 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(
       container.querySelector('button[aria-label="팀원 초대"]'),
     ).toBeNull();
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     expect(createApplicationMock).not.toHaveBeenCalled();
     expect(listSentInvitationsMock).not.toHaveBeenCalled();
   });
@@ -1266,43 +1229,10 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     );
 
     expect(createApplicationMock).toHaveBeenCalledOnce();
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
     const myTeamLink = container.querySelector<HTMLAnchorElement>(
       'a[href="/programs/program-done/team"]',
     );
     expect(myTeamLink?.textContent).toContain('우리 팀 보기');
     expect(pushMock).not.toHaveBeenCalled();
-  });
-  it('기존 준비를 삭제한 뒤에는 준비팀을 다시 만들지 않고 지원한다', async () => {
-    loadProgramApplyContextMock
-      .mockResolvedValueOnce(
-        readyContext('program-draft', '', 'draft-1', { preparation: true }),
-      )
-      .mockResolvedValue(readyContext('program-draft', ''));
-    vi.mocked(leaveApplicationPreparation).mockResolvedValue(undefined);
-
-    await renderPage('program-draft');
-    await act(async () => {
-      button('신청 준비 삭제').click();
-      await Promise.resolve();
-    });
-    await settleUntil(
-      () =>
-        container.querySelector<HTMLInputElement>('#apply-team-name')
-          ?.disabled === false,
-      'new preparation form',
-    );
-    await enterText('#apply-team-name', '다시 준비');
-    await checkConsent();
-    await act(async () => {
-      button('신청 제출').click();
-      await Promise.resolve();
-    });
-
-    expect(leaveApplicationPreparation).toHaveBeenCalledWith('program-draft');
-    expect(document.querySelector('[role="alertdialog"]')).not.toBeNull();
-    expect(container.querySelector('[aria-label="팀원 초대"]')).toBeNull();
-    expect(createApplicationPreparationMock).not.toHaveBeenCalled();
-    expect(createApplicationMock).not.toHaveBeenCalled();
   });
 });

@@ -56,8 +56,6 @@ export function mapInvitationError(problem: ProblemDetail): string {
       return '팀 최대 인원을 초과할 수 없습니다.';
     case 'TIV_010':
       return '초대를 찾을 수 없습니다. 초대 목록을 다시 확인해 주세요.';
-    case 'TIV_011':
-      return '이미 처리된 초대입니다. 초대 목록을 다시 확인해 주세요.';
     case 'TIV_012':
       return '본인이 받은 초대만 응답할 수 있습니다.';
     default:

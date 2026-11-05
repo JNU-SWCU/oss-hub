@@ -31,9 +31,7 @@ function sentInvitation(
     teamId: 'team-1',
     programId: 'program-1',
     invitedById: 'leader-1',
-    status: 'PENDING',
     invitedAt: '2026-07-01T00:00:00Z',
-    respondedAt: null,
     invitee: candidates[0],
     ...overrides,
   };
@@ -271,16 +269,11 @@ describe('TeamInvitePanel — 중복 초대', () => {
     expect(options[1]?.querySelector('button')?.disabled).toBe(false);
   });
 
-  it('수락·거절된 초대는 다시 초대할 수 있다 — 대기만 조작을 거둔다', async () => {
+  it('대기 초대가 없으면 다시 초대할 수 있다', async () => {
     await render({
       inviteQuery: 'oc',
       inviteCandidates: candidates,
-      sentInvitations: [
-        sentInvitation({
-          status: 'DECLINED',
-          respondedAt: '2026-07-02T00:00:00Z',
-        }),
-      ],
+      sentInvitations: [],
     });
     const options = Array.from(
       document.querySelectorAll<HTMLElement>('[role="option"]'),

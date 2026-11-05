@@ -11,7 +11,6 @@ export enum TeamInvitationErrorCode {
   ALREADY_INVITED = 'TIV_008',
   TEAM_FULL = 'TIV_009',
   INVITATION_NOT_FOUND = 'TIV_010',
-  INVITATION_NOT_PENDING = 'TIV_011',
   NOT_INVITEE = 'TIV_012',
   INVITEE_NOT_ELIGIBLE = 'TIV_013',
 }
@@ -69,11 +68,6 @@ export const TEAM_INVITATION_ERROR_CODES: Record<
     code: TeamInvitationErrorCode.INVITATION_NOT_FOUND,
     status: 404,
     message: '초대를 찾을 수 없습니다.',
-  },
-  [TeamInvitationErrorCode.INVITATION_NOT_PENDING]: {
-    code: TeamInvitationErrorCode.INVITATION_NOT_PENDING,
-    status: 409,
-    message: '이미 처리된 초대입니다.',
   },
   [TeamInvitationErrorCode.NOT_INVITEE]: {
     code: TeamInvitationErrorCode.NOT_INVITEE,
