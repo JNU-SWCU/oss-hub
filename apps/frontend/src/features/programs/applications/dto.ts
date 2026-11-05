@@ -129,7 +129,7 @@ export type ReviewHistoryEventKind =
 export interface ReviewHistoryEntry {
   readonly id: string;
   readonly eventKind: ReviewHistoryEventKind;
-  readonly revision: number;
+  readonly revision: number | null;
   readonly actor: {
     readonly name: string | null;
     readonly nickname: string;
