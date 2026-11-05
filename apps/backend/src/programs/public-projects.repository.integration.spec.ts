@@ -258,7 +258,6 @@ describe('PublicProjectsRepository integration', () => {
       }
 
       const contractApplicantId = `${PREFIX}-contract-applicant`;
-      const contractApplicationId = `${PREFIX}-contract-team`;
 
       const contractRepositoryId = `seed:public-projects-contract:jnu-repo:repository`;
       const contractGithubRepositoryId = 8_800_000_000_001n;
@@ -306,7 +305,7 @@ describe('PublicProjectsRepository integration', () => {
       await prisma.githubRepository.create({
         data: {
           id: contractRepositoryId,
-          teamId: contractApplicationId,
+          teamId: contractTeamId,
           githubRepositoryId: contractGithubRepositoryId,
           nameWithOwner: contractNameWithOwner,
           source: RepositorySource.ORG_PROVISIONED,
@@ -326,9 +325,6 @@ describe('PublicProjectsRepository integration', () => {
       } finally {
         await prisma.githubRepository.delete({
           where: { id: contractRepositoryId },
-        });
-        await prisma.team.delete({
-          where: { id: contractApplicationId },
         });
         await prisma.teamMember.delete({
           where: {

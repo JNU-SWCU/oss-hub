@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { PrismaService } from '../src/platform/prisma.service';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
@@ -127,6 +129,40 @@ describe('application data cutover', () => {
         applicationTemplateVersion: 2,
       },
     ]);
+  });
+
+  it('flags a review history whose actor differs from its source, including NULL against non-NULL', async () => {
+    const reconcile = readFileSync(
+      join(
+        __dirname,
+        '../../../deploy/jenkins/program-migration/team-application/reconcile.sql',
+      ),
+      'utf8',
+    );
+    const mismatches = () =>
+      withinTeamMergeFixture(prisma, async (tx) => {
+        const rows = await tx.$queryRawUnsafe<{ count: bigint }[]>(reconcile);
+        return Number(rows[0]?.count);
+      });
+    const setReviewActor = (actorId: string | null) =>
+      withinTeamMergeFixture(
+        prisma,
+        (tx) => tx.$executeRaw`
+      UPDATE "TeamHistory" SET "actorId" = ${actorId}
+      WHERE id = (
+        SELECT id FROM "TeamHistory"
+        WHERE "sourceTable" = 'ApplicationReviewHistory' ORDER BY id LIMIT 1
+      )
+    `,
+      );
+    await applyTeamMergeFixture(prisma);
+    await expect(mismatches()).resolves.toBe(0);
+
+    await setReviewActor(null);
+    await expect(mismatches()).resolves.toBe(1);
+
+    await setReviewActor('user-other-actor');
+    await expect(mismatches()).resolves.toBe(1);
   });
 
   it('rejects nine candidate pairs that are not one-to-one and rolls back the migration', async () => {

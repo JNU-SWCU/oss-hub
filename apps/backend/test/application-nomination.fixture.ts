@@ -85,7 +85,6 @@ export {
   replacement,
   extra,
   staff,
-  audit,
   service,
   invitations,
   invitationService,

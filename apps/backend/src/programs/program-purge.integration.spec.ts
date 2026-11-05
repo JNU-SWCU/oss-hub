@@ -242,9 +242,6 @@ async function cleanup(): Promise<void> {
   await prisma.team.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });
-  await prisma.team.deleteMany({
-    where: { programId: { startsWith: PREFIX } },
-  });
   await prisma.programAuthoringUpload.deleteMany({
     where: { actorId: { startsWith: PREFIX } },
   });
@@ -332,7 +329,6 @@ async function seedFullChildGraph(
   const leaderId = p('leader');
   const staffId = p('staff-reviewer');
   const teamId = p('team');
-  const publishedApplicationId = p('published-application');
   const documentId = p('document');
   const documentSubmissionId = p('document-submission');
   const documentSubmissionHistoryId = p('document-submission-history');
@@ -632,7 +628,7 @@ async function seedFullChildGraph(
   await prisma.githubRepository.create({
     data: {
       id: publishedRepositoryId,
-      teamId: publishedApplicationId,
+      teamId: p('published-team'),
       githubRepositoryId: publishedGithubRepositoryId,
       nameWithOwner: `purge7-org/${label}-published`,
       source: RepositorySource.ORG_PROVISIONED,
@@ -1362,7 +1358,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(provisionedRepositories).toHaveLength(1);
     expect(provisionedRepositories[0]).toMatchObject({
-      programId: fixture.programId,
       teamId: fixture.teamId,
       source: RepositorySource.ORG_PROVISIONED,
     });
@@ -1671,7 +1666,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },
     });
-    expect(externalRepository?.teamId).toBe(fixture.teamId);
+    expect(externalRepository?.teamId).toBeNull();
   });
   it('전체 삭제는 프로그램 상태만 DELETED로 바꾼다', async () => {
     const fixture = await seedFullChildGraph('unprotected');
@@ -1957,9 +1952,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       const expectedAfter = { ...before };
       if (scopeField === 'boardPosts') {
         expectedAfter.boardPosts = before.boardPosts + 1;
-      } else if (scopeField === 'teams') {
-        expectedAfter.teams = before.teams + 1;
-      } else if (scopeField === 'applications') {
+      } else if (scopeField === 'teams' || scopeField === 'applications') {
         expectedAfter.applications = before.applications + 1;
         expectedAfter.teams = before.teams + 1;
       } else {

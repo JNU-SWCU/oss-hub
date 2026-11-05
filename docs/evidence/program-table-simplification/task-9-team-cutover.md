@@ -21,12 +21,14 @@ Todo 10의 중복 방지 기준:
 
 운영 DB에는 읽기 전용 집계와 pg_dump만 실행했다. 덤프와 복원 데이터는 같은 서버 안에 남았고 외부로 전송하지 않았다. 운영 이미지의 PostgreSQL을 재사용한 임시 컨테이너는 network none, 공개 포트 0, CPU 0.5, 메모리 및 swap 한도 각각 512MiB, nice 19, 데이터 디렉터리 tmpfs, 자동 삭제 설정이었다. rehearsal label과 익명 볼륨 0개도 검사했다.
 
-최종 실행 직전 여유 디스크 8,033,440 KiB, 가용 메모리 11,013,268 KiB였다. 덤프 3,595,623 bytes, 권한 0600이었다. 격리 복원본에서 공식 `rehearse.sh`로 백업, 이관, 대조, 백업 복원을 실행했다. 최종 EXIT는 0이다.
+최종 실행 직전 여유 디스크 58,956,264 KiB, 가용 메모리 11,396,156 KiB였다. 덤프 3,588,211 bytes, 권한 0600이었다. 격리 복원본에서 공식 `rehearse.sh`로 백업, 이관, 대조, 백업 복원을 실행했다. 최종 EXIT는 0이다.
 
-| SQL                                            | SHA-256                                                          |
-| ---------------------------------------------- | ---------------------------------------------------------------- |
-| 20261105100000_prepare_team_application_events | a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7 |
-| 20261105100100_merge_applications_into_teams   | 21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1 |
+| SQL | SHA-256 | 상태 |
+| --- | --- | --- |
+| 20261105100000_prepare_team_application_events | a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7 | 리허설한 SQL과 현재 SQL이 같다 |
+| 20261105100100_merge_applications_into_teams | 3354049b5a54f08389ab1006d705adc2250932c0290fd4331822f2becfd95fc7 | 리허설한 SQL과 현재 SQL이 같다 |
+| team-application/preflight.sql | 0f717a8f3312a6a547bb774ec8089b62760b71cbd55cc59c3d0f76f660f4f852 | 리허설한 SQL과 현재 SQL이 같다 |
+| team-application/reconcile.sql | d6c6485c249a19363bc7fee664c775e44ca868b0e0cd7fd82cdfd590772b86c2 | 리허설한 SQL과 현재 SQL이 같다 |
 
 | 테이블                               | 원본 행 | 복사·재지정                           | 삭제 | 백업 복원 행 |
 | ------------------------------------ | ------: | ------------------------------------- | ---: | -----------: |
@@ -59,7 +61,7 @@ Todo 10의 중복 방지 기준:
 - 새 저장 계약 red: 1 suite, 1 test 실패, EXIT 1. 기존 Team에 지원 필드가 없어서 실패했다.
 - 최초 빈 DB green: 1 suite, 1 test, EXIT 0.
 - 최종 이관 통합 테스트: 1 suite, 6 tests, EXIT 0. 73개 사건 보존, 원래 심사 시각, teamId 참조, 1:1 위반·1초 초과·소유권 불일치·삭제 건수 변경의 중단을 검사했다.
-- 나머지 백엔드 행동·타입·lint·format·file-ledger·성능 및 프론트 검증은 진행 중이다.
+- 커밋 84b295d04 전체 실행: backend 통합 154 suites·1220 tests, backend 단위 382 suites·6119 tests, frontend 440 files·4739 tests, 모두 실패 0. 그 뒤 커밋은 성능 문서 삭제와 이 문서의 정리뿐이다.
 
 ## 준비 오류 정리
 
@@ -77,14 +79,23 @@ Todo 10의 중복 방지 기준:
 
 ## 소유자 최종 성능 결정
 
-2026-11-05 소유자는 마이그레이션을 먼저 하고 성능은 이후 확인하기로 결정했다. 성능은 merge 조건이 아니다. 추가 지연 측정·분석·성능 수정은 중단했다. 기존 p50과 SQL 개수, ABBAAB의 모든 표본은 당시의 참고 기록으로 보존하며 마이그레이션 후 다시 측정한다. 불리한 수치를 지우거나 유리한 실행만 선택하지 않는다.
+2026-11-05 소유자는 마이그레이션을 먼저 하고 성능은 이후 확인하기로 결정했다. 성능은 merge 조건이 아니다. 추가 지연 측정·분석·성능 수정은 중단했다. 마이그레이션 완료 후 주요 조회 4개를 한 번 측정해 `program-read-baseline.json`과 비교 보고한다. 마이그레이션 전 참고 측정의 원본 JSON과 p50 표는 이 PR에 두지 않으며 커밋 84b295d04에 그대로 남아 있다.
 
-| 경로         | main p50 ms | A p50 ms | 절대 차이 ms |    변화 | SQL main→A |
-| ------------ | ----------: | -------: | -----------: | ------: | ---------: |
-| overview     |       2.388 |    3.468 |       +1.080 | +45.23% |        3→3 |
-| matrix       |      14.883 |   15.309 |       +0.426 |  +2.86% |      13→12 |
-| collection   |      17.451 |   31.297 |      +13.846 | +79.34% |      18→17 |
-| staff detail |      16.553 |   17.461 |       +0.908 |  +5.49% |      16→14 |
+## 최신 운영 스키마 clone 리허설
 
-최신 운영 스키마의 clone 리허설은 커밋 34dd768441adb379fcfff927399461866ee2dceb에서 EXIT 0이다. 선행 migration은 20261105050000_retire_submission_axis이며 14개 원본 행 수의 backup 복구가 일치했다. Team 40→33, TeamMember 72→65, TeamHistory 25→105이고 지원 사건 73개와 빈 팀 삭제 7개를 보존한다. 볼륨 inventory 1→1, 추가·삭제 0, hash 동일; 임시 컨테이너·덤프 0. 공개 영수증은 task-9-team-rehearsal.txt다.
+최신 운영 스키마의 clone 리허설은 커밋 cb804043dd9a098333538da9c0baa9cb55cff017에서 EXIT 0이다. 선행 migration은 20261105050000_retire_submission_axis이며 14개 원본 행 수의 backup 복구가 일치했다. Team 40→33, TeamMember 72→65, TeamHistory 25→105이고 지원 사건 73개와 빈 팀 삭제 7개를 보존한다. 볼륨 inventory 1→1, 추가·삭제 0, hash 동일; 임시 컨테이너·덤프 0. 공개 영수증은 task-9-team-rehearsal.txt다.
+
+이 영수증은 현재 SQL을 증명한다. 이전 영수증의 커밋 34dd768441adb379fcfff927399461866ee2dceb 뒤에 커밋 afc154e1d가 merge migration과 preflight.sql을, 커밋 01699fb6e가 reconcile.sql을 바꿨고, 위 표의 해시가 이번에 리허설한 SQL이다.
+
+같은 커밋의 복제본에서 중단 경로 13개도 실행했다. 영수증의 ABORT_OK와 ROLLBACK_OK 줄이 그 결과이며 예상 밖 결과는 0건이다.
+
+| 경로 | 시나리오 | 결과 |
+| --- | --- | --- |
+| 격리 | 라벨 없는 컨테이너 | 어떤 단계도 시작하지 않고 거부 |
+| preflight | 행 수 불일치, 미완료 원장 행 | 백업과 적용 전에 중단 |
+| merge migration | 레포 소유 불일치, outbox 불일치, 빈 팀 의존 행 | 적용에서 중단, 대조에 닿지 않음 |
+| reconcile | actor NULL, 팀 필드 변경, 이력 유실 | 대조에서 중단 |
+| 원자성 | preflight 없이 직접 적용한 기준선·레포·outbox·빈 팀 불일치 4건 | 전후 행 수가 같고 새 컬럼과 백업 스키마가 없다 |
+
+이 리허설은 psql로 적용했고 `prisma migrate deploy`를 실행하지 않았다. 실패한 migration이 Prisma 원장에 남기는 행과 Jenkins 원장 가드의 반응은 코드로만 읽었다.
 

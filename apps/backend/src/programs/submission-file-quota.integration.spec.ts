@@ -20,7 +20,7 @@ const repository = new SubmissionFilesRepository(
   prisma,
   new PlatformRepository(),
 );
-const APPLICATION_ID = seedId('milestones', 'application', 'personal');
+const TEAM_ID = seedId('milestones', 'application-personal', 'team');
 const UPLOADER_ID = seedId('milestones', 'user', 'applicant-personal');
 const MILESTONE_ID = MILESTONE_SCENARIOS['milestones-upcoming'][0];
 const PREFIX = 'integration/submission-file-quota';
@@ -30,7 +30,7 @@ const FILE_BYTES_LIMIT = 5 * 1024 * 1024;
 function pendingRow(suffix: string, sizeBytes: number) {
   return {
     uploaderId: UPLOADER_ID,
-    teamId: APPLICATION_ID,
+    teamId: TEAM_ID,
     milestoneId: MILESTONE_ID,
     storageKey: `${PREFIX}/${suffix}`,
     originalFileName: `${suffix}.pdf`,

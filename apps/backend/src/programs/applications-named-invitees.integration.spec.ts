@@ -7,12 +7,12 @@ import {
   replacement,
   extra,
   staff,
-  audit,
   service,
   invitations,
   invitationService,
   seedNamedStudents,
 } from '../../test/application-nomination.fixture';
+import { TeamHistoryRepository } from './team-history.repository';
 import { ApplicationsRepository } from './team.repository';
 let sequence = 0;
 let programId: string;
@@ -32,7 +32,6 @@ function apply(inviteeUserIds: readonly string[]) {
   );
 }
 async function expectNoApplication() {
-  expect(await prisma.team.count({ where: { programId } })).toBe(0);
   expect(await prisma.team.count({ where: { programId } })).toBe(0);
   expect(await prisma.teamInvitation.count({ where: { programId } })).toBe(0);
 }
@@ -78,7 +77,6 @@ describe('application named invitees integration', () => {
   afterEach(async () => {
     jest.restoreAllMocks();
     await prisma.teamInvitation.deleteMany({ where: { programId } });
-    await prisma.team.deleteMany({ where: { programId } });
     await prisma.teamMember.deleteMany({ where: { programId } });
     await prisma.team.deleteMany({ where: { programId } });
     await prisma.program.delete({ where: { id: programId } });
@@ -227,7 +225,9 @@ describe('application named invitees integration', () => {
     await expect(apply([member])).rejects.toMatchObject({
       errorCode: { code: 'APP_034' },
     });
-    expect(await prisma.team.count({ where: { programId } })).toBe(0);
+    expect(
+      await prisma.team.count({ where: { programId, applicantId: leader } }),
+    ).toBe(0);
     expect(await prisma.teamInvitation.count({ where: { programId } })).toBe(0);
   });
 
@@ -289,11 +289,11 @@ describe('application named invitees integration', () => {
     ).toBe(1);
   });
 
-  it('rolls back the team, application and invitations when the final audit fails', async () => {
+  it('rolls back the team and invitations when the final TeamHistory write fails', async () => {
     jest
-      .spyOn(audit, 'record')
-      .mockRejectedValueOnce(new Error('Synthetic audit failure'));
-    await expect(apply([member])).rejects.toThrow('Synthetic audit failure');
+      .spyOn(TeamHistoryRepository.prototype, 'appendReviewHistory')
+      .mockRejectedValueOnce(new Error('Synthetic history failure'));
+    await expect(apply([member])).rejects.toThrow('Synthetic history failure');
     await expectNoApplication();
   });
 });

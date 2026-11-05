@@ -60,7 +60,6 @@ async function cleanup(): Promise<void> {
   await prisma.githubRepository.deleteMany({
     where: { team: { programId: programId } },
   });
-  await prisma.team.deleteMany({ where: { programId } });
   await prisma.milestone.deleteMany({ where: { programId } });
   await prisma.boardComment.deleteMany({ where: { post: { programId } } });
   await prisma.boardPost.deleteMany({ where: { programId } });

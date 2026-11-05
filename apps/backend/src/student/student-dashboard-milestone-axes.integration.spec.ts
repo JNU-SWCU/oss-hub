@@ -127,14 +127,11 @@ async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: { teamId: { in: APPLICATION_IDS } },
   });
+  await prisma.teamMember.deleteMany({
+    where: { teamId: { in: APPLICATION_IDS } },
+  });
   await prisma.team.deleteMany({
     where: { id: { in: APPLICATION_IDS } },
-  });
-  await prisma.teamMember.deleteMany({
-    where: { teamId: { in: APPLICATION_IDS.map((each) => `${each}-team`) } },
-  });
-  await prisma.team.deleteMany({
-    where: { id: { in: APPLICATION_IDS.map((each) => `${each}-team`) } },
   });
   await prisma.milestoneDocument.deleteMany({
     where: { milestoneId: { in: MILESTONE_IDS } },

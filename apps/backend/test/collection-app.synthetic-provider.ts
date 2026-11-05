@@ -9,6 +9,9 @@ type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 const SYNTHETIC_PAGE_SIZE = 4;
 
 const SYNTHETIC_API_BASE_URL = 'https://api.collection-scale-suite.test';
+const SYNTHETIC_GRAPHQL_PATH = '/graphql';
+
+const syntheticUserNodeId = (login: string): string => `node:${login}`;
 
 export interface SyntheticCommitSeed {
   sha: string;
@@ -59,6 +62,9 @@ export interface SyntheticRepositorySeed {
 type RequestKind =
   | 'installation'
   | 'repository'
+  | 'user-node'
+  | 'commit-history'
+  | 'commit-count'
   | 'commit-probe'
   | 'commit-list'
   | 'pull-list'
@@ -75,6 +81,9 @@ export interface SyntheticRequestCounters {
 const emptyByKind = (): Record<RequestKind, number> => ({
   installation: 0,
   repository: 0,
+  'user-node': 0,
+  'commit-history': 0,
+  'commit-count': 0,
   'commit-probe': 0,
   'commit-list': 0,
   'pull-list': 0,
@@ -125,6 +134,12 @@ export class SyntheticGithubProvider {
 
   readonly fetcher: Fetcher = (input, init) => {
     const url = new URL(input.toString());
+    if (url.pathname === SYNTHETIC_GRAPHQL_PATH) {
+      if (typeof init?.body !== 'string') {
+        throw new Error('synthetic GraphQL request needs a JSON body');
+      }
+      return Promise.resolve(this.handleGraphql(init.body));
+    }
     const ifNoneMatch = new Headers(init?.headers).get('if-none-match');
     return Promise.resolve(this.handle(url, ifNoneMatch));
   };
@@ -167,6 +182,76 @@ export class SyntheticGithubProvider {
       status: 304,
       headers: { etag, ...this.rateHeaders() },
     });
+  }
+
+  private handleGraphql(body: string): Response {
+    const { query, variables } = JSON.parse(body) as {
+      readonly query: string;
+      readonly variables: Readonly<Record<string, string | null>>;
+    };
+    if (query.includes('CollectionUserNodeId')) {
+      this.record('user-node');
+      return this.json({
+        data: { user: { id: syntheticUserNodeId(String(variables.login)) } },
+      });
+    }
+    const owner = String(variables.owner);
+    const name = String(variables.name);
+    const repo = this.repositoryFor(owner, name);
+    const repoKey = `${owner}/${name}`;
+    if (query.includes('CollectionAuthorCommits')) {
+      this.record('commit-history', repoKey);
+      const authored = repo.commits.filter(
+        (commit) =>
+          commit.authorLogin !== null &&
+          syntheticUserNodeId(commit.authorLogin) === variables.authorId,
+      );
+      const start = Number(variables.cursor ?? '0');
+      const end = start + SYNTHETIC_PAGE_SIZE;
+      return this.json({
+        data: {
+          repository: {
+            ref: {
+              target: {
+                history: {
+                  nodes: authored
+                    .slice(start, end)
+                    .map((commit) => this.commitHistoryNode(commit)),
+                  pageInfo: {
+                    hasNextPage: end < authored.length,
+                    endCursor: String(end),
+                  },
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+    if (query.includes('CollectionDefaultBranchCommitCount')) {
+      this.record('commit-count', repoKey);
+      const since = Date.parse(String(variables.since));
+      const until = Date.parse(String(variables.until));
+      const inWindow = repo.commits.filter((commit) => {
+        const committedAt = Date.parse(commit.committedAt);
+        return committedAt >= since && committedAt <= until;
+      });
+      return this.json({
+        data: {
+          repository: {
+            ref: {
+              target: {
+                history: {
+                  totalCount: new Set(inWindow.map((commit) => commit.sha))
+                    .size,
+                },
+              },
+            },
+          },
+        },
+      });
+    }
+    throw new Error(`unknown synthetic GraphQL query: ${query}`);
   }
 
   private handle(url: URL, ifNoneMatch: string | null): Response {
@@ -344,6 +429,20 @@ export class SyntheticGithubProvider {
     };
   }
 
+  private commitHistoryNode(commit: SyntheticCommitSeed): unknown {
+    return {
+      oid: commit.sha,
+      committedDate: commit.committedAt,
+      commitUrl: `https://example.invalid/commit/${commit.sha}`,
+      author: {
+        user:
+          commit.authorId === null
+            ? null
+            : { databaseId: commit.authorId, login: commit.authorLogin },
+      },
+    };
+  }
+
   private commitJson(commit: SyntheticCommitSeed): unknown {
     return {
       sha: commit.sha,
@@ -416,6 +515,7 @@ const syntheticAppConfig: CollectionAppConfigValues = {
   orgLogin: SYNTHETIC_ORG_LOGIN,
   privateKey: 'unused',
   apiBaseUrl: SYNTHETIC_API_BASE_URL,
+  graphqlUrl: `${SYNTHETIC_API_BASE_URL}${SYNTHETIC_GRAPHQL_PATH}`,
   maxPages: 50,
   deadlineMs: 30_000,
 };

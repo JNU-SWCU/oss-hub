@@ -63,32 +63,37 @@ function stageBody({
   readonly programId: string;
   readonly application: StudentApplication;
 }): ReactNode {
+  const editLink = application.canManage ? (
+    <div className="flex justify-end">
+      <Button asChild variant="outline">
+        <Link href={programApplyHref(programId)}>신청서 확인·수정</Link>
+      </Button>
+    </div>
+  ) : null;
+
   if (application.status === 'SUBMITTED') {
     return (
       <>
         <p className="text-body break-keep">
           교직원 검토를 기다리는 중입니다. 결과는 이 화면과 알림으로 전해집니다.
         </p>
-        {application.canManage ? (
-          <div className="flex justify-end">
-            <Button asChild variant="outline">
-              <Link href={programApplyHref(programId)}>신청서 확인·수정</Link>
-            </Button>
-          </div>
-        ) : null}
+        {editLink}
       </>
     );
   }
 
   if (application.status === 'REJECTED') {
     return (
-      <Alert variant="destructive">
-        <AlertTitle>반려 사유</AlertTitle>
-        <AlertDescription className="break-keep">
-          {application.rejectionReason?.trim() ||
-            '교직원이 남긴 사유가 없습니다. 자세한 내용은 주관 부서에 문의해 주세요.'}
-        </AlertDescription>
-      </Alert>
+      <>
+        <Alert variant="destructive">
+          <AlertTitle>반려 사유</AlertTitle>
+          <AlertDescription className="break-keep">
+            {application.rejectionReason?.trim() ||
+              '교직원이 남긴 사유가 없습니다. 자세한 내용은 주관 부서에 문의해 주세요.'}
+          </AlertDescription>
+        </Alert>
+        {editLink}
+      </>
     );
   }
 
@@ -110,7 +115,12 @@ function ApplicationStageCard({
           <h2 className="contents">신청 상태</h2>
         </CardTitle>
         <CardDescription>
-          {`${application.answers.title} · ${formatSeoulDate(application.submittedAt)} 제출`}
+          {[
+            application.answers.title,
+            `${formatSeoulDate(application.submittedAt)} 제출`,
+          ]
+            .filter(Boolean)
+            .join(' · ')}
         </CardDescription>
       </CardHeader>
       {body === null ? null : (

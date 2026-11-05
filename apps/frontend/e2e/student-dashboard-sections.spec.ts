@@ -363,7 +363,7 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
     'href',
     '/programs/e2e-dashboard-resubmit/documents?milestoneId=e2e-dashboard-milestone-resubmit',
   );
-  await expect(resubmitCard.getByText('재제출 기한 D-5')).toBeVisible();
+  await expect(resubmitCard.getByText('재제출 기한')).toHaveCount(0);
   const feedbackToggle = card.getByRole('button', { name: /^피드백 / });
   const fourthReview = card.getByRole('link', {
     name: '합성 urgent 마일스톤 제출 · 합성 서류 4',

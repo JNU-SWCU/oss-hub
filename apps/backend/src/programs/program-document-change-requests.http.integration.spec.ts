@@ -15,21 +15,17 @@ const fixture = new MilestoneDocumentFlowFixture();
 const extra = {
   student: 'qa1562-bulk-student-b',
   team: 'qa1562-bulk-team-b',
-  application: 'qa1562-bulk-application-b',
   submission: 'qa1562-bulk-submission-b',
 } as const;
 const changeRequestsPath = `programs/${flowIds.program}/documents/change-requests`;
 const dueAt = '2099-06-30T14:59:59.000Z';
 
 async function clearExtra(): Promise<void> {
-  const where = { teamId: extra.application };
+  const where = { teamId: extra.team };
   await fixture.prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { submission: where },
   });
   await fixture.prisma.milestoneDocumentSubmission.deleteMany({ where });
-  await fixture.prisma.team.deleteMany({
-    where: { id: extra.application },
-  });
   await fixture.prisma.teamMember.deleteMany({ where: { teamId: extra.team } });
   await fixture.prisma.team.deleteMany({ where: { id: extra.team } });
   await fixture.prisma.user.deleteMany({ where: { id: extra.student } });
@@ -69,7 +65,7 @@ async function seedSecondTeam(): Promise<void> {
     data: {
       id: extra.submission,
       milestoneDocumentId: flowIds.document,
-      teamId: extra.application,
+      teamId: extra.team,
       content: { type: 'TEXT', text: '팀 나 제출' },
       submittedById: extra.student,
       histories: {
@@ -149,7 +145,7 @@ async function previewVersion(query = 'scope=PROGRAM'): Promise<string> {
 
 async function approveSecondTeam(): Promise<void> {
   const response = await fixture.request(
-    `${fixture.documentPath()}/teams/${extra.application}/reviews`,
+    `${fixture.documentPath()}/teams/${extra.team}/reviews`,
     {
       actor: 'staff',
       method: 'POST',
@@ -198,7 +194,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
   it('승인된 신청이 없는 팀은 거절하지 않고 0건으로 센다', async () => {
     await fixture.prisma.team.update({
-      where: { id: extra.application },
+      where: { id: extra.team },
       data: { status: 'SUBMITTED' },
     });
 
@@ -228,9 +224,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
-    await expect(statusOf(extra.application)).resolves.toBe(
-      SubmissionStatus.APPROVED,
-    );
+    await expect(statusOf(extra.team)).resolves.toBe(SubmissionStatus.APPROVED);
     const review =
       await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
         where: {
@@ -264,7 +258,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     });
 
     expect(response.status).toBe(201);
-    await expect(statusOf(extra.application)).resolves.toBe(
+    await expect(statusOf(extra.team)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
   });
@@ -277,7 +271,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     });
 
     expect(response.status).toBe(201);
-    await expect(statusOf(extra.application)).resolves.toBe(
+    await expect(statusOf(extra.team)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
     await expect(statusOf(flowIds.team)).resolves.toBe(
@@ -298,9 +292,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
     );
-    await expect(statusOf(extra.application)).resolves.toBe(
-      SubmissionStatus.APPROVED,
-    );
+    await expect(statusOf(extra.team)).resolves.toBe(SubmissionStatus.APPROVED);
     await expect(
       fixture.prisma.milestoneDocumentSubmissionHistory.count({
         where: {
@@ -336,7 +328,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     const sending = sendChangeRequest({ expectedVersion: previewed });
     await waitForDocumentLockWaiter();
     await fixture.prisma.team.update({
-      where: { id: extra.application },
+      where: { id: extra.team },
       data: { status: 'REJECTED', rejectionReason: '합성 반려' },
     });
     release();
@@ -410,7 +402,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     ).toEqual(
       expect.arrayContaining([
         [flowIds.team, [1]],
-        [extra.application, [1]],
+        [extra.team, [1]],
       ]),
     );
   });

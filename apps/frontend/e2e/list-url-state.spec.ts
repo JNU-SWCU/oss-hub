@@ -68,7 +68,7 @@ async function installProgram(page: Page) {
           application: null,
           repositoryContributions: null,
           deletionScope: {
-            applications: 0,
+            teams: 0,
             members: 0,
             invitations: 0,
             submissions: 0,

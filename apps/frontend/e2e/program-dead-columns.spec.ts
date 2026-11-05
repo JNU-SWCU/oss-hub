@@ -240,7 +240,7 @@ for (const width of [1440, 390]) {
           fulfillJson(route, detail()),
         [`GET /api/v1/team-invitations/teams/${teamId}/sent`]: (route) =>
           fulfillJson(route, []),
-        [`GET /api/v1/teams/${application.id}`]: (route) =>
+        [`GET /api/v1/teams/${teamId}`]: (route) =>
           fulfillJson(route, staffApplication),
         [`GET /api/v1/programs/${programId}/teams/${teamId}/activity`]: (
           route,

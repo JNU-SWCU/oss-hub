@@ -113,7 +113,6 @@ async function cleanup(): Promise<void> {
   await prisma.teamInvitation.deleteMany({
     where: { id: { startsWith: TEST_PREFIX } },
   });
-  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
@@ -141,33 +140,39 @@ async function releasePausedTransactions(): Promise<void> {
   pausedOperations.length = 0;
 }
 
-function startPausedLeaderLeave(): {
-  readonly leaving: Promise<string>;
+function startPausedLeaderTransfer(): {
+  readonly transferring: Promise<string>;
   readonly pid: Promise<number>;
   readonly paused: Promise<void>;
   readonly release: { readonly resolve: () => void };
 } {
-  const leaveBackend = backendPid();
+  const transferBackend = backendPid();
   const paused = deferred();
   const release = deferred();
   const teams = new TeamRepository(
-    pidCapturingPrisma(prisma, leaveBackend.capture),
+    pidCapturingPrisma(prisma, transferBackend.capture),
     new ProgramTeamRepositoryEvidenceRepository(
-      pidCapturingPrisma(prisma, leaveBackend.capture),
+      pidCapturingPrisma(prisma, transferBackend.capture),
     ),
     new PlatformRepository(),
     new TeamHistoryRepository(),
   );
-  const leaving = trackPaused(
-    teams.leave(PROGRAM_ID, LEADER_ID, async () => {
-      paused.resolve();
-      await release.promise;
-    }),
+  const transferring = trackPaused(
+    teams.transferLeader(
+      PROGRAM_ID,
+      TEAM_ID,
+      LEADER_ID,
+      MEMBER_ID,
+      async () => {
+        paused.resolve();
+        await release.promise;
+      },
+    ),
     release,
   );
   return {
-    leaving,
-    pid: leaveBackend.pid,
+    transferring,
+    pid: transferBackend.pid,
     paused: paused.promise,
     release,
   };
@@ -259,9 +264,9 @@ describe('Team invitation acceptance transaction races', () => {
     },
   );
 
-  it('팀장 탈퇴가 먼저 잠그면 수락은 대기 후 승계된 팀에 합류한다', async () => {
-    const leave = startPausedLeaderLeave();
-    await leave.paused;
+  it('팀장 위임이 먼저 잠그면 수락은 대기 후 위임된 팀에 합류한다', async () => {
+    const transfer = startPausedLeaderTransfer();
+    await transfer.paused;
     const acceptBackend = backendPid();
 
     const acceptance = new TeamInvitationsRepository(
@@ -272,16 +277,16 @@ describe('Team invitation acceptance transaction races', () => {
     await releaseAfterBlocked(
       prisma,
       acceptBackend.pid,
-      leave.pid,
-      leave.release,
-      [leave.leaving, acceptance],
+      transfer.pid,
+      transfer.release,
+      [transfer.transferring, acceptance],
     );
 
-    const [leaveResult, outcome] = await Promise.all([
-      leave.leaving,
+    const [transferResult, outcome] = await Promise.all([
+      transfer.transferring,
       acceptance,
     ]);
-    expect(leaveResult).toBe('removed');
+    expect(transferResult).toBe('transferred');
     expect(outcome).toEqual({
       kind: 'ok',
       teamId: TEAM_ID,
@@ -300,16 +305,16 @@ describe('Team invitation acceptance transaction races', () => {
 
     expect(team.leaderId).toBe(MEMBER_ID);
     expect(members.map((member) => member.userId).sort()).toEqual(
-      [MEMBER_ID, INVITEE_ID].sort(),
+      [LEADER_ID, MEMBER_ID, INVITEE_ID].sort(),
     );
   });
 
-  it('팀장 탈퇴가 먼저 잠그면 낡은 팀장의 새 초대는 대기 후 거부된다', async () => {
+  it('팀장 위임이 먼저 잠그면 낡은 팀장의 새 초대는 대기 후 거부된다', async () => {
     await prisma.teamInvitation.delete({
       where: { id: SECOND_INVITATION_ID },
     });
-    const leave = startPausedLeaderLeave();
-    await leave.paused;
+    const transfer = startPausedLeaderTransfer();
+    await transfer.paused;
     const inviteBackend = backendPid();
 
     const invitation = new TeamInvitationsRepository(
@@ -324,16 +329,16 @@ describe('Team invitation acceptance transaction races', () => {
     await releaseAfterBlocked(
       prisma,
       inviteBackend.pid,
-      leave.pid,
-      leave.release,
-      [leave.leaving, invitation],
+      transfer.pid,
+      transfer.release,
+      [transfer.transferring, invitation],
     );
 
-    const [leaveResult, outcome] = await Promise.all([
-      leave.leaving,
+    const [transferResult, outcome] = await Promise.all([
+      transfer.transferring,
       invitation,
     ]);
-    expect(leaveResult).toBe('removed');
+    expect(transferResult).toBe('transferred');
     expect(outcome).toEqual({ kind: 'not-team-leader' });
 
     await expect(
@@ -346,9 +351,9 @@ describe('Team invitation acceptance transaction races', () => {
     ).resolves.toBe(0);
   });
 
-  it('팀장 탈퇴가 먼저 잠그면 낡은 팀장의 취소는 거부되고 승계된 팀장이 정리한다', async () => {
-    const leave = startPausedLeaderLeave();
-    await leave.paused;
+  it('팀장 위임이 먼저 잠그면 낡은 팀장의 취소는 거부되고 새 팀장이 정리한다', async () => {
+    const transfer = startPausedLeaderTransfer();
+    await transfer.paused;
     const cancelBackend = backendPid();
     const invitations = new TeamInvitationsRepository(
       new TeamHistoryRepository(),
@@ -364,16 +369,16 @@ describe('Team invitation acceptance transaction races', () => {
     await releaseAfterBlocked(
       prisma,
       cancelBackend.pid,
-      leave.pid,
-      leave.release,
-      [leave.leaving, staleCancel],
+      transfer.pid,
+      transfer.release,
+      [transfer.transferring, staleCancel],
     );
 
-    const [leaveResult, staleOutcome] = await Promise.all([
-      leave.leaving,
+    const [transferResult, staleOutcome] = await Promise.all([
+      transfer.transferring,
       staleCancel,
     ]);
-    expect(leaveResult).toBe('removed');
+    expect(transferResult).toBe('transferred');
     expect(staleOutcome).toEqual({ kind: 'not-team-leader' });
     await expect(
       prisma.teamInvitation.findUniqueOrThrow({

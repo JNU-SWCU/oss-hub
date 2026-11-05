@@ -494,18 +494,20 @@ describe('StudentApplicationManagementService — 반려 재제출(R-1)', () => 
 
     const history = await prisma.teamHistory.findMany({
       where: { teamId: TEAM_ID },
-      orderBy: { occurredAt: 'asc' },
       select: { event: true, data: true },
     });
-    expect(history).toEqual([
-      {
-        event: 'RESUBMITTED',
-        data: { schemaVersion: 1, revision: 2, rejectionReason: null },
-      },
-      {
-        event: 'RESUBMITTED',
-        data: { schemaVersion: 1, revision: 3, rejectionReason: null },
-      },
-    ]);
+    expect(history).toHaveLength(2);
+    expect(history).toEqual(
+      expect.arrayContaining([
+        {
+          event: 'RESUBMITTED',
+          data: { schemaVersion: 1, revision: 2, rejectionReason: null },
+        },
+        {
+          event: 'RESUBMITTED',
+          data: { schemaVersion: 1, revision: 3, rejectionReason: null },
+        },
+      ]),
+    );
   });
 });

@@ -46,7 +46,6 @@ async function cleanup(): Promise<void> {
     where: { aggregateId: { startsWith: TEST_PREFIX } },
   });
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
-  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({
     where: { programId: PROGRAM_ID },
   });
@@ -668,7 +667,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
       }),
     ).resolves.toEqual({
       applicantId: LEADER_ID,
-      teamId: TARGET_TEAM_ID,
+      id: TARGET_TEAM_ID,
       status: ApplicationStatus.SUBMITTED,
     });
   });
@@ -756,7 +755,7 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         }),
       ).resolves.toEqual({
         status: ApplicationStatus.APPROVED,
-        teamId: TARGET_TEAM_ID,
+        id: TARGET_TEAM_ID,
       });
       await expect(
         prisma.repositoryProvisionJob.count({

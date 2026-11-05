@@ -373,6 +373,20 @@ it('승인 전 마지막 구성원의 탈퇴는 팀과 지원서를 함께 삭�
   expect(description).not.toContain('이미 제출한 신청서와 제출 기록은 그대로');
 });
 
+it('확인 창 제목은 팀 이름 뒤에 「팀」을 겹쳐 쓰지 않는다', async () => {
+  await render({
+    name: '한빛 팀',
+    memberCount: 2,
+    canLeave: true,
+    isLeader: false,
+  });
+  await act(async () => button('팀 탈퇴').click());
+  const labelledBy = dialog()?.getAttribute('aria-labelledby') ?? '';
+  expect(document.getElementById(labelledBy)?.textContent).toBe(
+    '한빛 팀에서 탈퇴',
+  );
+});
+
 it('승인된 마지막 구성원은 나갈 수 없다고 안내한다', async () => {
   await render({ status: 'APPROVED', memberCount: 1, canLeave: false });
   expect(host.textContent).toContain('승인된 팀의 마지막 구성원');

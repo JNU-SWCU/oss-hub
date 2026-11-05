@@ -174,21 +174,26 @@ it('projects current repository facts and URL audit history without reading or m
       repositoryUrl: 'https://github.com/synthetic/current',
     },
   };
-  await prisma.auditLog.createMany({
+  await prisma.teamHistory.createMany({
     data: [
       {
+        teamId,
+        programId,
         actorId: memberId,
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
-        metadata,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
+        data: { schemaVersion: 1, metadata },
       },
       {
+        teamId: `${prefix}-unrelated-team`,
+        programId,
         actorId: memberId,
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: teamId,
-        metadata: { ...metadata, teamId: 'unrelated-team' },
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          metadata: { ...metadata, teamId: `${prefix}-unrelated-team` },
+        },
       },
     ],
   });
@@ -235,7 +240,6 @@ it('shows the outsider totals only while they were counted for this program wind
     member: `${scope}-member`,
     program: `${scope}-program`,
     team: `${scope}-team`,
-    application: `${scope}-application`,
     repository: `${scope}-current`,
   };
   const startAt = new Date('2026-07-31T15:00:00Z');
@@ -295,7 +299,7 @@ it('shows the outsider totals only while they were counted for this program wind
       githubRepositoryId: memberGithubId + 1n,
       nameWithOwner: 'synthetic/outsider-current',
       source: 'EXTERNAL_PUBLIC',
-      teamId: scoped.application,
+      teamId: scoped.team,
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
@@ -303,7 +307,7 @@ it('shows the outsider totals only while they were counted for this program wind
   await prisma.githubRepositoryOutsiderContribution.create({
     data: {
       repositoryId: scoped.repository,
-      teamId: scoped.application,
+      teamId: scoped.team,
       programId: scoped.program,
       windowStartAt: startAt,
       windowEndAt: endAt,
@@ -329,13 +333,13 @@ it('shows the outsider totals only while they were counted for this program wind
 
   await prisma.githubRepositoryOutsiderContribution.update({
     where: { repositoryId: scoped.repository },
-    data: { teamId: `${scope}-previous-application` },
+    data: { teamId: `${scope}-previous-team` },
   });
   const moved = await teams.findStaffTeamDetail(scoped.program, scoped.team);
   expect(moved?.repositoryContributions?.outsiderContributions).toBeNull();
   await prisma.githubRepositoryOutsiderContribution.update({
     where: { repositoryId: scoped.repository },
-    data: { teamId: scoped.application },
+    data: { teamId: scoped.team },
   });
 
   await prisma.program.update({
@@ -351,7 +355,6 @@ it('reads contributions of a program that never set an end date', async () => {
   const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
   const scopedProgramId = `${scope}-program`;
   const scopedTeamId = `${scope}-team`;
-  const scopedApplicationId = `${scope}-application`;
   const scopedRepositoryId = `${scope}-repository`;
   await prisma.user.create({
     data: { id: `${scope}-member`, githubId: base, nickname: 'sentinel' },
@@ -404,7 +407,7 @@ it('reads contributions of a program that never set an end date', async () => {
       githubRepositoryId: base + 1n,
       nameWithOwner: 'synthetic/sentinel',
       source: 'EXTERNAL_PUBLIC',
-      teamId: scopedApplicationId,
+      teamId: scopedTeamId,
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
@@ -462,7 +465,6 @@ it('counts issues for team members, so an issue-only member has observations', a
   const issueOnlyId = `${scope}-issue-only`;
   const scopedProgramId = `${scope}-program`;
   const scopedTeamId = `${scope}-team`;
-  const scopedApplicationId = `${scope}-application`;
   const scopedRepositoryId = `${scope}-repository`;
   await prisma.user.createMany({
     data: [
@@ -518,7 +520,7 @@ it('counts issues for team members, so an issue-only member has observations', a
       githubRepositoryId: base + 2n,
       nameWithOwner: 'synthetic/issue-only',
       source: 'EXTERNAL_PUBLIC',
-      teamId: scopedApplicationId,
+      teamId: scopedTeamId,
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
