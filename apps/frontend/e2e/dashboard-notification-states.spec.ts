@@ -32,20 +32,18 @@ test('되돌린 신청과 삭제된 팀을 현재 상태에 맞게 안내하고 
         fulfillJson(route, { items: [] }),
       'GET /api/v1/dashboard/student/feedback': async (route) =>
         fulfillJson(route, { items: [] }),
-      'GET /api/v1/users/me/notifications/application-decisions': async (
-        route,
-      ) =>
+      'GET /api/v1/users/me/notifications/team-decisions': async (route) =>
         fulfillJson(route, [
           {
             id: 'synthetic-revert-notice',
-            applicationId: 'synthetic-application',
+            teamId: 'synthetic-application',
             programId: 'seed:e2e:synthetic-program',
             programName: '합성 오픈소스 프로그램',
             decision: 'SUBMITTED',
             decidedAt: '2026-10-19T11:00:00.000Z',
           },
         ]),
-      'PATCH /api/v1/users/me/notifications/application-decisions/synthetic-revert-notice/read':
+      'PATCH /api/v1/users/me/notifications/team-decisions/synthetic-revert-notice/read':
         async (route) => route.fulfill({ status: 204 }),
       'GET /api/v1/users/me/notifications/team-deletions': async (route) =>
         fulfillJson(route, acknowledged.length ? [] : [deleted]),

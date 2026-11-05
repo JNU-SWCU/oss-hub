@@ -11,7 +11,7 @@ import { SubmissionLoading } from './submission-page';
 import type { SubmissionFormData } from './types';
 
 const baseData: SubmissionFormData = {
-  applicationId: 'application-personal',
+  teamId: 'application-personal',
   applicationMode: 'PERSONAL',
   fileUpload: submissionUploadLimit(),
   milestone: {

@@ -76,7 +76,7 @@ import { StudentDashboardScreen } from './components/student-dashboard-screen';
 
 const notice: ApplicationDecisionNotice = {
   id: 'notification-1',
-  applicationId: 'application-1',
+  teamId: 'application-1',
   programId: 'program-1',
   programName: '합성 프로그램',
   decision: 'APPROVED',

@@ -182,7 +182,7 @@ export function MatrixBody(
           scrollRegionLabel="마일스톤 제출 현황 표"
           columns={matrixColumns(visibleMilestones, props.now)}
           data={[...quickFiltered]}
-          rowKey={(row) => row.applicationId}
+          rowKey={(row) => row.teamId}
         />
       )}
       <MatrixPagination

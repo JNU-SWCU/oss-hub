@@ -54,7 +54,7 @@ export function updateRepositoryUrl(
   input: RepositoryUrlInput,
 ): Promise<RepositoryUrlState> {
   return patchRepositoryUrl(
-    `programs/${encodeURIComponent(programId)}/applications/me/repository-url`,
+    `programs/${encodeURIComponent(programId)}/teams/me/repository-url`,
     input,
   );
 }

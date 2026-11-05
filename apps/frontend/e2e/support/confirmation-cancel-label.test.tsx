@@ -81,7 +81,6 @@ const cases: readonly {
         applicantName="합성 신청자"
         teamName={null}
         reason="합성 반려 사유"
-        reasonError={false}
         busy={false}
         errorMessage={null}
         returnFocusId="synthetic-trigger"

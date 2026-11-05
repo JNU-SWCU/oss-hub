@@ -140,7 +140,7 @@ describe('reviews api', () => {
 
       expect(fetchMock).toHaveBeenLastCalledWith(
         apiPath(
-          'milestones/milestone-final/documents/legacy-file-item/applications/application-personal/reviews',
+          'milestones/milestone-final/documents/legacy-file-item/teams/application-personal/reviews',
         ),
         {
           method: 'POST',
@@ -173,7 +173,7 @@ describe('reviews api', () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath(
-        'milestones/milestone-final/documents/requirement-text/applications/application-personal/reviews',
+        'milestones/milestone-final/documents/requirement-text/teams/application-personal/reviews',
       ),
       {
         method: 'POST',

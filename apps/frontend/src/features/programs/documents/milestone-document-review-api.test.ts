@@ -49,7 +49,7 @@ describe('createMilestoneDocumentReview', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath(
-        'milestones/milestone-1/documents/document-1/applications/app-1/reviews',
+        'milestones/milestone-1/documents/document-1/teams/app-1/reviews',
       ),
       {
         method: 'POST',
@@ -136,7 +136,7 @@ describe('createMilestoneDocumentReview', () => {
     });
 
     expect(fetchMock).toHaveBeenCalledWith(
-      apiPath('milestones/m%2F1/documents/d%2F1/applications/a%2F1/reviews'),
+      apiPath('milestones/m%2F1/documents/d%2F1/teams/a%2F1/reviews'),
       expect.anything(),
     );
   });

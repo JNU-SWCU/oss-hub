@@ -25,7 +25,7 @@ describe('repository URL contracts', () => {
       });
 
       expect(apiClient).toHaveBeenLastCalledWith(
-        'programs/program%2F1/applications/me/repository-url',
+        'programs/program%2F1/teams/me/repository-url',
         {
           method: 'PATCH',
           body: JSON.stringify({
@@ -103,16 +103,13 @@ describe('repository URL contracts', () => {
       isRepositoryPublicationPlanned: true,
     });
 
-    expect(apiClient).toHaveBeenLastCalledWith(
-      'programs/program-1/applications',
-      {
-        method: 'POST',
-        body: JSON.stringify({
-          answers: { title: 'Synthetic application' },
-          applicationTemplateVersion: 1,
-          isRepositoryPublicationPlanned: true,
-        }),
-      },
-    );
+    expect(apiClient).toHaveBeenLastCalledWith('programs/program-1/teams', {
+      method: 'POST',
+      body: JSON.stringify({
+        answers: { title: 'Synthetic application' },
+        applicationTemplateVersion: 1,
+        isRepositoryPublicationPlanned: true,
+      }),
+    });
   });
 });

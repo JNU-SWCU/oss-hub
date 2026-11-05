@@ -57,7 +57,7 @@ const matrixData: SubmissionMatrixPage = {
   ],
   rows: [
     {
-      applicationId: 'application-personal',
+      teamId: 'application-personal',
       applicationMode: 'PERSONAL',
       displayName: '홍길동',
       githubLogins: ['hong'],
@@ -77,7 +77,7 @@ const matrixData: SubmissionMatrixPage = {
       ],
     },
     {
-      applicationId: 'application-team',
+      teamId: 'application-team',
       applicationMode: 'TEAM',
       displayName: '오픈소스팀',
       githubLogins: ['login-a', 'login-b', 'login-c'],

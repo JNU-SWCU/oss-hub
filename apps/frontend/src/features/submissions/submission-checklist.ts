@@ -85,7 +85,7 @@ export type ResubmissionFailure =
 export type ResubmissionPhase = 'uploading' | 'creating';
 
 export interface SubmitResubmissionRevisionInput {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneId: string;
   readonly submission: {
     readonly id: string;
@@ -96,7 +96,7 @@ export interface SubmitResubmissionRevisionInput {
   readonly comment: string;
   readonly cache: SubmissionFileUploadCache;
   readonly uploadSubmissionFile: (
-    applicationId: string,
+    teamId: string,
     milestoneId: string,
     file: File,
     context: { readonly submissionId: string; readonly baseRevision: number },
@@ -143,7 +143,7 @@ export function resubmissionContent(
 }
 
 export async function submitResubmissionRevision({
-  applicationId,
+  teamId,
   milestoneId,
   submission,
   submissionType,
@@ -161,7 +161,7 @@ export async function submitResubmissionRevision({
     if (!file) return null;
     onPhaseChange?.('uploading');
     const fileId = await cache.resolve(file, () =>
-      uploadSubmissionFile(applicationId, milestoneId, file, {
+      uploadSubmissionFile(teamId, milestoneId, file, {
         submissionId: submission.id,
         baseRevision,
       }),

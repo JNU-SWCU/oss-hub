@@ -43,14 +43,14 @@ vi.mock('./team-invitation-api', () => ({
   declineInvitation: mocks.declineInvitation,
 }));
 
-function problem(detail: string, status = 409): ApiError {
+function problem(detail: string, status = 409, code = 'TIV_009'): ApiError {
   const body: ProblemDetail = {
     type: 'about:blank',
     title: '충돌',
     status,
     detail,
     instance: 'urn:test:team-invitation-accept',
-    code: 'TIV_009',
+    code,
   };
   return new ApiError(body);
 }
@@ -459,6 +459,41 @@ describe('TeamInvitationNotifications', () => {
     expect(mocks.push).not.toHaveBeenCalled();
     expect(events.programIds).toEqual([]);
     expect(document.body.textContent ?? '').toContain('오픈소스팀');
+  });
+
+  it('이미 다른 팀에 있어 수락이 거부되면 탈퇴 안내를 보여 주고 이동하지 않는다', async () => {
+    mocks.listReceivedInvitations.mockResolvedValue([pendingInvitation()]);
+    mocks.acceptInvitation.mockRejectedValue(
+      problem('현재 팀에서 탈퇴한 후 초대를 수락해 주세요.', 409, 'TIV_007'),
+    );
+    const events = recordProgramInvalidation();
+
+    await act(async () => {
+      root.render(<TeamInvitationNotifications identityKey="student-a" />);
+    });
+    await settleUntil(() => {
+      expect(
+        document.querySelector('[data-slot="team-invitation-count"]'),
+      ).not.toBeNull();
+    });
+    await act(async () => {
+      findButton('팀 초대 알림').click();
+    });
+    await settleUntil(() => {
+      expect(document.body.textContent ?? '').toContain('오픈소스팀');
+    });
+
+    await act(async () => {
+      findButton('오픈소스팀 팀 초대 수락').click();
+    });
+
+    await settleUntil(() => {
+      expect(document.body.textContent ?? '').toContain(
+        '현재 팀에서 탈퇴한 후 초대를 수락해 주세요.',
+      );
+    });
+    expect(mocks.push).not.toHaveBeenCalled();
+    expect(events.programIds).toEqual([]);
   });
 
   it('수락 응답이 이전 계정의 것이면 이동도 알림도 하지 않는다', async () => {

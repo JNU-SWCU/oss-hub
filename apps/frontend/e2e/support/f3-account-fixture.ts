@@ -1,4 +1,5 @@
 import type { Page, Route } from '@playwright/test';
+import { CONSENTED_RESPONSE } from './member-access-fixture';
 
 const SYNTHETIC_STUDENT = {
   nickname: 'synthetic-f3-account',
@@ -80,7 +81,12 @@ async function installExactApiRouter(
   await page.route('**/api/v1/**', async (route) => {
     const method = route.request().method();
     const pathname = new URL(route.request().url()).pathname;
-    const handler = handlers()[`${method} ${pathname}`];
+    const allHandlers: F3ApiHandlers = {
+      'GET /api/v1/consents/current': (consentRoute) =>
+        fulfillJson(consentRoute, CONSENTED_RESPONSE),
+      ...handlers(),
+    };
+    const handler = allHandlers[`${method} ${pathname}`];
     if (!handler) {
       unexpectedInterceptedApi(method, pathname);
     }
