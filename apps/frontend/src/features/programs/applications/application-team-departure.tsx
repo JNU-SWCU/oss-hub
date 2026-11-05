@@ -10,10 +10,10 @@ import { ApplicationActionDialog } from './application-confirmation-dialog';
 import { mapTeamError } from '../teams/program-teams-flow';
 
 const LAST_MEMBER_REASON =
-  '신청 기록이 있는 팀의 마지막 구성원은 팀을 나갈 수 없습니다. 제출한 신청·기록이 가리키는 팀이 남아 있어야 하기 때문입니다.';
+  '승인된 팀의 마지막 구성원은 팀을 나갈 수 없습니다.';
 
-const LEADER_SUCCESSION_REASON =
-  '팀장이 나가면 남은 팀원 중 가장 먼저 합류한 팀원이 자동으로 팀장이 됩니다. 팀과 다른 팀원의 참여 상태는 그대로 유지됩니다.';
+const LEADER_TRANSFER_REASON =
+  '팀원이 남아 있으므로 먼저 팀장을 위임해 주세요. 위임한 뒤 팀에서 나갈 수 있습니다.';
 
 const MEMBER_REASON =
   '본인만 팀에서 나가며, 팀과 다른 팀원의 참여 상태는 그대로 유지됩니다.';
@@ -65,21 +65,21 @@ function ApplicationTeamDepartureInstance({
     };
   }, []);
 
-  const deletesTeam = team.isLeader && team.memberCount <= 1;
+  const mustTransfer = team.isLeader && team.memberCount > 1;
+  const canDepart = team.canLeave && !mustTransfer;
+  const deletesTeam = team.isLeader && team.memberCount <= 1 && team.status !== 'APPROVED';
   const label = deletesTeam ? '팀 삭제' : '팀 탈퇴';
-  const explanation = !team.canLeave
-    ? LAST_MEMBER_REASON
-    : deletesTeam
-      ? `팀이 삭제됩니다.${team.canInvite ? ' 이 팀에서 보낸 초대도 함께 취소됩니다.' : ''}`
-      : team.isLeader
-        ? `${LEADER_SUCCESSION_REASON}${team.canRemoveMembers ? ' 특정 팀원만 내보내려면 팀 구성원 목록의 「팀에서 제외」를 사용해 주세요.' : ''}`
+  const explanation = mustTransfer
+    ? LEADER_TRANSFER_REASON
+    : !canDepart
+      ? team.status === 'APPROVED' ? LAST_MEMBER_REASON : '제출 기록이나 연결된 저장소가 있는 팀의 마지막 구성원은 팀을 나갈 수 없습니다.'
+      : deletesTeam
+        ? '팀과 신청서가 함께 삭제됩니다. 이 팀에서 보낸 초대도 함께 취소됩니다.'
         : MEMBER_REASON;
-  const description = team.hasApplication
-    ? `${explanation} ${APPLICATION_KEPT_NOTICE}`
-    : explanation;
+  const description = deletesTeam ? explanation : explanation + ' ' + APPLICATION_KEPT_NOTICE;
 
   async function depart() {
-    if (pending.current || !team.canLeave) return;
+    if (pending.current || !canDepart) return;
     pending.current = true;
     setBusy(true);
     setError(null);
@@ -116,7 +116,7 @@ function ApplicationTeamDepartureInstance({
             ref={trigger}
             type="button"
             variant="outline"
-            disabled={!team.canLeave || busy}
+            disabled={!canDepart || busy}
             onClick={() => {
               setError(null);
               setConfirming(true);

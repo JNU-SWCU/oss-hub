@@ -41,11 +41,11 @@ function ActiveCards({
   return (
     <ul className="flex flex-col gap-4">
       {items.map((item) => (
-        <li key={item.applicationId}>
+        <li key={item.teamId}>
           <ActiveProgramCard
             item={item}
             now={now}
-            primary={item.applicationId === primaryApplicationId}
+            primary={item.teamId === primaryApplicationId}
             feedback={feedbackOf(item)}
           />
         </li>
@@ -67,7 +67,7 @@ function ProgramRows({
     <ListPanel role="list">
       {items.map((item) => (
         <ProgramCompactRow
-          key={item.applicationId}
+          key={item.teamId}
           item={item}
           now={now}
           feedback={feedbackOf(item)}
@@ -97,9 +97,9 @@ export function DashboardProgramSections({
   );
   const feedbackGroups = feedbackByApplication(feedback);
   const feedbackOf: FeedbackOf = (item) =>
-    feedbackGroups.get(item.applicationId) ?? [];
+    feedbackGroups.get(item.teamId) ?? [];
   const hasFeedback = (item: DashboardItem) =>
-    feedbackGroups.has(item.applicationId);
+    feedbackGroups.has(item.teamId);
   const activeWithFeedback = active.filter(hasFeedback);
   const doneWithFeedback = done.filter(hasFeedback);
   const feedbackCount = activeWithFeedback.length + doneWithFeedback.length;

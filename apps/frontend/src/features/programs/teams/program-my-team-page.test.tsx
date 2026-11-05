@@ -101,7 +101,7 @@ const team: ProgramTeam = {
   memberCount: 2,
   minMembers: 2,
   maxMembers: 4,
-  hasApplication: false,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: true,
@@ -139,7 +139,7 @@ const application: StudentApplication = {
 };
 
 const activity: TeamActivity = {
-  applicationId: 'application-1',
+  teamId: 'application-1',
   repository: null,
   status: 'NOT_CONNECTED',
   lastSuccessAt: null,
@@ -378,7 +378,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
   });
 
   it('제출된 신청은 서버 상태를 그대로 보여 주고 제출 현황은 열지 않는다', async () => {
-    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
     vi.mocked(getMyApplication).mockResolvedValue(application);
     await renderPage();
 
@@ -396,7 +396,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
   });
 
   it('반려는 서버가 남긴 사유를 그대로 전한다', async () => {
-    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
     vi.mocked(getMyApplication).mockResolvedValue({
       ...application,
       status: 'REJECTED',
@@ -412,7 +412,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
   });
 
   it('신청서가 있다는 팀의 빈 신청 조회를 「신청 없음」으로 접지 않는다', async () => {
-    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
 
     vi.mocked(getMyApplication).mockResolvedValueOnce(null);
     vi.mocked(getMyApplication).mockResolvedValueOnce(application);
@@ -425,7 +425,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
   });
 
   it('승인된 팀에는 공용 활동 그래프와 제출 현황 조각을 함께 낸다', async () => {
-    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
     vi.mocked(getMyApplication).mockResolvedValue({
       ...application,
       status: 'APPROVED',
@@ -483,7 +483,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
   });
 
   it('아직 모으지 않은 활동을 0으로 그리지 않는다', async () => {
-    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
     vi.mocked(getMyApplication).mockResolvedValue({
       ...application,
       status: 'APPROVED',
@@ -500,7 +500,7 @@ describe('ProgramMyTeamPage 신청 상태', () => {
   });
 
   it('상태·팀원·저장소·활동·이력 순서로 선다', async () => {
-    vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
     vi.mocked(getMyApplication).mockResolvedValue({
       ...application,
       status: 'APPROVED',
@@ -671,7 +671,7 @@ it.each([true, false])(
   async (canEditRepositoryUrl) => {
     vi.mocked(getMyTeam).mockResolvedValue({
       ...team,
-      hasApplication: true,
+      status: 'SUBMITTED',
       isLeader: canEditRepositoryUrl,
     });
     vi.mocked(getMyApplication).mockResolvedValue({
@@ -704,7 +704,7 @@ it('does not request a repository before a team application exists', async () =>
 });
 
 it('re-reads repository permission when a quiet reload moves leadership', async () => {
-  vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+  vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
   vi.mocked(getMyApplication).mockResolvedValue({
     ...application,
     status: 'APPROVED',
@@ -724,7 +724,7 @@ it('re-reads repository permission when a quiet reload moves leadership', async 
 
   vi.mocked(getMyTeam).mockResolvedValue({
     ...team,
-    hasApplication: true,
+    status: 'SUBMITTED',
     isLeader: false,
   });
   vi.mocked(getTeamActivity).mockResolvedValue({
@@ -765,7 +765,7 @@ it('re-reads the graph when a quiet reload changes the member list', async () =>
       ],
     })),
   });
-  vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+  vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
   vi.mocked(getMyApplication).mockResolvedValue({
     ...application,
     status: 'APPROVED',
@@ -780,7 +780,7 @@ it('re-reads the graph when a quiet reload changes the member list', async () =>
 
   vi.mocked(getMyTeam).mockResolvedValue({
     ...team,
-    hasApplication: true,
+    status: 'SUBMITTED',
     memberCount: 1,
     members: team.members.filter((member) => member.isLeader),
   });
@@ -795,7 +795,7 @@ it('re-reads the graph when a quiet reload changes the member list', async () =>
 });
 
 it('saves the student change through my application route', async () => {
-  vi.mocked(getMyTeam).mockResolvedValue({ ...team, hasApplication: true });
+  vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
   vi.mocked(getMyApplication).mockResolvedValue({
     ...application,
     status: 'APPROVED',

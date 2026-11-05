@@ -191,7 +191,7 @@ function CollectionCellContent({
   cell,
   milestoneId,
   documentId,
-  applicationId,
+  teamId,
   teamName,
   documentName,
   isReviewOpen,
@@ -200,7 +200,7 @@ function CollectionCellContent({
   readonly cell: MilestoneDocumentCollectionCell;
   readonly milestoneId: string;
   readonly documentId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly teamName: string;
   readonly documentName: string;
   readonly isReviewOpen: boolean;
@@ -229,7 +229,7 @@ function CollectionCellContent({
 
           onClick={() =>
             onReviewOpen(
-              { applicationId, documentId },
+              { teamId, documentId },
               milestoneDocumentReviewVersionOf(cell),
             )
           }
@@ -245,7 +245,7 @@ function CollectionCellContent({
           href={milestoneDocumentSubmissionFileHref(
             milestoneId,
             documentId,
-            applicationId,
+            teamId,
           )}
           aria-label={`${teamName} ${documentName} 개별 파일 내려받기: ${cell.file.name}`}
           aria-describedby={DOWNLOAD_BEHAVIOR_HINT_ID}
@@ -450,7 +450,7 @@ function ReviewPanelRow({
                 : milestoneDocumentSubmissionFileHref(
                     milestone.id,
                     document.id,
-                    row.applicationId,
+                    row.teamId,
                   )
             }
             decision={review.decision}
@@ -525,11 +525,11 @@ function CollectionTable({
           {rows.map((row) => {
             const openReview =
               review !== null &&
-              review.target.applicationId === row.applicationId
+              review.target.teamId === row.teamId
                 ? review
                 : null;
             return (
-              <Fragment key={row.applicationId}>
+              <Fragment key={row.teamId}>
                 <TableRow>
                   <TableCell className={STICKY_TEAM_CELL}>
                     <TeamCellContent row={row} />
@@ -545,7 +545,7 @@ function CollectionTable({
                         cell={collectionCellFor(row, document.id)}
                         milestoneId={milestone.id}
                         documentId={document.id}
-                        applicationId={row.applicationId}
+                        teamId={row.teamId}
                         teamName={row.teamName}
                         documentName={document.name}
                         isReviewOpen={
@@ -553,7 +553,7 @@ function CollectionTable({
                           isSameMilestoneDocumentReviewTarget(
                             openReview.target,
                             {
-                              applicationId: row.applicationId,
+                              teamId: row.teamId,
                               documentId: document.id,
                             },
                           )

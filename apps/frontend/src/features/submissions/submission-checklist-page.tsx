@@ -175,7 +175,7 @@ export function SubmissionChecklistPage({
     setSubmitting(true);
     try {
       const result = await submitResubmissionRevision({
-        applicationId: checklist.applicationId,
+        teamId: checklist.teamId,
         milestoneId: item.milestoneId,
         submission,
         submissionType: item.submissionType,

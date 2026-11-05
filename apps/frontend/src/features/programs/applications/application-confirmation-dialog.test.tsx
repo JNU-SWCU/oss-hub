@@ -10,8 +10,10 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
 });
 
 function ApplicationConfirmationDialogHarness({
+  kind = 'save',
   onClose = () => {},
 }: {
+  readonly kind?: 'save' | 'cancel';
   readonly onClose?: () => void;
 }) {
   const [submitting, setSubmitting] = useState(false);
@@ -23,7 +25,7 @@ function ApplicationConfirmationDialogHarness({
         수정 내용 저장
       </button>
       <ApplicationConfirmationDialog
-        kind="save"
+        kind={kind}
         submitting={submitting}
         onClose={onClose}
         onConfirm={() => setSubmitting(true)}
@@ -114,6 +116,13 @@ describe('ApplicationConfirmationDialog', () => {
     vi.restoreAllMocks();
 
     expect(consoleErrors).toEqual([]);
+  });
+
+  it('신청 취소 전에 팀과 신청서가 함께 삭제됨을 알린다', async () => {
+    await act(async () => root.render(<ApplicationConfirmationDialogHarness kind="cancel" />));
+    expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain('팀과 신청서가 함께 삭제됩니다');
+    expect(document.querySelector('[role="alertdialog"]')?.textContent).not.toContain('팀은 유지');
+    expect(getButton('신청 취소').disabled).toBe(false);
   });
 
   it('Escape로 닫으면 실제 Radix AlertDialog가 원래 저장 버튼에 포커스를 돌려준다', async () => {

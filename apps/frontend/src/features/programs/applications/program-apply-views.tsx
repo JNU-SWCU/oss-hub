@@ -77,12 +77,12 @@ const BLOCKED_CONTENT: Record<
   },
   'already-applied': {
     title: '수정할 수 없는 신청입니다',
-    description: '승인 또는 반려된 신청서는 수정하거나 취소할 수 없습니다.',
+    description: '승인된 신청서는 수정하거나 취소할 수 없습니다.',
   },
   'manage-not-allowed': {
     title: '신청서를 수정할 권한이 없습니다',
     description:
-      '팀 신청서는 신청서를 낸 사람과 팀장만 수정하거나 취소할 수 있습니다. 내용을 고쳐야 하면 팀장에게 요청해 주세요.',
+      '팀 신청서는 현재 팀장만 수정하거나 취소할 수 있습니다. 내용을 고쳐야 하면 팀장에게 요청해 주세요.',
   },
 };
 
@@ -119,11 +119,11 @@ export function BlockedView({
 }
 
 export function ProgramApplySuccessView({
-  applicationId,
+  teamId,
   programId,
   mode = 'create',
 }: {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly mode?: ApplicationFormMode;
 }) {
@@ -142,7 +142,7 @@ export function ProgramApplySuccessView({
             : '신청서가 수정되었습니다'}
         </AlertTitle>
         <AlertDescription>
-          신청 번호 {applicationId}의 내용을 저장했습니다. 지정한 학생은 초대를
+          신청 번호 {teamId}의 내용을 저장했습니다. 지정한 학생은 초대를
           수락해야 합류합니다. 우리 팀에서 수락 현황을 확인하세요.
         </AlertDescription>
       </Alert>

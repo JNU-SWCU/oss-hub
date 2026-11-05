@@ -94,7 +94,7 @@ const leaderTeam: ProgramTeam = {
   memberCount: 2,
   minMembers: 2,
   maxMembers: 4,
-  hasApplication: false,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: true,
   canLeave: true,
@@ -107,7 +107,7 @@ const leaderTeam: ProgramTeam = {
 
 const invitedMemberTeam: ProgramTeam = {
   ...leaderTeam,
-  hasApplication: true,
+  status: 'SUBMITTED',
   canInvite: false,
   canRemoveMembers: false,
   canLeave: true,
@@ -333,7 +333,7 @@ describe('loadProgramApplyContext', () => {
       teamId: null,
       teamMinimum: { memberCount: 1, teamMinSize: 2 },
       team: null,
-      teamId: null,
+      
       rejectionReason: null,
 
       canManage: true,
@@ -395,7 +395,7 @@ describe('loadProgramApplyContext', () => {
       teamId: 'team-1',
       teamMinimum: { memberCount: 2, teamMinSize: 2 },
       team: leaderTeam,
-      teamId: null,
+      
       rejectionReason: null,
       canManage: true,
       initialValues: {
@@ -435,7 +435,7 @@ describe('loadProgramApplyContext', () => {
       teamId: 'team-1',
       teamMinimum: null,
       team: leaderTeam,
-      teamId: 'application-1',
+      
       rejectionReason: null,
       canManage: true,
       initialValues: {

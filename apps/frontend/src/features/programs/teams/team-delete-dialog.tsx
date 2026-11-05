@@ -16,7 +16,7 @@ import type { TeamDeletionScope } from './dto';
 const MAX_NOTIFICATION_MESSAGE_LENGTH = 500;
 
 const DISAPPEARING_ITEMS = [
-  ['applications', '지원서', '건'],
+  ['teams', '지원서', '건'],
   ['members', '팀원', '명'],
   ['invitations', '초대', '건'],
   ['submissions', '제출물', '건'],

@@ -157,7 +157,7 @@ function readyContext(
             memberCount: extras.memberCount ?? members.length,
             minMembers: 1,
             maxMembers: 4,
-            hasApplication: extras.mode === 'edit',
+            status: 'SUBMITTED',
 
             canInvite: isLeader,
             canRemoveMembers: isLeader,
@@ -165,7 +165,7 @@ function readyContext(
             isLeader,
             members,
           },
-    applicationId: extras.mode === 'edit' ? 'application-1' : null,
+    
     canManage: extras.mode === 'edit' || isLeader,
     initialValues: {
       title: initialTitle,

@@ -41,7 +41,7 @@ export function useMyTeamQuery(programId: string, sessionKey: string | null) {
             ]);
             const application =
               team !== null ? await getMyApplication(programId) : null;
-            if (team?.hasApplication && application === null)
+            if (team !== null && application === null)
               throw new TeamApplicationOutOfSyncError();
             return { program, team, application };
           },

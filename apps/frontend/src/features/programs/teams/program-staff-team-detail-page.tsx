@@ -123,7 +123,6 @@ export function ProgramStaffTeamDetailPage({
   const [decisionNotice, setDecisionNotice] = useState<string | null>(null);
   const [pendingReject, setPendingReject] = useState(false);
   const [reason, setReason] = useState('');
-  const [reasonError, setReasonError] = useState(false);
   const cancelled = useRef(false);
 
   const renameTriggerRef = useRef<HTMLButtonElement | null>(null);
@@ -140,35 +139,29 @@ export function ProgramStaffTeamDetailPage({
       cancelled.current = true;
     };
   }, [programId, teamId, sessionKey]);
-  const applicationId = query.data?.application?.id ?? null;
   const applicationQuery = useTeamApplicationQuery(
     programId,
-    applicationId,
+    teamId,
     sessionKey,
   );
   const applicationDetail = applicationQuery.data ?? null;
 
   const applyDecision = useCallback(
     async (next: ApplicationStatus, why: string): Promise<void> => {
-      if (applicationId === null) return;
       const input = decisionInputFor(next, why);
-      if (input === null) {
-        setReasonError(true);
-        return;
-      }
       setDecisionBusy(true);
       const result = await runDecisionWithRefetch({
-        decide: () => decide({ applicationId, input }),
+        decide: () => decide({ teamId, input }),
         refetch: () =>
           queryClient.fetchQuery({
             queryKey: programFeatureKey(
               programId,
               'teams',
               'application',
-              applicationId,
+              teamId,
               sessionKey,
             ),
-            queryFn: () => getApplicationDetailWithHistory(applicationId),
+            queryFn: () => getApplicationDetailWithHistory(teamId),
             staleTime: 0,
           }),
       });
@@ -176,7 +169,6 @@ export function ProgramStaffTeamDetailPage({
       setDecisionBusy(false);
       setPendingReject(false);
       setReason('');
-      setReasonError(false);
 
       setDecisionNotice(decisionNoticeFor(result));
       if (result.kind === 'refetch-failed') {
@@ -189,7 +181,7 @@ export function ProgramStaffTeamDetailPage({
             programId,
             'teams',
             'application',
-            applicationId,
+            teamId,
             sessionKey,
           ),
           null,
@@ -200,7 +192,7 @@ export function ProgramStaffTeamDetailPage({
 
       await load();
     },
-    [applicationId, load, queryClient, programId, sessionKey, decide],
+    [teamId, load, queryClient, programId, sessionKey, decide],
   );
 
   const teamsHref = programHref(programId, '/teams');
@@ -266,7 +258,6 @@ export function ProgramStaffTeamDetailPage({
     }
     if (next === 'REJECTED') {
       setReason('');
-      setReasonError(false);
       setPendingReject(true);
       return;
     }
@@ -453,18 +444,13 @@ export function ProgramStaffTeamDetailPage({
             }
             teamName={detail.name}
             reason={reason}
-            reasonError={reasonError}
             busy={decisionBusy}
             errorMessage={null}
             returnFocusId="team-detail-application-status"
-            onReasonChange={(value) => {
-              setReason(value);
-              if (value.trim() !== '') setReasonError(false);
-            }}
+            onReasonChange={setReason}
             onCancel={() => {
               setPendingReject(false);
               setReason('');
-              setReasonError(false);
             }}
             onConfirm={() => {
               void applyDecision('REJECTED', reason);
@@ -515,13 +501,13 @@ export function ProgramStaffTeamDetailPage({
                   teamId,
                 ),
               });
-              if (applicationId !== null) {
+              if (teamId !== null) {
                 queryClient.removeQueries({
                   queryKey: programFeatureKey(
                     programId,
                     'teams',
                     'application',
-                    applicationId,
+                    teamId,
                   ),
                 });
               }

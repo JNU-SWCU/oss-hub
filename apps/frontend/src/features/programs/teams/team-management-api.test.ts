@@ -8,7 +8,7 @@ import {
 import type { TeamDeletionScope } from './dto';
 
 const SCOPE = {
-  applications: 1,
+  teams: 1,
   members: 2,
   invitations: 0,
   submissions: 0,

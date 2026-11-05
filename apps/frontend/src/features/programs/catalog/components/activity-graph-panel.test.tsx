@@ -22,10 +22,10 @@ describe('활동 그래프 지표 비교', () => {
   );
   it.each(['own-application', 'missing-application'])(
     '우리 팀은 신청 ID %s의 활동만 표시하고 다른 팀으로 대체하지 않는다',
-    async (applicationId) => {
+    async (teamId) => {
       vi.mocked(getProgramActivity).mockResolvedValue(
         ['own-application', 'other-application'].map((id) => ({
-          applicationId: id,
+          teamId: id,
           label: id === 'own-application' ? '우리 팀' : '다른 팀',
           commitCount: id === 'own-application' ? 7 : 999,
           pullRequestCount: 2,
@@ -40,7 +40,7 @@ describe('활동 그래프 지표 비교', () => {
       const view = await renderWithQuery(
         <ActivityGraphContent
           programId="program"
-          applicationId={applicationId}
+          teamId={teamId}
         />,
       );
       const { container } = view;
@@ -49,7 +49,7 @@ describe('활동 그래프 지표 비교', () => {
         expect(container.textContent).not.toContain('999');
         expect(container.querySelector('[role="meter"]')).toBeNull();
         expect(container.textContent).not.toContain('최댓값');
-        if (applicationId === 'own-application') {
+        if (teamId === 'own-application') {
           expect(container.querySelector('strong')?.textContent).toBe(
             '우리 팀',
           );
@@ -67,14 +67,14 @@ describe('활동 그래프 지표 비교', () => {
   it('같은 지표의 최댓값을 기준으로 각각의 막대를 그리고 0은 채우지 않는다', () => {
     const activities = [
       {
-        applicationId: 'a',
+        teamId: 'a',
         label: '팀 A',
         commitCount: 40,
         pullRequestCount: 2,
         releaseCount: 0,
       },
       {
-        applicationId: 'b',
+        teamId: 'b',
         label: '팀 B',
         commitCount: 20,
         pullRequestCount: 4,
@@ -86,7 +86,7 @@ describe('활동 그래프 지표 비교', () => {
       lastActivityAt: null,
       collectionStatus: 'READY' as const,
       members:
-        activity.applicationId === 'a'
+        activity.teamId === 'a'
           ? [
               {
                 githubLogin: 'alice',

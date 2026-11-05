@@ -23,7 +23,6 @@ function Harness({
   currentStatus,
   errorMessage = null,
   busyAfterConfirm = false,
-  reasonError = false,
   applicantName = '합성 신청자',
   teamName = null,
 }: {
@@ -31,7 +30,6 @@ function Harness({
   readonly currentStatus?: 'SUBMITTED' | 'APPROVED' | 'REJECTED';
   readonly errorMessage?: string | null;
   readonly busyAfterConfirm?: boolean;
-  readonly reasonError?: boolean;
   readonly applicantName?: string;
   readonly teamName?: string | null;
 }) {
@@ -51,7 +49,6 @@ function Harness({
           applicantName={applicantName}
           teamName={teamName}
           reason=""
-          reasonError={reasonError}
           busy={busy}
           errorMessage={errorMessage}
           returnFocusId={triggerId}
@@ -92,7 +89,6 @@ function SelfClosingHarness() {
           applicantName="합성 신청자"
           teamName={null}
           reason=""
-          reasonError={false}
           busy={false}
           errorMessage={null}
           returnFocusId={triggerId}
@@ -240,12 +236,12 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     expect(description?.textContent).toContain('검토 대기로 돌아옵니다');
   });
 
-  it('사유를 비운 채 확정하면 오류를 읽어 주는 도구가 알아챈다', async () => {
-    await act(async () => root.render(<Harness action="REJECT" reasonError />));
-
-    const error = dialog()?.querySelector('#reason-error');
-    expect(error?.getAttribute('role')).toBe('alert');
-    expect(error?.textContent).toContain('반려 사유를 입력해 주세요.');
+  it('반려 사유가 선택이며 비어 있어도 확정할 수 있다고 안내한다', async () => {
+    await act(async () => root.render(<Harness action="REJECT" />));
+    expect(dialog()?.textContent).toContain('반려 사유 (선택)');
+    expect(dialog()?.querySelector('#reason-error')).toBeNull();
+    expect(dialog()?.querySelector('textarea')?.getAttribute('aria-invalid')).toBeNull();
+    expect(getButton('반려 확정').disabled).toBe(false);
   });
 
   it('저장하는 중에도 포커스가 창 밖으로 새지 않는다', async () => {

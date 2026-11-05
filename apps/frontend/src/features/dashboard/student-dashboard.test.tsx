@@ -397,7 +397,7 @@ describe('StudentDashboardView', () => {
       applicationDecisionNotices: [
         {
           id: 'notification-1',
-          applicationId: 'application-1',
+          teamId: 'application-1',
           programId: 'program-1',
           programName: '합성 프로그램',
           decision: 'APPROVED',
@@ -415,7 +415,7 @@ describe('StudentDashboardView', () => {
   it('반려 알림은 사유 원문 대신 사유가 있는 화면을 가리킨다', () => {
     const notice = {
       id: 'notification-2',
-      applicationId: 'application-2',
+      teamId: 'application-2',
       programId: 'program-2',
       programName: '합성 경진대회',
       decision: 'REJECTED',
@@ -446,7 +446,7 @@ describe('StudentDashboardView 알림 상태', () => {
       applicationDecisionNotices: [
         {
           id: 'notice-revert',
-          applicationId: 'application-1',
+          teamId: 'application-1',
           programId: 'program-1',
           programName: '합성 프로그램',
           decision: 'SUBMITTED',
@@ -898,7 +898,7 @@ describe('StudentDashboardView 프로그램별 새 피드백', () => {
       applicationDecisionNotices: [
         {
           id: 'notification-1',
-          applicationId: 'application-1',
+          teamId: 'application-1',
           programId: 'program-1',
           programName: '합성 알림 프로그램',
           decision: 'APPROVED',

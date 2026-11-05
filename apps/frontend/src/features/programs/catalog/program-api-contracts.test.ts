@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
+import { teamManagementPage } from '../../../../test-support/team-management-page.fixture';
 import {
   ProgramTeamResponseError,
   getMyTeam,
+  listStaffProgramTeams,
+  transferMyTeamLeader,
   removeMyTeamMember,
 } from '../teams/api';
 import {
@@ -525,4 +528,28 @@ describe('getApplicationDetail', () => {
 
     expect(apiClient).toHaveBeenCalledWith('teams/app%2F1');
   });
+});
+
+
+describe('document team selector page contract', () => {
+  it('canonical Team 페이지 전체를 팀 ID와 이름 배열로 변환한다', async () => {
+    vi.mocked(apiClient).mockReset();
+    vi.mocked(apiClient).mockResolvedValueOnce(teamManagementPage(1, 'program-1')).mockResolvedValueOnce(teamManagementPage(2, 'program-1'));
+    const teams = await listStaffProgramTeams('program-1');
+    expect(teams).toHaveLength(101);
+    expect(teams[0]).toEqual({ teamId: 'team-1', name: '합성 팀 1' });
+    expect(teams[100]).toEqual({ teamId: 'team-101', name: '합성 팀 101' });
+    expect(vi.mocked(apiClient).mock.calls.map(([path]) => { const url = new URL(path, 'https://fixture.invalid'); return [url.pathname, url.searchParams.get('view'), url.searchParams.get('page'), url.searchParams.get('pageSize'), url.searchParams.get('status')]; })).toEqual([
+      ['/programs/program-1/teams', 'team-management', '1', '100', 'all'],
+      ['/programs/program-1/teams', 'team-management', '2', '100', 'all'],
+    ]);
+  });
+});
+
+
+it('현재 팀장 위임은 자기 팀 전용 PATCH 경로를 사용한다', async () => {
+  vi.mocked(apiClient).mockReset();
+  vi.mocked(apiClient).mockResolvedValue(undefined);
+  await transferMyTeamLeader('program 1', 'member-1');
+  expect(apiClient).toHaveBeenCalledWith('programs/program%201/teams/me/leader', { method: 'PATCH', body: JSON.stringify({ userId: 'member-1' }) });
 });

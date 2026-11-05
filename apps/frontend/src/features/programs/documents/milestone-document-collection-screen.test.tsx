@@ -50,11 +50,11 @@ vi.mock('./milestone-document-collection-api', async (importOriginal) => ({
 }));
 
 function row(
-  applicationId: string,
+  teamId: string,
   teamName: string,
 ): MilestoneDocumentCollectionRow {
   return {
-    applicationId,
+    teamId,
     deliveryStatus: 'MISSING',
     teamName,
     applicantName: '김철수',

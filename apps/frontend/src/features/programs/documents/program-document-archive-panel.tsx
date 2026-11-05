@@ -27,7 +27,7 @@ type LoadState =
   | {
       readonly kind: 'ready';
       readonly program: ProgramDetail;
-      readonly teams: readonly StaffProgramTeam[];
+      readonly teams: readonly Pick<StaffProgramTeam, 'teamId' | 'name'>[];
     };
 
 export function ProgramDocumentArchivePanel({

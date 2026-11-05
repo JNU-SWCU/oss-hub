@@ -54,14 +54,14 @@ function missingCell(documentId: string): MilestoneDocumentCollectionCell {
 }
 
 function row(
-  applicationId: string,
+  teamId: string,
   cells: MilestoneDocumentCollectionRow['cells'],
   overrides: Partial<MilestoneDocumentCollectionRow> = {},
 ): MilestoneDocumentCollectionRow {
   return {
-    applicationId,
+    teamId,
     deliveryStatus: 'MISSING',
-    teamName: `${applicationId}팀`,
+    teamName: `${teamId}팀`,
     applicantName: '김철수',
     memberNicknames: ['chulsoo', 'younghee'],
     cells,
@@ -301,7 +301,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
     const html = render({ data: collection(documents, rows) });
 
     expect(html).toContain(
-      'href="/api/v1/milestones/milestone-1/documents/d1/applications/a/file"',
+      'href="/api/v1/milestones/milestone-1/documents/d1/teams/a/file"',
     );
     expect(html).toContain(
       'aria-label="가팀 기획서 개별 파일 내려받기: 아주-긴-파일-이름-확인용-기획서-최종본-v3.pdf"',
@@ -320,7 +320,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
 
     expect(html).toContain('검토 대기');
 
-    expect(html).not.toContain('documents/d2/applications');
+    expect(html).not.toContain('documents/d2/teams');
   });
 
   it('미제출 칸과 팀 표기를 그린다', () => {
@@ -457,7 +457,7 @@ describe('MilestoneDocumentCollectionView 표', () => {
     const html = render({
       data: collection(documents, rows),
       review: {
-        target: { applicationId: 'a', documentId: 'd1' },
+        target: { teamId: 'a', documentId: 'd1' },
         version: { expectedRevision: 1, expectedLatestReviewId: null },
         decision: null,
         comment: '',

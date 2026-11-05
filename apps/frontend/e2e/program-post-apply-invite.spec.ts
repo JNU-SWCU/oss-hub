@@ -34,7 +34,7 @@ const team: ProgramTeam = {
   memberCount: 1,
   minMembers: 2,
   maxMembers: 3,
-  hasApplication: true,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: false,
   canLeave: false,

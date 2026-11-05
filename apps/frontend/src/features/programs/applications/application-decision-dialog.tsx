@@ -13,7 +13,6 @@ export function ApplicationDecisionDialog({
   applicantName,
   teamName,
   reason,
-  reasonError,
   busy,
   errorMessage,
   returnFocusId,
@@ -29,7 +28,6 @@ export function ApplicationDecisionDialog({
 
   readonly teamName: string | null;
   readonly reason: string;
-  readonly reasonError: boolean;
   readonly busy: boolean;
 
   readonly errorMessage: string | null;
@@ -121,26 +119,18 @@ export function ApplicationDecisionDialog({
                 반려로 바뀝니다.
               </p>
             ) : null}
-            <label htmlFor="rejection-reason">반려 사유</label>
+            <label htmlFor="rejection-reason">반려 사유 (선택)</label>
             <textarea
               id="rejection-reason"
               className="min-h-28 rounded-md border border-input bg-background p-3"
               value={reason}
               disabled={busy}
               onChange={(event) => onReasonChange(event.target.value)}
-              aria-invalid={reasonError}
-              aria-describedby={
-                reasonError ? 'reason-error reason-hint' : 'reason-hint'
-              }
+              aria-describedby="reason-hint"
             />
-            {reasonError ? (
-              <span id="reason-error" role="alert" className="text-destructive">
-                반려 사유를 입력해 주세요.
-              </span>
-            ) : null}
 
             <span id="reason-hint" className="text-muted-foreground break-keep">
-              적은 사유는 학생에게 그대로 보입니다.
+              적은 사유는 학생에게 그대로 보입니다. 비워도 반려할 수 있습니다.
             </span>
           </div>
         </>

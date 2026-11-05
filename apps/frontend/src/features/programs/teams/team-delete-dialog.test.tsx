@@ -21,7 +21,7 @@ vi.mock('./api', () => ({
 import { TeamDeleteDialog } from './team-delete-dialog';
 
 const scope: TeamDeletionScope = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 0,
   submissions: 0,
@@ -31,7 +31,7 @@ const scope: TeamDeletionScope = {
 };
 
 const changedScope: TeamDeletionScope = {
-  applications: 2,
+  teams: 2,
   members: 3,
   invitations: 1,
   submissions: 0,
@@ -126,7 +126,7 @@ describe('TeamDeleteDialog', () => {
       teamId: 'team-1',
       deleted: true,
       deletedCounts: {
-        applications: 1,
+        teams: 1,
         members: 3,
         invitations: 0,
         submissions: 0,
@@ -190,7 +190,7 @@ describe('TeamDeleteDialog', () => {
       teamId: 'team-1',
       deleted: true,
       deletedCounts: {
-        applications: 2,
+        teams: 2,
         members: 3,
         invitations: 1,
         submissions: 0,

@@ -12,7 +12,7 @@ const programId = 'activity-deep-link';
 const activities: readonly ProgramActivity[] = Array.from(
   { length: 6 },
   (_, index) => ({
-    applicationId: `application-${index + 1}`,
+    teamId: `application-${index + 1}`,
     label: `참여 저장소 ${index + 1}`,
     commitCount: 12 + index,
     pullRequestCount: 3 + index,
@@ -195,7 +195,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'b',
+        teamId: 'b',
         label: '합성 팀 B',
         commitCount: 20,
         pullRequestCount: 4,
@@ -212,7 +212,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'empty',
+        teamId: 'empty',
         label: '합성 활동 대기 팀',
         collectionStatus: 'EMPTY',
         commitCount: 0,
@@ -222,7 +222,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'unlinked',
+        teamId: 'unlinked',
         label: '합성 미연결 팀',
         collectionStatus: 'NOT_CONNECTED',
         commitCount: 0,
@@ -232,7 +232,7 @@ for (const viewport of [
       },
       {
         ...first,
-        applicationId: 'failed',
+        teamId: 'failed',
         label: '합성 수집 실패 팀',
         collectionStatus: 'FAILED',
         commitCount: 0,

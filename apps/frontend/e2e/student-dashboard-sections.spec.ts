@@ -53,7 +53,7 @@ function item(
   const programPath = `/programs/e2e-dashboard-${key}`;
   return {
     coverImageUrl: null,
-    applicationId: `e2e-dashboard-application-${key}`,
+    teamId: `e2e-dashboard-application-${key}`,
     programId: `e2e-dashboard-${key}`,
     programName,
     teamName: `합성 ${key} 팀`,
@@ -129,7 +129,7 @@ function review(
     comment,
     reviewedAt: '2026-08-18T09:00:00+09:00',
     resubmissionDueAt,
-    applicationId: `e2e-dashboard-application-${programKey}`,
+    teamId: `e2e-dashboard-application-${programKey}`,
     programId,
     milestoneId,
     milestoneName: `합성 ${programKey} 마일스톤 제출`,
@@ -204,7 +204,7 @@ test('requirement feedback uses an optional reason and no separate expiry', asyn
         fulfillJson(route, { items: ITEMS }),
       'GET /api/v1/dashboard/student/feedback': (route) =>
         fulfillJson(route, { items: FEEDBACK }),
-      'GET /api/v1/users/me/notifications/application-decisions': (route) =>
+      'GET /api/v1/users/me/notifications/team-decisions': (route) =>
         fulfillJson(route, []),
       'GET /api/v1/users/me/notifications/team-deletions': (route) =>
         fulfillJson(route, []),
@@ -296,7 +296,7 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
       'GET /api/v1/dashboard/student/feedback': async (route) => {
         await fulfillJson(route, { items: FEEDBACK });
       },
-      'GET /api/v1/users/me/notifications/application-decisions': async (
+      'GET /api/v1/users/me/notifications/team-decisions': async (
         route,
       ) => {
         await fulfillJson(route, []);

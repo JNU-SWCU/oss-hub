@@ -54,7 +54,7 @@ function checklist(
   items: readonly SubmissionChecklistItem[],
 ): SubmissionChecklist {
   return {
-    applicationId: 'application-personal',
+    teamId: 'application-personal',
     applicationMode: 'PERSONAL',
     fileUpload: submissionUploadLimit(),
     items,

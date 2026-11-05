@@ -19,7 +19,7 @@ const team: ProgramTeam = {
   memberCount: 1,
   minMembers: 1,
   maxMembers: 4,
-  hasApplication: false,
+  status: 'SUBMITTED',
   canInvite: true,
   canRemoveMembers: false,
   canLeave: true,
@@ -106,7 +106,7 @@ describe('ApplicationTeamDeparture', () => {
   it('혼자인 팀장에게 팀 삭제의 결과를 확인한 뒤 실행한다', async () => {
     vi.mocked(leaveMyTeam).mockResolvedValue(undefined);
     await render();
-    expect(host.textContent).toContain('팀이 삭제됩니다');
+    expect(host.textContent).toContain('팀과 신청서가 함께 삭제됩니다');
     expect(host.textContent).toContain('보낸 초대도 함께 취소');
     await act(async () => button('팀 삭제').click());
     expect(leaveMyTeam).not.toHaveBeenCalled();
@@ -116,30 +116,30 @@ describe('ApplicationTeamDeparture', () => {
     expect(onDeparted).toHaveBeenCalledOnce();
   });
 
-  it('다른 팀원이 있는 팀장도 나갈 수 있고, 자동 승계를 미리 알린다', async () => {
+  it('다른 팀원이 있는 팀장은 위임 뒤에 탈퇴할 수 있다', async () => {
     vi.mocked(leaveMyTeam).mockResolvedValue(undefined);
-    await render({ memberCount: 2, canRemoveMembers: true });
+    await render({ memberCount: 2, canRemoveMembers: true, canLeave: false });
+    expect(button('팀 탈퇴').disabled).toBe(true);
+    expect(host.textContent).toContain('먼저 팀장을 위임');
+    expect(host.textContent).not.toContain('자동으로 팀장');
+    await render({ memberCount: 2, canRemoveMembers: false, canLeave: true, isLeader: false });
     expect(button('팀 탈퇴').disabled).toBe(false);
-    expect(host.textContent).toContain('가장 먼저 합류한 팀원이 자동으로 팀장');
-
-    expect(host.textContent).not.toContain('모든 팀원');
-    expect(host.textContent).not.toContain('팀원이 모두 탈퇴');
     await act(async () => button('팀 탈퇴').click());
     await act(async () => button('팀 탈퇴', true).click());
     expect(leaveMyTeam).toHaveBeenCalledExactlyOnceWith('program-1');
     expect(onDeparted).toHaveBeenCalledOnce();
   });
 
-  it('신청 기록이 있는 마지막 구성원에게는 기록 보존을 이유로 든다', async () => {
+  it('활동이 있어 나갈 수 없는 마지막 구성원에게 기록 보존을 안내한다', async () => {
     await render({
-      hasApplication: true,
+      status: 'SUBMITTED',
       canInvite: false,
       canLeave: false,
       memberCount: 1,
     });
     expect(button('팀 삭제').disabled).toBe(true);
     expect(host.textContent).toContain('마지막 구성원은 팀을 나갈 수 없습니다');
-    expect(host.textContent).toContain('제출한 신청·기록');
+    expect(host.textContent).toContain('제출 기록이나 연결된 저장소');
 
     expect(host.textContent).not.toContain('신청 제출 후 팀을 변경할 수 없');
     expect(leaveMyTeam).not.toHaveBeenCalled();
@@ -147,7 +147,7 @@ describe('ApplicationTeamDeparture', () => {
 
   it('신청 기록이 있어도 나갈 수 있으면 기록이 남는다는 사실을 함께 알린다', async () => {
     await render({
-      hasApplication: true,
+      status: 'SUBMITTED',
       isLeader: false,
       canInvite: false,
       memberCount: 2,
@@ -341,7 +341,7 @@ describe('ApplicationTeamDeparture — 신원 경계', () => {
 
     await render({
       ...withOthers,
-      hasApplication: true,
+      status: 'SUBMITTED',
       canLeave: false,
       memberCount: 1,
     });
@@ -352,4 +352,26 @@ describe('ApplicationTeamDeparture — 신원 경계', () => {
     await act(async () => first.resolve());
     expect(onDeparted).not.toHaveBeenCalled();
   });
+});
+
+
+it('남은 팀원이 있는 팀장에게 먼저 위임하라고 안내하고 탈퇴를 막는다', async () => {
+  await render({ memberCount: 2, canLeave: false });
+  expect(host.textContent).toContain('먼저 팀장을 위임');
+  expect(host.textContent).not.toContain('자동으로 팀장');
+  expect(button('팀 탈퇴').disabled).toBe(true);
+  expect(leaveMyTeam).not.toHaveBeenCalled();
+});
+
+it('승인 전 마지막 구성원의 탈퇴는 팀과 지원서를 함께 삭제한다고 안내한다', async () => {
+  await render({ status: 'SUBMITTED', memberCount: 1, canLeave: true });
+  await act(async () => button('팀 삭제').click());
+  const description = document.querySelector('[role="alertdialog"]')?.textContent ?? '';
+  expect(description).toContain('팀과 신청서가 함께 삭제');
+  expect(description).not.toContain('이미 제출한 신청서와 제출 기록은 그대로');
+});
+
+it('승인된 마지막 구성원은 나갈 수 없다고 안내한다', async () => {
+  await render({ status: 'APPROVED', memberCount: 1, canLeave: false });
+  expect(host.textContent).toContain('승인된 팀의 마지막 구성원');
 });
