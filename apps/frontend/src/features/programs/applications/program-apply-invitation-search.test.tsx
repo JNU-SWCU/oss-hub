@@ -143,7 +143,7 @@ function readyContext(nextTeam: ProgramTeam | null): ReadyContext {
     teamId: nextTeam?.id ?? null,
     teamMinimum: null,
     team: nextTeam,
-    
+
     canManage: true,
     initialValues: {
       isRepositoryPublicationPlanned: true,

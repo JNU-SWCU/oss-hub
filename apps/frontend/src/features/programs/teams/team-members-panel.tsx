@@ -105,7 +105,10 @@ function TeamMembersPanelInstance({
   inviteTriggerRef,
   onChanged,
 }: TeamMembersPanelProps) {
-  const [target, setTarget] = useState<{ readonly kind: 'remove' | 'transfer'; readonly member: TeamMember } | null>(null);
+  const [target, setTarget] = useState<{
+    readonly kind: 'remove' | 'transfer';
+    readonly member: TeamMember;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -164,11 +167,20 @@ function TeamMembersPanelInstance({
   }
 
   function canTransfer(member: TeamMember): boolean {
-    return mode === 'manage' && team?.isLeader === true && !member.isLeader && member.nickname !== sessionNickname;
+    return (
+      mode === 'manage' &&
+      team?.isLeader === true &&
+      !member.isLeader &&
+      member.nickname !== sessionNickname
+    );
   }
 
   async function changeMember(member: TeamMember, kind: 'remove' | 'transfer') {
-    if (pending.current || !(kind === 'remove' ? canRemove(member) : canTransfer(member))) return;
+    if (
+      pending.current ||
+      !(kind === 'remove' ? canRemove(member) : canTransfer(member))
+    )
+      return;
     pending.current = true;
     setBusy(true);
     setError(null);
@@ -314,36 +326,49 @@ function TeamMembersPanelInstance({
                           {canTransfer(member) ? (
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <Button type="button" variant="ghost" size="icon-sm"
-                                  aria-label={displayName + ' ' + TRANSFER_LABEL} disabled={busy}
-                                  onClick={(event) => { trigger.current = event.currentTarget; setError(null); setTarget({ kind: 'transfer', member }); }}>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={
+                                    displayName + ' ' + TRANSFER_LABEL
+                                  }
+                                  disabled={busy}
+                                  onClick={(event) => {
+                                    trigger.current = event.currentTarget;
+                                    setError(null);
+                                    setTarget({ kind: 'transfer', member });
+                                  }}
+                                >
                                   <ArrowRightLeft aria-hidden="true" />
                                 </Button>
                               </TooltipTrigger>
-                              <TooltipContent>{displayName + ' ' + TRANSFER_LABEL}</TooltipContent>
+                              <TooltipContent>
+                                {displayName + ' ' + TRANSFER_LABEL}
+                              </TooltipContent>
                             </Tooltip>
                           ) : null}
-                        {canRemove(member) ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`${displayName} ${REMOVE_LABEL}`}
-                                disabled={busy}
-                                onClick={(event) => {
-                                  trigger.current = event.currentTarget;
-                                  setError(null);
-                                  setTarget({ kind: 'remove', member });
-                                }}
-                              >
-                                <UserMinus aria-hidden="true" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{`${displayName} ${REMOVE_LABEL}`}</TooltipContent>
-                          </Tooltip>
-                        ) : null}
+                          {canRemove(member) ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`${displayName} ${REMOVE_LABEL}`}
+                                  disabled={busy}
+                                  onClick={(event) => {
+                                    trigger.current = event.currentTarget;
+                                    setError(null);
+                                    setTarget({ kind: 'remove', member });
+                                  }}
+                                >
+                                  <UserMinus aria-hidden="true" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{`${displayName} ${REMOVE_LABEL}`}</TooltipContent>
+                            </Tooltip>
+                          ) : null}
                         </div>
                       </ListRow>
                     </li>
@@ -394,9 +419,22 @@ function TeamMembersPanelInstance({
         </CardContent>
         {target ? (
           <ApplicationActionDialog
-            title={target.kind === 'remove' ? displayNameOf(target.member) + ' 팀원을 제외하시겠습니까?' : displayNameOf(target.member) + ' 님에게 팀장을 위임하시겠습니까?'}
-            description={target.kind === 'remove' ? displayNameOf(target.member) + ' 팀원이 ' + REMOVAL_SCOPE_NOTICE : '권한을 넘긴 뒤에도 팀원으로 남습니다. 위임 후에는 팀에서 탈퇴할 수 있습니다.'}
-            confirmLabel={target.kind === 'remove' ? REMOVE_LABEL : TRANSFER_LABEL}
+            title={
+              target.kind === 'remove'
+                ? displayNameOf(target.member) + ' 팀원을 제외하시겠습니까?'
+                : displayNameOf(target.member) +
+                  ' 님에게 팀장을 위임하시겠습니까?'
+            }
+            description={
+              target.kind === 'remove'
+                ? displayNameOf(target.member) +
+                  ' 팀원이 ' +
+                  REMOVAL_SCOPE_NOTICE
+                : '권한을 넘긴 뒤에도 팀원으로 남습니다. 위임 후에는 팀에서 탈퇴할 수 있습니다.'
+            }
+            confirmLabel={
+              target.kind === 'remove' ? REMOVE_LABEL : TRANSFER_LABEL
+            }
             destructive={target.kind === 'remove'}
             submitting={busy}
             returnFocusRef={trigger}
@@ -405,7 +443,10 @@ function TeamMembersPanelInstance({
           >
             {error ? (
               <Alert variant="destructive">
-                <AlertTitle>{target.kind === 'remove' ? REMOVE_LABEL : TRANSFER_LABEL} 실패</AlertTitle>
+                <AlertTitle>
+                  {target.kind === 'remove' ? REMOVE_LABEL : TRANSFER_LABEL}{' '}
+                  실패
+                </AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}

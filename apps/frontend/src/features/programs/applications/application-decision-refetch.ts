@@ -16,7 +16,9 @@ export function decisionInputFor(
   if (next === 'APPROVED') return { action: 'APPROVE' };
   if (next === 'SUBMITTED') return { action: 'REVERT' };
   const trimmed = reason.trim();
-  return trimmed === '' ? { action: 'REJECT' } : { action: 'REJECT', reason: trimmed };
+  return trimmed === ''
+    ? { action: 'REJECT' }
+    : { action: 'REJECT', reason: trimmed };
 }
 
 type DecisionOutcome =

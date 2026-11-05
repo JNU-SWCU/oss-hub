@@ -524,8 +524,7 @@ function CollectionTable({
         <TableBody>
           {rows.map((row) => {
             const openReview =
-              review !== null &&
-              review.target.teamId === row.teamId
+              review !== null && review.target.teamId === row.teamId
                 ? review
                 : null;
             return (

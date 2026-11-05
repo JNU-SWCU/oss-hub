@@ -50,7 +50,10 @@ type TargetsState =
 type TeamsState =
   | { readonly kind: 'loading' }
   | { readonly kind: 'error' }
-  | { readonly kind: 'ready'; readonly teams: readonly Pick<StaffProgramTeam, 'teamId' | 'name'>[] };
+  | {
+      readonly kind: 'ready';
+      readonly teams: readonly Pick<StaffProgramTeam, 'teamId' | 'name'>[];
+    };
 
 type Notice =
   | { readonly kind: 'sent'; readonly count: number }

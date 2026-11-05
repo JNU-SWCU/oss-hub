@@ -122,7 +122,12 @@ describe('ApplicationTeamDeparture', () => {
     expect(button('팀 탈퇴').disabled).toBe(true);
     expect(host.textContent).toContain('먼저 팀장을 위임');
     expect(host.textContent).not.toContain('자동으로 팀장');
-    await render({ memberCount: 2, canRemoveMembers: false, canLeave: true, isLeader: false });
+    await render({
+      memberCount: 2,
+      canRemoveMembers: false,
+      canLeave: true,
+      isLeader: false,
+    });
     expect(button('팀 탈퇴').disabled).toBe(false);
     await act(async () => button('팀 탈퇴').click());
     await act(async () => button('팀 탈퇴', true).click());
@@ -354,7 +359,6 @@ describe('ApplicationTeamDeparture — 신원 경계', () => {
   });
 });
 
-
 it('남은 팀원이 있는 팀장에게 먼저 위임하라고 안내하고 탈퇴를 막는다', async () => {
   await render({ memberCount: 2, canLeave: false });
   expect(host.textContent).toContain('먼저 팀장을 위임');
@@ -366,7 +370,8 @@ it('남은 팀원이 있는 팀장에게 먼저 위임하라고 안내하고 탈
 it('승인 전 마지막 구성원의 탈퇴는 팀과 지원서를 함께 삭제한다고 안내한다', async () => {
   await render({ status: 'SUBMITTED', memberCount: 1, canLeave: true });
   await act(async () => button('팀 삭제').click());
-  const description = document.querySelector('[role="alertdialog"]')?.textContent ?? '';
+  const description =
+    document.querySelector('[role="alertdialog"]')?.textContent ?? '';
   expect(description).toContain('팀과 신청서가 함께 삭제');
   expect(description).not.toContain('이미 제출한 신청서와 제출 기록은 그대로');
 });

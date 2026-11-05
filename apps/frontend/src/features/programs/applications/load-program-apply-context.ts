@@ -46,7 +46,6 @@ export type ProgramApplyContext =
       readonly teamId: string | null;
       readonly teamMinimum: TeamMinimum | null;
       readonly team: ProgramTeam | null;
-      
 
       readonly rejectionReason: string | null;
       readonly canManage: boolean;
@@ -157,7 +156,7 @@ export async function loadProgramApplyContext(
         teamId: application.teamId,
         teamMinimum: null,
         team: editTeam.team,
-        
+
         rejectionReason:
           application.status === 'REJECTED'
             ? application.rejectionReason
@@ -191,7 +190,7 @@ export async function loadProgramApplyContext(
         teamMinSize: program.teamMinSize,
       },
       team: team.team,
-      
+
       rejectionReason: null,
 
       canManage: team.team === null ? true : team.team.isLeader,

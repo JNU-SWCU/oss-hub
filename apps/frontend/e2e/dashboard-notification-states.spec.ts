@@ -32,9 +32,7 @@ test('되돌린 신청과 삭제된 팀을 현재 상태에 맞게 안내하고 
         fulfillJson(route, { items: [] }),
       'GET /api/v1/dashboard/student/feedback': async (route) =>
         fulfillJson(route, { items: [] }),
-      'GET /api/v1/users/me/notifications/team-decisions': async (
-        route,
-      ) =>
+      'GET /api/v1/users/me/notifications/team-decisions': async (route) =>
         fulfillJson(route, [
           {
             id: 'synthetic-revert-notice',

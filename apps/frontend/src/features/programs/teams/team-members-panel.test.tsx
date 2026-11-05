@@ -11,7 +11,10 @@ import type { ProgramTeam } from './dto';
 import type { SentTeamInvitation } from './team-invitation-dto';
 import type { TeamInvitationManagement } from './use-team-invitation-management';
 
-vi.mock('./api', () => ({ removeMyTeamMember: vi.fn(), transferMyTeamLeader: vi.fn() }));
+vi.mock('./api', () => ({
+  removeMyTeamMember: vi.fn(),
+  transferMyTeamLeader: vi.fn(),
+}));
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -755,15 +758,18 @@ describe('TeamMembersPanel — 신원 경계', () => {
   });
 });
 
-
 it('현재 팀장이 선택한 구성원에게 위임하고 새 팀 상태를 다시 읽는다', async () => {
   vi.mocked(transferMyTeamLeader).mockResolvedValue(undefined);
   await render();
-  const trigger = host.querySelector<HTMLButtonElement>('button[aria-label="먼저 합류 팀장 위임"]');
+  const trigger = host.querySelector<HTMLButtonElement>(
+    'button[aria-label="먼저 합류 팀장 위임"]',
+  );
   expect(trigger).not.toBeNull();
   if (!trigger) throw new Error('Missing leader transfer control');
   await act(async () => trigger.click());
-  expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain('팀원으로 남습니다');
+  expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain(
+    '팀원으로 남습니다',
+  );
   await act(async () => dialogButton('팀장 위임').click());
   expect(transferMyTeamLeader).toHaveBeenCalledWith('program-1', 'member-1');
   expect(removeMyTeamMember).not.toHaveBeenCalled();
@@ -773,7 +779,14 @@ it('현재 팀장이 선택한 구성원에게 위임하고 새 팀 상태를 �
 
 it('팀원이거나 팀장 자신인 대상에는 위임 버튼이 없다', async () => {
   await render();
-  expect(host.querySelector('button[aria-label="synthetic-leader 팀장 위임"]')).toBeNull();
-  await render({ isLeader: false, canRemoveMembers: false }, 'synthetic-member');
-  expect(host.querySelectorAll('button[aria-label$="팀장 위임"]')).toHaveLength(0);
+  expect(
+    host.querySelector('button[aria-label="synthetic-leader 팀장 위임"]'),
+  ).toBeNull();
+  await render(
+    { isLeader: false, canRemoveMembers: false },
+    'synthetic-member',
+  );
+  expect(host.querySelectorAll('button[aria-label$="팀장 위임"]')).toHaveLength(
+    0,
+  );
 });

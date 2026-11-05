@@ -98,8 +98,7 @@ export function DashboardProgramSections({
   const feedbackGroups = feedbackByApplication(feedback);
   const feedbackOf: FeedbackOf = (item) =>
     feedbackGroups.get(item.teamId) ?? [];
-  const hasFeedback = (item: DashboardItem) =>
-    feedbackGroups.has(item.teamId);
+  const hasFeedback = (item: DashboardItem) => feedbackGroups.has(item.teamId);
   const activeWithFeedback = active.filter(hasFeedback);
   const doneWithFeedback = done.filter(hasFeedback);
   const feedbackCount = activeWithFeedback.length + doneWithFeedback.length;

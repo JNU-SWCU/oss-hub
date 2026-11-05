@@ -46,9 +46,7 @@ const onSent = vi.fn();
 beforeEach(async () => {
   vi.mocked(listStaffProgramTeams)
     .mockReset()
-    .mockResolvedValue([
-      { teamId: 'team-1', name: '예시 팀 가' },
-    ]);
+    .mockResolvedValue([{ teamId: 'team-1', name: '예시 팀 가' }]);
   vi.mocked(getProgramDocumentChangeRequestTargets)
     .mockReset()
     .mockResolvedValue(TARGETS);
@@ -268,24 +266,44 @@ it('팀 목록을 못 불러오면 팀 없음으로 보이지 않고 다시 불�
   expect(dialog()?.textContent).toContain('예시 팀 가');
 });
 
-
 afterEach(() => vi.unstubAllGlobals());
 it('실제 페이지 응답으로 보완 요청 팀 선택지 101개를 표시한다', async () => {
-  const actual = await vi.importActual<typeof import('../teams/api')>('../teams/api');
-  vi.mocked(listStaffProgramTeams).mockImplementation(actual.listStaffProgramTeams);
+  const actual =
+    await vi.importActual<typeof import('../teams/api')>('../teams/api');
+  vi.mocked(listStaffProgramTeams).mockImplementation(
+    actual.listStaffProgramTeams,
+  );
   const pages: number[] = [];
-  vi.stubGlobal('fetch', vi.fn((request: string) => {
-    const url = new URL(request, 'https://fixture.invalid');
-    if (url.pathname !== apiPath('programs/program-1/teams')) throw new Error('Unexpected test request ' + url.pathname);
-    const page = Number(url.searchParams.get('page') ?? '1');
-    pages.push(page);
-    return Promise.resolve(new Response(JSON.stringify(teamManagementPage(page)), { status: 200, headers: { 'Content-Type': 'application/json' } }));
-  }));
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((request: string) => {
+      const url = new URL(request, 'https://fixture.invalid');
+      if (url.pathname !== apiPath('programs/program-1/teams'))
+        throw new Error('Unexpected test request ' + url.pathname);
+      const page = Number(url.searchParams.get('page') ?? '1');
+      pages.push(page);
+      return Promise.resolve(
+        new Response(JSON.stringify(teamManagementPage(page)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    }),
+  );
   await open();
-  const kind = document.body.querySelector<HTMLInputElement>('input[type="radio"][value="TEAM"]');
+  const kind = document.body.querySelector<HTMLInputElement>(
+    'input[type="radio"][value="TEAM"]',
+  );
   if (!kind) throw new Error('Missing team scope radio');
-  await act(async () => { kind.click(); await vi.waitFor(() => expect(pages).toEqual([1, 2])); });
-  expect(document.body.querySelector('option[value="team-101"]')?.textContent).toBe('합성 팀 101');
-  expect(document.body.querySelectorAll('option[value^="team-"]')).toHaveLength(101);
+  await act(async () => {
+    kind.click();
+    await vi.waitFor(() => expect(pages).toEqual([1, 2]));
+  });
+  expect(
+    document.body.querySelector('option[value="team-101"]')?.textContent,
+  ).toBe('합성 팀 101');
+  expect(document.body.querySelectorAll('option[value^="team-"]')).toHaveLength(
+    101,
+  );
   expect(pages).toEqual([1, 2]);
 });

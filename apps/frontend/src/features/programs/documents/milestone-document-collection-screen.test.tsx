@@ -49,10 +49,7 @@ vi.mock('./milestone-document-collection-api', async (importOriginal) => ({
   getMilestoneDocumentHistory: getMilestoneDocumentHistoryMock,
 }));
 
-function row(
-  teamId: string,
-  teamName: string,
-): MilestoneDocumentCollectionRow {
+function row(teamId: string, teamName: string): MilestoneDocumentCollectionRow {
   return {
     teamId,
     deliveryStatus: 'MISSING',

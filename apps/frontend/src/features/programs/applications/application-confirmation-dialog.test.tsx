@@ -119,9 +119,15 @@ describe('ApplicationConfirmationDialog', () => {
   });
 
   it('신청 취소 전에 팀과 신청서가 함께 삭제됨을 알린다', async () => {
-    await act(async () => root.render(<ApplicationConfirmationDialogHarness kind="cancel" />));
-    expect(document.querySelector('[role="alertdialog"]')?.textContent).toContain('팀과 신청서가 함께 삭제됩니다');
-    expect(document.querySelector('[role="alertdialog"]')?.textContent).not.toContain('팀은 유지');
+    await act(async () =>
+      root.render(<ApplicationConfirmationDialogHarness kind="cancel" />),
+    );
+    expect(
+      document.querySelector('[role="alertdialog"]')?.textContent,
+    ).toContain('팀과 신청서가 함께 삭제됩니다');
+    expect(
+      document.querySelector('[role="alertdialog"]')?.textContent,
+    ).not.toContain('팀은 유지');
     expect(getButton('신청 취소').disabled).toBe(false);
   });
 

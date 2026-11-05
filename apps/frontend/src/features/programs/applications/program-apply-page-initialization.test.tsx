@@ -165,7 +165,7 @@ function readyContext(
             isLeader,
             members,
           },
-    
+
     canManage: extras.mode === 'edit' || isLeader,
     initialValues: {
       title: initialTitle,

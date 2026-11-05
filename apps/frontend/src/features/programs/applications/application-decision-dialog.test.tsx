@@ -240,7 +240,9 @@ describe('ApplicationDecisionDialog — 키보드로도 빠져나올 수 있다'
     await act(async () => root.render(<Harness action="REJECT" />));
     expect(dialog()?.textContent).toContain('반려 사유 (선택)');
     expect(dialog()?.querySelector('#reason-error')).toBeNull();
-    expect(dialog()?.querySelector('textarea')?.getAttribute('aria-invalid')).toBeNull();
+    expect(
+      dialog()?.querySelector('textarea')?.getAttribute('aria-invalid'),
+    ).toBeNull();
     expect(getButton('반려 확정').disabled).toBe(false);
   });
 

@@ -9,8 +9,7 @@ import type { ProgramTeam } from '../teams/dto';
 import { ApplicationActionDialog } from './application-confirmation-dialog';
 import { mapTeamError } from '../teams/program-teams-flow';
 
-const LAST_MEMBER_REASON =
-  '승인된 팀의 마지막 구성원은 팀을 나갈 수 없습니다.';
+const LAST_MEMBER_REASON = '승인된 팀의 마지막 구성원은 팀을 나갈 수 없습니다.';
 
 const LEADER_TRANSFER_REASON =
   '팀원이 남아 있으므로 먼저 팀장을 위임해 주세요. 위임한 뒤 팀에서 나갈 수 있습니다.';
@@ -67,16 +66,21 @@ function ApplicationTeamDepartureInstance({
 
   const mustTransfer = team.isLeader && team.memberCount > 1;
   const canDepart = team.canLeave && !mustTransfer;
-  const deletesTeam = team.isLeader && team.memberCount <= 1 && team.status !== 'APPROVED';
+  const deletesTeam =
+    team.isLeader && team.memberCount <= 1 && team.status !== 'APPROVED';
   const label = deletesTeam ? '팀 삭제' : '팀 탈퇴';
   const explanation = mustTransfer
     ? LEADER_TRANSFER_REASON
     : !canDepart
-      ? team.status === 'APPROVED' ? LAST_MEMBER_REASON : '제출 기록이나 연결된 저장소가 있는 팀의 마지막 구성원은 팀을 나갈 수 없습니다.'
+      ? team.status === 'APPROVED'
+        ? LAST_MEMBER_REASON
+        : '제출 기록이나 연결된 저장소가 있는 팀의 마지막 구성원은 팀을 나갈 수 없습니다.'
       : deletesTeam
         ? '팀과 신청서가 함께 삭제됩니다. 이 팀에서 보낸 초대도 함께 취소됩니다.'
         : MEMBER_REASON;
-  const description = deletesTeam ? explanation : explanation + ' ' + APPLICATION_KEPT_NOTICE;
+  const description = deletesTeam
+    ? explanation
+    : explanation + ' ' + APPLICATION_KEPT_NOTICE;
 
   async function depart() {
     if (pending.current || !canDepart) return;

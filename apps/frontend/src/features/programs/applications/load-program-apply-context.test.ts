@@ -333,7 +333,7 @@ describe('loadProgramApplyContext', () => {
       teamId: null,
       teamMinimum: { memberCount: 1, teamMinSize: 2 },
       team: null,
-      
+
       rejectionReason: null,
 
       canManage: true,
@@ -395,7 +395,7 @@ describe('loadProgramApplyContext', () => {
       teamId: 'team-1',
       teamMinimum: { memberCount: 2, teamMinSize: 2 },
       team: leaderTeam,
-      
+
       rejectionReason: null,
       canManage: true,
       initialValues: {
@@ -435,7 +435,7 @@ describe('loadProgramApplyContext', () => {
       teamId: 'team-1',
       teamMinimum: null,
       team: leaderTeam,
-      
+
       rejectionReason: null,
       canManage: true,
       initialValues: {

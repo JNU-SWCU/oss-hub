@@ -111,10 +111,17 @@ export function removeMyTeamMember(
   );
 }
 
-export function transferMyTeamLeader(programId: string, userId: string): Promise<void> {
-  return apiClient<void>(`programs/${encodeURIComponent(programId)}/teams/me/leader`, {
-    method: 'PATCH', body: JSON.stringify({ userId }),
-  });
+export function transferMyTeamLeader(
+  programId: string,
+  userId: string,
+): Promise<void> {
+  return apiClient<void>(
+    `programs/${encodeURIComponent(programId)}/teams/me/leader`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ userId }),
+    },
+  );
 }
 
 export async function listStaffProgramTeams(
@@ -124,7 +131,12 @@ export async function listStaffProgramTeams(
   let page = 1;
   let totalPages: number;
   do {
-    const response = await listTeamManagementApplications(programId, { page, pageSize: 100, search: '', status: 'all' });
+    const response = await listTeamManagementApplications(programId, {
+      page,
+      pageSize: 100,
+      search: '',
+      status: 'all',
+    });
     for (const item of response.items) {
       if (item.team === null) throw new ProgramTeamResponseError();
       teams.push({ teamId: item.id, name: item.team.name });

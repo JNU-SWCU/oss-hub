@@ -296,9 +296,7 @@ test('학생 대시보드는 묶음·주 행동·접기·거르기를 넓은 화
       'GET /api/v1/dashboard/student/feedback': async (route) => {
         await fulfillJson(route, { items: FEEDBACK });
       },
-      'GET /api/v1/users/me/notifications/team-decisions': async (
-        route,
-      ) => {
+      'GET /api/v1/users/me/notifications/team-decisions': async (route) => {
         await fulfillJson(route, []);
       },
       'GET /api/v1/users/me/notifications/team-deletions': async (route) => {

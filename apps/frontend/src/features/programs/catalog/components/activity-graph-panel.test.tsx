@@ -38,10 +38,7 @@ describe('활동 그래프 지표 비교', () => {
         })),
       );
       const view = await renderWithQuery(
-        <ActivityGraphContent
-          programId="program"
-          teamId={teamId}
-        />,
+        <ActivityGraphContent programId="program" teamId={teamId} />,
       );
       const { container } = view;
       try {
