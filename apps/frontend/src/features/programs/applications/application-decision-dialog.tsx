@@ -130,7 +130,7 @@ export function ApplicationDecisionDialog({
             />
 
             <span id="reason-hint" className="text-muted-foreground break-keep">
-              적은 사유는 학생에게 그대로 보입니다. 비워도 반려할 수 있습니다.
+              적은 사유는 학생에게 그대로 보입니다.
             </span>
           </div>
         </>
