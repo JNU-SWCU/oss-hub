@@ -135,8 +135,7 @@ async function openEdit(
             teams: 0,
             boardPosts: 0,
             submissions: 0,
-            submissionFiles: 1,
-            programPurgeFileTombstones: 2,
+            files: 3,
           },
         },
       };
@@ -340,7 +339,7 @@ test.describe('program edit purge network contract', () => {
       .getByRole('alert')
       .filter({ hasText: '프로그램을 목록에서 숨겼습니다' });
     await expect(notice).toBeVisible();
-    await expect(notice).toContainText('제출 파일 1건');
+    await expect(notice).toContainText('파일 삭제 대기 3건');
     await expect(notice).not.toContainText('지원서 4건');
     await notice.scrollIntoViewIfNeeded();
     await captureDeletionSurface(page, 'success');

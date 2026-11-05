@@ -809,11 +809,11 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     ).resolves.toEqual(hiddenAsMissing);
   });
   it('파일을 올리고 신청까지 낸 사람도 팀원 행이 지워지면 모르는 서류와 같은 404를 받는다', async () => {
-    const application = await prisma.team.findUniqueOrThrow({
-      where: { id: `${prefix}-former-application` },
+    const team = await prisma.team.findUniqueOrThrow({
+      where: { id: `${prefix}-former-team` },
       select: { applicantId: true },
     });
-    expect(application.applicantId).toBe(users.formerUploader.id);
+    expect(team.applicantId).toBe(users.formerUploader.id);
     const file = await prisma.file.findUniqueOrThrow({
       where: { kind: 'SUBMISSION', id: `${prefix}-former-own-file` },
       select: { uploaderId: true, lifecycle: true },

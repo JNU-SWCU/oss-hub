@@ -3,6 +3,7 @@ import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import {
   E2E_PROGRAM_ID,
+  E2E_REPOSITORY_WHERE,
   E2E_STUDENT_ID,
   E2E_STUDENT_GITHUB_ID,
 } from './e2e-program-authoring-fixture';
@@ -76,7 +77,7 @@ export async function seedE2eRepositoryEvidence(
       data: { lastSuccessAt: new Date(), failureCount: 0 },
     });
     const facts = await transaction.contribution.findMany({
-      where: { repository: { team: { programId: E2E_PROGRAM_ID } } },
+      where: { repository: E2E_REPOSITORY_WHERE },
       select: {
         repositoryId: true,
         githubId: true,

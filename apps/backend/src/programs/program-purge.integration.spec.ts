@@ -1993,10 +1993,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       const expectedAfter = { ...before };
       if (scopeField === 'boardPosts') {
         expectedAfter.boardPosts = before.boardPosts + 1;
-      } else if (scopeField === 'teams') {
-        expectedAfter.applications = before.applications + 1;
-        expectedAfter.teams = before.teams + 1;
-      } else if (scopeField === 'applications') {
+      } else if (scopeField === 'teams' || scopeField === 'applications') {
         expectedAfter.applications = before.applications + 1;
         expectedAfter.teams = before.teams + 1;
       } else {
