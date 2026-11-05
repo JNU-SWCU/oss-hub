@@ -214,7 +214,6 @@ enum ProgramTrackType {
 
 enum ProgramLifecycle {
   PUBLISHED
-  ARCHIVED
   DELETED
 }
 
