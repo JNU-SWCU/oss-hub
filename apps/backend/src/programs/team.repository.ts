@@ -61,9 +61,7 @@ import {
   type TeamRepositoryContributionsRow,
   type TeamActivityRow,
 } from './program-team-repository-evidence.repository';
-import {
-  type SubmissionCompletionTargetRow,
-} from './submission-completion.config';
+import { type SubmissionCompletionTargetRow } from './submission-completion.config';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
 import { type OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';

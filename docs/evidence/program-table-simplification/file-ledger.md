@@ -701,3 +701,7 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 ### Todo 4 A 실제 제품 파일 수
 
 main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외했다. programs 제품 파일은 232개·36768줄에서 225개·33652줄로 변했다. 폐기된 service·input·form controller·form DTO·scope DTO·옛 제출 요청 DTO·오류 파일을 제거했다. 정규 심사 누적은 실제 API 통합 회귀로 검증하며 폐기 ORM 모델의 문자열 검사를 대체한다.
+
+### Todo 4: #1750 반영 기준
+
+새 main cbe80bc61의 제품 파일 215개·36605줄 대비 A는 208개·33518줄이다. 저장소 이식 대상은 team.repository.ts이며 main에서 합친 옛 세 파일은 복원하지 않는다. guard·manifest·삭제·심사 재검증은 task-4-axis-rebase-1750.md에 기록했다.
