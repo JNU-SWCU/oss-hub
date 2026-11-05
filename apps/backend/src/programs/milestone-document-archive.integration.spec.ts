@@ -37,7 +37,7 @@ it('PROGRAM uses real approved-program participation and exports only latest tex
   expect(manifest).toContain('합성 팀 1');
   expect(manifest).not.toContain('합성 팀 2');
   expect(manifest).not.toContain('합성 팀 3');
-  expect(manifest).not.toContain('숨긴 레거시');
+  expect(manifest).toContain('단계 a1 - 전환된 항목 상태');
   expect(manifest).toContain('반려');
   expect(manifest).toContain('보완 요청');
   expect(manifest).toContain('승인');

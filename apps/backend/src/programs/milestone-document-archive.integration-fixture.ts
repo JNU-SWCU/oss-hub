@@ -94,7 +94,7 @@ export class ProgramArchiveIntegrationFixture {
       data: {
         id: archiveId('legacy'),
         milestoneId: archiveId('a1'),
-        name: '숨긴 레거시',
+        name: '전환된 항목',
         required: false,
         sortOrder: 2,
       },
