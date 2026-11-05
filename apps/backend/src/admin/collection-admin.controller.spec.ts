@@ -2,7 +2,6 @@ import { Logger } from '@nestjs/common';
 import { GUARDS_METADATA, HTTP_CODE_METADATA } from '@nestjs/common/constants';
 import { Test } from '@nestjs/testing';
 
-import { AuditLogService } from '../platform/audit-log.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { RolesGuard } from '../platform/roles.guard';
 import { CollectionAdminController } from './collection-admin.controller';
@@ -13,23 +12,14 @@ import {
   CollectionUserActivityService,
   type CollectionUserActivitySweepResult,
 } from '../github/collection-user-activity.service';
-import { type AuditLogRecord } from '../platform/audit-log.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 function createController(
   sync: CollectionSyncService,
   cutover: CollectionCutoverRepository,
-  audit: AuditLogService,
   activity: CollectionUserActivityService,
 ): CollectionAdminController {
   return new CollectionAdminController(
-    new CollectionAdminService(
-      sync,
-      cutover,
-      audit,
-      activity,
-      new AuditLogMetadataService(),
-    ),
+    new CollectionAdminService(sync, cutover, activity),
   );
 }
 
@@ -43,12 +33,10 @@ describe('CollectionAdminController', () => {
     [string, string?]
   >();
   const isQuiesced = jest.fn<Promise<boolean>, [Date]>();
-  const record = jest.fn<Promise<AuditLogRecord>, [unknown]>();
   const runUserActivity = jest.fn<
     Promise<CollectionUserActivitySweepResult>,
     []
   >();
-  const sessionRequest = { sessionGithubId: 4242n };
 
   beforeEach(() => {
     run.mockReset();
@@ -59,8 +47,6 @@ describe('CollectionAdminController', () => {
     });
     isQuiesced.mockReset();
     isQuiesced.mockResolvedValue(false);
-    record.mockReset();
-    record.mockResolvedValue({} as AuditLogRecord);
     runUserActivity.mockReset();
     runUserActivity.mockResolvedValue({
       observedUserCount: 0,
@@ -77,8 +63,6 @@ describe('CollectionAdminController', () => {
         CollectionAdminService,
         { provide: CollectionSyncService, useValue: { run, runExternal } },
         { provide: CollectionCutoverRepository, useValue: { isQuiesced } },
-        AuditLogMetadataService,
-        { provide: AuditLogService, useValue: { record } },
         {
           provide: CollectionUserActivityService,
           useValue: { run: runUserActivity },
@@ -94,7 +78,7 @@ describe('CollectionAdminController', () => {
       status: 'COMPLETED',
     });
 
-    const result = await controller.trigger(sessionRequest);
+    const result = await controller.trigger();
     expect(result.status).toBe('PENDING');
     expect(typeof result.runId).toBe('string');
     await testingModule.close();
@@ -105,11 +89,10 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await controller.trigger(sessionRequest);
+    await controller.trigger();
 
     expect(runExternal).toHaveBeenCalledTimes(1);
     expect(runExternal.mock.calls[0]?.[0]).toMatch(/^admin:/);
@@ -131,11 +114,10 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await controller.trigger(sessionRequest);
+    await controller.trigger();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(runUserActivity).toHaveBeenCalledTimes(1);
@@ -159,11 +141,10 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await expect(controller.trigger(sessionRequest)).resolves.toEqual(
+    await expect(controller.trigger()).resolves.toEqual(
       expect.objectContaining({ status: 'PENDING' }),
     );
     await new Promise((resolve) => setImmediate(resolve));
@@ -183,11 +164,10 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    await expect(controller.trigger(sessionRequest)).rejects.toMatchObject({
+    await expect(controller.trigger()).rejects.toMatchObject({
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();
@@ -203,11 +183,10 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const result = await controller.trigger(sessionRequest);
+    const result = await controller.trigger();
     expect(result.status).toBe('PENDING');
     await new Promise((resolve) => setImmediate(resolve));
 
@@ -246,48 +225,26 @@ describe('CollectionAdminController', () => {
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const response = await controller.trigger(sessionRequest);
+    const response = await controller.trigger();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(run).toHaveBeenCalledWith(expect.any(String), response.runId);
   });
 
-  it('트리거를 typed audit action으로 기록한다(응답 계약은 그대로)', async () => {
+  it('트리거의 응답 계약은 그대로 유지한다', async () => {
     run.mockResolvedValue({ runId: 'ignored', status: 'COMPLETED' });
     const controller = createController(
       { run, runExternal } as unknown as CollectionSyncService,
       { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
       { run: runUserActivity } as unknown as CollectionUserActivityService,
     );
 
-    const response = await controller.trigger(sessionRequest);
+    const response = await controller.trigger();
 
-    expect(record).toHaveBeenCalledWith({
-      actorGithubId: 4242n,
-      action: 'COLLECTION_SYNC_TRIGGERED',
-      targetType: 'COLLECTION_SYNC',
-      targetId: response.runId,
-      metadata: { schemaVersion: 1, runId: response.runId },
-    });
+    expect(typeof response.runId).toBe('string');
     expect(response.status).toBe('PENDING');
-  });
-
-  it('quiesce로 거부된 트리거는 감사 기록을 남기지 않는다', async () => {
-    isQuiesced.mockResolvedValue(true);
-    const controller = createController(
-      { run, runExternal } as unknown as CollectionSyncService,
-      { isQuiesced } as unknown as CollectionCutoverRepository,
-      { record } as unknown as AuditLogService,
-      { run: runUserActivity } as unknown as CollectionUserActivityService,
-    );
-
-    await expect(controller.trigger(sessionRequest)).rejects.toBeDefined();
-
-    expect(record).not.toHaveBeenCalled();
   });
 });

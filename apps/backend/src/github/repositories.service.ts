@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { RepositoryVisibility } from '@prisma/client';
-import { AuditLogService } from '../platform/audit-log.service';
 import { GithubAppClient } from './github-app.client';
 import {
   RepositoriesRepository,
@@ -10,7 +9,6 @@ import {
 } from './repositories.repository';
 import { RepositoryPublishStateError } from './repository-publish-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
-import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import type { RepositoryPublishTargetRow } from './repositories.repository';
 import { RepositoryUrlService } from './repository-url.service';
@@ -54,7 +52,6 @@ export class RepositoriesService {
   constructor(
     private readonly repository: RepositoriesRepository,
     private readonly github: GithubAppClient,
-    private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly repositoryUrlService: RepositoryUrlService,
   ) {}
@@ -115,33 +112,44 @@ export class RepositoriesService {
       }
 
       const committedRow = await store.findPublishTarget(target.id);
-      if (committedRow === null) {
+      if (committedRow?.team == null) {
         throw new RepositoryNotFoundError();
       }
       const committed = this.toPublishTarget(committedRow);
-      await this.auditLog.record(
-        {
-          actorGithubId,
-          action: REPOSITORY_PUBLISH_AUDIT_ACTIONS.REPOSITORY_PUBLISHED,
-          targetType: 'REPOSITORY',
-          targetId: target.id,
-          metadata:
-            this.auditLogMetadataService.createRepositoryPublishAuditMetadata({
-              repositoryId: target.id,
-              repositoryFullName:
-                this.auditLogMetadataService.deriveRepositoryFullName(
-                  committed.name,
-                  committed.url,
-                ),
-              before: { visibility: RepositoryVisibility.PRIVATE },
-              after: {
-                visibility: RepositoryVisibility.PUBLIC,
-                publishedAt: now.toISOString(),
-              },
-            }),
+      const actor = await store.historyWriter.user.findUniqueOrThrow({
+        where: { githubId: actorGithubId },
+        select: { id: true },
+      });
+      await store.historyWriter.teamHistory.create({
+        data: {
+          teamId: committedRow.team.id,
+          programId: committedRow.team.programId,
+          actorId: actor.id,
+          event: 'REPOSITORY_PUBLISHED',
+          source: 'APPLICATION',
+          data: {
+            schemaVersion: 1,
+            targetType: 'REPOSITORY',
+            targetId: target.id,
+            metadata:
+              this.auditLogMetadataService.createRepositoryPublishAuditMetadata(
+                {
+                  repositoryId: target.id,
+                  repositoryFullName:
+                    this.auditLogMetadataService.deriveRepositoryFullName(
+                      committed.name,
+                      committed.url,
+                    ),
+                  before: { visibility: RepositoryVisibility.PRIVATE },
+                  after: {
+                    visibility: RepositoryVisibility.PUBLIC,
+                    publishedAt: now.toISOString(),
+                  },
+                },
+              ),
+          },
         },
-        store.auditLogWriter,
-      );
+      });
       return {
         ...committed,
         visibility: RepositoryVisibility.PUBLIC,

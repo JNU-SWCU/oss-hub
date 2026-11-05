@@ -488,7 +488,6 @@ const discardRepositoryProvisionRequest = jest
   .mockResolvedValue(undefined);
 const createRepositoryProvisionEvent = jest.fn();
 const transactionStore = {
-  auditLogWriter: {},
   findTeamMinSize: jest.fn().mockResolvedValue(1),
   countTeamMembers: jest.fn().mockResolvedValue(1),
   appendReviewHistory,

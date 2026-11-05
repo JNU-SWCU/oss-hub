@@ -1,50 +1,36 @@
-import type { Prisma } from '@prisma/client';
-import { AuditLogService } from './audit-log.service';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
 import { AuditLogReadService } from './audit-log-read.service';
 import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
 
-function serviceFor(
-  metadata: Prisma.JsonValue,
-  legacySource = false,
-  historyKind?: string,
-) {
-  return new AuditLogService(
-    {
-      list: () =>
-        Promise.resolve({
-          total: 1,
-          rows: [
-            {
-              id: 'original-audit',
-              actor: { nickname: 'renamed-actor' },
-              action:
-                historyKind === 'BOOTSTRAP'
-                  ? 'GRANT_ADMIN_ACCESS'
-                  : 'USER_PROFILE_UPDATED',
-              targetType: 'USER',
-              targetId: 'missing-user',
-              occurredAt: new Date('2026-11-01T00:00:00.000Z'),
-              metadata,
-              legacySource,
-              ...(historyKind === undefined ? {} : { historyKind }),
-            },
-          ],
-        }),
-      record: jest.fn(),
-      findProgramNames: jest.fn().mockResolvedValue([]),
-      findRepositoryNames: jest.fn().mockResolvedValue([]),
-      findApplicationProgramNames: jest.fn().mockResolvedValue([]),
-    },
-    new AuditLogReadService(new AuditLogMetadataService()),
-  );
+function serviceFor(metadata: unknown, historyKind: string | null = null) {
+  return new AuditLogReadService({
+    list: () =>
+      Promise.resolve({
+        total: 1,
+        rows: [
+          {
+            id: 'original-audit',
+            actor: { nickname: 'renamed-actor' },
+            action:
+              historyKind === 'BOOTSTRAP'
+                ? 'GRANT_ADMIN_ACCESS'
+                : 'USER_PROFILE_UPDATED',
+            targetType: 'USER',
+            targetId: 'missing-user',
+            occurredAt: new Date('2026-11-01T00:00:00.000Z'),
+            metadata,
+            historyKind,
+            joinedTarget: null,
+          },
+        ],
+      }),
+  });
 }
 
 describe('Owned history display', () => {
   it.each([null, ['unrecognized'], { schemaVersion: 19, phone: 'private' }])(
     'keeps malformed imported or unresolved metadata %p visible without leaking raw data',
     async (metadata) => {
-      const result = await serviceFor(metadata, true).list({
+      const result = await serviceFor(metadata).list({
         page: 1,
         limit: 20,
       });
@@ -67,10 +53,13 @@ describe('Owned history display', () => {
     },
   );
 
-  it('still rejects malformed current domain metadata', async () => {
-    await expect(
-      serviceFor({ schemaVersion: 19 }).list({ page: 1, limit: 20 }),
-    ).rejects.toBeInstanceOf(InvalidAuditLogMetadataError);
+  it('shows an unsupported metadata version as legacy instead of failing the page', async () => {
+    const result = await serviceFor({ schemaVersion: 19 }).list({
+      page: 1,
+      limit: 20,
+    });
+
+    expect(result.items[0]).toMatchObject({ legacy: true, metadata: null });
   });
 
   it('preserves event-time people snapshots on imported metadata', async () => {
@@ -81,7 +70,7 @@ describe('Owned history display', () => {
       changes: [{ field: 'name', before: 'Before', after: 'After' }],
     };
 
-    const result = await serviceFor(metadata, true).list({
+    const result = await serviceFor(metadata).list({
       page: 1,
       limit: 20,
     });
@@ -113,7 +102,6 @@ describe('Owned history display', () => {
         cause: 'SUPERSEDED',
         replacementRequestId: 'request-new',
       },
-      false,
       'REQUEST_TRANSITION',
     ).list({ page: 1, limit: 20 });
 
@@ -141,7 +129,6 @@ describe('Owned history display', () => {
           recordKind,
           operatorReceipt: 'private receipt',
         },
-        false,
         recordKind,
       ).list({ page: 1, limit: 20 });
 
@@ -163,7 +150,7 @@ describe('Owned history display', () => {
     },
   ])('rejects unsupported runtime envelope %p', async (metadata) => {
     await expect(
-      serviceFor(metadata, false, metadata.recordKind).list({
+      serviceFor(metadata, metadata.recordKind).list({
         page: 1,
         limit: 20,
       }),
@@ -171,13 +158,10 @@ describe('Owned history display', () => {
   });
 
   it('does not reinterpret old raw metadata as a new domain event', async () => {
-    const result = await serviceFor(
-      {
-        schemaVersion: 1,
-        recordKind: 'BOOTSTRAP',
-      },
-      true,
-    ).list({ page: 1, limit: 20 });
+    const result = await serviceFor({
+      schemaVersion: 1,
+      recordKind: 'BOOTSTRAP',
+    }).list({ page: 1, limit: 20 });
 
     expect(result.items[0]).toMatchObject({ legacy: true, metadata: null });
   });

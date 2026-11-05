@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "name": "audit-log-prepare",
+  "expectedHeadMigration": "20261105200000_unify_files",
+  "preflight": ["check-before.sql"],
+  "stages": [
+    {
+      "id": "copy",
+      "apply": [
+        "../../../../apps/backend/prisma/migrations/20261105220000_prepare_audit_history_events/migration.sql",
+        "../../../../apps/backend/prisma/migrations/20261105220100_copy_audit_log_to_domain_history/migration.sql"
+      ],
+      "reconcile": ["check-copy.sql"]
+    }
+  ],
+  "backupBeforeStage": "copy",
+  "counts": [
+    {
+      "name": "audit-log",
+      "file": "count-AuditLog.sql"
+    },
+    {
+      "name": "team-history",
+      "file": "count-TeamHistory.sql"
+    },
+    {
+      "name": "program",
+      "file": "count-Program.sql"
+    },
+    {
+      "name": "team",
+      "file": "count-Team.sql"
+    }
+  ]
+}

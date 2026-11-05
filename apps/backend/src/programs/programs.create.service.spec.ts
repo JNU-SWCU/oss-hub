@@ -7,7 +7,7 @@ import {
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
-import type { AuditLogService } from '../platform/audit-log.service';
+import type { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
@@ -17,7 +17,6 @@ import {
 } from './program-error-code.error';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramsRepository } from './programs.repository';
-import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const input: CreateProgramRequestDto = {
@@ -47,12 +46,11 @@ describe('ProgramsService', () => {
       return Promise.resolve({ id: 'program', name: request.data.name });
     },
   );
-  const record = jest
-    .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+  const append = jest
+    .fn<Promise<void>, Parameters<ProgramHistoryRepository['append']>>()
     .mockResolvedValue(undefined);
   const writer = {
     program: { create },
-    auditLog: {},
   };
   const $transaction = jest.fn((operation: (tx: typeof writer) => unknown) =>
     operation(writer),
@@ -61,14 +59,14 @@ describe('ProgramsService', () => {
     user: { findUnique },
     $transaction,
   } as unknown as PrismaService;
-  const auditLog = { record } as unknown as AuditLogService;
+  const programHistory = { append } as unknown as ProgramHistoryRepository;
   const service = new ProgramCreationService(
     new ProgramsRepository(
       prisma,
       new PlatformRepository(),
       new ProgramListStatusFilterRepository(),
     ),
-    auditLog,
+    programHistory,
     new AuditLogMetadataService(),
     new ProgramScheduleService(),
     new ProgramTemplatesService(),
@@ -87,8 +85,8 @@ describe('ProgramsService', () => {
         };
       }) => Promise.resolve({ id: 'program', name: request.data.name }),
     );
-    record.mockReset();
-    record.mockResolvedValue(undefined);
+    append.mockReset();
+    append.mockResolvedValue(undefined);
     $transaction.mockClear();
   });
 
@@ -302,20 +300,15 @@ describe('ProgramsService', () => {
 
     expect($transaction).toHaveBeenCalledTimes(1);
     expect(create).toHaveBeenCalledTimes(1);
-    expect(record).toHaveBeenCalledTimes(1);
-    expect(record.mock.calls[0]?.[1]).toBe(writer);
-    expect(record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorGithubId: 101n,
-        action: PROGRAM_CREATED_AUDIT_ACTIONS.PROGRAM_CREATED,
-        targetType: 'PROGRAM',
-        targetId: 'program-audit',
-        metadata: {
-          schemaVersion: 1,
-          programName: '2026 OSS Contest',
-        },
-      }),
-      writer,
-    );
+    expect(append).toHaveBeenCalledTimes(1);
+    expect(append).toHaveBeenCalledWith(writer, {
+      programId: 'program-audit',
+      actorGithubId: 101n,
+      event: 'CREATED',
+      metadata: {
+        schemaVersion: 1,
+        programName: '2026 OSS Contest',
+      },
+    });
   });
 });

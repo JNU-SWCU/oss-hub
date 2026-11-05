@@ -88,7 +88,7 @@ async function persistedFootprint() {
     );
     return {
       submissionFiles: await prisma.file.count(),
-      auditLogs: await prisma.auditLog.count(),
+      teamHistories: await prisma.teamHistory.count(),
       outboxEvents: await prisma.outboxEvent.count(),
       storedObjects: objects.KeyCount ?? 0,
     };

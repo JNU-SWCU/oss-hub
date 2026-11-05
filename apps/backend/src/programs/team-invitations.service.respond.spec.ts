@@ -7,7 +7,6 @@ import {
   RepositoryConnectionMode,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import type { AuditLogService } from '../platform/audit-log.service';
 import type { PrismaService } from '../platform/prisma.service';
 
 import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
@@ -19,7 +18,6 @@ import {
   syntheticTeamId,
   syntheticUserId,
 } from './team-invitations.service.test-support';
-import { TEAM_JOINED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 
 const INVITATION_ID = 'cuid-invitation';
@@ -154,73 +152,72 @@ describe('TeamInvitationsService.accept', () => {
     });
   });
 
-  it('records TEAM_JOINED inside the accept transaction, not after it resolves', async () => {
+  it('records the JOINED history inside the accept transaction, not after it resolves', async () => {
     let acceptResolved = false;
-    const record = jest
-      .fn<Promise<unknown>, Parameters<AuditLogService['record']>>()
+    const create = jest
+      .fn<Promise<unknown>, [unknown]>()
       .mockImplementation(() => {
         expect(acceptResolved).toBe(false);
         return Promise.resolve(undefined);
       });
-    const auditLogWriter = {};
-    const { service } = buildService(
-      {
-        withAcceptTransaction: jest.fn(
-          async (
-            _id: string,
-            _inviteeId: string,
-            _now: Date,
-            onOk?: (
-              store: { readonly auditLogWriter: unknown },
-              names: {
-                readonly teamId: string;
-                readonly programId: string;
-                readonly teamName: string;
-                readonly programName: string;
+    const { service } = buildService({
+      withAcceptTransaction: jest.fn(
+        async (
+          _id: string,
+          _inviteeId: string,
+          _now: Date,
+          onOk?: (
+            store: { readonly historyWriter: unknown },
+            names: {
+              readonly teamId: string;
+              readonly programId: string;
+              readonly teamName: string;
+              readonly programName: string;
+            },
+          ) => Promise<void>,
+        ) => {
+          if (onOk) {
+            await onOk(
+              { historyWriter: { teamHistory: { create } } },
+              {
+                teamId: syntheticTeamId,
+                programId: syntheticProgramId,
+                teamName: '합성 팀',
+                programName: '합성 프로그램',
               },
-            ) => Promise<void>,
-          ) => {
-            if (onOk) {
-              await onOk(
-                { auditLogWriter },
-                {
-                  teamId: syntheticTeamId,
-                  programId: syntheticProgramId,
-                  teamName: '합성 팀',
-                  programName: '합성 프로그램',
-                },
-              );
-            }
-            acceptResolved = true;
-            return {
-              kind: 'ok' as const,
-              teamId: syntheticTeamId,
-              programId: syntheticProgramId,
-            };
-          },
-        ),
-      },
-      { record } as Pick<AuditLogService, 'record'>,
-    );
+            );
+          }
+          acceptResolved = true;
+          return {
+            kind: 'ok' as const,
+            teamId: syntheticTeamId,
+            programId: syntheticProgramId,
+          };
+        },
+      ),
+    });
 
     await service.accept(syntheticGithubId, INVITATION_ID);
 
-    expect(record).toHaveBeenCalledTimes(1);
+    expect(create).toHaveBeenCalledTimes(1);
     expect(acceptResolved).toBe(true);
-    expect(record).toHaveBeenCalledWith(
-      expect.objectContaining({
-        actorGithubId: syntheticGithubId,
-        action: TEAM_JOINED_AUDIT_ACTIONS.TEAM_JOINED,
-        targetType: 'TEAM',
-        targetId: syntheticTeamId,
-        metadata: {
+    expect(create).toHaveBeenCalledWith({
+      data: {
+        teamId: syntheticTeamId,
+        programId: syntheticProgramId,
+        actorId: syntheticUserId,
+        event: 'JOINED',
+        source: 'APPLICATION',
+        data: {
           schemaVersion: 1,
-          programName: '합성 프로그램',
-          teamName: '합성 팀',
+          metadata: {
+            schemaVersion: 1,
+            programName: '합성 프로그램',
+            teamName: '합성 팀',
+          },
         },
-      }),
-      auditLogWriter,
-    );
+      },
+    });
   });
 
   it.each([

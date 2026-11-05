@@ -17,7 +17,6 @@ import {
   type ProgramTrackType,
   FileLifecycle,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import {
   RepositoryProvisionGenerationRepository,
@@ -567,7 +566,6 @@ type ApplicationDatabase = Pick<
   | 'teamMember'
   | 'teamInvitation'
   | 'teamHistory'
-  | 'auditLog'
   | '$queryRaw'
 >;
 
@@ -581,7 +579,6 @@ interface LockedProgramPolicy {
 }
 
 export interface ApplicationsTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
   findTeamMinSize(programId: string): Promise<number | null>;
   countTeamMembers(teamId: string): Promise<number>;
 
@@ -646,8 +643,6 @@ interface CreatedTeamForApplication {
 }
 
 export interface ApplicationCreateStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
-
   appendReviewHistory(
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory>;
@@ -1031,7 +1026,6 @@ export class ApplicationsRepository {
     transaction: PrismaTypes.TransactionClient,
   ): ApplicationsTransactionStore {
     return {
-      auditLogWriter: transaction,
       findTeamMinSize: this.findTeamMinSizeIn.bind(this, transaction),
       countTeamMembers: this.countTeamMembersIn.bind(this, transaction),
       appendReviewHistory: this.appendReviewHistoryIn.bind(this, transaction),
@@ -1283,7 +1277,6 @@ export class ApplicationsRepository {
     database: ApplicationDatabase,
   ): ApplicationCreateStore {
     return {
-      auditLogWriter: database,
       appendReviewHistory: this.appendCreateReviewHistoryIn.bind(
         this,
         database,
@@ -2683,6 +2676,10 @@ export class TeamRepository {
           actorUserId,
           now,
         );
+        await tx.repositoryProvisionJob.deleteMany({ where: { teamId } });
+        await tx.outboxEvent.deleteMany({
+          where: { aggregateType: 'Team', aggregateId: teamId },
+        });
         await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
         await tx.team.delete({ where: { id: teamId } });
         await recordAudit(

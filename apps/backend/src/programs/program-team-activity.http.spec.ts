@@ -2,7 +2,6 @@ import { StudentRepositoryUrlService } from './team-application.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
-import { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
@@ -111,7 +110,6 @@ beforeAll(async () => {
       ProgramTeamRepositoryEvidenceRepository,
       { provide: ProgramTeamDeletionRepository, useValue: {} },
       AuditLogMetadataService,
-      { provide: AuditLogService, useValue: {} },
       {
         provide: RUNTIME_CONFIG,
         useValue: loadRuntimeConfig({

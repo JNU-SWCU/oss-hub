@@ -5,7 +5,7 @@ import { UserHistoryRepository } from './user-history.repository';
 import type {
   AuditLogRecordInput,
   IndependentAuthorityAuditAction,
-} from '../platform/audit-log.repository';
+} from '../platform/audit-log-metadata.config';
 import type {
   IndependentAuthorityAuditMetadata,
   AuditPersonSnapshot,

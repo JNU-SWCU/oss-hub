@@ -7,7 +7,7 @@ import {
   USER_PROFILE_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_FIELDS,
 } from '../platform/audit-log-metadata.config';
-import type { UserProfileAuditAction } from '../platform/audit-log.repository';
+import type { UserProfileAuditAction } from '../platform/audit-log-metadata.config';
 import type {
   UserProfileAuditMetadata,
   UserProfileAuditFieldChange,

@@ -10,7 +10,6 @@ import {
   RepositoryVisibility,
   RepositorySource,
 } from '@prisma/client';
-import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import {
   RepositoryProvisionGenerationRepository,
   type RepositoryProvisionHistoryPayloadParser,
@@ -73,6 +72,7 @@ export interface RepositoryPublishTargetRow {
   readonly nameWithOwner: string;
   readonly visibility: RepositoryVisibility;
   readonly publishedAt: Date | null;
+  readonly team: { readonly id: string; readonly programId: string } | null;
 }
 
 export interface RepositoryPublishTarget {
@@ -85,7 +85,10 @@ export interface RepositoryPublishTarget {
 }
 
 export interface RepositoriesTransactionStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly historyWriter: Pick<
+    Prisma.TransactionClient,
+    'user' | 'teamHistory'
+  >;
   claimProvisionEvent(
     input: ClaimProvisionEventInput,
   ): Promise<ClaimedProvisionEvent | null>;
@@ -210,6 +213,7 @@ export class RepositoriesRepository {
         nameWithOwner: true,
         visibility: true,
         publishedAt: true,
+        team: { select: { id: true, programId: true } },
       },
     });
   }
@@ -218,7 +222,7 @@ export class RepositoriesRepository {
     transaction: Prisma.TransactionClient,
   ): RepositoriesTransactionStore {
     return {
-      auditLogWriter: transaction,
+      historyWriter: transaction,
       findPublishTarget: this.findPublishTargetIn.bind(this, transaction),
       publishRepositoryIfPrivate: this.publishRepositoryIfPrivateIn.bind(
         this,
@@ -249,6 +253,7 @@ export class RepositoriesRepository {
         nameWithOwner: true,
         visibility: true,
         publishedAt: true,
+        team: { select: { id: true, programId: true } },
       },
     });
   }

@@ -3,7 +3,6 @@ import { UserProfileService } from '../users/user-profile.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
@@ -94,7 +93,6 @@ describe('팀 초대 대상 자격', () => {
     );
     const service = new TeamInvitationsService(
       repository,
-      { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
     );
@@ -157,7 +155,6 @@ describe('팀 초대 대상 자격', () => {
     };
     const service = new TeamInvitationsService(
       repository as unknown as TeamInvitationsRepository,
-      { record: jest.fn() } as unknown as AuditLogService,
       new AuditLogMetadataService(),
       new UserProfileService(),
     );

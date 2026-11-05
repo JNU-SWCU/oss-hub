@@ -36,7 +36,7 @@ async function check(bytes: Buffer): Promise<Response> {
 async function footprint() {
   return {
     submissionFiles: await fixture.prisma.file.count(),
-    auditLogs: await fixture.prisma.auditLog.count(),
+    teamHistories: await fixture.prisma.teamHistory.count(),
     outboxEvents: await fixture.prisma.outboxEvent.count(),
   };
 }

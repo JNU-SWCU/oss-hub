@@ -1,5 +1,4 @@
 import { FileCleanupRepository } from './files.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
@@ -34,8 +33,7 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
+import { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
@@ -61,13 +59,10 @@ const STAFF_GITHUB_ID = 9875000002n;
 const STUDENT_GITHUB_ID = 9875000003n;
 const prisma = new PrismaService();
 const concurrentPrisma = new PrismaService();
-const auditLog = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogReadService(new AuditLogMetadataService()),
-);
+const programHistory = new ProgramHistoryRepository();
 const lifecycle = new ProgramLifecycleService(
   new ProgramLifecycleRepository(prisma, new ProgramDeletionScopeRepository()),
-  auditLog,
+  programHistory,
   new AuditLogMetadataService(),
   new PrismaSerializationRetryRepository(),
 );
@@ -1403,11 +1398,11 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(
       afterPurgePage.some((row) => row.id === fixture.publishedRepositoryId),
     ).toBe(false);
-    const audit = await prisma.auditLog.findFirst({
-      where: { targetType: 'PROGRAM', targetId: fixture.programId },
+    const history = await prisma.programHistory.findFirst({
+      where: { programId: fixture.programId },
       orderBy: { occurredAt: 'desc' },
     });
-    expect(audit?.action).toBe('PROGRAM_DELETED');
+    expect(history?.event).toBe('DELETED');
   });
   it('purges a populated ARCHIVED program while preserving its account and unrelated programs', async () => {
     const fixture = await seedFullChildGraph(
@@ -1468,13 +1463,13 @@ describe('Program purge integration — full child graph, worker file deletion, 
       id: unrelatedProgramId,
       lifecycle: ProgramLifecycle.PUBLISHED,
     });
-    const audit = await prisma.auditLog.findFirst({
-      where: { targetType: 'PROGRAM', targetId: fixture.programId },
+    const history = await prisma.programHistory.findFirst({
+      where: { programId: fixture.programId },
       orderBy: { occurredAt: 'desc' },
     });
-    expect(audit?.action).toBe('PROGRAM_DELETED');
-    expect(audit?.metadata).toMatchObject({
-      lifecycle: ProgramLifecycle.ARCHIVED,
+    expect(history?.event).toBe('DELETED');
+    expect(history?.data).toMatchObject({
+      metadata: { lifecycle: ProgramLifecycle.ARCHIVED },
     });
   });
 
@@ -1576,12 +1571,12 @@ describe('Program purge integration — full child graph, worker file deletion, 
       where: { githubId: STAFF_GITHUB_ID },
       select: { id: true },
     });
-    const audit = await prisma.auditLog.findFirst({
-      where: { targetType: 'PROGRAM', targetId: fixture.programId },
+    const history = await prisma.programHistory.findFirst({
+      where: { programId: fixture.programId },
       orderBy: { occurredAt: 'desc' },
     });
-    expect(audit?.action).toBe('PROGRAM_DELETED');
-    expect(audit?.actorId).toBe(staff.id);
+    expect(history?.event).toBe('DELETED');
+    expect(history?.actorId).toBe(staff.id);
   });
   it('STAFF의 purge도 확인 후 자식 행이 생기면 409 PRG_014로 중단하고 아무것도 지우지 않는다', async () => {
     const fixture = await seedFullChildGraph('staff-toctou-race');
@@ -1663,22 +1658,22 @@ describe('Program purge integration — full child graph, worker file deletion, 
       fixture.teamId,
     ]);
     expect(before.milestones).toBe(1);
-    const failingAuditLog = {
-      record: jest.fn().mockRejectedValue(new Error('induced audit failure')),
-    } as unknown as AuditLogService;
+    const failingHistory = {
+      append: jest.fn().mockRejectedValue(new Error('induced history failure')),
+    } as unknown as ProgramHistoryRepository;
     const failingLifecycle = new ProgramLifecycleService(
       new ProgramLifecycleRepository(
         prisma,
         new ProgramDeletionScopeRepository(),
       ),
-      failingAuditLog,
+      failingHistory,
       new AuditLogMetadataService(),
       new PrismaSerializationRetryRepository(),
     );
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     await expect(
       failingLifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
-    ).rejects.toThrow('induced audit failure');
+    ).rejects.toThrow('induced history failure');
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),
     ).resolves.not.toBeNull();
@@ -1964,7 +1959,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
           ),
           new ProgramDeletionScopeRepository(),
         ),
-        auditLog,
+        programHistory,
         new AuditLogMetadataService(),
         new PrismaSerializationRetryRepository(),
       );

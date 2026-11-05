@@ -303,9 +303,6 @@ describe('TeamApplicationService integration', () => {
       const before = await prisma.team.findUniqueOrThrow({
         where: { id: teamId },
       });
-      const auditCount = await prisma.auditLog.count({
-        where: { targetId: teamId },
-      });
       const notificationWhere = {
         type: 'APPLICATION_DECISION' as const,
         payload: { path: ['teamId'], equals: teamId },
@@ -324,9 +321,6 @@ describe('TeamApplicationService integration', () => {
       await expect(
         prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
       ).resolves.toEqual(before);
-      await expect(
-        prisma.auditLog.count({ where: { targetId: teamId } }),
-      ).resolves.toBe(auditCount);
       await expect(
         prisma.teamHistory.count({ where: { teamId } }),
       ).resolves.toBe(0);
@@ -1358,7 +1352,6 @@ describe('TeamApplicationService integration', () => {
       .mockImplementationOnce((operation) =>
         originalWithTransaction((store) =>
           operation({
-            auditLogWriter: store.auditLogWriter,
             findTeamMinSize: (id) => store.findTeamMinSize(id),
             countTeamMembers: (id) => store.countTeamMembers(id),
             isCurrentTeamMember: (teamId, userId) =>
@@ -1441,7 +1434,6 @@ describe('TeamApplicationService integration', () => {
       .mockImplementationOnce((operation) =>
         originalWithTransaction((store) =>
           operation({
-            auditLogWriter: store.auditLogWriter,
             findTeamMinSize: (id) => store.findTeamMinSize(id),
             countTeamMembers: (id) => store.countTeamMembers(id),
             isCurrentTeamMember: (teamId, userId) =>

@@ -374,6 +374,9 @@ enum TeamHistoryEvent {
   INVITATION_ACCEPTED
   INVITATION_DECLINED
   INVITATION_CANCELLED
+  CREATED
+  JOINED
+  REPOSITORY_PUBLISHED
 }
 
 model TeamHistory {
@@ -391,6 +394,28 @@ model TeamHistory {
 
   @@unique([sourceTable, sourceId])
   @@index([teamId, occurredAt, id])
+  @@index([programId, occurredAt, id])
+  @@index([actorId, occurredAt, id])
+}
+
+enum ProgramHistoryEvent {
+  CREATED
+  DELETED
+}
+
+model ProgramHistory {
+  id          String              @id @default(cuid())
+  programId   String
+  actorId     String?
+  event       ProgramHistoryEvent
+  occurredAt  DateTime            @default(now())
+  recordedAt  DateTime            @default(now())
+  source      HistorySource
+  sourceTable String?
+  sourceId    String?
+  data        Json
+
+  @@unique([sourceTable, sourceId])
   @@index([programId, occurredAt, id])
   @@index([actorId, occurredAt, id])
 }

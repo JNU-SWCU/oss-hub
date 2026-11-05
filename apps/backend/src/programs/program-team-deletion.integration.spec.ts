@@ -528,7 +528,6 @@ it('3a history failure rolls back staff deletion and its notifications', async (
   });
   const scope = await currentScope(fixture.teamId);
   const notifications = await prisma.notification.count();
-  const audits = await prisma.auditLog.count();
 
   await expect(
     service.deleteForStaff(STAFF_GITHUB_ID, PROGRAM_ID, fixture.teamId, scope),
@@ -539,7 +538,6 @@ it('3a history failure rolls back staff deletion and its notifications', async (
 
   await expect(currentScope(fixture.teamId)).resolves.toEqual(scope);
   await expect(prisma.notification.count()).resolves.toBe(notifications);
-  await expect(prisma.auditLog.count()).resolves.toBe(audits);
   await expect(
     prisma.teamHistory.findMany({
       where: { teamId: fixture.teamId },
@@ -736,9 +734,6 @@ it('삭제 이력에는 팀 이름과 함께 실제로 사라진 수치를 남�
       },
     },
   });
-  expect(
-    await prisma.auditLog.count({ where: { targetId: fixture.teamId } }),
-  ).toBe(0);
 });
 
 it('확인 이후 범위가 바뀌면 409 로 물러나고 아무것도 지우지 않는다', async () => {
@@ -1071,9 +1066,6 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
     },
   });
   const expectedScope = await currentScope(fixture.teamId);
-  const auditsBefore = await prisma.auditLog.count({
-    where: { targetId: fixture.teamId },
-  });
 
   const failure = await deletionRepository
     .deleteTeam(PROGRAM_ID, fixture.teamId, STAFF_ID, expectedScope, () =>
@@ -1094,9 +1086,6 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
       where: { teamId: fixture.teamId },
     }),
   ).resolves.toBe(1);
-  await expect(
-    prisma.auditLog.count({ where: { targetId: fixture.teamId } }),
-  ).resolves.toBe(auditsBefore);
   await expect(teamDeletedNotifications(fixture.teamId)).resolves.toEqual([]);
 });
 
