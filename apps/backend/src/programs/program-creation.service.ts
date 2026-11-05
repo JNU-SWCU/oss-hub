@@ -17,7 +17,7 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 
@@ -96,7 +96,7 @@ export class ProgramCreationService {
   constructor(
     private readonly repository: ProgramsRepository,
     private readonly programHistory: ProgramHistoryRepository,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly programScheduleService: ProgramScheduleService,
     private readonly programTemplatesService: ProgramTemplatesService,
   ) {}
@@ -177,10 +177,11 @@ export class ProgramCreationService {
         programId: program.id,
         actorGithubId: githubId,
         event: 'CREATED',
-        metadata:
-          this.auditLogMetadataService.createProgramCreatedAuditMetadata({
+        metadata: this.historyMetadataService.createProgramCreatedAuditMetadata(
+          {
             programName: program.name,
-          }),
+          },
+        ),
       });
       return program;
     });

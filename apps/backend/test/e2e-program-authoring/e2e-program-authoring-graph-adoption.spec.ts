@@ -14,12 +14,12 @@ import {
   type E2eProgramAdoptionCandidate,
 } from './e2e-program-authoring-graph-adoption';
 import { ProgramAuthoringService } from '../../src/programs/programs.service';
-import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../../src/platform/history-metadata.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new ProgramScheduleService(),
   new ProgramTemplatesService(),
   new ProgramAuthoringUploadService(

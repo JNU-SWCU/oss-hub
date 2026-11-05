@@ -7,7 +7,7 @@ import {
   type SentTeamInvitationRecord,
 } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 export const syntheticGithubId = 424242n;
 export const syntheticUserId = 'cuid-synthetic-invitee';
@@ -114,7 +114,7 @@ export function buildService(overrides: Partial<MockRepository> = {}): {
   return {
     service: new TeamInvitationsService(
       repository,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     repository,

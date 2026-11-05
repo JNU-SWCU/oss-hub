@@ -9,7 +9,7 @@ import {
 } from './repositories.repository';
 import { RepositoryPublishStateError } from './repository-publish-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import type { RepositoryPublishTargetRow } from './repositories.repository';
 import { RepositoryUrlService } from './repository-url.service';
 
@@ -52,7 +52,7 @@ export class RepositoriesService {
   constructor(
     private readonly repository: RepositoriesRepository,
     private readonly github: GithubAppClient,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly repositoryUrlService: RepositoryUrlService,
   ) {}
 
@@ -132,21 +132,19 @@ export class RepositoriesService {
             targetType: 'REPOSITORY',
             targetId: target.id,
             metadata:
-              this.auditLogMetadataService.createRepositoryPublishAuditMetadata(
-                {
-                  repositoryId: target.id,
-                  repositoryFullName:
-                    this.auditLogMetadataService.deriveRepositoryFullName(
-                      committed.name,
-                      committed.url,
-                    ),
-                  before: { visibility: RepositoryVisibility.PRIVATE },
-                  after: {
-                    visibility: RepositoryVisibility.PUBLIC,
-                    publishedAt: now.toISOString(),
-                  },
+              this.historyMetadataService.createRepositoryPublishAuditMetadata({
+                repositoryId: target.id,
+                repositoryFullName:
+                  this.historyMetadataService.deriveRepositoryFullName(
+                    committed.name,
+                    committed.url,
+                  ),
+                before: { visibility: RepositoryVisibility.PRIVATE },
+                after: {
+                  visibility: RepositoryVisibility.PUBLIC,
+                  publishedAt: now.toISOString(),
                 },
-              ),
+              }),
           },
         },
       });

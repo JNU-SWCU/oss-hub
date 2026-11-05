@@ -40,7 +40,7 @@ import {
 } from './team.repository';
 import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 import type { TeamDeletionScopeCounts } from './team-deletion-scope.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -87,7 +87,7 @@ export class TeamMembershipService {
   constructor(
     private readonly repository: TeamRepository,
     private readonly deletionRepository: ProgramTeamDeletionRepository,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly repositoryPublishService: RepositoryPublishService,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly milestoneCompletionService: MilestoneCompletionService,
@@ -633,7 +633,7 @@ export class TeamMembershipService {
     scope: RepositoryUrlHistoryScope,
   ): Omit<RepositoryUrlHistoryView, 'id' | 'occurredAt'> {
     const metadata =
-      this.auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+      this.historyMetadataService.parseApplicationRepositoryUrlAuditMetadata(
         row.metadata,
       );
     if (

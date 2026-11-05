@@ -11,11 +11,11 @@ import {
   ADMIN_ACCESS_TRANSITION_TABLE,
   AdminAccessMutationService,
 } from './admin-access-mutation.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 
 const adminAccessMutationService = new AdminAccessMutationService(
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 

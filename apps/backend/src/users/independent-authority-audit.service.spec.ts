@@ -13,7 +13,7 @@ import {
 } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { type AdminAccessActor } from './admin-access-read.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import type { AdminAccessUserRow } from './admin-access-read.repository';
@@ -113,9 +113,9 @@ it.each([
     const service = new IndependentAuthorityService(
       store,
       userHistory,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
       new UserProfileService(),
@@ -172,9 +172,9 @@ it('교직원 회수는 권한 갱신과 감사 로그 사이, 같은 트랜잭�
   const service = new IndependentAuthorityService(
     store,
     { record },
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -198,9 +198,9 @@ it('does not write a phantom audit for a same-state command it rejects', async (
   const service = new IndependentAuthorityService(
     store,
     { record },
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -221,9 +221,9 @@ it('propagates audit failure so the authority transaction rolls back', async () 
     {
       record: jest.fn().mockRejectedValue(auditFailure),
     },
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -245,9 +245,9 @@ it('does not update or audit when the final-admin guard fails', async () => {
   const service = new IndependentAuthorityService(
     store,
     { record },
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -269,9 +269,9 @@ it('does not audit when the authority update fails', async () => {
   const service = new IndependentAuthorityService(
     store,
     { record },
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),

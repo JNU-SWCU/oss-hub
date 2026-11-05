@@ -1,5 +1,5 @@
 import { AuditLogReadService } from './audit-log-read.service';
-import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
+import { InvalidAuditLogMetadataError } from './history.error';
 
 function serviceFor(metadata: unknown, historyKind: string | null = null) {
   return new AuditLogReadService({

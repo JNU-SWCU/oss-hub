@@ -1,13 +1,13 @@
 import { DepartmentType, MemberKind } from './user-contract.config';
 import { profileRecord } from './member-authority-test-fixtures';
 import { UsersService } from './users.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 const usersService = new UsersService(
   undefined as never,
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 const staffInput = {

@@ -15,7 +15,7 @@ import {
   type InviteeAccountRow,
   type StaffAuthorityRow,
 } from './team-invitations.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
@@ -25,7 +25,7 @@ import {
 export class TeamInvitationsService {
   constructor(
     private readonly repository: TeamInvitationsRepository,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly userProfileService: UserProfileService,
   ) {}
 
@@ -178,7 +178,7 @@ export class TeamInvitationsService {
             data: {
               schemaVersion: 1,
               metadata:
-                this.auditLogMetadataService.createTeamJoinedAuditMetadata({
+                this.historyMetadataService.createTeamJoinedAuditMetadata({
                   programName: names.programName,
                   teamName: names.teamName,
                 }),

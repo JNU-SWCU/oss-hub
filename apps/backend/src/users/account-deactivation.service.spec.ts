@@ -11,8 +11,8 @@ import {
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+} from '../platform/history-metadata.config';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 describe('AccountDeactivationService', () => {
   const account = {
@@ -50,7 +50,7 @@ describe('AccountDeactivationService', () => {
       {
         record,
       },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       { useSecureCookies: false } as AuthConfig,
       new AuthSessionService(),
@@ -106,7 +106,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       { useSecureCookies: false } as AuthConfig,
       new AuthSessionService(),
@@ -134,7 +134,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record: jest.fn() },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       { useSecureCookies: false } as AuthConfig,
       new AuthSessionService(),
@@ -160,7 +160,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record: jest.fn() },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       { useSecureCookies: false } as AuthConfig,
       new AuthSessionService(),
@@ -186,7 +186,7 @@ describe('AccountDeactivationService', () => {
           }),
       },
       { record: jest.fn() },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       { useSecureCookies: false } as AuthConfig,
       new AuthSessionService(),

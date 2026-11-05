@@ -8,11 +8,11 @@ import {
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 import { RolesErrorCode } from './roles-error-code.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import {
   INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
   INDEPENDENT_AUTHORITY_AUDIT_COMMANDS,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import type { IndependentAuthorityMutationResult } from './independent-authority.repository';
 export interface MemberRegistrationResetRequest {
   readonly expectedMemberKind: 'STUDENT' | 'STAFF';
@@ -26,7 +26,7 @@ export class MemberRegistrationResetService {
     private readonly repository: MemberRegistrationResetPort,
     @Inject(UserHistoryRepository)
     private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
-    private readonly metadata: AuditLogMetadataService,
+    private readonly metadata: HistoryMetadataService,
     private readonly profiles: UserProfileService,
     private readonly mutations: AdminAccessMutationService,
   ) {}

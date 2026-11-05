@@ -1,14 +1,16 @@
 import { Inject, Injectable } from '@nestjs/common';
 import { UserType } from '@prisma/client';
 import { DomainException } from './error-code.error';
+import { StaffAccessRequestStatus } from '../users/user-contract.config';
+import {
+  INDEPENDENT_AUTHORITY_AUDIT_ACTIONS,
+  type HistoryAuditMetadataView,
+} from './history-metadata.config';
 import {
   AUDIT_LOG_ERROR_CODES,
   AuditLogErrorCode,
   InvalidAuditLogMetadataError,
-} from './audit-log-error-code.error';
-import { StaffAccessRequestStatus } from '../users/user-contract.config';
-import { INDEPENDENT_AUTHORITY_AUDIT_ACTIONS } from './audit-log-metadata.config';
-import type { HistoryAuditMetadataView } from './audit-log-history-metadata.config';
+} from './history.error';
 import {
   AuditLogReadRepository,
   type AuditLogListQuery,

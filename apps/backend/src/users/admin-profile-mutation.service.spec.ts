@@ -6,7 +6,7 @@ import {
   profileTarget,
 } from './admin-profile.service.spec-support';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 
@@ -23,10 +23,10 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     const result = await new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
@@ -82,10 +82,10 @@ describe('mutateAdminUserProfile', () => {
 
     await expect(
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
@@ -114,10 +114,10 @@ describe('mutateAdminUserProfile', () => {
 
     await expect(
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
@@ -144,10 +144,10 @@ describe('mutateAdminUserProfile', () => {
 
     await expect(
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
@@ -172,10 +172,10 @@ describe('mutateAdminUserProfile', () => {
 
     await expect(
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
@@ -202,10 +202,10 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     const result = await new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
@@ -238,10 +238,10 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     const result = await new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
@@ -273,10 +273,10 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
@@ -301,10 +301,10 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
@@ -334,10 +334,10 @@ describe('mutateAdminUserProfile', () => {
     const audit = auditLogHarness();
 
     await new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
@@ -364,10 +364,10 @@ describe('mutateAdminUserProfile', () => {
 
     await expect(
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(

@@ -1,7 +1,7 @@
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramHistoryRepository } from './programs.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramLifecycleRepository } from './programs.repository';
@@ -28,7 +28,7 @@ const prefix = 'test:program-status-delete:';
 const githubId = 98760000001n;
 const scopeRepository = new ProgramDeletionScopeRepository();
 const repository = new ProgramLifecycleRepository(prisma, scopeRepository);
-const metadata = new AuditLogMetadataService();
+const metadata = new HistoryMetadataService();
 const service = new ProgramLifecycleService(
   repository,
   new ProgramHistoryRepository(),

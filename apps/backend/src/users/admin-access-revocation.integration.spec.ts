@@ -21,7 +21,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import { UserHistoryRepository } from './user-history.repository';
 import { AuthRepository } from '../auth/auth.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -29,7 +29,7 @@ import { RolesErrorCode } from './roles-error-code.error';
 import { PausingRevocationAdminAccessRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 assertIsolatedIntegrationDatabase({
@@ -49,7 +49,7 @@ const service = new AdminAccessService(
   repository,
   userHistory,
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ),
 );
@@ -238,7 +238,7 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
     ),
     userHistory,
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
   );
@@ -278,7 +278,7 @@ it('감사 기록이 실패하면 역할 CAS와 REVOKED 행이 함께 되돌아�
     repository,
     failingAudit,
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
   );
@@ -339,7 +339,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
     ),
     userHistory,
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
   );

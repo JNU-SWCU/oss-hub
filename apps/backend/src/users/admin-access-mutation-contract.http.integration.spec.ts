@@ -12,7 +12,7 @@ import { AdminAccessHttpHarness } from './admin-access.http.integration-support'
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,

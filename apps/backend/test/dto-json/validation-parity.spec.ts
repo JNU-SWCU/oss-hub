@@ -8,7 +8,7 @@ import { AdminProfileMutationService } from '../../src/users/admin-profile-mutat
 import { UsersService } from '../../src/users/users.service';
 import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
-import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../../src/platform/history-metadata.service';
 import { UserProfileService } from '../../src/users/user-profile.service';
 import { BadRequestException, ValidationPipe, type Type } from '@nestjs/common';
 import { CreateBoardPostRequestDto } from '../../src/programs/dto/create-board-post-request.dto';
@@ -45,7 +45,7 @@ const programDocumentChangeRequestsService =
     {} as never,
   );
 const adminAccessMutationService = new AdminAccessMutationService(
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 const independentAuthorityService = Object.create(

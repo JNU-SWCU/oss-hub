@@ -10,7 +10,7 @@ import { UserHistoryRepository } from './user-history.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 assertIsolatedIntegrationDatabase({
@@ -28,7 +28,7 @@ const service = new AdminAccessService(
   ),
   new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ),
 );

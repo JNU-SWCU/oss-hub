@@ -56,7 +56,7 @@ import { AdminAccessService } from '../../src/users/admin-access.service';
 import { AdminProfileService } from '../../src/users/admin-profile.service';
 import { IndependentAuthorityService } from '../../src/users/independent-authority.service';
 import { MemberRegistrationResetService } from '../../src/users/member-registration-reset.service';
-import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../../src/platform/history-metadata.service';
 import { AdminAccessMutationService } from '../../src/users/admin-access-mutation.service';
 import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
 import { AuthSessionService } from '../../src/platform/auth-session.service';
@@ -298,7 +298,7 @@ describe('Audience authorization HTTP characterization', () => {
         AdminProfileService,
         IndependentAuthorityService,
         MemberRegistrationResetService,
-        AuditLogMetadataService,
+        HistoryMetadataService,
         AdminAccessMutationService,
         AdminProfileMutationService,
         AuditLogReadService,

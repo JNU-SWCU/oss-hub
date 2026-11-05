@@ -15,7 +15,7 @@ import { TeamRepository } from './team.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { TeamMembershipService } from './team-membership.service';
 import { ProgramTeamDeletionRepository } from './team.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
@@ -39,7 +39,7 @@ const teamsService = new TeamMembershipService(
     new TeamDeletionScopeRepository(),
     new PrismaSerializationRetryRepository(),
   ),
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),

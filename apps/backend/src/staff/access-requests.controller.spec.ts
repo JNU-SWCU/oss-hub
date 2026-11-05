@@ -13,7 +13,7 @@ import {
   AccessRequestsHistoryRequestDto,
   AccessRequestsListRequestDto,
 } from './dto/access-requests-list-request.dto';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
@@ -120,7 +120,7 @@ describe('AccessRequestsController delegation', () => {
 function serviceHarness() {
   return Object.assign(Object.create(AdminAccessService.prototype) as object, {
     adminAccessMutationService: new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     listRequests: jest.fn().mockResolvedValue({
