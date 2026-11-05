@@ -128,6 +128,7 @@ function readyContext(nextTeam: ProgramTeam | null): ReadyContext {
     kind: 'ready',
     mode: 'create',
     rejectionReason: null,
+    isRejected: false,
     program,
     template: {
       key: 'oss-contest',

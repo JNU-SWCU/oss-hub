@@ -397,6 +397,7 @@ describe('loadProgramApplyContext', () => {
       team: leaderTeam,
 
       rejectionReason: null,
+      isRejected: false,
       canManage: true,
       initialValues: {
         isRepositoryPublicationPlanned: true,
@@ -437,12 +438,35 @@ describe('loadProgramApplyContext', () => {
       team: leaderTeam,
 
       rejectionReason: null,
+      isRejected: false,
       canManage: true,
       initialValues: {
         title: 'Existing title',
         isRepositoryPublicationPlanned: false,
         personalDataConsent: true,
       },
+    });
+  });
+
+  it('신청 기간 안의 반려 신청은 같은 신청을 고쳐 다시 내는 수정 상태로 연다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue(leaderTeam);
+    vi.mocked(getProgramDetail).mockResolvedValue({
+      ...program,
+      viewer: { role: 'STUDENT', applicationStatus: 'REJECTED' },
+    } satisfies ProgramDetail);
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'REJECTED',
+      rejectionReason: '제출한 요약이 프로그램 주제와 맞지 않습니다.',
+    } satisfies StudentApplication);
+
+    const result = await loadDefaultContext();
+
+    expect(result).toMatchObject({
+      kind: 'ready',
+      mode: 'edit',
+      isRejected: true,
+      rejectionReason: '제출한 요약이 프로그램 주제와 맞지 않습니다.',
     });
   });
 

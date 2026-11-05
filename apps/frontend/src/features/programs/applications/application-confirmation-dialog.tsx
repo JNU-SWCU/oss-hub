@@ -75,38 +75,47 @@ export function ApplicationActionDialog({
 
 export function ApplicationConfirmationDialog({
   kind,
+  isRejected = false,
   ...props
 }: {
   readonly kind: Exclude<ApplicationConfirmation, null>;
+  readonly isRejected?: boolean;
   readonly submitting: boolean;
   readonly onClose: () => void;
   readonly onConfirm: () => void;
   readonly returnFocusRef: RefObject<HTMLButtonElement | null>;
 }) {
   const isCancellation = kind === 'cancel';
+  const isResubmission = kind === 'save' && isRejected;
   return (
     <ApplicationActionDialog
       {...props}
       title={
         isCancellation
           ? '신청을 취소하시겠습니까?'
-          : kind === 'save'
-            ? '수정 내용을 저장하시겠습니까?'
-            : '신청서를 제출하시겠습니까?'
+          : isResubmission
+            ? '신청서를 다시 제출하시겠습니까?'
+            : kind === 'save'
+              ? '수정 내용을 저장하시겠습니까?'
+              : '신청서를 제출하시겠습니까?'
       }
       description={
         isCancellation
           ? '팀과 신청서가 함께 삭제됩니다. 구성원의 소속과 보낸 초대도 정리됩니다. 신청 기간 안에는 새 팀을 구성해 다시 신청할 수 있습니다.'
-          : kind === 'save'
-            ? '저장한 내용은 담당자의 신청 검토 화면에 즉시 반영됩니다.'
-            : '신청서를 제출하면 담당자가 검토합니다. 신청 기간 내 검토 대기나 반려 상태에서는 신청서를 수정하거나 취소할 수 있지만, 승인된 이후에는 수정 및 취소가 불가능합니다.'
+          : isResubmission
+            ? '다시 제출하면 신청이 검토 대기로 돌아가고 담당자가 다시 검토합니다. 팀과 구성원은 그대로 유지됩니다.'
+            : kind === 'save'
+              ? '저장한 내용은 담당자의 신청 검토 화면에 즉시 반영됩니다.'
+              : '신청서를 제출하면 담당자가 검토합니다. 신청 기간 내 검토 대기나 반려 상태에서는 신청서를 수정하거나 취소할 수 있지만, 승인된 이후에는 수정 및 취소가 불가능합니다.'
       }
       confirmLabel={
         isCancellation
           ? '신청 취소'
-          : kind === 'save'
-            ? '수정 내용 저장'
-            : '신청서 제출'
+          : isResubmission
+            ? '다시 제출'
+            : kind === 'save'
+              ? '수정 내용 저장'
+              : '신청서 제출'
       }
       destructive={isCancellation}
     />
