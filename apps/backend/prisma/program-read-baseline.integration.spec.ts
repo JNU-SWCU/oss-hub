@@ -7,6 +7,7 @@ import { ProgramOverviewRepository } from '../src/programs/program-overview.repo
 import { SubmissionMatrixRepository } from '../src/programs/submission-matrix.repository';
 import { MilestoneDocumentCollectionReadRepository } from '../src/programs/milestone-document-collection-read.repository';
 import { ProgramTeamsRepository } from '../src/programs/program-teams.repository';
+import { TeamHistoryRepository } from '../src/programs/team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from '../src/programs/program-team-repository-evidence.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -368,6 +369,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     platform,
+    new TeamHistoryRepository(),
   );
   const operations = [
     {

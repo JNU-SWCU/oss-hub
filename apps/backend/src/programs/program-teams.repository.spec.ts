@@ -12,6 +12,7 @@ import {
 } from './program-teams.repository';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 import { PlatformRepository } from '../platform/platform.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 
 const syntheticTeamId = 'cuid-synthetic-team';
 const syntheticOtherTeamId = 'cuid-synthetic-other-team';
@@ -32,6 +33,7 @@ function buildRepository(tx: object) {
       prisma as unknown as PrismaService,
     ),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   );
 }
 
@@ -132,7 +134,10 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
       findFirst: findFirstMember,
       delete: teamMemberDelete,
     },
-    teamInvitation: { deleteMany: teamInvitationDeleteMany },
+    teamInvitation: {
+      findMany: jest.fn().mockResolvedValue([]),
+      deleteMany: teamInvitationDeleteMany,
+    },
     team: { update: teamUpdate, delete: teamDelete },
     application: {
       findFirst: applicationFindFirst,

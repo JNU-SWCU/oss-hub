@@ -8,6 +8,7 @@ import {
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import {
   prisma,
   service,
@@ -140,6 +141,7 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   ).findStaffRepositoryUrlHistory(programId, teamId);
   expect(history?.rows).toMatchObject([
     {

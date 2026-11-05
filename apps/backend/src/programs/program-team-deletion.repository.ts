@@ -156,29 +156,12 @@ export class ProgramTeamDeletionRepository {
             },
           );
 
-          const invitations = await tx.teamInvitation.findMany({
-            where: { teamId },
-            orderBy: { id: 'asc' },
-          });
-          for (const invitation of invitations) {
-            if (invitation.status !== 'PENDING') {
-              await this.history.archiveInvitation(
-                tx,
-                invitation,
-                actorId,
-                deletedAt,
-              );
-              continue;
-            }
-            await this.history.recordInvitationClosed(
-              tx,
-              invitation,
-              'INVITATION_CANCELLED',
-              actorId,
-              deletedAt,
-              'TEAM_DELETED',
-            );
-          }
+          await this.history.recordTeamInvitationsDeleted(
+            tx,
+            teamId,
+            actorId,
+            deletedAt,
+          );
           const deletedCounts = await deleteTeamTree(tx, teamId);
           if (
             !this.teamDeletionScope.sameCountValues(

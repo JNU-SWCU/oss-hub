@@ -59,6 +59,7 @@ beforeAll(async () => {
       prisma,
       new ProgramTeamRepositoryEvidenceRepository(prisma),
       new PlatformRepository(),
+      new TeamHistoryRepository(),
     ),
     new AuditLogService(
       new AuditLogRepository(prisma),

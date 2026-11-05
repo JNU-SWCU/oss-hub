@@ -698,6 +698,7 @@ describe('ApplicationsService integration', () => {
         prisma,
         new ProgramTeamRepositoryEvidenceRepository(prisma),
         new PlatformRepository(),
+        new TeamHistoryRepository(),
       );
       const gate: { ready?: () => void; release?: () => void } = {};
       const ready = new Promise<void>((resolve) => {

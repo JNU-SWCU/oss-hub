@@ -2,6 +2,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 
 export const teamFindFirst = jest.fn();
 export const applicationFindFirst = jest.fn();
@@ -92,5 +93,6 @@ export function givenRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   );
 }

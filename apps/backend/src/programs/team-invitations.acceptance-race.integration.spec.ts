@@ -156,6 +156,7 @@ function startPausedLeaderLeave(): {
       pidCapturingPrisma(prisma, leaveBackend.capture),
     ),
     new PlatformRepository(),
+    new TeamHistoryRepository(),
   );
   const leaving = trackPaused(
     teams.leave(PROGRAM_ID, LEADER_ID, async () => {
