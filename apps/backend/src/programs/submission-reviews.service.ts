@@ -117,9 +117,13 @@ export class SubmissionReviewsService {
     return {
       requirementId: row.milestoneDocument.id,
       latestReviewId:
-        row.histories.find((history) =>
-          SUBMISSION_REVIEW_EVENTS.includes(history.event),
-        )?.id ?? null,
+        row.histories
+          .filter((history) => SUBMISSION_REVIEW_EVENTS.includes(history.event))
+          .sort(
+            (left, right) =>
+              right.createdAt.getTime() - left.createdAt.getTime() ||
+              right.id.localeCompare(left.id),
+          )[0]?.id ?? null,
       submissionId: row.id,
       application: {
         id: row.application.id,

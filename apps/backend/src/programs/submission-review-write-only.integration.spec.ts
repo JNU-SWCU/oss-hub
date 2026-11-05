@@ -170,6 +170,47 @@ it('shows the historical approval with an unknown revision without rewriting the
       },
     }),
   ).toBe(1);
+  const reloaded = await fixture.request(
+    `submissions/${submission.id}/review-context`,
+    { actor: 'staff' },
+  );
+  expect(reloaded.status).toBe(200);
+  const context: unknown = await reloaded.json();
+  if (
+    context === null ||
+    typeof context !== 'object' ||
+    !('latestReviewId' in context) ||
+    typeof context.latestReviewId !== 'string'
+  ) {
+    throw new TypeError('Expected a review context with a latest review token');
+  }
+  const second = await fixture.request(
+    `${fixture.documentPath()}/applications/${flowIds.application}/reviews`,
+    {
+      actor: 'staff',
+      method: 'POST',
+      json: {
+        decision: 'CHANGES_REQUESTED',
+        expectedRevision: submission.revision,
+        expectedLatestReviewId: context.latestReviewId,
+      },
+    },
+  );
+  const secondBody: unknown = await second.json();
+  expect({ status: second.status, body: secondBody }).toMatchObject({
+    status: 201,
+  });
+  expect(context.latestReviewId).not.toBe(event.id);
+  expect(context).toMatchObject({
+    unversionedReviews: [
+      {
+        id: event.id,
+        decision: 'APPROVED',
+        comment: event.comment,
+        reviewedAt: reviewedAt.toISOString(),
+      },
+    ],
+  });
   expect(
     await fixture.prisma.milestoneDocumentSubmissionHistory.findUnique({
       where: { id: event.id },
@@ -180,7 +221,7 @@ it('shows the historical approval with an unknown revision without rewriting the
       where: { id: submission.id },
       select: { status: true, revision: true },
     }),
-  ).toEqual({ status: 'APPROVED', revision: submission.revision });
+  ).toEqual({ status: 'CHANGES_REQUESTED', revision: submission.revision });
 });
 it.each(['prepared', 'current'])(
   'returns the same review fields from %s review storage',
