@@ -1,14 +1,15 @@
+import type { StorageReferenceTransactionClient } from './files.repository';
 import { Prisma } from '@prisma/client';
 import {
   StorageOrphanReconciliationService,
   DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS,
   type StorageObjectInventory,
-} from './storage-orphan-reconciliation.service';
+} from './file-cleanup.service';
 import {
   PrismaStorageReferenceRepository,
   type StorageReferenceRepository,
-} from './prisma-storage-reference.repository';
-import { STORAGE_KEY_OWNERS } from './storage-orphan-reconciliation.config';
+} from './files.repository';
+import { STORAGE_KEY_OWNERS } from './files.config';
 
 const OLD = new Date('2026-08-12T00:00:00.000Z');
 const RUN_STARTED_AT = new Date('2026-08-12T02:00:00.000Z');
@@ -220,222 +221,92 @@ describe('PrismaStorageReferenceRepository', () => {
     expect([...STORAGE_KEY_OWNERS].sort()).toEqual(schemaOwners);
   });
 
-  it('호출별 RepeatableRead transaction client에서 모든 owner를 읽는다', async () => {
+  it('reads all file kinds from a separate RepeatableRead transaction for each call', async () => {
+    const keys = [
+      'submission-files/live-submission',
+      'program-authoring/live-upload',
+      'program-covers/live',
+      'submission-files/live-template',
+      'submission-files/live-tombstone',
+    ];
     const loadTransaction = {
-      programCover: {
+      file: {
         findMany: jest
           .fn()
-          .mockResolvedValue([{ storageKey: 'program-covers/live' }]),
-        findFirst: jest.fn(),
-      },
-      submissionFile: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { storageKey: 'submission-files/live-submission' },
-          ]),
-        findFirst: jest.fn(),
-      },
-      programAuthoringUpload: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([{ storageKey: 'program-authoring/live-upload' }]),
-        findFirst: jest.fn(),
-      },
-      milestoneDocumentTemplateFile: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { storageKey: 'submission-files/live-template' },
-          ]),
-        findFirst: jest.fn(),
-      },
-      programPurgeFileTombstone: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            { storageKey: 'submission-files/live-tombstone' },
-          ]),
+          .mockResolvedValue(keys.map((storageKey) => ({ storageKey }))),
         findFirst: jest.fn(),
       },
     };
     const liveTransaction = {
-      programCover: {
+      file: {
         findMany: jest.fn(),
         findFirst: jest.fn().mockResolvedValue({ id: 'cover' }),
       },
-      submissionFile: {
-        findMany: jest.fn(),
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      programAuthoringUpload: {
-        findMany: jest.fn(),
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      milestoneDocumentTemplateFile: {
-        findMany: jest.fn(),
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      programPurgeFileTombstone: {
-        findMany: jest.fn(),
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
     };
-    const rootModels = {
-      programCover: {
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-      },
-      submissionFile: {
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-      },
-      programAuthoringUpload: {
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-      },
-      milestoneDocumentTemplateFile: {
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-      },
-      programPurgeFileTombstone: {
-        findMany: jest.fn(),
-        findFirst: jest.fn(),
-      },
-    };
-    const transactionClients = [loadTransaction, liveTransaction];
+    const rootFile = { findMany: jest.fn(), findFirst: jest.fn() };
+    const clients = [loadTransaction, liveTransaction];
+    const options: Prisma.TransactionIsolationLevel[] = [];
     const prisma = {
       $connect: jest.fn().mockResolvedValue(undefined),
-      $transaction: jest
-        .fn()
-        .mockImplementation(
-          async (callback: (client: never) => Promise<unknown>) =>
-            callback(transactionClients.shift() as never),
-        ),
-      ...rootModels,
+      $transaction<T>(
+        operation: (client: StorageReferenceTransactionClient) => Promise<T>,
+        input: { readonly isolationLevel: Prisma.TransactionIsolationLevel },
+      ) {
+        const client = clients.shift();
+        if (client === undefined) throw new Error('Unexpected transaction');
+        options.push(input.isolationLevel);
+        return operation(client);
+      },
+      file: rootFile,
     };
-    const repository = new PrismaStorageReferenceRepository(prisma as never);
+    const repository = new PrismaStorageReferenceRepository(prisma);
 
-    await expect(repository.loadLiveKeys()).resolves.toEqual(
-      new Set([
-        'submission-files/live-submission',
-        'program-authoring/live-upload',
-        'program-covers/live',
-        'submission-files/live-template',
-        'submission-files/live-tombstone',
-      ]),
-    );
+    await expect(repository.loadLiveKeys()).resolves.toEqual(new Set(keys));
     await expect(repository.isLiveKey('program-covers/live')).resolves.toBe(
       true,
     );
 
-    expect(prisma.$connect).toHaveBeenCalledTimes(1);
-    expect(prisma.$transaction).toHaveBeenCalledTimes(2);
-    expect(prisma.$transaction).toHaveBeenNthCalledWith(
-      1,
-      expect.any(Function),
-      {
-        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-      },
-    );
-    expect(prisma.$transaction).toHaveBeenNthCalledWith(
-      2,
-      expect.any(Function),
-      {
-        isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
-      },
-    );
-    expect(loadTransaction.submissionFile.findMany).toHaveBeenCalledWith({
+    expect(options).toEqual([
+      Prisma.TransactionIsolationLevel.RepeatableRead,
+      Prisma.TransactionIsolationLevel.RepeatableRead,
+    ]);
+    expect(loadTransaction.file.findMany).toHaveBeenCalledWith({
       where: { lifecycle: { not: 'DELETED' } },
       select: { storageKey: true },
     });
-    expect(loadTransaction.programCover.findMany).toHaveBeenCalledWith({
-      where: { source: 'OWNED' },
-      select: { storageKey: true },
-    });
-    expect(liveTransaction.programCover.findFirst).toHaveBeenCalledWith({
-      where: { storageKey: 'program-covers/live', source: 'OWNED' },
+    expect(liveTransaction.file.findFirst).toHaveBeenCalledWith({
+      where: {
+        storageKey: 'program-covers/live',
+        lifecycle: { not: 'DELETED' },
+      },
       select: { id: true },
     });
-    expect(rootModels.programCover.findMany).not.toHaveBeenCalled();
-    expect(rootModels.programCover.findFirst).not.toHaveBeenCalled();
-    expect(
-      loadTransaction.programAuthoringUpload.findMany,
-    ).toHaveBeenCalledWith({
-      where: { lifecycle: { not: 'DELETED' } },
-      select: { storageKey: true },
-    });
-    expect(
-      loadTransaction.milestoneDocumentTemplateFile.findMany,
-    ).toHaveBeenCalledWith({
-      select: { storageKey: true },
-    });
-    expect(
-      loadTransaction.programPurgeFileTombstone.findMany,
-    ).toHaveBeenCalledWith({
-      where: { lifecycle: { not: 'DELETED' } },
-      select: { storageKey: true },
-    });
-    expect(liveTransaction.submissionFile.findFirst).toHaveBeenCalled();
-    expect(liveTransaction.programAuthoringUpload.findFirst).toHaveBeenCalled();
-    expect(
-      liveTransaction.milestoneDocumentTemplateFile.findFirst,
-    ).toHaveBeenCalled();
-    expect(
-      liveTransaction.programPurgeFileTombstone.findFirst,
-    ).toHaveBeenCalled();
-    expect(rootModels.submissionFile.findMany).not.toHaveBeenCalled();
-    expect(rootModels.submissionFile.findFirst).not.toHaveBeenCalled();
-    expect(rootModels.programAuthoringUpload.findMany).not.toHaveBeenCalled();
-    expect(rootModels.programAuthoringUpload.findFirst).not.toHaveBeenCalled();
-    expect(
-      rootModels.milestoneDocumentTemplateFile.findMany,
-    ).not.toHaveBeenCalled();
-    expect(
-      rootModels.milestoneDocumentTemplateFile.findFirst,
-    ).not.toHaveBeenCalled();
-    expect(
-      rootModels.programPurgeFileTombstone.findMany,
-    ).not.toHaveBeenCalled();
-    expect(
-      rootModels.programPurgeFileTombstone.findFirst,
-    ).not.toHaveBeenCalled();
+    expect(rootFile.findMany).not.toHaveBeenCalled();
+    expect(rootFile.findFirst).not.toHaveBeenCalled();
   });
 
-  it('tombstone이 DELETE_PENDING이면 live로 취급하고 DELETED가 되면 제외한다', async () => {
+  it('excludes completed File deletions from the live-key recheck', async () => {
     const transaction = {
-      programCover: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      submissionFile: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      programAuthoringUpload: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      milestoneDocumentTemplateFile: {
-        findFirst: jest.fn().mockResolvedValue(null),
-      },
-      programPurgeFileTombstone: {
+      file: {
+        findMany: jest.fn(),
         findFirst: jest.fn().mockResolvedValue(null),
       },
     };
     const prisma = {
       $connect: jest.fn().mockResolvedValue(undefined),
-      $transaction: jest
-        .fn()
-        .mockImplementation(
-          async (callback: (client: never) => Promise<unknown>) =>
-            callback(transaction as never),
-        ),
+      $transaction<T>(
+        operation: (client: StorageReferenceTransactionClient) => Promise<T>,
+      ) {
+        return operation(transaction);
+      },
     };
-    const repository = new PrismaStorageReferenceRepository(prisma as never);
+    const repository = new PrismaStorageReferenceRepository(prisma);
 
-    await repository.isLiveKey('submission-files/pending-tombstone');
+    await expect(
+      repository.isLiveKey('submission-files/pending-tombstone'),
+    ).resolves.toBe(false);
 
-    expect(
-      transaction.programPurgeFileTombstone.findFirst,
-    ).toHaveBeenCalledWith({
+    expect(transaction.file.findFirst).toHaveBeenCalledWith({
       where: {
         storageKey: 'submission-files/pending-tombstone',
         lifecycle: { not: 'DELETED' },

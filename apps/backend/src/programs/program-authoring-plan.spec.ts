@@ -1,8 +1,10 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
+import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
@@ -10,7 +12,7 @@ import {
   type ProgramAuthoringDocumentRequest,
   type ProgramAuthoringMilestoneRequest,
   type ProgramAuthoringRequest,
-} from './program-authoring-upload-transaction.repository';
+} from './files.config';
 import { ProgramAuthoringService } from './programs.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 

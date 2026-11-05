@@ -1,11 +1,11 @@
 import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ProgramAuthoringUploadMaintenanceService } from './program-authoring-upload-maintenance.service';
-import type { ObjectStoragePort } from '../platform/object-storage.types';
-import type { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
+import { FileCleanupService } from './file-cleanup.service';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { type FileCleanupRepository } from './files.repository';
 
-describe('ProgramAuthoringUploadMaintenanceService cron', () => {
+describe('FileCleanupService cron', () => {
   function deferred(): {
     readonly promise: Promise<number>;
     readonly resolve: (value: number) => void;
@@ -20,14 +20,12 @@ describe('ProgramAuthoringUploadMaintenanceService cron', () => {
     return { promise, resolve: resolvePromise };
   }
 
-  const CRON_JOB_NAME = 'program-authoring-upload-cleanup';
+  const CRON_JOB_NAME = 'file-cleanup';
 
-  function maintenanceWith(
-    runDue: () => Promise<number>,
-  ): ProgramAuthoringUploadMaintenanceService {
-    const service = new ProgramAuthoringUploadMaintenanceService(
+  function maintenanceWith(runDue: () => Promise<number>): FileCleanupService {
+    const service = new FileCleanupService(
       {
-        claimForDeletion: jest.fn(),
+        claimNextForDeletion: jest.fn(),
         markDeleted: jest.fn(),
         recordDeleteFailure: jest.fn(),
       },
@@ -52,7 +50,7 @@ describe('ProgramAuthoringUploadMaintenanceService cron', () => {
           imports: [ScheduleModule.forRoot()],
           providers: [
             {
-              provide: ProgramAuthoringUploadMaintenanceService,
+              provide: FileCleanupService,
               useValue: maintenanceWith(runDue),
             },
           ],
@@ -86,9 +84,9 @@ describe('ProgramAuthoringUploadMaintenanceService cron', () => {
 
     it('skips an overlapping hourly run', async () => {
       const pending = deferred();
-      const maintenance: jest.Mocked<
-        Pick<ProgramAuthoringUploadMaintenanceService, 'runDue'>
-      > = { runDue: jest.fn().mockReturnValue(pending.promise) };
+      const maintenance: jest.Mocked<Pick<FileCleanupService, 'runDue'>> = {
+        runDue: jest.fn().mockReturnValue(pending.promise),
+      };
       const scheduler = maintenanceWith(maintenance.runDue);
 
       const first = scheduler.run();
@@ -100,9 +98,7 @@ describe('ProgramAuthoringUploadMaintenanceService cron', () => {
     });
 
     it('logs only a fixed safe code when a run fails', async () => {
-      const maintenance: jest.Mocked<
-        Pick<ProgramAuthoringUploadMaintenanceService, 'runDue'>
-      > = {
+      const maintenance: jest.Mocked<Pick<FileCleanupService, 'runDue'>> = {
         runDue: jest
           .fn()
           .mockRejectedValue(new Error('database provider connection detail')),
@@ -113,7 +109,7 @@ describe('ProgramAuthoringUploadMaintenanceService cron', () => {
       await scheduler.run();
 
       expect(alert).toHaveBeenCalledWith({
-        event: 'program-authoring-upload.cleanup.run.failed',
+        event: 'file.cleanup.run.failed',
         errorCode: 'MAINTENANCE_RUN_FAILED',
       });
       expect(JSON.stringify(alert.mock.calls)).not.toContain('provider');
@@ -136,11 +132,11 @@ function claimed(deleteAttemptCount: number) {
 function setup() {
   const repository: jest.Mocked<
     Pick<
-      ProgramAuthoringUploadRepository,
-      'claimForDeletion' | 'markDeleted' | 'recordDeleteFailure'
+      FileCleanupRepository,
+      'claimNextForDeletion' | 'markDeleted' | 'recordDeleteFailure'
     >
   > = {
-    claimForDeletion: jest.fn().mockResolvedValue([]),
+    claimNextForDeletion: jest.fn().mockResolvedValue(null),
     markDeleted: jest.fn().mockResolvedValue(true),
     recordDeleteFailure: jest.fn().mockResolvedValue(true),
   };
@@ -150,26 +146,21 @@ function setup() {
   return {
     repository,
     storage,
-    service: new ProgramAuthoringUploadMaintenanceService(
-      repository,
-      storage,
-      () => NOW,
-    ),
+    service: new FileCleanupService(repository, storage, () => NOW),
   };
 }
 
-describe('ProgramAuthoringUploadMaintenanceService', () => {
+describe('FileCleanupService', () => {
   it('claims at most 100 rows with a ten-minute lease and marks successful deletes', async () => {
     const { repository, storage, service } = setup();
-    repository.claimForDeletion.mockResolvedValueOnce([claimed(0)]);
+    repository.claimNextForDeletion.mockResolvedValueOnce(claimed(0));
 
     const processed = await service.runDue(1_000);
 
     expect(processed).toBe(1);
-    expect(repository.claimForDeletion).toHaveBeenCalledWith({
+    expect(repository.claimNextForDeletion).toHaveBeenCalledWith({
       now: NOW,
       leaseExpiresAt: new Date('2026-08-10T00:10:00.000Z'),
-      limit: 100,
     });
     expect(storage.delete).toHaveBeenCalledWith('program-authoring/server-key');
     expect(repository.markDeleted).toHaveBeenCalledWith(
@@ -189,9 +180,9 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
     'schedules prior attempt %i using the %ih retry delay',
     async (priorAttempts, delayHours) => {
       const { repository, storage, service } = setup();
-      repository.claimForDeletion.mockResolvedValueOnce([
+      repository.claimNextForDeletion.mockResolvedValueOnce(
         claimed(priorAttempts),
-      ]);
+      );
       storage.delete.mockRejectedValueOnce(new Error('provider detail'));
 
       await service.runDue();
@@ -201,15 +192,15 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
         claimOwner: 'unique-claim-owner',
         attemptCount: priorAttempts + 1,
         nextAttemptAt: new Date(NOW.getTime() + delayHours * 60 * 60 * 1_000),
-        errorCode: 'STORAGE_DELETE_FAILED',
+        error: 'STORAGE_DELETE_FAILED',
       });
     },
   );
 
-  it('keeps a non-null due timestamp at the sixth failure while making it exhausted', async () => {
+  it('stops scheduling the file after the sixth deletion failure', async () => {
     const { repository, storage, service } = setup();
     const alert = jest.spyOn(Logger.prototype, 'error').mockImplementation();
-    repository.claimForDeletion.mockResolvedValueOnce([claimed(5)]);
+    repository.claimNextForDeletion.mockResolvedValueOnce(claimed(5));
     storage.delete.mockRejectedValueOnce(
       new Error('provider-secret=must-not-leak'),
     );
@@ -220,14 +211,14 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
       id: 'upload-id',
       claimOwner: 'unique-claim-owner',
       attemptCount: 6,
-      nextAttemptAt: NOW,
-      errorCode: 'STORAGE_DELETE_FAILED',
+      nextAttemptAt: null,
+      error: 'STORAGE_DELETE_FAILED',
     });
     expect(alert).toHaveBeenCalledWith({
-      event: 'program-authoring-upload.cleanup.exhausted',
-      uploadId: 'upload-id',
+      event: 'file.cleanup.exhausted',
+      fileId: 'upload-id',
       attemptCount: 6,
-      errorCode: 'STORAGE_DELETE_FAILED',
+      error: 'storage_delete_failed',
     });
     expect(JSON.stringify(alert.mock.calls)).not.toContain('provider-secret');
     alert.mockRestore();
@@ -236,7 +227,7 @@ describe('ProgramAuthoringUploadMaintenanceService', () => {
   it('does not report exhaustion when a stale owner loses the failure CAS', async () => {
     const { repository, storage, service } = setup();
     const alert = jest.spyOn(Logger.prototype, 'error').mockImplementation();
-    repository.claimForDeletion.mockResolvedValueOnce([claimed(5)]);
+    repository.claimNextForDeletion.mockResolvedValueOnce(claimed(5));
     repository.recordDeleteFailure.mockResolvedValueOnce(false);
     storage.delete.mockRejectedValueOnce(new Error('provider detail'));
 

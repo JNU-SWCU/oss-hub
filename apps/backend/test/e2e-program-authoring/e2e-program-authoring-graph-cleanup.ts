@@ -8,13 +8,14 @@ export async function removeAdoptedGraph(
   deleteStorageObject: (storageKey: string) => Promise<void> = () =>
     Promise.resolve(),
 ): Promise<void> {
-  const uploads = await prisma.programAuthoringUpload.findMany({
-    where: { programId: graph.programId },
+  const uploads = await prisma.file.findMany({
+    where: { kind: 'UPLOAD', programId: graph.programId },
     select: { storageKey: true },
   });
-  const templateFiles = await prisma.milestoneDocumentTemplateFile.findMany({
+  const templateFiles = await prisma.file.findMany({
     where: {
-      milestoneDocument: { milestone: { programId: graph.programId } },
+      kind: 'TEMPLATE',
+      requirement: { milestone: { programId: graph.programId } },
     },
     select: { storageKey: true },
   });
@@ -24,8 +25,8 @@ export async function removeAdoptedGraph(
       select: { id: true },
     });
     if (program === null) return [];
-    const covers = await transaction.programCover.findMany({
-      where: { programId: graph.programId },
+    const covers = await transaction.file.findMany({
+      where: { kind: 'COVER', programId: graph.programId },
       select: { storageKey: true },
     });
     const applications = await transaction.team.findMany({
@@ -63,15 +64,15 @@ export async function removeAdoptedGraph(
     await transaction.githubRepository.deleteMany({
       where: { teamId: { in: teamIds } },
     });
-    await transaction.submissionFile.deleteMany({
+    await transaction.file.deleteMany({
       where: {
+        kind: 'SUBMISSION',
         OR: [
           { teamId: { in: teamIds } },
+          { kind: 'SUBMISSION', submissionId: { in: documentSubmissionIds } },
           {
-            milestoneDocumentSubmissionId: { in: documentSubmissionIds },
-          },
-          {
-            milestoneDocumentSubmissionHistoryId: {
+            kind: 'SUBMISSION',
+            submissionHistoryId: {
               in: documentSubmissionHistoryIds,
             },
           },
@@ -88,9 +89,10 @@ export async function removeAdoptedGraph(
       where: { teamId: { in: teamIds } },
     });
     await transaction.team.deleteMany({ where: { id: { in: teamIds } } });
-    await transaction.milestoneDocumentTemplateFile.deleteMany({
+    await transaction.file.deleteMany({
       where: {
-        milestoneDocument: { milestone: { programId: graph.programId } },
+        kind: 'TEMPLATE',
+        requirement: { milestone: { programId: graph.programId } },
       },
     });
     await transaction.milestoneDocument.deleteMany({
@@ -99,11 +101,11 @@ export async function removeAdoptedGraph(
     await transaction.milestone.deleteMany({
       where: { programId: graph.programId },
     });
-    await transaction.programAuthoringUpload.deleteMany({
-      where: { programId: graph.programId },
+    await transaction.file.deleteMany({
+      where: { kind: 'UPLOAD', programId: graph.programId },
     });
-    await transaction.programCover.deleteMany({
-      where: { programId: graph.programId },
+    await transaction.file.deleteMany({
+      where: { kind: 'COVER', programId: graph.programId },
     });
     await transaction.program.delete({ where: { id: graph.programId } });
     return covers;

@@ -10,7 +10,7 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   ProgramCategory,
   ProgramTrackType,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -109,8 +109,8 @@ interface MemberSeed {
 
 async function cleanupTeamScope(): Promise<void> {
   await prisma.teamHistory.deleteMany({ where: { programId: PROGRAM_ID } });
-  await prisma.submissionFile.deleteMany({
-    where: { uploaderId: { startsWith: TEST_PREFIX } },
+  await prisma.file.deleteMany({
+    where: { kind: 'SUBMISSION', uploaderId: { startsWith: TEST_PREFIX } },
   });
 
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
@@ -270,15 +270,15 @@ async function seedSubmittedDocument(
       },
     },
   });
-  const file = await prisma.submissionFile.create({
+  const file = await prisma.file.create({
     data: {
+      kind: 'SUBMISSION',
       id: `${teamId}:file`,
       uploaderId: submitterId,
       teamId,
-      milestoneId: MILESTONE_ID,
-      milestoneDocumentSubmissionId: submissionId,
-      milestoneDocumentSubmissionHistoryId: historyId,
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      submissionId: submissionId,
+      submissionHistoryId: historyId,
+      lifecycle: FileLifecycle.ATTACHED,
       pendingExpiresAt: null,
       expiresAt: new Date('2099-12-31T00:00:00.000Z'),
       storageKey: `${teamId}/synthetic.pdf`,
@@ -590,23 +590,23 @@ describe('program team membership transactions integration', () => {
       event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
     });
     await expect(
-      prisma.submissionFile.findUniqueOrThrow({
-        where: { id: submitted.fileId },
+      prisma.file.findUniqueOrThrow({
+        where: { kind: 'SUBMISSION', id: submitted.fileId },
         select: {
           teamId: true,
           uploaderId: true,
           lifecycle: true,
-          milestoneDocumentSubmissionId: true,
-          milestoneDocumentSubmissionHistoryId: true,
+          submissionId: true,
+          submissionHistoryId: true,
           deletedAt: true,
         },
       }),
     ).resolves.toEqual({
       teamId,
       uploaderId: MEMBER_A_ID,
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
-      milestoneDocumentSubmissionId: submitted.submissionId,
-      milestoneDocumentSubmissionHistoryId: submitted.historyId,
+      lifecycle: FileLifecycle.ATTACHED,
+      submissionId: submitted.submissionId,
+      submissionHistoryId: submitted.historyId,
       deletedAt: null,
     });
 
@@ -653,7 +653,9 @@ describe('program team membership transactions integration', () => {
       }),
     ).resolves.toBe(1);
     await expect(
-      prisma.submissionFile.count({ where: { id: submitted.fileId } }),
+      prisma.file.count({
+        where: { kind: 'SUBMISSION', id: submitted.fileId },
+      }),
     ).resolves.toBe(1);
     expect(await membershipHistoryRows(teamId)).toHaveLength(0);
   });
@@ -996,7 +998,9 @@ describe('program team membership transactions integration', () => {
       }),
     ).resolves.toBe(1);
     await expect(
-      prisma.submissionFile.count({ where: { id: submitted.fileId } }),
+      prisma.file.count({
+        where: { kind: 'SUBMISSION', id: submitted.fileId },
+      }),
     ).resolves.toBe(1);
   });
 

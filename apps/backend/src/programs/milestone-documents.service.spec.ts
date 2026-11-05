@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import {
   type MilestoneDocumentCollectionQuery,
@@ -210,7 +211,10 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -270,7 +274,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         ),
         new MilestoneDocumentCollectionService({} as never),
         new ProgramScheduleService(),
-        new SubmissionsRepository(new PlatformRepository()),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         new UserProfileService(),
       ).listForViewer(1n, syntheticMilestoneId);
       expect(result[0]).toMatchObject({
@@ -301,7 +308,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -341,7 +351,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -411,7 +424,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -482,7 +498,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     ).listForViewer(1n, syntheticMilestoneId);
 
@@ -542,7 +561,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -594,7 +616,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -622,7 +647,10 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -653,7 +681,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
     const input = {
@@ -683,7 +714,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -712,7 +746,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -739,7 +776,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -767,7 +807,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -797,7 +840,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -832,7 +878,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -873,7 +922,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -894,7 +946,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -924,7 +979,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -957,7 +1015,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -980,7 +1041,10 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1034,7 +1098,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1070,7 +1137,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1100,7 +1170,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1127,7 +1200,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1152,7 +1228,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1173,7 +1252,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1197,7 +1279,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1222,7 +1307,10 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1251,7 +1339,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1288,7 +1379,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1327,7 +1421,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1368,7 +1465,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1410,7 +1510,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1462,7 +1565,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1510,7 +1616,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1562,7 +1671,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1634,7 +1746,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1696,7 +1811,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1751,7 +1869,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1797,7 +1918,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1871,7 +1995,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1893,7 +2020,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1915,7 +2045,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1937,7 +2070,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1957,7 +2093,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -1983,7 +2122,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2007,7 +2149,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2028,7 +2173,10 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2106,7 +2254,10 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2136,7 +2287,10 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2159,7 +2313,10 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2190,7 +2347,10 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2249,7 +2409,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2269,7 +2432,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2310,7 +2476,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2341,7 +2510,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2409,7 +2581,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2470,7 +2645,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2516,7 +2694,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2551,7 +2732,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2591,7 +2775,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2657,7 +2844,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2680,7 +2870,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2748,7 +2941,10 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2829,7 +3025,10 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2902,7 +3101,10 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -2983,7 +3185,10 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3042,7 +3247,10 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3164,7 +3372,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3187,7 +3398,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3232,7 +3446,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3257,7 +3474,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3285,7 +3505,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3314,7 +3537,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3347,7 +3573,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3373,7 +3602,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3418,7 +3650,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3469,7 +3704,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -3516,7 +3754,10 @@ describe('document grace configuration', () => {
         ),
         new MilestoneDocumentCollectionService({} as never),
         new ProgramScheduleService(),
-        new SubmissionsRepository(new PlatformRepository()),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         new UserProfileService(),
       );
       const update = service.updateGraceDueAt(
@@ -3545,7 +3786,10 @@ describe('document grace configuration', () => {
         ),
         new MilestoneDocumentCollectionService({} as never),
         new ProgramScheduleService(),
-        new SubmissionsRepository(new PlatformRepository()),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         new UserProfileService(),
       );
       await service.updateGraceDueAt(
@@ -3572,7 +3816,10 @@ describe('document grace configuration', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
     await expect(

@@ -1,8 +1,8 @@
-import type { Response } from 'express';
+import { type Response } from 'express';
 import { DownloadResponseService } from './download-response.service';
 import { Inject, Injectable, StreamableFile } from '@nestjs/common';
 import { RequirementSubmissionType } from '@prisma/client';
-import type { Readable } from 'node:stream';
+import { type Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
@@ -23,7 +23,7 @@ import {
   MilestoneDocumentCollectionSubmission,
   MilestoneDocumentSubmittedContent,
 } from './milestone-document-collection-read.repository';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
   readonly scope?: 'all';

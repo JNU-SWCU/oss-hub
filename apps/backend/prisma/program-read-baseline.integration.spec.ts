@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from '../src/programs/files.repository';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PrismaClient, type Prisma } from '@prisma/client';
@@ -256,14 +257,15 @@ async function seed(): Promise<void> {
               },
             },
           });
-          await tx.submissionFile.create({
+          await tx.file.create({
             data: {
+              kind: 'SUBMISSION',
+              lifecycle: 'ATTACHED',
               id: id(`file-${team}-${document}`),
               uploaderId: leaderId,
               teamId,
-              milestoneId: id(`milestone-${Math.floor(document / 2)}`),
-              milestoneDocumentSubmissionId: submissionId,
-              milestoneDocumentSubmissionHistoryId: historyId,
+              submissionId: submissionId,
+              submissionHistoryId: historyId,
               storageKey: id(`storage-${team}-${document}`),
               originalFileName: 'baseline.pdf',
               mimeType: 'application/pdf',
@@ -295,6 +297,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  await prisma.file.deleteMany({ where: { id: { startsWith: prefix } } });
   await prisma.$disconnect();
 });
 
@@ -315,8 +318,8 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     histories: await prisma.milestoneDocumentSubmissionHistory.count({
       where: { id: { startsWith: prefix } },
     }),
-    files: await prisma.submissionFile.count({
-      where: { id: { startsWith: prefix } },
+    files: await prisma.file.count({
+      where: { kind: 'SUBMISSION', id: { startsWith: prefix } },
     }),
     repositories: await prisma.githubRepository.count({
       where: { team: { programId } },
@@ -344,7 +347,10 @@ it('records four real repository read paths with twenty warm samples and SQL cou
   const platform = new PlatformRepository();
   const overview = new ProgramOverviewRepository(prisma, platform);
   const matrix = new SubmissionMatrixRepository(prisma, platform);
-  const collection = new MilestoneDocumentCollectionReadRepository(prisma);
+  const collection = new MilestoneDocumentCollectionReadRepository(
+    prisma,
+    new FileMetadataRepository(),
+  );
   const teams = new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),

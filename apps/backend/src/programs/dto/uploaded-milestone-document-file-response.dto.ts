@@ -1,4 +1,4 @@
-import type { UploadedMilestoneDocumentFileResponse } from '../milestone-document-files.service';
+import { type UploadedMilestoneDocumentFileResponse } from '../files.config';
 
 export class UploadedMilestoneDocumentFileResponseDto {
   declare readonly fileId: string;

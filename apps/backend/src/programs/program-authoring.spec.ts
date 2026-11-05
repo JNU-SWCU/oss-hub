@@ -1,11 +1,11 @@
 import {
   PROGRAM_AUTHORING_UPLOAD_MAX_BYTES,
   ProgramAuthoringUploadService,
-} from './program-authoring-upload.service';
+  SubmissionFileAdmissionService,
+} from './files.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { createHash } from 'node:crypto';
@@ -13,9 +13,9 @@ import {
   PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
   type ProgramAuthoringUploadError,
   type ProgramAuthoringUploadFile,
-} from './program-authoring-upload.error';
+} from './files.error';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import { type ProgramAuthoringRequest } from './program-authoring-upload-transaction.repository';
+import { type ProgramAuthoringRequest } from './files.config';
 import { ProgramAuthoringService } from './programs.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 

@@ -6,11 +6,15 @@ import { AuthConfig } from '../platform/auth.config';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
-import { SubmissionFilesService } from './submission-files.service';
+import {
+  FilesService,
+  SubmissionFileAdmissionService,
+  MilestoneDocumentFilesService,
+} from './files.service';
 import { UsersModule } from '../users/users.module';
 import { UserProfileService } from '../users/user-profile.service';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
-import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
+import { MilestoneDocumentFilesController } from './files.controller';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import {
   MilestoneDocumentCollectionService,
@@ -18,14 +22,12 @@ import {
 } from './milestone-document-collection.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { ProgramsModule } from './programs.module';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 
 describe('ProgramsModule milestone documents', () => {
   const getMetadataArray = (key: string): unknown[] => {
@@ -72,13 +74,13 @@ describe('ProgramsModule milestone documents', () => {
   it('제출 파일 service는 같은 ProgramsModule provider로 해결한다', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
-    expect(providers).toContain(SubmissionFilesService);
+    expect(providers).toContain(FilesService);
     expect(
       Reflect.getMetadata('design:paramtypes', MilestoneDocumentFilesService),
     ).toEqual([
       MilestoneDocumentsRepository,
       Object,
-      SubmissionFilesService,
+      FilesService,
       MilestoneDocumentSubmissionWindowService,
       MilestoneDocumentFileNameService,
       SubmissionFileAdmissionService,
@@ -128,9 +130,7 @@ describe('ProgramsModule milestone documents', () => {
       expect(module.get(MilestoneDocumentFilesService)).toBeInstanceOf(
         MilestoneDocumentFilesService,
       );
-      expect(module.get(SubmissionFilesService)).toBeInstanceOf(
-        SubmissionFilesService,
-      );
+      expect(module.get(FilesService)).toBeInstanceOf(FilesService);
     } finally {
       await module.close();
     }

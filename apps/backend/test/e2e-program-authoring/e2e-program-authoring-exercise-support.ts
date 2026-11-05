@@ -4,7 +4,7 @@ import {
   type E2eExternalFailureOperation,
   E2eExternalPortFault,
 } from './e2e-external-port-registry';
-import type { E2eFailureKind } from './e2e-program-authoring.types';
+import { type E2eFailureKind } from './e2e-program-authoring.types';
 import { DeadlineDigestService } from '../../src/notifications/deadline-digest.service';
 import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
@@ -14,7 +14,7 @@ import {
   E2E_STAFF_GITHUB_ID,
   E2E_STAFF_ID,
 } from './e2e-program-authoring-fixture';
-import { type ProgramAuthoringRequest } from '../../src/programs/program-authoring-upload-transaction.repository';
+import { type ProgramAuthoringRequest } from '../../src/programs/files.config';
 
 function failureOperation(kind: E2eFailureKind): E2eExternalFailureOperation {
   switch (kind) {

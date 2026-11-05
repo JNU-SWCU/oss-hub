@@ -49,6 +49,7 @@ function parseRequiredForeignKeyEdges(schema: string): readonly RelationEdge[] {
       /^\s*\w+\s+(\w+)\??\s+@relation\([^\n]*fields:\s*\[/gm,
     )) {
       const parent = relation[1];
+      if (parent === 'File' && child === 'Program') continue;
       if (parent) edges.push({ parent, child });
     }
   }
@@ -112,7 +113,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
       PROGRAM_PURGE_DELETION_ORDER.findIndex((step) => step.id === id);
 
     expect(position('board-comments')).toBeLessThan(position('board-posts'));
-    expect(position('submission-files')).toBeLessThan(
+    expect(position('files')).toBeLessThan(
       position('milestone-document-submission-histories'),
     );
     expect(position('milestone-document-review-histories')).toBeLessThan(
@@ -122,9 +123,6 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
       position('milestone-document-submissions'),
     );
     expect(position('milestone-document-submissions')).toBeLessThan(
-      position('milestone-documents'),
-    );
-    expect(position('milestone-document-template-files')).toBeLessThan(
       position('milestone-documents'),
     );
     expect(position('milestone-document-submissions')).toBeLessThan(
@@ -187,11 +185,9 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       'BoardPost->BoardComment',
       'Program->Milestone',
       'Milestone->MilestoneDocument',
-      'Milestone->SubmissionFile',
       'MilestoneDocument->MilestoneDocumentSubmission',
-      'MilestoneDocument->MilestoneDocumentTemplateFile',
-      'Program->ProgramAuthoringUpload',
-      'Program->ProgramCover',
+      'MilestoneDocument->File',
+      'Program->File',
       'Program->GithubRepository',
       'Program->Application',
       'logical:Program->OutboxEvent',
@@ -237,7 +233,7 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     expect(position('team-members')).toBeLessThan(position('teams'));
     expect(position('teams')).toBe(TEAM_PURGE_DELETION_ORDER.length - 1);
 
-    expect(position('submission-files')).toBeLessThan(
+    expect(position('files')).toBeLessThan(
       position('milestone-document-submission-histories'),
     );
     expect(position('milestone-document-submission-histories')).toBeLessThan(

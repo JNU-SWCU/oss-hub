@@ -1,4 +1,4 @@
-import type { ProgramAuthoringUploadResponse } from '../program-authoring-upload.error';
+import { type ProgramAuthoringUploadResponse } from '../files.error';
 
 export class ProgramAuthoringUploadResponseDto {
   declare readonly id: string;

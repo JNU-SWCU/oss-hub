@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
@@ -44,7 +45,10 @@ describe('MilestoneDocumentsService historyForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -90,7 +94,10 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         ),
         new MilestoneDocumentCollectionService({} as never),
         new ProgramScheduleService(),
-        new SubmissionsRepository(new PlatformRepository()),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         new UserProfileService(),
       ).historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: 'foreign-history',
@@ -167,7 +174,10 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -199,7 +209,10 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 
@@ -230,7 +243,10 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
       new UserProfileService(),
     );
 

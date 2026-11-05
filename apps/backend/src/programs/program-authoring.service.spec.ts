@@ -1,11 +1,13 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
+import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
-  ProgramAuthoringUploadLifecycle,
+  FileLifecycle,
   ProgramCategory,
   ProgramLifecycle,
   ProgramTrackType,
@@ -29,7 +31,7 @@ import {
 import {
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
-} from './program-authoring-upload-transaction.repository';
+} from './files.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
@@ -198,7 +200,6 @@ function setup() {
     createMilestone: jest.fn().mockResolvedValue('milestone-id'),
     createDocument: jest.fn().mockResolvedValue('document-id'),
     createTemplate: jest.fn().mockResolvedValue(undefined),
-    attachUploads: jest.fn().mockResolvedValue(undefined),
   };
   const repository = {
     findReplay: jest.fn().mockResolvedValue(null),
@@ -321,7 +322,7 @@ describe('ProgramAuthoringService', () => {
       {
         id: 'upload-id',
         actorId: ACTOR_ID,
-        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+        lifecycle: FileLifecycle.PENDING,
         unexpired: true,
         storageKey: 'program-authoring/server-uuid',
         originalFileName: 'template.pdf',
@@ -333,16 +334,18 @@ describe('ProgramAuthoringService', () => {
     const result = await service.create(ACTOR, 'key', request('upload-id'));
 
     expect(result.id).toBe('program-id');
+    const expectedUpload: unknown = expect.objectContaining({
+      id: 'upload-id',
+      storageKey: 'program-authoring/server-uuid',
+    });
     expect(transaction.createTemplate.mock.calls).toEqual([
       [
-        expect.objectContaining({
+        {
           milestoneDocumentId: 'document-id',
           actorId: ACTOR_ID,
-        }),
+          upload: expectedUpload,
+        },
       ],
-    ]);
-    expect(transaction.attachUploads.mock.calls).toEqual([
-      [ACTOR_ID, 'request-id', ['upload-id']],
     ]);
   });
 
@@ -352,7 +355,7 @@ describe('ProgramAuthoringService', () => {
       {
         id: 'upload-id',
         actorId: 'other-actor',
-        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+        lifecycle: FileLifecycle.PENDING,
         unexpired: true,
         storageKey: 'program-authoring/server-uuid',
         originalFileName: 'template.pdf',

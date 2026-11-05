@@ -1,9 +1,10 @@
+import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   type Prisma,
   MilestoneDocumentSubmissionHistoryEvent,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
@@ -16,15 +17,16 @@ import {
 } from '../../prisma/seeds/helpers';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionFilesRepository } from './submission-files.repository';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 const prisma = new PrismaService();
-const repository = new SubmissionFilesRepository(
+const repository = new FilesRepository(
   prisma,
   new PlatformRepository(),
+  new FileMetadataRepository(),
 );
 const NOW = new Date('2026-07-31T00:00:00.000Z');
 const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -93,8 +95,9 @@ const FILE_IDS: string[] = [
 ];
 const BASE_FILE = {
   uploaderId: UPLOADER_USER_ID,
+  kind: 'SUBMISSION',
   teamId: TEAM_ID,
-  milestoneId: MILESTONE_ID,
+  requirementId: MILESTONE_DOCUMENT_ID,
   mimeType: 'application/pdf',
 } as const;
 const AUTHORIZED_DOWNLOADS = [
@@ -143,7 +146,9 @@ const DENIED_DOWNLOADS = [
   readonly fileId: string;
 }[];
 async function deleteIssue342Rows(): Promise<void> {
-  await prisma.submissionFile.deleteMany({ where: { id: { in: FILE_IDS } } });
+  await prisma.file.deleteMany({
+    where: { kind: 'SUBMISSION', id: { in: FILE_IDS } },
+  });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID },
   });
@@ -161,7 +166,7 @@ async function deleteIssue342Rows(): Promise<void> {
     where: { id: { in: USER_RECORDS.map((user) => user.id) } },
   });
 }
-describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
+describe('FilesRepository.findDownloadableFile integration', () => {
   beforeAll(async () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
     await runProfile('milestones', new SeedStats());
@@ -224,7 +229,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         actorId: UPLOADER_USER_ID,
       },
     });
-    await prisma.submissionFile.createMany({
+    await prisma.file.createMany({
       data: [
         {
           ...BASE_FILE,
@@ -232,10 +237,9 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/downloadable',
           originalFileName: 'report.pdf',
           sizeBytes: 1024,
-          milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          milestoneDocumentSubmissionHistoryId:
-            MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+          submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          lifecycle: FileLifecycle.ATTACHED,
           expiresAt: FUTURE_EXPIRES_AT,
         },
         {
@@ -244,7 +248,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/pending',
           originalFileName: 'pending.pdf',
           sizeBytes: 2048,
-          lifecycle: SubmissionFileLifecycle.PENDING,
+          lifecycle: FileLifecycle.PENDING,
           pendingExpiresAt: PENDING_EXPIRES_AT,
           expiresAt: FUTURE_EXPIRES_AT,
         },
@@ -254,10 +258,9 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/expired',
           originalFileName: 'expired.pdf',
           sizeBytes: 4096,
-          milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          milestoneDocumentSubmissionHistoryId:
-            MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+          submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          lifecycle: FileLifecycle.ATTACHED,
           expiresAt: PAST_EXPIRES_AT,
         },
       ],

@@ -42,9 +42,11 @@ describe('program storage invariants', () => {
     });
   });
   afterEach(async () => {
-    await prisma.submissionFile.deleteMany({ where: { uploaderId: prefix } });
-    await prisma.milestoneDocumentTemplateFile.deleteMany({
-      where: { uploadedById: prefix },
+    await prisma.file.deleteMany({
+      where: { kind: 'SUBMISSION', uploaderId: prefix },
+    });
+    await prisma.file.deleteMany({
+      where: { kind: 'TEMPLATE', uploaderId: prefix },
     });
     await prisma.milestoneDocument.deleteMany({
       where: { milestone: { programId: prefix } },
@@ -144,6 +146,7 @@ describe('program storage invariants', () => {
 
   it('rejects duplicate storage keys at the database boundary', async () => {
     const file = {
+      kind: 'SUBMISSION' as const,
       uploaderId: prefix,
       storageKey: prefix,
       originalFileName: 'synthetic.pdf',
@@ -151,11 +154,9 @@ describe('program storage invariants', () => {
       sizeBytes: 1,
       lifecycle: 'DELETE_PENDING' as const,
     };
-    await prisma.submissionFile.create({ data: file });
+    await prisma.file.create({ data: file });
 
-    await expect(
-      prisma.submissionFile.create({ data: file }),
-    ).rejects.toMatchObject({
+    await expect(prisma.file.create({ data: file })).rejects.toMatchObject({
       code: 'P2002',
     });
   });
@@ -176,21 +177,34 @@ describe('program storage invariants', () => {
       name: 'Synthetic requirement',
       required: true,
       sortOrder: 1,
-      templateFile: {
+      files: {
         create: {
+          kind: 'TEMPLATE' as const,
+          lifecycle: 'ATTACHED' as const,
+          sha256: 'a'.repeat(64),
+          attachedAt: program.startAt,
           storageKey: prefix,
           originalFileName: 'synthetic.pdf',
           mimeType: 'application/pdf',
           sizeBytes: 1,
-          uploadedById: prefix,
+          uploaderId: prefix,
         },
       },
     };
     await prisma.milestoneDocument.create({ data: document });
 
     await expect(
-      prisma.milestoneDocument.create({ data: document }),
-    ).rejects.toMatchObject({ code: 'P2002' });
+      prisma.milestoneDocument.create({
+        data: {
+          ...document,
+          name: 'Another synthetic requirement',
+          sortOrder: 2,
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'P2002',
+      meta: { target: ['storageKey'] },
+    });
   });
 
   it('keeps milestone writes inside the program schedule', async () => {

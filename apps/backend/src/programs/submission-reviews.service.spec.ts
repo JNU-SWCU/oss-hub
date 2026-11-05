@@ -1,4 +1,5 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { FileMetadataRepository } from './files.repository';
+import { SubmissionFileAdmissionService } from './files.service';
 import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
@@ -10,18 +11,18 @@ import {
   GITHUB_OPERATIONS_ERROR_CODES,
   GithubOperationsError,
 } from '../github/github-app.error';
-import type { RepositoriesService } from '../github/repositories.service';
-import type {
-  SubmissionReviewTransactionStore,
-  SubmissionReviewsRepositoryPort,
-  PublishEligibilityRow,
+import { type RepositoriesService } from '../github/repositories.service';
+import {
+  type SubmissionReviewTransactionStore,
+  type SubmissionReviewsRepositoryPort,
+  type PublishEligibilityRow,
 } from './submission-reviews.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import type { RepositoryPublishEligibility } from '../github/repository-publish.config';
+import { type RepositoryPublishEligibility } from '../github/repository-publish.config';
 
 const REVIEWED_AT = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
@@ -99,6 +100,7 @@ describe('SubmissionReviewsService.review', () => {
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
         new SubmissionFileAdmissionService(),
+        new FileMetadataRepository(),
       );
 
       await expect(
@@ -138,6 +140,7 @@ describe('SubmissionReviewsService.review', () => {
         new RepositoryUrlService(),
         new MilestoneCompletionService(),
         new SubmissionFileAdmissionService(),
+        new FileMetadataRepository(),
       );
 
       const result = await service.review(
@@ -185,6 +188,7 @@ describe('SubmissionReviewsService.review', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     const review = service.review('reviewer-1', 'submission-1', {
@@ -212,6 +216,7 @@ describe('SubmissionReviewsService.review', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     const review = service.review('reviewer-1', 'submission-1', {
@@ -254,6 +259,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     const result = await service.publishRepository(
@@ -293,6 +299,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     const publish = service.publishRepository(
@@ -328,6 +335,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     const publish = service.publishRepository(
@@ -363,6 +371,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     const publish = service.publishRepository(
@@ -399,6 +408,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     const publish = service.publishRepository(
@@ -434,6 +444,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
 
     await expect(

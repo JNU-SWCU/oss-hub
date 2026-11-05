@@ -1,12 +1,13 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { FileMetadataRepository } from './files.repository';
+import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
   SubmissionStatus,
 } from '@prisma/client';
-import type { RepositoriesService } from '../github/repositories.service';
-import type { PrismaService } from '../platform/prisma.service';
+import { type RepositoriesService } from '../github/repositories.service';
+import { type PrismaService } from '../platform/prisma.service';
 import {
   SubmissionReviewsRepository,
   type SubmissionReviewsRepositoryPort,
@@ -23,6 +24,7 @@ import {
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
+
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
 const PROGRAM_ENDS_LATER = new Date('2026-08-01T00:00:00.000Z');
@@ -214,6 +216,7 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     ),
   };
 }

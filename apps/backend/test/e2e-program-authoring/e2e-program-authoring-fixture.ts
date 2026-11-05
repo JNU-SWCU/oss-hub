@@ -76,8 +76,8 @@ export class E2eProgramAuthoringFixture {
       await transaction.githubRepository.deleteMany({
         where: E2E_REPOSITORY_WHERE,
       });
-      await transaction.submissionFile.deleteMany({
-        where: { teamId: { in: teamIds } },
+      await transaction.file.deleteMany({
+        where: { kind: 'SUBMISSION', teamId: { in: teamIds } },
       });
       await transaction.milestoneDocumentSubmissionHistory.deleteMany({
         where: { submission: { teamId: { in: teamIds } } },
@@ -94,8 +94,11 @@ export class E2eProgramAuthoringFixture {
       await transaction.team.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
       });
-      await transaction.milestoneDocumentTemplateFile.deleteMany({
-        where: { milestoneDocument: { milestoneId: E2E_MILESTONE_ID } },
+      await transaction.file.deleteMany({
+        where: {
+          kind: 'TEMPLATE',
+          requirement: { milestoneId: E2E_MILESTONE_ID },
+        },
       });
       await transaction.milestoneDocument.deleteMany({
         where: { milestoneId: E2E_MILESTONE_ID },
@@ -103,15 +106,15 @@ export class E2eProgramAuthoringFixture {
       await transaction.milestone.deleteMany({
         where: { id: E2E_MILESTONE_ID },
       });
-      await transaction.programAuthoringUpload.deleteMany({
-        where: { actorId: E2E_STAFF_ID },
+      await transaction.file.deleteMany({
+        where: { kind: 'UPLOAD', uploaderId: E2E_STAFF_ID },
       });
-      const covers = await transaction.programCover.findMany({
-        where: { programId: E2E_PROGRAM_ID },
+      const covers = await transaction.file.findMany({
+        where: { kind: 'COVER', programId: E2E_PROGRAM_ID },
         select: { storageKey: true },
       });
-      await transaction.programCover.deleteMany({
-        where: { programId: E2E_PROGRAM_ID },
+      await transaction.file.deleteMany({
+        where: { kind: 'COVER', programId: E2E_PROGRAM_ID },
       });
       await transaction.program.deleteMany({ where: { id: E2E_PROGRAM_ID } });
       return covers;

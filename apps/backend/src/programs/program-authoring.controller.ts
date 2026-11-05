@@ -19,7 +19,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { OriginGuard } from '../platform/origin.guard';
-import type { AuthenticatedRequest } from '../auth/http-auth.types';
+import { type AuthenticatedRequest } from '../auth/http-auth.types';
 import {
   ProgramNoticePreviewService,
   ProgramAuthoringService,
@@ -29,8 +29,8 @@ import { ProgramAuthoringUploadResponseDto } from './dto/program-authoring-uploa
 import { ProgramIdResponseDto } from './dto/program-id-response.dto';
 import { ProgramAuthoringRequestDto } from './dto/program-authoring-request.dto';
 import { ProgramAuthoringUploadPolicyResponseDto } from './dto/program-authoring-upload-policy-response.dto';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { type ProgramAuthoringUploadFile } from './program-authoring-upload.error';
+import { ProgramAuthoringUploadService } from './files.service';
+import { type ProgramAuthoringUploadFile } from './files.error';
 import { ProgramNoticePreviewRequestDto } from './dto/program-notice-preview-request.dto';
 import { ProgramNoticePreviewResponseDto } from './dto/program-notice-preview-response.dto';
 import { Protected } from '../auth/auth-route.decorator';

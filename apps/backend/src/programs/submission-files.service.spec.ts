@@ -1,5 +1,9 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import {
+  SubmissionFileAdmissionService,
+  MAX_FILE_BYTES,
+  FilesService,
+} from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
@@ -16,20 +20,17 @@ import { SubmissionMembershipChangedError } from './submission-membership-change
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
-} from './submission-file.error';
+} from './files.error';
 import {
   type CreatePendingSubmissionFileInput,
   type DownloadableSubmissionFile,
-  type SubmissionFilesRepository,
-} from './submission-files.repository';
-import {
-  MAX_FILE_BYTES,
-  SubmissionFilesService,
-} from './submission-files.service';
+  type FilesRepository,
+} from './files.repository';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
+
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
 function authorization(
@@ -104,8 +105,8 @@ function setup() {
       .fn<ReturnType<ObjectStoragePort['get']>, [string]>()
       .mockResolvedValue(Readable.from(Buffer.from('private-file-body'))),
   };
-  const service = new SubmissionFilesService(
-    repository as unknown as SubmissionFilesRepository,
+  const service = new FilesService(
+    repository as unknown as FilesRepository,
     storage,
     new ProgramScheduleService(),
     new SubmissionFileAdmissionService(),
@@ -121,7 +122,7 @@ async function expectCode(
   expect(error).toBeInstanceOf(DomainException);
   expect((error as DomainException).errorCode.code).toBe(code);
 }
-describe('SubmissionFilesService', () => {
+describe('FilesService', () => {
   beforeEach(() =>
     jest.useFakeTimers({ doNotFake: ['setImmediate'] }).setSystemTime(NOW),
   );
@@ -132,6 +133,7 @@ describe('SubmissionFilesService', () => {
       uploaderId: 'student-opaque',
       teamId: 'app-opaque',
       milestoneId: 'milestone-opaque',
+      milestoneDocumentId: 'requirement-opaque',
       storageKey: 'submission-files/pending-key',
       originalFileName: 'report.pdf',
       mimeType: 'application/pdf',
@@ -166,6 +168,7 @@ describe('SubmissionFilesService', () => {
           uploaderId: 'student-opaque',
           teamId: 'app-opaque',
           milestoneId: 'milestone-opaque',
+          milestoneDocumentId: 'requirement-opaque',
           storageKey: 'submission-files/pending-key',
           originalFileName: 'report.pdf',
           mimeType: 'application/pdf',

@@ -8,7 +8,7 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringService } from './programs.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from './files.service';
 import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
 import {
   protectedRouteGuardStub,

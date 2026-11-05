@@ -1,21 +1,30 @@
+import {
+  FileMetadataRepository,
+  FileCleanupRepository,
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+  FilesRepository,
+} from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+  FilesService,
+  MilestoneDocumentFilesService,
+} from './files.service';
 import { DownloadResponseService } from './download-response.service';
-import { ProgramCoverRepository } from './program-cover.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { ProgramAuthoringUploadLifecycle, Prisma } from '@prisma/client';
+import { FileLifecycle, Prisma } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { Readable } from 'node:stream';
-import type { UnwrapTuple } from '@prisma/client/runtime/library';
+import { type UnwrapTuple } from '@prisma/client/runtime/library';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramErrorCode } from './program-error-code.error';
 import {
@@ -23,12 +32,8 @@ import {
   type ProgramEditorTransactionStore,
 } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import type { ObjectStoragePort } from '../platform/object-storage.types';
-import { SubmissionFilesRepository } from './submission-files.repository';
-import { SubmissionFilesService } from './submission-files.service';
-import { ProgramAuthoringUploadRepository } from './program-authoring-upload.repository';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionsRepository } from './submissions.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -45,6 +50,7 @@ import {
 } from './program-editor.integration-fixtures';
 import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -211,14 +217,14 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     expect(
-      await prisma.programAuthoringUpload.findUnique({
-        where: { id: uploadId },
+      await prisma.file.findUnique({
+        where: { kind: 'UPLOAD', id: uploadId },
         select: { id: true },
       }),
     ).toBeNull();
     expect(
-      await prisma.milestoneDocumentTemplateFile.findUnique({
-        where: { milestoneDocumentId: firstDocumentId },
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
         select: { storageKey: true },
       }),
     ).toEqual({ storageKey: `program-authoring/${uploadId}` });
@@ -226,14 +232,16 @@ describe('ProgramEditorService milestone aggregate integration', () => {
   it('rejects a snapshot made before direct same-row template key replacement', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
-    await prisma.milestoneDocumentTemplateFile.create({
+    await prisma.file.create({
       data: {
-        milestoneDocumentId: firstDocumentId,
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirementId: firstDocumentId,
         storageKey: 'objects/original',
         originalFileName: 'form.pdf',
         mimeType: 'application/pdf',
         sizeBytes: 12,
-        uploadedById: `${TEST_PREFIX}staff`,
+        uploaderId: `${TEST_PREFIX}staff`,
       },
     });
     const snapshot = await editor.getMilestoneEdit(
@@ -245,12 +253,23 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       memoryStorage(),
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -388,12 +407,23 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       memoryStorage(),
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -416,8 +446,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ),
     ).rejects.toMatchObject({ errorCode: { code: 'MSD_004' } });
     expect(
-      await prisma.milestoneDocumentTemplateFile.findUnique({
-        where: { milestoneDocumentId: firstDocumentId },
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
         select: { id: true },
       }),
     ).toBeNull();
@@ -431,8 +461,15 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       {
         ...memoryStorage(),
@@ -444,8 +481,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
             contentType: input.contentType,
           })),
       },
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -481,8 +522,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       errorCode: { code: 'MSD_004' },
     });
     expect(
-      await prisma.milestoneDocumentTemplateFile.findUnique({
-        where: { milestoneDocumentId: firstDocumentId },
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
         select: { id: true },
       }),
     ).toBeNull();
@@ -500,6 +541,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const submissionPrisma = pausingSubmissionPrisma(locked, release);
     const submission = new SubmissionsRepository(
       new PlatformRepository(),
+      new FileMetadataRepository(),
     ).upsertMilestoneDocumentSubmission(submissionPrisma, {
       milestoneDocumentId: firstDocumentId,
       teamId: application.id,
@@ -552,6 +594,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     await expect(
       new SubmissionsRepository(
         new PlatformRepository(),
+        new FileMetadataRepository(),
       ).upsertMilestoneDocumentSubmission(prisma, {
         milestoneDocumentId: firstDocumentId,
         teamId: application.id,
@@ -593,12 +636,23 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       memoryStorage(),
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -621,11 +675,11 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ),
     ).resolves.toMatchObject({ documentId: firstDocumentId });
     expect(
-      await prisma.milestoneDocumentTemplateFile.findUniqueOrThrow({
-        where: { milestoneDocumentId: firstDocumentId },
-        select: { uploadedById: true },
+      await prisma.file.findFirstOrThrow({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
+        select: { uploaderId: true },
       }),
-    ).toEqual({ uploadedById: `${TEST_PREFIX}staff` });
+    ).toEqual({ uploaderId: `${TEST_PREFIX}staff` });
   });
   it('rejects a cleanup-claimed DELETE_PENDING token before graph mutation', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
@@ -633,14 +687,13 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       'cleanup-claimed',
       new Date('2020-01-01T00:00:00.000Z'),
     );
-    const claimed = await new ProgramAuthoringUploadRepository(
+    const claimed = await new FileCleanupRepository(
       prisma,
-    ).claimForDeletion({
+    ).claimNextForDeletion({
       now: new Date('2026-09-01T00:00:00.000Z'),
       leaseExpiresAt: new Date('2026-09-01T00:10:00.000Z'),
-      limit: 1,
     });
-    expect(claimed.map((upload) => upload.id)).toEqual([uploadId]);
+    expect(claimed?.id).toEqual(uploadId);
     const snapshot = await editor.getMilestoneEdit(
       STAFF_GITHUB_ID,
       milestoneId,
@@ -699,28 +752,25 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     await locked.promise;
-    const claim = await new ProgramAuthoringUploadRepository(
-      prisma,
-    ).claimForDeletion({
+    const claim = await new FileCleanupRepository(prisma).claimNextForDeletion({
       now: new Date('2027-09-02T00:00:00.000Z'),
       leaseExpiresAt: new Date('2027-09-02T00:10:00.000Z'),
-      limit: 1,
     });
-    expect(claim).toEqual([]);
+    expect(claim).toBeNull();
     release.resolve();
     const anyArrayMatcher: unknown = expect.any(Array);
     await expect(aggregate).resolves.toMatchObject({
       documents: anyArrayMatcher,
     });
     expect(
-      await prisma.programAuthoringUpload.findUnique({
-        where: { id: uploadId },
+      await prisma.file.findUnique({
+        where: { kind: 'UPLOAD', id: uploadId },
         select: { id: true },
       }),
     ).toBeNull();
     expect(
-      await prisma.milestoneDocumentTemplateFile.findUnique({
-        where: { milestoneDocumentId: firstDocumentId },
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
         select: { storageKey: true },
       }),
     ).toEqual({ storageKey: `program-authoring/${uploadId}` });
@@ -752,14 +802,13 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     await locked.promise;
-    const claimed = await new ProgramAuthoringUploadRepository(
+    const claimed = await new FileCleanupRepository(
       prisma,
-    ).claimForDeletion({
+    ).claimNextForDeletion({
       now: new Date('2027-09-02T00:00:00.000Z'),
       leaseExpiresAt: new Date('2027-09-02T00:10:00.000Z'),
-      limit: 1,
     });
-    expect(claimed.map((upload) => upload.id)).toEqual([uploadId]);
+    expect(claimed?.id).toEqual(uploadId);
     release.resolve();
     await expect(aggregate).rejects.toMatchObject({
       errorCode: { code: ProgramErrorCode.VALIDATION_ERROR, status: 400 },
@@ -773,17 +822,17 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       },
     });
     expect(
-      await prisma.milestoneDocumentTemplateFile.findUnique({
-        where: { milestoneDocumentId: firstDocumentId },
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
         select: { id: true },
       }),
     ).toBeNull();
     expect(
-      await prisma.programAuthoringUpload.findUniqueOrThrow({
-        where: { id: uploadId },
+      await prisma.file.findUniqueOrThrow({
+        where: { kind: 'UPLOAD', id: uploadId },
         select: { lifecycle: true },
       }),
-    ).toEqual({ lifecycle: ProgramAuthoringUploadLifecycle.DELETE_PENDING });
+    ).toEqual({ lifecycle: FileLifecycle.DELETE_PENDING });
   });
   it('rolls back the complete graph after real aggregate writes when the transaction callback aborts before commit', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
@@ -947,18 +996,20 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     },
   );
   it.each(['INSERT', 'UPDATE'] as const)(
-    'rolls back template upsert %s and pending-token consumption after its real DB statement faults',
+    'rolls back template %s and File attachment after its real DB statement faults',
     async (event) => {
       const { milestoneId, firstDocumentId } = await seedGraph();
       if (event === 'UPDATE') {
-        await prisma.milestoneDocumentTemplateFile.create({
+        await prisma.file.create({
           data: {
-            milestoneDocumentId: firstDocumentId,
+            kind: 'TEMPLATE',
+            lifecycle: 'ATTACHED',
+            requirementId: firstDocumentId,
             storageKey: 'objects/original-template',
             originalFileName: 'original.pdf',
             mimeType: 'application/pdf',
             sizeBytes: 1,
-            uploadedById: `${TEST_PREFIX}staff`,
+            uploaderId: `${TEST_PREFIX}staff`,
           },
         });
       }
@@ -969,9 +1020,9 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       );
       const baseline = await graphBaseline(milestoneId, uploadId);
       const drop = await installSyntheticAggregateFaultTrigger({
-        table: 'MilestoneDocumentTemplateFile',
-        event,
-        targetColumn: 'milestoneDocumentId',
+        table: 'File',
+        event: 'UPDATE',
+        targetColumn: 'requirementId',
         targetId: firstDocumentId,
       });
       try {
@@ -996,7 +1047,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }
     },
   );
-  it('rolls back template pointer and graph when AFTER pending-upload DELETE faults', async () => {
+  it('rolls back template pointer and graph when AFTER pending File attachment faults', async () => {
     const { milestoneId, firstDocumentId } = await seedGraph();
     const uploadId = await createPendingUpload('pending-delete');
     const snapshot = await editor.getMilestoneEdit(
@@ -1005,8 +1056,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     );
     const baseline = await graphBaseline(milestoneId, uploadId);
     const drop = await installSyntheticAggregateFaultTrigger({
-      table: 'ProgramAuthoringUpload',
-      event: 'DELETE',
+      table: 'File',
+      event: 'UPDATE',
       targetColumn: 'id',
       targetId: uploadId,
     });
@@ -1040,8 +1091,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     );
     const baseline = await graphBaseline(milestoneId, uploadId);
     const drop = await installSyntheticAggregateFaultTrigger({
-      table: 'ProgramAuthoringUpload',
-      event: 'DELETE',
+      table: 'File',
+      event: 'UPDATE',
       targetColumn: 'id',
       targetId: uploadId,
       deferred: true,
@@ -1170,17 +1221,18 @@ async function createPendingUpload(
   expiresAt = new Date('2027-09-01T00:00:00.000Z'),
 ): Promise<string> {
   const id = `${TEST_PREFIX}upload:${label}:${crypto.randomUUID()}`;
-  await prisma.programAuthoringUpload.create({
+  await prisma.file.create({
     data: {
-      id,
-      actorId: `${TEST_PREFIX}staff`,
+      kind: 'UPLOAD',
+      id: id,
+      uploaderId: `${TEST_PREFIX}staff`,
       storageKey: `program-authoring/${id}`,
       originalFileName: 'form.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 12,
       sha256: 'a'.repeat(64),
-      lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
-      expiresAt,
+      lifecycle: FileLifecycle.PENDING,
+      pendingExpiresAt: expiresAt,
     },
   });
   return id;
@@ -1391,7 +1443,9 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
         name: true,
         required: true,
         sortOrder: true,
-        templateFile: {
+        files: {
+          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+          take: 1,
           select: {
             storageKey: true,
             originalFileName: true,
@@ -1401,8 +1455,8 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
         },
       },
     }),
-    prisma.programAuthoringUpload.findUniqueOrThrow({
-      where: { id: uploadId },
+    prisma.file.findUniqueOrThrow({
+      where: { kind: 'UPLOAD', id: uploadId },
       select: { id: true, lifecycle: true, storageKey: true },
     }),
   ]);

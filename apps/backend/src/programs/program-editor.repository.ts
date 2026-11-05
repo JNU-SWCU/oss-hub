@@ -1,16 +1,17 @@
-import type { RequirementSubmissionType } from '@prisma/client';
-import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
-  ProgramCoverRepository,
-  type ProgramCoverChange,
-} from './program-cover.repository';
-import { Injectable } from '@nestjs/common';
-import {
-  SubmissionFileLifecycle,
+  type RequirementSubmissionType,
+  FileLifecycle,
   type Prisma as PrismaTypes,
   type ProgramTrackType,
   type ProgramLifecycle,
 } from '@prisma/client';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
+import {
+  ProgramCoverRepository,
+  type ProgramCoverChange,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
+import { Injectable } from '@nestjs/common';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
@@ -18,12 +19,12 @@ import {
   type ProgramDeletionScopeCounts,
 } from './programs.repository';
 import {
-  ProgramAuthoringUploadTransactionRepository,
   type ProgramExternalCover,
   type ProgramAuthoringPendingUploadConsumption,
-} from './program-authoring-upload-transaction.repository';
-import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+  type ProgramAuthoringUploadToken,
+} from './files.config';
 import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
+
 export type ProgramAuthority = PrismaTypes.UserGetPayload<{
   select: typeof USER_AUTHORITY_SELECT & {
     id: true;
@@ -322,14 +323,23 @@ export class ProgramEditorRepository {
       });
     }
     if (input.liveFileExpiresAt !== null) {
-      await transaction.submissionFile.updateMany({
+      await transaction.file.updateMany({
         where: {
-          team: { programId: input.programId },
+          kind: 'SUBMISSION',
+          OR: [
+            { team: { programId: input.programId } },
+            {
+              submissionHistory: {
+                submission: {
+                  milestoneDocument: {
+                    milestone: { programId: input.programId },
+                  },
+                },
+              },
+            },
+          ],
           lifecycle: {
-            in: [
-              SubmissionFileLifecycle.PENDING,
-              SubmissionFileLifecycle.ATTACHED,
-            ],
+            in: [FileLifecycle.PENDING, FileLifecycle.ATTACHED],
           },
           deletedAt: null,
         },
@@ -552,7 +562,11 @@ export class ProgramEditorRepository {
         sortOrder: true,
         updatedAt: true,
         submissionType: true,
-        templateFile: { select: { storageKey: true, originalFileName: true } },
+        files: {
+          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+          take: 1,
+          select: { storageKey: true, originalFileName: true },
+        },
       },
     });
     return {
@@ -577,7 +591,7 @@ export class ProgramEditorRepository {
             name: document.name,
             required: document.required,
             sortOrder: document.sortOrder,
-            templateFileName: document.templateFile?.originalFileName ?? null,
+            templateFileName: document.files[0]?.originalFileName ?? null,
             submissionType: document.submissionType,
           })),
       },
@@ -587,7 +601,7 @@ export class ProgramEditorRepository {
         required: document.required,
         sortOrder: document.sortOrder,
         updatedAt: document.updatedAt,
-        storageKey: document.templateFile?.storageKey ?? null,
+        storageKey: document.files[0]?.storageKey ?? null,
       })),
     };
   }
@@ -641,8 +655,16 @@ export class ProgramEditorRepository {
       .map((document) => document.id)
       .filter((id) => !requestedExistingIds.includes(id));
     if (deletedIds.length > 0) {
-      await transaction.milestoneDocumentTemplateFile.deleteMany({
-        where: { milestoneDocumentId: { in: deletedIds } },
+      await transaction.file.updateMany({
+        where: {
+          requirementId: { in: deletedIds },
+          lifecycle: { not: 'DELETED' },
+        },
+        data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
+      });
+      await transaction.file.updateMany({
+        where: { requirementId: { in: deletedIds } },
+        data: { requirementId: null },
       });
       await transaction.milestoneDocument.deleteMany({
         where: { id: { in: deletedIds } },
@@ -742,8 +764,13 @@ export class ProgramEditorRepository {
     transaction: PrismaTypes.TransactionClient,
     milestoneId: string,
   ): Promise<void> {
-    await transaction.milestoneDocumentTemplateFile.deleteMany({
-      where: { milestoneDocument: { milestoneId } },
+    await transaction.file.updateMany({
+      where: { requirement: { milestoneId }, lifecycle: { not: 'DELETED' } },
+      data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
+    });
+    await transaction.file.updateMany({
+      where: { requirement: { milestoneId } },
+      data: { requirementId: null },
     });
     await transaction.milestoneDocument.deleteMany({
       where: { milestoneId },
@@ -762,7 +789,6 @@ export class ProgramEditorRepository {
   }
 }
 const editableProgramInclude = {
-  cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
   _count: { select: { teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
@@ -771,13 +797,13 @@ function toEditableProgramView(
   deletionScopeCounts: ProgramDeletionScopeCounts,
 ): EditableProgramRow {
   return {
-    coverId: program.cover?.id ?? null,
-    coverExternalImageUrl: program.cover?.imageUrl ?? null,
+    coverId: program.coverFileId,
+    coverExternalImageUrl: program.coverImageUrl,
     externalCover:
-      program.cover?.sourceUrl != null && program.cover.imageUrl != null
+      program.coverSourceUrl != null && program.coverImageUrl != null
         ? {
-            sourceUrl: program.cover.sourceUrl,
-            imageUrl: program.cover.imageUrl,
+            sourceUrl: program.coverSourceUrl,
+            imageUrl: program.coverImageUrl,
           }
         : null,
     id: program.id,

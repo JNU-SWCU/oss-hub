@@ -34,19 +34,16 @@ const queuedFiles: ProgramPurgeDeletedCounts = {
   submissions: 0,
   submissionRevisions: 0,
   reviews: 0,
-  submissionFiles: 1,
   milestones: 0,
   milestoneDocuments: 0,
   milestoneDocumentSubmissions: 0,
   milestoneDocumentSubmissionHistories: 0,
-  milestoneDocumentTemplateFiles: 0,
-  programAuthoringUploads: 1,
   programCreateRequests: 0,
   repositoryProvisionJobs: 0,
   githubRepositoriesDetached: 0,
   outboxEvents: 0,
   notifications: 0,
-  programPurgeFileTombstones: 2,
+  files: 4,
 };
 
 function setup(

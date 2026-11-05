@@ -1,8 +1,10 @@
 import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
 import { ProgramTemplatesService } from '../../src/programs/team-application.service';
-import { SubmissionFileAdmissionService } from '../../src/programs/submission-file-admission.service';
-import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
-import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/program-authoring-upload-transaction.repository';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from '../../src/programs/files.service';
+import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/files.repository';
 import { ProgramNoticeFetchClient } from '../../src/programs/program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';

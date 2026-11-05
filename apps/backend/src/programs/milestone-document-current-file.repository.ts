@@ -1,5 +1,6 @@
+import { FileMetadataRepository } from './files.repository';
 import { Inject, Injectable } from '@nestjs/common';
-import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
+import { AccountStatus, Prisma, FileLifecycle } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import { PrismaService } from '../platform/prisma.service';
 
@@ -14,7 +15,7 @@ const currentFileSelect = {
       submissionHistory: { select: { revision: true } },
     },
   },
-} as const;
+} satisfies Prisma.MilestoneDocumentSubmissionSelect;
 
 type CurrentFileRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
   select: typeof currentFileSelect;
@@ -47,6 +48,7 @@ export interface MilestoneDocumentCurrentFileReader {
 export class MilestoneDocumentCurrentFileRepository implements MilestoneDocumentCurrentFileReader {
   constructor(
     @Inject(PrismaService) private readonly prisma: CurrentFilePrisma,
+    private readonly fileMetadata: FileMetadataRepository,
   ) {}
 
   async findForParticipant(
@@ -58,7 +60,7 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
       githubId: sessionGithubId,
       accountStatus: AccountStatus.ACTIVE,
       ...STUDENT_MEMBER_WHERE,
-    } as const;
+    } satisfies Prisma.UserWhereInput;
     const submission = await this.prisma.milestoneDocumentSubmission.findFirst({
       where: {
         milestoneDocumentId: documentId,
@@ -78,7 +80,7 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
         revision: true,
         files: {
           where: {
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: { gt: new Date() },
           },
           orderBy: [
@@ -94,7 +96,9 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
         },
       },
     });
-    const file = submission?.files[0];
+    const rawFile = submission?.files[0];
+    const file =
+      rawFile === undefined ? undefined : this.fileMetadata.read(rawFile);
     if (
       submission == null ||
       file == null ||

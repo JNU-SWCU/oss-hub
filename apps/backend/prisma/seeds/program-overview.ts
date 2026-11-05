@@ -105,26 +105,26 @@ async function upsertMilestoneDocumentTemplateFile(
     stats,
     'MilestoneDocumentTemplateFile',
     () =>
-      prisma.milestoneDocumentTemplateFile.findUnique({
-        where: { id: params.id },
-      }),
-    () =>
-      prisma.milestoneDocumentTemplateFile.upsert({
-        where: { id: params.id },
+      prisma.file.findUnique({ where: { kind: 'TEMPLATE', id: params.id } }),
+    async () =>
+      prisma.file.upsert({
+        where: { kind: 'TEMPLATE', id: params.id },
         update: {
-          storageKey,
+          storageKey: storageKey,
           originalFileName: params.originalFileName,
           mimeType: params.mimeType,
         },
         create: {
+          kind: 'TEMPLATE',
+          lifecycle: 'ATTACHED',
           id: params.id,
-          milestoneDocumentId: params.milestoneDocumentId,
-          storageKey,
+          requirementId: params.milestoneDocumentId,
+          storageKey: storageKey,
           originalFileName: params.originalFileName,
           mimeType: params.mimeType,
           sizeBytes: 245760,
-          uploadedById: params.uploadedById,
-          uploadedAt: offsetDays(-40),
+          uploaderId: params.uploadedById,
+          createdAt: offsetDays(-40),
         },
       }),
   );
@@ -213,21 +213,19 @@ async function upsertMilestoneDocumentSubmission(
   await upsertTracked(
     stats,
     'SubmissionFile',
-    () => prisma.submissionFile.findUnique({ where: { id: fileId } }),
-    () =>
-      prisma.submissionFile.upsert({
-        where: { id: fileId },
-        update: {
-          storageKey,
-          milestoneDocumentSubmissionHistoryId: historyId,
-        },
+    () => prisma.file.findUnique({ where: { kind: 'SUBMISSION', id: fileId } }),
+    async () =>
+      prisma.file.upsert({
+        where: { kind: 'SUBMISSION', id: fileId },
+        update: { storageKey: storageKey, submissionHistoryId: historyId },
         create: {
+          kind: 'SUBMISSION',
+          lifecycle: 'ATTACHED',
           id: fileId,
           uploaderId: params.submittedById,
           teamId: APPLICATION_ID,
-          milestoneId: params.milestoneId,
-          milestoneDocumentSubmissionId: params.id,
-          milestoneDocumentSubmissionHistoryId: historyId,
+          submissionId: params.id,
+          submissionHistoryId: historyId,
           storageKey,
           originalFileName: params.originalFileName,
           mimeType: 'application/pdf',

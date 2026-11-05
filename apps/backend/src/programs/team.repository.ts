@@ -15,6 +15,7 @@ import {
   type OutboxEvent as PrismaOutboxEvent,
   TeamHistoryEvent,
   type ProgramTrackType,
+  FileLifecycle,
 } from '@prisma/client';
 import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
@@ -58,7 +59,6 @@ import {
   type TeamActivityRow,
 } from './program-team-repository-evidence.repository';
 import { type SubmissionCompletionTargetRow } from './submission-completion.config';
-import { SubmissionFileLifecycle } from '@prisma/client';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
 import { CollectionRepositoryPresence } from '@prisma/client';
@@ -125,10 +125,10 @@ export class TeamDeletionScopeRepository {
       ),
       team_submission_file AS (
         SELECT file.id
-        FROM "SubmissionFile" AS file
+        FROM "File" AS file
         WHERE file."teamId" IN (SELECT id FROM team_record)
-          OR file."milestoneDocumentSubmissionId" IN (SELECT id FROM team_submission)
-          OR file."milestoneDocumentSubmissionHistoryId" IN (SELECT id FROM team_submission_history)
+          OR file."submissionId" IN (SELECT id FROM team_submission)
+          OR file."submissionHistoryId" IN (SELECT id FROM team_submission_history)
       ),
       team_repository AS (
         SELECT
@@ -188,7 +188,7 @@ export class TeamDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT('MilestoneDocumentSubmissionHistory:', id) FROM team_submission_history
             UNION ALL
-            SELECT CONCAT('SubmissionFile:', id) FROM team_submission_file
+            SELECT CONCAT('File:', id) FROM team_submission_file
             UNION ALL
             SELECT CONCAT('RepositoryProvisionJob:', id) FROM team_provision_job
             UNION ALL
@@ -943,7 +943,8 @@ export class ApplicationsRepository {
       where: { lifecycle: { not: 'DELETED' } },
       orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
-        cover: { select: { id: true, imageUrl: true } },
+        coverFileId: true,
+        coverImageUrl: true,
         id: true,
         name: true,
         trackType: true,
@@ -1008,8 +1009,8 @@ export class ApplicationsRepository {
             rejected: 0,
           };
         return {
-          coverId: program.cover?.id ?? null,
-          coverExternalImageUrl: program.cover?.imageUrl ?? null,
+          coverId: program.coverFileId ?? null,
+          coverExternalImageUrl: program.coverImageUrl ?? null,
           id: program.id,
           name: program.name,
           trackType: program.trackType,
@@ -1816,7 +1817,7 @@ export class StudentApplicationManagementRepository {
           transaction.teamInvitation.count({ where: { teamId } }),
           transaction.milestoneDocumentSubmission.count({ where: { teamId } }),
           transaction.githubRepository.count({ where: { teamId } }),
-          transaction.submissionFile.count({ where: { teamId } }),
+          transaction.file.count({ where: { teamId } }),
         ]);
       if (submissions > 0 || repositories > 0 || files > 0)
         return { kind: 'team-has-activity' };
@@ -2239,7 +2240,7 @@ export class TeamRepository {
             _count: {
               select: {
                 milestoneDocumentSubmissions: true,
-                submissionFiles: true,
+                files: true,
               },
             },
             programId: true,
@@ -2275,7 +2276,7 @@ export class TeamRepository {
       hasActivity:
         team.repository !== null ||
         team._count.milestoneDocumentSubmissions > 0 ||
-        team._count.submissionFiles > 0,
+        team._count.files > 0,
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
@@ -2503,7 +2504,7 @@ export class TeamRepository {
         const [submissions, repositories, files] = await Promise.all([
           tx.milestoneDocumentSubmission.count({ where: { teamId } }),
           tx.githubRepository.count({ where: { teamId } }),
-          tx.submissionFile.count({ where: { teamId } }),
+          tx.file.count({ where: { teamId } }),
         ]);
         if (submissions > 0 || repositories > 0 || files > 0)
           return 'team-has-activity';
@@ -2651,7 +2652,7 @@ export class TeamRepository {
         const [submissions, repositories, files] = await Promise.all([
           tx.milestoneDocumentSubmission.count({ where: { teamId } }),
           tx.githubRepository.count({ where: { teamId } }),
-          tx.submissionFile.count({ where: { teamId } }),
+          tx.file.count({ where: { teamId } }),
         ]);
         if (submissions > 0 || repositories > 0 || files > 0)
           return 'team-has-activity';
@@ -3141,25 +3142,25 @@ async function deleteTeamTree(
   const fileScope = {
     OR: [
       { teamId },
-      { milestoneDocumentSubmission: { is: { teamId } } },
+      { submission: { is: { teamId } } },
       {
         submissionHistory: { is: { submission: { teamId } } },
       },
     ],
-  } satisfies PrismaTypes.SubmissionFileWhereInput;
+  } satisfies PrismaTypes.FileWhereInput;
   const detachedFileFks = {
     teamId: null,
-    milestoneId: null,
-    milestoneDocumentSubmissionId: null,
-    milestoneDocumentSubmissionHistoryId: null,
+    requirementId: null,
+    submissionId: null,
+    submissionHistoryId: null,
   } as const;
-  const pendingSubmissionFiles = await tx.submissionFile.updateMany({
+  const pendingSubmissionFiles = await tx.file.updateMany({
     where: {
-      AND: [fileScope, { lifecycle: { not: SubmissionFileLifecycle.DELETED } }],
+      AND: [fileScope, { lifecycle: { not: FileLifecycle.DELETED } }],
     },
     data: {
       ...detachedFileFks,
-      lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
       deleteClaimedAt: null,
       deleteClaimExpiresAt: null,
       deleteClaimOwner: null,
@@ -3167,9 +3168,9 @@ async function deleteTeamTree(
       lastDeleteError: null,
     },
   });
-  const deletedSubmissionFiles = await tx.submissionFile.updateMany({
+  const deletedSubmissionFiles = await tx.file.updateMany({
     where: {
-      AND: [fileScope, { lifecycle: SubmissionFileLifecycle.DELETED }],
+      AND: [fileScope, { lifecycle: FileLifecycle.DELETED }],
     },
     data: detachedFileFks,
   });

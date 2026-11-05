@@ -58,22 +58,23 @@ import {
   PROGRAM_CREATED_AUDIT_ACTIONS,
   PROGRAM_DELETION_AUDIT_ACTIONS,
 } from '../platform/audit-log-metadata.config';
+import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import {
-  ProgramAuthoringUploadTransactionRepository,
   type ProgramAuthoringRequest,
   ProgramAuthoringPlan,
   type ProgramAuthoringMilestonePlan,
   type ProgramAuthoringDocumentPlan,
   type ProgramAuthoringProgram,
-} from './program-authoring-upload-transaction.repository';
+} from './files.config';
 import {
   type ProgramAuthoringValidationIssue,
   ProgramAuthoringValidationError,
 } from './program-authoring-validation.error';
 import { createHash } from 'node:crypto';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from './files.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+
 export interface ProgramListItemNote {
   readonly text: string;
   readonly icon?: 'team';
@@ -333,8 +334,8 @@ export class ProgramsService {
         id: program.id,
         coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           program.id,
-          program.cover?.id,
-          program.cover?.imageUrl,
+          program.coverFileId,
+          program.coverImageUrl,
         ),
         name: program.name,
         organizer: program.organizer,
@@ -654,9 +655,8 @@ export class ProgramAuthoringService {
         : cover === undefined
           ? await store.createProgram(plan.program)
           : await store.createProgram(plan.program, { actorId, upload: cover });
-    let requestId: string;
     try {
-      requestId = await store.createRequest({
+      await store.createRequest({
         actorId,
         idempotencyKey,
         payloadHash,
@@ -696,11 +696,6 @@ export class ProgramAuthoringService {
         }
       }
     }
-    await store.attachUploads(
-      actorId,
-      requestId,
-      plan.uploadTokenIds.filter((id) => id !== plan.coverUploadId),
-    );
     return program;
   }
   toCanonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {

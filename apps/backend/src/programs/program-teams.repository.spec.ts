@@ -160,7 +160,7 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
     },
     milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
     githubRepository: { count: jest.fn().mockResolvedValue(0) },
-    submissionFile: { count: jest.fn().mockResolvedValue(0) },
+    file: { count: jest.fn().mockResolvedValue(0) },
     repositoryProvisionJob: {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },

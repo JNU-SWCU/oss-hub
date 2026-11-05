@@ -35,7 +35,7 @@ async function check(bytes: Buffer): Promise<Response> {
 }
 async function footprint() {
   return {
-    submissionFiles: await fixture.prisma.submissionFile.count(),
+    submissionFiles: await fixture.prisma.file.count(),
     auditLogs: await fixture.prisma.auditLog.count(),
     outboxEvents: await fixture.prisma.outboxEvent.count(),
   };
@@ -79,9 +79,10 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
           Buffer.from('%PDF-rule'),
         );
         expect(uploaded.status).toBe(201);
-        const pending = await fixture.prisma.submissionFile.findFirstOrThrow({
+        const pending = await fixture.prisma.file.findFirstOrThrow({
           where: {
-            milestoneDocumentId: flowIds.document,
+            kind: 'SUBMISSION',
+            requirementId: flowIds.document,
             lifecycle: 'PENDING',
           },
           select: { id: true },
@@ -182,8 +183,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
     });
     expect(
-      await fixture.prisma.submissionFile.count({
-        where: { teamId: flowIds.team },
+      await fixture.prisma.file.count({
+        where: { kind: 'SUBMISSION', teamId: flowIds.team },
       }),
     ).toBe(0);
     expect(
@@ -210,10 +211,10 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     async (name, mime, bytes) => {
       const response = await upload(name, mime, bytes);
       expect(response.status).toBe(201);
-      const pending = await fixture.prisma.submissionFile.findFirstOrThrow({
-        where: { teamId: flowIds.team },
+      const pending = await fixture.prisma.file.findFirstOrThrow({
+        where: { kind: 'SUBMISSION', teamId: flowIds.team },
       });
-      expect(pending.milestoneDocumentId).toBe(flowIds.document);
+      expect(pending.requirementId).toBe(flowIds.document);
       expect((await fixture.submit('', pending.id)).status).toBe(201);
       const downloaded = await fixture.request(
         `${fixture.documentPath()}/submissions/current/file`,
@@ -236,8 +237,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       const response = await upload(name, mime, bytes);
       expect(response.status).toBe(415);
       expect(
-        await fixture.prisma.submissionFile.count({
-          where: { teamId: flowIds.team },
+        await fixture.prisma.file.count({
+          where: { kind: 'SUBMISSION', teamId: flowIds.team },
         }),
       ).toBe(0);
     },
@@ -295,16 +296,16 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       objectKey: storageKey,
     });
     const expiresAt = new Date('2099-12-31');
-    const file = await fixture.prisma.submissionFile.create({
+    const file = await fixture.prisma.file.create({
       data: {
+        kind: 'SUBMISSION',
         uploaderId: flowIds.student,
         teamId: flowIds.team,
-        milestoneId: flowIds.milestone,
-        milestoneDocumentSubmissionId: history.milestoneDocumentSubmissionId,
-        milestoneDocumentSubmissionHistoryId: history.id,
+        submissionId: history.milestoneDocumentSubmissionId,
+        submissionHistoryId: history.id,
         lifecycle: 'ATTACHED',
-        expiresAt,
-        storageKey,
+        expiresAt: expiresAt,
+        storageKey: storageKey,
         originalFileName: 'existing.jpg',
         mimeType: 'image/jpeg',
         sizeBytes: bytes.length,
@@ -317,8 +318,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     expect(response.headers.get('content-type')).toBe('image/jpeg');
     expect(Buffer.from(await response.arrayBuffer())).toEqual(bytes);
     expect(
-      await fixture.prisma.submissionFile.findUnique({
-        where: { id: file.id },
+      await fixture.prisma.file.findUnique({
+        where: { kind: 'SUBMISSION', id: file.id },
         select: { lifecycle: true, expiresAt: true },
       }),
     ).toEqual({ lifecycle: 'ATTACHED', expiresAt });
@@ -329,8 +330,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       'application/pdf',
       Buffer.from('%PDF-synthetic'),
     );
-    const file = await fixture.prisma.submissionFile.findFirstOrThrow({
-      where: { teamId: flowIds.team },
+    const file = await fixture.prisma.file.findFirstOrThrow({
+      where: { kind: 'SUBMISSION', teamId: flowIds.team },
     });
     await fixture.submit('첫 제출', file.id);
     expect((await fixture.submit('이번 제출은 글만 포함합니다.')).status).toBe(
@@ -343,8 +344,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
         )
       ).status,
     ).toBe(404);
-    const stored = await fixture.prisma.submissionFile.findUniqueOrThrow({
-      where: { id: file.id },
+    const stored = await fixture.prisma.file.findUniqueOrThrow({
+      where: { kind: 'SUBMISSION', id: file.id },
       select: {
         lifecycle: true,
         submissionHistory: { select: { revision: true } },

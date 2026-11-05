@@ -55,10 +55,12 @@ describe('E2eProgramAuthoringFixture persistence', () => {
     async ({ name, reset }) => {
       await fixture.ensure();
       const storageKey = `program-covers/e2e-reset-${name}`;
-      await prisma.programCover.create({
+      await prisma.file.create({
         data: {
+          kind: 'COVER',
+          lifecycle: 'ATTACHED',
           programId: E2E_PROGRAM_ID,
-          storageKey,
+          storageKey: storageKey,
           mimeType: 'image/png',
           sizeBytes: 1,
         },
@@ -76,8 +78,8 @@ describe('E2eProgramAuthoringFixture persistence', () => {
         prisma.program.findUnique({ where: { id: E2E_PROGRAM_ID } }),
       ).resolves.toBeNull();
       await expect(
-        prisma.programCover.findUnique({
-          where: { programId: E2E_PROGRAM_ID },
+        prisma.file.findFirst({
+          where: { kind: 'COVER', programId: E2E_PROGRAM_ID },
         }),
       ).resolves.toBeNull();
       expect(

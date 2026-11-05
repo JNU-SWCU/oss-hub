@@ -1,4 +1,5 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { FileMetadataRepository } from './files.repository';
+import { SubmissionFileAdmissionService } from './files.service';
 import {
   ValidationPipe,
   type ExecutionContext,
@@ -13,9 +14,9 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import type {
-  SubmissionReviewTransactionStore,
-  SubmissionReviewsRepositoryPort,
+import {
+  type SubmissionReviewTransactionStore,
+  type SubmissionReviewsRepositoryPort,
 } from './submission-reviews.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -141,6 +142,7 @@ beforeAll(async () => {
           new RepositoryUrlService(),
           new MilestoneCompletionService(),
           new SubmissionFileAdmissionService(),
+          new FileMetadataRepository(),
         ),
       },
     ],

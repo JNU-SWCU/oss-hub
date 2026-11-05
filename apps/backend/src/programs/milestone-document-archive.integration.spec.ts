@@ -142,10 +142,10 @@ it('returns 404 for a nonexistent program on the real endpoint', async () => {
 it.each(['ATTACHED', 'DELETE_PENDING', 'DELETED'] as const)(
   'reports unavailable current attachment (%s) without falling back to an older revision',
   async (lifecycle) => {
-    await fixture.prisma.submissionFile.update({
-      where: { id: archiveId('file-a1-2') },
+    await fixture.prisma.file.update({
+      where: { kind: 'SUBMISSION', id: archiveId('file-a1-2') },
       data: {
-        lifecycle,
+        lifecycle: lifecycle,
         expiresAt: new Date('2026-01-01'),
         deletedAt: lifecycle === 'DELETED' ? new Date('2026-01-02') : null,
       },
@@ -166,8 +166,8 @@ it.each(['ATTACHED', 'DELETE_PENDING', 'DELETED'] as const)(
       );
       expect(entries[0]?.body.toString('utf8')).not.toContain('보존 기한');
     } finally {
-      await fixture.prisma.submissionFile.update({
-        where: { id: archiveId('file-a1-2') },
+      await fixture.prisma.file.update({
+        where: { kind: 'SUBMISSION', id: archiveId('file-a1-2') },
         data: {
           lifecycle: 'ATTACHED',
           expiresAt: new Date('2099-12-31'),

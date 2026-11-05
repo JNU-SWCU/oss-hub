@@ -86,17 +86,12 @@ it.each([
   ['TeamMember.userId', 'teamMemberships'],
   ['TeamInvitation.inviteeId', 'receivedTeamInvitations'],
   ['TeamInvitation.invitedById', 'sentTeamInvitations'],
-  ['SubmissionFile.uploaderId', 'uploadedFiles'],
+  ['File.uploaderId', 'uploadedFiles'],
   ['MilestoneDocumentSubmission.submittedById', 'milestoneDocumentSubmissions'],
   [
     'MilestoneDocumentSubmissionHistory.actorId',
     'milestoneDocumentSubmissionHistories',
   ],
-  [
-    'MilestoneDocumentTemplateFile.uploadedById',
-    'uploadedMilestoneDocumentTemplateFiles',
-  ],
-  ['ProgramAuthoringUpload.actorId', 'programAuthoringUploads'],
   ['Program.createdById', 'createdPrograms'],
   ['User.approvalDecidedById', 'approvalDecisions'],
   ['Admin.grantedById', 'adminGrants'],

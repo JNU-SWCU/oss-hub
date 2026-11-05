@@ -1,5 +1,7 @@
-import { ProgramCoverRepository } from './program-cover.repository';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -35,9 +37,9 @@ describe('ProgramEditorRepository milestone deletion', () => {
           return Promise.resolve({ count: 2 });
         }),
       },
-      milestoneDocumentTemplateFile: {
-        deleteMany: jest.fn().mockImplementation(() => {
-          callOrder.push('milestoneDocumentTemplateFile.deleteMany');
+      file: {
+        updateMany: jest.fn().mockImplementation(() => {
+          callOrder.push('file.updateMany');
           return Promise.resolve({ count: 1 });
         }),
       },
@@ -88,22 +90,33 @@ describe('ProgramEditorRepository milestone deletion', () => {
     return 'unknown';
   }
 
-  it('마일스톤을 지울 때 양식 파일 행 → 서류 항목 행 → 마일스톤 순으로 같은 트랜잭션에서 지운다', async () => {
+  it('마일스톤을 지울 때 파일 삭제를 예약한 뒤 서류 항목과 마일스톤을 같은 트랜잭션에서 지운다', async () => {
     const { repository, transaction, callOrder } = buildRepository();
+    const scheduledAt: unknown = expect.any(Date);
 
     await repository.withTransaction((store) =>
       store.deleteMilestone(syntheticMilestoneId),
     );
 
     expect(callOrder).toEqual([
-      'milestoneDocumentTemplateFile.deleteMany',
+      'file.updateMany',
+      'file.updateMany',
       'milestoneDocument.deleteMany',
       'milestone.delete',
     ]);
-    expect(
-      transaction.milestoneDocumentTemplateFile.deleteMany,
-    ).toHaveBeenCalledWith({
-      where: { milestoneDocument: { milestoneId: syntheticMilestoneId } },
+    expect(transaction.file.updateMany).toHaveBeenCalledWith({
+      where: {
+        requirement: { milestoneId: syntheticMilestoneId },
+        lifecycle: { not: 'DELETED' },
+      },
+      data: {
+        lifecycle: 'DELETE_PENDING',
+        nextDeleteAttemptAt: scheduledAt,
+      },
+    });
+    expect(transaction.file.updateMany).toHaveBeenNthCalledWith(2, {
+      where: { requirement: { milestoneId: syntheticMilestoneId } },
+      data: { requirementId: null },
     });
     expect(transaction.milestoneDocument.deleteMany).toHaveBeenCalledWith({
       where: { milestoneId: syntheticMilestoneId },

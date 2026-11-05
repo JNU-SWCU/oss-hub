@@ -27,12 +27,15 @@ import {
 import { createHash } from 'node:crypto';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
 import { CreateProgramCommand } from './program-creation.service';
-import type { ProgramExternalCover } from './program-authoring-upload-transaction.repository';
-import type { ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+import {
+  type ProgramExternalCover,
+  type ProgramAuthoringUploadToken,
+} from './files.config';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from './files.service';
+
 export type UpdateProgramCommand = Omit<CreateProgramCommand, 'endAt'> & {
   readonly endAt?: string | null;
   readonly coverUploadId?: string | null;

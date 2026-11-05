@@ -1,4 +1,9 @@
-import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
+import { FileMetadataRepository } from './files.repository';
+import {
+  USER_AUTHORITY_SELECT,
+  STUDENT_MEMBER_WHERE,
+  USER_PROFILE_NAME_SELECT,
+} from '../platform/user-profile-read.config';
 import {
   MilestoneDocumentCollectionReadRepository,
   type MilestoneDocumentReviewRecord,
@@ -18,23 +23,22 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   type ReviewDecision,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
   type RequirementSubmissionType,
 } from '@prisma/client';
-import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import type { MilestoneLock } from '../platform/lock-program-tree.repository';
-import { PrismaService } from '../platform/prisma.service';
 import {
-  STUDENT_MEMBER_WHERE,
-  USER_PROFILE_NAME_SELECT,
-} from '../platform/user-profile-read.config';
+  LockProgramTreeRepository,
+  type MilestoneLock,
+} from '../platform/lock-program-tree.repository';
+import { PrismaService } from '../platform/prisma.service';
 import {
   type UpsertMilestoneDocumentSubmissionInput,
   SubmissionsRepository,
 } from './submissions.repository';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
+
 export type MilestoneDocumentViewer = Prisma.UserGetPayload<{
   select: typeof USER_AUTHORITY_SELECT & {
     id: true;
@@ -229,7 +233,7 @@ const attachedFileSelect = {
   originalFileName: true,
   mimeType: true,
   sizeBytes: true,
-} satisfies Prisma.SubmissionFileSelect;
+} satisfies Prisma.FileSelect;
 const documentRecordSelect = {
   id: true,
   milestoneId: true,
@@ -238,7 +242,11 @@ const documentRecordSelect = {
   submissionType: true,
   sortOrder: true,
   graceDueAt: true,
-  templateFile: { select: { id: true, originalFileName: true } },
+  files: {
+    where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+    take: 1,
+    select: { id: true, originalFileName: true },
+  },
 } satisfies Prisma.MilestoneDocumentSelect;
 function toDocumentRecord(row: {
   id: string;
@@ -248,10 +256,7 @@ function toDocumentRecord(row: {
   submissionType: RequirementSubmissionType;
   sortOrder: number;
   graceDueAt: Date | null;
-  templateFile: {
-    id: string;
-    originalFileName: string;
-  } | null;
+  files: { id: string; originalFileName: string | null }[];
 }): MilestoneDocumentRecord {
   return {
     id: row.id,
@@ -261,8 +266,8 @@ function toDocumentRecord(row: {
     submissionType: row.submissionType,
     sortOrder: row.sortOrder,
     graceDueAt: row.graceDueAt,
-    templateFileId: row.templateFile?.id ?? null,
-    templateFileName: row.templateFile?.originalFileName ?? null,
+    templateFileId: row.files[0]?.id ?? null,
+    templateFileName: row.files[0]?.originalFileName ?? null,
   };
 }
 const collectionApplicationSelect = {
@@ -276,33 +281,32 @@ const collectionApplicationSelect = {
 } satisfies Prisma.TeamSelect;
 function unexpiredAttachedFileWhere(now: Date) {
   return {
-    lifecycle: SubmissionFileLifecycle.ATTACHED,
+    lifecycle: FileLifecycle.ATTACHED,
     expiresAt: { gt: now },
   } as const;
 }
 function isDownloadableSubmissionFile(
   file: {
-    readonly lifecycle: SubmissionFileLifecycle;
+    readonly lifecycle: FileLifecycle;
     readonly expiresAt: Date | null;
   } | null,
   now: Date,
 ): boolean {
   return (
     file !== null &&
-    file.lifecycle === SubmissionFileLifecycle.ATTACHED &&
+    file.lifecycle === FileLifecycle.ATTACHED &&
     file.expiresAt !== null &&
     file.expiresAt.getTime() > now.getTime()
   );
 }
-const currentRevisionFileOrderBy: Prisma.SubmissionFileOrderByWithRelationInput[] =
-  [
-    {
-      submissionHistory: {
-        revision: { sort: 'desc', nulls: 'last' },
-      },
+const currentRevisionFileOrderBy: Prisma.FileOrderByWithRelationInput[] = [
+  {
+    submissionHistory: {
+      revision: { sort: 'desc', nulls: 'last' },
     },
-    { createdAt: 'desc' },
-  ];
+  },
+  { createdAt: 'desc' },
+];
 function countSubmissionsForDocumentWith(
   client: Prisma.TransactionClient,
   documentId: string,
@@ -323,6 +327,7 @@ export class MilestoneDocumentsRepository {
     private readonly platformRepository: PlatformRepository,
     private readonly milestoneDocumentSubmissionRepository: SubmissionsRepository,
     private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
+    private readonly fileMetadata: FileMetadataRepository,
   ) {}
   withTransaction<T>(
     operation: (store: MilestoneDocumentWriteStore) => Promise<T>,
@@ -715,6 +720,7 @@ export class MilestoneDocumentsRepository {
           take: 1,
           select: {
             originalFileName: true,
+            mimeType: true,
             sizeBytes: true,
             submissionHistory: { select: { revision: true } },
           },
@@ -728,7 +734,10 @@ export class MilestoneDocumentsRepository {
     });
     return submissions.map((submission) => {
       const review = submission.histories[0] ?? null;
-      const selectedFile = submission.files[0];
+      const selectedFile =
+        submission.files[0] === undefined
+          ? undefined
+          : this.fileMetadata.read(submission.files[0]);
       const file =
         selectedFile !== undefined &&
         selectedFile.submissionHistory !== null &&
@@ -778,6 +787,7 @@ export class MilestoneDocumentsRepository {
           select: {
             storageKey: true,
             originalFileName: true,
+            mimeType: true,
             sizeBytes: true,
             lifecycle: true,
             expiresAt: true,
@@ -787,14 +797,17 @@ export class MilestoneDocumentsRepository {
       },
     });
     return submissions.map((submission) => {
-      const selectedFile = submission.files[0];
+      const selectedFile =
+        submission.files[0] === undefined
+          ? undefined
+          : this.fileMetadata.read(submission.files[0]);
       const hasCurrentFileEvidence =
         selectedFile !== undefined &&
         selectedFile.submissionHistory?.revision === submission.revision;
       const file =
         selectedFile !== undefined &&
         hasCurrentFileEvidence &&
-        selectedFile.lifecycle === SubmissionFileLifecycle.ATTACHED &&
+        selectedFile.lifecycle === FileLifecycle.ATTACHED &&
         selectedFile.expiresAt !== null &&
         selectedFile.expiresAt > now
           ? {
@@ -853,7 +866,9 @@ export class MilestoneDocumentsRepository {
         },
       },
     );
-    const file = submission?.files[0];
+    const rawFile = submission?.files[0];
+    const file =
+      rawFile === undefined ? undefined : this.fileMetadata.read(rawFile);
     if (
       submission == null ||
       file == null ||
@@ -872,10 +887,14 @@ export class MilestoneDocumentsRepository {
   async findTemplateForDownload(
     documentId: string,
   ): Promise<DownloadableMilestoneDocumentTemplate | null> {
-    return this.prisma.milestoneDocumentTemplateFile.findFirst({
+    const file = await this.prisma.file.findFirst({
       where: {
-        milestoneDocumentId: documentId,
-        milestoneDocument: {},
+        requirementId: documentId,
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirement: {
+          milestone: { program: { lifecycle: { not: 'DELETED' } } },
+        },
       },
       select: {
         storageKey: true,
@@ -884,6 +903,7 @@ export class MilestoneDocumentsRepository {
         sizeBytes: true,
       },
     });
+    return file === null ? null : this.fileMetadata.read(file);
   }
   async upsertSubmission(
     input: UpsertMilestoneDocumentSubmissionInput,
@@ -912,7 +932,7 @@ export class MilestoneDocumentsRepository {
           submittedAt: true,
           revision: true,
           files: {
-            where: { lifecycle: SubmissionFileLifecycle.ATTACHED },
+            where: { lifecycle: FileLifecycle.ATTACHED },
             orderBy: currentRevisionFileOrderBy,
             take: 1,
             select: {
@@ -924,7 +944,9 @@ export class MilestoneDocumentsRepository {
       },
     );
     if (submission === null) return null;
-    const file = submission.files[0];
+    const rawFile = submission.files[0];
+    const file =
+      rawFile === undefined ? undefined : this.fileMetadata.read(rawFile);
     return {
       id: submission.id,
       status: submission.status,
@@ -1091,27 +1113,33 @@ export class MilestoneDocumentsRepository {
     scope: MilestoneDocumentWriteScope,
     input: MilestoneDocumentTemplateInput,
   ): Promise<void> {
-    await scope.transaction.milestoneDocumentTemplateFile.upsert({
-      where: { milestoneDocumentId: input.milestoneDocumentId },
-      update: {
-        storageKey: input.storageKey,
-        originalFileName: input.originalFileName,
-        mimeType: input.mimeType,
-        sizeBytes: input.sizeBytes,
-        uploadedById: input.uploadedById,
-        uploadedAt: input.uploadedAt,
+    await scope.transaction.file.updateMany({
+      where: {
+        requirementId: input.milestoneDocumentId,
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
       },
-      create: {
-        milestoneDocumentId: input.milestoneDocumentId,
+      data: {
+        lifecycle: 'DELETE_PENDING',
+        nextDeleteAttemptAt: input.uploadedAt,
+      },
+    });
+    await scope.transaction.file.create({
+      data: {
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirementId: input.milestoneDocumentId,
         storageKey: input.storageKey,
         originalFileName: input.originalFileName,
         mimeType: input.mimeType,
         sizeBytes: input.sizeBytes,
-        uploadedById: input.uploadedById,
-        uploadedAt: input.uploadedAt,
+        uploaderId: input.uploadedById,
+        createdAt: input.uploadedAt,
+        attachedAt: input.uploadedAt,
       },
     });
   }
+
   private async lockDocumentIdsOfMilestoneIn(
     scope: MilestoneDocumentWriteScope,
     milestoneId: string,
@@ -1205,8 +1233,13 @@ export class MilestoneDocumentsRepository {
     scope: MilestoneDocumentWriteScope,
     documentId: string,
   ): Promise<void> {
-    await scope.transaction.milestoneDocumentTemplateFile.deleteMany({
-      where: { milestoneDocumentId: documentId },
+    await scope.transaction.file.updateMany({
+      where: { requirementId: documentId, lifecycle: { not: 'DELETED' } },
+      data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
+    });
+    await scope.transaction.file.updateMany({
+      where: { requirementId: documentId },
+      data: { requirementId: null },
     });
     await scope.transaction.milestoneDocument.delete({
       where: { id: documentId },
@@ -1485,6 +1518,7 @@ export class MilestoneDocumentsRepository {
           take: 1,
           select: {
             originalFileName: true,
+            mimeType: true,
             sizeBytes: true,
             submissionHistory: { select: { revision: true } },
           },
@@ -1498,7 +1532,10 @@ export class MilestoneDocumentsRepository {
     });
     return submissions.map((submission) => {
       const review = submission.histories[0] ?? null;
-      const selectedFile = submission.files[0];
+      const selectedFile =
+        submission.files[0] === undefined
+          ? undefined
+          : this.fileMetadata.read(submission.files[0]);
       const file =
         selectedFile !== undefined &&
         selectedFile.submissionHistory !== null &&

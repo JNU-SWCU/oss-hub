@@ -34,20 +34,17 @@ const PURGE_COUNT_LABELS: Readonly<Record<string, string>> = {
   submissions: '제출물',
   submissionRevisions: '제출물 리비전',
   reviews: '검토',
-  submissionFiles: '제출 파일',
+  files: '파일 삭제 대기',
   milestones: '마일스톤',
   milestoneDocuments: '마일스톤 서류',
   milestoneDocumentSubmissions: '서류 제출',
   milestoneDocumentSubmissionHistories: '서류 제출 이력',
   milestoneDocumentReviewHistories: '서류 검토 이력',
-  milestoneDocumentTemplateFiles: '서류 양식 파일',
-  programAuthoringUploads: '프로그램 작성 업로드',
   programCreateRequests: '프로그램 작성 요청',
   repositoryProvisionJobs: '저장소 발급 작업',
   githubRepositoriesDetached: '분리된 GitHub 저장소 연결',
   outboxEvents: '이벤트 대기열',
   notifications: '알림',
-  programPurgeFileTombstones: '파일 삭제 대기',
 };
 
 export function ProgramEditDangerZoneSection({

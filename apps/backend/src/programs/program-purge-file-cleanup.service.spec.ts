@@ -1,10 +1,10 @@
 import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
-import { ProgramPurgeFileCleanupService } from './program-purge-file-cleanup.service';
+import { FileCleanupService } from './file-cleanup.service';
 
-describe('ProgramPurgeFileCleanupService cron', () => {
-  const CRON_JOB_NAME = 'program-purge-file-cleanup';
+describe('FileCleanupService cron', () => {
+  const CRON_JOB_NAME = 'file-cleanup';
 
   const settleRun = (): Promise<void> =>
     new Promise((resolve) => setImmediate(resolve));
@@ -21,7 +21,7 @@ describe('ProgramPurgeFileCleanupService cron', () => {
       releasePendingRun = undefined;
       runDue.mockReset();
       runDue.mockResolvedValue(0);
-      const service = new ProgramPurgeFileCleanupService(
+      const service = new FileCleanupService(
         {
           claimNextForDeletion: jest.fn(),
           markDeleted: jest.fn(),
@@ -32,9 +32,7 @@ describe('ProgramPurgeFileCleanupService cron', () => {
       service.runDue = runDue;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
-        providers: [
-          { provide: ProgramPurgeFileCleanupService, useValue: service },
-        ],
+        providers: [{ provide: FileCleanupService, useValue: service }],
       }).compile();
       await testingModule.init();
     });
@@ -96,8 +94,8 @@ describe('ProgramPurgeFileCleanupService cron', () => {
       expect(alert.mock.calls).toEqual([
         [
           {
-            event: 'program-purge-file.cleanup.run.failed',
-            error: 'MAINTENANCE_RUN_FAILED',
+            event: 'file.cleanup.run.failed',
+            errorCode: 'MAINTENANCE_RUN_FAILED',
           },
         ],
       ]);
@@ -124,15 +122,11 @@ function setup() {
     recordDeleteFailure: jest.fn().mockResolvedValue(true),
   };
   const storage = { delete: jest.fn().mockResolvedValue(undefined) };
-  const service = new ProgramPurgeFileCleanupService(
-    repository,
-    storage,
-    () => START,
-  );
+  const service = new FileCleanupService(repository, storage, () => START);
   return { service, repository, storage };
 }
 
-describe('ProgramPurgeFileCleanupService', () => {
+describe('FileCleanupService', () => {
   it('claims a DELETE_PENDING tombstone with a ten-minute lease, deletes the object, and marks it deleted', async () => {
     const { service, repository, storage } = setup();
     repository.claimNextForDeletion
@@ -174,7 +168,8 @@ describe('ProgramPurgeFileCleanupService', () => {
       id: 'tombstone-1',
       claimOwner: 'claim-owner',
       attemptCount: 1,
-      nextDeleteAttemptAt: new Date('2026-08-12T01:00:00.000Z'),
+      nextAttemptAt: new Date('2026-08-12T01:00:00.000Z'),
+      error: 'STORAGE_DELETE_FAILED',
     });
   });
 
@@ -192,11 +187,12 @@ describe('ProgramPurgeFileCleanupService', () => {
       id: 'tombstone-1',
       claimOwner: 'claim-owner',
       attemptCount: 6,
-      nextDeleteAttemptAt: null,
+      nextAttemptAt: null,
+      error: 'STORAGE_DELETE_FAILED',
     });
     expect(alert).toHaveBeenCalledWith({
-      event: 'program-purge-file.cleanup.exhausted',
-      tombstoneId: 'tombstone-1',
+      event: 'file.cleanup.exhausted',
+      fileId: 'tombstone-1',
       attemptCount: 6,
       error: 'storage_delete_failed',
     });

@@ -1,13 +1,17 @@
+import {
+  FileMetadataRepository,
+  FilesRepository,
+} from './programs/files.repository';
 import { PlatformRepository } from './platform/platform.repository';
 import { NestFactory } from '@nestjs/core';
 import { AuditLogService } from './platform/audit-log.service';
 import { PrismaService } from './platform/prisma.service';
-import { SubmissionFileCleanupRetryService } from './programs/submission-file-cleanup.service';
-import { SubmissionFilesRepository } from './programs/submission-files.repository';
+import { FileCleanupRetryService } from './programs/file-cleanup.service';
 import { retrySubmissionFileCleanup } from './cli';
 import { AuditLogMetadataService } from './platform/audit-log-metadata.service';
 import { AuditLogRepository } from './platform/audit-log.repository';
 import { AuditLogReadService } from './platform/audit-log-read.service';
+
 jest.mock('@nestjs/core', () => ({
   NestFactory: { createApplicationContext: jest.fn() },
 }));
@@ -32,10 +36,12 @@ function installContext(): Harness {
   const close = jest.fn().mockResolvedValue(undefined);
   const prisma = new PrismaService();
   jest.spyOn(prisma.user, 'findUnique').mockImplementation(findUnique);
-  jest
-    .spyOn(prisma.submissionFile, 'updateMany')
-    .mockImplementation(updateMany);
-  const files = new SubmissionFilesRepository(prisma, new PlatformRepository());
+  jest.spyOn(prisma.file, 'updateMany').mockImplementation(updateMany);
+  const files = new FilesRepository(
+    prisma,
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  );
   const resetDeleteAttempts = jest.spyOn(files, 'resetDeleteAttempts');
   const metadata = new AuditLogMetadataService();
   const audit = new AuditLogService(
@@ -43,11 +49,11 @@ function installContext(): Harness {
     new AuditLogReadService(metadata),
   );
   jest.spyOn(audit, 'record').mockImplementation(record);
-  const retry = new SubmissionFileCleanupRetryService(files, audit, metadata);
+  const retry = new FileCleanupRetryService(files, audit, metadata);
   const context = {
     close,
     get: (token: unknown): unknown => {
-      if (token === SubmissionFileCleanupRetryService) return retry;
+      if (token === FileCleanupRetryService) return retry;
       throw new Error('unexpected provider token');
     },
   };

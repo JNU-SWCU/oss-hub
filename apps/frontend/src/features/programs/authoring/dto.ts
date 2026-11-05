@@ -128,19 +128,16 @@ export interface ProgramPurgeDeletedCounts {
   readonly submissions: number;
   readonly submissionRevisions: number;
   readonly reviews: number;
-  readonly submissionFiles: number;
+  readonly files: number;
   readonly milestones: number;
   readonly milestoneDocuments: number;
   readonly milestoneDocumentSubmissions: number;
   readonly milestoneDocumentSubmissionHistories: number;
-  readonly milestoneDocumentTemplateFiles: number;
-  readonly programAuthoringUploads: number;
   readonly programCreateRequests: number;
   readonly repositoryProvisionJobs: number;
   readonly githubRepositoriesDetached: number;
   readonly outboxEvents: number;
   readonly notifications: number;
-  readonly programPurgeFileTombstones: number;
 }
 export interface ProgramPurgeResult {
   readonly id: string;

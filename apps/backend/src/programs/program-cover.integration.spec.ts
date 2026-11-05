@@ -1,16 +1,17 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  ProgramCoverRepository,
+} from './files.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramLifecycle } from '@prisma/client';
 import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-
 import {
   ACTOR,
   COVER_ACTOR,
@@ -38,11 +39,11 @@ it('attaches one cover only on create and preserves idempotent replay after cons
   const token = await seedUpload();
   const input = { ...request(), coverUploadId: token.id };
   const created = await authoring().create(COVER_ACTOR, 'create-cover', input);
-  const cover = await prisma.programCover.findUniqueOrThrow({
-    where: { programId: created.id },
+  const cover = await prisma.file.findFirstOrThrow({
+    where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: created.id },
   });
   expect(
-    await prisma.programAuthoringUpload.findUnique({ where: { id: token.id } }),
+    await prisma.file.findUnique({ where: { kind: 'UPLOAD', id: token.id } }),
   ).toBeNull();
   expect(
     (await authoring().create(COVER_ACTOR, 'create-cover', input)).id,
@@ -118,14 +119,14 @@ it('rolls back cover attachment and token consumption if the rest of create fail
     0,
   );
   expect(
-    await prisma.programCover.count({
-      where: { program: { name: { startsWith: PREFIX } } },
+    await prisma.file.count({
+      where: { kind: 'COVER', program: { name: { startsWith: PREFIX } } },
     }),
   ).toBe(0);
   expect(
     (
-      await prisma.programAuthoringUpload.findUniqueOrThrow({
-        where: { id: token.id },
+      await prisma.file.findUniqueOrThrow({
+        where: { kind: 'UPLOAD', id: token.id },
       })
     ).lifecycle,
   ).toBe('PENDING');
@@ -137,14 +138,14 @@ it('preserves omitted covers, atomically replaces/removes them, and immediately 
     ...request(),
     coverUploadId: first.id,
   });
-  const oldCover = await prisma.programCover.findUniqueOrThrow({
-    where: { programId: program.id },
+  const oldCover = await prisma.file.findFirstOrThrow({
+    where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
   });
   await editor.updateProgram(GITHUB_ID, program.id, request());
   expect(
     (
-      await prisma.programCover.findUniqueOrThrow({
-        where: { programId: program.id },
+      await prisma.file.findFirstOrThrow({
+        where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
       })
     ).id,
   ).toBe(oldCover.id);
@@ -160,8 +161,12 @@ it('preserves omitted covers, atomically replaces/removes them, and immediately 
     await publicCovers.findPublicCover(program.id, oldCover.id),
   ).toBeNull();
   expect(
-    await prisma.programPurgeFileTombstone.count({
-      where: { storageKey: first.storageKey },
+    await prisma.file.count({
+      where: {
+        kind: 'COVER',
+        lifecycle: 'DELETE_PENDING',
+        storageKey: first.storageKey,
+      },
     }),
   ).toBe(1);
   expect(
@@ -173,11 +178,17 @@ it('preserves omitted covers, atomically replaces/removes them, and immediately 
     ).coverImageUrl,
   ).toBeNull();
   expect(
-    await prisma.programCover.findUnique({ where: { programId: program.id } }),
+    await prisma.file.findFirst({
+      where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
+    }),
   ).toBeNull();
   expect(
-    await prisma.programPurgeFileTombstone.count({
-      where: { storageKey: second.storageKey },
+    await prisma.file.count({
+      where: {
+        kind: 'COVER',
+        lifecycle: 'DELETE_PENDING',
+        storageKey: second.storageKey,
+      },
     }),
   ).toBe(1);
 });
@@ -190,8 +201,8 @@ it.each(['replace', 'remove'])(
       ...request(),
       coverUploadId: first.id,
     });
-    const oldCover = await prisma.programCover.findUniqueOrThrow({
-      where: { programId: program.id },
+    const oldCover = await prisma.file.findFirstOrThrow({
+      where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
     });
     const second = await seedUpload();
     await expect(
@@ -210,20 +221,28 @@ it.each(['replace', 'remove'])(
     ).rejects.toThrow('synthetic save failure');
     expect(
       (
-        await prisma.programCover.findUniqueOrThrow({
-          where: { programId: program.id },
+        await prisma.file.findFirstOrThrow({
+          where: {
+            kind: 'COVER',
+            lifecycle: 'ATTACHED',
+            programId: program.id,
+          },
         })
       ).id,
     ).toBe(oldCover.id);
     expect(
-      await prisma.programPurgeFileTombstone.count({
-        where: { storageKey: first.storageKey },
+      await prisma.file.count({
+        where: {
+          kind: 'COVER',
+          lifecycle: 'DELETE_PENDING',
+          storageKey: first.storageKey,
+        },
       }),
     ).toBe(0);
     expect(
       (
-        await prisma.programAuthoringUpload.findUniqueOrThrow({
-          where: { id: second.id },
+        await prisma.file.findUniqueOrThrow({
+          where: { kind: 'UPLOAD', id: second.id },
         })
       ).lifecycle,
     ).toBe('PENDING');
@@ -270,8 +289,10 @@ it.each([
     request(),
   );
   await expect(
-    prisma.programCover.create({
+    prisma.file.create({
       data: {
+        kind: 'COVER',
+        lifecycle: 'ATTACHED',
         programId: program.id,
         storageKey: `program-covers/${PREFIX}constraint`,
         mimeType: 'image/png',

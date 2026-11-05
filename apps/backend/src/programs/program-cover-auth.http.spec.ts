@@ -1,5 +1,5 @@
 import { Readable } from 'node:stream';
-import type { INestApplication } from '@nestjs/common';
+import { type INestApplication } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { Test } from '@nestjs/testing';
 import { AuthenticationGuard } from '../auth/authentication.guard';
@@ -10,7 +10,7 @@ import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramsController } from './programs.controller';
 import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from './files.service';
 import { ProgramCoverService } from './program-creation.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 

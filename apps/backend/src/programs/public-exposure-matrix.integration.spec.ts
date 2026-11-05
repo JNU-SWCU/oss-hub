@@ -1,5 +1,6 @@
+import { FileMetadataRepository } from './files.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
@@ -21,7 +22,7 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import type { GithubAppClient } from '../github/github-app.client';
+import { type GithubAppClient } from '../github/github-app.client';
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { RankingRepository } from '../ranking/ranking.repository';
@@ -40,6 +41,7 @@ import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
+
 const repositoryUrlService = new RepositoryUrlService();
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -96,6 +98,7 @@ const submissionReviewsService = new SubmissionReviewsService(
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new SubmissionFileAdmissionService(),
+  new FileMetadataRepository(),
 );
 const PREFIX = 'synthetic-exposure-matrix';
 const now = () => new Date();

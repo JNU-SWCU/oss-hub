@@ -1,5 +1,6 @@
+import { FileMetadataRepository } from './files.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { randomUUID } from 'node:crypto';
@@ -28,7 +29,7 @@ import { seedMilestones } from '../../prisma/seeds/milestones';
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import type { GithubAppClient } from '../github/github-app.client';
+import { type GithubAppClient } from '../github/github-app.client';
 import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
@@ -40,6 +41,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
+
 const repositoryUrlService = new RepositoryUrlService();
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -71,6 +73,7 @@ const service = new SubmissionReviewsService(
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new SubmissionFileAdmissionService(),
+  new FileMetadataRepository(),
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const PROGRAM_ID = seedId('milestones', 'program');
@@ -184,9 +187,10 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.milestoneDocumentSubmission.deleteMany({
       where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
     });
-    await prisma.submissionFile.deleteMany({
+    await prisma.file.deleteMany({
       where: {
-        milestoneDocumentSubmission: {
+        kind: 'SUBMISSION',
+        submission: {
           milestoneDocument: { milestone: { programId: PROGRAM_ID } },
         },
       },

@@ -1,9 +1,12 @@
-import { ProgramCoverRepository } from './program-cover.repository';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
+
 const milestone = {
   id: 'm',
   programId: 'p',
@@ -27,7 +30,7 @@ describe('milestone edit transaction readback', () => {
             required: false,
             sortOrder: 2,
             updatedAt: milestone.updatedAt,
-            templateFile: null,
+            files: [],
           },
           {
             id: 'b',
@@ -35,10 +38,12 @@ describe('milestone edit transaction readback', () => {
             required: true,
             sortOrder: 1,
             updatedAt: milestone.updatedAt,
-            templateFile: {
-              storageKey: 'synthetic',
-              originalFileName: 'template.pdf',
-            },
+            files: [
+              {
+                storageKey: 'synthetic',
+                originalFileName: 'template.pdf',
+              },
+            ],
           },
         ]),
       },

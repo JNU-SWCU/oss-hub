@@ -2,7 +2,11 @@ import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import {
+  SubmissionFileAdmissionService,
+  type FilesService,
+  MilestoneDocumentFilesService,
+} from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { Readable } from 'node:stream';
 import {
@@ -13,16 +17,12 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import {
-  MilestoneDocumentFileUpload,
-  MilestoneDocumentFilesService,
-} from './milestone-document-files.service';
-import type { ObjectStoragePort } from '../platform/object-storage.types';
+import { MilestoneDocumentFileUpload } from './files.config';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
-} from './submission-file.error';
-import type { SubmissionFilesService } from './submission-files.service';
+} from './files.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
@@ -196,7 +196,7 @@ function buildSubmissionFiles(
   };
   return {
     mocks,
-    submissionFiles: mocks as unknown as SubmissionFilesService,
+    submissionFiles: mocks as unknown as FilesService,
   };
 }
 

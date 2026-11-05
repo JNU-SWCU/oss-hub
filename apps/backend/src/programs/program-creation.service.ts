@@ -8,7 +8,7 @@ import {
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramCoverRepository } from './files.repository';
 import { ProgramCategory, type ProgramTrackType } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';

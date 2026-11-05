@@ -2,7 +2,11 @@ import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import {
+  SubmissionFileAdmissionService,
+  FilesService,
+  MilestoneDocumentFilesService,
+} from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -10,10 +14,8 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
-import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import type { SubmissionFilesRepository } from './submission-files.repository';
-import { SubmissionFilesService } from './submission-files.service';
+import { type MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { type FilesRepository } from './files.repository';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import {
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
@@ -24,6 +26,7 @@ import {
   SubmissionZipRejection,
   type SubmissionZipRejection as SubmissionZipRejectionType,
 } from './submission-zip.error';
+
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
 const UPLOAD_NOW = new Date('2026-09-01T00:00:00.000Z');
@@ -93,8 +96,8 @@ function submissionService() {
     createPending: jest.fn(),
   };
   const storage = { put: jest.fn(), get: jest.fn(), delete: jest.fn() };
-  return new SubmissionFilesService(
-    repository as unknown as SubmissionFilesRepository,
+  return new FilesService(
+    repository as unknown as FilesRepository,
     storage,
     new ProgramScheduleService(),
     new SubmissionFileAdmissionService(),
@@ -140,7 +143,7 @@ function milestoneDocumentService() {
   return new MilestoneDocumentFilesService(
     repository as unknown as MilestoneDocumentsRepository,
     storage,
-    submissionFiles as unknown as SubmissionFilesService,
+    submissionFiles as unknown as FilesService,
     new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
     new MilestoneDocumentFileNameService(),
     new SubmissionFileAdmissionService(),

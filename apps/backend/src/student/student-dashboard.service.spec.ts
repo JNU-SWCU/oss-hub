@@ -174,7 +174,7 @@ describe('StudentDashboardService', () => {
   });
   it('projects the current program cover without storage metadata', async () => {
     findParticipatingApplications.mockResolvedValue([
-      application({ program: { ...program([]), cover: { id: 'cover-1' } } }),
+      application({ program: { ...program([]), coverFileId: 'cover-1' } }),
     ]);
     const items = await service.getStudentDashboard(404n);
     expect(items[0]?.coverImageUrl).toBe('/programs/program-1/cover/cover-1');
@@ -184,7 +184,7 @@ describe('StudentDashboardService', () => {
     const imageUrl = 'https://sojoong.kr/wp-content/uploads/synthetic.jpg';
     findParticipatingApplications.mockResolvedValue([
       application({
-        program: { ...program([]), cover: { id: 'external-1', imageUrl } },
+        program: { ...program([]), coverFileId: null, coverImageUrl: imageUrl },
       }),
     ]);
     const items = await service.getStudentDashboard(404n);
@@ -849,11 +849,13 @@ describe('StudentDashboardRepository', () => {
 
     const programSelect = args.select?.program as {
       readonly select?: {
-        readonly cover?: unknown;
+        readonly coverFileId?: unknown;
+        readonly coverImageUrl?: unknown;
       };
     };
-    expect(programSelect.select?.cover).toEqual({
-      select: { id: true, imageUrl: true },
+    expect(programSelect.select).toMatchObject({
+      coverFileId: true,
+      coverImageUrl: true,
     });
     expect(args.select).not.toHaveProperty('applicant');
   });

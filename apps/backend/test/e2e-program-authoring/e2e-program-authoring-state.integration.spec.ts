@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
   ProgramTrackType,
@@ -52,10 +51,12 @@ describe('stateForE2eProgramGraph orphan accounting', () => {
     async ({ stored, orphanObjects }) => {
       await fixture.ensure();
       const storageKey = `program-covers/${randomUUID()}`;
-      await prisma.programCover.create({
+      await prisma.file.create({
         data: {
+          kind: 'COVER',
+          lifecycle: 'ATTACHED',
           programId: E2E_PROGRAM_ID,
-          storageKey,
+          storageKey: storageKey,
           mimeType: 'image/png',
           sizeBytes: 1,
         },
@@ -148,13 +149,17 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
               name: `${E2E_PROGRAM_ID}:aggregate-document`,
               required: true,
               sortOrder: 0,
-              templateFile: {
+              files: {
                 create: {
+                  kind: 'TEMPLATE',
+                  lifecycle: 'ATTACHED',
+                  sha256: 'a'.repeat(64),
+                  attachedAt: E2E_NOW,
                   storageKey,
                   originalFileName: 'aggregate.pdf',
                   mimeType: 'application/pdf',
                   sizeBytes: 1,
-                  uploadedById: E2E_STAFF_ID,
+                  uploaderId: E2E_STAFF_ID,
                 },
               },
             },
@@ -163,29 +168,16 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
       },
     },
   });
-  await prisma.programAuthoringUpload.create({
-    data: {
-      actorId: E2E_STAFF_ID,
-      storageKey,
-      originalFileName: 'aggregate.pdf',
-      mimeType: 'application/pdf',
-      sizeBytes: 1,
-      sha256: 'a'.repeat(64),
-      lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED,
-      expiresAt: E2E_NOW,
-      attachedAt: E2E_NOW,
-      programId: AGGREGATE_PROGRAM_ID,
-    },
-  });
 }
 async function removeAggregateProgram(): Promise<void> {
-  await prisma.milestoneDocumentTemplateFile.deleteMany({
+  await prisma.file.deleteMany({
     where: {
-      milestoneDocument: { milestone: { programId: AGGREGATE_PROGRAM_ID } },
+      kind: 'TEMPLATE',
+      requirement: { milestone: { programId: AGGREGATE_PROGRAM_ID } },
     },
   });
-  await prisma.programAuthoringUpload.deleteMany({
-    where: { programId: AGGREGATE_PROGRAM_ID },
+  await prisma.file.deleteMany({
+    where: { kind: 'UPLOAD', programId: AGGREGATE_PROGRAM_ID },
   });
   await prisma.milestoneDocument.deleteMany({
     where: { milestone: { programId: AGGREGATE_PROGRAM_ID } },

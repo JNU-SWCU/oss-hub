@@ -1,18 +1,20 @@
+import { FileMetadataRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import type { ProgramArchiveReader } from './milestone-document-archive.repository';
-import type {
-  MilestoneDocumentsRepository,
-  MilestoneDocumentWriteStore,
+import { type ProgramArchiveReader } from './milestone-document-archive.repository';
+import {
+  type MilestoneDocumentsRepository,
+  type MilestoneDocumentWriteStore,
 } from './milestone-documents.repository';
 import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
 import {
   type ProgramDocumentChangeRequestCandidate,
   type ProgramDocumentChangeRequestInput,
 } from './milestone-document-collection-read.repository';
+
 const programDocumentChangeRequestsService =
   new ProgramDocumentChangeRequestsService(
     {} as never,
@@ -111,7 +113,10 @@ function service(input: {
     service: new ProgramDocumentChangeRequestsService(
       repo as unknown as MilestoneDocumentsRepository,
       input.programs ?? programs(),
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     ),
   };
 }

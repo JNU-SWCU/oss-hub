@@ -1,4 +1,4 @@
-import { SubmissionFileLifecycle } from '@prisma/client';
+import { FileLifecycle } from '@prisma/client';
 import type { E2eExternalCapture } from './e2e-external-port-registry';
 import type {
   E2eProgramAuthoringGraph,
@@ -42,38 +42,46 @@ export async function stateForE2eProgramGraph(
       where: { team: { programId: graph.programId } },
     }),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
-    prisma.milestoneDocumentTemplateFile.findMany({
+    prisma.file.findMany({
       where: {
-        milestoneDocument: { milestone: { programId: graph.programId } },
+        kind: 'TEMPLATE',
+        requirement: { milestone: { programId: graph.programId } },
       },
       select: { storageKey: true },
     }),
-    prisma.submissionFile.findMany({
+    prisma.file.findMany({
       where: {
+        kind: 'SUBMISSION',
         team: { programId: graph.programId },
-        lifecycle: SubmissionFileLifecycle.ATTACHED,
+        lifecycle: FileLifecycle.ATTACHED,
       },
       select: { storageKey: true },
     }),
-    prisma.programAuthoringUpload.count({
+    prisma.file.count({
       where: {
-        actorId: actorIds[0],
+        kind: 'UPLOAD',
+        uploaderId: actorIds[0],
         lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
       },
     }),
-    prisma.submissionFile.count({
+    prisma.file.count({
       where: {
+        kind: 'SUBMISSION',
         team: { programId: graph.programId },
         lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
       },
     }),
 
-    prisma.programAuthoringUpload.findMany({
-      where: { actorId: actorIds[0], lifecycle: 'ATTACHED' },
+    prisma.file.findMany({
+      where: {
+        kind: { in: ['TEMPLATE', 'COVER'] },
+        uploaderId: actorIds[0],
+        lifecycle: 'ATTACHED',
+      },
       select: { storageKey: true },
     }),
-    prisma.programCover.findMany({
-      where: { programId: graph.programId },
+    prisma.file.findMany({
+      where: { kind: 'COVER', programId: graph.programId },
       select: { storageKey: true },
     }),
   ]);

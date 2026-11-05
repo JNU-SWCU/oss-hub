@@ -1,6 +1,8 @@
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
 import {
   ExecutionContext,
   ValidationPipe,
@@ -24,6 +26,7 @@ import {
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
+
 let application: INestApplication | undefined;
 let baseUrl = '';
 const store: jest.Mocked<ProgramEditorTransactionStore> = {

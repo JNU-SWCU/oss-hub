@@ -1,4 +1,5 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { FileMetadataRepository } from './files.repository';
+import { SubmissionFileAdmissionService } from './files.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -17,6 +18,7 @@ import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -27,10 +29,20 @@ const documentReviews = new MilestoneDocumentReviewsService(
     fixture.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
-    new SubmissionsRepository(new PlatformRepository()),
-    new MilestoneDocumentCollectionReadRepository(fixture.prisma),
+    new SubmissionsRepository(
+      new PlatformRepository(),
+      new FileMetadataRepository(),
+    ),
+    new MilestoneDocumentCollectionReadRepository(
+      fixture.prisma,
+      new FileMetadataRepository(),
+    ),
+    new FileMetadataRepository(),
   ),
-  new SubmissionsRepository(new PlatformRepository()),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
 );
 const legacyReviews = new SubmissionReviewsService(
   new SubmissionReviewsRepository(fixture.prisma, new PlatformRepository()),
@@ -39,6 +51,7 @@ const legacyReviews = new SubmissionReviewsService(
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new SubmissionFileAdmissionService(),
+  new FileMetadataRepository(),
 );
 const paths = ['document', 'legacy'] as const;
 type ReviewPath = (typeof paths)[number];

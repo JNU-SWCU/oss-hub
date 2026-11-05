@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -12,6 +13,7 @@ import {
   MilestoneDocumentFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -22,8 +24,12 @@ const writeRepository = new MilestoneDocumentsRepository(
   fixture.prisma,
   new LockProgramTreeRepository(),
   platform,
-  new SubmissionsRepository(platform),
-  new MilestoneDocumentCollectionReadRepository(fixture.prisma),
+  new SubmissionsRepository(platform, new FileMetadataRepository()),
+  new MilestoneDocumentCollectionReadRepository(
+    fixture.prisma,
+    new FileMetadataRepository(),
+  ),
+  new FileMetadataRepository(),
 );
 beforeAll(() => fixture.start());
 beforeEach(async () => {
@@ -40,8 +46,15 @@ it('holds the submission row lock before reading the item review version', async
     fixture.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
-    new SubmissionsRepository(new PlatformRepository()),
-    new MilestoneDocumentCollectionReadRepository(fixture.prisma),
+    new SubmissionsRepository(
+      new PlatformRepository(),
+      new FileMetadataRepository(),
+    ),
+    new MilestoneDocumentCollectionReadRepository(
+      fixture.prisma,
+      new FileMetadataRepository(),
+    ),
+    new FileMetadataRepository(),
   );
   const contender = new PrismaService();
   try {

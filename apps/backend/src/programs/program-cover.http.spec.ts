@@ -1,6 +1,6 @@
 import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { Readable } from 'node:stream';
-import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import { type ExecutionContext, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { OriginGuard } from '../platform/origin.guard';
@@ -13,9 +13,9 @@ import { ProgramAuthoringService } from './programs.service';
 import {
   ProgramAuthoringUploadRepository,
   type CreatePendingProgramAuthoringUploadInput,
-} from './program-authoring-upload.repository';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramCoverRepository } from './program-cover.repository';
+  ProgramCoverRepository,
+} from './files.repository';
+import { ProgramAuthoringUploadService } from './files.service';
 import { ProgramCoverService } from './program-creation.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';

@@ -1,5 +1,6 @@
+import { FileMetadataRepository } from './files.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
@@ -19,7 +20,7 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import type { GithubAppClient } from '../github/github-app.client';
+import { type GithubAppClient } from '../github/github-app.client';
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { RankingController } from '../ranking/ranking.controller';
@@ -44,6 +45,7 @@ import { RankingTimelineService } from '../ranking/ranking-timeline.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
+
 const authSessionService = new AuthSessionService();
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 const sessionSecret = new Uint8Array(32).fill(23);
@@ -125,6 +127,7 @@ export class PublicExposurePersonaHttpHarness {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
     const moduleRef = await Test.createTestingModule({

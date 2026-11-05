@@ -132,15 +132,15 @@ export class MilestoneDocumentFlowFixture {
   }
 
   async clear(): Promise<void> {
-    const files = await this.prisma.submissionFile.findMany({
-      where: { teamId: flowIds.team },
+    const files = await this.prisma.file.findMany({
+      where: { kind: 'SUBMISSION', teamId: flowIds.team },
       select: { storageKey: true },
     });
     await Promise.all(
       files.map((file) => this.storage.delete(file.storageKey)),
     );
-    await this.prisma.submissionFile.deleteMany({
-      where: { teamId: flowIds.team },
+    await this.prisma.file.deleteMany({
+      where: { kind: 'SUBMISSION', teamId: flowIds.team },
     });
     const submissionWhere = {
       milestoneDocument: { milestoneId: flowIds.milestone },

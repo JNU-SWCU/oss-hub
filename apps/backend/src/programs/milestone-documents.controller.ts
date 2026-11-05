@@ -13,8 +13,8 @@ import {
   Post,
   Query,
 } from '@nestjs/common';
-import type { Response } from 'express';
-import type { AuthenticatedRequest } from '../auth/http-auth.types';
+import { type Response } from 'express';
+import { type AuthenticatedRequest } from '../auth/http-auth.types';
 import {
   MilestoneDocumentCurrentFileService,
   MilestoneDocumentCollectionService,
@@ -39,13 +39,14 @@ import {
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
+import { MilestoneDocumentFilesService } from './files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { Protected } from '../auth/auth-route.decorator';
 import { DomainException } from '../platform/error-code.error';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
+
 type ViewerRequest = Pick<
   AuthenticatedRequest,
   'sessionGithubId' | 'principal'

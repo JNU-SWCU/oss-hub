@@ -5,7 +5,7 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import type { ObjectStoragePort } from '../../src/platform/object-storage.types';
@@ -471,29 +471,30 @@ async function upsertDemoSubmission(
     await upsertTracked(
       stats,
       'SubmissionFile',
-      () => prisma.submissionFile.findUnique({ where: { id: fileId } }),
       () =>
-        prisma.submissionFile.upsert({
-          where: { id: fileId },
+        prisma.file.findUnique({ where: { kind: 'SUBMISSION', id: fileId } }),
+      async () =>
+        prisma.file.upsert({
+          where: { kind: 'SUBMISSION', id: fileId },
           update: {
-            storageKey,
+            storageKey: storageKey,
             sizeBytes: storedFile.contentLength,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
-            milestoneDocumentSubmissionId: submissionId,
-            milestoneDocumentSubmissionHistoryId: submissionHistoryId,
+            lifecycle: FileLifecycle.ATTACHED,
+            submissionId: submissionId,
+            submissionHistoryId: submissionHistoryId,
           },
           create: {
+            kind: 'SUBMISSION',
             id: fileId,
             uploaderId: params.submittedById,
             teamId: params.teamId,
-            milestoneId: params.milestoneId,
-            milestoneDocumentSubmissionId: submissionId,
-            milestoneDocumentSubmissionHistoryId: submissionHistoryId,
+            submissionId: submissionId,
+            submissionHistoryId: submissionHistoryId,
             storageKey,
             originalFileName: fileContent.originalFileName,
             mimeType: fileContent.mimeType,
             sizeBytes: storedFile.contentLength,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: offsetDays(365),
           },
         }),
@@ -1300,12 +1301,12 @@ export async function teardownDemo(
       stats.updated(model);
     }
   };
-  const demoSubmissionFiles = await prisma.submissionFile.findMany({
+  const demoSubmissionFiles = await prisma.file.findMany({
     where: seedIdFilter,
     select: { storageKey: true },
   });
   await countAndDelete('SubmissionFile', () =>
-    prisma.submissionFile.deleteMany({ where: seedIdFilter }),
+    prisma.file.deleteMany({ where: seedIdFilter }),
   );
   for (const file of demoSubmissionFiles) {
     await storage.delete(file.storageKey);

@@ -1,5 +1,7 @@
-import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/program-authoring-upload-transaction.repository';
-import { ProgramCoverRepository } from '../../src/programs/program-cover.repository';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  ProgramCoverRepository,
+} from '../../src/programs/files.repository';
 import { Injectable } from '@nestjs/common';
 import {
   ProgramAuthoringRepository,

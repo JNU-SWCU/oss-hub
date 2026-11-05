@@ -18,7 +18,7 @@ import {
   RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -134,8 +134,8 @@ async function cleanupTeamScope(): Promise<void> {
   await prisma.outboxEvent.deleteMany({
     where: { idempotencyKey: { startsWith: TEST_PREFIX } },
   });
-  await prisma.submissionFile.deleteMany({
-    where: { uploaderId: { startsWith: TEST_PREFIX } },
+  await prisma.file.deleteMany({
+    where: { kind: 'SUBMISSION', uploaderId: { startsWith: TEST_PREFIX } },
   });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { actorId: { startsWith: TEST_PREFIX } },
@@ -312,15 +312,16 @@ async function seedApprovedTeam(
         ).revision,
       },
     });
-    await prisma.submissionFile.create({
+    await prisma.file.create({
       data: {
+        kind: 'SUBMISSION',
         id: `${teamId}:file`,
         uploaderId: LEADER_ID,
         teamId,
-        milestoneId: MILESTONE_ID,
-        milestoneDocumentSubmissionId: submissionId,
-        milestoneDocumentSubmissionHistoryId: historyId,
-        lifecycle: SubmissionFileLifecycle.ATTACHED,
+        submissionId: submissionId,
+        submissionHistoryId: historyId,
+        requirementId: MILESTONE_DOCUMENT_ID,
+        lifecycle: FileLifecycle.ATTACHED,
         pendingExpiresAt: null,
         expiresAt: new Date('2099-12-31T00:00:00.000Z'),
         storageKey: `${teamId}/synthetic.pdf`,
@@ -546,7 +547,9 @@ it('3a history failure rolls back staff deletion and its notifications', async (
     }),
   ).resolves.toEqual([{ sourceId: `${fixture.teamId}:second` }]);
   await expect(
-    prisma.submissionFile.findUnique({ where: { id: fixture.fileId } }),
+    prisma.file.findUnique({
+      where: { kind: 'SUBMISSION', id: fixture.fileId },
+    }),
   ).resolves.toMatchObject({ lifecycle: 'ATTACHED' });
 });
 
@@ -681,24 +684,24 @@ it('첨부 파일은 지우지 않고 DELETE_PENDING 으로 넘기며 FK 를 모
     await currentScope(fixture.teamId),
   );
 
-  const file = await prisma.submissionFile.findUniqueOrThrow({
-    where: { id: fixture.fileId },
+  const file = await prisma.file.findUniqueOrThrow({
+    where: { kind: 'SUBMISSION', id: fixture.fileId },
     select: {
       lifecycle: true,
       teamId: true,
-      milestoneId: true,
-      milestoneDocumentSubmissionId: true,
-      milestoneDocumentSubmissionHistoryId: true,
+      requirementId: true,
+      submissionId: true,
+      submissionHistoryId: true,
       deletedAt: true,
       nextDeleteAttemptAt: true,
     },
   });
   expect(file).toMatchObject({
-    lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+    lifecycle: FileLifecycle.DELETE_PENDING,
     teamId: null,
-    milestoneId: null,
-    milestoneDocumentSubmissionId: null,
-    milestoneDocumentSubmissionHistoryId: null,
+    requirementId: null,
+    submissionId: null,
+    submissionHistoryId: null,
     deletedAt: null,
   });
 

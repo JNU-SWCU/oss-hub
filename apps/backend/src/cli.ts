@@ -16,11 +16,11 @@ import {
   OBJECT_INVENTORY,
   OBJECT_STORAGE,
 } from './platform/object-storage.config';
-import type { StorageReferenceRepository } from './programs/prisma-storage-reference.repository';
-import type {
-  StorageObjectInventory,
-  StorageOrphanReconciliationMode,
-} from './programs/storage-orphan-reconciliation.service';
+import { type StorageReferenceRepository } from './programs/files.repository';
+import {
+  type StorageObjectInventory,
+  type StorageOrphanReconciliationMode,
+} from './programs/file-cleanup.service';
 import { PROCESS_RUNTIME_CONFIG } from './platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from './platform/runtime-config.config';
 import { MaintenanceModule } from './github/maintenance.module';
@@ -50,13 +50,13 @@ export async function retrySubmissionFileCleanup(
   }
 
   const { AppModule } = await import('./app.module');
-  const { SubmissionFileCleanupRetryService } =
-    await import('./programs/submission-file-cleanup.service');
+  const { FileCleanupRetryService } =
+    await import('./programs/file-cleanup.service');
   const app = await NestFactory.createApplicationContext(AppModule, {
     logger: ['error', 'warn', 'log'],
   });
   try {
-    await app.get(SubmissionFileCleanupRetryService).retry(operatorId, fileId);
+    await app.get(FileCleanupRetryService).retry(operatorId, fileId);
     logger.log({
       event: 'submission-file.cleanup.retry-reset',
       operatorRole: 'ADMIN',
@@ -83,7 +83,7 @@ async function runStorageOrphanReconciliation(
   objectInventory: ObjectInventoryPort,
 ): Promise<void> {
   const { KNOWN_STORAGE_PREFIXES, StorageOrphanReconciliationService } =
-    await import('./programs/storage-orphan-reconciliation.service');
+    await import('./programs/file-cleanup.service');
   const inventory: StorageObjectInventory = {
     listObjects: () => objectInventory.listObjects(KNOWN_STORAGE_PREFIXES),
     delete: (key) => objectStorage.delete(key),
@@ -121,7 +121,7 @@ export async function reconcileStorageOrphans(
   const mode = parseStorageOrphanReconciliationMode(args);
   const { PrismaService } = await import('./platform/prisma.service');
   const { PrismaStorageReferenceRepository } =
-    await import('./programs/prisma-storage-reference.repository');
+    await import('./programs/files.repository');
   const { PlatformModule } = await import('./platform/platform.module');
   const prisma = new PrismaService();
   const references = new PrismaStorageReferenceRepository(prisma);

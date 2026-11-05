@@ -1,7 +1,9 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';

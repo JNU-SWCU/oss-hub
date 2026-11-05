@@ -8,7 +8,7 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
+import { MilestoneDocumentFilesService } from './files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentsService } from './milestone-documents.service';

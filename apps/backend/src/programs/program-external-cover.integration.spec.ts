@@ -8,7 +8,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { Test } from '@nestjs/testing';
 import { ProgramsController } from './programs.controller';
 import { ProgramCoverService } from './program-creation.service';
-import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramCoverRepository } from './files.repository';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramsRepository } from './programs.repository';
@@ -42,9 +42,7 @@ it('returns the same public-cover HTTP 404 for an external reference and a missi
     ...request(),
     externalCover,
   });
-  const cover = await prisma.programCover.findUniqueOrThrow({
-    where: { programId: program.id },
-  });
+  expect(await prisma.file.count({ where: { programId: program.id } })).toBe(0);
   const get = jest.fn();
   const moduleRef = await Test.createTestingModule({
     controllers: [ProgramsController],
@@ -62,7 +60,7 @@ it('returns the same public-cover HTTP 404 for an external reference and a missi
   await application.listen(0, '127.0.0.1');
   try {
     const url = `${await application.getUrl()}/programs/${program.id}/cover/`;
-    const response = await fetch(`${url}${cover.id}`);
+    const response = await fetch(`${url}${program.id}`);
     const missing = await fetch(`${url}missing`);
     expect(response.status).toBe(404);
     expect(await response.json()).toEqual(await missing.json());
@@ -79,16 +77,16 @@ it('creates and replays an external cover with public projections and no storage
     'external-create',
     input,
   );
-  const cover = await prisma.programCover.findUniqueOrThrow({
-    where: { programId: program.id },
+  const cover = await prisma.program.findUniqueOrThrow({
+    where: { id: program.id },
+    select: { coverFileId: true, coverSourceUrl: true, coverImageUrl: true },
   });
-  expect(cover).toMatchObject({
-    source: 'EXTERNAL',
-    storageKey: null,
-    mimeType: null,
-    sizeBytes: null,
-    ...externalCover,
+  expect(cover).toEqual({
+    coverFileId: null,
+    coverSourceUrl: externalCover.sourceUrl,
+    coverImageUrl: externalCover.imageUrl,
   });
+  expect(await prisma.file.count({ where: { programId: program.id } })).toBe(0);
   expect(
     (await authoring().create(COVER_ACTOR, 'external-create', input)).id,
   ).toBe(program.id);
@@ -102,8 +100,8 @@ it('creates and replays an external cover with public projections and no storage
     }),
   ).rejects.toThrow('idempotency key');
   expect(
-    await prisma.programAuthoringUpload.count({
-      where: { actorId: { startsWith: PREFIX } },
+    await prisma.file.count({
+      where: { kind: 'UPLOAD', uploaderId: { startsWith: PREFIX } },
     }),
   ).toBe(0);
   const programs = new ProgramsService(
@@ -139,7 +137,7 @@ it('creates and replays an external cover with public projections and no storage
     externalCover,
   });
   await expect(
-    publicCovers.findPublicCover(program.id, cover.id),
+    publicCovers.findPublicCover(program.id, program.id),
   ).resolves.toBeNull();
 });
 
@@ -164,12 +162,14 @@ it.each(['owned', 'external', 'none'] as const)(
       externalCover: next,
     });
     expect(
-      await prisma.programCover.findUnique({
-        where: { programId: program.id },
-      }),
-    ).toMatchObject({ source: 'EXTERNAL', ...next });
-    const tombstones = await prisma.programPurgeFileTombstone.findMany({
-      where: { storageKey: { contains: PREFIX } },
+      await prisma.program.findUnique({ where: { id: program.id } }),
+    ).toMatchObject({
+      coverFileId: null,
+      coverSourceUrl: next.sourceUrl,
+      coverImageUrl: next.imageUrl,
+    });
+    const tombstones = await prisma.file.findMany({
+      where: { lifecycle: 'DELETE_PENDING', storageKey: { contains: PREFIX } },
     });
     expect(tombstones.map(({ storageKey }) => storageKey)).toEqual(
       upload ? [upload.storageKey] : [],
@@ -205,20 +205,28 @@ it.each(['owned', 'remove-external', 'remove-upload'] as const)(
       ...request(),
       ...choice,
     });
-    const cover = await prisma.programCover.findUnique({
-      where: { programId: program.id },
+    const cover = await prisma.file.findFirst({
+      where: { kind: 'COVER', programId: program.id },
     });
     if (upload)
       expect(cover).toMatchObject({
-        source: 'OWNED',
+        kind: 'COVER',
         storageKey: upload.storageKey,
-        sourceUrl: null,
-        imageUrl: null,
       });
     else expect(cover).toBeNull();
     expect(
-      await prisma.programPurgeFileTombstone.count({
-        where: { storageKey: { contains: PREFIX } },
+      await prisma.program.findUnique({ where: { id: program.id } }),
+    ).toMatchObject({
+      coverFileId: upload?.id ?? null,
+      coverSourceUrl: null,
+      coverImageUrl: null,
+    });
+    expect(
+      await prisma.file.count({
+        where: {
+          lifecycle: 'DELETE_PENDING',
+          storageKey: { contains: PREFIX },
+        },
       }),
     ).toBe(0);
   },
@@ -269,34 +277,28 @@ it.each([
   },
 );
 
-it('enforces source-state constraints and preserves default owned rows', async () => {
+it('rejects legacy cover writes and requires a storage key for an owned File', async () => {
   const program = await authoring().create(
     COVER_ACTOR,
     'constraint-external',
     request(),
   );
-  await expect(
-    prisma.programCover.create({
-      data: {
-        programId: program.id,
-        source: 'EXTERNAL',
-        ...externalCover,
-        storageKey: 'program-covers/invalid',
-      },
-    }),
-  ).rejects.toThrow();
-  await expect(
-    prisma.programCover.create({
-      data: { programId: program.id, source: 'OWNED' },
-    }),
-  ).rejects.toThrow();
-  const cover = await prisma.programCover.create({
+  await expect(prisma.$executeRaw`
+    INSERT INTO "ProgramCover" (id,"programId",source,"sourceUrl","imageUrl","storageKey")
+    VALUES ('invalid-legacy-cover',${program.id},'EXTERNAL',${externalCover.sourceUrl},${externalCover.imageUrl},'program-covers/invalid')
+  `).rejects.toThrow();
+  await expect(prisma.$executeRaw`
+    INSERT INTO "File" (id,kind,lifecycle,"programId") VALUES ('invalid-owned','COVER','ATTACHED',${program.id})
+  `).rejects.toThrow();
+  const cover = await prisma.file.create({
     data: {
+      kind: 'COVER',
+      lifecycle: 'ATTACHED',
       programId: program.id,
       storageKey: 'program-covers/legacy',
       mimeType: 'image/png',
       sizeBytes: 68,
     },
   });
-  expect(cover.source).toBe('OWNED');
+  expect(cover.kind).toBe('COVER');
 });
