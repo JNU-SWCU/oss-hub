@@ -2682,6 +2682,10 @@ export class TeamRepository {
           actorUserId,
           now,
         );
+        await tx.repositoryProvisionJob.deleteMany({ where: { teamId } });
+        await tx.outboxEvent.deleteMany({
+          where: { aggregateType: 'Team', aggregateId: teamId },
+        });
         await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
         await tx.team.delete({ where: { id: teamId } });
         await recordAudit(
