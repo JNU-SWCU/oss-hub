@@ -634,17 +634,30 @@ describe('program team membership transactions integration', () => {
           TeamInvitationStatus.DECLINED,
           TeamInvitationStatus.EXPIRED,
         ].map((status) =>
-          prisma.teamInvitation.create({
+          prisma.teamHistory.create({
             data: {
               id: `${teamId}:${status}`,
               teamId,
               programId: PROGRAM_ID,
-              inviteeId: INVITEE_ID,
-              invitedById: LEADER_ID,
-              status,
-              createdAt: JOINED_FIRST,
-              respondedAt: status === 'EXPIRED' ? null : JOINED_SECOND,
-              updatedAt: JOINED_SECOND,
+              actorId: null,
+              event: 'INVITATION_ARCHIVED',
+              source: 'MIGRATION',
+              sourceTable: 'TeamInvitation',
+              sourceId: `${teamId}:${status}`,
+              occurredAt: JOINED_SECOND,
+              data: {
+                schemaVersion: 1,
+                invitation: {
+                  id: `${teamId}:${status}`,
+                  inviteeId: INVITEE_ID,
+                  invitedById: LEADER_ID,
+                  status,
+                  createdAt: JOINED_FIRST.toISOString(),
+                  respondedAt:
+                    status === 'EXPIRED' ? null : JOINED_SECOND.toISOString(),
+                  updatedAt: JOINED_SECOND.toISOString(),
+                },
+              },
             },
           }),
         ),
@@ -675,7 +688,12 @@ describe('program team membership transactions integration', () => {
         where: { teamId },
       });
       expect(histories).toHaveLength(4);
-      for (const invitation of [pending, ...legacy]) {
+      for (const archived of legacy) {
+        expect(histories.find((history) => history.id === archived.id)).toEqual(
+          archived,
+        );
+      }
+      for (const invitation of [pending]) {
         expect(
           histories.filter((history) => history.sourceId === invitation.id),
         ).toEqual([
@@ -683,10 +701,7 @@ describe('program team membership transactions integration', () => {
             teamId,
             programId: PROGRAM_ID,
             actorId,
-            event:
-              invitation.status === 'PENDING'
-                ? 'INVITATION_CANCELLED'
-                : 'INVITATION_ARCHIVED',
+            event: 'INVITATION_CANCELLED',
             source: 'APPLICATION',
             sourceTable: 'TeamInvitation',
             data: {
@@ -697,14 +712,6 @@ describe('program team membership transactions integration', () => {
                 inviteeId: INVITEE_ID,
                 invitedById: LEADER_ID,
                 createdAt: invitation.createdAt.toISOString(),
-                ...(invitation.status === 'PENDING'
-                  ? {}
-                  : {
-                      status: invitation.status,
-                      respondedAt:
-                        invitation.respondedAt?.toISOString() ?? null,
-                      updatedAt: invitation.updatedAt.toISOString(),
-                    }),
               },
             },
           }),
@@ -729,9 +736,9 @@ describe('program team membership transactions integration', () => {
 
   it.each([
     ['leave', 'recordInvitationClosed'],
-    ['leave', 'archiveInvitation'],
+    ['leave', 'recordTeamInvitationsDeleted'],
     ['staff removal', 'recordInvitationClosed'],
-    ['staff removal', 'archiveInvitation'],
+    ['staff removal', 'recordTeamInvitationsDeleted'],
   ] as const)(
     '%s rolls back the sole team, member and invitation when %s fails',
     async (operation, method) => {
@@ -740,12 +747,6 @@ describe('program team membership transactions integration', () => {
         { userId: LEADER_ID, createdAt: JOINED_FIRST },
       ]);
       const invitationId = await seedPendingInvitation(teamId, LEADER_ID);
-      if (method === 'archiveInvitation') {
-        await prisma.teamInvitation.update({
-          where: { id: invitationId },
-          data: { status: 'EXPIRED' },
-        });
-      }
       const invitation = await prisma.teamInvitation.findUniqueOrThrow({
         where: { id: invitationId },
       });
