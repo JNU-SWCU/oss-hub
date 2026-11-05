@@ -9,7 +9,7 @@ interface MilestoneDocumentFeedbackItemResult {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly milestoneId: string;
   readonly milestoneName: string;
@@ -57,7 +57,7 @@ export class MilestoneDocumentFeedbackService {
       decision: review.decision,
       comment: review.comment,
       reviewedAt: review.reviewedAt,
-      applicationId: review.applicationId,
+      teamId: review.teamId,
       programId: review.programId,
       milestoneId: review.milestoneId,
       milestoneName: review.milestoneName,

@@ -1,5 +1,4 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -8,7 +7,7 @@ import { ProgramTeamRepositoryEvidenceRepository } from './program-team-reposito
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
-  ApplicationReviewEventKind,
+  TeamHistoryEvent,
   ApplicationStatus,
   MilestoneDocumentSubmissionHistoryEvent,
   ProgramCategory,
@@ -23,9 +22,6 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { TEAM_DELETED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import { AuditLogService } from '../platform/audit-log.service';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -78,10 +74,7 @@ const deletionRepository = new ProgramTeamDeletionRepository(
   new TeamDeletionScopeRepository(),
   new PrismaSerializationRetryRepository(),
 );
-const auditLog = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogReadService(new AuditLogMetadataService()),
-);
+
 const service = new TeamMembershipService(
   new TeamRepository(
     prisma,
@@ -89,14 +82,12 @@ const service = new TeamMembershipService(
     new PlatformRepository(),
     new TeamHistoryRepository(),
   ),
-  auditLog,
   deletionRepository,
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new StudentRepositoryUrlService(
-    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -110,7 +101,6 @@ let teamSequence = 0;
 
 interface SeededTeam {
   readonly teamId: string;
-  readonly applicationId: string;
   readonly submissionId: string;
   readonly historyId: string;
   readonly reviewHistoryId: string;
@@ -154,7 +144,7 @@ async function cleanupTeamScope(): Promise<void> {
     where: { submittedById: { startsWith: TEST_PREFIX } },
   });
   await prisma.repositoryProvisionJob.deleteMany({
-    where: { applicationId: { startsWith: TEST_PREFIX } },
+    where: { teamId: { startsWith: TEST_PREFIX } },
   });
   await prisma.contribution.deleteMany({
     where: { repositoryId: { startsWith: TEST_PREFIX } },
@@ -167,9 +157,6 @@ async function cleanupTeamScope(): Promise<void> {
   });
   await prisma.teamInvitation.deleteMany({
     where: { inviteeId: { startsWith: TEST_PREFIX } },
-  });
-  await prisma.application.deleteMany({
-    where: { applicantId: { startsWith: TEST_PREFIX } },
   });
   await prisma.teamMember.deleteMany({
     where: { userId: { startsWith: TEST_PREFIX } },
@@ -201,9 +188,8 @@ async function seedDurableFixturesOnce(): Promise<void> {
       create: {
         startAt: new Date('2026-08-01T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: programId,
         name: `Team deletion program ${programId}`,
         organizer: 'Synthetic organizer',
@@ -249,7 +235,6 @@ async function seedApprovedTeam(
 ): Promise<SeededTeam> {
   teamSequence += 1;
   const teamId = `${RUN_PREFIX}team-${teamSequence}`;
-  const applicationId = `${teamId}:application`;
   const submissionId = `${teamId}:submission`;
   const historyId = `${teamId}:history`;
   const reviewHistoryId = `${teamId}:review`;
@@ -262,6 +247,9 @@ async function seedApprovedTeam(
       programId,
       name: `Team ${teamSequence}`,
       leaderId: LEADER_ID,
+      applicantId: LEADER_ID,
+      answers: { title: `Team ${teamSequence}` },
+      applicationTemplateVersion: 1,
     },
   });
   for (const userId of [LEADER_ID, MEMBER_ID]) {
@@ -278,12 +266,11 @@ async function seedApprovedTeam(
       invitedById: LEADER_ID,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
       applicantId: LEADER_ID,
-      teamId,
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
@@ -297,7 +284,7 @@ async function seedApprovedTeam(
       data: {
         id: submissionId,
         milestoneDocumentId: MILESTONE_DOCUMENT_ID,
-        applicationId,
+        teamId,
         submittedById: LEADER_ID,
         revision: 1,
         status: SubmissionStatus.SUBMITTED,
@@ -329,7 +316,7 @@ async function seedApprovedTeam(
       data: {
         id: `${teamId}:file`,
         uploaderId: LEADER_ID,
-        applicationId,
+        teamId,
         milestoneId: MILESTONE_ID,
         milestoneDocumentSubmissionId: submissionId,
         milestoneDocumentSubmissionHistoryId: historyId,
@@ -339,7 +326,7 @@ async function seedApprovedTeam(
         storageKey: `${teamId}/synthetic.pdf`,
         originalFileName: 'synthetic.pdf',
         mimeType: 'application/pdf',
-        sizeBytes: 1_024,
+        sizeBytes: 1024,
       },
     });
   }
@@ -347,12 +334,10 @@ async function seedApprovedTeam(
   await prisma.githubRepository.create({
     data: {
       id: repositoryId,
-      githubRepositoryId: BigInt(940_000_000 + teamSequence),
+      githubRepositoryId: BigInt(940000000 + teamSequence),
       nameWithOwner: `synthetic-org/team-${teamSequence}`,
       source: RepositorySource.ORG_PROVISIONED,
       visibility: RepositoryVisibility.PUBLIC,
-      programId,
-      applicationId,
       teamId,
       publishedAt: new Date('2026-08-20T00:00:00.000Z'),
     },
@@ -369,7 +354,7 @@ async function seedApprovedTeam(
   await prisma.repositoryProvisionJob.create({
     data: {
       id: `${teamId}:provision-job`,
-      applicationId,
+      teamId,
       repositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
     },
@@ -377,10 +362,10 @@ async function seedApprovedTeam(
   const outboxEvent = await prisma.outboxEvent.create({
     data: {
       type: 'REPOSITORY_PROVISION_REQUESTED',
-      aggregateType: 'Application',
-      aggregateId: applicationId,
-      idempotencyKey: `${TEST_PREFIX}repository-provision:${applicationId}`,
-      payload: { applicationId },
+      aggregateType: 'Team',
+      aggregateId: teamId,
+      idempotencyKey: `${TEST_PREFIX}repository-provision:${teamId}`,
+      payload: { teamId },
     },
     select: { id: true },
   });
@@ -390,10 +375,10 @@ async function seedApprovedTeam(
       type: 'APPLICATION_DECISION',
       channel: 'IN_APP',
       status: 'UNREAD',
-      idempotencyKey: `${TEST_PREFIX}application-decision:${applicationId}`,
+      idempotencyKey: `${TEST_PREFIX}application-decision:${teamId}`,
       payload: {
         schemaVersion: 1,
-        applicationId,
+        teamId,
         programId,
         programName: 'Synthetic',
         decision: 'APPROVED',
@@ -416,7 +401,6 @@ async function seedApprovedTeam(
 
   return {
     teamId,
-    applicationId,
     submissionId,
     historyId,
     reviewHistoryId,
@@ -477,9 +461,14 @@ it('3b staff deletion records every pending cancellation and preserves archived 
   );
 
   const events = await prisma.teamHistory.findMany({
-    where: { teamId: fixture.teamId },
+    where: { teamId: fixture.teamId, sourceTable: 'TeamInvitation' },
     orderBy: { sourceId: 'asc' },
   });
+  expect(
+    await prisma.teamHistory.count({
+      where: { teamId: fixture.teamId, event: 'DELETED' },
+    }),
+  ).toBe(1);
   expect(events.map((event) => event.sourceId)).toEqual([
     `${fixture.teamId}:expired`,
     `${fixture.teamId}:invitation`,
@@ -566,7 +555,7 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
   const expectedScope = await currentScope(fixture.teamId);
 
   expect(expectedScope).toMatchObject({
-    applications: 1,
+    teams: 1,
     members: 2,
     invitations: 1,
     submissions: 1,
@@ -586,7 +575,7 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
     teamId: fixture.teamId,
     deleted: true,
     deletedCounts: {
-      applications: 1,
+      teams: 1,
       members: 2,
       invitations: 1,
       submissions: 1,
@@ -605,7 +594,7 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
     prisma.teamInvitation.count({ where: { teamId: fixture.teamId } }),
   ).resolves.toBe(0);
   await expect(
-    prisma.application.count({ where: { id: fixture.applicationId } }),
+    prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(0);
   await expect(
     prisma.milestoneDocumentSubmission.count({
@@ -619,7 +608,7 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
   ).resolves.toBe(0);
   await expect(
     prisma.repositoryProvisionJob.count({
-      where: { applicationId: fixture.applicationId },
+      where: { teamId: fixture.teamId },
     }),
   ).resolves.toBe(0);
   await expect(
@@ -696,7 +685,7 @@ it('첨부 파일은 지우지 않고 DELETE_PENDING 으로 넘기며 FK 를 모
     where: { id: fixture.fileId },
     select: {
       lifecycle: true,
-      applicationId: true,
+      teamId: true,
       milestoneId: true,
       milestoneDocumentSubmissionId: true,
       milestoneDocumentSubmissionHistoryId: true,
@@ -706,7 +695,7 @@ it('첨부 파일은 지우지 않고 DELETE_PENDING 으로 넘기며 FK 를 모
   });
   expect(file).toMatchObject({
     lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
-    applicationId: null,
+    teamId: null,
     milestoneId: null,
     milestoneDocumentSubmissionId: null,
     milestoneDocumentSubmissionHistoryId: null,
@@ -716,40 +705,37 @@ it('첨부 파일은 지우지 않고 DELETE_PENDING 으로 넘기며 FK 를 모
   expect(file.nextDeleteAttemptAt).not.toBeNull();
 });
 
-it('감사에는 팀 이름과 함께 사라진 수치를 남긴다', async () => {
+it('삭제 이력에는 팀 이름과 함께 실제로 사라진 수치를 남긴다', async () => {
   const fixture = await seedApprovedTeam();
-
   await service.deleteForStaff(
     STAFF_GITHUB_ID,
     PROGRAM_ID,
     fixture.teamId,
     await currentScope(fixture.teamId),
   );
-
-  const rows = await prisma.auditLog.findMany({
-    where: {
-      targetType: 'TEAM',
-      targetId: fixture.teamId,
-      action: TEAM_DELETED_AUDIT_ACTIONS.TEAM_DELETED,
-    },
-    select: { actorId: true, metadata: true },
+  const rows = await prisma.teamHistory.findMany({
+    where: { teamId: fixture.teamId, event: 'DELETED' },
   });
   expect(rows).toHaveLength(1);
-  expect(rows[0]?.actorId).toBe(STAFF_ID);
-  expect(rows[0]?.metadata).toMatchObject({
-    schemaVersion: 1,
-    deletedCounts: {
-      applications: 1,
-      members: 2,
-      invitations: 1,
-      submissions: 1,
-      submissionEvents: 3,
-      detachedRepositories: 1,
+  expect(rows[0]).toMatchObject({
+    actorId: STAFF_ID,
+    data: {
+      schemaVersion: 1,
+      reason: 'STAFF_DELETED',
+      name: expect.stringContaining('Team ') as unknown,
+      deletedCounts: {
+        teams: 1,
+        members: 2,
+        invitations: 1,
+        submissions: 1,
+        submissionEvents: 3,
+        detachedRepositories: 1,
+      },
     },
   });
-
-  const metadata = rows[0]?.metadata as { readonly teamName: string };
-  expect(metadata.teamName).toContain('Team ');
+  expect(
+    await prisma.auditLog.count({ where: { targetId: fixture.teamId } }),
+  ).toBe(0);
 });
 
 it('확인 이후 범위가 바뀌면 409 로 물러나고 아무것도 지우지 않는다', async () => {
@@ -781,7 +767,7 @@ it('확인 이후 범위가 바뀌면 409 로 물러나고 아무것도 지우�
     prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(1);
   await expect(
-    prisma.application.count({ where: { id: fixture.applicationId } }),
+    prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(1);
   await expect(
     prisma.teamMember.count({ where: { teamId: fixture.teamId } }),
@@ -833,7 +819,7 @@ it('다른 프로그램의 팀은 404 이고 그 팀은 그대로 남는다', as
 it('없는 팀도 같은 404 다', async () => {
   await expect(
     service.deleteForStaff(STAFF_GITHUB_ID, PROGRAM_ID, `${RUN_PREFIX}ghost`, {
-      applications: 0,
+      teams: 0,
       members: 0,
       invitations: 0,
       submissions: 0,
@@ -871,7 +857,7 @@ it('팀을 지워도 발급 이력은 남고 삭제를 막지도 않는다', asy
   await prisma.repositoryIssuanceHistory.create({
     data: {
       requestId,
-      applicationId: fixture.applicationId,
+      teamId: fixture.teamId,
       repositoryId: fixture.repositoryId,
       connectionMode: RepositoryConnectionMode.NEW,
       source: RepositorySource.ORG_PROVISIONED,
@@ -894,15 +880,15 @@ it('팀을 지워도 발급 이력은 남고 삭제를 막지도 않는다', asy
       prisma.team.count({ where: { id: fixture.teamId } }),
     ).resolves.toBe(0);
     await expect(
-      prisma.application.count({ where: { id: fixture.applicationId } }),
+      prisma.team.count({ where: { id: fixture.teamId } }),
     ).resolves.toBe(0);
 
     const retained = await prisma.repositoryIssuanceHistory.findUnique({
       where: { requestId },
-      select: { applicationId: true, outcome: true },
+      select: { teamId: true, outcome: true },
     });
     expect(retained).toEqual({
-      applicationId: fixture.applicationId,
+      teamId: fixture.teamId,
       outcome: RepositoryIssuanceOutcome.SUCCEEDED,
     });
   } finally {
@@ -981,12 +967,12 @@ it.each([null, '   '])(
   },
 );
 
-it('삭제 감사가 실패하면 이미 쓴 알림과 팀 삭제가 함께 되돌아간다', async () => {
+it('삭제 이력 저장이 실패하면 팀과 알림은 변경되지 않는다', async () => {
   const fixture = await seedApprovedTeam();
   const expectedScope = await currentScope(fixture.teamId);
-  const failure = new Error('synthetic deletion audit failure');
-  const audit = jest.spyOn(auditLog, 'record').mockRejectedValueOnce(failure);
-
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "TeamHistory" ADD CONSTRAINT "synthetic_staff_deletion_history_failure" CHECK ("teamId" <> '${fixture.teamId}' OR "event" <> 'DELETED')`,
+  );
   try {
     await expect(
       service.deleteForStaff(
@@ -995,11 +981,12 @@ it('삭제 감사가 실패하면 이미 쓴 알림과 팀 삭제가 함께 되�
         fixture.teamId,
         expectedScope,
       ),
-    ).rejects.toBe(failure);
+    ).rejects.toThrow('synthetic_staff_deletion_history_failure');
   } finally {
-    audit.mockRestore();
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "TeamHistory" DROP CONSTRAINT "synthetic_staff_deletion_history_failure"',
+    );
   }
-
   await expect(currentScope(fixture.teamId)).resolves.toEqual(expectedScope);
   await expect(teamDeletedNotifications(fixture.teamId)).resolves.toEqual([]);
   await expect(
@@ -1064,14 +1051,20 @@ it('문구를 채우면 그 문구가 알림 payload 에 함께 담긴다', asyn
 
 it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사라지지 않는다', async () => {
   const fixture = await seedApprovedTeam();
-  await prisma.applicationReviewHistory.create({
+  await prisma.teamHistory.create({
     data: {
       id: `${fixture.teamId}:review-history`,
-      applicationId: fixture.applicationId,
-      eventKind: ApplicationReviewEventKind.APPROVED,
-      revision: 1,
+      teamId: fixture.teamId,
       actorId: STAFF_ID,
       occurredAt: new Date('2026-09-01T00:00:00.000Z'),
+      programId: PROGRAM_ID,
+      event: TeamHistoryEvent.APPROVED,
+      source: 'APPLICATION',
+      data: {
+        schemaVersion: 1,
+        revision: 1,
+        rejectionReason: null,
+      },
     },
   });
   const expectedScope = await currentScope(fixture.teamId);
@@ -1080,29 +1073,8 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
   });
 
   const failure = await deletionRepository
-    .deleteTeam(
-      PROGRAM_ID,
-      fixture.teamId,
-      STAFF_ID,
-      expectedScope,
-      async (store, event) => {
-        await auditLog.record(
-          {
-            actorGithubId: STAFF_GITHUB_ID,
-            action: TEAM_DELETED_AUDIT_ACTIONS.TEAM_DELETED,
-            targetType: 'TEAM',
-            targetId: event.teamId,
-            metadata: {
-              schemaVersion: 1,
-              programName: event.programName,
-              teamName: event.teamName,
-              deletedCounts: event.deletedCounts,
-            },
-          },
-          store.auditLogWriter,
-        );
-      },
-      () => Promise.reject(new Error('synthetic notification enqueue failure')),
+    .deleteTeam(PROGRAM_ID, fixture.teamId, STAFF_ID, expectedScope, () =>
+      Promise.reject(new Error('synthetic notification enqueue failure')),
     )
     .then(() => null)
     .catch((caught: unknown) => caught);
@@ -1112,11 +1084,11 @@ it('알림 enqueue 가 실패하면 팀·신청·이력·감사가 하나도 사
     prisma.team.findUnique({ where: { id: fixture.teamId } }),
   ).resolves.not.toBeNull();
   await expect(
-    prisma.application.count({ where: { id: fixture.applicationId } }),
+    prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(1);
   await expect(
-    prisma.applicationReviewHistory.count({
-      where: { applicationId: fixture.applicationId },
+    prisma.teamHistory.count({
+      where: { teamId: fixture.teamId },
     }),
   ).resolves.toBe(1);
   await expect(
@@ -1172,22 +1144,25 @@ it('수신자는 팀 행을 잠근 뒤의 실제 멤버십과 일치한다', asy
   expect(notifications.map((row) => row.userId)).toEqual([LEADER_ID]);
 });
 
-it('팀 삭제는 그 팀의 판정 이력만 거두고 같은 프로그램의 다른 팀 이력은 남긴다', async () => {
+it('팀 삭제 후에도 해당 팀과 같은 프로그램의 다른 팀 판정 이력은 보존된다', async () => {
   const target = await seedApprovedTeam();
   await prisma.teamMember.deleteMany({ where: { teamId: target.teamId } });
   const survivor = await seedApprovedTeam();
-  for (const [teamId, applicationId] of [
-    [target.teamId, target.applicationId],
-    [survivor.teamId, survivor.applicationId],
-  ] as const) {
-    await prisma.applicationReviewHistory.create({
+  for (const teamId of [target.teamId, survivor.teamId]) {
+    await prisma.teamHistory.create({
       data: {
         id: `${teamId}:cascade-history`,
-        applicationId,
-        eventKind: ApplicationReviewEventKind.APPROVED,
-        revision: 1,
+        teamId,
         actorId: STAFF_ID,
         occurredAt: new Date('2026-09-01T00:00:00.000Z'),
+        programId: PROGRAM_ID,
+        event: TeamHistoryEvent.APPROVED,
+        source: 'APPLICATION',
+        data: {
+          schemaVersion: 1,
+          revision: 1,
+          rejectionReason: null,
+        },
       },
     });
   }
@@ -1201,13 +1176,13 @@ it('팀 삭제는 그 팀의 판정 이력만 거두고 같은 프로그램의 �
   );
 
   await expect(
-    prisma.applicationReviewHistory.count({
-      where: { applicationId: target.applicationId },
+    prisma.teamHistory.count({
+      where: { teamId: target.teamId, event: TeamHistoryEvent.APPROVED },
     }),
-  ).resolves.toBe(0);
+  ).resolves.toBe(1);
   await expect(
-    prisma.applicationReviewHistory.count({
-      where: { applicationId: survivor.applicationId },
+    prisma.teamHistory.count({
+      where: { teamId: survivor.teamId },
     }),
   ).resolves.toBe(1);
   await expect(

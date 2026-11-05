@@ -15,9 +15,7 @@ interface StudentDashboardMilestoneRow {
 export interface StudentDashboardApplicationRow {
   readonly id: string;
   readonly status: ApplicationStatus;
-  readonly team: {
-    readonly name: string;
-  };
+  readonly name: string;
   readonly program: {
     readonly id: string;
     readonly name: string;
@@ -32,7 +30,7 @@ export interface StudentDashboardApplicationRow {
 const studentDashboardApplicationSelect = {
   id: true,
   status: true,
-  team: { select: { name: true } },
+  name: true,
   program: {
     select: {
       cover: { select: { id: true, imageUrl: true } },
@@ -58,7 +56,7 @@ const studentDashboardApplicationSelect = {
       milestoneDocument: { select: { id: true, milestoneId: true } },
     } satisfies Prisma.MilestoneDocumentSubmissionSelect,
   },
-} satisfies Prisma.ApplicationSelect;
+} satisfies Prisma.TeamSelect;
 @Injectable()
 export class StudentDashboardRepository {
   constructor(
@@ -73,7 +71,8 @@ export class StudentDashboardRepository {
       select: { id: true },
     });
     if (user === null) return [];
-    return this.prisma.application.findMany({
+
+    return this.prisma.team.findMany({
       where: this.platformRepository.programApplicationParticipantWhere(
         user.id,
       ),

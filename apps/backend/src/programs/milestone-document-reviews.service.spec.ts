@@ -69,12 +69,12 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
         },
         findSubmissionForReview: (
           documentId: string,
-          applicationId: string,
+          teamId: string,
         ): Promise<unknown> => {
           transactionCalls.push('findSubmissionForReview');
           return mocks.findSubmissionForReview(
             documentId,
-            applicationId,
+            teamId,
           ) as Promise<unknown>;
         },
         findLatestReviewIdForSubmission: (

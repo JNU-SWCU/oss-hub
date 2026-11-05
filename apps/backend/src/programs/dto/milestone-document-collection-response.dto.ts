@@ -112,7 +112,7 @@ export class MilestoneDocumentCollectionCellResponseDto {
   }
 }
 export class MilestoneDocumentCollectionRowResponseDto {
-  declare readonly applicationId: string;
+  declare readonly teamId: string;
   declare readonly teamName: string;
   declare readonly applicantName: string | null;
   declare readonly memberNicknames: readonly string[];
@@ -122,7 +122,7 @@ export class MilestoneDocumentCollectionRowResponseDto {
     documents: readonly MilestoneDocumentRecord[],
   ): MilestoneDocumentCollectionRowResponseDto {
     return {
-      applicationId: row.application.applicationId,
+      teamId: row.application.teamId,
       teamName: row.application.teamName,
       applicantName: row.application.applicantName,
       memberNicknames: row.application.memberNicknames,
@@ -198,7 +198,7 @@ export class MilestoneDocumentCollectionResponseDto {
   }
 }
 export class MilestoneDocumentDeliveryCollectionRowResponseDto {
-  declare readonly applicationId: string;
+  declare readonly teamId: string;
   declare readonly teamName: string;
   declare readonly applicantName: string | null;
   declare readonly memberNicknames: readonly string[];
@@ -209,7 +209,7 @@ export class MilestoneDocumentDeliveryCollectionRowResponseDto {
     deliveryStatus: DocumentDeliveryStatus,
   ): MilestoneDocumentDeliveryCollectionRowResponseDto {
     return {
-      applicationId: row.applicationId,
+      teamId: row.teamId,
       teamName: row.teamName,
       applicantName: row.applicantName,
       memberNicknames: row.memberNicknames,

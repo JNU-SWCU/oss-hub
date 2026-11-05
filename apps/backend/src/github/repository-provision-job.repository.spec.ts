@@ -39,7 +39,7 @@ const WORKER_ID = 'synthetic-worker';
 const REQUEST_ID = 'synthetic-request-r1';
 
 type RawRow = {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly currentEventId: string | null;
   readonly repositoryId: string | null;
   readonly status: RepositoryProvisionJobStatus;
@@ -54,7 +54,7 @@ function transaction(row: RawRow | null) {
 
 function row(overrides: Partial<RawRow> = {}): RawRow {
   return {
-    applicationId: 'synthetic-application',
+    teamId: 'synthetic-application',
     currentEventId: REQUEST_ID,
     repositoryId: 'synthetic-repository',
     status: RepositoryProvisionJobStatus.PROCESSING,
@@ -73,7 +73,7 @@ describe('assertCurrentRequest', () => {
         REQUEST_ID,
       ),
     ).resolves.toEqual({
-      applicationId: 'synthetic-application',
+      teamId: 'synthetic-application',
       repositoryId: 'synthetic-repository',
     });
   });

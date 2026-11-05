@@ -79,7 +79,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
     expect(PROGRAM_PURGE_DELETION_ORDER.flatMap((step) => step.covers)).toEqual(
       expect.arrayContaining([
         'logical:Program->OutboxEvent',
-        'logical:Application->OutboxEvent',
+        'logical:Team->OutboxEvent',
       ]),
     );
   });
@@ -127,7 +127,10 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
     expect(position('milestone-document-template-files')).toBeLessThan(
       position('milestone-documents'),
     );
-    expect(position('applications')).toBeLessThan(position('teams'));
+    expect(position('milestone-document-submissions')).toBeLessThan(
+      position('teams'),
+    );
+    expect(position('team-members')).toBeLessThan(position('teams'));
     expect(position('teams')).toBeLessThan(PROGRAM_PURGE_DELETION_ORDER.length);
   });
 });
@@ -203,10 +206,7 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       (step) => step.id === 'github-repositories',
     );
     expect(repository?.operation).toBe('DELETE');
-    expect(repository?.covers).toEqual([
-      'Application->GithubRepository',
-      'Team->GithubRepository',
-    ]);
+    expect(repository?.covers).toEqual(['Team->GithubRepository']);
 
     const deleted = TEAM_PURGE_DELETION_ORDER.filter(
       (step) => step.operation === 'DELETE',
@@ -226,11 +226,13 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     ).toEqual([]);
   });
 
-  it('application → teamInvitation → teamMember → team 순서를 고정한다', () => {
+  it('submission → teamInvitation → teamMember → team 순서를 고정한다', () => {
     const position = (id: string) =>
       TEAM_PURGE_DELETION_ORDER.findIndex((step) => step.id === id);
 
-    expect(position('applications')).toBeLessThan(position('team-invitations'));
+    expect(position('milestone-document-submissions')).toBeLessThan(
+      position('team-invitations'),
+    );
     expect(position('team-invitations')).toBeLessThan(position('team-members'));
     expect(position('team-members')).toBeLessThan(position('teams'));
     expect(position('teams')).toBe(TEAM_PURGE_DELETION_ORDER.length - 1);
@@ -242,11 +244,11 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       position('milestone-document-submissions'),
     );
     expect(position('milestone-document-submissions')).toBeLessThan(
-      position('applications'),
+      position('team-invitations'),
     );
 
     expect(position('github-repositories')).toBeLessThan(
-      position('applications'),
+      position('team-invitations'),
     );
   });
 });
@@ -348,9 +350,9 @@ const OUTBOX_AGGREGATE_TYPE_CLASSIFICATION: Record<
   { readonly programLinked: boolean; readonly shape: string }
 > = {
   PROGRAM: { programLinked: true, shape: 'aggregateId === programId' },
-  Application: {
+  Team: {
     programLinked: true,
-    shape: 'aggregateId === applicationId; payload.programId',
+    shape: 'aggregateId === teamId; payload.programId',
   },
 };
 

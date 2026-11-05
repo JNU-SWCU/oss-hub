@@ -101,9 +101,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
   it('현재 요청 context는 백필된 teamId와 함께 통과한다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
-    const claimed = provisionContext({
-      teamId: 'synthetic-backfilled-team',
-    });
+    const claimed = provisionContext({ teamId: PROVISION_REPOSITORY.teamId });
     state.loadContext.mockResolvedValueOnce(claimed).mockResolvedValueOnce({
       ...claimed,
       repository: PROVISION_REPOSITORY,
@@ -175,7 +173,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
     const jobs = jobRepositoryMock();
     jobs.claimNext.mockResolvedValue({
       id: 'synthetic-job-id',
-      applicationId: 'synthetic-application-id',
+      teamId: 'synthetic-application-id',
       requestId: 'synthetic-request-id',
       repositoryId: null,
       attemptCount: 2,
@@ -323,7 +321,7 @@ describe('RepositoryProvisionWorkerService failure', () => {
     const jobs = jobRepositoryMock();
     jobs.claimNext.mockResolvedValue({
       id: 'synthetic-job-id',
-      applicationId: 'synthetic-application-id',
+      teamId: 'synthetic-application-id',
       requestId: 'synthetic-request-id',
       repositoryId: null,
       attemptCount: 3,

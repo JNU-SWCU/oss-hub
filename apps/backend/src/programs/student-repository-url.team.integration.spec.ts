@@ -12,11 +12,9 @@ import { TeamHistoryRepository } from './team-history.repository';
 import {
   prisma,
   service,
-  audit,
   resolver,
   githubId,
   programId,
-  applicationId,
   teamId,
   oldId,
   targetId,
@@ -60,13 +58,11 @@ async function givenOtherTeam() {
   const other = {
     programId: `${programId}-other`,
     teamId: `${teamId}-other`,
-    applicationId: `${applicationId}-other`,
   };
   await prisma.program.create({
     data: {
       startAt: new Date('2026-01-01'),
-      endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86_400_000),
-
+      endAt: new Date(new Date('2026-01-31').getTime() + 365 * 86400000),
       id: other.programId,
       name: 'Synthetic other program',
       organizer: 'Synthetic',
@@ -84,13 +80,15 @@ async function givenOtherTeam() {
       programId: other.programId,
       name: 'Synthetic other team',
       leaderId: staffId,
+      applicantId: staffId,
+      answers: { title: 'Synthetic other team' },
+      applicationTemplateVersion: 1,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: other.teamId },
     data: {
-      id: other.applicationId,
       programId: other.programId,
-      teamId: other.teamId,
       applicantId: staffId,
       status: ApplicationStatus.APPROVED,
       answers: {},
@@ -103,9 +101,11 @@ async function givenOtherTeam() {
 async function expectCurrentLinkKept() {
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
-  ).toMatchObject({ applicationId });
+  ).toMatchObject({ teamId });
   expect(
-    await prisma.auditLog.count({ where: { targetId: applicationId } }),
+    await prisma.teamHistory.count({
+      where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
+    }),
   ).toBe(0);
 }
 
@@ -124,18 +124,20 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
 
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ applicationId, programId, teamId });
-  expect(
-    await prisma.application.findUnique({ where: { id: applicationId } }),
-  ).toMatchObject({
-    repositoryConnectionMode: RepositoryConnectionMode.OWN,
-    repositoryUrl: input.repositoryUrl,
-  });
+  ).toMatchObject({ teamId });
+  expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
+    {
+      repositoryConnectionMode: RepositoryConnectionMode.OWN,
+      repositoryUrl: input.repositoryUrl,
+    },
+  );
   await expect(
-    prisma.auditLog.findFirstOrThrow({ where: { targetId: applicationId } }),
+    prisma.teamHistory.findFirstOrThrow({
+      where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
+    }),
   ).resolves.toMatchObject({
     actorId: staffId,
-    action: 'APPLICATION_REPOSITORY_URL_CHANGED',
+    event: 'REPOSITORY_URL_CHANGED',
   });
   const history = await new TeamRepository(
     prisma,
@@ -158,7 +160,7 @@ it('lets the current leader use the same team route', async () => {
   await service.updateForTeam(githubId, programId, teamId, input);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ applicationId });
+  ).toMatchObject({ teamId });
 });
 
 it('rejects a repository owned by another application without detaching A', async () => {
@@ -166,8 +168,6 @@ it('rejects a repository owned by another application without detaching A', asyn
   await prisma.githubRepository.update({
     where: { id: targetId },
     data: {
-      applicationId: other.applicationId,
-      programId: other.programId,
       teamId: other.teamId,
     },
   });
@@ -177,14 +177,14 @@ it('rejects a repository owned by another application without detaching A', asyn
   await expectCurrentLinkKept();
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ applicationId: other.applicationId });
+  ).toMatchObject({ teamId: other.teamId });
 });
 
 it('rejects a detached repository carrying another team history without changing it', async () => {
   const other = await givenOtherTeam();
   const carried = await prisma.githubRepository.update({
     where: { id: targetId },
-    data: { programId: other.programId, teamId: other.teamId },
+    data: { teamId: other.teamId },
   });
   await expect(
     service.updateForTeam(staffGithubId, programId, teamId, input),
@@ -195,23 +195,29 @@ it('rejects a detached repository carrying another team history without changing
   ).toEqual(carried);
 });
 
-it('rolls back a staff link when the audit write fails', async () => {
-  jest
-    .spyOn(audit, 'record')
-    .mockRejectedValue(new Error('Synthetic audit outage'));
-  await expect(
-    service.updateForTeam(staffGithubId, programId, teamId, input),
-  ).rejects.toThrow('Synthetic audit outage');
+it('rolls back a staff link when the team history write fails', async () => {
+  await prisma.$executeRawUnsafe(
+    `ALTER TABLE "TeamHistory" ADD CONSTRAINT "todo9_url_history_failure" CHECK (event <> 'REPOSITORY_URL_CHANGED') NOT VALID`,
+  );
+  try {
+    await expect(
+      service.updateForTeam(staffGithubId, programId, teamId, input),
+    ).rejects.toThrow('todo9_url_history_failure');
+  } finally {
+    await prisma.$executeRawUnsafe(
+      'ALTER TABLE "TeamHistory" DROP CONSTRAINT "todo9_url_history_failure"',
+    );
+  }
   await expectCurrentLinkKept();
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ applicationId: null, presence: 'ABSENT', failureCount: 4 });
-  expect(
-    await prisma.application.findUnique({ where: { id: applicationId } }),
-  ).toMatchObject({
-    repositoryConnectionMode: RepositoryConnectionMode.NEW,
-    repositoryUrl: null,
-  });
+  ).toMatchObject({ teamId: null, presence: 'ABSENT', failureCount: 4 });
+  expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
+    {
+      repositoryConnectionMode: RepositoryConnectionMode.NEW,
+      repositoryUrl: null,
+    },
+  );
 });
 
 it('answers a non-leader member with 404 before GitHub', async () => {
@@ -245,21 +251,7 @@ it.each([
     },
   ],
   ['a team of another program', async () => (await givenOtherTeam()).teamId],
-  [
-    'a team without an application',
-    async () => {
-      const lonely = `${teamId}-lonely`;
-      await prisma.team.create({
-        data: {
-          id: lonely,
-          programId,
-          name: 'Synthetic lonely team',
-          leaderId: staffId,
-        },
-      });
-      return lonely;
-    },
-  ],
+  ['a missing team', () => Promise.resolve(`${teamId}-missing`)],
 ])('answers %s with 404 before GitHub', async (_label, arrange) => {
   const target = await arrange();
   resolver.resolve.mockClear();

@@ -47,14 +47,11 @@ it('holds the submission row lock before reading the item review version', async
   try {
     await repository.withTransaction(async (store) => {
       await store.lockDocument(flowIds.document);
-      await store.findSubmissionForReview(
-        flowIds.document,
-        flowIds.application,
-      );
+      await store.findSubmissionForReview(flowIds.document, flowIds.team);
       await expect(contender.$queryRaw`
         SELECT "id" FROM "MilestoneDocumentSubmission"
         WHERE "milestoneDocumentId" = ${flowIds.document}
-          AND "applicationId" = ${flowIds.application}
+          AND "teamId" = ${flowIds.team}
         FOR UPDATE NOWAIT
       `).rejects.toMatchObject({ code: 'P2010', meta: { code: '55P03' } });
     });
@@ -74,10 +71,7 @@ it('returns all requirements in the ordinary document list', async () => {
 it('returns the current submission and latest review through the requirement list', async () => {
   expect((await fixture.submit('checklist content')).status).toBe(201);
   const reviewed = await fixture.request(
-    fixture.documentPath() +
-      '/applications/' +
-      flowIds.application +
-      '/reviews',
+    fixture.documentPath() + '/teams/' + flowIds.team + '/reviews',
     {
       actor: 'staff',
       method: 'POST',
@@ -144,18 +138,14 @@ it('keeps the existing public PK and history when the requirement API replaces a
     await fixture.prisma.milestoneDocumentSubmission.count({
       where: {
         milestoneDocumentId: flowIds.document,
-        applicationId: flowIds.application,
+        teamId: flowIds.team,
       },
     }),
   ).toBe(1);
 });
 it('rejects a stale requirement review after another reviewer decides the same revision', async () => {
   expect((await fixture.submit('initial content')).status).toBe(201);
-  const path =
-    fixture.documentPath() +
-    '/applications/' +
-    flowIds.application +
-    '/reviews';
+  const path = fixture.documentPath() + '/teams/' + flowIds.team + '/reviews';
   expect(
     (
       await fixture.request(path, {
@@ -255,10 +245,7 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
   async (decision) => {
     expect((await fixture.submit('canonical review')).status).toBe(201);
     const reviewed = await fixture.request(
-      fixture.documentPath() +
-        '/applications/' +
-        flowIds.application +
-        '/reviews',
+      fixture.documentPath() + '/teams/' + flowIds.team + '/reviews',
       {
         actor: 'staff',
         method: 'POST',
@@ -382,10 +369,7 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
     const response =
       operation === 'review'
         ? await fixture.request(
-            fixture.documentPath() +
-              '/applications/' +
-              flowIds.application +
-              '/reviews',
+            fixture.documentPath() + '/teams/' + flowIds.team + '/reviews',
             {
               actor: 'staff',
               method: 'POST',
@@ -428,7 +412,7 @@ it('rejects an admitted item submission if the program was deleted before its wr
   await expect(
     writeRepository.upsertSubmission({
       milestoneDocumentId: flowIds.document,
-      applicationId: flowIds.application,
+      teamId: flowIds.team,
       submittedById: flowIds.student,
       submittedAt: new Date(),
       content: { type: 'TEXT', text: 'must not persist' },

@@ -19,7 +19,6 @@ const githubId = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const studentId = `${prefix}-student`;
 const programId = `${prefix}-program`;
 const teamId = `${prefix}-team`;
-const applicationId = `${prefix}-application`;
 const linkedRepositoryId = `${prefix}-linked`;
 const unlinkedRepositoryId = `${prefix}-unlinked`;
 
@@ -37,8 +36,7 @@ it('counts only current linked activity and never substitutes detached or unrela
   await prisma.program.create({
     data: {
       startAt: new Date('2026-07-01Z'),
-      endAt: new Date(new Date('2026-07-31Z').getTime() + 365 * 86_400_000),
-
+      endAt: new Date(new Date('2026-07-31Z').getTime() + 365 * 86400000),
       id: programId,
       name: 'Synthetic program',
       organizer: 'Synthetic',
@@ -56,16 +54,18 @@ it('counts only current linked activity and never substitutes detached or unrela
       programId,
       name: 'Synthetic team',
       leaderId: studentId,
+      applicantId: studentId,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
     data: { teamId, programId, userId: studentId },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
-      teamId,
       applicantId: studentId,
       status: 'APPROVED',
       answers: {},
@@ -79,8 +79,6 @@ it('counts only current linked activity and never substitutes detached or unrela
         githubRepositoryId: githubId + 1n,
         nameWithOwner: 'synthetic/linked',
         source: 'EXTERNAL_PUBLIC',
-        applicationId,
-        programId,
         teamId,
       },
       {
@@ -88,7 +86,6 @@ it('counts only current linked activity and never substitutes detached or unrela
         githubRepositoryId: githubId + 2n,
         nameWithOwner: 'synthetic/unlinked',
         source: 'ORG_PROVISIONED',
-        programId,
         teamId: null,
       },
     ],
@@ -169,7 +166,7 @@ it('counts only current linked activity and never substitutes detached or unrela
   ).toBe(1);
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
-    data: { applicationId: null },
+    data: { teamId: null },
   });
   const detached = await service.activityTimeline(
     { githubId, userId: studentId },
@@ -186,11 +183,11 @@ it('counts only current linked activity and never substitutes detached or unrela
     prisma.githubRepository.findUniqueOrThrow({
       where: { id: linkedRepositoryId },
     }),
-  ).resolves.toMatchObject({ programId, teamId });
+  ).resolves.toMatchObject({ teamId: null });
 
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
-    data: { applicationId },
+    data: { teamId },
   });
   await prisma.collectionCommitFact.deleteMany({
     where: { repositoryId: linkedRepositoryId },

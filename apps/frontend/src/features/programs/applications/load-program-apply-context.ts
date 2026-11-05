@@ -46,9 +46,9 @@ export type ProgramApplyContext =
       readonly teamId: string | null;
       readonly teamMinimum: TeamMinimum | null;
       readonly team: ProgramTeam | null;
-      readonly applicationId: string | null;
 
       readonly rejectionReason: string | null;
+      readonly isRejected: boolean;
       readonly canManage: boolean;
       readonly initialValues: ProgramApplyFormValues;
     };
@@ -83,7 +83,7 @@ export async function loadProgramApplyContext(
         staleTime: 0,
       }),
       queryClient.fetchQuery({
-        queryKey: featureKey('application-templates'),
+        queryKey: featureKey('team-templates'),
         queryFn: listApplicationTemplates,
         staleTime: 0,
       }),
@@ -157,11 +157,12 @@ export async function loadProgramApplyContext(
         teamId: application.teamId,
         teamMinimum: null,
         team: editTeam.team,
-        applicationId: application.id,
+
         rejectionReason:
           application.status === 'REJECTED'
             ? application.rejectionReason
             : null,
+        isRejected: application.status === 'REJECTED',
         canManage: application.canManage,
         initialValues: {
           title: application.answers.title,
@@ -191,8 +192,9 @@ export async function loadProgramApplyContext(
         teamMinSize: program.teamMinSize,
       },
       team: team.team,
-      applicationId: null,
+
       rejectionReason: null,
+      isRejected: false,
 
       canManage: team.team === null ? true : team.team.isLeader,
       initialValues: {

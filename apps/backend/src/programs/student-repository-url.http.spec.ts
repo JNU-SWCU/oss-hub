@@ -77,7 +77,7 @@ beforeEach(() => {
 });
 
 describe.each([
-  ['applications/me/repository-url', updateMine, ['program']],
+  ['teams/me/repository-url', updateMine, ['program']],
   ['teams/team/repository-url', updateForTeam, ['program', 'team']],
 ] as const)('PATCH /programs/program/%s', (path, handler, params) => {
   async function patch(body: object, headers: Record<string, string> = {}) {

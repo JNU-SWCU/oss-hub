@@ -47,7 +47,7 @@ import {
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
   ProgramLifecycle,
-  ApplicationReviewEventKind,
+  TeamHistoryEvent,
 } from '@prisma/client';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
@@ -55,19 +55,12 @@ import {
   ApplicationDuplicateError,
   ApplicationTeamMembershipConflictError,
 } from './applications.error';
-import { AuditLogService } from '../platform/audit-log.service';
-import {
-  APPLICATION_DECISION_AUDIT_ACTIONS,
-  APPLICATION_SUBMITTED_AUDIT_ACTIONS,
-  TEAM_CREATED_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
+import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 import {
   CANCELLABLE_STATUSES,
   RESUBMITTABLE_STATUSES,
 } from './student-application-management.config';
-import { APPLICATION_REPOSITORY_URL_CHANGED } from '../platform/repository-audit-metadata.config';
 import { ConsentsService } from '../users/consents.service';
 import { CollectionTriggerService } from '../github/collection-trigger.service';
 import { GithubOperationsError } from '../github/github-app.error';
@@ -148,14 +141,7 @@ export class ApplicationAnswersService {
       case APPLICATION_DECISION_ACTIONS.APPROVE:
         return { action: APPLICATION_DECISION_ACTIONS.APPROVE };
       case APPLICATION_DECISION_ACTIONS.REJECT: {
-        const reason = input.reason?.trim();
-        if (!reason) {
-          throw new DomainException(
-            APPLICATIONS_ERROR_CODES[
-              ApplicationsErrorCode.REJECTION_REASON_REQUIRED
-            ],
-          );
-        }
+        const reason = input.reason?.trim() || null;
         return { action: APPLICATION_DECISION_ACTIONS.REJECT, reason };
       }
       case APPLICATION_DECISION_ACTIONS.REVERT:
@@ -330,7 +316,7 @@ type ApplicationDecisionPlan = {
       readonly expectedStatus:
         typeof ApplicationStatus.SUBMITTED | typeof ApplicationStatus.APPROVED;
       readonly nextStatus: typeof ApplicationStatus.REJECTED;
-      readonly rejectionReason: string;
+      readonly rejectionReason: string | null;
       readonly processedBy: { readonly id: string; readonly at: Date };
     }
   | {
@@ -354,13 +340,10 @@ function isProvisioningCompleted(
 }
 
 const REVIEW_EVENT_BY_PLAN_KIND = {
-  APPROVE: ApplicationReviewEventKind.APPROVED,
-  REJECT: ApplicationReviewEventKind.REJECTED,
-  REVERT: ApplicationReviewEventKind.REVERTED,
-} as const satisfies Record<
-  ApplicationDecisionPlan['kind'],
-  ApplicationReviewEventKind
->;
+  APPROVE: TeamHistoryEvent.APPROVED,
+  REJECT: TeamHistoryEvent.REJECTED,
+  REVERT: TeamHistoryEvent.REVERTED,
+} as const satisfies Record<ApplicationDecisionPlan['kind'], TeamHistoryEvent>;
 
 interface ApplicationStatusConflictExtensions extends ProblemDetailExtensions {
   readonly latestStatus: ApplicationStatus;
@@ -389,8 +372,6 @@ export class TeamApplicationService {
 
   constructor(
     private readonly repository: ApplicationsRepository,
-    private readonly auditLog: AuditLogService,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly applicationAnswersService: ApplicationAnswersService,
     private readonly repositoryProvisionEventService: RepositoryProvisionEventService,
@@ -508,18 +489,9 @@ export class TeamApplicationService {
           programId,
           student.id,
         );
-        if (existingTeam) {
-          const actorIsCurrentLeader = await store.lockTeamForApply(
-            existingTeam.id,
-            student.id,
-          );
-          if (!actorIsCurrentLeader) {
-            throw this.error(ApplicationsErrorCode.TEAM_LEADER_REQUIRED);
-          }
-        }
-        const acceptedCount = existingTeam
-          ? await store.countTeamMembers(existingTeam.id)
-          : 1;
+        if (existingTeam)
+          throw this.error(ApplicationsErrorCode.DUPLICATE_APPLICATION);
+        const acceptedCount = 1;
         const memberCount = acceptedCount + inviteeIds.length;
         if (memberCount < lockedProgram.teamMinSize) {
           const extensions: TeamMinimumExtensions = {
@@ -555,71 +527,29 @@ export class TeamApplicationService {
             return exhaustive;
           }
         }
-        const applicationTeam =
-          existingTeam ??
-          (await store.createTeamWithLeader({
-            programId,
-            name: teamName,
-            leaderId: student.id,
-          }));
-
-        const application = await store.createApplication({
+        const application = await store.createTeamWithLeader({
           programId,
-          applicantId: student.id,
-          teamId: applicationTeam.id,
+          name: teamName,
+          leaderId: student.id,
           answers: answersResult.answers,
           applicationTemplateVersion: lockedProgram.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-          repositoryConnectionMode: RepositoryConnectionMode.NEW,
-          repositoryUrl: null,
         });
 
         await store.createApplicationInvitations({
-          teamId: applicationTeam.id,
+          teamId: application.id,
           programId,
           actorId: student.id,
           inviteeIds,
         });
         await store.appendReviewHistory({
-          applicationId: application.id,
-          eventKind: ApplicationReviewEventKind.SUBMITTED,
+          teamId: application.id,
+          eventKind: TeamHistoryEvent.SUBMITTED,
           actorId: student.id,
           occurredAt: application.submittedAt,
           rejectionReason: null,
         });
 
-        if (existingTeam === null) {
-          await this.auditLog.record(
-            {
-              actorGithubId: githubId,
-              action: TEAM_CREATED_AUDIT_ACTIONS.TEAM_CREATED,
-              targetType: 'TEAM',
-              targetId: applicationTeam.id,
-              metadata:
-                this.auditLogMetadataService.createTeamCreatedAuditMetadata({
-                  programName: program.name,
-                  teamName: applicationTeam.name,
-                }),
-            },
-            store.auditLogWriter,
-          );
-        }
-        await this.auditLog.record(
-          {
-            actorGithubId: githubId,
-            action: APPLICATION_SUBMITTED_AUDIT_ACTIONS.APPLICATION_SUBMITTED,
-            targetType: 'APPLICATION',
-            targetId: application.id,
-            metadata:
-              this.auditLogMetadataService.createApplicationSubmittedAuditMetadata(
-                {
-                  programName: program.name,
-                  teamName: applicationTeam.name,
-                },
-              ),
-          },
-          store.auditLogWriter,
-        );
         return application;
       });
     } catch (error) {
@@ -700,10 +630,10 @@ export class TeamApplicationService {
     }
   }
 
-  async getForStaff(applicationId: string): Promise<StaffApplicationDetail> {
+  async getForStaff(teamId: string): Promise<StaffApplicationDetail> {
     const [application, reviewHistory] = await Promise.all([
-      this.repository.findApplicationForStaff(applicationId),
-      this.repository.listReviewHistory(applicationId),
+      this.repository.findApplicationForStaff(teamId),
+      this.repository.listReviewHistory(teamId),
     ]);
     if (!application) {
       throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
@@ -724,16 +654,16 @@ export class TeamApplicationService {
 
   async decide(
     actor: { readonly id: string; readonly githubId: bigint },
-    applicationId: string,
+    teamId: string,
     input: ApplicationDecisionCommand,
   ): Promise<ApplicationDecisionResult> {
     const actorId = actor.id;
     const action =
       this.applicationAnswersService.applicationDecisionAction(input);
-    const idempotencyKey = `repository-provision:${applicationId}`;
+    const idempotencyKey = `repository-provision:${teamId}`;
     try {
       return await this.repository.withTransaction(async (store) => {
-        let application = await store.findApplicationById(applicationId);
+        let application = await store.findApplicationById(teamId);
         if (!application) {
           throw new DomainException(
             APPLICATIONS_ERROR_CODES[
@@ -750,7 +680,7 @@ export class TeamApplicationService {
         }
 
         if (application.teamId !== null) {
-          const current = await store.findApplicationById(applicationId);
+          const current = await store.findApplicationById(teamId);
           if (current === null) {
             throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
           }
@@ -789,7 +719,7 @@ export class TeamApplicationService {
         }
 
         const transition: ApplicationTransition = {
-          applicationId,
+          teamId,
           expectedStatus: plan.expectedStatus,
           nextStatus: plan.nextStatus,
           rejectionReason: plan.rejectionReason,
@@ -797,7 +727,7 @@ export class TeamApplicationService {
         };
         const transitioned = await store.transitionApplication(transition);
         if (!transitioned) {
-          const latest = await store.findApplicationById(applicationId);
+          const latest = await store.findApplicationById(teamId);
           if (!latest) {
             throw this.error(ApplicationsErrorCode.APPLICATION_NOT_FOUND);
           }
@@ -812,27 +742,8 @@ export class TeamApplicationService {
           );
         }
 
-        await this.auditLog.record(
-          {
-            actorGithubId: actor.githubId,
-            action: this.auditActionFor(plan.kind),
-            targetType: 'APPLICATION',
-            targetId: applicationId,
-            metadata:
-              this.auditLogMetadataService.createApplicationDecisionAuditMetadata(
-                {
-                  programName: application.programName,
-                  applicantGithubLogin: application.applicantGithubLogin,
-                  before: { status: application.status },
-                  after: { status: plan.nextStatus },
-                },
-              ),
-          },
-          store.auditLogWriter,
-        );
-
         await store.appendReviewHistory({
-          applicationId,
+          teamId: teamId,
           eventKind: REVIEW_EVENT_BY_PLAN_KIND[plan.kind],
           actorId,
           occurredAt: processedAt,
@@ -840,7 +751,7 @@ export class TeamApplicationService {
         });
 
         await store.createApplicationDecisionNotifications({
-          applicationId,
+          teamId,
           programId: application.programId,
           programName: application.programName,
           recipientUserIds: this.notificationRecipientIds(application),
@@ -859,14 +770,14 @@ export class TeamApplicationService {
               !provisioningCompleted
             ) {
               await store.discardRepositoryProvisionRequest(
-                applicationId,
+                teamId,
                 processedAt,
                 this.parseProvisionHistoryPayload,
               );
             }
             return {
               kind: 'REJECTED',
-              applicationId,
+              teamId,
               status: plan.nextStatus,
               rejectionReason: plan.rejectionReason,
             };
@@ -874,14 +785,14 @@ export class TeamApplicationService {
           case 'REVERT': {
             if (!provisioningCompleted) {
               await store.discardRepositoryProvisionRequest(
-                applicationId,
+                teamId,
                 processedAt,
                 this.parseProvisionHistoryPayload,
               );
             }
             return {
               kind: 'REVERTED',
-              applicationId,
+              teamId,
               status: plan.nextStatus,
             };
           }
@@ -889,7 +800,7 @@ export class TeamApplicationService {
             if (!application.repositoryProvisioningEnabled) {
               return {
                 kind: 'APPROVED',
-                applicationId,
+                teamId,
                 status: plan.nextStatus,
                 repositoryProvisioning: {
                   enabled: false,
@@ -904,7 +815,7 @@ export class TeamApplicationService {
                 await store.findRepositoryProvisionEvent(idempotencyKey);
               return {
                 kind: 'APPROVED',
-                applicationId,
+                teamId,
                 status: plan.nextStatus,
                 repositoryProvisioning: {
                   enabled: true,
@@ -915,16 +826,15 @@ export class TeamApplicationService {
             }
 
             await store.discardRepositoryProvisionRequest(
-              applicationId,
+              teamId,
               processedAt,
               this.parseProvisionHistoryPayload,
             );
 
             const event = await store.createRepositoryProvisionEvent(
               {
-                applicationId,
+                teamId,
                 programId: application.programId,
-                teamId: application.teamId,
                 collaboratorGithubLogins:
                   this.collaboratorGithubLogins(application),
                 repositoryConnectionMode: application.repositoryConnectionMode,
@@ -936,7 +846,7 @@ export class TeamApplicationService {
             );
             return {
               kind: 'APPROVED',
-              applicationId,
+              teamId,
               status: plan.nextStatus,
               repositoryProvisioning: {
                 enabled: true,
@@ -988,7 +898,7 @@ export class TeamApplicationService {
     readonly actorId: string;
     readonly processedAt: Date;
     readonly findProvisionJob: (
-      applicationId: string,
+      teamId: string,
     ) => Promise<RepositoryProvisionJobSnapshot | null>;
   }): Promise<ApplicationDecisionPlan> {
     const { application, action, actorId, processedAt } = input;
@@ -1092,23 +1002,6 @@ export class TeamApplicationService {
     }
   }
 
-  private auditActionFor(
-    kind: ApplicationDecisionPlan['kind'],
-  ): (typeof APPLICATION_DECISION_AUDIT_ACTIONS)[keyof typeof APPLICATION_DECISION_AUDIT_ACTIONS] {
-    switch (kind) {
-      case 'APPROVE':
-        return APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_APPROVED;
-      case 'REJECT':
-        return APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_REJECTED;
-      case 'REVERT':
-        return APPLICATION_DECISION_AUDIT_ACTIONS.APPLICATION_REVERTED;
-      default: {
-        const exhaustiveKind: never = kind;
-        return exhaustiveKind;
-      }
-    }
-  }
-
   private error(code: ApplicationsErrorCode): DomainException {
     return new DomainException(APPLICATIONS_ERROR_CODES[code]);
   }
@@ -1118,14 +1011,11 @@ export class TeamApplicationService {
     outbox: ApplicationListOutbox | undefined,
     job: ApplicationListProvisionJob | undefined,
   ): ApplicationListItem {
-    const team =
-      row.team !== null
-        ? {
-            id: row.team.id,
-            name: row.team.name,
-            memberCount: row.team._count.members,
-          }
-        : null;
+    const team = {
+      id: row.id,
+      name: row.name,
+      memberCount: row._count.members,
+    };
     return {
       id: row.id,
       programId: row.programId,
@@ -1486,6 +1376,10 @@ export class StudentApplicationManagementService {
   private throwMutationFailure(
     failure: StudentApplicationMutationFailure,
   ): never {
+    if (failure.kind === 'team-has-activity')
+      throw new DomainException(
+        TEAMS_ERROR_CODES[TeamsErrorCode.TEAM_HAS_ACTIVITY],
+      );
     const code = {
       'program-not-found': ApplicationsErrorCode.PROGRAM_NOT_FOUND,
       'application-not-found': ApplicationsErrorCode.APPLICATION_NOT_FOUND,
@@ -1596,8 +1490,6 @@ export class StudentRepositoryUrlService {
     >,
     @Inject(ConsentsService)
     private readonly consents: Pick<ConsentsService, 'requireCurrent'>,
-    @Inject(AuditLogService)
-    private readonly audit: Pick<AuditLogService, 'record'>,
     @Inject(CollectionTriggerService)
     private readonly collection: Pick<
       CollectionTriggerService,
@@ -1696,28 +1588,31 @@ export class StudentRepositoryUrlService {
               : error;
           });
         const repositoryUrl = `https://github.com/${resolution.repository.nameWithOwner}`;
-        await this.audit.record(
-          {
-            actorGithubId: githubId,
-            action: APPLICATION_REPOSITORY_URL_CHANGED,
-            targetType: 'APPLICATION',
-            targetId: current.id,
-            metadata: {
-              schemaVersion: 2,
-              programId,
-              teamId: current.teamId,
-              programName: current.program.name,
-              actorGithubLogin: current.editor.nickname,
-              before: {
-                repositoryId: current.repository?.id ?? null,
-                repositoryUrl: this.url(current),
+        await store.historyWriter.teamHistory.create({
+          data: {
+            teamId: current.id,
+            programId,
+            actorId: current.editor.id,
+            event: 'REPOSITORY_URL_CHANGED',
+            source: 'APPLICATION',
+            data: {
+              schemaVersion: 1,
+              metadata: {
+                schemaVersion: 2,
+                programId,
+                teamId: current.id,
+                programName: current.program.name,
+                actorGithubLogin: current.editor.nickname,
+                before: {
+                  repositoryId: current.repository?.id ?? null,
+                  repositoryUrl: this.url(current),
+                },
+                after: { repositoryId, repositoryUrl },
+                ...(deletedCounts === null ? {} : { deletedCounts }),
               },
-              after: { repositoryId, repositoryUrl },
-              ...(deletedCounts === null ? {} : { deletedCounts }),
             },
           },
-          store.auditLogWriter,
-        );
+        });
         return {
           view: { repositoryUrl, canEditRepositoryUrl: true },
           relinked: true,
@@ -1786,7 +1681,7 @@ export class StudentRepositoryUrlService {
         {
           status: context.status,
           endAt: context.program.endAt,
-          isManager: context.team.leaderId === studentId,
+          isManager: context.leaderId === studentId,
         },
         new Date(),
       ),

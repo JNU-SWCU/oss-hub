@@ -11,23 +11,21 @@ import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.conf
 export class PlatformRepository {
   collectionTargetWhere() {
     return {
-      applicationId: { not: null },
-      NOT: [
-        { program: { lifecycle: 'DELETED' } },
-        { application: { program: { lifecycle: 'DELETED' } } },
-      ],
+      teamId: { not: null },
+      team: { program: { lifecycle: { not: 'DELETED' } } },
     } satisfies Prisma.GithubRepositoryWhereInput;
   }
 
   programApplicationManagerWhere(userId: string) {
     return {
-      team: { leaderId: userId, members: { some: { userId } } },
+      leaderId: userId,
+      members: { some: { userId } },
     };
   }
 
   programApplicationParticipantWhere(userId: string) {
     return {
-      team: { members: { some: { userId } } },
+      members: { some: { userId } },
     };
   }
 
@@ -37,36 +35,28 @@ export class PlatformRepository {
     };
   }
 
-  repositoryAccessSyncEventData(
-    applicationId: string,
-    teamId: string,
-    now: Date,
-  ) {
+  repositoryAccessSyncEventData(teamId: string, now: Date) {
     const requestedAt = now.toISOString();
     return {
       type: REPOSITORY_ACCESS_SYNC_EVENT_TYPE,
-      aggregateType: 'Application',
-      aggregateId: applicationId,
-      idempotencyKey: `repository-access-sync:${applicationId}:${requestedAt}`,
-      payload: { applicationId, teamId, requestedAt },
+      aggregateType: 'Team',
+      aggregateId: teamId,
+      idempotencyKey: `repository-access-sync:${teamId}:${requestedAt}`,
+      payload: { teamId, requestedAt },
       availableAt: now,
     };
   }
 
   linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
     return {
-      OR: [
-        { source: 'ORG_PROVISIONED' },
-        { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
-      ],
+      teamId: { not: null },
+      OR: [{ source: 'ORG_PROVISIONED' }, { source: 'EXTERNAL_PUBLIC' }],
     };
   }
 
-  repositoryAccessSyncTargetWhere(
-    teamId: string,
-  ): Prisma.ApplicationWhereInput {
+  repositoryAccessSyncTargetWhere(teamId: string): Prisma.TeamWhereInput {
     return {
-      teamId,
+      id: teamId,
       status: ApplicationStatus.APPROVED,
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
       program: { repositoryProvisioningEnabled: true },
@@ -75,14 +65,15 @@ export class PlatformRepository {
 
   async lockSubmissionMembership(
     tx: Prisma.TransactionClient,
-    applicationId: string,
+    teamId: string,
     userId: string,
   ): Promise<boolean> {
-    const coordinates: ApplicationCoordinates | null =
-      await tx.application.findUnique({
-        where: { id: applicationId },
-        select: { programId: true, teamId: true },
-      });
+    const coordinates: ApplicationCoordinates | null = await tx.team.findUnique(
+      {
+        where: { id: teamId },
+        select: { programId: true, id: true },
+      },
+    );
     if (!coordinates) return false;
 
     const lockedPrograms = await tx.$queryRaw<readonly LockedRow[]>(Prisma.sql`
@@ -91,13 +82,13 @@ export class PlatformRepository {
     if (lockedPrograms.length === 0) return false;
 
     const lockedTeams = await tx.$queryRaw<readonly LockedRow[]>(Prisma.sql`
-    SELECT "id" FROM "Team" WHERE "id" = ${coordinates.teamId} FOR UPDATE
+    SELECT "id" FROM "Team" WHERE "id" = ${coordinates.id} FOR UPDATE
   `);
     if (lockedTeams.length === 0) return false;
 
-    const current = await tx.application.findFirst({
+    const current = await tx.team.findFirst({
       where: {
-        id: applicationId,
+        id: teamId,
         ...this.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
@@ -135,7 +126,7 @@ export class PlatformRepository {
 
 type LockedRow = Readonly<{ id: string }>;
 
-type ApplicationCoordinates = Readonly<{ programId: string; teamId: string }>;
+type ApplicationCoordinates = Readonly<{ programId: string; id: string }>;
 
 interface SubmissionReviewEventInput {
   readonly submissionHistoryId: string;

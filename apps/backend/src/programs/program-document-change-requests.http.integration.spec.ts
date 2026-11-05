@@ -15,21 +15,17 @@ const fixture = new MilestoneDocumentFlowFixture();
 const extra = {
   student: 'qa1562-bulk-student-b',
   team: 'qa1562-bulk-team-b',
-  application: 'qa1562-bulk-application-b',
   submission: 'qa1562-bulk-submission-b',
 } as const;
 const changeRequestsPath = `programs/${flowIds.program}/documents/change-requests`;
 const dueAt = '2099-06-30T14:59:59.000Z';
 
 async function clearExtra(): Promise<void> {
-  const where = { applicationId: extra.application };
+  const where = { teamId: extra.team };
   await fixture.prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { submission: where },
   });
   await fixture.prisma.milestoneDocumentSubmission.deleteMany({ where });
-  await fixture.prisma.application.deleteMany({
-    where: { id: extra.application },
-  });
   await fixture.prisma.teamMember.deleteMany({ where: { teamId: extra.team } });
   await fixture.prisma.team.deleteMany({ where: { id: extra.team } });
   await fixture.prisma.user.deleteMany({ where: { id: extra.student } });
@@ -50,13 +46,15 @@ async function seedSecondTeam(): Promise<void> {
       name: '합성 팀 나',
       leaderId: extra.student,
       members: { create: { userId: extra.student } },
+      applicantId: extra.student,
+      answers: { title: '합성 팀 나' },
+      applicationTemplateVersion: 1,
     },
   });
-  await fixture.prisma.application.create({
+  await fixture.prisma.team.update({
+    where: { id: extra.team },
     data: {
-      id: extra.application,
       programId: flowIds.program,
-      teamId: extra.team,
       applicantId: extra.student,
       status: 'APPROVED',
       answers: { synthetic: true },
@@ -67,7 +65,7 @@ async function seedSecondTeam(): Promise<void> {
     data: {
       id: extra.submission,
       milestoneDocumentId: flowIds.document,
-      applicationId: extra.application,
+      teamId: extra.team,
       content: { type: 'TEXT', text: '팀 나 제출' },
       submittedById: extra.student,
       histories: {
@@ -82,13 +80,13 @@ async function seedSecondTeam(): Promise<void> {
   });
 }
 
-function statusOf(applicationId: string) {
+function statusOf(teamId: string) {
   return fixture.prisma.milestoneDocumentSubmission
     .findUniqueOrThrow({
       where: {
-        milestoneDocumentId_applicationId: {
+        milestoneDocumentId_teamId: {
           milestoneDocumentId: flowIds.document,
-          applicationId,
+          teamId,
         },
       },
       select: { status: true },
@@ -147,7 +145,7 @@ async function previewVersion(query = 'scope=PROGRAM'): Promise<string> {
 
 async function approveSecondTeam(): Promise<void> {
   const response = await fixture.request(
-    `${fixture.documentPath()}/applications/${extra.application}/reviews`,
+    `${fixture.documentPath()}/teams/${extra.team}/reviews`,
     {
       actor: 'staff',
       method: 'POST',
@@ -195,8 +193,8 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
   });
 
   it('승인된 신청이 없는 팀은 거절하지 않고 0건으로 센다', async () => {
-    await fixture.prisma.application.update({
-      where: { id: extra.application },
+    await fixture.prisma.team.update({
+      where: { id: extra.team },
       data: { status: 'SUBMITTED' },
     });
 
@@ -223,16 +221,14 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
     expect(response.status).toBe(201);
     expect(await response.json()).toEqual({ requestedCount: 1 });
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
-    await expect(statusOf(extra.application)).resolves.toBe(
-      SubmissionStatus.APPROVED,
-    );
+    await expect(statusOf(extra.team)).resolves.toBe(SubmissionStatus.APPROVED);
     const review =
       await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
         where: {
-          submission: { applicationId: flowIds.application },
+          submission: { teamId: flowIds.team },
           event: ReviewDecision.CHANGES_REQUESTED,
         },
         select: { event: true, comment: true },
@@ -243,7 +239,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     });
     await expect(
       fixture.prisma.milestoneDocumentSubmissionHistory.count({
-        where: { submission: { applicationId: flowIds.application } },
+        where: { submission: { teamId: flowIds.team } },
       }),
     ).resolves.toBe(2);
     await expect(
@@ -262,7 +258,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     });
 
     expect(response.status).toBe(201);
-    await expect(statusOf(extra.application)).resolves.toBe(
+    await expect(statusOf(extra.team)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
   });
@@ -275,10 +271,10 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     });
 
     expect(response.status).toBe(201);
-    await expect(statusOf(extra.application)).resolves.toBe(
+    await expect(statusOf(extra.team)).resolves.toBe(
       SubmissionStatus.CHANGES_REQUESTED,
     );
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
     );
   });
@@ -293,12 +289,10 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(await response.json()).toMatchObject({
       code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
     });
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
     );
-    await expect(statusOf(extra.application)).resolves.toBe(
-      SubmissionStatus.APPROVED,
-    );
+    await expect(statusOf(extra.team)).resolves.toBe(SubmissionStatus.APPROVED);
     await expect(
       fixture.prisma.milestoneDocumentSubmissionHistory.count({
         where: {
@@ -333,8 +327,8 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
     const sending = sendChangeRequest({ expectedVersion: previewed });
     await waitForDocumentLockWaiter();
-    await fixture.prisma.application.update({
-      where: { id: extra.application },
+    await fixture.prisma.team.update({
+      where: { id: extra.team },
       data: { status: 'REJECTED', rejectionReason: '합성 반려' },
     });
     release();
@@ -377,7 +371,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(await send.json()).toMatchObject({
       code: MilestoneDocumentsErrorCode.STAFF_ONLY,
     });
-    await expect(statusOf(flowIds.application)).resolves.toBe(
+    await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
     );
   });
@@ -396,19 +390,19 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(response.status).toBe(200);
     const body = (await response.json()) as {
       readonly rows: readonly {
-        readonly applicationId: string;
+        readonly teamId: string;
         readonly cells: readonly { readonly changesRequestedCount: number }[];
       }[];
     };
     expect(
       body.rows.map((row) => [
-        row.applicationId,
+        row.teamId,
         row.cells.map((cell) => cell.changesRequestedCount),
       ]),
     ).toEqual(
       expect.arrayContaining([
-        [flowIds.application, [1]],
-        [extra.application, [1]],
+        [flowIds.team, [1]],
+        [extra.team, [1]],
       ]),
     );
   });

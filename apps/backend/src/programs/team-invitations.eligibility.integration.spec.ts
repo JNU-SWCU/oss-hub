@@ -201,6 +201,9 @@ async function seedEligibilityFixture(): Promise<void> {
       programId: PROGRAM_ID,
       name: 'Eligibility team',
       leaderId: LEADER_ID,
+      applicantId: LEADER_ID,
+      answers: {},
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({

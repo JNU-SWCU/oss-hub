@@ -24,7 +24,7 @@ export class RepositoryProvisionGithubService {
   constructor(private readonly repositoryUrlService: RepositoryUrlService) {}
 
   buildRepositoryNames(input: RepositoryNameInput): RepositoryNameCandidates {
-    const applicationSuffix = stableIdPrefix(input.applicationId);
+    const applicationSuffix = stableIdPrefix(input.teamId);
     const programSlug = stableSlug(
       'program',
       input.programName,
@@ -33,7 +33,7 @@ export class RepositoryProvisionGithubService {
     const subjectSlug = stableSlug(
       input.subjectName === null ? 'application' : 'team',
       input.subjectName ?? '',
-      input.applicationId,
+      input.teamId,
     );
     const preferred = truncateSlug(`${programSlug}-${subjectSlug}`);
     const suffix = `-${applicationSuffix}`;
@@ -44,9 +44,9 @@ export class RepositoryProvisionGithubService {
     return { preferred, collisionFallback };
   }
 
-  buildRepositoryOwnershipMarker(applicationId: string): string {
+  buildRepositoryOwnershipMarker(teamId: string): string {
     return `${REPOSITORY_OWNERSHIP_MARKER_PREFIX}${createHash('sha256')
-      .update(applicationId, 'utf8')
+      .update(teamId, 'utf8')
       .digest('hex')}`;
   }
 
@@ -244,7 +244,7 @@ export interface RepositoryNameInput {
   readonly programName: string;
   readonly programId: string;
   readonly subjectName: string | null;
-  readonly applicationId: string;
+  readonly teamId: string;
 }
 
 export interface RepositoryNameCandidates {

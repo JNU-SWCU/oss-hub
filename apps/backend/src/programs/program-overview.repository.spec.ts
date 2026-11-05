@@ -101,16 +101,16 @@ describe('ProgramOverviewRepository', () => {
       ];
       const applicationFindMany = jest.fn().mockResolvedValue(applications);
       const submissionGroupBy = jest.fn().mockResolvedValue([
-        { milestoneDocumentId: 'doc-1', applicationId: 'app-team-a' },
-        { milestoneDocumentId: 'doc-2', applicationId: 'app-team-a' },
-        { milestoneDocumentId: 'doc-4', applicationId: 'app-team-a' },
-        { milestoneDocumentId: 'doc-5', applicationId: 'app-team-a' },
+        { milestoneDocumentId: 'doc-1', teamId: 'app-team-a' },
+        { milestoneDocumentId: 'doc-2', teamId: 'app-team-a' },
+        { milestoneDocumentId: 'doc-4', teamId: 'app-team-a' },
+        { milestoneDocumentId: 'doc-5', teamId: 'app-team-a' },
 
-        { milestoneDocumentId: 'doc-1', applicationId: 'app-team-b' },
-        { milestoneDocumentId: 'doc-2', applicationId: 'app-team-b' },
+        { milestoneDocumentId: 'doc-1', teamId: 'app-team-b' },
+        { milestoneDocumentId: 'doc-2', teamId: 'app-team-b' },
       ]);
       const prisma = {
-        application: { findMany: applicationFindMany },
+        team: { findMany: applicationFindMany },
         milestoneDocumentSubmission: { groupBy: submissionGroupBy },
         teamMember: { groupBy: jest.fn().mockResolvedValue([]) },
       };
@@ -136,9 +136,9 @@ describe('ProgramOverviewRepository', () => {
       expect(applicationFindMany).toHaveBeenCalledTimes(2);
       expect(submissionGroupBy).toHaveBeenCalledTimes(1);
       expect(submissionGroupBy).toHaveBeenCalledWith({
-        by: ['milestoneDocumentId', 'applicationId'],
+        by: ['milestoneDocumentId', 'teamId'],
         where: {
-          applicationId: { in: ['app-team-a', 'app-team-b'] },
+          teamId: { in: ['app-team-a', 'app-team-b'] },
           milestoneDocumentId: {
             in: expect.arrayContaining<string>([
               'doc-1',
@@ -163,7 +163,7 @@ describe('ProgramOverviewRepository', () => {
       ]);
       const submissionGroupBy = jest.fn();
       const prisma = {
-        application: { findMany: applicationFindMany },
+        team: { findMany: applicationFindMany },
         milestoneDocumentSubmission: { groupBy: submissionGroupBy },
         teamMember: { groupBy: jest.fn().mockResolvedValue([]) },
       };
@@ -204,7 +204,7 @@ describe('ProgramOverviewRepository', () => {
       expect(submissionGroupBy).toHaveBeenCalledWith({
         by: ['milestoneDocumentId'],
         where: {
-          applicationId: 'app-1',
+          teamId: 'app-1',
           milestoneDocumentId: { in: ['doc-1', 'doc-2', 'doc-3'] },
         },
       });

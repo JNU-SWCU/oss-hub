@@ -425,7 +425,7 @@ export class DeadlineDigestService {
     const recipients = new Map<string, RecipientAccumulator>();
     const eligibleApplicationIds: string[] = [];
 
-    for (const application of source.applications) {
+    for (const application of source.teams) {
       const submitted = new Set(application.submittedDocumentIds);
       const missingMilestones = milestones.flatMap((milestone) => {
         const missingDocumentIds = milestone.missingDocumentIds.filter(
@@ -517,7 +517,7 @@ export class DeadlineDigestService {
       programId: source.id,
       enabled: source.notifyOnDeadline,
       milestones: milestones.map(canonicalMilestone),
-      applicationIds: eligibleApplicationIds.sort(),
+      teamIds: eligibleApplicationIds.sort(),
       candidates: orderedCandidates.map((candidate) => ({
         id: candidate.source.id,
         accountStatus: candidate.source.accountStatus,

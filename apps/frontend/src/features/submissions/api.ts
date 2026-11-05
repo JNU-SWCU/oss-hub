@@ -66,7 +66,7 @@ export function getSubmissionMatrix(
 }
 
 export function uploadSubmissionFile(
-  applicationId: string,
+  teamId: string,
   milestoneId: string,
   file: File,
   context?: {
@@ -75,7 +75,7 @@ export function uploadSubmissionFile(
   },
 ): Promise<UploadedSubmissionFile> {
   const body = new FormData();
-  body.append('applicationId', applicationId);
+  body.append('teamId', teamId);
   body.append('milestoneId', milestoneId);
   if (context) {
     body.append('submissionId', context.submissionId);
@@ -96,7 +96,7 @@ export async function checkSubmissionFile(file: File): Promise<void> {
 }
 
 export function createSubmission(input: {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly milestoneId: string;
   readonly content: CreateSubmissionContent;
   readonly comment: string;

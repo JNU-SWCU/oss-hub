@@ -8,7 +8,6 @@ const studentRepositoryUrlService = new StudentRepositoryUrlService(
   {} as never,
   {} as never,
   {} as never,
-  {} as never,
 );
 
 describe('program-participant', () => {

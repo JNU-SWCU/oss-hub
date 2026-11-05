@@ -682,10 +682,7 @@ async function isActiveStaffActor(
   );
 }
 
-type AccessSyncTx = Pick<
-  Prisma.TransactionClient,
-  'application' | 'outboxEvent'
->;
+type AccessSyncTx = Pick<Prisma.TransactionClient, 'team' | 'outboxEvent'>;
 
 async function enqueueRepositoryAccessSyncEvents(
   platformRepository: PlatformRepository,
@@ -693,18 +690,14 @@ async function enqueueRepositoryAccessSyncEvents(
   teamId: string,
   now: Date,
 ): Promise<void> {
-  const applications = await tx.application.findMany({
+  const applications = await tx.team.findMany({
     where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      platformRepository.repositoryAccessSyncEventData(
-        application.id,
-        teamId,
-        now,
-      ),
+      platformRepository.repositoryAccessSyncEventData(application.id, now),
     ),
     skipDuplicates: true,
   });

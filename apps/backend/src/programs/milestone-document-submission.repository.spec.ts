@@ -176,7 +176,7 @@ function textInput(
 ): UpsertMilestoneDocumentSubmissionInput {
   return {
     milestoneDocumentId: DOCUMENT_ID,
-    applicationId: APPLICATION_ID,
+    teamId: APPLICATION_ID,
     submittedById: CURRENT_MEMBER_ID,
     submittedAt: NOW,
     expectedLatestReviewId: null,
@@ -219,7 +219,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
 
     expect(rejection).toBeInstanceOf(SubmissionMembershipChangedError);
     expect(rejection).toMatchObject({
-      applicationId: APPLICATION_ID,
+      teamId: APPLICATION_ID,
       userId: DEPARTED_MEMBER_ID,
     });
     expect(harness.upsert).not.toHaveBeenCalled();

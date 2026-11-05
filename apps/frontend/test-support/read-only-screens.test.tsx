@@ -113,7 +113,7 @@ const project: ProjectDetail = {
 };
 const activity = [
   {
-    applicationId: 'application-1',
+    teamId: 'application-1',
     label: 'query-team',
     commitCount: 1,
     pullRequestCount: 0,

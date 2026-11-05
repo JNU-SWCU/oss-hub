@@ -16,7 +16,7 @@ export type RepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
 export type MyRepositoryResponseItem = {
   readonly repositoryId: string | null;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly applicationMode: RepositoryApplicationMode;
   readonly connectionMode: RepositoryConnectionMode;
   readonly programName: string;

@@ -324,7 +324,7 @@ export class ProgramEditorRepository {
     if (input.liveFileExpiresAt !== null) {
       await transaction.submissionFile.updateMany({
         where: {
-          application: { programId: input.programId },
+          team: { programId: input.programId },
           lifecycle: {
             in: [
               SubmissionFileLifecycle.PENDING,
@@ -763,7 +763,7 @@ export class ProgramEditorRepository {
 }
 const editableProgramInclude = {
   cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
-  _count: { select: { applications: true, teams: true, boardPosts: true } },
+  _count: { select: { teams: true, boardPosts: true } },
   milestones: { orderBy: [{ dueAt: 'asc' }, { createdAt: 'asc' }] },
 } satisfies PrismaTypes.ProgramInclude;
 function toEditableProgramView(
@@ -787,7 +787,7 @@ function toEditableProgramView(
     lifecycle: program.lifecycle,
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,
-    applicationCount: program._count.applications,
+    applicationCount: program._count.teams,
     teamCount: program._count.teams,
     deletionScopeCounts,
     applicationStartAt: program.applicationStartAt,

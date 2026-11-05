@@ -9,10 +9,7 @@ const PURGE_RELATIONS = [
   {
     id: 'program-outbox-events',
     operation: 'DELETE',
-    covers: [
-      'logical:Program->OutboxEvent',
-      'logical:Application->OutboxEvent',
-    ],
+    covers: ['logical:Program->OutboxEvent', 'logical:Team->OutboxEvent'],
   },
   {
     id: 'program-notifications',
@@ -37,18 +34,14 @@ const PURGE_RELATIONS = [
   {
     id: 'github-repositories',
     operation: 'DELETE',
-    covers: [
-      'Program->GithubRepository',
-      'Application->GithubRepository',
-      'Team->GithubRepository',
-    ],
+    covers: ['Team->GithubRepository'],
   },
   {
     id: 'repository-provision-jobs',
     operation: 'DELETE',
 
     covers: [
-      'Application->RepositoryProvisionJob',
+      'Team->RepositoryProvisionJob',
       'GithubRepository->RepositoryProvisionJob',
     ],
   },
@@ -73,7 +66,7 @@ const PURGE_RELATIONS = [
     covers: [
       'Milestone->SubmissionFile',
       'MilestoneDocument->SubmissionFile',
-      'Application->SubmissionFile',
+      'Team->SubmissionFile',
       'MilestoneDocumentSubmission->SubmissionFile',
       'MilestoneDocumentSubmissionHistory->SubmissionFile',
     ],
@@ -98,7 +91,7 @@ const PURGE_RELATIONS = [
     operation: 'DELETE',
     covers: [
       'MilestoneDocument->MilestoneDocumentSubmission',
-      'Application->MilestoneDocumentSubmission',
+      'Team->MilestoneDocumentSubmission',
     ],
   },
   {
@@ -110,17 +103,6 @@ const PURGE_RELATIONS = [
     id: 'milestone-documents',
     operation: 'DELETE',
     covers: ['Milestone->MilestoneDocument'],
-  },
-  {
-    id: 'application-review-histories',
-    operation: 'DELETE',
-
-    covers: ['Application->ApplicationReviewHistory'],
-  },
-  {
-    id: 'applications',
-    operation: 'DELETE',
-    covers: ['Program->Application', 'Team->Application'],
   },
   {
     id: 'team-invitations',
@@ -164,7 +146,6 @@ export const PROGRAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =
 
 const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([
   'Team',
-  'Application',
   'GithubRepository',
   'MilestoneDocumentSubmission',
   'MilestoneDocumentSubmissionHistory',
@@ -173,11 +154,11 @@ const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([
 const TEAM_ROW_RELATION = 'Program->Team';
 
 const TEAM_SCOPED_LOGICAL_COVERS: Readonly<Record<string, string>> = {
-  'logical:Application->OutboxEvent': 'logical:Application->OutboxEvent',
+  'logical:Team->OutboxEvent': 'logical:Team->OutboxEvent',
   'logical:Program->Notification[APPLICATION_DECISION,payload.programId]':
-    'logical:Application->Notification[APPLICATION_DECISION,payload.applicationId]',
+    'logical:Team->Notification[APPLICATION_DECISION,payload.teamId]',
   'logical:Program->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]':
-    'logical:Application->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]',
+    'logical:Team->Notification[APPLICATION_DECISION_ACKNOWLEDGED,idempotencyKey]',
 };
 
 function narrowCoverToTeam(relation: string): string | null {

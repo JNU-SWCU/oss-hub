@@ -87,8 +87,8 @@ async function getJson(path: string): Promise<{
   };
 }
 
-describe('GET programs/:programId/applications/me', () => {
-  const path = 'programs/program-1/applications/me';
+describe('GET programs/:programId/teams/me', () => {
+  const path = 'programs/program-1/teams/me';
 
   it('신청이 없으면 빈 본문 대신 NONE 상태 JSON을 보낸다', async () => {
     getMine.mockResolvedValueOnce(null);

@@ -12,7 +12,7 @@ describe('program-activity-summary.repository', () => {
       const findMany = jest
         .fn()
         .mockResolvedValue([
-          { programId: 'program-archived', githubRepositoryId: 101n },
+          { team: { programId: 'program-archived' }, githubRepositoryId: 101n },
         ]);
       const prisma = {
         githubRepository: { findMany },
@@ -24,10 +24,12 @@ describe('program-activity-summary.repository', () => {
 
       expect(findMany).toHaveBeenCalledWith({
         where: {
-          programId: { in: ['program-archived'] },
-          applicationId: { not: null },
+          team: { programId: { in: ['program-archived'] } },
         },
-        select: { programId: true, githubRepositoryId: true },
+        select: {
+          team: { select: { programId: true } },
+          githubRepositoryId: true,
+        },
       });
       expect(result).toEqual([
         {
@@ -94,10 +96,8 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
       expect.objectContaining({
         where: {
           githubRepositoryId: { in: [101n] },
-          OR: [
-            { source: 'ORG_PROVISIONED' },
-            { source: 'EXTERNAL_PUBLIC', applicationId: { not: null } },
-          ],
+          teamId: { not: null },
+          OR: [{ source: 'ORG_PROVISIONED' }, { source: 'EXTERNAL_PUBLIC' }],
         },
         select: expect.objectContaining({
           commits: { where: authorWhere, select: { committedAt: true } },

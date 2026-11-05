@@ -10,4 +10,5 @@ export const RESUBMITTABLE_STATUSES: readonly ApplicationStatus[] = [
 
 export const CANCELLABLE_STATUSES: readonly ApplicationStatus[] = [
   ApplicationStatus.SUBMITTED,
+  ApplicationStatus.REJECTED,
 ];

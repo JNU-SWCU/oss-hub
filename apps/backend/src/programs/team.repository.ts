@@ -1,7 +1,7 @@
-import { Injectable, Inject } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
+import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import {
-  Prisma,
-  type Prisma as PrismaTypes,
   AccountStatus,
   ApplicationStatus,
   OutboxEventStatus,
@@ -13,13 +13,10 @@ import {
   ProgramLifecycle,
   type ProgramCategory,
   type OutboxEvent as PrismaOutboxEvent,
-  ApplicationReviewEventKind,
+  TeamHistoryEvent,
   type ProgramTrackType,
-  SubmissionFileLifecycle,
-  CollectionRepositoryPresence,
 } from '@prisma/client';
-import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
-import { type AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
+import type { AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
 import { PrismaService } from '../platform/prisma.service';
 import {
   RepositoryProvisionGenerationRepository,
@@ -28,17 +25,14 @@ import {
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
-  USER_AUTHORITY_SELECT,
 } from '../platform/user-profile-read.config';
 import {
   type AppendReviewHistoryInput,
   type AppendedReviewHistory,
-  ReviewHistoryWriterRepository,
   TeamHistoryRepository,
 } from './team-history.repository';
 import {
   RepositoryEventAlreadyExistsError,
-  ApplicationDuplicateError,
   ApplicationTeamMembershipConflictError,
 } from './applications.error';
 import {
@@ -47,11 +41,13 @@ import {
   APPLICATION_LIST_VIEWS,
 } from './applications.config';
 import { PlatformRepository } from '../platform/platform.repository';
+import { Inject } from '@nestjs/common';
 import {
   STUDENT_APPLICATION_MANAGEMENT_CLOCK,
   RESUBMITTABLE_STATUSES,
   CANCELLABLE_STATUSES,
 } from './student-application-management.config';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
   ProgramTeamRepositoryEvidenceRepository,
   type TeamActivityScope,
@@ -62,14 +58,16 @@ import {
   type TeamActivityRow,
 } from './program-team-repository-evidence.repository';
 import { type SubmissionCompletionTargetRow } from './submission-completion.config';
+import { SubmissionFileLifecycle } from '@prisma/client';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
-import { type OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
+import { CollectionRepositoryPresence } from '@prisma/client';
+import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
-import { type RepositoryDeletionCounts } from '../platform/repository-audit-metadata.config';
+import type { RepositoryDeletionCounts } from '../platform/repository-audit-metadata.config';
 
 type DeletionScopeCountsRow = Readonly<{
-  applications: bigint;
+  teams: bigint;
   members: bigint;
   invitations: bigint;
   submissions: bigint;
@@ -95,7 +93,7 @@ export class TeamDeletionScopeRepository {
     right: Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>,
   ): boolean {
     return (
-      left.applications === right.applications &&
+      left.teams === right.teams &&
       left.members === right.members &&
       left.invitations === right.invitations &&
       left.submissions === right.submissions &&
@@ -112,13 +110,13 @@ export class TeamDeletionScopeRepository {
       readonly DeletionScopeCountsRow[]
     >(
       Prisma.sql`
-      WITH team_application AS (
-        SELECT id FROM "Application" WHERE "teamId" = ${teamId}
+      WITH team_record AS (
+        SELECT id FROM "Team" WHERE "id" = ${teamId}
       ),
       team_submission AS (
         SELECT document_submission.id
         FROM "MilestoneDocumentSubmission" AS document_submission
-        WHERE document_submission."applicationId" IN (SELECT id FROM team_application)
+        WHERE document_submission."teamId" IN (SELECT id FROM team_record)
       ),
       team_submission_history AS (
         SELECT history.id
@@ -128,36 +126,33 @@ export class TeamDeletionScopeRepository {
       team_submission_file AS (
         SELECT file.id
         FROM "SubmissionFile" AS file
-        WHERE file."applicationId" IN (SELECT id FROM team_application)
+        WHERE file."teamId" IN (SELECT id FROM team_record)
           OR file."milestoneDocumentSubmissionId" IN (SELECT id FROM team_submission)
           OR file."milestoneDocumentSubmissionHistoryId" IN (SELECT id FROM team_submission_history)
       ),
       team_repository AS (
         SELECT
           repository.id,
-          repository."programId",
-          repository."applicationId",
           repository."teamId"
         FROM "GithubRepository" AS repository
         WHERE repository."teamId" = ${teamId}
-          OR repository."applicationId" IN (SELECT id FROM team_application)
       ),
       team_provision_job AS (
         SELECT job.id
         FROM "RepositoryProvisionJob" AS job
-        WHERE job."applicationId" IN (SELECT id FROM team_application)
+        WHERE job."teamId" IN (SELECT id FROM team_record)
       ),
       team_outbox_event AS (
         SELECT event.id
         FROM "OutboxEvent" AS event
-        WHERE event."aggregateType" = 'Application'
-          AND event."aggregateId" IN (SELECT id FROM team_application)
+        WHERE event."aggregateType" = 'Team'
+          AND event."aggregateId" IN (SELECT id FROM team_record)
       ),
       team_decision_notification AS (
         SELECT notification.id
         FROM "Notification" AS notification
         WHERE notification.type = 'APPLICATION_DECISION'
-          AND notification.payload->>'applicationId' IN (SELECT id FROM team_application)
+          AND notification.payload->>'teamId' IN (SELECT id FROM team_record)
       ),
       team_notification AS (
         SELECT id FROM team_decision_notification
@@ -171,7 +166,7 @@ export class TeamDeletionScopeRepository {
           )
       )
       SELECT
-        (SELECT count(*) FROM team_application) AS applications,
+        (SELECT count(*) FROM team_record) AS teams,
         (SELECT count(*) FROM "TeamMember" WHERE "teamId" = ${teamId}) AS members,
         (SELECT count(*) FROM "TeamInvitation" WHERE "teamId" = ${teamId}) AS invitations,
         (SELECT count(*) FROM team_submission) AS submissions,
@@ -183,7 +178,7 @@ export class TeamDeletionScopeRepository {
         (
           SELECT MD5(COALESCE(STRING_AGG(scope."key", '|' ORDER BY scope."key"), ''))
           FROM (
-            SELECT CONCAT('Application:', id) AS "key" FROM team_application
+            SELECT CONCAT('Team:', id) AS "key" FROM team_record
             UNION ALL
             SELECT CONCAT('TeamMember:', JSONB_BUILD_ARRAY("teamId", "userId")::text) FROM "TeamMember" WHERE "teamId" = ${teamId}
             UNION ALL
@@ -199,8 +194,6 @@ export class TeamDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT(
               'GithubRepository:', repository.id, ':',
-              COALESCE(repository."programId", ''), ':',
-              COALESCE(repository."applicationId", ''), ':',
               COALESCE(repository."teamId", '')
             )
             FROM team_repository AS repository
@@ -215,7 +208,7 @@ export class TeamDeletionScopeRepository {
     if (!row)
       throw new Error('Team deletion scope count query returned no result.');
     return {
-      applications: Number(row.applications),
+      teams: Number(row.teams),
       members: Number(row.members),
       invitations: Number(row.invitations),
       submissions: Number(row.submissions),
@@ -230,7 +223,7 @@ export type ApplicationDecisionAction =
   | { readonly action: typeof APPLICATION_DECISION_ACTIONS.APPROVE }
   | {
       readonly action: typeof APPLICATION_DECISION_ACTIONS.REJECT;
-      readonly reason: string;
+      readonly reason: string | null;
     }
   | { readonly action: typeof APPLICATION_DECISION_ACTIONS.REVERT };
 
@@ -256,7 +249,7 @@ export interface ApplicationDecisionTarget {
 }
 
 export interface ApplicationDecisionNotificationInput {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
   readonly programName: string;
   readonly recipientUserIds: readonly string[];
@@ -266,7 +259,7 @@ export interface ApplicationDecisionNotificationInput {
 }
 
 export interface ApplicationTransition {
-  readonly applicationId: string;
+  readonly teamId: string;
 
   readonly expectedStatus: ApplicationStatus;
   readonly nextStatus: ApplicationStatus;
@@ -276,9 +269,8 @@ export interface ApplicationTransition {
 }
 
 interface RepositoryProvisionEventInput {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
-  readonly teamId: string | null;
   readonly collaboratorGithubLogins: readonly string[];
   readonly repositoryConnectionMode: RepositoryConnectionMode;
   readonly repositoryUrl: string | null;
@@ -298,7 +290,7 @@ export interface RepositoryProvisionJobSnapshot {
 export type ApplicationDecisionResult =
   | {
       readonly kind: 'APPROVED';
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly status: ApplicationStatus;
       readonly repositoryProvisioning: {
         readonly enabled: boolean;
@@ -308,13 +300,13 @@ export type ApplicationDecisionResult =
     }
   | {
       readonly kind: 'REJECTED';
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly status: ApplicationStatus;
-      readonly rejectionReason: string;
+      readonly rejectionReason: string | null;
     }
   | {
       readonly kind: 'REVERTED';
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly status: ApplicationStatus;
     };
 
@@ -421,7 +413,6 @@ export type ApplicationListRow = {
   readonly submittedAt: Date;
   readonly updatedAt: Date;
   readonly rejectionReason: string | null;
-  readonly teamId: string | null;
   readonly answers: Prisma.JsonValue;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
@@ -439,11 +430,8 @@ export type ApplicationListRow = {
     readonly nickname: string;
     readonly name: string | null;
   };
-  readonly team: {
-    readonly id: string;
-    readonly name: string;
-    readonly _count: { readonly members: number };
-  } | null;
+  readonly name: string;
+  readonly _count: { readonly members: number };
 };
 
 export type ApplicationListOutbox = {
@@ -516,8 +504,8 @@ export interface TeamManagementListPage {
 
 export interface ApplicationReviewHistoryEntry {
   readonly id: string;
-  readonly eventKind: ApplicationReviewEventKind;
-  readonly revision: number;
+  readonly eventKind: TeamHistoryEvent;
+  readonly revision: number | null;
   readonly actor: {
     readonly name: string | null;
     readonly nickname: string;
@@ -560,20 +548,14 @@ export interface StaffDashboardSummary {
   readonly programs: readonly StaffDashboardProgramSummary[];
 }
 
-type ApplicationWithProgram = PrismaTypes.ApplicationGetPayload<{
+type ApplicationWithProgram = PrismaTypes.TeamGetPayload<{
   include: {
     program: {
       select: { repositoryProvisioningEnabled: true; name: true };
     };
     applicant: { select: { id: true; nickname: true } };
-    team: {
-      select: {
-        leader: { select: { id: true; nickname: true } };
-        members: {
-          select: { user: { select: { id: true; nickname: true } } };
-        };
-      };
-    };
+    leader: { select: { id: true; nickname: true } };
+    members: { select: { user: { select: { id: true; nickname: true } } } };
   };
 }>;
 
@@ -584,8 +566,7 @@ type ApplicationDatabase = Pick<
   | 'team'
   | 'teamMember'
   | 'teamInvitation'
-  | 'application'
-  | 'applicationReviewHistory'
+  | 'teamHistory'
   | 'auditLog'
   | '$queryRaw'
 >;
@@ -599,8 +580,6 @@ interface LockedProgramPolicy {
   readonly applicationTemplateVersion: number;
 }
 
-type ApplicationLockedTeamRow = Readonly<{ id: string; leaderId: string }>;
-
 export interface ApplicationsTransactionStore {
   readonly auditLogWriter: AuditLogTransactionWriter;
   findTeamMinSize(programId: string): Promise<number | null>;
@@ -610,18 +589,18 @@ export interface ApplicationsTransactionStore {
     input: AppendReviewHistoryInput,
   ): Promise<AppendedReviewHistory>;
   findApplicationById(
-    applicationId: string,
+    teamId: string,
   ): Promise<ApplicationDecisionTarget | null>;
   isCurrentTeamMember(teamId: string, userId: string): Promise<boolean>;
   findRepositoryProvisionJob(
-    applicationId: string,
+    teamId: string,
   ): Promise<RepositoryProvisionJobSnapshot | null>;
   findRepositoryProvisionEvent(
     idempotencyKey: string,
   ): Promise<RepositoryProvisionEvent | null>;
 
   discardRepositoryProvisionRequest(
-    applicationId: string,
+    teamId: string,
     discardedAt: Date,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void>;
@@ -656,23 +635,14 @@ interface CreateTeamForApplicationInput {
   readonly programId: string;
   readonly name: string;
   readonly leaderId: string;
-  readonly memberIds?: readonly string[];
+  readonly answers: Prisma.InputJsonValue;
+  readonly applicationTemplateVersion: number;
+  readonly isRepositoryPublicationPlanned: boolean;
 }
 
 interface CreatedTeamForApplication {
   readonly id: string;
   readonly name: string;
-}
-
-interface CreateApplicationRecordInput {
-  readonly programId: string;
-  readonly applicantId: string;
-  readonly teamId: string;
-  readonly answers: Prisma.InputJsonValue;
-  readonly applicationTemplateVersion: number;
-  readonly isRepositoryPublicationPlanned: boolean;
-  readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string | null;
 }
 
 export interface ApplicationCreateStore {
@@ -688,9 +658,6 @@ export interface ApplicationCreateStore {
     userId: string,
   ): Promise<CreatedTeamForApplication | null>;
 
-  lockTeamForApply(teamId: string, userId: string): Promise<boolean>;
-
-  countTeamMembers(teamId: string): Promise<number>;
   validateApplicationParticipants(input: {
     readonly programId: string;
     readonly actorId: string;
@@ -706,9 +673,6 @@ export interface ApplicationCreateStore {
   }): Promise<void>;
   createTeamWithLeader(
     input: CreateTeamForApplicationInput,
-  ): Promise<CreatedTeamForApplication>;
-  createApplication(
-    input: CreateApplicationRecordInput,
   ): Promise<CreatedApplication>;
 }
 
@@ -716,7 +680,7 @@ export interface ApplicationCreateStore {
 export class ApplicationsRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly reviewHistory: ReviewHistoryWriterRepository,
+    private readonly reviewHistory: TeamHistoryRepository,
     private readonly repositoryProvisionGenerationRepository: RepositoryProvisionGenerationRepository,
     private readonly platformRepository: PlatformRepository,
   ) {}
@@ -799,24 +763,24 @@ export class ApplicationsRepository {
       await this.prisma.$transaction(
         async (transaction) => {
           const [applicationRows, applicationCount] = await Promise.all([
-            transaction.application.findMany({
+            transaction.team.findMany({
               where,
               orderBy: [{ submittedAt: 'desc' }, { id: 'asc' }],
               skip: (query.page - 1) * query.pageSize,
               take: query.pageSize,
               select: APPLICATION_LIST_SELECT,
             }),
-            transaction.application.count({ where }),
+            transaction.team.count({ where }),
           ]);
-          const applicationIds = applicationRows.map((row) => row.id);
-          if (applicationIds.length === 0) {
+          const teamIds = applicationRows.map((row) => row.id);
+          if (teamIds.length === 0) {
             return [applicationRows, applicationCount, [], []] as const;
           }
           const [events, jobs] = await Promise.all([
             transaction.outboxEvent.findMany({
               where: {
                 idempotencyKey: {
-                  in: applicationIds.map((id) => `repository-provision:${id}`),
+                  in: teamIds.map((id) => `repository-provision:${id}`),
                 },
               },
               select: {
@@ -826,9 +790,9 @@ export class ApplicationsRepository {
               },
             }),
             transaction.repositoryProvisionJob.findMany({
-              where: { applicationId: { in: applicationIds } },
+              where: { teamId: { in: teamIds } },
               select: {
-                applicationId: true,
+                teamId: true,
                 status: true,
                 repositoryId: true,
                 updatedAt: true,
@@ -847,7 +811,7 @@ export class ApplicationsRepository {
       ]),
     );
     const jobByApplicationId = new Map(
-      provisionJobs.map((job) => [job.applicationId, job]),
+      provisionJobs.map((job) => [job.teamId, job]),
     );
 
     return {
@@ -864,12 +828,12 @@ export class ApplicationsRepository {
   }
 
   async findApplicationForStaff(
-    applicationId: string,
+    teamId: string,
   ): Promise<ApplicationListSource | null> {
     const [row, outbox, job] = await this.prisma.$transaction(
       async (transaction) => {
-        const applicationRow = await transaction.application.findUnique({
-          where: { id: applicationId },
+        const applicationRow = await transaction.team.findUnique({
+          where: { id: teamId },
           select: APPLICATION_LIST_SELECT,
         });
         if (applicationRow === null) {
@@ -878,12 +842,12 @@ export class ApplicationsRepository {
         const [event, provisionJob] = await Promise.all([
           transaction.outboxEvent.findUnique({
             where: {
-              idempotencyKey: `repository-provision:${applicationId}`,
+              idempotencyKey: `repository-provision:${teamId}`,
             },
             select: { status: true, createdAt: true },
           }),
           transaction.repositoryProvisionJob.findUnique({
-            where: { applicationId },
+            where: { teamId: teamId },
             select: {
               status: true,
               repositoryId: true,
@@ -901,33 +865,18 @@ export class ApplicationsRepository {
   }
 
   async listReviewHistory(
-    applicationId: string,
+    teamId: string,
   ): Promise<readonly ApplicationReviewHistoryEntry[]> {
-    const rows = await this.prisma.applicationReviewHistory.findMany({
-      where: { applicationId },
-      orderBy: [{ occurredAt: 'desc' }, { id: 'desc' }],
-      select: {
-        id: true,
-        eventKind: true,
-        revision: true,
-        occurredAt: true,
-        rejectionReason: true,
-        actor: {
-          select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
-        },
-      },
-    });
-    return rows.map((row) => ({
-      id: row.id,
-      eventKind: row.eventKind,
-      revision: row.revision,
-      occurredAt: row.occurredAt,
-      rejectionReason: row.rejectionReason,
-      actor: {
-        name: row.actor.name ?? null,
-        nickname: row.actor.nickname,
-      },
-    }));
+    const rows = await this.prisma.$queryRaw<ApplicationReviewHistoryEntry[]>`
+      SELECT h.id, h.event::text AS "eventKind", (h.data->>'revision')::integer AS revision,
+        h."occurredAt", COALESCE(h.data->>'rejectionReason', h.data->'metadata'->>'rejectionReason') AS "rejectionReason",
+        jsonb_build_object('name', u.name, 'nickname', COALESCE(u.login, 'System')) AS actor
+      FROM "TeamHistory" h LEFT JOIN "User" u ON u.id = h."actorId"
+      WHERE h."teamId" = ${teamId}
+        AND h.event::text IN ('SUBMITTED','APPROVED','REJECTED','REVERTED','RESUBMITTED')
+      ORDER BY h."occurredAt" DESC, h.id DESC
+    `;
+    return rows;
   }
 
   async listTeamManagementForProgram(
@@ -940,7 +889,7 @@ export class ApplicationsRepository {
       query,
     );
 
-    const buckets: readonly Prisma.ApplicationWhereInput[] =
+    const buckets: readonly Prisma.TeamWhereInput[] =
       query.status === 'all'
         ? [
             { ...where, status: ApplicationStatus.SUBMITTED },
@@ -951,20 +900,20 @@ export class ApplicationsRepository {
 
     const [rows, totalItems] = await this.prisma.$transaction(
       async (transaction) => {
-        const total = await transaction.application.count({ where });
+        const total = await transaction.team.count({ where });
         const collected: TeamManagementListRow[] = [];
         let remainingSkip = skip;
         let remainingTake = query.pageSize;
         for (const bucket of buckets) {
           if (remainingTake <= 0) break;
-          const bucketCount = await transaction.application.count({
+          const bucketCount = await transaction.team.count({
             where: bucket,
           });
           if (remainingSkip >= bucketCount) {
             remainingSkip -= bucketCount;
             continue;
           }
-          const chunk = await transaction.application.findMany({
+          const chunk = await transaction.team.findMany({
             where: bucket,
             orderBy: TEAM_MANAGEMENT_ORDER_BY,
             skip: remainingSkip,
@@ -1009,7 +958,7 @@ export class ApplicationsRepository {
       return { programs: [] };
     }
 
-    const counts = await this.prisma.application.groupBy({
+    const counts = await this.prisma.team.groupBy({
       by: ['programId', 'status'],
       where: { programId: { in: programs.map((program) => program.id) } },
       _count: { _all: true },
@@ -1117,11 +1066,14 @@ export class ApplicationsRepository {
 
   private async findApplicationByIdIn(
     transaction: PrismaTypes.TransactionClient,
-    applicationId: string,
+    teamId: string,
   ): Promise<ApplicationDecisionTarget | null> {
-    const application = await transaction.application.findUnique({
+    await transaction.$queryRaw(
+      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
+    );
+    const application = await transaction.team.findUnique({
       where: {
-        id: applicationId,
+        id: teamId,
         program: { lifecycle: { not: 'DELETED' } },
       },
       include: {
@@ -1129,14 +1081,8 @@ export class ApplicationsRepository {
           select: { repositoryProvisioningEnabled: true, name: true },
         },
         applicant: { select: { id: true, nickname: true } },
-        team: {
-          select: {
-            leader: { select: { id: true, nickname: true } },
-            members: {
-              select: { user: { select: { id: true, nickname: true } } },
-            },
-          },
-        },
+        leader: { select: { id: true, nickname: true } },
+        members: { select: { user: { select: { id: true, nickname: true } } } },
       },
     });
     return application ? toApplicationDecisionTarget(application) : null;
@@ -1147,9 +1093,6 @@ export class ApplicationsRepository {
     teamId: string,
     userId: string,
   ): Promise<boolean> {
-    await transaction.$queryRaw(
-      Prisma.sql`SELECT "id" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
-    );
     return (
       (await transaction.teamMember.findUnique({
         where: { teamId_userId: { teamId, userId } },
@@ -1160,10 +1103,10 @@ export class ApplicationsRepository {
 
   private async findRepositoryProvisionJobIn(
     transaction: PrismaTypes.TransactionClient,
-    applicationId: string,
+    teamId: string,
   ): Promise<RepositoryProvisionJobSnapshot | null> {
     const job = await transaction.repositoryProvisionJob.findUnique({
-      where: { applicationId },
+      where: { teamId: teamId },
       select: { status: true, repositoryId: true },
     });
     return job;
@@ -1181,7 +1124,7 @@ export class ApplicationsRepository {
 
   private async discardRepositoryProvisionRequestIn(
     transaction: PrismaTypes.TransactionClient,
-    applicationId: string,
+    teamId: string,
     discardedAt: Date,
     parsePayload: RepositoryProvisionHistoryPayloadParser,
   ): Promise<void> {
@@ -1202,12 +1145,12 @@ export class ApplicationsRepository {
             WHERE repository."id" = job."repositoryId"
           ) AS "repositorySource"
         FROM "RepositoryProvisionJob" AS job
-        WHERE job."applicationId" = ${applicationId}
+        WHERE job."teamId" = ${teamId}
         FOR UPDATE
       `)
     )[0];
     const event = await transaction.outboxEvent.findUnique({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      where: { idempotencyKey: `repository-provision:${teamId}` },
       select: { id: true },
     });
     if (event !== null) {
@@ -1216,7 +1159,7 @@ export class ApplicationsRepository {
         transaction,
         {
           requestId: event.id,
-          applicationId,
+          teamId: teamId,
           repositoryId: ownsJob ? job.repositoryId : null,
           source: ownsJob ? job.repositorySource : null,
           outcome: RepositoryIssuanceOutcome.DISCARDED,
@@ -1227,10 +1170,10 @@ export class ApplicationsRepository {
     }
 
     await transaction.outboxEvent.deleteMany({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      where: { idempotencyKey: `repository-provision:${teamId}` },
     });
     await transaction.repositoryProvisionJob.deleteMany({
-      where: { applicationId },
+      where: { teamId: teamId },
     });
   }
 
@@ -1251,9 +1194,9 @@ export class ApplicationsRepository {
       data.processedById = input.processedBy.id;
       data.processedAt = input.processedBy.at;
     }
-    const result = await transaction.application.updateMany({
+    const result = await transaction.team.updateMany({
       where: {
-        id: input.applicationId,
+        id: input.teamId,
         status: input.expectedStatus,
       },
       data,
@@ -1275,14 +1218,14 @@ export class ApplicationsRepository {
         status: 'UNREAD',
         idempotencyKey: [
           'application-decision',
-          input.applicationId,
+          input.teamId,
           input.decision,
           decidedAt,
           userId,
         ].join(':'),
         payload: {
           schemaVersion: 1,
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           programId: input.programId,
           programName: input.programName,
           decision: input.decision,
@@ -1301,11 +1244,10 @@ export class ApplicationsRepository {
       const event = await transaction.outboxEvent.create({
         data: {
           type: 'REPOSITORY_PROVISION_REQUESTED',
-          aggregateType: 'Application',
-          aggregateId: input.applicationId,
+          aggregateType: 'Team',
+          aggregateId: input.teamId,
           idempotencyKey: input.idempotencyKey,
           payload: {
-            applicationId: input.applicationId,
             programId: input.programId,
             teamId: input.teamId,
             requestedAt: input.requestedAt.toISOString(),
@@ -1318,7 +1260,7 @@ export class ApplicationsRepository {
       await this.repositoryProvisionGenerationRepository.transferProvisionGeneration(
         transaction,
         {
-          applicationId: input.applicationId,
+          teamId: input.teamId,
           newEventId: event.id,
           now: input.requestedAt,
         },
@@ -1350,16 +1292,13 @@ export class ApplicationsRepository {
         this,
         database,
       ),
-      countTeamMembers: this.countTeamMembersIn.bind(this, database),
       validateApplicationParticipants:
         this.validateApplicationParticipantsIn.bind(this, database),
       createApplicationInvitations: this.createApplicationInvitationsIn.bind(
         this,
         database,
       ),
-      lockTeamForApply: this.lockTeamForApplyIn.bind(this, database),
       createTeamWithLeader: this.createTeamWithLeaderIn.bind(this, database),
-      createApplication: this.createApplicationIn.bind(this, database),
     };
   }
 
@@ -1461,93 +1400,39 @@ export class ApplicationsRepository {
     return database.teamMember.count({ where: { teamId } });
   }
 
-  private async lockTeamForApplyIn(
-    database: ApplicationDatabase,
-    teamId: string,
-    userId: string,
-  ): Promise<boolean> {
-    const rows = await database.$queryRaw<readonly ApplicationLockedTeamRow[]>(
-      Prisma.sql`SELECT "id", "leaderId" FROM "Team" WHERE "id" = ${teamId} FOR UPDATE`,
-    );
-    const locked = rows[0];
-    if (!locked || locked.leaderId !== userId) {
-      return false;
-    }
-
-    const membership = await database.teamMember.findUnique({
-      where: { teamId_userId: { teamId, userId } },
-      select: { userId: true },
-    });
-    return membership !== null;
-  }
-
   private async createTeamWithLeaderIn(
     database: ApplicationDatabase,
     input: CreateTeamForApplicationInput,
-  ): Promise<CreatedTeamForApplication> {
+  ): Promise<CreatedApplication> {
     try {
       const team = await database.team.create({
         data: {
           programId: input.programId,
           name: input.name,
           leaderId: input.leaderId,
-        },
-        select: { id: true, name: true },
-      });
-      await database.teamMember.createMany({
-        data: (input.memberIds ?? [input.leaderId]).map((userId) => ({
-          teamId: team.id,
-          programId: input.programId,
-          userId,
-        })),
-      });
-      return team;
-    } catch (error) {
-      if (
-        error instanceof Prisma.PrismaClientKnownRequestError &&
-        error.code === 'P2002'
-      ) {
-        throw new ApplicationTeamMembershipConflictError();
-      }
-      throw error;
-    }
-  }
-
-  private async createApplicationIn(
-    database: ApplicationDatabase,
-    input: CreateApplicationRecordInput,
-  ): Promise<CreatedApplication> {
-    try {
-      return await database.application.create({
-        data: {
-          programId: input.programId,
-          applicantId: input.applicantId,
-          teamId: input.teamId,
+          applicantId: input.leaderId,
           answers: input.answers,
           applicationTemplateVersion: input.applicationTemplateVersion,
           isRepositoryPublicationPlanned: input.isRepositoryPublicationPlanned,
-          repositoryConnectionMode: input.repositoryConnectionMode,
-          repositoryUrl: input.repositoryUrl,
-          status: ApplicationStatus.SUBMITTED,
+          members: { create: { userId: input.leaderId } },
         },
         select: {
           id: true,
           programId: true,
           status: true,
-          teamId: true,
           submittedAt: true,
           isRepositoryPublicationPlanned: true,
           repositoryConnectionMode: true,
           repositoryUrl: true,
         },
       });
+      return { ...team, teamId: team.id };
     } catch (error) {
       if (
         error instanceof Prisma.PrismaClientKnownRequestError &&
         error.code === 'P2002'
-      ) {
-        throw new ApplicationDuplicateError();
-      }
+      )
+        throw new ApplicationTeamMembershipConflictError();
       throw error;
     }
   }
@@ -1557,12 +1442,12 @@ function buildApplicationListWhere(
   platformRepository: PlatformRepository,
   programId: string,
   query: ApplicationListQuery,
-): Prisma.ApplicationWhereInput {
-  const statusWhere: Prisma.ApplicationWhereInput =
+): Prisma.TeamWhereInput {
+  const statusWhere: Prisma.TeamWhereInput =
     query.status === 'all' ? {} : { status: query.status };
 
   const search = query.search;
-  const searchWhere: Prisma.ApplicationWhereInput = search
+  const searchWhere: Prisma.TeamWhereInput = search
     ? {
         OR: [
           {
@@ -1573,11 +1458,7 @@ function buildApplicationListWhere(
               nickname: { contains: search, mode: 'insensitive' },
             },
           },
-          {
-            team: {
-              name: { contains: search, mode: 'insensitive' },
-            },
-          },
+          { name: { contains: search, mode: 'insensitive' } },
           {
             answers: {
               path: ['title'],
@@ -1605,7 +1486,7 @@ function buildTeamManagementListWhere(
   platformRepository: PlatformRepository,
   programId: string,
   query: ApplicationListQuery,
-): Prisma.ApplicationWhereInput {
+): Prisma.TeamWhereInput {
   const base = buildApplicationListWhere(platformRepository, programId, query);
   if (!query.search || !Array.isArray(base.OR)) return base;
   return {
@@ -1613,21 +1494,12 @@ function buildTeamManagementListWhere(
     OR: [
       ...base.OR,
       {
-        team: {
-          members: {
-            some: {
+        members: {
+          some: {
+            user: {
               OR: [
-                {
-                  user: platformRepository.userProfileNameWhere(query.search),
-                },
-                {
-                  user: {
-                    nickname: {
-                      contains: query.search,
-                      mode: 'insensitive',
-                    },
-                  },
-                },
+                platformRepository.userProfileNameWhere(query.search),
+                { nickname: { contains: query.search, mode: 'insensitive' } },
               ],
             },
           },
@@ -1640,7 +1512,7 @@ function buildTeamManagementListWhere(
 const TEAM_MANAGEMENT_ORDER_BY = [
   { submittedAt: 'asc' },
   { id: 'asc' },
-] satisfies Prisma.ApplicationOrderByWithRelationInput[];
+] satisfies Prisma.TeamOrderByWithRelationInput[];
 
 const TEAM_MANAGEMENT_LIST_SELECT = {
   id: true,
@@ -1649,27 +1521,22 @@ const TEAM_MANAGEMENT_LIST_SELECT = {
   status: true,
   submittedAt: true,
   rejectionReason: true,
+  name: true,
   applicant: {
     select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
   },
-  team: {
+  _count: { select: { members: true } },
+  members: {
+    orderBy: { createdAt: 'asc' },
     select: {
-      id: true,
-      name: true,
-      _count: { select: { members: true } },
-      members: {
-        orderBy: { createdAt: 'asc' },
-        select: {
-          user: {
-            select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
-          },
-        },
+      user: {
+        select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
       },
     },
   },
-} satisfies Prisma.ApplicationSelect;
+} satisfies Prisma.TeamSelect;
 
-type TeamManagementListRow = Prisma.ApplicationGetPayload<{
+type TeamManagementListRow = Prisma.TeamGetPayload<{
   readonly select: typeof TEAM_MANAGEMENT_LIST_SELECT;
 }>;
 
@@ -1688,57 +1555,38 @@ function toTeamManagementListItem(
       name: row.applicant.name ?? null,
       nickname: row.applicant.nickname,
     },
-    team:
-      row.team === null
-        ? null
-        : {
-            id: row.team.id,
-            name: row.team.name,
-            memberCount: row.team._count.members,
-            members: row.team.members.map((member) => ({
-              id: member.user.id,
-              name: member.user.name ?? null,
-              nickname: member.user.nickname,
-            })),
-          },
+    team: {
+      id: row.id,
+      name: row.name,
+      memberCount: row._count.members,
+      members: row.members.map((member) => ({
+        id: member.user.id,
+        name: member.user.name,
+        nickname: member.user.nickname,
+      })),
+    },
   };
 }
 
 const APPLICATION_LIST_SELECT = {
   id: true,
   programId: true,
+  name: true,
   status: true,
   submittedAt: true,
   updatedAt: true,
   rejectionReason: true,
-  teamId: true,
   answers: true,
   isRepositoryPublicationPlanned: true,
-
   repositoryConnectionMode: true,
   repositoryUrl: true,
-
-  repository: {
-    select: { id: true, nameWithOwner: true, visibility: true },
-  },
-  program: {
-    select: { repositoryProvisioningEnabled: true },
-  },
+  repository: { select: { id: true, nameWithOwner: true, visibility: true } },
+  program: { select: { repositoryProvisioningEnabled: true } },
   applicant: {
-    select: {
-      id: true,
-      nickname: true,
-      ...USER_PROFILE_NAME_SELECT,
-    },
+    select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
   },
-  team: {
-    select: {
-      id: true,
-      name: true,
-      _count: { select: { members: true } },
-    },
-  },
-} satisfies Prisma.ApplicationSelect;
+  _count: { select: { members: true } },
+} satisfies Prisma.TeamSelect;
 
 function toApplicationDecisionTarget(
   application: ApplicationWithProgram,
@@ -1749,27 +1597,14 @@ function toApplicationDecisionTarget(
     programName: application.program.name,
 
     applicantGithubLogin: application.applicant.nickname,
-    teamId: application.teamId,
+    teamId: application.id,
     status: application.status,
     repositoryProvisioningEnabled:
       application.program.repositoryProvisioningEnabled,
-    participants: application.team
-      ? [
-          {
-            id: application.team.leader.id,
-            githubLogin: application.team.leader.nickname,
-          },
-          ...application.team.members.map((member) => ({
-            id: member.user.id,
-            githubLogin: member.user.nickname,
-          })),
-        ]
-      : [
-          {
-            id: application.applicant.id,
-            githubLogin: application.applicant.nickname,
-          },
-        ],
+    participants: application.members.map((member) => ({
+      id: member.user.id,
+      githubLogin: member.user.nickname,
+    })),
     repositoryConnectionMode: application.repositoryConnectionMode,
     repositoryUrl: application.repositoryUrl,
     processedById: application.processedById,
@@ -1827,7 +1662,8 @@ export type StudentApplicationMutationFailure =
   | { readonly kind: 'application-not-found' }
   | { readonly kind: 'already-decided' }
   | { readonly kind: 'period-closed' }
-  | { readonly kind: 'template-version-mismatch' };
+  | { readonly kind: 'template-version-mismatch' }
+  | { readonly kind: 'team-has-activity' };
 
 export type UpdatePendingApplicationResult =
   | { readonly kind: 'updated'; readonly application: OwnedStudentApplication }
@@ -1840,8 +1676,7 @@ const APPLICATION_SELECT = {
   id: true,
   programId: true,
   status: true,
-  teamId: true,
-  team: { select: { leaderId: true } },
+  leaderId: true,
   applicant: {
     select: { id: true, nickname: true, ...USER_PROFILE_NAME_SELECT },
   },
@@ -1850,19 +1685,20 @@ const APPLICATION_SELECT = {
   updatedAt: true,
   isRepositoryPublicationPlanned: true,
   rejectionReason: true,
-} satisfies Prisma.ApplicationSelect;
+} satisfies Prisma.TeamSelect;
 
-type ApplicationRow = Prisma.ApplicationGetPayload<{
+type ApplicationRow = Prisma.TeamGetPayload<{
   readonly select: typeof APPLICATION_SELECT;
 }>;
 
 function toOwnedStudentApplication(
   row: ApplicationRow,
 ): OwnedStudentApplication {
-  const { team, ...application } = row;
+  const { leaderId, ...application } = row;
   return {
     ...application,
-    teamLeaderId: team.leaderId,
+    teamId: row.id,
+    teamLeaderId: leaderId,
     applicant: {
       id: row.applicant.id,
       name: row.applicant.name ?? null,
@@ -1877,7 +1713,7 @@ export type StudentApplicationManagementClock = () => Date;
 export class StudentApplicationManagementRepository {
   constructor(
     private readonly prisma: PrismaService,
-    private readonly reviewHistory: ReviewHistoryWriterRepository,
+    private readonly reviewHistory: TeamHistoryRepository,
     private readonly platformRepository: PlatformRepository,
     @Inject(STUDENT_APPLICATION_MANAGEMENT_CLOCK)
     private readonly clock: StudentApplicationManagementClock = () =>
@@ -1888,7 +1724,7 @@ export class StudentApplicationManagementRepository {
     programId: string,
     studentId: string,
   ): Promise<OwnedStudentApplication | null> {
-    const row = await this.prisma.application.findFirst({
+    const row = await this.prisma.team.findFirst({
       where: {
         programId,
         ...this.platformRepository.programApplicationParticipantWhere(
@@ -1927,7 +1763,7 @@ export class StudentApplicationManagementRepository {
       }
 
       const resubmitted = application.status === ApplicationStatus.REJECTED;
-      const row = await transaction.application.update({
+      const row = await transaction.team.update({
         where: { id: application.id },
         data: {
           answers: input.answers,
@@ -1943,8 +1779,8 @@ export class StudentApplicationManagementRepository {
       });
       if (resubmitted) {
         await this.appendReviewHistoryIn(transaction, {
-          applicationId: application.id,
-          eventKind: ApplicationReviewEventKind.RESUBMITTED,
+          teamId: application.id,
+          eventKind: TeamHistoryEvent.RESUBMITTED,
           actorId: input.studentId,
           occurredAt: now,
           rejectionReason: null,
@@ -1973,7 +1809,41 @@ export class StudentApplicationManagementRepository {
         CANCELLABLE_STATUSES,
       );
       if (failure) return failure;
-      await transaction.application.delete({ where: { id: application.id } });
+      const teamId = application.id;
+      const [members, invitations, submissions, repositories, files] =
+        await Promise.all([
+          transaction.teamMember.count({ where: { teamId } }),
+          transaction.teamInvitation.count({ where: { teamId } }),
+          transaction.milestoneDocumentSubmission.count({ where: { teamId } }),
+          transaction.githubRepository.count({ where: { teamId } }),
+          transaction.submissionFile.count({ where: { teamId } }),
+        ]);
+      if (submissions > 0 || repositories > 0 || files > 0)
+        return { kind: 'team-has-activity' };
+      const now = this.clock();
+      await this.reviewHistory.recordDeleted(
+        transaction,
+        teamId,
+        input.studentId,
+        'CANCELLED',
+        { teams: 1, members, invitations, submissions: 0, repositories: 0 },
+        now,
+      );
+      await this.reviewHistory.recordTeamInvitationsDeleted(
+        transaction,
+        teamId,
+        input.studentId,
+        now,
+      );
+      await transaction.repositoryProvisionJob.deleteMany({
+        where: { teamId },
+      });
+      await transaction.outboxEvent.deleteMany({
+        where: { aggregateType: 'Team', aggregateId: teamId },
+      });
+      await transaction.teamInvitation.deleteMany({ where: { teamId } });
+      await transaction.teamMember.deleteMany({ where: { teamId } });
+      await transaction.team.delete({ where: { id: teamId } });
       return { kind: 'cancelled' };
     });
   }
@@ -2017,7 +1887,7 @@ export class StudentApplicationManagementRepository {
     });
     if (!current || current.teamId !== membership.teamId) return null;
     if (current.team.leaderId !== studentId) return null;
-    const candidate = await transaction.application.findFirst({
+    const candidate = await transaction.team.findFirst({
       where: {
         programId,
         ...this.platformRepository.programApplicationManagerWhere(studentId),
@@ -2026,10 +1896,10 @@ export class StudentApplicationManagementRepository {
     });
     if (!candidate) return null;
     const locked = await transaction.$queryRaw<readonly { id: string }[]>`
-      SELECT "id" FROM "Application" WHERE "id" = ${candidate.id} FOR UPDATE
+      SELECT "id" FROM "Team" WHERE "id" = ${candidate.id} FOR UPDATE
     `;
     if (locked.length === 0) return null;
-    const row = await transaction.application.findFirst({
+    const row = await transaction.team.findFirst({
       where: {
         id: candidate.id,
         programId,
@@ -2080,13 +1950,14 @@ export interface TeamProgramRecord {
 }
 
 export interface TeamDetailRecord {
+  readonly hasActivity: boolean;
   readonly id: string;
   readonly name: string;
   readonly leaderId: string;
   readonly programId: string;
   readonly teamMinSize: number;
   readonly teamMaxSize: number;
-  readonly hasApplication: boolean;
+  readonly status: ApplicationStatus;
   readonly members: readonly {
     readonly userId: string;
     readonly nickname: string;
@@ -2106,7 +1977,7 @@ export interface StaffTeamRecord {
 }
 
 export interface RepositoryUrlHistoryScopedRows extends RepositoryUrlHistoryRows {
-  readonly applicationId: string | null;
+  readonly teamId: string | null;
 }
 
 export interface TeamApplicationRow {
@@ -2159,7 +2030,11 @@ export interface StaffTeamDetailRecord {
 }
 
 export type TeamLeaveResult =
-  'removed' | 'not-found' | 'last-member-with-application';
+  | 'removed'
+  | 'not-found'
+  | 'last-member-with-application'
+  | 'leader-transfer-required'
+  | 'team-has-activity';
 
 export type TeamRemoveMemberResult =
   | 'removed'
@@ -2169,7 +2044,11 @@ export type TeamRemoveMemberResult =
   | 'target-not-found';
 
 export type StaffRemoveMemberResult =
-  'removed' | 'forbidden' | 'not-found' | 'last-member-with-application';
+  | 'removed'
+  | 'forbidden'
+  | 'not-found'
+  | 'last-member-with-application'
+  | 'team-has-activity';
 
 export type StaffTransferLeaderResult =
   'transferred' | 'unchanged' | 'forbidden' | 'not-found';
@@ -2207,7 +2086,11 @@ export interface TeamMembershipAuditEvent {
 }
 
 export interface TeamMembershipAuditStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
+  readonly historyWriter: Pick<
+    Prisma.TransactionClient,
+    'user' | 'teamHistory'
+  >;
+  readonly programId: string;
 }
 
 export type RecordTeamMembershipAudit = (
@@ -2312,7 +2195,7 @@ export class TeamRepository {
       if (team.name === name) return 'renamed';
       await tx.team.update({ where: { id: teamId }, data: { name } });
       await recordAudit(
-        { auditLogWriter: tx },
+        { historyWriter: tx, programId },
         {
           teamId,
           programName: team.program.name,
@@ -2351,11 +2234,18 @@ export class TeamRepository {
             id: true,
             name: true,
             leaderId: true,
+            status: true,
+            repository: { select: { id: true } },
+            _count: {
+              select: {
+                milestoneDocumentSubmissions: true,
+                submissionFiles: true,
+              },
+            },
             programId: true,
             program: {
               select: { teamMinSize: true, teamMaxSize: true },
             },
-            applications: { select: { id: true }, take: 1 },
             members: {
               select: {
                 userId: true,
@@ -2381,7 +2271,11 @@ export class TeamRepository {
       programId: team.programId,
       teamMinSize: team.program.teamMinSize,
       teamMaxSize: team.program.teamMaxSize,
-      hasApplication: team.applications.length > 0,
+      status: team.status,
+      hasActivity:
+        team.repository !== null ||
+        team._count.milestoneDocumentSubmissions > 0 ||
+        team._count.submissionFiles > 0,
       members: team.members.map((member) => ({
         userId: member.userId,
         nickname: member.user.nickname,
@@ -2445,13 +2339,6 @@ export class TeamRepository {
           },
           orderBy: { createdAt: 'asc' },
         },
-      },
-    });
-    if (!team) return null;
-    const application = await this.prisma.application.findFirst({
-      where: { programId, teamId },
-      select: {
-        id: true,
         status: true,
         updatedAt: true,
         repositoryConnectionMode: true,
@@ -2493,25 +2380,24 @@ export class TeamRepository {
         },
       },
     });
-    let applicationRow: TeamApplicationRow | null = null;
-    if (application) {
-      const [outbox, job] = await Promise.all([
-        this.prisma.outboxEvent.findUnique({
-          where: { idempotencyKey: `repository-provision:${application.id}` },
-          select: { status: true, createdAt: true },
-        }),
-        this.prisma.repositoryProvisionJob.findUnique({
-          where: { applicationId: application.id },
-          select: {
-            status: true,
-            updatedAt: true,
-            lastErrorCode: true,
-            repositoryId: true,
-          },
-        }),
-      ]);
-      applicationRow = { ...application, outbox, job };
-    }
+    if (!team) return null;
+
+    const [outbox, job] = await Promise.all([
+      this.prisma.outboxEvent.findUnique({
+        where: { idempotencyKey: `repository-provision:${team.id}` },
+        select: { status: true, createdAt: true },
+      }),
+      this.prisma.repositoryProvisionJob.findUnique({
+        where: { teamId: team.id },
+        select: {
+          status: true,
+          updatedAt: true,
+          lastErrorCode: true,
+          repositoryId: true,
+        },
+      }),
+    ]);
+    const applicationRow: TeamApplicationRow = { ...team, outbox, job };
     return {
       id: team.id,
       name: team.name,
@@ -2522,16 +2408,11 @@ export class TeamRepository {
         name: member.user.name ?? null,
       })),
       application: applicationRow,
-      repositoryContributions: application
-        ? await this.evidence.contributions(application, team.members)
-        : null,
-      repositoryUrlHistory: application
-        ? await this.evidence.history({
-            programId,
-            teamId,
-            applicationId: application.id,
-          })
-        : { rows: [], hasMore: false },
+      repositoryContributions: await this.evidence.contributions(
+        team,
+        team.members,
+      ),
+      repositoryUrlHistory: await this.evidence.history({ programId, teamId }),
     };
   }
   async findStaffRepositoryUrlHistory(
@@ -2544,17 +2425,14 @@ export class TeamRepository {
       select: { id: true },
     });
     if (!team) return null;
-    const application = await this.prisma.application.findFirst({
-      where: { programId, teamId },
+    const application = await this.prisma.team.findFirst({
+      where: { programId, id: teamId },
       select: { id: true },
     });
-    if (!application) return { applicationId: null, rows: [], hasMore: false };
+    if (!application) return { teamId: null, rows: [], hasMore: false };
     return {
-      applicationId: application.id,
-      ...(await this.evidence.history(
-        { programId, teamId, applicationId: application.id },
-        cursor,
-      )),
+      teamId: application.id,
+      ...(await this.evidence.history({ programId, teamId }, cursor)),
     };
   }
   async findTeamActivityScope(
@@ -2573,27 +2451,21 @@ export class TeamRepository {
             user: { select: { githubId: true, nickname: true } },
           },
         },
-        applications: {
-          where: { programId },
-          take: 1,
+        id: true,
+        status: true,
+        repository: {
           select: {
             id: true,
-            status: true,
-            repository: {
-              select: {
-                id: true,
-                nameWithOwner: true,
-                lastSuccessAt: true,
-                failureCount: true,
-              },
-            },
+            nameWithOwner: true,
+            lastSuccessAt: true,
+            failureCount: true,
           },
         },
       },
     });
     if (!team) return null;
-    const { applications, ...scope } = team;
-    return { ...scope, application: applications[0] ?? null };
+    const { id, status, repository, ...scope } = team;
+    return { ...scope, application: { id, status, repository } };
   }
   readTeamActivity(team: TeamActivityScope): Promise<TeamActivityRow> {
     return this.evidence.activity(team);
@@ -2621,52 +2493,57 @@ export class TeamRepository {
       const now = new Date();
       const teamId = lockedMembership.teamId;
       const previousLeaderId = lockedMembership.team.leaderId;
-      const [memberCount, application] = await Promise.all([
-        tx.teamMember.count({ where: { teamId } }),
-        tx.application.findFirst({ where: { teamId }, select: { id: true } }),
-      ]);
+      const memberCount = await tx.teamMember.count({ where: { teamId } });
       if (memberCount <= 1) {
-        if (application !== null) return 'last-member-with-application';
-        await tx.teamMember.delete({
-          where: { teamId_userId: { teamId, userId } },
+        const team = await tx.team.findUniqueOrThrow({
+          where: { id: teamId },
+          select: { status: true },
         });
+        if (team.status === 'APPROVED') return 'last-member-with-application';
+        const [submissions, repositories, files] = await Promise.all([
+          tx.milestoneDocumentSubmission.count({ where: { teamId } }),
+          tx.githubRepository.count({ where: { teamId } }),
+          tx.submissionFile.count({ where: { teamId } }),
+        ]);
+        if (submissions > 0 || repositories > 0 || files > 0)
+          return 'team-has-activity';
+        const invitations = await tx.teamInvitation.count({
+          where: { teamId },
+        });
+        await this.history.recordDeleted(
+          tx,
+          teamId,
+          userId,
+          'LAST_MEMBER_LEFT',
+          {
+            teams: 1,
+            members: memberCount,
+            invitations,
+            submissions: 0,
+            repositories: 0,
+          },
+          now,
+        );
         await this.history.recordTeamInvitationsDeleted(
           tx,
           teamId,
           userId,
           now,
         );
-        await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
+        await tx.repositoryProvisionJob.deleteMany({ where: { teamId } });
+        await tx.outboxEvent.deleteMany({
+          where: { aggregateType: 'Team', aggregateId: teamId },
+        });
+        await tx.teamInvitation.deleteMany({ where: { teamId } });
+        await tx.teamMember.delete({
+          where: { teamId_userId: { teamId, userId } },
+        });
         await tx.team.delete({ where: { id: teamId } });
-        await recordAudit(
-          { auditLogWriter: tx },
-          membershipAuditEvent(lockedMembership, {
-            operation: 'LEAVE',
-            removedUserId: userId,
-            previousLeaderId,
-            nextLeaderId: null,
-          }),
-        );
         return 'removed';
       }
-      let nextLeaderId = previousLeaderId;
-      if (previousLeaderId === userId) {
-        const successor = await tx.teamMember.findFirst({
-          where: { teamId, userId: { not: userId } },
-          orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
-          select: { userId: true },
-        });
-        if (!successor) {
-          throw new Error(
-            'team member count and roster disagree inside the team lock',
-          );
-        }
-        nextLeaderId = successor.userId;
-        await tx.team.update({
-          where: { id: teamId },
-          data: { leaderId: nextLeaderId },
-        });
-      }
+      if (previousLeaderId === userId) return 'leader-transfer-required';
+      const nextLeaderId = previousLeaderId;
+
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId } },
       });
@@ -2677,7 +2554,7 @@ export class TeamRepository {
         now,
       );
       await recordAudit(
-        { auditLogWriter: tx },
+        { historyWriter: tx, programId },
         membershipAuditEvent(lockedMembership, {
           operation: 'LEAVE',
           removedUserId: userId,
@@ -2731,7 +2608,7 @@ export class TeamRepository {
         now,
       );
       await recordAudit(
-        { auditLogWriter: tx },
+        { historyWriter: tx, programId },
         membershipAuditEvent(lockedActor, {
           operation: 'REMOVE',
           removedUserId: targetUserId,
@@ -2766,10 +2643,36 @@ export class TeamRepository {
       const previousLeaderId = target.team.leaderId;
       const [memberCount, application] = await Promise.all([
         tx.teamMember.count({ where: { teamId } }),
-        tx.application.findFirst({ where: { teamId }, select: { id: true } }),
+        tx.team.findFirst({ where: { id: teamId }, select: { status: true } }),
       ]);
       if (memberCount <= 1) {
-        if (application !== null) return 'last-member-with-application';
+        if (application?.status === 'APPROVED')
+          return 'last-member-with-application';
+        const [submissions, repositories, files] = await Promise.all([
+          tx.milestoneDocumentSubmission.count({ where: { teamId } }),
+          tx.githubRepository.count({ where: { teamId } }),
+          tx.submissionFile.count({ where: { teamId } }),
+        ]);
+        if (submissions > 0 || repositories > 0 || files > 0)
+          return 'team-has-activity';
+        const invitations = await tx.teamInvitation.count({
+          where: { teamId },
+        });
+        await this.history.recordDeleted(
+          tx,
+          teamId,
+          actorUserId,
+          'STAFF_DELETED',
+          {
+            teams: 1,
+            members: 1,
+            invitations,
+            submissions: 0,
+            submissionEvents: 0,
+            detachedRepositories: 0,
+          },
+          now,
+        );
         await tx.teamMember.delete({
           where: { teamId_userId: { teamId, userId: targetUserId } },
         });
@@ -2782,7 +2685,7 @@ export class TeamRepository {
         await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
         await tx.team.delete({ where: { id: teamId } });
         await recordAudit(
-          { auditLogWriter: tx },
+          { historyWriter: tx, programId },
           membershipAuditEvent(target, {
             operation: 'REMOVE',
             removedUserId: targetUserId,
@@ -2820,7 +2723,7 @@ export class TeamRepository {
         now,
       );
       await recordAudit(
-        { auditLogWriter: tx },
+        { historyWriter: tx, programId },
         membershipAuditEvent(target, {
           operation: 'REMOVE',
           removedUserId: targetUserId,
@@ -2831,7 +2734,8 @@ export class TeamRepository {
       return 'removed';
     });
   }
-  async transferLeaderForStaff(
+
+  async transferLeader(
     programId: string,
     teamId: string,
     actorUserId: string,
@@ -2845,7 +2749,34 @@ export class TeamRepository {
       });
       if (!team || team.programId !== programId) return 'not-found';
       if ((await lockTeamRow(tx, teamId)).length === 0) return 'not-found';
-      if (!(await isActiveStaff(tx, actorUserId))) return 'forbidden';
+
+      const actorIsLeader = await tx.teamMember.findUnique({
+        where: { teamId_userId: { teamId, userId: actorUserId } },
+        select: { team: { select: { leaderId: true } } },
+      });
+      const actor = await tx.user.findFirst({
+        where: {
+          id: actorUserId,
+          accountStatus: AccountStatus.ACTIVE,
+          OR: [
+            STUDENT_MEMBER_WHERE,
+            {
+              type: 'STAFF',
+              approvalStatus: 'APPROVED',
+              profileCreatedAt: { not: null },
+              name: { not: null },
+              department: { not: null },
+            },
+          ],
+        },
+        select: { type: true },
+      });
+      if (
+        actor === null ||
+        (actor.type !== 'STAFF' && actorIsLeader?.team.leaderId !== actorUserId)
+      )
+        return 'forbidden';
+
       const target = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId: targetUserId } },
         select: TEAM_MEMBERSHIP_CONTEXT_SELECT,
@@ -2858,7 +2789,7 @@ export class TeamRepository {
         data: { leaderId: targetUserId },
       });
       await recordAudit(
-        { auditLogWriter: tx },
+        { historyWriter: tx, programId },
         membershipAuditEvent(target, {
           operation: 'TRANSFER_LEADER',
           removedUserId: null,
@@ -2924,10 +2855,7 @@ function membershipAuditEvent(
   };
 }
 
-type AccessSyncTx = Pick<
-  Prisma.TransactionClient,
-  'application' | 'outboxEvent'
->;
+type AccessSyncTx = Pick<Prisma.TransactionClient, 'team' | 'outboxEvent'>;
 
 async function enqueueRepositoryAccessSyncEvents(
   platformRepository: PlatformRepository,
@@ -2935,18 +2863,14 @@ async function enqueueRepositoryAccessSyncEvents(
   teamId: string,
   now: Date,
 ): Promise<void> {
-  const applications = await tx.application.findMany({
+  const applications = await tx.team.findMany({
     where: platformRepository.repositoryAccessSyncTargetWhere(teamId),
     select: { id: true },
   });
   if (applications.length === 0) return;
   await tx.outboxEvent.createMany({
     data: applications.map((application) =>
-      platformRepository.repositoryAccessSyncEventData(
-        application.id,
-        teamId,
-        now,
-      ),
+      platformRepository.repositoryAccessSyncEventData(application.id, now),
     ),
     skipDuplicates: true,
   });
@@ -2971,22 +2895,6 @@ interface LockedTeamRow {
 }
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
-
-export interface TeamDeletionAuditEvent {
-  readonly teamId: string;
-  readonly programName: string;
-  readonly teamName: string;
-  readonly deletedCounts: TeamDeletedCounts;
-}
-
-export interface TeamDeletionAuditStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
-}
-
-export type RecordTeamDeletionAudit = (
-  store: TeamDeletionAuditStore,
-  event: TeamDeletionAuditEvent,
-) => Promise<void>;
 
 export interface TeamDeletionNotificationStore {
   createTeamDeletedNotifications(
@@ -3054,7 +2962,6 @@ export class ProgramTeamDeletionRepository {
     teamId: string,
     actorId: string,
     expectedScope: TeamDeletionScopeCounts,
-    recordAudit: RecordTeamDeletionAudit,
     recordNotification: RecordTeamDeletionNotification,
   ): Promise<TeamDeletionResult> {
     try {
@@ -3124,6 +3031,22 @@ export class ProgramTeamDeletionRepository {
             actorId,
             deletedAt,
           );
+          const expectedDeletedCounts = {
+            teams: currentScopeCounts.teams,
+            members: currentScopeCounts.members,
+            invitations: currentScopeCounts.invitations,
+            submissions: currentScopeCounts.submissions,
+            submissionEvents: currentScopeCounts.submissionEvents,
+            detachedRepositories: currentScopeCounts.detachedRepositories,
+          };
+          await this.history.recordDeleted(
+            tx,
+            teamId,
+            actorId,
+            'STAFF_DELETED',
+            expectedDeletedCounts,
+            deletedAt,
+          );
           const deletedCounts = await deleteTeamTree(tx, teamId);
           if (
             !this.teamDeletionScope.sameCountValues(
@@ -3134,16 +3057,6 @@ export class ProgramTeamDeletionRepository {
             throw new TeamDeletedScopeMismatchError();
           }
           await tx.team.delete({ where: { id: teamId } });
-
-          await recordAudit(
-            { auditLogWriter: tx },
-            {
-              teamId,
-              programName: team.program.name,
-              teamName: team.name,
-              deletedCounts,
-            },
-          );
 
           return { outcome: 'deleted' as const, deletedCounts };
         },
@@ -3177,34 +3090,18 @@ async function deleteTeamTree(
   teamId: string,
 ): Promise<TeamDeletedCounts> {
   const now = new Date();
-  const applicationIds = (
-    await tx.application.findMany({
-      where: { teamId },
-      select: { id: true },
-    })
-  ).map((application) => application.id);
 
-  if (applicationIds.length > 0) {
-    await tx.outboxEvent.deleteMany({
-      where: {
-        aggregateType: 'Application',
-        aggregateId: { in: applicationIds },
-      },
-    });
-  }
+  await tx.outboxEvent.deleteMany({
+    where: { aggregateType: 'Team', aggregateId: teamId },
+  });
 
-  const decisionNotifications =
-    applicationIds.length > 0
-      ? await tx.notification.findMany({
-          where: {
-            type: 'APPLICATION_DECISION',
-            OR: applicationIds.map((applicationId) => ({
-              payload: { path: ['applicationId'], equals: applicationId },
-            })),
-          },
-          select: { id: true },
-        })
-      : [];
+  const decisionNotifications = await tx.notification.findMany({
+    where: {
+      type: 'APPLICATION_DECISION',
+      payload: { path: ['teamId'], equals: teamId },
+    },
+    select: { id: true },
+  });
   if (decisionNotifications.length > 0) {
     const decisionNotificationIds = decisionNotifications.map(
       (notification) => notification.id,
@@ -3225,10 +3122,10 @@ async function deleteTeamTree(
   }
 
   const repositoryScope = {
-    OR: [{ teamId }, { application: { is: { teamId } } }],
+    teamId,
   } satisfies PrismaTypes.GithubRepositoryWhereInput;
   await tx.repositoryProvisionJob.deleteMany({
-    where: { application: { teamId } },
+    where: { teamId },
   });
   await tx.repositoryInvitation.deleteMany({
     where: { repository: repositoryScope },
@@ -3239,15 +3136,15 @@ async function deleteTeamTree(
 
   const fileScope = {
     OR: [
-      { application: { is: { teamId } } },
-      { milestoneDocumentSubmission: { is: { application: { teamId } } } },
+      { teamId },
+      { milestoneDocumentSubmission: { is: { teamId } } },
       {
-        submissionHistory: { is: { submission: { application: { teamId } } } },
+        submissionHistory: { is: { submission: { teamId } } },
       },
     ],
   } satisfies PrismaTypes.SubmissionFileWhereInput;
   const detachedFileFks = {
-    applicationId: null,
+    teamId: null,
     milestoneId: null,
     milestoneDocumentSubmissionId: null,
     milestoneDocumentSubmissionHistoryId: null,
@@ -3274,21 +3171,20 @@ async function deleteTeamTree(
   });
   const milestoneDocumentSubmissionHistories =
     await tx.milestoneDocumentSubmissionHistory.deleteMany({
-      where: { submission: { application: { teamId } } },
+      where: { submission: { teamId } },
     });
   const milestoneDocumentSubmissions =
     await tx.milestoneDocumentSubmission.deleteMany({
-      where: { application: { teamId } },
+      where: { teamId },
     });
 
-  const applications = await tx.application.deleteMany({ where: { teamId } });
   const teamInvitations = await tx.teamInvitation.deleteMany({
     where: { teamId },
   });
   const teamMembers = await tx.teamMember.deleteMany({ where: { teamId } });
 
   return {
-    applications: applications.count,
+    teams: 1,
     members: teamMembers.count,
     invitations: teamInvitations.count,
     submissions: milestoneDocumentSubmissions.count,
@@ -3307,7 +3203,7 @@ export type StudentRepositoryUrlContext = {
   readonly status: ApplicationStatus;
   readonly applicantId: string;
   readonly applicant: { readonly githubId: bigint };
-  readonly team: { readonly leaderId: string };
+  readonly leaderId: string;
   readonly program: { readonly name: string; readonly endAt: Date };
   readonly repository: {
     readonly id: string;
@@ -3318,6 +3214,7 @@ export type StudentRepositoryUrlContext = {
 
 export type TeamRepositoryUrlContext = StudentRepositoryUrlContext & {
   readonly editor: {
+    readonly id: string;
     readonly nickname: string;
     readonly isLeader: boolean;
     readonly isStaff: boolean;
@@ -3343,26 +3240,28 @@ export class StudentRepositoryUrlContextRepository {
       },
     });
     if (!actor) return null;
-    const context = await db.application.findUnique({
+    const context = await db.team.findUnique({
       where: {
-        programId_teamId: { programId, teamId },
+        id_programId: { id: teamId, programId },
         program: { lifecycle: { not: 'DELETED' } },
       },
       select: this.STUDENT_REPOSITORY_URL_SELECT,
     });
     if (!context) return null;
-    const leads = await db.application.count({
+    const leads = await db.team.count({
       where: {
         id: context.id,
         AND: [
           this.platformRepository.programApplicationManagerWhere(actor.id),
-          { team: { leader: STUDENT_MEMBER_WHERE } },
+          { leader: STUDENT_MEMBER_WHERE },
         ],
       },
     });
     return {
       ...context,
+      teamId: context.id,
       editor: {
+        id: actor.id,
         nickname: actor.nickname,
         isLeader: leads === 1,
         isStaff:
@@ -3378,16 +3277,15 @@ export class StudentRepositoryUrlContextRepository {
   readonly STUDENT_REPOSITORY_URL_SELECT = {
     id: true,
     programId: true,
-    teamId: true,
     status: true,
     applicantId: true,
     applicant: { select: { githubId: true } },
-    team: { select: { leaderId: true } },
+    leaderId: true,
     program: { select: { name: true, endAt: true } },
     repository: {
       select: { id: true, githubRepositoryId: true, nameWithOwner: true },
     },
-  } satisfies Prisma.ApplicationSelect;
+  } satisfies Prisma.TeamSelect;
 }
 
 @Injectable()
@@ -3398,7 +3296,7 @@ export class StudentRepositoryUrlTransactionRepository {
     private readonly studentRepositoryUrlContextRepository: StudentRepositoryUrlContextRepository,
     private readonly repositoryDeletion: RepositoryDeletionRepository,
   ) {}
-  get auditLogWriter(): AuditLogTransactionWriter {
+  get historyWriter(): Pick<Prisma.TransactionClient, 'teamHistory'> {
     return this.transaction;
   }
 
@@ -3412,8 +3310,6 @@ export class StudentRepositoryUrlTransactionRepository {
 
     await this.transaction
       .$queryRaw`SELECT "id" FROM "Team" WHERE "id" = ${teamId} AND "programId" = ${programId} FOR UPDATE`;
-    await this.transaction
-      .$queryRaw`SELECT "id" FROM "Application" WHERE "programId" = ${programId} AND "teamId" = ${teamId} FOR UPDATE`;
     return this.studentRepositoryUrlContextRepository.readTeamRepositoryUrlContext(
       this.transaction,
       programId,
@@ -3431,9 +3327,9 @@ export class StudentRepositoryUrlTransactionRepository {
     readonly deletedCounts: RepositoryDeletionCounts | null;
   }> {
     const tx = this.transaction;
-    await tx.$queryRaw`SELECT "id" FROM "RepositoryProvisionJob" WHERE "applicationId" = ${context.id} FOR UPDATE`;
+    await tx.$queryRaw`SELECT "id" FROM "RepositoryProvisionJob" WHERE "teamId" = ${context.id} FOR UPDATE`;
     const job = await tx.repositoryProvisionJob.findUnique({
-      where: { applicationId: context.id },
+      where: { teamId: context.id },
       select: { status: true },
     });
     if (job?.status === RepositoryProvisionJobStatus.PROCESSING)
@@ -3443,15 +3339,14 @@ export class StudentRepositoryUrlTransactionRepository {
       where: { githubRepositoryId: metadata.githubRepositoryId },
       select: { id: true },
     });
-    if (context.repository && context.repository.id !== existing?.id) {
-      await tx.githubRepository.update({
-        where: { id: context.repository.id },
-        data: { applicationId: null, teamId: null },
-      });
-    }
+    const deletedCounts =
+      context.repository && context.repository.id !== existing?.id
+        ? await this.repositoryDeletion.deleteRepositoryWithFacts(
+            tx,
+            context.repository.id,
+          )
+        : null;
     const data = {
-      applicationId: context.id,
-      programId: context.programId,
       teamId: context.teamId,
       nameWithOwner: metadata.nameWithOwner,
       visibility: metadata.visibility,
@@ -3475,11 +3370,7 @@ export class StudentRepositoryUrlTransactionRepository {
       const result = await tx.githubRepository.updateMany({
         where: {
           id: existing.id,
-          OR: [{ applicationId: null }, { applicationId: context.id }],
-          AND: [
-            { OR: [{ programId: null }, { programId: context.programId }] },
-            { OR: [{ teamId: null }, { teamId: context.teamId }] },
-          ],
+          OR: [{ teamId: null }, { teamId: context.teamId }],
         },
         data,
       });
@@ -3494,7 +3385,7 @@ export class StudentRepositoryUrlTransactionRepository {
     }
     const repositoryUrl = `https://github.com/${metadata.nameWithOwner}`;
 
-    await tx.application.update({
+    await tx.team.update({
       where: { id: context.id },
       data: {
         repositoryConnectionMode: RepositoryConnectionMode.OWN,
@@ -3504,16 +3395,9 @@ export class StudentRepositoryUrlTransactionRepository {
 
     await this.repositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
       tx,
-      { applicationId: context.id, repositoryId, now: new Date() },
+      { teamId: context.id, repositoryId, now: new Date() },
       parsePayload,
     );
-    const deletedCounts =
-      context.repository && context.repository.id !== repositoryId
-        ? await this.repositoryDeletion.deleteRepositoryWithFacts(
-            tx,
-            context.repository.id,
-          )
-        : null;
     return { repositoryId, deletedCounts };
   }
 
@@ -3535,11 +3419,11 @@ export class StudentRepositoryUrlRepository {
     private readonly repositoryDeletion: RepositoryDeletionRepository,
   ) {}
 
-  findContext(
+  async findContext(
     programId: string,
     studentId: string,
   ): Promise<StudentRepositoryUrlContext | null> {
-    return this.prisma.application.findFirst({
+    const team = await this.prisma.team.findFirst({
       where: {
         programId,
         ...this.platformRepository.programApplicationParticipantWhere(
@@ -3550,6 +3434,7 @@ export class StudentRepositoryUrlRepository {
         this.studentRepositoryUrlContextRepository
           .STUDENT_REPOSITORY_URL_SELECT,
     });
+    return team ? { ...team, teamId: team.id } : null;
   }
 
   findTeamContext(

@@ -31,7 +31,7 @@ const actor: {
 };
 const prisma = {
   user: { findUnique: jest.fn<Promise<typeof actor | null>, []>() },
-  application: { findFirst: jest.fn<Promise<{ id: string } | null>, []>() },
+  team: { findFirst: jest.fn<Promise<{ id: string } | null>, []>() },
 };
 const repository = {
   programExists: jest.fn().mockResolvedValue(true),
@@ -51,7 +51,7 @@ const repository = {
         };
   }),
   isApprovedParticipant: jest.fn(
-    async () => (await prisma.application.findFirst()) !== null,
+    async () => (await prisma.team.findFirst()) !== null,
   ),
   findByProgramId: jest.fn().mockResolvedValue({ items: [], total: 0 }),
 };
@@ -103,7 +103,7 @@ describe('board authorization HTTP characterization', () => {
   afterAll(async () => application.close());
   beforeEach(() => {
     prisma.user.findUnique.mockResolvedValue(actor);
-    prisma.application.findFirst.mockResolvedValue(null);
+    prisma.team.findFirst.mockResolvedValue(null);
   });
 
   it.each([
@@ -129,7 +129,7 @@ describe('board authorization HTTP characterization', () => {
         hasAdminAccess,
         accountStatus,
       });
-      prisma.application.findFirst.mockResolvedValue(
+      prisma.team.findFirst.mockResolvedValue(
         participant ? { id: 'synthetic-application' } : null,
       );
       const response = await fetch(

@@ -2,7 +2,7 @@ import type { ProgramTeamDeletionRepository } from './team.repository';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 
 export const EMPTY_TEAM_DELETION_SCOPE: TeamDeletionScopeCounts = {
-  applications: 0,
+  teams: 0,
   members: 0,
   invitations: 0,
   submissions: 0,

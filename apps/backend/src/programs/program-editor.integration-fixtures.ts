@@ -109,7 +109,7 @@ export async function cleanup(): Promise<void> {
     {
       where: {
         OR: [
-          { applicationId: { startsWith: `${TEST_PREFIX}application:` } },
+          { teamId: { startsWith: `${TEST_PREFIX}application:` } },
           { milestoneDocumentId: { in: documentIds } },
         ],
       },
@@ -132,7 +132,7 @@ export async function cleanup(): Promise<void> {
   await prisma.submissionFile.deleteMany({
     where: {
       OR: [
-        { applicationId: { startsWith: `${TEST_PREFIX}application:` } },
+        { teamId: { startsWith: `${TEST_PREFIX}application:` } },
         { milestoneId: { startsWith: `${TEST_PREFIX}milestone:` } },
         { milestoneDocumentSubmissionId: { in: documentSubmissionIds } },
         {
@@ -149,7 +149,7 @@ export async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: { id: { in: documentSubmissionIds } },
   });
-  await prisma.application.deleteMany({
+  await prisma.team.deleteMany({
     where: { id: { startsWith: `${TEST_PREFIX}application:` } },
   });
   await prisma.team.deleteMany({

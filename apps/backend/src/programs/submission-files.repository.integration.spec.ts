@@ -31,7 +31,7 @@ const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
 const FUTURE_EXPIRES_AT = new Date('2027-01-01T00:00:00.000Z');
 const PAST_EXPIRES_AT = new Date('2026-01-01T00:00:00.000Z');
 const PROGRAM_ID = seedId('milestones', 'program');
-const APPLICATION_ID = seedId('milestones', 'application', 'team');
+const TEAM_ID = seedId('milestones', 'team');
 const UPLOADER_USER_ID = seedId('milestones', 'user', 'team-leader');
 const TEAM_MEMBER_USER_ID = seedId('milestones', 'user', 'team-member');
 const MILESTONE_ID = 'issue-342-download-milestone';
@@ -93,7 +93,7 @@ const FILE_IDS: string[] = [
 ];
 const BASE_FILE = {
   uploaderId: UPLOADER_USER_ID,
-  applicationId: APPLICATION_ID,
+  teamId: TEAM_ID,
   milestoneId: MILESTONE_ID,
   mimeType: 'application/pdf',
 } as const;
@@ -208,7 +208,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
       data: {
         id: MILESTONE_DOCUMENT_SUBMISSION_ID,
         milestoneDocumentId: MILESTONE_DOCUMENT_ID,
-        applicationId: APPLICATION_ID,
+        teamId: TEAM_ID,
         status: SubmissionStatus.SUBMITTED,
         revision: 1,
         submittedById: UPLOADER_USER_ID,

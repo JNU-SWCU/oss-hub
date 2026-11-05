@@ -23,24 +23,24 @@ export const program: ArchiveProgram = {
   })),
 };
 export const teams = ['가팀', '나팀'].map((teamName, index) => ({
-  applicationId: `application-${index}`,
+  teamId: `application-${index}`,
   teamName,
   applicantName: null,
   memberNicknames: [],
 }));
 export function submission(
-  applicationId: string,
+  teamId: string,
   milestoneDocumentId: string,
   status: SubmissionStatus = SubmissionStatus.SUBMITTED,
 ): MilestoneDocumentArchiveSubmission {
   return {
-    applicationId,
+    teamId,
     milestoneDocumentId,
     status,
     submittedAt: now,
     content: {
       type: 'TEXT',
-      text: `${applicationId}-${milestoneDocumentId} 최신 글`,
+      text: `${teamId}-${milestoneDocumentId} 최신 글`,
     },
     hasCurrentFileEvidence: false,
     file: null,

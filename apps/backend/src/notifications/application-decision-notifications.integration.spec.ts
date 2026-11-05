@@ -15,7 +15,7 @@ const service = new ApplicationDecisionNotificationsService(repository);
 const USER_IDS = ['synthetic-notice-a', 'synthetic-notice-b'] as const;
 const GITHUB_IDS = [8_800_000_000_044n, 8_800_000_000_045n] as const;
 const PROGRAM_ID = 'synthetic-notice-program';
-const APPLICATION_ID = 'synthetic-notice-application';
+const TEAM_ID = 'synthetic-notice-team';
 const TIMES = [
   '2026-08-09T01:00:00.000Z',
   '2026-08-09T02:00:00.000Z',
@@ -25,17 +25,10 @@ const TIMES = [
 async function createApplication(status: ApplicationStatus): Promise<void> {
   await prisma.team.create({
     data: {
-      id: 'synthetic-notice-team',
+      id: TEAM_ID,
       name: '합성 팀',
       programId: PROGRAM_ID,
       leaderId: USER_IDS[0],
-    },
-  });
-  await prisma.application.create({
-    data: {
-      id: APPLICATION_ID,
-      programId: PROGRAM_ID,
-      teamId: 'synthetic-notice-team',
       applicantId: USER_IDS[0],
       answers: {},
       applicationTemplateVersion: 1,
@@ -55,7 +48,7 @@ function decision(id: string, status: ApplicationStatus, index: 0 | 1 | 2) {
     createdAt: new Date(TIMES[index]),
     payload: {
       schemaVersion: 1,
-      applicationId: APPLICATION_ID,
+      teamId: TEAM_ID,
       programId: PROGRAM_ID,
       programName: '합성 프로그램',
       decision: status,
@@ -68,7 +61,6 @@ async function clearFixtures(): Promise<void> {
   await prisma.notification.deleteMany({
     where: { userId: { in: [...USER_IDS] } },
   });
-  await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
 }
 
@@ -87,9 +79,8 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: PROGRAM_ID,
         name: '합성 프로그램',
         organizer: '합성 조직',
@@ -219,8 +210,8 @@ describe('ApplicationDecisionNotificationsRepository integration', () => {
     await prisma.notification.create({
       data: decision('synthetic-old-revert', ApplicationStatus.SUBMITTED, 0),
     });
-    await prisma.application.update({
-      where: { id: APPLICATION_ID },
+    await prisma.team.update({
+      where: { id: TEAM_ID },
       data: { submittedAt: new Date(TIMES[2]) },
     });
 

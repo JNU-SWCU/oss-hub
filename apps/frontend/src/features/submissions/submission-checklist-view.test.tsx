@@ -107,7 +107,7 @@ const ITEMS: readonly SubmissionChecklistItem[] = [
 ];
 
 const CHECKLIST: SubmissionChecklist = {
-  applicationId: 'application-personal',
+  teamId: 'application-personal',
   applicationMode: 'PERSONAL',
   fileUpload: submissionUploadLimit(),
   items: ITEMS,

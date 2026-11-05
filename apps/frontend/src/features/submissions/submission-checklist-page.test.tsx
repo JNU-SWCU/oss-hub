@@ -88,7 +88,7 @@ vi.mock('./submission-page', () => ({
 }));
 
 const CHECKLIST: SubmissionChecklist = {
-  applicationId: 'application-1',
+  teamId: 'application-1',
   applicationMode: 'PERSONAL',
   fileUpload: submissionUploadLimit(),
   items: [

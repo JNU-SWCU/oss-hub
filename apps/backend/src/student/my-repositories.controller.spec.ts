@@ -24,7 +24,7 @@ describe('MyRepositoriesController', () => {
       getMyRepositories: jest.fn().mockResolvedValue([
         {
           repositoryId: 'synthetic-repository',
-          applicationId: 'synthetic-application',
+          teamId: 'synthetic-application',
           applicationMode: 'PERSONAL' as const,
           programName: 'Synthetic program',
           displayName: 'Synthetic applicant',

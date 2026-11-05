@@ -35,10 +35,10 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
     await expect(
       fixture.prisma.milestoneDocumentSubmission.findFirst({
         where: { milestoneDocumentId: flowIds.document },
-        select: { applicationId: true, submittedById: true },
+        select: { teamId: true, submittedById: true },
       }),
     ).resolves.toEqual({
-      applicationId: flowIds.application,
+      teamId: flowIds.team,
       submittedById: flowIds.student,
     });
   });

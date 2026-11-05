@@ -157,13 +157,10 @@ async function cleanup(): Promise<void> {
     where: { storageKey: { startsWith: `${prefix}/` } },
   });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
-    where: { submission: { is: { applicationId: { startsWith: prefix } } } },
+    where: { submission: { is: { teamId: { startsWith: prefix } } } },
   });
   await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { applicationId: { startsWith: prefix } },
-  });
-  await prisma.application.deleteMany({
-    where: { programId: { in: [programId, outsideProgramId] } },
+    where: { teamId: { startsWith: prefix } },
   });
   await prisma.teamMember.deleteMany({
     where: { programId: { in: [programId, outsideProgramId] } },
@@ -226,6 +223,9 @@ async function createTeamWithApplication(
       programId: programIdOfTeam,
       name: `synthetic ${team.key} 팀`,
       leaderId: team.leaderId,
+      applicantId: team.leaderId,
+      answers: { title: `synthetic ${team.key} 팀` },
+      applicationTemplateVersion: 1,
     },
   });
   for (const userId of team.memberIds) {
@@ -237,25 +237,23 @@ async function createTeamWithApplication(
       },
     });
   }
-  const applicationId = `${prefix}-${team.key}-application`;
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId: programIdOfTeam,
       applicantId: team.applicantId ?? team.leaderId,
-      teamId,
       answers: { syntheticFixture: true },
       applicationTemplateVersion: 1,
       status: team.status,
       processedAt: new Date('2026-02-01'),
     },
   });
-  return applicationId;
+  return teamId;
 }
 async function seedSubmissionWithFile(input: {
   readonly key: string;
   readonly documentId: string;
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly actorId: string;
   readonly milestoneIdOfFile: string;
   readonly revision?: number;
@@ -269,7 +267,7 @@ async function seedSubmissionWithFile(input: {
     data: {
       id: submissionId,
       milestoneDocumentId: input.documentId,
-      applicationId: input.applicationId,
+      teamId: input.teamId,
       submittedById: input.actorId,
       submittedAt: new Date('2026-03-01'),
       revision,
@@ -291,7 +289,7 @@ async function seedSubmissionWithFile(input: {
     data: {
       id: `${prefix}-${input.key}-file`,
       uploaderId: input.actorId,
-      applicationId: input.applicationId,
+      teamId: input.teamId,
       milestoneId: input.milestoneIdOfFile,
       storageKey,
       originalFileName: `${input.key}.pdf`,
@@ -481,21 +479,21 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     ownStorageKey = await seedSubmissionWithFile({
       key: 'reverted-own',
       documentId: ownDocumentId,
-      applicationId: revertedApplicationId,
+      teamId: revertedApplicationId,
       actorId: users.revertedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
     await seedSubmissionWithFile({
       key: 'reverted-legacy',
       documentId: legacyDocumentId,
-      applicationId: revertedApplicationId,
+      teamId: revertedApplicationId,
       actorId: users.revertedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
     await seedSubmissionWithFile({
       key: 'reverted-expired',
       documentId: expiredDocumentId,
-      applicationId: revertedApplicationId,
+      teamId: revertedApplicationId,
       actorId: users.revertedLeader.id,
       milestoneIdOfFile: milestoneId,
       expiresAt: new Date('2026-01-01'),
@@ -503,7 +501,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await seedSubmissionWithFile({
       key: 'reverted-delete-pending',
       documentId: deletePendingDocumentId,
-      applicationId: revertedApplicationId,
+      teamId: revertedApplicationId,
       actorId: users.revertedLeader.id,
       milestoneIdOfFile: milestoneId,
       lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
@@ -511,7 +509,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await seedSubmissionWithFile({
       key: 'reverted-stale-revision',
       documentId: staleRevisionDocumentId,
-      applicationId: revertedApplicationId,
+      teamId: revertedApplicationId,
       actorId: users.revertedLeader.id,
       milestoneIdOfFile: milestoneId,
       revision: 2,
@@ -526,7 +524,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await seedSubmissionWithFile({
       key: 'rejected-own',
       documentId: ownDocumentId,
-      applicationId: rejectedApplicationId,
+      teamId: rejectedApplicationId,
       actorId: users.rejectedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
@@ -539,7 +537,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await seedSubmissionWithFile({
       key: 'approved-own',
       documentId: ownDocumentId,
-      applicationId: approvedApplicationId,
+      teamId: approvedApplicationId,
       actorId: users.approvedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
@@ -552,7 +550,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     neighbourStorageKey = await seedSubmissionWithFile({
       key: 'neighbour-only',
       documentId: neighbourDocumentId,
-      applicationId: neighbourApplicationId,
+      teamId: neighbourApplicationId,
       actorId: users.neighbourLeader.id,
       milestoneIdOfFile: milestoneId,
     });
@@ -566,7 +564,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await seedSubmissionWithFile({
       key: 'departed-team',
       documentId: neighbourDocumentId,
-      applicationId: departedApplicationId,
+      teamId: departedApplicationId,
       actorId: users.successorLeader.id,
       milestoneIdOfFile: milestoneId,
     });
@@ -582,7 +580,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     outsideStorageKey = await seedSubmissionWithFile({
       key: 'outsider-own',
       documentId: outsideDocumentId,
-      applicationId: outsideApplicationId,
+      teamId: outsideApplicationId,
       actorId: users.outsider.id,
       milestoneIdOfFile: outsideMilestoneId,
     });
@@ -595,7 +593,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await seedSubmissionWithFile({
       key: 'bare-leader-own',
       documentId: ownDocumentId,
-      applicationId: bareLeaderApplicationId,
+      teamId: bareLeaderApplicationId,
       actorId: users.bareLeader.id,
       milestoneIdOfFile: milestoneId,
     });
@@ -609,7 +607,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     await seedSubmissionWithFile({
       key: 'former-own',
       documentId: ownDocumentId,
-      applicationId: formerApplicationId,
+      teamId: formerApplicationId,
       actorId: users.formerUploader.id,
       milestoneIdOfFile: milestoneId,
     });
@@ -795,11 +793,11 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     ).resolves.toEqual(hiddenAsMissing);
   });
   it('파일을 올리고 신청까지 낸 사람도 팀원 행이 지워지면 모르는 서류와 같은 404를 받는다', async () => {
-    const application = await prisma.application.findUniqueOrThrow({
-      where: { id: `${prefix}-former-application` },
+    const team = await prisma.team.findUniqueOrThrow({
+      where: { id: `${prefix}-former-team` },
       select: { applicantId: true },
     });
-    expect(application.applicantId).toBe(users.formerUploader.id);
+    expect(team.applicantId).toBe(users.formerUploader.id);
     const file = await prisma.submissionFile.findUniqueOrThrow({
       where: { id: `${prefix}-former-own-file` },
       select: { uploaderId: true, lifecycle: true },

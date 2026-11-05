@@ -49,7 +49,7 @@ const prisma = new PrismaService();
 const files = new SubmissionFilesRepository(prisma, new PlatformRepository());
 const storageConfig = new ObjectStorageConfig();
 const storage = new S3ObjectStorageClient(storageConfig);
-const APPLICATION_ID = seedId('milestones', 'application', 'personal');
+const TEAM_ID = seedId('milestones', 'application-personal', 'team');
 const USER_ID = seedId('milestones', 'user', 'applicant-personal');
 const MILESTONE_ID = MILESTONE_SCENARIOS['milestones-upcoming'][0];
 const PREFIX = 'integration/submission-file-lifecycle';
@@ -97,7 +97,7 @@ async function createPending(options: {
   return prisma.submissionFile.create({
     data: {
       uploaderId: USER_ID,
-      applicationId: APPLICATION_ID,
+      teamId: TEAM_ID,
       milestoneId: MILESTONE_ID,
       storageKey: `${PREFIX}/${options.suffix}`,
       originalFileName: options.originalFileName ?? 'synthetic.pdf',
@@ -131,7 +131,7 @@ async function createSubmissionHistory(suffix: string): Promise<{
     data: {
       id: submissionId,
       milestoneDocumentId: documentId,
-      applicationId: APPLICATION_ID,
+      teamId: TEAM_ID,
       status: SubmissionStatus.SUBMITTED,
       revision: 1,
       submittedById: USER_ID,

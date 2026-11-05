@@ -103,38 +103,35 @@ function documentRow(
   };
 }
 async function setSubmissions(
-  applicationId: string,
+  teamId: string,
   rows: readonly (readonly [string, SubmissionStatus])[],
 ): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { applicationId },
+    where: { teamId },
   });
   await prisma.milestoneDocumentSubmission.createMany({
     data: rows.map(([milestoneDocumentId, status]) => ({
       milestoneDocumentId,
-      applicationId,
+      teamId,
       status,
       submittedById: STUDENT_ID,
     })),
   });
 }
-async function nextMilestoneOf(applicationId: string) {
+
+async function nextMilestoneOf(teamId: string) {
   const items = await dashboard.getStudentDashboard(STUDENT_GITHUB_ID);
-  return items.find((item) => item.applicationId === applicationId)
-    ?.nextMilestone;
+  return items.find((item) => item.teamId === teamId)?.nextMilestone;
 }
 async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { applicationId: { in: APPLICATION_IDS } },
-  });
-  await prisma.application.deleteMany({
-    where: { id: { in: APPLICATION_IDS } },
+    where: { teamId: { in: APPLICATION_IDS } },
   });
   await prisma.teamMember.deleteMany({
-    where: { teamId: { in: APPLICATION_IDS.map((each) => `${each}-team`) } },
+    where: { teamId: { in: APPLICATION_IDS } },
   });
   await prisma.team.deleteMany({
-    where: { id: { in: APPLICATION_IDS.map((each) => `${each}-team`) } },
+    where: { id: { in: APPLICATION_IDS } },
   });
   await prisma.milestoneDocument.deleteMany({
     where: { milestoneId: { in: MILESTONE_IDS } },
@@ -196,29 +193,22 @@ async function seed(): Promise<void> {
     ],
   });
   await prisma.team.createMany({
-    data: APPLICATION_IDS.map((applicationId, index) => ({
-      id: `${applicationId}-team`,
+    data: APPLICATION_IDS.map((teamId, index) => ({
+      id: teamId,
       programId: PROGRAM_IDS[index] ?? DOCUMENT_PROGRAM,
-      name: `${applicationId}-team`,
+      name: `${teamId}-team`,
       leaderId: STUDENT_ID,
-    })),
-  });
-  await prisma.teamMember.createMany({
-    data: APPLICATION_IDS.map((applicationId, index) => ({
-      teamId: `${applicationId}-team`,
-      programId: PROGRAM_IDS[index] ?? DOCUMENT_PROGRAM,
-      userId: STUDENT_ID,
-    })),
-  });
-  await prisma.application.createMany({
-    data: APPLICATION_IDS.map((applicationId, index) => ({
-      id: applicationId,
-      programId: PROGRAM_IDS[index] ?? DOCUMENT_PROGRAM,
       applicantId: STUDENT_ID,
-      teamId: `${applicationId}-team`,
       answers: {},
       applicationTemplateVersion: 1,
       status: ApplicationStatus.APPROVED,
+    })),
+  });
+  await prisma.teamMember.createMany({
+    data: APPLICATION_IDS.map((teamId, index) => ({
+      teamId,
+      programId: PROGRAM_IDS[index] ?? DOCUMENT_PROGRAM,
+      userId: STUDENT_ID,
     })),
   });
 }

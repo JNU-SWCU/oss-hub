@@ -54,29 +54,28 @@ const PROGRAM_ID = `${PREFIX}-program`;
 const OWNER_ID = `${PREFIX}-owner`;
 const OWNER_GITHUB_ID = 8_800_000_000_001n;
 const OTHER_CONTRIBUTOR_GITHUB_ID = 8_800_000_000_002n;
+const repoKeys = ['a', 'b', 'c', 'd', 'e'] as const;
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 
 describe('PublicProjectsService.findProfile integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
-    await prisma.program.create({
-      data: {
-        startAt: new Date('2026-01-01T00:00:00.000Z'),
-        endAt: new Date(
-          new Date('2026-02-01T00:00:00.000Z').getTime() + 365 * 86_400_000,
-        ),
-
-        id: PROGRAM_ID,
+    await prisma.program.createMany({
+      data: repoKeys.map((key) => ({
+        id: `${PROGRAM_ID}-${key}`,
         name: `${PREFIX}-program`,
         organizer: 'synthetic-organizer',
         trackType: ProgramTrackType.EXTRACURRICULAR,
         category: ProgramCategory.BASIC,
         applicationTemplateKey: 'synthetic-template',
         applicationTemplateVersion: 1,
-        applicationStartAt: new Date('2026-01-01T00:00:00.000Z'),
-        applicationEndAt: new Date('2026-02-01T00:00:00.000Z'),
+        applicationStartAt: new Date('2026-01-01'),
+        applicationEndAt: new Date('2026-02-01'),
+        startAt: new Date('2026-01-01'),
+        endAt: new Date('2027-02-01'),
         description: 'synthetic-description',
-      },
+        teamMaxSize: 4,
+      })),
     });
 
     await prisma.user.create({
@@ -96,44 +95,32 @@ describe('PublicProjectsService.findProfile integration', () => {
       },
     });
 
-    const repoKeys = ['a', 'b', 'c', 'd', 'e'] as const;
-    const applicantIds = repoKeys.map((key) => `${PREFIX}-applicant-${key}`);
-    await prisma.user.createMany({
-      data: repoKeys.map((key, index) => ({
-        id: `${PREFIX}-applicant-${key}`,
-        githubId: 8_800_000_001_000n + BigInt(index),
-        nickname: `${PREFIX}-applicant-${key}`,
+    await prisma.user.create({
+      data: {
+        id: `${PREFIX}-applicant-c`,
+        githubId: 8800000001002n,
+        nickname: `${PREFIX}-applicant-c`,
         type: MemberKind.STUDENT,
         approvalStatus: 'NOT_REQUIRED',
-      })),
+      },
     });
-    const applicationIds = repoKeys.map(
-      (key) => `${PREFIX}-application-${key}`,
-    );
     await prisma.team.createMany({
-      data: repoKeys.map((key, index) => ({
-        id: `${PREFIX}-application-team-${key}`,
-        programId: PROGRAM_ID,
-        name: `${PREFIX}-application-team-${key}`,
-        leaderId: applicantIds[index]!,
-      })),
-    });
-    await prisma.teamMember.createMany({
-      data: repoKeys.map((key, index) => ({
-        teamId: `${PREFIX}-application-team-${key}`,
-        programId: PROGRAM_ID,
-        userId: applicantIds[index]!,
-      })),
-    });
-    await prisma.application.createMany({
-      data: repoKeys.map((key, index) => ({
-        id: `${PREFIX}-application-${key}`,
-        programId: PROGRAM_ID,
-        applicantId: applicantIds[index]!,
-        teamId: `${PREFIX}-application-team-${key}`,
+      data: repoKeys.map((key) => ({
+        id: `${PREFIX}-team-${key}`,
+        programId: `${PROGRAM_ID}-${key}`,
+        name: `${PREFIX}-team-${key}`,
+        leaderId: key === 'c' ? `${PREFIX}-applicant-c` : OWNER_ID,
+        applicantId: key === 'c' ? `${PREFIX}-applicant-c` : OWNER_ID,
         answers: {},
         applicationTemplateVersion: 1,
         status: ApplicationStatus.APPROVED,
+      })),
+    });
+    await prisma.teamMember.createMany({
+      data: repoKeys.map((key) => ({
+        teamId: `${PREFIX}-team-${key}`,
+        programId: `${PROGRAM_ID}-${key}`,
+        userId: key === 'c' ? `${PREFIX}-applicant-c` : OWNER_ID,
       })),
     });
     const githubRepositoryIdByKey: Record<(typeof repoKeys)[number], bigint> = {
@@ -147,10 +134,9 @@ describe('PublicProjectsService.findProfile integration', () => {
     const observedKeys = ['a', 'b', 'd'] as const;
     const preSweepKeys = ['e'] as const;
     await prisma.githubRepository.createMany({
-      data: repoKeys.map((key, index) => ({
+      data: repoKeys.map((key) => ({
         id: `${PREFIX}-repository-${key}`,
-        applicationId: applicationIds[index]!,
-        programId: PROGRAM_ID,
+        teamId: `${PREFIX}-team-${key}`,
         githubRepositoryId: githubRepositoryIdByKey[key],
         nameWithOwner: `synthetic-org/${PREFIX}-repo-${key}`,
         source: RepositorySource.ORG_PROVISIONED,
@@ -158,7 +144,7 @@ describe('PublicProjectsService.findProfile integration', () => {
         publishedAt: PUBLISHED_AT,
         ...((observedKeys as readonly string[]).includes(key)
           ? {
-              githubOrganizationId: 8_800_500_000_000n,
+              githubOrganizationId: 8800500000000n,
               defaultBranch: 'main',
               presence: CollectionRepositoryPresence.PRESENT,
               lastCompleteInventoryObservedAt: new Date(
@@ -167,25 +153,13 @@ describe('PublicProjectsService.findProfile integration', () => {
             }
           : (preSweepKeys as readonly string[]).includes(key)
             ? {
-                githubOrganizationId: 8_800_500_000_000n,
+                githubOrganizationId: 8800500000000n,
                 defaultBranch: 'main',
                 presence: CollectionRepositoryPresence.PRESENT,
               }
             : { presence: CollectionRepositoryPresence.ABSENT }),
       })),
     });
-
-    for (const key of [...observedKeys, ...preSweepKeys]) {
-      await prisma.team.create({
-        data: {
-          id: `${PREFIX}-team-${key}`,
-          programId: PROGRAM_ID,
-          name: `${PREFIX}-team-${key}`,
-          leaderId: OWNER_ID,
-          repositories: { connect: { id: `${PREFIX}-repository-${key}` } },
-        },
-      });
-    }
 
     await prisma.contribution.createMany({
       data: [
@@ -240,18 +214,21 @@ describe('PublicProjectsService.findProfile integration', () => {
       });
 
       await prisma.githubRepository.deleteMany({
-        where: { programId: PROGRAM_ID },
+        where: { id: { startsWith: PREFIX } },
       });
-      await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
-      await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
+      await prisma.teamMember.deleteMany({
+        where: { programId: { startsWith: PROGRAM_ID } },
+      });
       await prisma.team.deleteMany({
-        where: { programId: PROGRAM_ID },
+        where: { programId: { startsWith: PROGRAM_ID } },
       });
 
       await prisma.user.deleteMany({
         where: { id: { startsWith: PREFIX } },
       });
-      await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
+      await prisma.program.deleteMany({
+        where: { id: { startsWith: PROGRAM_ID } },
+      });
     } finally {
       await prisma.$disconnect();
     }
@@ -320,13 +297,11 @@ describe('PublicProjectsService.findProfile integration', () => {
   );
 
   it('unobserved 저장소를 사용자 목록에 포함시키면 observed:false, dataAsOf:null, metrics:null로 표현된다', async () => {
-    await prisma.team.create({
+    await prisma.teamMember.create({
       data: {
-        id: `${PREFIX}-team-c`,
-        programId: PROGRAM_ID,
-        name: `${PREFIX}-team-c`,
-        leaderId: OWNER_ID,
-        repositories: { connect: { id: `${PREFIX}-repository-c` } },
+        teamId: `${PREFIX}-team-c`,
+        programId: `${PROGRAM_ID}-c`,
+        userId: OWNER_ID,
       },
     });
     try {
@@ -340,11 +315,11 @@ describe('PublicProjectsService.findProfile integration', () => {
       expect(repoC?.dataAsOf).toBeNull();
       expect(repoC?.metrics).toBeNull();
     } finally {
-      await prisma.githubRepository.update({
-        where: { id: `${PREFIX}-repository-c` },
-        data: { teamId: null },
+      await prisma.teamMember.delete({
+        where: {
+          teamId_userId: { teamId: `${PREFIX}-team-c`, userId: OWNER_ID },
+        },
       });
-      await prisma.team.delete({ where: { id: `${PREFIX}-team-c` } });
     }
   });
 
@@ -353,7 +328,7 @@ describe('PublicProjectsService.findProfile integration', () => {
     await prisma.user.create({
       data: {
         id: bystanderId,
-        githubId: 8_800_999_000_001n,
+        githubId: 8800999000001n,
         nickname: `${PREFIX}-bystander-login`,
         type: MemberKind.STUDENT,
         approvalStatus: 'NOT_REQUIRED',

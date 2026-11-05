@@ -248,7 +248,7 @@ const collectForStaff = jest.fn().mockResolvedValue({
   rows: [
     {
       application: {
-        applicationId: 'synthetic-application',
+        teamId: 'synthetic-application',
         teamName: '가나다팀',
         applicantName: '합성 신청자',
         memberNicknames: ['synthetic-leader'],
@@ -257,7 +257,7 @@ const collectForStaff = jest.fn().mockResolvedValue({
       cells: [
         {
           milestoneDocumentId: 'synthetic-document',
-          applicationId: 'synthetic-application',
+          teamId: 'synthetic-application',
           revision: 1,
           status: 'SUBMITTED',
           content: null,
@@ -714,7 +714,7 @@ it('서류 수합 조회 경로(collection)는 :documentId 경로로 잘못 잡�
 
 it('제출 파일 다운로드는 다시 붙인 이름으로 attachment 스트림을 반환한다', async () => {
   const response = await fetch(
-    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/file`,
+    `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/file`,
   );
 
   expect(response.status).toBe(200);
@@ -1163,7 +1163,7 @@ describe('교직원 서류 제출물 판정', () => {
     };
 
     const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1199,7 +1199,7 @@ describe('교직원 서류 제출물 판정', () => {
     const body = { decision: 'APPROVED', ...seenVersion };
 
     const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1230,7 +1230,7 @@ describe('교직원 서류 제출물 판정', () => {
     };
 
     const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1252,7 +1252,7 @@ describe('교직원 서류 제출물 판정', () => {
     const body = { decision: 'REJECTED', comment: '   ', ...seenVersion };
 
     const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1278,7 +1278,7 @@ describe('교직원 서류 제출물 판정', () => {
     };
 
     const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1305,7 +1305,7 @@ describe('교직원 서류 제출물 판정', () => {
     };
 
     const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1321,7 +1321,7 @@ describe('교직원 서류 제출물 판정', () => {
     const body = { decision: 'MAYBE', comment: '음', ...seenVersion };
 
     const response = await fetch(
-      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+      `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
       {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -1345,7 +1345,7 @@ describe('교직원 서류 제출물 판정', () => {
       };
 
       const response = await fetch(
-        `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+        `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },
@@ -1372,7 +1372,7 @@ describe('교직원 서류 제출물 판정', () => {
       };
 
       const response = await fetch(
-        `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/applications/synthetic-application/reviews`,
+        `${baseUrl}/api/v1/milestones/synthetic-milestone/documents/synthetic-document/teams/synthetic-application/reviews`,
         {
           method: 'POST',
           headers: { 'content-type': 'application/json' },

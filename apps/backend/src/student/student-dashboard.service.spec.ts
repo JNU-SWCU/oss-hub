@@ -80,7 +80,8 @@ function application(
   return {
     id: 'application-1',
     status: ApplicationStatus.APPROVED,
-    team: { name: 'Synthetic Solo Team' },
+
+    name: 'Synthetic Solo Team',
     program: program([
       singleRequirementMilestone('milestone-1', 'First milestone', DUE_AT),
     ]),
@@ -220,23 +221,23 @@ describe('StudentDashboardService', () => {
   });
   it('gives every current member the same team name and my-team link', async () => {
     findParticipatingApplications.mockResolvedValue([
-      application({ team: { name: 'Solo Team' } }),
+      application({ name: 'Solo Team' }),
       application({
         id: 'application-2',
-        team: { name: 'Synthetic Team' },
+        name: 'Synthetic Team',
       }),
     ]);
     const items = await service.getStudentDashboard(101n);
     expect(items).toEqual([
       expect.objectContaining({
-        applicationId: 'application-1',
+        teamId: 'application-1',
         teamName: 'Solo Team',
         teamUrl: '/programs/program-1/my-team',
         detailUrl: '/programs/program-1',
         checklistUrl: '/programs/program-1/submissions',
       }),
       expect.objectContaining({
-        applicationId: 'application-2',
+        teamId: 'application-2',
         teamName: 'Synthetic Team',
         teamUrl: '/programs/program-1/my-team',
       }),
@@ -267,7 +268,7 @@ describe('StudentDashboardService', () => {
   });
   it('drops a card whose team name is blank instead of inventing one', async () => {
     findParticipatingApplications.mockResolvedValue([
-      application({ team: { name: '   ' } }),
+      application({ name: '   ' }),
     ]);
     await expect(service.getStudentDashboard(101n)).resolves.toEqual([]);
   });
@@ -691,7 +692,7 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
-        applicationId: 'application-1',
+        teamId: 'application-1',
         repositoryName: 'synthetic-repository',
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
         invitationStatus: RepositoryInvitationStatus.PENDING,
@@ -710,7 +711,7 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
-        applicationId: 'application-1',
+        teamId: 'application-1',
         repositoryName: null,
         provisionStatus: RepositoryProvisionJobStatus.PROCESSING,
         invitationStatus: null,
@@ -732,7 +733,7 @@ describe('StudentDashboardService', () => {
     ]);
     getMyRepositories.mockResolvedValue([
       {
-        applicationId: 'application-1',
+        teamId: 'application-1',
         repositoryName: null,
         provisionStatus: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
         invitationStatus: null,
@@ -740,7 +741,7 @@ describe('StudentDashboardService', () => {
         lastErrorCode: 'raw upstream response that must not be exposed',
       },
       {
-        applicationId: 'application-2',
+        teamId: 'application-2',
         repositoryName: null,
         provisionStatus: RepositoryProvisionJobStatus.FAILED_FINAL,
         invitationStatus: null,
@@ -761,7 +762,7 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
-        applicationId: 'application-1',
+        teamId: 'application-1',
         connectionMode: 'NEW',
         repositoryName: 'synthetic-repository',
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -781,7 +782,7 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
       {
-        applicationId: 'application-1',
+        teamId: 'application-1',
         connectionMode: 'OWN',
         repositoryName: 'synthetic-repository',
         provisionStatus: RepositoryProvisionJobStatus.SUCCEEDED,
@@ -803,7 +804,7 @@ describe('StudentDashboardRepository', () => {
   const findMany = jest.fn();
   const prisma = {
     user: { findUnique },
-    application: { findMany },
+    team: { findMany },
   } as unknown as PrismaService;
   const repository = new StudentDashboardRepository(
     prisma,
@@ -820,9 +821,9 @@ describe('StudentDashboardRepository', () => {
       where: { githubId: 101n },
       select: { id: true },
     });
-    const [args] = findMany.mock.calls[0] as [Prisma.ApplicationFindManyArgs];
+    const [args] = findMany.mock.calls[0] as [Prisma.TeamFindManyArgs];
     expect(args.where).toEqual({
-      team: { members: { some: { userId: 'user-1' } } },
+      members: { some: { userId: 'user-1' } },
     });
     expect(JSON.stringify(args.where)).not.toContain('applicant');
     expect(JSON.stringify(args.where)).not.toContain('leader');
@@ -836,14 +837,16 @@ describe('StudentDashboardRepository', () => {
   });
   it('selects the whole target ledger and the current team name only', async () => {
     await repository.findParticipatingApplications(101n);
-    const [args] = findMany.mock.calls[0] as [Prisma.ApplicationFindManyArgs];
+
+    const [args] = findMany.mock.calls[0] as [Prisma.TeamFindManyArgs];
     expect(args.select?.milestoneDocumentSubmissions).toEqual({
       select: {
         status: true,
         milestoneDocument: { select: { id: true, milestoneId: true } },
       },
     });
-    expect(args.select?.team).toEqual({ select: { name: true } });
+    expect(args.select?.name).toBe(true);
+
     const programSelect = args.select?.program as {
       readonly select?: {
         readonly cover?: unknown;

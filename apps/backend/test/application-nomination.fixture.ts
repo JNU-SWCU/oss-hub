@@ -13,7 +13,6 @@ import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixtur
 import { ApplicationsRepository } from '../src/programs/team.repository';
 import { TeamApplicationService } from '../src/programs/team-application.service';
 import { ApplicationAnswersService } from '../src/programs/team-application.service';
-import { ReviewHistoryWriterRepository } from '../src/programs/team-history.repository';
 import { TeamInvitationsRepository } from '../src/programs/team-invitations.repository';
 import { TeamInvitationsService } from '../src/programs/team-invitations.service';
 import { UserProfileService } from '../src/users/user-profile.service';
@@ -37,12 +36,10 @@ const audit = new AuditLogService(
 const service = new TeamApplicationService(
   new ApplicationsRepository(
     prisma,
-    new ReviewHistoryWriterRepository(),
+    new TeamHistoryRepository(),
     new RepositoryProvisionGenerationRepository(),
     new PlatformRepository(),
   ),
-  audit,
-  new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
   new RepositoryProvisionEventService(),
@@ -88,7 +85,6 @@ export {
   replacement,
   extra,
   staff,
-  audit,
   service,
   invitations,
   invitationService,

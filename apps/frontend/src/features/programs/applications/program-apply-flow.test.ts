@@ -38,7 +38,7 @@ const problem = (code: string, detail = ''): ProblemDetail => ({
   title: 'error',
   status: 400,
   detail,
-  instance: '/programs/program-1/applications',
+  instance: '/programs/program-1/teams',
   code,
 });
 

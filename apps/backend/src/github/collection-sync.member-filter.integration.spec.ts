@@ -37,7 +37,6 @@ const PROGRAM_ID = `${SEED_PREFIX}-program`;
 const TEAM_ID = `${SEED_PREFIX}-team`;
 const MEMBER_USER_ID = `${SEED_PREFIX}-user`;
 const LATE_MEMBER_USER_ID = `${SEED_PREFIX}-late-user`;
-const APPLICATION_ID = `${SEED_PREFIX}-application`;
 const REPOSITORY_ID = `${SEED_PREFIX}-repository`;
 
 const fingerprint = (endpoint: string): RequestFingerprint => ({
@@ -186,9 +185,8 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       data: {
         startAt: new Date('2026-12-31T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: PROGRAM_ID,
         name: 'synthetic member filter program',
         organizer: 'synthetic',
@@ -214,6 +212,9 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         programId: PROGRAM_ID,
         name: 'synthetic member filter team',
         leaderId: MEMBER_USER_ID,
+        applicantId: MEMBER_USER_ID,
+        answers: { title: 'synthetic member filter team' },
+        applicationTemplateVersion: 1,
       },
     });
     await prisma.teamMember.create({
@@ -223,12 +224,11 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         userId: MEMBER_USER_ID,
       },
     });
-    await prisma.application.create({
+    await prisma.team.update({
+      where: { id: TEAM_ID },
       data: {
-        id: APPLICATION_ID,
         programId: PROGRAM_ID,
         applicantId: MEMBER_USER_ID,
-        teamId: TEAM_ID,
         answers: {},
         applicationTemplateVersion: 1,
         status: 'APPROVED',
@@ -237,8 +237,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     await prisma.githubRepository.create({
       data: {
         id: REPOSITORY_ID,
-        applicationId: APPLICATION_ID,
-        programId: PROGRAM_ID,
         teamId: TEAM_ID,
         githubRepositoryId: GITHUB_REPOSITORY_ID,
         nameWithOwner: `${ORG_LOGIN}/member-filter-repo`,
@@ -261,7 +259,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       'DELETE FROM "CollectionSyncLease" WHERE "appId" = $1',
       APP_ID,
     );
-    await prisma.application.deleteMany({ where: { id: APPLICATION_ID } });
     await prisma.teamMember.deleteMany({ where: { teamId: TEAM_ID } });
     await prisma.team.deleteMany({ where: { id: TEAM_ID } });
     await prisma.user.deleteMany({
@@ -424,7 +421,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     );
   });
 
-  it('등록 레포의 teamId 백필 전에도 가입하지 않은 작성자는 적재하지 않는다', async () => {
+  it('팀 연결이 끊긴 등록 레포는 수집 대상이 아니므로 어떤 작성자의 기록도 적재하지 않는다', async () => {
     await seed();
     await prisma.githubRepository.update({
       where: { id: REPOSITORY_ID },
@@ -468,59 +465,23 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
       select: { id: true },
     });
-    const commitFacts = await prisma.collectionCommitFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { sha: true, authorGithubId: true },
-    });
-    expect(commitFacts).toEqual([
-      {
-        sha: 'synthetic-member-commit',
-        authorGithubId: MEMBER_GITHUB_ID,
-      },
-    ]);
-    const pullRequestFacts = await prisma.collectionPullRequestFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { githubPullRequestId: true, authorGithubId: true },
-    });
-    expect(pullRequestFacts).toEqual([
-      {
-        githubPullRequestId: 9_000_000_680_206n,
-        authorGithubId: MEMBER_GITHUB_ID,
-      },
-    ]);
-    const releaseFacts = await prisma.collectionReleaseFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { githubReleaseId: true, authorGithubId: true },
-    });
-    expect(releaseFacts).toEqual([
-      {
-        githubReleaseId: 9_000_000_680_306n,
-        authorGithubId: MEMBER_GITHUB_ID,
-      },
-    ]);
+    await expect(
+      prisma.collectionCommitFact.count({
+        where: { repositoryId: collected.id },
+      }),
+    ).resolves.toBe(0);
     await expect(
       prisma.collectionPullRequestFact.count({
-        where: {
-          repositoryId: collected.id,
-          authorGithubId: BigInt(OUTSIDER_GITHUB_ID),
-        },
+        where: { repositoryId: collected.id },
       }),
     ).resolves.toBe(0);
     await expect(
       prisma.collectionReleaseFact.count({
-        where: {
-          repositoryId: collected.id,
-          authorGithubId: BigInt(OUTSIDER_GITHUB_ID),
-        },
+        where: { repositoryId: collected.id },
       }),
     ).resolves.toBe(0);
     await expect(
-      prisma.contribution.count({
-        where: {
-          repositoryId: collected.id,
-          githubId: BigInt(OUTSIDER_GITHUB_ID),
-        },
-      }),
+      prisma.contribution.count({ where: { repositoryId: collected.id } }),
     ).resolves.toBe(0);
   });
 

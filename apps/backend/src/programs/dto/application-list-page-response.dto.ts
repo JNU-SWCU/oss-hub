@@ -1,5 +1,5 @@
 import type {
-  ApplicationReviewEventKind,
+  TeamHistoryEvent,
   ApplicationStatus,
   RepositoryConnectionMode,
 } from '@prisma/client';
@@ -97,8 +97,8 @@ export class ApplicationListPageResponseDto {
 
 export class ReviewHistoryEntryResponseDto {
   declare readonly id: string;
-  declare readonly eventKind: ApplicationReviewEventKind;
-  declare readonly revision: number;
+  declare readonly eventKind: TeamHistoryEvent;
+  declare readonly revision: number | null;
   declare readonly actor: {
     readonly name: string | null;
     readonly nickname: string;

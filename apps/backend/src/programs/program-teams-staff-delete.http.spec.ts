@@ -1,7 +1,6 @@
 import { StudentRepositoryUrlService } from './team-application.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
-import type { AuditLogService } from '../platform/audit-log.service';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
@@ -31,7 +30,7 @@ const TEAM_ID = 'synthetic-team';
 const INSTANCE = `/api/v1/programs/${PROGRAM_ID}/teams/${TEAM_ID}`;
 
 const EXPECTED_SCOPE = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 2,
   submissions: 4,
@@ -41,7 +40,7 @@ const EXPECTED_SCOPE = {
 };
 
 const DELETED_COUNTS = {
-  applications: 1,
+  teams: 1,
   members: 3,
   invitations: 2,
   submissions: 4,
@@ -129,14 +128,12 @@ const repository = {
 
 const service = new TeamMembershipService(
   repository,
-  { record: jest.fn() } as unknown as AuditLogService,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
   new AuditLogMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new StudentRepositoryUrlService(
-    {} as never,
     {} as never,
     {} as never,
     {} as never,
@@ -332,7 +329,6 @@ it('확인한 범위를 그대로 보내면 200 과 지운 수치를 받는다',
     TEAM_ID,
     STAFF_AUTHORITY.id,
     EXPECTED_SCOPE,
-    expect.any(Function),
     expect.any(Function),
   );
 });

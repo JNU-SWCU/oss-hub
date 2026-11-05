@@ -264,7 +264,7 @@ describe('mail-sender-provider.service', () => {
 const NOW = new Date('2026-08-14T00:00:00.000Z');
 
 function source(
-  users: DeadlineProgramSource['applications'][number]['members'] = [
+  users: DeadlineProgramSource['teams'][number]['members'] = [
     {
       id: 'student-1',
       nickname: '학생 1',
@@ -289,7 +289,7 @@ function source(
         documents: [{ id: 'required-1', required: true }],
       },
     ],
-    applications: [
+    teams: [
       {
         id: 'application-1',
         applicant,

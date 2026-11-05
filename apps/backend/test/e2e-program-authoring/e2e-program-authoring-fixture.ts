@@ -1,6 +1,7 @@
 import {
   AccountStatus,
   ApplicationStatus,
+  Prisma,
   ProgramCategory,
   ProgramLifecycle,
 } from '@prisma/client';
@@ -27,6 +28,12 @@ export const E2E_DOCUMENT_ID = `${PREFIX}document`;
 export const E2E_STAFF_GITHUB_ID = 8100001n;
 export const E2E_STUDENT_GITHUB_ID = 8100002n;
 export const E2E_FOREIGN_STUDENT_GITHUB_ID = 8100003n;
+export const E2E_REPOSITORY_WHERE = {
+  OR: [
+    { team: { programId: E2E_PROGRAM_ID } },
+    { teamId: null, id: { startsWith: `${E2E_PROGRAM_ID}-` } },
+  ],
+} satisfies Prisma.GithubRepositoryWhereInput;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
 export const E2E_NOW = new Date(Date.now() + 2 * ONE_HOUR_MS);
@@ -48,38 +55,35 @@ export class E2eProgramAuthoringFixture {
       this.activeGraph = null;
     }
     const covers = await this.prisma.$transaction(async (transaction) => {
-      const applications = await transaction.application.findMany({
+      const applications = await transaction.team.findMany({
         where: { programId: E2E_PROGRAM_ID },
         select: { id: true },
       });
-      const applicationIds = applications.map(({ id }) => id);
+      const teamIds = applications.map(({ id }) => id);
       await deleteE2eProgramDeadlineClaims(transaction, E2E_PROGRAM_ID);
       await transaction.notification.deleteMany({
         where: { userId: { in: [E2E_STAFF_ID, E2E_STUDENT_ID] } },
       });
       await transaction.outboxEvent.deleteMany({
-        where: { aggregateId: { in: applicationIds } },
+        where: { aggregateId: { in: teamIds } },
       });
       await transaction.repositoryProvisionJob.deleteMany({
-        where: { applicationId: { in: applicationIds } },
+        where: { teamId: { in: teamIds } },
       });
       await transaction.repositoryInvitation.deleteMany({
-        where: { repository: { programId: E2E_PROGRAM_ID } },
+        where: { repository: E2E_REPOSITORY_WHERE },
       });
       await transaction.githubRepository.deleteMany({
-        where: { programId: E2E_PROGRAM_ID },
+        where: E2E_REPOSITORY_WHERE,
       });
       await transaction.submissionFile.deleteMany({
-        where: { applicationId: { in: applicationIds } },
+        where: { teamId: { in: teamIds } },
       });
       await transaction.milestoneDocumentSubmissionHistory.deleteMany({
-        where: { submission: { applicationId: { in: applicationIds } } },
+        where: { submission: { teamId: { in: teamIds } } },
       });
       await transaction.milestoneDocumentSubmission.deleteMany({
-        where: { applicationId: { in: applicationIds } },
-      });
-      await transaction.application.deleteMany({
-        where: { id: { in: applicationIds } },
+        where: { teamId: { in: teamIds } },
       });
       await transaction.teamInvitation.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
@@ -225,7 +229,7 @@ export class E2eProgramAuthoringFixture {
     readonly status: ApplicationStatus;
   } | null> {
     const graph = this.graph();
-    return this.prisma.application.findFirst({
+    return this.prisma.team.findFirst({
       where: { programId: graph.programId, applicantId },
       select: { id: true, status: true },
     });

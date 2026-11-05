@@ -12,7 +12,7 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () =>
       ApplicationDecisionNotificationResponseDto.from({
         id: 'notification-1',
-        applicationId: 'application-1',
+        teamId: 'application-1',
         programId: 'program-1',
         programName: 'Program A',
         decision: 'APPROVED',

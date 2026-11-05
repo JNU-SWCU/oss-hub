@@ -95,12 +95,12 @@ export class MilestoneDocumentFilesService {
     response: Response,
     milestoneId: string,
     documentId: string,
-    applicationId: string,
+    teamId: string,
   ): Promise<StreamableFile> {
     const file = await this.downloadSubmissionFile(
       milestoneId,
       documentId,
-      applicationId,
+      teamId,
     );
     return this.downloadResponseService.streamableFile(response, file);
   }
@@ -159,11 +159,11 @@ export class MilestoneDocumentFilesService {
     const [currentSubmission, latestReview] = await Promise.all([
       this.repository.findMySubmission(
         normalizedDocumentId,
-        application.applicationId,
+        application.teamId,
       ),
       this.repository.findLatestReview(
         normalizedDocumentId,
-        application.applicationId,
+        application.teamId,
       ),
     ]);
 
@@ -189,7 +189,7 @@ export class MilestoneDocumentFilesService {
     try {
       created = await this.submissionFiles.createPending({
         uploaderId: viewer.id,
-        applicationId: application.applicationId,
+        teamId: application.teamId,
         milestoneId: normalizedMilestoneId,
         milestoneDocumentId: normalizedDocumentId,
         storageKey: objectKey,
@@ -368,7 +368,7 @@ export class MilestoneDocumentFilesService {
   async downloadSubmissionFile(
     milestoneId: string,
     documentId: string,
-    applicationId: string,
+    teamId: string,
     now: Date = new Date(),
   ): Promise<DownloadedMilestoneDocumentSubmissionFile> {
     const documentContext =
@@ -381,14 +381,14 @@ export class MilestoneDocumentFilesService {
     }
 
     const applicationProgramId =
-      await this.repository.findApplicationProgramId(applicationId);
+      await this.repository.findApplicationProgramId(teamId);
     if (applicationProgramId !== documentContext.programId) {
       throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
     }
 
     const file = await this.repository.findSubmissionFileForStaffDownload(
       documentId,
-      applicationId,
+      teamId,
       now,
     );
     if (file === null) {

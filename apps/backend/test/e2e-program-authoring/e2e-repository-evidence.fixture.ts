@@ -3,6 +3,7 @@ import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import {
   E2E_PROGRAM_ID,
+  E2E_REPOSITORY_WHERE,
   E2E_STUDENT_ID,
   E2E_STUDENT_GITHUB_ID,
 } from './e2e-program-authoring-fixture';
@@ -25,21 +26,18 @@ export async function seedE2eRepositoryEvidence(
 ): Promise<E2eRepositoryEvidence> {
   if (graph.programId !== E2E_PROGRAM_ID) throw new E2eAdapterError(409);
   return prisma.$transaction(async (transaction) => {
-    const application = await transaction.application.findFirst({
+    const application = await transaction.team.findFirst({
       where: {
         programId: E2E_PROGRAM_ID,
         applicantId: E2E_STUDENT_ID,
         status: 'APPROVED',
       },
       select: {
-        repository: { select: { id: true, programId: true } },
+        repository: { select: { id: true } },
         program: { select: { startAt: true, endAt: true } },
       },
     });
-    if (
-      !application?.repository ||
-      application.repository.programId !== E2E_PROGRAM_ID
-    ) {
+    if (!application?.repository) {
       throw new E2eAdapterError(409);
     }
     const currentRepositoryId = application.repository.id;
@@ -79,7 +77,7 @@ export async function seedE2eRepositoryEvidence(
       data: { lastSuccessAt: new Date(), failureCount: 0 },
     });
     const facts = await transaction.contribution.findMany({
-      where: { repository: { programId: E2E_PROGRAM_ID } },
+      where: { repository: E2E_REPOSITORY_WHERE },
       select: {
         repositoryId: true,
         githubId: true,

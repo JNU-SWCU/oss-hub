@@ -73,7 +73,7 @@ function teamActivity(value: unknown): value is TeamActivity {
   return (
     record(value) &&
     record(value.window) &&
-    (value.applicationId === null || typeof value.applicationId === 'string') &&
+    (value.teamId === null || typeof value.teamId === 'string') &&
     (value.repository === null ||
       (record(value.repository) &&
         typeof value.repository.id === 'string' &&

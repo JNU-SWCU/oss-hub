@@ -10,7 +10,12 @@ import { OriginGuard } from '../platform/origin.guard';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
-import { TeamsController } from './teams.controller';
+import {
+  TeamsController,
+  ProgramApplicationsController,
+} from './teams.controller';
+import { ApplicationListRequestDto } from './dto/application-list-request.dto';
+import type { TeamManagementListPage } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 
 const teamsRequestParser = Object.create(
@@ -21,7 +26,6 @@ type ControllerMethodName =
   | 'me'
   | 'leave'
   | 'removeMember'
-  | 'list'
   | 'detail'
   | 'activity'
   | 'repositoryUrlHistory'
@@ -89,6 +93,7 @@ function serviceStub(
     deleteForStaffFromRequest: jest.fn(),
     removeMemberForStaff: jest.fn(),
     transferLeaderForStaff: jest.fn(),
+    transferLeader: jest.fn(),
     ...rest,
   };
 }
@@ -114,13 +119,21 @@ describe('TeamsController', () => {
   });
 
   it('list(교직원 팀 목록) 에는 역할 가드만 둔다', () => {
-    expect(readGuards('list')).toEqual([RolesGuard]);
+    expect(
+      Reflect.getMetadata(
+        GUARDS_METADATA,
+        Object.getOwnPropertyDescriptor(
+          ProgramApplicationsController.prototype,
+          'list',
+        )?.value as object,
+      ),
+    ).toEqual([RolesGuard]);
   });
 
-  it('GET me 를 GET (목록) 보다 먼저 선언한다', () => {
-    expect(declarationOrder('me')).toBeLessThan(declarationOrder('list'));
-    expect(readPath('me')).toBe('me');
-    expect(readPath('list')).toBe('/');
+  it('GET me 를 동적 팀 상세 경로보다 먼저 선언한다', () => {
+    expect(declarationOrder('me')).toBeLessThan(declarationOrder('detail'));
+    expect(readPath('me')).toBe('me/membership');
+    expect(readPath('detail')).toBe(':teamId');
   });
 
   describe('DELETE me/members/:userId (팀장의 팀원 제외)', () => {
@@ -144,7 +157,7 @@ describe('TeamsController', () => {
         declarationOrder('detail'),
       );
       expect(declarationOrder('removeMember')).toBeLessThan(
-        declarationOrder('list'),
+        declarationOrder('detail'),
       );
     });
 
@@ -176,7 +189,7 @@ describe('TeamsController', () => {
   describe('DELETE me (본인 탈퇴)', () => {
     it('OriginGuard 와 204 로 등록한다', () => {
       expect(readGuards('leave')).toEqual([OriginGuard]);
-      expect(readPath('leave')).toBe('me');
+      expect(readPath('leave')).toBe('me/membership');
       expect(
         Reflect.getMetadata(HTTP_CODE_METADATA, methodOf('leave') as object),
       ).toBe(204);
@@ -196,42 +209,72 @@ describe('TeamsController', () => {
     });
   });
 
-  it('list 는 service 결과를 StaffProgramTeamResponseDto 배열로 반환한다', async () => {
-    const listForStaff = jest.fn().mockResolvedValue([
-      {
-        teamId: 'team-1',
-        name: '오픈소스팀',
-        memberCount: 1,
-        members: [
-          {
-            userId: 'user-a',
-            name: '가나다',
-            nickname: 'login-a',
-            isLeader: true,
+  it('통합 팀 목록은 관리 뷰의 팀원과 제출 시각을 페이지 DTO로 반환한다', async () => {
+    const member = {
+      id: 'user-a',
+      name: '가나다',
+      nickname: 'login-a',
+      isLeader: true,
+    };
+    const page: TeamManagementListPage = {
+      items: [
+        {
+          id: 'team-1',
+          programId: 'program-1',
+          teamMinSize: 1,
+          status: 'SUBMITTED',
+          submittedAt: new Date('2026-01-01'),
+          rejectionReason: null,
+          applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+          team: {
+            id: 'team-1',
+            name: '오픈소스팀',
+            memberCount: 1,
+            members: [member],
           },
-        ],
-      },
-    ]);
-    const controller = new TeamsController(serviceStub({ listForStaff }));
-
-    const response = await controller.list('program-1');
-
-    expect(listForStaff).toHaveBeenCalledWith('program-1');
-    expect(response).toEqual([
-      {
-        teamId: 'team-1',
-        name: '오픈소스팀',
-        memberCount: 1,
-        members: [
-          {
-            userId: 'user-a',
-            name: '가나다',
-            nickname: 'login-a',
-            isLeader: true,
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    };
+    const listForProgramView = jest
+      .fn()
+      .mockResolvedValue({ view: 'team-management', page });
+    const controller = new ProgramApplicationsController({
+      createFromRequest: jest.fn(),
+      listForProgramView,
+    });
+    const query = {
+      ...new ApplicationListRequestDto(),
+      view: 'team-management',
+    } satisfies ApplicationListRequestDto;
+    const response = await controller.list('program-1', query);
+    expect(listForProgramView).toHaveBeenCalledWith('program-1', query);
+    expect(response).toEqual({
+      items: [
+        {
+          id: 'team-1',
+          programId: 'program-1',
+          teamMinSize: 1,
+          status: 'SUBMITTED',
+          submittedAt: '2026-01-01T00:00:00.000Z',
+          rejectionReason: null,
+          applicant: { id: 'user-a', name: '가나다', nickname: 'login-a' },
+          team: {
+            id: 'team-1',
+            name: '오픈소스팀',
+            memberCount: 1,
+            members: [member],
           },
-        ],
-      },
-    ]);
+        },
+      ],
+      page: 1,
+      pageSize: 20,
+      totalItems: 1,
+      totalPages: 1,
+    });
   });
 
   describe('GET me 응답 계약', () => {
@@ -241,7 +284,7 @@ describe('TeamsController', () => {
       memberCount: 2,
       minMembers: 2,
       maxMembers: 4,
-      hasApplication: true,
+      status: 'APPROVED',
       canInvite: true,
       canRemoveMembers: true,
       canLeave: true,
@@ -306,7 +349,6 @@ describe('TeamsController', () => {
         'canInvite',
         'canLeave',
         'canRemoveMembers',
-        'hasApplication',
         'id',
         'isLeader',
         'maxMembers',
@@ -314,6 +356,7 @@ describe('TeamsController', () => {
         'members',
         'minMembers',
         'name',
+        'status',
       ]);
     });
 
@@ -338,10 +381,10 @@ describe('TeamsController', () => {
     expect(readGuards('detail')).toEqual([RolesGuard]);
   });
 
-  it('detail(:teamId) 을 me·list 보다 뒤에 선언한다', () => {
+  it('detail(:teamId)을 정적 멤버십 경로보다 뒤에 선언한다', () => {
     expect(declarationOrder('detail')).toBeGreaterThan(declarationOrder('me'));
     expect(declarationOrder('detail')).toBeGreaterThan(
-      declarationOrder('list'),
+      declarationOrder('removeMember'),
     );
     expect(readPath('detail')).toBe(':teamId');
   });
@@ -389,7 +432,7 @@ describe('TeamsController', () => {
 
   it('activity 는 세션·프로그램·팀을 service 로 넘기고 DTO 로 반환한다', async () => {
     const view = {
-      applicationId: null,
+      teamId: null,
       repository: null,
       status: 'NOT_CONNECTED' as const,
       lastSuccessAt: null,

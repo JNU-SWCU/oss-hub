@@ -28,15 +28,14 @@ export async function removeAdoptedGraph(
       where: { programId: graph.programId },
       select: { storageKey: true },
     });
-    const applications = await transaction.application.findMany({
+    const applications = await transaction.team.findMany({
       where: { programId: graph.programId },
-      select: { id: true, teamId: true },
+      select: { id: true },
     });
-    const applicationIds = applications.map((application) => application.id);
-    const teamIds = applications.map((application) => application.teamId);
+    const teamIds = applications.map((application) => application.id);
     const documentSubmissions =
       await transaction.milestoneDocumentSubmission.findMany({
-        where: { applicationId: { in: applicationIds } },
+        where: { teamId: { in: teamIds } },
         select: { id: true },
       });
     const documentSubmissionIds = documentSubmissions.map(
@@ -53,21 +52,21 @@ export async function removeAdoptedGraph(
       (history) => history.id,
     );
     await transaction.outboxEvent.deleteMany({
-      where: { aggregateId: { in: applicationIds } },
+      where: { aggregateId: { in: teamIds } },
     });
     await transaction.repositoryProvisionJob.deleteMany({
-      where: { applicationId: { in: applicationIds } },
+      where: { teamId: { in: teamIds } },
     });
     await transaction.repositoryInvitation.deleteMany({
-      where: { repository: { applicationId: { in: applicationIds } } },
+      where: { repository: { teamId: { in: teamIds } } },
     });
     await transaction.githubRepository.deleteMany({
-      where: { applicationId: { in: applicationIds } },
+      where: { teamId: { in: teamIds } },
     });
     await transaction.submissionFile.deleteMany({
       where: {
         OR: [
-          { applicationId: { in: applicationIds } },
+          { teamId: { in: teamIds } },
           {
             milestoneDocumentSubmissionId: { in: documentSubmissionIds },
           },
@@ -84,9 +83,6 @@ export async function removeAdoptedGraph(
     });
     await transaction.milestoneDocumentSubmission.deleteMany({
       where: { id: { in: documentSubmissionIds } },
-    });
-    await transaction.application.deleteMany({
-      where: { id: { in: applicationIds } },
     });
     await transaction.teamMember.deleteMany({
       where: { teamId: { in: teamIds } },

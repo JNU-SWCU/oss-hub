@@ -1,5 +1,4 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -7,8 +6,6 @@ import { TeamDeletionScopeRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamDeletionRepository } from './team.repository';
 import { TeamRepository } from './team.repository';
@@ -31,10 +28,6 @@ const service = new TeamMembershipService(
     new PlatformRepository(),
     new TeamHistoryRepository(),
   ),
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(new AuditLogMetadataService()),
-  ),
   new ProgramTeamDeletionRepository(
     new TeamHistoryRepository(),
     prisma,
@@ -52,14 +45,12 @@ const service = new TeamMembershipService(
     {} as never,
     {} as never,
     {} as never,
-    {} as never,
   ),
 );
 const prefix = `team-activity-${randomUUID()}`;
 const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
 const programId = `${prefix}-program`;
 const teamId = `${prefix}-team`;
-const applicationId = `${prefix}-application`;
 const repositoryA = `${prefix}-a`;
 const repositoryB = `${prefix}-b`;
 const people = {
@@ -112,7 +103,6 @@ beforeAll(async () => {
       description: 'Synthetic',
       applicationStartAt: new Date('2026-07-01Z'),
       applicationEndAt: new Date('2026-07-31Z'),
-
       startAt: new Date('2026-07-31T15:00:00Z'),
       endAt: new Date('2026-08-31T14:59:59Z'),
     },
@@ -123,6 +113,9 @@ beforeAll(async () => {
       programId,
       name: 'Synthetic team',
       leaderId: people.leader.id,
+      applicantId: people.leader.id,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.createMany({
@@ -133,11 +126,10 @@ beforeAll(async () => {
       createdAt: new Date(Date.UTC(2026, 6, 1, 0, index)),
     })),
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
-      teamId,
       applicantId: people.leader.id,
       status: 'APPROVED',
       answers: {},
@@ -151,7 +143,6 @@ beforeAll(async () => {
         githubRepositoryId: base + 100n,
         nameWithOwner: 'synthetic/a',
         source: 'ORG_PROVISIONED',
-        programId,
         teamId: null,
         lastSuccessAt: new Date('2026-08-20Z'),
       },
@@ -160,8 +151,6 @@ beforeAll(async () => {
         githubRepositoryId: base + 101n,
         nameWithOwner: 'synthetic/b',
         source: 'EXTERNAL_PUBLIC',
-        applicationId,
-        programId,
         teamId,
       },
     ],
@@ -189,7 +178,7 @@ it('수집 전인 현재 레포는 NOT_COLLECTED이며 무관한 레포의 행�
   );
 
   expect(activity).toEqual({
-    applicationId,
+    teamId,
     repository: { id: repositoryB, url: 'https://github.com/synthetic/b' },
     status: 'NOT_COLLECTED',
     lastSuccessAt: null,
@@ -367,75 +356,83 @@ describe('B가 수집된 뒤', () => {
   });
 });
 
-it('변경 이력은 옛 연결 기록과 새 URL 기록을 한 시간순 커서로 함께 넘긴다', async () => {
-  const legacyMetadata = {
+it('변경 이력은 이관된 URL 기록과 새 URL 기록을 한 시간순 커서로 함께 넘긴다', async () => {
+  const migratedMetadata = {
     schemaVersion: 1,
-    applicationId,
-    before: {
-      repositoryId: null,
-      nameWithOwner: null,
-      connectionMode: 'NEW',
-      repositoryUrl: null,
-    },
+    programId,
+    teamId,
+    programName: 'Synthetic program',
+    actorGithubLogin: 'staff',
+    reason: 'Connect repository',
+    before: { repositoryId: null, repositoryUrl: null },
     after: {
       repositoryId: repositoryA,
-      nameWithOwner: 'synthetic/a',
-      connectionMode: 'NEW',
-      repositoryUrl: null,
+      repositoryUrl: 'https://github.com/synthetic/a',
     },
   };
-  await prisma.auditLog.createMany({
+  await prisma.teamHistory.createMany({
     data: [
       {
         id: `${prefix}-connected`,
+        teamId,
+        programId,
         actorId: people.staff.id,
-        action: 'REPOSITORY_CONNECTION_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: applicationId,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'MIGRATION',
+        sourceTable: 'AuditLog',
+        sourceId: `${prefix}-connected`,
         occurredAt: new Date('2026-08-02T00:00:00Z'),
-        metadata: legacyMetadata,
+        data: { schemaVersion: 1, metadata: migratedMetadata },
       },
       {
         id: `${prefix}-relinked`,
+        teamId,
+        programId,
         actorId: people.leader.id,
-        action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: applicationId,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
         occurredAt: new Date('2026-08-10T00:00:00Z'),
-        metadata: {
-          schemaVersion: 2,
-          programId,
-          teamId,
-          programName: 'Synthetic program',
-          actorGithubLogin: 'lead-at-change',
-          before: {
-            repositoryId: repositoryA,
-            repositoryUrl: 'https://github.com/synthetic/a',
-          },
-          after: {
-            repositoryId: repositoryB,
-            repositoryUrl: 'https://github.com/synthetic/b',
+        data: {
+          schemaVersion: 1,
+          metadata: {
+            schemaVersion: 2,
+            programId,
+            teamId,
+            programName: 'Synthetic program',
+            actorGithubLogin: 'lead-at-change',
+            before: {
+              repositoryId: repositoryA,
+              repositoryUrl: 'https://github.com/synthetic/a',
+            },
+            after: {
+              repositoryId: repositoryB,
+              repositoryUrl: 'https://github.com/synthetic/b',
+            },
           },
         },
       },
-
       {
         id: `${prefix}-foreign`,
+        teamId: `${prefix}-other`,
+        programId,
         actorId: people.staff.id,
-        action: 'REPOSITORY_CONNECTION_CHANGED',
-        targetType: 'APPLICATION',
-        targetId: applicationId,
+        event: 'REPOSITORY_URL_CHANGED',
+        source: 'APPLICATION',
         occurredAt: new Date('2026-08-05T00:00:00Z'),
-        metadata: { ...legacyMetadata, applicationId: `${prefix}-other` },
+        data: {
+          schemaVersion: 1,
+          metadata: { ...migratedMetadata, teamId: `${prefix}-other` },
+        },
       },
       {
         id: `${prefix}-submitted`,
+        teamId,
+        programId,
         actorId: people.leader.id,
-        action: 'APPLICATION_SUBMITTED',
-        targetType: 'APPLICATION',
-        targetId: applicationId,
+        event: 'SUBMITTED',
+        source: 'APPLICATION',
         occurredAt: new Date('2026-08-06T00:00:00Z'),
-        metadata: {},
+        data: { schemaVersion: 1, revision: 1, rejectionReason: null },
       },
     ],
   });

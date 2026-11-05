@@ -1,9 +1,8 @@
 export type RepositoryProvisionConnectionMode = 'NEW' | 'OWN';
 
 export interface RepositoryProvisionEventPayload {
-  readonly applicationId: string;
+  readonly teamId: string;
   readonly programId: string;
-  readonly teamId: string | null;
   readonly requestedAt: string;
   readonly collaboratorGithubLogins: readonly string[];
 
@@ -14,7 +13,6 @@ export interface RepositoryProvisionEventPayload {
 }
 
 export interface RepositoryAccessSyncEventPayload {
-  readonly applicationId: string;
   readonly teamId: string;
   readonly requestedAt: string;
 }

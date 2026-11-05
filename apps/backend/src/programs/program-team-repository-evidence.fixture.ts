@@ -4,18 +4,33 @@ import { PrismaService } from '../platform/prisma.service';
 import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 
-export const teamFindFirst = jest.fn();
-export const applicationFindFirst = jest.fn();
+export const teamFindFirst = jest.fn<
+  Promise<Record<string, unknown> | null>,
+  [unknown]
+>();
+const applicationFindFirst = jest.fn<
+  Promise<Record<string, unknown> | null>,
+  [unknown]
+>();
 export const contributionGroupBy = jest.fn();
-export const auditFindMany = jest.fn<Promise<unknown[]>, [unknown]>();
+export const historyQuery = jest.fn<
+  Promise<unknown[]>,
+  [TemplateStringsArray, ...unknown[]]
+>();
 export const provisionFindUnique = jest.fn();
 export const outsiderFindUnique = jest.fn();
 jest.mock('../platform/prisma.service', () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
-    team: { findFirst: teamFindFirst },
-    application: { findFirst: applicationFindFirst },
+    team: {
+      findFirst: async (args: unknown): Promise<unknown> => {
+        const team = await teamFindFirst(args);
+        if (team === null) return null;
+        const application = await applicationFindFirst(args);
+        return { ...(application ?? {}), ...team };
+      },
+    },
     contribution: { groupBy: contributionGroupBy },
-    auditLog: { findMany: auditFindMany },
+    $queryRaw: historyQuery,
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(null) },
     repositoryProvisionJob: { findUnique: provisionFindUnique },
     githubRepositoryOutsiderContribution: { findUnique: outsiderFindUnique },
@@ -43,7 +58,7 @@ export function givenRepository(
     ],
   });
   applicationFindFirst.mockResolvedValue({
-    id: 'application',
+    id: 'team',
     status: 'APPROVED',
     updatedAt: new Date('2026-08-01Z'),
     repositoryConnectionMode: 'NEW',
@@ -65,7 +80,7 @@ export function givenRepository(
     },
     milestoneDocumentSubmissions: [],
   });
-  auditFindMany.mockResolvedValue([]);
+  historyQuery.mockResolvedValue([]);
   provisionFindUnique.mockResolvedValue(null);
   contributionGroupBy.mockResolvedValue([
     {

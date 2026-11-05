@@ -7,7 +7,7 @@ import type {
 
 export class MyRepositoryItemResponseDto {
   declare readonly repositoryId: string | null;
-  declare readonly applicationId: string;
+  declare readonly teamId: string;
   declare readonly connectionMode: 'NEW' | 'OWN';
   declare readonly applicationMode: 'PERSONAL' | 'TEAM';
   declare readonly programName: string;
@@ -23,7 +23,7 @@ export class MyRepositoryItemResponseDto {
   static from(item: MyRepositoryResult): MyRepositoryItemResponseDto {
     return {
       repositoryId: item.repositoryId,
-      applicationId: item.applicationId,
+      teamId: item.teamId,
       connectionMode: item.connectionMode,
       applicationMode: item.applicationMode,
       programName: item.programName,

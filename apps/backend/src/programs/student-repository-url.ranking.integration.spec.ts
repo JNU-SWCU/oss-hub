@@ -4,7 +4,7 @@ import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import {
-  applicationId,
+  teamId,
   githubId,
   input,
   oldId,
@@ -24,7 +24,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
   const originalUser = await prisma.user.findUniqueOrThrow({
     where: { githubId },
   });
-  const actorLogin = `${applicationId}-ranking-actor`;
+  const actorLogin = `${teamId}-ranking-actor`;
   const peerGithubId = githubId + 900_000n;
   const staffGithubId = githubId + 900_001n;
   const rankingIds = [githubId, peerGithubId];
@@ -37,12 +37,12 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
     data: [
       {
         githubId: peerGithubId,
-        nickname: `${applicationId}-ranking-peer`,
+        nickname: `${teamId}-ranking-peer`,
         type: 'STUDENT',
       },
       {
         githubId: staffGithubId,
-        nickname: `${applicationId}-ranking-staff`,
+        nickname: `${teamId}-ranking-staff`,
         type: 'STAFF',
         approvalStatus: 'APPROVED',
         name: 'Synthetic staff',
@@ -89,7 +89,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       },
       {
         githubId: peerGithubId,
-        githubLogin: `${applicationId}-ranking-peer`,
+        githubLogin: `${teamId}-ranking-peer`,
         year: 2026,
         commitCount: 40,
         observedAt,
@@ -99,7 +99,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
   await prisma.githubUserActivityCycleSnapshot.createMany({
     data: rankingIds.map((id, index) => ({
       githubId: id,
-      githubLogin: index === 0 ? actorLogin : `${applicationId}-ranking-peer`,
+      githubLogin: index === 0 ? actorLogin : `${teamId}-ranking-peer`,
       year: 2026,
       commitCount: index === 0 ? 20 : 5,
       observedAt,
@@ -182,7 +182,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       await prisma.contribution.count({ where: { repositoryId: oldId } }),
     ).toBe(0);
     expect(
-      await prisma.githubRepository.findUnique({ where: { applicationId } }),
+      await prisma.githubRepository.findUnique({ where: { teamId } }),
     ).toMatchObject({ id: targetId });
     expect(await readRankings()).toEqual(before);
     console.info('URL_REPLACEMENT_RANKING', {

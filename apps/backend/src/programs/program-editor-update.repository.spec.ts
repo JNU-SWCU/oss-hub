@@ -88,7 +88,7 @@ describe('ProgramEditorRepository updates', () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(updateMany).toHaveBeenCalledWith({
       where: {
-        application: { programId: 'program-1' },
+        team: { programId: 'program-1' },
         lifecycle: {
           in: [
             SubmissionFileLifecycle.PENDING,

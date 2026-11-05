@@ -4,26 +4,8 @@
     "path": "/api/v1/admin/collection/trigger",
     "access": "PROTECTED"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/applications/:id",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/applications/:id",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/audit-logs",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/auth/github",
-    "access": "PUBLIC"
-  },
+  { "method": "GET", "path": "/api/v1/audit-logs", "access": "PROTECTED" },
+  { "method": "GET", "path": "/api/v1/auth/github", "access": "PUBLIC" },
   {
     "method": "GET",
     "path": "/api/v1/auth/github/callback",
@@ -39,11 +21,7 @@
     "path": "/api/v1/auth/session",
     "access": "OPTIONAL_SESSION"
   },
-  {
-    "method": "POST",
-    "path": "/api/v1/consents",
-    "access": "PROTECTED"
-  },
+  { "method": "POST", "path": "/api/v1/consents", "access": "PROTECTED" },
   {
     "method": "GET",
     "path": "/api/v1/consents/current",
@@ -74,11 +52,7 @@
     "path": "/api/v1/dashboard/student/feedback",
     "access": "PROTECTED"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/health",
-    "access": "PUBLIC"
-  },
+  { "method": "GET", "path": "/api/v1/health", "access": "PUBLIC" },
   {
     "method": "POST",
     "path": "/api/v1/milestone-document-files",
@@ -110,21 +84,6 @@
     "access": "PROTECTED"
   },
   {
-    "method": "GET",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/file",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/history",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "POST",
-    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/applications/:applicationId/reviews",
-    "access": "PROTECTED"
-  },
-  {
     "method": "PATCH",
     "path": "/api/v1/milestones/:milestoneId/documents/:documentId/grace",
     "access": "PROTECTED"
@@ -146,6 +105,21 @@
   },
   {
     "method": "GET",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/teams/:teamId/file",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/teams/:teamId/history",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "POST",
+    "path": "/api/v1/milestones/:milestoneId/documents/:documentId/teams/:teamId/reviews",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "GET",
     "path": "/api/v1/milestones/:milestoneId/documents/:documentId/template",
     "access": "PROTECTED"
   },
@@ -159,11 +133,7 @@
     "path": "/api/v1/milestones/:milestoneId/documents/collection/archive",
     "access": "PROTECTED"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/onboarding/role",
-    "access": "PROTECTED"
-  },
+  { "method": "GET", "path": "/api/v1/onboarding/role", "access": "PROTECTED" },
   {
     "method": "POST",
     "path": "/api/v1/onboarding/role",
@@ -199,31 +169,11 @@
     "path": "/api/v1/program-authoring/uploads/:id",
     "access": "PROTECTED"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/programs",
-    "access": "OPTIONAL_SESSION"
-  },
-  {
-    "method": "POST",
-    "path": "/api/v1/programs",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "DELETE",
-    "path": "/api/v1/programs/:id",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/programs/:id",
-    "access": "PUBLIC"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/programs/:id",
-    "access": "PROTECTED"
-  },
+  { "method": "GET", "path": "/api/v1/programs", "access": "OPTIONAL_SESSION" },
+  { "method": "POST", "path": "/api/v1/programs", "access": "PROTECTED" },
+  { "method": "DELETE", "path": "/api/v1/programs/:id", "access": "PROTECTED" },
+  { "method": "GET", "path": "/api/v1/programs/:id", "access": "PUBLIC" },
+  { "method": "PATCH", "path": "/api/v1/programs/:id", "access": "PROTECTED" },
   {
     "method": "GET",
     "path": "/api/v1/programs/:id/activity",
@@ -252,36 +202,6 @@
   {
     "method": "GET",
     "path": "/api/v1/programs/:id/viewer",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/programs/:programId/applications",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "POST",
-    "path": "/api/v1/programs/:programId/applications",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "DELETE",
-    "path": "/api/v1/programs/:programId/applications/me",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/programs/:programId/applications/me",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/programs/:programId/applications/me",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "PATCH",
-    "path": "/api/v1/programs/:programId/applications/me/repository-url",
     "access": "PROTECTED"
   },
   {
@@ -370,6 +290,11 @@
     "access": "PROTECTED"
   },
   {
+    "method": "POST",
+    "path": "/api/v1/programs/:programId/teams",
+    "access": "PROTECTED"
+  },
+  {
     "method": "DELETE",
     "path": "/api/v1/programs/:programId/teams/:teamId",
     "access": "PROTECTED"
@@ -420,14 +345,34 @@
     "access": "PROTECTED"
   },
   {
+    "method": "PATCH",
+    "path": "/api/v1/programs/:programId/teams/me",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/programs/:programId/teams/me/leader",
+    "access": "PROTECTED"
+  },
+  {
     "method": "DELETE",
     "path": "/api/v1/programs/:programId/teams/me/members/:userId",
     "access": "PROTECTED"
   },
   {
+    "method": "DELETE",
+    "path": "/api/v1/programs/:programId/teams/me/membership",
+    "access": "PROTECTED"
+  },
+  {
     "method": "GET",
-    "path": "/api/v1/programs/application-templates",
-    "access": "PUBLIC"
+    "path": "/api/v1/programs/:programId/teams/me/membership",
+    "access": "PROTECTED"
+  },
+  {
+    "method": "PATCH",
+    "path": "/api/v1/programs/:programId/teams/me/repository-url",
+    "access": "PROTECTED"
   },
   {
     "method": "GET",
@@ -441,44 +386,25 @@
   },
   {
     "method": "GET",
-    "path": "/api/v1/projects",
+    "path": "/api/v1/programs/team-templates",
     "access": "PUBLIC"
   },
+  { "method": "GET", "path": "/api/v1/projects", "access": "PUBLIC" },
   {
     "method": "GET",
     "path": "/api/v1/projects/:projectId",
     "access": "PUBLIC"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/ranking",
-    "access": "OPTIONAL_SESSION"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/ranking/timeline",
-    "access": "PUBLIC"
-  },
-  {
-    "method": "GET",
-    "path": "/api/v1/ranking/years",
-    "access": "PUBLIC"
-  },
+  { "method": "GET", "path": "/api/v1/ranking", "access": "OPTIONAL_SESSION" },
+  { "method": "GET", "path": "/api/v1/ranking/timeline", "access": "PUBLIC" },
+  { "method": "GET", "path": "/api/v1/ranking/years", "access": "PUBLIC" },
   {
     "method": "POST",
     "path": "/api/v1/repositories/:repositoryId/publish",
     "access": "PROTECTED"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/repositories/me",
-    "access": "PROTECTED"
-  },
-  {
-    "method": "POST",
-    "path": "/api/v1/role-requests",
-    "access": "PROTECTED"
-  },
+  { "method": "GET", "path": "/api/v1/repositories/me", "access": "PROTECTED" },
+  { "method": "POST", "path": "/api/v1/role-requests", "access": "PROTECTED" },
   {
     "method": "GET",
     "path": "/api/v1/role-requests/me",
@@ -499,11 +425,7 @@
     "path": "/api/v1/submissions/:submissionId/review-context",
     "access": "PROTECTED"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/system-status",
-    "access": "PROTECTED"
-  },
+  { "method": "GET", "path": "/api/v1/system-status", "access": "PROTECTED" },
   {
     "method": "POST",
     "path": "/api/v1/team-invitations/:invitationId/accept",
@@ -544,6 +466,8 @@
     "path": "/api/v1/team-invitations/teams/:teamId/sent",
     "access": "PROTECTED"
   },
+  { "method": "GET", "path": "/api/v1/teams/:id", "access": "PROTECTED" },
+  { "method": "PATCH", "path": "/api/v1/teams/:id", "access": "PROTECTED" },
   {
     "method": "GET",
     "path": "/api/v1/users/:id/access",
@@ -579,11 +503,7 @@
     "path": "/api/v1/users/:userId/public-profile",
     "access": "PUBLIC"
   },
-  {
-    "method": "GET",
-    "path": "/api/v1/users/access",
-    "access": "PROTECTED"
-  },
+  { "method": "GET", "path": "/api/v1/users/access", "access": "PROTECTED" },
   {
     "method": "GET",
     "path": "/api/v1/users/access/facets",
@@ -616,12 +536,12 @@
   },
   {
     "method": "GET",
-    "path": "/api/v1/users/me/notifications/application-decisions",
+    "path": "/api/v1/users/me/notifications/team-decisions",
     "access": "PROTECTED"
   },
   {
     "method": "PATCH",
-    "path": "/api/v1/users/me/notifications/application-decisions/:notificationId/read",
+    "path": "/api/v1/users/me/notifications/team-decisions/:notificationId/read",
     "access": "PROTECTED"
   },
   {

@@ -34,7 +34,6 @@ async function cleanup(): Promise<void> {
     where: { id: owned },
   });
   await prisma.milestoneDocumentSubmission.deleteMany({ where: { id: owned } });
-  await prisma.application.deleteMany({ where: { id: owned } });
   await prisma.teamMember.deleteMany({ where: { teamId: owned } });
   await prisma.team.deleteMany({ where: { id: owned } });
   await prisma.milestoneDocument.deleteMany({ where: { id: owned } });
@@ -98,6 +97,9 @@ async function createApplication(input: {
       programId,
       name: `합성 ${input.key} 팀`,
       leaderId: input.members[0] ?? input.applicant,
+      applicantId: input.members[0] ?? input.applicant,
+      answers: { title: `합성 ${input.key} 팀` },
+      applicationTemplateVersion: 1,
     },
   });
   for (const userId of input.members) {
@@ -105,12 +107,11 @@ async function createApplication(input: {
       data: { teamId, programId, userId },
     });
   }
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: `${prefix}-${input.key}-application`,
       programId,
       applicantId: input.applicant,
-      teamId,
       answers: { syntheticFixture: true },
       applicationTemplateVersion: 1,
       status: input.status,
@@ -131,7 +132,7 @@ async function createReviews(input: {
     data: {
       id: submissionId,
       milestoneDocumentId: input.document,
-      applicationId: `${prefix}-${input.application}-application`,
+      teamId: `${prefix}-${input.application}-team`,
       submittedById: users.student,
     },
   });
@@ -291,14 +292,13 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
     const { items } = await service
       .recentForParticipant(studentGithubId)
       .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
-    const applicationIdOf = new Map(
-      items.map((item) => [item.id, item.applicationId]),
+    const teamIdOf = new Map(items.map((item) => [item.id, item.teamId]));
+
+    expect(teamIdOf.get(`${prefix}-review-document-1`)).toBe(
+      `${prefix}-mine-team`,
     );
-    expect(applicationIdOf.get(`${prefix}-review-document-1`)).toBe(
-      `${prefix}-mine-application`,
-    );
-    expect(applicationIdOf.get(`${prefix}-review-second`)).toBe(
-      `${prefix}-second-application`,
+    expect(teamIdOf.get(`${prefix}-review-second`)).toBe(
+      `${prefix}-second-team`,
     );
   });
   it('이관한 항목도 항목 이름으로 부르고 검토자를 싣지 않는다', async () => {
@@ -311,7 +311,7 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
       decision: ReviewDecision.APPROVED,
       comment: '합성 의견 legacy',
       reviewedAt: '2026-09-20T00:06:00.000Z',
-      applicationId: `${prefix}-mine-application`,
+      teamId: `${prefix}-mine-team`,
       programId: `${prefix}-main-program`,
       milestoneId: `${prefix}-main-milestone`,
       milestoneName,

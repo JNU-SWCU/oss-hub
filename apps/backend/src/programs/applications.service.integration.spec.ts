@@ -1,8 +1,6 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
@@ -19,11 +17,8 @@ import { ApplicationsErrorCode } from './applications-error-code.error';
 import { ApplicationsRepository } from './team.repository';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { TeamApplicationService } from './team-application.service';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
 import { StudentApplicationManagementRepository } from './team.repository';
 import { StudentApplicationManagementService } from './team-application.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
@@ -38,17 +33,12 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const repository = new ApplicationsRepository(
   prisma,
-  new ReviewHistoryWriterRepository(),
+  new TeamHistoryRepository(),
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );
 const service = new TeamApplicationService(
   repository,
-  new AuditLogService(
-    new AuditLogRepository(prisma),
-    new AuditLogReadService(new AuditLogMetadataService()),
-  ),
-  new AuditLogMetadataService(),
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
   new RepositoryProvisionEventService(),
@@ -56,7 +46,7 @@ const service = new TeamApplicationService(
 const studentService = new StudentApplicationManagementService(
   new StudentApplicationManagementRepository(
     prisma,
-    new ReviewHistoryWriterRepository(),
+    new TeamHistoryRepository(),
     new PlatformRepository(),
   ),
   repository,
@@ -84,20 +74,18 @@ const APPLICATION_IDS = [
 ] as const;
 
 async function createApplication(
-  applicationId: (typeof APPLICATION_IDS)[number],
+  teamId: (typeof APPLICATION_IDS)[number],
   repositoryProvisioningEnabled: boolean,
 ): Promise<void> {
-  const programId = `${applicationId}-program`;
-  const teamId = `${applicationId}-team`;
+  const programId = `${teamId}-program`;
   await prisma.program.create({
     data: {
       startAt: new Date('2026-01-01T00:00:00.000Z'),
       endAt: new Date(
-        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+        new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
       ),
-
       id: programId,
-      name: `program-${applicationId}`,
+      name: `program-${teamId}`,
       organizer: 'synthetic-organizer',
       category: ProgramCategory.BASIC,
       applicationTemplateKey: 'synthetic-template',
@@ -112,8 +100,11 @@ async function createApplication(
     data: {
       id: teamId,
       programId,
-      name: `team-${applicationId}`,
+      name: `team-${teamId}`,
       leaderId: APPLICANT_ID,
+      applicantId: APPLICANT_ID,
+      answers: { title: `team-${teamId}` },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({
@@ -123,12 +114,11 @@ async function createApplication(
       userId: APPLICANT_ID,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
       applicantId: APPLICANT_ID,
-      teamId,
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
     },
@@ -142,7 +132,7 @@ describe('TeamApplicationService integration', () => {
       data: [
         {
           id: ACTOR_ID,
-          githubId: 8_000_000_000_001n,
+          githubId: 8000000000001n,
           nickname: 'Synthetic-Staff',
           type: MemberKind.STAFF,
           approvalStatus: 'APPROVED',
@@ -154,7 +144,7 @@ describe('TeamApplicationService integration', () => {
         },
         {
           id: 'synthetic-decision-member',
-          githubId: 8_000_000_000_003n,
+          githubId: 8000000000003n,
           nickname: 'Synthetic-Member',
           type: MemberKind.STUDENT,
         },
@@ -211,22 +201,14 @@ describe('TeamApplicationService integration', () => {
       where: { type: 'APPLICATION_DECISION' },
     });
     await prisma.repositoryIssuanceHistory.deleteMany({
-      where: { applicationId: { in: [...APPLICATION_IDS] } },
+      where: { teamId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
 
     await prisma.repositoryProvisionJob.deleteMany({
-      where: { applicationId: { in: [...APPLICATION_IDS] } },
-    });
-    await prisma.application.deleteMany({
-      where: {
-        OR: [
-          { id: { in: [...APPLICATION_IDS] } },
-          { programId: CREATE_PROGRAM_ID },
-        ],
-      },
+      where: { teamId: { in: [...APPLICATION_IDS] } },
     });
     await prisma.teamMember.deleteMany({
       where: {
@@ -234,7 +216,7 @@ describe('TeamApplicationService integration', () => {
           { teamId: { in: [TEAM_ID, CREATE_TEAM_ID] } },
           {
             teamId: {
-              in: APPLICATION_IDS.map((id) => `${id}-team`),
+              in: APPLICATION_IDS.map((id) => id),
             },
           },
           { programId: CREATE_PROGRAM_ID },
@@ -247,11 +229,21 @@ describe('TeamApplicationService integration', () => {
           { id: { in: [TEAM_ID, CREATE_TEAM_ID] } },
           {
             id: {
-              in: APPLICATION_IDS.map((id) => `${id}-team`),
+              in: APPLICATION_IDS.map((id) => id),
             },
           },
           { programId: CREATE_PROGRAM_ID },
         ],
+      },
+    });
+    await prisma.teamHistory.deleteMany({
+      where: {
+        programId: {
+          in: [
+            CREATE_PROGRAM_ID,
+            ...APPLICATION_IDS.map((id) => `${id}-program`),
+          ],
+        },
       },
     });
     await prisma.program.deleteMany({
@@ -280,8 +272,8 @@ describe('TeamApplicationService integration', () => {
   ] as const)(
     '%s cannot %s its current team application',
     async (role, action, status) => {
-      const applicationId = 'synthetic-enabled-application';
-      await createApplication(applicationId, true);
+      const teamId = 'synthetic-enabled-application';
+      await createApplication(teamId, true);
       await prisma.user.update({
         where: { id: ACTOR_ID },
         data: {
@@ -299,54 +291,50 @@ describe('TeamApplicationService integration', () => {
       });
       await prisma.teamMember.create({
         data: {
-          teamId: `${applicationId}-team`,
-          programId: `${applicationId}-program`,
+          teamId: teamId,
+          programId: `${teamId}-program`,
           userId: ACTOR_ID,
         },
       });
-      await prisma.application.update({
-        where: { id: applicationId },
+      await prisma.team.update({
+        where: { id: teamId },
         data: { status },
       });
-      const before = await prisma.application.findUniqueOrThrow({
-        where: { id: applicationId },
+      const before = await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
       });
       const auditCount = await prisma.auditLog.count({
-        where: { targetId: applicationId },
+        where: { targetId: teamId },
       });
       const notificationWhere = {
         type: 'APPLICATION_DECISION' as const,
-        payload: { path: ['applicationId'], equals: applicationId },
+        payload: { path: ['teamId'], equals: teamId },
       };
       const notificationCount = await prisma.notification.count({
         where: notificationWhere,
       });
 
       await expect(
-        service.decide(
-          { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-          applicationId,
-          {
-            action,
-            reason: 'synthetic reason',
-          },
-        ),
+        service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+          action,
+          reason: 'synthetic reason',
+        }),
       ).rejects.toMatchObject({ errorCode: { code: 'APP_029', status: 403 } });
 
       await expect(
-        prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+        prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
       ).resolves.toEqual(before);
       await expect(
-        prisma.auditLog.count({ where: { targetId: applicationId } }),
+        prisma.auditLog.count({ where: { targetId: teamId } }),
       ).resolves.toBe(auditCount);
       await expect(
-        prisma.applicationReviewHistory.count({ where: { applicationId } }),
+        prisma.teamHistory.count({ where: { teamId } }),
       ).resolves.toBe(0);
       await expect(
         prisma.notification.count({ where: notificationWhere }),
       ).resolves.toBe(notificationCount);
       await expect(
-        prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+        prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
       ).resolves.toBe(0);
       await prisma.user.update({
         where: { id: ACTOR_ID },
@@ -401,9 +389,8 @@ describe('TeamApplicationService integration', () => {
         data: {
           startAt: new Date('2026-07-01T00:00:00.000Z'),
           endAt: new Date(
-            new Date('2026-07-31T23:59:59.000Z').getTime() + 365 * 86_400_000,
+            new Date('2026-07-31T23:59:59.000Z').getTime() + 365 * 86400000,
           ),
-
           id: CREATE_PROGRAM_ID,
           name: 'synthetic-policy-program',
           organizer: 'synthetic-organizer',
@@ -424,15 +411,10 @@ describe('TeamApplicationService integration', () => {
       const applicantService = new TeamApplicationService(
         new ApplicationsRepository(
           applicantPrisma,
-          new ReviewHistoryWriterRepository(),
+          new TeamHistoryRepository(),
           new RepositoryProvisionGenerationRepository(),
           new PlatformRepository(),
         ),
-        new AuditLogService(
-          new AuditLogRepository(applicantPrisma),
-          new AuditLogReadService(new AuditLogMetadataService()),
-        ),
-        new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
         new RepositoryProvisionEventService(),
@@ -445,7 +427,7 @@ describe('TeamApplicationService integration', () => {
       const editorReady = new Promise<number>((resolve) => {
         markEditorReady = resolve;
       });
-      const auditCount = await prisma.auditLog.count({
+      const historyCount = await prisma.teamHistory.count({
         where: { actorId: APPLICANT_ID },
       });
       const editor = prisma.$transaction(
@@ -520,7 +502,7 @@ describe('TeamApplicationService integration', () => {
             reason: { errorCode: { code: errorCode } },
           });
           expect(
-            await prisma.application.count({
+            await prisma.team.count({
               where: { programId: CREATE_PROGRAM_ID },
             }),
           ).toBe(0);
@@ -535,11 +517,13 @@ describe('TeamApplicationService integration', () => {
             }),
           ).toBe(0);
           expect(
-            await prisma.auditLog.count({ where: { actorId: APPLICANT_ID } }),
-          ).toBe(auditCount);
+            await prisma.teamHistory.count({
+              where: { actorId: APPLICANT_ID },
+            }),
+          ).toBe(historyCount);
         } else {
           expect(outcome).toMatchObject({ status: 'fulfilled' });
-          const applications = await prisma.application.findMany({
+          const applications = await prisma.team.findMany({
             where: { programId: CREATE_PROGRAM_ID },
           });
           expect(applications).toHaveLength(1);
@@ -553,8 +537,10 @@ describe('TeamApplicationService integration', () => {
             }),
           ).toBe(1);
           expect(
-            await prisma.auditLog.count({ where: { actorId: APPLICANT_ID } }),
-          ).toBe(auditCount + 2);
+            await prisma.teamHistory.count({
+              where: { actorId: APPLICANT_ID },
+            }),
+          ).toBe(historyCount + 1);
         }
       } finally {
         releaseEditor();
@@ -571,9 +557,8 @@ describe('TeamApplicationService integration', () => {
       data: {
         startAt: new Date('2026-01-01T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-12-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: CREATE_PROGRAM_ID,
         name: 'synthetic-create-program',
         organizer: 'synthetic-organizer',
@@ -585,7 +570,6 @@ describe('TeamApplicationService integration', () => {
         description: 'synthetic-description',
         teamMinSize: 2,
         teamMaxSize: 4,
-
         repositoryProvisioningEnabled: false,
       },
     });
@@ -617,7 +601,7 @@ describe('TeamApplicationService integration', () => {
       extensions: { memberCount: 1, teamMinSize: 2 },
     });
     expect(
-      await prisma.application.findUnique({
+      await prisma.team.findUnique({
         where: { id: application.id },
         select: { status: true },
       }),
@@ -659,10 +643,9 @@ describe('TeamApplicationService integration', () => {
   it.each(['leave', 'accept'] as const)(
     '%s 중 승인은 커밋된 팀 구성원을 사용한다',
     async (change) => {
-      const applicationId = APPLICATION_IDS[0];
-      const programId = `${applicationId}-program`;
-      const teamId = `${applicationId}-team`;
-      await createApplication(applicationId, change === 'accept');
+      const teamId = APPLICATION_IDS[0];
+      const programId = `${teamId}-program`;
+      await createApplication(teamId, change === 'accept');
       await prisma.program.update({
         where: { id: programId },
         data: { teamMinSize: 2, teamMaxSize: 2 },
@@ -680,15 +663,10 @@ describe('TeamApplicationService integration', () => {
       const approvalService = new TeamApplicationService(
         new ApplicationsRepository(
           approvalPrisma,
-          new ReviewHistoryWriterRepository(),
+          new TeamHistoryRepository(),
           new RepositoryProvisionGenerationRepository(),
           new PlatformRepository(),
         ),
-        new AuditLogService(
-          new AuditLogRepository(approvalPrisma),
-          new AuditLogReadService(new AuditLogMetadataService()),
-        ),
-        new AuditLogMetadataService(),
         new RepositoryUrlService(),
         new ApplicationAnswersService(),
         new RepositoryProvisionEventService(),
@@ -751,7 +729,7 @@ describe('TeamApplicationService integration', () => {
           [{ pid: number }]
         >`SELECT pg_backend_pid() AS pid`;
         approval = approvalService
-          .decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, applicationId, {
+          .decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
             action: APPLICATION_DECISION_ACTIONS.APPROVE,
           })
           .then(
@@ -786,19 +764,19 @@ describe('TeamApplicationService integration', () => {
             },
           });
           expect(
-            await prisma.application.findUnique({
-              where: { id: applicationId },
+            await prisma.team.findUnique({
+              where: { id: teamId },
               select: { status: true },
             }),
           ).toEqual({ status: ApplicationStatus.SUBMITTED });
           expect(
-            await prisma.applicationReviewHistory.count({
-              where: { applicationId },
+            await prisma.teamHistory.count({
+              where: { teamId },
             }),
           ).toBe(0);
           expect(
             await prisma.outboxEvent.count({
-              where: { aggregateId: applicationId },
+              where: { aggregateId: teamId },
             }),
           ).toBe(0);
         } else {
@@ -811,7 +789,7 @@ describe('TeamApplicationService integration', () => {
             value: { kind: 'APPROVED' },
           });
           const event = await prisma.outboxEvent.findFirstOrThrow({
-            where: { aggregateId: applicationId },
+            where: { aggregateId: teamId },
           });
           expect(event.payload).toMatchObject({
             collaboratorGithubLogins: [
@@ -831,22 +809,22 @@ describe('TeamApplicationService integration', () => {
   );
 
   it('신청을 승인하면 같은 트랜잭션에 outbox를 남긴다', async () => {
-    const applicationId = APPLICATION_IDS[0];
-    await createApplication(applicationId, true);
+    const teamId = APPLICATION_IDS[0];
+    await createApplication(teamId, true);
 
     const result = await service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
     );
 
-    const application = await prisma.application.findUniqueOrThrow({
-      where: { id: applicationId },
+    const application = await prisma.team.findUniqueOrThrow({
+      where: { id: teamId },
     });
     const event = await prisma.outboxEvent.findUniqueOrThrow({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      where: { idempotencyKey: `repository-provision:${teamId}` },
     });
     expect(application).toMatchObject({
       status: ApplicationStatus.APPROVED,
@@ -862,15 +840,14 @@ describe('TeamApplicationService integration', () => {
       },
     });
     expect(event.payload).toMatchObject({
-      applicationId,
-      programId: `${applicationId}-program`,
-      teamId: `${applicationId}-team`,
+      teamId,
+      programId: `${teamId}-program`,
       requestedAt: application.processedAt?.toISOString(),
       collaboratorGithubLogins: ['synthetic-applicant'],
     });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
+        where: { teamId },
       }),
     ).resolves.toMatchObject({
       currentEventId: event.id,
@@ -880,18 +857,19 @@ describe('TeamApplicationService integration', () => {
       lockedBy: null,
     });
 
-    const auditLog = await prisma.auditLog.findFirstOrThrow({
-      where: { targetType: 'APPLICATION', targetId: applicationId },
+    const history = await prisma.teamHistory.findFirstOrThrow({
+      where: { teamId, event: 'APPROVED' },
     });
-    expect(auditLog).toMatchObject({
+    expect(history).toMatchObject({
       actorId: ACTOR_ID,
-      action: 'APPLICATION_APPROVED',
+      programId: `${teamId}-program`,
+      event: 'APPROVED',
+      occurredAt: application.processedAt,
     });
-    expect(auditLog.metadata).toMatchObject({
-      schemaVersion: 2,
-      programName: `program-${applicationId}`,
-      applicantGithubLogin: 'Synthetic-Applicant',
-      after: { status: ApplicationStatus.APPROVED },
+    expect(history.data).toEqual({
+      schemaVersion: 1,
+      revision: 1,
+      rejectionReason: null,
     });
     const notification = await prisma.notification.findFirstOrThrow({
       where: {
@@ -904,9 +882,9 @@ describe('TeamApplicationService integration', () => {
       channel: 'IN_APP',
       payload: {
         schemaVersion: 1,
-        applicationId,
-        programId: `${applicationId}-program`,
-        programName: `program-${applicationId}`,
+        teamId,
+        programId: `${teamId}-program`,
+        programName: `program-${teamId}`,
         decision: ApplicationStatus.APPROVED,
         decidedAt: application.processedAt?.toISOString(),
       },
@@ -914,45 +892,41 @@ describe('TeamApplicationService integration', () => {
   });
 
   it('삭제된 프로그램의 신청 승인을 거절하고 상태와 기록을 보존한다', async () => {
-    const applicationId = APPLICATION_IDS[0];
-    await createApplication(applicationId, true);
+    const teamId = APPLICATION_IDS[0];
+    await createApplication(teamId, true);
     await prisma.program.update({
-      where: { id: `${applicationId}-program` },
+      where: { id: `${teamId}-program` },
       data: { lifecycle: ProgramLifecycle.DELETED },
     });
-    const before = await prisma.application.findUniqueOrThrow({
-      where: { id: applicationId },
+    const before = await prisma.team.findUniqueOrThrow({
+      where: { id: teamId },
     });
 
     await expect(
-      service.decide(
-        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-        applicationId,
-        { action: APPLICATION_DECISION_ACTIONS.APPROVE },
-      ),
+      service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      }),
     ).rejects.toMatchObject({
       errorCode: { code: ApplicationsErrorCode.APPLICATION_NOT_FOUND },
     });
     expect(
-      await prisma.application.findUniqueOrThrow({
-        where: { id: applicationId },
+      await prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
       }),
     ).toEqual(before);
+    expect(await prisma.teamHistory.count({ where: { teamId } })).toBe(0);
     expect(
-      await prisma.applicationReviewHistory.count({ where: { applicationId } }),
-    ).toBe(0);
-    expect(
-      await prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+      await prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
     ).toBe(0);
   });
 
   it('저장소 기능이 꺼진 프로그램은 승인하고 outbox를 만들지 않는다', async () => {
-    const applicationId = APPLICATION_IDS[1];
-    await createApplication(applicationId, false);
+    const teamId = APPLICATION_IDS[1];
+    await createApplication(teamId, false);
 
     const result = await service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
@@ -967,15 +941,14 @@ describe('TeamApplicationService integration', () => {
       },
     });
     await expect(
-      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+      prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
     ).resolves.toBe(0);
   });
 
   it('팀 승인은 팀장과 팀원을 정규화한 snapshot으로 고정한다', async () => {
-    const applicationId = APPLICATION_IDS[0];
-    const programId = `${applicationId}-program`;
-    const teamId = `${applicationId}-team`;
-    await createApplication(applicationId, true);
+    const teamId = APPLICATION_IDS[0];
+    const programId = `${teamId}-program`;
+    await createApplication(teamId, true);
     await prisma.teamMember.create({
       data: {
         teamId,
@@ -984,16 +957,12 @@ describe('TeamApplicationService integration', () => {
       },
     });
 
-    await service.decide(
-      { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
-      {
-        action: APPLICATION_DECISION_ACTIONS.APPROVE,
-      },
-    );
+    await service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
 
     const event = await prisma.outboxEvent.findUniqueOrThrow({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      where: { idempotencyKey: `repository-provision:${teamId}` },
     });
     expect(event.payload).toMatchObject({
       teamId,
@@ -1007,19 +976,15 @@ describe('TeamApplicationService integration', () => {
   });
 
   it('반려는 사유를 저장하고 outbox를 만들지 않는다', async () => {
-    const applicationId = APPLICATION_IDS[2];
-    await createApplication(applicationId, true);
+    const teamId = APPLICATION_IDS[2];
+    await createApplication(teamId, true);
 
-    await service.decide(
-      { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
-      {
-        action: APPLICATION_DECISION_ACTIONS.REJECT,
-        reason: '합성 반려 사유',
-      },
-    );
-    const application = await prisma.application.findUniqueOrThrow({
-      where: { id: applicationId },
+    await service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '합성 반려 사유',
+    });
+    const application = await prisma.team.findUniqueOrThrow({
+      where: { id: teamId },
     });
 
     expect(application).toMatchObject({
@@ -1029,36 +994,28 @@ describe('TeamApplicationService integration', () => {
     });
     expect(application.processedAt).toBeInstanceOf(Date);
     await expect(
-      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+      prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
     ).resolves.toBe(0);
     const rejectedNotification = await prisma.notification.findFirstOrThrow({
       where: { userId: APPLICANT_ID, type: 'APPLICATION_DECISION' },
     });
     expect(rejectedNotification.payload).toMatchObject({
-      applicationId,
+      teamId,
       decision: ApplicationStatus.REJECTED,
     });
   });
 
   it('동시 승인은 상태와 idempotencyKey 기준 이벤트 한 건으로 수렴한다', async () => {
-    const applicationId = APPLICATION_IDS[3];
-    await createApplication(applicationId, true);
+    const teamId = APPLICATION_IDS[3];
+    await createApplication(teamId, true);
 
     const decisions = await Promise.allSettled([
-      service.decide(
-        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-        applicationId,
-        {
-          action: APPLICATION_DECISION_ACTIONS.APPROVE,
-        },
-      ),
-      service.decide(
-        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-        applicationId,
-        {
-          action: APPLICATION_DECISION_ACTIONS.APPROVE,
-        },
-      ),
+      service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      }),
+      service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+        action: APPLICATION_DECISION_ACTIONS.APPROVE,
+      }),
     ]);
 
     expect(
@@ -1069,45 +1026,37 @@ describe('TeamApplicationService integration', () => {
     ).toHaveLength(1);
     await expect(
       prisma.outboxEvent.count({
-        where: { idempotencyKey: `repository-provision:${applicationId}` },
+        where: { idempotencyKey: `repository-provision:${teamId}` },
       }),
     ).resolves.toBe(1);
   });
 
   it('동시 반려는 CAS 승자 하나만 이력·알림을 남기고 패자는 부수효과가 0이다', async () => {
-    const applicationId = APPLICATION_IDS[4];
-    await createApplication(applicationId, false);
+    const teamId = APPLICATION_IDS[4];
+    await createApplication(teamId, false);
 
     const decisions = await Promise.allSettled([
-      service.decide(
-        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-        applicationId,
-        {
-          action: APPLICATION_DECISION_ACTIONS.REJECT,
-          reason: '합성 반려 사유 A',
-        },
-      ),
-      service.decide(
-        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-        applicationId,
-        {
-          action: APPLICATION_DECISION_ACTIONS.REJECT,
-          reason: '합성 반려 사유 B',
-        },
-      ),
+      service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유 A',
+      }),
+      service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유 B',
+      }),
     ]);
 
     expect(
       decisions.filter((result) => result.status === 'fulfilled'),
     ).toHaveLength(1);
-    const rejectionEvents = await prisma.applicationReviewHistory.count({
-      where: { applicationId, eventKind: 'REJECTED' },
+    const rejectionEvents = await prisma.teamHistory.count({
+      where: { teamId, event: 'REJECTED' },
     });
     expect(rejectionEvents).toBe(1);
     const notifications = await prisma.notification.count({
       where: {
         type: 'APPLICATION_DECISION',
-        payload: { path: ['applicationId'], equals: applicationId },
+        payload: { path: ['teamId'], equals: teamId },
       },
     });
 
@@ -1115,18 +1064,17 @@ describe('TeamApplicationService integration', () => {
   });
 
   it('남은 미완료 요청은 지우고 새 이벤트를 발행한다 — 먱등키 충돌 없음', async () => {
-    const applicationId = APPLICATION_IDS[4];
-    await createApplication(applicationId, true);
+    const teamId = APPLICATION_IDS[4];
+    await createApplication(teamId, true);
     const existing = await prisma.outboxEvent.create({
       data: {
         type: 'REPOSITORY_PROVISION_REQUESTED',
-        aggregateType: 'Application',
-        aggregateId: applicationId,
-        idempotencyKey: `repository-provision:${applicationId}`,
+        aggregateType: 'Team',
+        aggregateId: teamId,
+        idempotencyKey: `repository-provision:${teamId}`,
         payload: {
-          applicationId,
-          programId: `${applicationId}-program`,
-          teamId: `${applicationId}-team`,
+          teamId,
+          programId: `${teamId}-program`,
           requestedAt: new Date('2026-09-17T00:00:00.000Z').toISOString(),
           collaboratorGithubLogins: ['synthetic-applicant'],
           repositoryConnectionMode: RepositoryConnectionMode.NEW,
@@ -1137,7 +1085,7 @@ describe('TeamApplicationService integration', () => {
 
     const decision = service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
@@ -1158,7 +1106,7 @@ describe('TeamApplicationService integration', () => {
         where: { requestId: existing.id },
       }),
     ).resolves.toMatchObject({
-      applicationId,
+      teamId,
       connectionMode: RepositoryConnectionMode.NEW,
       outcome: RepositoryIssuanceOutcome.DISCARDED,
     });
@@ -1168,26 +1116,26 @@ describe('TeamApplicationService integration', () => {
       }),
     ).resolves.toBe(1);
     await expect(
-      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+      prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
     ).resolves.toMatchObject({ status: ApplicationStatus.APPROVED });
     await expect(
       prisma.outboxEvent.count({
-        where: { idempotencyKey: `repository-provision:${applicationId}` },
+        where: { idempotencyKey: `repository-provision:${teamId}` },
       }),
     ).resolves.toBe(1);
   });
 
   it('이미 판정된 신청은 409와 최신 상태를 반환한다', async () => {
-    const applicationId = APPLICATION_IDS[5];
-    await createApplication(applicationId, false);
-    await prisma.application.update({
-      where: { id: applicationId },
+    const teamId = APPLICATION_IDS[5];
+    await createApplication(teamId, false);
+    await prisma.team.update({
+      where: { id: teamId },
       data: { status: ApplicationStatus.APPROVED },
     });
 
     const decision = service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
@@ -1202,23 +1150,19 @@ describe('TeamApplicationService integration', () => {
     });
   });
 
-  it('#1272 승인→반려: PATCH 한 번으로 전이하고 미완료 요청을 같은 트랜잭션에서 지운다', async () => {
-    const applicationId = APPLICATION_IDS[8];
-    await createApplication(applicationId, true);
-    await service.decide(
-      { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
-      {
-        action: APPLICATION_DECISION_ACTIONS.APPROVE,
-      },
-    );
+  it('#1272 승인→반려: 직접 전이하고 미완료 요청을 같은 트랜잭션에서 지운다', async () => {
+    const teamId = APPLICATION_IDS[8];
+    await createApplication(teamId, true);
+    await service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
     await expect(
-      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+      prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
     ).resolves.toBe(1);
 
     const result = await service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.REJECT,
         reason: '합성 재판정 사유',
@@ -1231,7 +1175,7 @@ describe('TeamApplicationService integration', () => {
       rejectionReason: '합성 재판정 사유',
     });
     await expect(
-      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+      prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
     ).resolves.toMatchObject({
       status: ApplicationStatus.REJECTED,
       rejectionReason: '합성 재판정 사유',
@@ -1239,23 +1183,17 @@ describe('TeamApplicationService integration', () => {
     });
 
     await expect(
-      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+      prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
     ).resolves.toBe(0);
 
-    const auditLogs = await prisma.auditLog.findMany({
-      where: { targetType: 'APPLICATION', targetId: applicationId },
+    const history = await prisma.teamHistory.findMany({
+      where: { teamId },
+      orderBy: { occurredAt: 'asc' },
     });
-    expect(auditLogs.map((log) => log.action).sort()).toEqual([
-      'APPLICATION_APPROVED',
-      'APPLICATION_REJECTED',
-    ]);
-    const rejectedLog = auditLogs.find(
-      (log) => log.action === 'APPLICATION_REJECTED',
+    expect(history.map((row) => row.event)).toEqual(['APPROVED', 'REJECTED']);
+    expect(history.find((row) => row.event === 'REJECTED')?.data).toMatchObject(
+      { rejectionReason: '합성 재판정 사유', revision: 1 },
     );
-    expect(rejectedLog?.metadata).toMatchObject({
-      before: { status: ApplicationStatus.APPROVED },
-      after: { status: ApplicationStatus.REJECTED },
-    });
     await expect(
       prisma.notification.count({
         where: {
@@ -1266,28 +1204,24 @@ describe('TeamApplicationService integration', () => {
     ).resolves.toBe(2);
   });
 
-  it('#1272 반려→승인: PATCH 한 번으로 전이하고 새 프로비저닝 이벤트를 발행한다', async () => {
-    const applicationId = APPLICATION_IDS[9];
-    await createApplication(applicationId, true);
-    await service.decide(
-      { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
-      {
-        action: APPLICATION_DECISION_ACTIONS.REJECT,
-        reason: '합성 반려 사유',
-      },
-    );
+  it('#1272 반려→승인: 직접 전이하고 새 프로비저닝 이벤트를 발행한다', async () => {
+    const teamId = APPLICATION_IDS[9];
+    await createApplication(teamId, true);
+    await service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+      action: APPLICATION_DECISION_ACTIONS.REJECT,
+      reason: '합성 반려 사유',
+    });
 
     const result = await service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
     );
 
     const event = await prisma.outboxEvent.findUniqueOrThrow({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      where: { idempotencyKey: `repository-provision:${teamId}` },
     });
     expect(result).toMatchObject({
       kind: 'APPROVED',
@@ -1298,8 +1232,8 @@ describe('TeamApplicationService integration', () => {
         jobStatus: RepositoryProvisionJobStatus.PENDING,
       },
     });
-    const application = await prisma.application.findUniqueOrThrow({
-      where: { id: applicationId },
+    const application = await prisma.team.findUniqueOrThrow({
+      where: { id: teamId },
     });
     expect(application).toMatchObject({
       status: ApplicationStatus.APPROVED,
@@ -1310,44 +1244,36 @@ describe('TeamApplicationService integration', () => {
   });
 
   it('프로비저닝이 끝난 승인도 반려·되돌림·재승인이 다 되고 완료된 요청은 보존된다', async () => {
-    const applicationId = APPLICATION_IDS[10];
-    await createApplication(applicationId, true);
-    await service.decide(
-      { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
-      {
-        action: APPLICATION_DECISION_ACTIONS.APPROVE,
-      },
-    );
+    const teamId = APPLICATION_IDS[10];
+    await createApplication(teamId, true);
+    await service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+      action: APPLICATION_DECISION_ACTIONS.APPROVE,
+    });
     await prisma.repositoryProvisionJob.update({
-      where: { applicationId },
+      where: { teamId },
       data: { status: RepositoryProvisionJobStatus.SUCCEEDED },
     });
     const provisionedJob =
       await prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
+        where: { teamId },
       });
     const provisionedEvent = await prisma.outboxEvent.findUniqueOrThrow({
-      where: { idempotencyKey: `repository-provision:${applicationId}` },
+      where: { idempotencyKey: `repository-provision:${teamId}` },
     });
 
     await expect(
-      service.decide(
-        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-        applicationId,
-        {
-          action: APPLICATION_DECISION_ACTIONS.REJECT,
-          reason: '합성 반려 사유',
-        },
-      ),
+      service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+        action: APPLICATION_DECISION_ACTIONS.REJECT,
+        reason: '합성 반려 사유',
+      }),
     ).resolves.toMatchObject({ kind: 'REJECTED' });
 
     await expect(
-      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+      prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
     ).resolves.toMatchObject({ status: ApplicationStatus.REJECTED });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
+        where: { teamId },
       }),
     ).resolves.toMatchObject({
       id: provisionedJob.id,
@@ -1355,28 +1281,24 @@ describe('TeamApplicationService integration', () => {
     });
     await expect(
       prisma.outboxEvent.findUniqueOrThrow({
-        where: { idempotencyKey: `repository-provision:${applicationId}` },
+        where: { idempotencyKey: `repository-provision:${teamId}` },
       }),
     ).resolves.toMatchObject({ id: provisionedEvent.id });
 
     await expect(
-      service.decide(
-        { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-        applicationId,
-        {
-          action: APPLICATION_DECISION_ACTIONS.REVERT,
-        },
-      ),
+      service.decide({ id: ACTOR_ID, githubId: ACTOR_GITHUB_ID }, teamId, {
+        action: APPLICATION_DECISION_ACTIONS.REVERT,
+      }),
     ).resolves.toMatchObject({ kind: 'REVERTED' });
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
+        where: { teamId },
       }),
     ).resolves.toMatchObject({ id: provisionedJob.id });
 
     const reapproved = await service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
@@ -1392,36 +1314,36 @@ describe('TeamApplicationService integration', () => {
     });
     await expect(
       prisma.outboxEvent.count({
-        where: { aggregateId: applicationId, aggregateType: 'Application' },
+        where: { aggregateId: teamId, aggregateType: 'Team' },
       }),
     ).resolves.toBe(1);
     await expect(
       prisma.repositoryProvisionJob.findUniqueOrThrow({
-        where: { applicationId },
+        where: { teamId },
       }),
     ).resolves.toMatchObject({
       id: provisionedJob.id,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
     });
 
-    const history = await prisma.applicationReviewHistory.findMany({
-      where: { applicationId },
+    const history = await prisma.teamHistory.findMany({
+      where: { teamId },
       orderBy: { occurredAt: 'asc' },
-      select: { eventKind: true, revision: true },
+      select: { event: true, data: true },
     });
-    expect(history.map((row) => row.eventKind)).toEqual([
+    expect(history.map((row) => row.event)).toEqual([
       'APPROVED',
       'REJECTED',
       'REVERTED',
       'APPROVED',
     ]);
 
-    expect(history.every((row) => row.revision === 1)).toBe(true);
+    for (const row of history) expect(row.data).toMatchObject({ revision: 1 });
   });
 
   it('판정 사전 조회 후 학생 취소가 먼저 완료되면 404를 반환한다', async () => {
-    const applicationId = APPLICATION_IDS[6];
-    await createApplication(applicationId, false);
+    const teamId = APPLICATION_IDS[6];
+    await createApplication(teamId, false);
     const originalWithTransaction = repository.withTransaction.bind(repository);
     let releaseDecision: (() => void) | undefined;
     const decisionGate = new Promise<void>((resolve) => {
@@ -1443,10 +1365,9 @@ describe('TeamApplicationService integration', () => {
               store.isCurrentTeamMember(teamId, userId),
             appendReviewHistory: (input) => store.appendReviewHistory(input),
             findApplicationById: async (id) => {
-              const application = await store.findApplicationById(id);
               markDecisionReady?.();
               await decisionGate;
-              return application;
+              return store.findApplicationById(id);
             },
             discardRepositoryProvisionRequest: (
               id,
@@ -1474,7 +1395,7 @@ describe('TeamApplicationService integration', () => {
 
     const decision = service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
@@ -1482,7 +1403,7 @@ describe('TeamApplicationService integration', () => {
     await decisionReady;
     await studentService.cancelMine(
       APPLICANT_GITHUB_ID,
-      `${applicationId}-program`,
+      `${teamId}-program`,
       new Date('2026-07-15T00:00:00.000Z'),
     );
     releaseDecision?.();
@@ -1511,9 +1432,9 @@ describe('TeamApplicationService integration', () => {
     });
   });
 
-  it('알림 기록 뒤 판정 트랜잭션 실패는 상태·감사·알림을 모두 롤백한다', async () => {
-    const applicationId = APPLICATION_IDS[7];
-    await createApplication(applicationId, true);
+  it('알림 기록 뒤 판정 트랜잭션 실패는 상태·TeamHistory·알림을 모두 롤백한다', async () => {
+    const teamId = APPLICATION_IDS[7];
+    await createApplication(teamId, true);
     const originalWithTransaction = repository.withTransaction.bind(repository);
     jest
       .spyOn(repository, 'withTransaction')
@@ -1555,7 +1476,7 @@ describe('TeamApplicationService integration', () => {
 
     const decision = service.decide(
       { id: ACTOR_ID, githubId: ACTOR_GITHUB_ID },
-      applicationId,
+      teamId,
       {
         action: APPLICATION_DECISION_ACTIONS.APPROVE,
       },
@@ -1568,18 +1489,16 @@ describe('TeamApplicationService integration', () => {
       },
     });
     await expect(
-      prisma.application.findUniqueOrThrow({ where: { id: applicationId } }),
+      prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
     ).resolves.toMatchObject({ status: ApplicationStatus.SUBMITTED });
     await expect(
-      prisma.outboxEvent.count({ where: { aggregateId: applicationId } }),
+      prisma.outboxEvent.count({ where: { aggregateId: teamId } }),
     ).resolves.toBe(0);
     await expect(
       prisma.notification.count({ where: { type: 'APPLICATION_DECISION' } }),
     ).resolves.toBe(0);
-    await expect(
-      prisma.auditLog.count({
-        where: { targetType: 'APPLICATION', targetId: applicationId },
-      }),
-    ).resolves.toBe(0);
+    await expect(prisma.teamHistory.count({ where: { teamId } })).resolves.toBe(
+      0,
+    );
   });
 });

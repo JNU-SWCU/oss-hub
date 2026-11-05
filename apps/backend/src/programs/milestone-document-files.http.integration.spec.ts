@@ -155,7 +155,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     expect(
       (
         await fixture.request(
-          `${fixture.documentPath()}/applications/${flowIds.application}/reviews`,
+          `${fixture.documentPath()}/teams/${flowIds.team}/reviews`,
           {
             actor: 'staff',
             method: 'POST',
@@ -183,7 +183,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     });
     expect(
       await fixture.prisma.submissionFile.count({
-        where: { applicationId: flowIds.application },
+        where: { teamId: flowIds.team },
       }),
     ).toBe(0);
     expect(
@@ -211,7 +211,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       const response = await upload(name, mime, bytes);
       expect(response.status).toBe(201);
       const pending = await fixture.prisma.submissionFile.findFirstOrThrow({
-        where: { applicationId: flowIds.application },
+        where: { teamId: flowIds.team },
       });
       expect(pending.milestoneDocumentId).toBe(flowIds.document);
       expect((await fixture.submit('', pending.id)).status).toBe(201);
@@ -237,7 +237,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       expect(response.status).toBe(415);
       expect(
         await fixture.prisma.submissionFile.count({
-          where: { applicationId: flowIds.application },
+          where: { teamId: flowIds.team },
         }),
       ).toBe(0);
     },
@@ -298,7 +298,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     const file = await fixture.prisma.submissionFile.create({
       data: {
         uploaderId: flowIds.student,
-        applicationId: flowIds.application,
+        teamId: flowIds.team,
         milestoneId: flowIds.milestone,
         milestoneDocumentSubmissionId: history.milestoneDocumentSubmissionId,
         milestoneDocumentSubmissionHistoryId: history.id,
@@ -330,7 +330,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       Buffer.from('%PDF-synthetic'),
     );
     const file = await fixture.prisma.submissionFile.findFirstOrThrow({
-      where: { applicationId: flowIds.application },
+      where: { teamId: flowIds.team },
     });
     await fixture.submit('첫 제출', file.id);
     expect((await fixture.submit('이번 제출은 글만 포함합니다.')).status).toBe(

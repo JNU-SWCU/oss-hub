@@ -76,7 +76,7 @@ function source(): DeadlineProgramSource {
         documents: [],
       },
     ],
-    applications: [
+    teams: [
       {
         id: 'application-1',
         applicant,
@@ -116,11 +116,11 @@ describe('deadline digest eligibility', () => {
 
   it('counts inactive, opted-out, and no-email recipients separately before selecting direct mail recipients', () => {
     const input = source();
-    const application = input.applications[0];
+    const application = input.teams[0];
     if (application === undefined) throw new TypeError('Missing application.');
     const classified: DeadlineProgramSource = {
       ...input,
-      applications: [
+      teams: [
         {
           ...application,
           members: [
@@ -157,11 +157,11 @@ describe('deadline digest eligibility', () => {
 
   it('마일스톤별 미제출 명단에 제외된 후보도 사유와 함께 담고 추가 조회를 하지 않는다', () => {
     const input = source();
-    const application = input.applications[0];
+    const application = input.teams[0];
     if (application === undefined) throw new TypeError('Missing application.');
     const classified: DeadlineProgramSource = {
       ...input,
-      applications: [
+      teams: [
         {
           ...application,
           members: [
@@ -228,7 +228,7 @@ describe('deadline digest eligibility', () => {
           documents: [{ id: requiredDocumentId, required: true }],
         },
       ],
-      applications: [
+      teams: [
         {
           id: 'e2e:program-authoring:student-application',
           applicant: user('e2e-student', {
@@ -239,7 +239,7 @@ describe('deadline digest eligibility', () => {
         },
       ],
     };
-    const application = fixture.applications[0];
+    const application = fixture.teams[0];
     if (application === undefined) {
       throw new TypeError('Missing adopted-fixture application.');
     }
@@ -253,7 +253,7 @@ describe('deadline digest eligibility', () => {
     const afterSubmission = deadlineDigestService.buildDeadlineEligibility(
       {
         ...fixture,
-        applications: [
+        teams: [
           {
             ...application,
             submittedDocumentIds: [requiredDocumentId],
@@ -282,7 +282,7 @@ describe('deadline digest eligibility', () => {
     const reordered: DeadlineProgramSource = {
       ...original,
       milestones: [...original.milestones].reverse(),
-      applications: original.applications.map((application) => ({
+      teams: original.teams.map((application) => ({
         ...application,
         members: [...application.members, ...application.members].reverse(),
         submittedDocumentIds: [...application.submittedDocumentIds].reverse(),

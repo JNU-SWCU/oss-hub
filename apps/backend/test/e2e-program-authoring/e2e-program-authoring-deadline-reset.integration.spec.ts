@@ -34,7 +34,7 @@ beforeAll(async () => {
     data: {
       ...canonicalUserCreate({
         id: staffId,
-        githubId: 8_100_091n,
+        githubId: 8100091n,
         nickname: 'synthetic-global-staff',
         memberKind: MemberKind.STAFF,
         hasStaffAccess: true,
@@ -66,13 +66,16 @@ async function ensureMissingSubmission(): Promise<void> {
       members: {
         create: { userId: E2E_STUDENT_ID },
       },
+      applicantId: E2E_STUDENT_ID,
+      answers: { title: 'synthetic-reset-team' },
+      applicationTemplateVersion: 1,
     },
   });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: team.id },
     data: {
       programId: E2E_PROGRAM_ID,
       applicantId: E2E_STUDENT_ID,
-      teamId: team.id,
       status: 'APPROVED',
       answers: {},
       applicationTemplateVersion: 1,

@@ -139,7 +139,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       required: true,
     }),
     findStudentApplication: jest.fn().mockResolvedValue({
-      applicationId: syntheticApplicationId,
+      teamId: syntheticApplicationId,
       approved: true,
       programEndAt: new Date('2026-12-19T00:00:00.000Z'),
     }),
@@ -482,7 +482,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
   it('승인 전 신청이면 APPLICATION_APPROVAL_REQUIRED로 거부한다', async () => {
     const { repository } = buildRepository({
       findStudentApplication: jest.fn().mockResolvedValue({
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         approved: false,
         programEndAt: new Date('2026-12-19T00:00:00.000Z'),
       }),
@@ -847,7 +847,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     expect(submissionFileMocks.createPending).toHaveBeenCalledWith(
       expect.objectContaining({
         uploaderId: syntheticUserId,
-        applicationId: syntheticApplicationId,
+        teamId: syntheticApplicationId,
         milestoneId: syntheticMilestoneId,
         originalFileName: '계획서.pdf',
         mimeType: 'application/pdf',

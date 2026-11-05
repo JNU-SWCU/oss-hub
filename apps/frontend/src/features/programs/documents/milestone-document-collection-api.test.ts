@@ -35,7 +35,7 @@ it.each(['', ' \t '])(
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath(
-        'milestones/milestone-1/documents/document-1/applications/application-1/history?limit=20',
+        'milestones/milestone-1/documents/document-1/teams/application-1/history?limit=20',
       ),
       undefined,
     );
@@ -153,9 +153,7 @@ describe('milestoneDocumentSubmissionFileHref', () => {
   it('apiPath를 통해 제출 파일 다운로드 경로를 만든다', () => {
     expect(
       milestoneDocumentSubmissionFileHref('milestone-1', 'd1', 'app-1'),
-    ).toBe(
-      apiPath('milestones/milestone-1/documents/d1/applications/app-1/file'),
-    );
+    ).toBe(apiPath('milestones/milestone-1/documents/d1/teams/app-1/file'));
   });
 });
 
@@ -176,7 +174,7 @@ describe('getMilestoneDocumentHistory', () => {
 
     expect(fetchMock).toHaveBeenCalledWith(
       apiPath(
-        'milestones/milestone-1/documents/d1/applications/app-1/history?limit=20&cursor=history-40',
+        'milestones/milestone-1/documents/d1/teams/app-1/history?limit=20&cursor=history-40',
       ),
       undefined,
     );

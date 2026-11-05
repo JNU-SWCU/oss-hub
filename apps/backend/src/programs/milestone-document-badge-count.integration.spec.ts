@@ -56,7 +56,6 @@ async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: { milestoneDocument: { milestoneId } },
   });
-  await prisma.application.deleteMany({ where: { programId } });
   await prisma.teamMember.deleteMany({ where: { programId } });
   await prisma.team.deleteMany({ where: { programId } });
   await prisma.milestoneDocument.deleteMany({ where: { milestoneId } });
@@ -86,6 +85,9 @@ async function createTeams(teams: readonly TeamFixture[]): Promise<void> {
         programId,
         name: `synthetic ${team.key} 팀`,
         leaderId: userId,
+        applicantId: userId,
+        answers: { title: `synthetic ${team.key} 팀` },
+        applicationTemplateVersion: 1,
       },
     });
     await prisma.teamMember.create({
@@ -95,13 +97,11 @@ async function createTeams(teams: readonly TeamFixture[]): Promise<void> {
         userId,
       },
     });
-    const applicationId = `${prefix}-${team.key}-application`;
-    await prisma.application.create({
+    await prisma.team.update({
+      where: { id: teamId },
       data: {
-        id: applicationId,
         programId,
         applicantId: userId,
-        teamId,
         answers: { syntheticFixture: true },
         applicationTemplateVersion: 1,
         status: team.status,
@@ -113,7 +113,7 @@ async function createTeams(teams: readonly TeamFixture[]): Promise<void> {
         data: {
           id: `${prefix}-${team.key}-submission`,
           milestoneDocumentId: requiredDocumentId,
-          applicationId,
+          teamId,
           submittedById: userId,
           submittedAt: new Date('2026-03-01'),
         },

@@ -107,10 +107,10 @@ export class SubmissionReviewsService {
     if (current === undefined) {
       throw new SubmissionRevisionInvariantError();
     }
-    const repository = row.application.repository;
+    const repository = row.team.repository;
     const blockedReasons = repository
       ? this.repositoryPublishService.publishBlockedReasons(
-          this.toPublishEligibility(row.application, repository),
+          this.toPublishEligibility(row.team, repository),
           now,
         )
       : [];
@@ -126,15 +126,12 @@ export class SubmissionReviewsService {
           )[0]?.id ?? null,
       submissionId: row.id,
       application: {
-        id: row.application.id,
-        applicationMode:
-          row.application.teamId === null
-            ? APPLICATION_MODES.PERSONAL
-            : APPLICATION_MODES.TEAM,
+        id: row.team.id,
+        applicationMode: APPLICATION_MODES.TEAM,
         displayName:
-          row.application.team?.name ??
-          row.application.applicant.name ??
-          row.application.applicant.nickname,
+          row.team.name ??
+          row.team.applicant.name ??
+          row.team.applicant.nickname,
       },
       milestone: row.milestoneDocument.milestone,
       currentRevision: this.toRevisionRecord(current, row.histories, now),

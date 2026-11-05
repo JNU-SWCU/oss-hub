@@ -51,7 +51,7 @@ export class ProgramTeamResponseDto {
   declare readonly memberCount: number;
   declare readonly minMembers: number;
   declare readonly maxMembers: number;
-  declare readonly hasApplication: boolean;
+  declare readonly status: ProgramTeamView['status'];
   declare readonly canInvite: boolean;
   declare readonly canRemoveMembers: boolean;
   declare readonly canLeave: boolean;
@@ -65,7 +65,7 @@ export class ProgramTeamResponseDto {
       memberCount: view.memberCount,
       minMembers: view.minMembers,
       maxMembers: view.maxMembers,
-      hasApplication: view.hasApplication,
+      status: view.status,
       canInvite: view.canInvite,
       canRemoveMembers: view.canRemoveMembers,
       canLeave: view.canLeave,

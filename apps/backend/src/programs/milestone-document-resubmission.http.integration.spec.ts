@@ -12,7 +12,7 @@ assertIsolatedIntegrationDatabase({
 });
 const fixture = new MilestoneDocumentFlowFixture();
 const reviewsPath = () =>
-  `${fixture.documentPath()}/applications/${flowIds.application}/reviews`;
+  `${fixture.documentPath()}/teams/${flowIds.team}/reviews`;
 
 async function review(
   decision: ReviewDecision,
@@ -65,10 +65,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     ]);
     for (const [path, actor] of [
       [`${fixture.documentPath()}/history`, 'student'],
-      [
-        `${fixture.documentPath()}/applications/${flowIds.application}/history`,
-        'staff',
-      ],
+      [`${fixture.documentPath()}/teams/${flowIds.team}/history`, 'staff'],
     ] as const) {
       const history = await fixture.request(path, { actor });
       expect(history.status).toBe(200);
@@ -133,7 +130,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     expect(
       (
         await fixture.request(
-          `${fixture.documentPath()}/applications/${flowIds.application}/history`,
+          `${fixture.documentPath()}/teams/${flowIds.team}/history`,
           { actor: 'staff' },
         )
       ).status,

@@ -16,7 +16,7 @@ export function mapTeamError(problem: ProblemDetail): string {
     case 'TEAM_010':
       return '소속된 팀이 없습니다. 현재 팀 구성을 다시 확인해 주세요.';
     case 'TEAM_012':
-      return '신청 기록을 보존하기 위해 마지막 팀원은 탈퇴할 수 없습니다.';
+      return '승인된 팀의 마지막 구성원은 나갈 수 없습니다.';
     case 'TEAM_013':
       return '팀장만 다른 팀원을 제외할 수 있습니다.';
     case 'TEAM_014':

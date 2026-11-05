@@ -1,9 +1,8 @@
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
-import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
@@ -13,12 +12,9 @@ import {
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
-import { AuditLogRepository } from '../platform/audit-log.repository';
-import { AuditLogService } from '../platform/audit-log.service';
 import { ApplicationsRepository } from './team.repository';
 import { StudentRepositoryUrlRepository } from './team.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const prisma = new PrismaService();
 const namespace = randomBytes(4).toString('hex');
@@ -27,7 +23,6 @@ const githubIdBase = BigInt(`0x${namespace}`) * 1000n;
 let programId = '';
 const userId = `${prefix}-user`;
 const githubId = githubIdBase + 1n;
-let applicationId = '';
 let teamId = '';
 let oldId = '';
 let targetId = '';
@@ -42,13 +37,9 @@ const repository = new StudentRepositoryUrlRepository(
 );
 const applications = new ApplicationsRepository(
   prisma,
-  new ReviewHistoryWriterRepository(),
+  new TeamHistoryRepository(),
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
-);
-const audit = new AuditLogService(
-  new AuditLogRepository(prisma),
-  new AuditLogReadService(new AuditLogMetadataService()),
 );
 const resolver = {
   resolve: jest.fn().mockResolvedValue({
@@ -72,7 +63,6 @@ const service = new StudentRepositoryUrlService(
   applications,
   resolver,
   { requireCurrent: jest.fn().mockResolvedValue(undefined) },
-  audit,
   collectionTrigger,
   new RepositoryProvisionEventService(),
 );
@@ -102,7 +92,7 @@ beforeEach(async () => {
   collectionTrigger.collectRepository.mockClear();
   caseNumber += 1;
   programId = `${prefix}-${caseNumber}-program`;
-  applicationId = `${prefix}-${caseNumber}-application`;
+  teamId = `${prefix}-${caseNumber}-application`;
   teamId = `${prefix}-${caseNumber}-team`;
   oldId = `${prefix}-${caseNumber}-old`;
   targetId = `${prefix}-${caseNumber}-target`;
@@ -123,7 +113,6 @@ beforeEach(async () => {
   await prisma.program.create({
     data: {
       startAt: new Date('2026-01-01'),
-
       id: programId,
       name: 'Synthetic relink program',
       organizer: 'Synthetic',
@@ -142,14 +131,16 @@ beforeEach(async () => {
       programId,
       name: 'Synthetic team',
       leaderId: userId,
+      applicantId: userId,
+      answers: { title: 'Synthetic team' },
+      applicationTemplateVersion: 1,
     },
   });
   await prisma.teamMember.create({ data: { teamId, programId, userId } });
-  await prisma.application.create({
+  await prisma.team.update({
+    where: { id: teamId },
     data: {
-      id: applicationId,
       programId,
-      teamId,
       applicantId: userId,
       status: ApplicationStatus.APPROVED,
       answers: {},
@@ -161,8 +152,6 @@ beforeEach(async () => {
       id: oldId,
       githubRepositoryId: targetGithubId + 1n,
       nameWithOwner: 'synthetic/old',
-      applicationId,
-      programId,
       teamId,
       source: RepositorySource.ORG_PROVISIONED,
     },
@@ -190,7 +179,7 @@ beforeEach(async () => {
 });
 afterEach(async () => {
   jest.restoreAllMocks();
-  await prisma.repositoryProvisionJob.deleteMany({ where: { applicationId } });
+  await prisma.repositoryProvisionJob.deleteMany({ where: { teamId } });
 });
 afterAll(async () => {
   await prisma.$disconnect();
@@ -200,12 +189,10 @@ export {
   prisma,
   service,
   applications,
-  audit,
   resolver,
   collectionTrigger,
   githubId,
   programId,
-  applicationId,
   teamId,
   oldId,
   targetId,

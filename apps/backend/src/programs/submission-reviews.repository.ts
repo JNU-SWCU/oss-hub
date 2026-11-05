@@ -170,7 +170,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     return this.prisma.milestoneDocumentSubmission.findUnique({
       where: {
         id: submissionId,
-        application: { program: { lifecycle: { not: 'DELETED' } } },
+        team: { program: { lifecycle: { not: 'DELETED' } } },
       },
       select: this.REVIEW_CONTEXT_SELECT,
     });
@@ -181,12 +181,12 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     const repository = await this.prisma.githubRepository.findUnique({
       where: {
         id: repositoryId,
-        application: { program: { lifecycle: { not: 'DELETED' } } },
+        team: { program: { lifecycle: { not: 'DELETED' } } },
       },
       select: {
         id: true,
         visibility: true,
-        application: {
+        team: {
           select: {
             isRepositoryPublicationPlanned: true,
             provisionJob: { select: { status: true, repositoryId: true } },
@@ -218,20 +218,20 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         },
       },
     });
-    if (repository === null || repository.application === null) return null;
-    return { ...repository, application: repository.application };
+
+    if (repository === null || repository.team === null) return null;
+    return { ...repository, application: repository.team };
   }
   readonly REVIEW_CONTEXT_SELECT = {
     id: true,
     revision: true,
-    application: {
+    team: {
       select: {
         id: true,
-        teamId: true,
         applicant: {
           select: { nickname: true, ...USER_PROFILE_NAME_SELECT },
         },
-        team: { select: { name: true } },
+        name: true,
         isRepositoryPublicationPlanned: true,
         provisionJob: { select: { status: true, repositoryId: true } },
         program: {
@@ -318,8 +318,9 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     const submission = await transaction.milestoneDocumentSubmission.findFirst({
       where: {
         id: submissionId,
-        application:
-          this.platformRepository.programApplicationParticipantWhere(userId),
+        team: this.platformRepository.programApplicationParticipantWhere(
+          userId,
+        ),
       },
       select: { id: true },
     });
@@ -333,7 +334,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       where: {
         id: submissionId,
       },
-      select: { id: true, application: { select: { programId: true } } },
+      select: { id: true, team: { select: { programId: true } } },
     });
     if (resolved === null) return null;
     const targetId = resolved.id;
@@ -344,7 +345,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     >(Prisma.sql`
         SELECT "id"
         FROM "Program"
-        WHERE "id" = ${resolved.application.programId}
+        WHERE "id" = ${resolved.team.programId}
           AND "lifecycle" <> 'DELETED'
         FOR SHARE
       `);
@@ -363,7 +364,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       {
         where: {
           id: targetId,
-          application: { program: { lifecycle: { not: 'DELETED' } } },
+          team: { program: { lifecycle: { not: 'DELETED' } } },
         },
         select: { id: true, revision: true, status: true },
       },

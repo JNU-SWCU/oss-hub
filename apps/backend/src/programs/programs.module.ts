@@ -4,7 +4,7 @@ import { ProgramAuthoringUploadTransactionRepository } from './program-authoring
 import { SubmissionsRepository } from './submissions.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { TeamDeletionScopeRepository } from './team.repository';
-import { ReviewHistoryWriterRepository } from './team-history.repository';
+import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
@@ -64,7 +64,6 @@ import { PublicProjectsRepository } from './public-projects.repository';
 import { PublicUserProfileController } from './public-user-profile.controller';
 import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { TeamHistoryRepository } from './team-history.repository';
 import { TeamInvitationsService } from './team-invitations.service';
 import { ApplicationsController } from './teams.controller';
 import { ApplicationsRepository } from './team.repository';
@@ -208,7 +207,6 @@ import { SubmissionFileAdmissionService } from './submission-file-admission.serv
     ApplicationsRepository,
     TeamApplicationService,
     StudentApplicationManagementRepository,
-    ReviewHistoryWriterRepository,
     StudentApplicationManagementService,
     {
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,
