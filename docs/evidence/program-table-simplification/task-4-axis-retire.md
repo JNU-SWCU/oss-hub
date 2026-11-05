@@ -29,4 +29,3 @@ submissionHistoryId FK를 명시적으로 먼저 제거한다. DROP TABLE은 CAS
 REHEARSAL_OK stages=2 counts=6, RETIRE_REHEARSAL_EXIT=0, SERVER_REHEARSAL_EXIT=0. B 후 check-retired.sql 불일치 0을 확인했다. 복원표의 중복 심사 16은 B 직전 백업의 복구 증거이며 B 적용 후에도 남는다는 뜻이 아니다.
 
 network none, 공개 포트 0, 운영 볼륨 연결 0, CPU 0.5, 메모리와 memory+swap 각512 MiB, 384 MiB tmpfs, nice19로 운영과 동일한 이미지에서 실행했다. 종료 후 컨테이너0·덤프와 작업디렉터리0·익명 볼륨 생성0을 확인했고 별도 SSH 연결에서도 INDEPENDENT_CLEANUP_EXIT=0이었다. 원본 데이터와 영구 백업은 이 작업에서 변경하지 않았다.
-
