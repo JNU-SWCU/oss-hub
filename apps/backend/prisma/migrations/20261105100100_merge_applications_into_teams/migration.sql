@@ -89,6 +89,7 @@ BEGIN
   SELECT count(*) INTO applications FROM "Application";
   IF applications = 0 AND NOT EXISTS (SELECT 1 FROM "Team")
      AND NOT EXISTS (SELECT 1 FROM "ApplicationReviewHistory")
+     AND NOT EXISTS (SELECT 1 FROM "TeamHistory")
      AND NOT EXISTS (SELECT 1 FROM "RepositoryProvisionJob")
      AND NOT EXISTS (SELECT 1 FROM "RepositoryIssuanceHistory")
      AND NOT EXISTS (SELECT 1 FROM "GithubRepositoryOutsiderContribution")
@@ -105,8 +106,9 @@ BEGIN
      OR (SELECT count(*) FROM "Team") <> 40
      OR (SELECT count(*) FROM "TeamMember") <> 72
      OR (SELECT count(*) FROM "TeamInvitation") <> 3
-     OR (SELECT count(*) FROM "ApplicationReviewHistory") <> 9 THEN
-    RAISE EXCEPTION 'Team cutover baseline count mismatch; expected applications/teams/members/invitations/reviews=33/40/72/3/9';
+     OR (SELECT count(*) FROM "ApplicationReviewHistory") <> 9
+     OR (SELECT count(*) FROM "TeamHistory") <> 25 THEN
+    RAISE EXCEPTION 'Team cutover baseline count mismatch; expected applications/teams/members/invitations/reviews/histories=33/40/72/3/9/25';
   END IF;
 
   IF EXISTS (
@@ -355,6 +357,9 @@ BEGIN
       a."rejectionReason", a.revision, a."submittedAt", a."processedById", a."processedAt")
   ) OR (SELECT count(*) FROM "Team") <> 33 THEN
     RAISE EXCEPTION 'Application to Team field reconciliation failed';
+  END IF;
+  IF (SELECT count(*) FROM "TeamHistory") <> 105 THEN
+    RAISE EXCEPTION 'Team history final total mismatch; expected 105';
   END IF;
   RAISE NOTICE 'TEAM_CUTOVER Team copied=33 deleted=7 TeamMember deleted=7 TeamHistory inserted=80 application_history=73 reconcile=0';
 END $$;

@@ -3,6 +3,7 @@ WITH checks AS (
   UNION ALL SELECT (SELECT count(*) FROM "Application") <> 33
   UNION ALL SELECT (SELECT count(*) FROM "TeamMember") <> 65
   UNION ALL SELECT (SELECT count(*) FROM "TeamInvitation") <> 3
+  UNION ALL SELECT (SELECT count(*) FROM "TeamHistory") <> 105
   UNION ALL SELECT (SELECT count(*) FROM "TeamHistory" WHERE id LIKE 'application-review:%') <> 9
   UNION ALL SELECT (SELECT count(*) FROM "TeamHistory" WHERE id LIKE 'application-audit:%'
     AND event <> 'REPOSITORY_URL_CHANGED') <> 62

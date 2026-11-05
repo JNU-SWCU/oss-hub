@@ -14,7 +14,6 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { TEAM_MEMBERSHIP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -121,7 +120,6 @@ async function cleanupTeamScope(): Promise<void> {
     where: { team: { programId: PROGRAM_ID } },
   });
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
-  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
 }
@@ -312,15 +310,14 @@ async function rosterOf(teamId: string): Promise<readonly string[]> {
   return members.map((member) => member.userId).sort();
 }
 
-async function membershipAuditRows(teamId: string) {
-  return prisma.auditLog.findMany({
+async function membershipHistoryRows(teamId: string) {
+  return prisma.teamHistory.findMany({
     where: {
-      targetType: 'TEAM',
-      targetId: teamId,
-      action: TEAM_MEMBERSHIP_AUDIT_ACTIONS.TEAM_MEMBERSHIP_CHANGED,
+      teamId,
+      event: { in: ['MEMBER_LEFT', 'MEMBER_REMOVED', 'LEADER_TRANSFERRED'] },
     },
-    orderBy: { occurredAt: 'asc' },
-    select: { actorId: true, metadata: true },
+    orderBy: [{ occurredAt: 'asc' }, { id: 'asc' }],
+    select: { actorId: true, event: true, data: true },
   });
 }
 
@@ -351,61 +348,100 @@ describe('program team membership transactions integration', () => {
     await prisma.$disconnect();
   });
 
-  it('promotes the lowest member row id when two members joined at the same instant', async () => {
-    const teamId = `${RUN_PREFIX}team-tie`;
+  it('requires explicit transfer when members share a join timestamp', async () => {
+    const teamId = RUN_PREFIX + 'team-tied-explicit';
     await seedTeam(teamId, LEADER_ID, [
-      {
-        userId: LEADER_ID,
-        createdAt: JOINED_FIRST,
-      },
-      {
-        userId: MEMBER_A_ID,
-        createdAt: JOINED_SECOND,
-      },
-      {
-        userId: MEMBER_B_ID,
-        createdAt: JOINED_SECOND,
-      },
+      { userId: LEADER_ID, createdAt: JOINED_FIRST },
+      { userId: MEMBER_B_ID, createdAt: JOINED_SECOND },
+      { userId: MEMBER_A_ID, createdAt: JOINED_SECOND },
     ]);
-
-    await service.leave(githubIdOf(LEADER_ID), PROGRAM_ID);
-
+    await expect(
+      service.leave(githubIdOf(LEADER_ID), PROGRAM_ID),
+    ).rejects.toMatchObject({
+      errorCode: { code: TeamsErrorCode.LEADER_TRANSFER_REQUIRED },
+    });
     await expect(
       prisma.team.findUniqueOrThrow({
         where: { id: teamId },
         select: { leaderId: true },
       }),
-    ).resolves.toEqual({ leaderId: MEMBER_A_ID });
-    expect(await rosterOf(teamId)).toEqual([MEMBER_A_ID, MEMBER_B_ID].sort());
-    await expectLeaderInsideMembership(teamId);
-  });
-
-  it('promotes the earliest joiner even when its user ID sorts last', async () => {
-    const teamId = `${RUN_PREFIX}team-order`;
-    await seedTeam(teamId, LEADER_ID, [
-      {
-        userId: LEADER_ID,
-        createdAt: JOINED_FIRST,
-      },
-      {
-        userId: MEMBER_B_ID,
-        createdAt: JOINED_FIRST,
-      },
-      {
-        userId: MEMBER_A_ID,
-        createdAt: JOINED_SECOND,
-      },
-    ]);
-
+    ).resolves.toEqual({ leaderId: LEADER_ID });
+    expect(await rosterOf(teamId)).toEqual(
+      [LEADER_ID, MEMBER_A_ID, MEMBER_B_ID].sort(),
+    );
+    expect(await membershipHistoryRows(teamId)).toEqual([]);
+    await service.transferLeader(
+      githubIdOf(LEADER_ID),
+      PROGRAM_ID,
+      MEMBER_B_ID,
+    );
     await service.leave(githubIdOf(LEADER_ID), PROGRAM_ID);
-
     await expect(
       prisma.team.findUniqueOrThrow({
         where: { id: teamId },
         select: { leaderId: true },
       }),
     ).resolves.toEqual({ leaderId: MEMBER_B_ID });
-    await expectLeaderInsideMembership(teamId);
+    expect(await rosterOf(teamId)).toEqual([MEMBER_A_ID, MEMBER_B_ID].sort());
+    const history = await membershipHistoryRows(teamId);
+    expect(history).toHaveLength(2);
+    expect(
+      history.find((row) => row.event === 'LEADER_TRANSFERRED'),
+    ).toMatchObject({
+      actorId: LEADER_ID,
+      data: { previousLeaderId: LEADER_ID, nextLeaderId: MEMBER_B_ID },
+    });
+    expect(history.find((row) => row.event === 'MEMBER_LEFT')).toMatchObject({
+      actorId: LEADER_ID,
+    });
+  });
+
+  it('honors explicit transfer instead of choosing the earliest member', async () => {
+    const teamId = RUN_PREFIX + 'team-earliest-explicit';
+    await seedTeam(teamId, LEADER_ID, [
+      { userId: LEADER_ID, createdAt: JOINED_FIRST },
+      { userId: MEMBER_A_ID, createdAt: JOINED_FIRST },
+      { userId: MEMBER_B_ID, createdAt: JOINED_SECOND },
+    ]);
+    await expect(
+      service.leave(githubIdOf(LEADER_ID), PROGRAM_ID),
+    ).rejects.toMatchObject({
+      errorCode: { code: TeamsErrorCode.LEADER_TRANSFER_REQUIRED },
+    });
+    await expect(
+      prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
+    ).resolves.toEqual({ leaderId: LEADER_ID });
+    expect(await rosterOf(teamId)).toEqual(
+      [LEADER_ID, MEMBER_A_ID, MEMBER_B_ID].sort(),
+    );
+    expect(await membershipHistoryRows(teamId)).toEqual([]);
+    await service.transferLeader(
+      githubIdOf(LEADER_ID),
+      PROGRAM_ID,
+      MEMBER_B_ID,
+    );
+    await service.leave(githubIdOf(LEADER_ID), PROGRAM_ID);
+    await expect(
+      prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
+    ).resolves.toEqual({ leaderId: MEMBER_B_ID });
+    expect(await rosterOf(teamId)).toEqual([MEMBER_A_ID, MEMBER_B_ID].sort());
+    const history = await membershipHistoryRows(teamId);
+    expect(history).toHaveLength(2);
+    expect(
+      history.find((row) => row.event === 'LEADER_TRANSFERRED'),
+    ).toMatchObject({
+      actorId: LEADER_ID,
+      data: { previousLeaderId: LEADER_ID, nextLeaderId: MEMBER_B_ID },
+    });
+    expect(history.find((row) => row.event === 'MEMBER_LEFT')).toMatchObject({
+      actorId: LEADER_ID,
+    });
   });
 
   it('lets a non-last member leave after the team already submitted an application', async () => {
@@ -436,13 +472,13 @@ describe('program team membership transactions integration', () => {
         select: { id: true, applicantId: true, status: true },
       }),
     ).resolves.toEqual({
-      teamId,
+      id: teamId,
       applicantId: LEADER_ID,
       status: ApplicationStatus.SUBMITTED,
     });
   });
 
-  it('hands leadership to the successor and never rewrites the recorded applicant', async () => {
+  it('requires transfer before leader leave and preserves the recorded applicant', async () => {
     const teamId = `${RUN_PREFIX}team-successor`;
     await seedTeam(teamId, LEADER_ID, [
       {
@@ -455,6 +491,16 @@ describe('program team membership transactions integration', () => {
       },
     ]);
 
+    await expect(
+      service.leave(githubIdOf(LEADER_ID), PROGRAM_ID),
+    ).rejects.toMatchObject({
+      errorCode: { code: TeamsErrorCode.LEADER_TRANSFER_REQUIRED },
+    });
+    await service.transferLeader(
+      githubIdOf(LEADER_ID),
+      PROGRAM_ID,
+      MEMBER_A_ID,
+    );
     await service.leave(githubIdOf(LEADER_ID), PROGRAM_ID);
 
     await expect(
@@ -469,16 +515,23 @@ describe('program team membership transactions integration', () => {
         where: { id: teamId },
         select: { applicantId: true, id: true },
       }),
-    ).resolves.toEqual({ applicantId: LEADER_ID, teamId });
+    ).resolves.toEqual({ applicantId: LEADER_ID, id: teamId });
 
-    const audits = await membershipAuditRows(teamId);
-    expect(audits).toHaveLength(1);
-    expect(audits[0]!.actorId).toBe(LEADER_ID);
-    expect(audits[0]!.metadata).toMatchObject({
-      operation: 'LEAVE',
-      removedUserId: LEADER_ID,
-      previousLeaderId: LEADER_ID,
-      nextLeaderId: MEMBER_A_ID,
+    const history = await membershipHistoryRows(teamId);
+    expect(history).toHaveLength(2);
+    expect(
+      history.find((row) => row.event === 'LEADER_TRANSFERRED'),
+    ).toMatchObject({
+      actorId: LEADER_ID,
+      data: { previousLeaderId: LEADER_ID, nextLeaderId: MEMBER_A_ID },
+    });
+    expect(history.find((row) => row.event === 'MEMBER_LEFT')).toMatchObject({
+      actorId: LEADER_ID,
+      data: {
+        removedUserId: LEADER_ID,
+        previousLeaderId: MEMBER_A_ID,
+        nextLeaderId: MEMBER_A_ID,
+      },
     });
   });
 
@@ -504,7 +557,7 @@ describe('program team membership transactions integration', () => {
         where: { id: teamId },
         select: { id: true, applicantId: true },
       }),
-    ).resolves.toEqual({ teamId, applicantId: LEADER_ID });
+    ).resolves.toEqual({ id: teamId, applicantId: LEADER_ID });
 
     await expect(
       prisma.milestoneDocumentSubmission.findUniqueOrThrow({
@@ -551,10 +604,9 @@ describe('program team membership transactions integration', () => {
       deletedAt: null,
     });
 
-    const audits = await membershipAuditRows(teamId);
+    const audits = await membershipHistoryRows(teamId);
     expect(audits).toHaveLength(1);
-    expect(audits[0]!.metadata).toMatchObject({
-      operation: 'REMOVE',
+    expect(audits[0]!.data).toMatchObject({
       removedUserId: MEMBER_A_ID,
       previousLeaderId: LEADER_ID,
       nextLeaderId: LEADER_ID,
@@ -562,7 +614,7 @@ describe('program team membership transactions integration', () => {
     await expectLeaderInsideMembership(teamId);
   });
 
-  it('blocks the last member of an applied team with 409 and keeps every row', async () => {
+  it('blocks the final preapproval member with activity and keeps every row', async () => {
     const teamId = `${RUN_PREFIX}team-last`;
     await seedTeam(teamId, LEADER_ID, [
       {
@@ -576,7 +628,7 @@ describe('program team membership transactions integration', () => {
       service.leave(githubIdOf(LEADER_ID), PROGRAM_ID),
     ).rejects.toMatchObject({
       errorCode: {
-        code: TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION,
+        code: TeamsErrorCode.TEAM_HAS_ACTIVITY,
         status: 409,
       },
     });
@@ -597,7 +649,7 @@ describe('program team membership transactions integration', () => {
     await expect(
       prisma.submissionFile.count({ where: { id: submitted.fileId } }),
     ).resolves.toBe(1);
-    expect(await membershipAuditRows(teamId)).toHaveLength(0);
+    expect(await membershipHistoryRows(teamId)).toHaveLength(0);
   });
 
   it.each(['leave', 'staff removal'])(
@@ -669,7 +721,17 @@ describe('program team membership transactions integration', () => {
       const histories = await prisma.teamHistory.findMany({
         where: { teamId },
       });
-      expect(histories).toHaveLength(4);
+      expect(histories).toHaveLength(operation === 'leave' ? 5 : 6);
+      expect(
+        histories.find((history) => history.event === 'DELETED'),
+      ).toMatchObject({
+        actorId,
+        data: {
+          reason: operation === 'leave' ? 'LAST_MEMBER_LEFT' : 'STAFF_DELETED',
+          deletedCounts: { teams: 1, members: 1, invitations: 1 },
+          members: [{ userId: LEADER_ID }],
+        },
+      });
       for (const archived of legacy) {
         expect(histories.find((history) => history.id === archived.id)).toEqual(
           archived,
@@ -704,15 +766,18 @@ describe('program team membership transactions integration', () => {
         prisma.user.count({ where: { id: INVITEE_ID } }),
       ).resolves.toBe(1);
 
-      const audits = await membershipAuditRows(teamId);
-      expect(audits).toHaveLength(1);
-      expect(audits[0]!.metadata).toMatchObject({
-        operation: operation === 'leave' ? 'LEAVE' : 'REMOVE',
-        removedUserId: LEADER_ID,
-        previousLeaderId: LEADER_ID,
-
-        nextLeaderId: null,
-      });
+      const audits = await membershipHistoryRows(teamId);
+      expect(audits).toHaveLength(operation === 'leave' ? 0 : 1);
+      if (operation === 'staff removal')
+        expect(audits[0]).toMatchObject({
+          actorId: STAFF_ID,
+          event: 'MEMBER_REMOVED',
+          data: {
+            removedUserId: LEADER_ID,
+            previousLeaderId: LEADER_ID,
+            nextLeaderId: null,
+          },
+        });
     },
   );
 
@@ -763,30 +828,28 @@ describe('program team membership transactions integration', () => {
       await expect(
         prisma.teamHistory.count({ where: { teamId } }),
       ).resolves.toBe(0);
-      expect(await membershipAuditRows(teamId)).toHaveLength(0);
+      expect(await membershipHistoryRows(teamId)).toHaveLength(0);
     },
   );
 
-  it('rolls back the leadership handover when the same-transaction audit write fails', async () => {
-    const teamId = `${RUN_PREFIX}team-audit-rollback`;
+  it('rolls back transfer when the actual TeamHistory write fails', async () => {
+    const teamId = RUN_PREFIX + 'team-history-rollback-transfer';
     await seedTeam(teamId, LEADER_ID, [
-      {
-        userId: LEADER_ID,
-        createdAt: JOINED_FIRST,
-      },
-      {
-        userId: MEMBER_A_ID,
-        createdAt: JOINED_SECOND,
-      },
+      { userId: LEADER_ID, createdAt: JOINED_FIRST },
+      { userId: MEMBER_A_ID, createdAt: JOINED_SECOND },
     ]);
-
-    await expect(
-      repository.leave(PROGRAM_ID, LEADER_ID, async () => {
-        await Promise.resolve();
-        throw new Error('synthetic audit failure');
-      }),
-    ).rejects.toThrow('synthetic audit failure');
-
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "TeamHistory" ADD CONSTRAINT "synthetic_membership_history_failure" CHECK (event <> 'LEADER_TRANSFERRED') NOT VALID`,
+    );
+    try {
+      await expect(
+        service.transferLeader(githubIdOf(LEADER_ID), PROGRAM_ID, MEMBER_A_ID),
+      ).rejects.toThrow('synthetic_membership_history_failure');
+    } finally {
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "TeamHistory" DROP CONSTRAINT "synthetic_membership_history_failure"',
+      );
+    }
     await expect(
       prisma.team.findUniqueOrThrow({
         where: { id: teamId },
@@ -794,69 +857,74 @@ describe('program team membership transactions integration', () => {
       }),
     ).resolves.toEqual({ leaderId: LEADER_ID });
     expect(await rosterOf(teamId)).toEqual([LEADER_ID, MEMBER_A_ID].sort());
-    expect(await membershipAuditRows(teamId)).toHaveLength(0);
+    expect(await membershipHistoryRows(teamId)).toEqual([]);
   });
 
-  it('rolls back the member removal when the same-transaction audit write fails', async () => {
-    const teamId = `${RUN_PREFIX}team-audit-rollback-remove`;
+  it('rolls back remove when the actual TeamHistory write fails', async () => {
+    const teamId = RUN_PREFIX + 'team-history-rollback-remove';
     await seedTeam(teamId, LEADER_ID, [
-      {
-        userId: LEADER_ID,
-        createdAt: JOINED_FIRST,
-      },
-      {
-        userId: MEMBER_A_ID,
-        createdAt: JOINED_SECOND,
-      },
+      { userId: LEADER_ID, createdAt: JOINED_FIRST },
+      { userId: MEMBER_A_ID, createdAt: JOINED_SECOND },
     ]);
-
-    await expect(
-      repository.removeMember(PROGRAM_ID, LEADER_ID, MEMBER_A_ID, async () => {
-        await Promise.resolve();
-        throw new Error('synthetic audit failure');
-      }),
-    ).rejects.toThrow('synthetic audit failure');
-
-    expect(await rosterOf(teamId)).toEqual([LEADER_ID, MEMBER_A_ID].sort());
-    expect(await membershipAuditRows(teamId)).toHaveLength(0);
-  });
-
-  it('serializes a concurrent leader leave and member leave without stranding leadership', async () => {
-    const teamId = `${RUN_PREFIX}team-concurrent-leave`;
-    await seedTeam(teamId, LEADER_ID, [
-      {
-        userId: LEADER_ID,
-        createdAt: JOINED_FIRST,
-      },
-      {
-        userId: MEMBER_A_ID,
-        createdAt: JOINED_SECOND,
-      },
-      {
-        userId: MEMBER_B_ID,
-        createdAt: JOINED_SECOND,
-      },
-    ]);
-
-    const settled = await Promise.allSettled([
-      service.leave(githubIdOf(LEADER_ID), PROGRAM_ID),
-      service.leave(githubIdOf(MEMBER_A_ID), PROGRAM_ID),
-    ]);
-
-    expect(settled.map((result) => result.status)).toEqual([
-      'fulfilled',
-      'fulfilled',
-    ]);
-
-    expect(await rosterOf(teamId)).toEqual([MEMBER_B_ID]);
+    await prisma.$executeRawUnsafe(
+      `ALTER TABLE "TeamHistory" ADD CONSTRAINT "synthetic_membership_history_failure" CHECK (event <> 'MEMBER_REMOVED') NOT VALID`,
+    );
+    try {
+      await expect(
+        service.removeMember(githubIdOf(LEADER_ID), PROGRAM_ID, MEMBER_A_ID),
+      ).rejects.toThrow('synthetic_membership_history_failure');
+    } finally {
+      await prisma.$executeRawUnsafe(
+        'ALTER TABLE "TeamHistory" DROP CONSTRAINT "synthetic_membership_history_failure"',
+      );
+    }
     await expect(
       prisma.team.findUniqueOrThrow({
         where: { id: teamId },
         select: { leaderId: true },
       }),
-    ).resolves.toEqual({ leaderId: MEMBER_B_ID });
+    ).resolves.toEqual({ leaderId: LEADER_ID });
+    expect(await rosterOf(teamId)).toEqual([LEADER_ID, MEMBER_A_ID].sort());
+    expect(await membershipHistoryRows(teamId)).toEqual([]);
+  });
+
+  it('serializes concurrent leaves without auto succession or losing the current leader', async () => {
+    const teamId = RUN_PREFIX + 'team-concurrent-leaves';
+    await seedTeam(teamId, LEADER_ID, [
+      { userId: LEADER_ID, createdAt: JOINED_FIRST },
+      { userId: MEMBER_A_ID, createdAt: JOINED_SECOND },
+    ]);
+    const submitted = await seedSubmittedDocument(teamId, LEADER_ID);
+    const outcomes = await Promise.allSettled([
+      service.leave(githubIdOf(LEADER_ID), PROGRAM_ID),
+      service.leave(githubIdOf(MEMBER_A_ID), PROGRAM_ID),
+    ]);
+    expect(outcomes[0]?.status).toBe('rejected');
+    expect(outcomes[1]?.status).toBe('fulfilled');
+    await expect(
+      prisma.team.findUniqueOrThrow({
+        where: { id: teamId },
+        select: { leaderId: true },
+      }),
+    ).resolves.toEqual({ leaderId: LEADER_ID });
+    expect(await rosterOf(teamId)).toEqual([LEADER_ID]);
+    await expect(
+      prisma.milestoneDocumentSubmissionHistory.count({
+        where: { id: submitted.historyId },
+      }),
+    ).resolves.toBe(1);
+    const history = await membershipHistoryRows(teamId);
+    expect(history).toHaveLength(1);
+    expect(history[0]).toMatchObject({
+      actorId: MEMBER_A_ID,
+      event: 'MEMBER_LEFT',
+      data: {
+        removedUserId: MEMBER_A_ID,
+        previousLeaderId: LEADER_ID,
+        nextLeaderId: LEADER_ID,
+      },
+    });
     await expectLeaderInsideMembership(teamId);
-    expect(await membershipAuditRows(teamId)).toHaveLength(2);
   });
 
   it('serializes an invitation acceptance against a concurrent removal on an applied team', async () => {
@@ -994,7 +1062,7 @@ describe('program team membership transactions integration', () => {
       ).resolves.toBe(1);
     });
 
-    it('신청이 매달린 팀의 마지막 팀원은 교직원도 뺄 수 없다', async () => {
+    it('승인된 팀의 마지막 팀원은 교직원도 뺄 수 없다', async () => {
       const teamId = `${RUN_PREFIX}staff-remove-last`;
       await seedTeam(teamId, LEADER_ID, [
         {
@@ -1003,6 +1071,14 @@ describe('program team membership transactions integration', () => {
         },
       ]);
       await seedApplication(teamId, LEADER_ID);
+      await prisma.team.update({
+        where: { id: teamId },
+        data: {
+          status: ApplicationStatus.APPROVED,
+          processedById: STAFF_ID,
+          processedAt: new Date('2026-09-01T00:00:00Z'),
+        },
+      });
 
       await expect(
         service.removeMemberForStaff(

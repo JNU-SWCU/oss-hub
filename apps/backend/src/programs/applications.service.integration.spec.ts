@@ -1432,7 +1432,7 @@ describe('TeamApplicationService integration', () => {
     });
   });
 
-  it('알림 기록 뒤 판정 트랜잭션 실패는 상태·감사·알림을 모두 롤백한다', async () => {
+  it('알림 기록 뒤 판정 트랜잭션 실패는 상태·TeamHistory·알림을 모두 롤백한다', async () => {
     const teamId = APPLICATION_IDS[7];
     await createApplication(teamId, true);
     const originalWithTransaction = repository.withTransaction.bind(repository);
@@ -1497,10 +1497,8 @@ describe('TeamApplicationService integration', () => {
     await expect(
       prisma.notification.count({ where: { type: 'APPLICATION_DECISION' } }),
     ).resolves.toBe(0);
-    await expect(
-      prisma.auditLog.count({
-        where: { targetType: 'APPLICATION', targetId: teamId },
-      }),
-    ).resolves.toBe(0);
+    await expect(prisma.teamHistory.count({ where: { teamId } })).resolves.toBe(
+      0,
+    );
   });
 });

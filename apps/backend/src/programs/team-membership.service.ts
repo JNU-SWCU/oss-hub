@@ -204,6 +204,8 @@ export class TeamMembershipService {
         throw this.error(TeamsErrorCode.TARGET_MEMBER_NOT_FOUND);
       case 'last-member-with-application':
         throw this.error(TeamsErrorCode.LAST_MEMBER_WITH_APPLICATION);
+      case 'team-has-activity':
+        throw this.error(TeamsErrorCode.TEAM_HAS_ACTIVITY);
     }
   }
 

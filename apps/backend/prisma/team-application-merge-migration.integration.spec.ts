@@ -187,3 +187,39 @@ describe('application data cutover', () => {
     );
   });
 });
+
+it.each([-1, 1])(
+  'aborts a TeamHistory baseline delta of %i without partial writes',
+  async (delta) => {
+    await resetTeamMergeFixture(prisma);
+    await withinTeamMergeFixture(prisma, async (tx) => {
+      if (delta === -1)
+        await tx.$executeRawUnsafe(
+          'DELETE FROM "TeamHistory" WHERE id=(SELECT id FROM "TeamHistory" ORDER BY id LIMIT 1)',
+        );
+      else
+        await tx.$executeRawUnsafe(
+          `INSERT INTO "TeamHistory" (id,"teamId","programId","actorId",event,"occurredAt",source,"sourceTable","sourceId",data) SELECT id || '-extra',"teamId","programId","actorId",event,"occurredAt",source,"sourceTable","sourceId" || '-extra',data FROM "TeamHistory" ORDER BY id LIMIT 1`,
+        );
+    });
+    await expect(applyTeamMergeFixture(prisma)).rejects.toThrow(
+      'Team cutover baseline count mismatch',
+    );
+    await expect(
+      withinTeamMergeFixture(
+        prisma,
+        (tx) =>
+          tx.$queryRaw`SELECT (SELECT count(*)::int FROM "Team") AS teams, (SELECT count(*)::int FROM "Application") AS applications, (SELECT count(*)::int FROM "TeamHistory") AS histories`,
+      ),
+    ).resolves.toEqual([
+      { teams: 40, applications: 33, histories: 25 + delta },
+    ]);
+    await expect(
+      withinTeamMergeFixture(
+        prisma,
+        (tx) =>
+          tx.$queryRaw`SELECT count(*)::int AS count FROM information_schema.columns WHERE table_schema=current_schema() AND table_name='Team' AND column_name='answers'`,
+      ),
+    ).resolves.toEqual([{ count: 0 }]);
+  },
+);

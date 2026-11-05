@@ -11,6 +11,7 @@ WITH pairs AS (
   UNION ALL SELECT (SELECT count(*) FROM "Application") <> 33
   UNION ALL SELECT (SELECT count(*) FROM "TeamMember") <> 72
   UNION ALL SELECT (SELECT count(*) FROM "TeamInvitation") <> 3
+  UNION ALL SELECT (SELECT count(*) FROM "TeamHistory") <> 25
   UNION ALL SELECT (SELECT count(*) FROM "ApplicationReviewHistory") <> 9
   UNION ALL SELECT (SELECT count(*) FROM pairs) <> 9
   UNION ALL SELECT EXISTS (SELECT review_id FROM pairs GROUP BY review_id HAVING count(*) <> 1)

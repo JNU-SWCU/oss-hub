@@ -8,7 +8,7 @@ export const teamFindFirst = jest.fn<
   Promise<Record<string, unknown> | null>,
   [unknown]
 >();
-export const applicationFindFirst = jest.fn<
+const applicationFindFirst = jest.fn<
   Promise<Record<string, unknown> | null>,
   [unknown]
 >();

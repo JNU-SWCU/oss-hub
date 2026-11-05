@@ -2071,7 +2071,11 @@ export type TeamRemoveMemberResult =
   | 'target-not-found';
 
 export type StaffRemoveMemberResult =
-  'removed' | 'forbidden' | 'not-found' | 'last-member-with-application';
+  | 'removed'
+  | 'forbidden'
+  | 'not-found'
+  | 'last-member-with-application'
+  | 'team-has-activity';
 
 export type StaffTransferLeaderResult =
   'transferred' | 'unchanged' | 'forbidden' | 'not-found';
@@ -2666,10 +2670,36 @@ export class TeamRepository {
       const previousLeaderId = target.team.leaderId;
       const [memberCount, application] = await Promise.all([
         tx.teamMember.count({ where: { teamId } }),
-        tx.team.findFirst({ where: { id: teamId }, select: { id: true } }),
+        tx.team.findFirst({ where: { id: teamId }, select: { status: true } }),
       ]);
       if (memberCount <= 1) {
-        if (application !== null) return 'last-member-with-application';
+        if (application?.status === 'APPROVED')
+          return 'last-member-with-application';
+        const [submissions, repositories, files] = await Promise.all([
+          tx.milestoneDocumentSubmission.count({ where: { teamId } }),
+          tx.githubRepository.count({ where: { teamId } }),
+          tx.submissionFile.count({ where: { teamId } }),
+        ]);
+        if (submissions > 0 || repositories > 0 || files > 0)
+          return 'team-has-activity';
+        const invitations = await tx.teamInvitation.count({
+          where: { teamId },
+        });
+        await this.history.recordDeleted(
+          tx,
+          teamId,
+          actorUserId,
+          'STAFF_DELETED',
+          {
+            teams: 1,
+            members: 1,
+            invitations,
+            submissions: 0,
+            submissionEvents: 0,
+            detachedRepositories: 0,
+          },
+          now,
+        );
         await tx.teamMember.delete({
           where: { teamId_userId: { teamId, userId: targetUserId } },
         });
@@ -2892,22 +2922,6 @@ interface LockedTeamRow {
 }
 
 type TeamDeletedCounts = Omit<TeamDeletionScopeCounts, 'scopeFingerprint'>;
-
-export interface TeamDeletionAuditEvent {
-  readonly teamId: string;
-  readonly programName: string;
-  readonly teamName: string;
-  readonly deletedCounts: TeamDeletedCounts;
-}
-
-export interface TeamDeletionAuditStore {
-  readonly auditLogWriter: AuditLogTransactionWriter;
-}
-
-export type RecordTeamDeletionAudit = (
-  store: TeamDeletionAuditStore,
-  event: TeamDeletionAuditEvent,
-) => Promise<void>;
 
 export interface TeamDeletionNotificationStore {
   createTeamDeletedNotifications(
