@@ -674,3 +674,7 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 | programs 제품 파일 (DTO 포함) | 234 | 36908 | 232 | 36768 |
 
 새 사용자 문구나 화면 배치는 추가하지 않는다. 현재 지명 지원 가이드가 이미 최종 흐름을 설명하며 폐기 준비 화면은 현재 데이터에서 접근할 수 없다. 실제 Chrome에서 지원 제출·팀 대기 초대·정원 오류·기간 종료를 두 폭으로 검증했다. 종료 초대의 archive fallback은 pending-only CHECK로 도달할 수 없어 삭제했다. 과거 사실의 JSON과 migration은 유지한다. 이전 이미지 실행을 위한 전용 등록 초기화 fixture는 소유자의 복구 계약에 따라 삭제하고, 현재 TeamHistory 활동 보호 회귀는 유지한다.
+
+## Todo 8 다음 릴리스의 물리 삭제 draft
+
+선행 #1746의 코드가 배포된 다음 릴리스에만 물리 삭제한다. 제품 파일의 삭제·유지 상태와 232개·36768줄 수치는 A와 같다. 초대 status·respondedAt, 빈 준비 테이블 2개와 enum을 제거하며 기존 행 삭제는 0이다. 운영 읽기 전용 preflight의 정확한 초대 3행·준비 0/0행, 제약·인덱스 삭제 수와 가드 검증은 task-8-final-retire.md에 기록한다.
