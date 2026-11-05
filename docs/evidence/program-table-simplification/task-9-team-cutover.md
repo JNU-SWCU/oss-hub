@@ -23,27 +23,27 @@ Todo 10의 중복 방지 기준:
 
 최종 실행 직전 여유 디스크 8,033,440 KiB, 가용 메모리 11,013,268 KiB였다. 덤프 3,595,623 bytes, 권한 0600이었다. 격리 복원본에서 공식 `rehearse.sh`로 백업, 이관, 대조, 백업 복원을 실행했다. 최종 EXIT는 0이다.
 
-| SQL | SHA-256 |
-| --- | --- |
+| SQL                                            | SHA-256                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------- |
 | 20261105100000_prepare_team_application_events | a28e596673d393f20362c243ce93659068739e67472d749f14559f6110169be7 |
-| 20261105100100_merge_applications_into_teams | 21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1 |
+| 20261105100100_merge_applications_into_teams   | 21115245fdeb045a6b9c8136094b7d2ff6db7827e5c547379749e3ff2e7832c1 |
 
-| 테이블 | 원본 행 | 복사·재지정 | 삭제 | 백업 복원 행 |
-| --- | ---: | --- | ---: | ---: |
-| Application | 33 | Team으로 필드 33행 복사 | 0 | 33 |
-| ApplicationReviewHistory | 9 | TeamHistory 9행 복사 | 0 | 9 |
-| Team | 40 | 기존 33행에 지원 필드 저장 | 7 | 40 |
-| TeamMember | 72 | 0 | 7 | 72 |
-| TeamInvitation | 3 | 0 | 0 | 3 |
-| TeamHistory | 25 | 지원 사건 73행 + 삭제 이력 7행 삽입 | 0 | 25 |
-| GithubRepository | 7 | teamId 7행 대조·재지정 | 0 | 7 |
-| RepositoryProvisionJob | 7 | teamId 7행 채움 | 0 | 7 |
-| RepositoryIssuanceHistory | 0 | 0 | 0 | 0 |
-| GithubRepositoryOutsiderContribution | 3 | teamId 3행 채움 | 0 | 3 |
-| MilestoneDocumentSubmission | 55 | teamId 55행 채움 | 0 | 55 |
-| SubmissionFile | 81 | 소유 참조 76행을 teamId로 채움 | 0 | 81 |
-| Notification | 94 | 지원 결정 payload·멱등 키 56행 재지정 | 0 | 94 |
-| OutboxEvent | 5 | aggregate·payload·멱등 키 5행 재지정 | 0 | 5 |
+| 테이블                               | 원본 행 | 복사·재지정                           | 삭제 | 백업 복원 행 |
+| ------------------------------------ | ------: | ------------------------------------- | ---: | -----------: |
+| Application                          |      33 | Team으로 필드 33행 복사               |    0 |           33 |
+| ApplicationReviewHistory             |       9 | TeamHistory 9행 복사                  |    0 |            9 |
+| Team                                 |      40 | 기존 33행에 지원 필드 저장            |    7 |           40 |
+| TeamMember                           |      72 | 0                                     |    7 |           72 |
+| TeamInvitation                       |       3 | 0                                     |    0 |            3 |
+| TeamHistory                          |      25 | 지원 사건 73행 + 삭제 이력 7행 삽입   |    0 |           25 |
+| GithubRepository                     |       7 | teamId 7행 대조·재지정                |    0 |            7 |
+| RepositoryProvisionJob               |       7 | teamId 7행 채움                       |    0 |            7 |
+| RepositoryIssuanceHistory            |       0 | 0                                     |    0 |            0 |
+| GithubRepositoryOutsiderContribution |       3 | teamId 3행 채움                       |    0 |            3 |
+| MilestoneDocumentSubmission          |      55 | teamId 55행 채움                      |    0 |           55 |
+| SubmissionFile                       |      81 | 소유 참조 76행을 teamId로 채움        |    0 |           81 |
+| Notification                         |      94 | 지원 결정 payload·멱등 키 56행 재지정 |    0 |           94 |
+| OutboxEvent                          |       5 | aggregate·payload·멱등 키 5행 재지정  |    0 |            5 |
 
 이관 후 Team 33행, TeamMember 65행, TeamHistory 105행이다. 신청 없는 7개 팀은 제출·파일·레포·초대 연결이 없는지 검사한 뒤 이름·명단·삭제 건수를 이력에 남겼다. 기존 레포 소유자가 지원→팀 매핑과 다르면 이를 덮어쓰지 않고 중단한다. 고아 발급 이력과 외부 기여 캐시는 각각 0행이었다.
 
@@ -74,4 +74,17 @@ Todo 10의 중복 방지 기준:
 현재 main의 130개 인증 경로에 의도된 Team 경로 변환만 적용했다. 기존 membership GET/DELETE는 `teams/me/membership`, 지원서 GET/PATCH/DELETE는 `teams/me`, 학생 팀장 위임은 `teams/me/leader`이다. 중복 팀 목록을 단일 경로로 합치고 위임을 추가해 총 130개를 유지했다. 실제 모듈을 읽는 인증 manifest 검증이 통과했다.
 
 새 단위 검증에서 기존 정책과 충돌하는 테스트 가정을 발견했다. 반려 사유 필수·반려 팀 취소 금지는 소유자 결정에 따라 선택 사유·취소 허용으로 변경했다. 심사 감사 spy는 실제 TeamHistory writer 검증으로 옮겼다. 반대로 직접 승인↔반려를 제한한 초기 구현은 요청에 없는 변경이므로 기존 직접 전환을 유지하도록 복원했다. 반려 사건 외에 반려 사유가 저장되던 writer 회귀도 기존 보호 테스트로 고쳤다. 해당 심사·writer·취소 단위 검증이 통과했으며 실제 DB 통합 재검증은 아직 진행 중이다.
+
+## 소유자 최종 성능 결정
+
+2026-11-05 소유자는 마이그레이션을 먼저 하고 성능은 이후 확인하기로 결정했다. 성능은 merge 조건이 아니다. 추가 지연 측정·분석·성능 수정은 중단했다. 기존 p50과 SQL 개수, ABBAAB의 모든 표본은 당시의 참고 기록으로 보존하며 마이그레이션 후 다시 측정한다. 불리한 수치를 지우거나 유리한 실행만 선택하지 않는다.
+
+| 경로         | main p50 ms | A p50 ms | 절대 차이 ms |    변화 | SQL main→A |
+| ------------ | ----------: | -------: | -----------: | ------: | ---------: |
+| overview     |       2.388 |    3.468 |       +1.080 | +45.23% |        3→3 |
+| matrix       |      14.883 |   15.309 |       +0.426 |  +2.86% |      13→12 |
+| collection   |      17.451 |   31.297 |      +13.846 | +79.34% |      18→17 |
+| staff detail |      16.553 |   17.461 |       +0.908 |  +5.49% |      16→14 |
+
+최신 운영 스키마의 clone 리허설은 커밋 34dd768441adb379fcfff927399461866ee2dceb에서 EXIT 0이다. 선행 migration은 20261105050000_retire_submission_axis이며 14개 원본 행 수의 backup 복구가 일치했다. Team 40→33, TeamMember 72→65, TeamHistory 25→105이고 지원 사건 73개와 빈 팀 삭제 7개를 보존한다. 볼륨 inventory 1→1, 추가·삭제 0, hash 동일; 임시 컨테이너·덤프 0. 공개 영수증은 task-9-team-rehearsal.txt다.
 

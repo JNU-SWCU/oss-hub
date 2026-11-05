@@ -7,7 +7,7 @@
   "warmupsPerRun": 1,
   "samplesPerRun": 20,
   "aggregation": "median of all 60 samples per path per revision; no samples discarded",
-  "performanceGate": "UNMET: blocks merge, not PR opening",
+  "performanceGate": "INFORMATIONAL: owner chose migration first; no performance merge condition; remeasure after migration",
   "summary": [
     {
       "name": "program-overview",
