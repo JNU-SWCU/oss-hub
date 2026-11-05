@@ -1091,9 +1091,9 @@ describe('program team membership transactions integration', () => {
         LEADER_ID,
       );
 
-      await expect(
-        prisma.team.count({ where: { id: teamId } }),
-      ).resolves.toBe(0);
+      await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(
+        0,
+      );
       await expect(
         prisma.repositoryProvisionJob.count({ where: { teamId } }),
       ).resolves.toBe(0);
