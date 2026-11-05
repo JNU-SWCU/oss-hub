@@ -56,8 +56,14 @@ describe('team invitation without legacy team columns', () => {
       },
     });
     await prisma.$executeRaw`
-      INSERT INTO "Team" ("id", "programId", "name", "leaderId", "updatedAt")
-      VALUES (${prefix}, ${prefix}, 'Synthetic team', ${prefix + 'leader'}, ${now})
+      INSERT INTO "Team" (
+        "id", "programId", "name", "leaderId", "updatedAt",
+        "applicantId", "answers", "applicationTemplateVersion"
+      )
+      VALUES (
+        ${prefix}, ${prefix}, 'Synthetic team', ${prefix + 'leader'}, ${now},
+        ${prefix + 'leader'}, '{}'::jsonb, 1
+      )
     `;
     await prisma.$executeRaw`
       INSERT INTO "TeamMember" ("teamId", "programId", "userId")

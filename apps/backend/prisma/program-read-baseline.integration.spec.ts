@@ -160,7 +160,7 @@ async function seed(): Promise<void> {
             name: `Team ${team}`,
             leaderId,
             applicantId: leaderId,
-            answers: [],
+            answers: {},
             applicationTemplateVersion: 1,
             status: 'APPROVED',
             submittedAt: now,

@@ -99,3 +99,33 @@ Todo 10의 중복 방지 기준:
 
 이 리허설은 psql로 적용했고 `prisma migrate deploy`를 실행하지 않았다. 실패한 migration이 Prisma 원장에 남기는 행과 Jenkins 원장 가드의 반응은 코드로만 읽었다.
 
+
+## 물리 삭제 C의 운영 clone 리허설
+
+`20261105110000_retire_application_storage`는 v0.24.58 운영 데이터의 clone에서 쓰여 있는 그대로 적용된다. 커밋 28d7ced7bcc2c2375694202c0cb624a0dcdf8cb7에서 공식 `server-rehearse.sh`와 `retire.json`이 EXIT 0이다. 14개 행 수의 백업 전/복원 후 값이 같고, `check-retired.sql` 불일치는 0이다. 공개 영수증은 task-9-retire-rehearsal.txt의 part 1이다. 그 뒤 커밋은 이 증거 문서뿐이다.
+
+| SQL | SHA-256 |
+| --- | --- |
+| 20261105110000_retire_application_storage | 174a94c2267f19ab9d28533b8783763a3c2f725615fb9c747d54174272245722 |
+| team-application/retire-preflight.sql | 6c58d18cf313a463a2fb65a92ba159a807fe03466f8d3c8e8efda390c84f51ce |
+| team-application/check-retired.sql | 49021f57f0c4105869da57f561b1180193f795f86adf5365dcf2118cc96ec9f9 |
+| team-application/retire.json | 73fcd1eb6092599146dc260299876f037687305c012735455cfc3c5275f225d0 |
+
+가드에 고정한 값과 운영 값이 같다. Application 33, ApplicationReviewHistory 9, 매핑 33, 심사 복사본 9, 감사 복사본 64, 짝지은 감사 9다. 적용 전후에 남는 12개 테이블과 AuditLog·매핑의 행 수가 같다. `program_team_backup`은 남고 감사 화면의 지원 이름 조회는 33행을 그대로 돌려준다. 프로세서 0.5개로 제한한 clone에서 적용 시간은 1초 미만이다.
+
+같은 커밋의 두 번째 clone에서 중단 경로를 실행했다. 예상 밖 결과는 1건이고, 제품이 아니라 검사 스크립트 오류다.
+
+| 경로 | 시나리오 | 결과 |
+| --- | --- | --- |
+| 격리 | 라벨 없는 컨테이너 | 어떤 단계도 시작하지 않고 거부 |
+| preflight | 미완료 원장 행, 매핑 행 삭제, 없는 팀을 가리키는 매핑 | 백업과 적용 전에 중단 |
+| 공식 스크립트의 적용 | 심사 행위자 NULL, outbox 지원 집계 | 백업 뒤 적용에서 중단, 대조에 닿지 않음 |
+| reconcile | 테이블 재생성, NOT NULL 유실, CHECK 유실 | 대조에서 중단, 복원 단계에 닿지 않음 |
+| 직접 적용 | 가드 11종을 건드리는 변조 25건 | 정확한 가드 문구로 중단, 전후 상태 동일 |
+| `prisma migrate deploy` | 정상 경로와 심사 행위자 NULL | 아래 설명 |
+
+직접 적용 변조 하나는 실행되지 않았다. `outsider_team_null`은 변조 SQL이 `GithubRepositoryOutsiderContribution`에 없는 `id` 컬럼을 골라 migration까지 가지 못했다. 같은 반복문을 `job_team_null`과 `submission_team_null`이 지나가고, 변조 없는 대조 실행이 네 테이블 모두를 지나간다.
+
+Jenkins와 같은 경로인 `prisma migrate deploy`는 v0.24.58 이미지에서 원장 98행을 99행으로 올리고 Jenkins 원장 가드는 전후 모두 `ordinary`다. 두 번째 실행은 적용할 것이 없고 `migrate status`도 최신이다. 남은 schema drift에 Application 관련 이름은 0건이다. 남은 항목은 집계 테이블 2개와 그 FK, `ProgramAuthoringUpload_program_actor_fkey`, `Program_createdById_*` 인덱스 2개, 인덱스 이름 2개, 그리고 운영에 부분 인덱스로 있는 `GithubRepository_teamId_key`다. 모두 이번 migration 전부터 있던 차이다.
+
+가드가 Prisma 아래에서 중단되면 Prisma는 `current transaction is aborted`만 출력한다. 진짜 문구는 PostgreSQL 로그에만 남는다. 데이터는 롤백되지만 실패한 원장 행이 남아 Jenkins 원장 가드가 `FAIL_CLOSED`로 멈추고, 다음 `migrate deploy`는 P3009로 거부된다. 이 원장 수리는 소유자 승인이 필요한 별도 절차다.
