@@ -242,9 +242,6 @@ async function cleanup(): Promise<void> {
   await prisma.team.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });
-  await prisma.team.deleteMany({
-    where: { programId: { startsWith: PREFIX } },
-  });
   await prisma.programAuthoringUpload.deleteMany({
     where: { actorId: { startsWith: PREFIX } },
   });
@@ -332,7 +329,6 @@ async function seedFullChildGraph(
   const leaderId = p('leader');
   const staffId = p('staff-reviewer');
   const teamId = p('team');
-  const publishedApplicationId = p('published-application');
   const documentId = p('document');
   const documentSubmissionId = p('document-submission');
   const documentSubmissionHistoryId = p('document-submission-history');
@@ -632,7 +628,7 @@ async function seedFullChildGraph(
   await prisma.githubRepository.create({
     data: {
       id: publishedRepositoryId,
-      teamId: publishedApplicationId,
+      teamId: p('published-team'),
       githubRepositoryId: publishedGithubRepositoryId,
       nameWithOwner: `purge7-org/${label}-published`,
       source: RepositorySource.ORG_PROVISIONED,
