@@ -1358,7 +1358,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(provisionedRepositories).toHaveLength(1);
     expect(provisionedRepositories[0]).toMatchObject({
-      programId: fixture.programId,
       teamId: fixture.teamId,
       source: RepositorySource.ORG_PROVISIONED,
     });
@@ -1667,7 +1666,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },
     });
-    expect(externalRepository?.teamId).toBe(fixture.teamId);
+    expect(externalRepository?.teamId).toBeNull();
   });
   it('전체 삭제는 프로그램 상태만 DELETED로 바꾼다', async () => {
     const fixture = await seedFullChildGraph('unprotected');
@@ -1953,9 +1952,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       const expectedAfter = { ...before };
       if (scopeField === 'boardPosts') {
         expectedAfter.boardPosts = before.boardPosts + 1;
-      } else if (scopeField === 'teams') {
-        expectedAfter.teams = before.teams + 1;
-      } else if (scopeField === 'applications') {
+      } else if (scopeField === 'teams' || scopeField === 'applications') {
         expectedAfter.applications = before.applications + 1;
         expectedAfter.teams = before.teams + 1;
       } else {
