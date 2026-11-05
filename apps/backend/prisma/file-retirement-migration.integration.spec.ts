@@ -35,7 +35,7 @@ const manifestSql = (name: string) =>
     'utf8',
   );
 const copySql = migration('20261105200000_unify_files');
-const retireSql = migration('20261105210000_retire_file_tables');
+const retireSql = migration('20261105225000_retire_file_tables');
 const singleInteger = async (sql: string) => {
   const rows = await inFixture((transaction) =>
     transaction.$queryRawUnsafe<Record<string, bigint | number>[]>(sql),

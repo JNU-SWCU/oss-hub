@@ -7,7 +7,7 @@
     {
       "id": "retire",
       "apply": [
-        "../../../../apps/backend/prisma/migrations/20261105210000_retire_file_tables/migration.sql"
+        "../../../../apps/backend/prisma/migrations/20261105225000_retire_file_tables/migration.sql"
       ],
       "reconcile": ["check-retired.sql"]
     }
