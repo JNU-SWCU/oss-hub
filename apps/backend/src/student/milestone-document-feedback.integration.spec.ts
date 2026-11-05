@@ -132,7 +132,7 @@ async function createReviews(input: {
     data: {
       id: submissionId,
       milestoneDocumentId: input.document,
-      teamId: `${prefix}-${input.application}-application`,
+      teamId: `${prefix}-${input.application}-team`,
       submittedById: users.student,
     },
   });
@@ -295,10 +295,10 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
     const teamIdOf = new Map(items.map((item) => [item.id, item.teamId]));
 
     expect(teamIdOf.get(`${prefix}-review-document-1`)).toBe(
-      `${prefix}-mine-application`,
+      `${prefix}-mine-team`,
     );
     expect(teamIdOf.get(`${prefix}-review-second`)).toBe(
-      `${prefix}-second-application`,
+      `${prefix}-second-team`,
     );
   });
   it('이관한 항목도 항목 이름으로 부르고 검토자를 싣지 않는다', async () => {
@@ -311,7 +311,7 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
       decision: ReviewDecision.APPROVED,
       comment: '합성 의견 legacy',
       reviewedAt: '2026-09-20T00:06:00.000Z',
-      teamId: `${prefix}-mine-application`,
+      teamId: `${prefix}-mine-team`,
       programId: `${prefix}-main-program`,
       milestoneId: `${prefix}-main-milestone`,
       milestoneName,

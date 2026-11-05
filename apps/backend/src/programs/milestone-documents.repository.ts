@@ -1394,27 +1394,19 @@ export class MilestoneDocumentsRepository {
       readonly {
         id: string;
         status: ApplicationStatus;
-        teamId: string | null;
-        teamProgramId: string | null;
       }[]
     >(Prisma.sql`
-        SELECT
-          application."id",
-          application."status",
-          application."teamId",
-          team."programId" AS "teamProgramId"
-        FROM "Team" application
-        LEFT JOIN "Team" team ON team."id" = application."teamId"
-        WHERE application."programId" = ${programId}
-        ORDER BY application."id"
-        FOR SHARE OF application
+        SELECT "id", "status"
+        FROM "Team"
+        WHERE "programId" = ${programId}
+        ORDER BY "id"
+        FOR SHARE
       `);
     return rows
       .filter(
         (row) =>
           row.status === ApplicationStatus.APPROVED &&
-          row.teamProgramId === programId &&
-          (teamId === undefined || row.teamId === teamId),
+          (teamId === undefined || row.id === teamId),
       )
       .map((row) => row.id);
   }
