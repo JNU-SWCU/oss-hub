@@ -98,6 +98,7 @@ function readyContext(
     readonly memberCount?: number;
     readonly members?: Roster;
     readonly isLeader?: boolean;
+    readonly isRejected?: boolean;
   } = {},
 ): ReadyContext {
   const members: Roster = extras.members ?? [
@@ -113,6 +114,7 @@ function readyContext(
     kind: 'ready',
     mode: extras.mode ?? 'create',
     rejectionReason: null,
+    isRejected: extras.isRejected ?? false,
     program: {
       teamMinSize: 1,
       teamMaxSize: 4,
@@ -1085,6 +1087,46 @@ describe('ProgramApplyPage 한 화면 신청', () => {
     expect(container.textContent).not.toContain('app-stale');
     expect(pushMock).not.toHaveBeenCalled();
     expect(refreshMock).not.toHaveBeenCalled();
+  });
+
+  it('반려된 신청은 다시 제출로 안내하고 검토 대기로 돌아갔다고 알린다', async () => {
+    loadProgramApplyContextMock.mockResolvedValueOnce(
+      readyContext('program-x', '제목', 'team-x', {
+        mode: 'edit',
+        isRejected: true,
+      }),
+    );
+    updateMyApplicationMock.mockResolvedValueOnce({
+      id: 'app-x',
+      programId: 'program-x',
+      status: 'SUBMITTED',
+      teamId: 'team-x',
+      answers: { applicantName: '합성 학생', title: '제목' },
+      submittedAt: '2026-08-15T00:00:00Z',
+      updatedAt: '2026-08-15T00:00:00Z',
+      isRepositoryPublicationPlanned: true,
+      rejectionReason: null,
+      isManager: true,
+      canManage: true,
+      canEdit: true,
+      canCancel: true,
+    });
+
+    await renderPage('program-x');
+    await act(async () => {
+      button('신청서 다시 제출').click();
+    });
+    expect(
+      container.ownerDocument.querySelector('[role="alertdialog"]')
+        ?.textContent,
+    ).toContain('신청서를 다시 제출하시겠습니까?');
+    await act(async () => {
+      button('다시 제출', true).click();
+    });
+
+    expect(updateMyApplicationMock).toHaveBeenCalledOnce();
+    expect(container.textContent).toContain('신청서를 다시 제출했습니다');
+    expect(container.textContent).toContain('검토 대기');
   });
 
   it('늦은 수정 저장 완료는 새 프로그램에 성공 화면을 남기지 않는다', async () => {

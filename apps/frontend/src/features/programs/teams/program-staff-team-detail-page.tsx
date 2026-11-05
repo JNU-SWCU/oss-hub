@@ -141,7 +141,7 @@ export function ProgramStaffTeamDetailPage({
   }, [programId, teamId, sessionKey]);
   const applicationQuery = useTeamApplicationQuery(
     programId,
-    teamId,
+    query.data?.application ? teamId : null,
     sessionKey,
   );
   const applicationDetail = applicationQuery.data ?? null;

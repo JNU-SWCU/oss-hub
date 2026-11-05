@@ -122,10 +122,12 @@ export function ProgramApplySuccessView({
   teamId,
   programId,
   mode = 'create',
+  resubmitted = false,
 }: {
   readonly teamId: string;
   readonly programId: string;
   readonly mode?: ApplicationFormMode;
+  readonly resubmitted?: boolean;
 }) {
   const primaryLinkRef = useRef<HTMLAnchorElement>(null);
 
@@ -137,13 +139,16 @@ export function ProgramApplySuccessView({
     <PageBody className="max-w-3xl">
       <Alert>
         <AlertTitle>
-          {mode === 'create'
-            ? '신청이 접수되었습니다'
-            : '신청서가 수정되었습니다'}
+          {resubmitted
+            ? '신청서를 다시 제출했습니다'
+            : mode === 'create'
+              ? '신청이 접수되었습니다'
+              : '신청서가 수정되었습니다'}
         </AlertTitle>
         <AlertDescription>
-          신청 번호 {teamId}의 내용을 저장했습니다. 지정한 학생은 초대를
-          수락해야 합류합니다. 우리 팀에서 수락 현황을 확인하세요.
+          {resubmitted
+            ? `신청 번호 ${teamId}의 신청이 검토 대기로 돌아갔습니다. 담당자가 다시 검토합니다.`
+            : `신청 번호 ${teamId}의 내용을 저장했습니다. 지정한 학생은 초대를 수락해야 합류합니다. 우리 팀에서 수락 현황을 확인하세요.`}
         </AlertDescription>
       </Alert>
       <div className="flex flex-wrap gap-3">
@@ -228,6 +233,7 @@ interface ProgramApplyFormViewProps extends ProgramApplyTeamProps {
   readonly mode: ApplicationFormMode;
 
   readonly rejectionReason: string | null;
+  readonly isRejected?: boolean;
   readonly canManage: boolean;
   readonly confirmation: ApplicationConfirmation;
   readonly teamMinimum?: TeamMinimum | null;
@@ -358,6 +364,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
     serverError,
     mode,
     rejectionReason,
+    isRejected = false,
     canManage,
     confirmation,
     teamMinimum = null,
@@ -391,6 +398,7 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
   const confirmationDialog = confirmation ? (
     <ApplicationConfirmationDialog
       kind={confirmation}
+      isRejected={isRejected}
       submitting={submitting}
       onClose={onCloseConfirmation}
       onConfirm={onConfirm}
@@ -472,7 +480,13 @@ export function ProgramApplyFormView(props: ProgramApplyFormViewProps) {
                   disabled={submitting}
                   onClick={onRequestSubmit}
                 >
-                  {submitting ? '저장 중…' : '수정 내용 저장'}
+                  {isRejected
+                    ? submitting
+                      ? '제출 중…'
+                      : '신청서 다시 제출'
+                    : submitting
+                      ? '저장 중…'
+                      : '수정 내용 저장'}
                 </Button>
               ) : null}
               {canManage ? (

@@ -213,6 +213,7 @@ beforeEach(() => {
   );
   vi.mocked(getProgramDetail).mockResolvedValue(program);
   vi.mocked(getMyTeam).mockResolvedValue(team);
+  vi.mocked(getMyApplication).mockResolvedValue(application);
   host = document.createElement('div');
   document.body.append(host);
   root = createRoot(host);
@@ -347,33 +348,41 @@ describe('ProgramMyTeamPage 접근', () => {
 });
 
 describe('ProgramMyTeamPage 신청 상태', () => {
-  it('팀장의 미제출 상태는 상태 배지 없이 이어 쓸 자리만 준다', async () => {
+  it('팀장은 제출된 신청서의 확인·수정 입구를 받고 미제출 안내는 보지 않는다', async () => {
     await renderPage();
 
-    expect(host.querySelector('[data-slot="page-header-actions"]')).toBeNull();
-    expect(host.textContent).not.toContain('신청 작성 중');
-
-    expect(host.textContent).toContain('아직 제출된 신청서가 없습니다');
-    expect(host.textContent).toContain('신청서 작성');
+    expect(headerBadge()?.textContent).toBe('신청');
     expect(applyLink()).not.toBeNull();
+    expect(host.textContent).toContain('신청서 확인·수정');
 
-    expect(host.textContent).toContain('제출 전 내용은 저장되지 않습니다');
+    expect(host.textContent).not.toContain('아직 제출된 신청서가 없습니다');
+    expect(host.textContent).not.toContain('신청서 작성');
+    expect(host.textContent).not.toContain('제출 전 내용은 저장되지 않습니다');
     expect(host.textContent).not.toContain('그대로 있습니다');
-    expect(getMyApplication).not.toHaveBeenCalled();
+    expect(getMyApplication).toHaveBeenCalledExactlyOnceWith('program-1');
   });
 
-  it('초대로 합류한 팀원에게는 팀장 대기만 알리고 중복 동선을 만들지 않는다', async () => {
+  it('초대로 합류한 팀원에게는 검토 대기만 알리고 중복 동선을 만들지 않는다', async () => {
     vi.mocked(getMyTeam).mockResolvedValue({
       ...team,
       isLeader: false,
       canInvite: false,
       canRemoveMembers: false,
     });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      isManager: false,
+      canManage: false,
+      canEdit: false,
+      canCancel: false,
+    });
     await renderPage({ nickname: 'synthetic-member' });
-    expect(host.querySelector('[data-slot="page-header-actions"]')).toBeNull();
-    expect(host.textContent).toContain('신청서는 팀장이 작성해 제출합니다');
+    expect(headerBadge()?.textContent).toBe('신청');
+    expect(host.textContent).toContain('교직원 검토를 기다리는 중입니다');
     expect(applyLink()).toBeNull();
+    expect(host.textContent).not.toContain('신청서 확인·수정');
     expect(host.textContent).not.toContain('신청서 작성');
+    expect(host.textContent).not.toContain('신청서는 팀장이 작성해 제출합니다');
     expect(host.querySelector('button[aria-label="팀원 초대"]')).toBeNull();
   });
 
@@ -602,7 +611,13 @@ describe('ProgramMyTeamPage 팀 구성 변경', () => {
 
   it('본인 탈퇴가 성공하면 현재 신원으로 대시보드로 나간다', async () => {
     vi.mocked(leaveMyTeam).mockResolvedValue(undefined);
-    await renderPage();
+    vi.mocked(getMyTeam).mockResolvedValue({
+      ...team,
+      isLeader: false,
+      canInvite: false,
+      canRemoveMembers: false,
+    });
+    await renderPage({ nickname: 'synthetic-member' });
     const details = host.querySelector('details');
     if (details) details.open = true;
     await act(async () => button('팀 탈퇴').click());
@@ -698,9 +713,11 @@ it.each([true, false])(
   },
 );
 
-it('does not request a repository before a team application exists', async () => {
+it('does not request a repository before a team exists', async () => {
+  vi.mocked(getMyTeam).mockResolvedValue(null);
   await renderPage();
   expect(getTeamActivity).not.toHaveBeenCalled();
+  expect(getMyApplication).not.toHaveBeenCalled();
 });
 
 it('re-reads repository permission when a quiet reload moves leadership', async () => {

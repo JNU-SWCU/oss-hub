@@ -40,7 +40,7 @@ type ProgramMyTeamPageState =
       readonly program: ProgramDetail;
       readonly team: ProgramTeam;
 
-      readonly application: StudentApplication | null;
+      readonly application: StudentApplication;
 
       readonly sessionNickname: string;
     };

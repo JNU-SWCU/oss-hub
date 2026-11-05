@@ -452,7 +452,7 @@ describe('ProgramApply views', () => {
     );
 
     expect(html).toContain('신청서를 수정할 권한이 없습니다');
-    expect(html).toContain('신청서를 낸 사람과 팀장만');
+    expect(html).toContain('현재 팀장만 수정하거나 취소할 수 있습니다');
     expect(html).not.toContain('신청 취소');
     expect(html).not.toContain('수정 내용 저장');
     expect(html).not.toContain('신청 기간이 아닙니다');
@@ -623,5 +623,20 @@ describe('ProgramApply views', () => {
     expect(html).toContain('신청서가 수정되었습니다');
     expect(html).toContain('href="/programs/program-1/team"');
     expect(html).toContain('내 대시보드로');
+  });
+
+  it('반려 재제출 직후에는 검토 대기로 돌아갔다고 알린다', () => {
+    const html = renderToStaticMarkup(
+      <ProgramApplySuccessView
+        teamId="app-1"
+        programId={program.id}
+        mode="edit"
+        resubmitted
+      />,
+    );
+
+    expect(html).toContain('신청서를 다시 제출했습니다');
+    expect(html).toContain('검토 대기');
+    expect(html).not.toContain('신청서가 수정되었습니다');
   });
 });

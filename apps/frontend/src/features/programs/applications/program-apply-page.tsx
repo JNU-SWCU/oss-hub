@@ -50,6 +50,7 @@ type ProgramApplyPageState =
       readonly program: ReadyContext['program'];
       readonly teamId: string;
       readonly mode: ApplicationFormMode;
+      readonly resubmitted: boolean;
     };
 
 const BACKGROUND_REFRESH_MS = 30_000;
@@ -333,6 +334,7 @@ export function ProgramApplyPage({
           program: currentProgram,
           teamId: updated.id,
           mode: 'edit',
+          resubmitted: state.isRejected,
         });
         setConfirmation(null);
         return;
@@ -358,6 +360,7 @@ export function ProgramApplyPage({
         program: currentProgram,
         teamId: created.id,
         mode: 'create',
+        resubmitted: false,
       });
       setConfirmation(null);
     } catch (error: unknown) {
@@ -445,6 +448,7 @@ export function ProgramApplyPage({
           teamId={state.teamId}
           programId={programId}
           mode={state.mode}
+          resubmitted={state.resubmitted}
         />
       );
     case 'ready':
@@ -459,6 +463,7 @@ export function ProgramApplyPage({
           serverError={serverError}
           mode={state.mode}
           rejectionReason={state.rejectionReason}
+          isRejected={state.isRejected}
           canManage={state.canManage}
           confirmation={confirmation}
           teamMinimum={

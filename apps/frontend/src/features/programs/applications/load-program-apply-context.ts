@@ -48,6 +48,7 @@ export type ProgramApplyContext =
       readonly team: ProgramTeam | null;
 
       readonly rejectionReason: string | null;
+      readonly isRejected: boolean;
       readonly canManage: boolean;
       readonly initialValues: ProgramApplyFormValues;
     };
@@ -161,6 +162,7 @@ export async function loadProgramApplyContext(
           application.status === 'REJECTED'
             ? application.rejectionReason
             : null,
+        isRejected: application.status === 'REJECTED',
         canManage: application.canManage,
         initialValues: {
           title: application.answers.title,
@@ -192,6 +194,7 @@ export async function loadProgramApplyContext(
       team: team.team,
 
       rejectionReason: null,
+      isRejected: false,
 
       canManage: team.team === null ? true : team.team.isLeader,
       initialValues: {

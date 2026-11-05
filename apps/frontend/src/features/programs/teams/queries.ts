@@ -39,10 +39,9 @@ export function useMyTeamQuery(programId: string, sessionKey: string | null) {
               getProgramDetail(programId),
               getMyTeam(programId),
             ]);
-            const application =
-              team !== null ? await getMyApplication(programId) : null;
-            if (team !== null && application === null)
-              throw new TeamApplicationOutOfSyncError();
+            if (team === null) return { program, team, application: null };
+            const application = await getMyApplication(programId);
+            if (application === null) throw new TeamApplicationOutOfSyncError();
             return { program, team, application };
           },
     refetchOnWindowFocus: true,

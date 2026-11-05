@@ -171,17 +171,14 @@ describe('ApplicationTeamDeparture', () => {
 
   it('서버가 거절한 이유(TEAM_012)를 그 원인 그대로 보여 준다', async () => {
     vi.mocked(leaveMyTeam).mockRejectedValue(
-      apiError(
-        'TEAM_012',
-        '신청 기록이 있는 팀의 마지막 구성원은 나갈 수 없습니다.',
-      ),
+      apiError('TEAM_012', '승인된 팀의 마지막 구성원은 나갈 수 없습니다.'),
     );
     await render();
     await act(async () => button('팀 삭제').click());
     await act(async () => button('팀 삭제', true).click());
 
     expect(document.body.textContent).toContain(
-      '신청 기록을 보존하기 위해 마지막 팀원은 탈퇴할 수 없습니다.',
+      '승인된 팀의 마지막 구성원은 나갈 수 없습니다.',
     );
     expect(host.textContent).not.toContain('잠시 후 다시 시도해 주세요');
     expect(onDeparted).not.toHaveBeenCalled();

@@ -75,7 +75,7 @@ function stubbedFetch(
     return Promise.resolve(json({ items: [] }));
   }
   if (
-    path === 'users/me/notifications/application-decisions' ||
+    path === 'users/me/notifications/team-decisions' ||
     path === 'users/me/notifications/team-deletions'
   ) {
     return Promise.resolve(json([]));
@@ -116,7 +116,7 @@ describe('학생 대시보드는 받은 팀 초대를 스스로 조회하지 않
 
     expect(requestedPaths).toContain('GET dashboard/student');
     expect(requestedPaths).toContain(
-      'GET users/me/notifications/application-decisions',
+      'GET users/me/notifications/team-decisions',
     );
     expect(
       requestedPaths.filter((entry) =>
