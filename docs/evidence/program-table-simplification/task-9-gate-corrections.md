@@ -18,7 +18,7 @@ The owner approved rewording the preservation checkpoint and force-with-lease up
 
 ## Performance
 
-The owner's final ruling is migration first. The existing p50 samples are informational only, not a merge condition. No further latency measurement, analysis, or optimization is being performed.
+The owner's final ruling is migration first. Performance is not a merge condition. The pre-migration p50 samples were informational only and stay in history at commit 84b295d04, not in this tree. No further latency measurement, analysis, or optimization is being performed before the migration.
 
 ## CI backend unit correction
 
