@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "audit-log-retire",
-  "expectedHeadMigration": "20261105220100_copy_audit_log_to_domain_history",
+  "expectedHeadMigration": "20261105225000_retire_file_tables",
   "preflight": ["check-before.sql"],
   "stages": [
     {
