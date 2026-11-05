@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "file-unification-retire",
-  "expectedHeadMigration": "20261105200000_unify_files",
+  "expectedHeadMigration": "20261105220100_copy_audit_log_to_domain_history",
   "preflight": ["check-before-retire.sql"],
   "stages": [
     {
