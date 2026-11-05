@@ -32,7 +32,6 @@ export type ProgramListDerivedStatus = Exclude<
 >;
 
 export type ProgramListStatusInput = {
-  readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly endAt: Date;
@@ -44,7 +43,6 @@ export class ProgramListStatusFilterRepository {
     program: ProgramListStatusInput,
     now: Date,
   ): ProgramListDerivedStatus {
-    if (program.lifecycle === ProgramLifecycle.ARCHIVED) return 'ended';
     if (program.endAt < now) return 'ended';
     if (program.applicationStartAt > now) return 'upcoming';
     if (program.applicationEndAt >= now) return 'recruiting';
@@ -74,18 +72,11 @@ export class ProgramListStatusFilterRepository {
         ...notDateEnded(now),
       },
       all: {
-        lifecycle: {
-          in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
-        },
+        lifecycle: ProgramLifecycle.PUBLISHED,
       },
       ended: {
-        OR: [
-          { lifecycle: ProgramLifecycle.ARCHIVED },
-          {
-            lifecycle: ProgramLifecycle.PUBLISHED,
-            endAt: { lt: now },
-          },
-        ],
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        endAt: { lt: now },
       },
       upcoming: {
         lifecycle: ProgramLifecycle.PUBLISHED,
@@ -115,12 +106,12 @@ export class ProgramListStatusFilterRepository {
     now: Date,
   ): Prisma.Sql {
     if (status === 'all') {
-      return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')`;
+      return Prisma.sql`p."lifecycle" = 'PUBLISHED'`;
     }
     if (status === 'current') {
       return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND p."endAt" >= ${now}`;
     }
-    return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED') AND (${programListStatusCaseSql(now)}) = ${status}`;
+    return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND (${programListStatusCaseSql(now)}) = ${status}`;
   }
 
   programEndYearRange(year: number) {
@@ -211,7 +202,7 @@ export class ProgramListStatusFilterRepository {
       COUNT(*) FILTER (WHERE (${statusCase}) = 'upcoming')::int AS upcoming,
       COUNT(*) FILTER (WHERE (${statusCase}) = 'ended')::int AS ended
     FROM "Program" AS p
-    WHERE p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')
+    WHERE p."lifecycle" = 'PUBLISHED'
   `;
   }
 }
@@ -223,7 +214,6 @@ const notDateEnded = (now: Date): Prisma.ProgramWhereInput => ({
 function programListStatusCaseSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE
-      WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'
       WHEN p."endAt" < ${now} THEN 'ended'
       WHEN p."applicationStartAt" > ${now} THEN 'upcoming'
       WHEN p."applicationEndAt" >= ${now} THEN 'recruiting'

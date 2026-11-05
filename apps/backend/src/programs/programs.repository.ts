@@ -10,7 +10,6 @@ import {
   ProgramCategory,
   type ProgramTrackType,
   type ProgramHistoryEvent,
-  type ProgramLifecycle,
   type Prisma as PrismaTypes,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -41,7 +40,6 @@ export type ProgramListRecord = {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
-  readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly endAt: Date;
@@ -121,7 +119,6 @@ export class ProgramsRepository {
           p."organizer",
           p."trackType",
           p."applicationTemplateKey",
-          p."lifecycle",
           p."applicationStartAt",
           p."applicationEndAt",
           p."endAt",
@@ -178,7 +175,6 @@ export class ProgramsRepository {
     return this.prisma.program.findUnique({
       where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
-        lifecycle: true,
         coverFileId: true,
         coverImageUrl: true,
         id: true,

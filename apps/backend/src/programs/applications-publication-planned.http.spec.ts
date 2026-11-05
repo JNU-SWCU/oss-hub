@@ -4,7 +4,6 @@ import {
   AccountStatus,
   TeamHistoryEvent,
   ApplicationStatus,
-  ProgramLifecycle,
   ProgramTrackType,
   RepositoryConnectionMode,
 } from '@prisma/client';
@@ -286,7 +285,6 @@ const dashboardSummary: StaffDashboardSummary = {
         endsAt: new Date('2026-07-31T23:59:59.000Z'),
       },
       endAt: new Date('2026-09-30T23:59:59.000Z'),
-      lifecycle: ProgramLifecycle.PUBLISHED,
       applications: { total: 2, submitted: 1, approved: 1, rejected: 0 },
       teamManagementPath: `/programs/${PROGRAM_ID}/teams`,
     },
@@ -295,7 +293,6 @@ const dashboardSummary: StaffDashboardSummary = {
 const programRecord = {
   id: PROGRAM_ID,
   name: '합성 프로그램',
-  lifecycle: ProgramLifecycle.PUBLISHED,
 };
 const decisionTarget: ApplicationDecisionTarget = {
   id: APPLICATION_ID,
@@ -408,7 +405,6 @@ const summaryBody = {
         endsAt: '2026-07-31T23:59:59.000Z',
       },
       endAt: '2026-09-30T23:59:59.000Z',
-      lifecycle: ProgramLifecycle.PUBLISHED,
       applications: {
         total: 2,
         submitted: 1,

@@ -3,7 +3,6 @@ import {
   FileLifecycle,
   type Prisma as PrismaTypes,
   type ProgramTrackType,
-  type ProgramLifecycle,
 } from '@prisma/client';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
@@ -95,7 +94,6 @@ export type EditableProgramView = {
   readonly name: string;
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
-  readonly lifecycle?: ProgramLifecycle;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;
@@ -810,7 +808,6 @@ function toEditableProgramView(
     name: program.name,
     organizer: program.organizer,
     trackType: program.trackType,
-    lifecycle: program.lifecycle,
     applicationTemplateKey: program.applicationTemplateKey,
     applicationTemplateVersion: program.applicationTemplateVersion,
     applicationCount: program._count.teams,

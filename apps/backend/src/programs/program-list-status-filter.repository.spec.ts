@@ -113,7 +113,6 @@ describe('programListOrderBySql', () => {
     expect(sql).toContain(
       normalize(`CASE (
       CASE
-        WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'
         WHEN p."endAt" < ? THEN 'ended'
         WHEN p."applicationStartAt" > ? THEN 'upcoming'
         WHEN p."applicationEndAt" >= ? THEN 'recruiting'

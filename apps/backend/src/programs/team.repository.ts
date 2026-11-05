@@ -10,7 +10,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   type RepositoryVisibility,
-  ProgramLifecycle,
   type ProgramCategory,
   type OutboxEvent as PrismaOutboxEvent,
   TeamHistoryEvent,
@@ -537,8 +536,6 @@ export interface StaffDashboardProgramSummary {
   };
 
   readonly endAt: Date;
-
-  readonly lifecycle: ProgramLifecycle;
   readonly applications: StaffDashboardApplicationCounts;
   readonly teamManagementPath: string;
 }
@@ -572,7 +569,6 @@ type ApplicationDatabase = Pick<
 interface LockedProgramPolicy {
   readonly teamMinSize: number;
   readonly teamMaxSize: number;
-  readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly applicationTemplateVersion: number;
@@ -620,7 +616,6 @@ export interface ApplicationStudentActor {
 export interface ApplyProgramRecord {
   readonly id: string;
   readonly name: string;
-  readonly lifecycle?: ProgramLifecycle;
   readonly category: ProgramCategory;
   readonly applicationTemplateVersion: number;
   readonly applicationStartAt: Date;
@@ -726,7 +721,6 @@ export class ApplicationsRepository {
       select: {
         id: true,
         name: true,
-        lifecycle: true,
         category: true,
         applicationTemplateVersion: true,
         applicationStartAt: true,
@@ -946,7 +940,6 @@ export class ApplicationsRepository {
         applicationStartAt: true,
         applicationEndAt: true,
         endAt: true,
-        lifecycle: true,
       },
     });
 
@@ -1014,7 +1007,6 @@ export class ApplicationsRepository {
             endsAt: program.applicationEndAt,
           },
           endAt: program.endAt,
-          lifecycle: program.lifecycle,
           applications,
           teamManagementPath: `/programs/${encodeURIComponent(program.id)}/teams`,
         };
@@ -1308,7 +1300,7 @@ export class ApplicationsRepository {
     programId: string,
   ): Promise<LockedProgramPolicy | null> {
     const rows = await database.$queryRaw<readonly LockedProgramPolicy[]>(
-      Prisma.sql`SELECT "lifecycle", "applicationStartAt", "applicationEndAt", "applicationTemplateVersion", "teamMinSize", "teamMaxSize" FROM "Program" WHERE id = ${programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
+      Prisma.sql`SELECT "applicationStartAt", "applicationEndAt", "applicationTemplateVersion", "teamMinSize", "teamMaxSize" FROM "Program" WHERE id = ${programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
     );
     return rows[0] ?? null;
   }

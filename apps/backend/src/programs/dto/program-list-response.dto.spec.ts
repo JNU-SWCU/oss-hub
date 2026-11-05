@@ -1,4 +1,4 @@
-import { ApplicationStatus, ProgramLifecycle } from '@prisma/client';
+import { ApplicationStatus } from '@prisma/client';
 import {
   ProgramListPageResponseDto,
   ProgramListResponseDto,
@@ -20,7 +20,6 @@ function baseItem(
     organizer: '운영기관',
     trackType: 'CURRICULAR',
     applicationTemplateKey: 'basic',
-    lifecycle: ProgramLifecycle.PUBLISHED,
     applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
     applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
     endAt: new Date('2026-12-31T00:00:00.000Z'),

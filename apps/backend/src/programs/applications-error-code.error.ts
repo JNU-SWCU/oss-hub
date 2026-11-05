@@ -20,7 +20,6 @@ export enum ApplicationsErrorCode {
 
   STAFF_LIST_ONLY = 'APP_018',
   TEAM_MIN_SIZE_NOT_MET = 'APP_019',
-  PROGRAM_ARCHIVED = 'APP_020',
 
   APPLICATION_REVERT_INVALID_STATUS = 'APP_021',
 
@@ -187,11 +186,6 @@ export const APPLICATIONS_ERROR_CODES: Record<
     code: ApplicationsErrorCode.TEAM_MIN_SIZE_NOT_MET,
     status: 422,
     message: '프로그램의 최소 팀 인원을 충족하지 못했습니다.',
-  },
-  [ApplicationsErrorCode.PROGRAM_ARCHIVED]: {
-    code: ApplicationsErrorCode.PROGRAM_ARCHIVED,
-    status: 422,
-    message: '내린 프로그램에는 신청할 수 없습니다.',
   },
   [ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS]: {
     code: ApplicationsErrorCode.APPLICATION_REVERT_INVALID_STATUS,

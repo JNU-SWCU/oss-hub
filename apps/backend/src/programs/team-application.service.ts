@@ -46,7 +46,6 @@ import {
   OutboxEventStatus,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
-  ProgramLifecycle,
   TeamHistoryEvent,
 } from '@prisma/client';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
@@ -439,9 +438,6 @@ export class TeamApplicationService {
         const lockedProgram = await store.lockProgramForApply(programId);
         if (!lockedProgram) {
           throw this.error(ApplicationsErrorCode.PROGRAM_NOT_FOUND);
-        }
-        if (lockedProgram.lifecycle === ProgramLifecycle.ARCHIVED) {
-          throw this.error(ApplicationsErrorCode.PROGRAM_ARCHIVED);
         }
 
         if (

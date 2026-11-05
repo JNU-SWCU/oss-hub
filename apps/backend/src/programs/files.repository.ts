@@ -335,7 +335,7 @@ export class ProgramCoverRepository {
         programId,
         coverForProgram: {
           id: programId,
-          lifecycle: { in: ['PUBLISHED', 'ARCHIVED'] },
+          lifecycle: 'PUBLISHED',
         },
         storageKey: { startsWith: PROGRAM_COVER_STORAGE_PREFIX },
         mimeType: { in: ['image/jpeg', 'image/png'] },

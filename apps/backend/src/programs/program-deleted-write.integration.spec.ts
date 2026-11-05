@@ -247,105 +247,105 @@ beforeAll(async () => {
 }, 60000);
 afterEach(cleanup);
 afterAll(() => prisma.$disconnect());
-describe.each([
-  ProgramLifecycle.PUBLISHED,
-  ProgramLifecycle.ARCHIVED,
-  ProgramLifecycle.DELETED,
-])('%s program write boundary', (lifecycle) => {
-  beforeEach(async () => {
-    recordAudit.mockClear();
-    await seed(lifecycle);
-  });
-  it.each(boardWrites)('$name', async ({ run }) => {
-    const before = await snapshot();
-    if (lifecycle === ProgramLifecycle.DELETED) {
-      await expect(run()).rejects.toMatchObject({
-        errorCode: { code: 'BRD_001' },
-      });
-      expect(await snapshot()).toEqual(before);
-    } else {
-      await run();
-      expect(await snapshot()).not.toEqual(before);
-    }
-  });
-  it.each(membershipWrites)('$name', async ({ run, accepted, rejected }) => {
-    const before = await snapshot();
-    const result = await run();
-    if (lifecycle === ProgramLifecycle.DELETED) {
-      expect(result).toEqual(rejected);
-      expect(await snapshot()).toEqual(before);
-      expect(recordAudit).not.toHaveBeenCalled();
-    } else {
-      expect(result).toEqual(accepted);
-      expect(await snapshot()).not.toEqual(before);
-    }
-  });
-  it('delete team', async () => {
-    const before = await snapshot();
-    const scope = await teamDeletion.readScopeCounts(teamId);
-    const result = await teamDeletion.deleteTeam(
-      programId,
-      teamId,
-      staffId,
-      scope,
-      recordAudit,
-    );
-    if (lifecycle === ProgramLifecycle.DELETED) {
-      expect(result).toEqual({ outcome: 'not-found' });
-      expect(await snapshot()).toEqual(before);
-      expect(recordAudit).not.toHaveBeenCalled();
-    } else {
-      expect(result).toMatchObject({ outcome: 'deleted' });
-      expect(await snapshot()).not.toEqual(before);
-    }
-  });
-  it('resolves the program before a bulk document change request', async () => {
-    const programs = new MilestoneDocumentArchiveRepository(prisma);
-    const found = await programs.findProgram(programId);
-    if (lifecycle === ProgramLifecycle.DELETED) expect(found).toBeNull();
-    else
-      expect(found).toMatchObject({ name: 'Deleted program write boundary' });
-  });
-  it('locks a milestone for a document review only in an available program', async () => {
-    const milestone = await prisma.milestone.create({
-      data: {
-        programId,
-        name: 'Retained milestone',
-        startAt: new Date('2026-01-01'),
-        dueAt: new Date('2027-01-01'),
-      },
+describe.each([ProgramLifecycle.PUBLISHED, ProgramLifecycle.DELETED])(
+  '%s program write boundary',
+  (lifecycle) => {
+    beforeEach(async () => {
+      recordAudit.mockClear();
+      await seed(lifecycle);
     });
-    const locked = await prisma.$transaction((tx) =>
-      new LockProgramTreeRepository().lockProgramTree(tx, {
-        stage: 'milestone',
-        milestoneId: milestone.id,
-      }),
-    );
-    if (lifecycle === ProgramLifecycle.DELETED) expect(locked).toBeNull();
-    else expect(locked).toMatchObject({ id: milestone.id, programId });
-  });
-  it('resolves repository publication eligibility only in an available program', async () => {
-    await prisma.team.update({
-      where: { id: teamId },
-      data: {
-        programId,
-        applicantId: leaderId,
-        answers: {},
-        applicationTemplateVersion: 1,
-        status: 'APPROVED',
-      },
+    it.each(boardWrites)('$name', async ({ run }) => {
+      const before = await snapshot();
+      if (lifecycle === ProgramLifecycle.DELETED) {
+        await expect(run()).rejects.toMatchObject({
+          errorCode: { code: 'BRD_001' },
+        });
+        expect(await snapshot()).toEqual(before);
+      } else {
+        await run();
+        expect(await snapshot()).not.toEqual(before);
+      }
     });
-    const repository = await prisma.githubRepository.create({
-      data: {
-        githubRepositoryId: 9878100101n,
+    it.each(membershipWrites)('$name', async ({ run, accepted, rejected }) => {
+      const before = await snapshot();
+      const result = await run();
+      if (lifecycle === ProgramLifecycle.DELETED) {
+        expect(result).toEqual(rejected);
+        expect(await snapshot()).toEqual(before);
+        expect(recordAudit).not.toHaveBeenCalled();
+      } else {
+        expect(result).toEqual(accepted);
+        expect(await snapshot()).not.toEqual(before);
+      }
+    });
+    it('delete team', async () => {
+      const before = await snapshot();
+      const scope = await teamDeletion.readScopeCounts(teamId);
+      const result = await teamDeletion.deleteTeam(
+        programId,
         teamId,
-        nameWithOwner: 'synthetic/deleted-write',
-        source: 'ORG_PROVISIONED',
-      },
+        staffId,
+        scope,
+        recordAudit,
+      );
+      if (lifecycle === ProgramLifecycle.DELETED) {
+        expect(result).toEqual({ outcome: 'not-found' });
+        expect(await snapshot()).toEqual(before);
+        expect(recordAudit).not.toHaveBeenCalled();
+      } else {
+        expect(result).toMatchObject({ outcome: 'deleted' });
+        expect(await snapshot()).not.toEqual(before);
+      }
     });
-    const reviews = new SubmissionReviewsRepository(prisma, platform);
-    const eligibility = await reviews.findPublishEligibility(repository.id);
-    if (lifecycle === ProgramLifecycle.DELETED) expect(eligibility).toBeNull();
-    else expect(eligibility).toMatchObject({ id: repository.id });
-  });
-});
+    it('resolves the program before a bulk document change request', async () => {
+      const programs = new MilestoneDocumentArchiveRepository(prisma);
+      const found = await programs.findProgram(programId);
+      if (lifecycle === ProgramLifecycle.DELETED) expect(found).toBeNull();
+      else
+        expect(found).toMatchObject({ name: 'Deleted program write boundary' });
+    });
+    it('locks a milestone for a document review only in an available program', async () => {
+      const milestone = await prisma.milestone.create({
+        data: {
+          programId,
+          name: 'Retained milestone',
+          startAt: new Date('2026-01-01'),
+          dueAt: new Date('2027-01-01'),
+        },
+      });
+      const locked = await prisma.$transaction((tx) =>
+        new LockProgramTreeRepository().lockProgramTree(tx, {
+          stage: 'milestone',
+          milestoneId: milestone.id,
+        }),
+      );
+      if (lifecycle === ProgramLifecycle.DELETED) expect(locked).toBeNull();
+      else expect(locked).toMatchObject({ id: milestone.id, programId });
+    });
+    it('resolves repository publication eligibility only in an available program', async () => {
+      await prisma.team.update({
+        where: { id: teamId },
+        data: {
+          programId,
+          applicantId: leaderId,
+          answers: {},
+          applicationTemplateVersion: 1,
+          status: 'APPROVED',
+        },
+      });
+      const repository = await prisma.githubRepository.create({
+        data: {
+          githubRepositoryId: 9878100101n,
+          teamId,
+          nameWithOwner: 'synthetic/deleted-write',
+          source: 'ORG_PROVISIONED',
+        },
+      });
+      const reviews = new SubmissionReviewsRepository(prisma, platform);
+      const eligibility = await reviews.findPublishEligibility(repository.id);
+      if (lifecycle === ProgramLifecycle.DELETED)
+        expect(eligibility).toBeNull();
+      else expect(eligibility).toMatchObject({ id: repository.id });
+    });
+  },
+);

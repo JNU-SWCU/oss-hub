@@ -169,21 +169,21 @@ describe('ProgramsRepository list ordering integration', () => {
           description: 'ended with open apply window',
         },
         {
-          id: `${TEST_PREFIX}archived`,
-          name: 'Partition archived',
+          id: `${TEST_PREFIX}deleted`,
+          name: 'Partition deleted',
           organizer: 'OSS Hub',
           trackType: 'CURRICULAR' as const,
           category: ProgramCategory.BASIC,
           applicationTemplateKey: 'capstone-v1',
           applicationTemplateVersion: 1,
-          lifecycle: 'ARCHIVED' as const,
+          lifecycle: 'DELETED' as const,
           applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
           applicationEndAt: new Date('2026-09-01T00:00:00.000Z'),
           startAt: new Date('2026-09-02T00:00:00.000Z'),
           endAt: new Date('2026-12-31T00:00:00.000Z'),
           teamMinSize: 1,
           teamMaxSize: 4,
-          description: 'archived fixture',
+          description: 'deleted fixture',
         },
       ],
     });
@@ -194,11 +194,11 @@ describe('ProgramsRepository list ordering integration', () => {
     );
 
     const expectedByStatus = {
-      all: 5,
+      all: 4,
       recruiting: 1,
       upcoming: 1,
       in_progress: 1,
-      ended: 2,
+      ended: 1,
     } as const;
     for (const status of [
       'all',
@@ -598,7 +598,7 @@ describe('ProgramsRepository list ordering integration', () => {
     const yearProgram = (fixture: {
       readonly id: string;
       readonly endAt: string;
-      readonly lifecycle?: 'ARCHIVED';
+      readonly lifecycle?: 'DELETED';
       readonly applicationStartAt?: string;
       readonly applicationEndAt?: string;
     }) => ({
@@ -629,9 +629,9 @@ describe('ProgramsRepository list ordering integration', () => {
           { id: 'ended-2027-a', endAt: '2026-12-31T15:00:00.000Z' },
           { id: 'ended-2027-b', endAt: '2026-12-31T15:30:00.000Z' },
           {
-            id: 'archived',
-            endAt: '2029-06-01T00:00:00.000Z',
-            lifecycle: 'ARCHIVED' as const,
+            id: 'deleted',
+            endAt: '2028-06-01T00:00:00.000Z',
+            lifecycle: 'DELETED' as const,
           },
           {
             id: 'recruiting',
@@ -718,9 +718,9 @@ describe('ProgramsRepository list ordering integration', () => {
             { id: 'year-2082-a', endAt: '2081-12-31T15:00:00.000Z' },
             { id: 'year-2082-b', endAt: '2081-12-31T15:30:00.000Z' },
             {
-              id: 'year-archived',
-              endAt: '2087-06-01T00:00:00.000Z',
-              lifecycle: 'ARCHIVED' as const,
+              id: 'year-deleted',
+              endAt: '2083-06-01T00:00:00.000Z',
+              lifecycle: 'DELETED' as const,
             },
             {
               id: 'year-recruiting',
@@ -746,18 +746,7 @@ describe('ProgramsRepository list ordering integration', () => {
         expect(years).not.toContain(2085);
       });
 
-      it('returns distinct descending Seoul years including archived programs', async () => {
-        await expect(ownYears()).resolves.toEqual([2087, 2082, 2081]);
-      });
-
-      it('excludes the archived undecided end date from selectable years', async () => {
-        await prisma.program.update({
-          where: { id: `${TEST_PREFIX}year-archived` },
-          data: { endAt: new Date('9999-12-31T23:59:59.999Z') },
-        });
-
-        const years = await service.endedYears(queryNow);
-        expect(years.filter((year) => year > 2100)).toEqual([]);
+      it('returns distinct descending Seoul years without deleted programs', async () => {
         await expect(ownYears()).resolves.toEqual([2082, 2081]);
       });
     });

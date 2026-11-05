@@ -27,7 +27,7 @@ describe('program-cover.repository', () => {
         lifecycle: 'ATTACHED',
         coverForProgram: {
           id: 'program',
-          lifecycle: { in: ['PUBLISHED', 'ARCHIVED'] },
+          lifecycle: 'PUBLISHED',
         },
         storageKey: { startsWith: 'program-covers/' },
         mimeType: { in: ['image/jpeg', 'image/png'] },

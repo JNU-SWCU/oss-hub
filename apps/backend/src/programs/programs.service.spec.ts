@@ -22,7 +22,6 @@ const publicProgram = {
   organizer: '운영기관',
   trackType: ProgramTrackType.EXTRACURRICULAR,
   category: ProgramCategory.BASIC,
-  lifecycle: 'PUBLISHED' as const,
   description: '프로그램 설명',
   repositoryProvisioningEnabled: true,
   applicationStartAt: new Date('2026-07-01T00:00:00+09:00'),
@@ -93,32 +92,10 @@ describe('ProgramsService detail', () => {
     expect(detail.milestones[0]?.deadlineLabel).toBe('오늘 마감');
     expect(detail.milestones[1]?.deadlineLabel).toBe('마감 지남');
   });
-  it('ARCHIVED 프로그램도 공개 상세 읽기를 허용한다', async () => {
-    const { service, findUnique } = createService();
-    findUnique.mockResolvedValue({
-      ...publicProgram,
-      lifecycle: 'ARCHIVED' as const,
-    });
-    await expect(service.detail('program-1', anonymous)).resolves.toMatchObject(
-      {
-        id: 'program-1',
-        name: 'OSS 경진대회',
-      },
-    );
-  });
-  it.each(['PUBLISHED', 'ARCHIVED'] as const)(
-    '%s 상세 응답에 게시 상태를 함께 싣는다',
-    async (lifecycle) => {
-      const { service, findUnique } = createService();
-      findUnique.mockResolvedValue({ ...publicProgram, lifecycle });
-      const detail = await service.detail('program-1', anonymous);
-      expect(detail.lifecycle).toBe(lifecycle);
-    },
-  );
-  it('종료 판정이 쓰는 게시 상태와 운영 종료일을 함께 싣는다', async () => {
+  it('종료 판정은 운영 종료일만 싣고 게시 상태는 싣지 않는다', async () => {
     const { service } = createService();
     const detail = await service.detail('program-1', anonymous);
-    expect(detail.lifecycle).toBe('PUBLISHED');
+    expect(detail).not.toHaveProperty('lifecycle');
     expect(detail.operatingPeriod.endsAt).toBe(publicProgram.endAt);
   });
   it('승인된 학생에게 마일스톤별 현재 제출 상태를 반환한다', async () => {

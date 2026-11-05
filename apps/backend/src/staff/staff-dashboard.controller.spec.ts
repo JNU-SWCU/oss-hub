@@ -5,7 +5,7 @@ import {
   PATH_METADATA,
 } from '@nestjs/common/constants';
 import { RolesGuard } from '../platform/roles.guard';
-import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 import { StaffDashboardController } from './staff-dashboard.controller';
 import type { StaffDashboardService } from './staff-dashboard.service';
 import { StaffInsightsQueryService } from './staff-insights-query.service';
@@ -63,7 +63,6 @@ describe('StaffDashboardController', () => {
               endsAt: new Date('2026-07-31T23:59:59.000Z'),
             },
             endAt: new Date('2026-09-30T23:59:59.000Z'),
-            lifecycle: ProgramLifecycle.ARCHIVED,
             applications: {
               total: 3,
               submitted: 1,
@@ -109,7 +108,6 @@ describe('StaffDashboardController', () => {
               endsAt: '2026-07-31T23:59:59.000Z',
             },
             endAt: '2026-09-30T23:59:59.000Z',
-            lifecycle: ProgramLifecycle.ARCHIVED,
             applications: {
               total: 3,
               submitted: 1,

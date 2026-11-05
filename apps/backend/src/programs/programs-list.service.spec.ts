@@ -30,7 +30,6 @@ function baseProgram(
   partial: Partial<ProgramListStatusInput> = {},
 ): ProgramListStatusInput {
   return {
-    lifecycle: ProgramLifecycle.PUBLISHED,
     applicationStartAt: new Date('2026-06-01T00:00:00.000Z'),
     applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
     endAt: new Date('2026-12-01T00:00:00.000Z'),
@@ -155,19 +154,7 @@ describe('deriveProgramListStatus (period interpretation)', () => {
     ).toBe('ended');
   });
 
-  it('maps ARCHIVED to ended and sort rank stays ended (U5/U6)', () => {
-    const archived = baseProgram({
-      lifecycle: ProgramLifecycle.ARCHIVED,
-      applicationStartAt: new Date('2026-06-01T00:00:00.000Z'),
-      applicationEndAt: new Date('2026-09-01T00:00:00.000Z'),
-      endAt: new Date('2026-12-01T00:00:00.000Z'),
-    });
-    expect(
-      new ProgramListStatusFilterRepository().deriveProgramListStatus(
-        archived,
-        NOW,
-      ),
-    ).toBe('ended');
+  it('keeps the ended sort rank last (U6)', () => {
     expect(
       new ProgramListStatusFilterRepository().programListSortRank('ended'),
     ).toBe(3);
@@ -308,18 +295,13 @@ describe('ProgramsRepository list', () => {
 
     expect(count).toHaveBeenCalledWith({
       where: {
-        OR: [
-          { lifecycle: ProgramLifecycle.ARCHIVED },
-          {
-            lifecycle: ProgramLifecycle.PUBLISHED,
-            endAt: { lt: now },
-          },
-        ],
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        endAt: { lt: now },
       },
     });
   });
 
-  it('counts all across PUBLISHED and ARCHIVED universe', async () => {
+  it('counts all across the PUBLISHED universe', async () => {
     queryRaw.mockResolvedValue([]);
     count.mockResolvedValue(0);
     transaction.mockResolvedValue([[], 0]);
@@ -332,9 +314,7 @@ describe('ProgramsRepository list', () => {
 
     expect(count).toHaveBeenCalledWith({
       where: {
-        lifecycle: {
-          in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
-        },
+        lifecycle: ProgramLifecycle.PUBLISHED,
       },
     });
   });
@@ -539,7 +519,7 @@ describe('status filter single source', () => {
           now,
         );
       expect(sql.strings.join(' ')).toMatch(
-        /lifecycle|ARCHIVED|PUBLISHED|ended|recruiting|upcoming|in_progress/i,
+        /lifecycle|PUBLISHED|ended|recruiting|upcoming|in_progress/i,
       );
     }
   });
@@ -556,7 +536,6 @@ function listRecord(
     organizer: '운영기관',
     trackType: ProgramTrackType.CURRICULAR,
     applicationTemplateKey: 'capstone',
-    lifecycle: ProgramLifecycle.PUBLISHED,
     applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
     applicationEndAt: new Date('2026-08-01T00:00:00.000Z'),
     endAt: new Date('2026-12-31T00:00:00.000Z'),
@@ -912,7 +891,7 @@ describe('ProgramsService list', () => {
 });
 
 describe('status-counts consistency with list totalItems filters', () => {
-  it('keeps all in the published+archived universe and ends U4 only once', () => {
+  it('keeps all in the published universe and ends U4 only once', () => {
     const now = new Date('2026-07-22T00:00:00.000Z');
     expect(
       new ProgramListStatusFilterRepository().programListPrismaWhere(
@@ -920,9 +899,7 @@ describe('status-counts consistency with list totalItems filters', () => {
         now,
       ),
     ).toEqual({
-      lifecycle: {
-        in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
-      },
+      lifecycle: ProgramLifecycle.PUBLISHED,
     });
     expect(
       new ProgramListStatusFilterRepository().programListPrismaWhere(
@@ -941,13 +918,8 @@ describe('status-counts consistency with list totalItems filters', () => {
         now,
       ),
     ).toEqual({
-      OR: [
-        { lifecycle: ProgramLifecycle.ARCHIVED },
-        {
-          lifecycle: ProgramLifecycle.PUBLISHED,
-          endAt: { lt: now },
-        },
-      ],
+      lifecycle: ProgramLifecycle.PUBLISHED,
+      endAt: { lt: now },
     });
 
     const u4 = baseProgram({

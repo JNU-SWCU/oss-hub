@@ -370,12 +370,6 @@ describe('TeamApplicationService integration', () => {
       submittedVersion: 1,
       errorCode: ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,
     },
-    {
-      name: '프로그램 보관 전환',
-      policy: { lifecycle: ProgramLifecycle.ARCHIVED },
-      submittedVersion: 1,
-      errorCode: ApplicationsErrorCode.PROGRAM_ARCHIVED,
-    },
   ])(
     '편집 잠금 대기 후 $name',
     async ({ policy, submittedVersion, errorCode }) => {

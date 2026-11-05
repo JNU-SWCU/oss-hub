@@ -12,8 +12,6 @@ export class ProgramListResponseDto {
   declare readonly name: string;
   declare readonly organizer: string;
   declare readonly trackType: PersonalizedProgramListItem['trackType'];
-
-  declare readonly lifecycle: PersonalizedProgramListItem['lifecycle'];
   declare readonly applicationStartAt: string;
   declare readonly applicationEndAt: string;
   declare readonly endAt: string;
@@ -34,7 +32,6 @@ export class ProgramListResponseDto {
       name: program.name,
       organizer: program.organizer,
       trackType: program.trackType,
-      lifecycle: program.lifecycle,
       applicationStartAt: program.applicationStartAt.toISOString(),
       applicationEndAt: program.applicationEndAt.toISOString(),
       endAt: program.endAt.toISOString(),

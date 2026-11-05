@@ -8,7 +8,6 @@ export interface ProgramOverviewRecord {
   programId: string;
   name: string;
   trackType: string | null;
-  lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
   participantCount: number;
@@ -100,7 +99,6 @@ export class ProgramOverviewRepository {
         id: true,
         name: true,
         trackType: true,
-        lifecycle: true,
         _count: { select: { milestones: true, boardPosts: true, teams: true } },
       },
     });
@@ -122,7 +120,6 @@ export class ProgramOverviewRepository {
       programId: program.id,
       name: program.name,
       trackType: program.trackType,
-      lifecycle: program.lifecycle,
       milestoneCount: program._count.milestones,
       boardPostCount: program._count.boardPosts,
       participantCount: participantIds.size,
