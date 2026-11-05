@@ -1,7 +1,7 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 
 export const teamFindFirst = jest.fn();
@@ -89,7 +89,7 @@ export function givenRepository(
   ]);
   outsiderFindUnique.mockResolvedValue(null);
   const prisma = new PrismaService();
-  return new ProgramTeamsRepository(
+  return new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),

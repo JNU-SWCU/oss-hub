@@ -3,11 +3,11 @@ import { ProgramActivitySummaryService } from '../programs/program-activity-summ
 import type { ProgramActivitySummary } from '../programs/program-activity-summary.service';
 import { SubmissionDashboardSummaryService } from '../programs/submission-dashboard-summary.service';
 import type { SubmissionDashboardProgramSummary } from '../programs/submission-dashboard-summary.service';
-import { ApplicationsService } from '../programs/applications.service';
+import { TeamApplicationService } from '../programs/team-application.service';
 import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
-} from '../programs/applications.repository';
+} from '../programs/team.repository';
 import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
 
 export type StaffDashboardComposedApplicationCounts =
@@ -52,8 +52,8 @@ export interface StaffDashboardComposedSummary {
 @Injectable()
 export class StaffDashboardService {
   constructor(
-    @Inject(ApplicationsService)
-    private readonly applications: Pick<ApplicationsService, 'staffSummary'>,
+    @Inject(TeamApplicationService)
+    private readonly applications: Pick<TeamApplicationService, 'staffSummary'>,
     @Inject(ProgramActivitySummaryService)
     private readonly activities: Pick<
       ProgramActivitySummaryService,

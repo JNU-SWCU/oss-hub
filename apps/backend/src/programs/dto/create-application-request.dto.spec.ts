@@ -1,12 +1,12 @@
-import { ApplicationsService } from '../applications.service';
+import { TeamApplicationService } from '../team-application.service';
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { CreateApplicationRequestDto } from './create-application-request.dto';
 
 const applicationsService = Object.create(
-  ApplicationsService.prototype,
-) as ApplicationsService;
+  TeamApplicationService.prototype,
+) as TeamApplicationService;
 
 function dto(body: Record<string, unknown>): CreateApplicationRequestDto {
   return plainToInstance(CreateApplicationRequestDto, {

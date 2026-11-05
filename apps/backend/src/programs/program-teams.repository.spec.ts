@@ -6,10 +6,10 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import {
-  ProgramTeamsRepository,
+  TeamRepository,
   type RecordTeamMembershipAudit,
   type TeamMembershipAuditEvent,
-} from './program-teams.repository';
+} from './team.repository';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { TeamHistoryRepository } from './team-history.repository';
@@ -27,7 +27,7 @@ function buildRepository(tx: object) {
   const prisma = {
     $transaction: <T>(operation: (t: typeof tx) => Promise<T>) => operation(tx),
   };
-  return new ProgramTeamsRepository(
+  return new TeamRepository(
     prisma as unknown as PrismaService,
     new ProgramTeamRepositoryEvidenceRepository(
       prisma as unknown as PrismaService,
@@ -182,7 +182,7 @@ function order(mock: {
   return value;
 }
 
-describe('ProgramTeamsRepository.leave', () => {
+describe('TeamRepository.leave', () => {
   it('소속이 없으면 not-found를 반환하고 잠그지도 기록하지도 않는다', async () => {
     const { tx, queryRaw, recordAudit } = buildTx(syntheticLeaderId, {
       preLockMembership: null,
@@ -480,7 +480,7 @@ describe('ProgramTeamsRepository.leave', () => {
   });
 });
 
-describe('ProgramTeamsRepository.removeMember', () => {
+describe('TeamRepository.removeMember', () => {
   it('행위자가 이 프로그램의 팀원이 아니면 잠그지 않고 actor-not-in-team', async () => {
     const { tx, queryRaw, recordAudit } = buildTx(syntheticLeaderId, {
       preLockMembership: null,
@@ -645,7 +645,7 @@ describe('ProgramTeamsRepository.removeMember', () => {
   });
 });
 
-describe('ProgramTeamsRepository 권한 동기화 이벤트 예약', () => {
+describe('TeamRepository 권한 동기화 이벤트 예약', () => {
   const syntheticApplicationId = 'cuid-synthetic-application';
   const NOW = new Date('2026-09-05T03:04:05.678Z');
 

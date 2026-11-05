@@ -10,12 +10,12 @@ import { OriginGuard } from '../platform/origin.guard';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { RepositoryUrlHistoryRequestDto } from './dto/repository-url-history-request.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
-import { ProgramTeamsController } from './program-teams.controller';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamsController } from './teams.controller';
+import { TeamMembershipService } from './team-membership.service';
 
 const teamsRequestParser = Object.create(
-  ProgramTeamsService.prototype,
-) as ProgramTeamsService;
+  TeamMembershipService.prototype,
+) as TeamMembershipService;
 
 type ControllerMethodName =
   | 'me'
@@ -28,13 +28,11 @@ type ControllerMethodName =
   | 'rename'
   | 'remove';
 
-type ControllerService = ConstructorParameters<
-  typeof ProgramTeamsController
->[0];
+type ControllerService = ConstructorParameters<typeof TeamsController>[0];
 
 function methodOf(name: ControllerMethodName): object | undefined {
   const value: unknown = Object.getOwnPropertyDescriptor(
-    ProgramTeamsController.prototype,
+    TeamsController.prototype,
     name,
   )?.value;
   return typeof value === 'function' ? value : undefined;
@@ -53,20 +51,18 @@ function readPath(name: ControllerMethodName): unknown {
 }
 
 function declarationOrder(name: ControllerMethodName): number {
-  return Object.getOwnPropertyNames(ProgramTeamsController.prototype).indexOf(
-    name,
-  );
+  return Object.getOwnPropertyNames(TeamsController.prototype).indexOf(name);
 }
 
 function serviceStub(
   overrides: Partial<ControllerService> & {
-    readonly getRepositoryUrlHistory?: ProgramTeamsService['getRepositoryUrlHistory'];
+    readonly getRepositoryUrlHistory?: TeamMembershipService['getRepositoryUrlHistory'];
   } = {},
 ): ControllerService {
   const {
     getRepositoryUrlHistory = jest.fn<
-      ReturnType<ProgramTeamsService['getRepositoryUrlHistory']>,
-      Parameters<ProgramTeamsService['getRepositoryUrlHistory']>
+      ReturnType<TeamMembershipService['getRepositoryUrlHistory']>,
+      Parameters<TeamMembershipService['getRepositoryUrlHistory']>
     >(),
     ...rest
   } = overrides;
@@ -97,9 +93,9 @@ function serviceStub(
   };
 }
 
-describe('ProgramTeamsController', () => {
+describe('TeamsController', () => {
   it('join handler 를 등록하지 않는다 — 초대 수락만 팀에 들어오는 경로다', () => {
-    const prototype: object = ProgramTeamsController.prototype;
+    const prototype: object = TeamsController.prototype;
     expect(Object.getOwnPropertyNames(prototype)).not.toContain('join');
 
     const registeredPaths = Object.getOwnPropertyNames(prototype)
@@ -154,9 +150,7 @@ describe('ProgramTeamsController', () => {
 
     it('행위자 세션·프로그램·대상 팀원을 그대로 service 로 넘기고 본문 없이 끝낸다', async () => {
       const removeMember = jest.fn().mockResolvedValue(undefined);
-      const controller = new ProgramTeamsController(
-        serviceStub({ removeMember }),
-      );
+      const controller = new TeamsController(serviceStub({ removeMember }));
 
       const response = await controller.removeMember(
         { sessionGithubId: 4242n },
@@ -171,9 +165,7 @@ describe('ProgramTeamsController', () => {
     it('service 오류를 그대로 전파한다 — controller 가 권한을 다시 판정하지 않는다', async () => {
       const failure = new Error('LEADER_ONLY');
       const removeMember = jest.fn().mockRejectedValue(failure);
-      const controller = new ProgramTeamsController(
-        serviceStub({ removeMember }),
-      );
+      const controller = new TeamsController(serviceStub({ removeMember }));
 
       await expect(
         controller.removeMember({ sessionGithubId: 1n }, 'program-1', 'user-b'),
@@ -192,7 +184,7 @@ describe('ProgramTeamsController', () => {
 
     it('세션·프로그램을 service.leave 로 넘긴다', async () => {
       const leave = jest.fn().mockResolvedValue(undefined);
-      const controller = new ProgramTeamsController(serviceStub({ leave }));
+      const controller = new TeamsController(serviceStub({ leave }));
 
       const response = await controller.leave(
         { sessionGithubId: 7n },
@@ -220,9 +212,7 @@ describe('ProgramTeamsController', () => {
         ],
       },
     ]);
-    const controller = new ProgramTeamsController(
-      serviceStub({ listForStaff }),
-    );
+    const controller = new TeamsController(serviceStub({ listForStaff }));
 
     const response = await controller.list('program-1');
 
@@ -268,7 +258,7 @@ describe('ProgramTeamsController', () => {
 
     it('팀이 없으면 NONE 소속과 team null을 반환한다', async () => {
       const getMe = jest.fn().mockResolvedValue(null);
-      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+      const controller = new TeamsController(serviceStub({ getMe }));
 
       const response = await controller.me(
         { sessionGithubId: 4242n },
@@ -285,7 +275,7 @@ describe('ProgramTeamsController', () => {
         canInvite: false,
         canRemoveMembers: false,
       });
-      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+      const controller = new TeamsController(serviceStub({ getMe }));
 
       const response = await controller.me(
         { sessionGithubId: 4242n },
@@ -301,7 +291,7 @@ describe('ProgramTeamsController', () => {
 
     it('service.getMe 결과의 허용 필드만 LEADER 소속과 함께 돌려준다', async () => {
       const getMe = jest.fn().mockResolvedValue(view);
-      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+      const controller = new TeamsController(serviceStub({ getMe }));
 
       const response = await controller.me(
         { sessionGithubId: 4242n },
@@ -331,7 +321,7 @@ describe('ProgramTeamsController', () => {
       const getMe = jest
         .fn()
         .mockResolvedValue({ ...view, locked: true, currentUserId: 'user-a' });
-      const controller = new ProgramTeamsController(serviceStub({ getMe }));
+      const controller = new TeamsController(serviceStub({ getMe }));
 
       const response = await controller.me(
         { sessionGithubId: 4242n },
@@ -371,7 +361,7 @@ describe('ProgramTeamsController', () => {
       ],
       application: null,
     });
-    const controller = new ProgramTeamsController(serviceStub({ getForStaff }));
+    const controller = new TeamsController(serviceStub({ getForStaff }));
 
     const response = await controller.detail('program-1', 'team-1');
 
@@ -412,7 +402,7 @@ describe('ProgramTeamsController', () => {
       members: [],
     };
     const getActivity = jest.fn().mockResolvedValue(view);
-    const controller = new ProgramTeamsController(serviceStub({ getActivity }));
+    const controller = new TeamsController(serviceStub({ getActivity }));
 
     const response = await controller.activity(
       { sessionGithubId: 42n },
@@ -442,7 +432,7 @@ describe('ProgramTeamsController', () => {
       items: [],
       nextCursor: null,
     });
-    const controller = new ProgramTeamsController(
+    const controller = new TeamsController(
       serviceStub({ getRepositoryUrlHistory }),
     );
     const query = Object.assign(new RepositoryUrlHistoryRequestDto(), {
@@ -472,7 +462,7 @@ describe('ProgramTeamsController', () => {
   });
 });
 
-describe('ProgramTeamsController.rename', () => {
+describe('TeamsController.rename', () => {
   it('PATCH :teamId 이고 OriginGuard 만 적용한다', () => {
     const method = methodOf('rename');
 
@@ -487,7 +477,7 @@ describe('ProgramTeamsController.rename', () => {
     const rename = jest
       .fn()
       .mockResolvedValue({ teamId: 'team-1', name: '알잘딱팀' });
-    const controller = new ProgramTeamsController(serviceStub({ rename }));
+    const controller = new TeamsController(serviceStub({ rename }));
     const body = Object.assign(new RenameTeamRequestDto(), {
       name: '알잘딱팀',
     });
@@ -504,7 +494,7 @@ describe('ProgramTeamsController.rename', () => {
   });
 });
 
-describe('ProgramTeamsController.remove', () => {
+describe('TeamsController.remove', () => {
   it('DELETE :teamId 이고 OriginGuard 만 적용한다', () => {
     const method = methodOf('remove');
 
@@ -534,9 +524,9 @@ describe('ProgramTeamsController.remove', () => {
     const deleteForStaff = jest
       .fn()
       .mockResolvedValue({ teamId: 'team-1', deleted: true, deletedCounts });
-    const controller = new ProgramTeamsController(
+    const controller = new TeamsController(
       Object.assign(
-        Object.create(ProgramTeamsService.prototype) as ProgramTeamsService,
+        Object.create(TeamMembershipService.prototype) as TeamMembershipService,
         { deleteForStaff },
       ),
     );

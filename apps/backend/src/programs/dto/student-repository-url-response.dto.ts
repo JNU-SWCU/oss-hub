@@ -1,4 +1,4 @@
-import type { StudentRepositoryUrlView } from '../student-repository-url.service';
+import type { StudentRepositoryUrlView } from '../team-application.service';
 
 export class StudentRepositoryUrlResponseDto {
   declare readonly repositoryUrl: string | null;

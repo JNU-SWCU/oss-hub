@@ -1,14 +1,14 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsRepository } from './applications.repository';
-import { StudentApplicationManagementRepository } from './student-application-management.repository';
-import { StudentApplicationManagementService } from './student-application-management.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationsRepository } from './team.repository';
+import { StudentApplicationManagementRepository } from './team.repository';
+import { StudentApplicationManagementService } from './team-application.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const OPEN_PROGRAM = {

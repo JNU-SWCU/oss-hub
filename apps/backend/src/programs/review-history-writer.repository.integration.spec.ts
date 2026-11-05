@@ -4,8 +4,8 @@ import { ApplicationReviewEventKind, ProgramCategory } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { ApplicationsRepository } from './applications.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ApplicationsRepository } from './team.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

@@ -13,7 +13,7 @@ import {
   invitationService,
   seedNamedStudents,
 } from '../../test/application-nomination.fixture';
-import { ApplicationsRepository } from './applications.repository';
+import { ApplicationsRepository } from './team.repository';
 let sequence = 0;
 let programId: string;
 function apply(inviteeUserIds: readonly string[]) {

@@ -1,9 +1,9 @@
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { randomBytes } from 'node:crypto';
 import {
@@ -15,9 +15,9 @@ import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { ApplicationsRepository } from './applications.repository';
-import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { ApplicationsRepository } from './team.repository';
+import { StudentRepositoryUrlRepository } from './team.repository';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const prisma = new PrismaService();

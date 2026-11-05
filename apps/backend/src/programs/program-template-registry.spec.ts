@@ -1,7 +1,7 @@
 import {
   V1_APPLICATION_FIELDS,
   ProgramTemplatesService,
-} from './program-templates.service';
+} from './team-application.service';
 import { ProgramCategory } from '@prisma/client';
 
 const programTemplatesService = new ProgramTemplatesService();

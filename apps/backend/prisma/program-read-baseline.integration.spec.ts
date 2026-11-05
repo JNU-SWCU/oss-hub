@@ -6,7 +6,7 @@ import { PlatformRepository } from '../src/platform/platform.repository';
 import { ProgramOverviewRepository } from '../src/programs/program-overview.repository';
 import { SubmissionMatrixRepository } from '../src/programs/submission-matrix.repository';
 import { MilestoneDocumentCollectionReadRepository } from '../src/programs/milestone-document-collection-read.repository';
-import { ProgramTeamsRepository } from '../src/programs/program-teams.repository';
+import { TeamRepository } from '../src/programs/team.repository';
 import { TeamHistoryRepository } from '../src/programs/team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from '../src/programs/program-team-repository-evidence.repository';
 
@@ -365,7 +365,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
   const overview = new ProgramOverviewRepository(prisma, platform);
   const matrix = new SubmissionMatrixRepository(prisma, platform);
   const collection = new MilestoneDocumentCollectionReadRepository(prisma);
-  const teams = new ProgramTeamsRepository(
+  const teams = new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     platform,
@@ -454,8 +454,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     },
     {
       name: 'staff-team-detail',
-      method:
-        'ProgramTeamsRepository.findStaffTeamDetail (including evidence queries)',
+      method: 'TeamRepository.findStaffTeamDetail (including evidence queries)',
       run: async () => {
         const row = await teams.findStaffTeamDetail(programId, id('team-0'));
         expect(row?.members).toHaveLength(2);

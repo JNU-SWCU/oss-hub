@@ -10,13 +10,13 @@ import {
   type ApplicationsRepository,
   type ApplicationsTransactionStore,
   type ApplicationDecisionNotificationInput,
-} from './applications.repository';
+} from './team.repository';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsService } from './applications.service';
+import { TeamApplicationService } from './team-application.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 const APPLICATION_ID = 'synthetic-application';
 const ACTOR_ID = 'synthetic-actor';
@@ -110,7 +110,7 @@ function createHarness(
     findRepositoryProvisionEvent: jest.fn(),
     discardRepositoryProvisionRequest: jest.fn().mockResolvedValue(undefined),
   } as unknown as ApplicationsRepository;
-  const service = new ApplicationsService(
+  const service = new TeamApplicationService(
     repository,
     { record } as unknown as AuditLogService,
     new AuditLogMetadataService(),
@@ -141,7 +141,7 @@ function expectDomainCode(error: unknown, code: ApplicationsErrorCode): void {
   expect(error.errorCode.code).toBe(code);
 }
 
-describe('ApplicationsService.decide — #547 감사 기록', () => {
+describe('TeamApplicationService.decide — #547 감사 기록', () => {
   it.each([
     [{ action: 'UNKNOWN' }, ApplicationsErrorCode.INVALID_DECISION_ACTION],
     [{ action: 'REJECT' }, ApplicationsErrorCode.REJECTION_REASON_REQUIRED],
@@ -325,7 +325,7 @@ describe('ApplicationsService.decide — #547 감사 기록', () => {
   });
 });
 
-describe('ApplicationsService.decide — REVERT', () => {
+describe('TeamApplicationService.decide — REVERT', () => {
   it('반려 취소: REJECTED → SUBMITTED 성공하고 APPLICATION_REVERTED를 기록한다', async () => {
     const { service, record, store, transitionApplication } = createHarness();
     (store.findApplicationById as jest.Mock).mockResolvedValue(
@@ -681,7 +681,7 @@ describe('ApplicationsService.decide — REVERT', () => {
   });
 });
 
-describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
+describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
   it('APPROVED → REJECT: 기대 상태 APPROVED로 한 번에 전이하고 반려로 기록한다', async () => {
     const {
       service,
@@ -992,7 +992,7 @@ describe('ApplicationsService.decide — #1272 반대 판정 직행', () => {
   });
 });
 
-describe('ApplicationsService.decide — 판정 이력과 알림', () => {
+describe('TeamApplicationService.decide — 판정 이력과 알림', () => {
   it.each([
     [
       APPLICATION_DECISION_ACTIONS.APPROVE,

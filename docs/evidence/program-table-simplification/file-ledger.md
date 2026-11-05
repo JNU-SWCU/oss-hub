@@ -16,10 +16,10 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 범위: `apps/backend/src/programs/**/*.ts`. `spec`, `fixture`, `fixtures`, `test-support`, `integration-support`로 끝나는 테스트 파일은 제외한다. 줄 수는 빈 줄을 포함한 물리적 줄 수이며 마지막 개행은 추가 줄로 세지 않는다.
 
-| 범위 | Before files | Before lines | Todo 1 after files | Todo 1 after lines |
-| --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 245 | 37919 | 245 | 37919 |
-| platform/audit-log* 제품 파일 (별도 범위) | 10 | 2279 | 10 | 2279 |
+| 범위                                      | Before files | Before lines | Todo 1 after files | Todo 1 after lines |
+| ----------------------------------------- | -----------: | -----------: | -----------------: | -----------------: |
+| programs 제품 파일 (DTO 포함)             |          245 |        37919 |                245 |              37919 |
+| platform/audit-log* 제품 파일 (별도 범위) |           10 |         2279 |                 10 |               2279 |
 
 최종 감소 목표 수치는 두지 않는다. Action 집계: {"merge":101,"delete":9,"keep":135}. 이후 단계의 after 값은 각 Todo가 실제 변경한 뒤에만 기록한다.
 
@@ -29,10 +29,10 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 첫 릴리스의 프론트는 `RETRYABLE_FAILED`/`FAILED`와 `FAILED_RETRYABLE`/`FAILED_FINAL`을 모두 표시한다. 백엔드 응답 전환은 이 프론트가 배포된 다음 릴리스다. `TeamInvitation`의 공개 `invitedAt` 응답 키는 유지하고 `createdAt`에서 읽는다. 기존 초대 시각은 마이그레이션에서 보존한다. 재초대 시각이 의미 있는 `ApplicationPreparationParticipant.invitedAt`은 Todo 8 소유이므로 유지한다.
 
-| 범위 | Before files | Before lines | Todo 2 준비 after files | Todo 2 준비 after lines |
-| --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 245 | 37919 | 245 | 37832 |
-| 별도 join-code-secret 제품 파일 | 2 | 36 | 0 | 0 |
+| 범위                            | Before files | Before lines | Todo 2 준비 after files | Todo 2 준비 after lines |
+| ------------------------------- | -----------: | -----------: | ----------------------: | ----------------------: |
+| programs 제품 파일 (DTO 포함)   |          245 |        37919 |                     245 |                   37832 |
+| 별도 join-code-secret 제품 파일 |            2 |           36 |                       0 |                       0 |
 
 ### 삭제 전 호출부 목록
 
@@ -58,10 +58,10 @@ Action은 최종 의도(`delete`/`merge`/`keep`), State는 실제 현재 상태(
 
 두 백엔드 응답 경로(`ApplicationsService`, `ProgramTeamsService`) 모두 `RepositoryProvisionJobStatus`를 그대로 내보낸다. `RETRYABLE_FAILED`/`FAILED` 변환을 없애고 `FAILED_RETRYABLE`/`FAILED_FINAL`을 사용한다. 프론트의 표준 상태 타입도 같은 값이며, API 입력 경계만 직전 backend의 별칭을 계속 수용한다. 표시 라벨은 그대로다. 아카이브는 `PENDING`으로 바꾸지 않고 `SubmissionStatus.SUBMITTED`를 사용한다. CSV의 한국어 표시와 다른 기능의 PENDING 상태는 바꾸지 않는다.
 
-| 범위 | 기준 files | 기준 lines | 준비 릴리스 lines | 후속 릴리스 files | 후속 릴리스 lines |
-| --- | ---: | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 245 | 37919 | 37832 | 245 | 37779 |
-| 별도 join-code-secret 제품 파일 | 2 | 36 | 0 | 0 | 0 |
+| 범위                            | 기준 files | 기준 lines | 준비 릴리스 lines | 후속 릴리스 files | 후속 릴리스 lines |
+| ------------------------------- | ---------: | ---------: | ----------------: | ----------------: | ----------------: |
+| programs 제품 파일 (DTO 포함)   |        245 |      37919 |             37832 |               245 |             37779 |
+| 별도 join-code-secret 제품 파일 |          2 |         36 |                 0 |                 0 |                 0 |
 
 단일 PK를 기대하던 DB 상태에서 복합 PK 회귀 테스트가 실패하는 것을 먼저 확인했다. 최종 스펙은 실제 pg_constraint의 PK 순서와 정보 스키마의 옛 컬럼 부재를 검사한 뒤, 같은 DB에서 초대 수락·탈퇴·중복 저장 키·sentinel 시작일 거부를 확인한다.
 
@@ -73,9 +73,9 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 지정된 다섯 파일의 구현을 programs.repository.ts와 programs.service.ts로 옮겼다. 호출부는 새 경로를 직접 import한다. 생성·조회·삭제의 기존 Nest provider 이름은 각 DI 계약을 유지하며, forwarding 파일이나 호환 wrapper는 추가하지 않았다. program-lifecycle.error.ts는 삭제 건수 불일치라는 전제가 사라져 제거했다. 이 오류는 Todo 11까지 남겨두지 않는다.
 
-| 범위 | Todo 2 이후 files | Todo 2 이후 lines | Todo 5 준비 files | Todo 5 준비 lines |
-| --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 245 | 37779 | 239 | 37447 |
+| 범위                          | Todo 2 이후 files | Todo 2 이후 lines | Todo 5 준비 files | Todo 5 준비 lines |
+| ----------------------------- | ----------------: | ----------------: | ----------------: | ----------------: |
+| programs 제품 파일 (DTO 포함) |               245 |             37779 |               239 |             37447 |
 
 ## Todo 7: 등록 레포 수집과 삭제 경계
 
@@ -89,13 +89,13 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 `program-team-deletion.repository.ts`는 연결 해제 대신 레포·레포 초대·수집 사실을 삭제한다. `student-repository-url-transaction.repository.ts`와 발급 경로는 교체된 레포를 삭제하고 감사에 옛 URL과 삭제 건수를 남긴다. 프로그램 파일의 Todo 9 병합 의도는 유지하며, TeamHistory 전환도 Todo 8/9 소유다.
 
-| 범위 | Before files | Before lines | Todo 7 after files | Todo 7 after lines |
-| --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 | 245 | 37779 | 245 | 37795 |
+| 범위               | Before files | Before lines | Todo 7 after files | Todo 7 after lines |
+| ------------------ | -----------: | -----------: | -----------------: | -----------------: |
+| programs 제품 파일 |          245 |        37779 |                245 |              37795 |
 
-| Path | Action | Target | Todo | State | Before lines | 이유 |
-| --- | --- | --- | ---: | --- | ---: | --- |
-| `apps/backend/src/platform/repository-deletion.repository.ts` | keep | `apps/backend/src/platform/repository-deletion.repository.ts` | 7 | present | 0 | 수동·발급 교체가 공용 트랜잭션 repository에서 같은 FK 정리와 삭제 건수 계측을 사용 |
+| Path                                                          | Action | Target                                                        | Todo | State   | Before lines | 이유                                                                               |
+| ------------------------------------------------------------- | ------ | ------------------------------------------------------------- | ---: | ------- | -----------: | ---------------------------------------------------------------------------------- |
+| `apps/backend/src/platform/repository-deletion.repository.ts` | keep   | `apps/backend/src/platform/repository-deletion.repository.ts` |    7 | present |            0 | 수동·발급 교체가 공용 트랜잭션 repository에서 같은 FK 정리와 삭제 건수 계측을 사용 |
 
 레거시 연간 집계 테이블은 기존 CASCADE FK로 승인 대상 행만 정리한다. 테이블 폐기·Prisma 편입은 하지 않는다. 상세 전후 건수와 배포 순서는 `task-7-program-table-simplification.md`에 기록한다.
 
@@ -115,9 +115,9 @@ v0.24.44가 운영된 뒤 읽기 전용 집계로 Preparation 두 테이블 0건
 
 R1 판정에 따라 새 Preparation 생성만 410으로 중단한다. 기존 준비의 초대·수락·거절·취소·구성원 제외·탈퇴·준비 삭제와 reader·소비는 유지한다. 자신의 기존 준비를 여는 멱등 생성 요청도 새 행 없이 반환한다. capability는 실제 허용된 기존 조작과 일치한다. 3a만 live인 상태에서 두 테이블이 0임을 확인하기 전에는 reader를 제거하지 않는다. 나머지 3b와 물리 DROP 경계는 유지한다.
 
-| 범위 | 3a before files | 3a before lines | 3a after files | 3a after lines |
-| --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 249 | 39038 | 249 | 39145 |
+| 범위                          | 3a before files | 3a before lines | 3a after files | 3a after lines |
+| ----------------------------- | --------------: | --------------: | -------------: | -------------: |
+| programs 제품 파일 (DTO 포함) |             249 |           39038 |            249 |          39145 |
 
 등록 초기화는 v0.24.42와 같은 legacy 행을 보므로 3a rollback에서 보호가 사라지지 않는다. 3b는 이력 기반 판정과 terminal writer 중단을 먼저 배포한 뒤 row를 삭제해야 하며, 그 시점부터 rollback 하한은 해당 3b 호환 릴리스다. 상세 경계는 `task-8-history-3a.md`에 기록한다.
 
@@ -125,20 +125,20 @@ R1 판정에 따라 새 Preparation 생성만 410으로 중단한다. 기존 준
 
 A는 지원 시 본인과 지명 인원을 최소 이상·최대 이하로 검사하고, 팀·팀장 구성원·지원서·대기 초대를 원자적으로 만든다. 승인 시에는 실제 수락 인원을 검사한다. 최소 2명 이상 프로그램의 혼자 지원은 거부한다. 기존 준비팀 지원 경로와 구 프론트는 유지한다. B는 A가 실제 운영 백엔드에 반영된 뒤에만 배포하는 후속 draft다. Vercel release 배포는 Jenkins 완료를 기다리지 않는다.
 
-| A의 제품 파일 | Before lines | After lines |
-| --- | ---: | ---: |
-| applications.service.ts | 1004 | 1073 |
-| applications.repository.ts | 1593 | 1689 |
+| A의 제품 파일              | Before lines | After lines |
+| -------------------------- | -----------: | ----------: |
+| applications.service.ts    |         1004 |        1073 |
+| applications.repository.ts |         1593 |        1689 |
 
 준비팀 파일과 테이블·초대 status의 사용 중단 및 물리 삭제는 후속 3·4단계다. 이번 단계에서 삭제된 제품 파일은 0개이며 present 상태를 유지한다. 기존 큰 서비스·저장소는 트랜잭션과 준비팀 호환 경계 때문에 유지하고, 새 검증의 구성 fixture와 행동 테스트는 각각 순수 코드 250줄 이내로 분리했다.
 
 B는 지원서에서 기존 검색 패널로 학생을 로컬 지명하고 최종 제출 때만 초대를 만든다. 교직원에게 수락 1/2명과 APP_019 승인 거부 이유를 표시한다. 학생·교직원 가이드와 실제 두 폭 캡처를 B에 담으며, A도 이 응답의 소비 화면 증거를 링크한다.
 
-| B의 지원 화면 | Before lines | After lines |
-| --- | ---: | ---: |
-| program-apply-page.tsx | 561 | 521 |
-| program-apply-views.tsx | 617 | 620 |
-| application-invitees.tsx | 0 | 144 |
+| B의 지원 화면            | Before lines | After lines |
+| ------------------------ | -----------: | ----------: |
+| program-apply-page.tsx   |          561 |         521 |
+| program-apply-views.tsx  |          617 |         620 |
+| application-invitees.tsx |            0 |         144 |
 
 ### Todo 9에 남긴 계약 26-1 공백
 
@@ -148,268 +148,268 @@ B는 지원서에서 기존 검색 패널로 학생을 로컬 지명하고 최�
 
 Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설정 파일은 평평한 core 서비스 목록 외의 전송·설정 경계로 유지하며 이유를 행별로 적었다. Todo 1의 keep은 소유자가 명시한 범위 유지이고 후속 변경을 추가로 약속하지 않는다. 같은 파일의 여러 Todo가 겹치는 경우 최종 병합/삭제 Todo를 기록하고 선행 수정은 이유에 적었다. 오류 파일은 계약대로 Todo 11의 도메인 접두사 통합이며, File 경계에 속하는 오류는 Todo 6에서 먼저 이동한다.
 
-| Path | Action | Target | Todo | State | Before lines | 이유 |
-| --- | --- | --- | ---: | --- | ---: | --- |
-| `apps/backend/src/programs/application-answers.service.ts` | merge | `team-application.service.ts` | 9 | present | 159 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침 |
-| `apps/backend/src/programs/application-preparation.error.ts` | delete | - | 8 | deleted | 52 | 3b에서 폐기한 준비 경로의 타입 제거 |
-| `apps/backend/src/programs/application-preparations.controller.ts` | delete | - | 8 | deleted | 153 | 최종 전환에서 호환 GET과 컨트롤러 제거 |
-| `apps/backend/src/programs/application-preparations.repository.ts` | delete | - | 8 | deleted | 397 | 0건 확인 후 3b에서 reader·consumer 제거 |
-| `apps/backend/src/programs/application-preparations.service.ts` | delete | - | 8 | deleted | 190 | 0건 확인 후 3b에서 준비 작업 제거 |
-| `apps/backend/src/programs/team-history.repository.ts` | keep | - | 8 | present | 0 | 범용 TeamHistory의 초대 종료 사건 기록 |
-| `apps/backend/src/programs/application-templates.controller.ts` | merge | `teams.controller.ts` | 9 | present | 19 | 팀 경로로 전환 |
-| `apps/backend/src/programs/applications-error-code.error.ts` | merge | `teams.error.ts` | 11 | present | 184 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/applications.config.ts` | merge | `team-application.service.ts` | 9 | present | 14 | 지원 상태 어휘를 팀 지원에 통합 |
-| `apps/backend/src/programs/applications.controller.ts` | merge | `teams.controller.ts` | 9 | present | 75 | 팀 경로로 전환 |
-| `apps/backend/src/programs/applications.error.ts` | merge | `teams.error.ts` | 11 | present | 17 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/applications.repository.ts` | merge | `team.repository.ts` | 9 | present | 1612 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정 |
-| `apps/backend/src/programs/applications.service.ts` | merge | `team-application.service.ts` | 9 | present | 1057 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침 |
-| `apps/backend/src/programs/board-error-code.error.ts` | keep | `board-error-code.error.ts` | 11 | present | 37 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/board.controller.ts` | keep | `board.controller.ts` | 9 | present | 158 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/board.repository.ts` | keep | `board.repository.ts` | 9 | present | 357 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/board.service.ts` | keep | `board.service.ts` | 9 | present | 329 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/download-response.service.ts` | keep | `download-response.service.ts` | 1 | present | 84 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/dto/accept-team-invitation-response.dto.ts` | keep | `dto/accept-team-invitation-response.dto.ts` | 9 | present | 12 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/application-decision-response.dto.ts` | keep | `dto/application-decision-response.dto.ts` | 9 | present | 40 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/application-list-page-response.dto.ts` | keep | `dto/application-list-page-response.dto.ts` | 9 | present | 183 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/application-list-request.dto.ts` | keep | `dto/application-list-request.dto.ts` | 9 | present | 44 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/application-preparation-response.dto.ts` | delete | - | 8 | deleted | 107 | 준비 상태 응답 제거, 호환 NONE DTO만 유지 |
-| `apps/backend/src/programs/dto/application-template-response.dto.ts` | keep | `dto/application-template-response.dto.ts` | 9 | present | 57 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/board-post-list-request.dto.ts` | keep | `dto/board-post-list-request.dto.ts` | 11 | present | 17 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/board-post-pin-response.dto.ts` | keep | `dto/board-post-pin-response.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/board-post-response.dto.ts` | keep | `dto/board-post-response.dto.ts` | 11 | present | 111 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/confirm-repository-publish-request.dto.ts` | keep | `dto/confirm-repository-publish-request.dto.ts` | 11 | present | 6 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-application-preparation-request.dto.ts` | delete | - | 8 | deleted | 12 | R1에서 새 이름 입력을 사용하지 않는 생성 차단·멱등 조회로 전환 |
-| `apps/backend/src/programs/dto/create-application-request.dto.ts` | keep | `dto/create-application-request.dto.ts` | 9 | present | 29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-application-response.dto.ts` | keep | `dto/create-application-response.dto.ts` | 9 | present | 30 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-board-comment-request.dto.ts` | keep | `dto/create-board-comment-request.dto.ts` | 11 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-board-post-request.dto.ts` | keep | `dto/create-board-post-request.dto.ts` | 11 | present | 13 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-milestone-document-review-request.dto.ts` | keep | `dto/create-milestone-document-review-request.dto.ts` | 4 | present | 33 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-milestone-document-submission-request.dto.ts` | keep | `dto/create-milestone-document-submission-request.dto.ts` | 4 | present | 29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-program-document-change-request-request.dto.ts` | keep | `dto/create-program-document-change-request-request.dto.ts` | 4 | present | 35 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-program-request.dto.ts` | keep | `dto/create-program-request.dto.ts` | 11 | present | 48 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-program-response.dto.ts` | keep | `dto/create-program-response.dto.ts` | 11 | present | 22 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-submission-request.dto.ts` | keep | `dto/create-submission-request.dto.ts` | 4 | present | 64 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-submission-review-request.dto.ts` | keep | `dto/create-submission-review-request.dto.ts` | 4 | present | 15 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/create-team-invitation-request.dto.ts` | keep | `dto/create-team-invitation-request.dto.ts` | 9 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/delete-program-response.dto.ts` | keep | `dto/delete-program-response.dto.ts` | 11 | present | 11 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/delete-team-request.dto.ts` | keep | `dto/delete-team-request.dto.ts` | 9 | present | 57 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/deleted-response.dto.ts` | keep | `dto/deleted-response.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/editable-program-response.dto.ts` | keep | `dto/editable-program-response.dto.ts` | 11 | present | 150 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/invitation-candidate-response.dto.ts` | keep | `dto/invitation-candidate-response.dto.ts` | 11 | present | 19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/invite-application-preparation-request.dto.ts` | delete | - | 8 | deleted | 7 | 3b에서 폐기한 초대 경로 입력 제거 |
-| `apps/backend/src/programs/dto/milestone-document-archive-request.dto.ts` | keep | `dto/milestone-document-archive-request.dto.ts` | 4 | present | 23 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/milestone-document-collection-request.dto.ts` | keep | `dto/milestone-document-collection-request.dto.ts` | 4 | present | 50 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/milestone-document-collection-response.dto.ts` | keep | `dto/milestone-document-collection-response.dto.ts` | 4 | present | 298 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/milestone-document-history-page-response.dto.ts` | keep | `dto/milestone-document-history-page-response.dto.ts` | 4 | present | 51 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/milestone-document-history-request.dto.ts` | keep | `dto/milestone-document-history-request.dto.ts` | 4 | present | 23 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/milestone-document-response.dto.ts` | keep | `dto/milestone-document-response.dto.ts` | 4 | present | 152 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/milestone-document-review-response.dto.ts` | keep | `dto/milestone-document-review-response.dto.ts` | 4 | present | 25 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/milestone-document-submission-response.dto.ts` | keep | `dto/milestone-document-submission-response.dto.ts` | 4 | present | 45 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/my-application-preparation-response.dto.ts` | delete | - | 8 | deleted | 20 | 최종 전환에서 호환 NONE DTO 제거 |
-| `apps/backend/src/programs/dto/my-program-team-response.dto.ts` | keep | `dto/my-program-team-response.dto.ts` | 9 | present | 15 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/my-student-application-response.dto.ts` | keep | `dto/my-student-application-response.dto.ts` | 9 | present | 17 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/patch-application-decision-request.dto.ts` | keep | `dto/patch-application-decision-request.dto.ts` | 9 | present | 11 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-authoring-request.dto.ts` | keep | `dto/program-authoring-request.dto.ts` | 11 | present | 229 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-authoring-upload-policy-response.dto.ts` | keep | `dto/program-authoring-upload-policy-response.dto.ts` | 6 | present | 20 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-authoring-upload-response.dto.ts` | keep | `dto/program-authoring-upload-response.dto.ts` | 6 | present | 21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-detail-response.dto.ts` | keep | `dto/program-detail-response.dto.ts` | 11 | present | 169 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-document-archive-request.dto.ts` | keep | `dto/program-document-archive-request.dto.ts` | 4 | present | 29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-document-change-request-count-response.dto.ts` | keep | `dto/program-document-change-request-count-response.dto.ts` | 4 | present | 9 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-document-change-request-targets-request.dto.ts` | keep | `dto/program-document-change-request-targets-request.dto.ts` | 4 | present | 19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-document-change-request-targets-response.dto.ts` | keep | `dto/program-document-change-request-targets-response.dto.ts` | 4 | present | 21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-ended-years-response.dto.ts` | keep | `dto/program-ended-years-response.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-id-response.dto.ts` | keep | `dto/program-id-response.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-list-request.dto.ts` | keep | `dto/program-list-request.dto.ts` | 11 | present | 55 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-list-response.dto.ts` | keep | `dto/program-list-response.dto.ts` | 11 | present | 68 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-notice-preview-request.dto.ts` | keep | `dto/program-notice-preview-request.dto.ts` | 11 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-notice-preview-response.dto.ts` | keep | `dto/program-notice-preview-response.dto.ts` | 11 | present | 22 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-overview-query-request.dto.ts` | keep | `dto/program-overview-query-request.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-overview-response.dto.ts` | keep | `dto/program-overview-response.dto.ts` | 11 | present | 84 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-overview-team-response.dto.ts` | keep | `dto/program-overview-team-response.dto.ts` | 9 | present | 35 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-status-counts-response.dto.ts` | keep | `dto/program-status-counts-response.dto.ts` | 11 | present | 19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-team-response.dto.ts` | keep | `dto/program-team-response.dto.ts` | 9 | present | 76 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/program-viewer-request.dto.ts` | keep | `dto/program-viewer-request.dto.ts` | 11 | present | 7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/public-project-page-response.dto.ts` | keep | `dto/public-project-page-response.dto.ts` | 11 | present | 117 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/public-project-request.dto.ts` | keep | `dto/public-project-request.dto.ts` | 11 | present | 33 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/public-user-profile-response.dto.ts` | keep | `dto/public-user-profile-response.dto.ts` | 6 | present | 86 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/purge-program-request.dto.ts` | keep | `dto/purge-program-request.dto.ts` | 11 | present | 44 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/purge-program-response.dto.ts` | keep | `dto/purge-program-response.dto.ts` | 11 | present | 16 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/received-team-invitation-response.dto.ts` | keep | `dto/received-team-invitation-response.dto.ts` | 9 | present | 38 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/rename-team-request.dto.ts` | keep | `dto/rename-team-request.dto.ts` | 9 | present | 14 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/repository-url-history-request.dto.ts` | keep | `dto/repository-url-history-request.dto.ts` | 9 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/search-application-preparation-request.dto.ts` | delete | - | 8 | deleted | 7 | 3b에서 폐기한 검색 경로 입력 제거 |
-| `apps/backend/src/programs/dto/search-invitation-candidates-request.dto.ts` | keep | `dto/search-invitation-candidates-request.dto.ts` | 11 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/set-board-post-pinned-request.dto.ts` | keep | `dto/set-board-post-pinned-request.dto.ts` | 11 | present | 6 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/staff-team-detail-response.dto.ts` | keep | `dto/staff-team-detail-response.dto.ts` | 9 | present | 70 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/student-application-response.dto.ts` | keep | `dto/student-application-response.dto.ts` | 9 | present | 48 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/student-repository-url-response.dto.ts` | keep | `dto/student-repository-url-response.dto.ts` | 9 | present | 13 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/submission-form-response.dto.ts` | keep | `dto/submission-form-response.dto.ts` | 4 | present | 200 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/submission-matrix-request.dto.ts` | keep | `dto/submission-matrix-request.dto.ts` | 4 | present | 28 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/submission-matrix-response.dto.ts` | keep | `dto/submission-matrix-response.dto.ts` | 4 | present | 98 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/submission-review-context-response.dto.ts` | keep | `dto/submission-review-context-response.dto.ts` | 4 | present | 135 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/team-activity-response.dto.ts` | keep | `dto/team-activity-response.dto.ts` | 9 | present | 23 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/team-invitation-response.dto.ts` | keep | `dto/team-invitation-response.dto.ts` | 9 | present | 47 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/team-management-list-page-response.dto.ts` | keep | `dto/team-management-list-page-response.dto.ts` | 9 | present | 57 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/transfer-team-leader-request.dto.ts` | keep | `dto/transfer-team-leader-request.dto.ts` | 9 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/update-board-post-request.dto.ts` | keep | `dto/update-board-post-request.dto.ts` | 11 | present | 3 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/update-milestone-document-grace-request.dto.ts` | keep | `dto/update-milestone-document-grace-request.dto.ts` | 4 | present | 8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/update-milestone-request.dto.ts` | keep | `dto/update-milestone-request.dto.ts` | 11 | present | 74 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/update-student-application-request.dto.ts` | keep | `dto/update-student-application-request.dto.ts` | 9 | present | 12 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/update-student-repository-url-request.dto.ts` | keep | `dto/update-student-repository-url-request.dto.ts` | 9 | present | 19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/uploaded-milestone-document-file-response.dto.ts` | keep | `dto/uploaded-milestone-document-file-response.dto.ts` | 4 | present | 21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/uploaded-submission-file-response.dto.ts` | keep | `dto/uploaded-submission-file-response.dto.ts` | 4 | present | 21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/dto/upsert-milestone-request.dto.ts` | keep | `dto/upsert-milestone-request.dto.ts` | 11 | present | 24 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환 |
-| `apps/backend/src/programs/milestone-completion.config.ts` | keep | `milestone-completion.config.ts` | 4 | present | 13 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/milestone-completion.service.ts` | merge | `submissions.service.ts` | 4 | present | 143 | 제출 완료 판정 통합 |
-| `apps/backend/src/programs/milestone-document-archive.error.ts` | merge | `submissions.error.ts` | 11 | present | 10 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/milestone-document-archive.repository.ts` | merge | `requirements.repository.ts` | 4 | present | 118 | 항목 아카이브 조회 |
-| `apps/backend/src/programs/milestone-document-archive.service.ts` | merge | `requirement-archive.service.ts` | 4 | present | 808 | 항목 수집과 아카이브 서비스 |
-| `apps/backend/src/programs/milestone-document-collection-read.repository.ts` | merge | `requirements.repository.ts` | 4 | present | 356 | 항목·제출 조회 통합; 파일 메타데이터는 Todo 6에서 File로 |
-| `apps/backend/src/programs/milestone-document-collection.service.ts` | merge | `requirement-archive.service.ts` | 4 | present | 560 | 항목 수집과 아카이브 서비스 |
-| `apps/backend/src/programs/milestone-document-current-file.repository.ts` | merge | `requirements.repository.ts` | 4 | present | 120 | 항목·제출 조회 통합; 파일 메타데이터는 Todo 6에서 File로 |
-| `apps/backend/src/programs/milestone-document-file-name.service.ts` | merge | `requirement-archive.service.ts` | 4 | present | 125 | 아카이브 파일 이름 경계 |
-| `apps/backend/src/programs/milestone-document-files.controller.ts` | merge | `files.controller.ts` | 6 | present | 87 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/milestone-document-files.service.ts` | merge | `files.service.ts` | 6 | present | 471 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/milestone-document-reviews.service.ts` | merge | `submissions.service.ts` | 4 | present | 198 | 제출 입력·심사 통합 |
-| `apps/backend/src/programs/milestone-document-submission-window.service.ts` | merge | `submissions.service.ts` | 4 | present | 128 | 제출 기간 판정 통합 |
-| `apps/backend/src/programs/milestone-document-submission.error.ts` | merge | `submissions.error.ts` | 11 | present | 19 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/milestone-document-submission.repository.ts` | merge | `submissions.repository.ts` | 4 | deleted | 258 | 준비 단계에서 제출 트랜잭션을 submissions.repository로 병합; 기존 DI 계약은 이전 API와 함께 후속 단계까지 유지 |
-| `apps/backend/src/programs/milestone-documents-error-code.error.ts` | merge | `submissions.error.ts` | 11 | present | 339 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/milestone-documents.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 267 | 항목 이름과 경로 전환 |
-| `apps/backend/src/programs/milestone-documents.error.ts` | merge | `submissions.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/milestone-documents.repository.ts` | merge | `requirements.repository.ts` | 4 | present | 1616 | 항목·제출 조회 통합; 파일 메타데이터는 Todo 6에서 File로 |
-| `apps/backend/src/programs/milestone-documents.service.ts` | merge | `requirements.service.ts` | 4 | present | 703 | 항목 관리 |
-| `apps/backend/src/programs/milestones.controller.ts` | keep | `milestones.controller.ts` | 4 | present | 105 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/prisma-storage-reference.repository.ts` | merge | `files.repository.ts` | 6 | present | 161 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-activity-summary.service.ts` | keep | `program-activity-summary.service.ts` | 9 | present | 123 | 팀 기준 활동으로 변경; 계산 경계 유지 |
-| `apps/backend/src/programs/program-activity.config.ts` | keep | `program-activity.config.ts` | 9 | present | 1 | 팀 기준 활동으로 변경; 계산 경계 유지 |
-| `apps/backend/src/programs/program-activity.repository.ts` | keep | `program-activity.repository.ts` | 9 | present | 198 | 팀 기준 활동으로 변경; 계산 경계 유지 |
-| `apps/backend/src/programs/program-activity.service.ts` | keep | `program-activity.service.ts` | 9 | present | 323 | 팀 기준 활동으로 변경; 계산 경계 유지 |
-| `apps/backend/src/programs/program-applications.controller.ts` | merge | `teams.controller.ts` | 9 | present | 78 | 팀 경로로 전환 |
-| `apps/backend/src/programs/program-authoring-upload-maintenance.service.ts` | merge | `file-cleanup.service.ts` | 6 | present | 123 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-authoring-upload-transaction.repository.ts` | merge | `files.repository.ts` | 6 | present | 242 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-authoring-upload.config.ts` | merge | `files.service.ts` | 6 | present | 12 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-authoring-upload.error.ts` | merge | `files.error.ts` | 6 | present | 35 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-authoring-upload.repository.ts` | merge | `files.repository.ts` | 6 | present | 209 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-authoring-upload.service.ts` | merge | `files.service.ts` | 6 | present | 382 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-authoring-validation.error.ts` | merge | `programs.error.ts` | 11 | present | 12 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-authoring.controller.ts` | keep | `program-authoring.controller.ts` | 11 | present | 139 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-authoring.error.ts` | merge | `programs.error.ts` | 11 | present | 57 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-authoring.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 248 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-authoring.service.ts` | merge | `programs.service.ts` | 5 | deleted | 545 | 프로그램 생성 요청 흡수·상태 삭제 |
-| `apps/backend/src/programs/program-cover-url.service.ts` | merge | `programs.service.ts` | 5 | present | 15 | 프로그램 외부 커버 응답 유지 |
-| `apps/backend/src/programs/program-cover.config.ts` | keep | `program-cover.config.ts` | 5 | present | 1 | 외부 커버는 Program 컬럼으로 유지 |
-| `apps/backend/src/programs/program-cover.repository.ts` | merge | `files.repository.ts` | 6 | present | 156 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-creation.service.ts` | merge | `programs.service.ts` | 5 | present | 192 | 프로그램 생성 요청 흡수·상태 삭제 |
-| `apps/backend/src/programs/program-deletion-scope.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 224 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-document-archives.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 46 | 항목 중심 API 경계 |
-| `apps/backend/src/programs/program-document-change-requests.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 73 | 항목 중심 API 경계 |
-| `apps/backend/src/programs/program-document-change-requests.service.ts` | merge | `requirements.service.ts` | 4 | present | 259 | 항목별 변경 요청 |
-| `apps/backend/src/programs/program-editor.error.ts` | merge | `programs.error.ts` | 11 | present | 18 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-editor.repository.ts` | keep | `program-editor.repository.ts` | 11 | present | 868 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-editor.service.ts` | keep | `program-editor.service.ts` | 11 | present | 858 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-error-code.error.ts` | merge | `programs.error.ts` | 11 | present | 94 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-lifecycle.config.ts` | keep | `program-lifecycle.config.ts` | 11 | present | 207 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-lifecycle.error.ts` | delete | - | 5 | deleted | 6 | 물리 삭제 건수 대조가 사라져 오류 타입도 제거 |
-| `apps/backend/src/programs/program-lifecycle.repository.ts` | merge | `programs.repository.ts` | 5 | deleted | 477 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-lifecycle.service.ts` | merge | `programs.service.ts` | 5 | deleted | 227 | 프로그램 생성 요청 흡수·상태 삭제 |
-| `apps/backend/src/programs/program-list-status-filter.repository.ts` | merge | `programs.repository.ts` | 5 | present | 244 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-list.config.ts` | keep | `program-list.config.ts` | 11 | present | 16 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-notice-error-code.error.ts` | keep | `program-notice-error-code.error.ts` | 11 | present | 25 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-notice-fetch.client.ts` | keep | `program-notice-fetch.client.ts` | 1 | present | 605 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/program-overview-error-code.error.ts` | merge | `programs.error.ts` | 11 | present | 16 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-overview.controller.ts` | keep | `program-overview.controller.ts` | 11 | present | 35 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-overview.repository.ts` | merge | `programs.repository.ts` | 5 | present | 389 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지 |
-| `apps/backend/src/programs/program-overview.service.ts` | keep | `program-overview.service.ts` | 11 | present | 388 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/program-purge-file-cleanup.repository.ts` | merge | `files.repository.ts` | 6 | present | 111 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-purge-file-cleanup.service.ts` | merge | `file-cleanup.service.ts` | 6 | present | 113 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/program-read-error-code.error.ts` | merge | `programs.error.ts` | 11 | present | 15 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-schedule.service.ts` | keep | `program-schedule.service.ts` | 1 | present | 52 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/program-submissions.controller.ts` | merge | `submissions.controller.ts` | 4 | present | 52 | 중복 제출 컨트롤러 경계 축소 |
-| `apps/backend/src/programs/program-team-deletion.error.ts` | merge | `teams.error.ts` | 11 | present | 6 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-team-deletion.repository.ts` | merge | `team.repository.ts` | 9 | present | 332 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정 |
-| `apps/backend/src/programs/program-team-repository-evidence.error.ts` | merge | `teams.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/program-team-repository-evidence.repository.ts` | keep | `program-team-repository-evidence.repository.ts` | 10 | present | 496 | AuditLog 읽기를 TeamHistory로 전환; 읽기 증거 경계 유지 |
-| `apps/backend/src/programs/program-teams.controller.ts` | merge | `teams.controller.ts` | 9 | present | 226 | 팀 경로로 전환 |
-| `apps/backend/src/programs/program-teams.repository.ts` | merge | `team.repository.ts` | 9 | present | 966 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정 |
-| `apps/backend/src/programs/program-teams.service.ts` | merge | `team-membership.service.ts` | 9 | present | 877 | 팀원 변경·위임·탈퇴 서비스 |
-| `apps/backend/src/programs/program-templates.service.ts` | merge | `team-application.service.ts` | 9 | present | 94 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침 |
-| `apps/backend/src/programs/program-viewer.service.ts` | keep | `program-viewer.service.ts` | 1 | present | 77 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/programs.controller.ts` | keep | `programs.controller.ts` | 11 | present | 251 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/programs.module.ts` | keep | `programs.module.ts` | 11 | present | 281 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/programs.repository.ts` | keep | `programs.repository.ts` | 11 | present | 403 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/programs.service.ts` | keep | `programs.service.ts` | 11 | present | 446 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/public-eligibility.repository.ts` | keep | `public-eligibility.repository.ts` | 1 | present | 41 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/public-project-cursor.error.ts` | keep | `public-project-cursor.error.ts` | 11 | present | 8 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/public-project-metrics.repository.ts` | keep | `public-project-metrics.repository.ts` | 1 | present | 114 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/public-projects-error-code.error.ts` | keep | `public-projects-error-code.error.ts` | 11 | present | 29 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/public-projects.config.ts` | keep | `public-projects.config.ts` | 1 | present | 8 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/public-projects.controller.ts` | keep | `public-projects.controller.ts` | 1 | present | 38 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/public-projects.repository.ts` | keep | `public-projects.repository.ts` | 1 | present | 178 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/public-projects.service.ts` | keep | `public-projects.service.ts` | 1 | present | 578 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/public-user-profile.controller.ts` | keep | `public-user-profile.controller.ts` | 1 | present | 20 | 구조표에서 명시한 유지 경계 |
-| `apps/backend/src/programs/review-history-writer.error.ts` | merge | `teams.error.ts` | 11 | present | 7 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/review-history-writer.repository.ts` | merge | `team-history.repository.ts` | 9 | present | 68 | 팀 지원 심사 이력 |
-| `apps/backend/src/programs/storage-orphan-reconciliation.config.ts` | merge | `file-cleanup.service.ts` | 6 | present | 7 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/storage-orphan-reconciliation.service.ts` | merge | `file-cleanup.service.ts` | 6 | present | 140 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/student-application-management.config.ts` | merge | `team-application.service.ts` | 9 | present | 13 | 재제출 상태 어휘 통합 |
-| `apps/backend/src/programs/student-application-management.repository.ts` | merge | `team.repository.ts` | 9 | present | 299 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정 |
-| `apps/backend/src/programs/student-application-management.service.ts` | merge | `team-application.service.ts` | 9 | present | 273 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침 |
-| `apps/backend/src/programs/student-applications.controller.ts` | merge | `teams.controller.ts` | 9 | present | 72 | 팀 경로로 전환 |
-| `apps/backend/src/programs/student-repository-url-context.repository.ts` | merge | `team.repository.ts` | 9 | present | 92 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
-| `apps/backend/src/programs/student-repository-url-transaction.repository.ts` | merge | `team.repository.ts` | 9 | present | 200 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
-| `apps/backend/src/programs/student-repository-url.controller.ts` | merge | `teams.controller.ts` | 9 | present | 45 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
-| `apps/backend/src/programs/student-repository-url.error.ts` | merge | `teams.error.ts` | 9 | present | 31 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
-| `apps/backend/src/programs/student-repository-url.service.ts` | merge | `team-application.service.ts` | 9 | present | 254 | 지원 ID 기반 레포 URL 경계를 팀으로 통합 |
-| `apps/backend/src/programs/submission-completion.config.ts` | keep | `submission-completion.config.ts` | 4 | present | 29 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/submission-history.config.ts` | keep | `submission-history.config.ts` | 4 | present | 0 | 통합 이력의 심사 이벤트 선택과 공개 판정 값 변환 |
-| `apps/backend/src/programs/dto/milestone-document-list-request.dto.ts` | keep | `dto/milestone-document-list-request.dto.ts` | 4 | present | 0 | 준비 단계의 전체 항목 opt-in 조회 계약 |
-| `apps/backend/src/programs/submission-dashboard-summary.error.ts` | merge | `submissions.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/submission-dashboard-summary.repository.ts` | merge | `submissions.repository.ts` | 4 | present | 242 | 제출 요약 읽기 |
-| `apps/backend/src/programs/submission-dashboard-summary.service.ts` | merge | `submission-matrix.service.ts` | 4 | present | 244 | 제출 현황 집계 |
-| `apps/backend/src/programs/submission-file-admission.service.ts` | merge | `files.service.ts` | 6 | present | 212 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/submission-file-cleanup.service.ts` | merge | `file-cleanup.service.ts` | 6 | present | 144 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/submission-file.error.ts` | merge | `files.error.ts` | 6 | present | 7 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/submission-files.controller.ts` | merge | `files.controller.ts` | 6 | present | 98 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/submission-files.repository.ts` | merge | `files.repository.ts` | 6 | present | 476 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/submission-files.service.ts` | merge | `files.service.ts` | 6 | present | 339 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합 |
-| `apps/backend/src/programs/submission-forms.controller.ts` | merge | `requirements.controller.ts` | 4 | present | 28 | 항목 중심 API 경계 |
-| `apps/backend/src/programs/submission-input.service.ts` | merge | `submissions.service.ts` | 4 | present | 74 | 제출 입력·심사 통합 |
-| `apps/backend/src/programs/submission-matrix.config.ts` | keep | `submission-matrix.config.ts` | 4 | present | 1 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/submission-matrix.repository.ts` | merge | `submissions.repository.ts` | 4 | present | 303 | 제출·심사·행렬의 레거시 축 제거 |
-| `apps/backend/src/programs/submission-matrix.service.ts` | keep | `submission-matrix.service.ts` | 4 | present | 231 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/submission-membership-changed.error.ts` | merge | `submissions.error.ts` | 11 | present | 10 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/submission-repository-publishing.controller.ts` | merge | `submissions.controller.ts` | 4 | present | 55 | 중복 제출 컨트롤러 경계 축소 |
-| `apps/backend/src/programs/submission-review-context-mapper.error.ts` | merge | `submissions.error.ts` | 11 | present | 3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/submission-reviews-error-code.error.ts` | merge | `submissions.error.ts` | 11 | present | 88 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/submission-reviews.repository.ts` | merge | `submissions.repository.ts` | 4 | present | 470 | 제출·심사·행렬의 레거시 축 제거 |
-| `apps/backend/src/programs/submission-reviews.service.ts` | merge | `submissions.service.ts` | 4 | present | 404 | 제출 입력·심사 통합 |
-| `apps/backend/src/programs/submission-upload.config.ts` | keep | `submission-upload.config.ts` | 4 | present | 28 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/submission-zip.error.ts` | merge | `submissions.error.ts` | 11 | present | 45 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/submissions-error-code.error.ts` | merge | `submissions.error.ts` | 11 | present | 239 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/submissions.controller.ts` | keep | `submissions.controller.ts` | 4 | present | 115 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/submissions.error.ts` | keep | `submissions.error.ts` | 11 | present | 19 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/submissions.repository.ts` | keep | `submissions.repository.ts` | 4 | present | 964 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/submissions.service.ts` | keep | `submissions.service.ts` | 4 | present | 464 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/team-deletion-scope.config.ts` | keep | `team-deletion-scope.config.ts` | 9 | present | 12 | 삭제 확인 계약은 유지하되 팀 저장소가 소유 |
-| `apps/backend/src/programs/team-deletion-scope.repository.ts` | merge | `team.repository.ts` | 9 | present | 169 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정 |
-| `apps/backend/src/programs/team-invitation-error-code.error.ts` | merge | `teams.error.ts` | 11 | present | 88 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/programs/team-invitations.controller.ts` | keep | `team-invitations.controller.ts` | 8 | present | 119 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/team-invitations.repository.ts` | keep | `team-invitations.repository.ts` | 8 | present | 755 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/team-invitations.service.ts` | keep | `team-invitations.service.ts` | 8 | present | 249 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인 |
-| `apps/backend/src/programs/teams-error-code.error.ts` | merge | `teams.error.ts` | 11 | present | 100 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화 |
-| `apps/backend/src/platform/audit-log-error-code.error.ts` | delete | - | 10 | present | 26 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log-feed.config.ts` | delete | - | 10 | present | 62 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log-history-metadata.config.ts` | delete | - | 10 | present | 22 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log-metadata.config.ts` | delete | - | 10 | present | 483 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log-metadata.service.ts` | delete | - | 10 | present | 1065 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log-query.types.ts` | delete | - | 10 | present | 8 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log-read.service.ts` | merge | `apps/backend/src/platform/audit-log-read.service.ts (History UNION only)` | 10 | present | 214 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log-transaction-writer.types.ts` | delete | - | 10 | present | 3 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log.repository.ts` | delete | - | 10 | present | 250 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/audit-log.service.ts` | delete | - | 10 | present | 146 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지 |
-| `apps/backend/src/platform/join-code-secret.service.ts` | delete | - | 2 | deleted | 28 | 사용하지 않는 참여 코드 digest 생성과 비밀값 의존 제거 |
-| `apps/backend/src/platform/join-code-secret.config.ts` | delete | - | 2 | deleted | 8 | 참여 코드 서비스 전용 오류 제거 |
+| Path                                                                                    | Action | Target                                                                     | Todo | State   | Before lines | 이유                                                                                                           |
+| --------------------------------------------------------------------------------------- | ------ | -------------------------------------------------------------------------- | ---: | ------- | -----------: | -------------------------------------------------------------------------------------------------------------- |
+| `apps/backend/src/programs/application-answers.service.ts`                              | merge  | `team-application.service.ts`                                              |    9 | deleted |          159 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침                                                                  |
+| `apps/backend/src/programs/application-preparation.error.ts`                            | delete | -                                                                          |    8 | deleted |           52 | 3b에서 폐기한 준비 경로의 타입 제거                                                                            |
+| `apps/backend/src/programs/application-preparations.controller.ts`                      | delete | -                                                                          |    8 | deleted |          153 | 최종 전환에서 호환 GET과 컨트롤러 제거                                                                         |
+| `apps/backend/src/programs/application-preparations.repository.ts`                      | delete | -                                                                          |    8 | deleted |          397 | 0건 확인 후 3b에서 reader·consumer 제거                                                                        |
+| `apps/backend/src/programs/application-preparations.service.ts`                         | delete | -                                                                          |    8 | deleted |          190 | 0건 확인 후 3b에서 준비 작업 제거                                                                              |
+| `apps/backend/src/programs/team-history.repository.ts`                                  | keep   | -                                                                          |    8 | present |            0 | 범용 TeamHistory의 초대 종료 사건 기록                                                                         |
+| `apps/backend/src/programs/application-templates.controller.ts`                         | merge  | `teams.controller.ts`                                                      |    9 | deleted |           19 | 팀 경로로 전환                                                                                                 |
+| `apps/backend/src/programs/applications-error-code.error.ts`                            | merge  | `teams.error.ts`                                                           |   11 | present |          184 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/applications.config.ts`                                      | keep   | `applications.config.ts`                                                   |    9 | present |           14 | 저장소와 서비스가 함께 쓰는 상태·clock 정책; 서비스로 합치면 저장소가 서비스에 의존하므로 독립 설정 유지       |
+| `apps/backend/src/programs/applications.controller.ts`                                  | merge  | `teams.controller.ts`                                                      |    9 | deleted |           75 | 팀 경로로 전환                                                                                                 |
+| `apps/backend/src/programs/applications.error.ts`                                       | merge  | `teams.error.ts`                                                           |   11 | present |           17 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/applications.repository.ts`                                  | merge  | `team.repository.ts`                                                       |    9 | deleted |         1612 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정                                        |
+| `apps/backend/src/programs/applications.service.ts`                                     | merge  | `team-application.service.ts`                                              |    9 | deleted |         1057 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침                                                                  |
+| `apps/backend/src/programs/board-error-code.error.ts`                                   | keep   | `board-error-code.error.ts`                                                |   11 | present |           37 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/board.controller.ts`                                         | keep   | `board.controller.ts`                                                      |    9 | present |          158 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/board.repository.ts`                                         | keep   | `board.repository.ts`                                                      |    9 | present |          357 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/board.service.ts`                                            | keep   | `board.service.ts`                                                         |    9 | present |          329 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/download-response.service.ts`                                | keep   | `download-response.service.ts`                                             |    1 | present |           84 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/dto/accept-team-invitation-response.dto.ts`                  | keep   | `dto/accept-team-invitation-response.dto.ts`                               |    9 | present |           12 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/application-decision-response.dto.ts`                    | keep   | `dto/application-decision-response.dto.ts`                                 |    9 | present |           40 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/application-list-page-response.dto.ts`                   | keep   | `dto/application-list-page-response.dto.ts`                                |    9 | present |          183 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/application-list-request.dto.ts`                         | keep   | `dto/application-list-request.dto.ts`                                      |    9 | present |           44 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/application-preparation-response.dto.ts`                 | delete | -                                                                          |    8 | deleted |          107 | 준비 상태 응답 제거, 호환 NONE DTO만 유지                                                                      |
+| `apps/backend/src/programs/dto/application-template-response.dto.ts`                    | keep   | `dto/application-template-response.dto.ts`                                 |    9 | present |           57 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/board-post-list-request.dto.ts`                          | keep   | `dto/board-post-list-request.dto.ts`                                       |   11 | present |           17 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/board-post-pin-response.dto.ts`                          | keep   | `dto/board-post-pin-response.dto.ts`                                       |   11 | present |            7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/board-post-response.dto.ts`                              | keep   | `dto/board-post-response.dto.ts`                                           |   11 | present |          111 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/confirm-repository-publish-request.dto.ts`               | keep   | `dto/confirm-repository-publish-request.dto.ts`                            |   11 | present |            6 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-application-preparation-request.dto.ts`           | delete | -                                                                          |    8 | deleted |           12 | R1에서 새 이름 입력을 사용하지 않는 생성 차단·멱등 조회로 전환                                                 |
+| `apps/backend/src/programs/dto/create-application-request.dto.ts`                       | keep   | `dto/create-application-request.dto.ts`                                    |    9 | present |           29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-application-response.dto.ts`                      | keep   | `dto/create-application-response.dto.ts`                                   |    9 | present |           30 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-board-comment-request.dto.ts`                     | keep   | `dto/create-board-comment-request.dto.ts`                                  |   11 | present |            8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-board-post-request.dto.ts`                        | keep   | `dto/create-board-post-request.dto.ts`                                     |   11 | present |           13 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-milestone-document-review-request.dto.ts`         | keep   | `dto/create-milestone-document-review-request.dto.ts`                      |    4 | present |           33 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-milestone-document-submission-request.dto.ts`     | keep   | `dto/create-milestone-document-submission-request.dto.ts`                  |    4 | present |           29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-program-document-change-request-request.dto.ts`   | keep   | `dto/create-program-document-change-request-request.dto.ts`                |    4 | present |           35 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-program-request.dto.ts`                           | keep   | `dto/create-program-request.dto.ts`                                        |   11 | present |           48 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-program-response.dto.ts`                          | keep   | `dto/create-program-response.dto.ts`                                       |   11 | present |           22 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-submission-request.dto.ts`                        | keep   | `dto/create-submission-request.dto.ts`                                     |    4 | present |           64 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-submission-review-request.dto.ts`                 | keep   | `dto/create-submission-review-request.dto.ts`                              |    4 | present |           15 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/create-team-invitation-request.dto.ts`                   | keep   | `dto/create-team-invitation-request.dto.ts`                                |    9 | present |            7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/delete-program-response.dto.ts`                          | keep   | `dto/delete-program-response.dto.ts`                                       |   11 | present |           11 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/delete-team-request.dto.ts`                              | keep   | `dto/delete-team-request.dto.ts`                                           |    9 | present |           57 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/deleted-response.dto.ts`                                 | keep   | `dto/deleted-response.dto.ts`                                              |   11 | present |            7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/editable-program-response.dto.ts`                        | keep   | `dto/editable-program-response.dto.ts`                                     |   11 | present |          150 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/invitation-candidate-response.dto.ts`                    | keep   | `dto/invitation-candidate-response.dto.ts`                                 |   11 | present |           19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/invite-application-preparation-request.dto.ts`           | delete | -                                                                          |    8 | deleted |            7 | 3b에서 폐기한 초대 경로 입력 제거                                                                              |
+| `apps/backend/src/programs/dto/milestone-document-archive-request.dto.ts`               | keep   | `dto/milestone-document-archive-request.dto.ts`                            |    4 | present |           23 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/milestone-document-collection-request.dto.ts`            | keep   | `dto/milestone-document-collection-request.dto.ts`                         |    4 | present |           50 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/milestone-document-collection-response.dto.ts`           | keep   | `dto/milestone-document-collection-response.dto.ts`                        |    4 | present |          298 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/milestone-document-history-page-response.dto.ts`         | keep   | `dto/milestone-document-history-page-response.dto.ts`                      |    4 | present |           51 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/milestone-document-history-request.dto.ts`               | keep   | `dto/milestone-document-history-request.dto.ts`                            |    4 | present |           23 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/milestone-document-response.dto.ts`                      | keep   | `dto/milestone-document-response.dto.ts`                                   |    4 | present |          152 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/milestone-document-review-response.dto.ts`               | keep   | `dto/milestone-document-review-response.dto.ts`                            |    4 | present |           25 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/milestone-document-submission-response.dto.ts`           | keep   | `dto/milestone-document-submission-response.dto.ts`                        |    4 | present |           45 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/my-application-preparation-response.dto.ts`              | delete | -                                                                          |    8 | deleted |           20 | 최종 전환에서 호환 NONE DTO 제거                                                                               |
+| `apps/backend/src/programs/dto/my-program-team-response.dto.ts`                         | keep   | `dto/my-program-team-response.dto.ts`                                      |    9 | present |           15 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/my-student-application-response.dto.ts`                  | keep   | `dto/my-student-application-response.dto.ts`                               |    9 | present |           17 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/patch-application-decision-request.dto.ts`               | keep   | `dto/patch-application-decision-request.dto.ts`                            |    9 | present |           11 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-authoring-request.dto.ts`                        | keep   | `dto/program-authoring-request.dto.ts`                                     |   11 | present |          229 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-authoring-upload-policy-response.dto.ts`         | keep   | `dto/program-authoring-upload-policy-response.dto.ts`                      |    6 | present |           20 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-authoring-upload-response.dto.ts`                | keep   | `dto/program-authoring-upload-response.dto.ts`                             |    6 | present |           21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-detail-response.dto.ts`                          | keep   | `dto/program-detail-response.dto.ts`                                       |   11 | present |          169 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-document-archive-request.dto.ts`                 | keep   | `dto/program-document-archive-request.dto.ts`                              |    4 | present |           29 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-document-change-request-count-response.dto.ts`   | keep   | `dto/program-document-change-request-count-response.dto.ts`                |    4 | present |            9 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-document-change-request-targets-request.dto.ts`  | keep   | `dto/program-document-change-request-targets-request.dto.ts`               |    4 | present |           19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-document-change-request-targets-response.dto.ts` | keep   | `dto/program-document-change-request-targets-response.dto.ts`              |    4 | present |           21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-ended-years-response.dto.ts`                     | keep   | `dto/program-ended-years-response.dto.ts`                                  |   11 | present |            7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-id-response.dto.ts`                              | keep   | `dto/program-id-response.dto.ts`                                           |   11 | present |            7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-list-request.dto.ts`                             | keep   | `dto/program-list-request.dto.ts`                                          |   11 | present |           55 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-list-response.dto.ts`                            | keep   | `dto/program-list-response.dto.ts`                                         |   11 | present |           68 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-notice-preview-request.dto.ts`                   | keep   | `dto/program-notice-preview-request.dto.ts`                                |   11 | present |            8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-notice-preview-response.dto.ts`                  | keep   | `dto/program-notice-preview-response.dto.ts`                               |   11 | present |           22 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-overview-query-request.dto.ts`                   | keep   | `dto/program-overview-query-request.dto.ts`                                |   11 | present |            7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-overview-response.dto.ts`                        | keep   | `dto/program-overview-response.dto.ts`                                     |   11 | present |           84 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-overview-team-response.dto.ts`                   | keep   | `dto/program-overview-team-response.dto.ts`                                |    9 | present |           35 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-status-counts-response.dto.ts`                   | keep   | `dto/program-status-counts-response.dto.ts`                                |   11 | present |           19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-team-response.dto.ts`                            | keep   | `dto/program-team-response.dto.ts`                                         |    9 | present |           76 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/program-viewer-request.dto.ts`                           | keep   | `dto/program-viewer-request.dto.ts`                                        |   11 | present |            7 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/public-project-page-response.dto.ts`                     | keep   | `dto/public-project-page-response.dto.ts`                                  |   11 | present |          117 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/public-project-request.dto.ts`                           | keep   | `dto/public-project-request.dto.ts`                                        |   11 | present |           33 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/public-user-profile-response.dto.ts`                     | keep   | `dto/public-user-profile-response.dto.ts`                                  |    6 | present |           86 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/purge-program-request.dto.ts`                            | keep   | `dto/purge-program-request.dto.ts`                                         |   11 | present |           44 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/purge-program-response.dto.ts`                           | keep   | `dto/purge-program-response.dto.ts`                                        |   11 | present |           16 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/received-team-invitation-response.dto.ts`                | keep   | `dto/received-team-invitation-response.dto.ts`                             |    9 | present |           38 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/rename-team-request.dto.ts`                              | keep   | `dto/rename-team-request.dto.ts`                                           |    9 | present |           14 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/repository-url-history-request.dto.ts`                   | keep   | `dto/repository-url-history-request.dto.ts`                                |    9 | present |            8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/search-application-preparation-request.dto.ts`           | delete | -                                                                          |    8 | deleted |            7 | 3b에서 폐기한 검색 경로 입력 제거                                                                              |
+| `apps/backend/src/programs/dto/search-invitation-candidates-request.dto.ts`             | keep   | `dto/search-invitation-candidates-request.dto.ts`                          |   11 | present |            8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/set-board-post-pinned-request.dto.ts`                    | keep   | `dto/set-board-post-pinned-request.dto.ts`                                 |   11 | present |            6 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/staff-team-detail-response.dto.ts`                       | keep   | `dto/staff-team-detail-response.dto.ts`                                    |    9 | present |           70 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/student-application-response.dto.ts`                     | keep   | `dto/student-application-response.dto.ts`                                  |    9 | present |           48 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/student-repository-url-response.dto.ts`                  | keep   | `dto/student-repository-url-response.dto.ts`                               |    9 | present |           13 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/submission-form-response.dto.ts`                         | keep   | `dto/submission-form-response.dto.ts`                                      |    4 | present |          200 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/submission-matrix-request.dto.ts`                        | keep   | `dto/submission-matrix-request.dto.ts`                                     |    4 | present |           28 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/submission-matrix-response.dto.ts`                       | keep   | `dto/submission-matrix-response.dto.ts`                                    |    4 | present |           98 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/submission-review-context-response.dto.ts`               | keep   | `dto/submission-review-context-response.dto.ts`                            |    4 | present |          135 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/team-activity-response.dto.ts`                           | keep   | `dto/team-activity-response.dto.ts`                                        |    9 | present |           23 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/team-invitation-response.dto.ts`                         | keep   | `dto/team-invitation-response.dto.ts`                                      |    9 | present |           47 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/team-management-list-page-response.dto.ts`               | keep   | `dto/team-management-list-page-response.dto.ts`                            |    9 | present |           57 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/transfer-team-leader-request.dto.ts`                     | keep   | `dto/transfer-team-leader-request.dto.ts`                                  |    9 | present |            8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/update-board-post-request.dto.ts`                        | keep   | `dto/update-board-post-request.dto.ts`                                     |   11 | present |            3 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/update-milestone-document-grace-request.dto.ts`          | keep   | `dto/update-milestone-document-grace-request.dto.ts`                       |    4 | present |            8 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/update-milestone-request.dto.ts`                         | keep   | `dto/update-milestone-request.dto.ts`                                      |   11 | present |           74 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/update-student-application-request.dto.ts`               | keep   | `dto/update-student-application-request.dto.ts`                            |    9 | present |           12 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/update-student-repository-url-request.dto.ts`            | keep   | `dto/update-student-repository-url-request.dto.ts`                         |    9 | present |           19 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/uploaded-milestone-document-file-response.dto.ts`        | keep   | `dto/uploaded-milestone-document-file-response.dto.ts`                     |    4 | present |           21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/uploaded-submission-file-response.dto.ts`                | keep   | `dto/uploaded-submission-file-response.dto.ts`                             |    4 | present |           21 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/dto/upsert-milestone-request.dto.ts`                         | keep   | `dto/upsert-milestone-request.dto.ts`                                      |   11 | present |           24 | DTO 예외 폴더와 전송 경계 유지; 소유 Todo에서 필드·경로를 전환                                                 |
+| `apps/backend/src/programs/milestone-completion.config.ts`                              | keep   | `milestone-completion.config.ts`                                           |    4 | present |           13 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/milestone-completion.service.ts`                             | merge  | `submissions.service.ts`                                                   |    4 | present |          143 | 제출 완료 판정 통합                                                                                            |
+| `apps/backend/src/programs/milestone-document-archive.error.ts`                         | merge  | `submissions.error.ts`                                                     |   11 | present |           10 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/milestone-document-archive.repository.ts`                    | merge  | `requirements.repository.ts`                                               |    4 | present |          118 | 항목 아카이브 조회                                                                                             |
+| `apps/backend/src/programs/milestone-document-archive.service.ts`                       | merge  | `requirement-archive.service.ts`                                           |    4 | present |          808 | 항목 수집과 아카이브 서비스                                                                                    |
+| `apps/backend/src/programs/milestone-document-collection-read.repository.ts`            | merge  | `requirements.repository.ts`                                               |    4 | present |          356 | 항목·제출 조회 통합; 파일 메타데이터는 Todo 6에서 File로                                                       |
+| `apps/backend/src/programs/milestone-document-collection.service.ts`                    | merge  | `requirement-archive.service.ts`                                           |    4 | present |          560 | 항목 수집과 아카이브 서비스                                                                                    |
+| `apps/backend/src/programs/milestone-document-current-file.repository.ts`               | merge  | `requirements.repository.ts`                                               |    4 | present |          120 | 항목·제출 조회 통합; 파일 메타데이터는 Todo 6에서 File로                                                       |
+| `apps/backend/src/programs/milestone-document-file-name.service.ts`                     | merge  | `requirement-archive.service.ts`                                           |    4 | present |          125 | 아카이브 파일 이름 경계                                                                                        |
+| `apps/backend/src/programs/milestone-document-files.controller.ts`                      | merge  | `files.controller.ts`                                                      |    6 | present |           87 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/milestone-document-files.service.ts`                         | merge  | `files.service.ts`                                                         |    6 | present |          471 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/milestone-document-reviews.service.ts`                       | merge  | `submissions.service.ts`                                                   |    4 | present |          198 | 제출 입력·심사 통합                                                                                            |
+| `apps/backend/src/programs/milestone-document-submission-window.service.ts`             | merge  | `submissions.service.ts`                                                   |    4 | present |          128 | 제출 기간 판정 통합                                                                                            |
+| `apps/backend/src/programs/milestone-document-submission.error.ts`                      | merge  | `submissions.error.ts`                                                     |   11 | present |           19 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/milestone-document-submission.repository.ts`                 | merge  | `submissions.repository.ts`                                                |    4 | deleted |          258 | 준비 단계에서 제출 트랜잭션을 submissions.repository로 병합; 기존 DI 계약은 이전 API와 함께 후속 단계까지 유지 |
+| `apps/backend/src/programs/milestone-documents-error-code.error.ts`                     | merge  | `submissions.error.ts`                                                     |   11 | present |          339 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/milestone-documents.controller.ts`                           | merge  | `requirements.controller.ts`                                               |    4 | present |          267 | 항목 이름과 경로 전환                                                                                          |
+| `apps/backend/src/programs/milestone-documents.error.ts`                                | merge  | `submissions.error.ts`                                                     |   11 | present |            3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/milestone-documents.repository.ts`                           | merge  | `requirements.repository.ts`                                               |    4 | present |         1616 | 항목·제출 조회 통합; 파일 메타데이터는 Todo 6에서 File로                                                       |
+| `apps/backend/src/programs/milestone-documents.service.ts`                              | merge  | `requirements.service.ts`                                                  |    4 | present |          703 | 항목 관리                                                                                                      |
+| `apps/backend/src/programs/milestones.controller.ts`                                    | keep   | `milestones.controller.ts`                                                 |    4 | present |          105 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/prisma-storage-reference.repository.ts`                      | merge  | `files.repository.ts`                                                      |    6 | present |          161 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-activity-summary.service.ts`                         | keep   | `program-activity-summary.service.ts`                                      |    9 | present |          123 | 팀 기준 활동으로 변경; 계산 경계 유지                                                                          |
+| `apps/backend/src/programs/program-activity.config.ts`                                  | keep   | `program-activity.config.ts`                                               |    9 | present |            1 | 팀 기준 활동으로 변경; 계산 경계 유지                                                                          |
+| `apps/backend/src/programs/program-activity.repository.ts`                              | keep   | `program-activity.repository.ts`                                           |    9 | present |          198 | 팀 기준 활동으로 변경; 계산 경계 유지                                                                          |
+| `apps/backend/src/programs/program-activity.service.ts`                                 | keep   | `program-activity.service.ts`                                              |    9 | present |          323 | 팀 기준 활동으로 변경; 계산 경계 유지                                                                          |
+| `apps/backend/src/programs/program-applications.controller.ts`                          | merge  | `teams.controller.ts`                                                      |    9 | deleted |           78 | 팀 경로로 전환                                                                                                 |
+| `apps/backend/src/programs/program-authoring-upload-maintenance.service.ts`             | merge  | `file-cleanup.service.ts`                                                  |    6 | present |          123 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-authoring-upload-transaction.repository.ts`          | merge  | `files.repository.ts`                                                      |    6 | present |          242 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-authoring-upload.config.ts`                          | merge  | `files.service.ts`                                                         |    6 | present |           12 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-authoring-upload.error.ts`                           | merge  | `files.error.ts`                                                           |    6 | present |           35 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-authoring-upload.repository.ts`                      | merge  | `files.repository.ts`                                                      |    6 | present |          209 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-authoring-upload.service.ts`                         | merge  | `files.service.ts`                                                         |    6 | present |          382 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-authoring-validation.error.ts`                       | merge  | `programs.error.ts`                                                        |   11 | present |           12 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-authoring.controller.ts`                             | keep   | `program-authoring.controller.ts`                                          |   11 | present |          139 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/program-authoring.error.ts`                                  | merge  | `programs.error.ts`                                                        |   11 | present |           57 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-authoring.repository.ts`                             | merge  | `programs.repository.ts`                                                   |    5 | deleted |          248 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지                                                              |
+| `apps/backend/src/programs/program-authoring.service.ts`                                | merge  | `programs.service.ts`                                                      |    5 | deleted |          545 | 프로그램 생성 요청 흡수·상태 삭제                                                                              |
+| `apps/backend/src/programs/program-cover-url.service.ts`                                | merge  | `programs.service.ts`                                                      |    5 | present |           15 | 프로그램 외부 커버 응답 유지                                                                                   |
+| `apps/backend/src/programs/program-cover.config.ts`                                     | keep   | `program-cover.config.ts`                                                  |    5 | present |            1 | 외부 커버는 Program 컬럼으로 유지                                                                              |
+| `apps/backend/src/programs/program-cover.repository.ts`                                 | merge  | `files.repository.ts`                                                      |    6 | present |          156 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-creation.service.ts`                                 | merge  | `programs.service.ts`                                                      |    5 | present |          192 | 프로그램 생성 요청 흡수·상태 삭제                                                                              |
+| `apps/backend/src/programs/program-deletion-scope.repository.ts`                        | merge  | `programs.repository.ts`                                                   |    5 | deleted |          224 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지                                                              |
+| `apps/backend/src/programs/program-document-archives.controller.ts`                     | merge  | `requirements.controller.ts`                                               |    4 | present |           46 | 항목 중심 API 경계                                                                                             |
+| `apps/backend/src/programs/program-document-change-requests.controller.ts`              | merge  | `requirements.controller.ts`                                               |    4 | present |           73 | 항목 중심 API 경계                                                                                             |
+| `apps/backend/src/programs/program-document-change-requests.service.ts`                 | merge  | `requirements.service.ts`                                                  |    4 | present |          259 | 항목별 변경 요청                                                                                               |
+| `apps/backend/src/programs/program-editor.error.ts`                                     | merge  | `programs.error.ts`                                                        |   11 | present |           18 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-editor.repository.ts`                                | keep   | `program-editor.repository.ts`                                             |   11 | present |          868 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/program-editor.service.ts`                                   | keep   | `program-editor.service.ts`                                                |   11 | present |          858 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/program-error-code.error.ts`                                 | merge  | `programs.error.ts`                                                        |   11 | present |           94 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-lifecycle.config.ts`                                 | keep   | `program-lifecycle.config.ts`                                              |   11 | present |          207 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/program-lifecycle.error.ts`                                  | delete | -                                                                          |    5 | deleted |            6 | 물리 삭제 건수 대조가 사라져 오류 타입도 제거                                                                  |
+| `apps/backend/src/programs/program-lifecycle.repository.ts`                             | merge  | `programs.repository.ts`                                                   |    5 | deleted |          477 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지                                                              |
+| `apps/backend/src/programs/program-lifecycle.service.ts`                                | merge  | `programs.service.ts`                                                      |    5 | deleted |          227 | 프로그램 생성 요청 흡수·상태 삭제                                                                              |
+| `apps/backend/src/programs/program-list-status-filter.repository.ts`                    | merge  | `programs.repository.ts`                                                   |    5 | present |          244 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지                                                              |
+| `apps/backend/src/programs/program-list.config.ts`                                      | keep   | `program-list.config.ts`                                                   |   11 | present |           16 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/program-notice-error-code.error.ts`                          | keep   | `program-notice-error-code.error.ts`                                       |   11 | present |           25 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-notice-fetch.client.ts`                              | keep   | `program-notice-fetch.client.ts`                                           |    1 | present |          605 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/program-overview-error-code.error.ts`                        | merge  | `programs.error.ts`                                                        |   11 | present |           16 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-overview.controller.ts`                              | keep   | `program-overview.controller.ts`                                           |   11 | present |           35 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/program-overview.repository.ts`                              | merge  | `programs.repository.ts`                                                   |    5 | present |          389 | 프로그램 저장·조회 경계 통합; 개요 읽기 계약 유지                                                              |
+| `apps/backend/src/programs/program-overview.service.ts`                                 | keep   | `program-overview.service.ts`                                              |   11 | present |          388 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/program-purge-file-cleanup.repository.ts`                    | merge  | `files.repository.ts`                                                      |    6 | present |          111 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-purge-file-cleanup.service.ts`                       | merge  | `file-cleanup.service.ts`                                                  |    6 | present |          113 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/program-read-error-code.error.ts`                            | merge  | `programs.error.ts`                                                        |   11 | present |           15 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-schedule.service.ts`                                 | keep   | `program-schedule.service.ts`                                              |    1 | present |           52 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/program-submissions.controller.ts`                           | merge  | `submissions.controller.ts`                                                |    4 | present |           52 | 중복 제출 컨트롤러 경계 축소                                                                                   |
+| `apps/backend/src/programs/program-team-deletion.error.ts`                              | merge  | `teams.error.ts`                                                           |   11 | present |            6 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-team-deletion.repository.ts`                         | merge  | `team.repository.ts`                                                       |    9 | deleted |          332 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정                                        |
+| `apps/backend/src/programs/program-team-repository-evidence.error.ts`                   | merge  | `teams.error.ts`                                                           |   11 | present |            3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/program-team-repository-evidence.repository.ts`              | keep   | `program-team-repository-evidence.repository.ts`                           |   10 | present |          496 | AuditLog 읽기를 TeamHistory로 전환; 읽기 증거 경계 유지                                                        |
+| `apps/backend/src/programs/program-teams.controller.ts`                                 | merge  | `teams.controller.ts`                                                      |    9 | deleted |          226 | 팀 경로로 전환                                                                                                 |
+| `apps/backend/src/programs/program-teams.repository.ts`                                 | merge  | `team.repository.ts`                                                       |    9 | deleted |          966 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정                                        |
+| `apps/backend/src/programs/program-teams.service.ts`                                    | merge  | `team-membership.service.ts`                                               |    9 | deleted |          877 | 팀원 변경·위임·탈퇴 서비스                                                                                     |
+| `apps/backend/src/programs/program-templates.service.ts`                                | merge  | `team-application.service.ts`                                              |    9 | deleted |           94 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침                                                                  |
+| `apps/backend/src/programs/program-viewer.service.ts`                                   | keep   | `program-viewer.service.ts`                                                |    1 | present |           77 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/programs.controller.ts`                                      | keep   | `programs.controller.ts`                                                   |   11 | present |          251 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/programs.module.ts`                                          | keep   | `programs.module.ts`                                                       |   11 | present |          281 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/programs.repository.ts`                                      | keep   | `programs.repository.ts`                                                   |   11 | present |          403 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/programs.service.ts`                                         | keep   | `programs.service.ts`                                                      |   11 | present |          446 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/public-eligibility.repository.ts`                            | keep   | `public-eligibility.repository.ts`                                         |    1 | present |           41 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/public-project-cursor.error.ts`                              | keep   | `public-project-cursor.error.ts`                                           |   11 | present |            8 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/public-project-metrics.repository.ts`                        | keep   | `public-project-metrics.repository.ts`                                     |    1 | present |          114 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/public-projects-error-code.error.ts`                         | keep   | `public-projects-error-code.error.ts`                                      |   11 | present |           29 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/public-projects.config.ts`                                   | keep   | `public-projects.config.ts`                                                |    1 | present |            8 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/public-projects.controller.ts`                               | keep   | `public-projects.controller.ts`                                            |    1 | present |           38 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/public-projects.repository.ts`                               | keep   | `public-projects.repository.ts`                                            |    1 | present |          178 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/public-projects.service.ts`                                  | keep   | `public-projects.service.ts`                                               |    1 | present |          578 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/public-user-profile.controller.ts`                           | keep   | `public-user-profile.controller.ts`                                        |    1 | present |           20 | 구조표에서 명시한 유지 경계                                                                                    |
+| `apps/backend/src/programs/review-history-writer.error.ts`                              | merge  | `teams.error.ts`                                                           |   11 | present |            7 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/review-history-writer.repository.ts`                         | merge  | `team-history.repository.ts`                                               |    9 | deleted |           68 | 팀 지원 심사 이력                                                                                              |
+| `apps/backend/src/programs/storage-orphan-reconciliation.config.ts`                     | merge  | `file-cleanup.service.ts`                                                  |    6 | present |            7 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/storage-orphan-reconciliation.service.ts`                    | merge  | `file-cleanup.service.ts`                                                  |    6 | present |          140 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/student-application-management.config.ts`                    | keep   | `student-application-management.config.ts`                                 |    9 | present |           13 | 저장소와 서비스가 함께 쓰는 상태·clock 정책; 서비스로 합치면 저장소가 서비스에 의존하므로 독립 설정 유지       |
+| `apps/backend/src/programs/student-application-management.repository.ts`                | merge  | `team.repository.ts`                                                       |    9 | deleted |          299 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정                                        |
+| `apps/backend/src/programs/student-application-management.service.ts`                   | merge  | `team-application.service.ts`                                              |    9 | deleted |          273 | 지원 답변·양식·재제출 경계를 팀 지원으로 합침                                                                  |
+| `apps/backend/src/programs/student-applications.controller.ts`                          | merge  | `teams.controller.ts`                                                      |    9 | deleted |           72 | 팀 경로로 전환                                                                                                 |
+| `apps/backend/src/programs/student-repository-url-context.repository.ts`                | merge  | `team.repository.ts`                                                       |    9 | deleted |           92 | 지원 ID 기반 레포 URL 경계를 팀으로 통합                                                                       |
+| `apps/backend/src/programs/student-repository-url-transaction.repository.ts`            | merge  | `team.repository.ts`                                                       |    9 | deleted |          200 | 지원 ID 기반 레포 URL 경계를 팀으로 통합                                                                       |
+| `apps/backend/src/programs/student-repository-url.controller.ts`                        | merge  | `teams.controller.ts`                                                      |    9 | deleted |           45 | 지원 ID 기반 레포 URL 경계를 팀으로 통합                                                                       |
+| `apps/backend/src/programs/student-repository-url.error.ts`                             | merge  | `applications-error-code.error.ts`                                         |    9 | deleted |           31 | 지원 ID 기반 레포 URL 경계를 팀으로 통합                                                                       |
+| `apps/backend/src/programs/student-repository-url.service.ts`                           | merge  | `team-application.service.ts`                                              |    9 | deleted |          254 | 지원 ID 기반 레포 URL 경계를 팀으로 통합                                                                       |
+| `apps/backend/src/programs/submission-completion.config.ts`                             | keep   | `submission-completion.config.ts`                                          |    4 | present |           29 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/submission-history.config.ts`                                | keep   | `submission-history.config.ts`                                             |    4 | present |            0 | 통합 이력의 심사 이벤트 선택과 공개 판정 값 변환                                                               |
+| `apps/backend/src/programs/dto/milestone-document-list-request.dto.ts`                  | keep   | `dto/milestone-document-list-request.dto.ts`                               |    4 | present |            0 | 준비 단계의 전체 항목 opt-in 조회 계약                                                                         |
+| `apps/backend/src/programs/submission-dashboard-summary.error.ts`                       | merge  | `submissions.error.ts`                                                     |   11 | present |            3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/submission-dashboard-summary.repository.ts`                  | merge  | `submissions.repository.ts`                                                |    4 | present |          242 | 제출 요약 읽기                                                                                                 |
+| `apps/backend/src/programs/submission-dashboard-summary.service.ts`                     | merge  | `submission-matrix.service.ts`                                             |    4 | present |          244 | 제출 현황 집계                                                                                                 |
+| `apps/backend/src/programs/submission-file-admission.service.ts`                        | merge  | `files.service.ts`                                                         |    6 | present |          212 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/submission-file-cleanup.service.ts`                          | merge  | `file-cleanup.service.ts`                                                  |    6 | present |          144 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/submission-file.error.ts`                                    | merge  | `files.error.ts`                                                           |    6 | present |            7 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/submission-files.controller.ts`                              | merge  | `files.controller.ts`                                                      |    6 | present |           98 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/submission-files.repository.ts`                              | merge  | `files.repository.ts`                                                      |    6 | present |          476 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/submission-files.service.ts`                                 | merge  | `files.service.ts`                                                         |    6 | present |          339 | 계약 5·22의 File 경계와 정리 워커 1벌로 통합                                                                   |
+| `apps/backend/src/programs/submission-forms.controller.ts`                              | merge  | `requirements.controller.ts`                                               |    4 | present |           28 | 항목 중심 API 경계                                                                                             |
+| `apps/backend/src/programs/submission-input.service.ts`                                 | merge  | `submissions.service.ts`                                                   |    4 | present |           74 | 제출 입력·심사 통합                                                                                            |
+| `apps/backend/src/programs/submission-matrix.config.ts`                                 | keep   | `submission-matrix.config.ts`                                              |    4 | present |            1 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/submission-matrix.repository.ts`                             | merge  | `submissions.repository.ts`                                                |    4 | present |          303 | 제출·심사·행렬의 레거시 축 제거                                                                                |
+| `apps/backend/src/programs/submission-matrix.service.ts`                                | keep   | `submission-matrix.service.ts`                                             |    4 | present |          231 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/submission-membership-changed.error.ts`                      | merge  | `submissions.error.ts`                                                     |   11 | present |           10 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/submission-repository-publishing.controller.ts`              | merge  | `submissions.controller.ts`                                                |    4 | present |           55 | 중복 제출 컨트롤러 경계 축소                                                                                   |
+| `apps/backend/src/programs/submission-review-context-mapper.error.ts`                   | merge  | `submissions.error.ts`                                                     |   11 | present |            3 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/submission-reviews-error-code.error.ts`                      | merge  | `submissions.error.ts`                                                     |   11 | present |           88 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/submission-reviews.repository.ts`                            | merge  | `submissions.repository.ts`                                                |    4 | present |          470 | 제출·심사·행렬의 레거시 축 제거                                                                                |
+| `apps/backend/src/programs/submission-reviews.service.ts`                               | merge  | `submissions.service.ts`                                                   |    4 | present |          404 | 제출 입력·심사 통합                                                                                            |
+| `apps/backend/src/programs/submission-upload.config.ts`                                 | keep   | `submission-upload.config.ts`                                              |    4 | present |           28 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/submission-zip.error.ts`                                     | merge  | `submissions.error.ts`                                                     |   11 | present |           45 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/submissions-error-code.error.ts`                             | merge  | `submissions.error.ts`                                                     |   11 | present |          239 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/submissions.controller.ts`                                   | keep   | `submissions.controller.ts`                                                |    4 | present |          115 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/submissions.error.ts`                                        | keep   | `submissions.error.ts`                                                     |   11 | present |           19 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/submissions.repository.ts`                                   | keep   | `submissions.repository.ts`                                                |    4 | present |          964 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/submissions.service.ts`                                      | keep   | `submissions.service.ts`                                                   |    4 | present |          464 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/team-deletion-scope.config.ts`                               | keep   | `team-deletion-scope.config.ts`                                            |    9 | present |           12 | 삭제 확인 계약은 유지하되 팀 저장소가 소유                                                                     |
+| `apps/backend/src/programs/team-deletion-scope.repository.ts`                           | merge  | `team.repository.ts`                                                       |    9 | deleted |          169 | 팀·지원·삭제를 생존 팀 ID로 통합; 삭제 레포 경계는 Todo 7에서 선행 수정                                        |
+| `apps/backend/src/programs/team-invitation-error-code.error.ts`                         | merge  | `teams.error.ts`                                                           |   11 | present |           88 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/programs/team-invitations.controller.ts`                              | keep   | `team-invitations.controller.ts`                                           |    8 | present |          119 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/team-invitations.repository.ts`                              | keep   | `team-invitations.repository.ts`                                           |    8 | present |          755 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/team-invitations.service.ts`                                 | keep   | `team-invitations.service.ts`                                              |    8 | present |          249 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/teams-error-code.error.ts`                                   | merge  | `teams.error.ts`                                                           |   11 | present |          100 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
+| `apps/backend/src/platform/audit-log-error-code.error.ts`                               | delete | -                                                                          |   10 | present |           26 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-feed.config.ts`                                    | delete | -                                                                          |   10 | present |           62 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-history-metadata.config.ts`                        | delete | -                                                                          |   10 | present |           22 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-metadata.config.ts`                                | delete | -                                                                          |   10 | present |          483 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-metadata.service.ts`                               | delete | -                                                                          |   10 | present |         1065 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-query.types.ts`                                    | delete | -                                                                          |   10 | present |            8 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-read.service.ts`                                   | merge  | `apps/backend/src/platform/audit-log-read.service.ts (History UNION only)` |   10 | present |          214 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-transaction-writer.types.ts`                       | delete | -                                                                          |   10 | present |            3 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log.repository.ts`                                     | delete | -                                                                          |   10 | present |          250 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log.service.ts`                                        | delete | -                                                                          |   10 | present |          146 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/join-code-secret.service.ts`                                 | delete | -                                                                          |    2 | deleted |           28 | 사용하지 않는 참여 코드 digest 생성과 비밀값 의존 제거                                                         |
+| `apps/backend/src/platform/join-code-secret.config.ts`                                  | delete | -                                                                          |    2 | deleted |            8 | 참여 코드 서비스 전용 오류 제거                                                                                |
 
 ## Application ID 참조 인벤토리
 
@@ -659,9 +659,9 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 
 비교 기준은 `baed7d753`이다. 레거시 경로를 유지하는 준비 릴리스이므로 최종 코드 감소를 주장하지 않는다.
 
-| 범위 | Before files | Before lines | 준비 후 files | 준비 후 lines |
-| --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (같은 제외 규칙) | 245 | 37779 | 246 | 37817 |
+| 범위                                | Before files | Before lines | 준비 후 files | 준비 후 lines |
+| ----------------------------------- | -----------: | -----------: | ------------: | ------------: |
+| programs 제품 파일 (같은 제외 규칙) |          245 |        37779 |           246 |         37817 |
 
 `milestone-document-submission.repository.ts`의 구현은 `submissions.repository.ts`로 병합했고 원본 파일을 삭제했다. 기존 API와 주입 계약을 유지하기 위해 준비 단계에서는 두 저장소 클래스를 같은 파일에 둔다. 목록의 opt-in 범위 DTO와 심사 이벤트 상수 파일이 추가되어 파일 수는 순증 1개다. 레거시 API·판별 분기·물리 컬럼 및 심사 테이블 삭제는 후속 단계다.
 
@@ -669,12 +669,27 @@ DB: `apps/backend/prisma/schema.prisma:939`–952. append-only 트리거: `apps/
 
 기준은 `484bb8f82`다. 남은 준비 GET 컨트롤러와 NONE DTO를 삭제하고 프론트의 준비 안내·초대 API 선택 분기를 제거했다. 초대 응답에는 status·respondedAt이 없으며, 행의 존재만 대기 상태를 뜻한다. Prisma에서도 두 컬럼·준비 모델·enum을 제외하여 기본 SELECT와 INSERT가 더는 이를 참조하지 않는다. 물리 status에는 기존 PENDING DB 기본값이 남아 있어 이 릴리스의 생성은 그대로 동작한다. DB DROP과 전체 유니크·invitee 인덱스 정리는 다음 릴리스의 별도 draft다.
 
-| 범위 | Before files | Before lines | After files | After lines |
-| --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 234 | 36908 | 232 | 36768 |
+| 범위                          | Before files | Before lines | After files | After lines |
+| ----------------------------- | -----------: | -----------: | ----------: | ----------: |
+| programs 제품 파일 (DTO 포함) |          234 |        36908 |         232 |       36768 |
 
 새 사용자 문구나 화면 배치는 추가하지 않는다. 현재 지명 지원 가이드가 이미 최종 흐름을 설명하며 폐기 준비 화면은 현재 데이터에서 접근할 수 없다. 실제 Chrome에서 지원 제출·팀 대기 초대·정원 오류·기간 종료를 두 폭으로 검증했다. 종료 초대의 archive fallback은 pending-only CHECK로 도달할 수 없어 삭제했다. 과거 사실의 JSON과 migration은 유지한다. 이전 이미지 실행을 위한 전용 등록 초기화 fixture는 소유자의 복구 계약에 따라 삭제하고, 현재 TeamHistory 활동 보호 회귀는 유지한다.
 
 ## Todo 8 다음 릴리스의 물리 삭제 draft
 
 선행 #1746의 코드가 배포된 다음 릴리스에만 물리 삭제한다. 제품 파일의 삭제·유지 상태와 232개·36768줄 수치는 A와 같다. 초대 status·respondedAt, 빈 준비 테이블 2개와 enum을 제거하며 기존 행 삭제는 0이다. 운영 읽기 전용 preflight의 정확한 초대 3행·준비 0/0행, 제약·인덱스 삭제 수와 가드 검증은 task-8-final-retire.md에 기록한다.
+
+## Todo 9 구조 선행 PR
+
+기준 커밋은 `04ed6b30cd22fdd99fceb562874fdef70a0d3db9`다. 데이터·API 전환 PR의 diff에서 파일 병합을 분리했다. 원래 클래스·메서드·DI 계약과 API 경로를 유지하고 실제 구현을 새 파일로 옮겼다. 옛 파일의 forwarding이나 별칭은 없다. `applications.config.ts`와 `student-application-management.config.ts`는 저장소와 서비스가 함께 사용하는 정책이므로 유지한다. 이를 서비스 파일에 넣으면 저장소→서비스 의존성과 순환이 생긴다. 레포 URL 오류 팩토리는 같은 저장소 경계로 합쳤으며 상수는 export하지 않는다.
+
+| 범위                          | Before files | Before lines | After files | After lines |
+| ----------------------------- | -----------: | -----------: | ----------: | ----------: |
+| programs 제품 파일 (DTO 포함) |          232 |        36768 |         215 |       36604 |
+
+| Path                                                    | Action | Target                        | Todo | State   | Before lines | 이유                                         |
+| ------------------------------------------------------- | ------ | ----------------------------- | ---: | ------- | -----------: | -------------------------------------------- |
+| `apps/backend/src/programs/team.repository.ts`          | keep   | `team.repository.ts`          |    9 | present |            0 | 구조 표의 통합 목적지; 기존 실행 계약은 보존 |
+| `apps/backend/src/programs/team-application.service.ts` | keep   | `team-application.service.ts` |    9 | present |            0 | 구조 표의 통합 목적지; 기존 실행 계약은 보존 |
+| `apps/backend/src/programs/team-membership.service.ts`  | keep   | `team-membership.service.ts`  |    9 | present |            0 | 구조 표의 통합 목적지; 기존 실행 계약은 보존 |
+| `apps/backend/src/programs/teams.controller.ts`         | keep   | `teams.controller.ts`         |    9 | present |            0 | 구조 표의 통합 목적지; 기존 실행 계약은 보존 |

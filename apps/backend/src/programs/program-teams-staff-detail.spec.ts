@@ -1,15 +1,12 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AccountStatus, RepositoryProvisionJobStatus } from '@prisma/client';
 import { StaffTeamDetailResponseDto } from './dto/staff-team-detail-response.dto';
-import {
-  ProgramTeamsRepository,
-  type StaffTeamDetailRecord,
-} from './program-teams.repository';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamRepository, type StaffTeamDetailRecord } from './team.repository';
+import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -50,9 +47,9 @@ function buildService(overrides: {
     );
   const repository = {
     findStaffTeamDetail,
-  } as unknown as ProgramTeamsRepository;
+  } as unknown as TeamRepository;
   const deletionRepository = stubTeamDeletionRepository();
-  const service = new ProgramTeamsService(
+  const service = new TeamMembershipService(
     repository,
     { record: jest.fn() } as unknown as AuditLogService,
     deletionRepository,
@@ -78,7 +75,7 @@ function buildService(overrides: {
   };
 }
 
-describe('ProgramTeamsService.getForStaff', () => {
+describe('TeamMembershipService.getForStaff', () => {
   it.each([
     RepositoryProvisionJobStatus.FAILED_RETRYABLE,
     RepositoryProvisionJobStatus.FAILED_FINAL,
@@ -318,7 +315,7 @@ describe('ProgramTeamsService.getForStaff', () => {
   });
 });
 
-describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
+describe('TeamRepository.findStaffTeamDetail', () => {
   afterEach(() => jest.useRealTimers());
 
   function readTeamSelect(spy: jest.Mock): {
@@ -366,7 +363,7 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
       auditLog: { findMany: jest.fn().mockResolvedValue([]) },
     };
     return {
-      repository: new ProgramTeamsRepository(
+      repository: new TeamRepository(
         prisma as never,
         new ProgramTeamRepositoryEvidenceRepository(prisma as never),
         new PlatformRepository(),
@@ -473,7 +470,7 @@ describe('ProgramTeamsRepository.findStaffTeamDetail', () => {
     const result = await repository.findStaffTeamDetail(PROGRAM_ID, TEAM_ID);
 
     expect(
-      new ProgramTeamsService(
+      new TeamMembershipService(
         undefined as never,
         undefined as never,
         undefined as never,

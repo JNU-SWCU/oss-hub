@@ -1,9 +1,9 @@
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { StudentRepositoryUrlContextRepository } from './student-repository-url-context.repository';
+import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import {
   ApplicationReviewEventKind,
   ApplicationStatus,
@@ -19,10 +19,10 @@ import {
   canonicalUserCreateFromLabel,
 } from '../users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ApplicationsRepository } from './applications.repository';
-import { ApplicationsService } from './applications.service';
-import { StudentRepositoryUrlRepository } from './student-repository-url-transaction.repository';
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { ApplicationsRepository } from './team.repository';
+import { TeamApplicationService } from './team-application.service';
+import { StudentRepositoryUrlRepository } from './team.repository';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -46,7 +46,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryProvisionGithubService } from '../github/repository-provision-github.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 import { RepositoryProvisionStateService } from '../github/repository-provision-state.service';
 
 assertIsolatedIntegrationDatabase({
@@ -61,7 +61,7 @@ const repository = new ApplicationsRepository(
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );
-const service = new ApplicationsService(
+const service = new TeamApplicationService(
   repository,
   new AuditLogService(
     new AuditLogRepository(prisma),
@@ -334,7 +334,7 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await prisma.$disconnect();
   });
 
-  describe('ApplicationsService 판정 권한', () => {
+  describe('TeamApplicationService 판정 권한', () => {
     it('실 DB의 STAFF 세션을 허용하고 해석한 처리자 ID를 판정·감사 이력에 남긴다', async () => {
       await createOwnApplication(
         AUTHORITY_APPLICATION_ID,

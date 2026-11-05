@@ -10,10 +10,10 @@ import { RepositoryProvisionGenerationRepository } from '../src/platform/reposit
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
-import { ApplicationsRepository } from '../src/programs/applications.repository';
-import { ApplicationsService } from '../src/programs/applications.service';
-import { ApplicationAnswersService } from '../src/programs/application-answers.service';
-import { ReviewHistoryWriterRepository } from '../src/programs/review-history-writer.repository';
+import { ApplicationsRepository } from '../src/programs/team.repository';
+import { TeamApplicationService } from '../src/programs/team-application.service';
+import { ApplicationAnswersService } from '../src/programs/team-application.service';
+import { ReviewHistoryWriterRepository } from '../src/programs/team-history.repository';
 import { TeamInvitationsRepository } from '../src/programs/team-invitations.repository';
 import { TeamInvitationsService } from '../src/programs/team-invitations.service';
 import { UserProfileService } from '../src/users/user-profile.service';
@@ -34,7 +34,7 @@ const audit = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogReadService(new AuditLogMetadataService()),
 );
-const service = new ApplicationsService(
+const service = new TeamApplicationService(
   new ApplicationsRepository(
     prisma,
     new ReviewHistoryWriterRepository(),

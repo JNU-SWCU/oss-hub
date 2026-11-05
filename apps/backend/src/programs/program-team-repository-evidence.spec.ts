@@ -1,4 +1,4 @@
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import {
   outsiderFindUnique,
   teamFindFirst,
@@ -10,7 +10,7 @@ import {
 } from './program-team-repository-evidence.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamMembershipService } from './team-membership.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import type { RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
@@ -20,7 +20,7 @@ import { MilestoneCompletionService } from './milestone-completion.service';
 afterEach(() => jest.clearAllMocks());
 
 function toPage(history: RepositoryUrlHistoryRows | undefined) {
-  return new ProgramTeamsService(
+  return new TeamMembershipService(
     undefined as never,
     undefined as never,
     undefined as never,
@@ -102,7 +102,7 @@ it('reports an explicit repository relink as succeeded without inventing a provi
   const detail = await repository.findStaffTeamDetail('program', 'team');
 
   expect(
-    new ProgramTeamsService(
+    new TeamMembershipService(
       undefined as never,
       undefined as never,
       undefined as never,

@@ -3,16 +3,16 @@ import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
 import type {
   ApplicationsRepository,
   StaffDashboardSummary,
-} from './applications.repository';
-import { ApplicationsService } from './applications.service';
+} from './team.repository';
+import { TeamApplicationService } from './team-application.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 const noopAuditLog = { record: jest.fn() } as unknown as AuditLogService;
 
-describe('ApplicationsService.staffSummary', () => {
+describe('TeamApplicationService.staffSummary', () => {
   it('repository 요약을 그대로 반환한다', async () => {
     const summary: StaffDashboardSummary = {
       programs: [
@@ -40,7 +40,7 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary,
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),
@@ -57,7 +57,7 @@ describe('ApplicationsService.staffSummary', () => {
     const repository = {
       listStaffDashboardSummary: jest.fn().mockResolvedValue({ programs: [] }),
     } as unknown as ApplicationsRepository;
-    const service = new ApplicationsService(
+    const service = new TeamApplicationService(
       repository,
       noopAuditLog,
       new AuditLogMetadataService(),

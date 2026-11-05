@@ -12,9 +12,9 @@ import type {
   ApplyProgramRecord,
   ApplicationStudentActor,
   CreatedApplication,
-} from './applications.repository';
+} from './team.repository';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsService } from './applications.service';
+import { TeamApplicationService } from './team-application.service';
 import type { AuditLogService } from '../platform/audit-log.service';
 import {
   ApplicationDuplicateError,
@@ -26,7 +26,7 @@ import {
 } from '../platform/audit-log-metadata.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;
@@ -157,7 +157,7 @@ function buildService(overrides: {
   } as unknown as ApplicationsRepository;
 
   return {
-    service: new ApplicationsService(
+    service: new TeamApplicationService(
       repository,
       { record } as unknown as AuditLogService,
       new AuditLogMetadataService(),
@@ -175,7 +175,7 @@ function buildService(overrides: {
   };
 }
 
-describe('ApplicationsService.create', () => {
+describe('TeamApplicationService.create', () => {
   it('내린 프로그램 신청을 전용 오류로 차단한다', async () => {
     const { service, createApplication } = buildService({
       program: { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
@@ -720,7 +720,7 @@ describe('ApplicationsService.create', () => {
   });
 });
 
-describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만', () => {
+describe('TeamApplicationService.create — 기존 팀 신청은 현재 팀장만', () => {
   const EXISTING_TEAM = { id: 'existing-team', name: '함께 만든 팀' };
 
   function buildTeamService(overrides: {
@@ -883,7 +883,7 @@ describe('ApplicationsService.create — 기존 팀 신청은 현재 팀장만',
   });
 });
 
-describe('ApplicationsService.create — 최초 제출 이력', () => {
+describe('TeamApplicationService.create — 최초 제출 이력', () => {
   it('신청 생성과 같은 트랜잭션 store로 SUBMITTED 이력을 남긴다', async () => {
     const { service, appendReviewHistory } = buildService({});
 

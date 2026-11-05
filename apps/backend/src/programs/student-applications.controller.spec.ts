@@ -2,8 +2,8 @@ import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { ApplicationStatus } from '@prisma/client';
 import { OriginGuard } from '../platform/origin.guard';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
-import type { StudentApplicationManagementService } from './student-application-management.service';
-import { StudentApplicationsController } from './student-applications.controller';
+import type { StudentApplicationManagementService } from './team-application.service';
+import { StudentApplicationsController } from './teams.controller';
 
 function guards(target: object): readonly unknown[] {
   const value: unknown = Reflect.getMetadata(GUARDS_METADATA, target);

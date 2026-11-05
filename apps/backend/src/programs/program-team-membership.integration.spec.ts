@@ -1,9 +1,9 @@
 import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { StudentRepositoryUrlService } from './student-repository-url.service';
+import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team-deletion-scope.repository';
+import { TeamDeletionScopeRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
@@ -21,10 +21,10 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramTeamDeletionRepository } from './program-team-deletion.repository';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { ProgramTeamDeletionRepository } from './team.repository';
+import { TeamRepository } from './team.repository';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { ProgramTeamsService } from './program-teams.service';
+import { TeamMembershipService } from './team-membership.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -71,7 +71,7 @@ const JOINED_FIRST = new Date('2026-08-02T00:00:00.000Z');
 const JOINED_SECOND = new Date('2026-08-03T00:00:00.000Z');
 
 const prisma = new PrismaService();
-const repository = new ProgramTeamsRepository(
+const repository = new TeamRepository(
   prisma,
   new ProgramTeamRepositoryEvidenceRepository(prisma),
   new PlatformRepository(),
@@ -81,7 +81,7 @@ const auditLog = new AuditLogService(
   new AuditLogRepository(prisma),
   new AuditLogReadService(new AuditLogMetadataService()),
 );
-const service = new ProgramTeamsService(
+const service = new TeamMembershipService(
   repository,
   auditLog,
   new ProgramTeamDeletionRepository(

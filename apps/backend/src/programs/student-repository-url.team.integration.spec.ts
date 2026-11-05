@@ -7,7 +7,7 @@ import {
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import {
   prisma,
@@ -137,7 +137,7 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
     actorId: staffId,
     action: 'APPLICATION_REPOSITORY_URL_CHANGED',
   });
-  const history = await new ProgramTeamsRepository(
+  const history = await new TeamRepository(
     prisma,
     new ProgramTeamRepositoryEvidenceRepository(prisma),
     new PlatformRepository(),

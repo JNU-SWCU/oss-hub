@@ -6,14 +6,14 @@ import { SystemStatusController } from '../../src/admin/system-status.controller
 import { configureHttpApp } from '../../src/configure-http-app';
 import { DeadlineDigestController } from '../../src/notifications/deadline-digest.controller';
 import { AuthConfig } from '../../src/platform/auth.config';
-import { ApplicationsController } from '../../src/programs/applications.controller';
+import { ApplicationsController } from '../../src/programs/teams.controller';
 import { MilestoneDocumentsController } from '../../src/programs/milestone-documents.controller';
-import { ProgramApplicationsController } from '../../src/programs/program-applications.controller';
+import { ProgramApplicationsController } from '../../src/programs/teams.controller';
 import { ProgramAuthoringController } from '../../src/programs/program-authoring.controller';
 import { ProgramDocumentArchivesController } from '../../src/programs/program-document-archives.controller';
 import { ProgramDocumentChangeRequestsController } from '../../src/programs/program-document-change-requests.controller';
 import { ProgramSubmissionsController } from '../../src/programs/program-submissions.controller';
-import { ProgramTeamsController } from '../../src/programs/program-teams.controller';
+import { TeamsController } from '../../src/programs/teams.controller';
 import { ProgramsController } from '../../src/programs/programs.controller';
 import { SubmissionRepositoryPublishingController } from '../../src/programs/submission-repository-publishing.controller';
 import { SubmissionsController } from '../../src/programs/submissions.controller';
@@ -68,7 +68,7 @@ describe('Route roles over HTTP', () => {
         ProgramDocumentArchivesController,
         ProgramDocumentChangeRequestsController,
         ProgramSubmissionsController,
-        ProgramTeamsController,
+        TeamsController,
         ProgramsController,
         SubmissionRepositoryPublishingController,
         SubmissionsController,

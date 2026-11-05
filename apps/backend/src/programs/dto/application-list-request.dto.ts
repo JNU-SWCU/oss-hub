@@ -11,7 +11,7 @@ import {
 import {
   type ApplicationListStatus,
   type ApplicationListView,
-} from '../applications.repository';
+} from '../team.repository';
 import {
   APPLICATION_LIST_STATUSES,
   APPLICATION_LIST_VIEWS,

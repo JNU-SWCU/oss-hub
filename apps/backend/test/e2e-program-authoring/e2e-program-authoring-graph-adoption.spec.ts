@@ -1,5 +1,5 @@
 import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
-import { ProgramTemplatesService } from '../../src/programs/program-templates.service';
+import { ProgramTemplatesService } from '../../src/programs/team-application.service';
 import { SubmissionFileAdmissionService } from '../../src/programs/submission-file-admission.service';
 import { ProgramAuthoringUploadService } from '../../src/programs/program-authoring-upload.service';
 import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/program-authoring-upload-transaction.repository';

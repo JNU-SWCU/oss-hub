@@ -1,4 +1,4 @@
-import type { StudentApplicationView } from '../student-application-management.service';
+import type { StudentApplicationView } from '../team-application.service';
 import { StudentApplicationResponseDto } from './student-application-response.dto';
 
 export class MyStudentApplicationResponseDto {

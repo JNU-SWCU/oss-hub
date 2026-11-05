@@ -2,7 +2,7 @@ import { TeamHistoryRepository } from './team-history.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
-import { ReviewHistoryWriterRepository } from './review-history-writer.repository';
+import { ReviewHistoryWriterRepository } from './team-history.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import {
   ApplicationStatus,
@@ -16,18 +16,18 @@ import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsRepository } from './applications.repository';
+import { ApplicationsRepository } from './team.repository';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
-import { ApplicationsService } from './applications.service';
+import { TeamApplicationService } from './team-application.service';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
-import { StudentApplicationManagementRepository } from './student-application-management.repository';
-import { StudentApplicationManagementService } from './student-application-management.service';
+import { StudentApplicationManagementRepository } from './team.repository';
+import { StudentApplicationManagementService } from './team-application.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './application-answers.service';
+import { ApplicationAnswersService } from './team-application.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { ProgramTeamsRepository } from './program-teams.repository';
+import { TeamRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -42,7 +42,7 @@ const repository = new ApplicationsRepository(
   new RepositoryProvisionGenerationRepository(),
   new PlatformRepository(),
 );
-const service = new ApplicationsService(
+const service = new TeamApplicationService(
   repository,
   new AuditLogService(
     new AuditLogRepository(prisma),
@@ -135,7 +135,7 @@ async function createApplication(
   });
 }
 
-describe('ApplicationsService integration', () => {
+describe('TeamApplicationService integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await prisma.user.createMany({
@@ -421,7 +421,7 @@ describe('ApplicationsService integration', () => {
       const applicantPrisma = new PrismaService({
         datasources: { db: { url: databaseUrl.toString() } },
       });
-      const applicantService = new ApplicationsService(
+      const applicantService = new TeamApplicationService(
         new ApplicationsRepository(
           applicantPrisma,
           new ReviewHistoryWriterRepository(),
@@ -677,7 +677,7 @@ describe('ApplicationsService integration', () => {
       const approvalPrisma = new PrismaService({
         datasources: { db: { url: url.toString() } },
       });
-      const approvalService = new ApplicationsService(
+      const approvalService = new TeamApplicationService(
         new ApplicationsRepository(
           approvalPrisma,
           new ReviewHistoryWriterRepository(),
@@ -693,7 +693,7 @@ describe('ApplicationsService integration', () => {
         new ApplicationAnswersService(),
         new RepositoryProvisionEventService(),
       );
-      const teams = new ProgramTeamsRepository(
+      const teams = new TeamRepository(
         prisma,
         new ProgramTeamRepositoryEvidenceRepository(prisma),
         new PlatformRepository(),

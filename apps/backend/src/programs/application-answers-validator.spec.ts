@@ -1,7 +1,7 @@
 import {
   ApplicationAnswersService,
   APPLICATION_ANSWER_MAX_LENGTHS,
-} from './application-answers.service';
+} from './team-application.service';
 
 const applicationAnswersService = new ApplicationAnswersService();
 
