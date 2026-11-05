@@ -208,6 +208,7 @@ const SESSION_GITHUB_ID = 342_900_002n;
 
 const listForViewer = jest.fn().mockResolvedValue([
   {
+    submissionType: 'FILE_OR_TEXT' as const,
     id: 'synthetic-document',
     milestoneId: 'synthetic-milestone',
     name: '개인정보 수집·이용 동의서',

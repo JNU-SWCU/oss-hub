@@ -1,6 +1,5 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
@@ -45,17 +44,12 @@ import { RankingTimelineService } from '../ranking/ranking-timeline.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
-
 const authSessionService = new AuthSessionService();
-
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
-
 const sessionSecret = new Uint8Array(32).fill(23);
-
 const SYNTHETIC_SESSION_SECRET =
   Buffer.from(sessionSecret).toString('base64url');
 const PUBLIC_EXPOSURE_PERSONA_ALLOWED_ORIGIN = 'http://frontend-persona.test';
-
 function makePersonaPrincipal(githubId: bigint): ActivePrincipal {
   return {
     id: `synthetic-${githubId.toString()}`,
@@ -71,10 +65,8 @@ function makePersonaPrincipal(githubId: bigint): ActivePrincipal {
     isProfileComplete: false,
   };
 }
-
 export class PublicExposurePersonaHttpHarness {
   constructor(private readonly fixtureNamespace: string) {}
-
   readonly prisma = new PrismaService();
   readonly metrics = new PublicProjectMetricsRepository(
     this.prisma,
@@ -90,10 +82,8 @@ export class PublicExposurePersonaHttpHarness {
   githubPublishRepositoryMock: jest.MockedFunction<
     GithubAppClient['publishRepository']
   > | null = null;
-
   async start(): Promise<void> {
     await this.prisma.$connect();
-
     const eligibilityService = new PublicEligibilityService(
       this.eligibilityMetrics,
     );
@@ -110,7 +100,6 @@ export class PublicExposurePersonaHttpHarness {
       new RankingYearService(),
       new CollectionScheduleService(),
     );
-
     const github = {
       publishRepository: jest.fn(),
     } as jest.Mocked<Pick<GithubAppClient, 'publishRepository'>>;
@@ -130,11 +119,7 @@ export class PublicExposurePersonaHttpHarness {
       new RepositoryUrlService(),
     );
     const submissionReviewsService = new SubmissionReviewsService(
-      new SubmissionReviewsRepository(
-        this.prisma,
-        new PlatformRepository(),
-        new SubmissionsRepository(this.prisma, new PlatformRepository()),
-      ),
+      new SubmissionReviewsRepository(this.prisma, new PlatformRepository()),
       repositoriesService,
       new RepositoryPublishService(),
       new RepositoryUrlService(),
@@ -142,7 +127,6 @@ export class PublicExposurePersonaHttpHarness {
       new SubmissionFileAdmissionService(),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
-
     const moduleRef = await Test.createTestingModule({
       controllers: [
         PublicProjectsController,
@@ -195,7 +179,6 @@ export class PublicExposurePersonaHttpHarness {
         },
       ],
     }).compile();
-
     this.application = moduleRef.createNestApplication();
     this.application.useGlobalGuards(moduleRef.get(AuthenticationGuard));
     this.application.setGlobalPrefix('api/v1');
@@ -210,12 +193,10 @@ export class PublicExposurePersonaHttpHarness {
     await this.application.listen(0, '127.0.0.1');
     this.baseUrl = await this.application.getUrl();
   }
-
   async stop(): Promise<void> {
     await this.application?.close();
     await this.prisma.$disconnect();
   }
-
   async createUser(
     label: string,
     role: 'STUDENT' | 'STAFF' | 'ADMIN' | null,
@@ -223,14 +204,11 @@ export class PublicExposurePersonaHttpHarness {
     memberKind?: MemberKind,
   ) {
     this.sequence += 1;
-    const githubId =
-      githubIdOverride ?? BigInt(this.sequence) + 8_998_000_000_000n;
+    const githubId = githubIdOverride ?? BigInt(this.sequence) + 8998000000000n;
     const canonicalName = `synthetic-${label}-${this.sequence}-name`;
     const canonicalDepartment = `synthetic-${label}-${this.sequence}-department`;
     const canonicalStudentId =
-      memberKind === MemberKind.STUDENT
-        ? String(970_000 + this.sequence)
-        : null;
+      memberKind === MemberKind.STUDENT ? String(970000 + this.sequence) : null;
     return this.prisma.user.create({
       data: {
         ...canonicalUserCreateFromLabel(role, {
@@ -265,13 +243,14 @@ export class PublicExposurePersonaHttpHarness {
       select: { id: true, githubId: true, nickname: true },
     });
   }
-
   async request(
     method: 'GET' | 'POST',
     path: string,
     githubId?: bigint,
     body?: Readonly<Record<string, unknown>>,
-    options: { readonly origin?: string | false } = {},
+    options: {
+      readonly origin?: string | false;
+    } = {},
   ): Promise<Response> {
     const headers: Record<string, string> = {};
     if (githubId !== undefined) {
@@ -293,12 +272,7 @@ export class PublicExposurePersonaHttpHarness {
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   }
-
   private async cookie(githubId: bigint): Promise<string> {
-    return `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(
-      sessionSecret,
-      githubId,
-      0,
-    )}`;
+    return `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(sessionSecret, githubId, 0)}`;
   }
 }

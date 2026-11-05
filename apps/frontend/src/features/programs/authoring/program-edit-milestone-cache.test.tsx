@@ -69,7 +69,6 @@ const originalMilestone: EditableMilestone = {
   name: '결과물 제출',
   startAt: '2026-08-16T09:30:59.000Z',
   dueAt: '2026-08-30T09:30:59.000Z',
-  submissionType: 'TEXT',
   instructions: '결과를 제출해 주세요.',
 };
 

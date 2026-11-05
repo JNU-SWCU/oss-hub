@@ -36,7 +36,6 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
   REPOSITORY_PUBLICATION_NOT_PLANNED:
@@ -47,12 +46,10 @@ const PUBLISH_BLOCKED_ERROR_CODES = {
 } as const satisfies Readonly<
   Record<PublishBlockedReason, SubmissionReviewsErrorCode>
 >;
-
 const APPLICATION_MODES = {
   PERSONAL: 'PERSONAL',
   TEAM: 'TEAM',
 } as const;
-
 @Injectable()
 export class SubmissionReviewsService {
   constructor(
@@ -65,7 +62,6 @@ export class SubmissionReviewsService {
     private readonly milestoneCompletionService: MilestoneCompletionService,
     private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
   ) {}
-
   reviewInputFromRequest(request: {
     readonly revision: number;
     readonly decision: ReviewDecision;
@@ -77,7 +73,6 @@ export class SubmissionReviewsService {
       comment: request.comment?.trim() || null,
     };
   }
-
   assertPublishConfirmed(request: { readonly isConfirmed: boolean }): void {
     if (request.isConfirmed !== true) {
       throw new DomainException(
@@ -87,7 +82,6 @@ export class SubmissionReviewsService {
       );
     }
   }
-
   async context(submissionId: string): Promise<SubmissionReviewContext> {
     const row = await this.repository.findReviewContext(submissionId);
     if (row === null) {
@@ -99,7 +93,6 @@ export class SubmissionReviewsService {
     }
     return this.toReviewContext(row);
   }
-
   private toReviewContext(
     row: ReviewContextRow,
     now: Date = new Date(),
@@ -122,6 +115,11 @@ export class SubmissionReviewsService {
         )
       : [];
     return {
+      requirementId: row.milestoneDocument.id,
+      latestReviewId:
+        row.histories.find((history) =>
+          SUBMISSION_REVIEW_EVENTS.includes(history.event),
+        )?.id ?? null,
       submissionId: row.id,
       application: {
         id: row.application.id,
@@ -139,6 +137,18 @@ export class SubmissionReviewsService {
       history: revisions
         .filter((history) => history.id !== current.id)
         .map((history) => this.toRevisionRecord(history, row.histories, now)),
+      unversionedReviews: row.histories
+        .filter(
+          (history) =>
+            history.revision === null &&
+            SUBMISSION_REVIEW_EVENTS.includes(history.event),
+        )
+        .map((history) => ({
+          id: history.id,
+          decision: submissionReviewDecision(history.event),
+          comment: history.comment,
+          reviewedAt: history.createdAt,
+        })),
       repository: repository
         ? {
             id: repository.id,
@@ -152,7 +162,6 @@ export class SubmissionReviewsService {
         : null,
     };
   }
-
   private toPublishEligibility(
     application: PublishEligibilitySource,
     repository: {
@@ -179,7 +188,6 @@ export class SubmissionReviewsService {
       programEndAt: application.program.endAt,
     };
   }
-
   reviewFromRequest(
     reviewerId: string,
     submissionId: string,
@@ -191,7 +199,6 @@ export class SubmissionReviewsService {
       this.reviewInputFromRequest(request),
     );
   }
-
   async review(
     reviewerId: string,
     submissionId: string,
@@ -228,7 +235,6 @@ export class SubmissionReviewsService {
           ],
         );
       }
-
       const nextStatus = decisionStatus(input.decision);
       const review = await store.createReview({
         submissionHistoryId: target.revision.id,
@@ -254,16 +260,16 @@ export class SubmissionReviewsService {
       return { reviewId: review.id, submissionStatus: nextStatus };
     });
   }
-
   publishRepositoryFromRequest(
     repositoryId: string,
     actorGithubId: bigint,
-    request: { readonly isConfirmed: boolean },
+    request: {
+      readonly isConfirmed: boolean;
+    },
   ): Promise<RepositoryPublishResult> {
     this.assertPublishConfirmed(request);
     return this.publishRepository(repositoryId, actorGithubId);
   }
-
   async publishRepository(
     repositoryId: string,
     actorGithubId: bigint,
@@ -278,7 +284,6 @@ export class SubmissionReviewsService {
         ],
       );
     }
-
     const [blockedReason] = this.repositoryPublishService.publishBlockedReasons(
       this.toPublishEligibility(eligibilityRow.application, eligibilityRow),
       publishedAt,
@@ -290,7 +295,6 @@ export class SubmissionReviewsService {
         ],
       );
     }
-
     let published: Awaited<ReturnType<RepositoriesService['publish']>>;
     try {
       published = await this.repositories.publish(
@@ -334,7 +338,6 @@ export class SubmissionReviewsService {
       publishedAt: published.publishedAt,
     };
   }
-
   private toRevisionRecord(
     history: ReviewContextRow['histories'][number],
     events: ReviewContextRow['histories'],
@@ -365,7 +368,6 @@ export class SubmissionReviewsService {
             },
     };
   }
-
   private toFileRecord(
     file: ReviewContextRow['histories'][number]['files'][number],
     now: Date,
@@ -392,7 +394,6 @@ export class SubmissionReviewsService {
     ];
   }
 }
-
 function decisionStatus(decision: ReviewDecision): SubmissionStatus {
   switch (decision) {
     case ReviewDecision.APPROVED:
@@ -403,7 +404,6 @@ function decisionStatus(decision: ReviewDecision): SubmissionStatus {
       return SubmissionStatus.REJECTED;
   }
 }
-
 function submissionReviewDecision(event: string): ReviewDecision {
   if (
     event === 'APPROVED' ||

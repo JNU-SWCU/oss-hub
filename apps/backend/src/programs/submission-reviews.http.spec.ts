@@ -36,6 +36,7 @@ const unauthenticatedService = {
 
 const service = {
   context: jest.fn().mockResolvedValue({
+    latestReviewId: null,
     submissionId: 'submission-1',
     application: {
       id: 'application-1',

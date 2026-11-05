@@ -1,8 +1,4 @@
-import {
-  MilestoneDocumentKind,
-  SubmissionStatus,
-  MilestoneSubmissionType,
-} from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import {
   SubmissionCompletionTargetRow,
   SubmissionCompletionProjections,
@@ -13,7 +9,6 @@ import {
   MilestoneCompletionInput,
 } from './milestone-completion.config';
 import { Injectable } from '@nestjs/common';
-
 @Injectable()
 export class MilestoneCompletionService {
   collectAxisStatuses(
@@ -28,7 +23,6 @@ export class MilestoneCompletionService {
     }
     return statuses;
   }
-
   milestoneCompletionStatus(
     input: MilestoneCompletionInput,
   ): MilestoneCompletionStatus {
@@ -45,17 +39,15 @@ export class MilestoneCompletionService {
     }
     return worst;
   }
-
   isMilestoneComplete(input: MilestoneCompletionInput): boolean {
     return this.milestoneCompletionStatus(input) === SubmissionStatus.APPROVED;
   }
-
   requiredMilestonesApproved(
     milestones: readonly {
       readonly id: string;
-
-      readonly submissionType?: MilestoneSubmissionType | null;
-      readonly documents: readonly { readonly id: string }[];
+      readonly documents: readonly {
+        readonly id: string;
+      }[];
     }[],
     submissions: readonly {
       readonly milestoneId: string;
@@ -66,33 +58,24 @@ export class MilestoneCompletionService {
       readonly status: SubmissionStatus;
     }[],
   ): boolean {
-    const statusByMilestone = new Map(
-      submissions.map((submission) => [
-        submission.milestoneId,
-        submission.status,
-      ]),
-    );
     const statusByDocument = new Map(
       documentSubmissions.map((submission) => [
         submission.milestoneDocumentId,
         submission.status,
       ]),
     );
-    return milestones.every((milestone) =>
-      milestone.submissionType === null && milestone.documents.length === 0
-        ? true
-        : this.isMilestoneComplete({
-            ...(milestone.submissionType === null
-              ? { submissionAxisInUse: false }
-              : {}),
-            requiredDocumentStatuses: milestone.documents.map(
-              (document) => statusByDocument.get(document.id) ?? null,
-            ),
-            submissionStatus: statusByMilestone.get(milestone.id) ?? null,
-          }),
+    return milestones.every(
+      (milestone) =>
+        milestone.documents.length === 0 ||
+        this.isMilestoneComplete({
+          submissionAxisInUse: false,
+          requiredDocumentStatuses: milestone.documents.map(
+            (document) => statusByDocument.get(document.id) ?? null,
+          ),
+          submissionStatus: null,
+        }),
     );
   }
-
   projectSubmissionCompletionTargets(
     targetRows: readonly SubmissionCompletionTargetRow[],
   ): SubmissionCompletionProjections {
@@ -104,28 +87,15 @@ export class MilestoneCompletionService {
       milestoneDocumentId: string;
       status: SubmissionStatus;
     }[] = [];
-
     for (const targetRow of targetRows) {
-      switch (targetRow.milestoneDocument.kind) {
-        case MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION:
-          submissions.push({
-            milestoneId: targetRow.milestoneDocument.milestoneId,
-            status: targetRow.status,
-          });
-          break;
-        case MilestoneDocumentKind.DOCUMENT:
-          documentSubmissions.push({
-            milestoneDocumentId: targetRow.milestoneDocument.id,
-            status: targetRow.status,
-          });
-          break;
-      }
+      documentSubmissions.push({
+        milestoneDocumentId: targetRow.milestoneDocument.id,
+        status: targetRow.status,
+      });
     }
-
     return { submissions, documentSubmissions };
   }
 }
-
 const STATUS_PRECEDENCE: readonly MilestoneCompletionStatus[] = [
   SubmissionStatus.REJECTED,
   SubmissionStatus.CHANGES_REQUESTED,
@@ -133,7 +103,6 @@ const STATUS_PRECEDENCE: readonly MilestoneCompletionStatus[] = [
   SubmissionStatus.SUBMITTED,
   SubmissionStatus.APPROVED,
 ];
-
 function isSubmissionAxisInUse(input: MilestoneCompletionInput): boolean {
   if (input.submissionAxisInUse === false) return false;
   return (

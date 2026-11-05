@@ -20,10 +20,6 @@ import { PatchIndependentAuthorityRequestDto } from '../../src/admin/dto/patch-i
 import { ResetMemberRegistrationRequestDto } from '../../src/admin/dto/reset-member-registration-request.dto';
 import { CreateMilestoneDocumentSubmissionRequestDto } from '../../src/programs/dto/create-milestone-document-submission-request.dto';
 import { CreateProgramDocumentChangeRequestRequestDto } from '../../src/programs/dto/create-program-document-change-request-request.dto';
-import {
-  CreateResubmissionRequestDto,
-  CreateSubmissionRequestDto,
-} from '../../src/programs/dto/create-submission-request.dto';
 import { ProgramDocumentChangeRequestTargetsRequestDto } from '../../src/programs/dto/program-document-change-request-targets-request.dto';
 import { UpdateStudentRepositoryUrlRequestDto } from '../../src/programs/dto/update-student-repository-url-request.dto';
 import { RankingRequestDto } from '../../src/ranking/dto/ranking-request.dto';
@@ -33,9 +29,7 @@ import {
 } from '../../src/staff/dto/access-requests-list-request.dto';
 import { ActivityTimelineRequestDto } from '../../src/student/dto/activity-timeline-request.dto';
 import { UpdateMyProfileRequestDto } from '../../src/users/dto/update-my-profile-request.dto';
-import { SubmissionInputService } from '../../src/programs/submission-input.service';
 import { RankingYearService } from '../../src/ranking/ranking-year.service';
-
 const milestoneDocumentsService = new MilestoneDocumentsService(
   {} as never,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
@@ -50,7 +44,6 @@ const programDocumentChangeRequestsService =
     {} as never,
     {} as never,
   );
-const submissionInputService = new SubmissionInputService();
 const adminAccessMutationService = new AdminAccessMutationService(
   new AuditLogMetadataService(),
   new UserProfileService(),
@@ -66,13 +59,11 @@ const adminAccessService = Object.create(
 const adminProfileMutationService = Object.create(
   AdminProfileMutationService.prototype,
 ) as AdminProfileMutationService;
-
 const pipe = new ValidationPipe({
   transform: true,
   whitelist: true,
   forbidNonWhitelisted: true,
 });
-
 const payloads: ReadonlyArray<readonly [string, unknown]> = [
   ['valid', { title: 'Title', body: 'Body' }],
   ['valid at max lengths', { title: 't'.repeat(200), body: 'b'.repeat(10000) }],
@@ -83,7 +74,6 @@ const payloads: ReadonlyArray<readonly [string, unknown]> = [
   ['over max lengths', { title: 't'.repeat(201), body: 'b'.repeat(10001) }],
   ['unknown field', { title: 'Title', body: 'Body', pinned: true }],
 ];
-
 async function outcome(metatype: Type<unknown>, payload: unknown) {
   try {
     const value: unknown = await pipe.transform(payload, {
@@ -98,7 +88,6 @@ async function outcome(metatype: Type<unknown>, payload: unknown) {
     throw error;
   }
 }
-
 describe.each([
   ['CreateBoardPostRequestDto', CreateBoardPostRequestDto],
   ['UpdateBoardPostRequestDto', UpdateBoardPostRequestDto],
@@ -107,7 +96,6 @@ describe.each([
     expect(JSON.stringify(await outcome(metatype, payload))).toMatchSnapshot();
   });
 });
-
 function describeThrown(error: unknown): unknown {
   if (!(error instanceof Error)) throw error;
   const record = error as unknown as Record<string, unknown>;
@@ -117,9 +105,7 @@ function describeThrown(error: unknown): unknown {
       .map((key) => [key, record[key]]),
   );
 }
-
 type Command<T> = (dto: T) => unknown;
-
 async function parity<T>(
   metatype: Type<T>,
   payload: unknown,
@@ -136,7 +122,6 @@ async function parity<T>(
     return JSON.stringify({ ...validated, thrown: describeThrown(error) });
   }
 }
-
 function parityCases<T>(
   metatype: Type<T>,
   cases: Readonly<Record<string, unknown>>,
@@ -148,7 +133,6 @@ function parityCases<T>(
     });
   });
 }
-
 const FIXED_NOW = new Date('2026-06-15T00:00:00.000Z');
 const SORT_QUERY = {
   valid: {
@@ -166,7 +150,6 @@ const SORT_QUERY = {
   'pending filter value': { pendingRequest: 'PENDING' },
   'page out of range': { page: '0', limit: '101' },
 };
-
 parityCases(AdminAccessListRequestDto, SORT_QUERY, (dto) =>
   adminAccessService.listQueryFromRequest(dto),
 );
@@ -348,52 +331,6 @@ parityCases(UpdateStudentRepositoryUrlRequestDto, {
   'non-string': { repositoryUrl: 1 },
   missing: {},
 });
-const SUBMISSION_CONTENT = {
-  'file content': { type: 'FILE', fileId: ' f1 ' },
-  'text content': { type: 'TEXT', text: ' hello ' },
-  'blank file': { type: 'FILE', fileId: '  ' },
-  'blank text': { type: 'TEXT', text: '  ' },
-  'unknown type': { type: 'NOPE' },
-  'long text': { type: 'TEXT', text: 't'.repeat(10001) },
-};
-parityCases(
-  CreateSubmissionRequestDto,
-  {
-    ...Object.fromEntries(
-      Object.entries(SUBMISSION_CONTENT).map(([name, content]) => [
-        name,
-        { applicationId: 'a1', milestoneId: 'm1', content, comment: ' c ' },
-      ]),
-    ),
-    'blank comment': {
-      applicationId: 'a1',
-      milestoneId: 'm1',
-      content: { type: 'TEXT', text: 'x' },
-      comment: '  ',
-    },
-    missing: {},
-    'non-object content': {
-      applicationId: 'a1',
-      milestoneId: 'm1',
-      content: 'x',
-    },
-  },
-  (body) => submissionInputService.toCreateSubmissionInput(body),
-);
-parityCases(
-  CreateResubmissionRequestDto,
-  {
-    ...Object.fromEntries(
-      Object.entries(SUBMISSION_CONTENT).map(([name, content]) => [
-        name,
-        { baseRevision: 1, content },
-      ]),
-    ),
-    'bad revision': { baseRevision: 0, content: { type: 'TEXT', text: 'x' } },
-    missing: {},
-  },
-  (body) => submissionInputService.toResubmitSubmissionInput(body),
-);
 parityCases(
   CreateMilestoneDocumentSubmissionRequestDto,
   {

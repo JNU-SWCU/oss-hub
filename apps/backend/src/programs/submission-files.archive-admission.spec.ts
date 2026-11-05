@@ -1,7 +1,6 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneSubmissionType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import type { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
@@ -10,18 +9,13 @@ import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
 } from './submissions-error-code.error';
-
 const MIB = 1024 * 1024;
-
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
-
 type ArchiveCase = {
   readonly scenario: string;
-
   readonly code: string;
   readonly build: () => Buffer;
 };
-
 const HAZARDOUS_ARCHIVES = [
   {
     scenario: 'a relative traversal entry',
@@ -84,7 +78,7 @@ const HAZARDOUS_ARCHIVES = [
     code: 'SUB_030',
     build: () =>
       signatureValidZip(
-        Array.from({ length: 1_001 }, (_, index) => ({
+        Array.from({ length: 1001 }, (_, index) => ({
           name: `entry-${index}.txt`,
         })),
       ),
@@ -123,8 +117,8 @@ const HAZARDOUS_ARCHIVES = [
         {
           name: 'entry-ratio.txt',
           compressionMethod: 8,
-          compressedSize: 1_024,
-          uncompressedSize: 101 * 1_024,
+          compressedSize: 1024,
+          uncompressedSize: 101 * 1024,
         },
       ]),
   },
@@ -136,8 +130,8 @@ const HAZARDOUS_ARCHIVES = [
         Array.from({ length: 3 }, (_, index) => ({
           name: `aggregate-ratio-${index}.txt`,
           compressionMethod: 8,
-          compressedSize: 1_024,
-          uncompressedSize: 103 * 1_024,
+          compressedSize: 1024,
+          uncompressedSize: 103 * 1024,
         })),
       ),
   },
@@ -159,7 +153,6 @@ const HAZARDOUS_ARCHIVES = [
     },
   },
 ] satisfies readonly ArchiveCase[];
-
 function setup() {
   const repository = {
     findActiveStudentByGithubId: jest.fn().mockResolvedValue('student-opaque'),
@@ -168,7 +161,6 @@ function setup() {
       applicationId: 'application-opaque',
       milestoneId: 'milestone-opaque',
       applicationApproved: true,
-      submissionType: MilestoneSubmissionType.FILE,
       dueAt: new Date('2099-01-01T00:00:00.000Z'),
       programEndAt: new Date('2099-12-31T00:00:00.000Z'),
       resubmissionStatus: null,
@@ -201,34 +193,6 @@ function setup() {
   );
   return { repository, service, storage };
 }
-
-async function admissionOutcome(buffer: Buffer) {
-  const { repository, service, storage } = setup();
-  const [upload] = await Promise.allSettled([
-    service.upload(1n, 'application-opaque', 'milestone-opaque', {
-      buffer,
-      originalname: 'archive.zip',
-      mimetype: 'application/zip',
-      size: buffer.byteLength,
-    }),
-  ]);
-
-  const rejection =
-    upload?.status === 'rejected' && upload.reason instanceof DomainException
-      ? upload.reason
-      : null;
-
-  return {
-    code: rejection?.errorCode.code ?? null,
-    domainRejected: rejection !== null,
-    httpStatus: rejection?.errorCode.status ?? null,
-    message: rejection?.errorCode.message ?? null,
-    persistenceCalls: repository.createPending.mock.calls.length,
-    status: upload?.status,
-    storageCalls: storage.put.mock.calls.length,
-  };
-}
-
 async function checkOutcome(buffer: Buffer) {
   const { repository, service, storage } = setup();
   const [check] = await Promise.allSettled([
@@ -239,14 +203,12 @@ async function checkOutcome(buffer: Buffer) {
       size: buffer.byteLength,
     }),
   ]);
-
   const rejection =
     check?.status === 'rejected' && check.reason instanceof DomainException
       ? check.reason
       : null;
   const callCount = (mocks: Record<string, jest.Mock>) =>
     Object.values(mocks).reduce((sum, mock) => sum + mock.mock.calls.length, 0);
-
   return {
     code: rejection?.errorCode.code ?? null,
     httpStatus: rejection?.errorCode.status ?? null,
@@ -256,87 +218,26 @@ async function checkOutcome(buffer: Buffer) {
     storageCalls: callCount(storage),
   };
 }
-
-describe('SubmissionFilesService ZIP metadata admission', () => {
-  it.each(HAZARDOUS_ARCHIVES)(
-    'rejects $scenario with $code before persistence or storage',
-    async ({ build, code }) => {
-      const archive = build();
-
-      const outcome = await admissionOutcome(archive);
-
-      expect(outcome).toEqual({
-        code,
-        domainRejected: true,
-        httpStatus: 422,
-        message: SUBMISSIONS_ERROR_CODES[code as SubmissionsErrorCode]?.message,
-        persistenceCalls: 0,
-        status: 'rejected',
-        storageCalls: 0,
-      });
-    },
-  );
-
-  it.each(HAZARDOUS_ARCHIVES)(
-    'does not answer $scenario with the unsupported-format code',
-    async ({ build }) => {
-      const archive = build();
-
-      const outcome = await admissionOutcome(archive);
-
-      expect(outcome.code).not.toBe(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
-      expect(outcome.message).not.toBe(
-        SUBMISSIONS_ERROR_CODES[SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE]
-          .message,
-      );
-    },
-  );
-
-  it('accepts a valid stored archive control', async () => {
-    const archive = signatureValidZip([{ name: 'valid.txt' }]);
-
-    const outcome = await admissionOutcome(archive);
-
-    expect(outcome).toEqual({
-      code: null,
-      domainRejected: false,
-      httpStatus: null,
-      message: null,
-      persistenceCalls: 1,
-      status: 'fulfilled',
-      storageCalls: 1,
-    });
-  });
-});
-
 describe('SubmissionFilesService file check before submission', () => {
   it.each(HAZARDOUS_ARCHIVES)(
     'answers $scenario with the submission code $code and touches neither repository nor storage',
     async ({ build, code }) => {
       const archive = build();
-
-      const [checked, submitted] = await Promise.all([
-        checkOutcome(archive),
-        admissionOutcome(archive),
-      ]);
-
+      const checked = await checkOutcome(archive);
       expect(checked).toEqual({
         code,
-        httpStatus: submitted.httpStatus,
-        message: submitted.message,
+        httpStatus: 422,
+        message: SUBMISSIONS_ERROR_CODES[code as SubmissionsErrorCode].message,
         repositoryCalls: 0,
         status: 'rejected',
         storageCalls: 0,
       });
-      expect(checked.code).toBe(submitted.code);
+      expect(checked.code).toBe(code);
     },
   );
-
   it('passes a valid archive and still touches neither repository nor storage', async () => {
     const archive = signatureValidZip([{ name: 'valid.txt' }]);
-
     const outcome = await checkOutcome(archive);
-
     expect(outcome).toEqual({
       code: null,
       httpStatus: null,

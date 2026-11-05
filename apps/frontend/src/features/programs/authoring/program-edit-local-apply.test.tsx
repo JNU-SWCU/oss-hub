@@ -34,7 +34,6 @@ describe('프로그램 편집의 초안 적용', () => {
       name: '기획서',
       startAt: '2026-09-10T00:00:00.000Z',
       dueAt: '2026-09-20T00:00:00.000Z',
-      submissionType: 'TEXT',
       instructions: null,
     });
     const fetchMock = vi.spyOn(globalThis, 'fetch');

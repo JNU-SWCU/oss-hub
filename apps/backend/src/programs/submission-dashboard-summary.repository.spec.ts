@@ -1,6 +1,5 @@
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
   MilestoneSubmissionType,
   SubmissionStatus,
 } from '@prisma/client';
@@ -12,18 +11,14 @@ import {
   type SubmissionDashboardSummaryDataSource,
   SubmissionDashboardSummaryRepository,
 } from './submission-dashboard-summary.repository';
-
 class FakeFindManyDelegate<TArgs, TRow> {
   readonly calls: TArgs[] = [];
-
   constructor(private readonly rows: readonly TRow[]) {}
-
   findMany(args: TArgs): Promise<readonly TRow[]> {
     this.calls.push(args);
     return Promise.resolve(this.rows);
   }
 }
-
 describe('SubmissionDashboardSummaryRepository', () => {
   it('queries approved applications, milestones, and current submissions once for all programs', async () => {
     const applications = new FakeFindManyDelegate<
@@ -44,12 +39,10 @@ describe('SubmissionDashboardSummaryRepository', () => {
       {
         id: 'milestone-a',
         programId: 'program-a',
-        submissionType: MilestoneSubmissionType.FILE,
       },
       {
         id: 'milestone-b',
         programId: 'program-b',
-        submissionType: MilestoneSubmissionType.FILE,
       },
     ]);
     const milestoneDocuments = new FakeFindManyDelegate<
@@ -76,7 +69,6 @@ describe('SubmissionDashboardSummaryRepository', () => {
         status: SubmissionStatus.APPROVED,
         application: { programId: 'program-a' },
         milestoneDocument: {
-          kind: MilestoneDocumentKind.DOCUMENT,
           milestoneId: 'milestone-a',
           milestone: { programId: 'program-a' },
         },
@@ -87,7 +79,6 @@ describe('SubmissionDashboardSummaryRepository', () => {
         status: SubmissionStatus.SUBMITTED,
         application: { programId: 'program-a' },
         milestoneDocument: {
-          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
           milestoneId: 'milestone-a',
           milestone: { programId: 'program-a' },
         },
@@ -100,9 +91,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
       milestoneDocumentSubmission: documentSubmissions,
     } satisfies SubmissionDashboardSummaryDataSource;
     const repository = new SubmissionDashboardSummaryRepository(prisma);
-
     const records = await repository.listRecords(['program-a', 'program-b']);
-
     expect(records).toEqual({
       applications: [
         { id: 'approved-application', programId: 'program-a' },
@@ -160,11 +149,9 @@ describe('SubmissionDashboardSummaryRepository', () => {
       where: { programId: { in: ['program-a', 'program-b'] } },
       select: { id: true, programId: true, submissionType: true },
     });
-
     expect(milestoneDocuments.calls[0]).toEqual({
       where: {
         required: true,
-        kind: MilestoneDocumentKind.DOCUMENT,
         milestone: { is: { programId: { in: ['program-a', 'program-b'] } } },
       },
       select: {
@@ -188,10 +175,9 @@ describe('SubmissionDashboardSummaryRepository', () => {
             },
             OR: [
               {
-                kind: MilestoneDocumentKind.DOCUMENT,
                 required: true,
               },
-              { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
+              {},
             ],
           },
         },
@@ -211,7 +197,6 @@ describe('SubmissionDashboardSummaryRepository', () => {
       },
     });
   });
-
   it('returns empty records without database fan-out when no program ids are requested', async () => {
     const applications = new FakeFindManyDelegate<
       Parameters<
@@ -243,11 +228,9 @@ describe('SubmissionDashboardSummaryRepository', () => {
       milestoneDocument: milestoneDocuments,
       milestoneDocumentSubmission: documentSubmissions,
     } satisfies SubmissionDashboardSummaryDataSource;
-
     const records = await new SubmissionDashboardSummaryRepository(
       prisma,
     ).listRecords([]);
-
     expect(records).toEqual({
       applications: [],
       milestones: [],

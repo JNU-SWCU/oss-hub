@@ -2,9 +2,7 @@ import { MilestoneDocumentFeedbackResponseDto } from '../../student/dto/mileston
 import { MilestoneDocumentHistoryPageResponseDto } from './milestone-document-history-page-response.dto';
 import { MilestoneDocumentResponseDto } from './milestone-document-response.dto';
 import { type MilestoneDocumentViewerResult } from '../milestone-documents.service';
-
 const when = new Date('2026-10-20T01:02:03.123Z');
-
 it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 양식 ID는 노출하지 않는다', () => {
   const result: MilestoneDocumentViewerResult = {
     id: 'document',
@@ -25,7 +23,7 @@ it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 �
       status: 'CHANGES_REQUESTED',
       hasCurrentFile: false,
       currentFileName: null,
-      review: { comment: '보완', reviewedAt: when, resubmissionDueAt: null },
+      review: { comment: '보완', reviewedAt: when },
       history: { hasHistory: true, isComplete: false },
     },
   };
@@ -66,7 +64,6 @@ it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 �
     /viewerSubmission|teamSubmissionCount|private-template-id/,
   );
 });
-
 it('학생 이력의 이미 가려진 검토자와 null 이력을 보존하고 다운로드 가능한 파일만 링크로 표현한다', () => {
   const item = {
     event: 'CHANGES_REQUESTED' as const,
@@ -111,7 +108,6 @@ it('학생 이력의 이미 가려진 검토자와 null 이력을 보존하고 �
     isComplete: false,
   });
 });
-
 it('피드백의 마감 null과 기존 URL 인코딩을 보존한다', () => {
   const result = MilestoneDocumentFeedbackResponseDto.from({
     items: [
@@ -120,7 +116,6 @@ it('피드백의 마감 null과 기존 URL 인코딩을 보존한다', () => {
         decision: 'APPROVED',
         comment: null,
         reviewedAt: when,
-        resubmissionDueAt: null,
         applicationId: 'application',
         programId: 'program/1',
         milestoneId: 'seed:milestone?1',

@@ -1,7 +1,6 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
   MilestoneSubmissionType,
   type Prisma,
   RepositoryInvitationStatus,
@@ -16,25 +15,20 @@ import {
   type StudentDashboardApplicationRow,
 } from './student-dashboard.repository';
 import { StudentDashboardService } from './student-dashboard.service';
-import { submissionCompletionTargetSelect } from '../programs/submission-completion.config';
 import { MilestoneCompletionService } from '../programs/milestone-completion.service';
 import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
 const SECOND_DUE_AT = new Date('2026-08-02T00:00:00.000Z');
-
 function legacySubmission(milestoneId: string, status: SubmissionStatus) {
   return {
     status,
     milestoneDocument: {
       id: `${milestoneId}-legacy-slot`,
       milestoneId,
-      kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
     },
   };
 }
-
 function documentSubmission(
   milestoneId: string,
   documentId: string,
@@ -45,11 +39,9 @@ function documentSubmission(
     milestoneDocument: {
       id: documentId,
       milestoneId,
-      kind: MilestoneDocumentKind.DOCUMENT,
     },
   };
 }
-
 function legacyMilestone(id: string, name: string, dueAt: Date) {
   return {
     id,
@@ -59,7 +51,6 @@ function legacyMilestone(id: string, name: string, dueAt: Date) {
     documents: [],
   };
 }
-
 function documentMilestone(
   id: string,
   name: string,
@@ -77,21 +68,18 @@ function documentMilestone(
     })),
   };
 }
-
 function program(
   milestones: readonly StudentDashboardApplicationRow['program']['milestones'][number][],
   id = 'program-1',
 ) {
   return { id, name: 'Synthetic Program', milestones };
 }
-
 function application(
   overrides: Partial<StudentDashboardApplicationRow> = {},
 ): StudentDashboardApplicationRow {
   return {
     id: 'application-1',
     status: ApplicationStatus.APPROVED,
-
     team: { name: 'Synthetic Solo Team' },
     program: program([
       legacyMilestone('milestone-1', 'First milestone', DUE_AT),
@@ -100,7 +88,6 @@ function application(
     ...overrides,
   };
 }
-
 describe('StudentDashboardService', () => {
   const findParticipatingApplications = jest.fn();
   const repository = {
@@ -116,13 +103,11 @@ describe('StudentDashboardService', () => {
     new MilestoneCompletionService(),
     new ProgramCoverUrlService(),
   );
-
   beforeEach(() => {
     jest.clearAllMocks();
     findParticipatingApplications.mockResolvedValue([]);
     getMyRepositories.mockResolvedValue([]);
   });
-
   it('keeps the original deadline and exposes grace only for missing required documents', async () => {
     const grace = new Date('2026-08-04T00:00:00.000Z');
     const submittedGrace = new Date('2026-08-06T00:00:00.000Z');
@@ -158,7 +143,6 @@ describe('StudentDashboardService', () => {
       lateSubmissionDueAt: grace,
     });
   });
-
   it('does not extend a missing item with a submitted document grace period', async () => {
     const milestone = {
       ...documentMilestone('milestone-1', 'First milestone', DUE_AT, []),
@@ -182,24 +166,19 @@ describe('StudentDashboardService', () => {
     const [item] = await service.getStudentDashboard(404n);
     expect(item?.nextMilestone).toMatchObject({ lateSubmissionDueAt: null });
   });
-
   it('returns no items when the student is in no team', async () => {
     await expect(service.getStudentDashboard(404n)).resolves.toEqual([]);
     expect(findParticipatingApplications).toHaveBeenCalledWith(404n);
     expect(getMyRepositories).toHaveBeenCalledWith(404n);
   });
-
   it('projects the current program cover without storage metadata', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({ program: { ...program([]), cover: { id: 'cover-1' } } }),
     ]);
-
     const items = await service.getStudentDashboard(404n);
-
     expect(items[0]?.coverImageUrl).toBe('/programs/program-1/cover/cover-1');
     expect(items[0]).not.toHaveProperty('storageKey');
   });
-
   it('projects an external cover directly on the student dashboard', async () => {
     const imageUrl = 'https://sojoong.kr/wp-content/uploads/synthetic.jpg';
     findParticipatingApplications.mockResolvedValue([
@@ -210,15 +189,11 @@ describe('StudentDashboardService', () => {
     const items = await service.getStudentDashboard(404n);
     expect(items[0]?.coverImageUrl).toBe(imageUrl);
   });
-
   it('projects a null cover when the program has no cover', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);
-
     const items = await service.getStudentDashboard(404n);
-
     expect(items[0]?.coverImageUrl).toBeNull();
   });
-
   it('compiles with the read repository and the concrete repositories read service', async () => {
     const moduleRef = await Test.createTestingModule({
       providers: [
@@ -239,12 +214,10 @@ describe('StudentDashboardService', () => {
         },
       ],
     }).compile();
-
     expect(moduleRef.get(StudentDashboardService)).toBeInstanceOf(
       StudentDashboardService,
     );
   });
-
   it('gives every current member the same team name and my-team link', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({ team: { name: 'Solo Team' } }),
@@ -253,9 +226,7 @@ describe('StudentDashboardService', () => {
         team: { name: 'Synthetic Team' },
       }),
     ]);
-
     const items = await service.getStudentDashboard(101n);
-
     expect(items).toEqual([
       expect.objectContaining({
         applicationId: 'application-1',
@@ -270,12 +241,10 @@ describe('StudentDashboardService', () => {
         teamUrl: '/programs/program-1/my-team',
       }),
     ]);
-
     expect(items[0]).not.toHaveProperty('applicationMode');
     expect(items[0]).not.toHaveProperty('displayName');
     expect(items[0]?.repository?.provisionStatus).toBe('NOT_STARTED');
   });
-
   it('percent-encodes the program id in every card link', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -285,46 +254,34 @@ describe('StudentDashboardService', () => {
         ),
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.teamUrl).toBe('/programs/program%3A1/my-team');
     expect(item?.detailUrl).toBe('/programs/program%3A1');
     expect(item?.checklistUrl).toBe('/programs/program%3A1/submissions');
   });
-
   it('drops a card whose team name is blank instead of inventing one', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({ team: { name: '   ' } }),
     ]);
-
     await expect(service.getStudentDashboard(101n)).resolves.toEqual([]);
   });
-
   it.each([
     [ApplicationStatus.SUBMITTED, '/programs/program-1/apply'],
     [ApplicationStatus.REJECTED, '/programs/program-1/apply'],
     [ApplicationStatus.APPROVED, '/programs/program-1'],
   ])('points a %s application at %s', async (status, detailUrl) => {
     findParticipatingApplications.mockResolvedValue([application({ status })]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.detailUrl).toBe(detailUrl);
-
     expect(item?.teamUrl).toBe('/programs/program-1/my-team');
   });
-
   it('keeps nextMilestone null for applications that are not approved', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({ status: ApplicationStatus.SUBMITTED }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toBeNull();
   });
-
   it('skips approved milestones and returns null when all milestones are approved', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -344,16 +301,13 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const items = await service.getStudentDashboard(101n);
-
     expect(items[0]?.nextMilestone).toMatchObject({
       id: 'milestone-2',
       submissionStatus: 'CHANGES_REQUESTED',
     });
     expect(items[1]?.nextMilestone).toBeNull();
   });
-
   it('holds the milestone while any required document is unapproved', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -380,15 +334,12 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toMatchObject({
       id: 'milestone-1',
       submissionStatus: 'SUBMITTED',
     });
   });
-
   it('advances past a milestone whose required documents are all approved', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -412,7 +363,6 @@ describe('StudentDashboardService', () => {
             'document-2',
             SubmissionStatus.APPROVED,
           ),
-
           documentSubmission(
             'milestone-2',
             'optional-document',
@@ -421,15 +371,12 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toMatchObject({
       id: 'milestone-2',
       submissionStatus: 'NOT_SUBMITTED',
     });
   });
-
   it('empties nextMilestone once every milestone has its required documents approved', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -450,7 +397,6 @@ describe('StudentDashboardService', () => {
             'document-2',
             SubmissionStatus.APPROVED,
           ),
-
           documentSubmission(
             'milestone-2',
             'optional-document',
@@ -459,12 +405,9 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toBeNull();
   });
-
   it('lets an unapproved required document outrank an approved legacy submission', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -484,20 +427,15 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toMatchObject({
       id: 'milestone-1',
       submissionStatus: 'SUBMITTED',
     });
   });
-
   it('treats a missing submission as NOT_SUBMITTED', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toEqual({
       id: 'milestone-1',
       name: 'First milestone',
@@ -508,7 +446,6 @@ describe('StudentDashboardService', () => {
       remainingItemCount: 1,
     });
   });
-
   it('counts approved and in-review milestones against every milestone with a required item', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -551,16 +488,13 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.progress).toEqual({
       approvedCount: 1,
       inReviewCount: 2,
       totalCount: 4,
     });
   });
-
   it('leaves information-only milestones out of every progress count', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -584,16 +518,13 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.progress).toEqual({
       approvedCount: 1,
       inReviewCount: 0,
       totalCount: 1,
     });
   });
-
   it('skips information-only milestones when choosing the next milestone', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -605,12 +536,9 @@ describe('StudentDashboardService', () => {
         ]),
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toMatchObject({ id: 'milestone-2' });
   });
-
   it('finishes the card when only information-only milestones are left', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -627,9 +555,7 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toBeNull();
     expect(item?.progress).toEqual({
       approvedCount: 1,
@@ -637,7 +563,6 @@ describe('StudentDashboardService', () => {
       totalCount: 1,
     });
   });
-
   it('counts rejected, changes-requested and unsubmitted milestones only in the total', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -678,16 +603,13 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.progress).toEqual({
       approvedCount: 0,
       inReviewCount: 0,
       totalCount: 3,
     });
   });
-
   it('counts the next milestone items the student still has to send', async () => {
     findParticipatingApplications.mockResolvedValue([
       application({
@@ -724,16 +646,13 @@ describe('StudentDashboardService', () => {
         ],
       }),
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.nextMilestone).toMatchObject({
       id: 'milestone-1',
       requiredItemCount: 5,
       remainingItemCount: 2,
     });
   });
-
   it.each([ApplicationStatus.SUBMITTED, ApplicationStatus.REJECTED])(
     'leaves progress null for a %s application',
     async (status) => {
@@ -745,13 +664,10 @@ describe('StudentDashboardService', () => {
           ],
         }),
       ]);
-
       const [item] = await service.getStudentDashboard(101n);
-
       expect(item?.progress).toBeNull();
     },
   );
-
   it('maps a validated successful repository and current-user invitation', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
@@ -763,9 +679,7 @@ describe('StudentDashboardService', () => {
         githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
       },
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.repository).toEqual({
       repositoryName: 'synthetic-repository',
       provisionStatus: 'SUCCEEDED',
@@ -773,7 +687,6 @@ describe('StudentDashboardService', () => {
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
     });
   });
-
   it('reuses the canonical pre-success repository projection', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
@@ -785,9 +698,7 @@ describe('StudentDashboardService', () => {
         githubUrl: null,
       },
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.repository).toEqual({
       repositoryName: null,
       provisionStatus: 'PROCESSING',
@@ -795,7 +706,6 @@ describe('StudentDashboardService', () => {
       githubUrl: null,
     });
   });
-
   it('distinguishes retryable and final provisioning failures without exposing raw errors', async () => {
     findParticipatingApplications.mockResolvedValue([
       application(),
@@ -819,9 +729,7 @@ describe('StudentDashboardService', () => {
         lastErrorCode: 'raw upstream response that must not be exposed',
       },
     ]);
-
     const items = await service.getStudentDashboard(101n);
-
     expect(items.map((item) => item.repository?.provisionStatus)).toEqual([
       'FAILED_RETRYABLE',
       'FAILED_FINAL',
@@ -830,7 +738,6 @@ describe('StudentDashboardService', () => {
       'raw upstream response that must not be exposed',
     );
   });
-
   it('fails closed when repository creation succeeded without current-user invitation evidence', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
@@ -843,9 +750,7 @@ describe('StudentDashboardService', () => {
         githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
       },
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.repository).toEqual({
       repositoryName: 'synthetic-repository',
       provisionStatus: 'SUCCEEDED',
@@ -853,7 +758,6 @@ describe('StudentDashboardService', () => {
       githubUrl: 'https://github.com/JNU-SWCU/synthetic-repository',
     });
   });
-
   it('keeps a successful OWN repository complete without an organization invitation', async () => {
     findParticipatingApplications.mockResolvedValue([application()]);
     getMyRepositories.mockResolvedValue([
@@ -866,9 +770,7 @@ describe('StudentDashboardService', () => {
         githubUrl: 'https://github.com/synthetic-owner/synthetic-repository',
       },
     ]);
-
     const [item] = await service.getStudentDashboard(101n);
-
     expect(item?.repository).toEqual({
       repositoryName: 'synthetic-repository',
       provisionStatus: 'SUCCEEDED',
@@ -877,7 +779,6 @@ describe('StudentDashboardService', () => {
     });
   });
 });
-
 describe('StudentDashboardRepository', () => {
   const findUnique = jest.fn();
   const findMany = jest.fn();
@@ -889,16 +790,13 @@ describe('StudentDashboardRepository', () => {
     prisma,
     new PlatformRepository(),
   );
-
   beforeEach(() => {
     jest.clearAllMocks();
     findUnique.mockResolvedValue({ id: 'user-1' });
     findMany.mockResolvedValue([]);
   });
-
   it('narrows applications to current TeamMember rows only', async () => {
     await repository.findParticipatingApplications(101n);
-
     expect(findUnique).toHaveBeenCalledWith({
       where: { githubId: 101n },
       select: { id: true },
@@ -910,32 +808,31 @@ describe('StudentDashboardRepository', () => {
     expect(JSON.stringify(args.where)).not.toContain('applicant');
     expect(JSON.stringify(args.where)).not.toContain('leader');
   });
-
   it('returns nothing and never queries applications for an unknown session user', async () => {
     findUnique.mockResolvedValue(null);
-
     await expect(
       repository.findParticipatingApplications(404n),
     ).resolves.toEqual([]);
     expect(findMany).not.toHaveBeenCalled();
   });
-
   it('selects the whole target ledger and the current team name only', async () => {
     await repository.findParticipatingApplications(101n);
-
     const [args] = findMany.mock.calls[0] as [Prisma.ApplicationFindManyArgs];
     expect(args.select?.milestoneDocumentSubmissions).toEqual({
-      select: submissionCompletionTargetSelect,
+      select: {
+        status: true,
+        milestoneDocument: { select: { id: true, milestoneId: true } },
+      },
     });
     expect(args.select?.team).toEqual({ select: { name: true } });
-
     const programSelect = args.select?.program as {
-      readonly select?: { readonly cover?: unknown };
+      readonly select?: {
+        readonly cover?: unknown;
+      };
     };
     expect(programSelect.select?.cover).toEqual({
       select: { id: true, imageUrl: true },
     });
-
     expect(args.select).not.toHaveProperty('applicant');
   });
 });

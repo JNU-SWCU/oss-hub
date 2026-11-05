@@ -1,7 +1,6 @@
 import { DeadlineDigestMailService } from './deadline-digest-mail.service';
 import {
   ApplicationStatus,
-  MilestoneSubmissionType,
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
@@ -17,21 +16,16 @@ import { DeadlineDigestRepository } from './deadline-digest.repository';
 import { DeadlineDigestService } from './deadline-digest.service';
 import { NotificationSettingsRepository } from './application-decision-notifications.repository';
 import { type DeadlineDigestMail, type MailSender } from './gmail-mail.client';
-
 export { DIGEST_FIXTURE };
-
 export class RecordingMailSender implements MailSender {
   readonly sent: DeadlineDigestMail[] = [];
-
   send(mail: DeadlineDigestMail): Promise<void> {
     this.sent.push(mail);
     return Promise.resolve();
   }
 }
-
 export class IsolatingMailSender implements MailSender {
   readonly attempted: DeadlineDigestMail[] = [];
-
   send(mail: DeadlineDigestMail): Promise<void> {
     this.attempted.push(mail);
     return mail.to === 'student-missing@example.com'
@@ -43,12 +37,10 @@ export class IsolatingMailSender implements MailSender {
       : Promise.resolve();
   }
 }
-
 export function createDeadlineDigestIntegrationHarness() {
   const prisma = new PrismaService();
   const repository = new DeadlineDigestRepository(prisma);
   const settingsRepository = new NotificationSettingsRepository(prisma);
-
   async function cleanup(): Promise<void> {
     await prisma.notification.deleteMany({
       where: { userId: { in: DIGEST_USER_IDS } },
@@ -97,7 +89,6 @@ export function createDeadlineDigestIntegrationHarness() {
     });
     await prisma.user.deleteMany({ where: { id: { in: DIGEST_USER_IDS } } });
   }
-
   async function seed(): Promise<void> {
     await prisma.program.createMany({
       data: [
@@ -106,9 +97,8 @@ export function createDeadlineDigestIntegrationHarness() {
       ].map(([id, notifyOnDeadline]) => ({
         startAt: new Date('2026-08-01T00:00:00.000Z'),
         endAt: new Date(
-          new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+          new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000,
         ),
-
         id: String(id),
         name: `synthetic ${id}`,
         organizer: 'synthetic-center',
@@ -139,7 +129,6 @@ export function createDeadlineDigestIntegrationHarness() {
         ...milestone,
         startAt: new Date('2026-08-01T00:00:00.000Z'),
         dueAt: DIGEST_FIXTURE.dueSoon,
-        submissionType: MilestoneSubmissionType.TEXT,
       })),
     });
     await prisma.milestoneDocument.createMany({
@@ -216,7 +205,6 @@ export function createDeadlineDigestIntegrationHarness() {
       },
     });
   }
-
   return {
     prisma,
     repository,

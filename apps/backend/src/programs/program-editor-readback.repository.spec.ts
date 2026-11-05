@@ -2,22 +2,18 @@ import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { MilestoneSubmissionType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
-
 const milestone = {
   id: 'm',
   programId: 'p',
   name: 'Final',
   startAt: null,
   dueAt: new Date('2026-08-20T00:00:00Z'),
-  submissionType: MilestoneSubmissionType.FILE,
   instructions: null,
   updatedAt: new Date('2026-08-16T00:00:00Z'),
   program: { startAt: null, endAt: new Date('2026-08-31T00:00:00Z') },
 };
-
 describe('milestone edit transaction readback', () => {
   it('keeps projections and document ordering while removing only repeated locks', async () => {
     const tx = {
@@ -85,7 +81,6 @@ describe('milestone edit transaction readback', () => {
       tx.milestoneDocument.findMany.mock.calls[1],
     );
   });
-
   it.each(['ownership', 'read', 'mismatch'])(
     'preserves the %s null exit without SQL locks',
     async (missing) => {

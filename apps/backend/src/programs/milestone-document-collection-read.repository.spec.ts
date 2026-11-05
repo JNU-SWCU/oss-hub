@@ -1,7 +1,7 @@
 import type { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 
 describe('milestone-document-history-query.repository', () => {
   describe('milestone document history', () => {
@@ -19,12 +19,12 @@ describe('milestone-document-history-query.repository', () => {
       const latest = new Date('2026-09-18T09:00:00.000Z');
 
       expect(
-        new MilestoneDocumentSubmissionRepository(
+        new SubmissionsRepository(
           new PlatformRepository(),
         ).nextHistoryCreatedAt(new Date('2026-09-18T08:59:59.000Z'), latest),
       ).toEqual(new Date('2026-09-18T09:00:00.001Z'));
       expect(
-        new MilestoneDocumentSubmissionRepository(
+        new SubmissionsRepository(
           new PlatformRepository(),
         ).nextHistoryCreatedAt(new Date('2026-09-18T09:00:01.000Z'), latest),
       ).toEqual(new Date('2026-09-18T09:00:01.000Z'));

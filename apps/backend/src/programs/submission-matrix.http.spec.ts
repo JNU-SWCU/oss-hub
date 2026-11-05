@@ -68,6 +68,7 @@ const repository: SubmissionMatrixRepositoryPort = {
     Promise.resolve([
       {
         id: 'synthetic-submission',
+        milestoneDocumentId: 'synthetic-required-document',
         applicationId: 'synthetic-application-personal',
         milestoneId: 'synthetic-milestone',
         status: SubmissionStatus.SUBMITTED,

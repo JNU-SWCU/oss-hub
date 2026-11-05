@@ -35,6 +35,7 @@ vi.mock('./components/submission-review-view', () => ({
 }));
 
 const CONTEXT: ReviewContext = {
+  latestReviewId: null,
   requirementId: 'requirement-1',
   submissionId: 'submission-existing',
   application: {

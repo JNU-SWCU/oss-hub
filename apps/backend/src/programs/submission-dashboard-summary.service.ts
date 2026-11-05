@@ -10,7 +10,6 @@ import {
   type MilestoneCompletionStatus,
 } from './milestone-completion.config';
 import { MilestoneCompletionService } from './milestone-completion.service';
-
 export interface SubmissionDashboardProgramSummary {
   readonly programId: string;
   readonly approvedApplications: number;
@@ -22,7 +21,6 @@ export interface SubmissionDashboardProgramSummary {
   readonly changesRequested: number;
   readonly rejected: number;
 }
-
 interface MutableSubmissionDashboardProgramSummary {
   programId: string;
   approvedApplications: number;
@@ -34,7 +32,6 @@ interface MutableSubmissionDashboardProgramSummary {
   changesRequested: number;
   rejected: number;
 }
-
 @Injectable()
 export class SubmissionDashboardSummaryService {
   constructor(
@@ -42,7 +39,6 @@ export class SubmissionDashboardSummaryService {
     private readonly repository: SubmissionDashboardSummaryRepositoryPort,
     private readonly milestoneCompletionService: MilestoneCompletionService,
   ) {}
-
   async listByProgram(
     programIds: readonly string[],
   ): Promise<readonly SubmissionDashboardProgramSummary[]> {
@@ -53,7 +49,6 @@ export class SubmissionDashboardSummaryService {
     const records = await this.repository.listRecords(programIds);
     const applicationProgramById = new Map<string, string>();
     const milestoneProgramById = new Map<string, string>();
-
     for (const application of records.applications) {
       applicationProgramById.set(application.id, application.programId);
       const summary = summaryByProgram.get(application.programId);
@@ -62,7 +57,6 @@ export class SubmissionDashboardSummaryService {
     for (const milestone of records.milestones) {
       milestoneProgramById.set(milestone.id, milestone.programId);
     }
-
     const submissionByCell = new Map<string, SubmissionStatus>();
     for (const submission of records.submissions) {
       if (
@@ -74,13 +68,11 @@ export class SubmissionDashboardSummaryService {
       ) {
         continue;
       }
-
       const cell = cellKey(submission.applicationId, submission.milestoneId);
       if (!submissionByCell.has(cell)) {
         submissionByCell.set(cell, submission.status);
       }
     }
-
     const requiredDocumentsByMilestone = new Map<string, string[]>();
     for (const document of records.milestoneDocuments) {
       if (
@@ -94,7 +86,6 @@ export class SubmissionDashboardSummaryService {
       else
         requiredDocumentsByMilestone.set(document.milestoneId, [document.id]);
     }
-
     const documentStatusByCell = new Map<string, SubmissionStatus>();
     for (const submission of records.documentSubmissions) {
       if (
@@ -111,10 +102,8 @@ export class SubmissionDashboardSummaryService {
         submission.status,
       );
     }
-
     const activeMilestones = records.milestones.filter(
       (milestone) =>
-        milestone.submissionType !== null ||
         (requiredDocumentsByMilestone.get(milestone.id)?.length ?? 0) > 0,
     );
     for (const milestone of activeMilestones) {
@@ -125,16 +114,8 @@ export class SubmissionDashboardSummaryService {
       summary.total = summary.approvedApplications * summary.milestones;
       summary.notSubmitted = summary.total;
     }
-
     const milestoneIdsByProgram = groupIdsByProgram(activeMilestones);
-    const submissionAxisByMilestone = new Map(
-      records.milestones.map((milestone) => [
-        milestone.id,
-        milestone.submissionType !== null,
-      ]),
-    );
     const applicationIdsByProgram = groupIdsByProgram(records.applications);
-
     for (const summary of summaries) {
       summary.notSubmitted = 0;
       const milestoneIds = milestoneIdsByProgram.get(summary.programId) ?? [];
@@ -147,8 +128,7 @@ export class SubmissionDashboardSummaryService {
           addCellCount(
             summary,
             this.milestoneCompletionService.milestoneCompletionStatus({
-              submissionAxisInUse:
-                submissionAxisByMilestone.get(milestoneId) ?? true,
+              submissionAxisInUse: false,
               requiredDocumentStatuses: documentIds.map(
                 (documentId) =>
                   documentStatusByCell.get(
@@ -163,17 +143,17 @@ export class SubmissionDashboardSummaryService {
         }
       }
     }
-
     return summaries;
   }
 }
-
 function cellKey(applicationId: string, otherId: string): string {
   return `${applicationId}::${otherId}`;
 }
-
 function groupIdsByProgram(
-  rows: readonly { readonly id: string; readonly programId: string }[],
+  rows: readonly {
+    readonly id: string;
+    readonly programId: string;
+  }[],
 ): ReadonlyMap<string, readonly string[]> {
   const byProgram = new Map<string, string[]>();
   for (const row of rows) {
@@ -183,7 +163,6 @@ function groupIdsByProgram(
   }
   return byProgram;
 }
-
 function isConsistentCell(
   applicationProgramById: ReadonlyMap<string, string>,
   milestoneProgramById: ReadonlyMap<string, string>,
@@ -201,7 +180,6 @@ function isConsistentCell(
     row.applicationProgramId === row.milestoneProgramId
   );
 }
-
 function emptySummary(
   programId: string,
 ): MutableSubmissionDashboardProgramSummary {
@@ -217,7 +195,6 @@ function emptySummary(
     rejected: 0,
   };
 }
-
 function addCellCount(
   summary: MutableSubmissionDashboardProgramSummary,
   status: MilestoneCompletionStatus,

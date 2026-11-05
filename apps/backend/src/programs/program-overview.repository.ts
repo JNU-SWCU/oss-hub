@@ -1,14 +1,9 @@
 import type { MemberKind } from '../users/user-contract.config';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  MilestoneDocumentKind,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-
 export interface ProgramOverviewRecord {
   programId: string;
   name: string;
@@ -16,31 +11,25 @@ export interface ProgramOverviewRecord {
   lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
-
   participantCount: number;
   teamCount: number;
   connectedRepositoryCount: number;
 }
-
 interface PublicTeamMemberRow {
   userId: string;
-
   displayName: string;
   isLeader: boolean;
 }
-
 export interface PublicTeamRow {
   teamId: string;
   name: string;
   members: PublicTeamMemberRow[];
 }
-
 export interface CurrentSubmissionMilestone {
   milestoneId: string;
   documentIds: string[];
   requiredDocumentIds: string[];
 }
-
 export interface ViewerIdentity {
   readonly accountStatus: AccountStatus;
   readonly name: string | null;
@@ -52,35 +41,32 @@ export interface ViewerIdentity {
   hasStaffAccess: boolean;
   hasAdminAccess: boolean;
 }
-
 export interface MilestoneSchedule {
   milestoneId: string;
   label: string;
   dueAt: Date;
 }
-
 export interface MilestoneDocumentCatalogEntry {
   milestoneId: string;
-
   title: string;
   documentIds: string[];
   requiredDocumentIds: string[];
 }
-
 const CURRENT_MILESTONE_SELECT = {
   id: true,
   documents: {
-    where: { kind: MilestoneDocumentKind.DOCUMENT },
+    where: {},
     select: { id: true, required: true },
     orderBy: { sortOrder: 'asc' as const },
   },
-} as const;
-
+} satisfies Prisma.MilestoneSelect;
 type CurrentMilestoneSelection = {
   id: string;
-  documents: { id: string; required: boolean }[];
+  documents: {
+    id: string;
+    required: boolean;
+  }[];
 };
-
 function toCurrentSubmissionMilestone(
   milestone: CurrentMilestoneSelection,
 ): CurrentSubmissionMilestone {
@@ -92,24 +78,20 @@ function toCurrentSubmissionMilestone(
       .map((document) => document.id),
   };
 }
-
 export interface ProgramApplicationTeamRow {
   readonly id: string;
   readonly teamId: string | null;
 }
-
 export interface SubmittedDocumentPairRow {
   readonly applicationId: string;
   readonly milestoneDocumentId: string;
 }
-
 @Injectable()
 export class ProgramOverviewRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
   ) {}
-
   async findByProgramId(
     programId: string,
   ): Promise<ProgramOverviewRecord | null> {
@@ -126,7 +108,6 @@ export class ProgramOverviewRepository {
     if (!program) {
       return null;
     }
-
     const [teamMemberRows, connectedRepositoryCount] = await Promise.all([
       this.prisma.teamMember.findMany({
         where: { programId },
@@ -138,7 +119,6 @@ export class ProgramOverviewRepository {
     const participantIds = new Set<string>(
       teamMemberRows.map((row) => row.userId),
     );
-
     return {
       programId: program.id,
       name: program.name,
@@ -151,14 +131,12 @@ export class ProgramOverviewRepository {
       connectedRepositoryCount,
     };
   }
-
   async programExists(programId: string): Promise<boolean> {
     const count = await this.prisma.program.count({
       where: { id: programId },
     });
     return count > 0;
   }
-
   async findViewerIdentity(githubId: bigint): Promise<ViewerIdentity | null> {
     const user = await this.prisma.user.findFirst({
       where: { githubId, accountStatus: AccountStatus.ACTIVE },
@@ -180,7 +158,6 @@ export class ProgramOverviewRepository {
       hasAdminAccess: user.admin !== null,
     };
   }
-
   async findCurrentSubmissionMilestone(
     programId: string,
     now: Date,
@@ -189,7 +166,7 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         dueAt: { gte: now },
-        documents: { some: { kind: MilestoneDocumentKind.DOCUMENT } },
+        documents: { some: {} },
       },
       orderBy: { dueAt: 'asc' },
       select: CURRENT_MILESTONE_SELECT,
@@ -199,14 +176,13 @@ export class ProgramOverviewRepository {
       (await this.prisma.milestone.findFirst({
         where: {
           programId,
-          documents: { some: { kind: MilestoneDocumentKind.DOCUMENT } },
+          documents: { some: {} },
         },
         orderBy: { dueAt: 'desc' },
         select: CURRENT_MILESTONE_SELECT,
       }));
     return milestone ? toCurrentSubmissionMilestone(milestone) : null;
   }
-
   async findMilestoneSchedules(
     programId: string,
   ): Promise<MilestoneSchedule[]> {
@@ -221,7 +197,6 @@ export class ProgramOverviewRepository {
       dueAt: milestone.dueAt,
     }));
   }
-
   async findMilestoneDocumentCatalog(
     programId: string,
   ): Promise<MilestoneDocumentCatalogEntry[]> {
@@ -232,7 +207,7 @@ export class ProgramOverviewRepository {
         id: true,
         name: true,
         documents: {
-          where: { kind: MilestoneDocumentKind.DOCUMENT },
+          where: {},
           select: { id: true, required: true },
           orderBy: { sortOrder: 'asc' },
         },
@@ -247,7 +222,6 @@ export class ProgramOverviewRepository {
         .map((document) => document.id),
     }));
   }
-
   async findApprovedViewerApplicationId(
     programId: string,
     userId: string,
@@ -262,7 +236,6 @@ export class ProgramOverviewRepository {
     });
     return application?.id ?? null;
   }
-
   async findViewerApplicationId(
     programId: string,
     userId: string,
@@ -275,7 +248,6 @@ export class ProgramOverviewRepository {
     if (direct) {
       return direct.id;
     }
-
     const membership = await this.prisma.teamMember.findUnique({
       where: { programId_userId: { programId, userId } },
       select: { teamId: true },
@@ -283,7 +255,6 @@ export class ProgramOverviewRepository {
     if (!membership) {
       return null;
     }
-
     const teamApplication = await this.prisma.application.findFirst({
       where: { programId, teamId: membership.teamId },
       select: { id: true },
@@ -291,7 +262,6 @@ export class ProgramOverviewRepository {
     });
     return teamApplication?.id ?? null;
   }
-
   async countSubmittedDocuments(
     applicationId: string,
     documentIds: string[],
@@ -303,7 +273,6 @@ export class ProgramOverviewRepository {
       where: { applicationId, milestoneDocumentId: { in: documentIds } },
     });
   }
-
   async findSubmittedDocumentIds(
     applicationId: string,
     documentIds: string[],
@@ -317,7 +286,6 @@ export class ProgramOverviewRepository {
     });
     return new Set(rows.map((row) => row.milestoneDocumentId));
   }
-
   findProgramApplications(
     programId: string,
   ): Promise<readonly ProgramApplicationTeamRow[]> {
@@ -326,7 +294,6 @@ export class ProgramOverviewRepository {
       select: { id: true, teamId: true },
     });
   }
-
   async findSubmittedDocumentPairs(
     applicationIds: readonly string[],
     documentIds: readonly string[],
@@ -346,7 +313,6 @@ export class ProgramOverviewRepository {
       milestoneDocumentId: row.milestoneDocumentId,
     }));
   }
-
   async countTeamMembers(
     programId: string,
     teamIds: readonly string[],
@@ -361,7 +327,6 @@ export class ProgramOverviewRepository {
     });
     return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));
   }
-
   async listPublicTeams(programId: string): Promise<PublicTeamRow[]> {
     const teams = await this.prisma.team.findMany({
       where: { programId },

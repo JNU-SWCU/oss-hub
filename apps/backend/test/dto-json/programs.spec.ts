@@ -84,12 +84,6 @@ import {
   StaffTeamDetailResponseDto,
   TeamApplicationResponseDto,
 } from '../../src/programs/dto/staff-team-detail-response.dto';
-import {
-  CreatedSubmissionResponseDto,
-  ResubmittedSubmissionResponseDto,
-  SubmissionChecklistResponseDto,
-  SubmissionFormResponseDto,
-} from '../../src/programs/dto/submission-form-response.dto';
 import { SubmissionMatrixResponseDto } from '../../src/programs/dto/submission-matrix-response.dto';
 import {
   CreateSubmissionReviewResponseDto,
@@ -150,11 +144,8 @@ import {
 import { PublicProjectApplicationMode } from '../../src/programs/public-projects.config';
 import { type SubmissionReviewContext } from '../../src/programs/submission-reviews.repository';
 import { type SentTeamInvitationRecord } from '../../src/programs/team-invitations.repository';
-
 const programTemplatesService = new ProgramTemplatesService();
-
 const at = (iso: string): Date => new Date(iso);
-
 const boardPost: BoardPostSummaryResult = {
   id: 'post-1',
   programId: 'program-1',
@@ -168,7 +159,6 @@ const boardPost: BoardPostSummaryResult = {
   canEdit: true,
   canDelete: false,
 };
-
 const boardDetail: BoardPostDetailResult = {
   ...boardPost,
   body: 'Hello',
@@ -186,7 +176,6 @@ const boardDetail: BoardPostDetailResult = {
     },
   ],
 };
-
 const applicationItem: ApplicationListItem = {
   id: 'application-1',
   programId: 'program-1',
@@ -208,7 +197,6 @@ const applicationItem: ApplicationListItem = {
   team: { id: 'team-1', name: 'Team A', memberCount: 3 },
   answers: { applicantName: 'Octo', title: 'Project', summary: 'Summary' },
 };
-
 const reviewEntry = {
   id: 'review-entry-1',
   eventKind: 'REJECTED',
@@ -217,16 +205,13 @@ const reviewEntry = {
   occurredAt: at('2026-01-07T00:00:00.000Z'),
   rejectionReason: 'Incomplete',
 } as const;
-
 const milestoneView = {
   id: 'milestone-1',
   name: 'Kickoff',
   startAt: at('2026-02-01T00:00:00.000Z'),
   dueAt: at('2026-02-10T00:00:00.000Z'),
-  submissionType: 'FILE',
   instructions: null,
 } as const;
-
 const milestoneEditView: ProgramMilestoneEditView = {
   milestone: milestoneView,
   operation: {
@@ -235,6 +220,7 @@ const milestoneEditView: ProgramMilestoneEditView = {
   },
   documents: [
     {
+      submissionType: 'FILE_OR_TEXT' as const,
       id: 'document-1',
       name: 'Plan',
       required: true,
@@ -244,7 +230,6 @@ const milestoneEditView: ProgramMilestoneEditView = {
   ],
   fingerprint: 'fingerprint-1',
 };
-
 const editableProgram: EditableProgramView = {
   externalCover: {
     sourceUrl: 'https://notice.example/1',
@@ -279,19 +264,17 @@ const editableProgram: EditableProgramView = {
   description: 'Description',
   milestones: [milestoneView],
 };
-
 const documentRecord: MilestoneDocumentRecord = {
   id: 'document-1',
   milestoneId: 'milestone-1',
   name: 'Plan',
   required: true,
-  submissionType: 'FILE_OR_TEXT',
+  submissionType: 'FILE_OR_TEXT' as const,
   sortOrder: 0,
   graceDueAt: at('2026-02-12T00:00:00.000Z'),
   templateFileId: 'file-1',
   templateFileName: 'plan.hwp',
 };
-
 const optionalDocumentRecord: MilestoneDocumentRecord = {
   ...documentRecord,
   id: 'document-2',
@@ -302,7 +285,6 @@ const optionalDocumentRecord: MilestoneDocumentRecord = {
   templateFileId: null,
   templateFileName: null,
 };
-
 const collectionResult: MilestoneDocumentCollectionResult = {
   milestone: {
     id: 'milestone-1',
@@ -333,7 +315,6 @@ const collectionResult: MilestoneDocumentCollectionResult = {
             decision: 'CHANGES_REQUESTED',
             comment: 'Fix',
             reviewedAt: at('2026-02-09T12:00:00.000Z'),
-            resubmissionDueAt: at('2026-02-15T00:00:00.000Z'),
           },
         },
         {
@@ -367,7 +348,6 @@ const collectionResult: MilestoneDocumentCollectionResult = {
     { documentId: 'document-2', submitted: 1, total: 2 },
   ],
 };
-
 const viewerResult: MilestoneDocumentViewerResult = {
   ...documentRecord,
   viewerSubmission: {
@@ -381,13 +361,11 @@ const viewerResult: MilestoneDocumentViewerResult = {
     review: {
       comment: null,
       reviewedAt: at('2026-02-09T12:00:00.000Z'),
-      resubmissionDueAt: null,
     },
     history: { hasHistory: true, isComplete: false },
   },
   teamSubmissionCount: { submitted: 2, total: 3 },
 };
-
 const programListItem: ProgramListPageItem = {
   id: 'program-1',
   name: 'Program A',
@@ -409,7 +387,6 @@ const programListItem: ProgramListPageItem = {
   applicationCount: 3,
   pendingApplicationCount: 1,
 };
-
 const programDetail: ProgramDetailResult = {
   teamMinSize: 2,
   teamMaxSize: 4,
@@ -440,7 +417,6 @@ const programDetail: ProgramDetailResult = {
       dDay: 3,
       deadlineLabel: 'D-3',
       description: null,
-      submissionType: 'FILE',
       submissionItemCount: 2,
       viewerSubmissionStatus: 'NOT_SUBMITTED',
       applicationSubmissionSummary: {
@@ -460,14 +436,12 @@ const programDetail: ProgramDetailResult = {
       dDay: -1,
       deadlineLabel: 'Closed',
       description: 'Final report',
-      submissionType: null,
       submissionItemCount: 0,
       viewerSubmissionStatus: null,
       applicationSubmissionSummary: null,
     },
   ],
 };
-
 const overview: ProgramOverviewView = {
   programId: 'program-1',
   name: 'Program A',
@@ -491,12 +465,10 @@ const overview: ProgramOverviewView = {
     ],
   },
 };
-
 const teamMembers = [
   { userId: 'user-1', nickname: 'octo', name: 'Octo', isLeader: true },
   { userId: 'user-2', nickname: 'cat', name: null, isLeader: false },
 ];
-
 const programTeam: ProgramTeamView = {
   id: 'team-1',
   name: 'Team A',
@@ -510,7 +482,6 @@ const programTeam: ProgramTeamView = {
   isLeader: true,
   members: teamMembers,
 };
-
 const projectRow: PublicProjectListItem = {
   id: 'row-1',
   projectId: 'project-1',
@@ -527,7 +498,6 @@ const projectRow: PublicProjectListItem = {
   applicationMode: PublicProjectApplicationMode.TEAM,
   displayName: 'Team A',
 };
-
 const soloProjectRow: PublicProjectListItem = {
   ...projectRow,
   id: 'row-2',
@@ -538,9 +508,7 @@ const soloProjectRow: PublicProjectListItem = {
   applicationMode: PublicProjectApplicationMode.PERSONAL,
   displayName: 'octo',
 };
-
 const metrics = { commitCount: 10, pullRequestCount: 4, releaseCount: 1 };
-
 const publicProfile: PublicUserProfileResult = {
   identity: {
     userId: 'user-1',
@@ -566,7 +534,6 @@ const publicProfile: PublicUserProfileResult = {
   ],
   observedTotals: metrics,
 };
-
 const staffTeamDetail: StaffTeamDetailView = {
   teamId: 'team-1',
   name: 'Team A',
@@ -613,7 +580,6 @@ const staffTeamDetail: StaffTeamDetailView = {
     nextCursor: 'cursor-1',
   },
 };
-
 const teamActivity: TeamActivityView = {
   applicationId: 'application-1',
   repository: { id: 'repository-1', url: 'https://github.com/org/team-a' },
@@ -641,7 +607,6 @@ const teamActivity: TeamActivityView = {
     },
   ],
 };
-
 const sentInvitation: SentTeamInvitationRecord = {
   id: 'invitation-1',
   teamId: 'team-1',
@@ -656,7 +621,6 @@ const sentInvitation: SentTeamInvitationRecord = {
     avatarUrl: 'https://avatars.example/cat.png',
   },
 };
-
 const teamManagementItem: TeamManagementListItem = {
   teamMinSize: 2,
   id: 'application-1',
@@ -675,8 +639,9 @@ const teamManagementItem: TeamManagementListItem = {
     ],
   },
 };
-
 const reviewContext: SubmissionReviewContext = {
+  latestReviewId: null,
+  requirementId: 'requirement-1',
   submissionId: 'submission-1',
   application: {
     id: 'application-1',
@@ -724,7 +689,6 @@ const reviewContext: SubmissionReviewContext = {
     blockedReasons: [],
   },
 };
-
 const cases: ReadonlyArray<readonly [string, () => unknown]> = [
   [
     'AcceptTeamInvitationResponseDto',
@@ -1022,7 +986,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         decision: 'APPROVED',
         comment: null,
         reviewedAt: at('2026-02-09T12:00:00.000Z'),
-        resubmissionDueAt: null,
         reviewerNickname: 'staff',
       }),
   ],
@@ -1316,127 +1279,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'SubmissionFormResponseDto',
-    () =>
-      SubmissionFormResponseDto.from(
-        {
-          applicationId: 'application-1',
-          applicationMode: 'TEAM',
-          milestone: {
-            id: 'milestone-1',
-            name: 'Kickoff',
-            dueAt: at('2026-02-10T00:00:00.000Z'),
-            dDay: 3,
-            deadlineLabel: 'D-3',
-            submissionType: 'FILE',
-            instructions: null,
-          },
-          existingSubmission: { id: 'submission-1', status: 'SUBMITTED' },
-          canSubmit: false,
-          blockedReason: 'SUBMISSION_ALREADY_EXISTS',
-        },
-        'program-1',
-        'milestone-1',
-      ),
-  ],
-  [
-    'SubmissionFormResponseDto no existing',
-    () =>
-      SubmissionFormResponseDto.from(
-        {
-          applicationId: 'application-1',
-          applicationMode: 'PERSONAL',
-          milestone: {
-            id: 'milestone-1',
-            name: 'Kickoff',
-            dueAt: at('2026-02-10T00:00:00.000Z'),
-            dDay: 3,
-            deadlineLabel: 'D-3',
-            submissionType: 'TEXT',
-            instructions: 'Write it',
-          },
-          existingSubmission: null,
-          canSubmit: true,
-          blockedReason: null,
-        },
-        'program-1',
-        'milestone-1',
-      ),
-  ],
-  [
-    'CreatedSubmissionResponseDto',
-    () =>
-      CreatedSubmissionResponseDto.from({
-        submissionId: 'submission-1',
-        status: 'SUBMITTED',
-        submittedAt: at('2026-02-09T00:00:00.000Z'),
-      }),
-  ],
-  [
-    'ResubmittedSubmissionResponseDto',
-    () =>
-      ResubmittedSubmissionResponseDto.from({
-        submissionId: 'submission-1',
-        revision: 2,
-        status: 'SUBMITTED',
-      }),
-  ],
-  [
-    'SubmissionChecklistResponseDto',
-    () =>
-      SubmissionChecklistResponseDto.from({
-        applicationId: 'application-1',
-        applicationMode: 'TEAM',
-        items: [
-          {
-            milestoneId: 'milestone-1',
-            name: 'Kickoff',
-            dueAt: at('2026-02-10T00:00:00.000Z'),
-            submissionType: 'FILE',
-            submission: {
-              id: 'submission-1',
-              status: 'CHANGES_REQUESTED',
-              currentRevision: 2,
-              decision: 'CHANGES_REQUESTED',
-              lastReviewedAt: at('2026-02-09T12:00:00.000Z'),
-              reviewComment: 'Fix',
-              canResubmit: true,
-              file: {
-                fileId: 'file-1',
-                fileName: 'plan.pdf',
-                contentType: 'application/pdf',
-                size: 1024,
-                expiresAt: at('2026-02-09T13:00:00.000Z'),
-              },
-            },
-          },
-          {
-            milestoneId: 'milestone-2',
-            name: 'Final',
-            dueAt: at('2026-03-10T00:00:00.000Z'),
-            submissionType: 'TEXT',
-            submission: {
-              id: 'submission-2',
-              status: 'SUBMITTED',
-              currentRevision: 1,
-              decision: null,
-              lastReviewedAt: null,
-              reviewComment: null,
-              canResubmit: false,
-              file: null,
-            },
-          },
-          {
-            milestoneId: 'milestone-3',
-            name: 'Extra',
-            dueAt: at('2026-04-10T00:00:00.000Z'),
-            submissionType: 'FILE',
-            submission: null,
-          },
-        ],
-      }),
-  ],
-  [
     'SubmissionMatrixResponseDto',
     () =>
       SubmissionMatrixResponseDto.from(
@@ -1562,7 +1404,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
           milestoneDocuments: 12,
           milestoneDocumentSubmissions: 13,
           milestoneDocumentSubmissionHistories: 14,
-          milestoneDocumentReviewHistories: 15,
           milestoneDocumentTemplateFiles: 16,
           programAuthoringUploads: 17,
           programCreateRequests: 18,
@@ -1688,7 +1529,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
 ];
-
 describe('programs response DTO JSON', () => {
   it.each(cases)('%s', (_name, build) => {
     expect(JSON.stringify(build())).toMatchSnapshot();

@@ -88,7 +88,6 @@ const seedSize = {
   submissions: 40,
   histories: 80,
   files: 40,
-  reviews: 0,
   repositories: 10,
   provisionJobs: 10,
   outboxEvents: 10,
@@ -291,30 +290,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
-  try {
-    await prisma.$transaction(async (tx) => {
-      const where = { id: { startsWith: prefix } };
-      await tx.submissionFile.deleteMany({ where });
-      await tx.milestoneDocumentReviewHistory.deleteMany({ where });
-      await tx.milestoneDocumentSubmissionHistory.deleteMany({ where });
-      await tx.milestoneDocumentSubmission.deleteMany({ where });
-      await tx.repositoryProvisionJob.deleteMany({ where });
-      await tx.githubRepository.deleteMany({ where });
-      await tx.outboxEvent.deleteMany({ where });
-      await tx.$executeRaw`ALTER TABLE "AuditLog" DISABLE TRIGGER audit_log_append_only`;
-      await tx.auditLog.deleteMany({ where });
-      await tx.$executeRaw`ALTER TABLE "AuditLog" ENABLE TRIGGER audit_log_append_only`;
-      await tx.application.deleteMany({ where });
-      await tx.teamMember.deleteMany({ where: { programId } });
-      await tx.team.deleteMany({ where });
-      await tx.milestoneDocument.deleteMany({ where });
-      await tx.milestone.deleteMany({ where });
-      await tx.program.deleteMany({ where });
-      await tx.user.deleteMany({ where });
-    });
-  } finally {
-    await prisma.$disconnect();
-  }
+  await prisma.$disconnect();
 });
 
 it('records four real repository read paths with twenty warm samples and SQL counts', async () => {
@@ -335,9 +311,6 @@ it('records four real repository read paths with twenty warm samples and SQL cou
       where: { id: { startsWith: prefix } },
     }),
     files: await prisma.submissionFile.count({
-      where: { id: { startsWith: prefix } },
-    }),
-    reviews: await prisma.milestoneDocumentReviewHistory.count({
       where: { id: { startsWith: prefix } },
     }),
     repositories: await prisma.githubRepository.count({ where: { programId } }),
@@ -399,7 +372,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
         );
         const applicationIds = page.items.map((row) => row.id);
         const documents = milestones.flatMap((row) => row.requiredDocumentIds);
-        const legacy = await matrix.findCurrentSubmissions(applicationIds);
+        const submissions = await matrix.findCurrentSubmissions(applicationIds);
         const coordinates = await matrix.findDocumentFirstSubmissions(
           applicationIds,
           documents,
@@ -409,10 +382,10 @@ it('records four real repository read paths with twenty warm samples and SQL cou
           milestones.length,
           page.total,
           page.items.length,
-          legacy.length,
+          submissions.length,
           coordinates.length,
           changes.length,
-        ]).toEqual([2, 10, 10, 0, 40, 0]);
+        ]).toEqual([2, 10, 10, 40, 40, 0]);
       },
     },
     {

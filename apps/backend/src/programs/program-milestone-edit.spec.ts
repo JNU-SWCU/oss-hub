@@ -6,7 +6,6 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-
 const programEditorService = new ProgramEditorService(
   undefined as never,
   new ProgramCoverUrlService(),
@@ -19,12 +18,10 @@ const programEditorService = new ProgramEditorService(
   ),
   new UserProfileService(),
 );
-
 const operation = {
   startAt: new Date('2026-08-16T00:00:00.000Z'),
   endAt: new Date('2026-08-31T00:00:00.000Z'),
 };
-
 function fingerprint(storageKey: string | null): string {
   return programEditorService.fingerprintProgramMilestoneEdit({
     operation,
@@ -33,7 +30,6 @@ function fingerprint(storageKey: string | null): string {
       name: 'Final report',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: null,
       instructions: null,
       updatedAt: new Date('2026-08-16T00:00:00.000Z'),
     },
@@ -49,21 +45,17 @@ function fingerprint(storageKey: string | null): string {
     ],
   });
 }
-
 describe('fingerprintProgramMilestoneEdit', () => {
   it('uses a lowercase SHA-256 hash and changes when only the template storage key changes', () => {
     const original = fingerprint('templates/original');
     const replacement = fingerprint('templates/replacement');
-
     expect(original).toMatch(/^[a-f0-9]{64}$/);
     expect(replacement).not.toBe(original);
   });
-
   it('distinguishes the JSON null template sentinel from a template storage key', () => {
     expect(fingerprint(null)).not.toBe(fingerprint('templates/original'));
   });
 });
-
 describe('preflightProgramMilestoneEditDocuments', () => {
   it('accepts 20 distinct documents and tokens', () => {
     expect(() =>
@@ -75,7 +67,6 @@ describe('preflightProgramMilestoneEditDocuments', () => {
       ),
     ).not.toThrow();
   });
-
   it.each([
     [
       'duplicate existing document IDs',
@@ -105,7 +96,6 @@ describe('preflightProgramMilestoneEditDocuments', () => {
       );
     }
   });
-
   it('rejects 21 documents', () => {
     expect(() =>
       programEditorService.preflightProgramMilestoneEditDocuments(

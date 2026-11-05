@@ -1,48 +1,18 @@
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  MilestoneDocumentKind,
-  MilestoneSubmissionType,
-  Prisma,
-  SubmissionFileLifecycle,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionsRepository } from './submissions.repository';
-
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
 } from './submission-file.error';
-
 const MAX_DELETE_ATTEMPTS = 6;
 const MAX_RETAINED_FILE_COUNT = 100;
 const MAX_RETAINED_FILE_BYTES = 500 * 1024 * 1024;
-
-export interface SubmissionFileUploadAuthorization {
-  readonly uploaderId: string;
-  readonly applicationId: string;
-  readonly milestoneId: string;
-  readonly milestoneDocumentId: string;
-  readonly applicationApproved: boolean;
-  readonly submissionType: MilestoneSubmissionType;
-  readonly dueAt: Date;
-  readonly programEndAt: Date;
-  readonly resubmissionStatus: SubmissionStatus | null;
-  readonly currentRevision: number | null;
-}
-
-export interface SubmissionFileResubmissionContext {
-  readonly submissionId: string;
-  readonly baseRevision: number;
-}
-
 export interface CreatePendingSubmissionFileInput {
   readonly uploaderId: string;
   readonly applicationId: string;
@@ -55,14 +25,12 @@ export interface CreatePendingSubmissionFileInput {
   readonly pendingExpiresAt: Date;
   readonly resolveExpiresAt: (programEndAt: Date) => Date;
 }
-
 export interface ClaimedSubmissionFile {
   readonly id: string;
   readonly storageKey: string;
   readonly deleteAttemptCount: number;
   readonly claimOwner: string;
 }
-
 export interface DownloadableSubmissionFile {
   readonly id: string;
   readonly storageKey: string;
@@ -71,20 +39,17 @@ export interface DownloadableSubmissionFile {
   readonly sizeBytes: number;
   readonly expiresAt: Date;
 }
-
 export interface SubmissionFileCleanupOperator {
   readonly githubId: bigint;
   readonly hasAdminAccess: boolean;
   readonly accountStatus: AccountStatus;
 }
-
 export interface ExhaustedSubmissionFileCleanup {
   readonly id: string;
   readonly deleteAttemptCount: number;
   readonly lastDeleteError: string | null;
   readonly createdAt: Date;
 }
-
 export interface RecordSubmissionFileDeleteFailureInput {
   readonly id: string;
   readonly claimOwner: string;
@@ -92,15 +57,12 @@ export interface RecordSubmissionFileDeleteFailureInput {
   readonly nextAttemptAt: Date | null;
   readonly error: 'STORAGE_DELETE_FAILED';
 }
-
 @Injectable()
 export class SubmissionFilesRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
-    private readonly submissionsRepository: SubmissionsRepository,
   ) {}
-
   async findActiveStudentByGithubId(githubId: bigint): Promise<string | null> {
     const user = await this.prisma.user.findFirst({
       where: {
@@ -112,7 +74,6 @@ export class SubmissionFilesRepository {
     });
     return user?.id ?? null;
   }
-
   async findActiveAdminByGithubId(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },
@@ -123,7 +84,6 @@ export class SubmissionFilesRepository {
     });
     return user?.accountStatus === AccountStatus.ACTIVE && user.admin !== null;
   }
-
   async findCleanupOperator(
     operatorId: string,
   ): Promise<SubmissionFileCleanupOperator | null> {
@@ -143,7 +103,6 @@ export class SubmissionFilesRepository {
           accountStatus: user.accountStatus,
         };
   }
-
   findExhaustedCleanups(): Promise<ExhaustedSubmissionFileCleanup[]> {
     return this.prisma.submissionFile.findMany({
       where: {
@@ -159,7 +118,6 @@ export class SubmissionFilesRepository {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
     });
   }
-
   async findDownloadableFile(
     githubId: bigint,
     fileId: string,
@@ -174,7 +132,6 @@ export class SubmissionFilesRepository {
       },
     });
     if (user?.accountStatus !== AccountStatus.ACTIVE) return null;
-
     if (
       user.type === 'STAFF' &&
       user.approvalStatus === 'APPROVED' &&
@@ -186,92 +143,13 @@ export class SubmissionFilesRepository {
         ...downloadableFileWhere(fileId, now),
       });
     }
-
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
       application: {
-        is: this.submissionsRepository.submissionParticipantWhere(user.id),
+        is: this.platformRepository.programApplicationParticipantWhere(user.id),
       },
     });
   }
-
-  async findUploadAuthorization(
-    uploaderId: string,
-    applicationId: string,
-    milestoneId: string,
-    resubmissionContext: SubmissionFileResubmissionContext | null = null,
-  ): Promise<SubmissionFileUploadAuthorization | null> {
-    const application = await this.prisma.application.findFirst({
-      where: {
-        id: applicationId,
-        ...this.submissionsRepository.submissionParticipantWhere(uploaderId),
-        program: { milestones: { some: { id: milestoneId } } },
-      },
-      select: {
-        id: true,
-        status: true,
-        program: { select: { endAt: true } },
-        programId: true,
-      },
-    });
-    if (application === null) return null;
-
-    const milestone = await this.prisma.milestone.findFirst({
-      where: { id: milestoneId, programId: application.programId },
-      select: {
-        id: true,
-        submissionType: true,
-        dueAt: true,
-        documents: {
-          where: { kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION },
-          take: 1,
-          select: { id: true },
-        },
-      },
-    });
-    if (milestone === null || milestone.submissionType === null) return null;
-    const document = milestone.documents[0];
-    if (document === undefined) return null;
-
-    let resubmissionStatus: SubmissionStatus | null = null;
-    let currentRevision: number | null = null;
-    if (resubmissionContext !== null) {
-      const submissions =
-        await this.prisma.milestoneDocumentSubmission.findMany({
-          where: {
-            ...this.submissionsRepository.submissionPublicIdWhere(
-              resubmissionContext.submissionId,
-            ),
-            applicationId: application.id,
-            milestoneDocument: {
-              milestoneId: milestone.id,
-              kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-            },
-          },
-          take: 2,
-          select: { status: true, revision: true },
-        });
-      const submission =
-        this.submissionsRepository.exactSubmissionByPublicId(submissions);
-      if (submission === null) return null;
-      resubmissionStatus = submission.status;
-      currentRevision = submission.revision;
-    }
-
-    return {
-      uploaderId,
-      applicationId: application.id,
-      milestoneId: milestone.id,
-      milestoneDocumentId: document.id,
-      applicationApproved: application.status === ApplicationStatus.APPROVED,
-      submissionType: milestone.submissionType,
-      dueAt: milestone.dueAt,
-      programEndAt: application.program.endAt,
-      resubmissionStatus,
-      currentRevision,
-    };
-  }
-
   createPending(input: CreatePendingSubmissionFileInput) {
     return this.prisma.$transaction(async (transaction) => {
       const stillMember =
@@ -286,9 +164,10 @@ export class SubmissionFilesRepository {
           input.uploaderId,
         );
       }
-
       const programs = await transaction.$queryRaw<
-        readonly { endAt: Date }[]
+        readonly {
+          endAt: Date;
+        }[]
       >(Prisma.sql`
         SELECT program."endAt"
         FROM "Program" AS program
@@ -301,14 +180,16 @@ export class SubmissionFilesRepository {
       if (!program) {
         throw new SubmissionFileRetentionUnavailableError();
       }
-
-      await transaction.$queryRaw<readonly { id: string }[]>(Prisma.sql`
+      await transaction.$queryRaw<
+        readonly {
+          id: string;
+        }[]
+      >(Prisma.sql`
         SELECT "id"
         FROM "User"
         WHERE "id" = ${input.uploaderId}
         FOR UPDATE
       `);
-
       const retained = await transaction.submissionFile.aggregate({
         where: {
           uploaderId: input.uploaderId,
@@ -324,7 +205,6 @@ export class SubmissionFilesRepository {
       ) {
         throw new SubmissionFileQuotaExceededError();
       }
-
       return transaction.submissionFile.create({
         data: {
           uploaderId: input.uploaderId,
@@ -393,7 +273,6 @@ export class SubmissionFilesRepository {
     `);
     return rows[0] ?? null;
   }
-
   async markDeleted(
     id: string,
     claimOwner: string,
@@ -417,7 +296,6 @@ export class SubmissionFilesRepository {
     });
     return result.count === 1;
   }
-
   async recordDeleteFailure(
     input: RecordSubmissionFileDeleteFailureInput,
   ): Promise<boolean> {
@@ -439,7 +317,6 @@ export class SubmissionFilesRepository {
     });
     return result.count === 1;
   }
-
   async resetDeleteAttempts(id: string, now: Date): Promise<boolean> {
     const result = await this.prisma.submissionFile.updateMany({
       where: {
@@ -458,7 +335,6 @@ export class SubmissionFilesRepository {
     });
     return result.count === 1;
   }
-
   private async findAuthorizedDownloadableFile(
     where: Prisma.SubmissionFileWhereInput,
   ): Promise<DownloadableSubmissionFile | null> {
@@ -477,7 +353,6 @@ export class SubmissionFilesRepository {
     return { ...file, expiresAt: file.expiresAt };
   }
 }
-
 function downloadableFileWhere(
   fileId: string,
   now: Date,

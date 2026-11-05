@@ -14,7 +14,6 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertSeedUser } from './user';
-
 const PROGRAM_ID = seedId('program-overview', 'program');
 const STAFF_ID = seedId('program-overview', 'user', 'staff');
 const LEADER_ID = seedId('program-overview', 'user', 'team-leader');
@@ -23,7 +22,6 @@ const INVITEE_ID = seedId('program-overview', 'user', 'invitee');
 const TEAM_ID = seedId('program-overview', 'team');
 const APPLICATION_ID = seedId('program-overview', 'application');
 const PROGRAM_START_AT = offsetDays(-45);
-
 type MilestoneSeed = {
   readonly id: string;
   readonly name: string;
@@ -31,7 +29,6 @@ type MilestoneSeed = {
   readonly submissionType: MilestoneSubmissionType;
   readonly instructions?: string;
 };
-
 async function upsertMilestone(
   stats: SeedStats,
   params: MilestoneSeed,
@@ -47,7 +44,6 @@ async function upsertMilestone(
           name: params.name,
           startAt: PROGRAM_START_AT,
           dueAt: params.dueAt,
-          submissionType: params.submissionType,
           instructions: params.instructions,
         },
         create: {
@@ -56,13 +52,11 @@ async function upsertMilestone(
           name: params.name,
           startAt: PROGRAM_START_AT,
           dueAt: params.dueAt,
-          submissionType: params.submissionType,
           instructions: params.instructions,
         },
       }),
   );
 }
-
 type MilestoneDocumentSeed = {
   readonly id: string;
   readonly milestoneId: string;
@@ -70,7 +64,6 @@ type MilestoneDocumentSeed = {
   readonly required: boolean;
   readonly sortOrder: number;
 };
-
 async function upsertMilestoneDocument(
   stats: SeedStats,
   params: MilestoneDocumentSeed,
@@ -97,7 +90,6 @@ async function upsertMilestoneDocument(
       }),
   );
 }
-
 async function upsertMilestoneDocumentTemplateFile(
   stats: SeedStats,
   params: {
@@ -130,14 +122,13 @@ async function upsertMilestoneDocumentTemplateFile(
           storageKey,
           originalFileName: params.originalFileName,
           mimeType: params.mimeType,
-          sizeBytes: 245_760,
+          sizeBytes: 245760,
           uploadedById: params.uploadedById,
           uploadedAt: offsetDays(-40),
         },
       }),
   );
 }
-
 async function upsertMilestoneDocumentSubmission(
   stats: SeedStats,
   params: {
@@ -217,7 +208,6 @@ async function upsertMilestoneDocumentSubmission(
       createdAt: submittedAt,
     },
   });
-
   const fileId = seedId('program-overview', 'submission-file', params.id);
   const storageKey = `program-overview/${fileId}`;
   await upsertTracked(
@@ -241,12 +231,11 @@ async function upsertMilestoneDocumentSubmission(
           storageKey,
           originalFileName: params.originalFileName,
           mimeType: 'application/pdf',
-          sizeBytes: 512_000,
+          sizeBytes: 512000,
         },
       }),
   );
 }
-
 async function upsertBoardPost(
   stats: SeedStats,
   params: {
@@ -284,7 +273,6 @@ async function upsertBoardPost(
       }),
   );
 }
-
 async function upsertBoardComment(
   stats: SeedStats,
   params: {
@@ -313,7 +301,6 @@ async function upsertBoardComment(
       }),
   );
 }
-
 export async function seedProgramOverview(stats: SeedStats): Promise<void> {
   await upsertTracked(
     stats,
@@ -342,7 +329,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   const staff = await upsertSeedUser(stats, {
     id: STAFF_ID,
     role: 'STAFF',
@@ -356,7 +342,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     role: 'STUDENT',
   });
   await upsertSeedUser(stats, { id: INVITEE_ID, role: 'STUDENT' });
-
   await upsertTracked(
     stats,
     'Team',
@@ -373,7 +358,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'TeamMember',
@@ -410,7 +394,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'Application',
@@ -434,7 +417,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'TeamInvitation',
@@ -458,7 +440,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   const milestoneIds = {
     m1: seedId('program-overview', 'milestone', 'm1'),
     m2: seedId('program-overview', 'milestone', 'm2'),
@@ -468,7 +449,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     m6: seedId('program-overview', 'milestone', 'm6'),
     m7: seedId('program-overview', 'milestone', 'm7'),
   } as const;
-
   await upsertMilestone(stats, {
     id: milestoneIds.m1,
     name: '수강 신청 · 팀 등록',
@@ -522,7 +502,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     submissionType: MilestoneSubmissionType.TEXT,
     instructions: '팀별로 15분 발표합니다.',
   });
-
   const m3Doc1 = seedId('program-overview', 'milestone-document', 'm3-d1');
   const m3Doc2 = seedId('program-overview', 'milestone-document', 'm3-d2');
   const m3Doc3 = seedId('program-overview', 'milestone-document', 'm3-d3');
@@ -562,7 +541,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     uploadedById: staff.id,
   });
-
   await upsertMilestoneDocumentSubmission(stats, {
     id: seedId('program-overview', 'milestone-document-submission', 'm3-d1'),
     milestoneDocumentId: m3Doc1,
@@ -577,7 +555,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     submittedById: member.id,
     originalFileName: 'project-plan-draft.pdf',
   });
-
   const m4Doc1 = seedId('program-overview', 'milestone-document', 'm4-d1');
   const m4Doc2 = seedId('program-overview', 'milestone-document', 'm4-d2');
   const m4Doc3 = seedId('program-overview', 'milestone-document', 'm4-d3');
@@ -609,7 +586,6 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     mimeType: 'application/pdf',
     uploadedById: staff.id,
   });
-
   const post1 = seedId('program-overview', 'board-post', '1');
   const post2 = seedId('program-overview', 'board-post', '2');
   const post3 = seedId('program-overview', 'board-post', '3');

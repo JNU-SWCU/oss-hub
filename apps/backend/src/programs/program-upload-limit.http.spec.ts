@@ -3,39 +3,29 @@ import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProgramSubmissionsController } from './program-submissions.controller';
-import { SubmissionFormsController } from './submission-forms.controller';
-import { SubmissionsRepository } from './submissions.repository';
-import { SubmissionsService } from './submissions.service';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
-
 jest.mock('./submission-upload.config', () => ({
   ...jest.requireActual<Record<string, unknown>>('./submission-upload.config'),
   SUBMISSION_UPLOAD_MAX_BYTES: 2 * 1024 * 1024,
   SUBMISSION_UPLOAD_MAX_LABEL: '2 MB',
 }));
-
 let application: INestApplication;
 let baseUrl = '';
 let authenticated = true;
 let staff = true;
-
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [
-      ProgramAuthoringController,
-      SubmissionFormsController,
-      ProgramSubmissionsController,
-    ],
+    controllers: [ProgramAuthoringController, ProgramSubmissionsController],
     providers: [
       protectedRouteGuardStub({
         canActivate(context: ExecutionContext): boolean {
           Object.assign(context.switchToHttp().getRequest<object>(), {
-            sessionGithubId: 999_001n,
+            sessionGithubId: 999001n,
             principal: {
               id: 'synthetic-author',
               hasStaffAccess: staff,
@@ -46,43 +36,10 @@ beforeAll(async () => {
         },
       }),
       ...STATELESS_PROVIDERS,
-      SubmissionsService,
       ProgramAuthoringService,
       { provide: AuditLogService, useValue: { record: jest.fn() } },
       { provide: ProgramAuthoringUploadService, useValue: {} },
       { provide: ProgramAuthoringRepository, useValue: {} },
-      {
-        provide: SubmissionsRepository,
-        useValue: {
-          findActiveStudentByGithubId: () =>
-            Promise.resolve({
-              id: 'synthetic-student',
-            }),
-          findMilestoneByProgram: () =>
-            Promise.resolve({
-              id: 'synthetic-milestone',
-              name: '합성 마일스톤',
-              dueAt: new Date('2099-01-01T00:00:00Z'),
-              submissionType: 'FILE',
-              instructions: null,
-              programEndAt: new Date('2099-02-01T00:00:00Z'),
-            }),
-          findParticipantApplication: () =>
-            Promise.resolve({
-              id: 'synthetic-application',
-              status: 'APPROVED',
-              teamMemberCount: 1,
-              existingSubmission: null,
-            }),
-          findChecklistApplication: () =>
-            Promise.resolve({
-              id: 'synthetic-application',
-              status: 'APPROVED',
-              teamMemberCount: 1,
-            }),
-          listChecklistMilestones: () => Promise.resolve([]),
-        },
-      },
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))
@@ -93,7 +50,6 @@ beforeAll(async () => {
   await application.listen(0, '127.0.0.1');
   baseUrl = await application.getUrl();
 });
-
 beforeEach(() => {
   authenticated = true;
   staff = true;
@@ -101,27 +57,23 @@ beforeEach(() => {
 afterAll(async () => {
   await application.close();
 });
-
-it.each([
-  '/program-authoring/upload-policy',
-  '/programs/synthetic-program/milestones/synthetic-milestone/submission-form',
-  '/programs/synthetic-program/submissions/me',
-])('%s는 실제 서버 상한을 응답한다', async (path) => {
-  const response = await fetch(`${baseUrl}${path}`);
-  expect(response.status).toBe(200);
-  expect(await response.json()).toEqual(
-    expect.objectContaining({
-      fileUpload: { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' },
-    }),
-  );
-});
-
+it.each(['/program-authoring/upload-policy'])(
+  '%s는 실제 서버 상한을 응답한다',
+  async (path) => {
+    const response = await fetch(`${baseUrl}${path}`);
+    expect(response.status).toBe(200);
+    expect(await response.json()).toEqual(
+      expect.objectContaining({
+        fileUpload: { maxBytes: 2 * 1024 * 1024, maxLabel: '2 MB' },
+      }),
+    );
+  },
+);
 it('프로그램 작성 정책은 로그인하지 않은 요청에 열리지 않는다', async () => {
   authenticated = false;
   const response = await fetch(`${baseUrl}/program-authoring/upload-policy`);
   expect(response.status).toBe(403);
 });
-
 it('프로그램 작성 정책은 작성 권한이 없는 학생에게 열리지 않는다', async () => {
   staff = false;
   const response = await fetch(`${baseUrl}/program-authoring/upload-policy`);

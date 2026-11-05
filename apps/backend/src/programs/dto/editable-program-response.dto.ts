@@ -10,34 +10,29 @@ import {
   SUBMISSION_TEMPLATE_ACCEPT,
   SUBMISSION_TEMPLATE_FORMAT_LABEL,
 } from '../submission-upload.config';
-
 export class ProgramMilestoneResponseDto {
   declare readonly id: string;
   declare readonly name: string;
   declare readonly startAt: string;
   declare readonly dueAt: string;
-  declare readonly submissionType: ProgramMilestoneView['submissionType'];
   declare readonly instructions: string | null;
-
   static from(milestone: ProgramMilestoneView): ProgramMilestoneResponseDto {
     return {
       id: milestone.id,
       name: milestone.name,
       startAt: milestone.startAt.toISOString(),
       dueAt: milestone.dueAt.toISOString(),
-      submissionType: milestone.submissionType,
       instructions: milestone.instructions,
     };
   }
 }
-
 export class ProgramMilestoneDocumentResponseDto {
+  declare readonly submissionType: ProgramMilestoneDocumentView['submissionType'];
   declare readonly id: string;
   declare readonly name: string;
   declare readonly required: boolean;
   declare readonly sortOrder: number;
   declare readonly templateFileName: string | null;
-
   static from(
     document: ProgramMilestoneDocumentView,
   ): ProgramMilestoneDocumentResponseDto {
@@ -47,14 +42,13 @@ export class ProgramMilestoneDocumentResponseDto {
       required: document.required,
       sortOrder: document.sortOrder,
       templateFileName: document.templateFileName,
+      submissionType: document.submissionType,
     };
   }
 }
-
 export class ProgramMilestoneOperationResponseDto {
   declare readonly startAt: string;
   declare readonly endAt: string;
-
   static from(
     operation: ProgramMilestoneEditView['operation'],
   ): ProgramMilestoneOperationResponseDto {
@@ -64,7 +58,6 @@ export class ProgramMilestoneOperationResponseDto {
     };
   }
 }
-
 export class ProgramMilestoneEditResponseDto {
   declare readonly milestone: ProgramMilestoneResponseDto;
   declare readonly operation: ProgramMilestoneOperationResponseDto;
@@ -76,7 +69,6 @@ export class ProgramMilestoneEditResponseDto {
     readonly formatLabel: string;
   };
   declare readonly fingerprint: string;
-
   static from(view: ProgramMilestoneEditView): ProgramMilestoneEditResponseDto {
     return {
       milestone: ProgramMilestoneResponseDto.from(view.milestone),
@@ -94,7 +86,6 @@ export class ProgramMilestoneEditResponseDto {
     };
   }
 }
-
 export class EditableProgramResponseDto {
   declare readonly externalCover: NonNullable<
     EditableProgramView['externalCover']
@@ -119,7 +110,6 @@ export class EditableProgramResponseDto {
   declare readonly milestones: readonly ProgramMilestoneResponseDto[];
   declare readonly teamMinSize: number;
   declare readonly teamMaxSize: number;
-
   static from(program: EditableProgramView): EditableProgramResponseDto {
     return {
       externalCover: program.externalCover ?? null,

@@ -3,7 +3,6 @@ import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { MilestoneSubmissionType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
   PROGRAM_ERROR_CODES,
@@ -15,7 +14,6 @@ import {
 } from '../../test/program-editor-service-fixtures';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-
 const programEditorService = new ProgramEditorService(
   undefined as never,
   new ProgramCoverUrlService(),
@@ -28,7 +26,6 @@ const programEditorService = new ProgramEditorService(
   ),
   new UserProfileService(),
 );
-
 describe('ProgramEditorService milestones', () => {
   it('updates the selected milestone by canonical id through the aggregate edit contract', async () => {
     const { service, store } = createProgramEditorServiceHarness();
@@ -41,7 +38,6 @@ describe('ProgramEditorService milestones', () => {
           name: 'Same',
           startAt: new Date('2026-08-16T00:00:00.000Z'),
           dueAt: new Date('2026-08-20T00:00:00.000Z'),
-          submissionType: MilestoneSubmissionType.FILE,
           instructions: null,
         },
         operation: {
@@ -50,6 +46,7 @@ describe('ProgramEditorService milestones', () => {
         },
         documents: [
           {
+            submissionType: 'FILE_OR_TEXT' as const,
             id: 'document-canonical-id',
             name: 'Report',
             required: true,
@@ -73,7 +70,6 @@ describe('ProgramEditorService milestones', () => {
     store.readMilestoneEdit.mockResolvedValue(locked);
     store.countSubmissionHistoriesForDocuments.mockResolvedValue(0);
     store.lockAttachableUploads.mockResolvedValue([]);
-
     const expectedFingerprint =
       programEditorService.fingerprintProgramMilestoneEdit({
         operation: locked.view.operation,
@@ -83,7 +79,6 @@ describe('ProgramEditorService milestones', () => {
         },
         documents: locked.fingerprintDocuments,
       });
-
     await service.updateMilestoneEdit(101n, 'milestone-canonical-id', {
       expectedFingerprint,
       name: ' Same ',
@@ -98,18 +93,15 @@ describe('ProgramEditorService milestones', () => {
         },
       ],
     });
-
     expect(store.applyMilestoneEdit.mock.calls[0]?.[0]).toMatchObject({
       actorId: 'staff-1',
       milestoneId: 'milestone-canonical-id',
       name: 'Same',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.FILE,
       instructions: 'tag v1.0.0',
     });
   });
-
   it.each([
     [
       'before the Program',
@@ -127,7 +119,6 @@ describe('ProgramEditorService milestones', () => {
         startAt: new Date('2026-08-16T00:00:00.000Z'),
         endAt: new Date('2026-08-31T00:00:00.000Z'),
       });
-
       await expect(
         service.createMilestone(101n, 'program-1', {
           ...milestoneInput,
@@ -140,7 +131,6 @@ describe('ProgramEditorService milestones', () => {
       expect(store.createMilestone.mock.calls).toHaveLength(0);
     },
   );
-
   it('rejects a milestone dueAt after Program end without writing', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findProgramScheduleForMilestoneCreate.mockResolvedValue({
@@ -148,7 +138,6 @@ describe('ProgramEditorService milestones', () => {
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       endAt: new Date('2026-08-31T00:00:00.000Z'),
     });
-
     await expect(
       service.createMilestone(101n, 'program-1', {
         ...milestoneInput,
@@ -160,7 +149,6 @@ describe('ProgramEditorService milestones', () => {
     });
     expect(store.createMilestone.mock.calls).toHaveLength(0);
   });
-
   it('allows a milestone dueAt equal to Program end', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findProgramScheduleForMilestoneCreate.mockResolvedValue({
@@ -168,16 +156,13 @@ describe('ProgramEditorService milestones', () => {
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       endAt: new Date('2026-08-31T00:00:00.000Z'),
     });
-
     await service.createMilestone(101n, 'program-1', {
       ...milestoneInput,
       startAt: '2026-08-20T00:00:00.000Z',
       dueAt: '2026-08-31T00:00:00.000Z',
     });
-
     expect(store.createMilestone.mock.calls).toHaveLength(1);
   });
-
   it('서류 항목에 제출물이 있으면 마일스톤을 지우지 않고 MILESTONE_HAS_SUBMISSIONS로 거부한다', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findMilestoneForDelete.mockResolvedValue({
@@ -187,7 +172,6 @@ describe('ProgramEditorService milestones', () => {
       programMilestoneCount: 2,
       programRepositoryProvisioningEnabled: false,
     });
-
     await expect(
       service.deleteMilestone(101n, 'cuid-synthetic-milestone'),
     ).rejects.toMatchObject<Partial<DomainException>>({
@@ -196,7 +180,6 @@ describe('ProgramEditorService milestones', () => {
     });
     expect(store.deleteMilestone.mock.calls).toHaveLength(0);
   });
-
   it('서류 항목만 있고 제출물이 없으면 마일스톤을 지운다', async () => {
     const { service, store } = createProgramEditorServiceHarness();
     store.findMilestoneForDelete.mockResolvedValue({
@@ -206,15 +189,12 @@ describe('ProgramEditorService milestones', () => {
       programMilestoneCount: 2,
       programRepositoryProvisioningEnabled: false,
     });
-
     await service.deleteMilestone(101n, 'cuid-synthetic-milestone');
-
     expect(store.deleteMilestone.mock.calls).toEqual([
       ['cuid-synthetic-milestone'],
     ]);
   });
 });
-
 describe('milestone due and document grace consistency', () => {
   it.each(['2026-08-21T00:00:00Z', '2026-08-22T00:00:00Z'])(
     '유예보다 같거나 늦어진 마감을 거절한다: %s',
@@ -226,7 +206,6 @@ describe('milestone due and document grace consistency', () => {
         name: '단계',
         startAt: new Date('2026-08-16'),
         dueAt: new Date('2026-08-20'),
-        submissionType: MilestoneSubmissionType.FILE,
         instructions: null,
         programStartAt: new Date('2026-08-16'),
         endAt: new Date('2026-08-31'),
@@ -255,7 +234,6 @@ describe('milestone due and document grace consistency', () => {
     },
   );
 });
-
 it('문서 묶음 편집도 기존 유예 이후로 마감을 옮길 수 없다', async () => {
   const { service, store } = createProgramEditorServiceHarness();
   const locked = {
@@ -267,7 +245,6 @@ it('문서 묶음 편집도 기존 유예 이후로 마감을 옮길 수 없다'
         name: '단계',
         startAt: new Date('2026-08-16'),
         dueAt: new Date('2026-08-20'),
-        submissionType: MilestoneSubmissionType.FILE,
         instructions: null,
       },
       operation: {
@@ -276,6 +253,7 @@ it('문서 묶음 편집도 기존 유예 이후로 마감을 옮길 수 없다'
       },
       documents: [
         {
+          submissionType: 'FILE_OR_TEXT' as const,
           id: 'document-1',
           name: '서류',
           required: true,

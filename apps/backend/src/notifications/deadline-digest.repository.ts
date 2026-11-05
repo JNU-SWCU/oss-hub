@@ -1,22 +1,14 @@
 import { Inject, Injectable } from '@nestjs/common';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  MilestoneDocumentKind,
-  type Prisma,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, type Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-
 export type NotifiableStaffRecipient = {
   readonly id: string;
   readonly notificationEmail: string;
 };
-
 export type DeadlineWindow = {
   readonly from: Date;
   readonly to: Date;
 };
-
 export type DeadlineRecipientSource = {
   readonly id: string;
   readonly nickname: string;
@@ -24,7 +16,6 @@ export type DeadlineRecipientSource = {
   readonly notifyEnabled: boolean;
   readonly accountStatus: AccountStatus;
 };
-
 export type DeadlineProgramSource = {
   readonly id: string;
   readonly name: string;
@@ -45,9 +36,7 @@ export type DeadlineProgramSource = {
     readonly submittedDocumentIds: readonly string[];
   }[];
 };
-
 export type DigestNotificationStatus = 'SENT' | 'FAILED';
-
 export interface DeadlineDigestRepositoryPort {
   findAutomaticProgramIds(window: DeadlineWindow): Promise<readonly string[]>;
   findDeadlineProgram(programId: string): Promise<DeadlineProgramSource | null>;
@@ -63,7 +52,6 @@ export interface DeadlineDigestRepositoryPort {
     payload: Prisma.InputJsonValue,
   ): Promise<void>;
 }
-
 const deadlineRecipientSelect = {
   id: true,
   nickname: true,
@@ -71,11 +59,12 @@ const deadlineRecipientSelect = {
   notifyEnabled: true,
   accountStatus: true,
 } satisfies Prisma.UserSelect;
-
 @Injectable()
 export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
-  constructor(@Inject(PrismaService) private readonly prisma: PrismaService) {}
-
+  constructor(
+    @Inject(PrismaService)
+    private readonly prisma: PrismaService,
+  ) {}
   async findAutomaticProgramIds(
     window: DeadlineWindow,
   ): Promise<readonly string[]> {
@@ -89,7 +78,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
             documents: {
               some: {
                 required: true,
-                kind: MilestoneDocumentKind.DOCUMENT,
               },
             },
           },
@@ -100,7 +88,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
     });
     return programs.map((program) => program.id);
   }
-
   async findDeadlineProgram(
     programId: string,
   ): Promise<DeadlineProgramSource | null> {
@@ -116,7 +103,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
             name: true,
             dueAt: true,
             documents: {
-              where: { kind: MilestoneDocumentKind.DOCUMENT },
+              where: {},
               select: { id: true, required: true },
               orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
             },
@@ -163,7 +150,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       })),
     };
   }
-
   async findNotifiableStaff(): Promise<readonly NotifiableStaffRecipient[]> {
     const staff = await this.prisma.user.findMany({
       where: {
@@ -183,7 +169,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       notificationEmail === null ? [] : [{ id, notificationEmail }],
     );
   }
-
   async claimNotification(
     userId: string,
     idempotencyKey: string,
@@ -213,7 +198,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       throw error;
     }
   }
-
   async completeNotification(
     idempotencyKey: string,
     status: DigestNotificationStatus,
@@ -228,7 +212,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       },
     });
   }
-
   findFailedNotifications(): Promise<
     readonly {
       readonly id: string;
@@ -242,7 +225,6 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
       orderBy: { createdAt: 'desc' },
     });
   }
-
   async findActiveAdmin(githubId: bigint): Promise<boolean> {
     const user = await this.prisma.user.findUnique({
       where: { githubId },

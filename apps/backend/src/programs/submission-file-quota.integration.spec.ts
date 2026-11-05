@@ -1,5 +1,4 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { EventEmitter, once } from 'node:events';
 import { SubmissionFileLifecycle } from '@prisma/client';
@@ -12,17 +11,14 @@ import {
   type CreatePendingSubmissionFileInput,
   SubmissionFilesRepository,
 } from './submission-files.repository';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const repository = new SubmissionFilesRepository(
   prisma,
   new PlatformRepository(),
-  new SubmissionsRepository(prisma, new PlatformRepository()),
 );
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');
 const UPLOADER_ID = seedId('milestones', 'user', 'applicant-personal');
@@ -31,7 +27,6 @@ const PREFIX = 'integration/submission-file-quota';
 const PENDING_EXPIRES_AT = new Date('2099-01-01T00:00:00.000Z');
 const RETAINED_BYTES_LIMIT = 500 * 1024 * 1024;
 const FILE_BYTES_LIMIT = 5 * 1024 * 1024;
-
 function pendingRow(suffix: string, sizeBytes: number) {
   return {
     uploaderId: UPLOADER_ID,
@@ -44,7 +39,6 @@ function pendingRow(suffix: string, sizeBytes: number) {
     pendingExpiresAt: PENDING_EXPIRES_AT,
   };
 }
-
 function pendingInput(
   suffix: string,
   sizeBytes = 1,
@@ -55,7 +49,6 @@ function pendingInput(
       new ProgramScheduleService().addOneCalendarYear(programEndAt),
   };
 }
-
 function retainedFile(
   suffix: string,
   sizeBytes: number,
@@ -69,7 +62,6 @@ function retainedFile(
       lifecycle === SubmissionFileLifecycle.DELETED ? PENDING_EXPIRES_AT : null,
   };
 }
-
 async function quotaOutcome(input: CreatePendingSubmissionFileInput) {
   const [reservation] = await Promise.allSettled([
     repository.createPending(input),
@@ -89,23 +81,19 @@ async function quotaOutcome(input: CreatePendingSubmissionFileInput) {
     status: reservation?.status,
   };
 }
-
 describe('SubmissionFilesRepository aggregate quota integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await runProfile('milestones', new SeedStats());
   });
-
   afterEach(async () => {
     await prisma.submissionFile.deleteMany({
       where: { storageKey: { startsWith: PREFIX } },
     });
   });
-
   afterAll(async () => {
     await prisma.$disconnect();
   });
-
   it('rejects file 101 when 100 non-deleted files include DELETE_PENDING', async () => {
     await prisma.submissionFile.createMany({
       data: [
@@ -126,16 +114,13 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
         ),
       ],
     });
-
     const outcome = await quotaOutcome(pendingInput('count-overflow'));
-
     expect(outcome).toEqual({
       retainedBytes: 100,
       retainedFiles: 100,
       status: 'rejected',
     });
   });
-
   it('rejects one additional byte at 500 MiB retained across 99 files', async () => {
     await prisma.submissionFile.createMany({
       data: [
@@ -145,16 +130,13 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
         retainedFile('bytes-remainder', 10 * 1024 * 1024),
       ],
     });
-
     const outcome = await quotaOutcome(pendingInput('bytes-overflow'));
-
     expect(outcome).toEqual({
       retainedBytes: RETAINED_BYTES_LIMIT,
       retainedFiles: 99,
       status: 'rejected',
     });
   });
-
   it('excludes DELETED rows from both retained count and retained bytes', async () => {
     await prisma.submissionFile.createMany({
       data: [
@@ -173,11 +155,9 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
         ),
       ],
     });
-
     const reservation = repository.createPending(
       pendingInput('deleted-exclusion-allowed'),
     );
-
     await expect(reservation).resolves.toBeDefined();
     await expect(
       prisma.submissionFile.count({
@@ -189,7 +169,6 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       }),
     ).resolves.toBe(100);
   });
-
   it('serializes two concurrent reservations so only one reaches file 100', async () => {
     await prisma.submissionFile.createMany({
       data: Array.from({ length: 99 }, (_, index) =>
@@ -202,10 +181,8 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       await released;
       return repository.createPending(pendingInput(`concurrent-${suffix}`));
     });
-
     gate.emit('release');
     const results = await Promise.allSettled(reservations);
-
     expect(results.map(({ status }) => status).sort()).toEqual([
       'fulfilled',
       'rejected',
@@ -220,14 +197,12 @@ describe('SubmissionFilesRepository aggregate quota integration', () => {
       }),
     ).resolves.toBe(100);
   });
-
   it('브라우저 zip MIME 별칭으로 예약한 행도 쿼터에 포함된다', async () => {
     const input: CreatePendingSubmissionFileInput = {
       ...pendingInput('windows-zip'),
       originalFileName: 'archive.zip',
       mimeType: 'application/x-zip-compressed',
     };
-
     await expect(repository.createPending(input)).resolves.toMatchObject({
       originalFileName: 'archive.zip',
       mimeType: 'application/x-zip-compressed',

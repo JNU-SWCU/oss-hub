@@ -8,7 +8,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
   type UpsertMilestoneDocumentSubmissionInput,
-  MilestoneDocumentSubmissionRepository,
+  SubmissionsRepository,
 } from './submissions.repository';
 
 const mockLockSubmissionMembership = jest.fn<
@@ -208,7 +208,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('지금 팀원이 아니면 제출·이력·첨부 어느 것도 쓰지 않고 거부한다', async () => {
     const harness = buildHarness({ member: false });
 
-    const rejection: unknown = await new MilestoneDocumentSubmissionRepository(
+    const rejection: unknown = await new SubmissionsRepository(
       new PlatformRepository(),
     )
       .upsertMilestoneDocumentSubmission(
@@ -233,7 +233,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
     const harness = buildHarness({ member: false });
 
     await expect(
-      new MilestoneDocumentSubmissionRepository(
+      new SubmissionsRepository(
         new PlatformRepository(),
       ).upsertMilestoneDocumentSubmission(
         harness.prisma,
@@ -247,7 +247,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('팀장이 아니어도 지금 팀원이면 제출과 이력이 그대로 쓰인다', async () => {
     const harness = buildHarness();
 
-    const detail = await new MilestoneDocumentSubmissionRepository(
+    const detail = await new SubmissionsRepository(
       new PlatformRepository(),
     ).upsertMilestoneDocumentSubmission(harness.prisma, textInput());
 
@@ -271,7 +271,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('울타리는 트랜잭션 클라이언트로, 서류·판정 잠금보다 **먼저** 불린다', async () => {
     const harness = buildHarness();
 
-    await new MilestoneDocumentSubmissionRepository(
+    await new SubmissionsRepository(
       new PlatformRepository(),
     ).upsertMilestoneDocumentSubmission(
       harness.prisma,
@@ -309,7 +309,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
   it('재제출은 예전 제출자가 아니라 **지금 내는 사람**으로 판정한다', async () => {
     const harness = buildHarness({ revision: 2 });
 
-    await new MilestoneDocumentSubmissionRepository(
+    await new SubmissionsRepository(
       new PlatformRepository(),
     ).upsertMilestoneDocumentSubmission(
       harness.prisma,
@@ -346,7 +346,7 @@ describe('atomic document grace admission', () => {
         graceDueAt: AFTER_DEADLINE,
         currentStatus,
       });
-      await new MilestoneDocumentSubmissionRepository(
+      await new SubmissionsRepository(
         new PlatformRepository(),
       ).upsertMilestoneDocumentSubmission(
         harness.prisma,
@@ -367,7 +367,7 @@ describe('atomic document grace admission', () => {
     async (graceDueAt) => {
       const harness = buildHarness({ graceDueAt, currentStatus: null });
       await expect(
-        new MilestoneDocumentSubmissionRepository(
+        new SubmissionsRepository(
           new PlatformRepository(),
         ).upsertMilestoneDocumentSubmission(
           harness.prisma,

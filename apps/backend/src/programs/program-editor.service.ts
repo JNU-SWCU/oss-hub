@@ -33,7 +33,6 @@ import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-
 export type UpdateProgramCommand = Omit<CreateProgramCommand, 'endAt'> & {
   readonly endAt?: string | null;
   readonly coverUploadId?: string | null;
@@ -41,21 +40,18 @@ export type UpdateProgramCommand = Omit<CreateProgramCommand, 'endAt'> & {
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
 };
-
 export type UpsertMilestoneCommand = {
   readonly name: string;
   readonly startAt: string;
   readonly dueAt: string;
   readonly instructions?: string | null;
 };
-
 type EditMilestoneDocumentCommand = {
   readonly id: string | null;
   readonly name: string;
   readonly required: boolean;
   readonly templateUploadId?: string;
 };
-
 export type EditMilestoneCommand = {
   readonly name: string;
   readonly startAt: string;
@@ -64,11 +60,15 @@ export type EditMilestoneCommand = {
   readonly documents: readonly EditMilestoneDocumentCommand[];
   readonly expectedFingerprint: string;
 };
-
 export type MilestoneUpdateCommand =
-  | { readonly kind: 'aggregate'; readonly input: EditMilestoneCommand }
-  | { readonly kind: 'legacy'; readonly input: UpsertMilestoneCommand };
-
+  | {
+      readonly kind: 'aggregate';
+      readonly input: EditMilestoneCommand;
+    }
+  | {
+      readonly kind: 'legacy';
+      readonly input: UpsertMilestoneCommand;
+    };
 type ProgramMilestoneFingerprintDocument = {
   readonly id: string;
   readonly name: string;
@@ -77,7 +77,6 @@ type ProgramMilestoneFingerprintDocument = {
   readonly updatedAt: Date;
   readonly storageKey: string | null;
 };
-
 export type ProgramMilestoneFingerprintInput = {
   readonly operation: ProgramMilestoneEditView['operation'];
   readonly milestone: ProgramMilestoneEditView['milestone'] & {
@@ -85,9 +84,11 @@ export type ProgramMilestoneFingerprintInput = {
   };
   readonly documents: readonly ProgramMilestoneFingerprintDocument[];
 };
-
 function assertDistinct(
-  values: readonly { readonly value: string; readonly index: number }[],
+  values: readonly {
+    readonly value: string;
+    readonly index: number;
+  }[],
   field: string,
   code: string,
 ): void {
@@ -102,7 +103,6 @@ function assertDistinct(
     seen.add(value.value);
   }
 }
-
 const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
   {
     field: 'applicationStartAt',
@@ -115,7 +115,6 @@ const INVALID_APPLICATION_PERIOD_FIELD_ERRORS = [
     message: 'Application period must end after it starts.',
   },
 ] as const;
-
 const INVALID_TEAM_RANGE_FIELD_ERRORS = [
   {
     field: 'teamMinSize',
@@ -128,40 +127,34 @@ const INVALID_TEAM_RANGE_FIELD_ERRORS = [
     message: 'Team maximum size must be greater than or equal to minimum size.',
   },
 ] as const;
-
 const INVALID_PROGRAM_END_FIELD_ERROR = {
   field: 'endAt',
   code: 'INVALID_PROGRAM_END',
   message:
     '프로그램 종료일은 유효한 시각이어야 하고 운영 시작일 이후이며 신청 종료일과 모든 마일스톤 마감과 같거나 이후여야 합니다.',
 } as const;
-
 const MILESTONE_AFTER_PROGRAM_END_FIELD_ERROR = {
   field: 'dueAt',
   code: 'INVALID_MILESTONE_PERIOD',
   message: 'Milestone due date must be on or before program end.',
 } as const;
-
 const INVALID_PROGRAM_START_FIELD_ERROR = {
   field: 'startAt',
   code: 'INVALID_PROGRAM_START',
   message: 'Program start must be a valid date.',
 } as const;
-
 const MILESTONE_BEFORE_PROGRAM_START_FIELD_ERROR = {
   field: 'startAt',
   code: 'INVALID_PROGRAM_START',
   message:
     '운영 시작일은 모든 마일스톤 시작일보다 이르거나 같아야 합니다. 마일스톤 시작일을 먼저 바꿔 주세요.',
 } as const;
-
 const INVALID_MILESTONE_START_FIELD_ERROR = {
   field: 'startAt',
   code: 'INVALID_MILESTONE_PERIOD',
   message:
     'Milestone start must be within the Program and before its due date.',
 } as const;
-
 @Injectable()
 export class ProgramEditorService {
   constructor(
@@ -175,7 +168,6 @@ export class ProgramEditorService {
     private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
     private readonly userProfileService: UserProfileService,
   ) {}
-
   private toEditableProgramView(row: EditableProgramRow): EditableProgramView {
     const { coverId, coverExternalImageUrl, ...program } = row;
     return {
@@ -187,7 +179,6 @@ export class ProgramEditorService {
       ),
     };
   }
-
   getProgram(githubId: bigint, programId: string) {
     return this.repository.withTransaction(async (store) => {
       await this.requireEditor(store, githubId);
@@ -196,7 +187,6 @@ export class ProgramEditorService {
       return this.toEditableProgramView(program);
     });
   }
-
   updateProgram(
     githubId: bigint,
     programId: string,
@@ -223,7 +213,6 @@ export class ProgramEditorService {
           ? this.programScheduleService.addOneCalendarYear(endAt)
           : null;
       const teamSize = resolveTeamSize(input, existing);
-
       const emptyFieldErrors: {
         field: string;
         code: string;
@@ -285,7 +274,6 @@ export class ProgramEditorService {
           fieldErrors: [INVALID_PROGRAM_END_FIELD_ERROR],
         });
       }
-
       if (
         existing.milestones.some((milestone) => milestone.startAt < startAt)
       ) {
@@ -378,7 +366,6 @@ export class ProgramEditorService {
       }
     });
   }
-
   createMilestone(
     githubId: bigint,
     programId: string,
@@ -395,13 +382,15 @@ export class ProgramEditorService {
       });
     });
   }
-
   async updateMilestoneByCommand(
     githubId: bigint,
     milestoneId: string,
     command: MilestoneUpdateCommand,
   ): Promise<
-    | { readonly kind: 'aggregate'; readonly result: ProgramMilestoneEditView }
+    | {
+        readonly kind: 'aggregate';
+        readonly result: ProgramMilestoneEditView;
+      }
     | {
         readonly kind: 'legacy';
         readonly result: Awaited<
@@ -430,7 +419,6 @@ export class ProgramEditorService {
         };
     }
   }
-
   updateMilestone(
     githubId: bigint,
     milestoneId: string,
@@ -444,7 +432,6 @@ export class ProgramEditorService {
         input,
         milestone.programStartAt,
         milestone.endAt,
-        milestone.submissionType,
       );
       const earliestGraceDueAt =
         await store.findEarliestDocumentGraceDueAt(milestoneId);
@@ -452,7 +439,6 @@ export class ProgramEditorService {
       return store.updateMilestone({ milestoneId, ...metadata });
     });
   }
-
   getMilestoneEdit(
     githubId: bigint,
     milestoneId: string,
@@ -464,7 +450,6 @@ export class ProgramEditorService {
       return this.snapshotMilestoneEdit(locked);
     });
   }
-
   updateMilestoneEdit(
     githubId: bigint,
     milestoneId: string,
@@ -523,7 +508,6 @@ export class ProgramEditorService {
         input,
         locked.view.operation.startAt,
         locked.view.operation.endAt,
-        locked.view.milestone.submissionType,
       );
       const earliestGraceDueAt = await store.findEarliestDocumentGraceDueAt(
         milestoneId,
@@ -561,13 +545,11 @@ export class ProgramEditorService {
       return this.snapshotMilestoneEdit(updated);
     });
   }
-
   deleteMilestone(githubId: bigint, milestoneId: string): Promise<void> {
     return this.repository.withTransaction(async (store) => {
       await this.requireEditor(store, githubId);
       const milestone = await store.findMilestoneForDelete(milestoneId);
       if (milestone === null) this.fail(ProgramErrorCode.MILESTONE_NOT_FOUND);
-
       if (milestone.documentSubmissionCount > 0) {
         this.fail(ProgramErrorCode.MILESTONE_HAS_SUBMISSIONS);
       }
@@ -580,7 +562,6 @@ export class ProgramEditorService {
       await store.deleteMilestone(milestoneId);
     });
   }
-
   private assertDueBeforeDocumentGrace(
     dueAt: Date,
     earliestGraceDueAt: Date | null,
@@ -601,7 +582,6 @@ export class ProgramEditorService {
       });
     }
   }
-
   private snapshotMilestoneEdit(
     locked: LockedProgramMilestoneEdit,
   ): ProgramMilestoneEditView {
@@ -617,12 +597,10 @@ export class ProgramEditorService {
       }),
     };
   }
-
   private editMilestoneData(
     input: EditMilestoneCommand,
     programStartAt: Date,
     endAt: Date,
-    existingSubmissionType: ProgramMilestoneInput['submissionType'],
   ): ProgramMilestoneInput {
     return this.milestoneData(
       {
@@ -633,10 +611,8 @@ export class ProgramEditorService {
       },
       programStartAt,
       endAt,
-      existingSubmissionType,
     );
   }
-
   private async requireEditor(
     store: ProgramEditorTransactionStore,
     githubId: bigint,
@@ -647,12 +623,10 @@ export class ProgramEditorService {
     if (authority === null) this.fail(ProgramErrorCode.FORBIDDEN);
     return authority;
   }
-
   private milestoneData(
     input: UpsertMilestoneCommand,
     programStartAt: Date,
     endAt: Date,
-    existingSubmissionType: ProgramMilestoneInput['submissionType'] = null,
   ): ProgramMilestoneInput {
     const name = input.name.trim();
     const startAt = new Date(input.startAt);
@@ -703,18 +677,15 @@ export class ProgramEditorService {
       name,
       startAt,
       dueAt,
-      submissionType: existingSubmissionType,
       instructions,
     };
   }
-
   private fail(
     code: ProgramErrorCode,
     extensions: ProblemDetailExtensions = {},
   ): never {
     throw new DomainException(PROGRAM_ERROR_CODES[code], extensions);
   }
-
   fingerprintProgramMilestoneEdit(
     input: ProgramMilestoneFingerprintInput,
   ): string {
@@ -743,7 +714,6 @@ export class ProgramEditorService {
         input.milestone.name,
         input.milestone.startAt.toISOString(),
         input.milestone.dueAt.toISOString(),
-        input.milestone.submissionType,
         input.milestone.instructions,
         input.milestone.updatedAt.toISOString(),
       ],
@@ -753,7 +723,6 @@ export class ProgramEditorService {
       .update(JSON.stringify(payload), 'utf8')
       .digest('hex');
   }
-
   preflightProgramMilestoneEditDocuments(
     documents: readonly {
       readonly id: string | null;
@@ -781,7 +750,6 @@ export class ProgramEditorService {
     );
   }
 }
-
 function uploadTokenFieldErrors(
   documents: readonly {
     readonly templateUploadId?: string;
@@ -802,7 +770,6 @@ function uploadTokenFieldErrors(
       : [],
   );
 }
-
 function editorPermissionError(
   authority: ProgramAuthority | null,
   userProfileService: UserProfileService,
@@ -831,7 +798,6 @@ function editorPermissionError(
   }
   return ProgramErrorCode.FORBIDDEN;
 }
-
 function validPeriod(startAt: Date, endAt: Date): boolean {
   return (
     !Number.isNaN(startAt.getTime()) &&
@@ -839,7 +805,6 @@ function validPeriod(startAt: Date, endAt: Date): boolean {
     endAt >= startAt
   );
 }
-
 function resolveTeamSize(
   input: Pick<UpdateProgramCommand, 'teamMinSize' | 'teamMaxSize'>,
   current: {

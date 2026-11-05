@@ -1,7 +1,6 @@
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneSubmissionType,
   ProgramCategory,
   ProgramLifecycle,
 } from '@prisma/client';
@@ -18,7 +17,6 @@ import type {
 } from './e2e-program-authoring.types';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { CONSENT_POLICY_VERSION } from '../../src/users/consents.service';
-
 const PREFIX = 'e2e:program-authoring:';
 export const E2E_PROGRAM_ID = `${PREFIX}program`;
 export const E2E_STAFF_ID = `${PREFIX}staff`;
@@ -26,19 +24,15 @@ export const E2E_STUDENT_ID = `${PREFIX}student`;
 export const E2E_FOREIGN_STUDENT_ID = `${PREFIX}foreign-student`;
 export const E2E_MILESTONE_ID = `${PREFIX}milestone`;
 export const E2E_DOCUMENT_ID = `${PREFIX}document`;
-export const E2E_STAFF_GITHUB_ID = 8_100_001n;
-export const E2E_STUDENT_GITHUB_ID = 8_100_002n;
-export const E2E_FOREIGN_STUDENT_GITHUB_ID = 8_100_003n;
+export const E2E_STAFF_GITHUB_ID = 8100001n;
+export const E2E_STUDENT_GITHUB_ID = 8100002n;
+export const E2E_FOREIGN_STUDENT_GITHUB_ID = 8100003n;
 const ONE_HOUR_MS = 60 * 60 * 1000;
 const ONE_DAY_MS = 24 * ONE_HOUR_MS;
-
 export const E2E_NOW = new Date(Date.now() + 2 * ONE_HOUR_MS);
-
 export class E2eProgramAuthoringFixture {
   private activeGraph: E2eProgramAuthoringGraph | null = null;
-
   constructor(private readonly prisma: PrismaService) {}
-
   async reset(): Promise<void> {
     if (
       this.activeGraph !== null &&
@@ -78,13 +72,6 @@ export class E2eProgramAuthoringFixture {
       await transaction.submissionFile.deleteMany({
         where: { applicationId: { in: applicationIds } },
       });
-      await transaction.milestoneDocumentReviewHistory.deleteMany({
-        where: {
-          milestoneDocumentSubmission: {
-            applicationId: { in: applicationIds },
-          },
-        },
-      });
       await transaction.milestoneDocumentSubmissionHistory.deleteMany({
         where: { submission: { applicationId: { in: applicationIds } } },
       });
@@ -103,7 +90,6 @@ export class E2eProgramAuthoringFixture {
       await transaction.team.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
       });
-
       await transaction.milestoneDocumentTemplateFile.deleteMany({
         where: { milestoneDocument: { milestoneId: E2E_MILESTONE_ID } },
       });
@@ -132,7 +118,6 @@ export class E2eProgramAuthoringFixture {
     }
     this.activeGraph = null;
   }
-
   async ensure(): Promise<void> {
     await this.ensureActors();
     await this.prisma.$transaction(async (transaction) => {
@@ -177,7 +162,6 @@ export class E2eProgramAuthoringFixture {
           name: `${PREFIX}milestone`,
           startAt: E2E_NOW,
           dueAt: new Date(E2E_NOW.getTime() + 9 * ONE_HOUR_MS),
-          submissionType: MilestoneSubmissionType.FILE,
         },
         update: {},
       });
@@ -195,7 +179,6 @@ export class E2eProgramAuthoringFixture {
     });
     this.activeGraph = fixtureGraph();
   }
-
   async adopt(
     programId: string,
     authorGithubId: bigint,
@@ -233,12 +216,10 @@ export class E2eProgramAuthoringFixture {
     this.activeGraph = graph;
     return graph;
   }
-
   graph(): E2eProgramAuthoringGraph {
     if (this.activeGraph === null) throw new Error('No E2E graph is active.');
     return this.activeGraph;
   }
-
   application(applicantId = E2E_STUDENT_ID): Promise<{
     readonly id: string;
     readonly status: ApplicationStatus;
@@ -249,14 +230,12 @@ export class E2eProgramAuthoringFixture {
       select: { id: true, status: true },
     });
   }
-
   async state(capture: E2eExternalCapture): Promise<E2eProgramAuthoringState> {
     return stateForE2eProgramGraph(this.prisma, this.graph(), capture, [
       E2E_STAFF_ID,
       E2E_STUDENT_ID,
     ]);
   }
-
   private async ensureActors(): Promise<void> {
     await ensureE2eProgramAuthoringActors(this.prisma, {
       staffId: E2E_STAFF_ID,
@@ -269,7 +248,6 @@ export class E2eProgramAuthoringFixture {
     });
   }
 }
-
 function fixtureGraph(): E2eProgramAuthoringGraph {
   return {
     programId: E2E_PROGRAM_ID,

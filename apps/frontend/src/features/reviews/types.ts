@@ -2,20 +2,15 @@ import type {
   PublishBlockedReason,
   RepositoryPublication,
 } from '@/lib/repository-publication';
-
 export type { PublishBlockedReason };
-
 export type ReviewDecision = 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
-
 export type ApplicationMode = 'PERSONAL' | 'TEAM';
-
 interface ReviewRecord {
   readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
 }
-
 export interface SubmissionRevisionFile {
   readonly fileId: string;
   readonly fileName: string;
@@ -24,7 +19,6 @@ export interface SubmissionRevisionFile {
   readonly expiresAt: string;
   readonly downloadUrl: string;
 }
-
 export interface SubmissionRevision {
   readonly number: number;
   readonly content: unknown;
@@ -33,10 +27,9 @@ export interface SubmissionRevision {
   readonly files: readonly SubmissionRevisionFile[];
   readonly review: ReviewRecord | null;
 }
-
 export type ReviewRepository = RepositoryPublication;
-
 export interface ReviewContext {
+  readonly latestReviewId: string | null;
   readonly requirementId: string;
   readonly submissionId: string;
   readonly application: {
@@ -50,15 +43,14 @@ export interface ReviewContext {
   };
   readonly currentRevision: SubmissionRevision;
   readonly history: readonly SubmissionRevision[];
+  readonly unversionedReviews?: readonly ReviewRecord[];
   readonly repository: ReviewRepository | null;
 }
-
 export interface CreateReviewRequest {
   readonly revision: number;
   readonly decision: ReviewDecision;
   readonly comment?: string;
 }
-
 export interface CreateReviewResponse {
   readonly reviewId: string;
   readonly submissionStatus: ReviewDecision;

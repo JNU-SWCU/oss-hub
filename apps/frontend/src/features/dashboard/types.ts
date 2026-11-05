@@ -10,7 +10,6 @@ export type DashboardRepositoryProvisionStatus =
   | 'FAILED_FINAL';
 export type DashboardRepositoryInvitationStatus =
   'PENDING' | 'SUCCEEDED' | 'FAILED_RETRYABLE' | 'FAILED_FINAL' | null;
-
 export interface DashboardMilestone {
   readonly id: string;
   readonly name: string;
@@ -20,21 +19,17 @@ export interface DashboardMilestone {
   readonly requiredItemCount?: number;
   readonly remainingItemCount?: number;
 }
-
 export interface DashboardProgress {
   readonly approvedCount: number;
   readonly inReviewCount: number;
   readonly totalCount: number;
 }
-
 export interface DashboardItem {
   readonly coverImageUrl?: string | null;
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
-
   readonly teamName: string;
-
   readonly applicationStatus: DashboardApplicationStatus;
   readonly nextMilestone: DashboardMilestone | null;
   readonly progress?: DashboardProgress | null;
@@ -46,29 +41,23 @@ export interface DashboardItem {
     readonly githubUrl: string | null;
   } | null;
 }
-
 export interface StudentDashboard {
   readonly items: readonly DashboardItem[];
 }
-
 export interface ApplicationDecisionNotice {
   readonly id: string;
   readonly applicationId: string;
   readonly programId: string;
   readonly programName: string;
-
   readonly decision: 'APPROVED' | 'REJECTED' | 'SUBMITTED';
   readonly decidedAt: string;
 }
-
 export type StudentDashboardStatus = 'loading' | 'success' | 'error';
-
 export interface DashboardFeedbackItem {
   readonly id: string;
   readonly decision: 'APPROVED' | 'CHANGES_REQUESTED' | 'REJECTED';
   readonly comment: string | null;
   readonly reviewedAt: string;
-  readonly resubmissionDueAt: string | null;
   readonly applicationId: string;
   readonly programId: string;
   readonly milestoneId: string;
@@ -76,15 +65,17 @@ export interface DashboardFeedbackItem {
   readonly itemName: string;
   readonly href: string;
 }
-
 export type StudentFeedbackState =
-  | { readonly status: 'loading' }
-  | { readonly status: 'error' }
+  | {
+      readonly status: 'loading';
+    }
+  | {
+      readonly status: 'error';
+    }
   | {
       readonly status: 'success';
       readonly items: readonly DashboardFeedbackItem[];
     };
-
 export interface TeamDeletionNotice {
   readonly id: string;
   readonly teamId: string;

@@ -1,6 +1,5 @@
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import type { PrismaService } from '../platform/prisma.service';
-
 const prefix = 'qa152-document-flow';
 export const flowIds = {
   program: `${prefix}-program`,
@@ -15,7 +14,6 @@ export const flowGithubIds = {
   student: 960000001135001n,
   staff: 960000001135002n,
 } as const;
-
 export async function seedMilestoneDocumentFlow(
   prisma: PrismaService,
 ): Promise<void> {
@@ -69,11 +67,9 @@ export async function seedMilestoneDocumentFlow(
       milestones: {
         create: {
           startAt: new Date('2000-01-03'),
-
           id: flowIds.milestone,
           name: '합성 제출 단계',
           dueAt: new Date('2099-01-01'),
-          submissionType: 'FILE',
           documents: {
             create: {
               id: flowIds.document,

@@ -6,7 +6,6 @@ import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
   MilestoneDocumentKind,
-  MilestoneSubmissionType,
   ProgramCategory,
   SubmissionStatus,
 } from '@prisma/client';
@@ -20,18 +19,14 @@ import { ProgramsService } from '../programs/programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
 import { MilestoneCompletionService } from '../programs/milestone-completion.service';
 import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prefix = 'synthetic-dashboard-axes';
 const id = (...parts: readonly string[]) => [prefix, ...parts].join('-');
-
 const STUDENT_ID = id('student');
-const STUDENT_GITHUB_ID = 4_309_100_091n;
-
+const STUDENT_GITHUB_ID = 4309100091n;
 const DOCUMENT_PROGRAM = id('program', 'document');
 const DOCUMENT_MILESTONE_FIRST = id('milestone', 'document', 'first');
 const DOCUMENT_MILESTONE_SECOND = id('milestone', 'document', 'second');
@@ -40,7 +35,6 @@ const REQUIRED_FIRST_B = id('document', 'first', 'b');
 const OPTIONAL_FIRST = id('document', 'first', 'optional');
 const REQUIRED_SECOND = id('document', 'second');
 const DOCUMENT_APPLICATION = id('application', 'document');
-
 const LEGACY_PROGRAM = id('program', 'legacy');
 const LEGACY_MILESTONE = id('milestone', 'legacy');
 const LEGACY_SLOT = id('document', 'legacy', 'slot');
@@ -48,7 +42,6 @@ const MIXED_MILESTONE = id('milestone', 'mixed');
 const MIXED_SLOT = id('document', 'mixed', 'slot');
 const MIXED_REQUIRED = id('document', 'mixed', 'required');
 const LEGACY_APPLICATION = id('application', 'legacy');
-
 const PROGRAM_IDS = [DOCUMENT_PROGRAM, LEGACY_PROGRAM];
 const APPLICATION_IDS = [DOCUMENT_APPLICATION, LEGACY_APPLICATION];
 const MILESTONE_IDS = [
@@ -57,7 +50,6 @@ const MILESTONE_IDS = [
   LEGACY_MILESTONE,
   MIXED_MILESTONE,
 ];
-
 const prisma = new PrismaService();
 const noRepositories: Pick<RepositoriesReadService, 'getMyRepositories'> = {
   getMyRepositories: () => Promise.resolve([]),
@@ -80,14 +72,12 @@ const programs = new ProgramsService(
   new ProgramTemplatesService(),
   Object.create(ProgramViewerService.prototype) as ProgramViewerService,
 );
-
 function programRow(programId: string) {
   return {
     startAt: new Date('2026-08-01T00:00:00.000Z'),
     endAt: new Date(
-      new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86_400_000,
+      new Date('2026-08-31T00:00:00.000Z').getTime() + 365 * 86400000,
     ),
-
     id: programId,
     name: `synthetic ${programId}`,
     organizer: 'synthetic-center',
@@ -99,7 +89,6 @@ function programRow(programId: string) {
     description: 'synthetic overview',
   };
 }
-
 function documentRow(
   documentId: string,
   milestoneId: string,
@@ -115,7 +104,6 @@ function documentRow(
     kind,
   };
 }
-
 async function setSubmissions(
   applicationId: string,
   rows: readonly (readonly [string, SubmissionStatus])[],
@@ -132,13 +120,11 @@ async function setSubmissions(
     })),
   });
 }
-
 async function nextMilestoneOf(applicationId: string) {
   const items = await dashboard.getStudentDashboard(STUDENT_GITHUB_ID);
   return items.find((item) => item.applicationId === applicationId)
     ?.nextMilestone;
 }
-
 async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: { applicationId: { in: APPLICATION_IDS } },
@@ -159,7 +145,6 @@ async function cleanup(): Promise<void> {
   await prisma.program.deleteMany({ where: { id: { in: PROGRAM_IDS } } });
   await prisma.user.deleteMany({ where: { id: STUDENT_ID } });
 }
-
 async function seed(): Promise<void> {
   await prisma.user.create({
     data: canonicalUserCreateFromLabel('STUDENT', {
@@ -173,41 +158,31 @@ async function seed(): Promise<void> {
     data: [
       {
         startAt: new Date('2026-08-01T00:00:00.000Z'),
-
         id: DOCUMENT_MILESTONE_FIRST,
         programId: DOCUMENT_PROGRAM,
         name: '서류 1차',
         dueAt: new Date('2026-09-01T00:00:00.000Z'),
-        submissionType: null,
       },
       {
         startAt: new Date('2026-08-01T00:00:00.000Z'),
-
         id: DOCUMENT_MILESTONE_SECOND,
         programId: DOCUMENT_PROGRAM,
         name: '서류 2차',
         dueAt: new Date('2026-09-08T00:00:00.000Z'),
-        submissionType: null,
       },
-
       {
         startAt: new Date('2026-08-01T00:00:00.000Z'),
-
         id: LEGACY_MILESTONE,
         programId: LEGACY_PROGRAM,
         name: '옛 단일 제출',
         dueAt: new Date('2026-09-01T00:00:00.000Z'),
-        submissionType: MilestoneSubmissionType.FILE,
       },
-
       {
         startAt: new Date('2026-08-01T00:00:00.000Z'),
-
         id: MIXED_MILESTONE,
         programId: LEGACY_PROGRAM,
         name: '두 축 혼재',
         dueAt: new Date('2026-09-08T00:00:00.000Z'),
-        submissionType: MilestoneSubmissionType.FILE,
       },
     ],
   });
@@ -259,19 +234,16 @@ async function seed(): Promise<void> {
     })),
   });
 }
-
 describe('StudentDashboardService milestone axes integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await cleanup();
     await seed();
   });
-
   afterAll(async () => {
     await cleanup();
     await prisma.$disconnect();
   });
-
   it('projects grace only from unsubmitted required documents and clears it after submission', async () => {
     const grace = new Date('2026-09-05T00:00:00.000Z');
     const later = new Date('2026-09-07T00:00:00.000Z');
@@ -302,40 +274,33 @@ describe('StudentDashboardService milestone axes integration', () => {
       data: { graceDueAt: null },
     });
   });
-
   it('holds the first milestone until every required document is approved', async () => {
     await setSubmissions(DOCUMENT_APPLICATION, [
       [REQUIRED_FIRST_A, SubmissionStatus.APPROVED],
     ]);
-
     expect(await nextMilestoneOf(DOCUMENT_APPLICATION)).toMatchObject({
       id: DOCUMENT_MILESTONE_FIRST,
       submissionStatus: 'NOT_SUBMITTED',
     });
   });
-
   it('advances to the second milestone once the first milestone is approved', async () => {
     await setSubmissions(DOCUMENT_APPLICATION, [
       [REQUIRED_FIRST_A, SubmissionStatus.APPROVED],
       [REQUIRED_FIRST_B, SubmissionStatus.APPROVED],
     ]);
-
     expect(await nextMilestoneOf(DOCUMENT_APPLICATION)).toMatchObject({
       id: DOCUMENT_MILESTONE_SECOND,
       submissionStatus: 'NOT_SUBMITTED',
     });
   });
-
   it('empties the next milestone when every milestone is approved', async () => {
     await setSubmissions(DOCUMENT_APPLICATION, [
       [REQUIRED_FIRST_A, SubmissionStatus.APPROVED],
       [REQUIRED_FIRST_B, SubmissionStatus.APPROVED],
       [REQUIRED_SECOND, SubmissionStatus.APPROVED],
     ]);
-
     expect(await nextMilestoneOf(DOCUMENT_APPLICATION)).toBeNull();
   });
-
   it('leaves the unsubmitted optional document out of the completion check', async () => {
     await setSubmissions(DOCUMENT_APPLICATION, [
       [REQUIRED_FIRST_A, SubmissionStatus.APPROVED],
@@ -343,37 +308,30 @@ describe('StudentDashboardService milestone axes integration', () => {
       [REQUIRED_SECOND, SubmissionStatus.APPROVED],
       [OPTIONAL_FIRST, SubmissionStatus.CHANGES_REQUESTED],
     ]);
-
     expect(await nextMilestoneOf(DOCUMENT_APPLICATION)).toBeNull();
   });
-
   it('keeps legacy single-submission milestones on their own axis', async () => {
     await setSubmissions(LEGACY_APPLICATION, [
       [MIXED_SLOT, SubmissionStatus.APPROVED],
       [MIXED_REQUIRED, SubmissionStatus.APPROVED],
     ]);
-
     expect(await nextMilestoneOf(LEGACY_APPLICATION)).toMatchObject({
       id: LEGACY_MILESTONE,
       submissionStatus: 'NOT_SUBMITTED',
     });
-
     await setSubmissions(LEGACY_APPLICATION, [
       [LEGACY_SLOT, SubmissionStatus.APPROVED],
       [MIXED_SLOT, SubmissionStatus.APPROVED],
       [MIXED_REQUIRED, SubmissionStatus.APPROVED],
     ]);
-
     expect(await nextMilestoneOf(LEGACY_APPLICATION)).toBeNull();
   });
-
   it('reports the same status as the program detail for a two-axis milestone', async () => {
     await setSubmissions(LEGACY_APPLICATION, [
       [LEGACY_SLOT, SubmissionStatus.APPROVED],
       [MIXED_SLOT, SubmissionStatus.APPROVED],
       [MIXED_REQUIRED, SubmissionStatus.SUBMITTED],
     ]);
-
     const detail = await programs.detail(LEGACY_PROGRAM, {
       githubId: STUDENT_GITHUB_ID,
       userId: STUDENT_ID,
@@ -382,7 +340,6 @@ describe('StudentDashboardService milestone axes integration', () => {
     const detailStatus = detail.milestones.find(
       (milestone) => milestone.id === MIXED_MILESTONE,
     )?.viewerSubmissionStatus;
-
     expect(detailStatus).toBe(SubmissionStatus.SUBMITTED);
     expect(await nextMilestoneOf(LEGACY_APPLICATION)).toMatchObject({
       id: MIXED_MILESTONE,

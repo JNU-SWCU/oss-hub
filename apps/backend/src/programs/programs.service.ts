@@ -8,7 +8,6 @@ import {
 import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import {
   ApplicationStatus,
-  type MilestoneSubmissionType,
   SubmissionStatus,
   type ProgramTrackType,
   type ProgramLifecycle,
@@ -75,26 +74,19 @@ import { createHash } from 'node:crypto';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-
 export interface ProgramListItemNote {
   readonly text: string;
   readonly icon?: 'team';
 }
-
 export interface ProgramListPageItem extends PersonalizedProgramListItem {
   readonly coverImageUrl: string | null;
 }
-
 export interface PersonalizedProgramListItem extends ProgramListRecord {
   readonly note?: ProgramListItemNote;
-
   readonly viewerApplicationStatus?: ApplicationStatus;
-
   readonly applicationCount?: number;
-
   readonly pendingApplicationCount?: number;
 }
-
 export interface ProgramListPage {
   readonly items: readonly ProgramListPageItem[];
   readonly page: number;
@@ -102,9 +94,7 @@ export interface ProgramListPage {
   readonly totalItems: number;
   readonly totalPages: number;
 }
-
 type ViewerSubmissionStatusResult = SubmissionStatus | 'NOT_SUBMITTED' | null;
-
 export interface ApplicationSubmissionSummaryResult {
   readonly notSubmitted: number;
   readonly submitted: number;
@@ -113,7 +103,6 @@ export interface ApplicationSubmissionSummaryResult {
   readonly rejected: number;
   readonly total: number;
 }
-
 interface ProgramMilestoneResult {
   readonly id: string;
   readonly name: string;
@@ -122,13 +111,10 @@ interface ProgramMilestoneResult {
   readonly dDay: number;
   readonly deadlineLabel: string;
   readonly description: string | null;
-  readonly submissionType: MilestoneSubmissionType | null;
-
   readonly submissionItemCount: number;
   readonly viewerSubmissionStatus: ViewerSubmissionStatusResult;
   readonly applicationSubmissionSummary: ApplicationSubmissionSummaryResult | null;
 }
-
 export interface ProgramDetailResult {
   readonly teamMinSize: number;
   readonly teamMaxSize: number;
@@ -138,7 +124,6 @@ export interface ProgramDetailResult {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
-
   readonly lifecycle: ProgramLifecycle;
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
@@ -156,23 +141,19 @@ export interface ProgramDetailResult {
   };
   readonly milestones: readonly ProgramMilestoneResult[];
 }
-
 type SubmissionRecord = {
   readonly milestoneId: string;
   readonly status: SubmissionStatus;
 };
-
 type DocumentSubmissionRecord = {
   readonly milestoneDocumentId: string;
   readonly status: SubmissionStatus;
 };
-
 const ANONYMOUS_VIEWER: ProgramViewer = {
   githubId: null,
   userId: null,
   role: null,
 };
-
 const STUDENT_APPLICATION_STATUS_NOTE: Readonly<
   Record<ApplicationStatus, string>
 > = {
@@ -180,7 +161,6 @@ const STUDENT_APPLICATION_STATUS_NOTE: Readonly<
   APPROVED: '축하합니다, 참가가 확정되었습니다',
   REJECTED: '아쉽지만 이번에는 함께하지 못합니다',
 };
-
 const EMPTY_SUMMARY = {
   notSubmitted: 0,
   submitted: 0,
@@ -189,7 +169,6 @@ const EMPTY_SUMMARY = {
   rejected: 0,
   total: 0,
 } as const satisfies ApplicationSubmissionSummaryResult;
-
 @Injectable()
 export class ProgramsService {
   constructor(
@@ -200,7 +179,6 @@ export class ProgramsService {
     private readonly programTemplatesService: ProgramTemplatesService,
     private readonly programViewerService: ProgramViewerService,
   ) {}
-
   private async findStudentApplicationAxes(programId: string, userId: string) {
     const application = await this.repository.findStudentApplication(
       programId,
@@ -208,7 +186,6 @@ export class ProgramsService {
     );
     return application && this.toTargetSubmissionAxes(application);
   }
-
   private toTargetSubmissionAxes<
     T extends {
       readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
@@ -224,7 +201,6 @@ export class ProgramsService {
       milestoneDocumentSubmissions: documentSubmissions,
     };
   }
-
   listQueryFromRequest(request: ProgramListQuery): ProgramListQuery {
     return {
       page: request.page,
@@ -236,7 +212,6 @@ export class ProgramsService {
       direction: request.direction,
     };
   }
-
   async listFromRequest(
     request: ProgramListQuery,
     auth: OptionalSessionRequest['auth'],
@@ -248,11 +223,12 @@ export class ProgramsService {
     const viewer = await this.programViewerService.fromGithubId(githubId);
     return this.list(this.listQueryFromRequest(request), viewer);
   }
-
   async detailForGithubId(
     programId: string,
     githubId: bigint,
-    request: { readonly view?: string },
+    request: {
+      readonly view?: string;
+    },
   ): Promise<ProgramDetailResult> {
     void request;
     return this.detail(
@@ -260,7 +236,6 @@ export class ProgramsService {
       await this.programViewerService.fromGithubId(githubId),
     );
   }
-
   async list(
     query: ProgramListQuery,
     viewer: ProgramViewer = ANONYMOUS_VIEWER,
@@ -285,13 +260,11 @@ export class ProgramsService {
       totalPages: Math.ceil(totalItems / query.pageSize),
     };
   }
-
   private async personalize(
     items: readonly ProgramListRecord[],
     viewer: ProgramViewer,
   ): Promise<readonly PersonalizedProgramListItem[]> {
     if (items.length === 0 || !viewer.userId) return items;
-
     if (viewer.role === 'STUDENT') {
       const programIds = items.map((item) => item.id);
       const statuses = await this.repository.findViewerApplicationStatuses(
@@ -311,7 +284,6 @@ export class ProgramsService {
         };
       });
     }
-
     if (viewer.role === 'STAFF') {
       const programIds = items.map((item) => item.id);
       const counts =
@@ -330,18 +302,14 @@ export class ProgramsService {
         };
       });
     }
-
     return items;
   }
-
   async statusCounts(now = new Date()): Promise<ProgramStatusCounts> {
     return this.repository.countProgramsByStatus(now);
   }
-
   async endedYears(now = new Date()): Promise<readonly number[]> {
     return this.repository.findEndedYears(now);
   }
-
   async detail(
     programId: string,
     viewer: ProgramViewer,
@@ -351,7 +319,6 @@ export class ProgramsService {
       const program = await this.repository.findProgramDetail(programId);
       if (!program)
         throw new DomainException(PROGRAM_READ_ERROR_CODES.NOT_FOUND);
-
       const studentApplication =
         viewer.role === 'STUDENT' && viewer.userId
           ? await this.findStudentApplicationAxes(programId, viewer.userId)
@@ -362,7 +329,6 @@ export class ProgramsService {
               (application) => this.toTargetSubmissionAxes(application),
             )
           : null;
-
       return {
         id: program.id,
         coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
@@ -404,10 +370,9 @@ export class ProgramsService {
             dDay: deadline.dDay,
             deadlineLabel: deadline.label,
             description: milestone.instructions,
-            submissionType: milestone.submissionType,
             submissionItemCount: milestone._count.documents,
             viewerSubmissionStatus:
-              milestone.submissionType !== null && studentApplication
+              milestone._count.documents > 0 && studentApplication
                 ? this.milestoneStatusFor(
                     milestone,
                     studentApplication.submissions,
@@ -415,7 +380,7 @@ export class ProgramsService {
                   )
                 : null,
             applicationSubmissionSummary:
-              milestone.submissionType !== null && staffApplications
+              milestone._count.documents > 0 && staffApplications
                 ? this.summaryForMilestone(milestone, staffApplications)
                 : null,
           };
@@ -426,12 +391,12 @@ export class ProgramsService {
       throw new DomainException(PROGRAM_READ_ERROR_CODES.DETAIL_LOAD_FAILED);
     }
   }
-
   private summaryForMilestone(
     milestone: {
       readonly id: string;
-      readonly submissionType: MilestoneSubmissionType | null;
-      readonly documents: readonly { readonly id: string }[];
+      readonly documents: readonly {
+        readonly id: string;
+      }[];
     },
     applications: readonly {
       readonly submissions: readonly SubmissionRecord[];
@@ -454,18 +419,18 @@ export class ProgramsService {
     }
     return summary;
   }
-
   private milestoneStatusFor(
     milestone: {
       readonly id: string;
-      readonly submissionType: MilestoneSubmissionType | null;
-      readonly documents: readonly { readonly id: string }[];
+      readonly documents: readonly {
+        readonly id: string;
+      }[];
     },
     submissions: readonly SubmissionRecord[],
     documentSubmissions: readonly DocumentSubmissionRecord[],
   ) {
     return this.milestoneCompletionService.milestoneCompletionStatus({
-      submissionAxisInUse: milestone.submissionType !== null,
+      submissionAxisInUse: false,
       requiredDocumentStatuses: milestone.documents.map(
         (document) =>
           documentSubmissions.find(
@@ -478,14 +443,12 @@ export class ProgramsService {
         )?.status ?? null,
     });
   }
-
   private isTeamProgram(item: ProgramListRecord): boolean {
     const template = this.programTemplatesService.getTemplateByKey(
       item.applicationTemplateKey,
     );
     return template?.participation === PROGRAM_PARTICIPATION.TEAM;
   }
-
   private noteWithTeamIcon(
     text: string,
     item: ProgramListRecord,
@@ -493,13 +456,9 @@ export class ProgramsService {
     return this.isTeamProgram(item) ? { text, icon: 'team' } : { text };
   }
 }
-
 const MAX_MILESTONES = 50;
-
 const MAX_DOCUMENTS_PER_MILESTONE = 20;
-
 const MAX_DOCUMENTS_PER_PROGRAM = 100;
-
 function documentPlan(
   document: ProgramAuthoringRequest['milestones'][number]['documents'][number],
   path: string,
@@ -531,7 +490,6 @@ function documentPlan(
     templateUploadId,
   };
 }
-
 function requiredString(
   value: string,
   path: string,
@@ -541,12 +499,10 @@ function requiredString(
   if (normalized.length === 0) issues.push({ path, code: 'REQUIRED' });
   return normalized;
 }
-
 function optionalString(value: string | null | undefined): string | null {
   const normalized = value?.trim() ?? '';
   return normalized.length > 0 ? normalized : null;
 }
-
 function isoDate(
   value: string,
   path: string,
@@ -559,21 +515,18 @@ function isoDate(
   }
   return parsed;
 }
-
 @Injectable()
 export class ProgramNoticePreviewService {
   private active = 0;
-
-  private attempts: { readonly actorId: string; readonly at: number }[] = [];
-
+  private attempts: {
+    readonly actorId: string;
+    readonly at: number;
+  }[] = [];
   constructor(private readonly client: ProgramNoticeFetchClient) {}
-
   async preview(actorId: string, input: string): Promise<ProgramNoticePreview> {
     const source = this.client.parseProgramNoticeUrl(input);
     const now = Date.now();
-    this.attempts = this.attempts.filter(
-      (attempt) => attempt.at > now - 60_000,
-    );
+    this.attempts = this.attempts.filter((attempt) => attempt.at > now - 60000);
     if (
       this.active >= 4 ||
       this.attempts.length >= 60 ||
@@ -592,12 +545,10 @@ export class ProgramNoticePreviewService {
     }
   }
 }
-
 type ProgramAuthoringStore = Pick<
   ProgramAuthoringRepository,
   'findReplay' | 'withTransaction'
 >;
-
 @Injectable()
 export class ProgramAuthoringService {
   constructor(
@@ -610,9 +561,11 @@ export class ProgramAuthoringService {
     private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
     private readonly programAuthoringUploadTransactionRepository: ProgramAuthoringUploadTransactionRepository,
   ) {}
-
   async createFromRequest(
-    actor: { readonly id: string; readonly githubId: bigint },
+    actor: {
+      readonly id: string;
+      readonly githubId: bigint;
+    },
     idempotencyKey: string | undefined,
     request: ProgramAuthoringRequest,
   ): Promise<ProgramAuthoringProgram> {
@@ -640,9 +593,11 @@ export class ProgramAuthoringService {
       throw error;
     }
   }
-
   async create(
-    actor: { readonly id: string; readonly githubId: bigint },
+    actor: {
+      readonly id: string;
+      readonly githubId: bigint;
+    },
     idempotencyKey: string,
     request: ProgramAuthoringRequest,
   ): Promise<ProgramAuthoringProgram> {
@@ -670,7 +625,6 @@ export class ProgramAuthoringService {
       return replayOrConflict(replay, payloadHash, actorId, idempotencyKey);
     }
   }
-
   private async createInTransaction(
     store: ProgramAuthoringTransactionStore,
     githubId: bigint,
@@ -749,7 +703,6 @@ export class ProgramAuthoringService {
     );
     return program;
   }
-
   toCanonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {
     return {
       schemaVersion: 2,
@@ -777,7 +730,6 @@ export class ProgramAuthoringService {
         name: milestone.name,
         startAt: milestone.startAt.toISOString(),
         dueAt: milestone.dueAt.toISOString(),
-        submissionType: milestone.submissionType,
         instructions: milestone.instructions,
         documents: milestone.documents.map((document) => ({
           name: document.name,
@@ -788,7 +740,6 @@ export class ProgramAuthoringService {
       })),
     } as const;
   }
-
   hashProgramAuthoringPayload(plan: ProgramAuthoringPlan): string {
     return createHash('sha256')
       .update(
@@ -797,7 +748,6 @@ export class ProgramAuthoringService {
       )
       .digest('hex');
   }
-
   buildProgramAuthoringPlan(
     request: ProgramAuthoringRequest,
   ): ProgramAuthoringPlan {
@@ -827,7 +777,6 @@ export class ProgramAuthoringService {
       issues,
     );
     let endAt = isoDate(request.endAt, 'endAt', issues);
-
     if (
       endAt !== null &&
       this.programScheduleService.isProgramEndAtUndecided(endAt)
@@ -843,7 +792,6 @@ export class ProgramAuthoringService {
     ) {
       throw new ProgramAuthoringValidationError(issues);
     }
-
     if (applicationStartAt > applicationEndAt) {
       issues.push({
         path: 'applicationEndAt',
@@ -859,7 +807,6 @@ export class ProgramAuthoringService {
     if (startAt >= endAt) {
       issues.push({ path: 'endAt', code: 'INVALID_PROGRAM_SCHEDULE' });
     }
-
     const template = this.programTemplatesService.getProgramTemplate(
       ProgramCategory.BASIC,
     );
@@ -873,14 +820,12 @@ export class ProgramAuthoringService {
     ) {
       issues.push({ path: 'teamMinSize', code: 'INVALID_TEAM_RANGE' });
     }
-
     if (request.milestones.length > MAX_MILESTONES) {
       issues.push({ path: 'milestones', code: 'MILESTONE_LIMIT_EXCEEDED' });
     }
     if (request.milestones.length === 0) {
       issues.push({ path: 'milestones', code: 'MILESTONE_REQUIRED' });
     }
-
     const seenUploadIds = new Set<string>();
     const uploadTokenIds: string[] = [];
     const coverUploadId = request.coverUploadId ?? null;
@@ -938,7 +883,6 @@ export class ProgramAuthoringService {
           name: milestoneName,
           startAt: milestoneStartAt,
           dueAt,
-          submissionType: null,
           instructions: optionalString(milestone.instructions),
           documents,
         });
@@ -951,7 +895,6 @@ export class ProgramAuthoringService {
       });
     }
     if (issues.length > 0) throw new ProgramAuthoringValidationError(issues);
-
     return {
       program: {
         name,
@@ -969,7 +912,6 @@ export class ProgramAuthoringService {
         description,
         repositoryProvisioningEnabled:
           request.repositoryProvisioningEnabled ?? false,
-
         notifyOnDeadline: request.notifyOnDeadline ?? true,
       },
       milestones,
@@ -979,7 +921,6 @@ export class ProgramAuthoringService {
     };
   }
 }
-
 function replayOrConflict(
   replay: {
     readonly payloadHash: string;
@@ -998,13 +939,11 @@ function replayOrConflict(
   }
   return replay.program;
 }
-
 export type ProgramPurgeResult = {
   readonly id: string;
   readonly deleted: true;
   readonly deletedCounts: ProgramPurgeDeletedCounts;
 };
-
 @Injectable()
 export class ProgramLifecycleService {
   constructor(
@@ -1013,11 +952,13 @@ export class ProgramLifecycleService {
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
   ) {}
-
   async delete(
     githubId: bigint,
     programId: string,
-  ): Promise<{ readonly id: string; readonly deleted: true }> {
+  ): Promise<{
+    readonly id: string;
+    readonly deleted: true;
+  }> {
     return this.repository.withDeleteTransaction(async (transaction) => {
       const program = await this.repository.findProgramForDeletion(
         transaction,
@@ -1034,7 +975,6 @@ export class ProgramLifecycleService {
       );
       await this.repository.purgeProgramTree(transaction, programId);
       await this.repository.deleteProgram(transaction, programId);
-
       await this.auditLog.record(
         {
           actorGithubId: githubId,
@@ -1050,11 +990,9 @@ export class ProgramLifecycleService {
         },
         transaction,
       );
-
       return { id: programId, deleted: true as const };
     });
   }
-
   async purge(
     githubId: bigint,
     programId: string,
@@ -1071,7 +1009,6 @@ export class ProgramLifecycleService {
             PROGRAM_ERROR_CODES[ProgramErrorCode.PROGRAM_NOT_FOUND],
           );
         }
-
         const currentScopeCounts =
           await this.repository.readScopeCountsInTransaction(
             transaction,
@@ -1085,13 +1022,11 @@ export class ProgramLifecycleService {
             { currentScopeCounts },
           );
         }
-
         const deletedCounts = await this.repository.purgeProgramTree(
           transaction,
           programId,
         );
         await this.repository.deleteProgram(transaction, programId);
-
         await this.auditLog.record(
           {
             actorGithubId: githubId,
@@ -1112,7 +1047,6 @@ export class ProgramLifecycleService {
           },
           transaction,
         );
-
         return { id: programId, deleted: true as const, deletedCounts };
       });
     } catch (error) {
@@ -1122,7 +1056,6 @@ export class ProgramLifecycleService {
       if (!serializationFailure && !foreignKeyConflict) {
         throw error;
       }
-
       const currentScopeCounts =
         await this.repository.readScopeCounts(programId);
       if (
@@ -1138,7 +1071,6 @@ export class ProgramLifecycleService {
     }
   }
 }
-
 function sameProgramDeletionScopeCounts(
   left: ProgramDeletionScopeCounts,
   right: ProgramDeletionScopeCounts,

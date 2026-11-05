@@ -64,11 +64,6 @@ export async function removeAdoptedGraph(
     await transaction.githubRepository.deleteMany({
       where: { applicationId: { in: applicationIds } },
     });
-    await transaction.milestoneDocumentReviewHistory.deleteMany({
-      where: {
-        milestoneDocumentSubmissionId: { in: documentSubmissionIds },
-      },
-    });
     await transaction.submissionFile.deleteMany({
       where: {
         OR: [

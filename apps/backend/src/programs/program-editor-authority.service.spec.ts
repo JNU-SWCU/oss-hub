@@ -140,6 +140,7 @@ describe('ProgramEditorService authority', () => {
     const { service, store } = createProgramEditorServiceHarness();
     const locked = lockedMilestoneEdit([
       {
+        submissionType: 'FILE_OR_TEXT' as const,
         id: 'document-1',
         name: 'Report',
         required: true,
@@ -165,6 +166,7 @@ describe('ProgramEditorService authority', () => {
     const { service, store } = createProgramEditorServiceHarness();
     const locked = lockedMilestoneEdit([
       {
+        submissionType: 'FILE_OR_TEXT' as const,
         id: 'document-1',
         name: 'Report',
         required: true,
@@ -217,6 +219,7 @@ function lockedMilestoneEdit(
     readonly required: boolean;
     readonly sortOrder: number;
     readonly templateFileName: string | null;
+    readonly submissionType: 'FILE' | 'TEXT' | 'FILE_OR_TEXT';
   }[],
 ) {
   const milestone = editableProgram.milestones[0];

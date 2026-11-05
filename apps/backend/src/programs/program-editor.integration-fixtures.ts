@@ -7,18 +7,16 @@ import { ProgramAuthoringUploadTransactionRepository } from './program-authoring
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { MilestoneSubmissionType, ProgramCategory } from '@prisma/client';
+import { ProgramCategory } from '@prisma/client';
 import { randomUUID } from 'node:crypto';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
-
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
-export const STAFF_GITHUB_ID = 9_101_000_001n;
+export const STAFF_GITHUB_ID = 9101000001n;
 const PROGRAM_NAME = 'Issue 101 Same Name Program';
-
 export const prisma = new PrismaService();
 export const editor = new ProgramEditorService(
   new ProgramEditorRepository(
@@ -41,7 +39,6 @@ export const editor = new ProgramEditorService(
   ),
   new UserProfileService(),
 );
-
 export async function runTogether<T, U>(
   first: () => Promise<T>,
   second: () => Promise<U>,
@@ -58,11 +55,9 @@ export async function runTogether<T, U>(
   releaseBarrier();
   return Promise.allSettled([firstPromise, secondPromise]);
 }
-
 export function domainCode(error: unknown): string | null {
   return error instanceof DomainException ? error.errorCode.code : null;
 }
-
 export async function createProgram(
   programId: string,
   repositoryProvisioningEnabled: boolean,
@@ -84,7 +79,6 @@ export async function createProgram(
     },
   });
 }
-
 export async function createMilestone(
   milestoneId: string,
   programId: string,
@@ -96,12 +90,10 @@ export async function createMilestone(
       name: 'Issue 101 Same Name Milestone',
       startAt: new Date('2026-08-16T00:00:00.000Z'),
       dueAt: new Date('2026-08-20T00:00:00.000Z'),
-      submissionType: MilestoneSubmissionType.TEXT,
       instructions: 'Issue 101 milestone',
     },
   });
 }
-
 export async function cleanup(): Promise<void> {
   const milestones = await prisma.milestone.findMany({
     where: { id: { startsWith: `${TEST_PREFIX}milestone:` } },
@@ -137,11 +129,6 @@ export async function cleanup(): Promise<void> {
   const documentSubmissionHistoryIds = documentSubmissionHistories.map(
     (history) => history.id,
   );
-  await prisma.milestoneDocumentReviewHistory.deleteMany({
-    where: {
-      milestoneDocumentSubmissionId: { in: documentSubmissionIds },
-    },
-  });
   await prisma.submissionFile.deleteMany({
     where: {
       OR: [
@@ -185,7 +172,6 @@ export async function cleanup(): Promise<void> {
   });
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
 }
-
 export async function installSyntheticAggregateFaultTrigger(input: {
   readonly table:
     | 'Milestone'

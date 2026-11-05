@@ -1,6 +1,5 @@
 import {
   ApplicationStatus,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
@@ -16,7 +15,6 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertSeedProfile, upsertSeedUser } from './user';
-
 const PROGRAM_ID = seedId('milestones', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');
 const APPLICANT_PERSONAL_ID = seedId(
@@ -30,7 +28,6 @@ const TEAM_ID = seedId('milestones', 'team');
 const APPLICATION_PERSONAL_ID = seedId('milestones', 'application', 'personal');
 const APPLICATION_TEAM_ID = seedId('milestones', 'application', 'team');
 const PROGRAM_START_AT = offsetDays(-49);
-
 export const MILESTONE_SCENARIOS = {
   'milestones-upcoming': [
     seedId('milestones', 'milestones-upcoming', 'd5'),
@@ -47,7 +44,6 @@ export const MILESTONE_SCENARIOS = {
   ],
   'submission-rejected': [seedId('milestones', 'submission-rejected')],
 } as const;
-
 async function upsertMilestone(
   stats: SeedStats,
   params: {
@@ -75,7 +71,6 @@ async function upsertMilestone(
           name: params.name,
           startAt: PROGRAM_START_AT,
           dueAt: params.dueAt,
-          submissionType: params.submissionType,
         },
       }),
   );
@@ -91,19 +86,18 @@ async function upsertMilestone(
     () =>
       prisma.milestoneDocument.upsert({
         where: { id: documentId },
-        update: { name: params.name },
+        update: { name: params.name, submissionType: params.submissionType },
         create: {
           id: documentId,
           milestoneId: params.id,
           name: params.name,
+          submissionType: params.submissionType,
           required: true,
           sortOrder: -1,
-          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
       }),
   );
 }
-
 async function createSubmissionScenario(
   stats: SeedStats,
   params: {
@@ -112,31 +106,16 @@ async function createSubmissionScenario(
     applicationId: string;
     submittedById: string;
     status: SubmissionStatus;
-    review?: { decision: ReviewDecision; comment?: string };
+    review?: {
+      decision: ReviewDecision;
+      comment?: string;
+    };
   },
 ): Promise<void> {
   const documentId = seedId(
     'milestones',
     params.milestoneId,
     'legacy-submission-document',
-  );
-  await upsertTracked(
-    stats,
-    'MilestoneDocument',
-    () => prisma.milestoneDocument.findUnique({ where: { id: documentId } }),
-    () =>
-      prisma.milestoneDocument.upsert({
-        where: { id: documentId },
-        update: {},
-        create: {
-          id: documentId,
-          milestoneId: params.milestoneId,
-          name: '기존 제출 자료',
-          required: true,
-          sortOrder: -1,
-          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-        },
-      }),
   );
   const targetSubmissionId = seedId(
     'milestones',
@@ -221,7 +200,6 @@ async function createSubmissionScenario(
     );
   }
 }
-
 export async function seedMilestones(stats: SeedStats): Promise<void> {
   const programEndAt = offsetDays(120);
   await upsertTracked(
@@ -249,7 +227,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   const reviewer = await upsertSeedUser(stats, {
     id: REVIEWER_ID,
     role: 'STAFF',
@@ -294,7 +271,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     department: '합성 학과',
     type: UserType.STUDENT,
   });
-
   const personalTeamId = seedId('milestones', 'application-personal', 'team');
   await upsertTracked(
     stats,
@@ -340,7 +316,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'Application',
@@ -361,7 +336,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   await upsertTracked(
     stats,
     'Team',
@@ -433,7 +407,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         },
       }),
   );
-
   const [d5Id, d15Id] = MILESTONE_SCENARIOS['milestones-upcoming'];
   await upsertMilestone(stats, {
     id: d5Id,
@@ -447,7 +420,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     dueAt: offsetDays(15),
     submissionType: MilestoneSubmissionType.TEXT,
   });
-
   const [overdueId] = MILESTONE_SCENARIOS['milestones-overdue'];
   await upsertMilestone(stats, {
     id: overdueId,
@@ -455,7 +427,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     dueAt: offsetDays(-3),
     submissionType: MilestoneSubmissionType.FILE,
   });
-
   const [withSubmissionId] = MILESTONE_SCENARIOS['milestone-with-submission'];
   await upsertMilestone(stats, {
     id: withSubmissionId,
@@ -470,7 +441,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.SUBMITTED,
   });
-
   const [existingId] = MILESTONE_SCENARIOS['submission-existing'];
   await upsertMilestone(stats, {
     id: existingId,
@@ -485,7 +455,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     submittedById: teamLeader.id,
     status: SubmissionStatus.SUBMITTED,
   });
-
   const [approvedId] = MILESTONE_SCENARIOS['submission-approved'];
   await upsertMilestone(stats, {
     id: approvedId,
@@ -501,7 +470,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     status: SubmissionStatus.APPROVED,
     review: { decision: ReviewDecision.APPROVED },
   });
-
   const [changesRequestedId] =
     MILESTONE_SCENARIOS['submission-changes-requested'];
   await upsertMilestone(stats, {
@@ -521,7 +489,6 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
       comment: '누락된 항목을 보완해 재제출해 주세요 (seed fixture)',
     },
   });
-
   const [rejectedId] = MILESTONE_SCENARIOS['submission-rejected'];
   await upsertMilestone(stats, {
     id: rejectedId,

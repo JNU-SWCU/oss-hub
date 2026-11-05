@@ -1,5 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
@@ -13,30 +13,25 @@ import {
   type ProgramDocumentChangeRequestCandidate,
   type ProgramDocumentChangeRequestInput,
 } from './milestone-document-collection-read.repository';
-
 const programDocumentChangeRequestsService =
   new ProgramDocumentChangeRequestsService(
     {} as never,
     {} as never,
     {} as never,
   );
-
 const programId = 'synthetic-program';
 const now = new Date('2026-10-12T03:00:00.000Z');
-
 function candidate(
   applicationId: string,
   status: SubmissionStatus,
 ): ProgramDocumentChangeRequestCandidate {
   return { milestoneDocumentId: 'document-1', applicationId, status };
 }
-
 const previewed = [
   candidate('application-a', SubmissionStatus.SUBMITTED),
   candidate('application-b', SubmissionStatus.CHANGES_REQUESTED),
   candidate('application-c', SubmissionStatus.APPROVED),
 ];
-
 function programs(
   teams: readonly string[] = [
     'application-a',
@@ -56,7 +51,6 @@ function programs(
     ),
   };
 }
-
 function writeStore(
   candidates: readonly ProgramDocumentChangeRequestCandidate[] = previewed,
 ) {
@@ -86,13 +80,11 @@ function writeStore(
         decision: ReviewDecision.CHANGES_REQUESTED,
         comment: null,
         reviewedAt: now,
-        resubmissionDueAt: null,
         reviewerNickname: 'synthetic-staff',
       }),
     updateSubmissionStatus: jest.fn().mockResolvedValue(undefined),
   };
 }
-
 function repository(
   store: ReturnType<typeof writeStore>,
   preview: readonly ProgramDocumentChangeRequestCandidate[],
@@ -105,7 +97,6 @@ function repository(
     ),
   };
 }
-
 function service(input: {
   readonly store?: ReturnType<typeof writeStore>;
   readonly programs?: jest.Mocked<ProgramArchiveReader>;
@@ -120,11 +111,10 @@ function service(input: {
     service: new ProgramDocumentChangeRequestsService(
       repo as unknown as MilestoneDocumentsRepository,
       input.programs ?? programs(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
     ),
   };
 }
-
 function request(
   overrides: Partial<ProgramDocumentChangeRequestInput> = {},
 ): ProgramDocumentChangeRequestInput {
@@ -132,7 +122,6 @@ function request(
     scope: { kind: 'PROGRAM' },
     includeFinalDecisions: false,
     comment: '양식을 바꿔 다시 내 주세요.',
-
     expectedVersion:
       programDocumentChangeRequestsService.changeRequestTargetsVersion(
         previewed,
@@ -140,15 +129,12 @@ function request(
     ...overrides,
   };
 }
-
 function code(error: unknown): string | undefined {
   return error instanceof DomainException ? error.errorCode.code : undefined;
 }
-
 describe('ProgramDocumentChangeRequestsService.targets', () => {
   it('범위 안 서류 제출을 상태별로 세고 지금 대상의 버전을 함께 돌려준다', async () => {
     const { service: subject, repo } = service({});
-
     await expect(
       subject.targets(programId, { kind: 'PROGRAM' }),
     ).resolves.toEqual({
@@ -169,14 +155,12 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
       'application-c',
     ]);
   });
-
   it('승인된 신청이 없는 팀이면 거절하지 않고 0건으로 센다', async () => {
     const reader = programs([]);
     const { service: subject, repo } = service({
       programs: reader,
       preview: [],
     });
-
     await expect(
       subject.targets(programId, { kind: 'TEAM', teamId: 'team-x' }),
     ).resolves.toEqual({
@@ -193,29 +177,23 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
       [],
     );
   });
-
   it('없는 프로그램이면 거절한다', async () => {
     const reader = programs();
     reader.findProgram.mockResolvedValue(null);
     const { service: subject } = service({ programs: reader });
-
     const error = await subject
       .targets(programId, { kind: 'PROGRAM' })
       .catch((caught: unknown) => caught);
-
     expect(code(error)).toBe(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
   });
 });
-
 describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
   it('대상마다 보완 요청 판정 이력을 더하고 제출 상태만 보완 요청으로 바꾼다', async () => {
     const store = writeStore();
     const { service: subject } = service({ store });
-
     await expect(
       subject.requestChanges('staff-1', programId, request(), () => now),
     ).resolves.toEqual({ requestedCount: 2 });
-
     expect(store.lockProgramDocumentIds).toHaveBeenCalledWith(programId);
     expect(store.findChangeRequestCandidates).toHaveBeenCalledWith({
       documentIds: ['document-1'],
@@ -229,7 +207,6 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       reviewerId: 'staff-1',
       decision: ReviewDecision.CHANGES_REQUESTED,
       comment: '양식을 바꿔 다시 내 주세요.',
-
       reviewedAt: now,
     });
     expect(store.updateSubmissionStatus.mock.calls).toEqual([
@@ -237,13 +214,11 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       ['application-b:document-1', SubmissionStatus.CHANGES_REQUESTED],
     ]);
   });
-
   it('서류 행을 잠근 뒤 신청 행을 잠그고 그때의 승인 범위로 대상을 찾는다', async () => {
     const store = writeStore();
     store.lockApprovedApplicationIds.mockResolvedValue(['application-a']);
     const reader = programs();
     const { service: subject } = service({ store, programs: reader });
-
     await subject
       .requestChanges(
         'staff-1',
@@ -252,7 +227,6 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
         () => now,
       )
       .catch((caught: unknown) => caught);
-
     expect(store.lockApprovedApplicationIds).toHaveBeenCalledWith(
       programId,
       'team-a',
@@ -268,11 +242,9 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     );
     expect(reader.findApprovedTeams.mock.calls).toEqual([]);
   });
-
   it('이미 승인·반려한 제출도 포함하면 승인된 제출까지 보완 요청으로 바꾼다', async () => {
     const store = writeStore();
     const { service: subject } = service({ store });
-
     await expect(
       subject.requestChanges(
         'staff-1',
@@ -286,7 +258,6 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       SubmissionStatus.CHANGES_REQUESTED,
     );
   });
-
   it('건수가 같아도 하나가 승인되고 새 제출이 들어와 대상이 바뀌었으면 하나도 바꾸지 않는다', async () => {
     const store = writeStore([
       candidate('application-a', SubmissionStatus.SUBMITTED),
@@ -295,16 +266,13 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       candidate('application-d', SubmissionStatus.SUBMITTED),
     ]);
     const { service: subject } = service({ store });
-
     const error = await subject
       .requestChanges('staff-1', programId, request(), () => now)
       .catch((caught: unknown) => caught);
-
     expect(code(error)).toBe(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
     expect(store.createReview).not.toHaveBeenCalled();
     expect(store.updateSubmissionStatus).not.toHaveBeenCalled();
   });
-
   it('보완 요청 중인 제출을 학생이 다시 내도 대상은 그대로라 보낸다', async () => {
     const store = writeStore([
       candidate('application-a', SubmissionStatus.SUBMITTED),
@@ -312,12 +280,10 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       candidate('application-c', SubmissionStatus.APPROVED),
     ]);
     const { service: subject } = service({ store });
-
     await expect(
       subject.requestChanges('staff-1', programId, request(), () => now),
     ).resolves.toEqual({ requestedCount: 2 });
   });
-
   it.each([undefined, '   ', '  다시 확인해 주세요  '])(
     '옛 기한은 무시하고 선택 사유를 저장한다: %s',
     async (comment) => {
@@ -326,7 +292,6 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
         scope: 'PROGRAM',
         includeFinalDecisions: false,
         comment,
-        resubmissionDueAt: now.toISOString(),
         expectedVersion: request().expectedVersion,
       });
       await expect(
@@ -341,7 +306,6 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     },
   );
 });
-
 it('사전 조회 뒤 삭제된 프로그램은 문서와 신청 잠금 전에 거부한다', async () => {
   const { service: subject, store } = service({});
   store.lockProgramForReview.mockResolvedValue(false);

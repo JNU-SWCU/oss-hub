@@ -3,7 +3,6 @@ import type {
   PublicProgramNavigationResponse,
   ProgramNavigationMilestone,
 } from './program-navigation-dto';
-
 export async function getProgramNavigationMilestones(
   programId: string,
 ): Promise<readonly ProgramNavigationMilestone[]> {
@@ -13,6 +12,6 @@ export async function getProgramNavigationMilestones(
   return program.milestones.map((milestone) => ({
     milestoneId: milestone.id,
     title: milestone.name,
-    submissionEnabled: milestone.submissionType !== null,
+    submissionEnabled: milestone.submissionItemCount > 0,
   }));
 }

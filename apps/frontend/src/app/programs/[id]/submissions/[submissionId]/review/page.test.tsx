@@ -68,7 +68,9 @@ describe('ProgramSubmissionReviewPage access contract', () => {
       expectedProgramPath,
       expectedReviewPath,
     }) => {
-      const context: Omit<ReviewContext, 'requirementId'> = {
+      const context: ReviewContext = {
+        requirementId: 'requirement-existing',
+        latestReviewId: null,
         submissionId,
         application: {
           id: 'application-existing',
@@ -123,7 +125,7 @@ describe('ProgramSubmissionReviewPage access contract', () => {
         apiPath(expectedReviewPath),
         undefined,
       );
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(html).toContain(`href="${expectedProgramPath}"`);
     },
   );

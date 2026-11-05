@@ -1,3 +1,4 @@
+import { MilestoneCompletionService } from './milestone-completion.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -69,6 +70,7 @@ export class SubmissionMatrixService {
     @Inject(SubmissionMatrixRepository)
     private readonly repository: SubmissionMatrixRepositoryPort,
     private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
+    private readonly milestoneCompletionService: MilestoneCompletionService,
   ) {}
 
   matrixQueryFromRequest(
@@ -112,12 +114,12 @@ export class SubmissionMatrixService {
       ),
       this.repository.findDocumentChangeRequests(applicationIds),
     ]);
-    const cellIndex = new Map<string, MatrixSubmissionRecord>();
+    const cellIndex = new Map<string, MatrixSubmissionRecord[]>();
     for (const submission of submissions) {
-      cellIndex.set(
-        cellKey(submission.applicationId, submission.milestoneId),
-        submission,
-      );
+      const key = cellKey(submission.applicationId, submission.milestoneId);
+      const group = cellIndex.get(key);
+      if (group) group.push(submission);
+      else cellIndex.set(key, [submission]);
     }
     const changeRequestCounts = new Map<string, number>();
     for (const request of changeRequests) {
@@ -158,7 +160,7 @@ export class SubmissionMatrixService {
     application: MatrixApplicationRecord,
     milestones: readonly MatrixMilestoneRecord[],
     index: {
-      readonly reviews: ReadonlyMap<string, MatrixSubmissionRecord>;
+      readonly reviews: ReadonlyMap<string, readonly MatrixSubmissionRecord[]>;
       readonly firstSubmissions: ReadonlyMap<string, Date>;
       readonly changeRequestCounts: ReadonlyMap<string, number>;
     },
@@ -177,8 +179,9 @@ export class SubmissionMatrixService {
         : [application.applicant.nickname],
       cells: milestones.map((milestone) => ({
         ...toMatrixCell(
-          milestone.id,
-          index.reviews.get(cellKey(application.id, milestone.id)) ?? null,
+          milestone,
+          index.reviews.get(cellKey(application.id, milestone.id)) ?? [],
+          this.milestoneCompletionService,
         ),
         deliveryStatus:
           this.milestoneDocumentCollectionService.documentDeliveryStatus({
@@ -209,23 +212,32 @@ function isSoloTeam(application: MatrixApplicationRecord): boolean {
 }
 
 function toMatrixCell(
-  milestoneId: string,
-  submission: MatrixSubmissionRecord | null,
+  milestone: MatrixMilestoneRecord,
+  submissions: readonly MatrixSubmissionRecord[],
+  completion: MilestoneCompletionService,
 ): Omit<MatrixCellResult, 'deliveryStatus' | 'changesRequestedCount'> {
-  if (!submission) {
-    return {
-      milestoneId,
-      submissionId: null,
-      revision: null,
-      status: 'NOT_SUBMITTED',
-      submittedAt: null,
-    };
-  }
+  const byRequirement = new Map(
+    submissions.map((submission) => [
+      submission.milestoneDocumentId,
+      submission,
+    ]),
+  );
+  const status = completion.milestoneCompletionStatus({
+    submissionAxisInUse: false,
+    submissionStatus: null,
+    requiredDocumentStatuses: milestone.requiredDocumentIds.map(
+      (id) => byRequirement.get(id)?.status ?? null,
+    ),
+  });
+  const submission =
+    milestone.requiredDocumentIds.length === 1
+      ? byRequirement.get(milestone.requiredDocumentIds[0] ?? '')
+      : undefined;
   return {
-    milestoneId,
-    submissionId: submission.id,
-    revision: submission.currentRevision,
-    status: submission.status,
-    submittedAt: submission.submittedAt,
+    milestoneId: milestone.id,
+    submissionId: submission?.id ?? null,
+    revision: submission?.currentRevision ?? null,
+    status,
+    submittedAt: submission?.submittedAt ?? null,
   };
 }

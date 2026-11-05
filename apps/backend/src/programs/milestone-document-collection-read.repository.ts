@@ -2,77 +2,68 @@ import {
   Prisma,
   SubmissionStatus,
   ReviewDecision,
-  MilestoneSubmissionType,
-  type RequirementSubmissionType,
+  RequirementSubmissionType,
 } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
-
 export type DocumentDeliveryStatus =
   'MISSING' | 'LATE' | 'COMPLETE' | 'NO_REQUIRED_ITEMS';
-
 export type MilestoneDocumentContentInput = {
   readonly text: string | null;
   readonly fileId: string | null;
   readonly comment?: string | null;
   readonly expectedRevision?: number;
 };
-
 export type MilestoneDocumentSubmittedContent = {
-  readonly type: typeof MilestoneSubmissionType.TEXT;
+  readonly type: typeof RequirementSubmissionType.TEXT;
   readonly text: string;
 };
-
 export interface CreateMilestoneDocumentReviewInput {
   readonly decision: ReviewDecision;
   readonly comment: string | null;
-
   readonly expectedRevision: number;
-
   readonly expectedLatestReviewId: string | null;
 }
-
 export interface MilestoneDocumentReviewRecord {
   readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
-
-  readonly resubmissionDueAt: Date | null;
 }
-
 export type ProgramDocumentChangeRequestScope =
-  | { readonly kind: 'PROGRAM' }
-  | { readonly kind: 'TEAM'; readonly teamId: string };
-
+  | {
+      readonly kind: 'PROGRAM';
+    }
+  | {
+      readonly kind: 'TEAM';
+      readonly teamId: string;
+    };
 export interface ProgramDocumentChangeRequestInput {
   readonly scope: ProgramDocumentChangeRequestScope;
   readonly includeFinalDecisions: boolean;
   readonly comment: string | null;
   readonly expectedVersion: string;
 }
-
 export interface ProgramDocumentChangeRequestCandidate {
   readonly milestoneDocumentId: string;
   readonly applicationId: string;
   readonly status: SubmissionStatus;
 }
-
 export interface ProgramDocumentChangeRequestPreview {
   readonly counts: Readonly<Record<SubmissionStatus, number>>;
   readonly version: string;
 }
-
 type JsonValue =
   | string
   | number
   | boolean
-  | { [key: string]: JsonValue | undefined }
+  | {
+      [key: string]: JsonValue | undefined;
+    }
   | JsonValue[]
   | null;
-
 export interface MilestoneDocumentRecord {
   id: string;
   milestoneId: string;
@@ -84,21 +75,18 @@ export interface MilestoneDocumentRecord {
   templateFileId: string | null;
   templateFileName: string | null;
 }
-
 export interface MilestoneContext {
   readonly id: string;
   readonly programId: string;
   readonly name: string;
   readonly dueAt: Date;
 }
-
 export interface MilestoneDocumentCollectionApplication {
   readonly applicationId: string;
   readonly teamName: string;
   readonly applicantName: string | null;
   readonly memberNicknames: readonly string[];
 }
-
 export interface MilestoneDocumentCollectionSubmission {
   readonly milestoneDocumentId: string;
   readonly applicationId: string;
@@ -112,23 +100,19 @@ export interface MilestoneDocumentCollectionSubmission {
   readonly content: JsonValue | null;
   readonly review: MilestoneDocumentReviewRecord | null;
 }
-
 export interface CreatedMilestoneDocumentReview {
   readonly id: string;
   readonly decision: ReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
-  readonly resubmissionDueAt: Date | null;
   readonly reviewerNickname: string;
 }
-
 interface MilestoneDocumentSubmissionFile {
   readonly id: string;
   readonly originalFileName: string;
   readonly mimeType: string;
   readonly sizeBytes: number;
 }
-
 export interface MilestoneDocumentSubmissionDetail {
   readonly id: string;
   readonly status: SubmissionStatus;
@@ -136,23 +120,19 @@ export interface MilestoneDocumentSubmissionDetail {
   readonly submittedAt: Date;
   readonly files: readonly MilestoneDocumentSubmissionFile[];
 }
-
 export interface UpsertMilestoneDocumentInput {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
 }
-
 export interface DocumentDeliveryCoordinate {
   readonly applicationId: string;
   readonly milestoneDocumentId: string;
   readonly firstSubmittedAt: Date;
 }
-
 @Injectable()
 export class MilestoneDocumentCollectionReadRepository {
   constructor(private readonly prisma: PrismaService) {}
-
   withSnapshot<T>(
     operation: (
       store: MilestoneDocumentCollectionReadStoreRepository,
@@ -166,12 +146,10 @@ export class MilestoneDocumentCollectionReadRepository {
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
   }
-
   readonly milestoneDocumentHistoryDescendingOrderBy = [
     { createdAt: 'desc' },
     { id: 'desc' },
   ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
-
   readonly boundedReviewHistoryQuery = {
     where: { event: { in: SUBMISSION_REVIEW_EVENTS } },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -181,35 +159,29 @@ export class MilestoneDocumentCollectionReadRepository {
       event: true,
       comment: true,
       createdAt: true,
-
       actor: { select: { nickname: true } },
       revision: true,
     },
   } satisfies Prisma.MilestoneDocumentSubmission$historiesArgs;
 }
-
 @Injectable()
 export class MilestoneDocumentCollectionReadStoreRepository {
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
   ) {}
-
   findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
     return this.transaction.milestone.findUnique({
       where: { id: milestoneId },
       select: { id: true, programId: true, name: true, dueAt: true },
     });
   }
-
   async findDocuments(
     milestoneId: string,
-    includeLegacy = false,
   ): Promise<readonly MilestoneDocumentRecord[]> {
     const documents = await this.transaction.milestoneDocument.findMany({
       where: {
         milestoneId,
-        ...(includeLegacy ? {} : { kind: 'DOCUMENT' as const }),
       },
       orderBy: { sortOrder: 'asc' },
       select: {
@@ -229,7 +201,6 @@ export class MilestoneDocumentCollectionReadStoreRepository {
       templateFileName: templateFile?.originalFileName ?? null,
     }));
   }
-
   async findApplications(
     programId: string,
   ): Promise<readonly MilestoneDocumentCollectionApplication[]> {
@@ -259,7 +230,6 @@ export class MilestoneDocumentCollectionReadStoreRepository {
       ),
     }));
   }
-
   async findCoordinates(
     documentIds: readonly string[],
     applicationIds: readonly string[],
@@ -286,12 +256,10 @@ export class MilestoneDocumentCollectionReadStoreRepository {
     return submissions.map((submission) => ({
       milestoneDocumentId: submission.milestoneDocumentId,
       applicationId: submission.applicationId,
-
       firstSubmittedAt:
         submission.histories[0]?.createdAt ?? submission.createdAt,
     }));
   }
-
   async findDetails(
     documentIds: readonly string[],
     applicationIds: readonly string[],
@@ -355,13 +323,11 @@ export class MilestoneDocumentCollectionReadStoreRepository {
                 decision: submissionReviewDecision(review.event),
                 comment: review.comment,
                 reviewedAt: review.createdAt,
-                resubmissionDueAt: null,
               },
       };
     });
   }
 }
-
 function submissionReviewDecision(event: string): ReviewDecision {
   if (
     event === 'APPROVED' ||

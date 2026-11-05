@@ -1,28 +1,24 @@
-import { MilestoneDocumentKind, MilestoneSubmissionType } from '@prisma/client';
 import type { E2eProgramAuthoringGraph } from './e2e-program-authoring.types';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
-
 type E2eProgramAdoptionDocument = {
   readonly id: string;
   readonly name: string;
   readonly required: boolean;
 };
-
 type E2eProgramAdoptionMilestone = {
   readonly id: string;
   readonly name: string;
-  readonly submissionType: MilestoneSubmissionType | null;
   readonly documents: readonly E2eProgramAdoptionDocument[];
 };
-
 export type E2eProgramAdoptionCandidate = {
   readonly id: string;
   readonly name: string;
-  readonly creator: { readonly githubId: bigint } | null;
+  readonly creator: {
+    readonly githubId: bigint;
+  } | null;
   readonly milestones: readonly E2eProgramAdoptionMilestone[];
 };
-
 export type E2eProgramAdoptionPredicates = {
   readonly exactProgramId: boolean;
   readonly exactProgramMarker: boolean;
@@ -30,7 +26,6 @@ export type E2eProgramAdoptionPredicates = {
   readonly exactMilestoneCount: boolean;
   readonly requiredFileDocument: boolean;
 };
-
 export async function adoptE2eProgramGraph(
   prisma: PrismaService,
   programId: string,
@@ -47,9 +42,8 @@ export async function adoptE2eProgramGraph(
         select: {
           id: true,
           name: true,
-          submissionType: true,
           documents: {
-            where: { kind: MilestoneDocumentKind.DOCUMENT },
+            where: {},
             select: {
               id: true,
               name: true,
@@ -67,7 +61,6 @@ export async function adoptE2eProgramGraph(
     prefix,
   );
 }
-
 export function inspectE2eProgramAdoption(
   program: E2eProgramAdoptionCandidate | null,
   programId: string,
@@ -83,7 +76,6 @@ export function inspectE2eProgramAdoption(
     requiredFileDocument: required !== undefined,
   };
 }
-
 export function adoptPersistedE2eProgramGraph(
   program: E2eProgramAdoptionCandidate | null,
   programId: string,
@@ -111,7 +103,6 @@ export function adoptPersistedE2eProgramGraph(
     documentId: document.id,
   };
 }
-
 function requiredFileMilestone(
   program: E2eProgramAdoptionCandidate | null,
   prefix: string,
@@ -119,7 +110,6 @@ function requiredFileMilestone(
   return program?.milestones.find(
     (milestone) =>
       milestone.name === `${prefix}required-milestone` &&
-      milestone.submissionType === null &&
       milestone.documents.length === 2 &&
       milestone.documents.some(
         ({ name, required }) =>

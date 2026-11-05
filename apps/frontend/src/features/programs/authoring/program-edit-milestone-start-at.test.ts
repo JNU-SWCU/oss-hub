@@ -12,7 +12,6 @@ const milestone: EditableMilestone = {
   name: '중간 점검',
   startAt: '2026-08-10T09:30:59.000Z',
   dueAt: '2026-08-20T09:30:59.000Z',
-  submissionType: 'TEXT',
   instructions: null,
 };
 

@@ -3,7 +3,7 @@ import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -44,7 +44,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new UserProfileService(),
     );
 
@@ -90,7 +90,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         ),
         new MilestoneDocumentCollectionService({} as never),
         new ProgramScheduleService(),
-        new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+        new SubmissionsRepository(new PlatformRepository()),
         new UserProfileService(),
       ).historyForStaff('milestone-1', 'document-1', 'application-1', {
         cursor: 'foreign-history',
@@ -167,7 +167,7 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new UserProfileService(),
     );
 
@@ -199,7 +199,7 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new UserProfileService(),
     );
 
@@ -230,7 +230,7 @@ describe('MilestoneDocumentsService history download links', () => {
       ),
       new MilestoneDocumentCollectionService({} as never),
       new ProgramScheduleService(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new UserProfileService(),
     );
 

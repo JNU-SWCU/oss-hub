@@ -203,7 +203,6 @@ describe('ProgramEditPage save payload', () => {
               name: '중간 점검',
               startAt: '2026-08-16T09:30:59.123Z',
               dueAt: '2026-08-20T09:30:59.123Z',
-              submissionType: 'TEXT',
               instructions: null,
             },
           ],

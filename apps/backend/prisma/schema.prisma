@@ -112,7 +112,6 @@ model User {
   createdPrograms                        Program[]
   milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
   milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
-  milestoneDocumentReviewHistories       MilestoneDocumentReviewHistory[]
   applicationReviewHistories             ApplicationReviewHistory[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
@@ -295,11 +294,10 @@ model Milestone {
   programId String
   program   Program @relation(fields: [programId], references: [id])
 
-  name           String
-  startAt        DateTime
-  dueAt          DateTime
-  submissionType MilestoneSubmissionType?
-  instructions   String?
+  name         String
+  startAt      DateTime
+  dueAt        DateTime
+  instructions String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -505,13 +503,13 @@ enum TeamHistoryEvent {
 }
 
 model TeamHistory {
-  id          String @id @default(cuid())
+  id          String           @id @default(cuid())
   teamId      String
   programId   String
   actorId     String?
   event       TeamHistoryEvent
-  occurredAt  DateTime @default(now())
-  recordedAt  DateTime @default(now())
+  occurredAt  DateTime         @default(now())
+  recordedAt  DateTime         @default(now())
   source      HistorySource
   sourceTable String?
   sourceId    String?
@@ -539,10 +537,10 @@ model TeamInvitation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([teamId, inviteeId])
   @@index([teamId])
   @@index([programId, inviteeId])
   @@index([inviteeId])
-  @@unique([teamId, inviteeId])
 }
 
 enum BoardPostCategory {
@@ -609,10 +607,10 @@ model SubmissionFile {
   applicationId String?
   application   Application? @relation("SubmissionFileApplication", fields: [applicationId], references: [id], onDelete: Restrict)
 
-  milestoneId String?
-  milestone   Milestone? @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
+  milestoneId         String?
+  milestone           Milestone?         @relation(fields: [milestoneId], references: [id], onDelete: Restrict)
   milestoneDocumentId String?
-  milestoneDocument MilestoneDocument? @relation(fields: [milestoneDocumentId], references: [id], onDelete: SetNull)
+  milestoneDocument   MilestoneDocument? @relation(fields: [milestoneDocumentId], references: [id], onDelete: SetNull)
 
   storageKey       String @unique
   originalFileName String
@@ -663,10 +661,9 @@ model MilestoneDocument {
   milestoneId String
   milestone   Milestone @relation(fields: [milestoneId], references: [id])
 
-  name      String
-  required  Boolean
-  sortOrder Int
-  kind      MilestoneDocumentKind @default(DOCUMENT)
+  name           String
+  required       Boolean
+  sortOrder      Int
   submissionType RequirementSubmissionType @default(FILE_OR_TEXT)
 
   createdAt DateTime @default(now())
@@ -717,9 +714,8 @@ model MilestoneDocumentSubmission {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  files           SubmissionFile[]
-  reviewHistories MilestoneDocumentReviewHistory[]
-  histories       MilestoneDocumentSubmissionHistory[]
+  files     SubmissionFile[]
+  histories MilestoneDocumentSubmissionHistory[]
 
   @@unique([milestoneDocumentId, applicationId])
   @@index([applicationId])
@@ -750,34 +746,10 @@ model MilestoneDocumentSubmissionHistory {
 
   createdAt DateTime @default(now())
 
-  files           SubmissionFile[]
-  reviewHistories MilestoneDocumentReviewHistory[]
+  files SubmissionFile[]
 
   @@index([milestoneDocumentSubmissionId, createdAt])
   @@index([actorId])
-}
-
-model MilestoneDocumentReviewHistory {
-  id String @id @default(cuid())
-
-  milestoneDocumentSubmissionId String
-  milestoneDocumentSubmission   MilestoneDocumentSubmission @relation(fields: [milestoneDocumentSubmissionId], references: [id])
-
-  submissionHistoryId String?
-  submissionHistory   MilestoneDocumentSubmissionHistory? @relation(fields: [submissionHistoryId], references: [id], onDelete: Restrict, map: "MilestoneDocumentReviewHistory_submissionHistoryId_fkey")
-
-  reviewerId String
-  reviewer   User   @relation(fields: [reviewerId], references: [id])
-
-  decision   ReviewDecision
-  comment    String?
-  reviewedAt DateTime       @default(now())
-
-  resubmissionDueAt DateTime?
-
-  @@index([milestoneDocumentSubmissionId, reviewedAt])
-  @@index([reviewerId])
-  @@index([submissionHistoryId])
 }
 
 enum ReviewDecision {

@@ -34,7 +34,6 @@ import { MilestoneDocumentHistoryRequestDto } from './dto/milestone-document-his
 import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import { UpdateMilestoneDocumentGraceRequestDto } from './dto/update-milestone-document-grace-request.dto';
-import { MilestoneDocumentListRequestDto } from './dto/milestone-document-list-request.dto';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -47,17 +46,14 @@ import { Protected } from '../auth/auth-route.decorator';
 import { DomainException } from '../platform/error-code.error';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
-
 type ViewerRequest = Pick<
   AuthenticatedRequest,
   'sessionGithubId' | 'principal'
 >;
-
 const staffOnly = () =>
   new DomainException(
     MILESTONE_DOCUMENTS_ERROR_CODES[MilestoneDocumentsErrorCode.STAFF_ONLY],
   );
-
 @Controller('milestones/:milestoneId/documents')
 export class MilestoneDocumentsController {
   constructor(
@@ -68,33 +64,30 @@ export class MilestoneDocumentsController {
     private readonly collectionService: MilestoneDocumentCollectionService,
     private readonly currentFileService: MilestoneDocumentCurrentFileService,
   ) {}
-
   @Get()
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   async list(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Query() query: MilestoneDocumentListRequestDto,
+    @Req()
+    request: ViewerRequest,
+    @Param('milestoneId')
+    milestoneId: string,
   ): Promise<MilestoneDocumentListResponseDto> {
     return MilestoneDocumentListResponseDto.from(
       (
-        await this.service.listForViewerFromRequest(
-          request.sessionGithubId,
-          milestoneId,
-          query,
-        )
+        await this.service.listForViewer(request.sessionGithubId, milestoneId)
       ).map((result) => MilestoneDocumentResponseDto.from(result)),
     );
   }
-
   @Get('collection')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   async collection(
-    @Param('milestoneId') milestoneId: string,
-    @Query() query: MilestoneDocumentCollectionRequestDto,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Query()
+    query: MilestoneDocumentCollectionRequestDto,
   ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
     return MilestoneDocumentDeliveryCollectionResponseDto.from(
       await this.collectionService.collectForStaffFromRequest(
@@ -103,15 +96,17 @@ export class MilestoneDocumentsController {
       ),
     );
   }
-
   @Get('collection/archive')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   async archive(
-    @Param('milestoneId') milestoneId: string,
-    @Query() query: MilestoneDocumentArchiveRequestDto,
-    @Res({ passthrough: true }) response: Response,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Query()
+    query: MilestoneDocumentArchiveRequestDto,
+    @Res({ passthrough: true })
+    response: Response,
   ): Promise<StreamableFile> {
     return this.archiveService.streamArchiveForStaff(
       response,
@@ -119,16 +114,18 @@ export class MilestoneDocumentsController {
       query,
     );
   }
-
   @Patch(':documentId/grace')
   @HttpCode(204)
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   updateGrace(
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Body() body: UpdateMilestoneDocumentGraceRequestDto,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Body()
+    body: UpdateMilestoneDocumentGraceRequestDto,
   ): Promise<void> {
     return this.service.updateGraceDueAtFromRequest(
       milestoneId,
@@ -136,15 +133,18 @@ export class MilestoneDocumentsController {
       body,
     );
   }
-
   @Get(':documentId/template')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   async downloadTemplate(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Res({ passthrough: true }) response: Response,
+    @Req()
+    request: ViewerRequest,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Res({ passthrough: true })
+    response: Response,
   ): Promise<StreamableFile> {
     return this.filesService.downloadTemplateTo(
       response,
@@ -153,16 +153,19 @@ export class MilestoneDocumentsController {
       documentId,
     );
   }
-
   @Get(':documentId/applications/:applicationId/file')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   async downloadSubmissionFile(
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Param('applicationId') applicationId: string,
-    @Res({ passthrough: true }) response: Response,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Param('applicationId')
+    applicationId: string,
+    @Res({ passthrough: true })
+    response: Response,
   ): Promise<StreamableFile> {
     return this.filesService.downloadSubmissionFileTo(
       response,
@@ -171,16 +174,19 @@ export class MilestoneDocumentsController {
       applicationId,
     );
   }
-
   @Get(':documentId/applications/:applicationId/history')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   async history(
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Param('applicationId') applicationId: string,
-    @Query() query: MilestoneDocumentHistoryRequestDto,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Param('applicationId')
+    applicationId: string,
+    @Query()
+    query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return MilestoneDocumentHistoryPageResponseDto.from(
       await this.service.historyForStaff(
@@ -191,15 +197,18 @@ export class MilestoneDocumentsController {
       ),
     );
   }
-
   @Get(':documentId/history')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   async participantHistory(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Query() query: MilestoneDocumentHistoryRequestDto,
+    @Req()
+    request: ViewerRequest,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Query()
+    query: MilestoneDocumentHistoryRequestDto,
   ): Promise<MilestoneDocumentHistoryPageResponseDto> {
     return MilestoneDocumentHistoryPageResponseDto.from(
       await this.service.historyForParticipant(
@@ -210,18 +219,22 @@ export class MilestoneDocumentsController {
       ),
     );
   }
-
   @Post(':documentId/applications/:applicationId/reviews')
   @HttpCode(201)
   @Protected()
   @Roles(STAFF_AUDIENCE, staffOnly)
   @UseGuards(OriginGuard)
   async review(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Param('applicationId') applicationId: string,
-    @Body() body: CreateMilestoneDocumentReviewRequestDto,
+    @Req()
+    request: ViewerRequest,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Param('applicationId')
+    applicationId: string,
+    @Body()
+    body: CreateMilestoneDocumentReviewRequestDto,
   ): Promise<MilestoneDocumentReviewResponseDto> {
     return MilestoneDocumentReviewResponseDto.from(
       await this.reviewsService.reviewFromRequest(
@@ -233,16 +246,19 @@ export class MilestoneDocumentsController {
       ),
     );
   }
-
   @Post(':documentId/submissions')
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
   async submit(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Body() body: CreateMilestoneDocumentSubmissionRequestDto,
+    @Req()
+    request: ViewerRequest,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Body()
+    body: CreateMilestoneDocumentSubmissionRequestDto,
   ): Promise<MilestoneDocumentSubmissionResponseDto> {
     return MilestoneDocumentSubmissionResponseDto.from(
       await this.service.submitFromRequest(
@@ -253,15 +269,18 @@ export class MilestoneDocumentsController {
       ),
     );
   }
-
   @Get(':documentId/submissions/current/file')
   @Header('Cache-Control', 'private, no-store')
   @Protected()
   async downloadCurrentSubmissionFile(
-    @Req() request: ViewerRequest,
-    @Param('milestoneId') milestoneId: string,
-    @Param('documentId') documentId: string,
-    @Res({ passthrough: true }) response: Response,
+    @Req()
+    request: ViewerRequest,
+    @Param('milestoneId')
+    milestoneId: string,
+    @Param('documentId')
+    documentId: string,
+    @Res({ passthrough: true })
+    response: Response,
   ): Promise<StreamableFile> {
     return this.currentFileService.downloadTo(
       response,

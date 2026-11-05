@@ -5,6 +5,7 @@ import { publishRepository as publishRepositoryDirect } from '@/lib/repository-p
 import type { ReviewContext } from './types';
 
 const context: ReviewContext = {
+  latestReviewId: 'previous-review',
   requirementId: 'requirement-text',
   submissionId: 'submission-existing',
   application: {
@@ -29,22 +30,6 @@ const context: ReviewContext = {
   history: [],
   repository: null,
 };
-const document = {
-  id: context.requirementId,
-  milestoneId: context.milestone.id,
-  name: '활동 내용',
-  required: true,
-  submissionType: 'TEXT',
-  sortOrder: 0,
-  hasTemplateFile: false,
-  templateFileName: null,
-};
-const fileUpload = {
-  maxBytes: 5242880,
-  maxLabel: '5 MB',
-  accept: '.pdf,.hwp,.zip',
-  formatLabel: 'PDF, HWP, ZIP',
-};
 function json(body: unknown) {
   return new Response(JSON.stringify(body), {
     status: 200,
@@ -54,68 +39,57 @@ function json(body: unknown) {
 afterEach(() => vi.unstubAllGlobals());
 
 describe('reviews api', () => {
+  it('uses the latest review token without assigning an unknown review to the current revision', async () => {
+    const fetchMock = vi.fn().mockResolvedValueOnce(
+      json({
+        id: 'new-review',
+        decision: 'APPROVED',
+        comment: null,
+        reviewedAt: '2026-11-05T01:00:00Z',
+      }),
+    );
+    vi.stubGlobal('fetch', fetchMock);
+    await createReview(
+      {
+        ...context,
+        latestReviewId: 'historical-review',
+        currentRevision: { ...context.currentRevision, review: null },
+        unversionedReviews: [
+          {
+            id: 'historical-review',
+            decision: 'APPROVED',
+            comment: 'preserved',
+            reviewedAt: '2026-01-15T12:00:00Z',
+          },
+        ],
+      },
+      {
+        decision: 'APPROVED',
+        comment: '',
+        revision: context.currentRevision.number,
+      },
+    );
+    expect(fetchMock).toHaveBeenCalledWith(
+      expect.any(String),
+      expect.objectContaining<Record<string, unknown>>({
+        body: expect.stringContaining(
+          '"expectedLatestReviewId":"historical-review"',
+        ),
+      }),
+    );
+  });
   it.each(['submission-existing', 'submission/one'])(
-    'resolves an existing review link %s to its typed requirement',
+    'uses the canonical requirement coordinate returned for public submission %s',
     async (submissionId) => {
-      const wireContext = {
-        submissionId: context.submissionId,
-        application: context.application,
-        milestone: context.milestone,
-        currentRevision: context.currentRevision,
-        history: context.history,
-        repository: context.repository,
-      };
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(json(wireContext))
-        .mockResolvedValueOnce(
-          json({
-            documents: [
-              {
-                ...document,
-                id: 'other-document',
-                submissionType: 'FILE_OR_TEXT',
-              },
-              document,
-            ],
-            fileUpload,
-          }),
-        );
+      const fetchMock = vi.fn().mockResolvedValueOnce(json(context));
       vi.stubGlobal('fetch', fetchMock);
       await expect(getReviewContext(submissionId)).resolves.toEqual(context);
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        1,
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
         apiPath(
           'submissions/' + encodeURIComponent(submissionId) + '/review-context',
         ),
         undefined,
-      );
-      expect(fetchMock).toHaveBeenNthCalledWith(
-        2,
-        apiPath('milestones/milestone-final/documents?scope=all'),
-        undefined,
-      );
-    },
-  );
-  it.each([
-    { documents: [] },
-    { documents: [document, { ...document, id: 'ambiguous' }] },
-    {
-      documents: [
-        document,
-        { ...document, id: 'ambiguous-file', submissionType: 'FILE' },
-      ],
-    },
-  ])(
-    'does not guess a missing or ambiguous requirement',
-    async ({ documents }) => {
-      const fetchMock = vi
-        .fn()
-        .mockResolvedValueOnce(json(context))
-        .mockResolvedValueOnce(json({ documents, fileUpload }));
-      vi.stubGlobal('fetch', fetchMock);
-      await expect(getReviewContext(context.submissionId)).rejects.toThrow(
-        TypeError,
       );
     },
   );
@@ -135,6 +109,8 @@ describe('reviews api', () => {
           ]
         : [];
       const wireContext = {
+        latestReviewId: 'previous-review',
+        requirementId: 'legacy-file-item',
         submissionId: context.submissionId,
         application: context.application,
         milestone: context.milestone,
@@ -145,22 +121,13 @@ describe('reviews api', () => {
       const fetchMock = vi
         .fn()
         .mockResolvedValueOnce(json(wireContext))
-        .mockResolvedValueOnce(
-          json({
-            documents: [
-              { ...document, id: 'ordinary', submissionType: 'FILE_OR_TEXT' },
-              { ...document, id: 'legacy-file-item', submissionType: 'FILE' },
-            ],
-            fileUpload,
-          }),
-        )
+
         .mockResolvedValueOnce(
           json({
             id: 'review-new',
             decision: 'REJECTED',
             comment: null,
             reviewedAt: '2026-09-29T00:00:00Z',
-            resubmissionDueAt: null,
             reviewerNickname: 'synthetic-staff',
           }),
         );
@@ -194,7 +161,6 @@ describe('reviews api', () => {
         decision: 'REJECTED',
         comment: null,
         reviewedAt: '2026-09-29T00:00:00Z',
-        resubmissionDueAt: null,
         reviewerNickname: 'synthetic-staff',
       }),
     );

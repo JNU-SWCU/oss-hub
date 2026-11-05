@@ -4,35 +4,29 @@ import type {
   SubmissionDashboardDocumentSubmissionRecord,
   SubmissionDashboardMilestoneDocumentRecord,
   SubmissionDashboardMilestoneRecord,
-  SubmissionDashboardSubmissionRecord,
   SubmissionDashboardSummaryRepositoryPort,
 } from './submission-dashboard-summary.repository';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-
 class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
   readonly calls: string[][] = [];
-
   constructor(
     private readonly applications: readonly SubmissionDashboardApplicationRecord[],
     private readonly milestones: readonly SubmissionDashboardMilestoneRecord[],
-    private readonly submissions: readonly SubmissionDashboardSubmissionRecord[],
     private readonly milestoneDocuments: readonly SubmissionDashboardMilestoneDocumentRecord[] = [],
     private readonly documentSubmissions: readonly SubmissionDashboardDocumentSubmissionRecord[] = [],
   ) {}
-
   listRecords(programIds: readonly string[]) {
     this.calls.push([...programIds]);
     return Promise.resolve({
       applications: this.applications,
       milestones: this.milestones,
-      submissions: this.submissions,
+      submissions: [],
       milestoneDocuments: this.milestoneDocuments,
       documentSubmissions: this.documentSubmissions,
     });
   }
 }
-
 describe('SubmissionDashboardSummaryService', () => {
   it('counts submission states across approved applications and milestones', async () => {
     const repository = new FakeSubmissionDashboardSummaryRepository(
@@ -42,13 +36,36 @@ describe('SubmissionDashboardSummaryService', () => {
         { id: 'approved-other', programId: 'program-b' },
       ],
       [
-        { id: 'milestone-a-1', programId: 'program-a', submissionType: 'FILE' },
-        { id: 'milestone-a-2', programId: 'program-a', submissionType: 'FILE' },
-        { id: 'milestone-a-3', programId: 'program-a', submissionType: 'FILE' },
-        { id: 'milestone-b-1', programId: 'program-b', submissionType: 'FILE' },
+        { id: 'milestone-a-1', programId: 'program-a' },
+        { id: 'milestone-a-2', programId: 'program-a' },
+        { id: 'milestone-a-3', programId: 'program-a' },
+        { id: 'milestone-b-1', programId: 'program-b' },
       ],
       [
         {
+          id: 'milestone-a-1-item',
+          milestoneId: 'milestone-a-1',
+          milestoneProgramId: 'program-a',
+        },
+        {
+          id: 'milestone-a-2-item',
+          milestoneId: 'milestone-a-2',
+          milestoneProgramId: 'program-a',
+        },
+        {
+          id: 'milestone-a-3-item',
+          milestoneId: 'milestone-a-3',
+          milestoneProgramId: 'program-a',
+        },
+        {
+          id: 'milestone-b-1-item',
+          milestoneId: 'milestone-b-1',
+          milestoneProgramId: 'program-b',
+        },
+      ],
+      [
+        {
+          milestoneDocumentId: 'milestone-a-1-item',
           applicationId: 'approved-personal',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-1',
@@ -56,6 +73,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.SUBMITTED,
         },
         {
+          milestoneDocumentId: 'milestone-a-2-item',
           applicationId: 'approved-personal',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-2',
@@ -63,6 +81,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.APPROVED,
         },
         {
+          milestoneDocumentId: 'milestone-a-1-item',
           applicationId: 'approved-team',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-1',
@@ -70,6 +89,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.CHANGES_REQUESTED,
         },
         {
+          milestoneDocumentId: 'milestone-a-2-item',
           applicationId: 'approved-team',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-2',
@@ -77,6 +97,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.REJECTED,
         },
         {
+          milestoneDocumentId: 'milestone-b-1-item',
           applicationId: 'approved-other',
           applicationProgramId: 'program-b',
           milestoneId: 'milestone-b-1',
@@ -89,9 +110,7 @@ describe('SubmissionDashboardSummaryService', () => {
       repository,
       new MilestoneCompletionService(),
     );
-
     const summaries = await service.listByProgram(['program-a', 'program-b']);
-
     expect(repository.calls).toEqual([['program-a', 'program-b']]);
     expect(summaries).toEqual([
       {
@@ -118,7 +137,6 @@ describe('SubmissionDashboardSummaryService', () => {
       },
     ]);
   });
-
   it('keeps zero totals when applications or milestones are absent', async () => {
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'approved-without-milestone', programId: 'no-milestones' }],
@@ -126,7 +144,13 @@ describe('SubmissionDashboardSummaryService', () => {
         {
           id: 'milestone-without-application',
           programId: 'no-applications',
-          submissionType: 'FILE',
+        },
+      ],
+      [
+        {
+          id: 'milestone-without-application-item',
+          milestoneId: 'milestone-without-application',
+          milestoneProgramId: 'no-applications',
         },
       ],
       [],
@@ -135,26 +159,31 @@ describe('SubmissionDashboardSummaryService', () => {
       repository,
       new MilestoneCompletionService(),
     );
-
     const summaries = await service.listByProgram([
       'empty',
       'no-milestones',
       'no-applications',
     ]);
-
     expect(summaries).toEqual([
       emptySummary('empty'),
       { ...emptySummary('no-milestones'), approvedApplications: 1 },
       { ...emptySummary('no-applications'), milestones: 1 },
     ]);
   });
-
   it('ignores submissions outside same-program approved application cells', async () => {
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'approved-application', programId: 'program-a' }],
-      [{ id: 'milestone-a', programId: 'program-a', submissionType: 'FILE' }],
+      [{ id: 'milestone-a', programId: 'program-a' }],
       [
         {
+          id: 'milestone-a-item',
+          milestoneId: 'milestone-a',
+          milestoneProgramId: 'program-a',
+        },
+      ],
+      [
+        {
+          milestoneDocumentId: 'milestone-a-item',
           applicationId: 'pending-application',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a',
@@ -162,6 +191,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.APPROVED,
         },
         {
+          milestoneDocumentId: 'foreign-milestone-item',
           applicationId: 'approved-application',
           applicationProgramId: 'program-a',
           milestoneId: 'foreign-milestone',
@@ -174,9 +204,7 @@ describe('SubmissionDashboardSummaryService', () => {
       repository,
       new MilestoneCompletionService(),
     );
-
     const summaries = await service.listByProgram(['program-a']);
-
     expect(summaries).toEqual([
       {
         ...emptySummary('program-a'),
@@ -187,15 +215,13 @@ describe('SubmissionDashboardSummaryService', () => {
       },
     ]);
   });
-
   it('서류만 받는 마일스톤도 진행으로 센다 (#820)', async () => {
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [
         { id: 'team-done', programId: 'program-doc' },
         { id: 'team-partial', programId: 'program-doc' },
       ],
-      [{ id: 'milestone-doc', programId: 'program-doc', submissionType: null }],
-      [],
+      [{ id: 'milestone-doc', programId: 'program-doc' }],
       [
         {
           id: 'doc-1',
@@ -236,9 +262,7 @@ describe('SubmissionDashboardSummaryService', () => {
       repository,
       new MilestoneCompletionService(),
     );
-
     const summaries = await service.listByProgram(['program-doc']);
-
     expect(summaries).toEqual([
       {
         programId: 'program-doc',
@@ -253,7 +277,6 @@ describe('SubmissionDashboardSummaryService', () => {
       },
     ]);
   });
-
   it('서류가 다 승인이어도 코드 제출이 심사 중이면 승인으로 세지 않는다', async () => {
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'team-both', programId: 'program-both' }],
@@ -261,19 +284,14 @@ describe('SubmissionDashboardSummaryService', () => {
         {
           id: 'milestone-both',
           programId: 'program-both',
-          submissionType: 'FILE',
         },
       ],
       [
         {
-          applicationId: 'team-both',
-          applicationProgramId: 'program-both',
+          id: 'milestone-both-item',
           milestoneId: 'milestone-both',
           milestoneProgramId: 'program-both',
-          status: SubmissionStatus.SUBMITTED,
         },
-      ],
-      [
         {
           id: 'doc-1',
           milestoneId: 'milestone-both',
@@ -288,15 +306,21 @@ describe('SubmissionDashboardSummaryService', () => {
           'program-both',
           'milestone-both',
         ),
+        {
+          milestoneDocumentId: 'milestone-both-item',
+          applicationId: 'team-both',
+          applicationProgramId: 'program-both',
+          milestoneId: 'milestone-both',
+          milestoneProgramId: 'program-both',
+          status: SubmissionStatus.SUBMITTED,
+        },
       ],
     );
     const service = new SubmissionDashboardSummaryService(
       repository,
       new MilestoneCompletionService(),
     );
-
     const summaries = await service.listByProgram(['program-both']);
-
     expect(summaries[0]).toMatchObject({
       total: 1,
       approved: 0,
@@ -304,7 +328,6 @@ describe('SubmissionDashboardSummaryService', () => {
       notSubmitted: 0,
     });
   });
-
   it('제출 축이 없는 안내용 마일스톤은 제출 현황 분모에서 제외한다', async () => {
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [{ id: 'team-1', programId: 'program-info' }],
@@ -312,16 +335,15 @@ describe('SubmissionDashboardSummaryService', () => {
         {
           id: 'milestone-info',
           programId: 'program-info',
-          submissionType: null,
         },
       ],
+      [],
       [],
     );
     const service = new SubmissionDashboardSummaryService(
       repository,
       new MilestoneCompletionService(),
     );
-
     await expect(service.listByProgram(['program-info'])).resolves.toEqual([
       {
         ...emptySummary('program-info'),
@@ -329,7 +351,6 @@ describe('SubmissionDashboardSummaryService', () => {
       },
     ]);
   });
-
   it('버킷 합은 언제나 total 과 같다', async () => {
     const repository = new FakeSubmissionDashboardSummaryRepository(
       [
@@ -337,19 +358,13 @@ describe('SubmissionDashboardSummaryService', () => {
         { id: 'team-2', programId: 'p' },
       ],
       [
-        { id: 'm-code', programId: 'p', submissionType: 'FILE' },
-        { id: 'm-doc', programId: 'p', submissionType: null },
+        { id: 'm-code', programId: 'p' },
+        { id: 'm-doc', programId: 'p' },
       ],
       [
-        {
-          applicationId: 'team-1',
-          applicationProgramId: 'p',
-          milestoneId: 'm-code',
-          milestoneProgramId: 'p',
-          status: SubmissionStatus.REJECTED,
-        },
+        { id: 'd-1', milestoneId: 'm-doc', milestoneProgramId: 'p' },
+        { id: 'm-code-item', milestoneId: 'm-code', milestoneProgramId: 'p' },
       ],
-      [{ id: 'd-1', milestoneId: 'm-doc', milestoneProgramId: 'p' }],
       [
         documentSubmission(
           'team-2',
@@ -358,17 +373,23 @@ describe('SubmissionDashboardSummaryService', () => {
           'p',
           'm-doc',
         ),
+        {
+          milestoneDocumentId: 'm-code-item',
+          applicationId: 'team-1',
+          applicationProgramId: 'p',
+          milestoneId: 'm-code',
+          milestoneProgramId: 'p',
+          status: SubmissionStatus.REJECTED,
+        },
       ],
     );
     const service = new SubmissionDashboardSummaryService(
       repository,
       new MilestoneCompletionService(),
     );
-
     const summaries = await service.listByProgram(['p']);
     const summary = summaries[0];
     if (summary === undefined) throw new Error('요약이 없다');
-
     expect(
       summary.notSubmitted +
         summary.submitted +
@@ -379,7 +400,6 @@ describe('SubmissionDashboardSummaryService', () => {
     expect(summary.total).toBe(4);
   });
 });
-
 function documentSubmission(
   applicationId: string,
   milestoneDocumentId: string,
@@ -396,7 +416,6 @@ function documentSubmission(
     status,
   };
 }
-
 function emptySummary(programId: string) {
   return {
     programId,

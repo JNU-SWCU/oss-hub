@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { LockOrderError } from './lock-program-tree.error';
-
 const programBrand: unique symbol = Symbol('ProgramLock');
 const milestoneBrand: unique symbol = Symbol('MilestoneLock');
-export type ProgramLock = Readonly<{ id: string; [programBrand]: true }>;
+export type ProgramLock = Readonly<{
+  id: string;
+  [programBrand]: true;
+}>;
 export type MilestoneLock = Readonly<{
   id: string;
   programId: string;
@@ -18,38 +20,62 @@ type State = {
 };
 const states = new WeakMap<Prisma.TransactionClient, State>();
 type Step =
-  | { stage: 'program'; programId: string }
-  | { stage: 'milestone'; milestoneId: string; after?: ProgramLock }
+  | {
+      stage: 'program';
+      programId: string;
+    }
+  | {
+      stage: 'milestone';
+      milestoneId: string;
+      after?: ProgramLock;
+    }
   | {
       stage: 'documents';
       after: MilestoneLock;
       documentKind: 'DOCUMENT' | 'ALL';
     };
-
 @Injectable()
 export class LockProgramTreeRepository {
   lockProgramTree(
     tx: Prisma.TransactionClient,
-    step: Extract<Step, { stage: 'program' }>,
+    step: Extract<
+      Step,
+      {
+        stage: 'program';
+      }
+    >,
   ): Promise<ProgramLock | null>;
-
   lockProgramTree(
     tx: Prisma.TransactionClient,
-    step: Extract<Step, { stage: 'milestone' }>,
+    step: Extract<
+      Step,
+      {
+        stage: 'milestone';
+      }
+    >,
   ): Promise<MilestoneLock | null>;
-
   lockProgramTree(
     tx: Prisma.TransactionClient,
-    step: Extract<Step, { stage: 'documents' }>,
-  ): Promise<Readonly<{ documentIds: readonly string[] }>>;
-
+    step: Extract<
+      Step,
+      {
+        stage: 'documents';
+      }
+    >,
+  ): Promise<
+    Readonly<{
+      documentIds: readonly string[];
+    }>
+  >;
   async lockProgramTree(
     tx: Prisma.TransactionClient,
     step: Step,
   ): Promise<
     | ProgramLock
     | MilestoneLock
-    | Readonly<{ documentIds: readonly string[] }>
+    | Readonly<{
+        documentIds: readonly string[];
+      }>
     | null
   > {
     const state = states.get(tx) ?? {};
@@ -57,7 +83,11 @@ export class LockProgramTreeRepository {
     if (step.stage === 'program') {
       if (state.rank !== undefined) throw new LockOrderError();
       state.rank = 1;
-      const rows = await tx.$queryRaw<readonly { id: string }[]>(
+      const rows = await tx.$queryRaw<
+        readonly {
+          id: string;
+        }[]
+      >(
         Prisma.sql`SELECT id FROM "Program" WHERE id = ${step.programId} AND "lifecycle" <> 'DELETED' FOR UPDATE`,
       );
       if (rows.length !== 1) return null;
@@ -77,15 +107,16 @@ export class LockProgramTreeRepository {
         throw new LockOrderError();
       state.rank = 2;
       const rows = await tx.$queryRaw<
-        readonly { id: string; programId: string }[]
-      >(
-        Prisma.sql`
+        readonly {
+          id: string;
+          programId: string;
+        }[]
+      >(Prisma.sql`
           SELECT m."id", m."programId" FROM "Milestone" m
           JOIN "Program" p ON p."id" = m."programId"
           WHERE m."id" = ${step.milestoneId} AND p."lifecycle" <> 'DELETED'
           FOR UPDATE OF m
-        `,
-      );
+        `);
       const row = rows[0];
       if (!row) return null;
       const witness: MilestoneLock = Object.freeze({
@@ -100,7 +131,11 @@ export class LockProgramTreeRepository {
       throw new LockOrderError();
     state.rank = 3;
     state.documents = true;
-    const rows = await tx.$queryRaw<readonly { id: string }[]>(
+    const rows = await tx.$queryRaw<
+      readonly {
+        id: string;
+      }[]
+    >(
       step.documentKind === 'ALL'
         ? Prisma.sql`
     SELECT "id" FROM "MilestoneDocument"
@@ -110,7 +145,6 @@ export class LockProgramTreeRepository {
         : Prisma.sql`
     SELECT "id" FROM "MilestoneDocument"
     WHERE "milestoneId" = ${step.after.id}
-      AND "kind" = ${step.documentKind}::"MilestoneDocumentKind"
     ORDER BY "id" FOR UPDATE
   `,
     );

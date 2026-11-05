@@ -9,14 +9,11 @@ import type {
   MilestoneDocumentSubmittedContent,
 } from '../milestone-document-collection-read.repository';
 import type { MilestoneDocumentCollectionCell } from '../milestone-document-collection.service';
-
 export class MilestoneDocumentCollectionMilestoneResponseDto {
   declare readonly id: string;
-
   declare readonly programId: string;
   declare readonly name: string;
   declare readonly dueAt: string;
-
   static from(
     milestone: MilestoneContext,
   ): MilestoneDocumentCollectionMilestoneResponseDto {
@@ -28,13 +25,11 @@ export class MilestoneDocumentCollectionMilestoneResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentCollectionDocumentResponseDto {
   declare readonly id: string;
   declare readonly name: string;
   declare readonly isRequired: boolean;
   declare readonly sortOrder: number;
-
   static from(
     document: MilestoneDocumentRecord,
   ): MilestoneDocumentCollectionDocumentResponseDto {
@@ -46,26 +41,20 @@ export class MilestoneDocumentCollectionDocumentResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentCollectionFileResponseDto {
   declare readonly name: string;
   declare readonly sizeBytes: number;
-
   static from(
     file: NonNullable<MilestoneDocumentCollectionSubmission['file']>,
   ): MilestoneDocumentCollectionFileResponseDto {
     return { name: file.originalFileName, sizeBytes: file.sizeBytes };
   }
 }
-
 export class MilestoneDocumentCollectionReviewResponseDto {
   declare readonly id: string;
   declare readonly decision: ReviewDecision;
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
-
-  declare readonly resubmissionDueAt: string | null;
-
   static from(
     review: NonNullable<MilestoneDocumentCollectionSubmission['review']>,
   ): MilestoneDocumentCollectionReviewResponseDto {
@@ -74,25 +63,18 @@ export class MilestoneDocumentCollectionReviewResponseDto {
       decision: review.decision,
       comment: review.comment,
       reviewedAt: review.reviewedAt.toISOString(),
-      resubmissionDueAt: review.resubmissionDueAt?.toISOString() ?? null,
     };
   }
 }
-
 export class MilestoneDocumentCollectionCellResponseDto {
   declare readonly documentId: string;
   declare readonly isSubmitted: boolean;
   declare readonly submittedAt: string | null;
-
   declare readonly revision: number | null;
   declare readonly file: MilestoneDocumentCollectionFileResponseDto | null;
-
   declare readonly content: MilestoneDocumentSubmittedContent | null;
-
   declare readonly status: SubmissionStatus | null;
-
   declare readonly review: MilestoneDocumentCollectionReviewResponseDto | null;
-
   static from(
     document: MilestoneDocumentRecord,
     submission: MilestoneDocumentCollectionCell | null,
@@ -118,7 +100,6 @@ export class MilestoneDocumentCollectionCellResponseDto {
         submission.file === null
           ? null
           : MilestoneDocumentCollectionFileResponseDto.from(submission.file),
-
       content: submission.content,
       status: submission.status,
       review:
@@ -130,14 +111,12 @@ export class MilestoneDocumentCollectionCellResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentCollectionRowResponseDto {
   declare readonly applicationId: string;
   declare readonly teamName: string;
   declare readonly applicantName: string | null;
   declare readonly memberNicknames: readonly string[];
   declare readonly cells: readonly MilestoneDocumentCollectionCellResponseDto[];
-
   static from(
     row: MilestoneDocumentCollectionResult['rows'][number],
     documents: readonly MilestoneDocumentRecord[],
@@ -156,12 +135,10 @@ export class MilestoneDocumentCollectionRowResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentCollectionFilterCountsResponseDto {
   declare readonly all: number;
   declare readonly hasMissing: number;
   declare readonly zeroSubmission: number;
-
   static from(
     counts: MilestoneDocumentCollectionResult['filterCounts'],
   ): MilestoneDocumentCollectionFilterCountsResponseDto {
@@ -172,12 +149,10 @@ export class MilestoneDocumentCollectionFilterCountsResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentCollectionDocumentTotalResponseDto {
   declare readonly documentId: string;
   declare readonly submitted: number;
   declare readonly total: number;
-
   static from(
     total: MilestoneDocumentCollectionResult['documentTotals'][number],
   ): MilestoneDocumentCollectionDocumentTotalResponseDto {
@@ -188,18 +163,15 @@ export class MilestoneDocumentCollectionDocumentTotalResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentCollectionResponseDto {
   declare readonly milestone: MilestoneDocumentCollectionMilestoneResponseDto;
   declare readonly documents: readonly MilestoneDocumentCollectionDocumentResponseDto[];
   declare readonly rows: readonly MilestoneDocumentCollectionRowResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
-
   declare readonly total: number;
   declare readonly filterCounts: MilestoneDocumentCollectionFilterCountsResponseDto;
   declare readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotalResponseDto[];
-
   static from(
     result: MilestoneDocumentCollectionResult,
   ): MilestoneDocumentCollectionResponseDto {
@@ -225,7 +197,6 @@ export class MilestoneDocumentCollectionResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentDeliveryCollectionRowResponseDto {
   declare readonly applicationId: string;
   declare readonly teamName: string;
@@ -233,7 +204,6 @@ export class MilestoneDocumentDeliveryCollectionRowResponseDto {
   declare readonly memberNicknames: readonly string[];
   declare readonly cells: readonly MilestoneDocumentCollectionCellResponseDto[];
   declare readonly deliveryStatus: DocumentDeliveryStatus;
-
   static from(
     row: MilestoneDocumentCollectionRowResponseDto,
     deliveryStatus: DocumentDeliveryStatus,
@@ -248,14 +218,12 @@ export class MilestoneDocumentDeliveryCollectionRowResponseDto {
     };
   }
 }
-
 export class MilestoneDocumentDeliveryCollectionResponseDto {
   declare readonly milestone: MilestoneDocumentCollectionMilestoneResponseDto;
   declare readonly documents: readonly MilestoneDocumentCollectionDocumentResponseDto[];
   declare readonly rows: readonly MilestoneDocumentDeliveryCollectionRowResponseDto[];
   declare readonly page: number;
   declare readonly pageSize: number;
-
   declare readonly total: number;
   declare readonly filterCounts: MilestoneDocumentCollectionFilterCountsResponseDto;
   declare readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotalResponseDto[];
@@ -265,7 +233,6 @@ export class MilestoneDocumentDeliveryCollectionResponseDto {
     readonly complete: number;
     readonly noRequiredItems: number;
   };
-
   static from(
     result: MilestoneDocumentDeliveryCollectionResult,
   ): MilestoneDocumentDeliveryCollectionResponseDto {

@@ -63,15 +63,6 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
         revision: 1,
       },
     ]);
-    expect(
-      await fixture.prisma.milestoneDocumentReviewHistory.count({
-        where: {
-          milestoneDocumentSubmission: {
-            milestoneDocumentId: flowIds.document,
-          },
-        },
-      }),
-    ).toBe(0);
     for (const [path, actor] of [
       [`${fixture.documentPath()}/history`, 'student'],
       [

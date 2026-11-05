@@ -1,28 +1,19 @@
-import {
-  Prisma,
-  ApplicationStatus,
-  MilestoneDocumentKind,
-  SubmissionStatus,
-} from '@prisma/client';
+import { Prisma, ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { MATRIX_APPLICATION_MODES } from './submission-matrix.config';
 import { PlatformRepository } from '../platform/platform.repository';
-
 export type MatrixApplicationMode = (typeof MATRIX_APPLICATION_MODES)[number];
-
 export interface SubmissionMatrixFilter {
   readonly q: string;
   readonly applicationMode: MatrixApplicationMode | null;
 }
-
 export interface MatrixDocumentFirstSubmission {
   readonly applicationId: string;
   readonly milestoneDocumentId: string;
   readonly firstSubmittedAt: Date;
 }
-
 async function findMatrixDocumentFirstSubmissions(
   prisma: Prisma.TransactionClient,
   scope: {
@@ -57,14 +48,12 @@ async function findMatrixDocumentFirstSubmissions(
       submission.histories[0]?.createdAt ?? submission.createdAt,
   }));
 }
-
 export interface MatrixMilestoneRecord {
   readonly id: string;
   readonly name: string;
   readonly dueAt: Date;
   readonly requiredDocumentIds: readonly string[];
 }
-
 export interface MatrixApplicationRecord {
   readonly id: string;
   readonly applicant: {
@@ -76,22 +65,19 @@ export interface MatrixApplicationRecord {
     readonly memberNicknames: readonly string[];
   } | null;
 }
-
 export interface MatrixSubmissionRecord {
   readonly id: string;
   readonly applicationId: string;
   readonly milestoneId: string;
+  readonly milestoneDocumentId: string;
   readonly status: SubmissionStatus;
   readonly currentRevision: number;
-
   readonly submittedAt: Date | null;
 }
-
 export interface MatrixApplicationPage {
   readonly items: readonly MatrixApplicationRecord[];
   readonly total: number;
 }
-
 export interface SubmissionMatrixRepositoryPort {
   programExists(programId: string): Promise<boolean>;
   findMilestones(programId: string): Promise<readonly MatrixMilestoneRecord[]>;
@@ -112,12 +98,10 @@ export interface SubmissionMatrixRepositoryPort {
     applicationIds: readonly string[],
   ): Promise<readonly MatrixDocumentChangeRequest[]>;
 }
-
 export interface MatrixDocumentChangeRequest {
   readonly applicationId: string;
   readonly milestoneId: string;
 }
-
 const matrixApplicationSelect = {
   id: true,
   applicant: {
@@ -135,12 +119,10 @@ const matrixApplicationSelect = {
       },
     },
   },
-} as const;
-
+} satisfies Prisma.ApplicationSelect;
 type MatrixApplicationRow = Prisma.ApplicationGetPayload<{
   select: typeof matrixApplicationSelect;
 }>;
-
 function toMatrixApplication(
   application: MatrixApplicationRow,
 ): MatrixApplicationRecord {
@@ -160,14 +142,12 @@ function toMatrixApplication(
       : null,
   };
 }
-
 @Injectable()
 export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPort {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
   ) {}
-
   async programExists(programId: string): Promise<boolean> {
     const program = await this.prisma.program.findUnique({
       where: { id: programId },
@@ -175,7 +155,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     });
     return program !== null;
   }
-
   async findMilestones(
     programId: string,
   ): Promise<readonly MatrixMilestoneRecord[]> {
@@ -187,7 +166,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
         name: true,
         dueAt: true,
         documents: {
-          where: { kind: MilestoneDocumentKind.DOCUMENT, required: true },
+          where: { required: true },
           select: { id: true },
         },
       },
@@ -197,7 +176,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       requiredDocumentIds: documents.map((document) => document.id),
     }));
   }
-
   findDocumentFirstSubmissions(
     applicationIds: readonly string[],
     documentIds: readonly string[],
@@ -207,7 +185,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       documentIds,
     });
   }
-
   async findApprovedApplications(
     programId: string,
     filter: SubmissionMatrixFilter,
@@ -227,7 +204,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     ]);
     return { items: applications.map(toMatrixApplication), total };
   }
-
   async findDocumentChangeRequests(
     applicationIds: readonly string[],
   ): Promise<readonly MatrixDocumentChangeRequest[]> {
@@ -236,7 +212,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       where: {
         applicationId: { in: [...applicationIds] },
         status: SubmissionStatus.CHANGES_REQUESTED,
-        milestoneDocument: { kind: MilestoneDocumentKind.DOCUMENT },
+        milestoneDocument: {},
       },
       select: {
         applicationId: true,
@@ -248,7 +224,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       milestoneId: submission.milestoneDocument.milestoneId,
     }));
   }
-
   async findCurrentSubmissions(
     applicationIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]> {
@@ -256,12 +231,11 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
       where: {
         applicationId: { in: [...applicationIds] },
-        milestoneDocument: {
-          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
-        },
+        milestoneDocument: { required: true },
       },
       select: {
         id: true,
+        milestoneDocumentId: true,
         applicationId: true,
         status: true,
         revision: true,
@@ -273,12 +247,12 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       id: submission.id,
       applicationId: submission.applicationId,
       milestoneId: submission.milestoneDocument.milestoneId,
+      milestoneDocumentId: submission.milestoneDocumentId,
       status: submission.status,
       currentRevision: submission.revision,
       submittedAt: submission.submittedAt,
     }));
   }
-
   submissionMatrixApplicationWhere(
     programId: string,
     filter: SubmissionMatrixFilter,
@@ -287,7 +261,6 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       programId,
       status: ApplicationStatus.APPROVED,
     };
-
     if (filter.q.length > 0) {
       const contains = { contains: filter.q, mode: 'insensitive' as const };
       where.OR = [

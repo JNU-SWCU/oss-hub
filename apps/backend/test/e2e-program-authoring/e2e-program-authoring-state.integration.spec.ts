@@ -1,6 +1,5 @@
 import { randomUUID } from 'node:crypto';
 import {
-  MilestoneSubmissionType,
   ProgramAuthoringUploadLifecycle,
   ProgramCategory,
   ProgramLifecycle,
@@ -15,15 +14,12 @@ import {
   E2eProgramAuthoringFixture,
 } from './e2e-program-authoring-fixture';
 import { PrismaService } from '../../src/platform/prisma.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const fixture = new E2eProgramAuthoringFixture(prisma);
-
 const AGGREGATE_PROGRAM_ID = `${E2E_PROGRAM_ID}:aggregate`;
 const AGGREGATE_MILESTONE_ID = `${AGGREGATE_PROGRAM_ID}-milestone`;
 const AGGREGATE_DOCUMENT_ID = `${AGGREGATE_PROGRAM_ID}-document`;
@@ -36,21 +32,17 @@ const AGGREGATE_MILESTONE_DUE_AT = new Date(
   E2E_NOW.getTime() + 9 * ONE_HOUR_MS,
 );
 const AGGREGATE_END_AT = new Date(E2E_NOW.getTime() + 240 * ONE_HOUR_MS);
-
 beforeAll(async () => {
   await prisma.$connect();
 });
-
 afterEach(async () => {
   await removeAggregateProgram();
   await fixture.reset();
   e2eProgramAuthoringExternalPorts.reset();
 });
-
 afterAll(async () => {
   await prisma.$disconnect();
 });
-
 describe('stateForE2eProgramGraph orphan accounting', () => {
   it.each([
     { stored: true, orphanObjects: 0 },
@@ -76,57 +68,45 @@ describe('stateForE2eProgramGraph orphan accounting', () => {
           contentType: 'image/png',
         });
       }
-
       const state = await fixture.state(
         e2eProgramAuthoringExternalPorts.capture(),
       );
-
       expect(state).toMatchObject({ attachedFiles: 1, orphanObjects });
     },
   );
-
   it('프로그램 밖 aggregate에 첨부된 업로드를 고아로 세지 않는다', async () => {
     await fixture.reset();
     await fixture.ensure();
     const storageKey = await storeAggregateObject();
     await seedAggregateProgram(storageKey);
-
     const state = await fixture.state(
       e2eProgramAuthoringExternalPorts.capture(),
     );
-
     expect(state).toMatchObject({
       programs: 1,
       attachedFiles: 1,
       orphanObjects: 0,
     });
   });
-
   it('aggregate 업로드의 스토리지 객체가 사라지면 고아로 센다', async () => {
     await fixture.reset();
     await fixture.ensure();
     await seedAggregateProgram(`program-authoring/${randomUUID()}`);
-
     const state = await fixture.state(
       e2eProgramAuthoringExternalPorts.capture(),
     );
-
     expect(state).toMatchObject({ attachedFiles: 1, orphanObjects: 1 });
   });
-
   it('어느 행도 소유하지 않는 스토리지 객체를 고아로 센다', async () => {
     await fixture.reset();
     await fixture.ensure();
     await storeAggregateObject();
-
     const state = await fixture.state(
       e2eProgramAuthoringExternalPorts.capture(),
     );
-
     expect(state).toMatchObject({ attachedFiles: 0, orphanObjects: 1 });
   });
 });
-
 async function storeAggregateObject(): Promise<string> {
   const stored = await e2eProgramAuthoringExternalPorts.storage.put({
     objectKey: `program-authoring/${randomUUID()}`,
@@ -136,7 +116,6 @@ async function storeAggregateObject(): Promise<string> {
   });
   return stored.objectKey;
 }
-
 async function seedAggregateProgram(storageKey: string): Promise<void> {
   await prisma.program.create({
     data: {
@@ -163,7 +142,6 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
           name: `${E2E_PROGRAM_ID}:aggregate-milestone`,
           startAt: E2E_NOW,
           dueAt: AGGREGATE_MILESTONE_DUE_AT,
-          submissionType: MilestoneSubmissionType.FILE,
           documents: {
             create: {
               id: AGGREGATE_DOCUMENT_ID,
@@ -200,7 +178,6 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
     },
   });
 }
-
 async function removeAggregateProgram(): Promise<void> {
   await prisma.milestoneDocumentTemplateFile.deleteMany({
     where: {

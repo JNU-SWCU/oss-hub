@@ -18,7 +18,6 @@ const form = toMilestoneForm({
   name: '기획서 제출',
   startAt: '2026-08-16T09:30:59.000Z',
   dueAt: '2026-08-20T09:30:59.000Z',
-  submissionType: 'TEXT',
   instructions: '초안을 제출하세요.',
 });
 const passiveProps = {
@@ -36,7 +35,6 @@ const passiveProps = {
       name: '기획서 제출',
       startAt: '2026-08-16T09:30:59.000Z',
       dueAt: '2026-08-20T09:30:59.000Z',
-      submissionType: 'TEXT',
       instructions: '초안을 제출하세요.',
     },
     operation: {
@@ -239,6 +237,7 @@ describe('ProgramEditMilestoneDialog', () => {
             ...passiveProps.snapshot,
             documents: [
               {
+                submissionType: 'FILE_OR_TEXT' as const,
                 id: 'document-1',
                 name: '기획서',
                 required: true,
@@ -277,6 +276,7 @@ describe('ProgramEditMilestoneDialog', () => {
       ...passiveProps.snapshot,
       documents: [
         {
+          submissionType: 'FILE_OR_TEXT' as const,
           id: 'document-1',
           name: '기획서',
           required: true,

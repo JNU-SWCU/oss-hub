@@ -15,8 +15,6 @@ import {
   type OutboxEvent as PrismaOutboxEvent,
   ApplicationReviewEventKind,
   type ProgramTrackType,
-  MilestoneDocumentKind,
-  type MilestoneSubmissionType,
   SubmissionFileLifecycle,
   CollectionRepositoryPresence,
 } from '@prisma/client';
@@ -64,7 +62,6 @@ import {
   type TeamActivityRow,
 } from './program-team-repository-evidence.repository';
 import {
-  submissionCompletionTargetSelect,
   type SubmissionCompletionTargetRow,
 } from './submission-completion.config';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
@@ -130,11 +127,6 @@ export class TeamDeletionScopeRepository {
         FROM "MilestoneDocumentSubmissionHistory" AS history
         WHERE history."milestoneDocumentSubmissionId" IN (SELECT id FROM team_submission)
       ),
-      team_review_history AS (
-        SELECT review.id
-        FROM "MilestoneDocumentReviewHistory" AS review
-        WHERE review."milestoneDocumentSubmissionId" IN (SELECT id FROM team_submission)
-      ),
       team_submission_file AS (
         SELECT file.id
         FROM "SubmissionFile" AS file
@@ -188,7 +180,6 @@ export class TeamDeletionScopeRepository {
         (
           (SELECT count(*) FROM team_submission_file)
           + (SELECT count(*) FROM team_submission_history)
-          + (SELECT count(*) FROM team_review_history)
         ) AS "submissionEvents",
         (SELECT count(*) FROM team_repository) AS "detachedRepositories",
         (
@@ -203,8 +194,6 @@ export class TeamDeletionScopeRepository {
             SELECT CONCAT('MilestoneDocumentSubmission:', id) FROM team_submission
             UNION ALL
             SELECT CONCAT('MilestoneDocumentSubmissionHistory:', id) FROM team_submission_history
-            UNION ALL
-            SELECT CONCAT('MilestoneDocumentReviewHistory:', id) FROM team_review_history
             UNION ALL
             SELECT CONCAT('SubmissionFile:', id) FROM team_submission_file
             UNION ALL
@@ -2139,8 +2128,9 @@ export interface TeamApplicationRow {
     readonly repositoryProvisioningEnabled: boolean;
     readonly milestones: readonly {
       readonly id: string;
-      readonly submissionType: MilestoneSubmissionType | null;
-      readonly documents: readonly { readonly id: string }[];
+      readonly documents: readonly {
+        readonly id: string;
+      }[];
     }[];
   };
   readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
@@ -2235,7 +2225,6 @@ export class TeamRepository {
     private readonly platformRepository: PlatformRepository,
     private readonly history: TeamHistoryRepository,
   ) {}
-
   async findActiveStudentByGithubId(
     githubId: bigint,
   ): Promise<TeamStudentActor | null> {
@@ -2259,7 +2248,6 @@ export class TeamRepository {
         }
       : null;
   }
-
   async findActorAuthorityByGithubId(
     githubId: bigint,
   ): Promise<TeamActorAuthority | null> {
@@ -2282,7 +2270,6 @@ export class TeamRepository {
         user.department !== null,
     };
   }
-
   async renameTeam(
     programId: string,
     teamId: string,
@@ -2292,7 +2279,6 @@ export class TeamRepository {
   ): Promise<TeamRenameResult> {
     return this.prisma.$transaction(async (tx) => {
       if ((await lockTeamRow(tx, teamId)).length === 0) return 'not-found';
-
       const team = await tx.team.findUnique({
         where: { id: teamId, program: { lifecycle: { not: 'DELETED' } } },
         select: {
@@ -2326,7 +2312,6 @@ export class TeamRepository {
       )
         return 'forbidden';
       if (team.name === name) return 'renamed';
-
       await tx.team.update({ where: { id: teamId }, data: { name } });
       await recordAudit(
         { auditLogWriter: tx },
@@ -2340,7 +2325,6 @@ export class TeamRepository {
       return 'renamed';
     });
   }
-
   findProgramById(programId: string): Promise<TeamProgramRecord | null> {
     return this.prisma.program.findUnique({
       where: { id: programId, lifecycle: { not: 'DELETED' } },
@@ -2355,7 +2339,6 @@ export class TeamRepository {
       },
     });
   }
-
   async findTeamDetailForUser(
     programId: string,
     userId: string,
@@ -2408,7 +2391,6 @@ export class TeamRepository {
       })),
     };
   }
-
   async listStaffTeams(programId: string): Promise<StaffTeamRecord[]> {
     const teams = await this.prisma.team.findMany({
       where: { programId },
@@ -2442,7 +2424,6 @@ export class TeamRepository {
       })),
     }));
   }
-
   async findStaffTeamDetail(
     programId: string,
     teamId: string,
@@ -2469,7 +2450,6 @@ export class TeamRepository {
       },
     });
     if (!team) return null;
-
     const application = await this.prisma.application.findFirst({
       where: { programId, teamId },
       select: {
@@ -2479,7 +2459,6 @@ export class TeamRepository {
         repositoryConnectionMode: true,
         repositoryUrl: true,
         isRepositoryPublicationPlanned: true,
-
         repository: {
           select: {
             id: true,
@@ -2498,11 +2477,9 @@ export class TeamRepository {
             milestones: {
               select: {
                 id: true,
-                submissionType: true,
                 documents: {
                   where: {
                     required: true,
-                    kind: MilestoneDocumentKind.DOCUMENT,
                   },
                   select: { id: true },
                 },
@@ -2511,11 +2488,13 @@ export class TeamRepository {
           },
         },
         milestoneDocumentSubmissions: {
-          select: submissionCompletionTargetSelect,
+          select: {
+            status: true,
+            milestoneDocument: { select: { id: true, milestoneId: true } },
+          } satisfies PrismaTypes.MilestoneDocumentSubmissionSelect,
         },
       },
     });
-
     let applicationRow: TeamApplicationRow | null = null;
     if (application) {
       const [outbox, job] = await Promise.all([
@@ -2535,7 +2514,6 @@ export class TeamRepository {
       ]);
       applicationRow = { ...application, outbox, job };
     }
-
     return {
       id: team.id,
       name: team.name,
@@ -2558,7 +2536,6 @@ export class TeamRepository {
         : { rows: [], hasMore: false },
     };
   }
-
   async findStaffRepositoryUrlHistory(
     programId: string,
     teamId: string,
@@ -2582,7 +2559,6 @@ export class TeamRepository {
       )),
     };
   }
-
   async findTeamActivityScope(
     programId: string,
     teamId: string,
@@ -2621,11 +2597,9 @@ export class TeamRepository {
     const { applications, ...scope } = team;
     return { ...scope, application: applications[0] ?? null };
   }
-
   readTeamActivity(team: TeamActivityScope): Promise<TeamActivityRow> {
     return this.evidence.activity(team);
   }
-
   async leave(
     programId: string,
     userId: string,
@@ -2637,10 +2611,8 @@ export class TeamRepository {
         select: { teamId: true },
       });
       if (!membership) return 'not-found';
-
       if ((await lockTeamRow(tx, membership.teamId)).length === 0)
         return 'not-found';
-
       const lockedMembership = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId } },
         select: TEAM_MEMBERSHIP_CONTEXT_SELECT,
@@ -2648,7 +2620,6 @@ export class TeamRepository {
       if (!lockedMembership || lockedMembership.teamId !== membership.teamId) {
         return 'not-found';
       }
-
       const now = new Date();
       const teamId = lockedMembership.teamId;
       const previousLeaderId = lockedMembership.team.leaderId;
@@ -2656,10 +2627,8 @@ export class TeamRepository {
         tx.teamMember.count({ where: { teamId } }),
         tx.application.findFirst({ where: { teamId }, select: { id: true } }),
       ]);
-
       if (memberCount <= 1) {
         if (application !== null) return 'last-member-with-application';
-
         await tx.teamMember.delete({
           where: { teamId_userId: { teamId, userId } },
         });
@@ -2682,7 +2651,6 @@ export class TeamRepository {
         );
         return 'removed';
       }
-
       let nextLeaderId = previousLeaderId;
       if (previousLeaderId === userId) {
         const successor = await tx.teamMember.findFirst({
@@ -2696,17 +2664,14 @@ export class TeamRepository {
           );
         }
         nextLeaderId = successor.userId;
-
         await tx.team.update({
           where: { id: teamId },
           data: { leaderId: nextLeaderId },
         });
       }
-
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId } },
       });
-
       await enqueueRepositoryAccessSyncEvents(
         this.platformRepository,
         tx,
@@ -2725,7 +2690,6 @@ export class TeamRepository {
       return 'removed';
     });
   }
-
   async removeMember(
     programId: string,
     actorUserId: string,
@@ -2738,10 +2702,8 @@ export class TeamRepository {
         select: { teamId: true },
       });
       if (!actorMembership) return 'actor-not-in-team';
-
       if ((await lockTeamRow(tx, actorMembership.teamId)).length === 0)
         return 'actor-not-in-team';
-
       const lockedActor = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId: actorUserId } },
         select: TEAM_MEMBERSHIP_CONTEXT_SELECT,
@@ -2749,14 +2711,11 @@ export class TeamRepository {
       if (!lockedActor || lockedActor.teamId !== actorMembership.teamId) {
         return 'actor-not-in-team';
       }
-
       const now = new Date();
       const teamId = lockedActor.teamId;
       const leaderId = lockedActor.team.leaderId;
-
       if (leaderId !== actorUserId) return 'not-leader';
       if (targetUserId === actorUserId) return 'self-target';
-
       const targetMembership = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId: targetUserId } },
         select: { teamId: true },
@@ -2764,11 +2723,9 @@ export class TeamRepository {
       if (!targetMembership || targetMembership.teamId !== teamId) {
         return 'target-not-found';
       }
-
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId: targetUserId } },
       });
-
       await enqueueRepositoryAccessSyncEvents(
         this.platformRepository,
         tx,
@@ -2787,7 +2744,6 @@ export class TeamRepository {
       return 'removed';
     });
   }
-
   async removeMemberForStaff(
     programId: string,
     teamId: string,
@@ -2801,24 +2757,19 @@ export class TeamRepository {
         select: { programId: true },
       });
       if (!team || team.programId !== programId) return 'not-found';
-
       if ((await lockTeamRow(tx, teamId)).length === 0) return 'not-found';
-
       if (!(await isActiveStaff(tx, actorUserId))) return 'forbidden';
-
       const target = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId: targetUserId } },
         select: TEAM_MEMBERSHIP_CONTEXT_SELECT,
       });
       if (!target || target.teamId !== teamId) return 'not-found';
-
       const now = new Date();
       const previousLeaderId = target.team.leaderId;
       const [memberCount, application] = await Promise.all([
         tx.teamMember.count({ where: { teamId } }),
         tx.application.findFirst({ where: { teamId }, select: { id: true } }),
       ]);
-
       if (memberCount <= 1) {
         if (application !== null) return 'last-member-with-application';
         await tx.teamMember.delete({
@@ -2843,7 +2794,6 @@ export class TeamRepository {
         );
         return 'removed';
       }
-
       let nextLeaderId = previousLeaderId;
       if (previousLeaderId === targetUserId) {
         const successor = await tx.teamMember.findFirst({
@@ -2857,13 +2807,11 @@ export class TeamRepository {
           );
         }
         nextLeaderId = successor.userId;
-
         await tx.team.update({
           where: { id: teamId },
           data: { leaderId: nextLeaderId },
         });
       }
-
       await tx.teamMember.delete({
         where: { teamId_userId: { teamId, userId: targetUserId } },
       });
@@ -2885,7 +2833,6 @@ export class TeamRepository {
       return 'removed';
     });
   }
-
   async transferLeaderForStaff(
     programId: string,
     teamId: string,
@@ -2899,25 +2846,19 @@ export class TeamRepository {
         select: { programId: true },
       });
       if (!team || team.programId !== programId) return 'not-found';
-
       if ((await lockTeamRow(tx, teamId)).length === 0) return 'not-found';
-
       if (!(await isActiveStaff(tx, actorUserId))) return 'forbidden';
-
       const target = await tx.teamMember.findUnique({
         where: { programId_userId: { programId, userId: targetUserId } },
         select: TEAM_MEMBERSHIP_CONTEXT_SELECT,
       });
       if (!target || target.teamId !== teamId) return 'not-found';
-
       const previousLeaderId = target.team.leaderId;
       if (previousLeaderId === targetUserId) return 'unchanged';
-
       await tx.team.update({
         where: { id: teamId },
         data: { leaderId: targetUserId },
       });
-
       await recordAudit(
         { auditLogWriter: tx },
         membershipAuditEvent(target, {
@@ -3234,7 +3175,7 @@ export class ProgramTeamDeletionRepository {
 }
 
 async function deleteTeamTree(
-  tx: Prisma.TransactionClient,
+  tx: PrismaTypes.TransactionClient,
   teamId: string,
 ): Promise<TeamDeletedCounts> {
   const now = new Date();
@@ -3287,7 +3228,7 @@ async function deleteTeamTree(
 
   const repositoryScope = {
     OR: [{ teamId }, { application: { is: { teamId } } }],
-  } satisfies Prisma.GithubRepositoryWhereInput;
+  } satisfies PrismaTypes.GithubRepositoryWhereInput;
   await tx.repositoryProvisionJob.deleteMany({
     where: { application: { teamId } },
   });
@@ -3306,7 +3247,7 @@ async function deleteTeamTree(
         submissionHistory: { is: { submission: { application: { teamId } } } },
       },
     ],
-  } satisfies Prisma.SubmissionFileWhereInput;
+  } satisfies PrismaTypes.SubmissionFileWhereInput;
   const detachedFileFks = {
     applicationId: null,
     milestoneId: null,
@@ -3334,10 +3275,13 @@ async function deleteTeamTree(
     data: detachedFileFks,
   });
 
-  const milestoneDocumentReviewHistories =
-    await tx.milestoneDocumentReviewHistory.deleteMany({
-      where: { milestoneDocumentSubmission: { application: { teamId } } },
-    });
+  await tx.$executeRaw(Prisma.sql`
+    DELETE FROM "MilestoneDocumentReviewHistory"
+    WHERE "milestoneDocumentSubmissionId" IN (
+      SELECT "id" FROM "MilestoneDocumentSubmission"
+      WHERE "applicationId" = ANY(${applicationIds}::text[])
+    )
+  `);
   const milestoneDocumentSubmissionHistories =
     await tx.milestoneDocumentSubmissionHistory.deleteMany({
       where: { submission: { application: { teamId } } },
@@ -3361,8 +3305,7 @@ async function deleteTeamTree(
     submissionEvents:
       pendingSubmissionFiles.count +
       deletedSubmissionFiles.count +
-      milestoneDocumentSubmissionHistories.count +
-      milestoneDocumentReviewHistories.count,
+      milestoneDocumentSubmissionHistories.count,
     detachedRepositories: githubRepositoriesDeleted.count,
   };
 }

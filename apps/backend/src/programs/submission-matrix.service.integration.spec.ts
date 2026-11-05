@@ -1,3 +1,4 @@
+import { MilestoneCompletionService } from './milestone-completion.service';
 import { ApprovalStatus, DepartmentType, UserType } from '@prisma/client';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -34,6 +35,7 @@ const prisma = new PrismaService();
 const service = new SubmissionMatrixService(
   new SubmissionMatrixRepository(prisma, new PlatformRepository()),
   new MilestoneDocumentCollectionService({} as never),
+  new MilestoneCompletionService(),
 );
 
 const PROGRAM_ID = seedId('milestones', 'program');

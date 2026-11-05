@@ -22,16 +22,12 @@ import { MilestoneDocumentSubmissionWindowService } from './milestone-document-s
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
-
 const authSessionService = new AuthSessionService();
-
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prefix = 'milestone-list-http-contract';
 const githubId = 9600000000999001n;
 const programId = `${prefix}-program`;
@@ -40,7 +36,6 @@ const userId = `${prefix}-user`;
 const sessionSecret = new Uint8Array(32).fill(23);
 const prisma = new PrismaService();
 let application: INestApplication;
-
 async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentTemplateFile.deleteMany({
     where: { milestoneDocument: { milestoneId } },
@@ -50,7 +45,6 @@ async function cleanup(): Promise<void> {
   await prisma.program.deleteMany({ where: { id: programId } });
   await prisma.user.deleteMany({ where: { id: userId } });
 }
-
 async function requestList(): Promise<Response> {
   const token = await authSessionService.issueSessionToken(
     sessionSecret,
@@ -64,7 +58,6 @@ async function requestList(): Promise<Response> {
     },
   });
 }
-
 describe('authenticated milestone document list filename contract', () => {
   beforeAll(async () => {
     await prisma.$connect();
@@ -132,7 +125,6 @@ describe('authenticated milestone document list filename contract', () => {
     application.useGlobalFilters(new ProblemDetailFilter());
     await application.listen(0, '127.0.0.1');
   });
-
   beforeEach(async () => {
     await cleanup();
     await prisma.user.create({
@@ -161,23 +153,19 @@ describe('authenticated milestone document list filename contract', () => {
         milestones: {
           create: {
             startAt: new Date('2026-01-02'),
-
             id: milestoneId,
             name: 'synthetic milestone',
             dueAt: new Date('2026-11-01'),
-            submissionType: 'FILE',
           },
         },
       },
     });
   });
-
   afterAll(async () => {
     await cleanup();
     await application.close();
     await prisma.$disconnect();
   });
-
   it('returns filename states without storage metadata over authenticated HTTP', async () => {
     await prisma.milestoneDocument.createMany({
       data: [
@@ -209,14 +197,12 @@ describe('authenticated milestone document list filename contract', () => {
         uploadedAt: new Date('2026-08-20'),
       },
     });
-
     const response = await requestList();
     const body = (await response.json()) as {
       readonly documents: readonly Record<string, unknown>[];
       readonly fileUpload: Record<string, unknown>;
     };
     const serialized = JSON.stringify(body);
-
     expect(response.status).toBe(200);
     expect(body.documents).toEqual(
       expect.arrayContaining([
@@ -230,7 +216,6 @@ describe('authenticated milestone document list filename contract', () => {
         }),
       ]),
     );
-
     expect(body.fileUpload).toEqual({
       maxBytes: 5 * 1024 * 1024,
       maxLabel: '5 MB',

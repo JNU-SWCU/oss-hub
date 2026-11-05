@@ -13,7 +13,6 @@ import {
   type StorageReferencePrisma,
   type StorageReferenceTransactionClient,
 } from './prisma-storage-reference.repository';
-
 const INTEGRATION_SENTINEL = 'oss-hub-isolated-integration-v1';
 const FIXTURE_PREFIX = 'reconcile-test-qa60';
 const USER_ID = `${FIXTURE_PREFIX}-user`;
@@ -30,7 +29,6 @@ const COVER_ID = `${FIXTURE_PREFIX}-cover`;
 const TRANSFER_TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-transfer-template-file`;
 const PENDING_TOMBSTONE_ID = `${FIXTURE_PREFIX}-pending-tombstone`;
 const DELETED_TOMBSTONE_ID = `${FIXTURE_PREFIX}-deleted-tombstone`;
-
 const KEYS = {
   liveSubmission: `submission-files/${FIXTURE_PREFIX}-live-submission`,
   liveAuthoring: `program-authoring/${FIXTURE_PREFIX}-live-authoring`,
@@ -44,7 +42,6 @@ const KEYS = {
   dbFailure: `submission-files/${FIXTURE_PREFIX}-db-failure`,
   concurrent: `submission-files/${FIXTURE_PREFIX}-concurrent`,
 } as const;
-
 const prisma = new PrismaClient();
 const config = new ObjectStorageConfig();
 const objects = new S3ObjectStorageClient(config);
@@ -64,19 +61,22 @@ const s3 = new S3Client({
     secretAccessKey: settings.secretAccessKey,
   },
 });
-
 async function objectExists(key: string): Promise<boolean> {
   try {
     await s3.send(new HeadObjectCommand({ Bucket: settings.bucket, Key: key }));
     return true;
   } catch (error) {
-    const status = (error as { $metadata?: { httpStatusCode?: number } })
-      .$metadata?.httpStatusCode;
+    const status = (
+      error as {
+        $metadata?: {
+          httpStatusCode?: number;
+        };
+      }
+    ).$metadata?.httpStatusCode;
     if (status === 404) return false;
     throw error;
   }
 }
-
 async function putObject(key: string): Promise<void> {
   await storage.put({
     objectKey: key,
@@ -85,7 +85,6 @@ async function putObject(key: string): Promise<void> {
     body: Buffer.from('synthetic storage reconciliation fixture'),
   });
 }
-
 async function clearFixture(): Promise<void> {
   await Promise.all(Object.values(KEYS).map((key) => storage.delete(key)));
   await prisma.programPurgeFileTombstone.deleteMany({
@@ -112,12 +111,11 @@ async function clearFixture(): Promise<void> {
   await prisma.program.deleteMany({ where: { id: PROGRAM_ID } });
   await prisma.user.deleteMany({ where: { id: USER_ID } });
 }
-
 async function installLiveFixture(): Promise<void> {
   await prisma.user.create({
     data: {
       id: USER_ID,
-      githubId: 9_060_001n,
+      githubId: 9060001n,
       nickname: 'synthetic-reconcile-user',
     },
   });
@@ -144,7 +142,6 @@ async function installLiveFixture(): Promise<void> {
       name: '합성 마일스톤',
       startAt: new Date('2026-01-03T00:00:00.000Z'),
       dueAt: new Date('2026-02-01T00:00:00.000Z'),
-      submissionType: 'FILE',
     },
   });
   await prisma.programCover.create({
@@ -211,7 +208,6 @@ async function installLiveFixture(): Promise<void> {
     ].map(putObject),
   );
 }
-
 async function installTombstoneFixture(): Promise<void> {
   await prisma.programPurgeFileTombstone.create({
     data: {
@@ -232,7 +228,6 @@ async function installTombstoneFixture(): Promise<void> {
     [KEYS.pendingTombstone, KEYS.deletedTombstone].map(putObject),
   );
 }
-
 async function installPendingTemplateTransferFixture(): Promise<void> {
   await prisma.milestone.create({
     data: {
@@ -241,7 +236,6 @@ async function installPendingTemplateTransferFixture(): Promise<void> {
       name: '이관 합성 마일스톤',
       startAt: new Date('2026-01-03T00:00:00.000Z'),
       dueAt: new Date('2026-02-01T00:00:00.000Z'),
-      submissionType: 'FILE',
     },
   });
   await prisma.milestoneDocument.create({
@@ -268,7 +262,6 @@ async function installPendingTemplateTransferFixture(): Promise<void> {
   });
   await putObject(KEYS.transfer);
 }
-
 describe('storage orphan reconciliation integration', () => {
   beforeAll(async () => {
     if (process.env.OSS_HUB_INTEGRATION_RUNNER !== INTEGRATION_SENTINEL) {
@@ -276,30 +269,25 @@ describe('storage orphan reconciliation integration', () => {
     }
     await prisma.$connect();
   });
-
   beforeEach(async () => {
     await clearFixture();
   });
-
   afterAll(async () => {
     await clearFixture();
     s3.destroy();
     await prisma.$disconnect();
   });
-
   it('report는 고아만 찾고 delete는 표지를 포함한 고아 객체만 실제로 제거한다', async () => {
     await installLiveFixture();
-    const futureRunStart = new Date(Date.now() + 2 * 60 * 60 * 1_000);
+    const futureRunStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const service = new StorageOrphanReconciliationService(
       new PrismaStorageReferenceRepository(prisma),
       storage,
       () => futureRunStart,
     );
-
     const report = await service.reconcile({ mode: 'report' });
     expect(report.orphanKeys).toEqual([KEYS.orphanCover, KEYS.orphan]);
     await expect(objectExists(KEYS.orphan)).resolves.toBe(true);
-
     const deletion = await service.reconcile({ mode: 'delete' });
     expect(deletion.deletedKeys).toEqual([KEYS.orphanCover, KEYS.orphan]);
     await expect(objectExists(KEYS.orphan)).resolves.toBe(false);
@@ -309,29 +297,24 @@ describe('storage orphan reconciliation integration', () => {
     await expect(objectExists(KEYS.liveCover)).resolves.toBe(true);
     await expect(objectExists(KEYS.liveTemplate)).resolves.toBe(true);
   });
-
   it('DELETE_PENDING tombstone 객체는 고아로 보고되지 않고, DELETED로 finalize된 tombstone 객체는 고아로 보고된다', async () => {
     await installTombstoneFixture();
-    const futureRunStart = new Date(Date.now() + 2 * 60 * 60 * 1_000);
+    const futureRunStart = new Date(Date.now() + 2 * 60 * 60 * 1000);
     const service = new StorageOrphanReconciliationService(
       new PrismaStorageReferenceRepository(prisma),
       storage,
       () => futureRunStart,
     );
-
     const pendingReport = await service.reconcile({ mode: 'report' });
     expect(pendingReport.orphanKeys).not.toContain(KEYS.pendingTombstone);
     expect(pendingReport.orphanKeys).toContain(KEYS.deletedTombstone);
-
     await prisma.programPurgeFileTombstone.update({
       where: { id: PENDING_TOMBSTONE_ID },
       data: { lifecycle: 'DELETED', deletedAt: futureRunStart },
     });
-
     const finalizedReport = await service.reconcile({ mode: 'report' });
     expect(finalizedReport.orphanKeys).toContain(KEYS.pendingTombstone);
   });
-
   it('실행 중 업로드는 cutoff 이후 객체로 분류되어 삭제되지 않는다', async () => {
     let signalListingStarted: (() => void) | undefined;
     const listingStarted = new Promise<void>((resolve) => {
@@ -355,21 +338,17 @@ describe('storage orphan reconciliation integration', () => {
       synchronizedStorage,
       () => runStartedAt,
     );
-
     const run = service.reconcile({ mode: 'delete' });
     await listingStarted;
     await putObject(KEYS.concurrent);
     releaseListing?.();
     const result = await run;
-
     expect(result.recentObjectKeys).toContain(KEYS.concurrent);
     await expect(objectExists(KEYS.concurrent)).resolves.toBe(true);
   });
-
   it('PENDING 업로드를 template으로 같은 transaction에서 이관하는 동안에도 객체를 보존한다', async () => {
     await installLiveFixture();
     await installPendingTemplateTransferFixture();
-
     let transferPrepared: (() => void) | undefined;
     const transferReady = new Promise<void>((resolve) => {
       transferPrepared = resolve;
@@ -397,7 +376,6 @@ describe('storage orphan reconciliation integration', () => {
       await transferMayCommit;
     });
     await transferReady;
-
     const snapshotReaderBase = new PrismaClient();
     let signalTemplateSnapshotRead: (() => void) | undefined;
     const templateSnapshotRead = new Promise<void>((resolve) => {
@@ -491,9 +469,8 @@ describe('storage orphan reconciliation integration', () => {
     const service = new StorageOrphanReconciliationService(
       references,
       storage,
-      () => new Date(Date.now() + 2 * 60 * 60 * 1_000),
+      () => new Date(Date.now() + 2 * 60 * 60 * 1000),
     );
-
     try {
       const reconciliation = service.reconcile({ mode: 'delete' });
       await templateSnapshotRead;
@@ -501,7 +478,6 @@ describe('storage orphan reconciliation integration', () => {
       await transfer;
       releaseTemplateQuery?.();
       const result = await reconciliation;
-
       expect(result.orphanKeys).not.toContain(KEYS.transfer);
       expect(result.skippedReferencedKeys).not.toContain(KEYS.transfer);
       expect(result.deletedKeys).not.toContain(KEYS.transfer);
@@ -525,7 +501,6 @@ describe('storage orphan reconciliation integration', () => {
       await snapshotReaderBase.$disconnect();
     }
   });
-
   it('DB 연결 실패 시 실제 스토리지 객체를 삭제하지 않는다', async () => {
     await putObject(KEYS.dbFailure);
     const unavailable = new PrismaClient({
@@ -539,7 +514,6 @@ describe('storage orphan reconciliation integration', () => {
       new PrismaStorageReferenceRepository(unavailable),
       storage,
     );
-
     await expect(service.reconcile({ mode: 'delete' })).rejects.toBeDefined();
     await expect(objectExists(KEYS.dbFailure)).resolves.toBe(true);
     await unavailable.$disconnect();

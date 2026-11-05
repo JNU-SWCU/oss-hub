@@ -1,11 +1,8 @@
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   type Prisma,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
-  MilestoneSubmissionType,
   SubmissionFileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -20,17 +17,14 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { SubmissionFilesRepository } from './submission-files.repository';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prisma = new PrismaService();
 const repository = new SubmissionFilesRepository(
   prisma,
   new PlatformRepository(),
-  new SubmissionsRepository(prisma, new PlatformRepository()),
 );
 const NOW = new Date('2026-07-31T00:00:00.000Z');
 const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -55,10 +49,10 @@ const ADMIN_USER_ID = 'issue-342-admin';
 const INACTIVE_USER_ID = 'issue-342-inactive-admin';
 const UPLOADER_GITHUB_ID = seedGithubId(UPLOADER_USER_ID);
 const TEAM_MEMBER_GITHUB_ID = seedGithubId(TEAM_MEMBER_USER_ID);
-const UNRELATED_STUDENT_GITHUB_ID = 342_000_002n;
-const STAFF_GITHUB_ID = 342_000_003n;
-const ADMIN_GITHUB_ID = 342_000_004n;
-const INACTIVE_GITHUB_ID = 342_000_005n;
+const UNRELATED_STUDENT_GITHUB_ID = 342000002n;
+const STAFF_GITHUB_ID = 342000003n;
+const ADMIN_GITHUB_ID = 342000004n;
+const INACTIVE_GITHUB_ID = 342000005n;
 const USER_RECORDS = [
   {
     id: UNRELATED_STUDENT_USER_ID,
@@ -113,7 +107,10 @@ const AUTHORIZED_DOWNLOADS = [
     githubId: TEAM_MEMBER_GITHUB_ID,
   },
   { scenario: 'allows active STAFF', githubId: STAFF_GITHUB_ID },
-] satisfies readonly { readonly scenario: string; readonly githubId: bigint }[];
+] satisfies readonly {
+  readonly scenario: string;
+  readonly githubId: bigint;
+}[];
 const DENIED_DOWNLOADS = [
   {
     scenario: 'denies admin without staff or participation',
@@ -145,7 +142,6 @@ const DENIED_DOWNLOADS = [
   readonly githubId: bigint;
   readonly fileId: string;
 }[];
-
 async function deleteIssue342Rows(): Promise<void> {
   await prisma.submissionFile.deleteMany({ where: { id: { in: FILE_IDS } } });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
@@ -165,7 +161,6 @@ async function deleteIssue342Rows(): Promise<void> {
     where: { id: { in: USER_RECORDS.map((user) => user.id) } },
   });
 }
-
 describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
   beforeAll(async () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
@@ -194,12 +189,10 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
     await prisma.milestone.create({
       data: {
         startAt: program.startAt,
-
         id: MILESTONE_ID,
         programId: PROGRAM_ID,
         name: 'Issue 342 file authorization',
-        dueAt: new Date(program.startAt.getTime() + 86_400_000),
-        submissionType: MilestoneSubmissionType.FILE,
+        dueAt: new Date(program.startAt.getTime() + 86400000),
       },
     });
     await prisma.milestoneDocument.create({
@@ -209,7 +202,6 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         name: 'Internal legacy milestone submission',
         required: true,
         sortOrder: 0,
-        kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
       },
     });
     await prisma.milestoneDocumentSubmission.create({
@@ -271,12 +263,10 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
       ],
     });
   });
-
   afterAll(async () => {
     await deleteIssue342Rows();
     await Promise.all([prisma.$disconnect(), seedPrisma.$disconnect()]);
   });
-
   it.each(AUTHORIZED_DOWNLOADS)(
     '$scenario download access',
     async ({ githubId }) => {
@@ -285,7 +275,6 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         DOWNLOADABLE_FILE_ID,
         NOW,
       );
-
       expect(file).toEqual({
         id: DOWNLOADABLE_FILE_ID,
         storageKey: 'submission-files/issue-342/downloadable',
@@ -296,12 +285,10 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
       });
     },
   );
-
   it.each(DENIED_DOWNLOADS)(
     '$scenario download access',
     async ({ githubId, fileId }) => {
       const file = repository.findDownloadableFile(githubId, fileId, NOW);
-
       await expect(file).resolves.toBeNull();
     },
   );

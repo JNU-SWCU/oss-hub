@@ -4,7 +4,6 @@ import {
   ProgramAuthoringUploadLifecycle,
   type ProgramTrackType,
   type ProgramCategory,
-  type MilestoneSubmissionType,
   type ProgramLifecycle,
 } from '@prisma/client';
 import {
@@ -13,18 +12,15 @@ import {
   ProgramAuthoringUploadConsumptionRaceError,
 } from './program-authoring.error';
 import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
-
 export type ProgramExternalCover = {
   readonly sourceUrl: string;
   readonly imageUrl: string;
 };
-
 export type ProgramAuthoringDocumentRequest = {
   readonly name: string;
   readonly required: boolean;
   readonly templateUploadId?: string | null;
 };
-
 export type ProgramAuthoringMilestoneRequest = {
   readonly name: string;
   readonly startAt?: string;
@@ -32,7 +28,6 @@ export type ProgramAuthoringMilestoneRequest = {
   readonly instructions?: string | null;
   readonly documents: readonly ProgramAuthoringDocumentRequest[];
 };
-
 export type ProgramAuthoringRequest = {
   readonly coverUploadId?: string | null;
   readonly externalCover?: ProgramExternalCover | null;
@@ -50,7 +45,6 @@ export type ProgramAuthoringRequest = {
   readonly notifyOnDeadline?: boolean;
   readonly milestones: readonly ProgramAuthoringMilestoneRequest[];
 };
-
 export type ProgramAuthoringProgramPlan = {
   readonly name: string;
   readonly organizer: string;
@@ -68,23 +62,19 @@ export type ProgramAuthoringProgramPlan = {
   readonly repositoryProvisioningEnabled: boolean;
   readonly notifyOnDeadline: boolean;
 };
-
 export type ProgramAuthoringDocumentPlan = {
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
   readonly templateUploadId: string;
 };
-
 export type ProgramAuthoringMilestonePlan = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType | null;
   readonly instructions: string | null;
   readonly documents: readonly ProgramAuthoringDocumentPlan[];
 };
-
 export type ProgramAuthoringPlan = {
   readonly coverUploadId?: string | null;
   readonly externalCover?: ProgramExternalCover;
@@ -92,7 +82,6 @@ export type ProgramAuthoringPlan = {
   readonly milestones: readonly ProgramAuthoringMilestonePlan[];
   readonly uploadTokenIds: readonly string[];
 };
-
 export type ProgramAuthoringProgram = Omit<
   ProgramAuthoringProgramPlan,
   'trackType'
@@ -103,30 +92,25 @@ export type ProgramAuthoringProgram = Omit<
   readonly createdAt: Date;
   readonly updatedAt: Date;
 };
-
 export type ProgramAuthoringReplay = {
   readonly payloadHash: string;
   readonly program: ProgramAuthoringProgram;
 };
-
 export type ProgramAuthoringCreateRequestInput = {
   readonly actorId: string;
   readonly idempotencyKey: string;
   readonly payloadHash: string;
   readonly programId: string;
 };
-
 export type ProgramAuthoringTemplateInput = {
   readonly milestoneDocumentId: string;
   readonly actorId: string;
   readonly upload: ProgramAuthoringUploadToken;
 };
-
 export type ProgramAuthoringPendingUploadConsumption = {
   readonly milestoneDocumentId: string;
   readonly upload: ProgramAuthoringUploadToken;
 };
-
 export interface ValidatedProgramAuthoringUpload {
   readonly body: Buffer;
   readonly originalFileName: string;
@@ -134,7 +118,6 @@ export interface ValidatedProgramAuthoringUpload {
   readonly sizeBytes: number;
   readonly sha256: string;
 }
-
 @Injectable()
 export class ProgramAuthoringUploadTransactionRepository {
   async lockAttachableProgramAuthoringUploads(
@@ -149,7 +132,6 @@ export class ProgramAuthoringUploadTransactionRepository {
     this.assertAttachableProgramAuthoringUploads(actorId, tokenIds, uploads);
     return uploads;
   }
-
   lockProgramAuthoringUploads(
     transaction: Prisma.TransactionClient,
     tokenIds: readonly string[],
@@ -166,7 +148,6 @@ export class ProgramAuthoringUploadTransactionRepository {
     FOR UPDATE
   `);
   }
-
   assertAttachableProgramAuthoringUploads(
     actorId: string,
     tokenIds: readonly string[],
@@ -199,7 +180,6 @@ export class ProgramAuthoringUploadTransactionRepository {
       }
     }
   }
-
   async consumePendingProgramAuthoringUploads(
     transaction: Prisma.TransactionClient,
     actorId: string,

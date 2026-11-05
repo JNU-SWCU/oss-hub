@@ -4,11 +4,10 @@ import { MilestoneDocumentSubmissionWindowService } from './milestone-document-s
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { Readable } from 'node:stream';
@@ -18,7 +17,6 @@ import { Test } from '@nestjs/testing';
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   SubmissionFileLifecycle,
 } from '@prisma/client';
@@ -37,106 +35,88 @@ import { MilestoneDocumentFilesService } from './milestone-document-files.servic
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
-
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-
 const prefix = 'milestone-current-file-auth';
-
 const programId = `${prefix}-program`;
 const milestoneId = `${prefix}-milestone`;
 const otherMilestoneId = `${prefix}-other-milestone`;
 const ownDocumentId = `${prefix}-document-own`;
 const neighbourDocumentId = `${prefix}-document-neighbour`;
 const legacyDocumentId = `${prefix}-document-legacy`;
-
 const expiredDocumentId = `${prefix}-document-expired`;
 const deletePendingDocumentId = `${prefix}-document-delete-pending`;
 const staleRevisionDocumentId = `${prefix}-document-stale-revision`;
-
 const unknownDocumentId = `${prefix}-document-unknown`;
-
 const outsideProgramId = `${prefix}-outside-program`;
 const outsideMilestoneId = `${prefix}-outside-milestone`;
 const outsideDocumentId = `${prefix}-outside-document`;
-
 const users = {
   revertedLeader: {
     id: `${prefix}-reverted-leader`,
-    githubId: 9_600_000_000_997_001n,
+    githubId: 9600000000997001n,
   },
   revertedMember: {
     id: `${prefix}-reverted-member`,
-    githubId: 9_600_000_000_997_002n,
+    githubId: 9600000000997002n,
   },
   approvedLeader: {
     id: `${prefix}-approved-leader`,
-    githubId: 9_600_000_000_997_003n,
+    githubId: 9600000000997003n,
   },
   neighbourLeader: {
     id: `${prefix}-neighbour-leader`,
-    githubId: 9_600_000_000_997_004n,
+    githubId: 9600000000997004n,
   },
-
   departedApplicant: {
     id: `${prefix}-departed-applicant`,
-    githubId: 9_600_000_000_997_005n,
+    githubId: 9600000000997005n,
   },
-
   successorLeader: {
     id: `${prefix}-successor-leader`,
-    githubId: 9_600_000_000_997_006n,
+    githubId: 9600000000997006n,
   },
-
-  outsider: { id: `${prefix}-outsider`, githubId: 9_600_000_000_997_007n },
-
+  outsider: { id: `${prefix}-outsider`, githubId: 9600000000997007n },
   deactivatedMember: {
     id: `${prefix}-deactivated-member`,
-    githubId: 9_600_000_000_997_008n,
+    githubId: 9600000000997008n,
     accountStatus: AccountStatus.DEACTIVATED,
   },
-
   staff: {
     id: `${prefix}-staff`,
-    githubId: 9_600_000_000_997_009n,
+    githubId: 9600000000997009n,
     hasStaffAccess: true,
   },
-
   staffTeammate: {
     id: `${prefix}-staff-teammate`,
-    githubId: 9_600_000_000_997_010n,
+    githubId: 9600000000997010n,
     hasStaffAccess: true,
   },
-
   rejectedLeader: {
     id: `${prefix}-rejected-leader`,
-    githubId: 9_600_000_000_997_011n,
+    githubId: 9600000000997011n,
   },
-
   bareLeader: {
     id: `${prefix}-bare-leader`,
-    githubId: 9_600_000_000_997_012n,
+    githubId: 9600000000997012n,
   },
-
   formerUploader: {
     id: `${prefix}-former-uploader`,
-    githubId: 9_600_000_000_997_013n,
+    githubId: 9600000000997013n,
   },
-
   retainedLeader: {
     id: `${prefix}-retained-leader`,
-    githubId: 9_600_000_000_997_014n,
+    githubId: 9600000000997014n,
   },
 } as const;
-
 const prisma = new PrismaService();
 const documentsRepository = new MilestoneDocumentsRepository(
   prisma,
   new LockProgramTreeRepository(),
   new PlatformRepository(),
-  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new SubmissionsRepository(new PlatformRepository()),
   new MilestoneDocumentCollectionReadRepository(prisma),
 );
 const documentsService = new MilestoneDocumentsService(
@@ -144,17 +124,15 @@ const documentsService = new MilestoneDocumentsService(
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
-  new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+  new SubmissionsRepository(new PlatformRepository()),
   new UserProfileService(),
 );
-
 const storage: ObjectStoragePort = {
   put: () => Promise.reject(new Error('unused')),
   get: (objectKey: string) =>
     Promise.resolve(Readable.from(Buffer.from(`bytes:${objectKey}`))),
   delete: () => Promise.reject(new Error('unused')),
 };
-
 const currentFileService = new MilestoneDocumentCurrentFileService(
   new MilestoneDocumentCurrentFileRepository(
     prisma as unknown as ConstructorParameters<
@@ -165,21 +143,15 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
   new SubmissionFileAdmissionService(),
   new DownloadResponseService(),
 );
-
 const sessionSecret = Buffer.from(`${prefix}-secret`).toString('base64url');
-
 let staffFilesService: MilestoneDocumentFilesService;
-
 interface TeamFixture {
   readonly key: string;
   readonly leaderId: string;
-
   readonly memberIds: readonly string[];
-
   readonly applicantId?: string;
   readonly status: ApplicationStatus;
 }
-
 async function cleanup(): Promise<void> {
   await prisma.submissionFile.deleteMany({
     where: { storageKey: { startsWith: `${prefix}/` } },
@@ -215,7 +187,6 @@ async function cleanup(): Promise<void> {
   });
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
 }
-
 async function createProgram(
   id: string,
   milestoneIds: readonly string[],
@@ -236,17 +207,14 @@ async function createProgram(
       milestones: {
         create: milestoneIds.map((each) => ({
           startAt: new Date('2026-01-02'),
-
           id: each,
           name: `synthetic ${each}`,
           dueAt: new Date('2026-11-01'),
-          submissionType: 'FILE',
         })),
       },
     },
   });
 }
-
 async function createTeamWithApplication(
   programIdOfTeam: string,
   team: TeamFixture,
@@ -284,14 +252,12 @@ async function createTeamWithApplication(
   });
   return applicationId;
 }
-
 async function seedSubmissionWithFile(input: {
   readonly key: string;
   readonly documentId: string;
   readonly applicationId: string;
   readonly actorId: string;
   readonly milestoneIdOfFile: string;
-
   readonly revision?: number;
   readonly historyRevision?: number;
   readonly lifecycle?: SubmissionFileLifecycle;
@@ -333,19 +299,20 @@ async function seedSubmissionWithFile(input: {
       sizeBytes: `bytes:${storageKey}`.length,
       milestoneDocumentSubmissionId: submissionId,
       milestoneDocumentSubmissionHistoryId: historyId,
-
       lifecycle: input.lifecycle ?? SubmissionFileLifecycle.ATTACHED,
       expiresAt: input.expiresAt ?? new Date('2099-01-01'),
     },
   });
   return storageKey;
 }
-
 async function downloadFails(
   githubId: bigint,
   requestedMilestoneId: string,
   documentId: string,
-): Promise<{ readonly code: string; readonly status: number }> {
+): Promise<{
+  readonly code: string;
+  readonly status: number;
+}> {
   try {
     await currentFileService.download(
       githubId,
@@ -354,32 +321,30 @@ async function downloadFails(
     );
   } catch (error: unknown) {
     const { errorCode } = error as {
-      errorCode: { code: string; status: number };
+      errorCode: {
+        code: string;
+        status: number;
+      };
     };
     return { code: errorCode.code, status: errorCode.status };
   }
   throw new Error('내려받기가 거절되지 않았습니다.');
 }
-
 const hiddenAsMissing = {
   code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
   status: 404,
 };
-
 let ownStorageKey = '';
 let neighbourStorageKey = '';
 let outsideStorageKey = '';
 let revertedApplicationId = '';
-
 describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기」의 자격', () => {
   beforeAll(async () => {
     await prisma.$connect();
-
     const submissionsModule = await Test.createTestingModule({
       imports: [PlatformModule],
       providers: [
         ...STATELESS_PROVIDERS,
-        SubmissionsRepository,
         SubmissionFilesService,
         SubmissionFilesRepository,
         ProgramScheduleService,
@@ -400,7 +365,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       .overrideProvider(OBJECT_STORAGE)
       .useValue(storage)
       .compile();
-
     staffFilesService = new MilestoneDocumentFilesService(
       documentsRepository,
       storage,
@@ -413,9 +377,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       new DownloadResponseService(),
       new UserProfileService(),
     );
-
     await cleanup();
-
     await prisma.user.createMany({
       data: Object.entries(users).map(([key, user]) => ({
         id: user.id,
@@ -432,7 +394,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         departmentType: 'DEPARTMENT',
       })),
     });
-
     await Promise.all(
       Object.entries(users)
         .map(([key, user], index) => ({
@@ -451,10 +412,8 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
           prisma.user.update({ where: { id: userId }, data: profile }),
         ),
     );
-
     await createProgram(programId, [milestoneId, otherMilestoneId]);
     await createProgram(outsideProgramId, [outsideMilestoneId]);
-
     await prisma.milestoneDocument.createMany({
       data: [
         {
@@ -477,7 +436,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
           name: '옛 마일스톤 제출 슬롯',
           required: false,
           sortOrder: 3,
-          kind: MilestoneDocumentKind.LEGACY_MILESTONE_SUBMISSION,
         },
         {
           id: expiredDocumentId,
@@ -509,7 +467,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         },
       ],
     });
-
     revertedApplicationId = await createTeamWithApplication(programId, {
       key: 'reverted',
       leaderId: users.revertedLeader.id,
@@ -535,7 +492,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.revertedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
-
     await seedSubmissionWithFile({
       key: 'reverted-expired',
       documentId: expiredDocumentId,
@@ -561,7 +517,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       revision: 2,
       historyRevision: 1,
     });
-
     const rejectedApplicationId = await createTeamWithApplication(programId, {
       key: 'rejected',
       leaderId: users.rejectedLeader.id,
@@ -575,7 +530,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.rejectedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
-
     const approvedApplicationId = await createTeamWithApplication(programId, {
       key: 'approved',
       leaderId: users.approvedLeader.id,
@@ -589,7 +543,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.approvedLeader.id,
       milestoneIdOfFile: milestoneId,
     });
-
     const neighbourApplicationId = await createTeamWithApplication(programId, {
       key: 'neighbour',
       leaderId: users.neighbourLeader.id,
@@ -603,7 +556,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.neighbourLeader.id,
       milestoneIdOfFile: milestoneId,
     });
-
     const departedApplicationId = await createTeamWithApplication(programId, {
       key: 'departed',
       leaderId: users.successorLeader.id,
@@ -618,7 +570,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.successorLeader.id,
       milestoneIdOfFile: milestoneId,
     });
-
     const outsideApplicationId = await createTeamWithApplication(
       outsideProgramId,
       {
@@ -635,7 +586,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.outsider.id,
       milestoneIdOfFile: outsideMilestoneId,
     });
-
     const bareLeaderApplicationId = await createTeamWithApplication(programId, {
       key: 'bare-leader',
       leaderId: users.bareLeader.id,
@@ -649,7 +599,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       actorId: users.bareLeader.id,
       milestoneIdOfFile: milestoneId,
     });
-
     const formerApplicationId = await createTeamWithApplication(programId, {
       key: 'former',
       leaderId: users.retainedLeader.id,
@@ -673,12 +622,10 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       },
     });
   });
-
   afterAll(async () => {
     await cleanup();
     await prisma.$disconnect();
   });
-
   it('되돌려진 학생이 목록에서 본 파일을 그대로 받는다', async () => {
     const documents = await documentsService.listForViewer(
       users.revertedLeader.githubId,
@@ -686,33 +633,28 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
     const own = documents.find((document) => document.id === ownDocumentId);
     expect(own?.viewerSubmission?.hasCurrentFile).toBe(true);
-
     const file = await currentFileService.download(
       users.revertedLeader.githubId,
       milestoneId,
       ownDocumentId,
     );
-
     expect(file.fileName).toBe('reverted-own.pdf');
     expect(file.contentType).toBe('application/pdf');
     await expect(buffer(file.body)).resolves.toEqual(
       Buffer.from(`bytes:${ownStorageKey}`),
     );
   });
-
   it('되돌려진 신청의 팀원도 같은 파일을 받는다', async () => {
     const file = await currentFileService.download(
       users.revertedMember.githubId,
       milestoneId,
       ownDocumentId,
     );
-
     expect(file.fileName).toBe('reverted-own.pdf');
     await expect(buffer(file.body)).resolves.toEqual(
       Buffer.from(`bytes:${ownStorageKey}`),
     );
   });
-
   it('거절된 신청의 학생에게도 목록과 받기가 같은 답을 한다', async () => {
     const documents = await documentsService.listForViewer(
       users.rejectedLeader.githubId,
@@ -720,7 +662,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
     const own = documents.find((document) => document.id === ownDocumentId);
     expect(own?.viewerSubmission?.hasCurrentFile).toBe(true);
-
     const file = await currentFileService.download(
       users.rejectedLeader.githubId,
       milestoneId,
@@ -728,7 +669,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
     expect(file.fileName).toBe('rejected-own.pdf');
   });
-
   it.each([
     ['만료된 첨부', expiredDocumentId],
     ['삭제 대기로 넘어간 첨부', deletePendingDocumentId],
@@ -741,22 +681,18 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     const target = documents.find((document) => document.id === documentId);
     expect(target?.viewerSubmission?.submitted).toBe(true);
     expect(target?.viewerSubmission?.hasCurrentFile).toBe(false);
-
     await expect(
       downloadFails(users.revertedLeader.githubId, milestoneId, documentId),
     ).resolves.toEqual(hiddenAsMissing);
   });
-
   it('승인이 유지된 학생의 내려받기는 그대로다', async () => {
     const file = await currentFileService.download(
       users.approvedLeader.githubId,
       milestoneId,
       ownDocumentId,
     );
-
     expect(file.fileName).toBe('approved-own.pdf');
   });
-
   it.each([
     ['되돌려진 팀장', users.revertedLeader.githubId],
     ['되돌려진 팀원', users.revertedMember.githubId],
@@ -771,7 +707,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         milestoneId,
       );
       expect(documents.length).toBeGreaterThan(0);
-
       for (const document of documents) {
         if (document.viewerSubmission?.hasCurrentFile === true) {
           await expect(
@@ -785,7 +720,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       }
     },
   );
-
   it('남의 팀만 낸 서류는 파일이 있어도 존재하지 않는 파일과 같은 404다', async () => {
     await expect(
       currentFileService.download(
@@ -794,7 +728,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
         neighbourDocumentId,
       ),
     ).resolves.toMatchObject({ fileName: 'neighbour-only.pdf' });
-
     await expect(
       downloadFails(
         users.revertedLeader.githubId,
@@ -804,7 +737,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     ).resolves.toEqual(hiddenAsMissing);
     expect(neighbourStorageKey).toBe(`${prefix}/neighbour-only.pdf`);
   });
-
   it('무관한 프로그램의 서류는 양쪽 방향 모두 404다', async () => {
     await expect(
       currentFileService.download(
@@ -814,7 +746,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       ),
     ).resolves.toMatchObject({ fileName: 'outsider-own.pdf' });
     expect(outsideStorageKey).toBe(`${prefix}/outsider-own.pdf`);
-
     await expect(
       downloadFails(
         users.revertedLeader.githubId,
@@ -826,7 +757,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       downloadFails(users.outsider.githubId, milestoneId, ownDocumentId),
     ).resolves.toEqual(hiddenAsMissing);
   });
-
   it('같은 프로그램의 다른 마일스톤 id로는 같은 서류도 열리지 않는다', async () => {
     await expect(
       downloadFails(
@@ -836,7 +766,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       ),
     ).resolves.toEqual(hiddenAsMissing);
   });
-
   it('팀을 떠난 신청자에게는 목록도 받기도 닫혀 있다', async () => {
     const documents = await documentsService.listForViewer(
       users.departedApplicant.githubId,
@@ -845,7 +774,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     expect(
       documents.every((document) => document.viewerSubmission === undefined),
     ).toBe(true);
-
     await expect(
       downloadFails(
         users.departedApplicant.githubId,
@@ -854,7 +782,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       ),
     ).resolves.toEqual(hiddenAsMissing);
   });
-
   it('팀장 자리만 있고 팀원 행이 없는 사람에게는 목록도 받기도 닫혀 있다', async () => {
     const documents = await documentsService.listForViewer(
       users.bareLeader.githubId,
@@ -863,12 +790,10 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     expect(
       documents.every((document) => document.viewerSubmission === undefined),
     ).toBe(true);
-
     await expect(
       downloadFails(users.bareLeader.githubId, milestoneId, ownDocumentId),
     ).resolves.toEqual(hiddenAsMissing);
   });
-
   it('파일을 올리고 신청까지 낸 사람도 팀원 행이 지워지면 모르는 서류와 같은 404를 받는다', async () => {
     const application = await prisma.application.findUniqueOrThrow({
       where: { id: `${prefix}-former-application` },
@@ -881,13 +806,11 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     });
     expect(file.uploaderId).toBe(users.formerUploader.id);
     expect(file.lifecycle).toBe(SubmissionFileLifecycle.ATTACHED);
-
     const denied = await downloadFails(
       users.formerUploader.githubId,
       milestoneId,
       ownDocumentId,
     );
-
     expect(denied).toEqual(
       await downloadFails(
         users.formerUploader.githubId,
@@ -897,7 +820,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
     expect(denied).toEqual(hiddenAsMissing);
   });
-
   it('멤버십을 가진 현재 팀장은 제외된 사람이 올렸던 파일을 그대로 받는다', async () => {
     const documents = await documentsService.listForViewer(
       users.retainedLeader.githubId,
@@ -905,7 +827,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
     const own = documents.find((document) => document.id === ownDocumentId);
     expect(own?.viewerSubmission?.hasCurrentFile).toBe(true);
-
     const file = await currentFileService.download(
       users.retainedLeader.githubId,
       milestoneId,
@@ -916,23 +837,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       Buffer.from(`bytes:${prefix}/former-own.pdf`),
     );
   });
-
-  it('기존 목록은 유지하고 전체 항목을 선택한 현재 팀원은 옛 제출 파일도 받는다', async () => {
+  it('현재 팀원은 이관한 항목 목록과 옛 제출 파일을 받는다', async () => {
     const documents = await documentsService.listForViewer(
       users.revertedLeader.githubId,
       milestoneId,
     );
-    expect(documents.map((document) => document.id)).not.toContain(
-      legacyDocumentId,
-    );
-
-    const allDocuments = await documentsService.listForViewer(
-      users.revertedLeader.githubId,
-      milestoneId,
-      new Date(),
-      true,
-    );
-    expect(allDocuments.map((document) => document.id)).toContain(
+    expect(documents.map((document) => document.id)).toContain(
       legacyDocumentId,
     );
     const file = await currentFileService.download(
@@ -944,7 +854,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       Buffer.from(`bytes:${prefix}/reverted-legacy.pdf`),
     );
   });
-
   it('비활성 계정은 팀원이어도 목록도 받기도 닫혀 있다', async () => {
     const documents = await documentsService.listForViewer(
       users.deactivatedMember.githubId,
@@ -953,7 +862,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     expect(
       documents.every((document) => document.viewerSubmission === undefined),
     ).toBe(true);
-
     await expect(
       downloadFails(
         users.deactivatedMember.githubId,
@@ -962,7 +870,6 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       ),
     ).resolves.toEqual(hiddenAsMissing);
   });
-
   it('교직원은 학생 경로로 받지 못한다', async () => {
     const documents = await documentsService.listForViewer(
       users.staff.githubId,
@@ -971,12 +878,10 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     expect(
       documents.every((document) => document.viewerSubmission === undefined),
     ).toBe(true);
-
     await expect(
       downloadFails(users.staff.githubId, milestoneId, ownDocumentId),
     ).resolves.toEqual(hiddenAsMissing);
   });
-
   it.each([
     { hasStaffAccess: true, hasAdminAccess: false },
     { hasStaffAccess: false, hasAdminAccess: true },
@@ -1021,14 +926,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       ).resolves.toEqual(hiddenAsMissing);
     },
   );
-
   it('교직원 전용 경로는 되돌려진 신청의 같은 파일을 그대로 돌려준다', async () => {
     const file = await staffFilesService.downloadSubmissionFile(
       milestoneId,
       ownDocumentId,
       revertedApplicationId,
     );
-
     await expect(buffer(file.body)).resolves.toEqual(
       Buffer.from(`bytes:${ownStorageKey}`),
     );

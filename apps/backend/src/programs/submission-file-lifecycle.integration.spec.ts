@@ -1,7 +1,6 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { DownloadResponseService } from './download-response.service';
-import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   GetObjectCommand,
@@ -10,7 +9,6 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
-  MilestoneDocumentKind,
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
   SubmissionFileLifecycle,
@@ -26,9 +24,7 @@ import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { SubmissionFilesRepository } from './submission-files.repository';
 import { SubmissionFilesService } from './submission-files.service';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-
 const programScheduleService = new ProgramScheduleService();
-
 const REQUIRED_ENV = [
   'DATABASE_URL',
   'SUBMISSION_FILE_S3_ENDPOINT',
@@ -42,21 +38,15 @@ const integrationReady =
   process.env.OSS_HUB_INTEGRATION_RUNNER ===
     'oss-hub-isolated-integration-v1' &&
   REQUIRED_ENV.every((name) => (process.env[name]?.trim().length ?? 0) > 0);
-
 if (integrationReady) {
   assertIsolatedIntegrationDatabase({
     databaseUrl: process.env.DATABASE_URL,
     runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
   });
 }
-
 const describeIntegration = integrationReady ? describe : describe.skip;
 const prisma = new PrismaService();
-const files = new SubmissionFilesRepository(
-  prisma,
-  new PlatformRepository(),
-  new SubmissionsRepository(prisma, new PlatformRepository()),
-);
+const files = new SubmissionFilesRepository(prisma, new PlatformRepository());
 const storageConfig = new ObjectStorageConfig();
 const storage = new S3ObjectStorageClient(storageConfig);
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');
@@ -65,8 +55,7 @@ const MILESTONE_ID = MILESTONE_SCENARIOS['milestones-upcoming'][0];
 const PREFIX = 'integration/submission-file-lifecycle';
 const SUBMISSION_PREFIX = 'integration-submission-file-lifecycle';
 const BASE = new Date('2026-07-25T00:00:00.000Z');
-const HOUR = 60 * 60 * 1_000;
-
+const HOUR = 60 * 60 * 1000;
 function s3Client(): S3Client {
   const settings = storageConfig.requireSettings();
   return new S3Client({
@@ -79,7 +68,6 @@ function s3Client(): S3Client {
     },
   });
 }
-
 async function persistedFootprint() {
   const client = s3Client();
   try {
@@ -98,7 +86,6 @@ async function persistedFootprint() {
     client.destroy();
   }
 }
-
 async function createPending(options: {
   suffix: string;
   pendingExpiresAt?: Date;
@@ -124,9 +111,10 @@ async function createPending(options: {
     },
   });
 }
-async function createSubmissionHistory(
-  suffix: string,
-): Promise<{ submissionId: string; historyId: string }> {
+async function createSubmissionHistory(suffix: string): Promise<{
+  submissionId: string;
+  historyId: string;
+}> {
   const documentId = `${SUBMISSION_PREFIX}-document-${suffix}`;
   const submissionId = `${SUBMISSION_PREFIX}-${suffix}`;
   const historyId = `${SUBMISSION_PREFIX}-history-${suffix}`;
@@ -137,7 +125,6 @@ async function createSubmissionHistory(
       name: `synthetic file ${suffix}`,
       required: true,
       sortOrder: -1,
-      kind: MilestoneDocumentKind.DOCUMENT,
     },
   });
   await prisma.milestoneDocumentSubmission.create({
@@ -162,7 +149,6 @@ async function createSubmissionHistory(
   });
   return { submissionId, historyId };
 }
-
 describeIntegration(
   'submission file lifecycle PostgreSQL + object-storage integration',
   () => {
@@ -170,7 +156,6 @@ describeIntegration(
       await prisma.$connect();
       await runProfile('milestones', new SeedStats());
     });
-
     afterEach(async () => {
       const rows = await prisma.submissionFile.findMany({
         where: { storageKey: { startsWith: PREFIX } },
@@ -192,22 +177,18 @@ describeIntegration(
         where: { id: { startsWith: `${SUBMISSION_PREFIX}-document-` } },
       });
     });
-
     afterAll(async () => {
       await prisma.$disconnect();
     });
-
     it('performs a real PUT and idempotent delete against object-storage', async () => {
       const objectKey = `${PREFIX}/put-delete`;
       const body = Buffer.from('%PDF-synthetic');
-
       await storage.put({
         body,
         contentType: 'application/pdf',
         originalName: 'synthetic.pdf',
         objectKey,
       });
-
       const client = s3Client();
       const settings = storageConfig.requireSettings();
       const fetched = await client.send(
@@ -216,7 +197,6 @@ describeIntegration(
       await expect(fetched.Body?.transformToByteArray()).resolves.toEqual(
         Uint8Array.from(body),
       );
-
       await expect(storage.delete(objectKey)).resolves.toBeUndefined();
       await expect(storage.delete(objectKey)).resolves.toBeUndefined();
       await expect(
@@ -226,7 +206,6 @@ describeIntegration(
       ).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
       client.destroy();
     });
-
     it('moves expired ATTACHED through DELETE_PENDING to DELETED with the real object removed', async () => {
       const row = await createPending({
         suffix: 'full-lifecycle',
@@ -248,17 +227,15 @@ describeIntegration(
           milestoneDocumentSubmissionHistoryId: submission.historyId,
         },
       });
-
       const claimed = await files.claimNextForDeletion({
         now: BASE,
-        leaseExpiresAt: new Date(BASE.getTime() + 10 * 60_000),
+        leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
       });
       expect(claimed).toMatchObject({ id: row.id, storageKey: row.storageKey });
       await storage.delete(row.storageKey);
       await expect(
         files.markDeleted(row.id, claimed!.claimOwner, BASE),
       ).resolves.toBe(true);
-
       await expect(
         prisma.submissionFile.findUniqueOrThrow({ where: { id: row.id } }),
       ).resolves.toMatchObject({
@@ -277,7 +254,6 @@ describeIntegration(
       ).rejects.toMatchObject({ $metadata: { httpStatusCode: 404 } });
       client.destroy();
     });
-
     it('preserves an ATTACHED revision file until retention expiry', async () => {
       const row = await createPending({
         suffix: 'referenced-attached-retained',
@@ -295,36 +271,31 @@ describeIntegration(
           milestoneDocumentSubmissionHistoryId: submission.historyId,
         },
       });
-
       await expect(
         files.claimNextForDeletion({
           now: BASE,
-          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60_000),
+          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
         }),
       ).resolves.toBeNull();
     });
-
     it('uses PostgreSQL SKIP LOCKED so two workers cannot claim the same file', async () => {
       const row = await createPending({
         suffix: 'exclusive-claim',
         pendingExpiresAt: new Date(BASE.getTime() - HOUR),
       });
-
       const claims = await Promise.all([
         files.claimNextForDeletion({
           now: BASE,
-          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60_000),
+          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
         }),
         files.claimNextForDeletion({
           now: BASE,
-          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60_000),
+          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
         }),
       ]);
-
       expect(claims.filter((claim) => claim?.id === row.id)).toHaveLength(1);
       expect(claims.filter((claim) => claim === null)).toHaveLength(1);
     });
-
     it('allows expired lease takeover and rejects completion or failure from the stale owner', async () => {
       const row = await createPending({
         suffix: 'lease-takeover',
@@ -332,14 +303,13 @@ describeIntegration(
       });
       const first = await files.claimNextForDeletion({
         now: BASE,
-        leaseExpiresAt: new Date(BASE.getTime() + 10 * 60_000),
+        leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
       });
-      const takeoverAt = new Date(BASE.getTime() + 11 * 60_000);
+      const takeoverAt = new Date(BASE.getTime() + 11 * 60000);
       const second = await files.claimNextForDeletion({
         now: takeoverAt,
-        leaseExpiresAt: new Date(takeoverAt.getTime() + 10 * 60_000),
+        leaseExpiresAt: new Date(takeoverAt.getTime() + 10 * 60000),
       });
-
       expect(second?.id).toBe(row.id);
       expect(second?.claimOwner).not.toBe(first?.claimOwner);
       await expect(
@@ -358,7 +328,6 @@ describeIntegration(
         files.markDeleted(row.id, second!.claimOwner, takeoverAt),
       ).resolves.toBe(true);
     });
-
     it('persists retry backoff, exhaustion, and operator reset in PostgreSQL', async () => {
       const row = await createPending({
         suffix: 'retry-reset',
@@ -366,11 +335,10 @@ describeIntegration(
       });
       const delays = [1, 2, 4, 8, 24] as const;
       let now = BASE;
-
       for (let prior = 0; prior < 6; prior += 1) {
         const claim = await files.claimNextForDeletion({
           now,
-          leaseExpiresAt: new Date(now.getTime() + 10 * 60_000),
+          leaseExpiresAt: new Date(now.getTime() + 10 * 60000),
         });
         expect(claim).toMatchObject({ id: row.id, deleteAttemptCount: prior });
         const nextAttemptAt =
@@ -388,16 +356,12 @@ describeIntegration(
         ).resolves.toBe(true);
         if (nextAttemptAt !== null) now = nextAttemptAt;
       }
-
       await expect(
         files.claimNextForDeletion({
           now: new Date(now.getTime() + 30 * 24 * HOUR),
-          leaseExpiresAt: new Date(
-            now.getTime() + 30 * 24 * HOUR + 10 * 60_000,
-          ),
+          leaseExpiresAt: new Date(now.getTime() + 30 * 24 * HOUR + 10 * 60000),
         }),
       ).resolves.toBeNull();
-
       const exhausted = (await files.findExhaustedCleanups()).find(
         (entry) => entry.id === row.id,
       );
@@ -405,19 +369,16 @@ describeIntegration(
         deleteAttemptCount: 6,
         lastDeleteError: 'STORAGE_DELETE_FAILED',
       });
-
       expect(Object.keys(exhausted!).sort()).toEqual([
         'createdAt',
         'deleteAttemptCount',
         'id',
         'lastDeleteError',
       ]);
-
       const resetAt = new Date(now.getTime() + HOUR);
       await expect(files.resetDeleteAttempts(row.id, resetAt)).resolves.toBe(
         true,
       );
-
       await expect(
         files
           .findExhaustedCleanups()
@@ -426,11 +387,10 @@ describeIntegration(
       await expect(
         files.claimNextForDeletion({
           now: resetAt,
-          leaseExpiresAt: new Date(resetAt.getTime() + 10 * 60_000),
+          leaseExpiresAt: new Date(resetAt.getTime() + 10 * 60000),
         }),
       ).resolves.toMatchObject({ id: row.id, deleteAttemptCount: 0 });
     });
-
     it('serializes attach versus expiry so exactly one transition wins', async () => {
       const row = await createPending({
         suffix: 'attach-expiry-race',
@@ -438,7 +398,6 @@ describeIntegration(
         expiresAt: programScheduleService.addOneCalendarYear(BASE),
       });
       const submission = await createSubmissionHistory('attach-expiry-race');
-
       const [attached, claimed] = await Promise.all([
         prisma.submissionFile.updateMany({
           where: {
@@ -455,13 +414,12 @@ describeIntegration(
         }),
         files.claimNextForDeletion({
           now: BASE,
-          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60_000),
+          leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
         }),
       ]);
       const persisted = await prisma.submissionFile.findUniqueOrThrow({
         where: { id: row.id },
       });
-
       expect(
         Number(attached.count === 1) + Number(claimed?.id === row.id),
       ).toBe(1);
@@ -471,7 +429,6 @@ describeIntegration(
           : SubmissionFileLifecycle.DELETE_PENDING,
       );
     });
-
     it('저장된 zip MIME이 브라우저 별칭이어도 내려주기는 확장자의 정규 타입이다', async () => {
       const archive = signatureValidZip([{ name: 'plan.pdf' }]);
       const row = await createPending({
@@ -496,7 +453,6 @@ describeIntegration(
           milestoneDocumentSubmissionHistoryId: submission.historyId,
         },
       });
-
       const filesService = new SubmissionFilesService(
         files,
         storage,
@@ -509,14 +465,12 @@ describeIntegration(
         row.id,
         BASE,
       );
-
       expect(downloaded).toMatchObject({
         fileName: 'archive.zip',
         contentType: 'application/zip',
         contentLength: archive.byteLength,
       });
     });
-
     it('판정만 하는 요청은 제출과 같은 코드로 거절하고 행·감사·아웃박스·객체를 남기지 않는다', async () => {
       const filesService = new SubmissionFilesService(
         files,
@@ -546,17 +500,8 @@ describeIntegration(
         [signatureValidZip([{ name: 'inner.zip' }]), 'SUB_027'],
       ] as const;
       const before = await persistedFootprint();
-
       for (const [archive, code] of rejected) {
         const expected = { errorCode: { code, status: 422 } };
-        await expect(
-          filesService.upload(
-            seedGithubId(USER_ID),
-            APPLICATION_ID,
-            MILESTONE_ID,
-            zipUpload(archive),
-          ),
-        ).rejects.toMatchObject(expected);
         await expect(
           filesService.check(zipUpload(archive)),
         ).rejects.toMatchObject(expected);
@@ -566,7 +511,6 @@ describeIntegration(
           zipUpload(signatureValidZip([{ name: 'plan.txt' }])),
         ),
       ).resolves.toBeUndefined();
-
       await expect(persistedFootprint()).resolves.toEqual(before);
     });
   },

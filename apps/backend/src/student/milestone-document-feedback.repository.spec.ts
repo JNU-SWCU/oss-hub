@@ -48,7 +48,6 @@ describe('MilestoneDocumentFeedbackRepository', () => {
             applicationId: 'application-1',
             milestoneDocument: {
               name: '합성 계획서',
-              kind: MilestoneDocumentKind.DOCUMENT,
               milestone: {
                 id: 'milestone-1',
                 name: '중간 보고',

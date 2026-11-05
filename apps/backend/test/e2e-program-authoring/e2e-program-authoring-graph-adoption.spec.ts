@@ -87,7 +87,6 @@ function authoredCandidate(): PersistedAuthoredCandidate {
     milestones: plan.milestones.map((milestone, milestoneIndex) => ({
       id: `milestone-${milestoneIndex}`,
       name: milestone.name,
-      submissionType: milestone.submissionType,
       documents: milestone.documents.map((document, documentIndex) => ({
         id: `document-${milestoneIndex}-${documentIndex}`,
         name: document.name,

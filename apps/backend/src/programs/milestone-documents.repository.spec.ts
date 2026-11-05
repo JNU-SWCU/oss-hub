@@ -1,6 +1,6 @@
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentSubmissionRepository } from './submissions.repository';
+import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
@@ -179,7 +179,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -255,7 +255,7 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -264,7 +264,6 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
     expect(findMany).toHaveBeenCalledWith({
       where: {
         milestoneId: syntheticMilestoneId,
-        kind: MilestoneDocumentKind.DOCUMENT,
       },
       orderBy: { sortOrder: 'asc' },
       select: {
@@ -295,7 +294,7 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -316,7 +315,7 @@ describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -343,7 +342,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -364,7 +363,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -390,7 +389,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -410,7 +409,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -481,7 +480,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -495,7 +494,6 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
     expect(aggregate).toHaveBeenCalledWith({
       where: {
         milestoneId: syntheticMilestoneId,
-        kind: MilestoneDocumentKind.DOCUMENT,
       },
       _max: { sortOrder: true },
     });
@@ -506,7 +504,6 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
           name: '새 서류',
           required: true,
           sortOrder: 3,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
       }),
     );
@@ -521,7 +518,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -539,7 +536,6 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
           name: '첫 서류',
           required: false,
           sortOrder: 1,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
       }),
     );
@@ -552,7 +548,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -566,7 +562,6 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
     expect(documentDelete).toHaveBeenCalledWith({
       where: {
         id: syntheticDocumentId,
-        kind: MilestoneDocumentKind.DOCUMENT,
       },
     });
     expect(direct.deleteMany).not.toHaveBeenCalled();
@@ -579,7 +574,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -672,7 +667,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -701,7 +696,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -739,7 +734,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -777,7 +772,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -833,7 +828,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -868,7 +863,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -914,7 +909,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -951,7 +946,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -978,7 +973,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1024,7 +1019,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
@@ -1072,7 +1067,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1102,7 +1097,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1129,7 +1124,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1152,7 +1147,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1178,7 +1173,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
@@ -1212,7 +1207,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1249,7 +1244,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1273,7 +1268,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1323,7 +1318,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findUnique },
       } as unknown as PrismaService),
@@ -1379,7 +1374,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findUnique },
       } as unknown as PrismaService),
@@ -1483,7 +1478,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1539,7 +1534,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1559,7 +1554,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1584,7 +1579,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1602,7 +1597,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
@@ -1656,7 +1651,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1728,7 +1723,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1754,7 +1749,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1772,7 +1767,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
     const uploadedAt = new Date('2026-09-01T00:00:00.000Z');
@@ -1831,7 +1826,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1864,7 +1859,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1891,7 +1886,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1914,7 +1909,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -1949,7 +1944,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2007,7 +2002,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findMany },
       } as unknown as PrismaService),
@@ -2039,7 +2034,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2072,7 +2067,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2111,7 +2106,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2166,7 +2161,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2220,7 +2215,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2246,7 +2241,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2276,7 +2271,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2314,7 +2309,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2369,7 +2364,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findMany },
       } as unknown as PrismaService),
@@ -2393,7 +2388,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2445,7 +2440,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findMany },
       } as unknown as PrismaService),
@@ -2480,7 +2475,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2506,7 +2501,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2563,7 +2558,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2610,7 +2605,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2641,7 +2636,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findMany },
       } as unknown as PrismaService),
@@ -2663,7 +2658,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2701,7 +2696,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findMany },
       } as unknown as PrismaService),
@@ -2750,7 +2745,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findMany },
       } as unknown as PrismaService),
@@ -2784,7 +2779,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2819,7 +2814,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2839,7 +2834,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2861,7 +2856,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2895,7 +2890,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -2957,7 +2952,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository({
         milestoneDocumentSubmission: { findUnique },
       } as unknown as PrismaService),
@@ -2984,7 +2979,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -3006,7 +3001,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -3151,7 +3146,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -3184,7 +3179,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -3210,7 +3205,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -3227,7 +3222,6 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         where: {
           id: firstId,
           milestoneId: syntheticMilestoneId,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
         data: { sortOrder: 1 },
         select: { id: true },
@@ -3236,7 +3230,6 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         where: {
           id: secondId,
           milestoneId: syntheticMilestoneId,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
         data: { sortOrder: 2 },
         select: { id: true },
@@ -3245,7 +3238,6 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         where: {
           id: thirdId,
           milestoneId: syntheticMilestoneId,
-          kind: MilestoneDocumentKind.DOCUMENT,
         },
         data: { sortOrder: 3 },
         select: { id: true },
@@ -3259,7 +3251,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
@@ -3300,7 +3292,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
     await expect(
@@ -3417,7 +3409,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
       prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new MilestoneDocumentSubmissionRepository(new PlatformRepository()),
+      new SubmissionsRepository(new PlatformRepository()),
       new MilestoneDocumentCollectionReadRepository(prisma),
     );
 
