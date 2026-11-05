@@ -1,7 +1,7 @@
 # Todo 6 File 전환 검증
 
 구현 시작 기준 main: `1d8e9259ff4afc95cd4fc97a401f639dd3de16de`.
-이 브랜치는 Todo 9 PR #1752 위에 쌓여 있고 그 PR이 먼저 머지되어야 한다.
+이 브랜치는 Todo 9 PR #1754 위에 쌓여 있다. #1752와 #1753은 main에 들어가 운영에 배포되었다.
 첫 릴리스는 File 생성·복사·대조·코드 전환이다. 옛 테이블 삭제와
 kind × lifecycle CHECK는 다음 릴리스의 draft PR에 둔다. 소유자가 정한 묶음에서 이 단계는
 #1754, Todo 10 1단계와 같은 릴리스이고, 2단계는 Todo 10 2단계와 함께 그다음 릴리스다.
@@ -90,8 +90,10 @@ FINAL_STATIC_EXIT=0
 
 ## 최종 head 전체 검증
 
-대상 코드 head는 1단계 `86d085829`, 팀 브랜치 `84b295d04`다. 이 뒤의 커밋은 문서만 바꾼다.
-`CI=true`로 `.github/workflows/ci.yml`의 잡을 로컬에서 재현했다. GitHub CI 결과를 근거로 삼지 않았다.
+대상 코드 head는 1단계 `793dc610e`이다. #1754 `4e67914d4`와 main `2039af172`를 포함한다. 이 뒤의 커밋은 문서만 바꾼다.
+`CI=true`로 `.github/workflows/ci.yml`의 잡을 `7f2341166`에서 로컬로 재현했다. GitHub CI 결과를 근거로 삼지 않았다.
+`7f2341166`에서 `793dc610e`까지 바뀐 것은 통합 테스트 fixture와 #1754 문서뿐이다. #1754 `4e67914d4`가 팀 fixture 두 개와 문서를 고쳤고, `793dc610e`는 기준선 통합 스펙이 끝날 때 자기 파일 행을 지운다. 그래서 통합 테스트는 `793dc610e`에서 다시 돌렸다.
+`7f2341166`의 통합 실행은 두 원인으로 실패했다. 하나는 #1754의 팀 fixture 두 개다. 다른 하나는 순서에 따라 생긴다. 기준선 스펙이 먼저 돌면 그 스펙이 남긴 만료 SUBMISSION 파일을 마일스톤 aggregate 스펙의 정리 claim이 가져가, 그 스펙의 경쟁 테스트 두 개가 실패했다. 다시 돌릴 때는 기준선 스펙이 먼저 돌도록 순서를 맞췄다.
 
 | 명령 | 결과 |
 | --- | --- |
@@ -115,7 +117,7 @@ FINAL_STATIC_EXIT=0
 | `node --test .design-sync/contract.test.mjs` | exit 0 · ℹ pass 7 / ℹ fail 0 |
 | `pnpm --filter frontend lint` | exit 0 |
 | `pnpm --filter frontend typecheck` | exit 0 |
-| `pnpm --filter frontend test --maxWorkers=2` | exit 0 · Test Files 440 passed (440) / Tests 4739 passed (4739) |
+| `pnpm --filter frontend test --maxWorkers=2` | exit 0 · Test Files 440 passed (440) / Tests 4764 passed (4764) |
 | `pnpm --filter frontend build` | exit 0 |
 | `pnpm --filter backend lint` | exit 0 |
 | `pnpm --filter backend typecheck` | exit 0 |
@@ -128,7 +130,7 @@ FINAL_STATIC_EXIT=0
 | `bash .github/check-public-safe.test.sh` | exit 0 |
 | `gitleaks git --log-opts=<base>..HEAD` | exit 0 · no leaks found |
 | `bash .github/check-public-safe.sh <base>` | exit 0 |
-| `pnpm --filter backend test:integration` | exit 0 · Test Suites: 156 passed, 156 total / Tests: 1237 passed, 1237 total |
+| `pnpm --filter backend test:integration` (`793dc610e`) | exit 0 · Test Suites: 157 passed, 157 total / Tests: 1249 passed, 1249 total |
 | `pnpm --filter frontend e2e` (`program-edit-purge-network`) | exit 0 · 9 passed |
 
 앞선 실패 16건은 모두 팀 브랜치에서 온 것이었다. 같은 팀 head에서 Todo 9 레인의 실패 이름과 대조해
@@ -147,7 +149,7 @@ FINAL_STATIC_EXIT=0
 
 ## 운영 데이터와 남은 게이트
 
-리허설은 [서버 리허설](task-6-server-rehearsal.md)에 있다. 현재 SQL은 로컬 합성 데이터로만
+리허설은 [서버 리허설](task-6-server-rehearsal.md)에 있다. 현재 SQL은 #1754 다음 순서로 로컬 합성 데이터에서
 리허설했고, 운영 덤프 리허설의 해시는 옛 SQL이다. 배포 전에 현재 SQL로 다시 실행해야 한다.
 파일별 삭제·병합 상태와 208 → 194개 제품 파일 수는 [파일 원장](file-ledger.md)에 기록했다.
 

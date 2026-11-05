@@ -297,6 +297,7 @@ beforeAll(async () => {
 }, 60_000);
 
 afterAll(async () => {
+  await prisma.file.deleteMany({ where: { id: { startsWith: prefix } } });
   await prisma.$disconnect();
 });
 
