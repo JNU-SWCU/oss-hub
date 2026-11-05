@@ -347,7 +347,6 @@ async function seedFullChildGraph(
   const leaderId = p('leader');
   const staffId = p('staff-reviewer');
   const teamId = p('team');
-  const publishedApplicationId = p('published-application');
   const documentId = p('document');
   const documentSubmissionId = p('document-submission');
   const documentSubmissionHistoryId = p('document-submission-history');
@@ -641,7 +640,7 @@ async function seedFullChildGraph(
   await prisma.githubRepository.create({
     data: {
       id: publishedRepositoryId,
-      teamId: publishedApplicationId,
+      teamId: p('published-team'),
       githubRepositoryId: publishedGithubRepositoryId,
       nameWithOwner: `purge7-org/${label}-published`,
       source: RepositorySource.ORG_PROVISIONED,
@@ -1396,7 +1395,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(provisionedRepositories).toHaveLength(1);
     expect(provisionedRepositories[0]).toMatchObject({
-      programId: fixture.programId,
       teamId: fixture.teamId,
       source: RepositorySource.ORG_PROVISIONED,
     });
@@ -1452,7 +1450,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         teams: 0,
         boardPosts: 0,
         submissions: 0,
-        files: 1,
+        files: 4,
       },
     });
     await expect(
@@ -1551,7 +1549,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toMatchObject({
       id: fixture.programId,
       deleted: true,
-      deletedCounts: { files: 1 },
+      deletedCounts: { files: 4 },
     });
     await expect(
       prisma.file.findUnique({
@@ -1709,7 +1707,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },
     });
-    expect(externalRepository?.teamId).toBe(fixture.teamId);
+    expect(externalRepository).toMatchObject({
+      teamId: null,
+      source: RepositorySource.EXTERNAL_PUBLIC,
+    });
   });
   it('전체 삭제는 프로그램 상태만 DELETED로 바꾼다', async () => {
     const fixture = await seedFullChildGraph('unprotected');
@@ -1996,6 +1997,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       if (scopeField === 'boardPosts') {
         expectedAfter.boardPosts = before.boardPosts + 1;
       } else if (scopeField === 'teams') {
+        expectedAfter.applications = before.applications + 1;
         expectedAfter.teams = before.teams + 1;
       } else if (scopeField === 'applications') {
         expectedAfter.applications = before.applications + 1;
