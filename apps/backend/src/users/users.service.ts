@@ -106,7 +106,7 @@ export class UsersService {
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly userProfileService: UserProfileService,
   ) {}
@@ -332,7 +332,7 @@ export class UsersService {
     store,
     change,
   ) => {
-    await this.auditLog.record(
+    await this.userHistory.record(
       {
         actorGithubId: change.user.githubId,
         action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
@@ -364,7 +364,7 @@ export class UsersService {
     store,
     change,
   ) => {
-    await this.auditLog.record(
+    await this.userHistory.record(
       {
         actorGithubId: change.user.githubId,
         action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,

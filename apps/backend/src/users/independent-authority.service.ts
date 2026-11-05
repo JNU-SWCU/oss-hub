@@ -77,7 +77,7 @@ export class IndependentAuthorityService {
     @Inject(IndependentAuthorityRepository)
     private readonly repository: IndependentAuthorityRepositoryPort,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly adminAccessMutationService: AdminAccessMutationService,
     private readonly userProfileService: UserProfileService,
@@ -211,7 +211,7 @@ export class IndependentAuthorityService {
           decidedAt: new Date(),
         });
       }
-      await this.auditLog.record(
+      await this.userHistory.record(
         this.createIndependentAuthorityAudit({
           actorGithubId,
           actor,

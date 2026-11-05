@@ -59,7 +59,7 @@ export class AdminAccessService {
     @Inject(AdminAccessRepository)
     private readonly repository: AdminAccessRepositoryPort,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
 
@@ -229,7 +229,7 @@ export class AdminAccessService {
     command: AdminAccessMutationCommand,
   ): Promise<AdminAccessMutationResult> {
     return this.adminAccessMutationService.mutateAdminAccess(
-      { repository: this.repository, auditLog: this.auditLog },
+      { repository: this.repository, userHistory: this.userHistory },
       { actorGithubId, userId, command },
     );
   }

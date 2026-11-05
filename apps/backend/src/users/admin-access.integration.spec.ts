@@ -32,10 +32,10 @@ const repository = new AdminAccessRepository(
   new AdminRepository(prisma),
   new UserTransitionRepository(),
 );
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 const service = new AdminAccessService(
   repository,
-  auditLog,
+  userHistory,
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
@@ -83,7 +83,7 @@ describe('Admin access real PostgreSQL transactions', () => {
           new AdminRepository(prisma),
         ),
       ),
-      auditLog,
+      userHistory,
       new AuditLogMetadataService(),
       new AdminAccessMutationService(
         new AuditLogMetadataService(),

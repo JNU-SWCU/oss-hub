@@ -25,7 +25,7 @@ export class MemberRegistrationResetService {
     @Inject(MemberRegistrationResetRepository)
     private readonly repository: MemberRegistrationResetPort,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
     private readonly metadata: AuditLogMetadataService,
     private readonly profiles: UserProfileService,
     private readonly mutations: AdminAccessMutationService,
@@ -106,7 +106,7 @@ export class MemberRegistrationResetService {
         role: null,
         accountStatus: target.accountStatus,
       };
-      await this.auditLog.record(
+      await this.userHistory.record(
         {
           actorGithubId,
           action: INDEPENDENT_AUTHORITY_AUDIT_ACTIONS.RESET_MEMBER_KIND,

@@ -38,7 +38,7 @@ const TEST_PREFIX = 'test:687:admin-actor-toctou:';
 const BLOCKING_OBSERVATION_TIMEOUT_MS = 20000;
 const GITHUB_ID_BASE = 9006871000n;
 const prisma = new PrismaService();
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 let sequence = 0;
 beforeAll(async () => {
   await prisma.$connect();
@@ -64,7 +64,7 @@ it(
         ),
         new UserTransitionRepository(),
       ),
-      auditLog,
+      userHistory,
       new AdminAccessMutationService(
         new AuditLogMetadataService(),
         new UserProfileService(),
@@ -131,7 +131,7 @@ it(
           await releaseMutation.promise;
         },
       ),
-      auditLog,
+      userHistory,
       new AdminAccessMutationService(
         new AuditLogMetadataService(),
         new UserProfileService(),
@@ -201,7 +201,7 @@ it(
           await releaseMutation.promise;
         },
       ),
-      auditLog,
+      userHistory,
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
         new UserProfileService(),
@@ -275,7 +275,7 @@ it(
         new PrismaSerializationRetryRepository(),
         new UserTransitionRepository(),
       ),
-      auditLog,
+      userHistory,
       new AdminProfileMutationService(
         new AuditLogMetadataService(),
         new UserProfileService(),

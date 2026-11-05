@@ -148,12 +148,15 @@ function buildService(
     fillStudentId,
     updateProfileFields,
   };
-  const auditLog = { record } satisfies Pick<UserHistoryRepository, 'record'>;
+  const userHistory = { record } satisfies Pick<
+    UserHistoryRepository,
+    'record'
+  >;
   return {
     service: new UsersService(
       repository,
       { requireCurrent },
-      auditLog,
+      userHistory,
       new AuditLogMetadataService(),
       new UserProfileService(),
     ),

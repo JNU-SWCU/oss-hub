@@ -485,7 +485,7 @@ function assertNeverForAdminAccessMutation(value: never): never {
 
 type MutationDependencies = {
   readonly repository: AdminAccessRepositoryPort;
-  readonly auditLog: Pick<UserHistoryRepository, 'record'>;
+  readonly userHistory: Pick<UserHistoryRepository, 'record'>;
 };
 
 type MutationInput = {
@@ -634,7 +634,7 @@ export class AdminAccessMutationService {
           result,
           requestEffect: transition.outcome.requestEffect,
         });
-        await dependencies.auditLog.record(
+        await dependencies.userHistory.record(
           {
             actorGithubId: input.actorGithubId,
             action: audit.action,

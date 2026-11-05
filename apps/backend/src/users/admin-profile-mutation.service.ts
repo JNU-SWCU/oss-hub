@@ -80,7 +80,7 @@ function diffAdminProfileFields(
 
 type MutationDependencies = {
   readonly repository: AdminProfileRepositoryPort;
-  readonly auditLog: Pick<UserHistoryRepository, 'record'>;
+  readonly userHistory: Pick<UserHistoryRepository, 'record'>;
 };
 
 type MutationInput = {
@@ -216,7 +216,7 @@ export class AdminProfileMutationService {
         after,
       });
       if (audit) {
-        await dependencies.auditLog.record(
+        await dependencies.userHistory.record(
           {
             actorGithubId: input.actorGithubId,
             action: audit.action,

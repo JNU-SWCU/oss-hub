@@ -30,7 +30,7 @@ describe('mutateAdminUserProfile', () => {
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog: audit.service },
+      { repository, userHistory: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
         userId: 'target',
@@ -89,7 +89,7 @@ describe('mutateAdminUserProfile', () => {
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog: audit.service },
+        { repository, userHistory: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
           userId: 'target',
@@ -121,7 +121,7 @@ describe('mutateAdminUserProfile', () => {
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog: audit.service },
+        { repository, userHistory: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
           userId: 'target',
@@ -151,7 +151,7 @@ describe('mutateAdminUserProfile', () => {
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog: audit.service },
+        { repository, userHistory: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
           userId: 'target',
@@ -179,7 +179,7 @@ describe('mutateAdminUserProfile', () => {
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog: audit.service },
+        { repository, userHistory: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
           userId: 'target',
@@ -209,7 +209,7 @@ describe('mutateAdminUserProfile', () => {
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog: audit.service },
+      { repository, userHistory: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
         userId: 'target',
@@ -245,7 +245,7 @@ describe('mutateAdminUserProfile', () => {
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog: audit.service },
+      { repository, userHistory: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
         userId: 'target',
@@ -280,7 +280,7 @@ describe('mutateAdminUserProfile', () => {
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog: audit.service },
+      { repository, userHistory: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
         userId: 'target',
@@ -308,7 +308,7 @@ describe('mutateAdminUserProfile', () => {
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog: audit.service },
+      { repository, userHistory: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
         userId: 'target',
@@ -341,7 +341,7 @@ describe('mutateAdminUserProfile', () => {
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog: audit.service },
+      { repository, userHistory: audit.service },
       {
         actorGithubId: ACTOR_GITHUB_ID,
         userId: 'target',
@@ -371,7 +371,7 @@ describe('mutateAdminUserProfile', () => {
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog: audit.service },
+        { repository, userHistory: audit.service },
         {
           actorGithubId: ACTOR_GITHUB_ID,
           userId: 'missing',

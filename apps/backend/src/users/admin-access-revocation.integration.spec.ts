@@ -44,10 +44,10 @@ const repository = new AdminAccessRepository(
   new AdminRepository(prisma),
   new UserTransitionRepository(),
 );
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 const service = new AdminAccessService(
   repository,
-  auditLog,
+  userHistory,
   new AdminAccessMutationService(
     new AuditLogMetadataService(),
     new UserProfileService(),
@@ -236,7 +236,7 @@ it('REVOKED 행 삽입 직후 실패하면 역할 CAS까지 함께 되돌아간�
     new PausingRevocationAdminAccessRepository(repository, () =>
       Promise.reject(new Error('synthetic-revocation-failure')),
     ),
-    auditLog,
+    userHistory,
     new AdminAccessMutationService(
       new AuditLogMetadataService(),
       new UserProfileService(),
@@ -337,7 +337,7 @@ it('회수가 커밋되기 직전에 로그인이 끼어들어도 시드가 권�
         await releaseRevocation.promise;
       },
     ),
-    auditLog,
+    userHistory,
     new AdminAccessMutationService(
       new AuditLogMetadataService(),
       new UserProfileService(),

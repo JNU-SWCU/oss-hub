@@ -61,7 +61,7 @@ function buildService(
   const fillStudentId = jest
     .fn()
     .mockResolvedValue(overrides.studentIdFill ?? 'filled');
-  const auditLog = { record: jest.fn() };
+  const userHistory = { record: jest.fn() };
   const repository: UsersRepositoryPort = {
     findByGithubId,
     completeProfileIfUnchanged,
@@ -72,7 +72,7 @@ function buildService(
     service: new UsersService(
       repository,
       { requireCurrent },
-      auditLog,
+      userHistory,
       new AuditLogMetadataService(),
       new UserProfileService(),
     ),

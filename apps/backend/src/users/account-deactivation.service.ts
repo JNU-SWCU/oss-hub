@@ -30,7 +30,7 @@ export class AccountDeactivationService {
     @Inject(AccountDeactivationRepository)
     private readonly repository: AccountDeactivationRepositoryPort,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
     private readonly auditLogMetadataService: AuditLogMetadataService,
     private readonly userProfileService: UserProfileService,
     private readonly authConfig: AuthConfig,
@@ -89,7 +89,7 @@ export class AccountDeactivationService {
           name: account.displayName,
         }),
       });
-      await this.auditLog.record(
+      await this.userHistory.record(
         {
           actorGithubId: githubId,
           action: ACCESS_AUDIT_ACTIONS.ACCOUNT_STATUS_CHANGED,

@@ -41,7 +41,7 @@ const repository = new AdminProfileRepository(
   new PrismaSerializationRetryRepository(),
   new UserTransitionRepository(),
 );
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 let sequence = 0;
 async function createTargetUser(): Promise<string> {
   sequence += 1;
@@ -121,7 +121,7 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog },
+      { repository, userHistory },
       {
         actorGithubId: actor.githubId,
         userId,
@@ -177,7 +177,7 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog },
+        { repository, userHistory },
         {
           actorGithubId: actorA.githubId,
           userId,
@@ -192,7 +192,7 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog },
+        { repository, userHistory },
         {
           actorGithubId: actorB.githubId,
           userId,

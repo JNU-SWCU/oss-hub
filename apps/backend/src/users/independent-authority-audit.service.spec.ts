@@ -106,10 +106,13 @@ it.each([
         store.events.push('audit');
         return Promise.resolve();
       });
-    const auditLog = { record } satisfies Pick<UserHistoryRepository, 'record'>;
+    const userHistory = { record } satisfies Pick<
+      UserHistoryRepository,
+      'record'
+    >;
     const service = new IndependentAuthorityService(
       store,
-      auditLog,
+      userHistory,
       new AuditLogMetadataService(),
       new AdminAccessMutationService(
         new AuditLogMetadataService(),
