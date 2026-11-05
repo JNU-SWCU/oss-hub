@@ -132,7 +132,7 @@ function ApplicationTeamDepartureInstance({
       </div>
       {confirming ? (
         <ApplicationActionDialog
-          title={`${team.name} ${label}`}
+          title={deletesTeam ? `${team.name} 삭제` : `${team.name}에서 탈퇴`}
           description={description}
           confirmLabel={label}
           destructive

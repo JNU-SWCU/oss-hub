@@ -420,6 +420,44 @@ describe('ProgramMyTeamPage 신청 상태', () => {
     expect(getTeamActivity).not.toHaveBeenCalled();
   });
 
+  it('반려된 팀의 팀장은 사유 옆에서 신청서 수정 화면으로 간다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'REJECTED' });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'REJECTED',
+      rejectionReason: '팀 최소 인원을 채우지 못했습니다.',
+      canManage: true,
+    });
+    await renderPage();
+    expect(host.textContent).toContain('팀 최소 인원을 채우지 못했습니다.');
+    expect(applyLink()?.textContent).toBe('신청서 확인·수정');
+  });
+
+  it('반려된 팀의 일반 구성원에게는 신청서 수정 입구를 내지 않는다', async () => {
+    vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'REJECTED' });
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      status: 'REJECTED',
+      rejectionReason: '팀 최소 인원을 채우지 못했습니다.',
+      canManage: false,
+    });
+    await renderPage();
+    expect(host.textContent).toContain('팀 최소 인원을 채우지 못했습니다.');
+    expect(applyLink()).toBeNull();
+  });
+
+  it('제목 답변이 없는 신청서는 제출일 앞에 구분점을 남기지 않는다', async () => {
+    vi.mocked(getMyApplication).mockResolvedValue({
+      ...application,
+      answers: { ...application.answers, title: '' },
+    });
+    await renderPage();
+    const description = stageCard().querySelector(
+      '[data-slot="card-description"]',
+    );
+    expect(description?.textContent).toMatch(/^\d{4}년 .* 제출$/);
+  });
+
   it('신청서가 있다는 팀의 빈 신청 조회를 「신청 없음」으로 접지 않는다', async () => {
     vi.mocked(getMyTeam).mockResolvedValue({ ...team, status: 'SUBMITTED' });
 
