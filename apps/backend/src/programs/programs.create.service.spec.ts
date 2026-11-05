@@ -7,7 +7,7 @@ import {
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
-import type { ProgramHistoryRepository } from './program-history.repository';
+import type { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';

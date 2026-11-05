@@ -53,7 +53,7 @@ import {
   ProgramNoticeFetchClient,
   type ProgramNoticePreview,
 } from './program-notice-fetch.client';
-import { ProgramHistoryRepository } from './program-history.repository';
+import { ProgramHistoryRepository } from './programs.repository';
 import {} from '../platform/audit-log-metadata.config';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import {

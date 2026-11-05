@@ -24,7 +24,7 @@ import {
   ProgramsRepository,
 } from './programs.repository';
 import { TeamHistoryRepository } from './team-history.repository';
-import { ProgramHistoryRepository } from './program-history.repository';
+import { ProgramHistoryRepository } from './programs.repository';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';

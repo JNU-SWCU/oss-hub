@@ -54,7 +54,7 @@ const SOURCE_STRUCTURE = `
   CREATE TABLE "User" (id TEXT PRIMARY KEY, login TEXT NOT NULL);
   CREATE TABLE "Program" (id TEXT PRIMARY KEY, name TEXT NOT NULL);
   CREATE TABLE "Team" (id TEXT PRIMARY KEY, "programId" TEXT NOT NULL, name TEXT NOT NULL);
-  CREATE TABLE "GithubRepository" (id TEXT PRIMARY KEY, "teamId" TEXT);
+  CREATE TABLE "GithubRepository" (id TEXT PRIMARY KEY, "teamId" TEXT, "nameWithOwner" TEXT);
   CREATE TABLE "AuditLog" (
     id TEXT PRIMARY KEY, "actorId" TEXT NOT NULL, action TEXT NOT NULL, "targetType" TEXT NOT NULL,
     "targetId" TEXT NOT NULL, metadata JSONB NOT NULL, "occurredAt" TIMESTAMP(3) NOT NULL
@@ -66,8 +66,11 @@ const SOURCE_STRUCTURE = `
   $$ LANGUAGE plpgsql;
   CREATE TRIGGER audit_log_append_only BEFORE UPDATE OR DELETE OR TRUNCATE ON "AuditLog"
     FOR EACH STATEMENT EXECUTE FUNCTION reject_audit_log_mutation();
-  CREATE TABLE "UserHistory" (id TEXT PRIMARY KEY, "sourceTable" TEXT, "sourceId" TEXT);
-  CREATE TABLE "AdminHistory" (id TEXT PRIMARY KEY, "sourceTable" TEXT, "sourceId" TEXT);
+  CREATE TABLE "UserHistory" (
+    id TEXT PRIMARY KEY, "userId" TEXT NOT NULL, "actorId" TEXT, event TEXT NOT NULL,
+    "occurredAt" TIMESTAMP(3) NOT NULL, "sourceTable" TEXT, "sourceId" TEXT, "sourcePart" TEXT, data JSONB NOT NULL
+  );
+  CREATE TABLE "AdminHistory" (LIKE "UserHistory" INCLUDING ALL);
   CREATE TABLE "TeamHistory" (
     id TEXT PRIMARY KEY, "teamId" TEXT NOT NULL, "programId" TEXT NOT NULL, "actorId" TEXT,
     event "TeamHistoryEvent" NOT NULL, "occurredAt" TIMESTAMP(3) NOT NULL DEFAULT now(),
@@ -93,18 +96,26 @@ const ROW =
   (second: number) =>
     `('${id}', 'user-actor', '${action}', '${targetType}', '${targetId}', '${JSON.stringify(metadata)}', TIMESTAMP '2026-09-01 00:00:00' + INTERVAL '${second} second')`;
 
+const APPLICATION_METADATA = {
+  schemaVersion: 1,
+  programName: 'Live Program',
+  applicantGithubLogin: 'target',
+};
+
 const AUDIT_ROWS: readonly ((second: number) => string)[] = [
   ROW(
     'copied-application',
     'APPLICATION',
     'application-mapped',
     'APPLICATION_SUBMITTED',
+    APPLICATION_METADATA,
   ),
   ROW(
     'paired-application',
     'APPLICATION',
     'application-mapped',
     'APPLICATION_APPROVED',
+    APPLICATION_METADATA,
   ),
   ROW(
     'orphan-application',
@@ -178,7 +189,11 @@ const AUDIT_ROWS: readonly ((second: number) => string)[] = [
     'repository-gone',
     'REPOSITORY_PUBLISHED',
   ),
-  ROW('user-imported', 'USER', 'user-target', 'USER_PROFILE_UPDATED'),
+  ROW('user-imported', 'USER', 'user-target', 'USER_PROFILE_UPDATED', {
+    schemaVersion: 1,
+    actor: { displayName: 'Actor Name', githubLogin: 'actor' },
+    target: { displayName: null, githubLogin: 'target' },
+  }),
   ROW('role-imported', 'ROLE_REQUEST', 'request-1', 'ROLE_REQUEST_APPROVED'),
   ROW('user-gone', 'USER', 'user-gone', 'USER_PROFILE_UPDATED'),
   ROW(
@@ -212,24 +227,33 @@ export const COPIED_PROGRAM_ROWS = [
   ['program-deleted', 'program-gone', 'DELETED'],
 ] as const;
 
+const PAIRED_REVIEW_OCCURRED_AT = '2026-09-01 00:00:01.400';
+
+const IMPORT_AUDIT_ROW = (table: string, id: string, auditId: string) => `
+  INSERT INTO "${table}" (id, "userId", "actorId", event, "occurredAt", "sourceTable", "sourceId", "sourcePart", data)
+  SELECT '${id}', 'user-target', a."actorId", 'LEGACY_IMPORT', a."occurredAt", 'AuditLog', a.id, 'audit',
+    jsonb_build_object('schemaVersion', 1, 'recordKind', 'AUDIT_EVENT', 'original',
+      jsonb_build_object('action', a.action, 'targetType', a."targetType", 'targetId', a."targetId", 'metadata', a.metadata))
+  FROM "AuditLog" a WHERE a.id = '${auditId}'`;
+
 export const SEED_SQL = `
   INSERT INTO "User" VALUES ('user-actor', 'actor'), ('user-target', 'target');
   INSERT INTO "Program" VALUES
     ('program-live', 'Live Program'), ('twin-1', 'Twin Program'), ('twin-2', 'Twin Program');
   INSERT INTO "Team" VALUES ('team-live', 'program-live', 'Live Team');
   INSERT INTO "GithubRepository" VALUES
-    ('repository-with-team', 'team-live'), ('repository-no-team', NULL);
+    ('repository-with-team', 'team-live', 'org/live'), ('repository-no-team', NULL, NULL);
   INSERT INTO "${AUDIT_FIXTURE_BACKUP_SCHEMA}".application_team_map VALUES
     ('application-mapped', 'team-live', 'program-live');
-  INSERT INTO "TeamHistory" (id, "teamId", "programId", "actorId", event, source, "sourceTable", "sourceId", data) VALUES
-    ('application-audit:copied-application', 'team-live', 'program-live', 'user-actor', 'SUBMITTED',
-      'MIGRATION', 'AuditLog', 'copied-application', '{"schemaVersion":1,"applicationId":"application-mapped","metadata":{}}'),
-    ('review-1', 'team-live', 'program-live', 'user-actor', 'APPROVED', 'MIGRATION',
-      'ApplicationReviewHistory', 'review-1', '{"schemaVersion":1,"revision":1,"rejectionReason":null,"applicationId":"application-mapped","pairedAuditId":"paired-application","pairedAuditMetadata":{}}');
-  INSERT INTO "UserHistory" VALUES ('imported-user', 'AuditLog', 'user-imported');
-  INSERT INTO "AdminHistory" VALUES ('imported-role', 'AuditLog', 'role-imported');
+  INSERT INTO "TeamHistory" (id, "teamId", "programId", "actorId", event, "occurredAt", source, "sourceTable", "sourceId", data) VALUES
+    ('application-audit:copied-application', 'team-live', 'program-live', 'user-actor', 'SUBMITTED', '2026-09-01 00:00:00',
+      'MIGRATION', 'AuditLog', 'copied-application', '{"schemaVersion":1,"applicationId":"application-mapped","metadata":${JSON.stringify(APPLICATION_METADATA)}}'),
+    ('review-1', 'team-live', 'program-live', 'user-actor', 'APPROVED', '${PAIRED_REVIEW_OCCURRED_AT}', 'MIGRATION',
+      'ApplicationReviewHistory', 'review-1', '{"schemaVersion":1,"revision":1,"rejectionReason":null,"applicationId":"application-mapped","pairedAuditId":"paired-application","pairedAuditMetadata":${JSON.stringify(APPLICATION_METADATA)}}');
   INSERT INTO "AuditLog" (id, "actorId", action, "targetType", "targetId", metadata, "occurredAt") VALUES
     ${AUDIT_ROWS.map((row, second) => row(second)).join(',\n    ')};
+  ${IMPORT_AUDIT_ROW('UserHistory', 'imported-user', 'user-imported')};
+  ${IMPORT_AUDIT_ROW('AdminHistory', 'imported-role', 'role-imported')};
 `;
 
 export async function resetAuditFixture(prisma: PrismaService): Promise<void> {

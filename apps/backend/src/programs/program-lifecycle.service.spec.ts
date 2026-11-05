@@ -1,6 +1,6 @@
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramHistoryRepository } from './program-history.repository';
+import { ProgramHistoryRepository } from './programs.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {

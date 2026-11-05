@@ -35,6 +35,8 @@ import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { AuditLogReadRepository } from '../platform/audit-log-read.repository';
+import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -131,6 +133,8 @@ export class PublicExposurePersonaHttpHarness {
         AuditLogController,
       ],
       providers: [
+        AuditLogReadRepository,
+        AuditLogReadService,
         { provide: PublicProjectsService, useValue: publicProjectsService },
         { provide: RankingService, useValue: rankingService },
         {

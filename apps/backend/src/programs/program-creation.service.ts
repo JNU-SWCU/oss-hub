@@ -10,7 +10,7 @@ import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramCoverRepository } from './files.repository';
 import { ProgramCategory, type ProgramTrackType } from '@prisma/client';
-import { ProgramHistoryRepository } from './program-history.repository';
+import { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { ProgramsRepository } from './programs.repository';
 import {

@@ -20,7 +20,7 @@ import { LockProgramTreeRepository } from '../platform/lock-program-tree.reposit
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
-import { ProgramHistoryRepository } from './program-history.repository';
+import { ProgramHistoryRepository } from './programs.repository';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramAuthoringService } from './programs.service';

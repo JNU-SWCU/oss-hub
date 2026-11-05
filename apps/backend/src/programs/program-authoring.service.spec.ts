@@ -18,7 +18,7 @@ import {
 } from './programs.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
-import { ProgramHistoryRepository } from './program-history.repository';
+import { ProgramHistoryRepository } from './programs.repository';
 import {
   ProgramAuthoringRepository,
   type ProgramAuthoringTransactionStore,

@@ -33,7 +33,7 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { ProgramHistoryRepository } from './program-history.repository';
+import { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
