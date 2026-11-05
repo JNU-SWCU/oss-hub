@@ -11,4 +11,3 @@ Before 1440×900·390×844의 light/dark 4개 context, After 같은 4개와 2560
 26개 PNG를 직접 확인한 합성 상태에서 이미 published 상태인 v0.24.54에 추가했다. 새 release는 만들지 않았다. 핵심6개 링크는 HEAD200을 확인했다. PR #1748 본문에 요소 전후와 desktop/mobile, dark·넓은 화면 링크를 첨부한다. PNG는 Playwright가 새로 생성해 개인정보·EXIF·토큰·개인 경로가 없다.
 
 Before와 After의 모든 browser context는 finally에서 닫았고 각 production 서버를 종료했다. 포트3124 LISTEN0을 확인했다. 임시 base export와 그 전용 node_modules도 제거했다. 운영 서버·사용자 세션은 변경하지 않았다.
-

@@ -36,4 +36,3 @@ CHECK_OK check-before.sql, CHECK_OK check-conversion.sql, REHEARSAL_OK stages=1 
 운영과 같은 PostgreSQL 이미지를 network none·공개 포트 0·운영 볼륨 연결 0·CPU 0.5·메모리와 memory+swap 각 512 MiB·384 MiB tmpfs·nice 19로 실행했다. 데이터는 서버 밖으로 옮기지 않았다. 컨테이너·덤프·작업디렉터리는 종료 처리와 별도 SSH 연결에서 잔존 0, 익명 볼륨 생성 0을 확인했다.
 
 첫 리허설은 count 식별자에 underscore를 사용해 manifest 검증에서 중단했다. 식별자를 historical-unknown-revision으로 보정한 뒤 공식 전체 리허설을 통과했다. 실패 실행도 동일한 정리 절차에서 잔존 0이었다.
-

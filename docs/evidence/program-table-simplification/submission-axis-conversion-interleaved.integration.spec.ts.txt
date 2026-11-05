@@ -509,5 +509,3 @@ it('compares four repository paths with alternating version order and one shared
   await writeFile(artifact, `${JSON.stringify(baseline, null, 2)}\n`);
   console.info('PROGRAM_READ_BASELINE', JSON.stringify(baseline));
 }, 60_000);
-
-

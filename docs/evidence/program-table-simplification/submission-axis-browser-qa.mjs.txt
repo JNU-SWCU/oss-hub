@@ -62,5 +62,3 @@ try {
  await writeFile(output+'/todo4-'+arm+'-qa.json',JSON.stringify(results,null,2));
  console.log('BROWSER_QA_OK arm='+arm+' cases='+results.length);
 } finally {await browser.close();}
-
-

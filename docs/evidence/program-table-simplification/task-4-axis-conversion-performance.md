@@ -20,4 +20,3 @@ main 04ed6b30c와 후보 0d3d44556의 실제 repository를 같은 격리 Postgre
 첫 교차 실행은 팀 상세의 SQL 수가 16/17로 흔들려 실패했다. 원문 진단으로 추가 쿼리가 connection pool의 SELECT 1임을 확인했다. 최종 실행은 SQL 수에서 이 health 쿼리만 분리해 poolHealthSqlCount와 transportSqlCount에 함께 보존한다. 지연 표본은 버리지 않고 health 비용도 포함한다. 최종 팀 상세에서 양쪽 모두 health 쿼리 2회가 기록됐다. BEGIN·COMMIT과 팀 evidence SQL은 여전히 SQL 수에 포함한다. 변동을 감추려고 assertion을 지우지 않았다.
 
 최종 1 suite·1 test, INTERLEAVED_FINAL_EXIT=0. 원시 표본과 파일 SHA-256은 task-4-axis-conversion-performance.json, 재현 하네스는 submission-axis-conversion-interleaved.integration.spec.ts.txt에 있다. 원시 쿼리에 포함되는 값이나 운영 원본은 공개하지 않았다. 임시 하네스와 base export는 측정 후 제거한다.
-
