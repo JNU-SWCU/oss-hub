@@ -154,7 +154,7 @@ function responseItem(value: unknown): MyRepositoryResponseItem {
 
   return {
     repositoryId,
-    applicationId: nonEmptyString(value.applicationId),
+    teamId: nonEmptyString(value.teamId),
     applicationMode: applicationMode(value.applicationMode),
     connectionMode: parsedConnectionMode,
     programName: nonEmptyString(value.programName),
@@ -227,7 +227,7 @@ export function parseMyRepositoriesResponse(value: unknown): MyRepositories {
   return {
     items: parsed.items.map((item) => ({
       repositoryId: item.repositoryId,
-      applicationId: item.applicationId,
+      teamId: item.teamId,
       applicationMode: item.applicationMode,
       connectionMode: item.connectionMode,
       programName: item.programName,

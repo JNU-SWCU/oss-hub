@@ -24,7 +24,7 @@ export type TeamActivityStatus =
   'NOT_CONNECTED' | 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR';
 
 export interface TeamActivity {
-  readonly applicationId: string | null;
+  readonly teamId: string | null;
   readonly repository: { readonly id: string; readonly url: string } | null;
   readonly status: TeamActivityStatus;
   readonly lastSuccessAt: string | null;

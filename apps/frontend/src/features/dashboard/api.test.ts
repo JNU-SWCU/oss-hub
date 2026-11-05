@@ -408,7 +408,7 @@ describe('fetchStudentDashboard', () => {
 describe('application decision notices', () => {
   const notice = {
     id: 'notification-1',
-    applicationId: 'application-1',
+    teamId: 'application-1',
     programId: 'program-1',
     programName: '합성 프로그램',
     decision: 'APPROVED',
@@ -435,14 +435,12 @@ describe('application decision notices', () => {
     ).resolves.toBeUndefined();
     expect(fetchMock).toHaveBeenNthCalledWith(
       1,
-      apiPath('users/me/notifications/application-decisions'),
+      apiPath('users/me/notifications/team-decisions'),
       undefined,
     );
     expect(fetchMock).toHaveBeenNthCalledWith(
       2,
-      apiPath(
-        'users/me/notifications/application-decisions/notification-1/read',
-      ),
+      apiPath('users/me/notifications/team-decisions/notification-1/read'),
       { method: 'PATCH' },
     );
   });
@@ -494,7 +492,7 @@ describe('fetchStudentFeedback', () => {
     ['의견이 문자열이 아님', { comment: 42 }],
     ['항목 이름이 공백뿐', { itemName: '   ' }],
     ['마일스톤 이름 칸이 없음', { milestoneName: undefined }],
-    ['카드에 붙일 신청 ID가 없음', { applicationId: undefined }],
+    ['카드에 붙일 신청 ID가 없음', { teamId: undefined }],
     [
       '주소가 외부를 가리킴',
       {

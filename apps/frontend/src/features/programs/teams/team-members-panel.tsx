@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState, type RefObject } from 'react';
-import { UserMinus, UserPlus, X } from 'lucide-react';
+import { ArrowRightLeft, UserMinus, UserPlus, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import {
@@ -19,7 +19,7 @@ import {
 } from '@/components/ui/tooltip';
 import { ListPanel, ListRow } from '@/components/list-panel';
 import { ApiError } from '@/lib/api-client';
-import { removeMyTeamMember } from './api';
+import { removeMyTeamMember, transferMyTeamLeader } from './api';
 import type { ProgramTeam, TeamMember } from './dto';
 import { ApplicationActionDialog } from '../applications/application-confirmation-dialog';
 import { mapTeamError } from './program-teams-flow';
@@ -27,6 +27,7 @@ import type { TeamInvitationManagement } from './use-team-invitation-management'
 import type { SentTeamInvitation } from './team-invitation-dto';
 
 const REMOVE_LABEL = '팀에서 제외';
+const TRANSFER_LABEL = '팀장 위임';
 const INVITE_LABEL = '팀원 초대';
 const PENDING_LABEL = '초대 대기';
 const CANCEL_INVITE_LABEL = '초대 취소';
@@ -104,7 +105,10 @@ function TeamMembersPanelInstance({
   inviteTriggerRef,
   onChanged,
 }: TeamMembersPanelProps) {
-  const [target, setTarget] = useState<TeamMember | null>(null);
+  const [target, setTarget] = useState<{
+    readonly kind: 'remove' | 'transfer';
+    readonly member: TeamMember;
+  } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -162,13 +166,27 @@ function TeamMembersPanelInstance({
     return member.nickname !== sessionNickname;
   }
 
-  async function remove(member: TeamMember) {
-    if (pending.current || !canRemove(member)) return;
+  function canTransfer(member: TeamMember): boolean {
+    return (
+      mode === 'manage' &&
+      team?.isLeader === true &&
+      !member.isLeader &&
+      member.nickname !== sessionNickname
+    );
+  }
+
+  async function changeMember(member: TeamMember, kind: 'remove' | 'transfer') {
+    if (
+      pending.current ||
+      !(kind === 'remove' ? canRemove(member) : canTransfer(member))
+    )
+      return;
     pending.current = true;
     setBusy(true);
     setError(null);
     try {
-      await removeMyTeamMember(programId, member.userId);
+      if (kind === 'remove') await removeMyTeamMember(programId, member.userId);
+      else await transferMyTeamLeader(programId, member.userId);
 
       if (!active.current) return;
       setTarget(null);
@@ -178,7 +196,9 @@ function TeamMembersPanelInstance({
       setError(
         cause instanceof ApiError
           ? mapTeamError(cause.problem)
-          : '팀원을 제외하지 못했습니다. 현재 팀 상태를 확인한 뒤 다시 시도해 주세요.',
+          : kind === 'remove'
+            ? '팀원을 제외하지 못했습니다. 현재 팀 상태를 확인한 뒤 다시 시도해 주세요.'
+            : '팀장을 위임하지 못했습니다. 현재 팀 상태를 확인한 뒤 다시 시도해 주세요.',
       );
     } finally {
       pending.current = false;
@@ -302,27 +322,54 @@ function TeamMembersPanelInstance({
                             </span>
                           ) : null}
                         </span>
-                        {canRemove(member) ? (
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <Button
-                                type="button"
-                                variant="ghost"
-                                size="icon-sm"
-                                aria-label={`${displayName} ${REMOVE_LABEL}`}
-                                disabled={busy}
-                                onClick={(event) => {
-                                  trigger.current = event.currentTarget;
-                                  setError(null);
-                                  setTarget(member);
-                                }}
-                              >
-                                <UserMinus aria-hidden="true" />
-                              </Button>
-                            </TooltipTrigger>
-                            <TooltipContent>{`${displayName} ${REMOVE_LABEL}`}</TooltipContent>
-                          </Tooltip>
-                        ) : null}
+                        <div className="flex shrink-0 items-center gap-1">
+                          {canTransfer(member) ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={
+                                    displayName + ' ' + TRANSFER_LABEL
+                                  }
+                                  disabled={busy}
+                                  onClick={(event) => {
+                                    trigger.current = event.currentTarget;
+                                    setError(null);
+                                    setTarget({ kind: 'transfer', member });
+                                  }}
+                                >
+                                  <ArrowRightLeft aria-hidden="true" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>
+                                {displayName + ' ' + TRANSFER_LABEL}
+                              </TooltipContent>
+                            </Tooltip>
+                          ) : null}
+                          {canRemove(member) ? (
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <Button
+                                  type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
+                                  aria-label={`${displayName} ${REMOVE_LABEL}`}
+                                  disabled={busy}
+                                  onClick={(event) => {
+                                    trigger.current = event.currentTarget;
+                                    setError(null);
+                                    setTarget({ kind: 'remove', member });
+                                  }}
+                                >
+                                  <UserMinus aria-hidden="true" />
+                                </Button>
+                              </TooltipTrigger>
+                              <TooltipContent>{`${displayName} ${REMOVE_LABEL}`}</TooltipContent>
+                            </Tooltip>
+                          ) : null}
+                        </div>
                       </ListRow>
                     </li>
                   );
@@ -372,18 +419,34 @@ function TeamMembersPanelInstance({
         </CardContent>
         {target ? (
           <ApplicationActionDialog
-            title={`${displayNameOf(target)} 팀원을 제외하시겠습니까?`}
-            description={`${displayNameOf(target)} 팀원이 ${REMOVAL_SCOPE_NOTICE}`}
-            confirmLabel={REMOVE_LABEL}
-            destructive
+            title={
+              target.kind === 'remove'
+                ? displayNameOf(target.member) + ' 팀원을 제외하시겠습니까?'
+                : displayNameOf(target.member) +
+                  ' 님에게 팀장을 위임하시겠습니까?'
+            }
+            description={
+              target.kind === 'remove'
+                ? displayNameOf(target.member) +
+                  ' 팀원이 ' +
+                  REMOVAL_SCOPE_NOTICE
+                : '권한을 넘긴 뒤에도 팀원으로 남습니다. 위임 후에는 팀에서 탈퇴할 수 있습니다.'
+            }
+            confirmLabel={
+              target.kind === 'remove' ? REMOVE_LABEL : TRANSFER_LABEL
+            }
+            destructive={target.kind === 'remove'}
             submitting={busy}
             returnFocusRef={trigger}
             onClose={() => setTarget(null)}
-            onConfirm={() => void remove(target)}
+            onConfirm={() => void changeMember(target.member, target.kind)}
           >
             {error ? (
               <Alert variant="destructive">
-                <AlertTitle>{REMOVE_LABEL} 실패</AlertTitle>
+                <AlertTitle>
+                  {target.kind === 'remove' ? REMOVE_LABEL : TRANSFER_LABEL}{' '}
+                  실패
+                </AlertTitle>
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             ) : null}

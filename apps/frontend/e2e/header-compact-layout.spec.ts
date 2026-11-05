@@ -46,9 +46,7 @@ for (const multipleAuthorities of [false, true]) {
         'GET /api/v1/dashboard/student/feedback': async (route) => {
           await fulfillJson(route, { items: [] });
         },
-        'GET /api/v1/users/me/notifications/application-decisions': async (
-          route,
-        ) => {
+        'GET /api/v1/users/me/notifications/team-decisions': async (route) => {
           await fulfillJson(route, []);
         },
         'GET /api/v1/users/me/notifications/team-deletions': async (route) => {

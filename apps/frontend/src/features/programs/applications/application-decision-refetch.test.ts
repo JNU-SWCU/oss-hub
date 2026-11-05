@@ -160,9 +160,11 @@ describe('decisionInputFor', () => {
   });
 
   it.each(['', '   ', '\n\t'])(
-    '반려는 사유가 비면(%j) 요청을 만들지 않는다',
+    '반려는 사유가 비어도(%j) 요청을 만든다',
     (reason) => {
-      expect(decisionInputFor('REJECTED', reason)).toBeNull();
+      expect(decisionInputFor('REJECTED', reason)).toEqual({
+        action: 'REJECT',
+      });
     },
   );
 

@@ -15,7 +15,7 @@ export async function getMyApplication(
   programId: string,
 ): Promise<StudentApplication | null> {
   const body = await apiClient<MyStudentApplicationResponse>(
-    `programs/${encodeURIComponent(programId)}/applications/me`,
+    `programs/${encodeURIComponent(programId)}/teams/me`,
   );
   return body.status === 'NONE' ? null : body.application;
 }
@@ -25,7 +25,7 @@ export function updateMyApplication(
   input: UpdateStudentApplicationInput,
 ): Promise<StudentApplication> {
   return apiClient<StudentApplication>(
-    `programs/${encodeURIComponent(programId)}/applications/me`,
+    `programs/${encodeURIComponent(programId)}/teams/me`,
     {
       method: 'PATCH',
       body: JSON.stringify(input),
@@ -37,7 +37,7 @@ export function cancelMyApplication(
   programId: string,
 ): Promise<{ readonly cancelled: true }> {
   return apiClient<{ readonly cancelled: true }>(
-    `programs/${encodeURIComponent(programId)}/applications/me`,
+    `programs/${encodeURIComponent(programId)}/teams/me`,
     { method: 'DELETE' },
   );
 }

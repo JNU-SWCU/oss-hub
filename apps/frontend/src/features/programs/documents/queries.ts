@@ -64,7 +64,7 @@ export function useMilestoneDocumentReviewHistoryQuery(
       ...milestoneDocumentsKey(programId, milestoneId),
       'review-history',
       target?.documentId,
-      target?.applicationId,
+      target?.teamId,
     ],
     queryFn:
       target === null
@@ -73,7 +73,7 @@ export function useMilestoneDocumentReviewHistoryQuery(
             getMilestoneDocumentHistory(
               milestoneId,
               target.documentId,
-              target.applicationId,
+              target.teamId,
               pageParam,
             ),
     initialPageParam: null,

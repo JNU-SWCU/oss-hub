@@ -10,6 +10,7 @@ import type {
 } from './dto';
 import { apiClient } from '@/lib/api-client';
 import { isRecord } from '@/lib/is-record';
+import { listTeamManagementApplications } from '../applications/api';
 
 export function searchApplicationInvitationCandidates(
   programId: string,
@@ -50,7 +51,9 @@ function parseProgramTeam(value: unknown): ProgramTeam {
     typeof value.memberCount !== 'number' ||
     !(value.minMembers === null || typeof value.minMembers === 'number') ||
     typeof value.maxMembers !== 'number' ||
-    typeof value.hasApplication !== 'boolean' ||
+    (value.status !== 'SUBMITTED' &&
+      value.status !== 'APPROVED' &&
+      value.status !== 'REJECTED') ||
     typeof value.canInvite !== 'boolean' ||
     typeof value.canRemoveMembers !== 'boolean' ||
     typeof value.canLeave !== 'boolean' ||
@@ -66,7 +69,7 @@ function parseProgramTeam(value: unknown): ProgramTeam {
     memberCount: value.memberCount,
     minMembers: value.minMembers,
     maxMembers: value.maxMembers,
-    hasApplication: value.hasApplication,
+    status: value.status,
     canInvite: value.canInvite,
     canRemoveMembers: value.canRemoveMembers,
     canLeave: value.canLeave,
@@ -79,7 +82,7 @@ export async function getMyTeam(
   programId: string,
 ): Promise<ProgramTeam | null> {
   const body = await apiClient<unknown>(
-    `programs/${encodeURIComponent(programId)}/teams/me`,
+    `programs/${encodeURIComponent(programId)}/teams/me/membership`,
   );
   if (!isRecord(body)) throw new ProgramTeamResponseError();
   if (body.membership === 'NONE' && body.team === null) return null;
@@ -90,9 +93,12 @@ export async function getMyTeam(
 }
 
 export function leaveMyTeam(programId: string): Promise<void> {
-  return apiClient<void>(`programs/${encodeURIComponent(programId)}/teams/me`, {
-    method: 'DELETE',
-  });
+  return apiClient<void>(
+    `programs/${encodeURIComponent(programId)}/teams/me/membership`,
+    {
+      method: 'DELETE',
+    },
+  );
 }
 
 export function removeMyTeamMember(
@@ -105,12 +111,40 @@ export function removeMyTeamMember(
   );
 }
 
-export function listStaffProgramTeams(
+export function transferMyTeamLeader(
   programId: string,
-): Promise<readonly StaffProgramTeam[]> {
-  return apiClient<readonly StaffProgramTeam[]>(
-    `programs/${encodeURIComponent(programId)}/teams`,
+  userId: string,
+): Promise<void> {
+  return apiClient<void>(
+    `programs/${encodeURIComponent(programId)}/teams/me/leader`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify({ userId }),
+    },
   );
+}
+
+export async function listStaffProgramTeams(
+  programId: string,
+): Promise<readonly Pick<StaffProgramTeam, 'teamId' | 'name'>[]> {
+  const teams: Pick<StaffProgramTeam, 'teamId' | 'name'>[] = [];
+  let page = 1;
+  let totalPages: number;
+  do {
+    const response = await listTeamManagementApplications(programId, {
+      page,
+      pageSize: 100,
+      search: '',
+      status: 'all',
+    });
+    for (const item of response.items) {
+      if (item.team === null) throw new ProgramTeamResponseError();
+      teams.push({ teamId: item.id, name: item.team.name });
+    }
+    totalPages = response.totalPages;
+    page += 1;
+  } while (page <= totalPages);
+  return teams;
 }
 
 export async function getStaffProgramTeamDetail(

@@ -7,12 +7,12 @@ export function useApplicationDecisionMutation(programId: string) {
   const client = useQueryClient();
   return useMutation({
     mutationFn: ({
-      applicationId,
+      teamId,
       input,
     }: {
-      readonly applicationId: string;
+      readonly teamId: string;
       readonly input: ApplicationDecisionInput;
-    }) => decideApplication(applicationId, input),
+    }) => decideApplication(teamId, input),
     onSuccess: async () => {
       await Promise.all([
         client.invalidateQueries({

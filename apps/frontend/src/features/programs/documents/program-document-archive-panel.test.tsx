@@ -1,4 +1,6 @@
 import { act } from 'react';
+import { apiPath } from '@/lib/api-client';
+import { teamManagementPage } from '../../../../test-support/team-management-page.fixture';
 import type { Root } from 'react-dom/client';
 import { createListScreenRoot as createRoot } from '../../../../test-support/list-screen-root';
 import { afterEach, beforeEach, expect, it, vi } from 'vitest';
@@ -73,9 +75,7 @@ beforeEach(async () => {
     .mockResolvedValue(archiveProgram(PLAN_AND_RESULT));
   vi.mocked(listStaffProgramTeams)
     .mockReset()
-    .mockResolvedValue([
-      { teamId: 'team-1', name: '예시 팀', memberCount: 0, members: [] },
-    ]);
+    .mockResolvedValue([{ teamId: 'team-1', name: '예시 팀' }]);
   vi.mocked(downloadProgramDocumentArchive)
     .mockReset()
     .mockRejectedValue(new Error('synthetic failure'));
@@ -186,4 +186,46 @@ it('requires a fresh milestone choice when the originating milestone no longer e
   await open();
   expect(button('ZIP 내려받기').disabled).toBe(true);
   expect(downloadProgramDocumentArchive).not.toHaveBeenCalled();
+});
+
+afterEach(() => vi.unstubAllGlobals());
+it('실제 페이지 응답으로 ZIP 팀 선택지 101개를 표시한다', async () => {
+  const actual =
+    await vi.importActual<typeof import('../teams/api')>('../teams/api');
+  vi.mocked(listStaffProgramTeams).mockImplementation(
+    actual.listStaffProgramTeams,
+  );
+  const pages: number[] = [];
+  vi.stubGlobal(
+    'fetch',
+    vi.fn((request: string) => {
+      const url = new URL(request, 'https://fixture.invalid');
+      if (url.pathname !== apiPath('programs/program-1/teams'))
+        throw new Error('Unexpected test request ' + url.pathname);
+      const page = Number(url.searchParams.get('page') ?? '1');
+      pages.push(page);
+      return Promise.resolve(
+        new Response(JSON.stringify(teamManagementPage(page)), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    }),
+  );
+  await open();
+  const kind = document.body.querySelector<HTMLInputElement>(
+    'input[type="radio"][value="TEAM"]',
+  );
+  if (!kind) throw new Error('Missing team scope radio');
+  await act(async () => {
+    kind.click();
+    await vi.waitFor(() => expect(pages).toEqual([1, 2]));
+  });
+  expect(
+    document.body.querySelector('option[value="team-101"]')?.textContent,
+  ).toBe('합성 팀 101');
+  expect(document.body.querySelectorAll('option[value^="team-"]')).toHaveLength(
+    101,
+  );
+  expect(pages).toEqual([1, 2]);
 });

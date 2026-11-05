@@ -114,11 +114,7 @@ export function SubmissionPage({
       if (data.milestone.submissionType === 'FILE' && file) {
         const fileId = await uploadedFile.current.resolve(file, async () => {
           setSubmissionPhase('uploading');
-          return uploadSubmissionFile(
-            data.applicationId,
-            data.milestone.id,
-            file,
-          );
+          return uploadSubmissionFile(data.teamId, data.milestone.id, file);
         });
         content = resubmissionContent('FILE', input, fileId);
       }
@@ -131,7 +127,7 @@ export function SubmissionPage({
 
       setSubmissionPhase('creating');
       const submission = await createSubmission({
-        applicationId: data.applicationId,
+        teamId: data.teamId,
         milestoneId: data.milestone.id,
         content,
         comment,

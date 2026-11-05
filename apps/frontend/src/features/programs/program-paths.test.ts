@@ -8,7 +8,7 @@ import {
 describe('program-paths', () => {
   it('staffApplicationDetailHref 는 #119 locked 경로를 인코딩한다', () => {
     expect(staffApplicationDetailHref('prog:a', 'app:b')).toBe(
-      '/programs/prog%3Aa/applications/app%3Ab',
+      '/programs/prog%3Aa/teams/app%3Ab',
     );
   });
 

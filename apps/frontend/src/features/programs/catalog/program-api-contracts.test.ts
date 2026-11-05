@@ -1,8 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { apiClient } from '@/lib/api-client';
+import { teamManagementPage } from '../../../../test-support/team-management-page.fixture';
 import {
   ProgramTeamResponseError,
   getMyTeam,
+  listStaffProgramTeams,
+  transferMyTeamLeader,
   removeMyTeamMember,
 } from '../teams/api';
 import {
@@ -172,7 +175,7 @@ describe('createApplication', () => {
     });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'programs/program-1/applications',
+      'programs/program-1/teams',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -203,7 +206,7 @@ describe('createApplication', () => {
     });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'programs/program-1/applications',
+      'programs/program-1/teams',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -234,7 +237,7 @@ describe('createApplication', () => {
     });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'programs/program-1/applications',
+      'programs/program-1/teams',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({
@@ -257,7 +260,7 @@ describe('createApplication', () => {
     });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'programs/program-1/applications',
+      'programs/program-1/teams',
       expect.objectContaining({
         body: JSON.stringify({
           answers: {},
@@ -276,7 +279,7 @@ describe('decideApplication', () => {
 
   it('PATCH applications/:id 로 승인 판정을 보낸다', async () => {
     const response = {
-      applicationId: 'app-1',
+      teamId: 'app-1',
       status: 'APPROVED' as const,
       repositoryProvisioning: {
         enabled: true,
@@ -291,7 +294,7 @@ describe('decideApplication', () => {
       decideApplication('app:1', { action: 'APPROVE' }),
     ).resolves.toEqual(response);
     expect(apiClient).toHaveBeenCalledWith(
-      'applications/app%3A1',
+      'teams/app%3A1',
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ action: 'APPROVE' }),
@@ -301,7 +304,7 @@ describe('decideApplication', () => {
 
   it('반려 사유를 typed PATCH 본문으로 보낸다', async () => {
     vi.mocked(apiClient).mockResolvedValue({
-      applicationId: 'app-1',
+      teamId: 'app-1',
       status: 'REJECTED',
       rejectionReason: '사유',
     });
@@ -309,7 +312,7 @@ describe('decideApplication', () => {
     await decideApplication('app-1', { action: 'REJECT', reason: '사유' });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'applications/app-1',
+      'teams/app-1',
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ action: 'REJECT', reason: '사유' }),
@@ -318,14 +321,14 @@ describe('decideApplication', () => {
   });
   it('되돌리기 판정을 typed PATCH 본문으로 보낸다', async () => {
     vi.mocked(apiClient).mockResolvedValue({
-      applicationId: 'app-1',
+      teamId: 'app-1',
       status: 'SUBMITTED',
     });
 
     await decideApplication('app-1', { action: 'REVERT' });
 
     expect(apiClient).toHaveBeenCalledWith(
-      'applications/app-1',
+      'teams/app-1',
       expect.objectContaining({
         method: 'PATCH',
         body: JSON.stringify({ action: 'REVERT' }),
@@ -341,7 +344,7 @@ describe('getMyTeam', () => {
     memberCount: 2,
     minMembers: 2,
     maxMembers: 4,
-    hasApplication: true,
+    status: 'SUBMITTED',
     canInvite: true,
     canRemoveMembers: true,
     canLeave: false,
@@ -391,7 +394,9 @@ describe('getMyTeam', () => {
     vi.mocked(apiClient).mockResolvedValue(leaderOf(backendTeam));
 
     await expect(getMyTeam('program 1')).resolves.toEqual(backendTeam);
-    expect(apiClient).toHaveBeenCalledWith('programs/program%201/teams/me');
+    expect(apiClient).toHaveBeenCalledWith(
+      'programs/program%201/teams/me/membership',
+    );
   });
 
   it('폐기된 locked 같은 여분 키는 팀 계약에 싣지 않는다', async () => {
@@ -406,7 +411,6 @@ describe('getMyTeam', () => {
       'canInvite',
       'canLeave',
       'canRemoveMembers',
-      'hasApplication',
       'id',
       'isLeader',
       'maxMembers',
@@ -414,25 +418,43 @@ describe('getMyTeam', () => {
       'members',
       'minMembers',
       'name',
+      'status',
     ]);
   });
 
-  it.each([
-    'hasApplication',
-    'canInvite',
-    'canRemoveMembers',
-    'canLeave',
-    'isLeader',
-  ])('능력 플래그 %s 가 빠지면 기본값 대신 응답 오류로 끊는다', async (key) => {
-    const withoutCapability: Record<string, unknown> = { ...backendTeam };
-    delete withoutCapability[key];
-    vi.mocked(apiClient).mockResolvedValue(leaderOf(withoutCapability));
+  it.each(['canInvite', 'canRemoveMembers', 'canLeave', 'isLeader'])(
+    '능력 플래그 %s 가 빠지면 기본값 대신 응답 오류로 끊는다',
+    async (key) => {
+      const withoutCapability: Record<string, unknown> = { ...backendTeam };
+      delete withoutCapability[key];
+      vi.mocked(apiClient).mockResolvedValue(leaderOf(withoutCapability));
 
-    await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
-      ProgramTeamResponseError,
-    );
-  });
+      await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
+        ProgramTeamResponseError,
+      );
+    },
+  );
 
+  it.each(['SUBMITTED', 'APPROVED', 'REJECTED'])(
+    '팀 상태 %s를 유지한다',
+    async (status) => {
+      vi.mocked(apiClient).mockResolvedValue(
+        leaderOf({ ...backendTeam, status }),
+      );
+      await expect(getMyTeam('program-1')).resolves.toMatchObject({ status });
+    },
+  );
+  it.each([undefined, null, 'PENDING'])(
+    '잘못된 팀 상태 %j를 거부한다',
+    async (status) => {
+      vi.mocked(apiClient).mockResolvedValue(
+        leaderOf({ ...backendTeam, status }),
+      );
+      await expect(getMyTeam('program-1')).rejects.toBeInstanceOf(
+        ProgramTeamResponseError,
+      );
+    },
+  );
   it('멤버 목록이 계약을 벗어나면 빈 팀으로 접지 않는다', async () => {
     vi.mocked(apiClient).mockResolvedValue(
       leaderOf({
@@ -496,7 +518,7 @@ describe('getApplicationDetail', () => {
 
     await getApplicationDetail('app-1');
 
-    expect(apiClient).toHaveBeenCalledWith('applications/app-1');
+    expect(apiClient).toHaveBeenCalledWith('teams/app-1');
   });
 
   it('신청 id 를 URL 로 인코딩해 보낸다', async () => {
@@ -504,6 +526,44 @@ describe('getApplicationDetail', () => {
 
     await getApplicationDetail('app/1');
 
-    expect(apiClient).toHaveBeenCalledWith('applications/app%2F1');
+    expect(apiClient).toHaveBeenCalledWith('teams/app%2F1');
   });
+});
+
+describe('document team selector page contract', () => {
+  it('canonical Team 페이지 전체를 팀 ID와 이름 배열로 변환한다', async () => {
+    vi.mocked(apiClient).mockReset();
+    vi.mocked(apiClient)
+      .mockResolvedValueOnce(teamManagementPage(1, 'program-1'))
+      .mockResolvedValueOnce(teamManagementPage(2, 'program-1'));
+    const teams = await listStaffProgramTeams('program-1');
+    expect(teams).toHaveLength(101);
+    expect(teams[0]).toEqual({ teamId: 'team-1', name: '합성 팀 1' });
+    expect(teams[100]).toEqual({ teamId: 'team-101', name: '합성 팀 101' });
+    expect(
+      vi.mocked(apiClient).mock.calls.map(([path]) => {
+        const url = new URL(path, 'https://fixture.invalid');
+        return [
+          url.pathname,
+          url.searchParams.get('view'),
+          url.searchParams.get('page'),
+          url.searchParams.get('pageSize'),
+          url.searchParams.get('status'),
+        ];
+      }),
+    ).toEqual([
+      ['/programs/program-1/teams', 'team-management', '1', '100', 'all'],
+      ['/programs/program-1/teams', 'team-management', '2', '100', 'all'],
+    ]);
+  });
+});
+
+it('현재 팀장 위임은 자기 팀 전용 PATCH 경로를 사용한다', async () => {
+  vi.mocked(apiClient).mockReset();
+  vi.mocked(apiClient).mockResolvedValue(undefined);
+  await transferMyTeamLeader('program 1', 'member-1');
+  expect(apiClient).toHaveBeenCalledWith(
+    'programs/program%201/teams/me/leader',
+    { method: 'PATCH', body: JSON.stringify({ userId: 'member-1' }) },
+  );
 });

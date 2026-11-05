@@ -15,7 +15,7 @@ vi.mock('@/lib/api-client', async (importOriginal) => ({
 }));
 
 const activity: TeamActivity = {
-  applicationId: 'application-1',
+  teamId: 'application-1',
   repository: { id: 'repo-1', url: 'https://github.com/synthetic/current' },
   status: 'COLLECTED',
   lastSuccessAt: '2026-09-01T00:00:00.000Z',
@@ -92,7 +92,7 @@ describe('team activity boundary', () => {
         },
       },
     ],
-    ['신청 없는 팀', { ...activity, applicationId: null }],
+    ['신청 없는 팀', { ...activity, teamId: null }],
   ])('%s 응답을 받는다', (_label, value) => {
     expect(parseTeamActivity(value)).toEqual(value);
   });

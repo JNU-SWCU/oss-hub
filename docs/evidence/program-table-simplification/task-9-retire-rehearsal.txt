@@ -1,0 +1,104 @@
+# Todo 9 retirement stage: pre-gate rehearsal receipt (PR #1754)
+#
+# Status: pre-gate check on the current stack, not the release receipt. After
+# #1752 and #1753 are live, #1754 is rebased onto main and rehearsed again; that
+# later run, against a production clone, is the receipt for the release.
+#
+# Data: synthetic seed on the real migration chain. No production clone, no
+# production database writes. No object storage locally, so the file count is
+# SubmissionFile rows and distinct storageKey values, not stored objects.
+#
+# Command:
+#   RETIRE_REHEARSAL_PREFIX=oss-hub-lane-c-task9 bash docs/evidence/program-table-simplification/task-9-retire-rehearsal.sh
+#
+# source_commit below is a local rebase of this branch that was never pushed. The
+# branch was then merged with the frontend lane as 652245d9c instead. Every rehearsal
+# input has the same git object id in both commits, and the only other paths that
+# differ are under apps/frontend:
+#   apps/backend                       29482486a6e90d436bc789ee115bc47aa62f17a6
+#   deploy/jenkins/program-migration   c0d8cb06610dc8cd0d2f3420f3fc8444e18e9de4
+#   task-9-retire-rehearsal.sh         2a56c317b4fca4b9c114fa1dc952d6db392b5458
+#   task-9-retire-rehearsal-seed.sql   bdd5cbde65713958ed55be25fcaf3bdfc92a8cc1
+#   pnpm-lock.yaml                     b0f1ad498f62ed4e7137638699903a8909bcab8e
+#
+# guard= is the expected message prefix the driver matched in the psql output.
+# Absolute worktree paths in the output are shortened to repository paths.
+
+source_commit=f6a1f486bebc774208134dd2ba9404a0e7cbbd0b
+migration=20261105110000_retire_application_storage
+migration_sha256=174a94c2267f19ab9d28533b8783763a3c2f725615fb9c747d54174272245722
+data=synthetic production_clone=no production_database_writes=0
+
+== build post-cutover source on the real migration chain
+CUTOVER_PREFLIGHT mismatches=0
+CUTOVER_RECONCILE mismatches=0
+source_ledger_head=20261105100100_merge_applications_into_teams
+
+== scenario 1: success on migrated data through rehearse.sh
+STEP restore production dump
+STEP preflight
+CHECK_OK deploy/jenkins/program-migration/team-application/retire-preflight.sql
+PREFLIGHT_OK head=20261105100100_merge_applications_into_teams checks=1
+STEP backup before retire
+BACKUP_OK label=rehearsal-20261105223014_49461 dump-bytes=304345 object-count=0
+BACKUP_VERIFIED label=rehearsal-20261105223014_49461 objects=absent object-count=0
+STEP apply retire
+NOTICE:  TEAM_RETIRE sources applications=33 reviews=9
+STEP reconcile retire
+CHECK_OK deploy/jenkins/program-migration/team-application/check-retired.sql
+RECONCILE_OK stage=retire checks=1
+STEP restore backup and compare counts
+BACKUP_VERIFIED label=rehearsal-20261105223014_49461 objects=absent object-count=0
+COUNT applications before=33 restored=33
+COUNT reviews before=9 restored=9
+COUNT teams before=33 restored=33
+COUNT members before=65 restored=65
+COUNT invitations before=3 restored=3
+COUNT histories before=105 restored=105
+COUNT repositories before=7 restored=7
+COUNT jobs before=7 restored=7
+COUNT issuances before=0 restored=0
+COUNT outsiders before=3 restored=3
+COUNT submissions before=55 restored=55
+COUNT files before=81 restored=81
+COUNT notifications before=56 restored=56
+COUNT outbox before=5 restored=5
+REHEARSAL_OK name=team-application-retire stages=1 counts=14
+
+== scenario 2: success on a fresh database through the whole migration chain
+CHECK_RETIRED_FRESH mismatches=0
+fresh_ledger_head=20261105110000_retire_application_storage
+fresh_application_table=absent
+
+== scenario 3: mismatch rollback
+MISMATCH_ABORTED name=null_copied_review_actor guard="Team retirement review history mismatch" applications=33 reviews=9 files_column_kept=1 fields_check_added=0
+REHEARSAL_REJECTED name=null_copied_review_actor exit=1 last="FAIL_CLOSED apply failed: apps/backend/prisma/migrations/2026"
+MISMATCH_ABORTED name=null_copied_audit_actor guard="Team retirement copied audit mismatch" applications=33 reviews=9 files_column_kept=1 fields_check_added=0
+REHEARSAL_REJECTED name=null_copied_audit_actor exit=1 last="FAIL_CLOSED apply failed: apps/backend/prisma/migrations/2026"
+MISMATCH_ABORTED name=swapped_paired_audit_ids guard="Team retirement paired audit" applications=33 reviews=9 files_column_kept=1 fields_check_added=0
+REHEARSAL_REJECTED name=swapped_paired_audit_ids exit=1 last="FAIL_CLOSED apply failed: apps/backend/prisma/migrations/2026"
+MISMATCH_ABORTED name=changed_paired_audit_metadata guard="Team retirement paired audit mismatch" applications=33 reviews=9 files_column_kept=1 fields_check_added=0
+REHEARSAL_REJECTED name=changed_paired_audit_metadata exit=1 last="FAIL_CLOSED apply failed: apps/backend/prisma/migrations/2026"
+MISMATCH_ABORTED name=deleted_copied_audit guard="Team retirement copied audit mismatch" applications=33 reviews=9 files_column_kept=1 fields_check_added=0
+REHEARSAL_REJECTED name=deleted_copied_audit exit=1 last="FAIL_CLOSED preflight failed"
+
+== scenario 4: post-drop dump restoration with row and file counts
+NOTICE:  TEAM_RETIRE sources applications=33 reviews=9
+CHECK_RETIRED_MIGRATED mismatches=0
+source_tables=absent|absent
+POST_DROP_RESTORED Team=33
+POST_DROP_RESTORED TeamMember=65
+POST_DROP_RESTORED TeamInvitation=3
+POST_DROP_RESTORED TeamHistory=105
+POST_DROP_RESTORED GithubRepository=7
+POST_DROP_RESTORED RepositoryProvisionJob=7
+POST_DROP_RESTORED RepositoryIssuanceHistory=0
+POST_DROP_RESTORED GithubRepositoryOutsiderContribution=3
+POST_DROP_RESTORED MilestoneDocumentSubmission=55
+POST_DROP_RESTORED SubmissionFile=81
+POST_DROP_RESTORED Notification=56
+POST_DROP_RESTORED OutboxEvent=5
+POST_DROP_RESTORED distinct_file_storage_keys=81
+
+rehearsal_containers_remaining=0
+RETIRE_REHEARSAL_OK
