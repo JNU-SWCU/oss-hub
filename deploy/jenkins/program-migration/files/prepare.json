@@ -1,7 +1,7 @@
 {
   "version": 1,
   "name": "file-unification-prepare",
-  "expectedHeadMigration": "20261105100100_merge_applications_into_teams",
+  "expectedHeadMigration": "20261105110000_retire_application_storage",
   "preflight": ["check-before.sql"],
   "stages": [
     {
