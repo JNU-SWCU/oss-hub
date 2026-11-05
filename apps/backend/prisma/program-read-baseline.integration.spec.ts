@@ -251,21 +251,18 @@ async function seed(): Promise<void> {
               },
             },
           });
-          await tx.submissionFile.create({
-            data: {
-              id: id(`file-${team}-${document}`),
-              uploaderId: leaderId,
-              applicationId,
-              milestoneId: id(`milestone-${Math.floor(document / 2)}`),
-              milestoneDocumentSubmissionId: submissionId,
-              milestoneDocumentSubmissionHistoryId: historyId,
-              storageKey: id(`storage-${team}-${document}`),
-              originalFileName: 'baseline.pdf',
-              mimeType: 'application/pdf',
-              sizeBytes: 1024,
-              expiresAt: endAt,
-            },
-          });
+          await tx.file.create({data: {kind: 'SUBMISSION',
+lifecycle: 'ATTACHED',
+id: id(`file-${team}-${document}`),
+uploaderId: leaderId,
+teamId: (await tx.application.findUniqueOrThrow({where: {id: applicationId}, select: {teamId: true}})).teamId,
+submissionId: submissionId,
+submissionHistoryId: historyId,
+storageKey: id(`storage-${team}-${document}`),
+originalFileName: 'baseline.pdf',
+mimeType: 'application/pdf',
+sizeBytes: 1024,
+expiresAt: endAt}});
           await tx.milestoneDocumentSubmissionHistory.create({
             data: {
               id: id(`review-${team}-${document}`),
@@ -310,9 +307,8 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     histories: await prisma.milestoneDocumentSubmissionHistory.count({
       where: { id: { startsWith: prefix } },
     }),
-    files: await prisma.submissionFile.count({
-      where: { id: { startsWith: prefix } },
-    }),
+    files: await prisma.file.count({where: {kind: 'SUBMISSION',
+id: { startsWith: prefix }}}),
     repositories: await prisma.githubRepository.count({ where: { programId } }),
     provisionJobs: await prisma.repositoryProvisionJob.count({
       where: { id: { startsWith: prefix } },

@@ -1,6 +1,5 @@
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
-import { ProgramCoverRepository } from './program-cover.repository';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramCategory, ProgramTrackType } from '@prisma/client';

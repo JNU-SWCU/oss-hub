@@ -1,9 +1,9 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
-import { SubmissionFileCleanupRetryService } from './submission-file-cleanup.service';
-import { SubmissionFilesRepository } from './submission-files.repository';
-import { SubmissionFilesService } from './submission-files.service';
+import { FileCleanupRetryService } from './file-cleanup.service';
+import { SubmissionFilesRepository } from './files.repository';
+import { SubmissionFilesService } from './files.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramsModule } from './programs.module';
@@ -63,10 +63,10 @@ describe('ProgramsModule submission storage provider', () => {
   it('wires cleanup retry orchestration with the audit provider module', () => {
     expect(getMetadataArray(MODULE_METADATA.IMPORTS)).toContain(PlatformModule);
     expect(getMetadataArray(MODULE_METADATA.PROVIDERS)).toContain(
-      SubmissionFileCleanupRetryService,
+      FileCleanupRetryService,
     );
     expect(getMetadataArray(MODULE_METADATA.EXPORTS)).not.toContain(
-      SubmissionFileCleanupRetryService,
+      FileCleanupRetryService,
     );
   });
 });

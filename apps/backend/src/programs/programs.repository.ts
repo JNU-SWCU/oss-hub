@@ -1,40 +1,13 @@
-import {
-  USER_AUTHORITY_SELECT,
-  USER_PROFILE_NAME_SELECT,
-} from '../platform/user-profile-read.config';
+import { USER_AUTHORITY_SELECT, USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
-import {
-  type Program,
-  ApplicationStatus,
-  Prisma,
-  ProgramCategory,
-  type ProgramTrackType,
-  type ProgramLifecycle,
-  type Prisma as PrismaTypes,
-  ProgramAuthoringUploadLifecycle,
-  SubmissionFileLifecycle,
-} from '@prisma/client';
+import { type Program, ApplicationStatus, Prisma, ProgramCategory, type ProgramTrackType, type ProgramLifecycle, type Prisma as PrismaTypes,  SubmissionFileLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  ProgramListStatusFilterRepository,
-  type ProgramListQuery,
-} from './program-list-status-filter.repository';
+import { ProgramListStatusFilterRepository, type ProgramListQuery } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { ProgramCoverRepository } from './program-cover.repository';
+import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { type AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import {
-  ProgramAuthoringUploadTransactionRepository,
-  type ProgramAuthoringProgramPlan,
-  type ProgramExternalCover,
-  type ProgramAuthoringProgram,
-  type ProgramAuthoringCreateRequestInput,
-  type ProgramAuthoringMilestonePlan,
-  type ProgramAuthoringDocumentPlan,
-  type ProgramAuthoringTemplateInput,
-  type ProgramAuthoringReplay,
-} from './program-authoring-upload-transaction.repository';
-import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
-import { ProgramAuthoringAttachmentRaceError } from './program-authoring.error';
+import { type ProgramAuthoringProgramPlan, type ProgramExternalCover, type ProgramAuthoringProgram, type ProgramAuthoringCreateRequestInput, type ProgramAuthoringMilestonePlan, type ProgramAuthoringDocumentPlan, type ProgramAuthoringTemplateInput, type ProgramAuthoringReplay, type ProgramAuthoringUploadToken } from './files.config';
+
 export type ProgramListRecord = {
   readonly id: string;
   readonly name: string;
@@ -128,10 +101,9 @@ export class ProgramsRepository {
           p."description",
           p."teamMinSize",
           p."teamMaxSize",
-          cover."id" AS "coverId",
-          cover."imageUrl" AS "coverExternalImageUrl"
+          p."coverFileId" AS "coverId",
+          p."coverImageUrl" AS "coverExternalImageUrl"
         FROM "Program" AS p
-        LEFT JOIN "ProgramCover" AS cover ON cover."programId" = p."id"
         ${sqlWhere}
         ORDER BY ${orderBy}
         LIMIT ${query.pageSize}
@@ -180,7 +152,8 @@ export class ProgramsRepository {
       where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
         lifecycle: true,
-        cover: { select: { id: true, imageUrl: true } },
+        coverFileId: true,
+        coverImageUrl: true,
         id: true,
         name: true,
         organizer: true,
@@ -457,21 +430,10 @@ export class ProgramDeletionScopeRepository {
             WHERE milestone."programId" = ${programId}
           )) AS submissions,
         (
-          (SELECT count(*) FROM "SubmissionFile" WHERE
-            "applicationId" IN (SELECT id FROM "Application" WHERE "programId" = ${programId})
-            OR "milestoneId" IN (SELECT id FROM "Milestone" WHERE "programId" = ${programId})
-            OR "milestoneDocumentSubmissionHistoryId" IN (
-              SELECT history.id
-              FROM "MilestoneDocumentSubmissionHistory" AS history
-              INNER JOIN "MilestoneDocumentSubmission" AS document_submission
-                ON document_submission.id = history."milestoneDocumentSubmissionId"
-              INNER JOIN "MilestoneDocument" AS document
-                ON document.id = document_submission."milestoneDocumentId"
-              INNER JOIN "Milestone" AS milestone
-                ON milestone.id = document."milestoneId"
-              WHERE milestone."programId" = ${programId}
-            )
-          )
+          (SELECT count(*) FROM "File" file WHERE file.kind='SUBMISSION' AND (file."programId" = ${programId}
+              OR file."teamId" IN (SELECT id FROM "Team" WHERE "programId" = ${programId})
+              OR file."requirementId" IN (SELECT requirement.id FROM "MilestoneDocument" requirement JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
+              OR file."submissionHistoryId" IN (SELECT history.id FROM "MilestoneDocumentSubmissionHistory" history JOIN "MilestoneDocumentSubmission" submission ON submission.id=history."milestoneDocumentSubmissionId" JOIN "MilestoneDocument" requirement ON requirement.id=submission."milestoneDocumentId" JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})))
           +
           (SELECT count(*) FROM "MilestoneDocumentSubmissionHistory" WHERE "milestoneDocumentSubmissionId" IN (
             SELECT document_submission.id
@@ -507,12 +469,6 @@ export class ProgramDeletionScopeRepository {
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('MilestoneDocumentTemplateFile:', file.id)
-            FROM "MilestoneDocumentTemplateFile" AS file
-            INNER JOIN "MilestoneDocument" AS document ON document.id = file."milestoneDocumentId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
-            WHERE milestone."programId" = ${programId}
-            UNION ALL
             SELECT CONCAT('MilestoneDocumentSubmission:', document_submission.id)
             FROM "MilestoneDocumentSubmission" AS document_submission
             INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
@@ -527,25 +483,10 @@ export class ProgramDeletionScopeRepository {
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('SubmissionFile:', file.id)
-            FROM "SubmissionFile" AS file
-            WHERE file."applicationId" IN (
-              SELECT id FROM "Application" WHERE "programId" = ${programId}
-            ) OR file."milestoneId" IN (
-              SELECT id FROM "Milestone" WHERE "programId" = ${programId}
-            ) OR file."milestoneDocumentSubmissionHistoryId" IN (
-              SELECT history.id
-              FROM "MilestoneDocumentSubmissionHistory" AS history
-              INNER JOIN "MilestoneDocumentSubmission" AS document_submission
-                ON document_submission.id = history."milestoneDocumentSubmissionId"
-              INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
-              INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
-              WHERE milestone."programId" = ${programId}
-            )
-            UNION ALL
-            SELECT CONCAT('ProgramAuthoringUpload:', upload.id)
-            FROM "ProgramAuthoringUpload" AS upload
-            WHERE upload."programId" = ${programId}
+            SELECT CONCAT('File:', file.id) FROM "File" file WHERE file."programId" = ${programId}
+              OR file."teamId" IN (SELECT id FROM "Team" WHERE "programId" = ${programId})
+              OR file."requirementId" IN (SELECT requirement.id FROM "MilestoneDocument" requirement JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
+              OR file."submissionHistoryId" IN (SELECT history.id FROM "MilestoneDocumentSubmissionHistory" history JOIN "MilestoneDocumentSubmission" submission ON submission.id=history."milestoneDocumentSubmissionId" JOIN "MilestoneDocument" requirement ON requirement.id=submission."milestoneDocumentId" JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
             UNION ALL
             SELECT CONCAT('RepositoryProvisionJob:', job.id)
             FROM "RepositoryProvisionJob" AS job
@@ -688,60 +629,19 @@ export class ProgramLifecycleRepository {
     programId: string,
   ): Promise<ProgramPurgeDeletedCounts> {
     const now = new Date();
-    const submissionFiles = await transaction.submissionFile.updateMany({
-      where: {
-        OR: [
-          { application: { is: { programId } } },
-          { milestone: { is: { programId } } },
-          {
-            submissionHistory: {
-              is: {
-                submission: { milestoneDocument: { milestone: { programId } } },
-              },
-            },
-          },
-        ],
-        lifecycle: {
-          in: [
-            SubmissionFileLifecycle.PENDING,
-            SubmissionFileLifecycle.ATTACHED,
-          ],
-        },
-      },
-      data: {
-        lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
-        nextDeleteAttemptAt: now,
-      },
-    });
-    const programAuthoringUploads =
-      await transaction.programAuthoringUpload.updateMany({
-        where: {
-          programId,
-          lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED,
-        },
-        data: {
-          lifecycle: ProgramAuthoringUploadLifecycle.DELETE_PENDING,
-          attachedAt: null,
-          nextDeleteAttemptAt: now,
-        },
-      });
-    const templateFiles =
-      await transaction.milestoneDocumentTemplateFile.findMany({
-        where: { milestoneDocument: { milestone: { programId } } },
-        select: { storageKey: true },
-      });
-    const cover = await transaction.programCover.findUnique({
-      where: { programId },
-      select: { storageKey: true },
-    });
-    const storageKeys = new Set(templateFiles.map((file) => file.storageKey));
-    if (cover?.storageKey) storageKeys.add(cover.storageKey);
-    const tombstones = await transaction.programPurgeFileTombstone.createMany({
-      data: [...storageKeys].map((storageKey) => ({
-        storageKey,
-        nextDeleteAttemptAt: now,
-      })),
-      skipDuplicates: true,
+    const fileScope = {
+      OR: [
+        { programId },
+        { team: { programId } },
+        { requirement: { milestone: { programId } } },
+        { submissionHistory: { submission: { milestoneDocument: { milestone: { programId } } } } },
+      ],
+      lifecycle: { in: ['PENDING', 'ATTACHED'] },
+    } satisfies Prisma.FileWhereInput;
+    const files = await transaction.file.findMany({ where: fileScope, select: { kind: true } });
+    await transaction.file.updateMany({
+      where: fileScope,
+      data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: now },
     });
     return {
       applications: 0,
@@ -763,9 +663,9 @@ export class ProgramLifecycleRepository {
       githubRepositoriesDetached: 0,
       outboxEvents: 0,
       notifications: 0,
-      submissionFiles: submissionFiles.count,
-      programAuthoringUploads: programAuthoringUploads.count,
-      programPurgeFileTombstones: tombstones.count,
+      submissionFiles: files.filter(file => file.kind === 'SUBMISSION').length,
+      programAuthoringUploads: files.filter(file => file.kind === 'UPLOAD').length,
+      programPurgeFileTombstones: files.filter(file => file.kind === 'COVER' || file.kind === 'TEMPLATE').length,
     };
   }
   isForeignKeyConflict(error: unknown): boolean {
@@ -801,11 +701,7 @@ export interface ProgramAuthoringTransactionStore {
     plan: ProgramAuthoringDocumentPlan,
   ): Promise<string>;
   createTemplate(input: ProgramAuthoringTemplateInput): Promise<void>;
-  attachUploads(
-    actorId: string,
-    requestId: string,
-    tokenIds: readonly string[],
-  ): Promise<void>;
+
 }
 @Injectable()
 export class ProgramAuthoringRepository {
@@ -842,7 +738,6 @@ export class ProgramAuthoringRepository {
       createMilestone: this.createMilestoneIn.bind(this, prisma),
       createDocument: this.createDocumentIn.bind(this, prisma),
       createTemplate: this.createTemplateIn.bind(this, prisma),
-      attachUploads: this.attachUploadsIn.bind(this, prisma),
     };
   }
   private async createProgramIn(
@@ -935,38 +830,8 @@ export class ProgramAuthoringRepository {
     prisma: Prisma.TransactionClient,
     input: ProgramAuthoringTemplateInput,
   ): Promise<void> {
-    await prisma.milestoneDocumentTemplateFile.create({
-      data: {
-        milestoneDocumentId: input.milestoneDocumentId,
-        storageKey: input.upload.storageKey,
-        originalFileName: input.upload.originalFileName,
-        mimeType: input.upload.mimeType,
-        sizeBytes: input.upload.sizeBytes,
-        uploadedById: input.actorId,
-      },
-    });
-  }
-  private async attachUploadsIn(
-    prisma: Prisma.TransactionClient,
-    actorId: string,
-    requestId: string,
-    tokenIds: readonly string[],
-  ): Promise<void> {
-    if (tokenIds.length === 0) return;
-    const attached = await prisma.programAuthoringUpload.updateMany({
-      where: {
-        id: { in: [...tokenIds] },
-        actorId,
-        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
-      },
-      data: {
-        lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED,
-        attachedAt: new Date(),
-        programId: requestId,
-      },
-    });
-    if (attached.count !== tokenIds.length) {
-      throw new ProgramAuthoringAttachmentRaceError();
-    }
+    await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
+      prisma, input.actorId, [{ milestoneDocumentId: input.milestoneDocumentId, upload: input.upload }],
+    );
   }
 }

@@ -3,16 +3,9 @@ import { Prisma, ProgramCategory, PrismaClient } from '@prisma/client';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { S3ObjectInventoryClient } from '../platform/s3-object-inventory.client';
-import {
-  StorageOrphanReconciliationService,
-  KNOWN_STORAGE_PREFIXES,
-  type StorageObjectInventory,
-} from './storage-orphan-reconciliation.service';
-import {
-  PrismaStorageReferenceRepository,
-  type StorageReferencePrisma,
-  type StorageReferenceTransactionClient,
-} from './prisma-storage-reference.repository';
+import { StorageOrphanReconciliationService, KNOWN_STORAGE_PREFIXES, type StorageObjectInventory } from './file-cleanup.service';
+import { PrismaStorageReferenceRepository, type StorageReferencePrisma, type StorageReferenceTransactionClient } from './files.repository';
+
 const INTEGRATION_SENTINEL = 'oss-hub-isolated-integration-v1';
 const FIXTURE_PREFIX = 'reconcile-test-qa60';
 const USER_ID = `${FIXTURE_PREFIX}-user`;
@@ -26,7 +19,6 @@ const AUTHORING_UPLOAD_ID = `${FIXTURE_PREFIX}-authoring-upload`;
 const TRANSFER_AUTHORING_UPLOAD_ID = `${FIXTURE_PREFIX}-transfer-authoring-upload`;
 const TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-template-file`;
 const COVER_ID = `${FIXTURE_PREFIX}-cover`;
-const TRANSFER_TEMPLATE_FILE_ID = `${FIXTURE_PREFIX}-transfer-template-file`;
 const PENDING_TOMBSTONE_ID = `${FIXTURE_PREFIX}-pending-tombstone`;
 const DELETED_TOMBSTONE_ID = `${FIXTURE_PREFIX}-deleted-tombstone`;
 const KEYS = {
@@ -87,21 +79,16 @@ async function putObject(key: string): Promise<void> {
 }
 async function clearFixture(): Promise<void> {
   await Promise.all(Object.values(KEYS).map((key) => storage.delete(key)));
-  await prisma.programPurgeFileTombstone.deleteMany({
-    where: { id: { in: [PENDING_TOMBSTONE_ID, DELETED_TOMBSTONE_ID] } },
-  });
-  await prisma.programCover.deleteMany({ where: { programId: PROGRAM_ID } });
-  await prisma.milestoneDocumentTemplateFile.deleteMany({
-    where: { id: { in: [TEMPLATE_FILE_ID, TRANSFER_TEMPLATE_FILE_ID] } },
-  });
-  await prisma.programAuthoringUpload.deleteMany({
-    where: {
-      id: { in: [AUTHORING_UPLOAD_ID, TRANSFER_AUTHORING_UPLOAD_ID] },
-    },
-  });
-  await prisma.submissionFile.deleteMany({
-    where: { id: SUBMISSION_FILE_ID },
-  });
+  await prisma.file.deleteMany({where: {kind: 'UPLOAD',
+id: { in: [PENDING_TOMBSTONE_ID, DELETED_TOMBSTONE_ID] }}});
+  await prisma.file.deleteMany({where: {kind: 'COVER',
+programId: PROGRAM_ID}});
+  await prisma.file.deleteMany({where: {kind: 'TEMPLATE',
+id: { in: [TEMPLATE_FILE_ID, TRANSFER_AUTHORING_UPLOAD_ID] }}});
+  await prisma.file.deleteMany({where: {kind: 'UPLOAD',
+id: { in: [AUTHORING_UPLOAD_ID, TRANSFER_AUTHORING_UPLOAD_ID] }}});
+  await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
+id: SUBMISSION_FILE_ID}});
   await prisma.milestoneDocument.deleteMany({ where: { id: DOCUMENT_ID } });
   await prisma.milestoneDocument.deleteMany({
     where: { id: TRANSFER_DOCUMENT_ID },
@@ -144,15 +131,13 @@ async function installLiveFixture(): Promise<void> {
       dueAt: new Date('2026-02-01T00:00:00.000Z'),
     },
   });
-  await prisma.programCover.create({
-    data: {
-      id: COVER_ID,
-      programId: PROGRAM_ID,
-      storageKey: KEYS.liveCover,
-      mimeType: 'image/png',
-      sizeBytes: 1,
-    },
-  });
+  await prisma.file.create({data: {kind: 'COVER',
+lifecycle: 'ATTACHED',
+id: COVER_ID,
+programId: PROGRAM_ID,
+storageKey: KEYS.liveCover,
+mimeType: 'image/png',
+sizeBytes: 1}});
   await prisma.milestoneDocument.create({
     data: {
       id: DOCUMENT_ID,
@@ -162,41 +147,33 @@ async function installLiveFixture(): Promise<void> {
       sortOrder: 1,
     },
   });
-  await prisma.submissionFile.create({
-    data: {
-      id: SUBMISSION_FILE_ID,
-      uploaderId: USER_ID,
-      storageKey: KEYS.liveSubmission,
-      originalFileName: 'synthetic.txt',
-      mimeType: 'text/plain',
-      sizeBytes: 1,
-      lifecycle: 'DELETE_PENDING',
-    },
-  });
-  await prisma.programAuthoringUpload.create({
-    data: {
-      id: AUTHORING_UPLOAD_ID,
-      actorId: USER_ID,
-      storageKey: KEYS.liveAuthoring,
-      originalFileName: 'synthetic.txt',
-      mimeType: 'text/plain',
-      sizeBytes: 1,
-      sha256: 'a'.repeat(64),
-      lifecycle: 'PENDING',
-      expiresAt: new Date('2027-01-01T00:00:00.000Z'),
-    },
-  });
-  await prisma.milestoneDocumentTemplateFile.create({
-    data: {
-      id: TEMPLATE_FILE_ID,
-      milestoneDocumentId: DOCUMENT_ID,
-      storageKey: KEYS.liveTemplate,
-      originalFileName: 'synthetic.txt',
-      mimeType: 'text/plain',
-      sizeBytes: 1,
-      uploadedById: USER_ID,
-    },
-  });
+  await prisma.file.create({data: {kind: 'SUBMISSION',
+id: SUBMISSION_FILE_ID,
+uploaderId: USER_ID,
+storageKey: KEYS.liveSubmission,
+originalFileName: 'synthetic.txt',
+mimeType: 'text/plain',
+sizeBytes: 1,
+lifecycle: 'DELETE_PENDING'}});
+  await prisma.file.create({data: {kind: 'UPLOAD',
+id: AUTHORING_UPLOAD_ID,
+uploaderId: USER_ID,
+storageKey: KEYS.liveAuthoring,
+originalFileName: 'synthetic.txt',
+mimeType: 'text/plain',
+sizeBytes: 1,
+sha256: 'a'.repeat(64),
+lifecycle: 'PENDING',
+pendingExpiresAt: new Date('2027-01-01T00:00:00.000Z')}});
+  await prisma.file.create({data: {kind: 'TEMPLATE',
+lifecycle: 'ATTACHED',
+id: TEMPLATE_FILE_ID,
+requirementId: DOCUMENT_ID,
+storageKey: KEYS.liveTemplate,
+originalFileName: 'synthetic.txt',
+mimeType: 'text/plain',
+sizeBytes: 1,
+uploaderId: USER_ID}});
   await Promise.all(
     [
       KEYS.liveSubmission,
@@ -209,21 +186,15 @@ async function installLiveFixture(): Promise<void> {
   );
 }
 async function installTombstoneFixture(): Promise<void> {
-  await prisma.programPurgeFileTombstone.create({
-    data: {
-      id: PENDING_TOMBSTONE_ID,
-      storageKey: KEYS.pendingTombstone,
-      lifecycle: 'DELETE_PENDING',
-    },
-  });
-  await prisma.programPurgeFileTombstone.create({
-    data: {
-      id: DELETED_TOMBSTONE_ID,
-      storageKey: KEYS.deletedTombstone,
-      lifecycle: 'DELETED',
-      deletedAt: new Date('2026-01-01T00:00:00.000Z'),
-    },
-  });
+  await prisma.file.create({data: {kind: 'UPLOAD',
+id: PENDING_TOMBSTONE_ID,
+storageKey: KEYS.pendingTombstone,
+lifecycle: 'DELETE_PENDING'}});
+  await prisma.file.create({data: {kind: 'UPLOAD',
+id: DELETED_TOMBSTONE_ID,
+storageKey: KEYS.deletedTombstone,
+lifecycle: 'DELETED',
+deletedAt: new Date('2026-01-01T00:00:00.000Z')}});
   await Promise.all(
     [KEYS.pendingTombstone, KEYS.deletedTombstone].map(putObject),
   );
@@ -247,19 +218,16 @@ async function installPendingTemplateTransferFixture(): Promise<void> {
       sortOrder: 1,
     },
   });
-  await prisma.programAuthoringUpload.create({
-    data: {
-      id: TRANSFER_AUTHORING_UPLOAD_ID,
-      actorId: USER_ID,
-      storageKey: KEYS.transfer,
-      originalFileName: 'pending-transfer.txt',
-      mimeType: 'text/plain',
-      sizeBytes: 1,
-      sha256: 'b'.repeat(64),
-      lifecycle: 'PENDING',
-      expiresAt: new Date('2027-01-01T00:00:00.000Z'),
-    },
-  });
+  await prisma.file.create({data: {kind: 'UPLOAD',
+id: TRANSFER_AUTHORING_UPLOAD_ID,
+uploaderId: USER_ID,
+storageKey: KEYS.transfer,
+originalFileName: 'pending-transfer.txt',
+mimeType: 'text/plain',
+sizeBytes: 1,
+sha256: 'b'.repeat(64),
+lifecycle: 'PENDING',
+pendingExpiresAt: new Date('2027-01-01T00:00:00.000Z')}});
   await putObject(KEYS.transfer);
 }
 describe('storage orphan reconciliation integration', () => {
@@ -308,10 +276,10 @@ describe('storage orphan reconciliation integration', () => {
     const pendingReport = await service.reconcile({ mode: 'report' });
     expect(pendingReport.orphanKeys).not.toContain(KEYS.pendingTombstone);
     expect(pendingReport.orphanKeys).toContain(KEYS.deletedTombstone);
-    await prisma.programPurgeFileTombstone.update({
-      where: { id: PENDING_TOMBSTONE_ID },
-      data: { lifecycle: 'DELETED', deletedAt: futureRunStart },
-    });
+    await prisma.file.update({where: {kind: 'UPLOAD',
+id: PENDING_TOMBSTONE_ID},
+data: {lifecycle: 'DELETED',
+deletedAt: futureRunStart}});
     const finalizedReport = await service.reconcile({ mode: 'report' });
     expect(finalizedReport.orphanKeys).toContain(KEYS.pendingTombstone);
   });
@@ -358,19 +326,9 @@ describe('storage orphan reconciliation integration', () => {
       releaseTransfer = resolve;
     });
     const transfer = prisma.$transaction(async (transaction) => {
-      await transaction.programAuthoringUpload.delete({
+      await transaction.file.update({
         where: { id: TRANSFER_AUTHORING_UPLOAD_ID },
-      });
-      await transaction.milestoneDocumentTemplateFile.create({
-        data: {
-          id: TRANSFER_TEMPLATE_FILE_ID,
-          milestoneDocumentId: TRANSFER_DOCUMENT_ID,
-          storageKey: KEYS.transfer,
-          originalFileName: 'pending-transfer.txt',
-          mimeType: 'text/plain',
-          sizeBytes: 1,
-          uploadedById: USER_ID,
-        },
+        data: { kind: 'TEMPLATE', lifecycle: 'ATTACHED', requirementId: TRANSFER_DOCUMENT_ID, pendingExpiresAt: null },
       });
       transferPrepared?.();
       await transferMayCommit;
@@ -387,7 +345,7 @@ describe('storage orphan reconciliation integration', () => {
     });
     const snapshotReader = snapshotReaderBase.$extends({
       query: {
-        milestoneDocumentTemplateFile: {
+        file: {
           async findMany({ args, query }) {
             const result = await query(args);
             signalTemplateSnapshotRead?.();
@@ -409,56 +367,7 @@ describe('storage orphan reconciliation integration', () => {
       ): Promise<T> {
         return snapshotReader.$transaction(
           (transaction) =>
-            operation({
-              submissionFile: {
-                findMany: ({ where, select }) =>
-                  transaction.submissionFile.findMany({ where, select }),
-                findFirst: ({ where, select }) =>
-                  transaction.submissionFile.findFirst({ where, select }),
-              },
-              programAuthoringUpload: {
-                findMany: ({ where, select }) =>
-                  transaction.programAuthoringUpload.findMany({
-                    where,
-                    select,
-                  }),
-                findFirst: ({ where, select }) =>
-                  transaction.programAuthoringUpload.findFirst({
-                    where,
-                    select,
-                  }),
-              },
-              programCover: {
-                findMany: ({ where, select }) =>
-                  transaction.programCover.findMany({ where, select }),
-                findFirst: ({ where, select }) =>
-                  transaction.programCover.findFirst({ where, select }),
-              },
-              milestoneDocumentTemplateFile: {
-                findMany: ({ where, select }) =>
-                  transaction.milestoneDocumentTemplateFile.findMany({
-                    where,
-                    select,
-                  }),
-                findFirst: ({ where, select }) =>
-                  transaction.milestoneDocumentTemplateFile.findFirst({
-                    where,
-                    select,
-                  }),
-              },
-              programPurgeFileTombstone: {
-                findMany: ({ where, select }) =>
-                  transaction.programPurgeFileTombstone.findMany({
-                    where,
-                    select,
-                  }),
-                findFirst: ({ where, select }) =>
-                  transaction.programPurgeFileTombstone.findFirst({
-                    where,
-                    select,
-                  }),
-              },
-            }),
+            operation({ file: transaction.file }),
           options,
         );
       },
@@ -483,15 +392,13 @@ describe('storage orphan reconciliation integration', () => {
       expect(result.deletedKeys).not.toContain(KEYS.transfer);
       await expect(references.isLiveKey(KEYS.transfer)).resolves.toBe(true);
       expect(
-        await prisma.programAuthoringUpload.findUnique({
-          where: { id: TRANSFER_AUTHORING_UPLOAD_ID },
-        }),
+        await prisma.file.findUnique({where: {kind: 'UPLOAD',
+id: TRANSFER_AUTHORING_UPLOAD_ID}}),
       ).toBeNull();
       expect(
-        await prisma.milestoneDocumentTemplateFile.findUnique({
-          where: { id: TRANSFER_TEMPLATE_FILE_ID },
-          select: { storageKey: true },
-        }),
+        await prisma.file.findUnique({where: {kind: 'TEMPLATE',
+id: TRANSFER_AUTHORING_UPLOAD_ID},
+select: {storageKey: true}}),
       ).toEqual({ storageKey: KEYS.transfer });
       await expect(objectExists(KEYS.transfer)).resolves.toBe(true);
     } finally {

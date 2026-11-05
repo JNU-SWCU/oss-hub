@@ -1,4 +1,4 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 import { randomUUID } from 'node:crypto';
 
 const submissionFileAdmissionService = new SubmissionFileAdmissionService();

@@ -1,16 +1,9 @@
-import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/program-authoring-upload-transaction.repository';
-import { ProgramCoverRepository } from '../../src/programs/program-cover.repository';
+import { ProgramAuthoringUploadTransactionRepository, ProgramCoverRepository } from '../../src/programs/files.repository';
 import { Injectable } from '@nestjs/common';
-import {
-  ProgramAuthoringRepository,
-  type ProgramAuthoringTransactionStore,
-} from '../../src/programs/programs.repository';
+import { ProgramAuthoringRepository, type ProgramAuthoringTransactionStore } from '../../src/programs/programs.repository';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
-import {
-  E2E_EXTERNAL_FAILURE_OPERATIONS,
-  E2eExternalPortFault,
-} from './e2e-external-port-registry';
+import { E2E_EXTERNAL_FAILURE_OPERATIONS, E2eExternalPortFault } from './e2e-external-port-registry';
 
 @Injectable()
 export class FaultInjectingProgramAuthoringRepository extends ProgramAuthoringRepository {

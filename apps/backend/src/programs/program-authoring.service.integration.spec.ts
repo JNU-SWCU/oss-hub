@@ -1,31 +1,17 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramCoverRepository } from './program-cover.repository';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
+import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
-import {
-  ProgramTrackType,
-  ProgramAuthoringUploadLifecycle,
-} from '@prisma/client';
+import { ProgramTrackType, ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
-import type { AuditLogService } from '../platform/audit-log.service';
+import { type AuditLogService } from '../platform/audit-log.service';
 import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
-import {
-  AUTHORING_TEST_PREFIX,
-  ProgramAuthoringIntegrationHarness,
-  authoringDocument,
-  authoringMilestone,
-  authoringRequest,
-} from './program-authoring.integration-support';
-import {
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringUploadTokenError,
-} from './program-authoring.error';
-import { type ProgramAuthoringDocumentRequest } from './program-authoring-upload-transaction.repository';
+import { AUTHORING_TEST_PREFIX, ProgramAuthoringIntegrationHarness, authoringDocument, authoringMilestone, authoringRequest } from './program-authoring.integration-support';
+import { ProgramAuthoringIdempotencyConflictError, ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import { type ProgramAuthoringDocumentRequest } from './files.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
 const programAuthoringService = new ProgramAuthoringService(
@@ -131,7 +117,7 @@ describe('ProgramAuthoringService integration', () => {
               select: {
                 name: true,
                 required: true,
-                templateFile: true,
+                files: {where: {kind: 'TEMPLATE', lifecycle: 'ATTACHED'}},
               },
             },
           },
@@ -144,7 +130,7 @@ describe('ProgramAuthoringService integration', () => {
     expect(graph.milestones[0]?.documents[1]).toMatchObject({
       name: 'Optional template',
       required: false,
-      templateFile: { originalFileName: 'graph-template.pdf' },
+      files: [{ originalFileName: 'graph-template.pdf' }],
     });
     await expect(
       harness.prisma.program.count({
@@ -152,12 +138,9 @@ describe('ProgramAuthoringService integration', () => {
       }),
     ).resolves.toBe(1);
     const upload =
-      await harness.prisma.programAuthoringUpload.findUniqueOrThrow({
-        where: { id: templateId },
-        select: { lifecycle: true, programId: true },
-      });
+      await harness.prisma.file.findUniqueOrThrow({where: {kind: 'TEMPLATE', id: templateId}, select: {lifecycle: true, requirement: {select: {milestone: {select: {programId: true}}}}}});
     expect(upload.lifecycle).toBe(ProgramAuthoringUploadLifecycle.ATTACHED);
-    expect(upload.programId).toBe(created.id);
+    expect(upload.requirement?.milestone.programId).toBe(created.id);
   });
 
   it('persists a milestone ending exactly with its program', async () => {
@@ -389,24 +372,20 @@ describe('ProgramAuthoringService integration', () => {
       expiresAt: new Date(0),
     });
     const before =
-      await harness.prisma.programAuthoringUpload.findUniqueOrThrow({
-        where: { id: uploadId },
-        select: { storageKey: true },
-      });
+      await harness.prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
+id: uploadId},
+select: {storageKey: true}});
 
     await expect(harness.maintenance.runDue()).resolves.toBe(1);
 
     await expect(harness.objectExists(before.storageKey)).resolves.toBe(false);
     const deleted =
-      await harness.prisma.programAuthoringUpload.findUniqueOrThrow({
-        where: { id: uploadId },
-        select: {
-          lifecycle: true,
-          deletedAt: true,
-          deleteClaimOwner: true,
-          nextDeleteAttemptAt: true,
-        },
-      });
+      await harness.prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
+id: uploadId},
+select: {lifecycle: true,
+deletedAt: true,
+deleteClaimOwner: true,
+nextDeleteAttemptAt: true}});
     expect(deleted.lifecycle).toBe(ProgramAuthoringUploadLifecycle.DELETED);
     expect(deleted.deletedAt).not.toBeNull();
     expect(deleted.deleteClaimOwner).toBeNull();

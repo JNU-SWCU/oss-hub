@@ -177,37 +177,31 @@ export class ProgramArchiveIntegrationFixture {
       originalName,
       objectKey: storageKey,
     });
-    await this.prisma.submissionFile.create({
-      data: {
-        id: archiveId(`file-${stage}-${revision}`),
-        uploaderId: archiveId('user'),
-        applicationId: archiveId('app-0'),
-        milestoneId: archiveId(stage),
-        milestoneDocumentSubmissionId: archiveId(`submission-0-${stage}`),
-        milestoneDocumentSubmissionHistoryId: archiveId(
+    await this.prisma.file.create({data: {kind: 'SUBMISSION',
+id: archiveId(`file-${stage}-${revision}`),
+uploaderId: archiveId('user'),
+teamId: (await this.prisma.application.findUniqueOrThrow({where: {id: archiveId('app-0')}, select: {teamId: true}})).teamId,
+submissionId: archiveId(`submission-0-${stage}`),
+submissionHistoryId: archiveId(
           `history-0-${stage}-${revision}`,
         ),
-        lifecycle: 'ATTACHED',
-        expiresAt: new Date('2099-12-31'),
-        storageKey,
-        originalFileName: originalName,
-        mimeType: 'application/octet-stream',
-        sizeBytes: body.length,
-      },
-    });
+lifecycle: 'ATTACHED',
+expiresAt: new Date('2099-12-31'),
+storageKey: storageKey,
+originalFileName: originalName,
+mimeType: 'application/octet-stream',
+sizeBytes: body.length}});
   }
   async clear(): Promise<void> {
     const programs = { in: [archiveId('a'), archiveId('b')] };
-    const files = await this.prisma.submissionFile.findMany({
-      where: { uploaderId: archiveId('user') },
-      select: { storageKey: true },
-    });
+    const files = await this.prisma.file.findMany({where: {kind: 'SUBMISSION',
+uploaderId: archiveId('user')},
+select: {storageKey: true}});
     await Promise.all(
       files.map((file) => this.storage.delete(file.storageKey)),
     );
-    await this.prisma.submissionFile.deleteMany({
-      where: { uploaderId: archiveId('user') },
-    });
+    await this.prisma.file.deleteMany({where: {kind: 'SUBMISSION',
+uploaderId: archiveId('user')}});
     const submissions = { application: { programId: programs } };
     await this.prisma.milestoneDocumentSubmissionHistory.deleteMany({
       where: { submission: submissions },

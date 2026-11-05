@@ -1,12 +1,13 @@
+import { FileCleanupRepository } from './files.repository';
 import { Logger } from '@nestjs/common';
 import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
-import { SubmissionFileCleanupService } from './submission-file-cleanup.service';
-import type { ObjectStoragePort } from '../platform/object-storage.types';
-import type { SubmissionFilesRepository } from './submission-files.repository';
+import { FileCleanupService } from './file-cleanup.service';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { type SubmissionFilesRepository } from './files.repository';
 
-describe('SubmissionFileCleanupService cron', () => {
-  const CRON_JOB_NAME = 'submission-file-cleanup';
+describe('FileCleanupService cron', () => {
+  const CRON_JOB_NAME = 'file-cleanup';
 
   const settleRun = (): Promise<void> =>
     new Promise((resolve) => setImmediate(resolve));
@@ -23,15 +24,15 @@ describe('SubmissionFileCleanupService cron', () => {
       releasePendingRun = undefined;
       runDue.mockReset();
       runDue.mockResolvedValue(0);
-      const service = new SubmissionFileCleanupService(
-        {} as SubmissionFilesRepository,
+      const service = new FileCleanupService(
+        {} as FileCleanupRepository,
         {} as ObjectStoragePort,
       );
       service.runDue = runDue;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
         providers: [
-          { provide: SubmissionFileCleanupService, useValue: service },
+          { provide: FileCleanupService, useValue: service },
         ],
       }).compile();
       await testingModule.init();
@@ -84,18 +85,18 @@ describe('SubmissionFileCleanupService cron', () => {
 
     it.each([
       [
-        'Error 실패는 오류 이름만',
+        'Error 실패는 고정 코드만',
         new TypeError('storage provider connection detail'),
-        'TypeError',
+        'MAINTENANCE_RUN_FAILED',
       ],
       [
-        'Error가 아닌 실패는 UnknownError만',
+        'Error가 아닌 실패도 고정 코드만',
         'storage provider connection detail',
-        'UnknownError',
+        'MAINTENANCE_RUN_FAILED',
       ],
     ])(
       '%s 남기고 provider 상세를 기록하지 않는다',
-      async (_case, failure, errorName) => {
+      async (_case, failure, errorCode) => {
         runDue.mockRejectedValueOnce(failure);
         const alert = jest
           .spyOn(Logger.prototype, 'error')
@@ -105,7 +106,7 @@ describe('SubmissionFileCleanupService cron', () => {
         await settleRun();
 
         expect(alert.mock.calls).toEqual([
-          [{ event: 'submission-file.cleanup.run.failed', errorName }],
+          [{ event: 'file.cleanup.run.failed', errorCode }],
         ]);
         expect(JSON.stringify(alert.mock.calls)).not.toContain('provider');
       },
@@ -124,8 +125,8 @@ function setup() {
     resetDeleteAttempts: jest.fn().mockResolvedValue(true),
   };
   const storage = { delete: jest.fn().mockResolvedValue(undefined) };
-  const service = new SubmissionFileCleanupService(
-    files as unknown as SubmissionFilesRepository,
+  const service = new FileCleanupService(
+    files as unknown as FileCleanupRepository,
     storage as unknown as ObjectStoragePort,
     () => new Date(now),
   );
@@ -149,7 +150,7 @@ function claimed(deleteAttemptCount: number) {
   };
 }
 
-describe('SubmissionFileCleanupService', () => {
+describe('FileCleanupService', () => {
   it('claims with a ten-minute lease and treats storage not-found as success', async () => {
     const { service, files, storage } = setup();
     files.claimNextForDeletion
@@ -215,7 +216,7 @@ describe('SubmissionFileCleanupService', () => {
       error: 'STORAGE_DELETE_FAILED',
     });
     expect(alert).toHaveBeenCalledWith({
-      event: 'submission-file.cleanup.exhausted',
+      event: 'file.cleanup.exhausted',
       fileId: 'opaque-file-id',
       attemptCount: 6,
       error: 'storage_delete_failed',

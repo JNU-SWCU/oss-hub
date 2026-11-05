@@ -1,8 +1,9 @@
+import { fileMetadata } from './files.repository';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { Injectable } from '@nestjs/common';
 import {
   Prisma,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
   MilestoneDocumentSubmissionHistoryEvent,
   RequirementSubmissionType,
@@ -203,19 +204,20 @@ export class SubmissionsRepository {
           select: { id: true },
         });
       if (input.attachFile !== null) {
-        const attached = await transaction.submissionFile.updateMany({
+        const attached = await transaction.file.updateMany({
           where: {
             id: input.attachFile.fileId,
             uploaderId: input.attachFile.uploaderId,
-            applicationId: input.applicationId,
-            milestoneId: input.attachFile.milestoneId,
-            lifecycle: SubmissionFileLifecycle.PENDING,
+            kind: 'SUBMISSION',
+            team: { applications: { some: { id: input.applicationId } } },
+            requirementId: input.milestoneDocumentId,
+            lifecycle: FileLifecycle.PENDING,
             pendingExpiresAt: { gt: input.submittedAt },
           },
           data: {
-            milestoneDocumentSubmissionId: submission.id,
-            milestoneDocumentSubmissionHistoryId: history.id,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            submissionId: submission.id,
+            submissionHistoryId: history.id,
+            lifecycle: FileLifecycle.ATTACHED,
             pendingExpiresAt: null,
           },
         });
@@ -223,10 +225,10 @@ export class SubmissionsRepository {
           throw new MilestoneDocumentPendingFileMissingError();
         }
       }
-      const files = await transaction.submissionFile.findMany({
+      const files = await transaction.file.findMany({
         where: {
-          milestoneDocumentSubmissionHistoryId: history.id,
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          submissionHistoryId: history.id,
+          lifecycle: FileLifecycle.ATTACHED,
         },
         orderBy: { createdAt: 'desc' },
         select: attachedFileSelect,
@@ -236,7 +238,7 @@ export class SubmissionsRepository {
         status: submission.status,
         content: submission.content,
         submittedAt: submission.submittedAt,
-        files,
+        files: files.map(fileMetadata),
       };
     });
   }
@@ -266,4 +268,4 @@ const attachedFileSelect = {
   originalFileName: true,
   mimeType: true,
   sizeBytes: true,
-} satisfies Prisma.SubmissionFileSelect;
+} satisfies Prisma.FileSelect;

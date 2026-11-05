@@ -1,9 +1,5 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import {
-  ValidationPipe,
-  type ExecutionContext,
-  type INestApplication,
-} from '@nestjs/common';
+import { SubmissionFileAdmissionService } from './files.service';
+import { ValidationPipe, type ExecutionContext, type INestApplication } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
@@ -13,17 +9,11 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionsController } from './submissions.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import type {
-  SubmissionReviewTransactionStore,
-  SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
+import { type SubmissionReviewTransactionStore, type SubmissionReviewsRepositoryPort } from './submission-reviews.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import {
-  protectedRouteGuardStub,
-  sessionPrincipal,
-} from '../../test/global-authentication-guard.fixture';
+import { protectedRouteGuardStub, sessionPrincipal } from '../../test/global-authentication-guard.fixture';
 
 const actors = [
   ['anonymous', null],

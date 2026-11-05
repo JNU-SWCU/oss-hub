@@ -1,4 +1,4 @@
-import type { UploadedSubmissionFileResponse } from '../submission-files.service';
+import { type UploadedSubmissionFileResponse } from '../files.service';
 
 export class UploadedSubmissionFileResponseDto {
   declare readonly fileId: string;

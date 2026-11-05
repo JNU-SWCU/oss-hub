@@ -1,19 +1,12 @@
-import {
-  type ExecutionContext,
-  type INestApplication,
-  ValidationPipe,
-} from '@nestjs/common';
+import { type ExecutionContext, type INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringService } from './programs.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from './files.service';
 import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
-import {
-  protectedRouteGuardStub,
-  SYNTHETIC_STAFF_PRINCIPAL,
-} from '../../test/global-authentication-guard.fixture';
+import { protectedRouteGuardStub, SYNTHETIC_STAFF_PRINCIPAL } from '../../test/global-authentication-guard.fixture';
 
 let app: INestApplication;
 let baseUrl: string;

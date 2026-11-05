@@ -1,79 +1,32 @@
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
-import {
-  ProgramViewerService,
-  type ProgramViewer,
-  ProgramViewerRole,
-} from './program-viewer.service';
+import { ProgramViewerService, type ProgramViewer, ProgramViewerRole } from './program-viewer.service';
 import { Injectable, Inject, BadRequestException } from '@nestjs/common';
-import {
-  ApplicationStatus,
-  SubmissionStatus,
-  type ProgramTrackType,
-  type ProgramLifecycle,
-  ProgramCategory,
-} from '@prisma/client';
-import {
-  DomainException,
-  type ProblemDetailExtensions,
-} from '../platform/error-code.error';
+import { ApplicationStatus, SubmissionStatus, type ProgramTrackType, type ProgramLifecycle, ProgramCategory } from '@prisma/client';
+import { DomainException, type ProblemDetailExtensions } from '../platform/error-code.error';
 import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
-import {
-  ProgramsRepository,
-  ProgramListRecord,
-  type ProgramStatusCounts,
-  ProgramAuthoringRepository,
-  type ProgramAuthoringTransactionStore,
-  ProgramLifecycleRepository,
-  ProgramPurgeDeletedCounts,
-  type ProgramDeletionScopeCounts,
-} from './programs.repository';
+import { ProgramsRepository, ProgramListRecord, type ProgramStatusCounts, ProgramAuthoringRepository, type ProgramAuthoringTransactionStore, ProgramLifecycleRepository, ProgramPurgeDeletedCounts, type ProgramDeletionScopeCounts } from './programs.repository';
 import { MILESTONE_NOT_SUBMITTED } from './milestone-completion.config';
 import { type ProgramListQuery } from './program-list-status-filter.repository';
 import { type SubmissionCompletionTargetRow } from './submission-completion.config';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import {
-  ProgramTemplatesService,
-  PROGRAM_PARTICIPATION,
-} from './team-application.service';
-import {
-  ProgramAuthoringUploadTokenError,
-  ProgramAuthoringAttachmentRaceError,
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringIdempotencyRaceError,
-} from './program-authoring.error';
-import {
-  ProgramErrorCode,
-  PROGRAM_ERROR_CODES,
-} from './program-error-code.error';
+import { ProgramTemplatesService, PROGRAM_PARTICIPATION } from './team-application.service';
+import { ProgramAuthoringUploadTokenError, ProgramAuthoringAttachmentRaceError, ProgramAuthoringIdempotencyConflictError, ProgramAuthoringIdempotencyRaceError } from './program-authoring.error';
+import { ProgramErrorCode, PROGRAM_ERROR_CODES } from './program-error-code.error';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
-import {
-  ProgramNoticeFetchClient,
-  type ProgramNoticePreview,
-} from './program-notice-fetch.client';
+import { ProgramNoticeFetchClient, type ProgramNoticePreview } from './program-notice-fetch.client';
 import { AuditLogService } from '../platform/audit-log.service';
-import {
-  PROGRAM_CREATED_AUDIT_ACTIONS,
-  PROGRAM_DELETION_AUDIT_ACTIONS,
-} from '../platform/audit-log-metadata.config';
-import {
-  ProgramAuthoringUploadTransactionRepository,
-  type ProgramAuthoringRequest,
-  ProgramAuthoringPlan,
-  type ProgramAuthoringMilestonePlan,
-  type ProgramAuthoringDocumentPlan,
-  type ProgramAuthoringProgram,
-} from './program-authoring-upload-transaction.repository';
-import {
-  type ProgramAuthoringValidationIssue,
-  ProgramAuthoringValidationError,
-} from './program-authoring-validation.error';
+import { PROGRAM_CREATED_AUDIT_ACTIONS, PROGRAM_DELETION_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
+import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import { type ProgramAuthoringRequest, ProgramAuthoringPlan, type ProgramAuthoringMilestonePlan, type ProgramAuthoringDocumentPlan, type ProgramAuthoringProgram } from './files.config';
+import { type ProgramAuthoringValidationIssue, ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import { createHash } from 'node:crypto';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from './files.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+
 export interface ProgramListItemNote {
   readonly text: string;
   readonly icon?: 'team';
@@ -333,8 +286,8 @@ export class ProgramsService {
         id: program.id,
         coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           program.id,
-          program.cover?.id,
-          program.cover?.imageUrl,
+          program.coverFileId,
+          program.coverImageUrl,
         ),
         name: program.name,
         organizer: program.organizer,
@@ -654,9 +607,8 @@ export class ProgramAuthoringService {
         : cover === undefined
           ? await store.createProgram(plan.program)
           : await store.createProgram(plan.program, { actorId, upload: cover });
-    let requestId: string;
     try {
-      requestId = await store.createRequest({
+      await store.createRequest({
         actorId,
         idempotencyKey,
         payloadHash,
@@ -696,11 +648,6 @@ export class ProgramAuthoringService {
         }
       }
     }
-    await store.attachUploads(
-      actorId,
-      requestId,
-      plan.uploadTokenIds.filter((id) => id !== plan.coverUploadId),
-    );
     return program;
   }
   toCanonicalProgramAuthoringPayload(plan: ProgramAuthoringPlan) {

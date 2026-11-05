@@ -1,5 +1,6 @@
 import { ProgramScheduleService } from '../programs/program-schedule.service';
-import { SubmissionFileAdmissionService } from '../programs/submission-file-admission.service';
+import { SubmissionFileAdmissionService } from '../programs/files.service';
+
 const programScheduleService = new ProgramScheduleService();
 const submissionFileAdmissionService = new SubmissionFileAdmissionService();
 

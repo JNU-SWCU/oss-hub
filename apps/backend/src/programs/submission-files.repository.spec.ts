@@ -1,9 +1,10 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
-import type { PrismaService } from '../platform/prisma.service';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { type PrismaService } from '../platform/prisma.service';
+import { SubmissionFilesRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+
 const mockLockSubmissionMembership = jest.fn<
   ReturnType<PlatformRepository['lockSubmissionMembership']>,
   Parameters<PlatformRepository['lockSubmissionMembership']>
@@ -32,7 +33,7 @@ describe('SubmissionFilesRepository exhausted cleanup query', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
   const prisma = {
-    submissionFile: { findMany },
+    file: { findMany },
     user: { findUnique },
   } as unknown as PrismaService;
   const repository = new SubmissionFilesRepository(
@@ -88,7 +89,7 @@ const PAST = new Date('2026-01-01T00:00:00.000Z');
 interface StoredFileRow {
   readonly id: string;
   readonly lifecycle: SubmissionFileLifecycle;
-  readonly milestoneDocumentSubmissionHistoryId: string | null;
+  readonly submissionHistoryId: string | null;
   readonly expiresAt: Date | null;
   readonly uploaderId: string;
   readonly storageKey: string;
@@ -140,11 +141,13 @@ function matchesTeam(teamWhere: Filter, row: StoredFileRow): boolean {
 function matchesFile(where: Filter, row: StoredFileRow): boolean {
   return Object.entries(where).every(([key, value]) => {
     switch (key) {
+      case 'kind':
+        return value === 'SUBMISSION';
       case 'id':
         return row.id === value;
       case 'lifecycle':
         return row.lifecycle === value;
-      case 'milestoneDocumentSubmissionHistoryId':
+      case 'submissionHistoryId':
         if (
           (
             value as {
@@ -154,7 +157,7 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
         ) {
           throw new Error('Unsupported attachment filter.');
         }
-        return row.milestoneDocumentSubmissionHistoryId !== null;
+        return row.submissionHistoryId !== null;
       case 'expiresAt': {
         const gt = (
           value as {
@@ -165,12 +168,8 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
           throw new Error('Unsupported expiry filter.');
         return row.expiresAt !== null && row.expiresAt.getTime() > gt.getTime();
       }
-      case 'application': {
-        const inner = (
-          value as {
-            is?: Filter;
-          }
-        ).is;
+      case 'submissionHistory': {
+        const inner = (value as { submission?: { application?: Filter } }).submission?.application;
         const team = inner?.team as Filter | undefined;
         if (team === undefined) {
           throw new Error('Unsupported application filter.');
@@ -190,7 +189,7 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
   const attachedFile: StoredFileRow = {
     id: 'file-attached',
     lifecycle: SubmissionFileLifecycle.ATTACHED,
-    milestoneDocumentSubmissionHistoryId: 'history-1',
+    submissionHistoryId: 'history-1',
     expiresAt: FUTURE,
     uploaderId: FORMER_UPLOADER,
     storageKey: 'submission-files/private-key',
@@ -212,7 +211,7 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     ...attachedFile,
     id: 'file-pending',
     lifecycle: SubmissionFileLifecycle.PENDING,
-    milestoneDocumentSubmissionHistoryId: null,
+    submissionHistoryId: null,
   };
   const expiredFile: StoredFileRow = {
     ...attachedFile,
@@ -231,7 +230,7 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
   >();
   const prisma = {
     user: { findUnique },
-    submissionFile: { findFirst },
+    file: { findFirst },
   } as unknown as PrismaService;
   const repository = new SubmissionFilesRepository(
     prisma,
@@ -313,11 +312,14 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     const where = findFirst.mock.calls[0]![0].where;
     expect(where).toEqual({
       id: 'file-attached',
+      kind: 'SUBMISSION',
       lifecycle: SubmissionFileLifecycle.ATTACHED,
-      milestoneDocumentSubmissionHistoryId: { not: null },
+      submissionHistoryId: { not: null },
       expiresAt: { gt: NOW },
-      application: {
-        is: { team: { members: { some: { userId: CURRENT_MEMBER } } } },
+      submissionHistory: {
+        submission: {
+          application: { team: { members: { some: { userId: CURRENT_MEMBER } } } },
+        },
       },
     });
     expect(JSON.stringify(where)).not.toContain('uploaderId');
@@ -375,6 +377,7 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     uploaderId: 'user-current-member',
     applicationId: 'application-opaque',
     milestoneId: 'milestone-opaque',
+    milestoneDocumentId: 'requirement-opaque',
     storageKey: 'submission-files/opaque',
     originalFileName: 'report.pdf',
     mimeType: 'application/pdf',
@@ -388,7 +391,7 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
   const create = jest.fn();
   const transactionClient = {
     $queryRaw: queryRaw,
-    submissionFile: { aggregate, create },
+    file: { aggregate, create },
   };
   const prisma = {
     $transaction: jest.fn(
@@ -407,7 +410,7 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     lockMembership.mockReset();
     lockMembership.mockResolvedValue(true);
     queryRaw
-      .mockResolvedValueOnce([{ endAt: new Date('2027-02-28T09:30:00.000Z') }])
+      .mockResolvedValueOnce([{ endAt: new Date('2027-02-28T09:30:00.000Z'), teamId: 'team-opaque' }])
       .mockResolvedValueOnce([{ id: input.uploaderId }]);
     aggregate.mockResolvedValue({
       _count: { _all: 0 },

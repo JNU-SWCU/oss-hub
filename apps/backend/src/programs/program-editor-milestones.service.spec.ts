@@ -1,19 +1,13 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { DomainException } from '../platform/error-code.error';
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.error';
-import {
-  createProgramEditorServiceHarness,
-  milestoneInput,
-} from '../../test/program-editor-service-fixtures';
+import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './program-error-code.error';
+import { createProgramEditorServiceHarness, milestoneInput } from '../../test/program-editor-service-fixtures';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './program-cover-url.service';
+
 const programEditorService = new ProgramEditorService(
   undefined as never,
   new ProgramCoverUrlService(),

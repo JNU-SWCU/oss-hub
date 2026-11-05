@@ -17,7 +17,7 @@ import { MultipartFileUploadInterceptor } from '../platform/multipart-file-uploa
 import {
   SubmissionFilesService,
   type SubmissionFileUpload,
-} from './submission-files.service';
+} from './files.service';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -44,7 +44,7 @@ const SubmissionFileUploadInterceptor = new MultipartFileUploadInterceptor(
   },
 );
 @Controller('submission-files')
-export class SubmissionFilesController {
+export class FilesController {
   constructor(private readonly service: SubmissionFilesService) {}
   @Get(':fileId')
   @Protected()

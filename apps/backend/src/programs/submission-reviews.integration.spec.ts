@@ -1,34 +1,19 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { randomUUID } from 'node:crypto';
-import {
-  AccountStatus,
-  ApplicationStatus,
-  RepositoryProvisionJobStatus,
-  RepositorySource,
-  RepositoryVisibility,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, ApplicationStatus, RepositoryProvisionJobStatus, RepositorySource, RepositoryVisibility, ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
-import {
-  prisma as seedPrisma,
-  seedGithubId,
-  seedId,
-  seedNameWithOwner,
-  seedRepositoryId,
-  SeedStats,
-} from '../../prisma/seeds/helpers';
+import { prisma as seedPrisma, seedGithubId, seedId, seedNameWithOwner, seedRepositoryId, SeedStats } from '../../prisma/seeds/helpers';
 import { seedMilestones } from '../../prisma/seeds/milestones';
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import type { GithubAppClient } from '../github/github-app.client';
+import { type GithubAppClient } from '../github/github-app.client';
 import { BarrierRepositoriesRepository } from '../github/repositories.integration-support';
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
@@ -40,6 +25,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
+
 const repositoryUrlService = new RepositoryUrlService();
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -184,13 +170,10 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.milestoneDocumentSubmission.deleteMany({
       where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
     });
-    await prisma.submissionFile.deleteMany({
-      where: {
-        milestoneDocumentSubmission: {
+    await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
+submission: {
           milestoneDocument: { milestone: { programId: PROGRAM_ID } },
-        },
-      },
-    });
+        }}});
     await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });

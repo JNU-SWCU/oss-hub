@@ -15,7 +15,7 @@ import {
   type OutboxEvent as PrismaOutboxEvent,
   ApplicationReviewEventKind,
   type ProgramTrackType,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   CollectionRepositoryPresence,
 } from '@prisma/client';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
@@ -127,10 +127,10 @@ export class TeamDeletionScopeRepository {
       ),
       team_submission_file AS (
         SELECT file.id
-        FROM "SubmissionFile" AS file
-        WHERE file."applicationId" IN (SELECT id FROM team_application)
-          OR file."milestoneDocumentSubmissionId" IN (SELECT id FROM team_submission)
-          OR file."milestoneDocumentSubmissionHistoryId" IN (SELECT id FROM team_submission_history)
+        FROM "File" AS file
+        WHERE file."teamId" = ${teamId}
+          OR file."submissionId" IN (SELECT id FROM team_submission)
+          OR file."submissionHistoryId" IN (SELECT id FROM team_submission_history)
       ),
       team_repository AS (
         SELECT
@@ -994,7 +994,7 @@ export class ApplicationsRepository {
       where: { lifecycle: { not: 'DELETED' } },
       orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
-        cover: { select: { id: true, imageUrl: true } },
+        coverFileId: true, coverImageUrl: true,
         id: true,
         name: true,
         trackType: true,
@@ -1059,8 +1059,8 @@ export class ApplicationsRepository {
             rejected: 0,
           };
         return {
-          coverId: program.cover?.id ?? null,
-          coverExternalImageUrl: program.cover?.imageUrl ?? null,
+          coverId: program.coverFileId ?? null,
+          coverExternalImageUrl: program.coverImageUrl ?? null,
           id: program.id,
           name: program.name,
           trackType: program.trackType,
@@ -3239,26 +3239,26 @@ async function deleteTeamTree(
 
   const fileScope = {
     OR: [
-      { application: { is: { teamId } } },
-      { milestoneDocumentSubmission: { is: { application: { teamId } } } },
+      { teamId },
+      { submission: { is: { application: { teamId } } } },
       {
         submissionHistory: { is: { submission: { application: { teamId } } } },
       },
     ],
-  } satisfies PrismaTypes.SubmissionFileWhereInput;
+  } satisfies PrismaTypes.FileWhereInput;
   const detachedFileFks = {
-    applicationId: null,
-    milestoneId: null,
-    milestoneDocumentSubmissionId: null,
-    milestoneDocumentSubmissionHistoryId: null,
+    teamId: null,
+    requirementId: null,
+    submissionId: null,
+    submissionHistoryId: null,
   } as const;
-  const pendingSubmissionFiles = await tx.submissionFile.updateMany({
+  const pendingSubmissionFiles = await tx.file.updateMany({
     where: {
-      AND: [fileScope, { lifecycle: { not: SubmissionFileLifecycle.DELETED } }],
+      AND: [fileScope, { lifecycle: { not: FileLifecycle.DELETED } }],
     },
     data: {
       ...detachedFileFks,
-      lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
       deleteClaimedAt: null,
       deleteClaimExpiresAt: null,
       deleteClaimOwner: null,
@@ -3266,9 +3266,9 @@ async function deleteTeamTree(
       lastDeleteError: null,
     },
   });
-  const deletedSubmissionFiles = await tx.submissionFile.updateMany({
+  const deletedSubmissionFiles = await tx.file.updateMany({
     where: {
-      AND: [fileScope, { lifecycle: SubmissionFileLifecycle.DELETED }],
+      AND: [fileScope, { lifecycle: FileLifecycle.DELETED }],
     },
     data: detachedFileFks,
   });

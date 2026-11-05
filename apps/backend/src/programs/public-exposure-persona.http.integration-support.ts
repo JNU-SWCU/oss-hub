@@ -1,5 +1,5 @@
 import { AuditLogReadService } from '../platform/audit-log-read.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
@@ -19,7 +19,7 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
-import type { GithubAppClient } from '../github/github-app.client';
+import { type GithubAppClient } from '../github/github-app.client';
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { RankingController } from '../ranking/ranking.controller';
@@ -27,10 +27,7 @@ import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsRepository } from './public-projects.repository';
-import {
-  PublicProjectsService,
-  PublicEligibilityService,
-} from './public-projects.service';
+import { PublicProjectsService, PublicEligibilityService } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
@@ -44,6 +41,7 @@ import { RankingTimelineService } from '../ranking/ranking-timeline.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
+
 const authSessionService = new AuthSessionService();
 type ActivePrincipal = Awaited<ReturnType<AuthService['getMe']>>;
 const sessionSecret = new Uint8Array(32).fill(23);

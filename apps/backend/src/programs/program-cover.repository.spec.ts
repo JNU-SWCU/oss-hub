@@ -1,7 +1,6 @@
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository, ProgramCoverRepository } from './files.repository';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramCoverRepository } from './program-cover.repository';
 
 describe('program-cover.repository', () => {
   it('restricts the public selector to current image metadata and the explicit public lifecycle allowlist', async () => {
@@ -10,7 +9,7 @@ describe('program-cover.repository', () => {
       providers: [
         ProgramCoverRepository,
         ProgramAuthoringUploadTransactionRepository,
-        { provide: PrismaService, useValue: { programCover: { findFirst } } },
+        { provide: PrismaService, useValue: { file: { findFirst } } },
       ],
     }).compile();
     const repository = moduleRef.get(ProgramCoverRepository);
@@ -21,8 +20,9 @@ describe('program-cover.repository', () => {
       where: {
         id: 'cover',
         programId: 'program',
-        source: 'OWNED',
-        program: { lifecycle: { in: ['PUBLISHED', 'ARCHIVED'] } },
+        kind: 'COVER',
+        lifecycle: 'ATTACHED',
+        coverForProgram: { id: 'program', lifecycle: { in: ['PUBLISHED', 'ARCHIVED'] } },
         storageKey: { startsWith: 'program-covers/' },
         mimeType: { in: ['image/jpeg', 'image/png'] },
         sizeBytes: { gte: 1, lte: 5242880 },

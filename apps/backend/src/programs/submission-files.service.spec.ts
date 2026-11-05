@@ -1,35 +1,16 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService, MAX_FILE_BYTES, SubmissionFilesService } from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import {
-  type StoreObjectInput,
-  type ObjectStoragePort,
-} from '../platform/object-storage.types';
-import {
-  OBJECT_STORAGE_ERROR_CODES,
-  ObjectStorageError,
-} from '../platform/object-storage.error';
+import { type StoreObjectInput, type ObjectStoragePort } from '../platform/object-storage.types';
+import { OBJECT_STORAGE_ERROR_CODES, ObjectStorageError } from '../platform/object-storage.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
-  SubmissionFileQuotaExceededError,
-  SubmissionFileRetentionUnavailableError,
-} from './submission-file.error';
-import {
-  type CreatePendingSubmissionFileInput,
-  type DownloadableSubmissionFile,
-  type SubmissionFilesRepository,
-} from './submission-files.repository';
-import {
-  MAX_FILE_BYTES,
-  SubmissionFilesService,
-} from './submission-files.service';
-import {
-  SUBMISSIONS_ERROR_CODES,
-  SubmissionsErrorCode,
-} from './submissions-error-code.error';
+import { SubmissionFileQuotaExceededError, SubmissionFileRetentionUnavailableError } from './files.error';
+import { type CreatePendingSubmissionFileInput, type DownloadableSubmissionFile, type SubmissionFilesRepository } from './files.repository';
+import { SUBMISSIONS_ERROR_CODES, SubmissionsErrorCode } from './submissions-error-code.error';
+
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
 function authorization(
@@ -132,6 +113,7 @@ describe('SubmissionFilesService', () => {
       uploaderId: 'student-opaque',
       applicationId: 'app-opaque',
       milestoneId: 'milestone-opaque',
+      milestoneDocumentId: 'requirement-opaque',
       storageKey: 'submission-files/pending-key',
       originalFileName: 'report.pdf',
       mimeType: 'application/pdf',
@@ -166,6 +148,7 @@ describe('SubmissionFilesService', () => {
           uploaderId: 'student-opaque',
           applicationId: 'app-opaque',
           milestoneId: 'milestone-opaque',
+      milestoneDocumentId: 'requirement-opaque',
           storageKey: 'submission-files/pending-key',
           originalFileName: 'report.pdf',
           mimeType: 'application/pdf',

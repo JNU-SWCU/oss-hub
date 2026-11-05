@@ -1,19 +1,12 @@
 import { UserProfileService } from '../src/users/user-profile.service';
 import { ProgramScheduleService } from '../src/programs/program-schedule.service';
-import { SubmissionFileAdmissionService } from '../src/programs/submission-file-admission.service';
-import { ProgramAuthoringUploadService } from '../src/programs/program-authoring-upload.service';
+import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from '../src/programs/files.service';
 import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
 import { AccountStatus, ProgramTrackType } from '@prisma/client';
-import {
-  ProgramEditorService,
-  type UpdateProgramCommand,
-  type UpsertMilestoneCommand,
-} from '../src/programs/program-editor.service';
-import type {
-  ProgramEditorRepository,
-  ProgramEditorTransactionStore,
-} from '../src/programs/program-editor.repository';
+import { ProgramEditorService, type UpdateProgramCommand, type UpsertMilestoneCommand } from '../src/programs/program-editor.service';
+import { type ProgramEditorRepository, type ProgramEditorTransactionStore } from '../src/programs/program-editor.repository';
 import { ProgramCoverUrlService } from '../src/programs/program-cover-url.service';
+
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',
   organizer: '  SW Center  ',

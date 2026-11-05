@@ -1,12 +1,12 @@
+import { fileMetadata } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringUploadTransactionRepository, ProgramCoverRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { ProgramDeletionScopeRepository } from './programs.repository';
+import { ProgramDeletionScopeRepository, ProgramAuthoringRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
@@ -14,11 +14,9 @@ import { ProgramTrackType } from '@prisma/client';
 import { AuditLogService } from '../platform/audit-log.service';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { ProgramCoverRepository } from './program-cover.repository';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 
 export const PREFIX = 'test:program-cover:';
@@ -82,34 +80,25 @@ export async function seedUpload(
   actorId = ACTOR,
   expiresAt = new Date('2099-01-01'),
 ) {
-  return prisma.programAuthoringUpload.create({
-    data: {
-      actorId,
-      storageKey: `${storagePrefix}${PREFIX}${randomUUID()}`,
-      originalFileName: 'cover.png',
-      mimeType: 'image/png',
-      sizeBytes: 68,
-      sha256: 'a'.repeat(64),
-      expiresAt,
-    },
-  });
+  const file = await prisma.file.create({data: {kind: 'UPLOAD',
+lifecycle: 'PENDING',
+uploaderId: actorId,
+storageKey: `${storagePrefix}${PREFIX}${randomUUID()}`,
+originalFileName: 'cover.png',
+mimeType: 'image/png',
+sizeBytes: 68,
+sha256: 'a'.repeat(64),
+pendingExpiresAt: expiresAt}});
+  return { ...fileMetadata(file), actorId, expiresAt };
 }
 
 async function cleanup() {
-  await prisma.programCover.deleteMany({
-    where: { program: { name: { startsWith: PREFIX } } },
-  });
-  await prisma.programPurgeFileTombstone.deleteMany({
-    where: { storageKey: { contains: PREFIX } },
-  });
-  await prisma.programAuthoringUpload.deleteMany({
-    where: { actorId: { startsWith: PREFIX } },
-  });
-  await prisma.milestone.deleteMany({
-    where: { program: { name: { startsWith: PREFIX } } },
-  });
-  await prisma.program.deleteMany({ where: { name: { startsWith: PREFIX } } });
-  await prisma.user.deleteMany({ where: { id: { startsWith: PREFIX } } });
+  await prisma.program.updateMany({ where: { name: { startsWith: PREFIX } }, data: { coverFileId: null } });
+  await prisma.file.deleteMany({where: {OR: [{program: {name: {startsWith: PREFIX}}}, {uploaderId: {startsWith: PREFIX}}]}});
+  await prisma.milestoneDocument.deleteMany({where: {milestone: {program: {name: {startsWith: PREFIX}}}}});
+  await prisma.milestone.deleteMany({where: {program: {name: {startsWith: PREFIX}}}});
+  await prisma.program.deleteMany({where: {name: {startsWith: PREFIX}}});
+  await prisma.user.deleteMany({where: {id: {startsWith: PREFIX}}});
 }
 
 beforeAll(async () => {

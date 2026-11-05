@@ -69,9 +69,8 @@ export class E2eProgramAuthoringFixture {
       await transaction.githubRepository.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
       });
-      await transaction.submissionFile.deleteMany({
-        where: { applicationId: { in: applicationIds } },
-      });
+      await transaction.file.deleteMany({where: {kind: 'SUBMISSION',
+team: {applications: {some: {id: { in: applicationIds }}}}}});
       await transaction.milestoneDocumentSubmissionHistory.deleteMany({
         where: { submission: { applicationId: { in: applicationIds } } },
       });
@@ -90,25 +89,21 @@ export class E2eProgramAuthoringFixture {
       await transaction.team.deleteMany({
         where: { programId: E2E_PROGRAM_ID },
       });
-      await transaction.milestoneDocumentTemplateFile.deleteMany({
-        where: { milestoneDocument: { milestoneId: E2E_MILESTONE_ID } },
-      });
+      await transaction.file.deleteMany({where: {kind: 'TEMPLATE',
+requirement: { milestoneId: E2E_MILESTONE_ID }}});
       await transaction.milestoneDocument.deleteMany({
         where: { milestoneId: E2E_MILESTONE_ID },
       });
       await transaction.milestone.deleteMany({
         where: { id: E2E_MILESTONE_ID },
       });
-      await transaction.programAuthoringUpload.deleteMany({
-        where: { actorId: E2E_STAFF_ID },
-      });
-      const covers = await transaction.programCover.findMany({
-        where: { programId: E2E_PROGRAM_ID },
-        select: { storageKey: true },
-      });
-      await transaction.programCover.deleteMany({
-        where: { programId: E2E_PROGRAM_ID },
-      });
+      await transaction.file.deleteMany({where: {kind: 'UPLOAD',
+uploaderId: E2E_STAFF_ID}});
+      const covers = await transaction.file.findMany({where: {kind: 'COVER',
+programId: E2E_PROGRAM_ID},
+select: {storageKey: true}});
+      await transaction.file.deleteMany({where: {kind: 'COVER',
+programId: E2E_PROGRAM_ID}});
       await transaction.program.deleteMany({ where: { id: E2E_PROGRAM_ID } });
       return covers;
     });

@@ -1,9 +1,6 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import {
-  SUBMISSION_ZIP_REJECTION_MESSAGES,
-  SubmissionZipRejection,
-} from './submission-zip.error';
+import { SUBMISSION_ZIP_REJECTION_MESSAGES, SubmissionZipRejection } from './submission-zip.error';
 
 const submissionFileAdmissionService = new SubmissionFileAdmissionService();
 

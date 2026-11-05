@@ -1,10 +1,9 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
-import type { ProgramAuthoringUploadFile } from './program-authoring-upload.error';
-import { type ProgramAuthoringUploadToken } from './program-authoring-upload.config';
+import { type ProgramAuthoringUploadFile } from './files.error';
+import { type ProgramAuthoringUploadToken } from './files.config';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 
 const programCoverUrlService = new ProgramCoverUrlService();

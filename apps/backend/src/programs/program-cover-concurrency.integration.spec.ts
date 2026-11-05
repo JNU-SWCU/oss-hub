@@ -28,14 +28,12 @@ it('allows exactly one program to consume a pending cover across concurrent save
     'rejected',
   ]);
   expect(
-    await prisma.programCover.count({
-      where: { programId: { in: [first.id, second.id] } },
-    }),
+    await prisma.file.count({where: {kind: 'COVER',
+programId: { in: [first.id, second.id] }}}),
   ).toBe(1);
   expect(
-    await prisma.programAuthoringUpload.findUnique({
-      where: { id: upload.id },
-    }),
+    await prisma.file.findUnique({where: {kind: 'UPLOAD',
+id: upload.id}}),
   ).toBeNull();
 });
 
@@ -46,13 +44,11 @@ it('enforces one cover per program independently of service validation', async (
     coverUploadId: upload.id,
   });
   await expect(
-    prisma.programCover.create({
-      data: {
-        programId: program.id,
-        storageKey: 'program-covers/another-image',
-        mimeType: 'image/png',
-        sizeBytes: 68,
-      },
-    }),
+    prisma.file.create({data: {kind: 'COVER',
+lifecycle: 'ATTACHED',
+programId: program.id,
+storageKey: 'program-covers/another-image',
+mimeType: 'image/png',
+sizeBytes: 68}}),
   ).rejects.toMatchObject({ code: 'P2002' });
 });

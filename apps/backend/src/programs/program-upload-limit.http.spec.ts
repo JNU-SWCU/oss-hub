@@ -1,4 +1,4 @@
-import type { ExecutionContext, INestApplication } from '@nestjs/common';
+import { type ExecutionContext, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
 import { OriginGuard } from '../platform/origin.guard';
@@ -6,9 +6,10 @@ import { ProgramSubmissionsController } from './program-submissions.controller';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { ProgramAuthoringUploadService } from './files.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
+
 jest.mock('./submission-upload.config', () => ({
   ...jest.requireActual<Record<string, unknown>>('./submission-upload.config'),
   SUBMISSION_UPLOAD_MAX_BYTES: 2 * 1024 * 1024,

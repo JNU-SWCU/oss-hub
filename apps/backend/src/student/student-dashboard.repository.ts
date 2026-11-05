@@ -21,10 +21,8 @@ export interface StudentDashboardApplicationRow {
   readonly program: {
     readonly id: string;
     readonly name: string;
-    readonly cover?: {
-      readonly id: string;
-      readonly imageUrl?: string | null;
-    } | null;
+    readonly coverFileId?: string | null;
+    readonly coverImageUrl?: string | null;
     readonly milestones: readonly StudentDashboardMilestoneRow[];
   };
   readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
@@ -35,7 +33,7 @@ const studentDashboardApplicationSelect = {
   team: { select: { name: true } },
   program: {
     select: {
-      cover: { select: { id: true, imageUrl: true } },
+      coverFileId: true, coverImageUrl: true,
       id: true,
       name: true,
       milestones: {

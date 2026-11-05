@@ -1,35 +1,17 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
-import { ProgramAuthoringUploadTransactionRepository } from './program-authoring-upload-transaction.repository';
+import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
+import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import {
-  ProgramAuthoringUploadLifecycle,
-  ProgramCategory,
-  ProgramLifecycle,
-  ProgramTrackType,
-} from '@prisma/client';
-import {
-  ProgramNoticePreviewService,
-  ProgramAuthoringService,
-} from './programs.service';
+import { ProgramAuthoringUploadLifecycle, ProgramCategory, ProgramLifecycle, ProgramTrackType } from '@prisma/client';
+import { ProgramNoticePreviewService, ProgramAuthoringService } from './programs.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import {
-  ProgramAuthoringRepository,
-  type ProgramAuthoringTransactionStore,
-} from './programs.repository';
+import { ProgramAuthoringRepository, type ProgramAuthoringTransactionStore } from './programs.repository';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import {
-  ProgramAuthoringIdempotencyRaceError,
-  ProgramAuthoringIdempotencyConflictError,
-} from './program-authoring.error';
-import {
-  type ProgramAuthoringProgram,
-  type ProgramAuthoringRequest,
-} from './program-authoring-upload-transaction.repository';
+import { ProgramAuthoringIdempotencyRaceError, ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
+import { type ProgramAuthoringProgram, type ProgramAuthoringRequest } from './files.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
@@ -198,7 +180,6 @@ function setup() {
     createMilestone: jest.fn().mockResolvedValue('milestone-id'),
     createDocument: jest.fn().mockResolvedValue('document-id'),
     createTemplate: jest.fn().mockResolvedValue(undefined),
-    attachUploads: jest.fn().mockResolvedValue(undefined),
   };
   const repository = {
     findReplay: jest.fn().mockResolvedValue(null),
@@ -341,9 +322,10 @@ describe('ProgramAuthoringService', () => {
         }),
       ],
     ]);
-    expect(transaction.attachUploads.mock.calls).toEqual([
-      [ACTOR_ID, 'request-id', ['upload-id']],
-    ]);
+    expect(transaction.createTemplate).toHaveBeenCalledWith({
+      milestoneDocumentId: 'document-id', actorId: ACTOR_ID,
+      upload: expect.objectContaining({id: 'upload-id', storageKey: 'program-authoring/server-uuid'}),
+    });
   });
 
   it('rejects a foreign token before creating program rows', async () => {

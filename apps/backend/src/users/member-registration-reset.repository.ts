@@ -115,8 +115,6 @@ export class MemberRegistrationResetRepository implements MemberRegistrationRese
             { uploadedFiles: { some: {} } },
             { milestoneDocumentSubmissions: { some: {} } },
             { milestoneDocumentSubmissionHistories: { some: {} } },
-            { uploadedMilestoneDocumentTemplateFiles: { some: {} } },
-            { programAuthoringUploads: { some: {} } },
             { createdPrograms: { some: {} } },
             { approvalDecisions: { some: {} } },
             { adminGrants: { some: {} } },

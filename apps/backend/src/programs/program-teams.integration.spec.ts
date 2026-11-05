@@ -42,10 +42,10 @@ describe('program storage invariants', () => {
     });
   });
   afterEach(async () => {
-    await prisma.submissionFile.deleteMany({ where: { uploaderId: prefix } });
-    await prisma.milestoneDocumentTemplateFile.deleteMany({
-      where: { uploadedById: prefix },
-    });
+    await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
+uploaderId: prefix}});
+    await prisma.file.deleteMany({where: {kind: 'TEMPLATE',
+uploaderId: prefix}});
     await prisma.milestoneDocument.deleteMany({
       where: { milestone: { programId: prefix } },
     });
@@ -110,6 +110,7 @@ describe('program storage invariants', () => {
 
   it('rejects duplicate storage keys at the database boundary', async () => {
     const file = {
+      kind: 'SUBMISSION' as const,
       uploaderId: prefix,
       storageKey: prefix,
       originalFileName: 'synthetic.pdf',
@@ -117,10 +118,10 @@ describe('program storage invariants', () => {
       sizeBytes: 1,
       lifecycle: 'DELETE_PENDING' as const,
     };
-    await prisma.submissionFile.create({ data: file });
+    await prisma.file.create({data: file});
 
     await expect(
-      prisma.submissionFile.create({ data: file }),
+      prisma.file.create({data: file}),
     ).rejects.toMatchObject({
       code: 'P2002',
     });

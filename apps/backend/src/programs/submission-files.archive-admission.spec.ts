@@ -1,14 +1,11 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService, SubmissionFilesService } from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { DomainException } from '../platform/error-code.error';
-import type { SubmissionFilesRepository } from './submission-files.repository';
-import { SubmissionFilesService } from './submission-files.service';
+import { type SubmissionFilesRepository } from './files.repository';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import {
-  SUBMISSIONS_ERROR_CODES,
-  SubmissionsErrorCode,
-} from './submissions-error-code.error';
+import { SUBMISSIONS_ERROR_CODES, SubmissionsErrorCode } from './submissions-error-code.error';
+
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
 type ArchiveCase = {

@@ -1,41 +1,21 @@
+import { fileMetadata } from './files.repository';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { Injectable, Inject } from '@nestjs/common';
-import {
-  SubmissionStatus,
-  ReviewDecision,
-  SubmissionFileLifecycle,
-  RepositoryVisibility,
-} from '@prisma/client';
-import type {
-  RepositoryPublishEligibility,
-  PublishBlockedReason,
-} from '../github/repository-publish.config';
+import { SubmissionStatus, ReviewDecision, FileLifecycle, RepositoryVisibility } from '@prisma/client';
+import { type RepositoryPublishEligibility, type PublishBlockedReason } from '../github/repository-publish.config';
 import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
-import {
-  ReviewContextRow,
-  SubmissionRevisionRecord,
-  SubmissionReviewFileRecord,
-  SubmissionReviewsRepository,
-  type SubmissionReviewsRepositoryPort,
-  type CreateSubmissionReviewInput,
-  type RepositoryPublishResult,
-  type SubmissionReviewContext,
-  type SubmissionReviewResult,
-  type PublishEligibilitySource,
-} from './submission-reviews.repository';
+import { ReviewContextRow, SubmissionRevisionRecord, SubmissionReviewFileRecord, SubmissionReviewsRepository, type SubmissionReviewsRepositoryPort, type CreateSubmissionReviewInput, type RepositoryPublishResult, type SubmissionReviewContext, type SubmissionReviewResult, type PublishEligibilitySource } from './submission-reviews.repository';
 import { DomainException } from '../platform/error-code.error';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import { RepositoriesService } from '../github/repositories.service';
-import {
-  SUBMISSION_REVIEWS_ERROR_CODES,
-  SubmissionReviewsErrorCode,
-} from './submission-reviews-error-code.error';
+import { SUBMISSION_REVIEWS_ERROR_CODES, SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { RepositoryNotFoundError } from '../github/repositories.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { SubmissionFileAdmissionService } from './files.service';
+
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
   REPOSITORY_PUBLICATION_NOT_PLANNED:
@@ -377,21 +357,22 @@ export class SubmissionReviewsService {
     now: Date,
   ): readonly SubmissionReviewFileRecord[] {
     if (
-      file.lifecycle !== SubmissionFileLifecycle.ATTACHED ||
+      file.lifecycle !== FileLifecycle.ATTACHED ||
       file.expiresAt === null ||
       file.expiresAt.getTime() <= now.getTime()
     ) {
       return [];
     }
+    const metadata = fileMetadata(file);
     return [
       {
         fileId: file.id,
-        fileName: file.originalFileName,
+        fileName: metadata.originalFileName,
         contentType:
           this.submissionFileAdmissionService.safeSubmissionFileContentType(
-            file.originalFileName,
+            metadata.originalFileName,
           ),
-        size: file.sizeBytes,
+        size: metadata.sizeBytes,
         expiresAt: file.expiresAt,
         downloadUrl: `/api/v1/submission-files/${file.id}`,
       },

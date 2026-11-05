@@ -1,15 +1,7 @@
-import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES } from './program-authoring-upload.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
+import { PROGRAM_AUTHORING_UPLOAD_MAX_BYTES, SubmissionFileAdmissionService, MAX_FILE_BYTES } from './files.service';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join, relative, resolve } from 'node:path';
-import { MAX_FILE_BYTES } from './submission-files.service';
-import {
-  SUBMISSION_UPLOAD_ACCEPT,
-  SUBMISSION_UPLOAD_FORMAT_LABEL,
-  SUBMISSION_UPLOAD_MAX_BYTES,
-  SUBMISSION_UPLOAD_MAX_LABEL,
-  SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
-} from './submission-upload.config';
+import { SUBMISSION_UPLOAD_ACCEPT, SUBMISSION_UPLOAD_FORMAT_LABEL, SUBMISSION_UPLOAD_MAX_BYTES, SUBMISSION_UPLOAD_MAX_LABEL, SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE } from './submission-upload.config';
 
 const submissionFileAdmissionService = new SubmissionFileAdmissionService();
 

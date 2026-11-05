@@ -1,5 +1,4 @@
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
-import { ProgramAuthoringUploadService } from './program-authoring-upload.service';
+import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { randomUUID } from 'node:crypto';
 

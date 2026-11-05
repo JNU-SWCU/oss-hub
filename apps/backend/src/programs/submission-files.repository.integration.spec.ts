@@ -1,22 +1,12 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import {
-  AccountStatus,
-  type Prisma,
-  MilestoneDocumentSubmissionHistoryEvent,
-  SubmissionFileLifecycle,
-  SubmissionStatus,
-} from '@prisma/client';
+import { AccountStatus, type Prisma, MilestoneDocumentSubmissionHistoryEvent, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
-import {
-  prisma as seedPrisma,
-  seedGithubId,
-  seedId,
-  SeedStats,
-} from '../../prisma/seeds/helpers';
+import { prisma as seedPrisma, seedGithubId, seedId, SeedStats } from '../../prisma/seeds/helpers';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionFilesRepository } from './submission-files.repository';
+import { SubmissionFilesRepository } from './files.repository';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -93,8 +83,9 @@ const FILE_IDS: string[] = [
 ];
 const BASE_FILE = {
   uploaderId: UPLOADER_USER_ID,
-  applicationId: APPLICATION_ID,
-  milestoneId: MILESTONE_ID,
+  kind: 'SUBMISSION',
+  teamId: seedId('milestones', 'team'),
+  requirementId: MILESTONE_DOCUMENT_ID,
   mimeType: 'application/pdf',
 } as const;
 const AUTHORIZED_DOWNLOADS = [
@@ -143,7 +134,8 @@ const DENIED_DOWNLOADS = [
   readonly fileId: string;
 }[];
 async function deleteIssue342Rows(): Promise<void> {
-  await prisma.submissionFile.deleteMany({ where: { id: { in: FILE_IDS } } });
+  await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
+id: { in: FILE_IDS }}});
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID },
   });
@@ -224,16 +216,15 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         actorId: UPLOADER_USER_ID,
       },
     });
-    await prisma.submissionFile.createMany({
-      data: [
+    await prisma.file.createMany({data: [
         {
           ...BASE_FILE,
           id: DOWNLOADABLE_FILE_ID,
           storageKey: 'submission-files/issue-342/downloadable',
           originalFileName: 'report.pdf',
           sizeBytes: 1024,
-          milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          milestoneDocumentSubmissionHistoryId:
+          submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+          submissionHistoryId:
             MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           expiresAt: FUTURE_EXPIRES_AT,
@@ -254,14 +245,13 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/expired',
           originalFileName: 'expired.pdf',
           sizeBytes: 4096,
-          milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          milestoneDocumentSubmissionHistoryId:
+          submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+          submissionHistoryId:
             MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           expiresAt: PAST_EXPIRES_AT,
         },
-      ],
-    });
+      ]});
   });
   afterAll(async () => {
     await deleteIssue342Rows();

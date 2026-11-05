@@ -1,27 +1,19 @@
 import { UserProfileService } from '../users/user-profile.service';
-import type { Response } from 'express';
+import { type Response } from 'express';
 import { DownloadResponseService } from './download-response.service';
 import { Inject, Injectable, StreamableFile } from '@nestjs/common';
-import type { Readable } from 'node:stream';
+import { type Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
-import type { ObjectStoragePort } from '../platform/object-storage.types';
+import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import {
-  SubmissionFileQuotaExceededError,
-  SubmissionFileRetentionUnavailableError,
-} from './submission-file.error';
-import { SubmissionFilesService } from './submission-files.service';
+import { SubmissionFileQuotaExceededError, SubmissionFileRetentionUnavailableError } from './files.error';
+import { SubmissionFilesService, SubmissionFileAdmissionService } from './files.service';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
-  MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+import { MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES, MILESTONE_DOCUMENTS_ERROR_CODES, MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { SubmissionFileAdmissionService } from './submission-file-admission.service';
 import { RequirementSubmissionType } from '@prisma/client';
 
 export interface UploadedMilestoneDocumentFileResponse {

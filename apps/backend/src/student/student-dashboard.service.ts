@@ -138,8 +138,8 @@ export class StudentDashboardService {
       items.push({
         coverImageUrl: this.programCoverUrlService.programCoverImageUrl(
           application.program.id,
-          application.program.cover?.id,
-          application.program.cover?.imageUrl,
+          application.program.coverFileId,
+          application.program.coverImageUrl,
         ),
         applicationId: application.id,
         programId: application.program.id,

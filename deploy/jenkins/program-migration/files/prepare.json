@@ -1,0 +1,46 @@
+{
+  "version": 1,
+  "name": "file-unification-prepare",
+  "expectedHeadMigration": "20261105050000_retire_submission_axis",
+  "preflight": [
+    "check-before.sql"
+  ],
+  "stages": [
+    {
+      "id": "copy",
+      "apply": [
+        "../../../../apps/backend/prisma/migrations/20261105200000_unify_files/migration.sql"
+      ],
+      "reconcile": [
+        "check-copy.sql"
+      ]
+    }
+  ],
+  "backupBeforeStage": "copy",
+  "counts": [
+    {
+      "name": "submission-file",
+      "file": "count-SubmissionFile.sql"
+    },
+    {
+      "name": "program-authoring-upload",
+      "file": "count-ProgramAuthoringUpload.sql"
+    },
+    {
+      "name": "milestone-document-template-file",
+      "file": "count-MilestoneDocumentTemplateFile.sql"
+    },
+    {
+      "name": "program-cover",
+      "file": "count-ProgramCover.sql"
+    },
+    {
+      "name": "program-purge-file-tombstone",
+      "file": "count-ProgramPurgeFileTombstone.sql"
+    },
+    {
+      "name": "program",
+      "file": "count-Program.sql"
+    }
+  ]
+}
