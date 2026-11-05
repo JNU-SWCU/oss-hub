@@ -264,10 +264,6 @@ model Program {
   boardPosts       BoardPost[]
 }
 
-enum ProgramCoverSource {
-  OWNED
-  EXTERNAL
-}
 
 
 enum MilestoneSubmissionType {
@@ -636,8 +632,8 @@ model File {
   nextDeleteAttemptAt DateTime?
   lastDeleteError String?
   deletedAt DateTime?
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([uploaderId])
   @@index([teamId, requirementId, lifecycle])
