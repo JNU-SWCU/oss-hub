@@ -1,6 +1,6 @@
 import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { ProgramScheduleService } from './program-schedule.service';
-import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
+import { AccountStatus, Prisma, FileLifecycle } from '@prisma/client';
 import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
@@ -54,7 +54,7 @@ describe('FilesRepository exhausted cleanup query', () => {
       select: Record<string, boolean>;
     };
     expect(args.where).toEqual({
-      lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
       deleteAttemptCount: { gte: 6 },
     });
     expect(Object.keys(args.select).sort()).toEqual([
@@ -89,7 +89,7 @@ const FUTURE = new Date('2027-01-01T00:00:00.000Z');
 const PAST = new Date('2026-01-01T00:00:00.000Z');
 interface StoredFileRow {
   readonly id: string;
-  readonly lifecycle: SubmissionFileLifecycle;
+  readonly lifecycle: FileLifecycle;
   readonly submissionHistoryId: string | null;
   readonly expiresAt: Date | null;
   readonly uploaderId: string;
@@ -193,7 +193,7 @@ describe('FilesRepository.findDownloadableFile membership fence', () => {
   const MEMBER_LEADER = 'user-member-leader';
   const attachedFile: StoredFileRow = {
     id: 'file-attached',
-    lifecycle: SubmissionFileLifecycle.ATTACHED,
+    lifecycle: FileLifecycle.ATTACHED,
     submissionHistoryId: 'history-1',
     expiresAt: FUTURE,
     uploaderId: FORMER_UPLOADER,
@@ -215,7 +215,7 @@ describe('FilesRepository.findDownloadableFile membership fence', () => {
   const pendingFile: StoredFileRow = {
     ...attachedFile,
     id: 'file-pending',
-    lifecycle: SubmissionFileLifecycle.PENDING,
+    lifecycle: FileLifecycle.PENDING,
     submissionHistoryId: null,
   };
   const expiredFile: StoredFileRow = {
@@ -319,7 +319,7 @@ describe('FilesRepository.findDownloadableFile membership fence', () => {
     expect(where).toEqual({
       id: 'file-attached',
       kind: 'SUBMISSION',
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
       submissionHistoryId: { not: null },
       expiresAt: { gt: NOW },
       team: {
@@ -465,7 +465,7 @@ describe('FilesRepository.createPending membership lock', () => {
     const created = await repository.createPending(input);
     expect(created).toMatchObject({ id: 'file-opaque' });
     const reservedData: unknown = expect.objectContaining({
-      lifecycle: SubmissionFileLifecycle.PENDING,
+      lifecycle: FileLifecycle.PENDING,
       pendingExpiresAt: input.pendingExpiresAt,
       expiresAt: new Date('2028-02-28T09:30:00.000Z'),
     });

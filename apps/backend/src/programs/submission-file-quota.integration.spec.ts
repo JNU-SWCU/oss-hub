@@ -6,7 +6,7 @@ import {
 import { ProgramScheduleService } from './program-schedule.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { EventEmitter, once } from 'node:events';
-import { SubmissionFileLifecycle } from '@prisma/client';
+import { FileLifecycle } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import { seedId, SeedStats } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
@@ -60,7 +60,7 @@ function pendingInput(
 function retainedFile(
   suffix: string,
   sizeBytes: number,
-  lifecycle: SubmissionFileLifecycle = SubmissionFileLifecycle.PENDING,
+  lifecycle: FileLifecycle = FileLifecycle.PENDING,
 ) {
   const { milestoneId, milestoneDocumentId, ...metadata } = pendingRow(
     suffix,
@@ -73,8 +73,7 @@ function retainedFile(
     requirementId: milestoneDocumentId,
     lifecycle,
     expiresAt: PENDING_EXPIRES_AT,
-    deletedAt:
-      lifecycle === SubmissionFileLifecycle.DELETED ? PENDING_EXPIRES_AT : null,
+    deletedAt: lifecycle === FileLifecycle.DELETED ? PENDING_EXPIRES_AT : null,
   };
 }
 async function quotaOutcome(input: CreatePendingSubmissionFileInput) {
@@ -86,7 +85,7 @@ async function quotaOutcome(input: CreatePendingSubmissionFileInput) {
       kind: 'SUBMISSION',
       uploaderId: UPLOADER_ID,
       storageKey: { startsWith: PREFIX },
-      lifecycle: { not: SubmissionFileLifecycle.DELETED },
+      lifecycle: { not: FileLifecycle.DELETED },
     },
     _count: { _all: true },
     _sum: { sizeBytes: true },
@@ -120,13 +119,13 @@ describe('FilesRepository aggregate quota integration', () => {
           retainedFile(
             `count-delete-pending-${index}`,
             1,
-            SubmissionFileLifecycle.DELETE_PENDING,
+            FileLifecycle.DELETE_PENDING,
           ),
         ),
         retainedFile(
           'count-deleted-excluded',
           RETAINED_BYTES_LIMIT,
-          SubmissionFileLifecycle.DELETED,
+          FileLifecycle.DELETED,
         ),
       ],
     });
@@ -162,12 +161,12 @@ describe('FilesRepository aggregate quota integration', () => {
         retainedFile(
           'deleted-exclusion-large-one',
           RETAINED_BYTES_LIMIT,
-          SubmissionFileLifecycle.DELETED,
+          FileLifecycle.DELETED,
         ),
         retainedFile(
           'deleted-exclusion-large-two',
           RETAINED_BYTES_LIMIT,
-          SubmissionFileLifecycle.DELETED,
+          FileLifecycle.DELETED,
         ),
       ],
     });
@@ -181,7 +180,7 @@ describe('FilesRepository aggregate quota integration', () => {
           kind: 'SUBMISSION',
           uploaderId: UPLOADER_ID,
           storageKey: { startsWith: PREFIX },
-          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+          lifecycle: { not: FileLifecycle.DELETED },
         },
       }),
     ).resolves.toBe(100);
@@ -210,7 +209,7 @@ describe('FilesRepository aggregate quota integration', () => {
           kind: 'SUBMISSION',
           uploaderId: UPLOADER_ID,
           storageKey: { startsWith: PREFIX },
-          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+          lifecycle: { not: FileLifecycle.DELETED },
         },
       }),
     ).resolves.toBe(100);
@@ -231,7 +230,7 @@ describe('FilesRepository aggregate quota integration', () => {
           kind: 'SUBMISSION',
           uploaderId: UPLOADER_ID,
           storageKey: { startsWith: PREFIX },
-          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+          lifecycle: { not: FileLifecycle.DELETED },
         },
       }),
     ).resolves.toBe(1);

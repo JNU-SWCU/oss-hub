@@ -18,7 +18,7 @@ import {
   RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -321,7 +321,7 @@ async function seedApprovedTeam(
         submissionId: submissionId,
         submissionHistoryId: historyId,
         requirementId: MILESTONE_DOCUMENT_ID,
-        lifecycle: SubmissionFileLifecycle.ATTACHED,
+        lifecycle: FileLifecycle.ATTACHED,
         pendingExpiresAt: null,
         expiresAt: new Date('2099-12-31T00:00:00.000Z'),
         storageKey: `${teamId}/synthetic.pdf`,
@@ -697,7 +697,7 @@ it('첨부 파일은 지우지 않고 DELETE_PENDING 으로 넘기며 FK 를 모
     },
   });
   expect(file).toMatchObject({
-    lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+    lifecycle: FileLifecycle.DELETE_PENDING,
     teamId: null,
     requirementId: null,
     submissionId: null,

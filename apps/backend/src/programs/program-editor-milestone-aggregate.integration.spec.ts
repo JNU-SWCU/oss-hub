@@ -21,7 +21,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { ProgramAuthoringUploadLifecycle, Prisma } from '@prisma/client';
+import { FileLifecycle, Prisma } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { Readable } from 'node:stream';
 import { type UnwrapTuple } from '@prisma/client/runtime/library';
@@ -832,7 +832,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         where: { kind: 'UPLOAD', id: uploadId },
         select: { lifecycle: true },
       }),
-    ).toEqual({ lifecycle: ProgramAuthoringUploadLifecycle.DELETE_PENDING });
+    ).toEqual({ lifecycle: FileLifecycle.DELETE_PENDING });
   });
   it('rolls back the complete graph after real aggregate writes when the transaction callback aborts before commit', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
@@ -1231,7 +1231,7 @@ async function createPendingUpload(
       mimeType: 'application/pdf',
       sizeBytes: 12,
       sha256: 'a'.repeat(64),
-      lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+      lifecycle: FileLifecycle.PENDING,
       pendingExpiresAt: expiresAt,
     },
   });

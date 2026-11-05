@@ -3,6 +3,7 @@ import {
   FileCleanupRepository,
   FilesRepository,
 } from './files.repository';
+import { FileCleanupService } from './file-cleanup.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { SubmissionFileAdmissionService, FilesService } from './files.service';
 import { DownloadResponseService } from './download-response.service';
@@ -16,7 +17,7 @@ import {
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   MilestoneSubmissionType,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
@@ -118,7 +119,7 @@ async function createPending(options: {
       originalFileName: options.originalFileName ?? 'synthetic.pdf',
       mimeType: options.mimeType ?? 'application/pdf',
       sizeBytes: options.sizeBytes ?? 14,
-      lifecycle: SubmissionFileLifecycle.PENDING,
+      lifecycle: FileLifecycle.PENDING,
       pendingExpiresAt:
         options.pendingExpiresAt ?? new Date(BASE.getTime() + HOUR),
       expiresAt:
@@ -236,7 +237,7 @@ describeIntegration(
       await prisma.file.update({
         where: { kind: 'SUBMISSION', id: row.id },
         data: {
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          lifecycle: FileLifecycle.ATTACHED,
           pendingExpiresAt: null,
           submissionId: submission.submissionId,
           submissionHistoryId: submission.historyId,
@@ -256,7 +257,7 @@ describeIntegration(
           where: { kind: 'SUBMISSION', id: row.id },
         }),
       ).resolves.toMatchObject({
-        lifecycle: SubmissionFileLifecycle.DELETED,
+        lifecycle: FileLifecycle.DELETED,
         deletedAt: BASE,
         deleteClaimOwner: null,
       });
@@ -282,7 +283,7 @@ describeIntegration(
       await prisma.file.update({
         where: { kind: 'SUBMISSION', id: row.id },
         data: {
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          lifecycle: FileLifecycle.ATTACHED,
           pendingExpiresAt: null,
           submissionId: submission.submissionId,
           submissionHistoryId: submission.historyId,
@@ -345,6 +346,29 @@ describeIntegration(
         cleanupFiles.markDeleted(row.id, second!.claimOwner, takeoverAt),
       ).resolves.toBe(true);
     });
+    it('records one attempt and keeps the row when the worker storage delete fails', async () => {
+      const row = await createPending({
+        suffix: 'worker-delete-failure',
+        pendingExpiresAt: new Date(Date.now() - HOUR),
+      });
+      const worker = new FileCleanupService(cleanupFiles, {
+        delete: () => Promise.reject(new Error('synthetic storage outage')),
+      });
+
+      await worker.runDue();
+
+      const file = await prisma.file.findUniqueOrThrow({
+        where: { kind: 'SUBMISSION', id: row.id },
+      });
+      expect(file).toMatchObject({
+        lifecycle: FileLifecycle.DELETE_PENDING,
+        deleteAttemptCount: 1,
+        lastDeleteError: 'STORAGE_DELETE_FAILED',
+        deleteClaimOwner: null,
+      });
+      expect(file.nextDeleteAttemptAt).not.toBeNull();
+    });
+
     it('persists retry backoff, exhaustion, and operator reset in PostgreSQL', async () => {
       const row = await createPending({
         suffix: 'retry-reset',
@@ -420,11 +444,11 @@ describeIntegration(
           where: {
             kind: 'SUBMISSION',
             id: row.id,
-            lifecycle: SubmissionFileLifecycle.PENDING,
+            lifecycle: FileLifecycle.PENDING,
             pendingExpiresAt: { gt: new Date(BASE.getTime() - 1) },
           },
           data: {
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             pendingExpiresAt: null,
             submissionId: submission.submissionId,
             submissionHistoryId: submission.historyId,
@@ -443,8 +467,8 @@ describeIntegration(
       ).toBe(1);
       expect(persisted.lifecycle).toBe(
         attached.count === 1
-          ? SubmissionFileLifecycle.ATTACHED
-          : SubmissionFileLifecycle.DELETE_PENDING,
+          ? FileLifecycle.ATTACHED
+          : FileLifecycle.DELETE_PENDING,
       );
     });
     it('저장된 zip MIME이 브라우저 별칭이어도 내려주기는 확장자의 정규 타입이다', async () => {
@@ -465,7 +489,7 @@ describeIntegration(
       await prisma.file.update({
         where: { kind: 'SUBMISSION', id: row.id },
         data: {
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          lifecycle: FileLifecycle.ATTACHED,
           pendingExpiresAt: null,
           submissionId: submission.submissionId,
           submissionHistoryId: submission.historyId,

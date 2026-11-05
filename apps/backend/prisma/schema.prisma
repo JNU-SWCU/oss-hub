@@ -294,18 +294,6 @@ model Milestone {
   @@index([programId])
 }
 
-enum ProgramAuthoringUploadLifecycle {
-  PENDING
-  ATTACHED
-  DELETE_PENDING
-  DELETED
-}
-
-enum ProgramPurgeFileTombstoneLifecycle {
-  DELETE_PENDING
-  DELETED
-}
-
 
 
 enum ApplicationStatus {
@@ -480,13 +468,6 @@ enum SubmissionStatus {
   APPROVED
   CHANGES_REQUESTED
   REJECTED
-}
-
-enum SubmissionFileLifecycle {
-  PENDING
-  ATTACHED
-  DELETE_PENDING
-  DELETED
 }
 
 

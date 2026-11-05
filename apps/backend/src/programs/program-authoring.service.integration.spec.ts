@@ -10,10 +10,7 @@ import {
 } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
-import {
-  ProgramTrackType,
-  ProgramAuthoringUploadLifecycle,
-} from '@prisma/client';
+import { ProgramTrackType, FileLifecycle } from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import { type AuditLogService } from '../platform/audit-log.service';
 import { ProgramAuthoringRepository } from './programs.repository';
@@ -162,7 +159,7 @@ describe('ProgramAuthoringService integration', () => {
         requirement: { select: { milestone: { select: { programId: true } } } },
       },
     });
-    expect(upload.lifecycle).toBe(ProgramAuthoringUploadLifecycle.ATTACHED);
+    expect(upload.lifecycle).toBe(FileLifecycle.ATTACHED);
     expect(upload.requirement?.milestone.programId).toBe(created.id);
   });
 
@@ -411,7 +408,7 @@ describe('ProgramAuthoringService integration', () => {
         nextDeleteAttemptAt: true,
       },
     });
-    expect(deleted.lifecycle).toBe(ProgramAuthoringUploadLifecycle.DELETED);
+    expect(deleted.lifecycle).toBe(FileLifecycle.DELETED);
     expect(deleted.deletedAt).not.toBeNull();
     expect(deleted.deleteClaimOwner).toBeNull();
     expect(deleted.nextDeleteAttemptAt).toBeNull();

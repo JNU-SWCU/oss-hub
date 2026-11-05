@@ -18,10 +18,9 @@ import {
   CollectionStreamType,
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
-  ProgramAuthoringUploadLifecycle,
+  FileLifecycle,
   ProgramCategory,
   ProgramLifecycle,
-  ProgramPurgeFileTombstoneLifecycle,
   RepositoryInvitationStatus,
   RepositoryConnectionMode,
   RepositoryIssuanceOutcome,
@@ -29,7 +28,6 @@ import {
   RepositorySource,
   RepositoryVisibility,
   ReviewDecision,
-  SubmissionFileLifecycle,
   SubmissionStatus,
   TeamHistoryEvent,
   HistorySource,
@@ -749,7 +747,7 @@ async function seedFullChildGraph(
       originalFileName: 'submission-file.pdf',
       mimeType: 'application/pdf',
       sizeBytes: 21,
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
       submissionId: documentSubmissionId,
       submissionHistoryId: documentSubmissionHistoryId,
       expiresAt: new Date('2030-01-01T00:00:00.000Z'),
@@ -785,7 +783,7 @@ async function seedFullChildGraph(
       sha256: createHash('sha256')
         .update(`${label}-authoring-upload`)
         .digest('hex'),
-      lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
       attachedAt: NOW,
       requirementId: p('authoring-requirement'),
       pendingExpiresAt: null,
@@ -959,7 +957,6 @@ async function programChildRowCounts(
       where: {
         kind: 'SUBMISSION',
         OR: [
-
           {
             kind: 'SUBMISSION',
             team: { is: { programId } },
@@ -1141,7 +1138,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { kind: 'COVER', storageKey: storageKey },
       }),
     ).resolves.toMatchObject({
-      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
       deleteAttemptCount: 1,
       nextDeleteAttemptAt,
     });
@@ -1157,7 +1154,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { kind: 'COVER', storageKey: storageKey },
       }),
     ).resolves.toMatchObject({
-      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
+      lifecycle: FileLifecycle.DELETED,
     });
   });
   it('retains the entire child graph and repository links while workers delete only stored bytes', async () => {
@@ -1248,10 +1245,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
         submissions: 0,
         submissionRevisions: 0,
         reviews: 0,
-        submissionFiles: 1,
+        files: 4,
         milestoneDocumentSubmissions: 0,
         milestoneDocumentSubmissionHistories: 0,
-        programPurgeFileTombstones: 3,
       },
     });
     const after = await programChildRowCounts(fixture.programId, [
@@ -1338,7 +1334,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     });
     expect(orphanSubmissionFile).toMatchObject({
-      lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
       ...submissionFileBefore,
     });
     expect(await objectExists(fixture.submissionFileStorageKey)).toBe(true);
@@ -1346,7 +1342,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       where: { kind: 'TEMPLATE', storageKey: fixture.templateFileStorageKey },
     });
     expect(tombstone).toMatchObject({
-      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
     });
     expect(await objectExists(fixture.templateFileStorageKey)).toBe(true);
     await expect(
@@ -1354,7 +1350,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { kind: 'COVER', storageKey: fixture.coverStorageKey },
       }),
     ).resolves.toMatchObject({
-      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
     });
     expect(await objectExists(fixture.coverStorageKey)).toBe(true);
     const submissionFileCleanupClaims = await submissionFileCleanup.runDue();
@@ -1371,7 +1367,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { kind: 'COVER', storageKey: fixture.coverStorageKey },
       }),
     ).resolves.toMatchObject({
-      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
+      lifecycle: FileLifecycle.DELETED,
     });
     await expect(
       prisma.file.findFirst({
@@ -1380,13 +1376,13 @@ describe('Program purge integration — full child graph, worker file deletion, 
           storageKey: fixture.submissionFileStorageKey,
         },
       }),
-    ).resolves.toMatchObject({ lifecycle: SubmissionFileLifecycle.DELETED });
+    ).resolves.toMatchObject({ lifecycle: FileLifecycle.DELETED });
     await expect(
       prisma.file.findUnique({
         where: { kind: 'TEMPLATE', storageKey: fixture.templateFileStorageKey },
       }),
     ).resolves.toMatchObject({
-      lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
+      lifecycle: FileLifecycle.DELETED,
     });
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },
@@ -1456,7 +1452,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         teams: 0,
         boardPosts: 0,
         submissions: 0,
-        submissionFiles: 1,
+        files: 1,
       },
     });
     await expect(
@@ -1545,7 +1541,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         originalFileName: 'completed.pdf',
         mimeType: 'application/pdf',
         sizeBytes: 21,
-        lifecycle: SubmissionFileLifecycle.DELETED,
+        lifecycle: FileLifecycle.DELETED,
         deletedAt: deletedAt,
       },
     });
@@ -1555,14 +1551,14 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toMatchObject({
       id: fixture.programId,
       deleted: true,
-      deletedCounts: { submissionFiles: 1 },
+      deletedCounts: { files: 1 },
     });
     await expect(
       prisma.file.findUnique({
         where: { kind: 'SUBMISSION', id: deletedFileId },
       }),
     ).resolves.toMatchObject({
-      lifecycle: SubmissionFileLifecycle.DELETED,
+      lifecycle: FileLifecycle.DELETED,
       deletedAt,
       teamId: fixture.teamId,
       submissionId: submission.id,
@@ -1708,7 +1704,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       },
     });
     expect(submissionFile).toMatchObject({
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
     });
     const externalRepository = await prisma.githubRepository.findUnique({
       where: { id: fixture.externalRepositoryId },

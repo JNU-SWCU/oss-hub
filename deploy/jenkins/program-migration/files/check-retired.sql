@@ -1,2 +1,0 @@
-SELECT (SELECT count(*) FROM information_schema.tables WHERE table_schema=current_schema() AND table_name IN ('SubmissionFile','ProgramAuthoringUpload','MilestoneDocumentTemplateFile','ProgramCover','ProgramPurgeFileTombstone'))
- + (2-(SELECT count(*) FROM pg_constraint WHERE conname IN ('File_kind_lifecycle_check','Program_cover_file_or_external_check') AND convalidated AND connamespace=current_schema()::regnamespace));

@@ -4,7 +4,7 @@ import {
   AccountStatus,
   type Prisma,
   MilestoneDocumentSubmissionHistoryEvent,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
@@ -239,7 +239,7 @@ describe('FilesRepository.findDownloadableFile integration', () => {
           sizeBytes: 1024,
           submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
           submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          lifecycle: FileLifecycle.ATTACHED,
           expiresAt: FUTURE_EXPIRES_AT,
         },
         {
@@ -248,7 +248,7 @@ describe('FilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/pending',
           originalFileName: 'pending.pdf',
           sizeBytes: 2048,
-          lifecycle: SubmissionFileLifecycle.PENDING,
+          lifecycle: FileLifecycle.PENDING,
           pendingExpiresAt: PENDING_EXPIRES_AT,
           expiresAt: FUTURE_EXPIRES_AT,
         },
@@ -260,7 +260,7 @@ describe('FilesRepository.findDownloadableFile integration', () => {
           sizeBytes: 4096,
           submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
           submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          lifecycle: FileLifecycle.ATTACHED,
           expiresAt: PAST_EXPIRES_AT,
         },
       ],

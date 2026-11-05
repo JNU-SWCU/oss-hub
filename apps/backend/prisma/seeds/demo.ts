@@ -5,7 +5,7 @@ import {
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import type { ObjectStoragePort } from '../../src/platform/object-storage.types';
@@ -479,7 +479,7 @@ async function upsertDemoSubmission(
           update: {
             storageKey: storageKey,
             sizeBytes: storedFile.contentLength,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             submissionId: submissionId,
             submissionHistoryId: submissionHistoryId,
           },
@@ -494,7 +494,7 @@ async function upsertDemoSubmission(
             originalFileName: fileContent.originalFileName,
             mimeType: fileContent.mimeType,
             sizeBytes: storedFile.contentLength,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: offsetDays(365),
           },
         }),

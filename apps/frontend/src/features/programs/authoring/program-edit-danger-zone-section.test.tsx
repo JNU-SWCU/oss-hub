@@ -351,15 +351,14 @@ describe('ProgramEditDangerZoneSection', () => {
       deletedCounts: {
         applications: 0,
         teams: 0,
-        submissionFiles: 0,
-        programPurgeFileTombstones: 0,
+        files: 0,
       },
       notice: '정리할 업로드 파일이 없습니다.',
     },
     {
       backend: '새 backend의 파일 정리 결과',
-      deletedCounts: { submissionFiles: 1, programPurgeFileTombstones: 2 },
-      notice: '제출 파일 1건 · 파일 삭제 대기 2건',
+      deletedCounts: { files: 3 },
+      notice: '파일 삭제 대기 3건',
     },
   ])(
     '$backend를 연결 기록의 부재로 안내하지 않는다',

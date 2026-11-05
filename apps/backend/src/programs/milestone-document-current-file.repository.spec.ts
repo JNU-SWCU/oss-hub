@@ -1,5 +1,5 @@
 import { FileMetadataRepository } from './files.repository';
-import { AccountStatus, SubmissionFileLifecycle } from '@prisma/client';
+import { AccountStatus, FileLifecycle } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 
@@ -66,7 +66,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
         revision: true,
         files: {
           where: {
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: { gt: NOW },
           },
           orderBy: [

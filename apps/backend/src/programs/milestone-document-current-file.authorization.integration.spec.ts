@@ -26,7 +26,7 @@ import {
   AccountStatus,
   ApplicationStatus,
   MilestoneDocumentSubmissionHistoryEvent,
-  SubmissionFileLifecycle,
+  FileLifecycle,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -277,7 +277,7 @@ async function seedSubmissionWithFile(input: {
   readonly milestoneIdOfFile: string;
   readonly revision?: number;
   readonly historyRevision?: number;
-  readonly lifecycle?: SubmissionFileLifecycle;
+  readonly lifecycle?: FileLifecycle;
   readonly expiresAt?: Date;
 }): Promise<string> {
   const submissionId = `${prefix}-${input.key}-submission`;
@@ -316,7 +316,7 @@ async function seedSubmissionWithFile(input: {
       sizeBytes: `bytes:${storageKey}`.length,
       submissionId: submissionId,
       submissionHistoryId: historyId,
-      lifecycle: input.lifecycle ?? SubmissionFileLifecycle.ATTACHED,
+      lifecycle: input.lifecycle ?? FileLifecycle.ATTACHED,
       expiresAt: input.expiresAt ?? new Date('2099-01-01'),
     },
   });
@@ -523,7 +523,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       teamId: revertedApplicationId,
       actorId: users.revertedLeader.id,
       milestoneIdOfFile: milestoneId,
-      lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
+      lifecycle: FileLifecycle.DELETE_PENDING,
     });
     await seedSubmissionWithFile({
       key: 'reverted-stale-revision',
@@ -822,7 +822,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       select: { uploaderId: true, lifecycle: true },
     });
     expect(file.uploaderId).toBe(users.formerUploader.id);
-    expect(file.lifecycle).toBe(SubmissionFileLifecycle.ATTACHED);
+    expect(file.lifecycle).toBe(FileLifecycle.ATTACHED);
     const denied = await downloadFails(
       users.formerUploader.githubId,
       milestoneId,

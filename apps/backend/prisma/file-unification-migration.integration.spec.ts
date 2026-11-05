@@ -107,6 +107,65 @@ it.each([
   },
 );
 
+it('copies the Todo 9 shape that still carries the retiring applicationId foreign key', async () => {
+  await apply(`
+    ALTER TABLE "SubmissionFile" ADD COLUMN "applicationId" text REFERENCES "User"(id);
+  `);
+
+  await apply(copySql);
+
+  expect(
+    await inFixture((transaction) => transaction.$queryRawUnsafe(reconcileSql)),
+  ).toEqual([{ '?column?': 0n }]);
+});
+
+it('aborts when an unknown foreign key still references the old structure', async () => {
+  await apply(
+    `ALTER TABLE "ProgramCover" ADD FOREIGN KEY ("programId") REFERENCES "Program"`,
+  );
+
+  await expect(apply(copySql)).rejects.toThrow(
+    'retired file outgoing foreign key count mismatch',
+  );
+});
+
+it.each([
+  [
+    'pending submission without a team',
+    `INSERT INTO "File" (id,kind,lifecycle,"storageKey","requirementId","pendingExpiresAt","expiresAt")
+     VALUES ('bad','SUBMISSION','PENDING','submission-files/bad','requirement-1','2027-01-01','2027-01-01')`,
+    'File_kind_owner_check',
+  ],
+  [
+    'pending submission without a requirement',
+    `INSERT INTO "File" (id,kind,lifecycle,"storageKey","teamId","pendingExpiresAt","expiresAt")
+     VALUES ('bad','SUBMISSION','PENDING','submission-files/bad','team','2027-01-01','2027-01-01')`,
+    'File_kind_owner_check',
+  ],
+  [
+    'attached submission without a history',
+    `INSERT INTO "File" (id,kind,lifecycle,"storageKey","teamId","submissionId")
+     VALUES ('bad','SUBMISSION','ATTACHED','submission-files/bad','team','submission')`,
+    'File_kind_owner_check',
+  ],
+  [
+    'template owned by a team',
+    `INSERT INTO "File" (id,kind,lifecycle,"storageKey","requirementId","teamId")
+     VALUES ('bad','TEMPLATE','ATTACHED','program-authoring/bad','requirement-1','team')`,
+    'File_kind_owner_check',
+  ],
+  [
+    'cover outside the cover prefix',
+    `INSERT INTO "File" (id,kind,lifecycle,"storageKey","programId","mimeType","sizeBytes")
+     VALUES ('bad','COVER','DELETE_PENDING','submission-files/bad','program-1','image/png',1)`,
+    'File_cover_metadata_check',
+  ],
+])('refuses a kind-violating INSERT: %s', async (_name, insert, constraint) => {
+  await apply(copySql);
+
+  await expect(apply(insert)).rejects.toThrow(constraint);
+});
+
 it('rejects stale writers after copy and allows the new owner to delete an unsubmitted requirement', async () => {
   await apply(copySql);
   await expect(

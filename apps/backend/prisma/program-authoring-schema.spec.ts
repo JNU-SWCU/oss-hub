@@ -21,7 +21,7 @@ describe('Program authoring schema contract', () => {
 
   it('declares actor-owned upload lifecycle and idempotent create request foundations', () => {
     expect(schema).toContain('model ProgramAuthoringUpload');
-    expect(schema).toContain('enum ProgramAuthoringUploadLifecycle');
+    expect(schema).toContain('enum FileLifecycle');
     expect(schema).toContain('sha256');
     expect(schema).toContain('deleteClaimExpiresAt');
     expect(schema).toContain('enum ProgramCreatedBy');

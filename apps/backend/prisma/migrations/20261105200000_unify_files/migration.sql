@@ -39,7 +39,7 @@ BEGIN
     JOIN "MilestoneDocumentSubmission" submission ON submission.id=history."milestoneDocumentSubmissionId"
     JOIN "MilestoneDocument" requirement ON requirement.id=submission."milestoneDocumentId"
     WHERE file."milestoneDocumentSubmissionId" IS DISTINCT FROM submission.id
-       OR (file."applicationId" IS NOT NULL AND file."applicationId"<>submission."applicationId")
+       OR (file."teamId" IS NOT NULL AND file."teamId"<>submission."teamId")
        OR (file."milestoneId" IS NOT NULL AND file."milestoneId"<>requirement."milestoneId")
        OR (file."milestoneDocumentId" IS NOT NULL AND file."milestoneDocumentId"<>requirement.id)
   ) THEN
@@ -99,6 +99,18 @@ ALTER TABLE "File" ADD CONSTRAINT "File_cover_metadata_check" CHECK (
     AND "sizeBytes" IS NOT NULL AND "sizeBytes" BETWEEN 1 AND 5242880
   )
 );
+ALTER TABLE "File" ADD CONSTRAINT "File_kind_owner_check" CHECK (
+  (kind='SUBMISSION' AND (
+    (lifecycle='PENDING' AND "teamId" IS NOT NULL AND "requirementId" IS NOT NULL
+      AND "submissionId" IS NULL AND "submissionHistoryId" IS NULL
+      AND "pendingExpiresAt" IS NOT NULL AND "expiresAt" IS NOT NULL)
+    OR (lifecycle='ATTACHED' AND "teamId" IS NOT NULL
+      AND "submissionId" IS NOT NULL AND "submissionHistoryId" IS NOT NULL
+      AND "pendingExpiresAt" IS NULL)
+    OR lifecycle IN ('DELETE_PENDING','DELETED')
+  ))
+  OR (kind<>'SUBMISSION' AND "teamId" IS NULL AND "submissionId" IS NULL AND "submissionHistoryId" IS NULL)
+);
 
 CREATE TEMP TABLE file_copy_source ON COMMIT DROP AS
 SELECT file.id, 'SUBMISSION'::"FileKind" AS kind,
@@ -106,14 +118,13 @@ SELECT file.id, 'SUBMISSION'::"FileKind" AS kind,
        file."storageKey", file."originalFileName", file."mimeType", file."sizeBytes",
        NULL::varchar(64) AS sha256, file."uploaderId",
        NULL::text AS "programId", file."milestoneDocumentId" AS "requirementId",
-       application."teamId", file."milestoneDocumentSubmissionId" AS "submissionId",
+       file."teamId", file."milestoneDocumentSubmissionId" AS "submissionId",
        file."milestoneDocumentSubmissionHistoryId" AS "submissionHistoryId",
        file."pendingExpiresAt", file."expiresAt", NULL::timestamp(3) AS "attachedAt",
        file."deleteClaimedAt", file."deleteClaimExpiresAt", file."deleteClaimOwner",
        file."deleteAttemptCount", file."nextDeleteAttemptAt", file."lastDeleteError",
        file."deletedAt", file."createdAt", file."createdAt" AS "updatedAt"
 FROM "SubmissionFile" file
-LEFT JOIN "Application" application ON application.id=file."applicationId"
 UNION ALL
 SELECT template.id, 'TEMPLATE'::"FileKind", 'ATTACHED'::"FileLifecycle",
        template."storageKey", template."originalFileName", template."mimeType", template."sizeBytes",
@@ -201,12 +212,20 @@ END $$;
 DO $$
 DECLARE
   reference record;
+  expected_count integer := 12;
 BEGIN
+  -- Todo 9 keeps SubmissionFile.applicationId until its retirement migration drops it.
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema=current_schema() AND table_name='SubmissionFile' AND column_name='applicationId'
+  ) THEN
+    expected_count := 13;
+  END IF;
   IF (SELECT count(*) FROM pg_constraint WHERE contype='f' AND conrelid IN (
     '"SubmissionFile"'::regclass, '"ProgramAuthoringUpload"'::regclass,
     '"MilestoneDocumentTemplateFile"'::regclass, '"ProgramCover"'::regclass,
     '"ProgramPurgeFileTombstone"'::regclass
-  )) <> 12 THEN
+  )) <> expected_count THEN
     RAISE EXCEPTION 'retired file outgoing foreign key count mismatch';
   END IF;
   FOR reference IN

@@ -61,9 +61,6 @@ const DEFAULT_BATCH_SIZE = 100;
 @Injectable()
 export class FileCleanupService {
   private readonly logger = new Logger(FileCleanupService.name);
-  private readonly schedulerLogger = new Logger(
-    'SubmissionFileCleanupScheduler',
-  );
   private running = false;
 
   constructor(
@@ -87,7 +84,7 @@ export class FileCleanupService {
     try {
       await this.runDue();
     } catch {
-      this.schedulerLogger.error({
+      this.logger.error({
         event: 'file.cleanup.run.failed',
         errorCode: 'MAINTENANCE_RUN_FAILED',
       });

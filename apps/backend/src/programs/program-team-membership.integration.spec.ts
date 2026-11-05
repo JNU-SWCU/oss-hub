@@ -10,7 +10,7 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   ProgramCategory,
   ProgramTrackType,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -272,7 +272,7 @@ async function seedSubmittedDocument(
       teamId,
       submissionId: submissionId,
       submissionHistoryId: historyId,
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
       pendingExpiresAt: null,
       expiresAt: new Date('2099-12-31T00:00:00.000Z'),
       storageKey: `${teamId}/synthetic.pdf`,
@@ -598,7 +598,7 @@ describe('program team membership transactions integration', () => {
     ).resolves.toEqual({
       teamId,
       uploaderId: MEMBER_A_ID,
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
       milestoneDocumentSubmissionId: submitted.submissionId,
       milestoneDocumentSubmissionHistoryId: submitted.historyId,
       deletedAt: null,

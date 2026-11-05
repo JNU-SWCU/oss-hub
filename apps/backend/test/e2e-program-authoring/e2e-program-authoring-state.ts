@@ -1,4 +1,4 @@
-import { SubmissionFileLifecycle } from '@prisma/client';
+import { FileLifecycle } from '@prisma/client';
 import type { E2eExternalCapture } from './e2e-external-port-registry';
 import type {
   E2eProgramAuthoringGraph,
@@ -53,7 +53,7 @@ export async function stateForE2eProgramGraph(
       where: {
         kind: 'SUBMISSION',
         team: { programId: graph.programId },
-        lifecycle: SubmissionFileLifecycle.ATTACHED,
+        lifecycle: FileLifecycle.ATTACHED,
       },
       select: { storageKey: true },
     }),

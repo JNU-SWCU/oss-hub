@@ -118,6 +118,9 @@ async function cleanup() {
       ],
     },
   });
+  await prisma.team.deleteMany({
+    where: { program: { name: { startsWith: PREFIX } } },
+  });
   await prisma.milestoneDocument.deleteMany({
     where: { milestone: { program: { name: { startsWith: PREFIX } } } },
   });

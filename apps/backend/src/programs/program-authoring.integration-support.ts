@@ -2,11 +2,7 @@ import { FileCleanupRepository } from './files.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import {
-  AccountStatus,
-  ProgramAuthoringUploadLifecycle,
-  ProgramTrackType,
-} from '@prisma/client';
+import { AccountStatus, FileLifecycle, ProgramTrackType } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
@@ -94,7 +90,7 @@ export class ProgramAuthoringIntegrationHarness {
         mimeType: 'application/pdf',
         sizeBytes: body.byteLength,
         sha256: createHash('sha256').update(body).digest('hex'),
-        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+        lifecycle: FileLifecycle.PENDING,
         pendingExpiresAt: options.expiresAt ?? AUTHORING_EXPIRES_AT,
       },
     });

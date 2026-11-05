@@ -6,7 +6,7 @@ import { LockProgramTreeRepository } from '../platform/lock-program-tree.reposit
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
-  SubmissionFileLifecycle,
+  FileLifecycle,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -295,7 +295,7 @@ describe('MilestoneDocumentsRepository history page', () => {
           {
             id: 'file-1',
             originalFileName: '1차_계획서.pdf',
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: new Date('2027-09-01T00:00:00.000Z'),
           },
         ],
@@ -372,7 +372,7 @@ describe('MilestoneDocumentsRepository history page', () => {
           {
             id: 'file-expired',
             originalFileName: '만료된_계획서.pdf',
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: new Date('2026-09-19T00:00:00.000Z'),
           },
         ],
@@ -440,7 +440,7 @@ describe('MilestoneDocumentsRepository history page', () => {
           {
             id: 'file-pending',
             originalFileName: '올리는_중.pdf',
-            lifecycle: SubmissionFileLifecycle.PENDING,
+            lifecycle: FileLifecycle.PENDING,
             expiresAt: null,
           },
         ],

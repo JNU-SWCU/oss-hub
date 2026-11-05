@@ -4,7 +4,7 @@ import {
 } from './files.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { ProgramTrackType, SubmissionFileLifecycle } from '@prisma/client';
+import { ProgramTrackType, FileLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 
@@ -102,10 +102,7 @@ describe('ProgramEditorRepository updates', () => {
           },
         ],
         lifecycle: {
-          in: [
-            SubmissionFileLifecycle.PENDING,
-            SubmissionFileLifecycle.ATTACHED,
-          ],
+          in: [FileLifecycle.PENDING, FileLifecycle.ATTACHED],
         },
         deletedAt: null,
       },

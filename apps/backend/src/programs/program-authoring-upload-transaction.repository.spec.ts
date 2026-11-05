@@ -1,4 +1,4 @@
-import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
+import { FileLifecycle } from '@prisma/client';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { type ProgramAuthoringUploadToken } from './files.config';
 import {
@@ -15,7 +15,7 @@ function upload(
   return {
     id: 'upload-id',
     actorId: ACTOR_ID,
-    lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+    lifecycle: FileLifecycle.PENDING,
     unexpired: true,
     storageKey: 'program-authoring/object-key',
     originalFileName: 'template.pdf',
@@ -78,7 +78,7 @@ describe('program authoring upload transaction', () => {
       'not pending',
       ACTOR_ID,
       ['upload-id'],
-      [upload({ lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED })],
+      [upload({ lifecycle: FileLifecycle.ATTACHED })],
       'NOT_PENDING',
     ],
     [

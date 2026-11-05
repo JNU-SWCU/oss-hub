@@ -7,7 +7,7 @@ import {
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
-  ProgramAuthoringUploadLifecycle,
+  FileLifecycle,
   ProgramCategory,
   ProgramLifecycle,
   ProgramTrackType,
@@ -322,7 +322,7 @@ describe('ProgramAuthoringService', () => {
       {
         id: 'upload-id',
         actorId: ACTOR_ID,
-        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+        lifecycle: FileLifecycle.PENDING,
         unexpired: true,
         storageKey: 'program-authoring/server-uuid',
         originalFileName: 'template.pdf',
@@ -355,7 +355,7 @@ describe('ProgramAuthoringService', () => {
       {
         id: 'upload-id',
         actorId: 'other-actor',
-        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+        lifecycle: FileLifecycle.PENDING,
         unexpired: true,
         storageKey: 'program-authoring/server-uuid',
         originalFileName: 'template.pdf',

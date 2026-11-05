@@ -74,7 +74,7 @@ describe('readTeamDeletionScopeCounts', () => {
       'TeamInvitation',
       'MilestoneDocumentSubmission',
       'MilestoneDocumentSubmissionHistory',
-      'SubmissionFile',
+      'File',
       'RepositoryProvisionJob',
       'GithubRepository',
       'OutboxEvent',
@@ -88,10 +88,7 @@ describe('readTeamDeletionScopeCounts', () => {
       '"BoardPost"',
       '"BoardComment"',
       '"Milestone"',
-      '"MilestoneDocumentTemplateFile"',
       '"ProgramCreateRequest"',
-      '"ProgramAuthoringUpload"',
-      '"ProgramCover"',
     ]) {
       expect(sql).not.toContain(programOnly);
     }

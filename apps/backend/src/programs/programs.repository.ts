@@ -570,19 +570,16 @@ export type ProgramPurgeDeletedCounts = {
   readonly submissions: number;
   readonly submissionRevisions: number;
   readonly reviews: number;
-  readonly submissionFiles: number;
   readonly milestones: number;
   readonly milestoneDocuments: number;
   readonly milestoneDocumentSubmissions: number;
   readonly milestoneDocumentSubmissionHistories: number;
-  readonly milestoneDocumentTemplateFiles: number;
-  readonly programAuthoringUploads: number;
   readonly programCreateRequests: number;
   readonly repositoryProvisionJobs: number;
   readonly githubRepositoriesDetached: number;
   readonly outboxEvents: number;
   readonly notifications: number;
-  readonly programPurgeFileTombstones: number;
+  readonly files: number;
 };
 type ProgramLifecycleTransaction = Prisma.TransactionClient;
 @Injectable()
@@ -675,19 +672,12 @@ export class ProgramLifecycleRepository {
       milestoneDocuments: 0,
       milestoneDocumentSubmissions: 0,
       milestoneDocumentSubmissionHistories: 0,
-      milestoneDocumentTemplateFiles: 0,
       programCreateRequests: 0,
       repositoryProvisionJobs: 0,
       githubRepositoriesDetached: 0,
       outboxEvents: 0,
       notifications: 0,
-      submissionFiles: files.filter((file) => file.kind === 'SUBMISSION')
-        .length,
-      programAuthoringUploads: files.filter((file) => file.kind === 'UPLOAD')
-        .length,
-      programPurgeFileTombstones: files.filter(
-        (file) => file.kind === 'COVER' || file.kind === 'TEMPLATE',
-      ).length,
+      files: files.length,
     };
   }
   isForeignKeyConflict(error: unknown): boolean {

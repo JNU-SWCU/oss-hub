@@ -61,25 +61,15 @@ const PURGE_RELATIONS = [
     ],
   },
   {
-    id: 'submission-files',
-    operation: 'DETACH',
-    covers: [
-      'Milestone->SubmissionFile',
-      'MilestoneDocument->SubmissionFile',
-      'Team->SubmissionFile',
-      'MilestoneDocumentSubmission->SubmissionFile',
-      'MilestoneDocumentSubmissionHistory->SubmissionFile',
-    ],
-  },
-  {
-    id: 'program-authoring-uploads',
-    operation: 'DETACH',
-    covers: ['Program->ProgramAuthoringUpload'],
-  },
-  {
-    id: 'milestone-document-template-file-tombstones',
+    id: 'files',
     operation: 'TOMBSTONE',
-    covers: ['MilestoneDocument->MilestoneDocumentTemplateFile'],
+    covers: [
+      'Program->File',
+      'MilestoneDocument->File',
+      'Team->File',
+      'MilestoneDocumentSubmission->File',
+      'MilestoneDocumentSubmissionHistory->File',
+    ],
   },
   {
     id: 'milestone-document-submission-histories',
@@ -93,11 +83,6 @@ const PURGE_RELATIONS = [
       'MilestoneDocument->MilestoneDocumentSubmission',
       'Team->MilestoneDocumentSubmission',
     ],
-  },
-  {
-    id: 'milestone-document-template-files',
-    operation: 'DELETE',
-    covers: ['MilestoneDocument->MilestoneDocumentTemplateFile'],
   },
   {
     id: 'milestone-documents',
@@ -124,24 +109,12 @@ const PURGE_RELATIONS = [
     operation: 'DELETE',
     covers: ['Program->Milestone'],
   },
-  {
-    id: 'program-cover-tombstones',
-    operation: 'TOMBSTONE',
-    covers: ['Program->ProgramCover'],
-  },
 ] as const satisfies readonly PurgeDeletionStep[];
 
 export const PROGRAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =
-  PURGE_RELATIONS.filter(
-    (step) => step.id !== 'milestone-document-template-files',
-  ).map((step) => ({
+  PURGE_RELATIONS.map((step) => ({
     ...step,
-    operation:
-      step.id === 'submission-files' ||
-      step.id === 'program-authoring-uploads' ||
-      step.operation === 'TOMBSTONE'
-        ? 'TOMBSTONE'
-        : 'PRESERVE',
+    operation: step.operation === 'TOMBSTONE' ? 'TOMBSTONE' : 'PRESERVE',
   }));
 
 const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([

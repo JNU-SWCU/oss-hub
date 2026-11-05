@@ -10,7 +10,7 @@ import {
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   ReviewDecision,
-  SubmissionFileLifecycle,
+  FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -1211,13 +1211,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         kind: 'SUBMISSION',
         teamId: syntheticTeamId,
         requirementId: syntheticDocumentId,
-        lifecycle: SubmissionFileLifecycle.PENDING,
+        lifecycle: FileLifecycle.PENDING,
         pendingExpiresAt: { gt: submittedAt },
       },
       data: {
         submissionId: 'cuid-synthetic-submission',
         submissionHistoryId: 'cuid-synthetic-history',
-        lifecycle: SubmissionFileLifecycle.ATTACHED,
+        lifecycle: FileLifecycle.ATTACHED,
         pendingExpiresAt: null,
       },
     });
@@ -2293,7 +2293,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       };
     }>(findMany);
     expect(call.select.files.where).toEqual({
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
       expiresAt: { gt: now },
     });
     expect(call.select.files.take).toBe(1);
@@ -2683,7 +2683,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
             storageKey: 'synthetic/milestone-documents/synthetic-object',
             originalFileName: '최종_진짜최종.hwp',
             sizeBytes: 2048,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: new Date('2026-10-01T00:00:00.000Z'),
             submissionHistory: { revision: 2 },
           },
@@ -2747,7 +2747,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
             storageKey: 'objects/revision-1',
             originalFileName: 'revision-1.pdf',
             sizeBytes: 1024,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: new Date('2026-10-01T00:00:00.000Z'),
             submissionHistory: { revision: 1 },
           },
@@ -2837,7 +2837,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
             storageKey: 'objects/expired',
             originalFileName: 'expired.pdf',
             sizeBytes: 1024,
-            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            lifecycle: FileLifecycle.ATTACHED,
             expiresAt: new Date('2026-09-19T00:00:00.000Z'),
             submissionHistory: { revision: 2 },
           },
@@ -3406,7 +3406,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       },
     });
     expect(call.select.files.where).toEqual({
-      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      lifecycle: FileLifecycle.ATTACHED,
       expiresAt: { gt: now },
     });
     expect(call.select.files.take).toBe(1);
