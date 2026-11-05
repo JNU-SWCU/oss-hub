@@ -6,8 +6,20 @@ LOCK TABLE "File", "Program", "SubmissionFile", "ProgramAuthoringUpload",
 
 DO $$
 DECLARE
+  counts bigint[];
   missing_count bigint;
 BEGIN
+  SELECT ARRAY[
+    (SELECT count(*) FROM "SubmissionFile"),
+    (SELECT count(*) FROM "ProgramAuthoringUpload"),
+    (SELECT count(*) FROM "MilestoneDocumentTemplateFile"),
+    (SELECT count(*) FROM "ProgramCover"),
+    (SELECT count(*) FROM "ProgramPurgeFileTombstone")
+  ] INTO counts;
+  IF counts <> ARRAY[81,3,5,3,2]::bigint[]
+     AND counts <> ARRAY[0,0,0,0,0]::bigint[] THEN
+    RAISE EXCEPTION 'file retire aborted: source count mismatch: %', counts;
+  END IF;
   SELECT count(*) INTO missing_count FROM (
     SELECT "storageKey" FROM "SubmissionFile"
     UNION

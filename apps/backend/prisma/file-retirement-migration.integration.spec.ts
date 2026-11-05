@@ -131,6 +131,30 @@ it('aborts and keeps the source tables when a source storage key is missing from
   expect(await singleInteger(`SELECT count(*) FROM "SubmissionFile"`)).toBe(81);
 });
 
+it('aborts and keeps the source tables when a frozen source count changed', async () => {
+  await inFixture(async (transaction) => {
+    await transaction.$executeRawUnsafe(
+      `ALTER TABLE "ProgramPurgeFileTombstone" DISABLE TRIGGER USER`,
+    );
+    await transaction.$executeRawUnsafe(
+      `DELETE FROM "ProgramPurgeFileTombstone" WHERE id=(SELECT min(id) FROM "ProgramPurgeFileTombstone")`,
+    );
+    await transaction.$executeRawUnsafe(
+      `ALTER TABLE "ProgramPurgeFileTombstone" ENABLE TRIGGER USER`,
+    );
+  });
+  expect(
+    await singleInteger(manifestSql('check-before-retire.sql')),
+  ).toBeGreaterThan(0);
+
+  await expect(apply(retireSql)).rejects.toThrow('source count mismatch');
+
+  expect(await singleInteger(`SELECT count(*) FROM "SubmissionFile"`)).toBe(81);
+  expect(
+    await singleInteger(`SELECT count(*) FROM "ProgramPurgeFileTombstone"`),
+  ).toBe(1);
+});
+
 it('reports a legacy attached upload at preflight and refuses to retire it', async () => {
   await inFixture((transaction) =>
     transaction.$executeRawUnsafe(
