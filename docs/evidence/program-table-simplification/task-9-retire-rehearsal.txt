@@ -1,8 +1,223 @@
-# Todo 9 retirement stage: pre-gate rehearsal receipt (PR #1754)
+# Todo 9 retirement stage: rehearsal receipts (PR #1754)
 #
-# Status: pre-gate check on the current stack, not the release receipt. After
-# #1752 and #1753 are live, #1754 is rebased onto main and rehearsed again; that
-# later run, against a production clone, is the receipt for the release.
+# Part 1 is the release receipt: a production clone, taken after #1752 and #1753
+# went live as v0.24.58. Part 2 is the earlier pre-gate run on synthetic data.
+#
+# Part 1 data: production was only read, with pg_dump under
+# default_transaction_read_only=on. Two dumps, one for the official run and one for
+# the abort and Prisma probe. Both stayed on the production host in a mode-700
+# directory and were deleted afterwards. Only counts, migration names, guard
+# messages and schema DDL left the host.
+#
+# Part 1 clone: throwaway container from the production PostgreSQL image, network
+# none, no published ports, 0.5 CPU, 512 MiB memory and swap, data directory on
+# tmpfs. Prisma ran from the live backend image v0.24.58 with the candidate
+# apps/backend/prisma mounted over /app/prisma, and could only reach the clone.
+#
+# Official run command:
+#   bash deploy/jenkins/program-migration/team-application/server-rehearse.sh <private root> <private root>/deploy/jenkins/program-migration/team-application/retire.json
+#
+# Abort and Prisma probe: a throwaway script outside the repository, built on the
+# official lib.sh, preflight.sh, reconcile.sh and rehearse.sh. It changes a clone
+# database, then applies the unchanged migration.
+#   state= is Application/ApplicationReviewHistory/Team/TeamHistory/AuditLog/
+#          application_team_map/legacy GithubRepository columns/Team.answers nullable/
+#          Team_application_fields_check.
+#   kept= is Team/TeamMember/TeamInvitation/TeamHistory/GithubRepository/
+#          RepositoryProvisionJob/RepositoryIssuanceHistory/
+#          GithubRepositoryOutsiderContribution/MilestoneDocumentSubmission/
+#          SubmissionFile/Notification/OutboxEvent/AuditLog/application_team_map.
+#   audit_reader_rows= is the query in audit-log.repository.ts findApplicationProgramNames,
+#          which still reads program_team_backup after the retirement.
+#
+# One probe case did not run. outsider_team_null is the MUTATION_FAILED line: the
+# probe's own UPDATE selected an id column, and GithubRepositoryOutsiderContribution
+# has none. The migration never ran for it, and it is the only unexpected result in
+# PROBE_SUMMARY. job_team_null and submission_team_null run the same guard loop, and
+# the unchanged control runs that loop for all four tables.
+
+source_commit=28d7ced7bcc2c2375694202c0cb624a0dcdf8cb7
+migration=20261105110000_retire_application_storage
+migration_sha256=174a94c2267f19ab9d28533b8783763a3c2f725615fb9c747d54174272245722
+data=production_clone production_database_writes=0
+
+==== part 1: production clone
+
+== official run
+SERVER_CAPACITY available_disk_kb=58859828 available_memory_kb=11386960
+SERVER_DUMP bytes=3651276 mode=600
+SERVER_ISOLATION network=none memory=536870912 swap=536870912 nano_cpus=500000000 ports=0 labelled=true
+STEP restore production dump
+STEP preflight
+CHECK_OK deploy/jenkins/program-migration/team-application/retire-preflight.sql
+PREFLIGHT_OK head=20261105100100_merge_applications_into_teams checks=1
+STEP backup before retire
+BACKUP_OK label=rehearsal-20261105181156_1649983 dump-bytes=3663013 object-count=0
+BACKUP_VERIFIED label=rehearsal-20261105181156_1649983 objects=absent object-count=0
+STEP apply retire
+STEP reconcile retire
+NOTICE:  TEAM_RETIRE sources applications=33 reviews=9
+CHECK_OK deploy/jenkins/program-migration/team-application/check-retired.sql
+RECONCILE_OK stage=retire checks=1
+STEP restore backup and compare counts
+BACKUP_VERIFIED label=rehearsal-20261105181156_1649983 objects=absent object-count=0
+COUNT applications before=33 restored=33
+COUNT reviews before=9 restored=9
+COUNT teams before=33 restored=33
+COUNT members before=65 restored=65
+COUNT invitations before=3 restored=3
+COUNT histories before=105 restored=105
+COUNT repositories before=7 restored=7
+COUNT jobs before=7 restored=7
+COUNT issuances before=0 restored=0
+COUNT outsiders before=3 restored=3
+COUNT submissions before=55 restored=55
+COUNT files before=81 restored=81
+COUNT notifications before=94 restored=94
+COUNT outbox before=5 restored=5
+REHEARSAL_OK name=team-application-retire stages=1 counts=14
+TEAM_SERVER_REHEARSAL_EXIT=0
+SERVER_VOLUME_INVENTORY before=1 after=1 added=0 removed=0 before_sha256=005d9630aadecb79820373e432a707aed5514524a14320b2008b7c3808908c28 after_sha256=005d9630aadecb79820373e432a707aed5514524a14320b20
+SERVER_CLEANUP containers_remaining=0 volumes_created=0 dumps_remaining=0 EXIT=0
+
+== official run, host after cleanup
+tmp_left=0
+large_sql=0
+root_gone=1
+containers=0
+dirs_left=0
+backend=oss-hub-backend:v0.24.58 health=healthy
+
+== abort and Prisma probe
+IMAGE backend_tag=oss-hub-backend:v0.24.58
+DUMP bytes=3651276 mode=600
+CHECK_OK team-application/retire-preflight.sql
+PREFLIGHT_OK head=20261105100100_merge_applications_into_teams checks=1
+CONTROL_BEFORE state=33/9/33/105/371/33/2/1/0 kept=33/65/3/105/7/7/0/3/55/81/94/5/371/33
+CONTROL_FILE_OWNERS application_without_team=0 team_set=76 neither=5
+CONTROL_APPLY secs=0 notice="TEAM_RETIRE sources applications=33 reviews=9"
+CHECK_OK team-application/check-retired.sql
+RECONCILE_OK stage=retire checks=1
+CONTROL_AFTER kept=33/65/3/105/7/7/0/3/55/81/94/5/371/33 audit_reader_rows=33 map=33
+ROLLBACK_OK name=review_row_deleted exit=3 guard="ERROR:  Team retirement legacy source count mismatch" before=33/8/33/105/371/33/2/1/0 after=33/8/33/105/371/33/2/1/0
+ROLLBACK_OK name=map_row_deleted exit=3 guard="ERROR:  Team retirement legacy source count mismatch" before=33/9/33/105/371/32/2/1/0 after=33/9/33/105/371/32/2/1/0
+ROLLBACK_OK name=map_program_changed exit=3 guard="ERROR:  Team retirement mapping mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=review_actor_null exit=3 guard="ERROR:  Team retirement review history mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=review_copy_deleted exit=3 guard="ERROR:  Team retirement review history mismatch" before=33/9/33/104/371/33/2/1/0 after=33/9/33/104/371/33/2/1/0
+ROLLBACK_OK name=pair_audit_deleted exit=3 guard="ERROR:  Team retirement paired audit cardinality mismatch" before=33/9/33/105/370/33/2/1/0 after=33/9/33/105/370/33/2/1/0
+ROLLBACK_OK name=pair_audit_duplicated exit=3 guard="ERROR:  Team retirement paired audit cardinality mismatch" before=33/9/33/105/372/33/2/1/0 after=33/9/33/105/372/33/2/1/0
+ROLLBACK_OK name=pair_ids_swapped exit=3 guard="ERROR:  Team retirement paired audit mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=pair_metadata_changed exit=3 guard="ERROR:  Team retirement paired audit mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=pair_time_changed exit=3 guard="ERROR:  Team retirement paired audit mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=audit_actor_null exit=3 guard="ERROR:  Team retirement copied audit mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=audit_copy_deleted exit=3 guard="ERROR:  Team retirement copied audit mismatch" before=33/9/33/104/371/33/2/1/0 after=33/9/33/104/371/33/2/1/0
+ROLLBACK_OK name=audit_source_changed exit=3 guard="ERROR:  Team retirement copied audit mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=audit_added_after_cutover exit=3 guard="ERROR:  Team retirement copied audit mismatch" before=33/9/33/105/372/33/2/1/0 after=33/9/33/105/372/33/2/1/0
+ROLLBACK_OK name=lifecycle_review_id_renamed exit=3 guard="ERROR:  Team retirement lifecycle history mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=team_answers_null exit=3 guard="ERROR:  Team retirement required field mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=team_answers_array exit=3 guard="ERROR:  Team retirement required field mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=team_submitted_null exit=3 guard="ERROR:  Team retirement required field mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=job_team_null exit=3 guard="ERROR:  Team retirement missing teamId in RepositoryProvisionJob" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+MUTATION_FAILED name=outsider_team_null err="ERROR:  column "id" does not exist at character 73"
+ROLLBACK_OK name=submission_team_null exit=3 guard="ERROR:  Team retirement missing teamId in MilestoneDocumentSubmission" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=repo_team_null exit=3 guard="ERROR:  Team retirement legacy reference mismatch in GithubRepository" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=file_team_changed exit=3 guard="ERROR:  Team retirement payload or file reference mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=notification_payload exit=3 guard="ERROR:  Team retirement payload or file reference mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=outbox_payload exit=3 guard="ERROR:  Team retirement payload or file reference mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ROLLBACK_OK name=outbox_aggregate exit=3 guard="ERROR:  Team retirement payload or file reference mismatch" before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0
+ABORT_OK name=unlabelled_container exit=1 reason="FAIL_CLOSED container is not labelled as an isolated rehearsal database"
+ABORT_OK name=preflight_ledger exit=1 last_step="preflight" reason="FAIL_CLOSED preflight ledger mismatch: expected 0|20261105100100_merge_applications_into_teams, got 1|20261105100100_merge_applications_into" detail="" rehearsal_dbs=0
+ABORT_OK name=preflight_map_row exit=1 last_step="preflight" reason="FAIL_CLOSED preflight failed" detail="CHECK_FAILED team-application/retire-preflight.sql: mismatches=2" rehearsal_dbs=0
+ABORT_OK name=preflight_team_gone exit=1 last_step="preflight" reason="FAIL_CLOSED preflight failed" detail="CHECK_FAILED team-application/retire-preflight.sql: mismatches=1" rehearsal_dbs=0
+ABORT_OK name=guard_review_actor exit=1 last_step="apply retire" reason="FAIL_CLOSED apply failed: 20261105110000_retire_application_storage/migration.sql" detail="ERROR:  Team retirement review history mismatch" rehearsal_dbs=0
+ABORT_OK name=guard_outbox exit=1 last_step="apply retire" reason="FAIL_CLOSED apply failed: 20261105110000_retire_application_storage/migration.sql" detail="ERROR:  Team retirement payload or file reference mismatch" rehearsal_dbs=0
+ABORT_OK name=reconcile_table_back exit=1 last_step="reconcile retire" reason="FAIL_CLOSED reconcile failed: retire" detail="CHECK_FAILED team-application/check-retired.sql: mismatches=1" rehearsal_dbs=0
+ABORT_OK name=reconcile_not_null_lost exit=1 last_step="reconcile retire" reason="FAIL_CLOSED reconcile failed: retire" detail="CHECK_FAILED team-application/check-retired.sql: mismatches=1" rehearsal_dbs=0
+ABORT_OK name=reconcile_check_lost exit=1 last_step="reconcile retire" reason="FAIL_CLOSED reconcile failed: retire" detail="CHECK_FAILED team-application/check-retired.sql: mismatches=1" rehearsal_dbs=0
+LEDGER before_deploy rows=98 failed=0 rolled_back=0 head=20261105100100_merge_applications_into_teams
+GUARD step=pre_deploy exit=0 out="ordinary"
+PRISMA step=deploy exit=0 secs=6
+  | migrations/
+  |   └─ 20261105110000_retire_application_storage/
+  |     └─ migration.sql
+  | All migrations have been successfully applied.
+LEDGER after_deploy rows=99 failed=0 rolled_back=0 head=20261105110000_retire_application_storage
+CHECK_OK team-application/check-retired.sql
+RECONCILE_OK stage=retire checks=1
+GUARD step=post_deploy exit=0 out="ordinary"
+PRISMA step=status exit=0 secs=6
+  | 99 migrations found in prisma/migrations
+  | Database schema is up to date!
+PRISMA step=deploy_again exit=0 secs=6
+  | 99 migrations found in prisma/migrations
+  | No pending migrations to apply.
+PRISMA step=drift_after exit=2 secs=6
+DRIFT_KINDS
+      1 -- CreateIndex
+      3 -- DropForeignKey
+      2 -- DropIndex
+      2 -- DropTable
+      2 -- RenameIndex
+DRIFT_RETIRED_NAMES 0
+DRIFT_FULL_BEGIN
+  drift: -- DropForeignKey
+  drift: ALTER TABLE "CollectionContributorYearAggregate" DROP CONSTRAINT "CollectionContributorYearAggregate_repositoryId_fkey";
+  drift: -- DropForeignKey
+  drift: ALTER TABLE "CollectionRepositoryYearAggregate" DROP CONSTRAINT "CollectionRepositoryYearAggregate_repositoryId_fkey";
+  drift: -- DropForeignKey
+  drift: ALTER TABLE "ProgramAuthoringUpload" DROP CONSTRAINT "ProgramAuthoringUpload_program_actor_fkey";
+  drift: -- DropIndex
+  drift: DROP INDEX "Program_createdById_id_key";
+  drift: -- DropIndex
+  drift: DROP INDEX "Program_createdById_idempotencyKey_key";
+  drift: -- DropTable
+  drift: DROP TABLE "CollectionContributorYearAggregate";
+  drift: -- DropTable
+  drift: DROP TABLE "CollectionRepositoryYearAggregate";
+  drift: -- CreateIndex
+  drift: CREATE UNIQUE INDEX "GithubRepository_teamId_key" ON "GithubRepository"("teamId");
+  drift: -- RenameIndex
+  drift: ALTER INDEX "MilestoneDocumentSubmissionHistory_milestoneDocumentSubmissionI" RENAME TO "MilestoneDocumentSubmissionHistory_milestoneDocumentSubmiss_idx";
+  drift: -- RenameIndex
+  drift: ALTER INDEX "ProgramPurgeFileTombstone_lifecycle_nextDeleteAttemptAt_deleteC" RENAME TO "ProgramPurgeFileTombstone_lifecycle_nextDeleteAttemptAt_del_idx";
+DRIFT_FULL_END
+GUARD step=abort_pre_deploy exit=0 out="ordinary"
+PRISMA step=deploy_fails exit=1 secs=6
+  | Error: ERROR: current transaction is aborted, commands ignored until end of transaction block
+  |    0: schema_commands::commands::apply_migrations::Applying migration
+  |            with migration_name="20261105110000_retire_application_storage"
+  |              at schema-engine/commands/src/commands/apply_migrations.rs:95
+  |    1: schema_core::state::ApplyMigrations
+  |              at schema-engine/core/src/state.rs:260
+PG_LOG_BEGIN
+  pg: ERROR:  Team retirement review history mismatch
+  pg: ERROR:  current transaction is aborted, commands ignored until end of transaction block
+PG_LOG_END
+LEDGER after_failed rows=99 failed=1 rolled_back=0 head=20261105100100_merge_applications_into_teams
+  ledger: 20261105110000_retire_application_storage finished_at_null=true rolled_back_at_null=true applied_steps_count=0 logs_len=null
+GUARD step=after_failed exit=1 out="FAIL_CLOSED unknown-migration-ledger"
+ABORT_STATE before=33/9/33/105/371/33/2/1/0 after=33/9/33/105/371/33/2/1/0 equal=1
+PRISMA step=later_deploy exit=1 secs=6
+  | 99 migrations found in prisma/migrations
+  | Error: P3009
+  | migrate found failed migrations in the target database, new migrations will not be applied. Read more about how to resolve migration issues in a production database: https://pris.ly/d/migrate-resolve
+  | The `20261105110000_retire_application_storage` migration started at 2026-11-05 18:14:04.622442 UTC failed
+PROBE_SUMMARY unexpected=1
+PROBE_CLEANUP containers_remaining=0 volumes_added=0 volumes_removed=0 dumps_remaining=0 EXIT=1
+
+== probe, host after cleanup
+tmp_left=0
+large_sql=0
+root_gone=1
+containers=0
+dirs_left=0
+dump_files=0
+backend=oss-hub-backend:v0.24.58 health=healthy
+
+==== part 2: pre-gate run on synthetic data
+#
+# Status: pre-gate check on the stack before stage 1 shipped, not the release
+# receipt. Part 1 is the release receipt.
 #
 # Data: synthetic seed on the real migration chain. No production clone, no
 # production database writes. No object storage locally, so the file count is
