@@ -118,24 +118,6 @@ describe('core schema invariants integration', () => {
     await prisma.$disconnect();
   });
 
-  it('a team identity can hold only one application state', async () => {
-    await createProgram();
-    await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);
-    await expect(
-      prisma.team.create({
-        data: {
-          id: TEAM_A_ID,
-          programId: PROGRAM_ID,
-          name: 'Duplicate team',
-          leaderId: USER_B_ID,
-          applicantId: USER_B_ID,
-          answers: {},
-          applicationTemplateVersion: 1,
-        },
-      }),
-    ).rejects.toMatchObject({ code: 'P2002' });
-  });
-
   it('RepositoryProvisionJob.teamId restricts deletion of its owning team', async () => {
     await createProgram();
     await createTeam(TEAM_A_ID, PROGRAM_ID, USER_A_ID);

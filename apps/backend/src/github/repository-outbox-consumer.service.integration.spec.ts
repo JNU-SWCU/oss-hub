@@ -182,9 +182,6 @@ describe('RepositoryOutboxConsumerService integration', () => {
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
-    await prisma.team.deleteMany({
-      where: { id: { in: [...APPLICATION_IDS] } },
-    });
     await prisma.teamMember.deleteMany({
       where: { teamId: { in: [...APPLICATION_IDS] } },
     });

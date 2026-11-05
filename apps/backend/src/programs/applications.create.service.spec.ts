@@ -101,8 +101,6 @@ function buildService(overrides: {
           },
     ),
     findExistingTeamMembership: jest.fn().mockResolvedValue(null),
-    lockTeamForApply: jest.fn().mockResolvedValue(true),
-    countTeamMembers: jest.fn().mockResolvedValue(1),
     createTeamWithLeader,
     ...overrides.store,
   };
@@ -535,32 +533,6 @@ describe('TeamApplicationService.create', () => {
       });
     },
   );
-  it('기존 소속이 있으면 새 Team을 만들지 않는다', async () => {
-    const lockTeamForApply = jest.fn().mockResolvedValue(true);
-    const {
-      service,
-      createTeamWithLeader,
-      appendReviewHistory,
-      createApplicationInvitations,
-    } = buildService({
-      store: {
-        findExistingTeamMembership: jest
-          .fn()
-          .mockResolvedValue({ id: 'existing-team', name: '먼저 만든 팀' }),
-        lockTeamForApply,
-        countTeamMembers: jest.fn().mockResolvedValue(1),
-      },
-    });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
-  });
-
   it('기존 소속은 최소 인원과 관계없이 중복 지원이다', async () => {
     const {
       service,
@@ -577,36 +549,6 @@ describe('TeamApplicationService.create', () => {
         findExistingTeamMembership: jest
           .fn()
           .mockResolvedValue({ id: 'existing-team', name: '먼저 만든 팀' }),
-        countTeamMembers: jest.fn().mockResolvedValue(1),
-      },
-    });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
-  });
-
-  it('인원을 채운 기존 팀도 새 지원을 만들지 않는다', async () => {
-    const {
-      service,
-      createTeamWithLeader,
-      appendReviewHistory,
-      createApplicationInvitations,
-    } = buildService({
-      store: {
-        lockProgramForApply: jest.fn().mockResolvedValue({
-          ...OPEN_PROGRAM,
-          teamMinSize: 2,
-          teamMaxSize: 4,
-        }),
-        findExistingTeamMembership: jest
-          .fn()
-          .mockResolvedValue({ id: 'existing-team', name: '2인 팀' }),
-        countTeamMembers: jest.fn().mockResolvedValue(2),
       },
     });
     await expect(
@@ -632,127 +574,13 @@ describe('TeamApplicationService.create', () => {
     });
   });
 
-  it('기존 팀에는 제출 이력을 중복으로 쓰지 않는다', async () => {
-    const {
-      service,
-      appendReviewHistory,
-      createTeamWithLeader,
-      createApplicationInvitations,
-    } = buildService({
+  it('현재 팀이 없는 신청자는 새 팀의 팀장이 된다', async () => {
+    const { service, createTeamWithLeader } = buildService({
       store: {
-        findExistingTeamMembership: jest
-          .fn()
-          .mockResolvedValue({ id: 'existing-team', name: '먼저 만든 팀' }),
+        findExistingTeamMembership: jest.fn().mockResolvedValue(null),
       },
     });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
-  });
-});
-
-describe('TeamApplicationService.create — 프로그램당 한 사람 한 팀', () => {
-  const EXISTING_TEAM = { id: 'existing-team', name: '함께 만든 팀' };
-
-  function buildTeamService(overrides: {
-    readonly leaderAfterLock: boolean;
-    readonly teamMinSize?: number | null;
-    readonly memberCount?: number;
-  }) {
-    const lockTeamForApply = jest
-      .fn()
-      .mockResolvedValue(overrides.leaderAfterLock);
-    const countTeamMembers = jest
-      .fn()
-      .mockResolvedValue(overrides.memberCount ?? 2);
-    const built = buildService({
-      store: {
-        findExistingTeamMembership: jest.fn().mockResolvedValue(EXISTING_TEAM),
-        lockProgramForApply: jest.fn().mockResolvedValue({
-          ...OPEN_PROGRAM,
-          teamMinSize: overrides.teamMinSize ?? 1,
-          teamMaxSize: 4,
-        }),
-        lockTeamForApply,
-        countTeamMembers,
-      },
-    });
-    return { ...built, lockTeamForApply, countTeamMembers };
-  }
-
-  it('기존 팀원은 중복 지원으로 거절한다', async () => {
-    const {
-      service,
-      createTeamWithLeader,
-      appendReviewHistory,
-      createApplicationInvitations,
-    } = buildTeamService({ leaderAfterLock: false });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
-  });
-
-  it('기존 소속은 이전 팀장 권한과 관계없이 중복 지원이다', async () => {
-    const {
-      service,
-      createTeamWithLeader,
-      appendReviewHistory,
-      createApplicationInvitations,
-    } = buildTeamService({ leaderAfterLock: false });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
-  });
-
-  it('팀장을 위임받아도 새 지원은 중복으로 거절한다', async () => {
-    const {
-      service,
-      createTeamWithLeader,
-      appendReviewHistory,
-      createApplicationInvitations,
-    } = buildTeamService({
-      leaderAfterLock: true,
-      teamMinSize: 2,
-      memberCount: 2,
-    });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
-  });
-
-  it('현재 소속이 사라졌으면 이전 팀을 재사용하지 않고 새 팀을 만든다', async () => {
-    const { service, store, createTeamWithLeader } = buildTeamService({
-      leaderAfterLock: false,
-      teamMinSize: 1,
-    });
-    jest.spyOn(store, 'findExistingTeamMembership').mockResolvedValue(null);
-    const result = await service.create(
-      GITHUB_ID,
-      PROGRAM_ID,
-      DEFAULT_INPUT,
-      NOW,
-    );
-    expect(result.id).not.toBe(EXISTING_TEAM.id);
+    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
     expect(createTeamWithLeader).toHaveBeenCalledTimes(1);
     expect(createTeamWithLeader).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -760,67 +588,6 @@ describe('TeamApplicationService.create — 프로그램당 한 사람 한 팀',
         leaderId: STUDENT.id,
       }),
     );
-  });
-
-  it('현재 팀이 없는 신청자는 새 팀의 팀장이 된다', async () => {
-    const lockTeamForApply = jest.fn().mockResolvedValue(true);
-    const { service, createTeamWithLeader } = buildService({
-      store: {
-        findExistingTeamMembership: jest.fn().mockResolvedValue(null),
-        lockTeamForApply,
-      },
-    });
-    await service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW);
-    expect(lockTeamForApply).not.toHaveBeenCalled();
-    expect(createTeamWithLeader).toHaveBeenCalledWith(
-      expect.objectContaining({ leaderId: STUDENT.id }),
-    );
-  });
-
-  it('기존 팀장도 인원 부족과 관계없이 중복 지원으로 거절한다', async () => {
-    const {
-      service,
-      createTeamWithLeader,
-      appendReviewHistory,
-      createApplicationInvitations,
-    } = buildTeamService({
-      leaderAfterLock: true,
-      teamMinSize: 2,
-      memberCount: 1,
-    });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
-  });
-
-  it('팀장의 중복 신청은 계속 APP_011로 매핑한다 (기존 Team의 중복 지원 거절)', async () => {
-    const lockTeamForApply = jest.fn().mockResolvedValue(true);
-    const {
-      service,
-      createTeamWithLeader,
-      appendReviewHistory,
-      createApplicationInvitations,
-    } = buildService({
-      createThrows: new ApplicationDuplicateError(),
-      store: {
-        findExistingTeamMembership: jest.fn().mockResolvedValue(EXISTING_TEAM),
-        lockTeamForApply,
-        countTeamMembers: jest.fn().mockResolvedValue(2),
-      },
-    });
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.DUPLICATE_APPLICATION },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-    expect(appendReviewHistory).not.toHaveBeenCalled();
-    expect(createApplicationInvitations).not.toHaveBeenCalled();
   });
 });
 

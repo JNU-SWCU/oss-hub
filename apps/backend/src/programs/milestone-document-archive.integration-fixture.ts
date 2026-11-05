@@ -146,7 +146,7 @@ export class ProgramArchiveIntegrationFixture {
         data: {
           id: archiveId(`submission-${team}-${stage}`),
           milestoneDocumentId: archiveId(`doc-${stage}`),
-          teamId: archiveId(`app-${team}`),
+          teamId: archiveId(`team-${team}`),
           submittedById: archiveId('user'),
           submittedAt: archiveNow,
           revision: 2,
@@ -193,7 +193,7 @@ export class ProgramArchiveIntegrationFixture {
         kind: 'SUBMISSION',
         id: archiveId(`file-${stage}-${revision}`),
         uploaderId: archiveId('user'),
-        teamId: archiveId('app-0'),
+        teamId: archiveId('team-0'),
         submissionId: archiveId(`submission-0-${stage}`),
         submissionHistoryId: archiveId(`history-0-${stage}-${revision}`),
         lifecycle: 'ATTACHED',

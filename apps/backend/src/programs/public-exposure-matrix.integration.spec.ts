@@ -516,9 +516,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await prisma.team.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
-      });
       await prisma.teamMember.deleteMany({
         where: { teamId: { startsWith: `${PREFIX}-` } },
       });

@@ -177,21 +177,34 @@ describe('program storage invariants', () => {
       name: 'Synthetic requirement',
       required: true,
       sortOrder: 1,
-      templateFile: {
+      files: {
         create: {
+          kind: 'TEMPLATE' as const,
+          lifecycle: 'ATTACHED' as const,
+          sha256: 'a'.repeat(64),
+          attachedAt: program.startAt,
           storageKey: prefix,
           originalFileName: 'synthetic.pdf',
           mimeType: 'application/pdf',
           sizeBytes: 1,
-          uploadedById: prefix,
+          uploaderId: prefix,
         },
       },
     };
     await prisma.milestoneDocument.create({ data: document });
 
     await expect(
-      prisma.milestoneDocument.create({ data: document }),
-    ).rejects.toMatchObject({ code: 'P2002' });
+      prisma.milestoneDocument.create({
+        data: {
+          ...document,
+          name: 'Another synthetic requirement',
+          sortOrder: 2,
+        },
+      }),
+    ).rejects.toMatchObject({
+      code: 'P2002',
+      meta: { target: ['storageKey'] },
+    });
   });
 
   it('keeps milestone writes inside the program schedule', async () => {

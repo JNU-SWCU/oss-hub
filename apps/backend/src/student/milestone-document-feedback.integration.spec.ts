@@ -34,7 +34,6 @@ async function cleanup(): Promise<void> {
     where: { id: owned },
   });
   await prisma.milestoneDocumentSubmission.deleteMany({ where: { id: owned } });
-  await prisma.team.deleteMany({ where: { id: owned } });
   await prisma.teamMember.deleteMany({ where: { teamId: owned } });
   await prisma.team.deleteMany({ where: { id: owned } });
   await prisma.milestoneDocument.deleteMany({ where: { id: owned } });

@@ -178,9 +178,6 @@ async function cleanup(): Promise<void> {
   await prisma.milestoneDocumentSubmission.deleteMany({
     where: { teamId: { startsWith: prefix } },
   });
-  await prisma.team.deleteMany({
-    where: { programId: { in: [programId, outsideProgramId] } },
-  });
   await prisma.teamMember.deleteMany({
     where: { programId: { in: [programId, outsideProgramId] } },
   });

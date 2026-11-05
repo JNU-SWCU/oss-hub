@@ -37,7 +37,6 @@ const PROGRAM_ID = `${SEED_PREFIX}-program`;
 const TEAM_ID = `${SEED_PREFIX}-team`;
 const MEMBER_USER_ID = `${SEED_PREFIX}-user`;
 const LATE_MEMBER_USER_ID = `${SEED_PREFIX}-late-user`;
-const APPLICATION_ID = `${SEED_PREFIX}-team`;
 const REPOSITORY_ID = `${SEED_PREFIX}-repository`;
 
 const fingerprint = (endpoint: string): RequestFingerprint => ({
@@ -238,7 +237,7 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     await prisma.githubRepository.create({
       data: {
         id: REPOSITORY_ID,
-        teamId: APPLICATION_ID,
+        teamId: TEAM_ID,
         githubRepositoryId: GITHUB_REPOSITORY_ID,
         nameWithOwner: `${ORG_LOGIN}/member-filter-repo`,
         source: RepositorySource.ORG_PROVISIONED,
@@ -260,7 +259,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       'DELETE FROM "CollectionSyncLease" WHERE "appId" = $1',
       APP_ID,
     );
-    await prisma.team.deleteMany({ where: { id: APPLICATION_ID } });
     await prisma.teamMember.deleteMany({ where: { teamId: TEAM_ID } });
     await prisma.team.deleteMany({ where: { id: TEAM_ID } });
     await prisma.user.deleteMany({

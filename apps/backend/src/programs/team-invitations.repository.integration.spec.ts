@@ -46,7 +46,6 @@ async function cleanup(): Promise<void> {
     where: { aggregateId: { startsWith: TEST_PREFIX } },
   });
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
-  await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
   await prisma.teamMember.deleteMany({
     where: { programId: PROGRAM_ID },
   });
