@@ -1,15 +1,36 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { AccountStatus } from '@prisma/client';
 import { Inject, Injectable } from '@nestjs/common';
-import { type ProblemDetailExtensions, DomainException } from '../platform/error-code.error';
-import { MILESTONE_DOCUMENTS_ERROR_CODES, MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import { ProgramEditorRepository, type ProgramMilestoneEditView, type ProgramAuthority, type ProgramEditorTransactionStore, type ProgramMilestoneInput, type LockedProgramMilestoneEdit, type EditableProgramRow, type EditableProgramView } from './program-editor.repository';
+import {
+  type ProblemDetailExtensions,
+  DomainException,
+} from '../platform/error-code.error';
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './milestone-documents-error-code.error';
+import {
+  ProgramEditorRepository,
+  type ProgramMilestoneEditView,
+  type ProgramAuthority,
+  type ProgramEditorTransactionStore,
+  type ProgramMilestoneInput,
+  type LockedProgramMilestoneEdit,
+  type EditableProgramRow,
+  type EditableProgramView,
+} from './program-editor.repository';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
-import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './program-error-code.error';
+import {
+  PROGRAM_ERROR_CODES,
+  ProgramErrorCode,
+} from './program-error-code.error';
 import { createHash } from 'node:crypto';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
 import { CreateProgramCommand } from './program-creation.service';
-import { type ProgramExternalCover, type ProgramAuthoringUploadToken } from './files.config';
+import {
+  type ProgramExternalCover,
+  type ProgramAuthoringUploadToken,
+} from './files.config';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';

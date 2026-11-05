@@ -2,7 +2,10 @@ import { PrismaStorageReferenceRepository } from './programs/files.repository';
 import { type INestApplicationContext } from '@nestjs/common';
 import { PlatformModule } from './platform/platform.module';
 import { NestFactory } from '@nestjs/core';
-import { OBJECT_INVENTORY, OBJECT_STORAGE } from './platform/object-storage.config';
+import {
+  OBJECT_INVENTORY,
+  OBJECT_STORAGE,
+} from './platform/object-storage.config';
 import { reconcileStorageOrphans } from './cli';
 import { KNOWN_STORAGE_PREFIXES } from './programs/file-cleanup.service';
 

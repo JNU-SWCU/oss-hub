@@ -2,7 +2,11 @@ import { Injectable, Inject, Logger, Optional } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { AuditLogService } from '../platform/audit-log.service';
 import { SUBMISSION_FILE_CLEANUP_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import { SubmissionFilesRepository, FileCleanupRepository, type StorageReferenceRepository } from './files.repository';
+import {
+  FilesRepository,
+  FileCleanupRepository,
+  type StorageReferenceRepository,
+} from './files.repository';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
@@ -10,7 +14,7 @@ import { AuditLogMetadataService } from '../platform/audit-log-metadata.service'
 @Injectable()
 export class FileCleanupRetryService {
   constructor(
-    private readonly files: SubmissionFilesRepository,
+    private readonly files: FilesRepository,
     private readonly auditLog: AuditLogService,
     private readonly auditLogMetadataService: AuditLogMetadataService,
   ) {}
@@ -64,7 +68,10 @@ export class FileCleanupService {
 
   constructor(
     @Inject(FileCleanupRepository)
-    private readonly files: Pick<FileCleanupRepository, 'claimNextForDeletion' | 'markDeleted' | 'recordDeleteFailure'>,
+    private readonly files: Pick<
+      FileCleanupRepository,
+      'claimNextForDeletion' | 'markDeleted' | 'recordDeleteFailure'
+    >,
     @Inject(OBJECT_STORAGE)
     private readonly storage: Pick<ObjectStoragePort, 'delete'>,
     @Optional()
@@ -91,7 +98,10 @@ export class FileCleanupService {
 
   async runDue(batchSize = DEFAULT_BATCH_SIZE): Promise<number> {
     if (!Number.isFinite(batchSize)) return 0;
-    const limit = Math.min(Math.max(Math.trunc(batchSize), 0), DEFAULT_BATCH_SIZE);
+    const limit = Math.min(
+      Math.max(Math.trunc(batchSize), 0),
+      DEFAULT_BATCH_SIZE,
+    );
     let claimedCount = 0;
     for (let index = 0; index < limit; index += 1) {
       const claimedAt = this.now();
@@ -114,7 +124,6 @@ export class FileCleanupService {
   }): Promise<void> {
     try {
       await this.storage.delete(file.storageKey);
-      await this.files.markDeleted(file.id, file.claimOwner, this.now());
     } catch {
       const attemptedAt = this.now();
       const attemptCount = file.deleteAttemptCount + 1;
@@ -128,7 +137,7 @@ export class FileCleanupService {
         claimOwner: file.claimOwner,
         attemptCount,
         nextAttemptAt,
-        error: this.redactedError(),
+        error: 'STORAGE_DELETE_FAILED',
       });
       if (recorded && attemptCount >= MAX_DELETE_ATTEMPTS) {
         this.logger.error({
@@ -138,11 +147,9 @@ export class FileCleanupService {
           error: 'storage_delete_failed',
         });
       }
+      return;
     }
-  }
-
-  private redactedError(): 'STORAGE_DELETE_FAILED' {
-    return 'STORAGE_DELETE_FAILED';
+    await this.files.markDeleted(file.id, file.claimOwner, this.now());
   }
 }
 

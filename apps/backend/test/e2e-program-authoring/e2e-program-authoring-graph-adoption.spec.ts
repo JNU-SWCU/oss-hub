@@ -1,11 +1,18 @@
 import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
 import { ProgramTemplatesService } from '../../src/programs/team-application.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from '../../src/programs/files.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from '../../src/programs/files.service';
 import { ProgramAuthoringUploadTransactionRepository } from '../../src/programs/files.repository';
 import { ProgramNoticeFetchClient } from '../../src/programs/program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
-import { adoptPersistedE2eProgramGraph, inspectE2eProgramAdoption, type E2eProgramAdoptionCandidate } from './e2e-program-authoring-graph-adoption';
+import {
+  adoptPersistedE2eProgramGraph,
+  inspectE2eProgramAdoption,
+  type E2eProgramAdoptionCandidate,
+} from './e2e-program-authoring-graph-adoption';
 import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { AuditLogMetadataService } from '../../src/platform/audit-log-metadata.service';
 

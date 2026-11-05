@@ -1,9 +1,13 @@
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { type ProgramAuthoringUploadToken } from './files.config';
-import { ProgramAuthoringUploadConsumptionRaceError, ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import {
+  ProgramAuthoringUploadConsumptionRaceError,
+  ProgramAuthoringUploadTokenError,
+} from './program-authoring.error';
 
 const ACTOR_ID = 'staff-id';
+const dateMatcher: unknown = expect.any(Date);
 
 function upload(
   overrides: Partial<ProgramAuthoringUploadToken> = {},
@@ -108,21 +112,51 @@ describe('program authoring upload transaction', () => {
     const second = upload({ id: 'b', storageKey: 'program-authoring/b' });
 
     await new ProgramAuthoringUploadTransactionRepository().consumePendingProgramAuthoringUploads(
-      prisma as never, ACTOR_ID,
-      [{ milestoneDocumentId: 'document-b', upload: second }, { milestoneDocumentId: 'document-a', upload: first }],
+      prisma as never,
+      ACTOR_ID,
+      [
+        { milestoneDocumentId: 'document-b', upload: second },
+        { milestoneDocumentId: 'document-a', upload: first },
+      ],
     );
 
     expect(prisma.file.updateMany).toHaveBeenNthCalledWith(1, {
-      where: {kind: 'TEMPLATE', requirementId: 'document-a', lifecycle: 'ATTACHED'},
-      data: {lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: expect.any(Date)},
+      where: {
+        kind: 'TEMPLATE',
+        requirementId: 'document-a',
+        lifecycle: 'ATTACHED',
+      },
+      data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: dateMatcher },
     });
     expect(prisma.file.updateMany).toHaveBeenNthCalledWith(2, {
-      where: {id: 'a', uploaderId: ACTOR_ID, kind: 'UPLOAD', lifecycle: 'PENDING'},
-      data: {kind: 'TEMPLATE', lifecycle: 'ATTACHED', requirementId: 'document-a', pendingExpiresAt: null, attachedAt: expect.any(Date)},
+      where: {
+        id: 'a',
+        uploaderId: ACTOR_ID,
+        kind: 'UPLOAD',
+        lifecycle: 'PENDING',
+      },
+      data: {
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirementId: 'document-a',
+        pendingExpiresAt: null,
+        attachedAt: dateMatcher,
+      },
     });
     expect(prisma.file.updateMany).toHaveBeenNthCalledWith(4, {
-      where: {id: 'b', uploaderId: ACTOR_ID, kind: 'UPLOAD', lifecycle: 'PENDING'},
-      data: {kind: 'TEMPLATE', lifecycle: 'ATTACHED', requirementId: 'document-b', pendingExpiresAt: null, attachedAt: expect.any(Date)},
+      where: {
+        id: 'b',
+        uploaderId: ACTOR_ID,
+        kind: 'UPLOAD',
+        lifecycle: 'PENDING',
+      },
+      data: {
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirementId: 'document-b',
+        pendingExpiresAt: null,
+        attachedAt: dateMatcher,
+      },
     });
   });
 
@@ -130,14 +164,29 @@ describe('program authoring upload transaction', () => {
     const prisma = transaction();
     prisma.file.updateMany.mockResolvedValue({ count: 0 });
 
-    await expect(new ProgramAuthoringUploadTransactionRepository().consumePendingProgramAuthoringUploads(
-      prisma as never, ACTOR_ID, [{ milestoneDocumentId: 'document-id', upload: upload() }],
-    )).rejects.toEqual(expect.any(ProgramAuthoringUploadConsumptionRaceError));
+    await expect(
+      new ProgramAuthoringUploadTransactionRepository().consumePendingProgramAuthoringUploads(
+        prisma as never,
+        ACTOR_ID,
+        [{ milestoneDocumentId: 'document-id', upload: upload() }],
+      ),
+    ).rejects.toEqual(expect.any(ProgramAuthoringUploadConsumptionRaceError));
 
     expect(prisma.file.updateMany).toHaveBeenCalledTimes(2);
     expect(prisma.file.updateMany).toHaveBeenLastCalledWith({
-      where: {id: 'upload-id', uploaderId: ACTOR_ID, kind: 'UPLOAD', lifecycle: 'PENDING'},
-      data: {kind: 'TEMPLATE', lifecycle: 'ATTACHED', requirementId: 'document-id', pendingExpiresAt: null, attachedAt: expect.any(Date)},
+      where: {
+        id: 'upload-id',
+        uploaderId: ACTOR_ID,
+        kind: 'UPLOAD',
+        lifecycle: 'PENDING',
+      },
+      data: {
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirementId: 'document-id',
+        pendingExpiresAt: null,
+        attachedAt: dateMatcher,
+      },
     });
   });
 });

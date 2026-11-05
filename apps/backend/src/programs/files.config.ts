@@ -1,4 +1,10 @@
-import type { FileLifecycle, ProgramTrackType, ProgramCategory, ProgramLifecycle } from '@prisma/client';
+import { type Readable } from 'node:stream';
+import {
+  type FileLifecycle,
+  type ProgramTrackType,
+  type ProgramCategory,
+  type ProgramLifecycle,
+} from '@prisma/client';
 
 export type ProgramAuthoringUploadToken = {
   readonly id: string;
@@ -119,3 +125,43 @@ export interface ValidatedProgramAuthoringUpload {
 }
 
 export const STORAGE_KEY_OWNERS = ['File'] as const;
+
+export interface UploadedSubmissionFileResponse {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+}
+
+export interface UploadedMilestoneDocumentFileResponse {
+  readonly fileId: string;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly size: number;
+  readonly expiresAt: string;
+}
+export interface MilestoneDocumentFileUpload {
+  readonly buffer: Buffer;
+  readonly originalname: string;
+  readonly mimetype: string;
+  readonly size: number;
+}
+export interface UploadedMilestoneDocumentTemplateResponse {
+  readonly documentId: string;
+  readonly hasTemplateFile: true;
+  readonly fileName: string;
+  readonly uploadedAt: string;
+}
+export interface DownloadedMilestoneDocumentTemplate {
+  readonly body: Readable;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly contentLength: number;
+}
+export interface DownloadedMilestoneDocumentSubmissionFile {
+  readonly body: Readable;
+  readonly fileName: string;
+  readonly contentType: string;
+  readonly contentLength: number;
+}

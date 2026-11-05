@@ -2,8 +2,8 @@ import { MODULE_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
 import { FileCleanupRetryService } from './file-cleanup.service';
-import { SubmissionFilesRepository } from './files.repository';
-import { SubmissionFilesService } from './files.service';
+import { FilesRepository } from './files.repository';
+import { FilesService } from './files.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramsModule } from './programs.module';
@@ -54,10 +54,10 @@ describe('ProgramsModule submission storage provider', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
     const exports = getMetadataArray(MODULE_METADATA.EXPORTS);
 
-    expect(providers).toContain(SubmissionFilesService);
-    expect(exports).toContain(SubmissionFilesService);
-    expect(providers).toContain(SubmissionFilesRepository);
-    expect(exports).not.toContain(SubmissionFilesRepository);
+    expect(providers).toContain(FilesService);
+    expect(exports).toContain(FilesService);
+    expect(providers).toContain(FilesRepository);
+    expect(exports).not.toContain(FilesRepository);
   });
 
   it('wires cleanup retry orchestration with the audit provider module', () => {

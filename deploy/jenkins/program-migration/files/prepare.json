@@ -2,18 +2,14 @@
   "version": 1,
   "name": "file-unification-prepare",
   "expectedHeadMigration": "20261105050000_retire_submission_axis",
-  "preflight": [
-    "check-before.sql"
-  ],
+  "preflight": ["check-before.sql"],
   "stages": [
     {
       "id": "copy",
       "apply": [
         "../../../../apps/backend/prisma/migrations/20261105200000_unify_files/migration.sql"
       ],
-      "reconcile": [
-        "check-copy.sql"
-      ]
+      "reconcile": ["check-copy.sql"]
     }
   ],
   "backupBeforeStage": "copy",

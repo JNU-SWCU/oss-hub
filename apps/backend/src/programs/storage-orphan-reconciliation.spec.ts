@@ -1,7 +1,14 @@
 import type { StorageReferenceTransactionClient } from './files.repository';
 import { Prisma } from '@prisma/client';
-import { StorageOrphanReconciliationService, DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS, type StorageObjectInventory } from './file-cleanup.service';
-import { PrismaStorageReferenceRepository, type StorageReferenceRepository } from './files.repository';
+import {
+  StorageOrphanReconciliationService,
+  DEFAULT_STORAGE_ORPHAN_SAFETY_WINDOW_MS,
+  type StorageObjectInventory,
+} from './file-cleanup.service';
+import {
+  PrismaStorageReferenceRepository,
+  type StorageReferenceRepository,
+} from './files.repository';
 import { STORAGE_KEY_OWNERS } from './files.config';
 
 const OLD = new Date('2026-08-12T00:00:00.000Z');
@@ -215,15 +222,36 @@ describe('PrismaStorageReferenceRepository', () => {
   });
 
   it('reads all file kinds from a separate RepeatableRead transaction for each call', async () => {
-    const keys = ['submission-files/live-submission', 'program-authoring/live-upload', 'program-covers/live', 'submission-files/live-template', 'submission-files/live-tombstone'];
-    const loadTransaction = {file: {findMany: jest.fn().mockResolvedValue(keys.map(storageKey => ({storageKey}))), findFirst: jest.fn()}};
-    const liveTransaction = {file: {findMany: jest.fn(), findFirst: jest.fn().mockResolvedValue({id: 'cover'})}};
-    const rootFile = {findMany: jest.fn(), findFirst: jest.fn()};
+    const keys = [
+      'submission-files/live-submission',
+      'program-authoring/live-upload',
+      'program-covers/live',
+      'submission-files/live-template',
+      'submission-files/live-tombstone',
+    ];
+    const loadTransaction = {
+      file: {
+        findMany: jest
+          .fn()
+          .mockResolvedValue(keys.map((storageKey) => ({ storageKey }))),
+        findFirst: jest.fn(),
+      },
+    };
+    const liveTransaction = {
+      file: {
+        findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue({ id: 'cover' }),
+      },
+    };
+    const rootFile = { findMany: jest.fn(), findFirst: jest.fn() };
     const clients = [loadTransaction, liveTransaction];
     const options: Prisma.TransactionIsolationLevel[] = [];
     const prisma = {
       $connect: jest.fn().mockResolvedValue(undefined),
-      $transaction<T>(operation: (client: StorageReferenceTransactionClient) => Promise<T>, input: {readonly isolationLevel: Prisma.TransactionIsolationLevel}) {
+      $transaction<T>(
+        operation: (client: StorageReferenceTransactionClient) => Promise<T>,
+        input: { readonly isolationLevel: Prisma.TransactionIsolationLevel },
+      ) {
         const client = clients.shift();
         if (client === undefined) throw new Error('Unexpected transaction');
         options.push(input.isolationLevel);
@@ -234,25 +262,56 @@ describe('PrismaStorageReferenceRepository', () => {
     const repository = new PrismaStorageReferenceRepository(prisma);
 
     await expect(repository.loadLiveKeys()).resolves.toEqual(new Set(keys));
-    await expect(repository.isLiveKey('program-covers/live')).resolves.toBe(true);
+    await expect(repository.isLiveKey('program-covers/live')).resolves.toBe(
+      true,
+    );
 
-    expect(options).toEqual([Prisma.TransactionIsolationLevel.RepeatableRead, Prisma.TransactionIsolationLevel.RepeatableRead]);
-    expect(loadTransaction.file.findMany).toHaveBeenCalledWith({where: {lifecycle: {not: 'DELETED'}}, select: {storageKey: true}});
-    expect(liveTransaction.file.findFirst).toHaveBeenCalledWith({where: {storageKey: 'program-covers/live', lifecycle: {not: 'DELETED'}}, select: {id: true}});
+    expect(options).toEqual([
+      Prisma.TransactionIsolationLevel.RepeatableRead,
+      Prisma.TransactionIsolationLevel.RepeatableRead,
+    ]);
+    expect(loadTransaction.file.findMany).toHaveBeenCalledWith({
+      where: { lifecycle: { not: 'DELETED' } },
+      select: { storageKey: true },
+    });
+    expect(liveTransaction.file.findFirst).toHaveBeenCalledWith({
+      where: {
+        storageKey: 'program-covers/live',
+        lifecycle: { not: 'DELETED' },
+      },
+      select: { id: true },
+    });
     expect(rootFile.findMany).not.toHaveBeenCalled();
     expect(rootFile.findFirst).not.toHaveBeenCalled();
   });
 
   it('excludes completed File deletions from the live-key recheck', async () => {
-    const transaction = {file: {findMany: jest.fn(), findFirst: jest.fn().mockResolvedValue(null)}};
+    const transaction = {
+      file: {
+        findMany: jest.fn(),
+        findFirst: jest.fn().mockResolvedValue(null),
+      },
+    };
     const prisma = {
       $connect: jest.fn().mockResolvedValue(undefined),
-      $transaction<T>(operation: (client: StorageReferenceTransactionClient) => Promise<T>) {return operation(transaction);},
+      $transaction<T>(
+        operation: (client: StorageReferenceTransactionClient) => Promise<T>,
+      ) {
+        return operation(transaction);
+      },
     };
     const repository = new PrismaStorageReferenceRepository(prisma);
 
-    await expect(repository.isLiveKey('submission-files/pending-tombstone')).resolves.toBe(false);
+    await expect(
+      repository.isLiveKey('submission-files/pending-tombstone'),
+    ).resolves.toBe(false);
 
-    expect(transaction.file.findFirst).toHaveBeenCalledWith({where: {storageKey: 'submission-files/pending-tombstone', lifecycle: {not: 'DELETED'}}, select: {id: true}});
+    expect(transaction.file.findFirst).toHaveBeenCalledWith({
+      where: {
+        storageKey: 'submission-files/pending-tombstone',
+        lifecycle: { not: 'DELETED' },
+      },
+      select: { id: true },
+    });
   });
 });

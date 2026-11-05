@@ -1,6 +1,9 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
 import { ProgramEditorService } from './program-editor.service';

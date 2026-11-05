@@ -27,17 +27,17 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import type { Response } from 'express';
+import { type Response } from 'express';
 import { OriginGuard } from '../platform/origin.guard';
 import { RolesGuard } from '../platform/roles.guard';
-import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
+import { type AuthenticatedRequest } from '../auth/http-auth.types';
+import { MilestoneDocumentFilesController } from './files.controller';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
 import {
   MilestoneDocumentArchiveService,
   type MilestoneDocumentArchive,
 } from './milestone-document-archive.service';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
+import { MilestoneDocumentFilesService } from './files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';

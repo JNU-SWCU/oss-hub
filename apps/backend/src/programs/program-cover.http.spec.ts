@@ -10,7 +10,11 @@ import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramsController } from './programs.controller';
 import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
-import { ProgramAuthoringUploadRepository, type CreatePendingProgramAuthoringUploadInput, ProgramCoverRepository } from './files.repository';
+import {
+  ProgramAuthoringUploadRepository,
+  type CreatePendingProgramAuthoringUploadInput,
+  ProgramCoverRepository,
+} from './files.repository';
 import { ProgramAuthoringUploadService } from './files.service';
 import { ProgramCoverService } from './program-creation.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';

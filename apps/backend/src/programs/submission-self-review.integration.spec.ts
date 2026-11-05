@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -5,7 +6,10 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentFlowFixture, flowIds } from './milestone-document-flow.integration-fixture';
+import {
+  MilestoneDocumentFlowFixture,
+  flowIds,
+} from './milestone-document-flow.integration-fixture';
 import { flowGithubIds } from './milestone-document-flow-data.integration-fixture';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
@@ -25,10 +29,20 @@ const documentReviews = new MilestoneDocumentReviewsService(
     fixture.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
-    new SubmissionsRepository(new PlatformRepository()),
-    new MilestoneDocumentCollectionReadRepository(fixture.prisma),
+    new SubmissionsRepository(
+      new PlatformRepository(),
+      new FileMetadataRepository(),
+    ),
+    new MilestoneDocumentCollectionReadRepository(
+      fixture.prisma,
+      new FileMetadataRepository(),
+    ),
+    new FileMetadataRepository(),
   ),
-  new SubmissionsRepository(new PlatformRepository()),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
 );
 const legacyReviews = new SubmissionReviewsService(
   new SubmissionReviewsRepository(fixture.prisma, new PlatformRepository()),
@@ -37,6 +51,7 @@ const legacyReviews = new SubmissionReviewsService(
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new SubmissionFileAdmissionService(),
+  new FileMetadataRepository(),
 );
 const paths = ['document', 'legacy'] as const;
 type ReviewPath = (typeof paths)[number];

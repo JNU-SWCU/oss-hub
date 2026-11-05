@@ -1,15 +1,28 @@
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
-import { ExecutionContext, ValidationPipe, type INestApplication } from '@nestjs/common';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
+import {
+  ExecutionContext,
+  ValidationPipe,
+  type INestApplication,
+} from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramsController } from './programs.controller';
 import { MilestonesController } from './milestones.controller';
-import { ProgramEditorRepository, type ProgramEditorTransactionStore } from './program-editor.repository';
+import {
+  ProgramEditorRepository,
+  type ProgramEditorTransactionStore,
+} from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { editableProgram, updateInput } from '../../test/program-editor-service-fixtures';
+import {
+  editableProgram,
+  updateInput,
+} from '../../test/program-editor-service-fixtures';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';

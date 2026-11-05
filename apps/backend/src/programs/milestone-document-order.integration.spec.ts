@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
@@ -34,13 +35,23 @@ const service = new MilestoneDocumentsService(
     prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
-    new SubmissionsRepository(new PlatformRepository()),
-    new MilestoneDocumentCollectionReadRepository(prisma),
+    new SubmissionsRepository(
+      new PlatformRepository(),
+      new FileMetadataRepository(),
+    ),
+    new MilestoneDocumentCollectionReadRepository(
+      prisma,
+      new FileMetadataRepository(),
+    ),
+    new FileMetadataRepository(),
   ),
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
-  new SubmissionsRepository(new PlatformRepository()),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
   new UserProfileService(),
 );
 

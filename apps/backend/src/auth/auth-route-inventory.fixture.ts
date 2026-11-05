@@ -1,5 +1,3 @@
-
-
 export const EXPECTED_APP_CONTROLLER_NAMES = [
   'AccessRequestsController',
   'AccountDeactivationController',
@@ -12,6 +10,7 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'CollectionAdminController',
   'ConsentsController',
   'DeadlineDigestController',
+  'FilesController',
   'HealthController',
   'LoginHistoryController',
   'MilestoneDocumentFilesController',
@@ -35,7 +34,6 @@ export const EXPECTED_APP_CONTROLLER_NAMES = [
   'StudentApplicationsController',
   'StudentDashboardController',
   'StudentRepositoryUrlController',
-  'FilesController',
   'SubmissionRepositoryPublishingController',
   'SubmissionsController',
   'SystemStatusController',

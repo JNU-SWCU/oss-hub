@@ -1,10 +1,13 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService, SubmissionFilesService } from './files.service';
+import { SubmissionFileAdmissionService, FilesService } from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { DomainException } from '../platform/error-code.error';
-import { type SubmissionFilesRepository } from './files.repository';
+import { type FilesRepository } from './files.repository';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import { SUBMISSIONS_ERROR_CODES, SubmissionsErrorCode } from './submissions-error-code.error';
+import {
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions-error-code.error';
 
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;
@@ -181,8 +184,8 @@ function setup() {
     get: jest.fn(),
     delete: jest.fn(),
   };
-  const service = new SubmissionFilesService(
-    repository as unknown as SubmissionFilesRepository,
+  const service = new FilesService(
+    repository as unknown as FilesRepository,
     storage,
     new ProgramScheduleService(),
     new SubmissionFileAdmissionService(),
@@ -215,7 +218,7 @@ async function checkOutcome(buffer: Buffer) {
     storageCalls: callCount(storage),
   };
 }
-describe('SubmissionFilesService file check before submission', () => {
+describe('FilesService file check before submission', () => {
   it.each(HAZARDOUS_ARCHIVES)(
     'answers $scenario with the submission code $code and touches neither repository nor storage',
     async ({ build, code }) => {

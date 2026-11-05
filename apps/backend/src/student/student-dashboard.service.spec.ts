@@ -846,11 +846,13 @@ describe('StudentDashboardRepository', () => {
     expect(args.select?.team).toEqual({ select: { name: true } });
     const programSelect = args.select?.program as {
       readonly select?: {
-        readonly cover?: unknown;
+        readonly coverFileId?: unknown;
+        readonly coverImageUrl?: unknown;
       };
     };
-    expect(programSelect.select?.cover).toEqual({
-      select: { id: true, imageUrl: true },
+    expect(programSelect.select).toMatchObject({
+      coverFileId: true,
+      coverImageUrl: true,
     });
     expect(args.select).not.toHaveProperty('applicant');
   });

@@ -42,10 +42,12 @@ describe('program storage invariants', () => {
     });
   });
   afterEach(async () => {
-    await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-uploaderId: prefix}});
-    await prisma.file.deleteMany({where: {kind: 'TEMPLATE',
-uploaderId: prefix}});
+    await prisma.file.deleteMany({
+      where: { kind: 'SUBMISSION', uploaderId: prefix },
+    });
+    await prisma.file.deleteMany({
+      where: { kind: 'TEMPLATE', uploaderId: prefix },
+    });
     await prisma.milestoneDocument.deleteMany({
       where: { milestone: { programId: prefix } },
     });
@@ -118,11 +120,9 @@ uploaderId: prefix}});
       sizeBytes: 1,
       lifecycle: 'DELETE_PENDING' as const,
     };
-    await prisma.file.create({data: file});
+    await prisma.file.create({ data: file });
 
-    await expect(
-      prisma.file.create({data: file}),
-    ).rejects.toMatchObject({
+    await expect(prisma.file.create({ data: file })).rejects.toMatchObject({
       code: 'P2002',
     });
   });

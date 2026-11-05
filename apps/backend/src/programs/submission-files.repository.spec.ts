@@ -1,7 +1,7 @@
+import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { ProgramScheduleService } from './program-schedule.service';
 import { AccountStatus, Prisma, SubmissionFileLifecycle } from '@prisma/client';
 import { type PrismaService } from '../platform/prisma.service';
-import { SubmissionFilesRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 
@@ -29,16 +29,17 @@ jest.mock('../platform/platform.repository', () => {
   };
 });
 const lockMembership = mockLockSubmissionMembership;
-describe('SubmissionFilesRepository exhausted cleanup query', () => {
+describe('FilesRepository exhausted cleanup query', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
   const prisma = {
     file: { findMany },
     user: { findUnique },
   } as unknown as PrismaService;
-  const repository = new SubmissionFilesRepository(
+  const repository = new FilesRepository(
     prisma,
     new PlatformRepository(),
+    new FileMetadataRepository(),
   );
   beforeEach(() => {
     findMany.mockReset();
@@ -169,7 +170,8 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
         return row.expiresAt !== null && row.expiresAt.getTime() > gt.getTime();
       }
       case 'submissionHistory': {
-        const inner = (value as { submission?: { application?: Filter } }).submission?.application;
+        const inner = (value as { submission?: { application?: Filter } })
+          .submission?.application;
         const team = inner?.team as Filter | undefined;
         if (team === undefined) {
           throw new Error('Unsupported application filter.');
@@ -181,7 +183,7 @@ function matchesFile(where: Filter, row: StoredFileRow): boolean {
     }
   });
 }
-describe('SubmissionFilesRepository.findDownloadableFile membership fence', () => {
+describe('FilesRepository.findDownloadableFile membership fence', () => {
   const FORMER_UPLOADER = 'user-former-uploader';
   const CURRENT_MEMBER = 'user-current-member';
   const DEPARTED_LEADER = 'user-departed-leader';
@@ -232,9 +234,10 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     user: { findUnique },
     file: { findFirst },
   } as unknown as PrismaService;
-  const repository = new SubmissionFilesRepository(
+  const repository = new FilesRepository(
     prisma,
     new PlatformRepository(),
+    new FileMetadataRepository(),
   );
   function requester(overrides: {
     readonly id: string;
@@ -318,7 +321,9 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
       expiresAt: { gt: NOW },
       submissionHistory: {
         submission: {
-          application: { team: { members: { some: { userId: CURRENT_MEMBER } } } },
+          application: {
+            team: { members: { some: { userId: CURRENT_MEMBER } } },
+          },
         },
       },
     });
@@ -372,7 +377,7 @@ describe('SubmissionFilesRepository.findDownloadableFile membership fence', () =
     },
   );
 });
-describe('SubmissionFilesRepository.createPending membership lock', () => {
+describe('FilesRepository.createPending membership lock', () => {
   const input = {
     uploaderId: 'user-current-member',
     applicationId: 'application-opaque',
@@ -399,9 +404,10 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
         run(transactionClient),
     ),
   } as unknown as PrismaService;
-  const repository = new SubmissionFilesRepository(
+  const repository = new FilesRepository(
     prisma,
     new PlatformRepository(),
+    new FileMetadataRepository(),
   );
   beforeEach(() => {
     queryRaw.mockReset();
@@ -410,7 +416,9 @@ describe('SubmissionFilesRepository.createPending membership lock', () => {
     lockMembership.mockReset();
     lockMembership.mockResolvedValue(true);
     queryRaw
-      .mockResolvedValueOnce([{ endAt: new Date('2027-02-28T09:30:00.000Z'), teamId: 'team-opaque' }])
+      .mockResolvedValueOnce([
+        { endAt: new Date('2027-02-28T09:30:00.000Z'), teamId: 'team-opaque' },
+      ])
       .mockResolvedValueOnce([{ id: input.uploaderId }]);
     aggregate.mockResolvedValue({
       _count: { _all: 0 },

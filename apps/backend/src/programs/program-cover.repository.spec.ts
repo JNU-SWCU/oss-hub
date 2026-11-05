@@ -1,4 +1,7 @@
-import { ProgramAuthoringUploadTransactionRepository, ProgramCoverRepository } from './files.repository';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  ProgramCoverRepository,
+} from './files.repository';
 import { Test } from '@nestjs/testing';
 import { PrismaService } from '../platform/prisma.service';
 
@@ -22,7 +25,10 @@ describe('program-cover.repository', () => {
         programId: 'program',
         kind: 'COVER',
         lifecycle: 'ATTACHED',
-        coverForProgram: { id: 'program', lifecycle: { in: ['PUBLISHED', 'ARCHIVED'] } },
+        coverForProgram: {
+          id: 'program',
+          lifecycle: { in: ['PUBLISHED', 'ARCHIVED'] },
+        },
         storageKey: { startsWith: 'program-covers/' },
         mimeType: { in: ['image/jpeg', 'image/png'] },
         sizeBytes: { gte: 1, lte: 5242880 },

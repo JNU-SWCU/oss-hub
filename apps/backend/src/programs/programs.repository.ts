@@ -1,12 +1,39 @@
-import { USER_AUTHORITY_SELECT, USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
+import {
+  USER_AUTHORITY_SELECT,
+  USER_PROFILE_NAME_SELECT,
+} from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
-import { type Program, ApplicationStatus, Prisma, ProgramCategory, type ProgramTrackType, type ProgramLifecycle, type Prisma as PrismaTypes,  SubmissionFileLifecycle } from '@prisma/client';
+import {
+  type Program,
+  ApplicationStatus,
+  Prisma,
+  ProgramCategory,
+  type ProgramTrackType,
+  type ProgramLifecycle,
+  type Prisma as PrismaTypes,
+} from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramListStatusFilterRepository, type ProgramListQuery } from './program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  type ProgramListQuery,
+} from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { type AuditLogTransactionWriter } from '../platform/audit-log-transaction-writer.types';
-import { type ProgramAuthoringProgramPlan, type ProgramExternalCover, type ProgramAuthoringProgram, type ProgramAuthoringCreateRequestInput, type ProgramAuthoringMilestonePlan, type ProgramAuthoringDocumentPlan, type ProgramAuthoringTemplateInput, type ProgramAuthoringReplay, type ProgramAuthoringUploadToken } from './files.config';
+import {
+  type ProgramAuthoringProgramPlan,
+  type ProgramExternalCover,
+  type ProgramAuthoringProgram,
+  type ProgramAuthoringCreateRequestInput,
+  type ProgramAuthoringMilestonePlan,
+  type ProgramAuthoringDocumentPlan,
+  type ProgramAuthoringTemplateInput,
+  type ProgramAuthoringReplay,
+  type ProgramAuthoringUploadToken,
+} from './files.config';
 
 export type ProgramListRecord = {
   readonly id: string;
@@ -634,11 +661,18 @@ export class ProgramLifecycleRepository {
         { programId },
         { team: { programId } },
         { requirement: { milestone: { programId } } },
-        { submissionHistory: { submission: { milestoneDocument: { milestone: { programId } } } } },
+        {
+          submissionHistory: {
+            submission: { milestoneDocument: { milestone: { programId } } },
+          },
+        },
       ],
       lifecycle: { in: ['PENDING', 'ATTACHED'] },
     } satisfies Prisma.FileWhereInput;
-    const files = await transaction.file.findMany({ where: fileScope, select: { kind: true } });
+    const files = await transaction.file.findMany({
+      where: fileScope,
+      select: { kind: true },
+    });
     await transaction.file.updateMany({
       where: fileScope,
       data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: now },
@@ -663,9 +697,13 @@ export class ProgramLifecycleRepository {
       githubRepositoriesDetached: 0,
       outboxEvents: 0,
       notifications: 0,
-      submissionFiles: files.filter(file => file.kind === 'SUBMISSION').length,
-      programAuthoringUploads: files.filter(file => file.kind === 'UPLOAD').length,
-      programPurgeFileTombstones: files.filter(file => file.kind === 'COVER' || file.kind === 'TEMPLATE').length,
+      submissionFiles: files.filter((file) => file.kind === 'SUBMISSION')
+        .length,
+      programAuthoringUploads: files.filter((file) => file.kind === 'UPLOAD')
+        .length,
+      programPurgeFileTombstones: files.filter(
+        (file) => file.kind === 'COVER' || file.kind === 'TEMPLATE',
+      ).length,
     };
   }
   isForeignKeyConflict(error: unknown): boolean {
@@ -701,7 +739,6 @@ export interface ProgramAuthoringTransactionStore {
     plan: ProgramAuthoringDocumentPlan,
   ): Promise<string>;
   createTemplate(input: ProgramAuthoringTemplateInput): Promise<void>;
-
 }
 @Injectable()
 export class ProgramAuthoringRepository {
@@ -831,7 +868,14 @@ export class ProgramAuthoringRepository {
     input: ProgramAuthoringTemplateInput,
   ): Promise<void> {
     await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(
-      prisma, input.actorId, [{ milestoneDocumentId: input.milestoneDocumentId, upload: input.upload }],
+      prisma,
+      input.actorId,
+      [
+        {
+          milestoneDocumentId: input.milestoneDocumentId,
+          upload: input.upload,
+        },
+      ],
     );
   }
 }

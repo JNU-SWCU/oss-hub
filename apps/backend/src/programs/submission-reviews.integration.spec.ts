@@ -1,14 +1,30 @@
+import { FileMetadataRepository } from './files.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { randomUUID } from 'node:crypto';
-import { AccountStatus, ApplicationStatus, RepositoryProvisionJobStatus, RepositorySource, RepositoryVisibility, ReviewDecision, SubmissionStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  RepositoryProvisionJobStatus,
+  RepositorySource,
+  RepositoryVisibility,
+  ReviewDecision,
+  SubmissionStatus,
+} from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { REPOSITORY_PUBLISH_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { AuditLogService } from '../platform/audit-log.service';
-import { prisma as seedPrisma, seedGithubId, seedId, seedNameWithOwner, seedRepositoryId, SeedStats } from '../../prisma/seeds/helpers';
+import {
+  prisma as seedPrisma,
+  seedGithubId,
+  seedId,
+  seedNameWithOwner,
+  seedRepositoryId,
+  SeedStats,
+} from '../../prisma/seeds/helpers';
 import { seedMilestones } from '../../prisma/seeds/milestones';
 import { seedRepositories } from '../../prisma/seeds/repositories';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -57,6 +73,7 @@ const service = new SubmissionReviewsService(
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new SubmissionFileAdmissionService(),
+  new FileMetadataRepository(),
 );
 const publicProjects = new PublicProjectsRepository(prisma);
 const PROGRAM_ID = seedId('milestones', 'program');
@@ -170,10 +187,14 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.milestoneDocumentSubmission.deleteMany({
       where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
     });
-    await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-submission: {
+    await prisma.file.deleteMany({
+      where: {
+        kind: 'SUBMISSION',
+        submission: {
           milestoneDocument: { milestone: { programId: PROGRAM_ID } },
-        }}});
+        },
+      },
+    });
     await prisma.application.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });

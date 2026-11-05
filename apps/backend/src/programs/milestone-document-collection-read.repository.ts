@@ -1,4 +1,4 @@
-import { fileMetadata } from './files.repository';
+import { FileMetadataRepository } from './files.repository';
 import {
   Prisma,
   SubmissionStatus,
@@ -9,6 +9,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
+
 export type DocumentDeliveryStatus =
   'MISSING' | 'LATE' | 'COMPLETE' | 'NO_REQUIRED_ITEMS';
 export type MilestoneDocumentContentInput = {
@@ -133,7 +134,10 @@ export interface DocumentDeliveryCoordinate {
 }
 @Injectable()
 export class MilestoneDocumentCollectionReadRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly fileMetadata: FileMetadataRepository,
+  ) {}
   withSnapshot<T>(
     operation: (
       store: MilestoneDocumentCollectionReadStoreRepository,
@@ -142,7 +146,11 @@ export class MilestoneDocumentCollectionReadRepository {
     return this.prisma.$transaction(
       (transaction) =>
         operation(
-          new MilestoneDocumentCollectionReadStoreRepository(transaction, this),
+          new MilestoneDocumentCollectionReadStoreRepository(
+            transaction,
+            this,
+            this.fileMetadata,
+          ),
         ),
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
@@ -170,6 +178,7 @@ export class MilestoneDocumentCollectionReadStoreRepository {
   constructor(
     private readonly transaction: Prisma.TransactionClient,
     private readonly milestoneDocumentCollectionReadRepository: MilestoneDocumentCollectionReadRepository,
+    private readonly fileMetadata: FileMetadataRepository,
   ) {}
   findMilestone(milestoneId: string): Promise<MilestoneContext | null> {
     return this.transaction.milestone.findUnique({
@@ -193,7 +202,11 @@ export class MilestoneDocumentCollectionReadStoreRepository {
         submissionType: true,
         sortOrder: true,
         graceDueAt: true,
-        files: {where: {kind: 'TEMPLATE', lifecycle: 'ATTACHED'}, take: 1, select: {id: true, originalFileName: true}},
+        files: {
+          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+          take: 1,
+          select: { id: true, originalFileName: true },
+        },
       },
     });
     return documents.map(({ files, ...document }) => ({
@@ -306,7 +319,8 @@ export class MilestoneDocumentCollectionReadStoreRepository {
         },
       });
     return submissions.map(({ files, histories, ...submission }) => {
-      const selectedFile = files[0] === undefined ? undefined : fileMetadata(files[0]);
+      const selectedFile =
+        files[0] === undefined ? undefined : this.fileMetadata.read(files[0]);
       const review = histories[0];
       return {
         ...submission,

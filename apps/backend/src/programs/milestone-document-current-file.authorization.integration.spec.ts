@@ -1,9 +1,17 @@
+import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { SubmissionFileAdmissionService, SubmissionFilesService } from './files.service';
-import { MilestoneDocumentCollectionService, MilestoneDocumentCurrentFileService } from './milestone-document-collection.service';
+import {
+  SubmissionFileAdmissionService,
+  FilesService,
+  MilestoneDocumentFilesService,
+} from './files.service';
+import {
+  MilestoneDocumentCollectionService,
+  MilestoneDocumentCurrentFileService,
+} from './milestone-document-collection.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
@@ -14,7 +22,12 @@ import { Readable } from 'node:stream';
 import { PlatformModule } from '../platform/platform.module';
 import { buffer } from 'node:stream/consumers';
 import { Test } from '@nestjs/testing';
-import { AccountStatus, ApplicationStatus, MilestoneDocumentSubmissionHistoryEvent, SubmissionFileLifecycle } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionFileLifecycle,
+} from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -22,9 +35,7 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import { SubmissionFilesRepository } from './files.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
@@ -110,15 +121,25 @@ const documentsRepository = new MilestoneDocumentsRepository(
   prisma,
   new LockProgramTreeRepository(),
   new PlatformRepository(),
-  new SubmissionsRepository(new PlatformRepository()),
-  new MilestoneDocumentCollectionReadRepository(prisma),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
+  new MilestoneDocumentCollectionReadRepository(
+    prisma,
+    new FileMetadataRepository(),
+  ),
+  new FileMetadataRepository(),
 );
 const documentsService = new MilestoneDocumentsService(
   documentsRepository,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
-  new SubmissionsRepository(new PlatformRepository()),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
   new UserProfileService(),
 );
 const storage: ObjectStoragePort = {
@@ -132,6 +153,7 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
     prisma as unknown as ConstructorParameters<
       typeof MilestoneDocumentCurrentFileRepository
     >[0],
+    new FileMetadataRepository(),
   ),
   storage,
   new SubmissionFileAdmissionService(),
@@ -147,8 +169,9 @@ interface TeamFixture {
   readonly status: ApplicationStatus;
 }
 async function cleanup(): Promise<void> {
-  await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-storageKey: { startsWith: `${prefix}/` }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'SUBMISSION', storageKey: { startsWith: `${prefix}/` } },
+  });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { submission: { is: { applicationId: { startsWith: prefix } } } },
   });
@@ -280,18 +303,27 @@ async function seedSubmissionWithFile(input: {
     },
   });
   const storageKey = `${prefix}/${input.key}.pdf`;
-  await prisma.file.create({data: {kind: 'SUBMISSION',
-id: `${prefix}-${input.key}-file`,
-uploaderId: input.actorId,
-teamId: (await prisma.application.findUniqueOrThrow({where: {id: input.applicationId}, select: {teamId: true}})).teamId,
-storageKey: storageKey,
-originalFileName: `${input.key}.pdf`,
-mimeType: 'application/pdf',
-sizeBytes: `bytes:${storageKey}`.length,
-submissionId: submissionId,
-submissionHistoryId: historyId,
-lifecycle: input.lifecycle ?? SubmissionFileLifecycle.ATTACHED,
-expiresAt: input.expiresAt ?? new Date('2099-01-01')}});
+  await prisma.file.create({
+    data: {
+      kind: 'SUBMISSION',
+      id: `${prefix}-${input.key}-file`,
+      uploaderId: input.actorId,
+      teamId: (
+        await prisma.application.findUniqueOrThrow({
+          where: { id: input.applicationId },
+          select: { teamId: true },
+        })
+      ).teamId,
+      storageKey: storageKey,
+      originalFileName: `${input.key}.pdf`,
+      mimeType: 'application/pdf',
+      sizeBytes: `bytes:${storageKey}`.length,
+      submissionId: submissionId,
+      submissionHistoryId: historyId,
+      lifecycle: input.lifecycle ?? SubmissionFileLifecycle.ATTACHED,
+      expiresAt: input.expiresAt ?? new Date('2099-01-01'),
+    },
+  });
   return storageKey;
 }
 async function downloadFails(
@@ -334,8 +366,8 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       imports: [PlatformModule],
       providers: [
         ...STATELESS_PROVIDERS,
-        SubmissionFilesService,
-        SubmissionFilesRepository,
+        FilesService,
+        FilesRepository,
         ProgramScheduleService,
         SubmissionFileAdmissionService,
       ],
@@ -357,7 +389,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     staffFilesService = new MilestoneDocumentFilesService(
       documentsRepository,
       storage,
-      submissionsModule.get(SubmissionFilesService),
+      submissionsModule.get(FilesService),
       new MilestoneDocumentSubmissionWindowService(
         new ProgramScheduleService(),
       ),
@@ -789,10 +821,10 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       select: { applicantId: true },
     });
     expect(application.applicantId).toBe(users.formerUploader.id);
-    const file = await prisma.file.findUniqueOrThrow({where: {kind: 'SUBMISSION',
-id: `${prefix}-former-own-file`},
-select: {uploaderId: true,
-lifecycle: true}});
+    const file = await prisma.file.findUniqueOrThrow({
+      where: { kind: 'SUBMISSION', id: `${prefix}-former-own-file` },
+      select: { uploaderId: true, lifecycle: true },
+    });
     expect(file.uploaderId).toBe(users.formerUploader.id);
     expect(file.lifecycle).toBe(SubmissionFileLifecycle.ATTACHED);
     const denied = await downloadFails(

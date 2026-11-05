@@ -1,8 +1,29 @@
-import { PROGRAM_COVER_MAX_BYTES, SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
-import { Body, Controller, HttpCode, Post, Req, UseGuards, ConflictException, Delete, Get, Headers, HttpStatus, Param, UploadedFile, UseInterceptors } from '@nestjs/common';
+import {
+  PROGRAM_COVER_MAX_BYTES,
+  SUBMISSION_UPLOAD_MAX_BYTES,
+} from './submission-upload.config';
+import {
+  Body,
+  Controller,
+  HttpCode,
+  Post,
+  Req,
+  UseGuards,
+  ConflictException,
+  Delete,
+  Get,
+  Headers,
+  HttpStatus,
+  Param,
+  UploadedFile,
+  UseInterceptors,
+} from '@nestjs/common';
 import { OriginGuard } from '../platform/origin.guard';
 import { type AuthenticatedRequest } from '../auth/http-auth.types';
-import { ProgramNoticePreviewService, ProgramAuthoringService } from './programs.service';
+import {
+  ProgramNoticePreviewService,
+  ProgramAuthoringService,
+} from './programs.service';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { ProgramAuthoringUploadResponseDto } from './dto/program-authoring-upload-response.dto';
 import { ProgramIdResponseDto } from './dto/program-id-response.dto';

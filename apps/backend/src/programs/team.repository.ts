@@ -994,7 +994,8 @@ export class ApplicationsRepository {
       where: { lifecycle: { not: 'DELETED' } },
       orderBy: [{ applicationStartAt: 'desc' }, { name: 'asc' }, { id: 'asc' }],
       select: {
-        coverFileId: true, coverImageUrl: true,
+        coverFileId: true,
+        coverImageUrl: true,
         id: true,
         name: true,
         trackType: true,

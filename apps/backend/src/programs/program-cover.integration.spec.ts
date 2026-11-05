@@ -1,7 +1,10 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramAuthoringUploadTransactionRepository, ProgramCoverRepository } from './files.repository';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  ProgramCoverRepository,
+} from './files.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramLifecycle } from '@prisma/client';
@@ -9,7 +12,19 @@ import { ProgramsRepository } from './programs.repository';
 import { ProgramsService } from './programs.service';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ACTOR, COVER_ACTOR, GITHUB_ID, PREFIX, prisma, editor, publicCovers, record, request, seedUpload, authoring } from './program-cover.integration-fixtures';
+import {
+  ACTOR,
+  COVER_ACTOR,
+  GITHUB_ID,
+  PREFIX,
+  prisma,
+  editor,
+  publicCovers,
+  record,
+  request,
+  seedUpload,
+  authoring,
+} from './program-cover.integration-fixtures';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
 
@@ -24,11 +39,11 @@ it('attaches one cover only on create and preserves idempotent replay after cons
   const token = await seedUpload();
   const input = { ...request(), coverUploadId: token.id };
   const created = await authoring().create(COVER_ACTOR, 'create-cover', input);
-  const cover = await prisma.file.findFirstOrThrow({where: {kind: 'COVER', lifecycle: 'ATTACHED',
-programId: created.id}});
+  const cover = await prisma.file.findFirstOrThrow({
+    where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: created.id },
+  });
   expect(
-    await prisma.file.findUnique({where: {kind: 'UPLOAD',
-id: token.id}}),
+    await prisma.file.findUnique({ where: { kind: 'UPLOAD', id: token.id } }),
   ).toBeNull();
   expect(
     (await authoring().create(COVER_ACTOR, 'create-cover', input)).id,
@@ -104,13 +119,15 @@ it('rolls back cover attachment and token consumption if the rest of create fail
     0,
   );
   expect(
-    await prisma.file.count({where: {kind: 'COVER',
-program: { name: { startsWith: PREFIX } }}}),
+    await prisma.file.count({
+      where: { kind: 'COVER', program: { name: { startsWith: PREFIX } } },
+    }),
   ).toBe(0);
   expect(
     (
-      await prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
-id: token.id}})
+      await prisma.file.findUniqueOrThrow({
+        where: { kind: 'UPLOAD', id: token.id },
+      })
     ).lifecycle,
   ).toBe('PENDING');
 });
@@ -121,13 +138,15 @@ it('preserves omitted covers, atomically replaces/removes them, and immediately 
     ...request(),
     coverUploadId: first.id,
   });
-  const oldCover = await prisma.file.findFirstOrThrow({where: {kind: 'COVER', lifecycle: 'ATTACHED',
-programId: program.id}});
+  const oldCover = await prisma.file.findFirstOrThrow({
+    where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
+  });
   await editor.updateProgram(GITHUB_ID, program.id, request());
   expect(
     (
-      await prisma.file.findFirstOrThrow({where: {kind: 'COVER', lifecycle: 'ATTACHED',
-programId: program.id}})
+      await prisma.file.findFirstOrThrow({
+        where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
+      })
     ).id,
   ).toBe(oldCover.id);
   const second = await seedUpload();
@@ -142,8 +161,13 @@ programId: program.id}})
     await publicCovers.findPublicCover(program.id, oldCover.id),
   ).toBeNull();
   expect(
-    await prisma.file.count({where: {kind: 'COVER', lifecycle: 'DELETE_PENDING',
-storageKey: first.storageKey}}),
+    await prisma.file.count({
+      where: {
+        kind: 'COVER',
+        lifecycle: 'DELETE_PENDING',
+        storageKey: first.storageKey,
+      },
+    }),
   ).toBe(1);
   expect(
     (
@@ -154,12 +178,18 @@ storageKey: first.storageKey}}),
     ).coverImageUrl,
   ).toBeNull();
   expect(
-    await prisma.file.findFirst({where: {kind: 'COVER', lifecycle: 'ATTACHED',
-programId: program.id}}),
+    await prisma.file.findFirst({
+      where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
+    }),
   ).toBeNull();
   expect(
-    await prisma.file.count({where: {kind: 'COVER', lifecycle: 'DELETE_PENDING',
-storageKey: second.storageKey}}),
+    await prisma.file.count({
+      where: {
+        kind: 'COVER',
+        lifecycle: 'DELETE_PENDING',
+        storageKey: second.storageKey,
+      },
+    }),
   ).toBe(1);
 });
 
@@ -171,8 +201,9 @@ it.each(['replace', 'remove'])(
       ...request(),
       coverUploadId: first.id,
     });
-    const oldCover = await prisma.file.findFirstOrThrow({where: {kind: 'COVER', lifecycle: 'ATTACHED',
-programId: program.id}});
+    const oldCover = await prisma.file.findFirstOrThrow({
+      where: { kind: 'COVER', lifecycle: 'ATTACHED', programId: program.id },
+    });
     const second = await seedUpload();
     await expect(
       prisma.$transaction(async (transaction) => {
@@ -190,18 +221,29 @@ programId: program.id}});
     ).rejects.toThrow('synthetic save failure');
     expect(
       (
-        await prisma.file.findFirstOrThrow({where: {kind: 'COVER', lifecycle: 'ATTACHED',
-programId: program.id}})
+        await prisma.file.findFirstOrThrow({
+          where: {
+            kind: 'COVER',
+            lifecycle: 'ATTACHED',
+            programId: program.id,
+          },
+        })
       ).id,
     ).toBe(oldCover.id);
     expect(
-      await prisma.file.count({where: {kind: 'COVER', lifecycle: 'DELETE_PENDING',
-storageKey: first.storageKey}}),
+      await prisma.file.count({
+        where: {
+          kind: 'COVER',
+          lifecycle: 'DELETE_PENDING',
+          storageKey: first.storageKey,
+        },
+      }),
     ).toBe(0);
     expect(
       (
-        await prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
-id: second.id}})
+        await prisma.file.findUniqueOrThrow({
+          where: { kind: 'UPLOAD', id: second.id },
+        })
       ).lifecycle,
     ).toBe('PENDING');
   },
@@ -247,12 +289,16 @@ it.each([
     request(),
   );
   await expect(
-    prisma.file.create({data: {kind: 'COVER',
-lifecycle: 'ATTACHED',
-programId: program.id,
-storageKey: `program-covers/${PREFIX}constraint`,
-mimeType: 'image/png',
-sizeBytes: 68,
-...invalid}}),
+    prisma.file.create({
+      data: {
+        kind: 'COVER',
+        lifecycle: 'ATTACHED',
+        programId: program.id,
+        storageKey: `program-covers/${PREFIX}constraint`,
+        mimeType: 'image/png',
+        sizeBytes: 68,
+        ...invalid,
+      },
+    }),
   ).rejects.toThrow();
 });

@@ -22,9 +22,7 @@ describe('FileCleanupService cron', () => {
 
   const CRON_JOB_NAME = 'file-cleanup';
 
-  function maintenanceWith(
-    runDue: () => Promise<number>,
-  ): FileCleanupService {
+  function maintenanceWith(runDue: () => Promise<number>): FileCleanupService {
     const service = new FileCleanupService(
       {
         claimNextForDeletion: jest.fn(),
@@ -86,9 +84,9 @@ describe('FileCleanupService cron', () => {
 
     it('skips an overlapping hourly run', async () => {
       const pending = deferred();
-      const maintenance: jest.Mocked<
-        Pick<FileCleanupService, 'runDue'>
-      > = { runDue: jest.fn().mockReturnValue(pending.promise) };
+      const maintenance: jest.Mocked<Pick<FileCleanupService, 'runDue'>> = {
+        runDue: jest.fn().mockReturnValue(pending.promise),
+      };
       const scheduler = maintenanceWith(maintenance.runDue);
 
       const first = scheduler.run();
@@ -100,9 +98,7 @@ describe('FileCleanupService cron', () => {
     });
 
     it('logs only a fixed safe code when a run fails', async () => {
-      const maintenance: jest.Mocked<
-        Pick<FileCleanupService, 'runDue'>
-      > = {
+      const maintenance: jest.Mocked<Pick<FileCleanupService, 'runDue'>> = {
         runDue: jest
           .fn()
           .mockRejectedValue(new Error('database provider connection detail')),
@@ -150,11 +146,7 @@ function setup() {
   return {
     repository,
     storage,
-    service: new FileCleanupService(
-      repository,
-      storage,
-      () => NOW,
-    ),
+    service: new FileCleanupService(repository, storage, () => NOW),
   };
 }
 
@@ -188,7 +180,9 @@ describe('FileCleanupService', () => {
     'schedules prior attempt %i using the %ih retry delay',
     async (priorAttempts, delayHours) => {
       const { repository, storage, service } = setup();
-      repository.claimNextForDeletion.mockResolvedValueOnce(claimed(priorAttempts));
+      repository.claimNextForDeletion.mockResolvedValueOnce(
+        claimed(priorAttempts),
+      );
       storage.delete.mockRejectedValueOnce(new Error('provider detail'));
 
       await service.runDue();

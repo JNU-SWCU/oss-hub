@@ -1,5 +1,8 @@
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
-import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramCategory, ProgramTrackType } from '@prisma/client';
@@ -121,7 +124,6 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(findUnique).toHaveBeenCalledWith({
       where: { id: 'program-1', lifecycle: { not: 'DELETED' } },
       include: {
-        cover: { select: { id: true, imageUrl: true, sourceUrl: true } },
         _count: {
           select: { applications: true, teams: true, boardPosts: true },
         },

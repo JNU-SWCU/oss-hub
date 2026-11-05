@@ -1,17 +1,37 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { ProgramAuthoringUploadLifecycle, ProgramCategory, ProgramLifecycle, ProgramTrackType } from '@prisma/client';
-import { ProgramNoticePreviewService, ProgramAuthoringService } from './programs.service';
+import {
+  ProgramAuthoringUploadLifecycle,
+  ProgramCategory,
+  ProgramLifecycle,
+  ProgramTrackType,
+} from '@prisma/client';
+import {
+  ProgramNoticePreviewService,
+  ProgramAuthoringService,
+} from './programs.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { AuditLogService } from '../platform/audit-log.service';
-import { ProgramAuthoringRepository, type ProgramAuthoringTransactionStore } from './programs.repository';
+import {
+  ProgramAuthoringRepository,
+  type ProgramAuthoringTransactionStore,
+} from './programs.repository';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
-import { ProgramAuthoringIdempotencyRaceError, ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
-import { type ProgramAuthoringProgram, type ProgramAuthoringRequest } from './files.config';
+import {
+  ProgramAuthoringIdempotencyRaceError,
+  ProgramAuthoringIdempotencyConflictError,
+} from './program-authoring.error';
+import {
+  type ProgramAuthoringProgram,
+  type ProgramAuthoringRequest,
+} from './files.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
@@ -314,18 +334,19 @@ describe('ProgramAuthoringService', () => {
     const result = await service.create(ACTOR, 'key', request('upload-id'));
 
     expect(result.id).toBe('program-id');
+    const expectedUpload: unknown = expect.objectContaining({
+      id: 'upload-id',
+      storageKey: 'program-authoring/server-uuid',
+    });
     expect(transaction.createTemplate.mock.calls).toEqual([
       [
-        expect.objectContaining({
+        {
           milestoneDocumentId: 'document-id',
           actorId: ACTOR_ID,
-        }),
+          upload: expectedUpload,
+        },
       ],
     ]);
-    expect(transaction.createTemplate).toHaveBeenCalledWith({
-      milestoneDocumentId: 'document-id', actorId: ACTOR_ID,
-      upload: expect.objectContaining({id: 'upload-id', storageKey: 'program-authoring/server-uuid'}),
-    });
   });
 
   it('rejects a foreign token before creating program rows', async () => {

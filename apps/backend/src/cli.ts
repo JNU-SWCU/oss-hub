@@ -1,15 +1,34 @@
-import { ConsoleLogger, Logger, type INestApplicationContext } from '@nestjs/common';
+import {
+  ConsoleLogger,
+  Logger,
+  type INestApplicationContext,
+} from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
-import { INVALID_DIGEST_FORCE_TO_MESSAGE, InvalidDigestForceToError } from './notifications/deadline-digest-failure.error';
-import { type ObjectInventoryPort, type ObjectStoragePort } from './platform/object-storage.types';
-import { OBJECT_INVENTORY, OBJECT_STORAGE } from './platform/object-storage.config';
+import {
+  INVALID_DIGEST_FORCE_TO_MESSAGE,
+  InvalidDigestForceToError,
+} from './notifications/deadline-digest-failure.error';
+import {
+  type ObjectInventoryPort,
+  type ObjectStoragePort,
+} from './platform/object-storage.types';
+import {
+  OBJECT_INVENTORY,
+  OBJECT_STORAGE,
+} from './platform/object-storage.config';
 import { type StorageReferenceRepository } from './programs/files.repository';
-import { type StorageObjectInventory, type StorageOrphanReconciliationMode } from './programs/file-cleanup.service';
+import {
+  type StorageObjectInventory,
+  type StorageOrphanReconciliationMode,
+} from './programs/file-cleanup.service';
 import { PROCESS_RUNTIME_CONFIG } from './platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from './platform/runtime-config.config';
 import { MaintenanceModule } from './github/maintenance.module';
 import { MAINTENANCE_STATE_COMMANDS } from './platform/maintenance-state.config';
-import { MaintenanceConfig, MaintenanceVerificationError } from './github/maintenance.config';
+import {
+  MaintenanceConfig,
+  MaintenanceVerificationError,
+} from './github/maintenance.config';
 
 const ENABLED_VALUE = '1';
 

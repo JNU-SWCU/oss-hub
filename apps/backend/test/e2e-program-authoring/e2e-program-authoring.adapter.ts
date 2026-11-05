@@ -5,20 +5,45 @@ import { TeamApplicationService } from '../../src/programs/team-application.serv
 import { RepositoryOutboxConsumerService } from '../../src/github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../../src/github/repository-provision-worker.service';
 import { MilestoneDocumentCurrentFileService } from '../../src/programs/milestone-document-collection.service';
-import { MilestoneDocumentFilesService } from '../../src/programs/milestone-document-files.service';
+import {
+  MilestoneDocumentFilesService,
+  ProgramAuthoringUploadService,
+} from '../../src/programs/files.service';
 import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
-import { DeadlineDigestService, type DeadlineDigestSendRequest } from '../../src/notifications/deadline-digest.service';
+import {
+  DeadlineDigestService,
+  type DeadlineDigestSendRequest,
+} from '../../src/notifications/deadline-digest.service';
 import { ProgramAuthoringService } from '../../src/programs/programs.service';
 import { FileCleanupService } from '../../src/programs/file-cleanup.service';
-import { ProgramAuthoringUploadService } from '../../src/programs/files.service';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { PrismaStorageReferenceRepository } from '../../src/programs/files.repository';
 import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
-import { configureFailure, exercisePrismaFailure, exerciseSmtpFailure, stalePreview, uploadFile } from './e2e-program-authoring-exercise-support';
+import {
+  configureFailure,
+  exercisePrismaFailure,
+  exerciseSmtpFailure,
+  stalePreview,
+  uploadFile,
+} from './e2e-program-authoring-exercise-support';
 import { E2eAdapterError } from './e2e-program-authoring.adapter-error';
 import { seedE2eRepositoryEvidence } from './e2e-repository-evidence.fixture';
-import { E2E_FOREIGN_STUDENT_GITHUB_ID, E2E_FOREIGN_STUDENT_ID, E2E_NOW, E2E_STAFF_GITHUB_ID, E2E_STAFF_ID, E2E_STUDENT_GITHUB_ID, E2E_STUDENT_ID, E2eProgramAuthoringFixture } from './e2e-program-authoring-fixture';
-import { type E2eFailureKind, type E2eProgramAuthoringGraph, type E2eProgramAuthoringPort, type E2eProgramAuthoringState } from './e2e-program-authoring.types';
+import {
+  E2E_FOREIGN_STUDENT_GITHUB_ID,
+  E2E_FOREIGN_STUDENT_ID,
+  E2E_NOW,
+  E2E_STAFF_GITHUB_ID,
+  E2E_STAFF_ID,
+  E2E_STUDENT_GITHUB_ID,
+  E2E_STUDENT_ID,
+  E2eProgramAuthoringFixture,
+} from './e2e-program-authoring-fixture';
+import {
+  type E2eFailureKind,
+  type E2eProgramAuthoringGraph,
+  type E2eProgramAuthoringPort,
+  type E2eProgramAuthoringState,
+} from './e2e-program-authoring.types';
 
 export {
   E2E_PROGRAM_AUTHORING_PORT,
@@ -320,12 +345,25 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       },
     });
     if (program === null) return;
-    const files = await this.prisma.file.findMany({where: {OR: [{programId: program.id}, {requirement: {milestone: {programId: program.id}}}]}, select: {id: true, storageKey: true}});
+    const files = await this.prisma.file.findMany({
+      where: {
+        OR: [
+          { programId: program.id },
+          { requirement: { milestone: { programId: program.id } } },
+        ],
+      },
+      select: { id: true, storageKey: true },
+    });
     await this.prisma.$transaction(async (transaction) => {
-      await transaction.file.deleteMany({where: {kind: 'TEMPLATE',
-requirement: { milestone: { programId: program.id } }}});
-      await transaction.file.deleteMany({where: {kind: 'UPLOAD',
-id: { in: files.map((upload) => upload.id) }}});
+      await transaction.file.deleteMany({
+        where: {
+          kind: 'TEMPLATE',
+          requirement: { milestone: { programId: program.id } },
+        },
+      });
+      await transaction.file.deleteMany({
+        where: { kind: 'UPLOAD', id: { in: files.map((upload) => upload.id) } },
+      });
       await transaction.milestoneDocument.deleteMany({
         where: { milestone: { programId: program.id } },
       });
@@ -367,26 +405,36 @@ id: { in: files.map((upload) => upload.id) }}});
       await this.uploadMaintenance.runDue();
       throw new E2eAdapterError(409);
     }
-    await this.prisma.file.updateMany({where: {kind: 'UPLOAD',
-id: this.cleanupTokenId,
-uploaderId: E2E_STAFF_ID,
-lifecycle: 'DELETE_PENDING',
-storageKey: { startsWith: 'program-authoring/' }},
-data: {deleteClaimedAt: null,
-deleteClaimExpiresAt: null,
-deleteClaimOwner: null,
-nextDeleteAttemptAt: new Date()}});
+    await this.prisma.file.updateMany({
+      where: {
+        kind: 'UPLOAD',
+        id: this.cleanupTokenId,
+        uploaderId: E2E_STAFF_ID,
+        lifecycle: 'DELETE_PENDING',
+        storageKey: { startsWith: 'program-authoring/' },
+      },
+      data: {
+        deleteClaimedAt: null,
+        deleteClaimExpiresAt: null,
+        deleteClaimOwner: null,
+        nextDeleteAttemptAt: new Date(),
+      },
+    });
     await this.uploadMaintenance.runDue();
     this.cleanupTokenId = null;
   }
 
   private async latestPendingUploadId(): Promise<string> {
-    const upload = await this.prisma.file.findFirst({where: {kind: 'UPLOAD',
-uploaderId: E2E_STAFF_ID,
-lifecycle: 'PENDING',
-storageKey: { startsWith: 'program-authoring/' }},
-orderBy: {createdAt: 'desc'},
-select: {id: true}});
+    const upload = await this.prisma.file.findFirst({
+      where: {
+        kind: 'UPLOAD',
+        uploaderId: E2E_STAFF_ID,
+        lifecycle: 'PENDING',
+        storageKey: { startsWith: 'program-authoring/' },
+      },
+      orderBy: { createdAt: 'desc' },
+      select: { id: true },
+    });
     if (upload === null) throw new E2eAdapterError(409);
     return upload.id;
   }

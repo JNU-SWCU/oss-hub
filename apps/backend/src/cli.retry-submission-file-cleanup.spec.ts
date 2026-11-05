@@ -1,9 +1,12 @@
+import {
+  FileMetadataRepository,
+  FilesRepository,
+} from './programs/files.repository';
 import { PlatformRepository } from './platform/platform.repository';
 import { NestFactory } from '@nestjs/core';
 import { AuditLogService } from './platform/audit-log.service';
 import { PrismaService } from './platform/prisma.service';
 import { FileCleanupRetryService } from './programs/file-cleanup.service';
-import { SubmissionFilesRepository } from './programs/files.repository';
 import { retrySubmissionFileCleanup } from './cli';
 import { AuditLogMetadataService } from './platform/audit-log-metadata.service';
 import { AuditLogRepository } from './platform/audit-log.repository';
@@ -33,10 +36,12 @@ function installContext(): Harness {
   const close = jest.fn().mockResolvedValue(undefined);
   const prisma = new PrismaService();
   jest.spyOn(prisma.user, 'findUnique').mockImplementation(findUnique);
-  jest
-    .spyOn(prisma.file, 'updateMany')
-    .mockImplementation(updateMany);
-  const files = new SubmissionFilesRepository(prisma, new PlatformRepository());
+  jest.spyOn(prisma.file, 'updateMany').mockImplementation(updateMany);
+  const files = new FilesRepository(
+    prisma,
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  );
   const resetDeleteAttempts = jest.spyOn(files, 'resetDeleteAttempts');
   const metadata = new AuditLogMetadataService();
   const audit = new AuditLogService(

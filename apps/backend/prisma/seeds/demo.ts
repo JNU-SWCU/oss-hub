@@ -471,28 +471,38 @@ async function upsertDemoSubmission(
     await upsertTracked(
       stats,
       'SubmissionFile',
-      () => prisma.file.findUnique({where: {kind: 'SUBMISSION',
-id: fileId}}),
+      () =>
+        prisma.file.findUnique({ where: { kind: 'SUBMISSION', id: fileId } }),
       async () =>
-        prisma.file.upsert({where: {kind: 'SUBMISSION',
-id: fileId},
-update: {storageKey: storageKey,
-sizeBytes: storedFile.contentLength,
-lifecycle: SubmissionFileLifecycle.ATTACHED,
-submissionId: submissionId,
-submissionHistoryId: submissionHistoryId},
-create: {kind: 'SUBMISSION',
-id: fileId,
-uploaderId: params.submittedById,
-teamId: (await prisma.application.findUniqueOrThrow({where: {id: params.applicationId}, select: {teamId: true}})).teamId,
-submissionId: submissionId,
-submissionHistoryId: submissionHistoryId,
-storageKey: storageKey,
-originalFileName: fileContent.originalFileName,
-mimeType: fileContent.mimeType,
-sizeBytes: storedFile.contentLength,
-lifecycle: SubmissionFileLifecycle.ATTACHED,
-expiresAt: offsetDays(365)}}),
+        prisma.file.upsert({
+          where: { kind: 'SUBMISSION', id: fileId },
+          update: {
+            storageKey: storageKey,
+            sizeBytes: storedFile.contentLength,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            submissionId: submissionId,
+            submissionHistoryId: submissionHistoryId,
+          },
+          create: {
+            kind: 'SUBMISSION',
+            id: fileId,
+            uploaderId: params.submittedById,
+            teamId: (
+              await prisma.application.findUniqueOrThrow({
+                where: { id: params.applicationId },
+                select: { teamId: true },
+              })
+            ).teamId,
+            submissionId: submissionId,
+            submissionHistoryId: submissionHistoryId,
+            storageKey: storageKey,
+            originalFileName: fileContent.originalFileName,
+            mimeType: fileContent.mimeType,
+            sizeBytes: storedFile.contentLength,
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            expiresAt: offsetDays(365),
+          },
+        }),
     );
   }
   if (params.review && params.reviewerId) {
@@ -1297,10 +1307,12 @@ export async function teardownDemo(
       stats.updated(model);
     }
   };
-  const demoSubmissionFiles = await prisma.file.findMany({where: seedIdFilter,
-select: {storageKey: true}});
+  const demoSubmissionFiles = await prisma.file.findMany({
+    where: seedIdFilter,
+    select: { storageKey: true },
+  });
   await countAndDelete('SubmissionFile', () =>
-    prisma.file.deleteMany({where: seedIdFilter}),
+    prisma.file.deleteMany({ where: seedIdFilter }),
   );
   for (const file of demoSubmissionFiles) {
     await storage.delete(file.storageKey);

@@ -42,27 +42,44 @@ export async function stateForE2eProgramGraph(
       where: { application: { programId: graph.programId } },
     }),
     prisma.notification.count({ where: { userId: { in: [...actorIds] } } }),
-    prisma.file.findMany({where: {kind: 'TEMPLATE',
-requirement: { milestone: { programId: graph.programId } }},
-select: {storageKey: true}}),
-    prisma.file.findMany({where: {kind: 'SUBMISSION',
-team: {applications: {some: { programId: graph.programId }}},
-lifecycle: SubmissionFileLifecycle.ATTACHED},
-select: {storageKey: true}}),
-    prisma.file.count({where: {kind: 'UPLOAD',
-uploaderId: actorIds[0],
-lifecycle: { in: ['PENDING', 'DELETE_PENDING'] }}}),
-    prisma.file.count({where: {kind: 'SUBMISSION',
-team: {applications: {some: { programId: graph.programId }}},
-lifecycle: { in: ['PENDING', 'DELETE_PENDING'] }}}),
+    prisma.file.findMany({
+      where: {
+        kind: 'TEMPLATE',
+        requirement: { milestone: { programId: graph.programId } },
+      },
+      select: { storageKey: true },
+    }),
+    prisma.file.findMany({
+      where: {
+        kind: 'SUBMISSION',
+        team: { applications: { some: { programId: graph.programId } } },
+        lifecycle: SubmissionFileLifecycle.ATTACHED,
+      },
+      select: { storageKey: true },
+    }),
+    prisma.file.count({
+      where: {
+        kind: 'UPLOAD',
+        uploaderId: actorIds[0],
+        lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
+      },
+    }),
+    prisma.file.count({
+      where: {
+        kind: 'SUBMISSION',
+        team: { applications: { some: { programId: graph.programId } } },
+        lifecycle: { in: ['PENDING', 'DELETE_PENDING'] },
+      },
+    }),
 
-    prisma.file.findMany({where: {kind: 'UPLOAD',
-uploaderId: actorIds[0],
-lifecycle: 'ATTACHED'},
-select: {storageKey: true}}),
-    prisma.file.findMany({where: {kind: 'COVER',
-programId: graph.programId},
-select: {storageKey: true}}),
+    prisma.file.findMany({
+      where: { kind: 'UPLOAD', uploaderId: actorIds[0], lifecycle: 'ATTACHED' },
+      select: { storageKey: true },
+    }),
+    prisma.file.findMany({
+      where: { kind: 'COVER', programId: graph.programId },
+      select: { storageKey: true },
+    }),
   ]);
   const attachedObjectKeys = new Set([
     ...templateFiles.map(({ storageKey }) => storageKey),

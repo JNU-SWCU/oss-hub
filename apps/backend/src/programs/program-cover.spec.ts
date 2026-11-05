@@ -1,4 +1,7 @@
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { ProgramAuthoringUploadLifecycle } from '@prisma/client';

@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import {
   type MilestoneDocumentCollectionQuery,
@@ -15,6 +16,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
+
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -31,15 +33,25 @@ const repository = new MilestoneDocumentsRepository(
   prisma,
   new LockProgramTreeRepository(),
   new PlatformRepository(),
-  new SubmissionsRepository(new PlatformRepository()),
-  new MilestoneDocumentCollectionReadRepository(prisma),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
+  new MilestoneDocumentCollectionReadRepository(
+    prisma,
+    new FileMetadataRepository(),
+  ),
+  new FileMetadataRepository(),
 );
 const service = new MilestoneDocumentsService(
   repository,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
-  new SubmissionsRepository(new PlatformRepository()),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
   new UserProfileService(),
 );
 const collectionQuery: MilestoneDocumentCollectionQuery = {

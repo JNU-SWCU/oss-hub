@@ -33,7 +33,8 @@ const studentDashboardApplicationSelect = {
   team: { select: { name: true } },
   program: {
     select: {
-      coverFileId: true, coverImageUrl: true,
+      coverFileId: true,
+      coverImageUrl: true,
       id: true,
       name: true,
       milestones: {

@@ -1,20 +1,32 @@
+import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { AccountStatus, type Prisma, MilestoneDocumentSubmissionHistoryEvent, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
+import {
+  AccountStatus,
+  type Prisma,
+  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionFileLifecycle,
+  SubmissionStatus,
+} from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
-import { prisma as seedPrisma, seedGithubId, seedId, SeedStats } from '../../prisma/seeds/helpers';
+import {
+  prisma as seedPrisma,
+  seedGithubId,
+  seedId,
+  SeedStats,
+} from '../../prisma/seeds/helpers';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionFilesRepository } from './files.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 const prisma = new PrismaService();
-const repository = new SubmissionFilesRepository(
+const repository = new FilesRepository(
   prisma,
   new PlatformRepository(),
+  new FileMetadataRepository(),
 );
 const NOW = new Date('2026-07-31T00:00:00.000Z');
 const PENDING_EXPIRES_AT = new Date('2026-08-01T00:00:00.000Z');
@@ -134,8 +146,9 @@ const DENIED_DOWNLOADS = [
   readonly fileId: string;
 }[];
 async function deleteIssue342Rows(): Promise<void> {
-  await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-id: { in: FILE_IDS }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'SUBMISSION', id: { in: FILE_IDS } },
+  });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID },
   });
@@ -153,7 +166,7 @@ id: { in: FILE_IDS }}});
     where: { id: { in: USER_RECORDS.map((user) => user.id) } },
   });
 }
-describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
+describe('FilesRepository.findDownloadableFile integration', () => {
   beforeAll(async () => {
     await Promise.all([prisma.$connect(), seedPrisma.$connect()]);
     await runProfile('milestones', new SeedStats());
@@ -216,7 +229,8 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
         actorId: UPLOADER_USER_ID,
       },
     });
-    await prisma.file.createMany({data: [
+    await prisma.file.createMany({
+      data: [
         {
           ...BASE_FILE,
           id: DOWNLOADABLE_FILE_ID,
@@ -224,8 +238,7 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           originalFileName: 'report.pdf',
           sizeBytes: 1024,
           submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          submissionHistoryId:
-            MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           expiresAt: FUTURE_EXPIRES_AT,
         },
@@ -246,12 +259,12 @@ describe('SubmissionFilesRepository.findDownloadableFile integration', () => {
           originalFileName: 'expired.pdf',
           sizeBytes: 4096,
           submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          submissionHistoryId:
-            MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
           lifecycle: SubmissionFileLifecycle.ATTACHED,
           expiresAt: PAST_EXPIRES_AT,
         },
-      ]});
+      ],
+    });
   });
   afterAll(async () => {
     await deleteIssue342Rows();

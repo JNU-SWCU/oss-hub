@@ -1,9 +1,10 @@
+import { FileMetadataRepository } from './files.repository';
 import {
   MilestoneDocumentSubmissionHistoryEvent,
   Prisma,
   SubmissionStatus,
 } from '@prisma/client';
-import type { PrismaService } from '../platform/prisma.service';
+import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
@@ -151,7 +152,7 @@ function buildHarness(
       create: historyCreate,
     },
     milestoneDocumentSubmission: { findUnique: submissionFindUnique, upsert },
-    submissionFile: { updateMany: attachUpdateMany, findMany: fileFindMany },
+    file: { updateMany: attachUpdateMany, findMany: fileFindMany },
   };
 
   const prisma = {
@@ -210,6 +211,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
 
     const rejection: unknown = await new SubmissionsRepository(
       new PlatformRepository(),
+      new FileMetadataRepository(),
     )
       .upsertMilestoneDocumentSubmission(
         harness.prisma,
@@ -235,6 +237,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
     await expect(
       new SubmissionsRepository(
         new PlatformRepository(),
+        new FileMetadataRepository(),
       ).upsertMilestoneDocumentSubmission(
         harness.prisma,
         textInput({ submittedById: DEPARTED_MEMBER_ID }),
@@ -249,6 +252,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
 
     const detail = await new SubmissionsRepository(
       new PlatformRepository(),
+      new FileMetadataRepository(),
     ).upsertMilestoneDocumentSubmission(harness.prisma, textInput());
 
     expect(detail).toMatchObject({
@@ -273,6 +277,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
 
     await new SubmissionsRepository(
       new PlatformRepository(),
+      new FileMetadataRepository(),
     ).upsertMilestoneDocumentSubmission(
       harness.prisma,
       fileInput({
@@ -311,6 +316,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
 
     await new SubmissionsRepository(
       new PlatformRepository(),
+      new FileMetadataRepository(),
     ).upsertMilestoneDocumentSubmission(
       harness.prisma,
       textInput({ submittedById: CURRENT_MEMBER_ID }),
@@ -348,6 +354,7 @@ describe('atomic document grace admission', () => {
       });
       await new SubmissionsRepository(
         new PlatformRepository(),
+        new FileMetadataRepository(),
       ).upsertMilestoneDocumentSubmission(
         harness.prisma,
         textInput({
@@ -369,6 +376,7 @@ describe('atomic document grace admission', () => {
       await expect(
         new SubmissionsRepository(
           new PlatformRepository(),
+          new FileMetadataRepository(),
         ).upsertMilestoneDocumentSubmission(
           harness.prisma,
           textInput({

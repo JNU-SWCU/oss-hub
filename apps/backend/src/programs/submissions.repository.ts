@@ -1,4 +1,4 @@
-import { fileMetadata } from './files.repository';
+import { FileMetadataRepository } from './files.repository';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { Injectable } from '@nestjs/common';
 import {
@@ -10,7 +10,7 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import type { MilestoneDocumentSubmissionDetail } from './milestone-document-collection-read.repository';
+import { type MilestoneDocumentSubmissionDetail } from './milestone-document-collection-read.repository';
 import {
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
@@ -20,9 +20,13 @@ import {
   MilestoneDocumentMissingError,
 } from './milestone-document-submission.error';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+
 @Injectable()
 export class SubmissionsRepository {
-  constructor(private readonly platformRepository: PlatformRepository) {}
+  constructor(
+    private readonly platformRepository: PlatformRepository,
+    private readonly fileMetadata: FileMetadataRepository,
+  ) {}
   nextHistoryCreatedAt(requested: Date, latest: Date | null): Date {
     return latest === null || requested.getTime() > latest.getTime()
       ? requested
@@ -238,7 +242,7 @@ export class SubmissionsRepository {
         status: submission.status,
         content: submission.content,
         submittedAt: submission.submittedAt,
-        files: files.map(fileMetadata),
+        files: files.map(this.fileMetadata.read),
       };
     });
   }

@@ -29,7 +29,10 @@ const copySql = readFileSync(
   'utf8',
 );
 const reconcileSql = readFileSync(
-  resolve(__dirname, '../../../deploy/jenkins/program-migration/files/check-copy.sql'),
+  resolve(
+    __dirname,
+    '../../../deploy/jenkins/program-migration/files/check-copy.sql',
+  ),
   'utf8',
 );
 
@@ -47,34 +50,70 @@ afterAll(async () => {
 it('copies 94 source rows into 92 unique files without losing shared upload metadata', async () => {
   await apply(copySql);
 
-  expect(await inFixture((transaction) => transaction.$queryRawUnsafe(reconcileSql))).toEqual([
-    { '?column?': 0n },
-  ]);
-  expect(await inFixture((transaction) => transaction.$queryRaw`
+  expect(
+    await inFixture((transaction) => transaction.$queryRawUnsafe(reconcileSql)),
+  ).toEqual([{ '?column?': 0n }]);
+  expect(
+    await inFixture(
+      (transaction) => transaction.$queryRaw`
     SELECT id, sha256, "requirementId" FROM "File" WHERE "storageKey"='program-authoring/template-1'
-  `)).toEqual([{ id: 'template-1', sha256: 'a'.repeat(64), requirementId: 'requirement-1' }]);
+  `,
+    ),
+  ).toEqual([
+    {
+      id: 'template-1',
+      sha256: 'a'.repeat(64),
+      requirementId: 'requirement-1',
+    },
+  ]);
 });
 
 it.each([
-  ['count mismatch', `DELETE FROM "SubmissionFile" WHERE id='submission-file-1'`, 'file source count mismatch'],
-  ['metadata mismatch', `UPDATE "ProgramAuthoringUpload" SET "mimeType"='text/plain' WHERE id='upload-1'`, 'file upload/template metadata mismatch'],
-  ['identity collision', `UPDATE "ProgramCover" SET id='submission-file-1' WHERE id='cover-1'`, 'canonical file identity collision'],
-  ['owner mismatch', `UPDATE "SubmissionFile" SET "milestoneDocumentId"='requirement-2' WHERE id='submission-file-1'`, 'file submission owner mismatch'],
-])('aborts %s before committing any new structure', async (_name, fault, message) => {
-  await apply(fault);
+  [
+    'count mismatch',
+    `DELETE FROM "SubmissionFile" WHERE id='submission-file-1'`,
+    'file source count mismatch',
+  ],
+  [
+    'metadata mismatch',
+    `UPDATE "ProgramAuthoringUpload" SET "mimeType"='text/plain' WHERE id='upload-1'`,
+    'file upload/template metadata mismatch',
+  ],
+  [
+    'identity collision',
+    `UPDATE "ProgramCover" SET id='submission-file-1' WHERE id='cover-1'`,
+    'canonical file identity collision',
+  ],
+  [
+    'owner mismatch',
+    `UPDATE "SubmissionFile" SET "milestoneDocumentId"='requirement-2' WHERE id='submission-file-1'`,
+    'file submission owner mismatch',
+  ],
+])(
+  'aborts %s before committing any new structure',
+  async (_name, fault, message) => {
+    await apply(fault);
 
-  await expect(apply(copySql)).rejects.toThrow(message);
+    await expect(apply(copySql)).rejects.toThrow(message);
 
-  expect(await inFixture((transaction) => transaction.$queryRaw`
+    expect(
+      await inFixture(
+        (transaction) => transaction.$queryRaw`
     SELECT count(*) AS n FROM information_schema.tables
     WHERE table_schema=current_schema() AND table_name='File'
-  `)).toEqual([{ n: 0n }]);
-});
+  `,
+      ),
+    ).toEqual([{ n: 0n }]);
+  },
+);
 
 it('rejects stale writers after copy and allows the new owner to delete an unsubmitted requirement', async () => {
   await apply(copySql);
-  await expect(apply(`UPDATE "SubmissionFile" SET "sizeBytes"=2 WHERE id='submission-file-1'`))
-    .rejects.toThrow('retired file storage is read only after File cutover');
+  await expect(
+    apply(
+      `UPDATE "SubmissionFile" SET "sizeBytes"=2 WHERE id='submission-file-1'`,
+    ),
+  ).rejects.toThrow('retired file storage is read only after File cutover');
 
   await apply(`
     UPDATE "File" SET lifecycle='DELETE_PENDING', "requirementId"=NULL, "nextDeleteAttemptAt"=CURRENT_TIMESTAMP
@@ -82,7 +121,11 @@ it('rejects stale writers after copy and allows the new owner to delete an unsub
     DELETE FROM "MilestoneDocument" WHERE id='requirement-5';
   `);
 
-  expect(await inFixture((transaction) => transaction.$queryRaw`
+  expect(
+    await inFixture(
+      (transaction) => transaction.$queryRaw`
     SELECT count(*) AS n FROM "MilestoneDocumentTemplateFile" WHERE id='template-5'
-  `)).toEqual([{ n: 1n }]);
+  `,
+    ),
+  ).toEqual([{ n: 1n }]);
 });

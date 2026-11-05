@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -27,7 +28,10 @@ import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicProjectsService, PublicEligibilityService } from './public-projects.service';
+import {
+  PublicProjectsService,
+  PublicEligibilityService,
+} from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
@@ -123,6 +127,7 @@ export class PublicExposurePersonaHttpHarness {
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
       new SubmissionFileAdmissionService(),
+      new FileMetadataRepository(),
     );
     this.githubPublishRepositoryMock = github.publishRepository;
     const moduleRef = await Test.createTestingModule({

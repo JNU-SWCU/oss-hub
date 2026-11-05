@@ -1,22 +1,71 @@
-import { StudentRepositoryUrlContextRepository, TeamDeletionScopeRepository, ProgramTeamDeletionRepository, TeamRepository, ApplicationsRepository, StudentApplicationManagementRepository, StudentRepositoryUrlRepository } from './team.repository';
+import {
+  FileMetadataRepository,
+  ProgramAuthoringUploadTransactionRepository,
+  FileCleanupRepository,
+  ProgramAuthoringUploadRepository,
+  ProgramCoverRepository,
+  FilesRepository,
+} from './files.repository';
+import {
+  StudentRepositoryUrlContextRepository,
+  TeamDeletionScopeRepository,
+  ProgramTeamDeletionRepository,
+  TeamRepository,
+  ApplicationsRepository,
+  StudentApplicationManagementRepository,
+  StudentRepositoryUrlRepository,
+} from './team.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
-import { ProgramAuthoringUploadTransactionRepository, FileCleanupRepository, ProgramAuthoringUploadRepository, ProgramCoverRepository, SubmissionFilesRepository } from './files.repository';
 import { SubmissionsRepository } from './submissions.repository';
-import { ProgramDeletionScopeRepository, ProgramAuthoringRepository, ProgramLifecycleRepository, ProgramsRepository } from './programs.repository';
-import { ReviewHistoryWriterRepository, TeamHistoryRepository } from './team-history.repository';
+import {
+  ProgramDeletionScopeRepository,
+  ProgramAuthoringRepository,
+  ProgramLifecycleRepository,
+  ProgramsRepository,
+} from './programs.repository';
+import {
+  ReviewHistoryWriterRepository,
+  TeamHistoryRepository,
+} from './team-history.repository';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
 import { GithubModule } from '../github/github.module';
 import { UsersModule } from '../users/users.module';
 import { ProgramAuthoringController } from './program-authoring.controller';
-import { ProgramAuthoringService, ProgramNoticePreviewService, ProgramLifecycleService, ProgramsService } from './programs.service';
-import { FileCleanupService, FileCleanupRetryService } from './file-cleanup.service';
-import { ProgramAuthoringUploadService, SubmissionFilesService, SubmissionFileAdmissionService } from './files.service';
-import { ApplicationTemplatesController, TeamsController, ApplicationsController, ProgramApplicationsController, StudentApplicationsController, StudentRepositoryUrlController } from './teams.controller';
+import {
+  ProgramAuthoringService,
+  ProgramNoticePreviewService,
+  ProgramLifecycleService,
+  ProgramsService,
+} from './programs.service';
+import {
+  FileCleanupService,
+  FileCleanupRetryService,
+} from './file-cleanup.service';
+import {
+  ProgramAuthoringUploadService,
+  FilesService,
+  SubmissionFileAdmissionService,
+  MilestoneDocumentFilesService,
+} from './files.service';
+import {
+  ApplicationTemplatesController,
+  TeamsController,
+  ApplicationsController,
+  ProgramApplicationsController,
+  StudentApplicationsController,
+  StudentRepositoryUrlController,
+} from './teams.controller';
 import { MilestonesController } from './milestones.controller';
-import { ProgramCreationService, ProgramCoverService } from './program-creation.service';
-import { ProgramActivityRepository, ProgramActivitySummaryRepository } from './program-activity.repository';
+import {
+  ProgramCreationService,
+  ProgramCoverService,
+} from './program-creation.service';
+import {
+  ProgramActivityRepository,
+  ProgramActivitySummaryRepository,
+} from './program-activity.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { ProgramActivityService } from './program-activity.service';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -32,7 +81,10 @@ import { ProgramOverviewController } from './program-overview.controller';
 import { ProgramOverviewRepository } from './program-overview.repository';
 import { ProgramOverviewService } from './program-overview.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
-import { PublicEligibilityService, PublicProjectsService } from './public-projects.service';
+import {
+  PublicEligibilityService,
+  PublicProjectsService,
+} from './public-projects.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { PublicProjectsController } from './public-projects.controller';
 import { PublicProjectsRepository } from './public-projects.repository';
@@ -40,7 +92,13 @@ import { PublicUserProfileController } from './public-user-profile.controller';
 import { TeamInvitationsController } from './team-invitations.controller';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
-import { TeamApplicationService, StudentApplicationManagementService, StudentRepositoryUrlService, ApplicationAnswersService, ProgramTemplatesService } from './team-application.service';
+import {
+  TeamApplicationService,
+  StudentApplicationManagementService,
+  StudentRepositoryUrlService,
+  ApplicationAnswersService,
+  ProgramTemplatesService,
+} from './team-application.service';
 import { STUDENT_APPLICATION_MANAGEMENT_CLOCK } from './student-application-management.config';
 import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
 import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
@@ -48,21 +106,25 @@ import { SubmissionMatrixRepository } from './submission-matrix.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import { SubmissionsController } from './submissions.controller';
 import { ProgramSubmissionsController } from './program-submissions.controller';
-import { FilesController } from './files.controller';
+import {
+  FilesController,
+  MilestoneDocumentFilesController,
+} from './files.controller';
 import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
-import { MilestoneDocumentFilesController } from './milestone-document-files.controller';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { ProgramDocumentArchivesController } from './program-document-archives.controller';
 import { ProgramDocumentChangeRequestsController } from './program-document-change-requests.controller';
 import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentCollectionService, MilestoneDocumentCurrentFileService } from './milestone-document-collection.service';
+import {
+  MilestoneDocumentCollectionService,
+  MilestoneDocumentCurrentFileService,
+} from './milestone-document-collection.service';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
@@ -167,8 +229,9 @@ import { ProgramScheduleService } from './program-schedule.service';
       provide: STUDENT_APPLICATION_MANAGEMENT_CLOCK,
       useValue: () => new Date(),
     },
-    SubmissionFilesRepository,
-    SubmissionFilesService,
+    FileMetadataRepository,
+    FilesRepository,
+    FilesService,
     FileCleanupRetryService,
     SubmissionDashboardSummaryRepository,
     SubmissionDashboardSummaryService,
@@ -202,7 +265,7 @@ import { ProgramScheduleService } from './program-schedule.service';
     PublicProjectsService,
     TeamApplicationService,
     SubmissionDashboardSummaryService,
-    SubmissionFilesService,
+    FilesService,
     MilestoneDocumentsService,
     MilestoneDocumentFilesService,
     MilestoneDocumentCurrentFileService,

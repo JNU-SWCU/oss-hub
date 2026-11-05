@@ -1,12 +1,22 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
 import { DeadlineDigestMailService } from '../notifications/deadline-digest-mail.service';
-import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { ApplicationStatus, ProgramCategory, ProgramTrackType } from '@prisma/client';
+import {
+  ApplicationStatus,
+  ProgramCategory,
+  ProgramTrackType,
+} from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { DomainException } from '../platform/error-code.error';

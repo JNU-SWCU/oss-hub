@@ -105,24 +105,28 @@ async function upsertMilestoneDocumentTemplateFile(
     stats,
     'MilestoneDocumentTemplateFile',
     () =>
-      prisma.file.findUnique({where: {kind: 'TEMPLATE',
-id: params.id}}),
+      prisma.file.findUnique({ where: { kind: 'TEMPLATE', id: params.id } }),
     async () =>
-      prisma.file.upsert({where: {kind: 'TEMPLATE',
-id: params.id},
-update: {storageKey: storageKey,
-originalFileName: params.originalFileName,
-mimeType: params.mimeType},
-create: {kind: 'TEMPLATE',
-lifecycle: 'ATTACHED',
-id: params.id,
-requirementId: params.milestoneDocumentId,
-storageKey: storageKey,
-originalFileName: params.originalFileName,
-mimeType: params.mimeType,
-sizeBytes: 245760,
-uploaderId: params.uploadedById,
-createdAt: offsetDays(-40)}}),
+      prisma.file.upsert({
+        where: { kind: 'TEMPLATE', id: params.id },
+        update: {
+          storageKey: storageKey,
+          originalFileName: params.originalFileName,
+          mimeType: params.mimeType,
+        },
+        create: {
+          kind: 'TEMPLATE',
+          lifecycle: 'ATTACHED',
+          id: params.id,
+          requirementId: params.milestoneDocumentId,
+          storageKey: storageKey,
+          originalFileName: params.originalFileName,
+          mimeType: params.mimeType,
+          sizeBytes: 245760,
+          uploaderId: params.uploadedById,
+          createdAt: offsetDays(-40),
+        },
+      }),
   );
 }
 async function upsertMilestoneDocumentSubmission(
@@ -209,24 +213,30 @@ async function upsertMilestoneDocumentSubmission(
   await upsertTracked(
     stats,
     'SubmissionFile',
-    () => prisma.file.findUnique({where: {kind: 'SUBMISSION',
-id: fileId}}),
+    () => prisma.file.findUnique({ where: { kind: 'SUBMISSION', id: fileId } }),
     async () =>
-      prisma.file.upsert({where: {kind: 'SUBMISSION',
-id: fileId},
-update: {storageKey: storageKey,
-submissionHistoryId: historyId},
-create: {kind: 'SUBMISSION',
-lifecycle: 'ATTACHED',
-id: fileId,
-uploaderId: params.submittedById,
-teamId: (await prisma.application.findUniqueOrThrow({where: {id: APPLICATION_ID}, select: {teamId: true}})).teamId,
-submissionId: params.id,
-submissionHistoryId: historyId,
-storageKey: storageKey,
-originalFileName: params.originalFileName,
-mimeType: 'application/pdf',
-sizeBytes: 512000}}),
+      prisma.file.upsert({
+        where: { kind: 'SUBMISSION', id: fileId },
+        update: { storageKey: storageKey, submissionHistoryId: historyId },
+        create: {
+          kind: 'SUBMISSION',
+          lifecycle: 'ATTACHED',
+          id: fileId,
+          uploaderId: params.submittedById,
+          teamId: (
+            await prisma.application.findUniqueOrThrow({
+              where: { id: APPLICATION_ID },
+              select: { teamId: true },
+            })
+          ).teamId,
+          submissionId: params.id,
+          submissionHistoryId: historyId,
+          storageKey: storageKey,
+          originalFileName: params.originalFileName,
+          mimeType: 'application/pdf',
+          sizeBytes: 512000,
+        },
+      }),
   );
 }
 async function upsertBoardPost(

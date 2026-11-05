@@ -1,10 +1,43 @@
-import { ValidatedProgramAuthoringUpload, type ProgramExternalCover, ProgramAuthoringUploadToken } from './files.config';
-import { Inject, Injectable, Optional, BadRequestException, ConflictException, NotFoundException, StreamableFile } from '@nestjs/common';
+import {
+  ValidatedProgramAuthoringUpload,
+  type ProgramExternalCover,
+  ProgramAuthoringUploadToken,
+  type UploadedMilestoneDocumentFileResponse,
+  type MilestoneDocumentFileUpload,
+  type UploadedMilestoneDocumentTemplateResponse,
+  type DownloadedMilestoneDocumentTemplate,
+  type DownloadedMilestoneDocumentSubmissionFile,
+} from './files.config';
+import {
+  Inject,
+  Injectable,
+  Optional,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import { ProgramAuthoringUploadRepository, type ProgramAuthoringUploadDeleteRequestResult, type CreatePendingSubmissionFileInput, SubmissionFilesRepository } from './files.repository';
-import { PROGRAM_AUTHORING_UPLOAD_ERROR_CODES, ProgramAuthoringUploadError, type ProgramAuthoringUploadFile, type ProgramAuthoringUploadResponse } from './files.error';
-import { SUBMISSION_UPLOAD_MAX_BYTES, PROGRAM_COVER_MAX_BYTES, SUBMISSION_FILE_EXTENSIONS } from './submission-upload.config';
+import {
+  ProgramAuthoringUploadRepository,
+  type ProgramAuthoringUploadDeleteRequestResult,
+  type CreatePendingSubmissionFileInput,
+  FilesRepository,
+} from './files.repository';
+import {
+  PROGRAM_AUTHORING_UPLOAD_ERROR_CODES,
+  ProgramAuthoringUploadError,
+  type ProgramAuthoringUploadFile,
+  type ProgramAuthoringUploadResponse,
+  SubmissionFileQuotaExceededError,
+  SubmissionFileRetentionUnavailableError,
+} from './files.error';
+import {
+  SUBMISSION_UPLOAD_MAX_BYTES,
+  PROGRAM_COVER_MAX_BYTES,
+  SUBMISSION_FILE_EXTENSIONS,
+} from './submission-upload.config';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
 import { DomainException } from '../platform/error-code.error';
@@ -15,11 +48,34 @@ import { extname } from 'node:path';
 import { type Response } from 'express';
 import { DownloadResponseService } from './download-response.service';
 import { type Readable } from 'node:stream';
-import { OBJECT_STORAGE_ERROR_CODES, ObjectStorageError } from '../platform/object-storage.error';
-import { SUBMISSION_ZIP_REJECTION_ERROR_CODES, SUBMISSIONS_ERROR_CODES, SubmissionsErrorCode } from './submissions-error-code.error';
+import {
+  OBJECT_STORAGE_ERROR_CODES,
+  ObjectStorageError,
+} from '../platform/object-storage.error';
+import {
+  SUBMISSION_ZIP_REJECTION_ERROR_CODES,
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions-error-code.error';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionZipRejection, MAX_ENTRY_COUNT, MAX_TOTAL_UNCOMPRESSED_BYTES, MAX_ENTRY_UNCOMPRESSED_BYTES } from './submission-zip.error';
+import {
+  SubmissionZipRejection,
+  MAX_ENTRY_COUNT,
+  MAX_TOTAL_UNCOMPRESSED_BYTES,
+  MAX_ENTRY_UNCOMPRESSED_BYTES,
+} from './submission-zip.error';
 import { fromBufferPromise, type Entry } from 'yauzl';
+import { UserProfileService } from '../users/user-profile.service';
+import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import {
+  MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './milestone-documents-error-code.error';
+import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { RequirementSubmissionType } from '@prisma/client';
 
 const LATIN1_MAX_CODE_POINT = 0xff;
 
@@ -576,13 +632,7 @@ export interface SubmissionFileUpload {
   readonly mimetype: string;
   readonly size: number;
 }
-export interface UploadedSubmissionFileResponse {
-  readonly fileId: string;
-  readonly fileName: string;
-  readonly contentType: string;
-  readonly size: number;
-  readonly expiresAt: string;
-}
+
 export interface DownloadedSubmissionFile {
   readonly body: Readable;
   readonly fileName: string;
@@ -591,9 +641,9 @@ export interface DownloadedSubmissionFile {
 }
 export const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 @Injectable()
-export class SubmissionFilesService {
+export class FilesService {
   constructor(
-    private readonly repository: SubmissionFilesRepository,
+    private readonly repository: FilesRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
     private readonly programScheduleService: ProgramScheduleService,
@@ -694,5 +744,425 @@ export class SubmissionFilesService {
   }
   private error(code: SubmissionsErrorCode): DomainException {
     return new DomainException(SUBMISSIONS_ERROR_CODES[code]);
+  }
+}
+
+@Injectable()
+export class MilestoneDocumentFilesService {
+  constructor(
+    private readonly repository: MilestoneDocumentsRepository,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
+    private readonly submissionFiles: FilesService,
+    private readonly milestoneDocumentSubmissionWindowService: MilestoneDocumentSubmissionWindowService,
+    private readonly milestoneDocumentFileNameService: MilestoneDocumentFileNameService,
+    private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
+    private readonly downloadResponseService: DownloadResponseService,
+    private readonly userProfileService: UserProfileService,
+  ) {}
+
+  async downloadTemplateTo(
+    response: Response,
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.downloadTemplate(
+      sessionGithubId,
+      milestoneId,
+      documentId,
+    );
+    return this.downloadResponseService.streamableFile(response, file);
+  }
+
+  async downloadSubmissionFileTo(
+    response: Response,
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+  ): Promise<StreamableFile> {
+    const file = await this.downloadSubmissionFile(
+      milestoneId,
+      documentId,
+      applicationId,
+    );
+    return this.downloadResponseService.streamableFile(response, file);
+  }
+
+  async upload(
+    sessionGithubId: bigint,
+    milestoneId: unknown,
+    documentId: unknown,
+    file: MilestoneDocumentFileUpload | undefined,
+    now: Date = new Date(),
+  ): Promise<UploadedMilestoneDocumentFileResponse> {
+    const normalizedMilestoneId = this.requiredOpaqueId(milestoneId);
+    const normalizedDocumentId = this.requiredOpaqueId(documentId);
+    const originalName = await this.validateOriginalFileName(file);
+    const uploadedFile = file as MilestoneDocumentFileUpload;
+
+    const viewer =
+      await this.repository.findActiveStudentByGithubId(sessionGithubId);
+    if (viewer === null) {
+      throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
+    }
+
+    const documentContext =
+      await this.repository.findDocumentContext(normalizedDocumentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== normalizedMilestoneId
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+    const application = await this.repository.findStudentApplication(
+      viewer.id,
+      documentContext.programId,
+    );
+    if (application === null) {
+      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+    }
+    if (!application.approved) {
+      throw this.error(
+        MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+      );
+    }
+
+    switch (documentContext.submissionType) {
+      case RequirementSubmissionType.TEXT:
+        throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
+      case RequirementSubmissionType.FILE:
+      case RequirementSubmissionType.FILE_OR_TEXT:
+        break;
+      default:
+        throw new TypeError(
+          `Unknown requirement input rule: ${String(documentContext.submissionType satisfies never)}`,
+        );
+    }
+
+    const [currentSubmission, latestReview] = await Promise.all([
+      this.repository.findMySubmission(
+        normalizedDocumentId,
+        application.applicationId,
+      ),
+      this.repository.findLatestReview(
+        normalizedDocumentId,
+        application.applicationId,
+      ),
+    ]);
+
+    const blocked =
+      this.milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
+        {
+          dueAt: documentContext.dueAt,
+          graceDueAt: documentContext.graceDueAt,
+          now,
+          hasSubmission: currentSubmission !== null,
+          latestDecision: latestReview?.decision ?? null,
+          submissionStatus: currentSubmission?.status ?? null,
+        },
+      );
+    if (blocked !== null) {
+      throw this.error(MilestoneDocumentsErrorCode[blocked]);
+    }
+
+    const objectKey =
+      this.submissionFileAdmissionService.createSubmissionFileObjectKey();
+
+    let created;
+    try {
+      created = await this.submissionFiles.createPending({
+        uploaderId: viewer.id,
+        applicationId: application.applicationId,
+        milestoneId: normalizedMilestoneId,
+        milestoneDocumentId: normalizedDocumentId,
+        storageKey: objectKey,
+        originalFileName: originalName,
+        mimeType: uploadedFile.mimetype,
+        sizeBytes: uploadedFile.buffer.byteLength,
+        pendingExpiresAt: new Date(now.getTime() + PENDING_TTL_MS),
+      });
+    } catch (error) {
+      if (error instanceof SubmissionMembershipChangedError) {
+        throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+      }
+      if (error instanceof SubmissionFileQuotaExceededError) {
+        throw this.error(
+          MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+        );
+      }
+      if (error instanceof SubmissionFileRetentionUnavailableError) {
+        throw this.error(
+          MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
+        );
+      }
+      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    try {
+      await this.storage.put({
+        body: uploadedFile.buffer,
+        contentType: uploadedFile.mimetype,
+        originalName,
+        objectKey,
+      });
+    } catch {
+      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    return {
+      fileId: created.id,
+      fileName: created.originalFileName,
+      contentType: created.mimeType,
+      size: created.sizeBytes,
+      expiresAt: created.expiresAt.toISOString(),
+    };
+  }
+
+  async check(file: MilestoneDocumentFileUpload | undefined): Promise<void> {
+    await this.validateOriginalFileName(file);
+  }
+
+  async uploadTemplate(
+    actorId: string,
+    milestoneId: string,
+    documentId: string,
+    file: MilestoneDocumentFileUpload | undefined,
+  ): Promise<UploadedMilestoneDocumentTemplateResponse> {
+    const originalName = await this.validateOriginalFileName(file, 'TEMPLATE');
+    const uploadedFile = file as MilestoneDocumentFileUpload;
+
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+
+    const objectKey =
+      this.submissionFileAdmissionService.createSubmissionFileObjectKey();
+    const now = new Date();
+
+    try {
+      await this.storage.put({
+        body: uploadedFile.buffer,
+        contentType: uploadedFile.mimetype,
+        originalName,
+        objectKey,
+      });
+    } catch {
+      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    await this.repository.withTransaction(async (store) => {
+      const lockedDocument = await store.lockDocument(documentId);
+      if (
+        lockedDocument === null ||
+        lockedDocument.milestoneId !== milestoneId
+      ) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
+
+      await store.upsertTemplateFile({
+        milestoneDocumentId: documentId,
+        uploadedById: actorId,
+        storageKey: objectKey,
+        originalFileName: originalName,
+        mimeType: uploadedFile.mimetype,
+        sizeBytes: uploadedFile.buffer.byteLength,
+        uploadedAt: now,
+      });
+    });
+
+    return {
+      documentId,
+      hasTemplateFile: true,
+      fileName: originalName,
+      uploadedAt: now.toISOString(),
+    };
+  }
+
+  async downloadTemplate(
+    sessionGithubId: bigint,
+    milestoneId: string,
+    documentId: string,
+  ): Promise<DownloadedMilestoneDocumentTemplate> {
+    const viewer = await this.repository.findActiveUser(sessionGithubId);
+    if (viewer === null) {
+      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+    }
+
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+
+    if (
+      !this.userProfileService.isStaffEligible({
+        accountStatus: viewer.accountStatus,
+        memberKind: viewer.type === 'UNSELECTED' ? null : viewer.type,
+        hasStaffAccess:
+          viewer.type === 'STAFF' && viewer.approvalStatus === 'APPROVED',
+        isProfileComplete:
+          viewer.profileCreatedAt !== null &&
+          this.userProfileService.isCompleteProfileFields(
+            { ...viewer, studentId: null },
+            'STAFF',
+          ),
+      })
+    ) {
+      const application = await this.repository.findStudentApplication(
+        viewer.id,
+        documentContext.programId,
+      );
+      if (application === null) {
+        throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+      }
+    }
+
+    const template = await this.repository.findTemplateForDownload(documentId);
+    if (template === null) {
+      throw this.error(MilestoneDocumentsErrorCode.TEMPLATE_NOT_FOUND);
+    }
+
+    let body: Readable;
+    try {
+      body = await this.storage.get(template.storageKey);
+    } catch {
+      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    return {
+      body,
+      fileName: template.originalFileName,
+      contentType:
+        this.submissionFileAdmissionService.safeSubmissionFileContentType(
+          template.originalFileName,
+        ),
+      contentLength: template.sizeBytes,
+    };
+  }
+
+  async downloadSubmissionFile(
+    milestoneId: string,
+    documentId: string,
+    applicationId: string,
+    now: Date = new Date(),
+  ): Promise<DownloadedMilestoneDocumentSubmissionFile> {
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+
+    const applicationProgramId =
+      await this.repository.findApplicationProgramId(applicationId);
+    if (applicationProgramId !== documentContext.programId) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+
+    const file = await this.repository.findSubmissionFileForStaffDownload(
+      documentId,
+      applicationId,
+      now,
+    );
+    if (file === null) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+    }
+
+    let body: Readable;
+    try {
+      body = await this.storage.get(file.storageKey);
+    } catch {
+      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+    }
+
+    return {
+      body,
+      fileName:
+        this.milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(
+          {
+            teamName: file.teamName,
+            documentName: documentContext.name,
+            originalFileName: file.originalFileName,
+          },
+        ),
+      contentType:
+        this.submissionFileAdmissionService.safeSubmissionFileContentType(
+          file.originalFileName,
+        ),
+      contentLength: file.sizeBytes,
+    };
+  }
+
+  private async validateOriginalFileName(
+    file: MilestoneDocumentFileUpload | undefined,
+    purpose: 'STUDENT' | 'TEMPLATE' = 'STUDENT',
+  ): Promise<string> {
+    if (file === undefined || !Buffer.isBuffer(file.buffer)) {
+      throw this.error(MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD);
+    }
+    if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
+      throw this.error(MilestoneDocumentsErrorCode.FILE_TOO_LARGE);
+    }
+    const normalizedFileName =
+      this.submissionFileAdmissionService.normalizeMultipartFileName(
+        file.originalname,
+      );
+    const valid =
+      purpose === 'TEMPLATE'
+        ? this.submissionFileAdmissionService.hasValidSubmissionTemplateSignature(
+            file.buffer,
+            normalizedFileName,
+          )
+        : this.submissionFileAdmissionService.isAllowedSubmissionFileType(
+            normalizedFileName,
+          ) &&
+          this.submissionFileAdmissionService.hasValidSubmissionFileSignature(
+            file.buffer,
+            normalizedFileName,
+          );
+    if (!valid) {
+      throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
+    }
+
+    if (normalizedFileName.toLowerCase().endsWith('.zip')) {
+      const zipRejection =
+        await this.submissionFileAdmissionService.inspectSubmissionZipMetadata(
+          file.buffer,
+        );
+      if (zipRejection !== null) {
+        throw this.error(
+          MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[zipRejection],
+        );
+      }
+    }
+    return this.submissionFileAdmissionService.sanitizeSubmissionFileOriginalName(
+      normalizedFileName,
+    );
+  }
+
+  private requiredOpaqueId(value: unknown): string {
+    if (
+      typeof value !== 'string' ||
+      value.length === 0 ||
+      value !== value.trim()
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD);
+    }
+    return value;
+  }
+
+  private error(code: MilestoneDocumentsErrorCode): DomainException {
+    return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
   }
 }

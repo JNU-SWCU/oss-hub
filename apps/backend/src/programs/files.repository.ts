@@ -2,28 +2,28 @@ import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import { FileLifecycle, Prisma, AccountStatus } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramAuthoringUploadConsumptionRaceError, ProgramAuthoringUploadTokenError, PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE } from './program-authoring.error';
-import { type ProgramAuthoringUploadToken, type ProgramExternalCover, type ProgramAuthoringPendingUploadConsumption } from './files.config';
+import {
+  ProgramAuthoringUploadConsumptionRaceError,
+  ProgramAuthoringUploadTokenError,
+  PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE,
+} from './program-authoring.error';
+import {
+  type ProgramAuthoringUploadToken,
+  type ProgramExternalCover,
+  type ProgramAuthoringPendingUploadConsumption,
+} from './files.config';
 import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
-import { USER_AUTHORITY_SELECT, STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
+import {
+  USER_AUTHORITY_SELECT,
+  STUDENT_MEMBER_WHERE,
+} from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { SubmissionFileQuotaExceededError, SubmissionFileRetentionUnavailableError } from './files.error';
-
-export function fileMetadata<
-  T extends {
-    readonly originalFileName: string | null;
-    readonly mimeType: string | null;
-    readonly sizeBytes: number | null;
-  },
->(file: T) {
-  const { originalFileName, mimeType, sizeBytes } = file;
-  if (originalFileName === null || mimeType === null || sizeBytes === null) {
-    throw new TypeError('File metadata is missing');
-  }
-  return { ...file, originalFileName, mimeType, sizeBytes };
-}
+import {
+  SubmissionFileQuotaExceededError,
+  SubmissionFileRetentionUnavailableError,
+} from './files.error';
 
 export type ProgramCoverChange = { readonly actorId: string } & (
   | {
@@ -197,7 +197,11 @@ export class ProgramAuthoringUploadRepository {
     });
     if (changed.count === 1) return { kind: 'QUEUED' };
     const file = await this.prisma.file.findFirst({
-      where: { id, uploaderId: actorId, kind: { in: ['UPLOAD', 'COVER', 'TEMPLATE'] } },
+      where: {
+        id,
+        uploaderId: actorId,
+        kind: { in: ['UPLOAD', 'COVER', 'TEMPLATE'] },
+      },
       select: { lifecycle: true },
     });
     if (file === null) return { kind: 'NOT_FOUND' };
@@ -220,7 +224,10 @@ export class ProgramAuthoringUploadTransactionRepository {
     actorId: string,
     tokenIds: readonly string[],
   ) {
-    const uploads = await this.lockProgramAuthoringUploads(transaction, tokenIds);
+    const uploads = await this.lockProgramAuthoringUploads(
+      transaction,
+      tokenIds,
+    );
     this.assertAttachableProgramAuthoringUploads(actorId, tokenIds, uploads);
     return uploads;
   }
@@ -230,7 +237,9 @@ export class ProgramAuthoringUploadTransactionRepository {
     tokenIds: readonly string[],
   ): Promise<readonly ProgramAuthoringUploadToken[]> {
     if (tokenIds.length === 0) return Promise.resolve([]);
-    return transaction.$queryRaw<readonly ProgramAuthoringUploadToken[]>(Prisma.sql`
+    return transaction.$queryRaw<
+      readonly ProgramAuthoringUploadToken[]
+    >(Prisma.sql`
       SELECT id, "uploaderId" AS "actorId", lifecycle,
              ("pendingExpiresAt" > NOW()) AS unexpired,
              "storageKey", "originalFileName", "mimeType", "sizeBytes"
@@ -246,23 +255,27 @@ export class ProgramAuthoringUploadTransactionRepository {
   ) {
     if (uploads.length !== tokenIds.length) {
       throw new ProgramAuthoringUploadTokenError(
-        PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.MISSING, tokenIds,
+        PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.MISSING,
+        tokenIds,
       );
     }
     for (const upload of uploads) {
       if (upload.actorId !== actorId) {
         throw new ProgramAuthoringUploadTokenError(
-          PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.NOT_OWNED, [upload.id],
+          PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.NOT_OWNED,
+          [upload.id],
         );
       }
       if (upload.lifecycle !== FileLifecycle.PENDING) {
         throw new ProgramAuthoringUploadTokenError(
-          PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.NOT_PENDING, [upload.id],
+          PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.NOT_PENDING,
+          [upload.id],
         );
       }
       if (!upload.unexpired) {
         throw new ProgramAuthoringUploadTokenError(
-          PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.EXPIRED, [upload.id],
+          PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE.EXPIRED,
+          [upload.id],
         );
       }
     }
@@ -277,11 +290,20 @@ export class ProgramAuthoringUploadTransactionRepository {
       (left, right) => left.upload.id.localeCompare(right.upload.id),
     )) {
       await transaction.file.updateMany({
-        where: { kind: 'TEMPLATE', requirementId: milestoneDocumentId, lifecycle: 'ATTACHED' },
+        where: {
+          kind: 'TEMPLATE',
+          requirementId: milestoneDocumentId,
+          lifecycle: 'ATTACHED',
+        },
         data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
       });
       const attached = await transaction.file.updateMany({
-        where: { id: upload.id, uploaderId: actorId, kind: 'UPLOAD', lifecycle: 'PENDING' },
+        where: {
+          id: upload.id,
+          uploaderId: actorId,
+          kind: 'UPLOAD',
+          lifecycle: 'PENDING',
+        },
         data: {
           kind: 'TEMPLATE',
           lifecycle: 'ATTACHED',
@@ -321,8 +343,13 @@ export class ProgramCoverRepository {
       },
       select: { storageKey: true, mimeType: true, sizeBytes: true },
     });
-    if (cover === null || cover.mimeType === null || cover.sizeBytes === null) return null;
-    return { storageKey: cover.storageKey, mimeType: cover.mimeType, sizeBytes: cover.sizeBytes };
+    if (cover === null || cover.mimeType === null || cover.sizeBytes === null)
+      return null;
+    return {
+      storageKey: cover.storageKey,
+      mimeType: cover.mimeType,
+      sizeBytes: cover.sizeBytes,
+    };
   }
 
   async replaceProgramCover(
@@ -332,7 +359,9 @@ export class ProgramCoverRepository {
     let upload: ProgramAuthoringUploadToken | null = null;
     if (input.uploadId != null) {
       const uploads = await this.uploads.lockAttachableProgramAuthoringUploads(
-        transaction, input.actorId, [input.uploadId],
+        transaction,
+        input.actorId,
+        [input.uploadId],
       );
       upload = uploads[0] ?? null;
       if (upload !== null) input.assertUpload(upload);
@@ -354,7 +383,11 @@ export class ProgramCoverRepository {
     if (upload !== null) {
       await this.createProgramCover(transaction, { ...input, upload });
     } else if (input.externalCover != null) {
-      await this.createExternalProgramCover(transaction, input.programId, input.externalCover);
+      await this.createExternalProgramCover(
+        transaction,
+        input.programId,
+        input.externalCover,
+      );
     }
   }
 
@@ -365,7 +398,10 @@ export class ProgramCoverRepository {
   ) {
     await transaction.program.update({
       where: { id: programId },
-      data: { coverSourceUrl: externalCover.sourceUrl, coverImageUrl: externalCover.imageUrl },
+      data: {
+        coverSourceUrl: externalCover.sourceUrl,
+        coverImageUrl: externalCover.imageUrl,
+      },
     });
   }
 
@@ -378,7 +414,12 @@ export class ProgramCoverRepository {
     },
   ) {
     const attached = await transaction.file.updateMany({
-      where: { id: input.upload.id, uploaderId: input.actorId, kind: 'UPLOAD', lifecycle: 'PENDING' },
+      where: {
+        id: input.upload.id,
+        uploaderId: input.actorId,
+        kind: 'UPLOAD',
+        lifecycle: 'PENDING',
+      },
       data: {
         kind: 'COVER',
         lifecycle: 'ATTACHED',
@@ -387,10 +428,15 @@ export class ProgramCoverRepository {
         attachedAt: new Date(),
       },
     });
-    if (attached.count !== 1) throw new ProgramAuthoringUploadConsumptionRaceError(input.upload.id);
+    if (attached.count !== 1)
+      throw new ProgramAuthoringUploadConsumptionRaceError(input.upload.id);
     await transaction.program.update({
       where: { id: input.programId },
-      data: { coverFileId: input.upload.id, coverSourceUrl: null, coverImageUrl: null },
+      data: {
+        coverFileId: input.upload.id,
+        coverSourceUrl: null,
+        coverImageUrl: null,
+      },
     });
   }
 }
@@ -410,12 +456,7 @@ export interface CreatePendingSubmissionFileInput {
   readonly pendingExpiresAt: Date;
   readonly resolveExpiresAt: (programEndAt: Date) => Date;
 }
-export interface ClaimedSubmissionFile {
-  readonly id: string;
-  readonly storageKey: string;
-  readonly deleteAttemptCount: number;
-  readonly claimOwner: string;
-}
+
 export interface DownloadableSubmissionFile {
   readonly id: string;
   readonly storageKey: string;
@@ -435,18 +476,30 @@ export interface ExhaustedSubmissionFileCleanup {
   readonly lastDeleteError: string | null;
   readonly createdAt: Date | null;
 }
-export interface RecordSubmissionFileDeleteFailureInput {
-  readonly id: string;
-  readonly claimOwner: string;
-  readonly attemptCount: number;
-  readonly nextAttemptAt: Date | null;
-  readonly error: 'STORAGE_DELETE_FAILED';
-}
+
 @Injectable()
-export class SubmissionFilesRepository {
+export class FileMetadataRepository {
+  read<
+    T extends {
+      readonly originalFileName: string | null;
+      readonly mimeType: string | null;
+      readonly sizeBytes: number | null;
+    },
+  >(this: void, file: T) {
+    const { originalFileName, mimeType, sizeBytes } = file;
+    if (originalFileName === null || mimeType === null || sizeBytes === null) {
+      throw new TypeError('File metadata is missing');
+    }
+    return { ...file, originalFileName, mimeType, sizeBytes };
+  }
+}
+
+@Injectable()
+export class FilesRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
+    private readonly fileMetadata: FileMetadataRepository,
   ) {}
   async findActiveStudentByGithubId(githubId: bigint): Promise<string | null> {
     const user = await this.prisma.user.findFirst({
@@ -531,7 +584,10 @@ export class SubmissionFilesRepository {
     return this.findAuthorizedDownloadableFile({
       ...downloadableFileWhere(fileId, now),
       submissionHistory: {
-        submission: { application: this.platformRepository.programApplicationParticipantWhere(user.id) },
+        submission: {
+          application:
+            this.platformRepository.programApplicationParticipantWhere(user.id),
+        },
       },
     });
   }
@@ -614,7 +670,10 @@ export class SubmissionFilesRepository {
           expiresAt: true,
         },
       });
-      return { ...fileMetadata(created), expiresAt: input.resolveExpiresAt(program.endAt) };
+      return {
+        ...this.fileMetadata.read(created),
+        expiresAt: input.resolveExpiresAt(program.endAt),
+      };
     });
   }
   async resetDeleteAttempts(id: string, now: Date): Promise<boolean> {
@@ -650,7 +709,7 @@ export class SubmissionFilesRepository {
       },
     });
     if (file?.expiresAt === null || file === null) return null;
-    return { ...fileMetadata(file), expiresAt: file.expiresAt };
+    return { ...this.fileMetadata.read(file), expiresAt: file.expiresAt };
   }
 }
 function downloadableFileWhere(
@@ -684,22 +743,37 @@ export interface StorageReferenceTransactionClient {
 }
 export interface StorageReferencePrisma {
   $connect(): Promise<void>;
-  $transaction<T>(operation: (transaction: StorageReferenceTransactionClient) => Promise<T>, options: {readonly isolationLevel: Prisma.TransactionIsolationLevel}): Promise<T>;
+  $transaction<T>(
+    operation: (transaction: StorageReferenceTransactionClient) => Promise<T>,
+    options: { readonly isolationLevel: Prisma.TransactionIsolationLevel },
+  ): Promise<T>;
 }
 @Injectable()
 export class PrismaStorageReferenceRepository implements StorageReferenceRepository {
   constructor(private readonly prisma: StorageReferencePrisma) {}
   async loadLiveKeys(): Promise<ReadonlySet<string>> {
     await this.prisma.$connect();
-    return this.prisma.$transaction(async transaction => {
-      const files = await transaction.file.findMany({where: {lifecycle: {not: 'DELETED'}}, select: {storageKey: true}});
-      return new Set(files.map(file => file.storageKey));
-    }, {isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead});
+    return this.prisma.$transaction(
+      async (transaction) => {
+        const files = await transaction.file.findMany({
+          where: { lifecycle: { not: 'DELETED' } },
+          select: { storageKey: true },
+        });
+        return new Set(files.map((file) => file.storageKey));
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
   isLiveKey(key: string): Promise<boolean> {
-    return this.prisma.$transaction(async transaction => {
-      const file = await transaction.file.findFirst({where: {storageKey: key, lifecycle: {not: 'DELETED'}}, select: {id: true}});
-      return file !== null;
-    }, {isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead});
+    return this.prisma.$transaction(
+      async (transaction) => {
+        const file = await transaction.file.findFirst({
+          where: { storageKey: key, lifecycle: { not: 'DELETED' } },
+          select: { id: true },
+        });
+        return file !== null;
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
+    );
   }
 }

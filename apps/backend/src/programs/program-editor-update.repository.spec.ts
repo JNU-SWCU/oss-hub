@@ -1,4 +1,7 @@
-import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramTrackType, SubmissionFileLifecycle } from '@prisma/client';
@@ -39,7 +42,7 @@ describe('ProgramEditorRepository updates', () => {
       ]);
     const transaction = {
       program: { update },
-      submissionFile: { updateMany },
+      file: { updateMany },
       $queryRaw: queryRaw,
     };
     const prisma = {
@@ -87,7 +90,17 @@ describe('ProgramEditorRepository updates', () => {
     expect(queryRaw).toHaveBeenCalledTimes(1);
     expect(updateMany).toHaveBeenCalledWith({
       where: {
-        application: { programId: 'program-1' },
+        kind: 'SUBMISSION',
+        OR: [
+          { team: { programId: 'program-1' } },
+          {
+            submissionHistory: {
+              submission: {
+                milestoneDocument: { milestone: { programId: 'program-1' } },
+              },
+            },
+          },
+        ],
         lifecycle: {
           in: [
             SubmissionFileLifecycle.PENDING,

@@ -1,9 +1,11 @@
+import { FileMetadataRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticDocumentId = 'cuid-synthetic-document-1';
@@ -148,7 +150,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
       });
       const service = new MilestoneDocumentReviewsService(
         repository,
-        new SubmissionsRepository(new PlatformRepository()),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
       );
       await expect(review(service, clock, decision)).rejects.toMatchObject({
         errorCode: { code: 'MSD_046', status: 403 },
@@ -167,7 +172,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND },
@@ -183,7 +191,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -204,7 +215,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -219,7 +233,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND },
@@ -233,7 +250,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND },
@@ -246,7 +266,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND },
@@ -263,7 +286,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -276,7 +302,10 @@ describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -294,7 +323,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -311,7 +343,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -326,7 +361,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -339,7 +377,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock, ReviewDecision.APPROVED, null, {
       expectedLatestReviewId: null,
@@ -352,7 +393,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -363,7 +407,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     const { mocks, transactionCalls, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock);
     expect(mocks.findLatestReviewIdForSubmission).toHaveBeenCalledWith(
@@ -380,7 +427,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     const { transactionCalls, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock);
     expect(transactionCalls.indexOf('findSubmissionForReview')).toBeGreaterThan(
@@ -399,7 +449,10 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED },
@@ -413,7 +466,10 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
       buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock);
     expect(withTransaction).toHaveBeenCalledTimes(1);
@@ -430,7 +486,10 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     const { transactionCalls, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock);
     expect(clock).toHaveBeenCalledTimes(1);
@@ -447,7 +506,10 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await expect(review(service, clock)).rejects.toMatchObject({
       errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
@@ -458,7 +520,10 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock);
     expect(mocks.lockDocument).toHaveBeenCalledWith(syntheticDocumentId);
@@ -467,7 +532,10 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock);
     expect(mocks.findSubmissionForReview).toHaveBeenCalledWith(
@@ -487,7 +555,10 @@ describe('MilestoneDocumentReviewsService.review — 잠금과 트랜잭션', ()
     });
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, () => latest);
     expect(mocks.createReview).toHaveBeenCalledWith(
@@ -502,7 +573,10 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     const result = await review(service, clock);
     expect(mocks.createReview).toHaveBeenCalledWith({
@@ -529,7 +603,10 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       const { mocks, clock, repository } = buildRepository();
       const service = new MilestoneDocumentReviewsService(
         repository,
-        new SubmissionsRepository(new PlatformRepository()),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
       );
       const input = service.reviewInputFromRequest({
         decision,
@@ -555,7 +632,10 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock, ReviewDecision.APPROVED, null);
     expect(mocks.createReview).toHaveBeenCalledWith(
@@ -575,7 +655,10 @@ describe('MilestoneDocumentReviewsService.review — 판정 → 제출 상태', 
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,
-      new SubmissionsRepository(new PlatformRepository()),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
     );
     await review(service, clock, decision, '사유');
     expect(mocks.updateSubmissionStatus).toHaveBeenCalledWith(

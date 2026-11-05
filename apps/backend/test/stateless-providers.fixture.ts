@@ -1,7 +1,10 @@
+import {
+  FileMetadataRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from '../src/programs/files.repository';
 import { PlatformRepository } from '../src/platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../src/platform/prisma-serialization-retry.repository';
 import { RepositoryProvisionGenerationRepository } from '../src/platform/repository-provision-generation.repository';
-import { ProgramAuthoringUploadTransactionRepository } from '../src/programs/files.repository';
 import { SubmissionsRepository } from '../src/programs/submissions.repository';
 import { ProgramListStatusFilterRepository } from '../src/programs/program-list-status-filter.repository';
 import { StudentRepositoryUrlContextRepository } from '../src/programs/team.repository';
@@ -15,7 +18,10 @@ import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';
 import { RepositoryPublishService } from '../src/github/repository-publish.service';
 import { AuthSessionService } from '../src/platform/auth-session.service';
-import { ApplicationAnswersService, ProgramTemplatesService } from '../src/programs/team-application.service';
+import {
+  ApplicationAnswersService,
+  ProgramTemplatesService,
+} from '../src/programs/team-application.service';
 import { DownloadResponseService } from '../src/programs/download-response.service';
 import { MilestoneCompletionService } from '../src/programs/milestone-completion.service';
 import { MilestoneDocumentFileNameService } from '../src/programs/milestone-document-file-name.service';
@@ -29,6 +35,7 @@ import { AdminAccessMutationService } from '../src/users/admin-access-mutation.s
 import { AdminProfileMutationService } from '../src/users/admin-profile-mutation.service';
 
 export const STATELESS_PROVIDERS = [
+  FileMetadataRepository,
   PlatformRepository,
   PrismaSerializationRetryRepository,
   RepositoryProvisionGenerationRepository,

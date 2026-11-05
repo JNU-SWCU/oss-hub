@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
 import { DownloadResponseService } from './download-response.service';
@@ -12,6 +13,7 @@ import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+
 const prefix = 'qa152-program-archive';
 export const archiveId = (suffix: string) => `${prefix}-${suffix}`;
 const archiveNow = new Date('2026-09-03T00:00:00Z');
@@ -24,8 +26,15 @@ export class ProgramArchiveIntegrationFixture {
       this.prisma,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
-      new SubmissionsRepository(new PlatformRepository()),
-      new MilestoneDocumentCollectionReadRepository(this.prisma),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
+      new MilestoneDocumentCollectionReadRepository(
+        this.prisma,
+        new FileMetadataRepository(),
+      ),
+      new FileMetadataRepository(),
     ),
     this.storage,
     new MilestoneDocumentArchiveRepository(this.prisma),
@@ -177,31 +186,40 @@ export class ProgramArchiveIntegrationFixture {
       originalName,
       objectKey: storageKey,
     });
-    await this.prisma.file.create({data: {kind: 'SUBMISSION',
-id: archiveId(`file-${stage}-${revision}`),
-uploaderId: archiveId('user'),
-teamId: (await this.prisma.application.findUniqueOrThrow({where: {id: archiveId('app-0')}, select: {teamId: true}})).teamId,
-submissionId: archiveId(`submission-0-${stage}`),
-submissionHistoryId: archiveId(
-          `history-0-${stage}-${revision}`,
-        ),
-lifecycle: 'ATTACHED',
-expiresAt: new Date('2099-12-31'),
-storageKey: storageKey,
-originalFileName: originalName,
-mimeType: 'application/octet-stream',
-sizeBytes: body.length}});
+    await this.prisma.file.create({
+      data: {
+        kind: 'SUBMISSION',
+        id: archiveId(`file-${stage}-${revision}`),
+        uploaderId: archiveId('user'),
+        teamId: (
+          await this.prisma.application.findUniqueOrThrow({
+            where: { id: archiveId('app-0') },
+            select: { teamId: true },
+          })
+        ).teamId,
+        submissionId: archiveId(`submission-0-${stage}`),
+        submissionHistoryId: archiveId(`history-0-${stage}-${revision}`),
+        lifecycle: 'ATTACHED',
+        expiresAt: new Date('2099-12-31'),
+        storageKey: storageKey,
+        originalFileName: originalName,
+        mimeType: 'application/octet-stream',
+        sizeBytes: body.length,
+      },
+    });
   }
   async clear(): Promise<void> {
     const programs = { in: [archiveId('a'), archiveId('b')] };
-    const files = await this.prisma.file.findMany({where: {kind: 'SUBMISSION',
-uploaderId: archiveId('user')},
-select: {storageKey: true}});
+    const files = await this.prisma.file.findMany({
+      where: { kind: 'SUBMISSION', uploaderId: archiveId('user') },
+      select: { storageKey: true },
+    });
     await Promise.all(
       files.map((file) => this.storage.delete(file.storageKey)),
     );
-    await this.prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-uploaderId: archiveId('user')}});
+    await this.prisma.file.deleteMany({
+      where: { kind: 'SUBMISSION', uploaderId: archiveId('user') },
+    });
     const submissions = { application: { programId: programs } };
     await this.prisma.milestoneDocumentSubmissionHistory.deleteMany({
       where: { submission: submissions },

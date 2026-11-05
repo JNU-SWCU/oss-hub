@@ -1,4 +1,4 @@
-import { fileMetadata } from './files.repository';
+import { FileMetadataRepository } from './files.repository';
 import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus, Prisma, FileLifecycle } from '@prisma/client';
 import { STUDENT_MEMBER_WHERE } from '../platform/user-profile-read.config';
@@ -48,6 +48,7 @@ export interface MilestoneDocumentCurrentFileReader {
 export class MilestoneDocumentCurrentFileRepository implements MilestoneDocumentCurrentFileReader {
   constructor(
     @Inject(PrismaService) private readonly prisma: CurrentFilePrisma,
+    private readonly fileMetadata: FileMetadataRepository,
   ) {}
 
   async findForParticipant(
@@ -98,7 +99,8 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
       },
     });
     const rawFile = submission?.files[0];
-    const file = rawFile === undefined ? undefined : fileMetadata(rawFile);
+    const file =
+      rawFile === undefined ? undefined : this.fileMetadata.read(rawFile);
     if (
       submission == null ||
       file == null ||

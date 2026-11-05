@@ -118,8 +118,9 @@ interface MemberSeed {
 
 async function cleanupTeamScope(): Promise<void> {
   await prisma.teamHistory.deleteMany({ where: { programId: PROGRAM_ID } });
-  await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-uploaderId: { startsWith: TEST_PREFIX }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'SUBMISSION', uploaderId: { startsWith: TEST_PREFIX } },
+  });
 
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { submission: { application: { programId: PROGRAM_ID } } },
@@ -272,20 +273,29 @@ async function seedSubmittedDocument(
       },
     },
   });
-  const file = await prisma.file.create({data: {kind: 'SUBMISSION',
-id: `${applicationId}:file`,
-uploaderId: submitterId,
-teamId: (await prisma.application.findUniqueOrThrow({where: {id: applicationId}, select: {teamId: true}})).teamId,
-submissionId: submissionId,
-submissionHistoryId: historyId,
-lifecycle: SubmissionFileLifecycle.ATTACHED,
-pendingExpiresAt: null,
-expiresAt: new Date('2099-12-31T00:00:00.000Z'),
-storageKey: `${applicationId}/synthetic.pdf`,
-originalFileName: 'synthetic.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 1_024},
-select: {id: true}});
+  const file = await prisma.file.create({
+    data: {
+      kind: 'SUBMISSION',
+      id: `${applicationId}:file`,
+      uploaderId: submitterId,
+      teamId: (
+        await prisma.application.findUniqueOrThrow({
+          where: { id: applicationId },
+          select: { teamId: true },
+        })
+      ).teamId,
+      submissionId: submissionId,
+      submissionHistoryId: historyId,
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      pendingExpiresAt: null,
+      expiresAt: new Date('2099-12-31T00:00:00.000Z'),
+      storageKey: `${applicationId}/synthetic.pdf`,
+      originalFileName: 'synthetic.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 1_024,
+    },
+    select: { id: true },
+  });
   return { submissionId, historyId, fileId: file.id };
 }
 
@@ -536,14 +546,17 @@ describe('program team membership transactions integration', () => {
       event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
     });
     await expect(
-      prisma.file.findUniqueOrThrow({where: {kind: 'SUBMISSION',
-id: submitted.fileId},
-select: {teamId: true,
-uploaderId: true,
-lifecycle: true,
-submissionId: true,
-submissionHistoryId: true,
-deletedAt: true}}),
+      prisma.file.findUniqueOrThrow({
+        where: { kind: 'SUBMISSION', id: submitted.fileId },
+        select: {
+          teamId: true,
+          uploaderId: true,
+          lifecycle: true,
+          submissionId: true,
+          submissionHistoryId: true,
+          deletedAt: true,
+        },
+      }),
     ).resolves.toEqual({
       applicationId,
       uploaderId: MEMBER_A_ID,
@@ -600,8 +613,9 @@ deletedAt: true}}),
       }),
     ).resolves.toBe(1);
     await expect(
-      prisma.file.count({where: {kind: 'SUBMISSION',
-id: submitted.fileId}}),
+      prisma.file.count({
+        where: { kind: 'SUBMISSION', id: submitted.fileId },
+      }),
     ).resolves.toBe(1);
     expect(await membershipAuditRows(teamId)).toHaveLength(0);
   });
@@ -931,8 +945,9 @@ id: submitted.fileId}}),
       }),
     ).resolves.toBe(1);
     await expect(
-      prisma.file.count({where: {kind: 'SUBMISSION',
-id: submitted.fileId}}),
+      prisma.file.count({
+        where: { kind: 'SUBMISSION', id: submitted.fileId },
+      }),
     ).resolves.toBe(1);
   });
 

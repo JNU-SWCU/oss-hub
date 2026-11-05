@@ -1,10 +1,24 @@
-import { FileCleanupRepository } from './files.repository';
+import {
+  FileMetadataRepository,
+  FileCleanupRepository,
+  FilesRepository,
+} from './files.repository';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService, SubmissionFilesService } from './files.service';
+import { SubmissionFileAdmissionService, FilesService } from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { GetObjectCommand, HeadObjectCommand, ListObjectsV2Command, S3Client } from '@aws-sdk/client-s3';
-import { MilestoneDocumentSubmissionHistoryEvent, MilestoneSubmissionType, SubmissionFileLifecycle, SubmissionStatus } from '@prisma/client';
+import {
+  GetObjectCommand,
+  HeadObjectCommand,
+  ListObjectsV2Command,
+  S3Client,
+} from '@aws-sdk/client-s3';
+import {
+  MilestoneDocumentSubmissionHistoryEvent,
+  MilestoneSubmissionType,
+  SubmissionFileLifecycle,
+  SubmissionStatus,
+} from '@prisma/client';
 import { runProfile } from '../../prisma/seed';
 import { seedGithubId, seedId, SeedStats } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
@@ -12,7 +26,6 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
-import { SubmissionFilesRepository } from './files.repository';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 
 const programScheduleService = new ProgramScheduleService();
@@ -38,7 +51,11 @@ if (integrationReady) {
 const describeIntegration = integrationReady ? describe : describe.skip;
 const prisma = new PrismaService();
 const cleanupFiles = new FileCleanupRepository(prisma);
-const files = new SubmissionFilesRepository(prisma, new PlatformRepository());
+const files = new FilesRepository(
+  prisma,
+  new PlatformRepository(),
+  new FileMetadataRepository(),
+);
 const storageConfig = new ObjectStorageConfig();
 const storage = new S3ObjectStorageClient(storageConfig);
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');
@@ -86,17 +103,33 @@ async function createPending(options: {
   mimeType?: string;
   sizeBytes?: number;
 }) {
-  return prisma.file.create({data: {kind: 'SUBMISSION',
-uploaderId: USER_ID,
-teamId: (await prisma.application.findUniqueOrThrow({where: {id: APPLICATION_ID}, select: {teamId: true}})).teamId,
-requirementId: (await prisma.milestoneDocument.findFirstOrThrow({where: {milestoneId: MILESTONE_ID}, select: {id: true}})).id,
-storageKey: `${PREFIX}/${options.suffix}`,
-originalFileName: options.originalFileName ?? 'synthetic.pdf',
-mimeType: options.mimeType ?? 'application/pdf',
-sizeBytes: options.sizeBytes ?? 14,
-lifecycle: SubmissionFileLifecycle.PENDING,
-pendingExpiresAt: options.pendingExpiresAt ?? new Date(BASE.getTime() + HOUR),
-expiresAt: options.expiresAt ?? programScheduleService.addOneCalendarYear(BASE)}});
+  return prisma.file.create({
+    data: {
+      kind: 'SUBMISSION',
+      uploaderId: USER_ID,
+      teamId: (
+        await prisma.application.findUniqueOrThrow({
+          where: { id: APPLICATION_ID },
+          select: { teamId: true },
+        })
+      ).teamId,
+      requirementId: (
+        await prisma.milestoneDocument.findFirstOrThrow({
+          where: { milestoneId: MILESTONE_ID },
+          select: { id: true },
+        })
+      ).id,
+      storageKey: `${PREFIX}/${options.suffix}`,
+      originalFileName: options.originalFileName ?? 'synthetic.pdf',
+      mimeType: options.mimeType ?? 'application/pdf',
+      sizeBytes: options.sizeBytes ?? 14,
+      lifecycle: SubmissionFileLifecycle.PENDING,
+      pendingExpiresAt:
+        options.pendingExpiresAt ?? new Date(BASE.getTime() + HOUR),
+      expiresAt:
+        options.expiresAt ?? programScheduleService.addOneCalendarYear(BASE),
+    },
+  });
 }
 async function createSubmissionHistory(suffix: string): Promise<{
   submissionId: string;
@@ -144,14 +177,16 @@ describeIntegration(
       await runProfile('milestones', new SeedStats());
     });
     afterEach(async () => {
-      const rows = await prisma.file.findMany({where: {kind: 'SUBMISSION',
-storageKey: { startsWith: PREFIX }},
-select: {storageKey: true}});
+      const rows = await prisma.file.findMany({
+        where: { kind: 'SUBMISSION', storageKey: { startsWith: PREFIX } },
+        select: { storageKey: true },
+      });
       await Promise.all(
         rows.map(({ storageKey }) => storage.delete(storageKey)),
       );
-      await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-storageKey: { startsWith: PREFIX }}});
+      await prisma.file.deleteMany({
+        where: { kind: 'SUBMISSION', storageKey: { startsWith: PREFIX } },
+      });
       await prisma.milestoneDocumentSubmissionHistory.deleteMany({
         where: { submission: { id: { startsWith: SUBMISSION_PREFIX } } },
       });
@@ -203,12 +238,15 @@ storageKey: { startsWith: PREFIX }}});
         originalName: 'synthetic.pdf',
         objectKey: row.storageKey,
       });
-      await prisma.file.update({where: {kind: 'SUBMISSION',
-id: row.id},
-data: {lifecycle: SubmissionFileLifecycle.ATTACHED,
-pendingExpiresAt: null,
-submissionId: submission.submissionId,
-submissionHistoryId: submission.historyId}});
+      await prisma.file.update({
+        where: { kind: 'SUBMISSION', id: row.id },
+        data: {
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          pendingExpiresAt: null,
+          submissionId: submission.submissionId,
+          submissionHistoryId: submission.historyId,
+        },
+      });
       const claimed = await cleanupFiles.claimNextForDeletion({
         now: BASE,
         leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
@@ -219,8 +257,9 @@ submissionHistoryId: submission.historyId}});
         cleanupFiles.markDeleted(row.id, claimed!.claimOwner, BASE),
       ).resolves.toBe(true);
       await expect(
-        prisma.file.findUniqueOrThrow({where: {kind: 'SUBMISSION',
-id: row.id}}),
+        prisma.file.findUniqueOrThrow({
+          where: { kind: 'SUBMISSION', id: row.id },
+        }),
       ).resolves.toMatchObject({
         lifecycle: SubmissionFileLifecycle.DELETED,
         deletedAt: BASE,
@@ -245,12 +284,15 @@ id: row.id}}),
       const submission = await createSubmissionHistory(
         'referenced-attached-retained',
       );
-      await prisma.file.update({where: {kind: 'SUBMISSION',
-id: row.id},
-data: {lifecycle: SubmissionFileLifecycle.ATTACHED,
-pendingExpiresAt: null,
-submissionId: submission.submissionId,
-submissionHistoryId: submission.historyId}});
+      await prisma.file.update({
+        where: { kind: 'SUBMISSION', id: row.id },
+        data: {
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          pendingExpiresAt: null,
+          submissionId: submission.submissionId,
+          submissionHistoryId: submission.historyId,
+        },
+      });
       await expect(
         cleanupFiles.claimNextForDeletion({
           now: BASE,
@@ -379,21 +421,28 @@ submissionHistoryId: submission.historyId}});
       });
       const submission = await createSubmissionHistory('attach-expiry-race');
       const [attached, claimed] = await Promise.all([
-        prisma.file.updateMany({where: {kind: 'SUBMISSION',
-id: row.id,
-lifecycle: SubmissionFileLifecycle.PENDING,
-pendingExpiresAt: { gt: new Date(BASE.getTime() - 1) }},
-data: {lifecycle: SubmissionFileLifecycle.ATTACHED,
-pendingExpiresAt: null,
-submissionId: submission.submissionId,
-submissionHistoryId: submission.historyId}}),
+        prisma.file.updateMany({
+          where: {
+            kind: 'SUBMISSION',
+            id: row.id,
+            lifecycle: SubmissionFileLifecycle.PENDING,
+            pendingExpiresAt: { gt: new Date(BASE.getTime() - 1) },
+          },
+          data: {
+            lifecycle: SubmissionFileLifecycle.ATTACHED,
+            pendingExpiresAt: null,
+            submissionId: submission.submissionId,
+            submissionHistoryId: submission.historyId,
+          },
+        }),
         cleanupFiles.claimNextForDeletion({
           now: BASE,
           leaseExpiresAt: new Date(BASE.getTime() + 10 * 60000),
         }),
       ]);
-      const persisted = await prisma.file.findUniqueOrThrow({where: {kind: 'SUBMISSION',
-id: row.id}});
+      const persisted = await prisma.file.findUniqueOrThrow({
+        where: { kind: 'SUBMISSION', id: row.id },
+      });
       expect(
         Number(attached.count === 1) + Number(claimed?.id === row.id),
       ).toBe(1);
@@ -418,13 +467,16 @@ id: row.id}});
         originalName: 'archive.zip',
         objectKey: row.storageKey,
       });
-      await prisma.file.update({where: {kind: 'SUBMISSION',
-id: row.id},
-data: {lifecycle: SubmissionFileLifecycle.ATTACHED,
-pendingExpiresAt: null,
-submissionId: submission.submissionId,
-submissionHistoryId: submission.historyId}});
-      const filesService = new SubmissionFilesService(
+      await prisma.file.update({
+        where: { kind: 'SUBMISSION', id: row.id },
+        data: {
+          lifecycle: SubmissionFileLifecycle.ATTACHED,
+          pendingExpiresAt: null,
+          submissionId: submission.submissionId,
+          submissionHistoryId: submission.historyId,
+        },
+      });
+      const filesService = new FilesService(
         files,
         storage,
         new ProgramScheduleService(),
@@ -443,7 +495,7 @@ submissionHistoryId: submission.historyId}});
       });
     });
     it('판정만 하는 요청은 제출과 같은 코드로 거절하고 행·감사·아웃박스·객체를 남기지 않는다', async () => {
-      const filesService = new SubmissionFilesService(
+      const filesService = new FilesService(
         files,
         storage,
         new ProgramScheduleService(),

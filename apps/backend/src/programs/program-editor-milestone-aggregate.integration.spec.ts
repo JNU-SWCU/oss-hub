@@ -1,11 +1,21 @@
-import { FileCleanupRepository } from './files.repository';
+import {
+  FileMetadataRepository,
+  FileCleanupRepository,
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+  FilesRepository,
+} from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService, SubmissionFilesService } from './files.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+  FilesService,
+  MilestoneDocumentFilesService,
+} from './files.service';
 import { DownloadResponseService } from './download-response.service';
-import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository, SubmissionFilesRepository, ProgramAuthoringUploadRepository } from './files.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
@@ -17,14 +27,27 @@ import { Readable } from 'node:stream';
 import { type UnwrapTuple } from '@prisma/client/runtime/library';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ProgramErrorCode } from './program-error-code.error';
-import { ProgramEditorRepository, type ProgramEditorTransactionStore } from './program-editor.repository';
+import {
+  ProgramEditorRepository,
+  type ProgramEditorTransactionStore,
+} from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionsRepository } from './submissions.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { cleanup, createMilestone, createProgram, domainCode, editor, installSyntheticAggregateFaultTrigger, prisma, runTogether, STAFF_GITHUB_ID, TEST_PREFIX } from './program-editor.integration-fixtures';
+import {
+  cleanup,
+  createMilestone,
+  createProgram,
+  domainCode,
+  editor,
+  installSyntheticAggregateFaultTrigger,
+  prisma,
+  runTogether,
+  STAFF_GITHUB_ID,
+  TEST_PREFIX,
+} from './program-editor.integration-fixtures';
 import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
 import { ProgramCoverUrlService } from './program-cover-url.service';
 
@@ -194,27 +217,33 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     expect(
-      await prisma.file.findUnique({where: {kind: 'UPLOAD',
-id: uploadId},
-select: {id: true}}),
+      await prisma.file.findUnique({
+        where: { kind: 'UPLOAD', id: uploadId },
+        select: { id: true },
+      }),
     ).toBeNull();
     expect(
-      await prisma.file.findFirst({where: {kind: 'TEMPLATE',
-requirementId: firstDocumentId},
-select: {storageKey: true}}),
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
+        select: { storageKey: true },
+      }),
     ).toEqual({ storageKey: `program-authoring/${uploadId}` });
   });
   it('rejects a snapshot made before direct same-row template key replacement', async () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
-    await prisma.file.create({data: {kind: 'TEMPLATE',
-lifecycle: 'ATTACHED',
-requirementId: firstDocumentId,
-storageKey: 'objects/original',
-originalFileName: 'form.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 12,
-uploaderId: `${TEST_PREFIX}staff`}});
+    await prisma.file.create({
+      data: {
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirementId: firstDocumentId,
+        storageKey: 'objects/original',
+        originalFileName: 'form.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 12,
+        uploaderId: `${TEST_PREFIX}staff`,
+      },
+    });
     const snapshot = await editor.getMilestoneEdit(
       STAFF_GITHUB_ID,
       milestoneId,
@@ -224,12 +253,23 @@ uploaderId: `${TEST_PREFIX}staff`}});
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       memoryStorage(),
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -367,12 +407,23 @@ uploaderId: `${TEST_PREFIX}staff`}});
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       memoryStorage(),
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -395,9 +446,10 @@ uploaderId: `${TEST_PREFIX}staff`}});
       ),
     ).rejects.toMatchObject({ errorCode: { code: 'MSD_004' } });
     expect(
-      await prisma.file.findFirst({where: {kind: 'TEMPLATE',
-requirementId: firstDocumentId},
-select: {id: true}}),
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
+        select: { id: true },
+      }),
     ).toBeNull();
   });
   it('pauses direct template storage completion before its document lock while aggregate deletes, then rejects without pointer resurrection', async () => {
@@ -409,8 +461,15 @@ select: {id: true}}),
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       {
         ...memoryStorage(),
@@ -422,8 +481,12 @@ select: {id: true}}),
             contentType: input.contentType,
           })),
       },
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -459,9 +522,10 @@ select: {id: true}}),
       errorCode: { code: 'MSD_004' },
     });
     expect(
-      await prisma.file.findFirst({where: {kind: 'TEMPLATE',
-requirementId: firstDocumentId},
-select: {id: true}}),
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
+        select: { id: true },
+      }),
     ).toBeNull();
   });
   it('serializes a real student submission lock before aggregate deletion and preserves its history', async () => {
@@ -477,6 +541,7 @@ select: {id: true}}),
     const submissionPrisma = pausingSubmissionPrisma(locked, release);
     const submission = new SubmissionsRepository(
       new PlatformRepository(),
+      new FileMetadataRepository(),
     ).upsertMilestoneDocumentSubmission(submissionPrisma, {
       milestoneDocumentId: firstDocumentId,
       applicationId: application.id,
@@ -529,6 +594,7 @@ select: {id: true}}),
     await expect(
       new SubmissionsRepository(
         new PlatformRepository(),
+        new FileMetadataRepository(),
       ).upsertMilestoneDocumentSubmission(prisma, {
         milestoneDocumentId: firstDocumentId,
         applicationId: application.id,
@@ -570,12 +636,23 @@ select: {id: true}}),
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
-        new SubmissionsRepository(new PlatformRepository()),
-        new MilestoneDocumentCollectionReadRepository(prisma),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new MilestoneDocumentCollectionReadRepository(
+          prisma,
+          new FileMetadataRepository(),
+        ),
+        new FileMetadataRepository(),
       ),
       memoryStorage(),
-      new SubmissionFilesService(
-        new SubmissionFilesRepository(prisma, new PlatformRepository()),
+      new FilesService(
+        new FilesRepository(
+          prisma,
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
         memoryStorage(),
         new ProgramScheduleService(),
         new SubmissionFileAdmissionService(),
@@ -598,9 +675,10 @@ select: {id: true}}),
       ),
     ).resolves.toMatchObject({ documentId: firstDocumentId });
     expect(
-      await prisma.file.findFirstOrThrow({where: {kind: 'TEMPLATE',
-requirementId: firstDocumentId},
-select: {uploaderId: true}}),
+      await prisma.file.findFirstOrThrow({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
+        select: { uploaderId: true },
+      }),
     ).toEqual({ uploaderId: `${TEST_PREFIX}staff` });
   });
   it('rejects a cleanup-claimed DELETE_PENDING token before graph mutation', async () => {
@@ -674,9 +752,7 @@ select: {uploaderId: true}}),
       ]),
     );
     await locked.promise;
-    const claim = await new FileCleanupRepository(
-      prisma,
-    ).claimNextForDeletion({
+    const claim = await new FileCleanupRepository(prisma).claimNextForDeletion({
       now: new Date('2027-09-02T00:00:00.000Z'),
       leaseExpiresAt: new Date('2027-09-02T00:10:00.000Z'),
     });
@@ -687,14 +763,16 @@ select: {uploaderId: true}}),
       documents: anyArrayMatcher,
     });
     expect(
-      await prisma.file.findUnique({where: {kind: 'UPLOAD',
-id: uploadId},
-select: {id: true}}),
+      await prisma.file.findUnique({
+        where: { kind: 'UPLOAD', id: uploadId },
+        select: { id: true },
+      }),
     ).toBeNull();
     expect(
-      await prisma.file.findFirst({where: {kind: 'TEMPLATE',
-requirementId: firstDocumentId},
-select: {storageKey: true}}),
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
+        select: { storageKey: true },
+      }),
     ).toEqual({ storageKey: `program-authoring/${uploadId}` });
   });
   it('lets an actual cleanup claim win while aggregate is open before token locking', async () => {
@@ -744,14 +822,16 @@ select: {storageKey: true}}),
       },
     });
     expect(
-      await prisma.file.findFirst({where: {kind: 'TEMPLATE',
-requirementId: firstDocumentId},
-select: {id: true}}),
+      await prisma.file.findFirst({
+        where: { kind: 'TEMPLATE', requirementId: firstDocumentId },
+        select: { id: true },
+      }),
     ).toBeNull();
     expect(
-      await prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
-id: uploadId},
-select: {lifecycle: true}}),
+      await prisma.file.findUniqueOrThrow({
+        where: { kind: 'UPLOAD', id: uploadId },
+        select: { lifecycle: true },
+      }),
     ).toEqual({ lifecycle: ProgramAuthoringUploadLifecycle.DELETE_PENDING });
   });
   it('rolls back the complete graph after real aggregate writes when the transaction callback aborts before commit', async () => {
@@ -920,14 +1000,18 @@ select: {lifecycle: true}}),
     async (event) => {
       const { milestoneId, firstDocumentId } = await seedGraph();
       if (event === 'UPDATE') {
-        await prisma.file.create({data: {kind: 'TEMPLATE',
-lifecycle: 'ATTACHED',
-requirementId: firstDocumentId,
-storageKey: 'objects/original-template',
-originalFileName: 'original.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 1,
-uploaderId: `${TEST_PREFIX}staff`}});
+        await prisma.file.create({
+          data: {
+            kind: 'TEMPLATE',
+            lifecycle: 'ATTACHED',
+            requirementId: firstDocumentId,
+            storageKey: 'objects/original-template',
+            originalFileName: 'original.pdf',
+            mimeType: 'application/pdf',
+            sizeBytes: 1,
+            uploaderId: `${TEST_PREFIX}staff`,
+          },
+        });
       }
       const uploadId = await createPendingUpload(`template-${event}`);
       const snapshot = await editor.getMilestoneEdit(
@@ -1136,16 +1220,20 @@ async function createPendingUpload(
   expiresAt = new Date('2027-09-01T00:00:00.000Z'),
 ): Promise<string> {
   const id = `${TEST_PREFIX}upload:${label}:${crypto.randomUUID()}`;
-  await prisma.file.create({data: {kind: 'UPLOAD',
-id: id,
-uploaderId: `${TEST_PREFIX}staff`,
-storageKey: `program-authoring/${id}`,
-originalFileName: 'form.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 12,
-sha256: 'a'.repeat(64),
-lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
-pendingExpiresAt: expiresAt}});
+  await prisma.file.create({
+    data: {
+      kind: 'UPLOAD',
+      id: id,
+      uploaderId: `${TEST_PREFIX}staff`,
+      storageKey: `program-authoring/${id}`,
+      originalFileName: 'form.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 12,
+      sha256: 'a'.repeat(64),
+      lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+      pendingExpiresAt: expiresAt,
+    },
+  });
   return id;
 }
 function createFaultingEditor(
@@ -1355,7 +1443,7 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
         required: true,
         sortOrder: true,
         files: {
-          where: {kind: 'TEMPLATE', lifecycle: 'ATTACHED'},
+          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
           take: 1,
           select: {
             storageKey: true,
@@ -1366,11 +1454,10 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
         },
       },
     }),
-    prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
-id: uploadId},
-select: {id: true,
-lifecycle: true,
-storageKey: true}}),
+    prisma.file.findUniqueOrThrow({
+      where: { kind: 'UPLOAD', id: uploadId },
+      select: { id: true, lifecycle: true, storageKey: true },
+    }),
   ]);
   return { milestone, documents, upload };
 }

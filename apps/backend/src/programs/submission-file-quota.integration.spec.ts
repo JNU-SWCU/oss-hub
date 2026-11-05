@@ -1,3 +1,8 @@
+import {
+  FileMetadataRepository,
+  type CreatePendingSubmissionFileInput,
+  FilesRepository,
+} from './files.repository';
 import { ProgramScheduleService } from './program-schedule.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { EventEmitter, once } from 'node:events';
@@ -7,16 +12,16 @@ import { seedId, SeedStats } from '../../prisma/seeds/helpers';
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { type CreatePendingSubmissionFileInput, SubmissionFilesRepository } from './files.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 const prisma = new PrismaService();
-const repository = new SubmissionFilesRepository(
+const repository = new FilesRepository(
   prisma,
   new PlatformRepository(),
+  new FileMetadataRepository(),
 );
 const APPLICATION_ID = seedId('milestones', 'application', 'personal');
 const UPLOADER_ID = seedId('milestones', 'user', 'applicant-personal');
@@ -30,7 +35,11 @@ function pendingRow(suffix: string, sizeBytes: number) {
     uploaderId: UPLOADER_ID,
     applicationId: APPLICATION_ID,
     milestoneId: MILESTONE_ID,
-    milestoneDocumentId: seedId('milestones', MILESTONE_ID, 'legacy-submission-document'),
+    milestoneDocumentId: seedId(
+      'milestones',
+      MILESTONE_ID,
+      'legacy-submission-document',
+    ),
     storageKey: `${PREFIX}/${suffix}`,
     originalFileName: `${suffix}.pdf`,
     mimeType: 'application/pdf',
@@ -53,7 +62,8 @@ function retainedFile(
   sizeBytes: number,
   lifecycle: SubmissionFileLifecycle = SubmissionFileLifecycle.PENDING,
 ) {
-  const { applicationId, milestoneId, milestoneDocumentId, ...metadata } = pendingRow(suffix, sizeBytes);
+  const { applicationId, milestoneId, milestoneDocumentId, ...metadata } =
+    pendingRow(suffix, sizeBytes);
   void applicationId;
   void milestoneId;
   return {
@@ -71,32 +81,38 @@ async function quotaOutcome(input: CreatePendingSubmissionFileInput) {
   const [reservation] = await Promise.allSettled([
     repository.createPending(input),
   ]);
-  const aggregate = await prisma.file.aggregate({where: {kind: 'SUBMISSION',
-uploaderId: UPLOADER_ID,
-storageKey: { startsWith: PREFIX },
-lifecycle: { not: SubmissionFileLifecycle.DELETED }},
-_count: {_all: true},
-_sum: {sizeBytes: true}});
+  const aggregate = await prisma.file.aggregate({
+    where: {
+      kind: 'SUBMISSION',
+      uploaderId: UPLOADER_ID,
+      storageKey: { startsWith: PREFIX },
+      lifecycle: { not: SubmissionFileLifecycle.DELETED },
+    },
+    _count: { _all: true },
+    _sum: { sizeBytes: true },
+  });
   return {
     retainedBytes: aggregate._sum.sizeBytes ?? 0,
     retainedFiles: aggregate._count._all,
     status: reservation?.status,
   };
 }
-describe('SubmissionFilesRepository aggregate quota integration', () => {
+describe('FilesRepository aggregate quota integration', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await runProfile('milestones', new SeedStats());
   });
   afterEach(async () => {
-    await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-storageKey: { startsWith: PREFIX }}});
+    await prisma.file.deleteMany({
+      where: { kind: 'SUBMISSION', storageKey: { startsWith: PREFIX } },
+    });
   });
   afterAll(async () => {
     await prisma.$disconnect();
   });
   it('rejects file 101 when 100 non-deleted files include DELETE_PENDING', async () => {
-    await prisma.file.createMany({data: [
+    await prisma.file.createMany({
+      data: [
         ...Array.from({ length: 50 }, (_, index) =>
           retainedFile(`count-pending-${index}`, 1),
         ),
@@ -112,7 +128,8 @@ storageKey: { startsWith: PREFIX }}});
           RETAINED_BYTES_LIMIT,
           SubmissionFileLifecycle.DELETED,
         ),
-      ]});
+      ],
+    });
     const outcome = await quotaOutcome(pendingInput('count-overflow'));
     expect(outcome).toEqual({
       retainedBytes: 100,
@@ -121,12 +138,14 @@ storageKey: { startsWith: PREFIX }}});
     });
   });
   it('rejects one additional byte at 500 MiB retained across 99 files', async () => {
-    await prisma.file.createMany({data: [
+    await prisma.file.createMany({
+      data: [
         ...Array.from({ length: 98 }, (_, index) =>
           retainedFile(`bytes-${index}`, FILE_BYTES_LIMIT),
         ),
         retainedFile('bytes-remainder', 10 * 1024 * 1024),
-      ]});
+      ],
+    });
     const outcome = await quotaOutcome(pendingInput('bytes-overflow'));
     expect(outcome).toEqual({
       retainedBytes: RETAINED_BYTES_LIMIT,
@@ -135,7 +154,8 @@ storageKey: { startsWith: PREFIX }}});
     });
   });
   it('excludes DELETED rows from both retained count and retained bytes', async () => {
-    await prisma.file.createMany({data: [
+    await prisma.file.createMany({
+      data: [
         ...Array.from({ length: 99 }, (_, index) =>
           retainedFile(`deleted-exclusion-${index}`, 1),
         ),
@@ -149,22 +169,29 @@ storageKey: { startsWith: PREFIX }}});
           RETAINED_BYTES_LIMIT,
           SubmissionFileLifecycle.DELETED,
         ),
-      ]});
+      ],
+    });
     const reservation = repository.createPending(
       pendingInput('deleted-exclusion-allowed'),
     );
     await expect(reservation).resolves.toBeDefined();
     await expect(
-      prisma.file.count({where: {kind: 'SUBMISSION',
-uploaderId: UPLOADER_ID,
-storageKey: { startsWith: PREFIX },
-lifecycle: { not: SubmissionFileLifecycle.DELETED }}}),
+      prisma.file.count({
+        where: {
+          kind: 'SUBMISSION',
+          uploaderId: UPLOADER_ID,
+          storageKey: { startsWith: PREFIX },
+          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+        },
+      }),
     ).resolves.toBe(100);
   });
   it('serializes two concurrent reservations so only one reaches file 100', async () => {
-    await prisma.file.createMany({data: Array.from({ length: 99 }, (_, index) =>
+    await prisma.file.createMany({
+      data: Array.from({ length: 99 }, (_, index) =>
         retainedFile(`concurrent-${index}`, 1),
-      )});
+      ),
+    });
     const gate = new EventEmitter();
     const released = once(gate, 'release');
     const reservations = ['first', 'second'].map(async (suffix) => {
@@ -178,10 +205,14 @@ lifecycle: { not: SubmissionFileLifecycle.DELETED }}}),
       'rejected',
     ]);
     await expect(
-      prisma.file.count({where: {kind: 'SUBMISSION',
-uploaderId: UPLOADER_ID,
-storageKey: { startsWith: PREFIX },
-lifecycle: { not: SubmissionFileLifecycle.DELETED }}}),
+      prisma.file.count({
+        where: {
+          kind: 'SUBMISSION',
+          uploaderId: UPLOADER_ID,
+          storageKey: { startsWith: PREFIX },
+          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+        },
+      }),
     ).resolves.toBe(100);
   });
   it('브라우저 zip MIME 별칭으로 예약한 행도 쿼터에 포함된다', async () => {
@@ -195,10 +226,14 @@ lifecycle: { not: SubmissionFileLifecycle.DELETED }}}),
       mimeType: 'application/x-zip-compressed',
     });
     await expect(
-      prisma.file.count({where: {kind: 'SUBMISSION',
-uploaderId: UPLOADER_ID,
-storageKey: { startsWith: PREFIX },
-lifecycle: { not: SubmissionFileLifecycle.DELETED }}}),
+      prisma.file.count({
+        where: {
+          kind: 'SUBMISSION',
+          uploaderId: UPLOADER_ID,
+          storageKey: { startsWith: PREFIX },
+          lifecycle: { not: SubmissionFileLifecycle.DELETED },
+        },
+      }),
     ).resolves.toBe(1);
   });
 });

@@ -1,12 +1,21 @@
-import { fileMetadata } from './files.repository';
+import {
+  FileMetadataRepository,
+  ProgramAuthoringUploadTransactionRepository,
+  ProgramCoverRepository,
+} from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
-import { ProgramAuthoringUploadTransactionRepository, ProgramCoverRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { ProgramDeletionScopeRepository, ProgramAuthoringRepository } from './programs.repository';
+import {
+  ProgramDeletionScopeRepository,
+  ProgramAuthoringRepository,
+} from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
@@ -80,25 +89,43 @@ export async function seedUpload(
   actorId = ACTOR,
   expiresAt = new Date('2099-01-01'),
 ) {
-  const file = await prisma.file.create({data: {kind: 'UPLOAD',
-lifecycle: 'PENDING',
-uploaderId: actorId,
-storageKey: `${storagePrefix}${PREFIX}${randomUUID()}`,
-originalFileName: 'cover.png',
-mimeType: 'image/png',
-sizeBytes: 68,
-sha256: 'a'.repeat(64),
-pendingExpiresAt: expiresAt}});
-  return { ...fileMetadata(file), actorId, expiresAt };
+  const file = await prisma.file.create({
+    data: {
+      kind: 'UPLOAD',
+      lifecycle: 'PENDING',
+      uploaderId: actorId,
+      storageKey: `${storagePrefix}${PREFIX}${randomUUID()}`,
+      originalFileName: 'cover.png',
+      mimeType: 'image/png',
+      sizeBytes: 68,
+      sha256: 'a'.repeat(64),
+      pendingExpiresAt: expiresAt,
+    },
+  });
+  return { ...new FileMetadataRepository().read(file), actorId, expiresAt };
 }
 
 async function cleanup() {
-  await prisma.program.updateMany({ where: { name: { startsWith: PREFIX } }, data: { coverFileId: null } });
-  await prisma.file.deleteMany({where: {OR: [{program: {name: {startsWith: PREFIX}}}, {uploaderId: {startsWith: PREFIX}}]}});
-  await prisma.milestoneDocument.deleteMany({where: {milestone: {program: {name: {startsWith: PREFIX}}}}});
-  await prisma.milestone.deleteMany({where: {program: {name: {startsWith: PREFIX}}}});
-  await prisma.program.deleteMany({where: {name: {startsWith: PREFIX}}});
-  await prisma.user.deleteMany({where: {id: {startsWith: PREFIX}}});
+  await prisma.program.updateMany({
+    where: { name: { startsWith: PREFIX } },
+    data: { coverFileId: null },
+  });
+  await prisma.file.deleteMany({
+    where: {
+      OR: [
+        { program: { name: { startsWith: PREFIX } } },
+        { uploaderId: { startsWith: PREFIX } },
+      ],
+    },
+  });
+  await prisma.milestoneDocument.deleteMany({
+    where: { milestone: { program: { name: { startsWith: PREFIX } } } },
+  });
+  await prisma.milestone.deleteMany({
+    where: { program: { name: { startsWith: PREFIX } } },
+  });
+  await prisma.program.deleteMany({ where: { name: { startsWith: PREFIX } } });
+  await prisma.user.deleteMany({ where: { id: { startsWith: PREFIX } } });
 }
 
 beforeAll(async () => {

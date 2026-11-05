@@ -1,7 +1,13 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
-import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -128,14 +134,34 @@ export async function cleanup(): Promise<void> {
   const documentSubmissionHistoryIds = documentSubmissionHistories.map(
     (history) => history.id,
   );
-  await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-OR: [{kind: 'SUBMISSION',
-team: {applications: {some: {id: { startsWith: `${TEST_PREFIX}application:` }}}}},{kind: 'SUBMISSION',
-requirement: {milestoneId: { startsWith: `${TEST_PREFIX}milestone:` }}},{kind: 'SUBMISSION',
-submissionId: { in: documentSubmissionIds }},{kind: 'SUBMISSION',
-submissionHistoryId: {
+  await prisma.file.deleteMany({
+    where: {
+      kind: 'SUBMISSION',
+      OR: [
+        {
+          kind: 'SUBMISSION',
+          team: {
+            applications: {
+              some: { id: { startsWith: `${TEST_PREFIX}application:` } },
+            },
+          },
+        },
+        {
+          kind: 'SUBMISSION',
+          requirement: {
+            milestoneId: { startsWith: `${TEST_PREFIX}milestone:` },
+          },
+        },
+        { kind: 'SUBMISSION', submissionId: { in: documentSubmissionIds } },
+        {
+          kind: 'SUBMISSION',
+          submissionHistoryId: {
             in: documentSubmissionHistoryIds,
-          }}]}});
+          },
+        },
+      ],
+    },
+  });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: { id: { in: documentSubmissionHistoryIds } },
   });
@@ -148,8 +174,9 @@ submissionHistoryId: {
   await prisma.team.deleteMany({
     where: { id: { startsWith: `${TEST_PREFIX}team:` } },
   });
-  await prisma.file.deleteMany({where: {kind: 'TEMPLATE',
-requirementId: { in: documentIds }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'TEMPLATE', requirementId: { in: documentIds } },
+  });
   await prisma.milestoneDocument.deleteMany({
     where: { id: { in: documentIds } },
   });
@@ -159,17 +186,16 @@ requirementId: { in: documentIds }}});
   await prisma.program.deleteMany({
     where: { id: { startsWith: `${TEST_PREFIX}program:` } },
   });
-  await prisma.file.deleteMany({where: {kind: 'UPLOAD',
-uploaderId: { startsWith: TEST_PREFIX }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'UPLOAD', uploaderId: { startsWith: TEST_PREFIX } },
+  });
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
 }
 export async function installSyntheticAggregateFaultTrigger(input: {
-  readonly table:
-    | 'Milestone'
-    | 'MilestoneDocument'
-    | 'File';
+  readonly table: 'Milestone' | 'MilestoneDocument' | 'File';
   readonly event: 'INSERT' | 'UPDATE' | 'DELETE';
-  readonly targetColumn: 'id' | 'milestoneId' | 'milestoneDocumentId' | 'requirementId';
+  readonly targetColumn:
+    'id' | 'milestoneId' | 'milestoneDocumentId' | 'requirementId';
   readonly targetId: string;
   readonly deferred?: boolean;
 }): Promise<() => Promise<void>> {

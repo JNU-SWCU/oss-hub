@@ -1,13 +1,40 @@
-import { FileCleanupRepository, SubmissionFilesRepository } from './files.repository';
+import { FileCleanupRepository } from './files.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { ProgramsRepository, ProgramDeletionScopeRepository, ProgramLifecycleRepository } from './programs.repository';
+import {
+  ProgramsRepository,
+  ProgramDeletionScopeRepository,
+  ProgramLifecycleRepository,
+} from './programs.repository';
 import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { AccountStatus, ApplicationStatus, BoardPostCategory, CollectionStreamType, MilestoneDocumentSubmissionHistoryEvent, Prisma, ProgramAuthoringUploadLifecycle, ProgramCategory, ProgramLifecycle, ProgramPurgeFileTombstoneLifecycle, RepositoryInvitationStatus, RepositoryConnectionMode, RepositoryIssuanceOutcome, RepositoryProvisionJobStatus, RepositorySource, RepositoryVisibility, ReviewDecision, SubmissionFileLifecycle, SubmissionStatus, TeamHistoryEvent, HistorySource, ProgramTrackType } from '@prisma/client';
+import {
+  AccountStatus,
+  ApplicationStatus,
+  BoardPostCategory,
+  CollectionStreamType,
+  MilestoneDocumentSubmissionHistoryEvent,
+  Prisma,
+  ProgramAuthoringUploadLifecycle,
+  ProgramCategory,
+  ProgramLifecycle,
+  ProgramPurgeFileTombstoneLifecycle,
+  RepositoryInvitationStatus,
+  RepositoryConnectionMode,
+  RepositoryIssuanceOutcome,
+  RepositoryProvisionJobStatus,
+  RepositorySource,
+  RepositoryVisibility,
+  ReviewDecision,
+  SubmissionFileLifecycle,
+  SubmissionStatus,
+  TeamHistoryEvent,
+  HistorySource,
+  ProgramTrackType,
+} from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { AuditLogRepository } from '../platform/audit-log.repository';
 import { AuditLogService } from '../platform/audit-log.service';
@@ -113,39 +140,69 @@ function isNotFound(error: unknown): boolean {
   return withMetadata.$metadata?.httpStatusCode === 404;
 }
 async function cleanup(): Promise<void> {
-  await prisma.program.updateMany({where: {id: {startsWith: PREFIX}}, data: {coverFileId: null}});
+  await prisma.program.updateMany({
+    where: { id: { startsWith: PREFIX } },
+    data: { coverFileId: null },
+  });
   await prisma.teamHistory.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });
-  const tombstones = await prisma.file.findMany({where: {kind: 'UPLOAD',
-OR: [{kind: 'UPLOAD',
-storageKey: { startsWith: OBJECT_PREFIX }},{kind: 'UPLOAD',
-storageKey: { startsWith: COVER_OBJECT_PREFIX }}]},
-select: {storageKey: true}});
+  const tombstones = await prisma.file.findMany({
+    where: {
+      kind: 'UPLOAD',
+      OR: [
+        { kind: 'UPLOAD', storageKey: { startsWith: OBJECT_PREFIX } },
+        { kind: 'UPLOAD', storageKey: { startsWith: COVER_OBJECT_PREFIX } },
+      ],
+    },
+    select: { storageKey: true },
+  });
   await Promise.all(
     tombstones.map(({ storageKey }) => storage.delete(storageKey)),
   );
-  await prisma.file.deleteMany({where: {kind: 'UPLOAD',
-OR: [{kind: 'UPLOAD',
-storageKey: { startsWith: OBJECT_PREFIX }},{kind: 'UPLOAD',
-storageKey: { startsWith: COVER_OBJECT_PREFIX }}]}});
-  const covers = await prisma.file.findMany({where: {kind: 'COVER',
-programId: { startsWith: PREFIX }},
-select: {storageKey: true}});
+  await prisma.file.deleteMany({
+    where: {
+      kind: 'UPLOAD',
+      OR: [
+        { kind: 'UPLOAD', storageKey: { startsWith: OBJECT_PREFIX } },
+        { kind: 'UPLOAD', storageKey: { startsWith: COVER_OBJECT_PREFIX } },
+      ],
+    },
+  });
+  const covers = await prisma.file.findMany({
+    where: { kind: 'COVER', programId: { startsWith: PREFIX } },
+    select: { storageKey: true },
+  });
   await Promise.all(
     covers.flatMap(({ storageKey }) =>
       storageKey === null ? [] : [storage.delete(storageKey)],
     ),
   );
-  await prisma.file.deleteMany({where: {kind: 'COVER',
-programId: { startsWith: PREFIX }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'COVER', programId: { startsWith: PREFIX } },
+  });
   await storage.delete(`${OBJECT_PREFIX}/submission-file.pdf`).catch(() => {});
   await storage.delete(`${OBJECT_PREFIX}/template-file.pdf`).catch(() => {});
-  await prisma.file.deleteMany({where: {kind: 'SUBMISSION',
-OR: [{kind: 'SUBMISSION',
-team: {applications: {some: { programId: { startsWith: PREFIX } } }}},{kind: 'SUBMISSION',
-requirement: {milestone: { is: { programId: { startsWith: PREFIX } } }}},{kind: 'SUBMISSION',
-storageKey: { startsWith: OBJECT_PREFIX }}]}});
+  await prisma.file.deleteMany({
+    where: {
+      kind: 'SUBMISSION',
+      OR: [
+        {
+          kind: 'SUBMISSION',
+          team: {
+            applications: { some: { programId: { startsWith: PREFIX } } },
+          },
+        },
+        {
+          kind: 'SUBMISSION',
+          requirement: {
+            milestone: { is: { programId: { startsWith: PREFIX } } },
+          },
+        },
+        { kind: 'SUBMISSION', storageKey: { startsWith: OBJECT_PREFIX } },
+      ],
+    },
+  });
   await prisma.milestoneDocumentSubmissionHistory.deleteMany({
     where: {
       submission: {
@@ -162,10 +219,14 @@ storageKey: { startsWith: OBJECT_PREFIX }}]}});
       },
     },
   });
-  await prisma.file.deleteMany({where: {kind: 'TEMPLATE',
-requirement: {
+  await prisma.file.deleteMany({
+    where: {
+      kind: 'TEMPLATE',
+      requirement: {
         milestone: { program: { id: { startsWith: PREFIX } } },
-      }}});
+      },
+    },
+  });
   await prisma.milestoneDocument.deleteMany({
     where: { milestone: { program: { id: { startsWith: PREFIX } } } },
   });
@@ -205,8 +266,9 @@ requirement: {
   await prisma.team.deleteMany({
     where: { programId: { startsWith: PREFIX } },
   });
-  await prisma.file.deleteMany({where: {kind: 'UPLOAD',
-uploaderId: { startsWith: PREFIX }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'UPLOAD', uploaderId: { startsWith: PREFIX } },
+  });
   await prisma.milestone.deleteMany({
     where: { program: { id: { startsWith: PREFIX } } },
   });
@@ -627,15 +689,19 @@ async function seedFullChildGraph(
     originalName: 'template-file.pdf',
     objectKey: templateFileStorageKey,
   });
-  await prisma.file.create({data: {kind: 'TEMPLATE',
-lifecycle: 'ATTACHED',
-id: p('template-file'),
-requirementId: documentId,
-storageKey: templateFileStorageKey,
-originalFileName: 'template-file.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 18,
-uploaderId: staffId}});
+  await prisma.file.create({
+    data: {
+      kind: 'TEMPLATE',
+      lifecycle: 'ATTACHED',
+      id: p('template-file'),
+      requirementId: documentId,
+      storageKey: templateFileStorageKey,
+      originalFileName: 'template-file.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 18,
+      uploaderId: staffId,
+    },
+  });
   await prisma.milestoneDocumentSubmission.create({
     data: {
       id: documentSubmissionId,
@@ -678,18 +744,27 @@ uploaderId: staffId}});
     originalName: 'submission-file.pdf',
     objectKey: submissionFileStorageKey,
   });
-  await prisma.file.create({data: {kind: 'SUBMISSION',
-id: p('submission-file'),
-uploaderId: applicantId,
-teamId: (await prisma.application.findUniqueOrThrow({where: {id: applicationId}, select: {teamId: true}})).teamId,
-storageKey: submissionFileStorageKey,
-originalFileName: 'submission-file.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 21,
-lifecycle: SubmissionFileLifecycle.ATTACHED,
-submissionId: documentSubmissionId,
-submissionHistoryId: documentSubmissionHistoryId,
-expiresAt: new Date('2030-01-01T00:00:00.000Z')}});
+  await prisma.file.create({
+    data: {
+      kind: 'SUBMISSION',
+      id: p('submission-file'),
+      uploaderId: applicantId,
+      teamId: (
+        await prisma.application.findUniqueOrThrow({
+          where: { id: applicationId },
+          select: { teamId: true },
+        })
+      ).teamId,
+      storageKey: submissionFileStorageKey,
+      originalFileName: 'submission-file.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 21,
+      lifecycle: SubmissionFileLifecycle.ATTACHED,
+      submissionId: documentSubmissionId,
+      submissionHistoryId: documentSubmissionHistoryId,
+      expiresAt: new Date('2030-01-01T00:00:00.000Z'),
+    },
+  });
   await prisma.program.update({
     where: { id: programId },
     data: {
@@ -699,21 +774,33 @@ expiresAt: new Date('2030-01-01T00:00:00.000Z')}});
       payloadHash: createHash('sha256').update(label).digest('hex'),
     },
   });
-  await prisma.milestoneDocument.create({data: {id: p('authoring-requirement'), milestoneId, name: 'Authoring template', required: false, sortOrder: 2}});
-  await prisma.file.create({data: {kind: 'TEMPLATE',
-id: p('authoring-upload'),
-uploaderId: staffId,
-storageKey: `${OBJECT_PREFIX}/${label}/authoring-upload.pdf`,
-originalFileName: 'authoring-upload.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 12,
-sha256: createHash('sha256')
+  await prisma.milestoneDocument.create({
+    data: {
+      id: p('authoring-requirement'),
+      milestoneId,
+      name: 'Authoring template',
+      required: false,
+      sortOrder: 2,
+    },
+  });
+  await prisma.file.create({
+    data: {
+      kind: 'TEMPLATE',
+      id: p('authoring-upload'),
+      uploaderId: staffId,
+      storageKey: `${OBJECT_PREFIX}/${label}/authoring-upload.pdf`,
+      originalFileName: 'authoring-upload.pdf',
+      mimeType: 'application/pdf',
+      sizeBytes: 12,
+      sha256: createHash('sha256')
         .update(`${label}-authoring-upload`)
         .digest('hex'),
-lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED,
-attachedAt: NOW,
-requirementId: p('authoring-requirement'),
-pendingExpiresAt: null}});
+      lifecycle: ProgramAuthoringUploadLifecycle.ATTACHED,
+      attachedAt: NOW,
+      requirementId: p('authoring-requirement'),
+      pendingExpiresAt: null,
+    },
+  });
   await prisma.outboxEvent.create({
     data: {
       id: p('outbox-event'),
@@ -870,8 +957,7 @@ async function programChildRowCounts(
     applicationOutboxEvents,
     programLinkedNotifications,
   ] = await Promise.all([
-    prisma.file.count({where: {kind: 'COVER',
-programId: programId}}),
+    prisma.file.count({ where: { kind: 'COVER', programId: programId } }),
     prisma.milestone.count({ where: { programId } }),
     prisma.application.count({ where: { programId } }),
     prisma.team.count({ where: { programId } }),
@@ -880,20 +966,35 @@ programId: programId}}),
     prisma.teamHistory.count({ where: { programId } }),
     prisma.boardPost.count({ where: { programId } }),
     prisma.boardComment.count({ where: { post: { programId } } }),
-    prisma.file.count({where: {kind: 'SUBMISSION',
-OR: [{kind: 'SUBMISSION',
-team: {applications: {some: { programId } }}},{kind: 'SUBMISSION',
-requirement: {milestone: { is: { programId } }}},{kind: 'SUBMISSION',
-submissionHistory: {
+    prisma.file.count({
+      where: {
+        kind: 'SUBMISSION',
+        OR: [
+          {
+            kind: 'SUBMISSION',
+            team: { applications: { some: { programId } } },
+          },
+          {
+            kind: 'SUBMISSION',
+            requirement: { milestone: { is: { programId } } },
+          },
+          {
+            kind: 'SUBMISSION',
+            submissionHistory: {
               is: {
                 submission: {
                   milestoneDocument: { milestone: { programId } },
                 },
               },
-            }}]}}),
+            },
+          },
+        ],
+      },
+    }),
     prisma.milestoneDocument.count({ where: { milestone: { programId } } }),
-    prisma.file.count({where: {kind: 'TEMPLATE',
-requirement: { milestone: { programId } }}}),
+    prisma.file.count({
+      where: { kind: 'TEMPLATE', requirement: { milestone: { programId } } },
+    }),
     prisma.milestoneDocumentSubmission.count({
       where: { milestoneDocument: { milestone: { programId } } },
     }),
@@ -908,8 +1009,7 @@ requirement: { milestone: { programId } }}}),
       where: { application: { programId } },
     }),
     prisma.program.count({ where: { id: programId, createdBy: 'USER' } }),
-    prisma.file.count({where: {kind: 'UPLOAD',
-programId: programId}}),
+    prisma.file.count({ where: { kind: 'UPLOAD', programId: programId } }),
     prisma.outboxEvent.count({
       where: { aggregateType: 'PROGRAM', aggregateId: programId },
     }),
@@ -1033,8 +1133,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       prisma.program.findUnique({ where: { id: programId } }),
     ).resolves.toMatchObject({ lifecycle: ProgramLifecycle.DELETED });
     await expect(
-      prisma.file.findFirst({where: {kind: 'COVER',
-programId: programId}}),
+      prisma.file.findFirst({ where: { kind: 'COVER', programId: programId } }),
     ).resolves.toMatchObject({ programId, storageKey });
     const attemptedAt = new Date();
     const failingCleanup = new FileCleanupService(
@@ -1048,8 +1147,9 @@ programId: programId}}),
       attemptedAt.getTime() + 60 * 60 * 1000,
     );
     await expect(
-      prisma.file.findUnique({where: {kind: 'COVER',
-storageKey: storageKey}}),
+      prisma.file.findUnique({
+        where: { kind: 'COVER', storageKey: storageKey },
+      }),
     ).resolves.toMatchObject({
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
       deleteAttemptCount: 1,
@@ -1063,8 +1163,9 @@ storageKey: storageKey}}),
     await expect(retryCleanup.runDue()).resolves.toBe(1);
     await expect(objectExists(storageKey)).resolves.toBe(false);
     await expect(
-      prisma.file.findUnique({where: {kind: 'COVER',
-storageKey: storageKey}}),
+      prisma.file.findUnique({
+        where: { kind: 'COVER', storageKey: storageKey },
+      }),
     ).resolves.toMatchObject({
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
     });
@@ -1082,11 +1183,13 @@ storageKey: storageKey}}),
       where: { id: applicant.applicantId },
       select: { id: true, githubId: true, accountStatus: true },
     });
-    const submissionFileBefore = await prisma.file.findUniqueOrThrow({where: {kind: 'SUBMISSION',
-storageKey: fixture.submissionFileStorageKey},
-select: {teamId: true,
-submissionId: true,
-submissionHistoryId: true}});
+    const submissionFileBefore = await prisma.file.findUniqueOrThrow({
+      where: {
+        kind: 'SUBMISSION',
+        storageKey: fixture.submissionFileStorageKey,
+      },
+      select: { teamId: true, submissionId: true, submissionHistoryId: true },
+    });
     const publishedRepositoryBefore =
       await prisma.githubRepository.findUniqueOrThrow({
         where: { id: fixture.publishedRepositoryId },
@@ -1240,22 +1343,28 @@ submissionHistoryId: true}});
         where: { id: fixture.collectionReleaseFactId },
       }),
     ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
-    const orphanSubmissionFile = await prisma.file.findFirst({where: {kind: 'SUBMISSION',
-storageKey: fixture.submissionFileStorageKey}});
+    const orphanSubmissionFile = await prisma.file.findFirst({
+      where: {
+        kind: 'SUBMISSION',
+        storageKey: fixture.submissionFileStorageKey,
+      },
+    });
     expect(orphanSubmissionFile).toMatchObject({
       lifecycle: SubmissionFileLifecycle.DELETE_PENDING,
       ...submissionFileBefore,
     });
     expect(await objectExists(fixture.submissionFileStorageKey)).toBe(true);
-    const tombstone = await prisma.file.findUnique({where: {kind: 'TEMPLATE',
-storageKey: fixture.templateFileStorageKey}});
+    const tombstone = await prisma.file.findUnique({
+      where: { kind: 'TEMPLATE', storageKey: fixture.templateFileStorageKey },
+    });
     expect(tombstone).toMatchObject({
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
     });
     expect(await objectExists(fixture.templateFileStorageKey)).toBe(true);
     await expect(
-      prisma.file.findUnique({where: {kind: 'COVER',
-storageKey: fixture.coverStorageKey}}),
+      prisma.file.findUnique({
+        where: { kind: 'COVER', storageKey: fixture.coverStorageKey },
+      }),
     ).resolves.toMatchObject({
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETE_PENDING,
     });
@@ -1270,18 +1379,24 @@ storageKey: fixture.coverStorageKey}}),
     await expect(submissionFileCleanup.runDue()).resolves.toBe(0);
     await expect(purgeFileCleanup.runDue()).resolves.toBe(0);
     await expect(
-      prisma.file.findUnique({where: {kind: 'COVER',
-storageKey: fixture.coverStorageKey}}),
+      prisma.file.findUnique({
+        where: { kind: 'COVER', storageKey: fixture.coverStorageKey },
+      }),
     ).resolves.toMatchObject({
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
     });
     await expect(
-      prisma.file.findFirst({where: {kind: 'SUBMISSION',
-storageKey: fixture.submissionFileStorageKey}}),
+      prisma.file.findFirst({
+        where: {
+          kind: 'SUBMISSION',
+          storageKey: fixture.submissionFileStorageKey,
+        },
+      }),
     ).resolves.toMatchObject({ lifecycle: SubmissionFileLifecycle.DELETED });
     await expect(
-      prisma.file.findUnique({where: {kind: 'TEMPLATE',
-storageKey: fixture.templateFileStorageKey}}),
+      prisma.file.findUnique({
+        where: { kind: 'TEMPLATE', storageKey: fixture.templateFileStorageKey },
+      }),
     ).resolves.toMatchObject({
       lifecycle: ProgramPurgeFileTombstoneLifecycle.DELETED,
     });
@@ -1432,18 +1547,27 @@ storageKey: fixture.templateFileStorageKey}}),
       });
     const deletedFileId = `${fixture.programId}-deleted-submission-file`;
     const deletedAt = new Date('2026-08-13T00:00:00.000Z');
-    await prisma.file.create({data: {kind: 'SUBMISSION',
-id: deletedFileId,
-uploaderId: application.applicantId,
-teamId: (await prisma.application.findUniqueOrThrow({where: {id: fixture.applicationId}, select: {teamId: true}})).teamId,
-submissionId: submission.id,
-submissionHistoryId: history.id,
-storageKey: `${OBJECT_PREFIX}/deleted-submission-file/completed.pdf`,
-originalFileName: 'completed.pdf',
-mimeType: 'application/pdf',
-sizeBytes: 21,
-lifecycle: SubmissionFileLifecycle.DELETED,
-deletedAt: deletedAt}});
+    await prisma.file.create({
+      data: {
+        kind: 'SUBMISSION',
+        id: deletedFileId,
+        uploaderId: application.applicantId,
+        teamId: (
+          await prisma.application.findUniqueOrThrow({
+            where: { id: fixture.applicationId },
+            select: { teamId: true },
+          })
+        ).teamId,
+        submissionId: submission.id,
+        submissionHistoryId: history.id,
+        storageKey: `${OBJECT_PREFIX}/deleted-submission-file/completed.pdf`,
+        originalFileName: 'completed.pdf',
+        mimeType: 'application/pdf',
+        sizeBytes: 21,
+        lifecycle: SubmissionFileLifecycle.DELETED,
+        deletedAt: deletedAt,
+      },
+    });
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     await expect(
       lifecycle.purge(ADMIN_GITHUB_ID, fixture.programId, expectedScope),
@@ -1453,8 +1577,9 @@ deletedAt: deletedAt}});
       deletedCounts: { submissionFiles: 1 },
     });
     await expect(
-      prisma.file.findUnique({where: {kind: 'SUBMISSION',
-id: deletedFileId}}),
+      prisma.file.findUnique({
+        where: { kind: 'SUBMISSION', id: deletedFileId },
+      }),
     ).resolves.toMatchObject({
       lifecycle: SubmissionFileLifecycle.DELETED,
       deletedAt,
@@ -1590,12 +1715,17 @@ id: deletedFileId}}),
     ]);
     expect(after).toEqual(before);
     await expect(
-      prisma.file.findUnique({where: {kind: 'COVER',
-storageKey: fixture.coverStorageKey}}),
-    ).resolves.toMatchObject({lifecycle: 'ATTACHED'});
+      prisma.file.findUnique({
+        where: { kind: 'COVER', storageKey: fixture.coverStorageKey },
+      }),
+    ).resolves.toMatchObject({ lifecycle: 'ATTACHED' });
     expect(await objectExists(fixture.coverStorageKey)).toBe(true);
-    const submissionFile = await prisma.file.findFirst({where: {kind: 'SUBMISSION',
-storageKey: fixture.submissionFileStorageKey}});
+    const submissionFile = await prisma.file.findFirst({
+      where: {
+        kind: 'SUBMISSION',
+        storageKey: fixture.submissionFileStorageKey,
+      },
+    });
     expect(submissionFile).toMatchObject({
       lifecycle: SubmissionFileLifecycle.ATTACHED,
     });
@@ -1987,6 +2117,18 @@ function pausingScopeReadPrisma(
 }
 
 async function createOwnedCover(programId: string, storageKey: string) {
-  const cover = await prisma.file.create({data: {kind: 'COVER', lifecycle: 'ATTACHED', programId, storageKey, mimeType: 'image/png', sizeBytes: 1}});
-  await prisma.program.update({where: {id: programId}, data: {coverFileId: cover.id}});
+  const cover = await prisma.file.create({
+    data: {
+      kind: 'COVER',
+      lifecycle: 'ATTACHED',
+      programId,
+      storageKey,
+      mimeType: 'image/png',
+      sizeBytes: 1,
+    },
+  });
+  await prisma.program.update({
+    where: { id: programId },
+    data: { coverFileId: cover.id },
+  });
 }

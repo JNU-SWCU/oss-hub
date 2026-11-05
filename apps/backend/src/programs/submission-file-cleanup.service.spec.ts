@@ -4,7 +4,6 @@ import { ScheduleModule, SchedulerRegistry } from '@nestjs/schedule';
 import { Test, TestingModule } from '@nestjs/testing';
 import { FileCleanupService } from './file-cleanup.service';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
-import { type SubmissionFilesRepository } from './files.repository';
 
 describe('FileCleanupService cron', () => {
   const CRON_JOB_NAME = 'file-cleanup';
@@ -31,9 +30,7 @@ describe('FileCleanupService cron', () => {
       service.runDue = runDue;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
-        providers: [
-          { provide: FileCleanupService, useValue: service },
-        ],
+        providers: [{ provide: FileCleanupService, useValue: service }],
       }).compile();
       await testingModule.init();
     });
@@ -125,11 +122,7 @@ function setup() {
     resetDeleteAttempts: jest.fn().mockResolvedValue(true),
   };
   const storage = { delete: jest.fn().mockResolvedValue(undefined) };
-  const service = new FileCleanupService(
-    files as unknown as FileCleanupRepository,
-    storage as unknown as ObjectStoragePort,
-    () => new Date(now),
-  );
+  const service = new FileCleanupService(files, storage, () => new Date(now));
   const setNow = (value: Date): void => {
     now = new Date(value);
   };
@@ -151,6 +144,19 @@ function claimed(deleteAttemptCount: number) {
 }
 
 describe('FileCleanupService', () => {
+  it('does not spend the storage retry budget when marking the deleted file fails', async () => {
+    const { service, files } = setup();
+    const failure = new Error('synthetic metadata write failure');
+    files.claimNextForDeletion
+      .mockResolvedValueOnce(claimed(0))
+      .mockResolvedValueOnce(null);
+    files.markDeleted.mockRejectedValueOnce(failure);
+
+    await expect(service.runDue()).rejects.toBe(failure);
+
+    expect(files.recordDeleteFailure).not.toHaveBeenCalled();
+  });
+
   it('claims with a ten-minute lease and treats storage not-found as success', async () => {
     const { service, files, storage } = setup();
     files.claimNextForDeletion

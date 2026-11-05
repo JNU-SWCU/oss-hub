@@ -1,11 +1,28 @@
-import { type RequirementSubmissionType, FileLifecycle, type Prisma as PrismaTypes, type ProgramTrackType, type ProgramLifecycle } from '@prisma/client';
+import {
+  type RequirementSubmissionType,
+  FileLifecycle,
+  type Prisma as PrismaTypes,
+  type ProgramTrackType,
+  type ProgramLifecycle,
+} from '@prisma/client';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
-import { ProgramCoverRepository, type ProgramCoverChange, ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  ProgramCoverRepository,
+  type ProgramCoverChange,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { Injectable } from '@nestjs/common';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramDeletionScopeRepository, type ProgramDeletionScopeCounts } from './programs.repository';
-import { type ProgramExternalCover, type ProgramAuthoringPendingUploadConsumption, type ProgramAuthoringUploadToken } from './files.config';
+import {
+  ProgramDeletionScopeRepository,
+  type ProgramDeletionScopeCounts,
+} from './programs.repository';
+import {
+  type ProgramExternalCover,
+  type ProgramAuthoringPendingUploadConsumption,
+  type ProgramAuthoringUploadToken,
+} from './files.config';
 import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
 
 export type ProgramAuthority = PrismaTypes.UserGetPayload<{
@@ -309,12 +326,20 @@ export class ProgramEditorRepository {
       await transaction.file.updateMany({
         where: {
           kind: 'SUBMISSION',
-           OR: [{ team: { programId: input.programId } }, { submissionHistory: { submission: { milestoneDocument: { milestone: { programId: input.programId } } } } }],
+          OR: [
+            { team: { programId: input.programId } },
+            {
+              submissionHistory: {
+                submission: {
+                  milestoneDocument: {
+                    milestone: { programId: input.programId },
+                  },
+                },
+              },
+            },
+          ],
           lifecycle: {
-            in: [
-              FileLifecycle.PENDING,
-              FileLifecycle.ATTACHED,
-            ],
+            in: [FileLifecycle.PENDING, FileLifecycle.ATTACHED],
           },
           deletedAt: null,
         },
@@ -537,7 +562,11 @@ export class ProgramEditorRepository {
         sortOrder: true,
         updatedAt: true,
         submissionType: true,
-        files: {where: {kind: 'TEMPLATE', lifecycle: 'ATTACHED'}, take: 1, select: {storageKey: true, originalFileName: true}},
+        files: {
+          where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' },
+          take: 1,
+          select: { storageKey: true, originalFileName: true },
+        },
       },
     });
     return {
@@ -627,10 +656,16 @@ export class ProgramEditorRepository {
       .filter((id) => !requestedExistingIds.includes(id));
     if (deletedIds.length > 0) {
       await transaction.file.updateMany({
-        where: { requirementId: { in: deletedIds }, lifecycle: { not: 'DELETED' } },
+        where: {
+          requirementId: { in: deletedIds },
+          lifecycle: { not: 'DELETED' },
+        },
         data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
       });
-      await transaction.file.updateMany({where: {requirementId: {in: deletedIds}}, data: {requirementId: null}});
+      await transaction.file.updateMany({
+        where: { requirementId: { in: deletedIds } },
+        data: { requirementId: null },
+      });
       await transaction.milestoneDocument.deleteMany({
         where: { id: { in: deletedIds } },
       });
@@ -733,7 +768,10 @@ export class ProgramEditorRepository {
       where: { requirement: { milestoneId }, lifecycle: { not: 'DELETED' } },
       data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
     });
-    await transaction.file.updateMany({where: {requirement: {milestoneId}}, data: {requirementId: null}});
+    await transaction.file.updateMany({
+      where: { requirement: { milestoneId } },
+      data: { requirementId: null },
+    });
     await transaction.milestoneDocument.deleteMany({
       where: { milestoneId },
     });

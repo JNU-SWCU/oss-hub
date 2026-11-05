@@ -55,12 +55,16 @@ describe('E2eProgramAuthoringFixture persistence', () => {
     async ({ name, reset }) => {
       await fixture.ensure();
       const storageKey = `program-covers/e2e-reset-${name}`;
-      await prisma.file.create({data: {kind: 'COVER',
-lifecycle: 'ATTACHED',
-programId: E2E_PROGRAM_ID,
-storageKey: storageKey,
-mimeType: 'image/png',
-sizeBytes: 1}});
+      await prisma.file.create({
+        data: {
+          kind: 'COVER',
+          lifecycle: 'ATTACHED',
+          programId: E2E_PROGRAM_ID,
+          storageKey: storageKey,
+          mimeType: 'image/png',
+          sizeBytes: 1,
+        },
+      });
       await e2eProgramAuthoringExternalPorts.storage.put({
         objectKey: storageKey,
         body: Buffer.from('synthetic-cover'),
@@ -74,8 +78,9 @@ sizeBytes: 1}});
         prisma.program.findUnique({ where: { id: E2E_PROGRAM_ID } }),
       ).resolves.toBeNull();
       await expect(
-        prisma.file.findFirst({where: {kind: 'COVER',
-programId: E2E_PROGRAM_ID}}),
+        prisma.file.findFirst({
+          where: { kind: 'COVER', programId: E2E_PROGRAM_ID },
+        }),
       ).resolves.toBeNull();
       expect(
         e2eProgramAuthoringExternalPorts.capture().storage.objectKeys,

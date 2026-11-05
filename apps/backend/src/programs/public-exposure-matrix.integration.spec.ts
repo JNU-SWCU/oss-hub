@@ -1,10 +1,19 @@
+import { FileMetadataRepository } from './files.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
-import { ApplicationStatus, CollectionRepositoryPresence, ProgramCategory, RepositoryProvisionJobStatus, RepositorySource, RepositoryVisibility, ProgramTrackType } from '@prisma/client';
+import {
+  ApplicationStatus,
+  CollectionRepositoryPresence,
+  ProgramCategory,
+  RepositoryProvisionJobStatus,
+  RepositorySource,
+  RepositoryVisibility,
+  ProgramTrackType,
+} from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { AuditLogRepository } from '../platform/audit-log.repository';
@@ -20,7 +29,10 @@ import { RankingRepository } from '../ranking/ranking.repository';
 import { RankingService } from '../ranking/ranking.service';
 import { PublicProjectsErrorCode } from './public-projects-error-code.error';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { PublicProjectsService, PublicEligibilityService } from './public-projects.service';
+import {
+  PublicProjectsService,
+  PublicEligibilityService,
+} from './public-projects.service';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
@@ -86,6 +98,7 @@ const submissionReviewsService = new SubmissionReviewsService(
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
   new SubmissionFileAdmissionService(),
+  new FileMetadataRepository(),
 );
 const PREFIX = 'synthetic-exposure-matrix';
 const now = () => new Date();

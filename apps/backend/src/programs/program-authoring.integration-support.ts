@@ -2,13 +2,21 @@ import { FileCleanupRepository } from './files.repository';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
-import { AccountStatus, ProgramAuthoringUploadLifecycle, ProgramTrackType } from '@prisma/client';
+import {
+  AccountStatus,
+  ProgramAuthoringUploadLifecycle,
+  ProgramTrackType,
+} from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { FileCleanupService } from './file-cleanup.service';
 import { ProgramAuthoringUploadRepository } from './files.repository';
-import { type ProgramAuthoringDocumentRequest, type ProgramAuthoringMilestoneRequest, type ProgramAuthoringRequest } from './files.config';
+import {
+  type ProgramAuthoringDocumentRequest,
+  type ProgramAuthoringMilestoneRequest,
+  type ProgramAuthoringRequest,
+} from './files.config';
 
 export const AUTHORING_TEST_PREFIX = 'test:p5:authoring:';
 const AUTHORING_OBJECT_PREFIX = 'program-authoring/test-p5-authoring';
@@ -76,16 +84,20 @@ export class ProgramAuthoringIntegrationHarness {
     const id = `${AUTHORING_TEST_PREFIX}upload:${options.label}`;
     const storageKey = `${AUTHORING_OBJECT_PREFIX}/${options.label}.pdf`;
     const body = pdfBody(options.label);
-    await this.prisma.file.create({data: {kind: 'UPLOAD',
-id: id,
-uploaderId: options.actorId,
-storageKey: storageKey,
-originalFileName: `${options.label}.pdf`,
-mimeType: 'application/pdf',
-sizeBytes: body.byteLength,
-sha256: createHash('sha256').update(body).digest('hex'),
-lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
-pendingExpiresAt: options.expiresAt ?? AUTHORING_EXPIRES_AT}});
+    await this.prisma.file.create({
+      data: {
+        kind: 'UPLOAD',
+        id: id,
+        uploaderId: options.actorId,
+        storageKey: storageKey,
+        originalFileName: `${options.label}.pdf`,
+        mimeType: 'application/pdf',
+        sizeBytes: body.byteLength,
+        sha256: createHash('sha256').update(body).digest('hex'),
+        lifecycle: ProgramAuthoringUploadLifecycle.PENDING,
+        pendingExpiresAt: options.expiresAt ?? AUTHORING_EXPIRES_AT,
+      },
+    });
     if (options.realObject === true) {
       await this.storage.put({
         body,
@@ -113,10 +125,20 @@ pendingExpiresAt: options.expiresAt ?? AUTHORING_EXPIRES_AT}});
   }
 
   async cleanup(): Promise<void> {
-    await this.prisma.program.updateMany({where: {name: {startsWith: AUTHORING_TEST_PREFIX}}, data: {coverFileId: null}});
-    const files = await this.prisma.file.findMany({where: {uploaderId: {startsWith: AUTHORING_TEST_PREFIX}}, select: {storageKey: true}});
-    await Promise.all(files.map(file => this.storage.delete(file.storageKey)));
-    await this.prisma.file.deleteMany({where: {uploaderId: {startsWith: AUTHORING_TEST_PREFIX}}});
+    await this.prisma.program.updateMany({
+      where: { name: { startsWith: AUTHORING_TEST_PREFIX } },
+      data: { coverFileId: null },
+    });
+    const files = await this.prisma.file.findMany({
+      where: { uploaderId: { startsWith: AUTHORING_TEST_PREFIX } },
+      select: { storageKey: true },
+    });
+    await Promise.all(
+      files.map((file) => this.storage.delete(file.storageKey)),
+    );
+    await this.prisma.file.deleteMany({
+      where: { uploaderId: { startsWith: AUTHORING_TEST_PREFIX } },
+    });
     await this.prisma.milestoneDocument.deleteMany({
       where: {
         milestone: { program: { name: { startsWith: AUTHORING_TEST_PREFIX } } },

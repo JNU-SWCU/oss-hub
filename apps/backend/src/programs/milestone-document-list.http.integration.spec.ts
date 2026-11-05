@@ -10,7 +10,10 @@ import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentFilesService } from './milestone-document-files.service';
+import {
+  MilestoneDocumentFilesService,
+  SubmissionFileAdmissionService,
+} from './files.service';
 import { MilestoneDocumentsController } from './milestone-documents.controller';
 import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
@@ -20,7 +23,6 @@ import { AuthSessionService } from '../platform/auth-session.service';
 import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { SubmissionFileAdmissionService } from './files.service';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
@@ -38,8 +40,9 @@ const sessionSecret = new Uint8Array(32).fill(23);
 const prisma = new PrismaService();
 let application: INestApplication;
 async function cleanup(): Promise<void> {
-  await prisma.file.deleteMany({where: {kind: 'TEMPLATE',
-requirement: { milestoneId }}});
+  await prisma.file.deleteMany({
+    where: { kind: 'TEMPLATE', requirement: { milestoneId } },
+  });
   await prisma.milestoneDocument.deleteMany({ where: { milestoneId } });
   await prisma.milestone.deleteMany({ where: { id: milestoneId } });
   await prisma.program.deleteMany({ where: { id: programId } });
@@ -185,15 +188,20 @@ describe('authenticated milestone document list filename contract', () => {
         },
       ],
     });
-    await prisma.file.create({data: {kind: 'TEMPLATE',
-lifecycle: 'ATTACHED',
-requirementId: `${prefix}-with-file`,
-uploaderId: userId,
-storageKey: `${prefix}/private/object-key`,
-originalFileName: '운영결과보고서_2026.docx',
-mimeType: 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-sizeBytes: 123,
-createdAt: new Date('2026-08-20')}});
+    await prisma.file.create({
+      data: {
+        kind: 'TEMPLATE',
+        lifecycle: 'ATTACHED',
+        requirementId: `${prefix}-with-file`,
+        uploaderId: userId,
+        storageKey: `${prefix}/private/object-key`,
+        originalFileName: '운영결과보고서_2026.docx',
+        mimeType:
+          'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        sizeBytes: 123,
+        createdAt: new Date('2026-08-20'),
+      },
+    });
     const response = await requestList();
     const body = (await response.json()) as {
       readonly documents: readonly Record<string, unknown>[];

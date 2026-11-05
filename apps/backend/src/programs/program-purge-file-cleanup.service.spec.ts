@@ -32,9 +32,7 @@ describe('FileCleanupService cron', () => {
       service.runDue = runDue;
       testingModule = await Test.createTestingModule({
         imports: [ScheduleModule.forRoot()],
-        providers: [
-          { provide: FileCleanupService, useValue: service },
-        ],
+        providers: [{ provide: FileCleanupService, useValue: service }],
       }).compile();
       await testingModule.init();
     });
@@ -124,11 +122,7 @@ function setup() {
     recordDeleteFailure: jest.fn().mockResolvedValue(true),
   };
   const storage = { delete: jest.fn().mockResolvedValue(undefined) };
-  const service = new FileCleanupService(
-    repository,
-    storage,
-    () => START,
-  );
+  const service = new FileCleanupService(repository, storage, () => START);
   return { service, repository, storage };
 }
 

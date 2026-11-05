@@ -1,3 +1,4 @@
+import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
@@ -28,6 +29,7 @@ assertIsolatedIntegrationDatabase({
 const harness = createDeadlineDigestIntegrationHarness();
 const repository = new MilestoneDocumentCollectionReadRepository(
   harness.prisma,
+  new FileMetadataRepository(),
 );
 const service = new MilestoneDocumentCollectionService(repository);
 const legacyService = new MilestoneDocumentsService(
@@ -35,13 +37,23 @@ const legacyService = new MilestoneDocumentsService(
     harness.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
-    new SubmissionsRepository(new PlatformRepository()),
-    new MilestoneDocumentCollectionReadRepository(harness.prisma),
+    new SubmissionsRepository(
+      new PlatformRepository(),
+      new FileMetadataRepository(),
+    ),
+    new MilestoneDocumentCollectionReadRepository(
+      harness.prisma,
+      new FileMetadataRepository(),
+    ),
+    new FileMetadataRepository(),
   ),
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),
   new ProgramScheduleService(),
-  new SubmissionsRepository(new PlatformRepository()),
+  new SubmissionsRepository(
+    new PlatformRepository(),
+    new FileMetadataRepository(),
+  ),
   new UserProfileService(),
 );
 const query = { filter: 'ALL', page: 1, pageSize: 20 } as const;

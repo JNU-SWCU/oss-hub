@@ -1,15 +1,37 @@
-import { fileMetadata } from './files.repository';
+import { FileMetadataRepository } from './files.repository';
 import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { Injectable, Inject } from '@nestjs/common';
-import { SubmissionStatus, ReviewDecision, FileLifecycle, RepositoryVisibility } from '@prisma/client';
-import { type RepositoryPublishEligibility, type PublishBlockedReason } from '../github/repository-publish.config';
+import {
+  SubmissionStatus,
+  ReviewDecision,
+  FileLifecycle,
+  RepositoryVisibility,
+} from '@prisma/client';
+import {
+  type RepositoryPublishEligibility,
+  type PublishBlockedReason,
+} from '../github/repository-publish.config';
 import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
-import { ReviewContextRow, SubmissionRevisionRecord, SubmissionReviewFileRecord, SubmissionReviewsRepository, type SubmissionReviewsRepositoryPort, type CreateSubmissionReviewInput, type RepositoryPublishResult, type SubmissionReviewContext, type SubmissionReviewResult, type PublishEligibilitySource } from './submission-reviews.repository';
+import {
+  ReviewContextRow,
+  SubmissionRevisionRecord,
+  SubmissionReviewFileRecord,
+  SubmissionReviewsRepository,
+  type SubmissionReviewsRepositoryPort,
+  type CreateSubmissionReviewInput,
+  type RepositoryPublishResult,
+  type SubmissionReviewContext,
+  type SubmissionReviewResult,
+  type PublishEligibilitySource,
+} from './submission-reviews.repository';
 import { DomainException } from '../platform/error-code.error';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import { RepositoriesService } from '../github/repositories.service';
-import { SUBMISSION_REVIEWS_ERROR_CODES, SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
+import {
+  SUBMISSION_REVIEWS_ERROR_CODES,
+  SubmissionReviewsErrorCode,
+} from './submission-reviews-error-code.error';
 import { RepositoryNotFoundError } from '../github/repositories.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -41,6 +63,7 @@ export class SubmissionReviewsService {
     private readonly repositoryUrlService: RepositoryUrlService,
     private readonly milestoneCompletionService: MilestoneCompletionService,
     private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
+    private readonly fileMetadata: FileMetadataRepository,
   ) {}
   reviewInputFromRequest(request: {
     readonly revision: number;
@@ -363,7 +386,7 @@ export class SubmissionReviewsService {
     ) {
       return [];
     }
-    const metadata = fileMetadata(file);
+    const metadata = this.fileMetadata.read(file);
     return [
       {
         fileId: file.id,

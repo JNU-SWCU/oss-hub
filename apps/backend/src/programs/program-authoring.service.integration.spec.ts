@@ -1,16 +1,34 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { SubmissionFileAdmissionService, ProgramAuthoringUploadService } from './files.service';
-import { ProgramCoverRepository, ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  SubmissionFileAdmissionService,
+  ProgramAuthoringUploadService,
+} from './files.service';
+import {
+  ProgramCoverRepository,
+  ProgramAuthoringUploadTransactionRepository,
+} from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
-import { ProgramTrackType, ProgramAuthoringUploadLifecycle } from '@prisma/client';
+import {
+  ProgramTrackType,
+  ProgramAuthoringUploadLifecycle,
+} from '@prisma/client';
 import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import { type AuditLogService } from '../platform/audit-log.service';
 import { ProgramAuthoringRepository } from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
-import { AUTHORING_TEST_PREFIX, ProgramAuthoringIntegrationHarness, authoringDocument, authoringMilestone, authoringRequest } from './program-authoring.integration-support';
-import { ProgramAuthoringIdempotencyConflictError, ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import {
+  AUTHORING_TEST_PREFIX,
+  ProgramAuthoringIntegrationHarness,
+  authoringDocument,
+  authoringMilestone,
+  authoringRequest,
+} from './program-authoring.integration-support';
+import {
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringUploadTokenError,
+} from './program-authoring.error';
 import { type ProgramAuthoringDocumentRequest } from './files.config';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 
@@ -117,7 +135,7 @@ describe('ProgramAuthoringService integration', () => {
               select: {
                 name: true,
                 required: true,
-                files: {where: {kind: 'TEMPLATE', lifecycle: 'ATTACHED'}},
+                files: { where: { kind: 'TEMPLATE', lifecycle: 'ATTACHED' } },
               },
             },
           },
@@ -137,8 +155,13 @@ describe('ProgramAuthoringService integration', () => {
         where: { name: `${AUTHORING_TEST_PREFIX}program:graph` },
       }),
     ).resolves.toBe(1);
-    const upload =
-      await harness.prisma.file.findUniqueOrThrow({where: {kind: 'TEMPLATE', id: templateId}, select: {lifecycle: true, requirement: {select: {milestone: {select: {programId: true}}}}}});
+    const upload = await harness.prisma.file.findUniqueOrThrow({
+      where: { kind: 'TEMPLATE', id: templateId },
+      select: {
+        lifecycle: true,
+        requirement: { select: { milestone: { select: { programId: true } } } },
+      },
+    });
     expect(upload.lifecycle).toBe(ProgramAuthoringUploadLifecycle.ATTACHED);
     expect(upload.requirement?.milestone.programId).toBe(created.id);
   });
@@ -371,21 +394,23 @@ describe('ProgramAuthoringService integration', () => {
       realObject: true,
       expiresAt: new Date(0),
     });
-    const before =
-      await harness.prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
-id: uploadId},
-select: {storageKey: true}});
+    const before = await harness.prisma.file.findUniqueOrThrow({
+      where: { kind: 'UPLOAD', id: uploadId },
+      select: { storageKey: true },
+    });
 
     await expect(harness.maintenance.runDue()).resolves.toBe(1);
 
     await expect(harness.objectExists(before.storageKey)).resolves.toBe(false);
-    const deleted =
-      await harness.prisma.file.findUniqueOrThrow({where: {kind: 'UPLOAD',
-id: uploadId},
-select: {lifecycle: true,
-deletedAt: true,
-deleteClaimOwner: true,
-nextDeleteAttemptAt: true}});
+    const deleted = await harness.prisma.file.findUniqueOrThrow({
+      where: { kind: 'UPLOAD', id: uploadId },
+      select: {
+        lifecycle: true,
+        deletedAt: true,
+        deleteClaimOwner: true,
+        nextDeleteAttemptAt: true,
+      },
+    });
     expect(deleted.lifecycle).toBe(ProgramAuthoringUploadLifecycle.DELETED);
     expect(deleted.deletedAt).not.toBeNull();
     expect(deleted.deleteClaimOwner).toBeNull();

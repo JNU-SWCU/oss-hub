@@ -1,4 +1,5 @@
-import type { PrismaService } from '../platform/prisma.service';
+import { FileMetadataRepository } from './files.repository';
+import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -7,8 +8,10 @@ describe('milestone-document-history-query.repository', () => {
   describe('milestone document history', () => {
     it('bounds routine review history reads to the latest 50 rows', () => {
       expect(
-        new MilestoneDocumentCollectionReadRepository({} as PrismaService)
-          .boundedReviewHistoryQuery,
+        new MilestoneDocumentCollectionReadRepository(
+          {} as PrismaService,
+          new FileMetadataRepository(),
+        ).boundedReviewHistoryQuery,
       ).toMatchObject({
         take: 50,
         orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -21,11 +24,13 @@ describe('milestone-document-history-query.repository', () => {
       expect(
         new SubmissionsRepository(
           new PlatformRepository(),
+          new FileMetadataRepository(),
         ).nextHistoryCreatedAt(new Date('2026-09-18T08:59:59.000Z'), latest),
       ).toEqual(new Date('2026-09-18T09:00:00.001Z'));
       expect(
         new SubmissionsRepository(
           new PlatformRepository(),
+          new FileMetadataRepository(),
         ).nextHistoryCreatedAt(new Date('2026-09-18T09:00:01.000Z'), latest),
       ).toEqual(new Date('2026-09-18T09:00:01.000Z'));
     });

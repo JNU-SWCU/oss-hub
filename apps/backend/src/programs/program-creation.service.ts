@@ -1,4 +1,10 @@
-import { Inject, Injectable, NotFoundException, ServiceUnavailableException, StreamableFile } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  NotFoundException,
+  ServiceUnavailableException,
+  StreamableFile,
+} from '@nestjs/common';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { ObjectStorageError } from '../platform/object-storage.error';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
@@ -8,7 +14,10 @@ import { AuditLogService } from '../platform/audit-log.service';
 import { PROGRAM_CREATED_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProgramsRepository } from './programs.repository';
-import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './program-error-code.error';
+import {
+  PROGRAM_ERROR_CODES,
+  ProgramErrorCode,
+} from './program-error-code.error';
 import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
