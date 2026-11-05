@@ -74,7 +74,7 @@ export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader 
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
-        ...(teamId === undefined ? {} : { teamId }),
+        ...(teamId === undefined ? {} : { id: teamId }),
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: {
