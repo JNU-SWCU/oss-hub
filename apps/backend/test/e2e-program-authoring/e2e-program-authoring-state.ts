@@ -73,7 +73,11 @@ export async function stateForE2eProgramGraph(
     }),
 
     prisma.file.findMany({
-      where: { kind: 'UPLOAD', uploaderId: actorIds[0], lifecycle: 'ATTACHED' },
+      where: {
+        kind: { in: ['TEMPLATE', 'COVER'] },
+        uploaderId: actorIds[0],
+        lifecycle: 'ATTACHED',
+      },
       select: { storageKey: true },
     }),
     prisma.file.findMany({

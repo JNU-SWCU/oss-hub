@@ -599,8 +599,8 @@ describe('program team membership transactions integration', () => {
       teamId,
       uploaderId: MEMBER_A_ID,
       lifecycle: FileLifecycle.ATTACHED,
-      milestoneDocumentSubmissionId: submitted.submissionId,
-      milestoneDocumentSubmissionHistoryId: submitted.historyId,
+      submissionId: submitted.submissionId,
+      submissionHistoryId: submitted.historyId,
       deletedAt: null,
     });
 
