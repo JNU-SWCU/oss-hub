@@ -17,7 +17,7 @@ import {
   type AdminAccessInsertedRequest,
   type AdminAccessRevokedRequestInsert,
 } from './admin-access-read.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import type { AdminAccessUserRow } from './admin-access-read.repository';
@@ -90,9 +90,9 @@ it.each([
     const service = new IndependentAuthorityService(
       store,
       noopAuditLog(),
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
       new UserProfileService(),
@@ -128,9 +128,9 @@ it.each([
     const service = new IndependentAuthorityService(
       store,
       noopAuditLog(),
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
       new UserProfileService(),
@@ -164,9 +164,9 @@ it('rejects a non-admin actor before writing', async () => {
   const service = new IndependentAuthorityService(
     store,
     noopAuditLog(),
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -187,9 +187,9 @@ it('rejects revoking the final active admin', async () => {
   const service = new IndependentAuthorityService(
     store,
     noopAuditLog(),
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -209,9 +209,9 @@ it('교직원 접근을 회수하면 행위자와 시각이 적힌 회수 이력
   const service = new IndependentAuthorityService(
     store,
     noopAuditLog(),
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -241,9 +241,9 @@ it.each([
     const service = new IndependentAuthorityService(
       store,
       noopAuditLog(),
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
       new UserProfileService(),
@@ -268,9 +268,9 @@ it('rejects revoking the actor own admin access', async () => {
   const service = new IndependentAuthorityService(
     store,
     noopAuditLog(),
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),
@@ -298,9 +298,9 @@ it('still allows the actor to revoke their own staff access', async () => {
   const service = new IndependentAuthorityService(
     store,
     noopAuditLog(),
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     new UserProfileService(),

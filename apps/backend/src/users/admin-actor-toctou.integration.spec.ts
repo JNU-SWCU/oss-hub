@@ -26,7 +26,7 @@ import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileService } from './admin-profile.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
@@ -38,7 +38,7 @@ const TEST_PREFIX = 'test:687:admin-actor-toctou:';
 const BLOCKING_OBSERVATION_TIMEOUT_MS = 20000;
 const GITHUB_ID_BASE = 9006871000n;
 const prisma = new PrismaService();
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 let sequence = 0;
 beforeAll(async () => {
   await prisma.$connect();
@@ -64,9 +64,9 @@ it(
         ),
         new UserTransitionRepository(),
       ),
-      auditLog,
+      userHistory,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -131,9 +131,9 @@ it(
           await releaseMutation.promise;
         },
       ),
-      auditLog,
+      userHistory,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -201,17 +201,17 @@ it(
           await releaseMutation.promise;
         },
       ),
-      auditLog,
+      userHistory,
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -275,17 +275,17 @@ it(
         new PrismaSerializationRetryRepository(),
         new UserTransitionRepository(),
       ),
-      auditLog,
+      userHistory,
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );

@@ -36,7 +36,7 @@ import {
 } from './team.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -96,7 +96,7 @@ beforeAll(async () => {
       new TeamDeletionScopeRepository(),
       new PrismaSerializationRetryRepository(),
     ),
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),

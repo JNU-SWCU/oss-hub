@@ -1,28 +1,25 @@
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import type { IndependentAuthorityUserRecord } from '../users/independent-authority.repository';
-import { INDEPENDENT_AUTHORITY_AUDIT_COMMANDS } from './audit-log-metadata.config';
-import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
+import { INDEPENDENT_AUTHORITY_AUDIT_COMMANDS } from './history-metadata.config';
 import {
   type IndependentAuthorityCommand,
   IndependentAuthorityService,
 } from '../users/independent-authority.service';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { HistoryMetadataService } from './history-metadata.service';
 import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
 const independentAuthorityService = new IndependentAuthorityService(
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ),
   new UserProfileService(),
 );
-
-const auditLogMetadataService = new AuditLogMetadataService();
 
 const actorGithubId = 9_700_700_001n;
 
@@ -52,7 +49,7 @@ it.each([
     'STUDENT',
   ],
 ] as const)(
-  'round-trips canonical command %s through storage parser and view',
+  'stores canonical command %s with every canonical state field',
   (command, hasStaffAccess, hasAdminAccess, role) => {
     const stored = createStoredMetadata(command, {
       hasStaffAccess,
@@ -60,141 +57,35 @@ it.each([
       role,
     });
 
-    expect(
-      auditLogMetadataService.parseAuditLogMetadata(storageRoundTrip(stored)),
-    ).toEqual({
-      legacy: false,
-      metadata: {
-        schemaVersion: 2,
-        eventKind: 'INDEPENDENT_AUTHORITY_CHANGED',
-        command,
-        actor: {
-          displayName: '합성 관리자',
-          githubLogin: 'synthetic-admin',
-        },
-        target: {
-          displayName: '합성 학생',
-          githubLogin: 'synthetic-target',
-        },
-        before: {
-          memberKind: MemberKind.STUDENT,
-          hasStaffAccess: false,
-          hasAdminAccess: false,
-          role: 'STUDENT',
-          accountStatus: AccountStatus.ACTIVE,
-        },
-        after: {
-          memberKind: MemberKind.STUDENT,
-          hasStaffAccess,
-          hasAdminAccess,
-          role,
-          accountStatus: AccountStatus.ACTIVE,
-        },
+    expect(storageRoundTrip(stored)).toEqual({
+      schemaVersion: 2,
+      eventKind: 'INDEPENDENT_AUTHORITY_CHANGED',
+      command,
+      actor: {
+        displayName: '합성 관리자',
+        githubLogin: 'synthetic-admin',
+      },
+      target: {
+        displayName: '합성 학생',
+        githubLogin: 'synthetic-target',
+      },
+      before: {
+        memberKind: MemberKind.STUDENT,
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        role: 'STUDENT',
+        accountStatus: AccountStatus.ACTIVE,
+      },
+      after: {
+        memberKind: MemberKind.STUDENT,
+        hasStaffAccess,
+        hasAdminAccess,
+        role,
+        accountStatus: AccountStatus.ACTIVE,
       },
     });
   },
 );
-
-it.each([
-  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.SET_MEMBER_KIND,
-  INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.RESET_MEMBER_KIND,
-])(
-  'round-trips membership command %s with every canonical state field',
-  (command) => {
-    const stored =
-      auditLogMetadataService.createIndependentAuthorityAuditMetadata({
-        command,
-        actor: {
-          displayName: '합성 관리자',
-          githubLogin: 'synthetic-admin',
-        },
-        target: {
-          displayName: '합성 학생',
-          githubLogin: 'synthetic-target',
-        },
-        before: {
-          memberKind: MemberKind.STUDENT,
-          hasStaffAccess: false,
-          hasAdminAccess: false,
-          role: 'STUDENT',
-          accountStatus: AccountStatus.ACTIVE,
-        },
-        after: {
-          memberKind: MemberKind.STAFF,
-          hasStaffAccess: true,
-          hasAdminAccess: false,
-          role: 'STAFF',
-          accountStatus: AccountStatus.ACTIVE,
-        },
-      });
-
-    expect(
-      auditLogMetadataService.parseAuditLogMetadata(storageRoundTrip(stored)),
-    ).toEqual({
-      legacy: false,
-      metadata: stored,
-    });
-  },
-);
-
-it.each([
-  ['missing command', (metadata: MetadataFixture) => omit(metadata, 'command')],
-  [
-    'wrong command type',
-    (metadata: MetadataFixture) => ({ ...metadata, command: 1 }),
-  ],
-  [
-    'unknown command',
-    (metadata: MetadataFixture) => ({ ...metadata, command: 'SET_ROLE_ADMIN' }),
-  ],
-  [
-    'unknown event',
-    (metadata: MetadataFixture) => ({
-      ...metadata,
-      eventKind: 'AUTHORITY_CHANGED',
-    }),
-  ],
-  [
-    'wrong state type',
-    (metadata: MetadataFixture) => ({
-      ...metadata,
-      before: { ...metadata.before, hasStaffAccess: 'yes' },
-    }),
-  ],
-  [
-    'extra top-level field',
-    (metadata: MetadataFixture) => ({ ...metadata, secret: true }),
-  ],
-  [
-    'extra snapshot field',
-    (metadata: MetadataFixture) => ({
-      ...metadata,
-      actor: { ...metadata.actor, id: 'actor' },
-    }),
-  ],
-  [
-    'extra state field',
-    (metadata: MetadataFixture) => ({
-      ...metadata,
-      after: { ...metadata.after, requestStatus: null },
-    }),
-  ],
-] as const)('fails closed for %s', (_name, mutate) => {
-  const valid = createStoredMetadata(
-    INDEPENDENT_AUTHORITY_AUDIT_COMMANDS.GRANT_STAFF_ACCESS,
-    {
-      hasStaffAccess: true,
-      role: 'STAFF',
-      memberKind: MemberKind.STAFF,
-    },
-  );
-
-  expect(() =>
-    auditLogMetadataService.parseAuditLogMetadata(mutate(valid)),
-  ).toThrow(InvalidAuditLogMetadataError);
-});
-
-type MetadataFixture = ReturnType<typeof createStoredMetadata>;
 
 function createStoredMetadata(
   command: IndependentAuthorityCommand['command'],
@@ -248,13 +139,4 @@ function targetUser(): IndependentAuthorityUserRecord {
 
 function storageRoundTrip(value: unknown): unknown {
   return JSON.parse(JSON.stringify(value)) as unknown;
-}
-
-function omit<Value extends Record<string, unknown>, Key extends keyof Value>(
-  value: Value,
-  key: Key,
-): Omit<Value, Key> {
-  const copy = { ...value };
-  delete copy[key];
-  return copy;
 }

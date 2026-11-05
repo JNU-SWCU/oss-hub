@@ -19,7 +19,7 @@ import { RolesErrorCode } from './roles-error-code.error';
 import { PausingActorRevalidationAdminAccessRepository } from './admin-access.integration-support';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 assertIsolatedIntegrationDatabase({
@@ -34,7 +34,7 @@ const repository = new AdminAccessRepository(
   new AdminRepository(prisma),
   new UserTransitionRepository(),
 );
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 const TEST_PREFIX = 'test:687:admin-access-actor-toctou:';
 const GITHUB_ID_BASE = 9006870000n;
 let sequence = 0;
@@ -56,9 +56,9 @@ it('잠금 전 actor 강등이 커밋되면, 잠금 뒤 재조회가 그 강등�
         await releasePauseBeforeLock.promise;
       },
     }),
-    auditLog,
+    userHistory,
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
   );
@@ -134,9 +134,9 @@ it('잠금이 걸린 뒤엔 actor 강등 시도가 진짜로 막히고, 뮤테�
         },
       },
     ),
-    auditLog,
+    userHistory,
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
   );

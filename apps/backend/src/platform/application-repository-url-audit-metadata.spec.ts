@@ -1,7 +1,6 @@
-import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { HistoryMetadataService } from './history-metadata.service';
 
-const auditLogMetadataService = new AuditLogMetadataService();
+const historyMetadataService = new HistoryMetadataService();
 
 describe('application repository URL audit', () => {
   const metadata = {
@@ -22,8 +21,11 @@ describe('application repository URL audit', () => {
   };
 
   it('preserves the committed repository identities and reason', () => {
-    const result = auditLogMetadataService.parseAuditLogMetadata(metadata);
-    expect(result).toEqual({ legacy: false, metadata });
+    const result =
+      historyMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+        metadata,
+      );
+    expect(result).toEqual(metadata);
   });
 
   it('reads current reasonless events without losing committed identities', () => {
@@ -36,10 +38,11 @@ describe('application repository URL audit', () => {
       before: metadata.before,
       after: metadata.after,
     };
-    expect(auditLogMetadataService.parseAuditLogMetadata(current)).toEqual({
-      legacy: false,
-      metadata: current,
-    });
+    expect(
+      historyMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+        current,
+      ),
+    ).toEqual(current);
     expect(current).not.toHaveProperty('reason');
   });
 
@@ -48,17 +51,21 @@ describe('application repository URL audit', () => {
     (length) => {
       const input = { ...metadata, reason: '😀'.repeat(length) };
 
-      const result = auditLogMetadataService.parseAuditLogMetadata(input);
+      const result =
+        historyMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+          input,
+        );
 
-      expect(result).toEqual({ legacy: false, metadata: input });
+      expect(result).toEqual(input);
     },
   );
 
   it('rejects a reason with 501 astral characters', () => {
     const input = { ...metadata, reason: '😀'.repeat(501) };
 
-    const parse = () => auditLogMetadataService.parseAuditLogMetadata(input);
+    const result =
+      historyMetadataService.parseApplicationRepositoryUrlAuditMetadata(input);
 
-    expect(parse).toThrow(InvalidAuditLogMetadataError);
+    expect(result).toBeNull();
   });
 });

@@ -7,7 +7,7 @@ import { UserHistoryRepository } from './user-history.repository';
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -15,7 +15,7 @@ import {
   type AccountDeactivationRepositoryPort,
 } from './account-deactivation.repository';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 
 export interface AccountDeactivationResult {
@@ -30,8 +30,8 @@ export class AccountDeactivationService {
     @Inject(AccountDeactivationRepository)
     private readonly repository: AccountDeactivationRepositoryPort,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly userProfileService: UserProfileService,
     private readonly authConfig: AuthConfig,
     private readonly authSessionService: AuthSessionService,
@@ -89,13 +89,13 @@ export class AccountDeactivationService {
           name: account.displayName,
         }),
       });
-      await this.auditLog.record(
+      await this.userHistory.record(
         {
           actorGithubId: githubId,
           action: ACCESS_AUDIT_ACTIONS.ACCOUNT_STATUS_CHANGED,
           targetType: 'USER',
           targetId: account.id,
-          metadata: this.auditLogMetadataService.createAccessAuditMetadata({
+          metadata: this.historyMetadataService.createAccessAuditMetadata({
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
             actor: person,
             target: person,

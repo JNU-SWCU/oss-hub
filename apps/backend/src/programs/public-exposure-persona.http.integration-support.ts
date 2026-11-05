@@ -34,7 +34,7 @@ import { SubmissionRepositoryPublishingController } from './submission-repositor
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuditLogReadRepository } from '../platform/audit-log-read.repository';
 import { AuditLogReadService } from '../platform/audit-log-read.service';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -111,7 +111,7 @@ export class PublicExposurePersonaHttpHarness {
     const repositoriesService = new RepositoriesService(
       repositoriesRepository,
       github as unknown as GithubAppClient,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryUrlService(),
     );
     const submissionReviewsService = new SubmissionReviewsService(

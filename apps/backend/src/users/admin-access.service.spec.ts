@@ -18,9 +18,9 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
   ACCESS_AUDIT_SCHEMA_VERSION,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 describe('AdminAccessService mutation', () => {
@@ -31,7 +31,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -68,7 +68,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -102,7 +102,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -183,7 +183,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -246,7 +246,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -305,7 +305,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -379,7 +379,7 @@ describe('AdminAccessService mutation', () => {
         repository,
         audit.service,
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       );
@@ -414,7 +414,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -448,7 +448,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -483,7 +483,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -516,7 +516,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -548,7 +548,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -579,7 +579,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -609,7 +609,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -640,7 +640,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -674,7 +674,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -736,7 +736,7 @@ describe('AdminAccessService mutation', () => {
       repository,
       audit.service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );

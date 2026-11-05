@@ -1,15 +1,15 @@
 import { MemberKind } from './user-contract.config';
 import { AUTHORITY_TARGETS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 const independentAuthorityService = new IndependentAuthorityService(
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ),
   new UserProfileService(),

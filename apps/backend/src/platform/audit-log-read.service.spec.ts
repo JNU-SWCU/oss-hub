@@ -1,4 +1,4 @@
-import { AuditLogErrorCode } from './audit-log-error-code.error';
+import { AuditLogErrorCode } from './history.error';
 import type { AuditLogRow } from './audit-log-read.repository';
 import { AuditLogReadService } from './audit-log-read.service';
 

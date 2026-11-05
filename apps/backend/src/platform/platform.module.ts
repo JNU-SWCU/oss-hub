@@ -23,7 +23,7 @@ import {
   RUNTIME_CONFIG,
 } from './runtime-config-instance.config';
 import { S3ObjectInventoryClient } from './s3-object-inventory.client';
-import { AuditLogMetadataService } from './audit-log-metadata.service';
+import { HistoryMetadataService } from './history-metadata.service';
 import { OriginGuard } from './origin.guard';
 import { RolesGuard } from './roles.guard';
 
@@ -47,7 +47,7 @@ import { RolesGuard } from './roles.guard';
     LockProgramTreeRepository,
     HealthService,
     AuditLogReadRepository,
-    AuditLogMetadataService,
+    HistoryMetadataService,
     AuditLogReadService,
     RolesGuard,
     AuthConfig,
@@ -61,7 +61,7 @@ import { RolesGuard } from './roles.guard';
     PrismaService,
     OBJECT_STORAGE,
     OBJECT_INVENTORY,
-    AuditLogMetadataService,
+    HistoryMetadataService,
     AuditLogReadService,
     RolesGuard,
     PlatformRepository,

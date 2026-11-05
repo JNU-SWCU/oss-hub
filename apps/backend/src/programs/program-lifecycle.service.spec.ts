@@ -1,7 +1,7 @@
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramHistoryRepository } from './programs.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
   ProgramDeletionScopeRepository,
@@ -53,7 +53,7 @@ function setup(
   } = {},
 ) {
   const prisma = new PrismaService();
-  const metadata = new AuditLogMetadataService();
+  const metadata = new HistoryMetadataService();
   const currentScope = options.currentScope ?? scope;
   const repository = new ProgramLifecycleRepository(
     prisma,

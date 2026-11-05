@@ -1,6 +1,6 @@
 import type { Prisma, UserHistoryEvent } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserHistoryRepository } from './user-history.repository';
 import { UserTransitionRepository } from './user-transition.repository';
 import { AdminAccessHistoryRepository } from './admin-access-history.repository';
@@ -10,7 +10,7 @@ import type {
   UserAuditInput,
 } from './user-history.types';
 
-const metadata = new AuditLogMetadataService();
+const metadata = new HistoryMetadataService();
 const person = { displayName: 'Synthetic', githubLogin: 'synthetic' };
 const requestedAt = '2026-01-02T00:00:00.000Z';
 const decidedAt = '2026-01-03T00:00:00.000Z';

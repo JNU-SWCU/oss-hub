@@ -44,7 +44,7 @@ import { ConsentsService } from '../users/consents.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './repositories.service';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryProvisionEventService } from './repository-provision-event.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { RepositoryUrlService } from './repository-url.service';
@@ -272,7 +272,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         state,
         github as unknown as GithubAppClient,
         ownEnrollment(),
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new RepositoryProvisionGithubService(new RepositoryUrlService()),
       );
       if (phase === 'SUCCEEDED') {
@@ -384,7 +384,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       state,
       github as unknown as GithubAppClient,
       ownEnrollment(),
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await expect(
@@ -424,7 +424,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -521,7 +521,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -634,7 +634,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await expect(
@@ -702,7 +702,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -768,7 +768,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -821,7 +821,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -879,7 +879,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -944,7 +944,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await worker.runNext('provision-worker-b', NOW);
@@ -987,7 +987,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await worker.runNext('provision-worker-cap-initial', NOW);
@@ -1024,7 +1024,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
     await worker.runNext('provision-worker-exhaust-initial', NOW);
@@ -1084,7 +1084,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
       state,
       github as unknown as GithubAppClient,
       ownEnrollment(),
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1197,7 +1197,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         {
           enrollExternalRepository: jest.fn(),
         } as unknown as RepositoryOwnEnrollmentService,
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new RepositoryProvisionGithubService(new RepositoryUrlService()),
       );
 

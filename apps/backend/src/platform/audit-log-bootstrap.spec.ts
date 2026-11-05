@@ -1,5 +1,5 @@
 import { AuditLogReadService } from './audit-log-read.service';
-import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
+import { InvalidAuditLogMetadataError } from './history.error';
 import type { AuditLogRow } from './audit-log-read.repository';
 
 const occurredAt = new Date('2026-11-02T00:00:00.000Z');

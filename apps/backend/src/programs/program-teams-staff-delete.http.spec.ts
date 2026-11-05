@@ -13,7 +13,7 @@ import type { TeamRepository, TeamActorAuthority } from './team.repository';
 import type { TeamDeletionResult } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -129,7 +129,7 @@ const repository = {
 const service = new TeamMembershipService(
   repository,
   stubTeamDeletionRepository({ deleteTeam: repositoryDeleteTeam }),
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),

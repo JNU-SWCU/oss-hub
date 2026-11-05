@@ -15,7 +15,7 @@ import { TeamRepository } from './team.repository';
 import { TeamHistoryRepository } from './team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { TeamMembershipService } from './team-membership.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
@@ -109,7 +109,7 @@ beforeAll(async () => {
       TeamHistoryRepository,
       ProgramTeamRepositoryEvidenceRepository,
       { provide: ProgramTeamDeletionRepository, useValue: {} },
-      AuditLogMetadataService,
+      HistoryMetadataService,
       {
         provide: RUNTIME_CONFIG,
         useValue: loadRuntimeConfig({
