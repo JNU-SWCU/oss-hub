@@ -1,6 +1,6 @@
 # Todo 8 다음 릴리스의 물리 삭제 draft
 
-선행 코드 PR은 #1746, head 4efd5689cd8f946e35696bd168ecfe8f929763fe다. 이 앱이 실제 배포된 뒤 그 다음 릴리스에서만 이 draft를 적용한다. migration이 앱 교체보다 먼저 실행되므로 A와 B를 같은 릴리스로 묶지 않는다. 이 작업은 merge·release 발행·배포·운영 DB 쓰기를 하지 않는다.
+선행 코드 PR은 #1746이다. 최초 base는 4efd5689cd8f946e35696bd168ecfe8f929763fe이며, CI가 발견한 폐기 GET manifest 보정 a7e920da9도 A와 이 draft에 동일하게 포함했다. 해당 전체 라우트 대조는 로컬 1 suite / 1 test, EXIT=0이다. 이 앱이 실제 배포된 뒤 그 다음 릴리스에서만 이 draft를 적용한다. migration이 앱 교체보다 먼저 실행되므로 A와 B를 같은 릴리스로 묶지 않는다. 이 작업은 merge·release 발행·배포·운영 DB 쓰기를 하지 않는다.
 
 ## 읽기 전용 preflight
 
