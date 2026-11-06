@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import { AUTH_SCENARIOS } from './auth';
 import {
+  applicationTemplateKey,
   offsetDays,
   OssHubTeamAccount,
   prisma,
@@ -122,7 +123,9 @@ export async function seedOssHub(
           name: PROGRAM_NAME,
           organizer: PROGRAM_ORGANIZER,
           category: ProgramCategory.OSS_CONTEST,
-          applicationTemplateKey: ProgramCategory.OSS_CONTEST.toLowerCase(),
+          applicationTemplateKey: applicationTemplateKey(
+            ProgramCategory.OSS_CONTEST,
+          ),
           applicationTemplateVersion: 1,
           applicationStartAt: PROGRAM_APPLICATION_START_AT,
           applicationEndAt: PROGRAM_APPLICATION_END_AT,
@@ -139,7 +142,9 @@ export async function seedOssHub(
           name: PROGRAM_NAME,
           organizer: PROGRAM_ORGANIZER,
           category: ProgramCategory.OSS_CONTEST,
-          applicationTemplateKey: ProgramCategory.OSS_CONTEST.toLowerCase(),
+          applicationTemplateKey: applicationTemplateKey(
+            ProgramCategory.OSS_CONTEST,
+          ),
           applicationTemplateVersion: 1,
           applicationStartAt: PROGRAM_APPLICATION_START_AT,
           applicationEndAt: PROGRAM_APPLICATION_END_AT,
