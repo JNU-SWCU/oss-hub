@@ -101,6 +101,8 @@ Program과 모든 하위 행을 보존하고 lifecycle만 DELETED로 바꾼다. 
 
 레거시 연간 집계 테이블은 기존 CASCADE FK로 승인 대상 행만 정리한다. 테이블 폐기·Prisma 편입은 하지 않는다. 상세 전후 건수와 배포 순서는 `task-7-program-table-simplification.md`에 기록한다.
 
+2026-11-06 계획 대조 보정: 계획 Todo 7 QA(l.214)가 적은 `src/github/collection-sync.integration.spec.ts`는 저장소에 한 번도 없었다(`git log --all -- apps/backend/src/github/collection-sync.integration.spec.ts` 0건). Todo 7 증거는 그 대신 세 통합 테스트를 실행했다. `apps/backend/src/programs/relink-collection.integration.spec.ts`는 팀 연결 레포 수집 지속과 삭제 프로그램 제외(`task-7-retire.md:34`), `apps/backend/prisma/github-scope-migration.integration.spec.ts`는 범위 삭제·백필 SQL(`task-7-retire.md:36`), `apps/backend/src/programs/student-repository-url.ranking.integration.spec.ts`는 랭킹 응답 전후 동일(`task-7-program-table-simplification.md:98`)을 확인했다. 팀 삭제 시 레포 행·수집 기록 삭제는 기존 실제 팀 삭제 통합 20개 테스트(`task-7-program-table-simplification.md:96`)와 전체 통합 회귀(`task-7-retire.md:38`)로 확인했다. 계획의 QA 명령을 그대로 실행했다는 뜻으로 읽지 않는다.
+
 ## 파일별 의도와 상태
 
 Todo 5 후속 draft는 준비 PR #1725의 앱 코드와 위 파일 수·줄 수를 그대로 유지한다. ProgramCreateRequest와 옛 업로드 FK의 물리 삭제만 다음 릴리스로 분리한다. 대조 실패 중단·빈 DB 이관·리허설 증거는 `task-5-retire-verification.md`에 있다.
@@ -339,7 +341,7 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/program-viewer.service.ts`                                   | keep   | `program-viewer.service.ts`                                                |    1 | present |           77 | 구조표에서 명시한 유지 경계                                                                                    |
 | `apps/backend/src/programs/programs.controller.ts`                                      | keep   | `programs.controller.ts`                                                   |   11 | present |          251 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
 | `apps/backend/src/programs/programs.module.ts`                                          | keep   | `programs.module.ts`                                                       |   11 | present |          281 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
-| `apps/backend/src/programs/programs.repository.ts`                                      | keep   | `programs.repository.ts`                                                   |   11 | present |          403 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
+| `apps/backend/src/programs/programs.repository.ts`                                      | keep   | `programs.repository.ts`                                                   |   11 | present |          403 | 기존 설정·계산/편집 경계 유지; Todo 11 마무리에서 항상 0인 purge 건수 18개, 중복 Team count, PROGRAM outbox 분기 제거(1460→1413줄) |
 | `apps/backend/src/programs/programs.service.ts`                                         | keep   | `programs.service.ts`                                                      |   11 | present |          446 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
 | `apps/backend/src/programs/public-eligibility.repository.ts`                            | keep   | `public-eligibility.repository.ts`                                         |    1 | present |           41 | 구조표에서 명시한 유지 경계                                                                                    |
 | `apps/backend/src/programs/public-project-cursor.error.ts`                              | keep   | `public-project-cursor.error.ts`                                           |   11 | present |            8 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
@@ -797,8 +799,74 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 
 파일을 더하거나 지우거나 합치지 않았으므로 경로 행은 없다. 늘어난 2줄은 `program-lifecycle.config.ts`에 있다. schema에 `@@ignore`로 선언한 연도 집계 테이블 두 개가 `GithubRepository`에 거는 외래 키를 기존 `github-repository-collection-descendants-preserved` 단계의 `covers`에 더한 줄이다. 단계와 동작은 그대로다.
 
-| 범위 | 1단계 files | 1단계 lines | Todo 11 2단계 files | Todo 11 2단계 lines |
+| 범위 | 머지 직전 main files | 머지 직전 main lines | Todo 11 2단계 files | Todo 11 2단계 lines |
 | --- | ---: | ---: | ---: | ---: |
-| programs 제품 파일 (DTO 포함) | 153 | 32294 | 153 | 32296 |
+| programs 제품 파일 (DTO 포함) | 153 | 32244 | 153 | 32246 |
+
+2026-11-06 실측 보정: 이 표는 처음에 1단계 head `8073f663f`의 32294줄에 2줄을 더한 32296줄로 적었다. 2단계 PR #1766이 머지되기 전에 #1765(`2c446c4db`)가 서버의 프로그램 내림 상태 분기를 지워 programs 제품 줄 수를 32294에서 32244로 줄였고, #1762(`11d7f56da`)는 programs 제품 줄 수를 바꾸지 않았다. 위 전후 수치 절과 같은 방법(`apps/backend/src/programs/**/*.ts`에서 테스트 접미사 제외, `git show <rev>:<path> | wc -l` 합)으로 다시 세면 머지 직전 main `11d7f56da`는 153개 32244줄, 2단계 머지 `aff9150be`는 153개 32246줄이다. 2단계 자체의 +2줄 설명은 그대로 맞다.
 
 `apps/backend/src/programs` 아래 디렉터리는 `dto` 하나다. 프로그램 도메인 테이블은 `Program`·`ProgramHistory`·`Milestone`·`Requirement`·`Team`·`TeamMember`·`TeamInvitation`·`TeamHistory`·`Submission`·`SubmissionHistory`·`File`·`BoardPost`·`BoardComment` 13개다.
+
+## Todo 11 마무리: 범위 확정과 죽은 값 정리
+
+기준은 2단계 머지 `aff9150be`(#1766, v0.24.62)다. schema.prisma, 마이그레이션, DB는 바꾸지 않는다. 동작 변경은 없고 죽은 코드와 값만 지운다.
+
+### Todo 11 범위 확정
+
+계획 Todo 11은 `MilestoneDocument*`를 `Requirement`·`Submission`·`SubmissionHistory`로 기계적으로 바꾸라고 적었다. 이번 주기의 Todo 11은 DB 테이블·열·enum 타입 이름(2단계), Prisma 모델 이름과 구조 표의 파일 통합·이름(1단계)까지만 바꿨다. API 경로, 응답 필드, 오류 코드, enum 값은 wire 계약이므로 의도적으로 그대로 둔다. 내부 TS class·type·파일 이름의 `MilestoneDocument*`·`milestoneDocument*` 잔재(계획 후속 12행 집계 기준 백엔드 제품 파일 47개, 프론트 제품 파일 55개)는 계획 후속 12행으로 미룬다. 고아 enum 타입 삭제는 13행, `auditLogWriter` 이름 변경은 14행이다. 이 정리 PR은 세 행 중 어느 것도 하지 않는다.
+
+### 변경
+
+- 프로그램 purge 응답 `deletedCounts`에서 항상 0이던 건수 18개를 지우고 `files`만 남겼다. purge는 soft delete이므로 실제로 바뀌는 행은 업로드 파일의 `DELETE_PENDING` 전환뿐이다. 백엔드는 같은 조건의 `findMany`와 `updateMany`를 따로 부르지 않고 `updateMany`의 count를 돌려준다. 프론트는 라벨 표 없이 같은 완료 문구(`파일 삭제 대기 N건` 또는 `정리할 업로드 파일이 없습니다.`)를 만든다. 옛 프론트는 0이 아닌 키만 표시했으므로 캐시된 옛 화면의 문구도 같다.
+- 삭제 범위 건수 SQL에서 같은 `Team` count 두 개를 하나로 줄였다. 응답의 `applications` 키는 wire 계약이므로 `teams` 값으로 유지한다.
+- 삭제 범위 fingerprint에서 `aggregateType = 'PROGRAM'` outbox 분기를 지웠다. 제품 코드가 쓰는 outbox aggregate는 `Team`뿐이다. purge 설정의 `logical:Program->OutboxEvent` 표기와 통합 테스트의 PROGRAM 이벤트 seed는 이 PR 범위 밖이라 남긴다.
+- `lock-program-tree.repository.ts`에서 두 분기가 같은 SQL이던 삼항식을 한 SQL로 줄였다. `documentKind` 인수는 호출부 계약이라 남긴다.
+- 프론트의 옛 provisioning 상태 `RETRYABLE_FAILED`·`FAILED`와 그 라벨, 그 값만 검사하던 테스트 경우를 지웠다. 백엔드 `RepositoryProvisionJobStatus`의 실패 값은 `FAILED_RETRYABLE`·`FAILED_FINAL`뿐이고, 두 응답 경로는 이 값을 그대로 내보낸다.
+- `deploy/jenkins/program-migration`에서 docs/evidence 밖 참조가 없는 단계 파일 18개를 지웠다. `audit-log/`·`files/`·`submission-axis/`·`team-application/`은 `apps/backend/prisma`의 마이그레이션 통합 테스트가 check SQL을 읽고 같은 디렉터리의 manifest가 그 SQL을 가리키므로 남긴다. `lib.sh`·`preflight.sh`·`reconcile.sh`·`rehearse.sh`·`backup.sh`·`verify-backup.sh`·`manifest.mjs`·`bounded.mjs`·`*.test.mjs`·`README.md`는 CI(`.github/workflows/ci.yml:182-183`)와 `knip.json:18-19`가 참조하므로 남긴다. 지운 경로를 적은 과거 증거 문서는 당시 기록이므로 고치지 않는다.
+- `submissionReviewDecision`은 `requirements.repository.ts`, `submissions.service.ts`, `student/milestone-document-feedback.repository.ts`에 같은 내용으로 남아 있다. 백엔드 경계 lint가 repository·service·config 파일의 함수 export를 막고, programs와 student 모듈이 함께 쓰는 provider를 새로 만들면 지우는 것보다 간접 단계가 늘어나므로 합치지 않는다. 1단계 통합 뒤 각 파일 안의 정의는 하나씩이다.
+
+| 범위 | 2단계 머지 files | 2단계 머지 lines | Todo 11 마무리 files | Todo 11 마무리 lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 153 | 32246 | 153 | 32199 |
+
+줄어든 47줄은 모두 `programs.repository.ts`다(1460→1413). 기존 행의 이유를 갱신했고 새 행을 더하지 않았다. 아래 행은 이 PR이 지우거나 바꾼 programs 밖 파일과 테스트 파일이다. Before lines는 `aff9150be`의 줄 수다.
+
+| Path | Action | Target | Todo | State | Before lines | 이유 |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| `deploy/jenkins/program-migration/requirement-rename/check-before.sql` | delete | - | 11 | deleted | 46 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/requirement-rename/check-renamed.sql` | delete | - | 11 | deleted | 45 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/requirement-rename/count-File.sql` | delete | - | 11 | deleted | 1 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/requirement-rename/count-GithubRepository.sql` | delete | - | 11 | deleted | 1 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/requirement-rename/count-Requirement.sql` | delete | - | 11 | deleted | 4 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/requirement-rename/count-Submission.sql` | delete | - | 11 | deleted | 4 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/requirement-rename/count-SubmissionHistory.sql` | delete | - | 11 | deleted | 5 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/requirement-rename/rename.json` | delete | - | 11 | deleted | 38 | #1766 테이블 이름 변경 리허설 전용 manifest·검사 SQL; v0.24.62 배포 후 제품·CI·knip·통합 테스트 참조 0건 |
+| `deploy/jenkins/program-migration/submission-axis-preflight.sql` | delete | - | 11 | deleted | 72 | Todo 4 제출 축 전환 사전 점검 SQL; 전환 완료 후 제품·CI·knip·통합 테스트 참조 0건, 기록은 `task-4-review-write-only.md:31`뿐 |
+| `deploy/jenkins/program-migration/team-history/check-archive-event.sql` | delete | - | 11 | deleted | 1 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/check-retired.sql` | delete | - | 11 | deleted | 11 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/code.json` | delete | - | 11 | deleted | 26 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/count-histories.sql` | delete | - | 11 | deleted | 1 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/count-invitations.sql` | delete | - | 11 | deleted | 1 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/count-members.sql` | delete | - | 11 | deleted | 1 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/count-teams.sql` | delete | - | 11 | deleted | 1 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/prepare.json` | delete | - | 11 | deleted | 28 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `deploy/jenkins/program-migration/team-history/retire.json` | delete | - | 11 | deleted | 24 | Todo 8 TeamHistory 3a·3b 리허설 manifest·검사 SQL; 참조는 `task-8-history-3a.md:41`·`task-8-history-3b-code.md:40` 기록뿐 |
+| `apps/backend/src/platform/lock-program-tree.repository.ts` | keep | `lock-program-tree.repository.ts` | 11 | present | 153 | 두 분기가 같은 SQL이던 `documentKind` 삼항식을 한 SQL로 축약(153→147줄); 호출부의 `documentKind` 인수는 유지 |
+| `apps/frontend/src/features/programs/applications/application-presentation.ts` | keep | `application-presentation.ts` | 11 | present | 100 | 백엔드가 보내지 않는 옛 provisioning 상태 `RETRYABLE_FAILED`·`FAILED` 라벨 제거(F1 MINOR-2) |
+| `apps/frontend/src/features/programs/applications/dto.ts` | keep | `dto.ts` | 11 | present | 201 | `RepositoryProvisioning.jobStatus`에서 옛 상태 `RETRYABLE_FAILED`·`FAILED` 제거(F1 MINOR-2) |
+| `apps/frontend/src/features/programs/authoring/dto.ts` | keep | `dto.ts` | 11 | present | 144 | purge `deletedCounts`를 실제로 값이 있는 `files`만 남김 |
+| `apps/frontend/src/features/programs/authoring/program-edit-danger-zone-section.tsx` | keep | `program-edit-danger-zone-section.tsx` | 11 | present | 212 | purge 건수 라벨 표 제거; `files` 건수로 같은 완료 문구를 만듦 |
+| `apps/backend/src/programs/program-deletion-scope.repository.spec.ts` | keep | `program-deletion-scope.repository.spec.ts` | 11 | present | 59 | 테스트만 변경: 중복 Team count 행 제거; 응답의 `applications`는 유지 |
+| `apps/backend/src/programs/program-editor-authority.repository.spec.ts` | keep | `program-editor-authority.repository.spec.ts` | 11 | present | 149 | 테스트만 변경: 중복 Team count와 PROGRAM 분기가 빠져 삭제 범위 SQL 인자 30개를 28개로 갱신 |
+| `apps/backend/src/programs/program-editor-update.repository.spec.ts` | keep | `program-editor-update.repository.spec.ts` | 11 | present | 112 | 테스트만 변경: 삭제 범위 행 mock에서 중복 Team count 제거 |
+| `apps/backend/src/programs/program-lifecycle.service.spec.ts` | keep | `program-lifecycle.service.spec.ts` | 11 | present | 207 | 테스트만 변경: purge 결과 기대값을 `files`만으로 갱신 |
+| `apps/backend/src/programs/program-purge.integration.spec.ts` | keep | `program-purge.integration.spec.ts` | 11 | present | 2098 | 테스트만 변경: purge 결과 기대값을 `files`만으로 갱신 |
+| `apps/backend/src/programs/programs.controller.spec.ts` | keep | `programs.controller.spec.ts` | 11 | present | 607 | 테스트만 변경: purge 응답 mock을 `files`만으로 갱신 |
+| `apps/backend/test/dto-json/programs.spec.ts` | keep | `programs.spec.ts` | 11 | present | 1527 | 테스트만 변경: `PurgeProgramResponseDto` 입력을 `files`만으로 갱신 |
+| `apps/backend/test/dto-json/__snapshots__/programs.spec.ts.snap` | keep | `programs.spec.ts.snap` | 11 | present | 191 | 테스트만 변경: `PurgeProgramResponseDto` JSON 스냅샷 갱신 |
+| `apps/frontend/e2e/program-dead-columns.spec.ts` | keep | `program-dead-columns.spec.ts` | 11 | present | 264 | 테스트만 변경: 옛 provisioning 상태 화면 경우 제거; 현재 상태 캡처는 유지 |
+| `apps/frontend/e2e/program-edit-purge-network.spec.ts` | keep | `program-edit-purge-network.spec.ts` | 11 | present | 626 | 테스트만 변경: purge 응답 목을 `files`만으로 갱신 |
+| `apps/frontend/src/features/programs/authoring/program-edit-api.test.ts` | keep | `program-edit-api.test.ts` | 11 | present | 343 | 테스트만 변경: purge 응답 목을 `files`만으로 갱신 |
+| `apps/frontend/src/features/programs/authoring/program-edit-danger-zone-section.test.tsx` | keep | `program-edit-danger-zone-section.test.tsx` | 11 | present | 446 | 테스트만 변경: 옛 백엔드 건수 경우 제거; 파일 0건·N건 문구 확인 |
+| `apps/frontend/src/features/programs/authoring/program-edit-page.test.tsx` | keep | `program-edit-page.test.tsx` | 11 | present | 931 | 테스트만 변경: purge 응답 목을 `files`만으로 갱신 |
+| `apps/frontend/src/features/programs/teams/program-staff-team-detail-page.test.tsx` | keep | `program-staff-team-detail-page.test.tsx` | 11 | present | 1038 | 테스트만 변경: 옛 provisioning 상태 라벨 경우를 현재 enum 값으로 교체 |

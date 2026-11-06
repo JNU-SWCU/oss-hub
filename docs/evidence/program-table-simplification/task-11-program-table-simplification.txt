@@ -1,0 +1,142 @@
+# Todo 11 이름 변경과 원장 확정 검증
+
+Todo 11은 세 PR로 나갔다. 1단계 #1763은 Prisma 모델 이름과 구조 표의 파일 통합, 2단계 #1766은 DB 테이블 이름 변경, 마무리 PR(이 브랜치 `refactor/program-simplification-final-cleanup`)은 죽은 값 정리와 원장 확정이다.
+같은 주기에 프로그램 내림 상태 제거 #1764·#1765·#1762가 함께 나갔다.
+이 문서에는 운영 행 데이터, 덤프, 개인 정보를 적지 않는다. 운영 수치는 배포 후 읽기 전용 검증의 집계 줄만 옮긴다.
+
+## 범위
+
+Todo 11은 DB 테이블·열·enum 타입 이름(2단계), Prisma 모델 이름과 구조 표의 파일 통합·이름(1단계)까지 바꿨다.
+API 경로, 응답 필드, 오류 코드, enum 값은 wire 계약이므로 의도적으로 그대로 둔다.
+내부 TS class·type·파일 이름의 `MilestoneDocument*` 잔재(계획 후속 12행 집계 기준 백엔드 제품 파일 47개, 프론트 제품 파일 55개)는 계획 후속 12행으로 미룬다.
+고아 enum 타입 삭제는 13행, `auditLogWriter` 이름 변경은 14행이다.
+
+## PR과 머지
+
+`gh pr view <n> --json mergeCommit,mergedAt`로 확인했다. 시각은 UTC다.
+
+| PR | 내용 | 머지 시각 | 머지 커밋 |
+| --- | --- | --- | --- |
+| #1764 | 화면에서 프로그램 내림 상태를 걷어낸다 | 2026-11-06T02:55:22Z | `b4f29c9c82874487163e489713eff58fedcf5b50` |
+| #1763 | 제출 항목 이름과 파일 정리 (1단계) | 2026-11-06T03:08:46Z | `1516f498e7c2b59948e373b2c0396c907a67b9c4` |
+| #1765 | 서버에서 프로그램 내림 상태 분기를 걷어낸다 | 2026-11-06T03:38:48Z | `2c446c4dba6706fde1b539586b89988027100b1c` |
+| #1762 | 프로그램 lifecycle enum에서 ARCHIVED를 지운다 | 2026-11-06T04:28:02Z | `11d7f56da516b693688dbc26d602c47892399c79` |
+| #1766 | 제출 항목 테이블 이름 변경 (2단계) | 2026-11-06T04:45:12Z | `aff9150be1dc488e64f40181b55628301a758a90` |
+
+## 릴리스
+
+`gh release view <tag> --json publishedAt,targetCommitish`로 확인했다.
+
+| 릴리스 | 게시 시각 | 대상 | 배포 |
+| --- | --- | --- | --- |
+| v0.24.61 | 2026-11-06T03:57:12Z | `2c446c4db` (#1765까지) | Jenkins 9593 SUCCESS, 적용할 마이그레이션 0개 |
+| v0.24.62 | 2026-11-06T05:03:23Z | `aff9150be` (#1762, #1766) | Jenkins 9600 SUCCESS, `20261106100000_drop_program_archived`, `20261106200000_rename_submission_axis_tables` 순서로 2개 적용 |
+
+## 배포 후 읽기 전용 검증 (R5)
+
+v0.24.62 배포 뒤 읽기 전용 세션의 집계 줄이다. 모두 기대값과 같았다.
+
+| 검사 | 결과 |
+| --- | --- |
+| 마이그레이션 원장 | `ledger|rows=106|head=20261106200000_rename_submission_axis_tables|unfinished=0|rolled_back=0` |
+| 프로그램 lifecycle enum | `enum_labels|PUBLISHED,DELETED` |
+| 배포 후 검사 전체 | `POSTDEPLOY_OK` |
+| 다음 타이머 빌드 | `NEXT_BUILD_NOOP`, Jenkins 9601 |
+
+## 최종 테이블
+
+프로그램 도메인 테이블은 13개다: `Program`, `ProgramHistory`, `Milestone`, `Requirement`, `Team`, `TeamMember`, `TeamInvitation`, `TeamHistory`, `Submission`, `SubmissionHistory`, `File`, `BoardPost`, `BoardComment`.
+이 브랜치의 `apps/backend/prisma/schema.prisma`에서 13개 모두 `model`로 있고 `@@map`이 없다. 따라서 Prisma 모델 이름이 DB 테이블 이름이다.
+이 브랜치는 `apps/backend/prisma` 아래를 바꾸지 않는다(`git diff --stat aff9150be -- apps/backend/prisma` 출력 없음). 마이그레이션은 0개다.
+
+## 마무리 PR이 바꾸는 것
+
+기준은 `aff9150be`(#1766 머지, v0.24.62)다. schema.prisma, 마이그레이션, DB는 바꾸지 않는다. 동작 변경 없이 죽은 코드와 값만 지운다. 파일별 상세와 남긴 것의 이유는 [파일 원장](file-ledger.md)의 「Todo 11 마무리」 절에 있다.
+
+- 완전 삭제 응답 `deletedCounts`에서 늘 0이던 건수 18개를 지우고 `files`만 남겼다. 백엔드 저장소, 응답 DTO 타입, 프론트 타입과 완료 문구를 함께 줄였다. 완료 문구는 전과 같다.
+- 삭제 범위 건수 SQL에서 같은 `Team` count 두 개를 하나로 줄였다. 응답의 `applications` 키는 wire 계약이라 `teams` 값으로 유지한다.
+- 삭제 범위 fingerprint에서 쓰는 코드가 없는 `aggregateType = 'PROGRAM'` outbox 분기를 지웠다.
+- `lock-program-tree.repository.ts`에서 두 분기가 같은 SQL이던 삼항식을 한 SQL로 줄였다.
+- 프론트의 옛 저장소 발급 상태 `RETRYABLE_FAILED`·`FAILED`와 그 라벨, 그 값만 검사하던 테스트 경우를 지웠다.
+- `deploy/jenkins/program-migration`에서 docs/evidence 밖 참조가 없는 단계 파일 18개(`requirement-rename/` 8개, `team-history/` 9개, `submission-axis-preflight.sql`)를 지웠다.
+- `submissionReviewDecision` 공용화는 하지 않았다. 이유는 원장에 있다.
+
+남은 옛 이름 확인(`git grep`, `apps` 아래):
+
+| 대상 | 결과 |
+| --- | --- |
+| `RETRYABLE_FAILED` (`FAILED_RETRYABLE`, `REVOKE_FAILED_*` 제외) | 0건 |
+| `PURGE_COUNT_LABELS` | 0건 |
+| `programs.repository.ts`의 `aggregateType" = 'PROGRAM'` | 0건 |
+| `documentKind === 'ALL'` | 0건 |
+| `apps/backend/src`의 `AS applications` | 0건 |
+| `submissionRevisions`, `githubRepositoriesDetached` | 0건 |
+| `apps/frontend/src/features/programs`의 `'FAILED'` | 2건, 모두 활동 수집 상태 `collectionStatus`이고 저장소 발급과 무관 |
+| `git diff --stat aff9150be -- apps/backend/prisma` | 출력 없음 |
+
+## 원장
+
+`bun scripts/check-file-ledger.ts` 결과는 `FILE_LEDGER_OK 319 paths`다.
+F1과 같은 방법(`apps/backend/src/programs/**/*.ts`에서 `spec`·`fixture`·`fixtures`·`test-support`·`integration-support`로 끝나는 파일 제외)으로 다시 쟀다.
+
+| 시점 | files | lines |
+| --- | ---: | ---: |
+| #1766 머지 직전 main | 153 | 32244 |
+| `aff9150be` (#1766 머지) | 153 | 32246 |
+| 이 브랜치 | 153 | 32199 |
+
+원장에 적혀 있던 2단계 32296은 1단계 수치 32294에 2를 더한 값이라 #1765의 −50줄이 빠져 있었다. 원장의 2단계 표를 실측값으로 고쳤다.
+원장에는 Todo 11 범위 확정(계획 후속 12·13·14행으로 미룬 것), Todo 7 계획 대조 보정(계획 l.214의 `collection-sync.integration.spec.ts`는 저장소 이력에 없고 대신 쓴 스펙), 이 PR이 지우거나 바꾼 파일 37행을 더했다.
+
+## 로컬 검증
+
+`CI=true`가 아닌 로컬 셸에서, 앱 환경 변수를 비운 채 저장소 정의 명령으로 돌렸다. GitHub CI 결과를 근거로 삼지 않았다.
+무거운 작업은 호스트에서 한 번에 하나만 돌렸다.
+1차 전체 실행은 코드 수정을 마친 작업 트리에서 했다. 거기서 단위 테스트 1건이 실패했고(아래), 그 스펙 두 개만 고친 뒤 영향을 받는 단계를 2차로 다시 돌렸다. 제품 코드는 두 실행 사이에 바뀌지 않았다.
+
+| 명령 | 결과 |
+| --- | --- |
+| 2차 `pnpm -r test` | 백엔드 379 suites·6022 tests·snapshot 279 통과, 프론트 439 files·4710 tests 통과 |
+| 2차 `pnpm lint` | exit 0, 오류 0, 경고 4건(모두 이 PR이 건드리지 않은 프론트 파일의 `<a>` 경고) |
+| 2차 `pnpm -r typecheck` | exit 0 |
+| 2차 `BACKEND_ORIGIN=https://backend.example.test pnpm -r build` | exit 0, 백엔드 `nest build`, 프론트 정적 페이지 27/27 |
+| 2차 `pnpm format:check` | exit 0 |
+| 2차 `node --test .design-sync/contract.test.mjs` | tests 7, pass 7, fail 0 |
+| 2차 `bash apps/backend/test/run-integration.test.sh` | `integration contract: PASS` |
+| 2차 `bun scripts/check-file-ledger.ts` | `FILE_LEDGER_OK 319 paths` |
+| 1차 `pnpm --filter backend test:integration` (docker 격리) | 158 suites·1263 tests 통과, 173초 |
+| 1차 `node --test deploy/jenkins/program-migration/*.test.mjs` | tests 46, pass 46, fail 0 |
+| 1차 shellcheck (CI와 같은 고정 이미지, `deploy/jenkins/program-migration/*.sh`) | exit 0 |
+| 1차 `pnpm --filter frontend e2e` | 116개 중 103개 통과, 13개 실패(아래 기존 실패와 같음) |
+
+1차 실행의 단위 테스트 실패는 `program-editor-authority.repository.spec.ts`였다. 삭제 범위 SQL의 바인딩 값 수를 30개로 기대했는데, 중복 `Team` count와 PROGRAM outbox 분기를 지워 28개가 됐다. 의도한 변화이므로 기대값을 28로 고쳤고, 같은 SQL의 행 mock에서 지운 `applications` 열도 뺐다. `program-editor-update.repository.spec.ts`의 같은 mock도 정리했다.
+1차 실행의 프론트 build 실패는 검증 스크립트가 `BACKEND_ORIGIN`을 비웠기 때문이다. CI와 같은 `BACKEND_ORIGIN=https://backend.example.test`로 2차에서 통과했다.
+
+## 기존 e2e 실패
+
+전체 e2e(`pnpm --filter frontend e2e`)는 116개 중 103개 통과, 13개 실패였다. 실패한 스펙과 이 PR이 고친 두 e2e 스펙을 `aff9150be` worktree에서 같은 명령으로 돌렸다.
+
+| 스펙 | 테스트 수 | 이 브랜치 | `aff9150be` |
+| --- | ---: | --- | --- |
+| `auth-compatibility-shell.spec.ts` | 1 | `:9` 실패 | `:9` 실패 |
+| `programs-ended.spec.ts` | 11 | `:263` 실패, 10개 통과 | `:263` 실패, 10개 통과 |
+| `ranking-timeline.spec.ts` | 6 | `:198`·`:206` 실패, 4개 통과 | `:198`·`:206` 실패, 4개 통과 |
+| `shared-list-card.spec.ts` | 2 | `:126` 1440px·390px 실패 | `:126` 1440px·390px 실패 |
+| `staff-insights-comparison-ux.spec.ts` | 7 | 7개 모두 실패 | 7개 모두 실패 |
+| `auth-logout.spec.ts` | 2 | 통과 | 통과 |
+| `program-edit-purge-network.spec.ts` | 9 | 통과 | 통과(그 시점 스펙) |
+| `program-dead-columns.spec.ts` | 4 | 통과 | 통과(그 시점 스펙) |
+| 합계 | 42 | 29 통과, 13 실패 | 29 통과, 13 실패 |
+
+두 쪽의 실패 13개는 파일·줄·테스트 이름이 모두 같다.
+
+`auth-logout.spec.ts:34`는 `aff9150be`에서도 옛 모양의 대시보드 mock(`published`·`recruiting`·`closed`·`archived`)을 돌려주는 채로 통과한다. 이 PR은 이 실패들과 mock을 고치지 않는다.
+
+## 남은 것
+
+- 계획 후속 12행: 내부 TS class·type·파일 이름의 `MilestoneDocument*` 잔재.
+- 계획 후속 13행: 고아 enum 타입 삭제. `lockProgramTree`의 `documentKind` 인수도 같은 SQL만 고르므로 함께 정리할 후보다.
+- 계획 후속 14행: `auditLogWriter` 이름 변경.
+- 스펙·테스트 파일 안의 옛 이름, 통합 테스트의 PROGRAM outbox seed, purge 설정의 `logical:Program->OutboxEvent` 표기.
+- 위 기존 e2e 실패와 `auth-logout.spec.ts:34`의 낡은 mock.
+- 이 작업은 머지·배포·릴리스를 하지 않는다.
