@@ -882,4 +882,24 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 
 기준은 Todo 11 마무리 머지 `82ce9e6ad`(#1767, v0.24.63)다. `20261106210000_drop_program_team_backup`은 한 트랜잭션에서 `lock_timeout` 5초로 `program_team_backup.application_team_map` 테이블을 이름으로 지운 뒤 `program_team_backup` 스키마를 CASCADE 없이 지운다. 이 대응표는 Todo 9 `20261105100100_merge_applications_into_teams`가 Application→Team 대응을 남기려고 만들었고, 그 뒤 마이그레이션 3개(`20261105110000`·`20261105220100`·`20261106000000`)와 리허설 검사 SQL이 읽었다. 제품 코드는 읽지 않는다. 스키마에 다른 객체가 있거나 대응표에 기대는 객체가 있으면 마이그레이션이 실패하고 아무것도 지우지 않는다.
 
-더한 파일은 마이그레이션 하나뿐이고 제품 파일을 더하거나 지우거나 합치지 않았으므로 경로 행은 없다. programs 제품 파일은 153개 32199줄 그대로다. 대응표는 `public` 밖에 있어 Prisma 모델이 없었으므로 schema.prisma도 바뀌지 않는다. 이미 적용된 마이그레이션 4개, 스키마 이름을 테스트마다 바꾸는 통합 테스트 픽스처, 통합 테스트가 읽는 `deploy/jenkins/program-migration`의 `audit-log/`·`team-application/` 검사 SQL은 그대로 둔다. 과거 증거 문서는 기록이라 고치지 않는다.
+`deploy/jenkins/program-migration/audit-log/`의 손 리허설 manifest 2개는 사전 점검으로 이 스키마를 읽는 `check-before.sql`을 돌리므로 지웠다. 건수 SQL 5개는 그 두 manifest만 읽었으므로 함께 지웠다. 테스트, 스크립트, `run-integration.test.sh` 계약, CI, knip 어디에서도 이 7개를 읽지 않고 참조는 docs/evidence 기록뿐이다. 이 밖에 더한 파일은 마이그레이션 하나다. programs 제품 파일은 153개 32199줄 그대로다. 대응표는 `public` 밖에 있어 Prisma 모델이 없었으므로 schema.prisma도 바뀌지 않는다.
+
+| Path | Action | Target | Todo | State | Before lines | 이유 |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| `deploy/jenkins/program-migration/audit-log/count-AuditLog.sql` | delete | - | 11 | deleted | 1 | 지운 audit-log `prepare.json`·`retire.json`만 읽던 건수 SQL |
+| `deploy/jenkins/program-migration/audit-log/count-Program.sql` | delete | - | 11 | deleted | 1 | 지운 audit-log `prepare.json`·`retire.json`만 읽던 건수 SQL |
+| `deploy/jenkins/program-migration/audit-log/count-ProgramHistory.sql` | delete | - | 11 | deleted | 1 | 지운 audit-log `retire.json`만 읽던 건수 SQL |
+| `deploy/jenkins/program-migration/audit-log/count-Team.sql` | delete | - | 11 | deleted | 1 | 지운 audit-log `prepare.json`·`retire.json`만 읽던 건수 SQL |
+| `deploy/jenkins/program-migration/audit-log/count-TeamHistory.sql` | delete | - | 11 | deleted | 1 | 지운 audit-log `prepare.json`·`retire.json`만 읽던 건수 SQL |
+| `deploy/jenkins/program-migration/audit-log/prepare.json` | delete | - | 11 | deleted | 35 | Todo 10 1단계 손 리허설 manifest; 사전 점검 `check-before.sql`이 지운 스키마를 읽고, 참조는 `task-10-program-table-simplification.md:38` 기록뿐 |
+| `deploy/jenkins/program-migration/audit-log/retire.json` | delete | - | 11 | deleted | 38 | Todo 10 2단계 손 리허설 manifest; 사전 점검 `check-before.sql`이 지운 스키마를 읽고, 참조는 `task-10-retire.md:16·30·48·134` 기록뿐 |
+
+남기는 파일과 이유는 아래뿐이다.
+
+- 이미 적용된 마이그레이션 4개: 적용된 마이그레이션은 고치지 않는다. 빈 DB 재생에서도 이 마이그레이션보다 먼저 돈다.
+- `audit-log/check-before.sql`·`check-copy.sql`·`check-retired.sql`: `audit-log-removal-migration.integration.spec.ts:37-39`가 읽는다. 앞의 둘은 `bindAuditFixtureSql`이 스키마 이름을 픽스처 스키마로 바꿔 돌린다.
+- `team-application/reconcile.sql`: `team-application-merge-migration.integration.spec.ts:138`이 읽는다.
+- `team-application/prepare.json`과 그 `preflight.sql`·건수 SQL 14개: `team-application/server-rehearse.sh:7`의 기본 manifest다.
+- `team-application/retire.json`·`retire-preflight.sql`·`check-retired.sql`: `task-9-retire-rehearsal.sh:9·111·168`이 작업 트리에서 읽는다. 이 스크립트는 합성 DB를 `20261105110000`까지만 만들어 대응표가 있으므로 지금도 돈다.
+- 스키마 이름을 테스트마다 바꾸는 통합 테스트 픽스처(`audit-log-removal-migration.fixture.ts:21`, `team-application-merge.fixture.ts:15`, `team-application-retirement.integration.spec.ts:25`): 옛 마이그레이션을 픽스처 스키마로 재생한다.
+- 과거 증거 문서: 기록이라 고치지 않는다.
