@@ -1,4 +1,5 @@
 import { expect, test, type Page } from '@playwright/test';
+import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 
 const title =
   '합성 오픈소스 프로젝트의 긴 제목으로 모바일 줄바꿈을 확인합니다 '.repeat(3);
@@ -14,6 +15,19 @@ const project = {
   repositoryName: 'qa170-synthetic',
   githubUrl: 'https://github.com/JNU-SWCU/qa170-synthetic',
   publishedAt: '2026-09-01T00:00:00.000Z',
+};
+const programDetail = {
+  id: programId,
+  name: title,
+  organizer: '합성 주관',
+  trackType: 'EXTRACURRICULAR',
+  description: '합성 카드 검증',
+  applicationPeriod: {
+    startsAt: '2026-01-01T00:00:00.000Z',
+    endsAt: '2026-12-31T00:00:00.000Z',
+  },
+  viewer: { role: 'STAFF', applicationStatus: null },
+  milestones: [],
 };
 
 async function installRoutes(page: Page) {
@@ -37,6 +51,8 @@ async function installRoutes(page: Page) {
           },
         },
       });
+    } else if (path === '/api/v1/consents/current') {
+      await route.fulfill({ json: CONSENTED_RESPONSE });
     } else if (path === '/api/v1/programs/status-counts') {
       await route.fulfill({
         json: { all: 1, recruiting: 1, in_progress: 0, upcoming: 0, ended: 0 },
@@ -80,19 +96,12 @@ async function installRoutes(page: Page) {
         },
       });
     } else if (path === `/api/v1/programs/${programId}/viewer`) {
+      await route.fulfill({ json: programDetail });
+    } else if (path === `/api/v1/programs/${programId}`) {
       await route.fulfill({
         json: {
-          id: programId,
-          name: title,
-          organizer: '합성 주관',
-          trackType: 'EXTRACURRICULAR',
-          description: '합성 카드 검증',
-          applicationPeriod: {
-            startsAt: '2026-01-01T00:00:00.000Z',
-            endsAt: '2026-12-31T00:00:00.000Z',
-          },
-          viewer: { role: 'STAFF', applicationStatus: null },
-          milestones: [],
+          ...programDetail,
+          viewer: { role: null, applicationStatus: null },
         },
       });
     } else if (path === `/api/v1/programs/${programId}/overview`) {
@@ -117,7 +126,7 @@ async function installRoutes(page: Page) {
     } else if (path === `/api/v1/programs/${programId}/activity`) {
       await route.fulfill({ json: [] });
     } else {
-      await route.continue();
+      throw new Error(`Unexpected shared list card request: ${path}`);
     }
   });
 }

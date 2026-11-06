@@ -11,6 +11,7 @@ import {
   PROGRAM_TICK_SELECTOR,
 } from './staff-insights-chart-layout';
 import { installBrowserAudit } from './support/browser-audit';
+import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 import { authenticatedSessionBody } from './support/session-mock';
 
 const target = '/dashboard/insights';
@@ -197,6 +198,16 @@ async function openInsights(page: Page, insights: InsightsWire): Promise<void> {
         rejectUnexpectedApi(route);
       }
       await fulfillJson(route, staffSession);
+      return;
+    }
+    if (
+      request.method() === 'GET' &&
+      url.pathname === '/api/v1/consents/current'
+    ) {
+      if (url.search !== '') {
+        rejectUnexpectedApi(route);
+      }
+      await fulfillJson(route, CONSENTED_RESPONSE);
       return;
     }
     if (
