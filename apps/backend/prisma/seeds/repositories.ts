@@ -8,6 +8,7 @@ import {
   RepositoryVisibility,
 } from '@prisma/client';
 import {
+  applicationTemplateKey,
   offsetDays,
   prisma,
   seedId,
@@ -34,7 +35,9 @@ async function ensureProgram(stats: SeedStats): Promise<void> {
           name: 'seed-repositories-program',
           organizer: 'seed-organizer',
           category: ProgramCategory.OSS_CONTEST,
-          applicationTemplateKey: ProgramCategory.OSS_CONTEST.toLowerCase(),
+          applicationTemplateKey: applicationTemplateKey(
+            ProgramCategory.OSS_CONTEST,
+          ),
           applicationTemplateVersion: 1,
           applicationStartAt: offsetDays(-80),
           applicationEndAt: offsetDays(-60),
@@ -105,7 +108,7 @@ async function ensureApplication(
         data: {
           programId: PROGRAM_ID,
           applicantId: applicant.id,
-          answers: { seedPlaceholder: true, scenarioId },
+          answers: { title: `${scenarioId} 1인 팀` },
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
           processedAt: offsetDays(-2),

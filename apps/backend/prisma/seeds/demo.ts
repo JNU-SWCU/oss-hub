@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import type { ObjectStoragePort } from '../../src/platform/object-storage.types';
 import {
+  applicationTemplateKey,
   offsetDays,
   prisma,
   seedId,
@@ -266,8 +267,6 @@ async function upsertDemoApplication(
           programId: params.programId,
           applicantId: params.applicantId,
           answers: {
-            seedPlaceholder: true,
-            scenarioId: 'demo-application',
             title: params.title,
             summary: params.summary,
           },
@@ -644,7 +643,7 @@ async function upsertDemoProgram(
           name: params.name,
           organizer: params.organizer,
           category: params.category,
-          applicationTemplateKey: params.category.toLowerCase(),
+          applicationTemplateKey: applicationTemplateKey(params.category),
           applicationTemplateVersion: 1,
           applicationStartAt: params.applicationStartAt,
           applicationEndAt: params.applicationEndAt,

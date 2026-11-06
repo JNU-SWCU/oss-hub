@@ -1,5 +1,6 @@
 import { ApplicationStatus, Prisma, ProgramCategory } from '@prisma/client';
 import {
+  applicationTemplateKey,
   offsetDays,
   prisma,
   seedId,
@@ -66,7 +67,7 @@ async function upsertProgram(
         create: {
           id,
           organizer: 'seed-organizer',
-          applicationTemplateKey: rest.category.toLowerCase(),
+          applicationTemplateKey: applicationTemplateKey(rest.category),
           applicationTemplateVersion: 1,
           description: `#110 시드 fixture — ${rest.name}`,
           name: rest.name,
