@@ -877,3 +877,9 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 | `apps/frontend/src/features/audit-log/describe-templates.ts` | keep | `describe-templates.ts` | 11 | present | 271 | 같은 action의 문장 추가(대체 문장 대신 `…에서 팀 저장소 주소를 바꿨습니다`) |
 | `apps/frontend/src/features/audit-log/audit-log-action.test.tsx` | keep | `audit-log-action.test.tsx` | 11 | present | 47 | 테스트만 변경: 새 라벨·배지 경우 추가 |
 | `apps/frontend/src/features/audit-log/describe.test.ts` | keep | `describe.test.ts` | 11 | present | 511 | 테스트만 변경: 새 문장의 이름 있는 대상·대체 대상 경우 추가 |
+
+## Todo 11 후속: program_team_backup 스키마 삭제
+
+기준은 Todo 11 마무리 머지 `82ce9e6ad`(#1767, v0.24.63)다. `20261106210000_drop_program_team_backup`은 한 트랜잭션에서 `lock_timeout` 5초로 `program_team_backup.application_team_map` 테이블을 이름으로 지운 뒤 `program_team_backup` 스키마를 CASCADE 없이 지운다. 이 대응표는 Todo 9 `20261105100100_merge_applications_into_teams`가 Application→Team 대응을 남기려고 만들었고, 그 뒤 마이그레이션 3개(`20261105110000`·`20261105220100`·`20261106000000`)와 리허설 검사 SQL이 읽었다. 제품 코드는 읽지 않는다. 스키마에 다른 객체가 있거나 대응표에 기대는 객체가 있으면 마이그레이션이 실패하고 아무것도 지우지 않는다.
+
+더한 파일은 마이그레이션 하나뿐이고 제품 파일을 더하거나 지우거나 합치지 않았으므로 경로 행은 없다. programs 제품 파일은 153개 32199줄 그대로다. 대응표는 `public` 밖에 있어 Prisma 모델이 없었으므로 schema.prisma도 바뀌지 않는다. 이미 적용된 마이그레이션 4개, 스키마 이름을 테스트마다 바꾸는 통합 테스트 픽스처, 통합 테스트가 읽는 `deploy/jenkins/program-migration`의 `audit-log/`·`team-application/` 검사 SQL은 그대로 둔다. 과거 증거 문서는 기록이라 고치지 않는다.
