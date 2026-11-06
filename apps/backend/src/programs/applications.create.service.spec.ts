@@ -50,7 +50,6 @@ const CREATED: CreatedApplication = {
   submittedAt: NOW,
   isRepositoryPublicationPlanned: true,
   repositoryConnectionMode: RepositoryConnectionMode.NEW,
-  repositoryUrl: null,
 };
 
 const DEFAULT_INPUT = {

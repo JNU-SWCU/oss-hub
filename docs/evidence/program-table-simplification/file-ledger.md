@@ -925,3 +925,11 @@ purge 설정과 그 테스트에서 쓰는 곳이 없는 PROGRAM outbox 서술�
 ## 후속 14: userHistory 이름 맞추기
 
 [Todo 10 2단계](task-10-retire.md)가 사용자 도메인의 `auditLog` 의존성을 `userHistory`로 바꾼 데 맞춰, 남은 TS 이름 두 개를 바꿨다. 사용자 저장소가 넘기는 `UserHistoryTransaction` 필드 `auditLogWriter`는 `userHistoryWriter`로, `platform/history-metadata.config.ts`의 `AuditLogRecordInput`은 `UserHistoryRecordInput`으로 바꿨다. 제품 파일 14개와 테스트·테스트 지원 파일 17개가 대상이고, 파일 경로와 동작은 그대로다.
+
+## Todo 16 1단계: Team.repositoryUrl 읽기·쓰기 중단
+
+기준은 #1775를 머지한 `42a34c73f`다. 저장소 주소가 `Team.repositoryUrl`과 `GithubRepository.nameWithOwner` 두 곳에 있었고, GitHub에서 저장소 이름이 바뀌면 수집기는 nameWithOwner만 고쳤다. 운영에서 값이 있는 3행 중 1행이 이렇게 어긋나, 수동 연결로 SUCCEEDED인 job이 ANOMALOUS로 보였다.
+
+이 단계는 코드만 바꾼다. 연결과 발급 기록은 `Team.repositoryUrl`을 쓰지 않는다. OWN 팀의 승인 판정과 발급 이벤트 주소는 저장소 행의 nameWithOwner에서 만들므로, 저장소 행이 없는 OWN 팀의 승인은 `OWN_REPOSITORY_URL_REQUIRED`로 막힌다. NEW 팀은 저장소 행이 붙어 있어도 이벤트에 주소를 싣지 않는다. 실으면 이벤트 해석기가 거부해 이후 되돌리기·반려가 멈춘다. 수동 연결의 SUCCEEDED 판정은 저장된 주소 대신 OWN 연결 방식을 본다. 신청 목록·상세·생성 응답과 프론트 타입에서 `repositoryUrl` 필드를 뺐다. schema.prisma는 열에 `@ignore`를 붙여 Prisma Client에서 감추고, `migrate diff`가 DB와 맞도록 선언만 남긴다. 열은 다음 DB 릴리스에서 지운다.
+
+더하거나 지우거나 합친 파일은 없어 원장 행은 바뀌지 않는다. programs 제품 파일은 153개 32101줄에서 153개 32087줄이 됐다.

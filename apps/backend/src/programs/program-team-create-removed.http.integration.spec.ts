@@ -327,11 +327,9 @@ it.each([true, false])(
       teamId: team.id,
       status: 'SUBMITTED',
       repositoryConnectionMode: 'NEW',
-      repositoryUrl: null,
     });
     expect(team).toMatchObject({
       repositoryConnectionMode: 'NEW',
-      repositoryUrl: null,
       isRepositoryPublicationPlanned: false,
     });
     const current = await fetch(

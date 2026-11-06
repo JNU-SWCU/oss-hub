@@ -85,11 +85,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
 });
 
 it('reports an explicit repository relink as succeeded without inventing a provisioning outbox', async () => {
-  const repository = givenRepository(
-    new Date('2026-08-31Z'),
-    0,
-    'https://github.com/synthetic/current',
-  );
+  const repository = givenRepository(new Date('2026-08-31Z'), 0, 'OWN');
   provisionFindUnique.mockResolvedValue({
     status: 'SUCCEEDED',
     updatedAt: new Date('2026-08-31Z'),

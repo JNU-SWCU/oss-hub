@@ -128,7 +128,6 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl: input.repositoryUrl,
     },
   );
   await expect(
@@ -215,7 +214,6 @@ it('rolls back a staff link when the team history write fails', async () => {
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
     },
   );
 });

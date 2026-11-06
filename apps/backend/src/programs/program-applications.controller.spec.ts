@@ -43,7 +43,6 @@ describe('ProgramApplicationsController', () => {
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
     });
     const service = Object.assign(
       Object.create(TeamApplicationService.prototype) as object,
@@ -80,7 +79,6 @@ describe('ProgramApplicationsController', () => {
       submittedAt: '2026-07-15T00:00:00.000Z',
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
     });
   });
 
@@ -93,7 +91,6 @@ describe('ProgramApplicationsController', () => {
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
     });
     const service = Object.assign(
       Object.create(TeamApplicationService.prototype) as object,
@@ -133,7 +130,6 @@ describe('ProgramApplicationsController', () => {
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
       isRepositoryPublicationPlanned: false,
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
     });
     const service = Object.assign(
       Object.create(TeamApplicationService.prototype) as object,
@@ -175,7 +171,6 @@ describe('ProgramApplicationsController', () => {
       submittedAt: new Date('2026-07-15T00:00:00.000Z'),
       isRepositoryPublicationPlanned: true,
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
     });
     const service = Object.assign(
       Object.create(TeamApplicationService.prototype) as object,

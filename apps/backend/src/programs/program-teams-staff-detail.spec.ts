@@ -91,7 +91,6 @@ describe('TeamMembershipService.getForStaff', () => {
             id: 'synthetic-application',
             status: 'APPROVED',
             repositoryConnectionMode: 'NEW',
-            repositoryUrl: null,
             isRepositoryPublicationPlanned: false,
             submissions: [],
             repository: null,
@@ -164,8 +163,7 @@ describe('TeamMembershipService.getForStaff', () => {
         application: {
           id: 'application-1',
           status: 'APPROVED',
-          repositoryConnectionMode: 'NEW',
-          repositoryUrl: 'https://github.com/org/repo',
+          repositoryConnectionMode: 'OWN',
           updatedAt: new Date('2026-08-01T00:00:00.000Z'),
           isRepositoryPublicationPlanned: true,
           repository: {
@@ -195,7 +193,7 @@ describe('TeamMembershipService.getForStaff', () => {
     expect(detail.application).toEqual({
       id: 'application-1',
       status: 'APPROVED',
-      repositoryConnectionMode: 'NEW',
+      repositoryConnectionMode: 'OWN',
       repository: {
         id: 'repository-1',
         url: 'https://github.com/org/repo',
@@ -236,7 +234,6 @@ describe('TeamMembershipService.getForStaff', () => {
           id: 'application-1',
           status: 'SUBMITTED',
           repositoryConnectionMode: 'NEW',
-          repositoryUrl: null,
           updatedAt: new Date('2026-08-01T00:00:00.000Z'),
           isRepositoryPublicationPlanned: true,
           repository: null,
@@ -345,7 +342,6 @@ describe('TeamRepository.findStaffTeamDetail', () => {
               status: 'SUBMITTED',
               updatedAt: new Date('2026-08-01'),
               repositoryConnectionMode: 'NEW',
-              repositoryUrl: null,
               isRepositoryPublicationPlanned: false,
               repository: null,
               program: {

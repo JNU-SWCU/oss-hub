@@ -194,7 +194,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
     ).resolves.toBe(2);
   });
 
-  it('reconciles a live ORG_PROVISIONED current link even when the canonical repository URL is stored', async () => {
+  it('reconciles a live ORG_PROVISIONED current link', async () => {
     const teamId = APPLICATION_IDS[0];
     await createJob(teamId, RepositoryProvisionJobStatus.SUCCEEDED, NOW);
     const current = await prisma.githubRepository.create({
@@ -205,10 +205,6 @@ describe('RepositoryProvisionJobRepository integration', () => {
         source: 'ORG_PROVISIONED',
         invitations: { create: { githubLogin: 'synthetic-invitee' } },
       },
-    });
-    await prisma.team.update({
-      where: { id: teamId },
-      data: { repositoryUrl: 'https://github.com/synthetic/relinked' },
     });
     await prisma.repositoryProvisionJob.update({
       where: { teamId },
@@ -551,10 +547,6 @@ async function createJob(
       status: ApplicationStatus.APPROVED,
       repositoryConnectionMode:
         options.connectionMode ?? RepositoryConnectionMode.NEW,
-      repositoryUrl:
-        options.connectionMode === RepositoryConnectionMode.OWN
-          ? 'https://github.com/synthetic-student/synthetic-own-repo'
-          : null,
       provisionJob: {
         create: {
           currentEventId: requestId,

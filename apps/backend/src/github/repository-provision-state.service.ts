@@ -106,7 +106,6 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
           ? null
           : BigInt(requested.requestedByGithubId),
       currentConnectionMode: application.repositoryConnectionMode,
-      currentRepositoryUrl: application.repositoryUrl,
       teamId: application.id,
       applicantGithubId: application.applicant.githubId,
       applicationStatus: application.status,

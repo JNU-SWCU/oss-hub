@@ -14,7 +14,6 @@ const item: ApplicationListItem = {
   id: 'app-1',
   programId: 'program-1',
   repositoryConnectionMode: 'NEW',
-  repositoryUrl: null,
   status: 'SUBMITTED',
   rejectionReason: null,
   repositoryProvisioning: {

@@ -55,7 +55,6 @@ const row: TeamManagementListItem = {
 const application: ApplicationListItem = {
   ...row,
   repositoryConnectionMode: 'NEW',
-  repositoryUrl: null,
   repositoryProvisioning: {
     enabled: false,
     jobStatus: 'DISABLED',
