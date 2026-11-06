@@ -1,8 +1,19 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { StudentRepositoryUrlService } from './team-application.service';
+import {
+  StudentRepositoryUrlService,
+  TeamApplicationService,
+  ApplicationAnswersService,
+  StudentApplicationManagementService,
+} from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team.repository';
+import {
+  TeamDeletionScopeRepository,
+  ProgramTeamDeletionRepository,
+  TeamRepository,
+  ApplicationsRepository,
+  StudentApplicationManagementRepository,
+} from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
@@ -16,8 +27,6 @@ import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramTeamDeletionRepository } from './team.repository';
-import { TeamRepository } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import {
   TeamsController,
@@ -25,22 +34,13 @@ import {
   StudentApplicationsController,
   ApplicationsController,
 } from './teams.controller';
-import {
-  TeamApplicationService,
-  ApplicationAnswersService,
-  StudentApplicationManagementService,
-} from './team-application.service';
-import {
-  ApplicationsRepository,
-  StudentApplicationManagementRepository,
-} from './team.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
   databaseSessionPrincipal,
@@ -68,10 +68,10 @@ async function cleanup(): Promise<void> {
   await prisma.notification.deleteMany({
     where: { userId: { startsWith: prefix } },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { team: { programId } },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { programId } },
   });
   await prisma.milestone.deleteMany({ where: { programId } });
@@ -500,7 +500,7 @@ it('승인 전 상태라도 제출이 남으면 취소와 마지막 탈퇴를 �
       dueAt: new Date('2099-01-01'),
     },
   });
-  const document = await prisma.milestoneDocument.create({
+  const document = await prisma.requirement.create({
     data: {
       milestoneId: milestone.id,
       name: 'Synthetic requirement',
@@ -508,10 +508,10 @@ it('승인 전 상태라도 제출이 남으면 취소와 마지막 탈퇴를 �
       sortOrder: 1,
     },
   });
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       teamId: team.id,
-      milestoneDocumentId: document.id,
+      requirementId: document.id,
       submittedById: userId,
     },
   });

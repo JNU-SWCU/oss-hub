@@ -13,9 +13,12 @@ import {
   type SubmissionReviewsRepositoryPort,
   type ReviewContextRow,
   type PublishEligibilityRow,
-} from './submission-reviews.repository';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
-import { SubmissionReviewsService } from './submission-reviews.service';
+} from './submissions.repository';
+import { SubmissionReviewsErrorCode } from './submissions.error';
+import {
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import {
   PUBLISH_BLOCKED_REASONS,
   type PublishBlockedReason,
@@ -23,7 +26,6 @@ import {
 } from '../github/repository-publish.config';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
@@ -49,14 +51,14 @@ function eligibleRow(): ReviewContextRow {
         milestones: [
           {
             id: 'milestone-1',
-            documents: [{ id: 'legacy-submission-document-1' }],
+            requirements: [{ id: 'legacy-submission-document-1' }],
           },
         ],
       },
-      milestoneDocumentSubmissions: [
+      submissions: [
         {
           status: SubmissionStatus.APPROVED,
-          milestoneDocument: {
+          requirement: {
             id: 'legacy-submission-document-1',
             milestoneId: 'milestone-1',
           },
@@ -69,7 +71,7 @@ function eligibleRow(): ReviewContextRow {
       },
       name: 'Synthetic Team',
     },
-    milestoneDocument: {
+    requirement: {
       id: 'legacy-submission-document-1',
       milestone: { id: 'milestone-1', name: 'Final submission' },
     },
@@ -139,10 +141,10 @@ const SCENARIOS = [
     reason: PUBLISH_BLOCKED_REASONS.REQUIRED_MILESTONES_NOT_APPROVED,
     errorCode: SubmissionReviewsErrorCode.REQUIRED_MILESTONES_NOT_APPROVED,
     breakRow: (_repository: ReviewRepository, team: ReviewApplication) =>
-      void (team.milestoneDocumentSubmissions = [
+      void (team.submissions = [
         {
           status: SubmissionStatus.SUBMITTED,
-          milestoneDocument: {
+          requirement: {
             id: 'legacy-submission-document-1',
             milestoneId: 'milestone-1',
           },
@@ -170,7 +172,7 @@ function eligibilityRow(
     id: eligibility.repositoryId,
     visibility: eligibility.visibility,
     application: {
-      milestoneDocumentSubmissions: [],
+      submissions: [],
       isRepositoryPublicationPlanned:
         eligibility.isRepositoryPublicationPlanned,
       provisionJob:
@@ -184,7 +186,12 @@ function eligibilityRow(
         endAt: eligibility.programEndAt,
         milestones: eligibility.requiredMilestonesApproved
           ? []
-          : [{ id: 'milestone-1', documents: [{ id: 'required-document' }] }],
+          : [
+              {
+                id: 'milestone-1',
+                requirements: [{ id: 'required-document' }],
+              },
+            ],
       },
     },
   };
@@ -209,7 +216,7 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
   } as unknown as jest.Mocked<SubmissionReviewsRepositoryPort>;
   return {
     repositories,
-    service: new SubmissionReviewsService(
+    service: new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -318,14 +325,14 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
           milestones: [
             {
               id: 'milestone-1',
-              documents: [{ id: 'legacy-submission-document-1' }],
+              requirements: [{ id: 'legacy-submission-document-1' }],
             },
           ],
         },
-        milestoneDocumentSubmissions: [
+        submissions: [
           {
             status: SubmissionStatus.SUBMITTED,
-            milestoneDocument: {
+            requirement: {
               id: 'legacy-submission-document-1',
               milestoneId: 'milestone-1',
             },
@@ -364,7 +371,7 @@ describe('저장소 공개 — 검토 화면과 공개 확정이 같은 게이�
           repositoryId: 'repository-2',
         },
         program: { endAt: PROGRAM_ENDED_AT, milestones: [] },
-        milestoneDocumentSubmissions: [],
+        submissions: [],
       },
     });
     const repository = new SubmissionReviewsRepository(

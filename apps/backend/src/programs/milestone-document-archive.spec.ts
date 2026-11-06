@@ -1,18 +1,18 @@
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentFileNameService } from './files.service';
+import {
+  MilestoneDocumentCollectionService,
+  type MilestoneDocumentArchiveLayout,
+  RequirementArchiveService,
+} from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
-import {
-  type MilestoneDocumentArchiveLayout,
-  MilestoneDocumentArchiveService,
-} from './milestone-document-archive.service';
 import {
   type MilestoneDocumentArchiveDocument,
   type MilestoneDocumentArchiveSubmission,
   type MilestoneDocumentArchiveTeam,
-} from './milestone-document-archive.repository';
+} from './requirements.repository';
 
-const milestoneDocumentArchiveService = new MilestoneDocumentArchiveService(
+const milestoneDocumentArchiveService = new RequirementArchiveService(
   undefined as never,
   undefined as never,
   undefined as never,

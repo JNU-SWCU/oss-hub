@@ -8,14 +8,13 @@ import { OriginGuard } from '../platform/origin.guard';
 import { RolesGuard } from '../platform/roles.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ApplicationsController } from './teams.controller';
+import { APPLICATIONS_ERROR_CODES, ApplicationsErrorCode } from './teams.error';
 import {
-  APPLICATIONS_ERROR_CODES,
-  ApplicationsErrorCode,
-} from './applications-error-code.error';
-import { type TeamApplicationService } from './team-application.service';
+  type TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
 import { type ApplicationListItem } from './team.repository';
-import { ApplicationAnswersService } from './team-application.service';
 
 const STAFF = {
   id: 'synthetic-staff',

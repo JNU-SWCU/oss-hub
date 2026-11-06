@@ -1,7 +1,7 @@
 import { MilestoneDocumentFeedbackResponseDto } from '../../student/dto/milestone-document-feedback-response.dto';
 import { MilestoneDocumentHistoryPageResponseDto } from './milestone-document-history-page-response.dto';
 import { MilestoneDocumentResponseDto } from './milestone-document-response.dto';
-import { type MilestoneDocumentViewerResult } from '../milestone-documents.service';
+import { type MilestoneDocumentViewerResult } from '../requirements.service';
 const when = new Date('2026-10-20T01:02:03.123Z');
 it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 양식 ID는 노출하지 않는다', () => {
   const result: MilestoneDocumentViewerResult = {

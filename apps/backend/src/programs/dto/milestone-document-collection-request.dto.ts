@@ -9,9 +9,11 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
-import { type DocumentDeliveryStatus } from '../milestone-document-collection-read.repository';
-import type { MilestoneDocumentCollectionFilter } from '../milestone-document-collection.service';
-import { MILESTONE_DOCUMENT_COLLECTION_FILTERS } from '../milestone-document-collection.service';
+import { type DocumentDeliveryStatus } from '../requirements.repository';
+import {
+  type MilestoneDocumentCollectionFilter,
+  MILESTONE_DOCUMENT_COLLECTION_FILTERS,
+} from '../requirement-archive.service';
 const MILESTONE_DOCUMENT_COLLECTION_MAX_PAGE_SIZE = 100;
 
 export class MilestoneDocumentCollectionRequestDto {

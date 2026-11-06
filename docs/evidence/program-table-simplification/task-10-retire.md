@@ -157,7 +157,9 @@ git grep -nE "prisma\.auditLog|tx\.auditLog|writer\.auditLog|\.auditLog\.|'audit
   ':!deploy/jenkins/user-consolidation/**' ':!deploy/jenkins/program-migration/**'
 ```
 
-계획의 제외만 두면 두 파일에서 8건이 남고, 두 파일을 더 제외하면 0건이다.
+계획의 수락 기준(계획 l.240)이 제외하는 것은 과거 마이그레이션뿐이다. 위 명령의 `user-consolidation` 경로 제외는 계획의 제외가 아니다. 이 경로의 SQL을 남기는 근거는 두 가지다. 계획 l.172가 user-consolidation 스크립트 수정을 금지한다. 또 `deploy/jenkins/user-consolidation-watchdog-state.mjs:91-111`이 `manifest.json`의 sha256으로 preflight·reconcile·rollback SQL을 고정하므로, 이 파일을 바꾸면 모든 배포의 `--detect`가 실패한다. 이 SQL은 `--start`에서만 실행되고, 통합 마이그레이션 적용 뒤의 배포는 `ordinary`로 분류되어 실행하지 않는다.
+
+위 명령의 제외만 두면 두 파일에서 8건이 남고, 두 파일을 더 제외하면 0건이다.
 
 | 파일 | 건 | 제외 이유 |
 | --- | --- | --- |

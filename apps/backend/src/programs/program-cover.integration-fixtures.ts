@@ -15,18 +15,20 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import {
   ProgramDeletionScopeRepository,
   ProgramAuthoringRepository,
+  ProgramHistoryRepository,
 } from './programs.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
-import { ProgramHistoryRepository } from './programs.repository';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramAuthoringService } from './programs.service';
+import {
+  ProgramAuthoringService,
+  ProgramCoverUrlService,
+} from './programs.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
 
 export const PREFIX = 'test:program-cover:';
 export const ACTOR = `${PREFIX}staff`;
@@ -121,7 +123,7 @@ async function cleanup() {
   await prisma.team.deleteMany({
     where: { program: { name: { startsWith: PREFIX } } },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { program: { name: { startsWith: PREFIX } } } },
   });
   await prisma.milestone.deleteMany({

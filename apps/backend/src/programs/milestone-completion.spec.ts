@@ -1,6 +1,6 @@
 import { SubmissionStatus } from '@prisma/client';
 import { MILESTONE_NOT_SUBMITTED } from './milestone-completion.config';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 const milestoneCompletionService = new MilestoneCompletionService();
 describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () => {
   it('필수 서류가 없으면 Submission 상태를 그대로 쓴다', () => {
@@ -49,7 +49,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
         [
           {
             id: 'optional-only',
-            documents: [],
+            requirements: [],
           },
         ],
         [],
@@ -66,7 +66,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
     expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
     expect(
       milestoneCompletionService.requiredMilestonesApproved(
-        [{ id: 'informational', documents: [] }],
+        [{ id: 'informational', requirements: [] }],
         [],
         [],
       ),
@@ -77,7 +77,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
       {
         id: 'required-document',
         submissionType: null,
-        documents: [{ id: 'document-1' }],
+        requirements: [{ id: 'document-1' }],
       },
     ] as const;
     expect(
@@ -102,7 +102,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
         [
           {
             id: 'legacy-document-only',
-            documents: [{ id: 'document-1' }],
+            requirements: [{ id: 'document-1' }],
           },
         ],
         [],

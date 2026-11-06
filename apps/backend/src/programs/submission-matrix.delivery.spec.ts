@@ -1,5 +1,5 @@
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneCompletionService } from './submissions.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionStatus } from '@prisma/client';
 import {

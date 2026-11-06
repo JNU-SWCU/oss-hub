@@ -7,7 +7,7 @@ interface StudentDashboardMilestoneRow {
   readonly id: string;
   readonly name: string;
   readonly dueAt: Date;
-  readonly documents: readonly {
+  readonly requirements: readonly {
     readonly id: string;
     readonly graceDueAt: Date | null;
   }[];
@@ -23,7 +23,7 @@ export interface StudentDashboardApplicationRow {
     readonly coverImageUrl?: string | null;
     readonly milestones: readonly StudentDashboardMilestoneRow[];
   };
-  readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+  readonly submissions: readonly SubmissionCompletionTargetRow[];
 }
 const studentDashboardApplicationSelect = {
   id: true,
@@ -41,7 +41,7 @@ const studentDashboardApplicationSelect = {
           id: true,
           name: true,
           dueAt: true,
-          documents: {
+          requirements: {
             where: { required: true },
             select: { id: true, graceDueAt: true },
           },
@@ -49,11 +49,11 @@ const studentDashboardApplicationSelect = {
       },
     },
   },
-  milestoneDocumentSubmissions: {
+  submissions: {
     select: {
       status: true,
-      milestoneDocument: { select: { id: true, milestoneId: true } },
-    } satisfies Prisma.MilestoneDocumentSubmissionSelect,
+      requirement: { select: { id: true, milestoneId: true } },
+    } satisfies Prisma.SubmissionSelect,
   },
 } satisfies Prisma.TeamSelect;
 @Injectable()

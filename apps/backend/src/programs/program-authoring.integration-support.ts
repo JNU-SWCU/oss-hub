@@ -135,7 +135,7 @@ export class ProgramAuthoringIntegrationHarness {
     await this.prisma.file.deleteMany({
       where: { uploaderId: { startsWith: AUTHORING_TEST_PREFIX } },
     });
-    await this.prisma.milestoneDocument.deleteMany({
+    await this.prisma.requirement.deleteMany({
       where: {
         milestone: { program: { name: { startsWith: AUTHORING_TEST_PREFIX } } },
       },

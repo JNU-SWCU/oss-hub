@@ -9,7 +9,7 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ProgramAuthoringController } from './program-authoring.controller';
 import { ProgramAuthoringService } from './programs.service';
 import { ProgramAuthoringUploadService } from './files.service';
-import { ProgramAuthoringIdempotencyConflictError } from './program-authoring.error';
+import { ProgramAuthoringIdempotencyConflictError } from './programs.error';
 import {
   protectedRouteGuardStub,
   SYNTHETIC_STAFF_PRINCIPAL,

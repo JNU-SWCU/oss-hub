@@ -1,4 +1,4 @@
-import type { ProgramDocumentChangeRequestPreview } from '../milestone-document-collection-read.repository';
+import type { ProgramDocumentChangeRequestPreview } from '../requirements.repository';
 
 export class ProgramDocumentChangeRequestTargetsResponseDto {
   declare readonly submitted: number;

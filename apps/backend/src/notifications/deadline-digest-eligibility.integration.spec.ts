@@ -28,7 +28,7 @@ it('notifyOnDeadline과 필수 서류가 있는 마감 임박 프로그램만 �
 
   expect(programIds).toEqual([DIGEST_FIXTURE.notifyProgram]);
   expect(program?.milestones[0]?.name).toBe('최종 제출');
-  expect(program?.milestones[0]?.documents).toEqual([
+  expect(program?.milestones[0]?.requirements).toEqual([
     expect.objectContaining({
       id: DIGEST_FIXTURE.notifyDocument,
       required: true,

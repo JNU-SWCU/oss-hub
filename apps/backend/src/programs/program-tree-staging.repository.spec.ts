@@ -48,13 +48,13 @@ it.each([
         });
       }),
     },
-    milestoneDocument: {
+    requirement: {
       findMany: jest.fn(() => {
         events.push('document-read');
         return Promise.resolve([]);
       }),
     },
-    milestoneDocumentSubmission: {
+    submission: {
       count: jest.fn(() => {
         events.push('count');
         return Promise.resolve(0);

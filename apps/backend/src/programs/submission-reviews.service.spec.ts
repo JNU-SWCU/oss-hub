@@ -16,12 +16,14 @@ import {
   type SubmissionReviewTransactionStore,
   type SubmissionReviewsRepositoryPort,
   type PublishEligibilityRow,
-} from './submission-reviews.repository';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
-import { SubmissionReviewsService } from './submission-reviews.service';
+} from './submissions.repository';
+import { SubmissionReviewsErrorCode } from './submissions.error';
+import {
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 import { type RepositoryPublishEligibility } from '../github/repository-publish.config';
 
 const REVIEWED_AT = new Date('2026-07-23T00:00:00.000Z');
@@ -66,7 +68,7 @@ function eligibilityRow(
     id: eligibility.repositoryId,
     visibility: eligibility.visibility,
     application: {
-      milestoneDocumentSubmissions: [],
+      submissions: [],
       isRepositoryPublicationPlanned:
         eligibility.isRepositoryPublicationPlanned,
       provisionJob:
@@ -80,7 +82,12 @@ function eligibilityRow(
         endAt: eligibility.programEndAt,
         milestones: eligibility.requiredMilestonesApproved
           ? []
-          : [{ id: 'milestone-1', documents: [{ id: 'required-document' }] }],
+          : [
+              {
+                id: 'milestone-1',
+                requirements: [{ id: 'required-document' }],
+              },
+            ],
       },
     },
   };
@@ -93,7 +100,7 @@ describe('SubmissionReviewsService.review', () => {
       const { store, repository, repositories, isSubmissionParticipant } =
         reviewDependencies();
       isSubmissionParticipant.mockResolvedValue(true);
-      const service = new SubmissionReviewsService(
+      const service = new SubmissionsService(
         repository,
         repositories,
         new RepositoryPublishService(),
@@ -133,7 +140,7 @@ describe('SubmissionReviewsService.review', () => {
     '%s 판정을 현재 제출 상태로 원자적으로 반영한다',
     async (decision, expectedStatus, comment) => {
       const { store, repository, repositories } = reviewDependencies();
-      const service = new SubmissionReviewsService(
+      const service = new SubmissionsService(
         repository,
         repositories,
         new RepositoryPublishService(),
@@ -181,7 +188,7 @@ describe('SubmissionReviewsService.review', () => {
 
   it('요청 revision이 최신이 아니면 stale 오류로 거부한다', async () => {
     const { store, repository, repositories } = reviewDependencies();
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -209,7 +216,7 @@ describe('SubmissionReviewsService.review', () => {
       ...target,
       revision: { ...target.revision, reviewId: 'existing-review' },
     });
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -252,7 +259,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
       visibility: RepositoryVisibility.PUBLIC,
       publishedAt: REVIEWED_AT,
     });
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -292,7 +299,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
         programEndAt: PROGRAM_ENDED_AT,
       }),
     );
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -328,7 +335,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
         programEndAt: PROGRAM_ENDED_AT,
       }),
     );
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -364,7 +371,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
         programEndAt: new Date('2026-08-01T00:00:00.000Z'),
       }),
     );
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -401,7 +408,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     repositories.publish.mockRejectedValue(
       new GithubOperationsError(GITHUB_OPERATIONS_ERROR_CODES.UPSTREAM, true),
     );
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),
@@ -437,7 +444,7 @@ describe('SubmissionReviewsService.publishRepository', () => {
     );
     const internalError = new Error('synthetic database failure');
     repositories.publish.mockRejectedValue(internalError);
-    const service = new SubmissionReviewsService(
+    const service = new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),

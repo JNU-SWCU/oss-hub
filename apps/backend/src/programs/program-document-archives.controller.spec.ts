@@ -6,8 +6,8 @@ import { Readable } from 'node:stream';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { ProgramDocumentArchivesController } from './program-document-archives.controller';
+import { RequirementArchiveService } from './requirement-archive.service';
+import { ProgramDocumentArchivesController } from './requirements.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
@@ -20,8 +20,8 @@ const authSessionService = new AuthSessionService();
 const secret = new Uint8Array(32).fill(39);
 const githubId = 3429001135n;
 const archiveForProgramStaff = jest.fn<
-  ReturnType<MilestoneDocumentArchiveService['archiveForProgramStaff']>,
-  Parameters<MilestoneDocumentArchiveService['archiveForProgramStaff']>
+  ReturnType<RequirementArchiveService['archiveForProgramStaff']>,
+  Parameters<RequirementArchiveService['archiveForProgramStaff']>
 >();
 const findUser = jest.fn();
 let application: INestApplication;
@@ -45,11 +45,11 @@ beforeAll(async () => {
         },
       },
       {
-        provide: MilestoneDocumentArchiveService,
+        provide: RequirementArchiveService,
         useValue: Object.assign(
           Object.create(
-            MilestoneDocumentArchiveService.prototype,
-          ) as MilestoneDocumentArchiveService,
+            RequirementArchiveService.prototype,
+          ) as RequirementArchiveService,
           {
             archiveForProgramStaff,
             downloadResponseService: new DownloadResponseService(),

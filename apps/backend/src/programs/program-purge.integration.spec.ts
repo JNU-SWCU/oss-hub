@@ -5,8 +5,9 @@ import {
   ProgramsRepository,
   ProgramDeletionScopeRepository,
   ProgramLifecycleRepository,
+  ProgramListStatusFilterRepository,
+  ProgramHistoryRepository,
 } from './programs.repository';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -15,7 +16,7 @@ import {
   ApplicationStatus,
   BoardPostCategory,
   CollectionStreamType,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   Prisma,
   FileLifecycle,
   ProgramCategory,
@@ -33,7 +34,6 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
@@ -41,7 +41,7 @@ import { FileCleanupService } from './file-cleanup.service';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { ProgramErrorCode } from './program-error-code.error';
+import { ProgramErrorCode } from './programs.error';
 import { ProgramLifecycleService } from './programs.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 
@@ -193,18 +193,18 @@ async function cleanup(): Promise<void> {
       ],
     },
   });
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: {
       submission: {
-        milestoneDocument: {
+        requirement: {
           milestone: { program: { id: { startsWith: PREFIX } } },
         },
       },
     },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: {
-      milestoneDocument: {
+      requirement: {
         milestone: { program: { id: { startsWith: PREFIX } } },
       },
     },
@@ -217,7 +217,7 @@ async function cleanup(): Promise<void> {
       },
     },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { program: { id: { startsWith: PREFIX } } } },
   });
   await prisma.repositoryProvisionJob.deleteMany({
@@ -658,7 +658,7 @@ async function seedFullChildGraph(
       body: 'Synthetic comment',
     },
   });
-  await prisma.milestoneDocument.create({
+  await prisma.requirement.create({
     data: {
       id: documentId,
       milestoneId,
@@ -686,10 +686,10 @@ async function seedFullChildGraph(
       uploaderId: staffId,
     },
   });
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       id: documentSubmissionId,
-      milestoneDocumentId: documentId,
+      requirementId: documentId,
       teamId,
       status: SubmissionStatus.CHANGES_REQUESTED,
       content: {},
@@ -697,25 +697,25 @@ async function seedFullChildGraph(
       submittedById: applicantId,
     },
   });
-  await prisma.milestoneDocumentSubmissionHistory.create({
+  await prisma.submissionHistory.create({
     data: {
       id: documentSubmissionHistoryId,
-      milestoneDocumentSubmissionId: documentSubmissionId,
-      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      submissionId: documentSubmissionId,
+      event: SubmissionHistoryEvent.SUBMITTED,
       revision: 1,
       content: {},
       actorId: applicantId,
     },
   });
-  await prisma.milestoneDocumentSubmissionHistory.create({
+  await prisma.submissionHistory.create({
     data: {
       id: p('document-review-history'),
-      milestoneDocumentSubmissionId: documentSubmissionId,
+      submissionId: documentSubmissionId,
       event: ReviewDecision.CHANGES_REQUESTED,
       actorId: staffId,
       comment: 'Synthetic changes requested',
       revision: (
-        await prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
+        await prisma.submissionHistory.findUniqueOrThrow({
           where: { id: documentSubmissionHistoryId },
           select: { revision: true },
         })
@@ -753,7 +753,7 @@ async function seedFullChildGraph(
       payloadHash: createHash('sha256').update(label).digest('hex'),
     },
   });
-  await prisma.milestoneDocument.create({
+  await prisma.requirement.create({
     data: {
       id: p('authoring-requirement'),
       milestoneId,
@@ -961,7 +961,7 @@ async function programChildRowCounts(
             submissionHistory: {
               is: {
                 submission: {
-                  milestoneDocument: { milestone: { programId } },
+                  requirement: { milestone: { programId } },
                 },
               },
             },
@@ -969,17 +969,17 @@ async function programChildRowCounts(
         ],
       },
     }),
-    prisma.milestoneDocument.count({ where: { milestone: { programId } } }),
+    prisma.requirement.count({ where: { milestone: { programId } } }),
     prisma.file.count({
       where: { kind: 'TEMPLATE', requirement: { milestone: { programId } } },
     }),
-    prisma.milestoneDocumentSubmission.count({
-      where: { milestoneDocument: { milestone: { programId } } },
+    prisma.submission.count({
+      where: { requirement: { milestone: { programId } } },
     }),
-    prisma.milestoneDocumentSubmissionHistory.count({
+    prisma.submissionHistory.count({
       where: {
         submission: {
-          milestoneDocument: { milestone: { programId } },
+          requirement: { milestone: { programId } },
         },
       },
     }),
@@ -1500,16 +1500,14 @@ describe('Program purge integration — full child graph, worker file deletion, 
       where: { id: fixture.teamId },
       select: { applicantId: true },
     });
-    const submission =
-      await prisma.milestoneDocumentSubmission.findFirstOrThrow({
-        where: { teamId: fixture.teamId },
-        select: { id: true },
-      });
-    const history =
-      await prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-        where: { milestoneDocumentSubmissionId: submission.id },
-        select: { id: true },
-      });
+    const submission = await prisma.submission.findFirstOrThrow({
+      where: { teamId: fixture.teamId },
+      select: { id: true },
+    });
+    const history = await prisma.submissionHistory.findFirstOrThrow({
+      where: { submissionId: submission.id },
+      select: { id: true },
+    });
     const deletedFileId = `${fixture.programId}-deleted-submission-file`;
     const deletedAt = new Date('2026-08-13T00:00:00.000Z');
     await prisma.file.create({
@@ -1880,7 +1878,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
       scopeField: 'submissions',
       insertRacingChildRow: async (fixture, raceId) => {
         const raceDocumentId = `${raceId}-document`;
-        await concurrentPrisma.milestoneDocument.create({
+        await concurrentPrisma.requirement.create({
           data: {
             id: raceDocumentId,
             milestoneId: fixture.milestoneId,
@@ -1889,10 +1887,10 @@ describe('Program purge integration — full child graph, worker file deletion, 
             sortOrder: 2,
           },
         });
-        await concurrentPrisma.milestoneDocumentSubmission.create({
+        await concurrentPrisma.submission.create({
           data: {
             id: raceId,
-            milestoneDocumentId: raceDocumentId,
+            requirementId: raceDocumentId,
             teamId: fixture.teamId,
             status: SubmissionStatus.SUBMITTED,
             revision: 1,

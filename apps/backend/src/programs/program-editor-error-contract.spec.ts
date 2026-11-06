@@ -1,7 +1,4 @@
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.error';
+import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 
 describe('Program editor error contract', () => {
   it('documents stable frontend-facing error codes and statuses', () => {

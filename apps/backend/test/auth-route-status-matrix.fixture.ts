@@ -20,10 +20,10 @@ import { ProgramActivityService } from '../src/programs/program-activity.service
 import {
   ProgramCoverService,
   ProgramCreationService,
-} from '../src/programs/program-creation.service';
+  ProgramLifecycleService,
+  ProgramsService,
+} from '../src/programs/programs.service';
 import { ProgramEditorService } from '../src/programs/program-editor.service';
-import { ProgramLifecycleService } from '../src/programs/programs.service';
-import { ProgramsService } from '../src/programs/programs.service';
 import { ProgramViewerService } from '../src/programs/program-viewer.service';
 import { RankingController } from '../src/ranking/ranking.controller';
 import { RankingService } from '../src/ranking/ranking.service';

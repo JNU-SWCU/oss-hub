@@ -1,6 +1,6 @@
 import { TeamHistoryEvent, type Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
-import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
+import { ApplicationReviewHistoryTargetMissingError } from './teams.error';
 
 export interface AppendReviewHistoryInput {
   readonly teamId: string;

@@ -234,7 +234,7 @@ it('retains same-day deduplication across automatic and guided manual sends', as
 });
 
 it('does not claim or send when no milestone meets existing eligibility', async () => {
-  await harness.prisma.milestoneDocument.update({
+  await harness.prisma.requirement.update({
     where: { id: DIGEST_FIXTURE.notifyDocument },
     data: { required: false },
   });

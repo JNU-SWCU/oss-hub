@@ -2,7 +2,7 @@ import type { AuthorityLabel } from '../users/authority-label.types';
 import { Injectable } from '@nestjs/common';
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import { BOARD_ERROR_CODES, BoardErrorCode } from './board-error-code.error';
+import { BOARD_ERROR_CODES, BoardErrorCode } from './board.error';
 import {
   BoardCommentRecord,
   BoardPostDetailRecord,

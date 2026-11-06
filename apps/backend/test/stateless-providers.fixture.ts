@@ -6,7 +6,7 @@ import { PlatformRepository } from '../src/platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../src/platform/prisma-serialization-retry.repository';
 import { RepositoryProvisionGenerationRepository } from '../src/platform/repository-provision-generation.repository';
 import { SubmissionsRepository } from '../src/programs/submissions.repository';
-import { ProgramListStatusFilterRepository } from '../src/programs/program-list-status-filter.repository';
+import { ProgramListStatusFilterRepository } from '../src/programs/programs.repository';
 import { StudentRepositoryUrlContextRepository } from '../src/programs/team.repository';
 import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.repository';
 import { AdminAccessReadOrderingRepository } from '../src/users/admin-access-read-ordering.repository';
@@ -23,12 +23,14 @@ import {
   ProgramTemplatesService,
 } from '../src/programs/team-application.service';
 import { DownloadResponseService } from '../src/programs/download-response.service';
-import { MilestoneCompletionService } from '../src/programs/milestone-completion.service';
-import { MilestoneDocumentFileNameService } from '../src/programs/milestone-document-file-name.service';
-import { MilestoneDocumentSubmissionWindowService } from '../src/programs/milestone-document-submission-window.service';
-import { ProgramCoverUrlService } from '../src/programs/program-cover-url.service';
+import { MilestoneCompletionService } from '../src/programs/submissions.service';
+import {
+  MilestoneDocumentFileNameService,
+  MilestoneDocumentSubmissionWindowService,
+  SubmissionFileAdmissionService,
+} from '../src/programs/files.service';
+import { ProgramCoverUrlService } from '../src/programs/programs.service';
 import { ProgramScheduleService } from '../src/programs/program-schedule.service';
-import { SubmissionFileAdmissionService } from '../src/programs/files.service';
 import { RankingYearService } from '../src/ranking/ranking-year.service';
 import { StaffInsightsQueryService } from '../src/staff/staff-insights-query.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';

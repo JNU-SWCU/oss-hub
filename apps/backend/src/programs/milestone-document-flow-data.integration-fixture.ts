@@ -69,7 +69,7 @@ export async function seedMilestoneDocumentFlow(
           id: flowIds.milestone,
           name: '합성 제출 단계',
           dueAt: new Date('2099-01-01'),
-          documents: {
+          requirements: {
             create: {
               id: flowIds.document,
               name: '합성 계획서',

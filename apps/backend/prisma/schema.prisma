@@ -108,8 +108,8 @@ model User {
   receivedTeamInvitations                TeamInvitation[]                     @relation("TeamInvitationInvitee")
   uploadedFiles                          File[]
   createdPrograms                        Program[]
-  milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
-  milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
+  submissions                            Submission[]
+  submissionHistories                    SubmissionHistory[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
@@ -284,7 +284,7 @@ model Milestone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  documents       MilestoneDocument[]
+  requirements    Requirement[]
 
   @@index([programId])
 }
@@ -334,7 +334,7 @@ model Team {
   members      TeamMember[]
   repository GithubRepository?
   provisionJob RepositoryProvisionJob?
-  milestoneDocumentSubmissions MilestoneDocumentSubmission[]
+  submissions  Submission[]
   invitations  TeamInvitation[]
 
   @@unique([id, programId])
@@ -491,9 +491,11 @@ enum SubmissionStatus {
 }
 
 
-enum MilestoneDocumentKind {
+enum RequirementKind {
   DOCUMENT
   LEGACY_MILESTONE_SUBMISSION
+
+  @@map("MilestoneDocumentKind")
 }
 
 enum RequirementSubmissionType {
@@ -502,7 +504,7 @@ enum RequirementSubmissionType {
   FILE_OR_TEXT
 }
 
-model MilestoneDocument {
+model Requirement {
   files File[]
   graceDueAt  DateTime?
   id          String    @id @default(cuid())
@@ -517,17 +519,18 @@ model MilestoneDocument {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions  MilestoneDocumentSubmission[]
+  submissions  Submission[]
 
   @@index([milestoneId, sortOrder])
+  @@map("MilestoneDocument")
 }
 
 
-model MilestoneDocumentSubmission {
+model Submission {
   id String @id @default(cuid())
 
-  milestoneDocumentId String
-  milestoneDocument   MilestoneDocument @relation(fields: [milestoneDocumentId], references: [id])
+  requirementId String      @map("milestoneDocumentId")
+  requirement   Requirement @relation(fields: [requirementId], references: [id])
   teamId String
   team Team @relation(fields: [teamId], references: [id])
 
@@ -544,27 +547,30 @@ model MilestoneDocumentSubmission {
   updatedAt DateTime @updatedAt
 
   files           File[]
-  histories       MilestoneDocumentSubmissionHistory[]
-  @@unique([milestoneDocumentId, teamId])
+  histories       SubmissionHistory[]
+  @@unique([requirementId, teamId])
   @@index([teamId])
   @@index([submittedById])
+  @@map("MilestoneDocumentSubmission")
 }
 
-enum MilestoneDocumentSubmissionHistoryEvent {
+enum SubmissionHistoryEvent {
   SUBMITTED
   RESUBMITTED
   CHANGES_REQUESTED
   APPROVED
   REJECTED
+
+  @@map("MilestoneDocumentSubmissionHistoryEvent")
 }
 
-model MilestoneDocumentSubmissionHistory {
+model SubmissionHistory {
   id String @id @default(cuid())
 
-  milestoneDocumentSubmissionId String
-  submission                    MilestoneDocumentSubmission @relation(fields: [milestoneDocumentSubmissionId], references: [id], onDelete: Restrict, map: "MilestoneDocumentSubmissionHistory_submissionId_fkey")
+  submissionId String     @map("milestoneDocumentSubmissionId")
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Restrict, map: "MilestoneDocumentSubmissionHistory_submissionId_fkey")
 
-  event    MilestoneDocumentSubmissionHistoryEvent
+  event    SubmissionHistoryEvent
   revision Int?
   content  Json?
   comment  String?
@@ -576,8 +582,9 @@ model MilestoneDocumentSubmissionHistory {
 
   files File[]
 
-  @@index([milestoneDocumentSubmissionId, createdAt])
+  @@index([submissionId, createdAt])
   @@index([actorId])
+  @@map("MilestoneDocumentSubmissionHistory")
 }
 
 enum ReviewDecision {
@@ -615,13 +622,13 @@ model File {
   program Program? @relation("ProgramFiles", fields: [programId], references: [id], onDelete: Restrict)
   coverForProgram Program? @relation("ProgramCoverFile")
   requirementId String?
-  requirement MilestoneDocument? @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+  requirement Requirement? @relation(fields: [requirementId], references: [id], onDelete: Restrict)
   teamId String?
   team Team? @relation(fields: [teamId], references: [id], onDelete: Restrict)
   submissionId String?
-  submission MilestoneDocumentSubmission? @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  submission Submission? @relation(fields: [submissionId], references: [id], onDelete: Restrict)
   submissionHistoryId String?
-  submissionHistory MilestoneDocumentSubmissionHistory? @relation(fields: [submissionHistoryId], references: [id], onDelete: Restrict)
+  submissionHistory SubmissionHistory? @relation(fields: [submissionHistoryId], references: [id], onDelete: Restrict)
   pendingExpiresAt DateTime?
   expiresAt DateTime?
   attachedAt DateTime?

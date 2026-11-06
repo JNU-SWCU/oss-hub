@@ -1,6 +1,6 @@
 import { AccountStatus, BoardPostCategory } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import { BoardErrorCode } from './board-error-code.error';
+import { BoardErrorCode } from './board.error';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
 import { UserProfileService } from '../users/user-profile.service';

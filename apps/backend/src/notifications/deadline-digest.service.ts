@@ -402,7 +402,7 @@ export class DeadlineDigestService {
   ): DeadlineEligibility {
     const milestones = source.milestones
       .flatMap((milestone) => {
-        const requiredDocumentIds = milestone.documents
+        const requiredDocumentIds = milestone.requirements
           .filter((document) => document.required)
           .map((document) => document.id)
           .sort();

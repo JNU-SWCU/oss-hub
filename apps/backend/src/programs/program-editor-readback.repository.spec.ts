@@ -22,7 +22,7 @@ describe('milestone edit transaction readback', () => {
     const tx = {
       $queryRaw: jest.fn().mockResolvedValue([{ id: 'm', programId: 'p' }]),
       milestone: { findUnique: jest.fn().mockResolvedValue(milestone) },
-      milestoneDocument: {
+      requirement: {
         findMany: jest.fn().mockResolvedValue([
           {
             id: 'a',
@@ -82,8 +82,8 @@ describe('milestone edit transaction readback', () => {
     expect(tx.milestone.findUnique.mock.calls.slice(0, 2)).toEqual(
       tx.milestone.findUnique.mock.calls.slice(2),
     );
-    expect(tx.milestoneDocument.findMany.mock.calls[0]).toEqual(
-      tx.milestoneDocument.findMany.mock.calls[1],
+    expect(tx.requirement.findMany.mock.calls[0]).toEqual(
+      tx.requirement.findMany.mock.calls[1],
     );
   });
   it.each(['ownership', 'read', 'mismatch'])(
@@ -101,7 +101,7 @@ describe('milestone edit transaction readback', () => {
               missing === 'read' ? null : { ...milestone, programId: 'other' },
             ),
         },
-        milestoneDocument: { findMany: jest.fn() },
+        requirement: { findMany: jest.fn() },
       };
       const repository = new ProgramEditorRepository(
         {
@@ -125,7 +125,7 @@ describe('milestone edit transaction readback', () => {
         repository.withTransaction((store) => store.readMilestoneEdit('m')),
       ).resolves.toBeNull();
       expect(tx.$queryRaw).not.toHaveBeenCalled();
-      expect(tx.milestoneDocument.findMany).not.toHaveBeenCalled();
+      expect(tx.requirement.findMany).not.toHaveBeenCalled();
     },
   );
 });

@@ -2,7 +2,11 @@ import { TeamHistoryRepository } from './team-history.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team.repository';
+import {
+  TeamDeletionScopeRepository,
+  TeamRepository,
+  ProgramTeamDeletionRepository,
+} from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -11,14 +15,12 @@ import {
   ProgramActivityRepository,
   ProgramActivitySummaryRepository,
 } from './program-activity.repository';
-import { TeamRepository } from './team.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
 import { TeamMembershipService } from './team-membership.service';
-import { ProgramTeamDeletionRepository } from './team.repository';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

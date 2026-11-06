@@ -65,7 +65,7 @@ describe('per-document grace HTTP + PostgreSQL', () => {
       const response = await setGrace(value);
       expect(response.status).toBe(status);
       await expect(
-        fixture.prisma.milestoneDocument.findUnique({
+        fixture.prisma.requirement.findUnique({
           where: { id: flowIds.document },
           select: { graceDueAt: true },
         }),
@@ -140,8 +140,8 @@ describe('per-document grace HTTP + PostgreSQL', () => {
     );
     expect((await upload()).status).toBe(422);
     expect(
-      await fixture.prisma.milestoneDocumentSubmission.count({
-        where: { milestoneDocumentId: flowIds.document },
+      await fixture.prisma.submission.count({
+        where: { requirementId: flowIds.document },
       }),
     ).toBe(0);
   });

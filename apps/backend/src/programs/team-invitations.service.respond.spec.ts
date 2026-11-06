@@ -9,7 +9,7 @@ import {
 import { MemberKind } from '../users/user-contract.config';
 import type { PrismaService } from '../platform/prisma.service';
 
-import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
+import { TeamInvitationErrorCode } from './teams.error';
 import {
   buildService,
   syntheticGithubId,

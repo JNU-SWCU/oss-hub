@@ -17,7 +17,7 @@ describe('MilestoneDocumentSubmissionHistory append-only contract', () => {
       (model) => model.name === 'Milestone',
     );
     const requirement = Prisma.dmmf.datamodel.models.find(
-      (model) => model.name === 'MilestoneDocument',
+      (model) => model.name === 'Requirement',
     );
     expect(milestone).toBeDefined();
     expect(milestone?.fields.map((field) => field.name)).not.toContain(
@@ -29,15 +29,13 @@ describe('MilestoneDocumentSubmissionHistory append-only contract', () => {
   });
 
   it('stores every submission and decision event with actor, revision, time, and immutable file relation', () => {
-    expect(schema).toContain('enum MilestoneDocumentSubmissionHistoryEvent');
-    expect(schema).toContain('model MilestoneDocumentSubmissionHistory');
-    expect(schema).toMatch(/event\s+MilestoneDocumentSubmissionHistoryEvent/);
+    expect(schema).toContain('enum SubmissionHistoryEvent');
+    expect(schema).toContain('model SubmissionHistory');
+    expect(schema).toMatch(/event\s+SubmissionHistoryEvent/);
     expect(schema).toMatch(/revision\s+Int/);
     expect(schema).toMatch(/actorId\s+String/);
     expect(schema).toMatch(/createdAt\s+DateTime/);
-    expect(schema).toMatch(
-      /submissionHistory\s+MilestoneDocumentSubmissionHistory\?/,
-    );
+    expect(schema).toMatch(/submissionHistory\s+SubmissionHistory\?/);
   });
 
   it('is additive, backfills known current snapshots and legacy reviews, and never deletes production data', () => {

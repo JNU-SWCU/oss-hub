@@ -1,5 +1,5 @@
 import type { ProgramCategory } from '@prisma/client';
-import type { CreatedProgram } from '../program-creation.service';
+import type { CreatedProgram } from '../programs.service';
 
 export class CreateProgramResponseDto {
   declare readonly id: string;

@@ -111,8 +111,8 @@ async function clearFixture(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'SUBMISSION', id: SUBMISSION_FILE_ID },
   });
-  await prisma.milestoneDocument.deleteMany({ where: { id: DOCUMENT_ID } });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({ where: { id: DOCUMENT_ID } });
+  await prisma.requirement.deleteMany({
     where: { id: TRANSFER_DOCUMENT_ID },
   });
   await prisma.milestone.deleteMany({ where: { id: MILESTONE_ID } });
@@ -164,7 +164,7 @@ async function installLiveFixture(): Promise<void> {
       sizeBytes: 1,
     },
   });
-  await prisma.milestoneDocument.create({
+  await prisma.requirement.create({
     data: {
       id: DOCUMENT_ID,
       milestoneId: MILESTONE_ID,
@@ -255,7 +255,7 @@ async function installPendingTemplateTransferFixture(): Promise<void> {
       dueAt: new Date('2026-02-01T00:00:00.000Z'),
     },
   });
-  await prisma.milestoneDocument.create({
+  await prisma.requirement.create({
     data: {
       id: TRANSFER_DOCUMENT_ID,
       milestoneId: TRANSFER_MILESTONE_ID,

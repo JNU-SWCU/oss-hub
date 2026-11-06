@@ -10,18 +10,18 @@ import { DomainException } from '../platform/error-code.error';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+} from './submissions.error';
 import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.error';
+  ProgramAuthoringUploadTokenError,
+} from './programs.error';
 import {
   createProgramEditorServiceHarness,
   editableProgram,
 } from '../../test/program-editor-service-fixtures';
-import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
 import { ProgramEditorService } from './program-editor.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 
 const programEditorService = new ProgramEditorService(
   undefined as never,

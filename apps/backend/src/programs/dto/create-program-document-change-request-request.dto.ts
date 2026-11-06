@@ -7,7 +7,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { type ProgramDocumentChangeRequestScope } from '../milestone-document-collection-read.repository';
+import { type ProgramDocumentChangeRequestScope } from '../requirements.repository';
 export class CreateProgramDocumentChangeRequestRequestDto {
   @IsIn(['PROGRAM', 'TEAM'])
   declare readonly scope: ProgramDocumentChangeRequestScope['kind'];

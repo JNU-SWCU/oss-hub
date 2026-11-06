@@ -13,9 +13,11 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { SubmissionsController } from './submissions.controller';
-import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import {
+  SubmissionsController,
+  SubmissionRepositoryPublishingController,
+} from './submissions.controller';
+import { SubmissionsService } from './submissions.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
@@ -84,11 +86,9 @@ beforeAll(async () => {
       }),
       ...STATELESS_PROVIDERS,
       {
-        provide: SubmissionReviewsService,
+        provide: SubmissionsService,
         useValue: Object.assign(
-          Object.create(
-            SubmissionReviewsService.prototype,
-          ) as SubmissionReviewsService,
+          Object.create(SubmissionsService.prototype) as SubmissionsService,
           service,
         ),
       },
@@ -129,11 +129,9 @@ beforeAll(async () => {
         },
       },
       {
-        provide: SubmissionReviewsService,
+        provide: SubmissionsService,
         useValue: Object.assign(
-          Object.create(
-            SubmissionReviewsService.prototype,
-          ) as SubmissionReviewsService,
+          Object.create(SubmissionsService.prototype) as SubmissionsService,
           unauthenticatedService,
         ),
       },

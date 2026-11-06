@@ -5,7 +5,9 @@ import { DomainException } from '../platform/error-code.error';
 import {
   TEAM_INVITATION_ERROR_CODES,
   TeamInvitationErrorCode,
-} from './team-invitation-error-code.error';
+  APPLICATIONS_ERROR_CODES,
+  ApplicationsErrorCode,
+} from './teams.error';
 import {
   TeamInvitationsRepository,
   type AcceptedInvitationResult,
@@ -16,10 +18,6 @@ import {
   type StaffAuthorityRow,
 } from './team-invitations.repository';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
-import {
-  APPLICATIONS_ERROR_CODES,
-  ApplicationsErrorCode,
-} from './applications-error-code.error';
 
 @Injectable()
 export class TeamInvitationsService {

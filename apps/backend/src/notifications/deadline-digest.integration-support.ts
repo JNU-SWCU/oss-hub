@@ -45,7 +45,7 @@ export function createDeadlineDigestIntegrationHarness() {
     await prisma.notification.deleteMany({
       where: { userId: { in: DIGEST_USER_IDS } },
     });
-    await prisma.milestoneDocumentSubmission.deleteMany({
+    await prisma.submission.deleteMany({
       where: { id: DIGEST_FIXTURE.documentSubmission },
     });
     await prisma.teamMember.deleteMany({
@@ -60,7 +60,7 @@ export function createDeadlineDigestIntegrationHarness() {
         id: { in: DIGEST_APPLICATION_FIXTURES.map(([id]) => id) },
       },
     });
-    await prisma.milestoneDocument.deleteMany({
+    await prisma.requirement.deleteMany({
       where: {
         id: {
           in: [DIGEST_FIXTURE.notifyDocument, DIGEST_FIXTURE.silentDocument],
@@ -128,7 +128,7 @@ export function createDeadlineDigestIntegrationHarness() {
         dueAt: DIGEST_FIXTURE.dueSoon,
       })),
     });
-    await prisma.milestoneDocument.createMany({
+    await prisma.requirement.createMany({
       data: [
         {
           id: DIGEST_FIXTURE.notifyDocument,
@@ -186,11 +186,11 @@ export function createDeadlineDigestIntegrationHarness() {
         userId: applicantId,
       })),
     });
-    await prisma.milestoneDocumentSubmission.create({
+    await prisma.submission.create({
       data: {
         id: DIGEST_FIXTURE.documentSubmission,
         teamId: DIGEST_FIXTURE.submittedApplication,
-        milestoneDocumentId: DIGEST_FIXTURE.notifyDocument,
+        requirementId: DIGEST_FIXTURE.notifyDocument,
         submittedById: DIGEST_FIXTURE.studentSubmitted,
       },
     });

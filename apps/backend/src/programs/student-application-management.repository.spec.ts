@@ -566,7 +566,7 @@ function createTransaction(input?: {
       findMany: jest.fn().mockResolvedValue([]),
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
-    milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
+    submission: { count: jest.fn().mockResolvedValue(0) },
     githubRepository: { count: jest.fn().mockResolvedValue(0) },
     file: { count: jest.fn().mockResolvedValue(0) },
     repositoryProvisionJob: {

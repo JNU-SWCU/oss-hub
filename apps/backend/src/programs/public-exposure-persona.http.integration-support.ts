@@ -30,9 +30,12 @@ import {
   PublicEligibilityService,
 } from './public-projects.service';
 import { PublicUserProfileController } from './public-user-profile.controller';
-import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import { SubmissionRepositoryPublishingController } from './submissions.controller';
+import { SubmissionReviewsRepository } from './submissions.repository';
+import {
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuditLogReadRepository } from '../platform/audit-log-read.repository';
@@ -42,7 +45,6 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RankingTimelineService } from '../ranking/ranking-timeline.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 import { databaseSessionPrincipal } from '../../test/global-authentication-guard.fixture';
 
 const authSessionService = new AuthSessionService();
@@ -114,7 +116,7 @@ export class PublicExposurePersonaHttpHarness {
       new HistoryMetadataService(),
       new RepositoryUrlService(),
     );
-    const submissionReviewsService = new SubmissionReviewsService(
+    const submissionReviewsService = new SubmissionsService(
       new SubmissionReviewsRepository(this.prisma, new PlatformRepository()),
       repositoriesService,
       new RepositoryPublishService(),
@@ -146,7 +148,7 @@ export class PublicExposurePersonaHttpHarness {
         },
         RankingYearService,
         {
-          provide: SubmissionReviewsService,
+          provide: SubmissionsService,
           useValue: submissionReviewsService,
         },
         AuthSessionService,

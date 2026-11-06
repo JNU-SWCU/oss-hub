@@ -1,6 +1,6 @@
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,
@@ -22,10 +22,10 @@ const dueAt = '2099-06-30T14:59:59.000Z';
 
 async function clearExtra(): Promise<void> {
   const where = { teamId: extra.team };
-  await fixture.prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await fixture.prisma.submissionHistory.deleteMany({
     where: { submission: where },
   });
-  await fixture.prisma.milestoneDocumentSubmission.deleteMany({ where });
+  await fixture.prisma.submission.deleteMany({ where });
   await fixture.prisma.teamMember.deleteMany({ where: { teamId: extra.team } });
   await fixture.prisma.team.deleteMany({ where: { id: extra.team } });
   await fixture.prisma.user.deleteMany({ where: { id: extra.student } });
@@ -61,10 +61,10 @@ async function seedSecondTeam(): Promise<void> {
       applicationTemplateVersion: 1,
     },
   });
-  await fixture.prisma.milestoneDocumentSubmission.create({
+  await fixture.prisma.submission.create({
     data: {
       id: extra.submission,
-      milestoneDocumentId: flowIds.document,
+      requirementId: flowIds.document,
       teamId: extra.team,
       content: { type: 'TEXT', text: '팀 나 제출' },
       submittedById: extra.student,
@@ -81,11 +81,11 @@ async function seedSecondTeam(): Promise<void> {
 }
 
 function statusOf(teamId: string) {
-  return fixture.prisma.milestoneDocumentSubmission
+  return fixture.prisma.submission
     .findUniqueOrThrow({
       where: {
-        milestoneDocumentId_teamId: {
-          milestoneDocumentId: flowIds.document,
+        requirementId_teamId: {
+          requirementId: flowIds.document,
           teamId,
         },
       },
@@ -112,10 +112,10 @@ function sendChangeRequest(
 }
 
 function changeRequestReviewCount(): Promise<number> {
-  return fixture.prisma.milestoneDocumentSubmissionHistory.count({
+  return fixture.prisma.submissionHistory.count({
     where: {
       event: ReviewDecision.CHANGES_REQUESTED,
-      submission: { milestoneDocumentId: flowIds.document },
+      submission: { requirementId: flowIds.document },
     },
   });
 }
@@ -225,26 +225,25 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
       SubmissionStatus.CHANGES_REQUESTED,
     );
     await expect(statusOf(extra.team)).resolves.toBe(SubmissionStatus.APPROVED);
-    const review =
-      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-        where: {
-          submission: { teamId: flowIds.team },
-          event: ReviewDecision.CHANGES_REQUESTED,
-        },
-        select: { event: true, comment: true },
-      });
+    const review = await fixture.prisma.submissionHistory.findFirstOrThrow({
+      where: {
+        submission: { teamId: flowIds.team },
+        event: ReviewDecision.CHANGES_REQUESTED,
+      },
+      select: { event: true, comment: true },
+    });
     expect(review).toEqual({
       event: ReviewDecision.CHANGES_REQUESTED,
       comment: '양식을 바꿔 다시 내 주세요.',
     });
     await expect(
-      fixture.prisma.milestoneDocumentSubmissionHistory.count({
+      fixture.prisma.submissionHistory.count({
         where: { submission: { teamId: flowIds.team } },
       }),
     ).resolves.toBe(2);
     await expect(
-      fixture.prisma.milestoneDocumentSubmission.count({
-        where: { milestoneDocumentId: flowIds.document },
+      fixture.prisma.submission.count({
+        where: { requirementId: flowIds.document },
       }),
     ).resolves.toBe(2);
   });
@@ -294,11 +293,11 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     );
     await expect(statusOf(extra.team)).resolves.toBe(SubmissionStatus.APPROVED);
     await expect(
-      fixture.prisma.milestoneDocumentSubmissionHistory.count({
+      fixture.prisma.submissionHistory.count({
         where: {
           event: ReviewDecision.CHANGES_REQUESTED,
           submission: {
-            milestoneDocumentId: flowIds.document,
+            requirementId: flowIds.document,
           },
         },
       }),

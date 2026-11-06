@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
-import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
+import { Injectable, Inject } from '@nestjs/common';
 import {
+  Prisma,
+  type Prisma as PrismaTypes,
   AccountStatus,
   ApplicationStatus,
   OutboxEventStatus,
@@ -15,7 +15,9 @@ import {
   TeamHistoryEvent,
   type ProgramTrackType,
   FileLifecycle,
+  CollectionRepositoryPresence,
 } from '@prisma/client';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { PrismaService } from '../platform/prisma.service';
 import {
   RepositoryProvisionGenerationRepository,
@@ -24,6 +26,7 @@ import {
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
+  USER_AUTHORITY_SELECT,
 } from '../platform/user-profile-read.config';
 import {
   type AppendReviewHistoryInput,
@@ -33,20 +36,20 @@ import {
 import {
   RepositoryEventAlreadyExistsError,
   ApplicationTeamMembershipConflictError,
-} from './applications.error';
+  TeamDeletedScopeMismatchError,
+  repositoryUrlError,
+} from './teams.error';
 import {
   APPLICATION_DECISION_ACTIONS,
   APPLICATION_LIST_STATUSES,
   APPLICATION_LIST_VIEWS,
 } from './applications.config';
 import { PlatformRepository } from '../platform/platform.repository';
-import { Inject } from '@nestjs/common';
 import {
   STUDENT_APPLICATION_MANAGEMENT_CLOCK,
   RESUBMITTABLE_STATUSES,
   CANCELLABLE_STATUSES,
 } from './student-application-management.config';
-import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
   ProgramTeamRepositoryEvidenceRepository,
   type TeamActivityScope,
@@ -58,8 +61,6 @@ import {
 } from './program-team-repository-evidence.repository';
 import { type SubmissionCompletionTargetRow } from './submission-completion.config';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
-import { CollectionRepositoryPresence } from '@prisma/client';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import type { RepositoryDeletionCounts } from '../platform/repository-audit-metadata.config';
@@ -1800,7 +1801,7 @@ export class StudentApplicationManagementRepository {
         await Promise.all([
           transaction.teamMember.count({ where: { teamId } }),
           transaction.teamInvitation.count({ where: { teamId } }),
-          transaction.milestoneDocumentSubmission.count({ where: { teamId } }),
+          transaction.submission.count({ where: { teamId } }),
           transaction.githubRepository.count({ where: { teamId } }),
           transaction.file.count({ where: { teamId } }),
         ]);
@@ -1983,12 +1984,12 @@ export interface TeamApplicationRow {
     readonly repositoryProvisioningEnabled: boolean;
     readonly milestones: readonly {
       readonly id: string;
-      readonly documents: readonly {
+      readonly requirements: readonly {
         readonly id: string;
       }[];
     }[];
   };
-  readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+  readonly submissions: readonly SubmissionCompletionTargetRow[];
   readonly outbox: {
     readonly status: OutboxEventStatus;
     readonly createdAt: Date;
@@ -2224,7 +2225,7 @@ export class TeamRepository {
             repository: { select: { id: true } },
             _count: {
               select: {
-                milestoneDocumentSubmissions: true,
+                submissions: true,
                 files: true,
               },
             },
@@ -2260,7 +2261,7 @@ export class TeamRepository {
       status: team.status,
       hasActivity:
         team.repository !== null ||
-        team._count.milestoneDocumentSubmissions > 0 ||
+        team._count.submissions > 0 ||
         team._count.files > 0,
       members: team.members.map((member) => ({
         userId: member.userId,
@@ -2348,7 +2349,7 @@ export class TeamRepository {
             milestones: {
               select: {
                 id: true,
-                documents: {
+                requirements: {
                   where: {
                     required: true,
                   },
@@ -2358,11 +2359,11 @@ export class TeamRepository {
             },
           },
         },
-        milestoneDocumentSubmissions: {
+        submissions: {
           select: {
             status: true,
-            milestoneDocument: { select: { id: true, milestoneId: true } },
-          } satisfies PrismaTypes.MilestoneDocumentSubmissionSelect,
+            requirement: { select: { id: true, milestoneId: true } },
+          } satisfies PrismaTypes.SubmissionSelect,
         },
       },
     });
@@ -2487,7 +2488,7 @@ export class TeamRepository {
         });
         if (team.status === 'APPROVED') return 'last-member-with-application';
         const [submissions, repositories, files] = await Promise.all([
-          tx.milestoneDocumentSubmission.count({ where: { teamId } }),
+          tx.submission.count({ where: { teamId } }),
           tx.githubRepository.count({ where: { teamId } }),
           tx.file.count({ where: { teamId } }),
         ]);
@@ -2635,7 +2636,7 @@ export class TeamRepository {
         if (application?.status === 'APPROVED')
           return 'last-member-with-application';
         const [submissions, repositories, files] = await Promise.all([
-          tx.milestoneDocumentSubmission.count({ where: { teamId } }),
+          tx.submission.count({ where: { teamId } }),
           tx.githubRepository.count({ where: { teamId } }),
           tx.file.count({ where: { teamId } }),
         ]);
@@ -3160,13 +3161,12 @@ async function deleteTeamTree(
     data: detachedFileFks,
   });
   const milestoneDocumentSubmissionHistories =
-    await tx.milestoneDocumentSubmissionHistory.deleteMany({
+    await tx.submissionHistory.deleteMany({
       where: { submission: { teamId } },
     });
-  const milestoneDocumentSubmissions =
-    await tx.milestoneDocumentSubmission.deleteMany({
-      where: { teamId },
-    });
+  const milestoneDocumentSubmissions = await tx.submission.deleteMany({
+    where: { teamId },
+  });
 
   const teamInvitations = await tx.teamInvitation.deleteMany({
     where: { teamId },
@@ -3455,5 +3455,3 @@ export class StudentRepositoryUrlRepository {
     );
   }
 }
-
-import { repositoryUrlError } from './applications-error-code.error';

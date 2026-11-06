@@ -1,12 +1,12 @@
 import { FileMetadataRepository } from './files.repository';
 import {
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   Prisma,
   SubmissionStatus,
 } from '@prisma/client';
 import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import { SubmissionMembershipChangedError } from './submissions.error';
 import {
   type UpsertMilestoneDocumentSubmissionInput,
   SubmissionsRepository,
@@ -142,16 +142,14 @@ function buildHarness(
 
   const transaction = {
     $queryRaw: queryRaw,
-    milestoneDocumentSubmissionHistory: {
-      findFirst: (
-        args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
-      ) =>
+    submissionHistory: {
+      findFirst: (args: Prisma.SubmissionHistoryFindFirstArgs) =>
         args.where?.event === undefined
           ? historyFindFirst()
           : reviewFindFirst(),
       create: historyCreate,
     },
-    milestoneDocumentSubmission: { findUnique: submissionFindUnique, upsert },
+    submission: { findUnique: submissionFindUnique, upsert },
     file: { updateMany: attachUpdateMany, findMany: fileFindMany },
   };
 
@@ -265,7 +263,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
       expect.objectContaining<{ data: unknown }>({
         data: expect.objectContaining({
           actorId: CURRENT_MEMBER_ID,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
         }),
       }),
@@ -336,7 +334,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
       expect.objectContaining<{ data: unknown }>({
         data: expect.objectContaining({
           actorId: CURRENT_MEMBER_ID,
-          event: MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+          event: SubmissionHistoryEvent.RESUBMITTED,
           revision: 2,
         }),
       }),

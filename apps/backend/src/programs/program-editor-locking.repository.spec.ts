@@ -39,7 +39,7 @@ describe('ProgramEditorRepository locking', () => {
             },
           }),
       },
-      milestoneDocument: { findMany: jest.fn().mockResolvedValue([]) },
+      requirement: { findMany: jest.fn().mockResolvedValue([]) },
     };
     const prisma = {
       $transaction: <T>(operation: (store: typeof transaction) => Promise<T>) =>
@@ -132,7 +132,7 @@ describe('ProgramEditorRepository locking', () => {
             },
           }),
       },
-      milestoneDocumentSubmission: { count: jest.fn().mockResolvedValue(0) },
+      submission: { count: jest.fn().mockResolvedValue(0) },
     };
     const prisma = {
       $transaction: <T>(operation: (store: typeof transaction) => Promise<T>) =>

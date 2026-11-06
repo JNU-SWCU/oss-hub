@@ -1,12 +1,14 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import type { PrismaService } from '../platform/prisma.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
 
 const githubId = 424242n;
 

@@ -4,16 +4,16 @@ import { ProgramTrackType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramActivitySummaryService } from '../programs/program-activity-summary.service';
-import { SubmissionDashboardSummaryService } from '../programs/submission-dashboard-summary.service';
+import { SubmissionDashboardSummaryService } from '../programs/submission-matrix.service';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
-} from '../programs/applications-error-code.error';
+} from '../programs/teams.error';
 import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffModule } from './staff.module';
-import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import { ProgramCoverUrlService } from '../programs/programs.service';
 
 describe('StaffDashboardService', () => {
   const syntheticSessionSecret = Buffer.from(

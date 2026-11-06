@@ -89,7 +89,7 @@ function authoredCandidate(): PersistedAuthoredCandidate {
     milestones: plan.milestones.map((milestone, milestoneIndex) => ({
       id: `milestone-${milestoneIndex}`,
       name: milestone.name,
-      documents: milestone.documents.map((document, documentIndex) => ({
+      requirements: milestone.documents.map((document, documentIndex) => ({
         id: `document-${milestoneIndex}-${documentIndex}`,
         name: document.name,
         required: document.required,
@@ -186,7 +186,7 @@ describe('adoptPersistedE2eProgramGraph', () => {
         ...candidate,
         milestones: candidate.milestones.map((milestone) => ({
           ...milestone,
-          documents: milestone.documents.map((document) => ({
+          requirements: milestone.requirements.map((document) => ({
             ...document,
             required: false,
           })),

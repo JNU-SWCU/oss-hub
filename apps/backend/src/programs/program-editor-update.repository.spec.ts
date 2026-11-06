@@ -96,7 +96,7 @@ describe('ProgramEditorRepository updates', () => {
           {
             submissionHistory: {
               submission: {
-                milestoneDocument: { milestone: { programId: 'program-1' } },
+                requirement: { milestone: { programId: 'program-1' } },
               },
             },
           },

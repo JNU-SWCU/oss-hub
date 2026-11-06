@@ -11,10 +11,12 @@ import {
   StudentDashboardRepository,
   type StudentDashboardApplicationRow,
 } from './student-dashboard.repository';
-import { MILESTONE_NOT_SUBMITTED } from '../programs/milestone-completion.config';
-import type { MilestoneCompletionStatus } from '../programs/milestone-completion.config';
-import { MilestoneCompletionService } from '../programs/milestone-completion.service';
-import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import {
+  MILESTONE_NOT_SUBMITTED,
+  type MilestoneCompletionStatus,
+} from '../programs/milestone-completion.config';
+import { MilestoneCompletionService } from '../programs/submissions.service';
+import { ProgramCoverUrlService } from '../programs/programs.service';
 export interface StudentDashboardMilestone {
   readonly id: string;
   readonly name: string;
@@ -229,7 +231,7 @@ export class StudentDashboardService {
   ): ReadonlyMap<string, MilestoneStatuses> {
     const { submissions, documentSubmissions } =
       this.milestoneCompletionService.projectSubmissionCompletionTargets(
-        application.milestoneDocumentSubmissions,
+        application.submissions,
       );
     const legacyStatusByMilestone = new Map(
       submissions.map((submission) => [
@@ -247,7 +249,7 @@ export class StudentDashboardService {
       application.program.milestones.map((milestone) => {
         const input = {
           submissionAxisInUse: false,
-          requiredDocumentStatuses: milestone.documents.map(
+          requiredDocumentStatuses: milestone.requirements.map(
             (document) => statusByDocument.get(document.id) ?? null,
           ),
           submissionStatus: legacyStatusByMilestone.get(milestone.id) ?? null,
@@ -259,7 +261,7 @@ export class StudentDashboardService {
               this.milestoneCompletionService.milestoneCompletionStatus(input),
             itemStatuses:
               this.milestoneCompletionService.collectAxisStatuses(input),
-            lateSubmissionDueAt: milestone.documents.reduce<Date | null>(
+            lateSubmissionDueAt: milestone.requirements.reduce<Date | null>(
               (latest, document) => {
                 const grace = document.graceDueAt;
                 if (

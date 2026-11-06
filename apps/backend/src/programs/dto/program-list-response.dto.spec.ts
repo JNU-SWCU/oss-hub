@@ -6,8 +6,8 @@ import {
 import {
   type PersonalizedProgramListItem,
   type ProgramListPageItem,
+  ProgramCoverUrlService,
 } from '../programs.service';
-import { ProgramCoverUrlService } from '../program-cover-url.service';
 
 const programCoverUrlService = new ProgramCoverUrlService();
 

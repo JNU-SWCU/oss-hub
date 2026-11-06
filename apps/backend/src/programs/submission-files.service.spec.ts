@@ -16,7 +16,11 @@ import {
   OBJECT_STORAGE_ERROR_CODES,
   ObjectStorageError,
 } from '../platform/object-storage.error';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import {
+  SubmissionMembershipChangedError,
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions.error';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
@@ -26,10 +30,6 @@ import {
   type DownloadableSubmissionFile,
   type FilesRepository,
 } from './files.repository';
-import {
-  SUBMISSIONS_ERROR_CODES,
-  SubmissionsErrorCode,
-} from './submissions-error-code.error';
 
 const NOW = new Date('2026-07-25T12:00:00.000Z');
 const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
