@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { adminUsersListPage } from './support/admin-users-fixture';
 import { installBrowserAudit } from './support/browser-audit';
 import {
   fulfillJson,
@@ -6,7 +7,7 @@ import {
 } from './support/member-access-fixture';
 import { captureResponsiveMenu } from './support/member-access-visual';
 
-test('미해결 호환 관리자도 변경 요청 없이 정상 인증 셸을 사용한다', async ({
+test('미해결 호환 관리자도 변경 요청 없이 관리자 화면의 정상 인증 셸을 사용한다', async ({
   page,
 }, testInfo) => {
   const audit = installBrowserAudit(page);
@@ -21,27 +22,27 @@ test('미해결 호환 관리자도 변경 요청 없이 정상 인증 셸을 �
     {
       role: 'ADMIN',
       memberKind: null,
-      hasStaffAccess: true,
+      hasStaffAccess: false,
       hasAdminAccess: true,
     },
     {
-      'GET /api/v1/dashboard/staff/summary': async (route) => {
-        await fulfillJson(route, { programs: [] });
+      'GET /api/v1/users/access': async (route) => {
+        await fulfillJson(route, adminUsersListPage);
       },
     },
   );
 
   await page.goto('/dashboard');
 
-  await expect(page).toHaveURL(/\/dashboard$/);
+  await expect(page).toHaveURL(/\/dashboard\/users$/);
   await expect(page.locator('[data-slot="nav-bar"]')).toBeVisible();
   await expect(page.locator('[data-slot="app-sidebar"]')).toBeVisible();
   await expect(
-    page.locator('[role="group"][aria-label="교직원"]'),
-  ).toBeVisible();
-  await expect(
     page.locator('[role="group"][aria-label="관리자"]'),
   ).toBeVisible();
+  await expect(page.locator('[role="group"][aria-label="교직원"]')).toHaveCount(
+    0,
+  );
   await captureResponsiveMenu(
     page,
     testInfo,

@@ -1,5 +1,6 @@
 import { expect, test, type Page } from '@playwright/test';
 import { installBrowserAudit } from './support/browser-audit';
+import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 
 const ended = [2026, 2025].map((year) => ({
   id: `program-ended-${year}`,
@@ -68,6 +69,8 @@ async function mockPrograms(page: Page, staff = false) {
             }
           : { isAuthenticated: false },
       });
+    } else if (staff && path === '/api/v1/consents/current') {
+      await route.fulfill({ json: CONSENTED_RESPONSE });
     } else if (path === '/api/v1/programs/ended-years') {
       await route.fulfill({ json: { years: [2026, 2025] } });
     } else if (path === '/api/v1/programs/status-counts') {
