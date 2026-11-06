@@ -22,7 +22,6 @@ const individualProgram: EditableProgram = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   applicationTemplateVersion: 1,
   applicationCount: 0,
   applicationStartAt: '2026-08-01T09:30:59.000Z',

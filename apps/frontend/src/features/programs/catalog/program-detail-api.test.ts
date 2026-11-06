@@ -10,7 +10,6 @@ const publicDetail: ProgramDetail = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',
-  lifecycle: 'PUBLISHED',
   description: '합성 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -26,13 +25,13 @@ afterEach(() => {
 });
 
 describe.each([getPublicProgramDetail, getProgramDetail])(
-  '상세 게시 상태 호환성',
+  '배포 순서 호환성: 상세',
   (loadDetail) => {
-    it.each(['PUBLISHED', 'ARCHIVED', undefined] as const)(
-      '기존 상태와 필드 부재 %s를 변경 없이 보존한다',
-      async (lifecycle) => {
+    it.each([{}, { lifecycle: 'PUBLISHED' }])(
+      '이전 서버가 게시 상태 %o를 실어 보내도 응답을 그대로 돌려준다',
+      async (extra) => {
         const response: unknown = JSON.parse(
-          JSON.stringify({ ...publicDetail, lifecycle }),
+          JSON.stringify({ ...publicDetail, ...extra }),
         );
         vi.stubGlobal(
           'fetch',
@@ -45,7 +44,7 @@ describe.each([getPublicProgramDetail, getProgramDetail])(
   },
 );
 
-describe('목록 게시 상태 호환성', () => {
+describe('배포 순서 호환성: 목록', () => {
   const params = { page: 2, pageSize: 10, search: '', status: 'all' } as const;
   const item = {
     id: 'program-1',
@@ -58,16 +57,12 @@ describe('목록 게시 상태 호환성', () => {
     description: '',
   };
 
-  it('필드가 없는 항목과 기존 게시 상태를 페이지 정보와 함께 보존한다', async () => {
+  it('게시 상태가 없는 항목과 이전 서버의 PUBLISHED 항목을 페이지 정보와 함께 돌려준다', async () => {
     const response = {
-      items: [
-        item,
-        { ...item, lifecycle: 'PUBLISHED' },
-        { ...item, lifecycle: 'ARCHIVED' },
-      ],
+      items: [item, { ...item, lifecycle: 'PUBLISHED' }],
       page: 2,
       pageSize: 10,
-      totalItems: 13,
+      totalItems: 12,
       totalPages: 2,
     };
     vi.stubGlobal(
@@ -77,51 +72,9 @@ describe('목록 게시 상태 호환성', () => {
 
     await expect(listPrograms(params)).resolves.toEqual(response);
   });
-
-  it.each(['DRAFT', null, 0, false])(
-    '잘못된 게시 상태 %s가 섞인 목록 전체를 거부한다',
-    async (lifecycle) => {
-      vi.stubGlobal(
-        'fetch',
-        vi.fn().mockResolvedValue(
-          new Response(
-            JSON.stringify({
-              items: [item, { ...item, lifecycle }],
-              page: 2,
-              pageSize: 10,
-              totalItems: 12,
-              totalPages: 2,
-            }),
-          ),
-        ),
-      );
-
-      await expect(listPrograms(params)).rejects.toThrow(
-        '프로그램 게시 상태 응답 형식이 올바르지 않습니다.',
-      );
-    },
-  );
 });
 
 describe('getPublicProgramDetail', () => {
-  it.each(['DRAFT', null, 0, false])(
-    '제공된 잘못된 게시 상태 %s를 공개 상세에서 거부한다',
-    async (lifecycle) => {
-      vi.stubGlobal(
-        'fetch',
-        vi
-          .fn()
-          .mockResolvedValue(
-            new Response(JSON.stringify({ ...publicDetail, lifecycle })),
-          ),
-      );
-
-      await expect(getPublicProgramDetail('program-1')).rejects.toThrow(
-        '프로그램 게시 상태 응답 형식이 올바르지 않습니다.',
-      );
-    },
-  );
-
   it('공개 endpoint 하나만 부른다 — 비로그인 방문자가 401을 만들지 않는 길(#1294)', async () => {
     const fetchMock = vi.fn().mockResolvedValue(
       new Response(JSON.stringify(publicDetail), {
@@ -143,20 +96,6 @@ describe('getPublicProgramDetail', () => {
 });
 
 describe('getProgramDetail', () => {
-  it('잘못된 viewer 게시 상태를 공개 응답으로 숨기지 않는다', async () => {
-    const fetchMock = vi
-      .fn()
-      .mockResolvedValue(
-        new Response(JSON.stringify({ ...publicDetail, lifecycle: null })),
-      );
-    vi.stubGlobal('fetch', fetchMock);
-
-    await expect(getProgramDetail('program-1')).rejects.toThrow(
-      '프로그램 게시 상태 응답 형식이 올바르지 않습니다.',
-    );
-    expect(fetchMock).toHaveBeenCalledOnce();
-  });
-
   it('인증 viewer endpoint가 401이면 private join 없는 공개 endpoint로 폴백한다', async () => {
     const fetchMock = vi
       .fn()

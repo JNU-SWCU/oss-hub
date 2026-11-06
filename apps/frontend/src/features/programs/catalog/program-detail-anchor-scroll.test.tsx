@@ -25,7 +25,6 @@ const program = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '합성 프로그램',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

@@ -39,7 +39,6 @@ for (const width of [1440, 390]) {
         organizer: '합성 주관',
         trackType: 'EXTRACURRICULAR',
         applicationTemplateKey: 'basic',
-        lifecycle: 'PUBLISHED',
         description: '',
         repositoryProvisioningEnabled: true,
         applicationPeriod: {
@@ -87,7 +86,6 @@ for (const width of [1440, 390]) {
               programId,
               name: program.name,
               trackType: program.trackType,
-              lifecycle: 'PUBLISHED',
               milestoneCount: 0,
               boardPostCount: 0,
               participantCount: 1,

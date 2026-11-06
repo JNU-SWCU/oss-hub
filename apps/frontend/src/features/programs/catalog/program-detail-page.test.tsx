@@ -26,7 +26,6 @@ const PUBLIC_DETAIL = {
   organizer: '합성 운영기관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '누구나 볼 수 있는 합성 프로그램.',
   repositoryProvisioningEnabled: false,
   applicationPeriod: {

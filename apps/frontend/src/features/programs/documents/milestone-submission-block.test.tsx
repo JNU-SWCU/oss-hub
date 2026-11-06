@@ -90,7 +90,6 @@ function program(
     organizer: '운영기관',
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'oss-contest',
-    lifecycle: 'PUBLISHED',
     description: '프로그램 설명',
     repositoryProvisioningEnabled: false,
     applicationPeriod: {

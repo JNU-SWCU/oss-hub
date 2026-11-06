@@ -1,5 +1,4 @@
 import type { ProgramTrackType } from '../program-contract';
-import type { ProgramLifecycle } from '../program-lifecycle';
 interface CreateProgramInput {
   readonly name: string;
   readonly organizer: string;
@@ -87,7 +86,6 @@ export interface EditableProgram {
   readonly name: string;
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
-  readonly lifecycle?: ProgramLifecycle;
   readonly applicationTemplateKey: string;
   readonly applicationTemplateVersion: number;
   readonly applicationCount: number;

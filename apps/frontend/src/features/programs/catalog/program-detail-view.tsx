@@ -98,7 +98,6 @@ function asRecruitmentInput(program: ProgramDetail): ProgramListItem {
     name: program.name,
     organizer: program.organizer,
     trackType: program.trackType,
-    lifecycle: program.lifecycle,
     applicationStartAt: program.applicationPeriod.startsAt,
     applicationEndAt: program.applicationPeriod.endsAt,
     endAt: program.operatingPeriod?.endsAt ?? null,

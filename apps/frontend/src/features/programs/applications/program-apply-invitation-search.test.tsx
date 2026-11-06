@@ -87,7 +87,6 @@ const program = {
   organizer: '합성 주관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
-  lifecycle: 'PUBLISHED',
   description: '설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

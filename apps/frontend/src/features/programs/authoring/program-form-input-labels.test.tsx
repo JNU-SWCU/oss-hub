@@ -19,7 +19,6 @@ function programFixture(participation: 'individual' | 'team'): EditableProgram {
     name: '합성 프로그램',
     organizer: '합성 사업단',
     trackType: 'CURRICULAR',
-    lifecycle: 'PUBLISHED',
     applicationTemplateKey: participation === 'team' ? 'capstone' : 'basic',
     applicationTemplateVersion: 1,
     applicationCount: 0,
