@@ -88,6 +88,28 @@ exports[`CreateProgramDocumentChangeRequestRequestDto validation parity team 1`]
 
 exports[`CreateProgramDocumentChangeRequestRequestDto validation parity team without id 1`] = `"{"ok":true,"value":{"scope":"TEAM","includeFinalDecisions":true,"comment":" fix ","expectedVersion":"aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"},"thrown":{"name":"DomainException","message":"요청 값을 확인해 주세요.","errorCode":{"code":"MSD_019","status":400,"message":"요청 값을 확인해 주세요."},"extensions":{}}}"`;
 
+exports[`CreateRequirementReviewRequestDto validation parity approved 1`] = `"{"ok":true,"value":{"decision":"APPROVED","expectedRevision":1,"expectedLatestReviewId":null}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity changes requested 1`] = `"{"ok":true,"value":{"decision":"CHANGES_REQUESTED","expectedRevision":1,"expectedLatestReviewId":"r1","comment":" c "}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity long comment 1`] = `"{"ok":false,"response":{"message":["comment must be shorter than or equal to 2000 characters"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity lowercase 1`] = `"{"ok":false,"response":{"message":["decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED","expectedRevision must not be less than 1","expectedRevision must be an integer number","expectedLatestReviewId must be a string"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity missing decision 1`] = `"{"ok":false,"response":{"message":["decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity missing latest review id 1`] = `"{"ok":false,"response":{"message":["expectedLatestReviewId must be a string"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity other history event 1`] = `"{"ok":false,"response":{"message":["decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity rejected 1`] = `"{"ok":true,"value":{"decision":"REJECTED","expectedRevision":1,"expectedLatestReviewId":null}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity unknown field 1`] = `"{"ok":false,"response":{"message":["property pinned should not exist"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateRequirementReviewRequestDto validation parity zero revision 1`] = `"{"ok":false,"response":{"message":["expectedRevision must not be less than 1"],"error":"Bad Request","statusCode":400}}"`;
+
 exports[`CreateRequirementSubmissionRequestDto validation parity blank 1`] = `"{"ok":true,"value":{"content":{"text":" ","fileId":" "}},"thrown":{"name":"DomainException","message":"제출 내용을 입력해 주세요.","errorCode":{"code":"MSD_008","status":422,"message":"제출 내용을 입력해 주세요."},"extensions":{}}}"`;
 
 exports[`CreateRequirementSubmissionRequestDto validation parity both 1`] = `"{"ok":true,"value":{"content":{"text":" t ","fileId":" f "}},"command":{"text":"t","fileId":"f"}}"`;
@@ -101,6 +123,26 @@ exports[`CreateRequirementSubmissionRequestDto validation parity long file id 1`
 exports[`CreateRequirementSubmissionRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["content should not be null or undefined","content must be an object"],"error":"Bad Request","statusCode":400}}"`;
 
 exports[`CreateRequirementSubmissionRequestDto validation parity text 1`] = `"{"ok":true,"value":{"content":{"text":" t "}},"command":{"text":"t","fileId":null}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity approved 1`] = `"{"ok":true,"value":{"revision":1,"decision":"APPROVED"}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity changes requested 1`] = `"{"ok":true,"value":{"revision":2,"decision":"CHANGES_REQUESTED"}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity lowercase 1`] = `"{"ok":false,"response":{"message":["decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity missing 1`] = `"{"ok":false,"response":{"message":["revision must not be less than 1","revision must be an integer number","decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity missing decision 1`] = `"{"ok":false,"response":{"message":["decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity non-string comment 1`] = `"{"ok":false,"response":{"message":["comment must be a string"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity other history event 1`] = `"{"ok":false,"response":{"message":["decision must be one of the following values: APPROVED, REJECTED, CHANGES_REQUESTED"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity rejected 1`] = `"{"ok":true,"value":{"revision":1,"decision":"REJECTED","comment":" c "}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity unknown field 1`] = `"{"ok":false,"response":{"message":["property pinned should not exist"],"error":"Bad Request","statusCode":400}}"`;
+
+exports[`CreateSubmissionReviewRequestDto validation parity zero revision 1`] = `"{"ok":false,"response":{"message":["revision must not be less than 1"],"error":"Bad Request","statusCode":400}}"`;
 
 exports[`PatchAdminAccessRequestDto validation parity approve 1`] = `"{"ok":true,"value":{"expectedRole":"STUDENT","desiredRole":"STAFF","expectedAccountStatus":"ACTIVE","desiredAccountStatus":"ACTIVE","expectedPendingRequest":{"id":"r1","status":"PENDING"},"requestDecision":{"decision":"APPROVE"}},"command":{"expectedRole":"STUDENT","desiredRole":"STAFF","expectedAccountStatus":"ACTIVE","desiredAccountStatus":"ACTIVE","expectedPendingRequest":{"id":"r1","status":"PENDING"},"requestDecision":{"decision":"APPROVE"}}}"`;
 
