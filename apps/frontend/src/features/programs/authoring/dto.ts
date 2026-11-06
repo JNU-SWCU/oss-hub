@@ -117,25 +117,7 @@ export interface UpsertMilestoneInput {
   readonly instructions: string | null;
 }
 export interface ProgramPurgeDeletedCounts {
-  readonly applications: number;
-  readonly teams: number;
-  readonly teamMembers: number;
-  readonly teamInvitations: number;
-  readonly boardPosts: number;
-  readonly boardComments: number;
-  readonly submissions: number;
-  readonly submissionRevisions: number;
-  readonly reviews: number;
   readonly files: number;
-  readonly milestones: number;
-  readonly milestoneDocuments: number;
-  readonly milestoneDocumentSubmissions: number;
-  readonly milestoneDocumentSubmissionHistories: number;
-  readonly programCreateRequests: number;
-  readonly repositoryProvisionJobs: number;
-  readonly githubRepositoriesDetached: number;
-  readonly outboxEvents: number;
-  readonly notifications: number;
 }
 export interface ProgramPurgeResult {
   readonly id: string;

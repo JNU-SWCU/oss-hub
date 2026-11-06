@@ -37,9 +37,7 @@ describe('ProgramEditorRepository updates', () => {
     const updateMany = jest.fn().mockResolvedValue({ count: 2 });
     const queryRaw = jest
       .fn()
-      .mockResolvedValue([
-        { applications: 0n, teams: 0n, boardPosts: 0n, submissions: 0n },
-      ]);
+      .mockResolvedValue([{ teams: 0n, boardPosts: 0n, submissions: 0n }]);
     const transaction = {
       program: { update },
       file: { updateMany },

@@ -402,7 +402,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       purgeProgramMock.mockResolvedValue({
         id: 'program-1',
         deleted: true,
-        deletedCounts: { applications: 1 },
+        deletedCounts: { files: 1 },
       });
 
       await act(async () => {
@@ -448,7 +448,7 @@ describe('ProgramEditPage 컴포넌트', () => {
           ? null
           : {
               destination: '/programs',
-              summary: '지원서 1건',
+              summary: '파일 삭제 대기 1건',
             },
       );
     },

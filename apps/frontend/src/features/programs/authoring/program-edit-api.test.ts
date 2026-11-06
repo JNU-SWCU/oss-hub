@@ -317,7 +317,7 @@ describe('program edit API', () => {
       jsonResponse({
         id: 'program-1',
         deleted: true,
-        deletedCounts: { applications: 2, notifications: 3 },
+        deletedCounts: { files: 3 },
       }),
     );
     const expectedScope = {

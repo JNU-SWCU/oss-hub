@@ -651,7 +651,6 @@ export type ProgramDeletionScopeCounts = {
   readonly scopeFingerprint: string;
 };
 type DeletionScopeCountsRow = Readonly<{
-  applications: bigint;
   teams: bigint;
   boardPosts: bigint;
   submissions: bigint;
@@ -668,7 +667,6 @@ export class ProgramDeletionScopeRepository {
       readonly DeletionScopeCountsRow[]
     >(Prisma.sql`
       SELECT
-        (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS applications,
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
         (SELECT count(*) FROM "BoardPost" WHERE "programId" = ${programId}) AS "boardPosts",
         (SELECT count(*) FROM "Submission" WHERE "requirementId" IN (
@@ -747,10 +745,9 @@ export class ProgramDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT('OutboxEvent:', event.id)
             FROM "OutboxEvent" AS event
-            WHERE (event."aggregateType" = 'PROGRAM' AND event."aggregateId" = ${programId})
-              OR (event."aggregateType" = 'Team' AND event."aggregateId" IN (
-                SELECT id FROM "Team" WHERE "programId" = ${programId}
-              ))
+            WHERE event."aggregateType" = 'Team' AND event."aggregateId" IN (
+              SELECT id FROM "Team" WHERE "programId" = ${programId}
+            )
             UNION ALL
             SELECT CONCAT('Notification:', notification.id)
             FROM "Notification" AS notification
@@ -777,7 +774,7 @@ export class ProgramDeletionScopeRepository {
     `);
     if (!row) throw new Error('Deletion scope count query returned no result.');
     return {
-      applications: Number(row.applications),
+      applications: Number(row.teams),
       teams: Number(row.teams),
       boardPosts: Number(row.boardPosts),
       submissions: Number(row.submissions),
@@ -787,24 +784,6 @@ export class ProgramDeletionScopeRepository {
   }
 }
 export type ProgramPurgeDeletedCounts = {
-  readonly applications: number;
-  readonly teams: number;
-  readonly teamMembers: number;
-  readonly teamInvitations: number;
-  readonly boardPosts: number;
-  readonly boardComments: number;
-  readonly submissions: number;
-  readonly submissionRevisions: number;
-  readonly reviews: number;
-  readonly milestones: number;
-  readonly milestoneDocuments: number;
-  readonly milestoneDocumentSubmissions: number;
-  readonly milestoneDocumentSubmissionHistories: number;
-  readonly programCreateRequests: number;
-  readonly repositoryProvisionJobs: number;
-  readonly githubRepositoriesDetached: number;
-  readonly outboxEvents: number;
-  readonly notifications: number;
   readonly files: number;
 };
 type ProgramLifecycleTransaction = Prisma.TransactionClient;
@@ -862,49 +841,23 @@ export class ProgramLifecycleRepository {
     transaction: ProgramLifecycleTransaction,
     programId: string,
   ): Promise<ProgramPurgeDeletedCounts> {
-    const now = new Date();
-    const fileScope = {
-      OR: [
-        { programId },
-        { team: { programId } },
-        { requirement: { milestone: { programId } } },
-        {
-          submissionHistory: {
-            submission: { requirement: { milestone: { programId } } },
+    const { count } = await transaction.file.updateMany({
+      where: {
+        OR: [
+          { programId },
+          { team: { programId } },
+          { requirement: { milestone: { programId } } },
+          {
+            submissionHistory: {
+              submission: { requirement: { milestone: { programId } } },
+            },
           },
-        },
-      ],
-      lifecycle: { in: ['PENDING', 'ATTACHED'] },
-    } satisfies Prisma.FileWhereInput;
-    const files = await transaction.file.findMany({
-      where: fileScope,
-      select: { kind: true },
+        ],
+        lifecycle: { in: ['PENDING', 'ATTACHED'] },
+      },
+      data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
     });
-    await transaction.file.updateMany({
-      where: fileScope,
-      data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: now },
-    });
-    return {
-      applications: 0,
-      teams: 0,
-      teamMembers: 0,
-      teamInvitations: 0,
-      boardPosts: 0,
-      boardComments: 0,
-      submissions: 0,
-      submissionRevisions: 0,
-      reviews: 0,
-      milestones: 0,
-      milestoneDocuments: 0,
-      milestoneDocumentSubmissions: 0,
-      milestoneDocumentSubmissionHistories: 0,
-      programCreateRequests: 0,
-      repositoryProvisionJobs: 0,
-      githubRepositoriesDetached: 0,
-      outboxEvents: 0,
-      notifications: 0,
-      files: files.length,
-    };
+    return { files: count };
   }
   isForeignKeyConflict(error: unknown): boolean {
     return (

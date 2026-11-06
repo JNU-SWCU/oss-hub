@@ -129,13 +129,7 @@ async function openEdit(
         body: {
           id: PROGRAM_ID,
           deleted: true,
-          deletedCounts: {
-            applications: 0,
-            teams: 0,
-            boardPosts: 0,
-            submissions: 0,
-            files: 3,
-          },
+          deletedCounts: { files: 3 },
         },
       };
       await scenario.purgeGate;
@@ -476,7 +470,7 @@ test.describe('program edit purge network contract', () => {
             body: {
               id: PROGRAM_ID,
               deleted: true,
-              deletedCounts: changedCounts,
+              deletedCounts: { files: 0 },
             },
           },
         ],
