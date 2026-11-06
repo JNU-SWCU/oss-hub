@@ -124,7 +124,6 @@ function readyContext(
       trackType: 'EXTRACURRICULAR',
 
       applicationTemplateKey: 'basic',
-      lifecycle: 'PUBLISHED',
       description: '합성 설명',
       repositoryProvisioningEnabled: true,
       applicationPeriod: {

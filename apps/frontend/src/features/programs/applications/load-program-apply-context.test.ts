@@ -54,7 +54,6 @@ const program = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: 'Description',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

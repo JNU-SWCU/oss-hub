@@ -102,23 +102,6 @@ describe('getProgramRecruitmentState', () => {
     ).toBe('ended');
   });
 
-  it('maps ARCHIVED to ended regardless of open dates', () => {
-    const archived = item({
-      id: 'archived',
-      name: 'Archived',
-      lifecycle: 'ARCHIVED',
-      applicationStartAt: '2026-06-01T00:00:00.000Z',
-      applicationEndAt: '2026-09-01T00:00:00.000Z',
-      endAt: null,
-    });
-    expect(
-      getProgramRecruitmentState(
-        archived,
-        new Date('2026-07-22T00:00:00.000Z'),
-      ),
-    ).toBe('ended');
-  });
-
   it('treats application closed without endAt as in_progress', () => {
     const openEnded = item({
       id: 'no-end',

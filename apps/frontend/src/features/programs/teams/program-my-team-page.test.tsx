@@ -84,7 +84,6 @@ const program: ProgramDetail = {
   organizer: '합성 주관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '',
   repositoryProvisioningEnabled: false,
   applicationPeriod: {

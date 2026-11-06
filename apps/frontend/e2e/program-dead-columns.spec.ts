@@ -31,7 +31,6 @@ const overview = {
   programId,
   name: '합성 프로그램',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'PUBLISHED',
   milestoneCount: 0,
   boardPostCount: 0,
   participantCount: 1,
@@ -50,7 +49,6 @@ const program: ProgramDetail = {
   organizer: '합성 주관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {

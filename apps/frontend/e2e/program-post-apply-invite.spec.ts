@@ -18,7 +18,6 @@ const program: ProgramDetail = {
   organizer: '합성 운영처',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '',
   repositoryProvisioningEnabled: false,
   applicationPeriod: {
@@ -165,7 +164,6 @@ for (const width of [1440, 390]) {
             programId,
             name: program.name,
             trackType: 'EXTRACURRICULAR',
-            lifecycle: 'PUBLISHED',
             milestoneCount: 0,
             boardPostCount: 0,
             participantCount: 1,

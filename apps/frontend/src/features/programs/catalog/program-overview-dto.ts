@@ -1,5 +1,4 @@
 import type { ViewerRole } from '../program-contract';
-import type { ProgramLifecycle } from '../program-lifecycle';
 
 interface ProgramOverviewMilestoneDocument {
   readonly milestoneId: string;
@@ -12,7 +11,6 @@ export interface ProgramOverview {
   readonly programId: string;
   readonly name: string;
   readonly trackType: string | null;
-  readonly lifecycle?: ProgramLifecycle;
   readonly milestoneCount: number;
   readonly boardPostCount: number;
   readonly participantCount: number;

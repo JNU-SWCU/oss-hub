@@ -33,7 +33,6 @@ const editableProgram: EditableProgram = {
   name: 'OSS 경진대회',
   organizer: 'SW중심대학사업단',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'PUBLISHED',
   applicationTemplateKey: 'oss-contest',
   applicationTemplateVersion: 1,
   applicationCount: 3,
@@ -452,48 +451,44 @@ describe('ProgramEditView contract', () => {
     expect(footer).toContain('프로그램 정보 저장');
   });
 
-  it.each(['PUBLISHED', 'ARCHIVED'] as const)(
-    '%s 프로그램은 권한이 있으면 삭제 섹션만 보여준다',
-    (lifecycle) => {
-      const program = { ...editableProgram, lifecycle };
-      const html = renderToStaticMarkup(
-        <QueryClientProvider client={createTestQueryClient()}>
-          <ProgramEditView
-            onCoverChange={() => undefined}
-            program={program}
-            form={toProgramEditForm(program)}
-            errors={{}}
-            toastMessage={null}
-            generalAlert={null}
-            isSaving={false}
-            milestoneEditor={{ mode: 'closed' }}
-            deleteTarget={null}
-            isMilestoneBusy={false}
-            {...lifecycleActionProps}
-            canDeleteProgram
-            onFieldChange={noOp}
-            onSubmit={vi.fn()}
-            onAddMilestone={noOp}
-            onEditMilestone={noOp}
-            onCancelMilestone={noOp}
-            onMilestoneFieldChange={noOp}
-            onSaveMilestone={vi.fn()}
-            onRequestDeleteMilestone={noOp}
-            onCancelDelete={noOp}
-            onConfirmDelete={vi.fn()}
-          />
-        </QueryClientProvider>,
-      );
+  it('권한이 있으면 삭제 섹션만 보여준다', () => {
+    const html = renderToStaticMarkup(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <ProgramEditView
+          onCoverChange={() => undefined}
+          program={editableProgram}
+          form={toProgramEditForm(editableProgram)}
+          errors={{}}
+          toastMessage={null}
+          generalAlert={null}
+          isSaving={false}
+          milestoneEditor={{ mode: 'closed' }}
+          deleteTarget={null}
+          isMilestoneBusy={false}
+          {...lifecycleActionProps}
+          canDeleteProgram
+          onFieldChange={noOp}
+          onSubmit={vi.fn()}
+          onAddMilestone={noOp}
+          onEditMilestone={noOp}
+          onCancelMilestone={noOp}
+          onMilestoneFieldChange={noOp}
+          onSaveMilestone={vi.fn()}
+          onRequestDeleteMilestone={noOp}
+          onCancelDelete={noOp}
+          onConfirmDelete={vi.fn()}
+        />
+      </QueryClientProvider>,
+    );
 
-      expect(html).toContain('위험 영역');
-      expect(html).toContain('>프로그램 삭제<');
-      expect(html.match(/>프로그램 삭제</g)).toHaveLength(1);
-      expect(html).not.toContain('게시 상태');
-      expect(html).not.toContain('프로그램 내리기');
-      expect(html).not.toContain('다시 게시하기');
-      expect(html).not.toContain('프로그램 복구하기');
-    },
-  );
+    expect(html).toContain('위험 영역');
+    expect(html).toContain('>프로그램 삭제<');
+    expect(html.match(/>프로그램 삭제</g)).toHaveLength(1);
+    expect(html).not.toContain('게시 상태');
+    expect(html).not.toContain('프로그램 내리기');
+    expect(html).not.toContain('다시 게시하기');
+    expect(html).not.toContain('프로그램 복구하기');
+  });
 
   it('canDeleteProgram=false면 삭제 섹션과 아카이브 안내를 모두 숨긴다', () => {
     const html = renderToStaticMarkup(

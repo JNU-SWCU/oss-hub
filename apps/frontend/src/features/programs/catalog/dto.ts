@@ -9,7 +9,6 @@ import type {
   ProgramListSort,
   ProgramListDirection,
 } from './program-list-options';
-import type { ProgramLifecycle } from '../program-lifecycle';
 interface ProgramListItemNote {
   readonly text: string;
   readonly icon?: 'team';
@@ -20,7 +19,6 @@ export interface ProgramListItem {
   readonly name: string;
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
-  readonly lifecycle?: ProgramLifecycle;
   readonly applicationStartAt: string;
   readonly applicationEndAt: string;
   readonly endAt: string | null;
@@ -75,7 +73,6 @@ export interface ProgramDetail {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
-  readonly lifecycle?: ProgramLifecycle;
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {
