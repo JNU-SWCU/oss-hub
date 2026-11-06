@@ -58,7 +58,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it.each([0, 3])(
+it.each([0, 2, 3])(
   'drops Team.repositoryUrl and keeps every team when %i teams hold a value',
   async (linkedCount) => {
     await givenTeams(linkedCount);
@@ -76,13 +76,13 @@ it.each([0, 3])(
   },
 );
 
-it.each([2, 4])(
-  'aborts and keeps Team.repositoryUrl when %i teams hold a value instead of 3',
+it.each([4, 5])(
+  'aborts and keeps Team.repositoryUrl when %i teams hold a value, more than 3',
   async (linkedCount) => {
     await givenTeams(linkedCount);
 
     await expect(apply()).rejects.toThrow(
-      `Team.repositoryUrl drop blocked: non-null=${linkedCount}, expected 3`,
+      `Team.repositoryUrl drop blocked: non-null=${linkedCount}, expected at most 3`,
     );
     await expect(repositoryUrlExists()).resolves.toBe(true);
   },
