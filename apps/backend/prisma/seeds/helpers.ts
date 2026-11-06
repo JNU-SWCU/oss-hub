@@ -1,8 +1,14 @@
 import { createHash } from 'node:crypto';
-import { PrismaClient } from '@prisma/client';
+import { PrismaClient, type ProgramCategory } from '@prisma/client';
+import { ProgramTemplatesService } from '../../src/programs/team-application.service';
 import { UserProfileService } from '../../src/users/user-profile.service';
 
 const userProfileService = new UserProfileService();
+const programTemplatesService = new ProgramTemplatesService();
+
+export function applicationTemplateKey(category: ProgramCategory): string {
+  return programTemplatesService.getProgramTemplate(category).key;
+}
 
 export const prisma = new PrismaClient();
 
