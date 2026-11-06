@@ -115,13 +115,13 @@ export class TeamDeletionScopeRepository {
       ),
       team_submission AS (
         SELECT document_submission.id
-        FROM "MilestoneDocumentSubmission" AS document_submission
+        FROM "Submission" AS document_submission
         WHERE document_submission."teamId" IN (SELECT id FROM team_record)
       ),
       team_submission_history AS (
         SELECT history.id
-        FROM "MilestoneDocumentSubmissionHistory" AS history
-        WHERE history."milestoneDocumentSubmissionId" IN (SELECT id FROM team_submission)
+        FROM "SubmissionHistory" AS history
+        WHERE history."submissionId" IN (SELECT id FROM team_submission)
       ),
       team_submission_file AS (
         SELECT file.id

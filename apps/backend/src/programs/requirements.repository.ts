@@ -1506,7 +1506,7 @@ export class RequirementsRepository {
       readonly LockedMilestoneDocument[]
     >(Prisma.sql`
       SELECT "id", "milestoneId"
-      FROM "MilestoneDocument"
+      FROM "Requirement"
       WHERE "id" = ${documentId}
       FOR UPDATE
     `);
@@ -1687,8 +1687,8 @@ export class RequirementsRepository {
   } | null> {
     await scope.transaction.$queryRaw(Prisma.sql`
       SELECT "id"
-      FROM "MilestoneDocumentSubmission"
-      WHERE "milestoneDocumentId" = ${milestoneDocumentId}
+      FROM "Submission"
+      WHERE "requirementId" = ${milestoneDocumentId}
         AND "teamId" = ${teamId}
       FOR UPDATE
     `);
@@ -1788,7 +1788,7 @@ export class RequirementsRepository {
       }[]
     >(Prisma.sql`
         SELECT document."id"
-        FROM "MilestoneDocument" document
+        FROM "Requirement" document
         JOIN "Milestone" milestone ON milestone."id" = document."milestoneId"
         WHERE milestone."programId" = ${programId}
         ORDER BY document."id"

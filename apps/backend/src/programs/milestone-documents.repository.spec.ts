@@ -1076,7 +1076,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     ).toContain('FOR UPDATE');
     expect(
       String(firstCallArgument<{ strings: string[] }>(queryRaw).strings),
-    ).toContain('"MilestoneDocument"');
+    ).toContain('"Requirement"');
   });
 
   it('잠금 시점에 서류가 사라졌으면 FK 오류 전에 좁은 not-found 오류를 낸다', async () => {
@@ -3817,7 +3817,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
     expect(String(lockQueries[0]?.strings)).toContain('FROM "Milestone"');
     expect(lockQueries[0]?.values).toEqual([syntheticMilestoneId]);
     const lockSql = String(lockQueries[1]?.strings);
-    expect(lockSql).toContain('FROM "MilestoneDocument"');
+    expect(lockSql).toContain('FROM "Requirement"');
     expect(lockSql).toContain('ORDER BY "id"');
     expect(lockSql).toContain('FOR UPDATE');
     expect(lockQueries[1]?.values).toEqual([syntheticMilestoneId]);
@@ -3876,7 +3876,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
           $queryRaw: async (sql: { readonly strings: readonly string[] }) => {
             const text = String(sql.strings);
             if (text.includes('FOR SHARE')) return [{ dueAt }];
-            if (text.includes('"MilestoneDocumentSubmission"'))
+            if (text.includes('"Submission"'))
               return [{ id: 'cuid-synthetic-submission' }];
             await acquire();
             return [{ id: syntheticDocumentId }];

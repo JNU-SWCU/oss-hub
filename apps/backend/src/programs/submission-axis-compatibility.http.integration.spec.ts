@@ -66,8 +66,8 @@ it('holds the submission row lock before reading the item review version', async
       await store.lockDocument(flowIds.document);
       await store.findSubmissionForReview(flowIds.document, flowIds.team);
       await expect(contender.$queryRaw`
-        SELECT "id" FROM "MilestoneDocumentSubmission"
-        WHERE "milestoneDocumentId" = ${flowIds.document}
+        SELECT "id" FROM "Submission"
+        WHERE "requirementId" = ${flowIds.document}
           AND "teamId" = ${flowIds.team}
         FOR UPDATE NOWAIT
       `).rejects.toMatchObject({ code: 'P2010', meta: { code: '55P03' } });

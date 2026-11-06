@@ -86,7 +86,7 @@ export class SubmissionsRepository {
         }[]
       >(Prisma.sql`
       SELECT "id", "graceDueAt"
-      FROM "MilestoneDocument"
+      FROM "Requirement"
       WHERE "id" = ${input.milestoneDocumentId}
       FOR UPDATE
     `);
@@ -106,8 +106,8 @@ export class SubmissionsRepository {
       }
       await transaction.$queryRaw(Prisma.sql`
         SELECT "id"
-        FROM "MilestoneDocumentSubmission"
-        WHERE "milestoneDocumentId" = ${input.milestoneDocumentId}
+        FROM "Submission"
+        WHERE "requirementId" = ${input.milestoneDocumentId}
           AND "teamId" = ${input.teamId}
         FOR UPDATE
       `);
@@ -1081,7 +1081,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       }[]
     >(Prisma.sql`
       SELECT "id"
-      FROM "MilestoneDocumentSubmission"
+      FROM "Submission"
       WHERE "id" = ${targetId}
       FOR UPDATE
     `);

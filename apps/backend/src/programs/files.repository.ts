@@ -83,15 +83,15 @@ export class FileCleanupRepository {
               AND (
                 EXISTS (SELECT 1 FROM "Program" program WHERE program.id=file."programId" AND program.lifecycle='DELETED')
                 OR EXISTS (
-                  SELECT 1 FROM "MilestoneDocument" requirement
+                  SELECT 1 FROM "Requirement" requirement
                   JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId"
                   JOIN "Program" program ON program.id=milestone."programId"
                   WHERE requirement.id=file."requirementId" AND program.lifecycle='DELETED'
                 )
                 OR EXISTS (
-                  SELECT 1 FROM "MilestoneDocumentSubmissionHistory" history
-                  JOIN "MilestoneDocumentSubmission" submission ON submission.id=history."milestoneDocumentSubmissionId"
-                  JOIN "MilestoneDocument" requirement ON requirement.id=submission."milestoneDocumentId"
+                  SELECT 1 FROM "SubmissionHistory" history
+                  JOIN "Submission" submission ON submission.id=history."submissionId"
+                  JOIN "Requirement" requirement ON requirement.id=submission."requirementId"
                   JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId"
                   JOIN "Program" program ON program.id=milestone."programId"
                   WHERE history.id=file."submissionHistoryId" AND program.lifecycle='DELETED'

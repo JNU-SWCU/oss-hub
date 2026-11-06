@@ -6,7 +6,7 @@ const locks = new LockProgramTreeRepository();
 function transaction() {
   const query = jest.fn((sql: Prisma.Sql) =>
     Promise.resolve(
-      sql.strings.join('').includes('MilestoneDocument')
+      sql.strings.join('').includes('"Requirement"')
         ? [{ id: 'd' }]
         : [{ id: sql.values[0], programId: 'p' }],
     ),

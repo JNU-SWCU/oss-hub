@@ -82,7 +82,7 @@ describe('program tree early returns', () => {
         if (queries.length > 1) expect(queries[1]?.values).toEqual(['m']);
         expect(
           queries.filter((query) =>
-            query.strings.join('').includes('MilestoneDocument'),
+            query.strings.join('').includes('"Requirement"'),
           ),
         ).toHaveLength(
           method === 'findMilestoneForDelete' &&

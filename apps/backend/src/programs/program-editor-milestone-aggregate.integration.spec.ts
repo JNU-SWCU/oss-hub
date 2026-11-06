@@ -1558,7 +1558,7 @@ class PausingSubmissionPrisma extends PrismaService {
             const sql = query.strings?.join('') ?? '';
             if (
               !paused &&
-              sql.includes('FROM "MilestoneDocument"') &&
+              sql.includes('FROM "Requirement"') &&
               sql.includes('FOR UPDATE')
             ) {
               paused = true;
