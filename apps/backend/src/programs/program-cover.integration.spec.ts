@@ -5,11 +5,13 @@ import {
   ProgramAuthoringUploadTransactionRepository,
   ProgramCoverRepository,
 } from './files.repository';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramLifecycle } from '@prisma/client';
-import { ProgramsRepository } from './programs.repository';
-import { ProgramsService } from './programs.service';
+import { ProgramsService, ProgramCoverUrlService } from './programs.service';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -25,8 +27,7 @@ import {
   seedUpload,
   authoring,
 } from './program-cover.integration-fixtures';
-import { ProgramCoverUrlService } from './program-cover-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 const programCoverUrlService = new ProgramCoverUrlService();
 

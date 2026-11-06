@@ -9,16 +9,19 @@ import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { ProgramsController } from './programs.controller';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramsModule } from './programs.module';
-import { ProgramLifecycleService } from './programs.service';
+import {
+  ProgramLifecycleService,
+  ProgramCreationService,
+  ProgramsService,
+  type ProgramDetailResult,
+} from './programs.service';
 import { ValidationPipe } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { ProgramActivityService } from './program-activity.service';
-import { ProgramCreationService } from './program-creation.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramsService, type ProgramDetailResult } from './programs.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { AuthSessionService } from '../platform/auth-session.service';
 

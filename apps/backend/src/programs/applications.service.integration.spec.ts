@@ -13,16 +13,20 @@ import {
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsRepository } from './team.repository';
+import { ApplicationsErrorCode } from './teams.error';
+import {
+  ApplicationsRepository,
+  StudentApplicationManagementRepository,
+  TeamRepository,
+} from './team.repository';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
-import { TeamApplicationService } from './team-application.service';
-import { StudentApplicationManagementRepository } from './team.repository';
-import { StudentApplicationManagementService } from './team-application.service';
+import {
+  TeamApplicationService,
+  StudentApplicationManagementService,
+  ApplicationAnswersService,
+} from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './team-application.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { TeamRepository } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 
 assertIsolatedIntegrationDatabase({

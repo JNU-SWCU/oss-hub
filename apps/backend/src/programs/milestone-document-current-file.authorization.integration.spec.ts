@@ -1,9 +1,9 @@
 import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import {
+  MilestoneDocumentSubmissionWindowService,
+  MilestoneDocumentFileNameService,
   SubmissionFileAdmissionService,
   FilesService,
   MilestoneDocumentFilesService,
@@ -11,10 +11,14 @@ import {
 import {
   MilestoneDocumentCollectionService,
   MilestoneDocumentCurrentFileService,
-} from './milestone-document-collection.service';
+} from './requirement-archive.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  MilestoneDocumentCurrentFileRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -25,7 +29,7 @@ import { Test } from '@nestjs/testing';
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   FileLifecycle,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
@@ -35,10 +39,8 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsService } from './requirements.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -117,7 +119,7 @@ const users = {
   },
 } as const;
 const prisma = new PrismaService();
-const documentsRepository = new MilestoneDocumentsRepository(
+const documentsRepository = new RequirementsRepository(
   prisma,
   new LockProgramTreeRepository(),
   new PlatformRepository(),
@@ -131,7 +133,7 @@ const documentsRepository = new MilestoneDocumentsRepository(
   ),
   new FileMetadataRepository(),
 );
-const documentsService = new MilestoneDocumentsService(
+const documentsService = new RequirementsService(
   documentsRepository,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),
@@ -172,10 +174,10 @@ async function cleanup(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'SUBMISSION', storageKey: { startsWith: `${prefix}/` } },
   });
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: { submission: { is: { teamId: { startsWith: prefix } } } },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { teamId: { startsWith: prefix } },
   });
   await prisma.teamMember.deleteMany({
@@ -184,7 +186,7 @@ async function cleanup(): Promise<void> {
   await prisma.team.deleteMany({
     where: { programId: { in: [programId, outsideProgramId] } },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: {
       milestoneId: { in: [milestoneId, otherMilestoneId, outsideMilestoneId] },
     },
@@ -279,10 +281,10 @@ async function seedSubmissionWithFile(input: {
 }): Promise<string> {
   const submissionId = `${prefix}-${input.key}-submission`;
   const revision = input.revision ?? 1;
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       id: submissionId,
-      milestoneDocumentId: input.documentId,
+      requirementId: input.documentId,
       teamId: input.teamId,
       submittedById: input.actorId,
       submittedAt: new Date('2026-03-01'),
@@ -290,11 +292,11 @@ async function seedSubmissionWithFile(input: {
     },
   });
   const historyId = `${prefix}-${input.key}-history`;
-  await prisma.milestoneDocumentSubmissionHistory.create({
+  await prisma.submissionHistory.create({
     data: {
       id: historyId,
-      milestoneDocumentSubmissionId: submissionId,
-      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      submissionId: submissionId,
+      event: SubmissionHistoryEvent.SUBMITTED,
       revision: input.historyRevision ?? revision,
       actorId: input.actorId,
       createdAt: new Date('2026-03-01'),
@@ -428,7 +430,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
     await createProgram(programId, [milestoneId, otherMilestoneId]);
     await createProgram(outsideProgramId, [outsideMilestoneId]);
-    await prisma.milestoneDocument.createMany({
+    await prisma.requirement.createMany({
       data: [
         {
           id: ownDocumentId,

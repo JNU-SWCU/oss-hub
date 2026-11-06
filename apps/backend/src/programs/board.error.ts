@@ -1,5 +1,4 @@
 import { ErrorCode } from '../platform/error-code.error';
-
 export enum BoardErrorCode {
   ACCESS_FORBIDDEN = 'BRD_001',
   POST_NOT_FOUND = 'BRD_002',

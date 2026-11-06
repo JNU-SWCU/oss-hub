@@ -7,16 +7,19 @@ import {
 } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import {
+  MilestoneDocumentSubmissionWindowService,
+  MilestoneDocumentFileNameService,
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
   FilesService,
   MilestoneDocumentFilesService,
 } from './files.service';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
@@ -26,13 +29,12 @@ import { MemberKind } from '../users/user-contract.config';
 import { Readable } from 'node:stream';
 import { type UnwrapTuple } from '@prisma/client/runtime/library';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ProgramErrorCode } from './program-error-code.error';
+import { ProgramErrorCode } from './programs.error';
 import {
   ProgramEditorRepository,
   type ProgramEditorTransactionStore,
 } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionsRepository } from './submissions.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -48,8 +50,8 @@ import {
   STAFF_GITHUB_ID,
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
-import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { MilestoneDocumentMissingError } from './submissions.error';
+import { ProgramCoverUrlService } from './programs.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -136,7 +138,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       { name: 'New document', sortOrder: 2 },
     ]);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -249,7 +251,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       milestoneId,
     );
     await new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -304,7 +306,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       errorCode: { code: ProgramErrorCode.MILESTONE_EDIT_CHANGED },
     });
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -313,7 +315,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
   it('edits a converted typed requirement without changing its submission type', async () => {
     const { milestoneId } = await seedGraph({ documentCount: 0 });
     const legacyId = `${TEST_PREFIX}legacy:${crypto.randomUUID()}`;
-    await prisma.milestoneDocument.create({
+    await prisma.requirement.create({
       data: {
         id: legacyId,
         milestoneId,
@@ -336,7 +338,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: legacyId },
         select: { name: true, submissionType: true },
       }),
@@ -403,7 +405,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -457,7 +459,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       await seedGraph();
     const gate = deferred<void>();
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -565,12 +567,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       errorCode: { code: 'PRG_009' },
     });
     expect(
-      await prisma.milestoneDocumentSubmissionHistory.count({
-        where: { submission: { milestoneDocumentId: firstDocumentId } },
+      await prisma.submissionHistory.count({
+        where: { submission: { requirementId: firstDocumentId } },
       }),
     ).toBe(1);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -606,8 +608,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
     expect(
-      await prisma.milestoneDocumentSubmission.count({
-        where: { milestoneDocumentId: firstDocumentId },
+      await prisma.submission.count({
+        where: { requirementId: firstDocumentId },
       }),
     ).toBe(0);
   });
@@ -632,7 +634,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -861,7 +863,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     ).rejects.toThrow('Injected aggregate transaction fault');
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -927,7 +929,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     ).rejects.toThrow('Injected aggregate transaction fault');
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -1137,7 +1139,7 @@ async function seedGraph(
   const documentCount = options.documentCount ?? 2;
   const documents = await Promise.all(
     Array.from({ length: documentCount }, (_, index) =>
-      prisma.milestoneDocument.create({
+      prisma.requirement.create({
         data: {
           id: `${TEST_PREFIX}document:aggregate:${crypto.randomUUID()}`,
           milestoneId,
@@ -1435,7 +1437,7 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
         instructions: true,
       },
     }),
-    prisma.milestoneDocument.findMany({
+    prisma.requirement.findMany({
       where: { milestoneId },
       orderBy: { id: 'asc' },
       select: {

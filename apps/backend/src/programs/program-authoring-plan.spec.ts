@@ -7,7 +7,7 @@ import {
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramTrackType } from '@prisma/client';
-import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
+import { ProgramAuthoringValidationError } from './programs.error';
 import {
   type ProgramAuthoringDocumentRequest,
   type ProgramAuthoringMilestoneRequest,

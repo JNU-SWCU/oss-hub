@@ -87,11 +87,8 @@ it.each([
   ['TeamInvitation.inviteeId', 'receivedTeamInvitations'],
   ['TeamInvitation.invitedById', 'sentTeamInvitations'],
   ['File.uploaderId', 'uploadedFiles'],
-  ['MilestoneDocumentSubmission.submittedById', 'milestoneDocumentSubmissions'],
-  [
-    'MilestoneDocumentSubmissionHistory.actorId',
-    'milestoneDocumentSubmissionHistories',
-  ],
+  ['Submission.submittedById', 'submissions'],
+  ['SubmissionHistory.actorId', 'submissionHistories'],
   ['Program.createdById', 'createdPrograms'],
   ['User.approvalDecidedById', 'approvalDecisions'],
   ['Admin.grantedById', 'adminGrants'],

@@ -4,7 +4,7 @@ import {
   DepartmentType,
   ApplicationStatus,
   UserType,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
@@ -192,14 +192,14 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   [
     'MilestoneDocumentSubmission',
     () =>
-      prisma.milestoneDocumentSubmission.count({
+      prisma.submission.count({
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
   [
     'MilestoneDocumentSubmissionHistory',
     () =>
-      prisma.milestoneDocumentSubmissionHistory.count({
+      prisma.submissionHistory.count({
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
@@ -236,7 +236,7 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   [
     'MilestoneDocument',
     () =>
-      prisma.milestoneDocument.count({
+      prisma.requirement.count({
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
@@ -250,7 +250,7 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
   [
     'MilestoneDocumentSubmission',
     () =>
-      prisma.milestoneDocumentSubmission.count({
+      prisma.submission.count({
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
@@ -282,9 +282,9 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'SUBMISSION', submissionId: { startsWith: seedPrefix } },
   });
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: {
-      milestoneDocumentSubmissionId: { startsWith: seedPrefix },
+      submissionId: { startsWith: seedPrefix },
     },
   });
   const [
@@ -303,7 +303,7 @@ async function deleteAllSeeded(): Promise<void> {
     prisma.milestone.findMany({
       where: {
         id: { startsWith: seedPrefix },
-        documents: { some: { files: { some: { kind: 'SUBMISSION' } } } },
+        requirements: { some: { files: { some: { kind: 'SUBMISSION' } } } },
       },
       select: { id: true },
     }),
@@ -363,9 +363,9 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
   await prisma.githubRepository.deleteMany({ where: seedIdFilter });
-  await prisma.milestoneDocumentSubmission.deleteMany({ where: seedIdFilter });
+  await prisma.submission.deleteMany({ where: seedIdFilter });
   await prisma.file.deleteMany({ where: seedIdFilter });
-  await prisma.milestoneDocument.deleteMany({ where: seedIdFilter });
+  await prisma.requirement.deleteMany({ where: seedIdFilter });
   await prisma.boardComment.deleteMany({ where: seedIdFilter });
   await prisma.boardPost.deleteMany({ where: seedIdFilter });
   await prisma.teamInvitation.deleteMany({ where: seedIdFilter });
@@ -476,7 +476,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.team.findUniqueOrThrow({
           where: { id: OSS_HUB_TEAM_ID },
         }),
-        prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+        prisma.submission.findUniqueOrThrow({
           where: {
             id: seedId(
               'oss-hub',
@@ -488,7 +488,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
             histories: true,
           },
         }),
-        prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+        prisma.submission.findUniqueOrThrow({
           where: {
             id: seedId(
               'oss-hub',
@@ -541,10 +541,10 @@ describe('seed profile=oss-hub contract (integration)', () => {
         prisma.team.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.milestoneDocumentSubmission.count({
+        prisma.submission.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
-        prisma.milestoneDocumentSubmissionHistory.count({
+        prisma.submissionHistory.count({
           where: { id: { startsWith: 'seed:oss-hub:' } },
         }),
         prisma.githubRepository.count({
@@ -763,7 +763,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
         'milestone-document',
         'obsolete-plan',
       );
-      await prisma.milestoneDocument.create({
+      await prisma.requirement.create({
         data: {
           id: staleDocumentId,
           milestoneId: staleMilestoneId,
@@ -778,10 +778,10 @@ describe('seed profile=oss-hub contract (integration)', () => {
         'milestone-document-submission',
         'obsolete-plan',
       );
-      await prisma.milestoneDocumentSubmission.create({
+      await prisma.submission.create({
         data: {
           id: staleSubmissionId,
-          milestoneDocumentId: staleDocumentId,
+          requirementId: staleDocumentId,
           teamId: OSS_HUB_TEAM_ID,
           status: SubmissionStatus.SUBMITTED,
           revision: 1,
@@ -798,11 +798,11 @@ describe('seed profile=oss-hub contract (integration)', () => {
         'obsolete-plan',
         'submitted',
       );
-      await prisma.milestoneDocumentSubmissionHistory.create({
+      await prisma.submissionHistory.create({
         data: {
           id: staleHistoryId,
-          milestoneDocumentSubmissionId: staleSubmissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          submissionId: staleSubmissionId,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content: {
             type: MilestoneSubmissionType.TEXT,
@@ -816,13 +816,13 @@ describe('seed profile=oss-hub contract (integration)', () => {
         'milestone-document-review-history',
         'obsolete-plan',
       );
-      await prisma.milestoneDocumentSubmissionHistory.create({
+      await prisma.submissionHistory.create({
         data: {
           id: staleReviewId,
-          milestoneDocumentSubmissionId: staleSubmissionId,
+          submissionId: staleSubmissionId,
           revision: 1,
           actorId: AUTH_SCENARIOS['staff-approved'],
-          event: MilestoneDocumentSubmissionHistoryEvent.APPROVED,
+          event: SubmissionHistoryEvent.APPROVED,
           comment: '구버전 판정 (stale cleanup test).',
         },
       });
@@ -840,14 +840,14 @@ describe('seed profile=oss-hub contract (integration)', () => {
         milestoneCount,
       ] = await Promise.all([
         prisma.milestone.findUnique({ where: { id: staleMilestoneId } }),
-        prisma.milestoneDocument.findUnique({ where: { id: staleDocumentId } }),
-        prisma.milestoneDocumentSubmission.findUnique({
+        prisma.requirement.findUnique({ where: { id: staleDocumentId } }),
+        prisma.submission.findUnique({
           where: { id: staleSubmissionId },
         }),
-        prisma.milestoneDocumentSubmissionHistory.findUnique({
+        prisma.submissionHistory.findUnique({
           where: { id: staleHistoryId },
         }),
-        prisma.milestoneDocumentSubmissionHistory.findUnique({
+        prisma.submissionHistory.findUnique({
           where: { id: staleReviewId },
         }),
         prisma.milestone.count({ where: { programId: OSS_HUB_PROGRAM_ID } }),
@@ -894,13 +894,13 @@ describe('seed profile=demo 계약 (integration)', () => {
       prisma.milestone.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.milestoneDocument.count({
+      prisma.requirement.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.milestoneDocumentSubmission.count({
+      prisma.submission.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.milestoneDocumentSubmissionHistory.count({
+      prisma.submissionHistory.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
       prisma.file.count({
@@ -954,13 +954,13 @@ describe('seed profile=demo 계약 (integration)', () => {
       })
     ).map((file) => file.storageKey);
     await prisma.file.deleteMany({ where: seedIdFilter });
-    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    await prisma.submissionHistory.deleteMany({
       where: seedIdFilter,
     });
-    await prisma.milestoneDocumentSubmission.deleteMany({
+    await prisma.submission.deleteMany({
       where: seedIdFilter,
     });
-    await prisma.milestoneDocument.deleteMany({ where: seedIdFilter });
+    await prisma.requirement.deleteMany({ where: seedIdFilter });
     await prisma.boardComment.deleteMany({ where: seedIdFilter });
     await prisma.boardPost.deleteMany({ where: seedIdFilter });
     await prisma.teamMember.deleteMany({ where: { teamId: seedIdFilter.id } });
@@ -1005,20 +1005,18 @@ describe('seed profile=demo 계약 (integration)', () => {
         countsAfterFirstRun.MilestoneDocumentSubmission,
       ).toBeGreaterThanOrEqual(9);
       expect(countsAfterFirstRun.SubmissionFile).toBeGreaterThan(0);
-      const reviewEvents =
-        await prisma.milestoneDocumentSubmissionHistory.count({
-          where: {
-            id: { startsWith: seedDemoPrefix },
-            event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
-          },
-        });
-      const reviewedSubmissions =
-        await prisma.milestoneDocumentSubmission.count({
-          where: {
-            id: { startsWith: seedDemoPrefix },
-            status: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
-          },
-        });
+      const reviewEvents = await prisma.submissionHistory.count({
+        where: {
+          id: { startsWith: seedDemoPrefix },
+          event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
+        },
+      });
+      const reviewedSubmissions = await prisma.submission.count({
+        where: {
+          id: { startsWith: seedDemoPrefix },
+          status: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
+        },
+      });
       expect(reviewEvents).toBe(reviewedSubmissions);
       expect(countsAfterFirstRun.BoardPost).toBeGreaterThan(0);
       expect(countsAfterFirstRun.BoardComment).toBeGreaterThan(0);
@@ -1048,22 +1046,19 @@ describe('seed profile=demo 계약 (integration)', () => {
       for (const program of demoPrograms) {
         expect(program.repositoryProvisioningEnabled).toBe(false);
       }
-      const demoSubmissions = await prisma.milestoneDocumentSubmission.findMany(
-        {
-          where: { id: { startsWith: seedDemoPrefix } },
-          select: {
-            id: true,
-            content: true,
-            milestoneDocument: {
-              select: { submissionType: true },
-            },
+      const demoSubmissions = await prisma.submission.findMany({
+        where: { id: { startsWith: seedDemoPrefix } },
+        select: {
+          id: true,
+          content: true,
+          requirement: {
+            select: { submissionType: true },
           },
         },
-      );
+      });
       expect(demoSubmissions.length).toBeGreaterThan(0);
       for (const submission of demoSubmissions) {
-        const milestoneSubmissionType =
-          submission.milestoneDocument.submissionType;
+        const milestoneSubmissionType = submission.requirement.submissionType;
         expect(
           (
             submission.content as {
@@ -1073,7 +1068,7 @@ describe('seed profile=demo 계약 (integration)', () => {
         ).toBe(milestoneSubmissionType);
       }
       const fileTypeSubmissions = demoSubmissions.filter(
-        (submission) => submission.milestoneDocument.submissionType === 'FILE',
+        (submission) => submission.requirement.submissionType === 'FILE',
       );
       expect(fileTypeSubmissions.length).toBeGreaterThan(0);
       for (const submission of fileTypeSubmissions) {
@@ -1087,14 +1082,13 @@ describe('seed profile=demo 계약 (integration)', () => {
         });
         expect(submissionFile.submissionId).toBe(submission.id);
         expect(submissionFile.submissionHistoryId).not.toBeNull();
-        const fileHistory =
-          await prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
-            where: {
-              id: submissionFile.submissionHistoryId!,
-            },
-            select: { milestoneDocumentSubmissionId: true },
-          });
-        expect(fileHistory.milestoneDocumentSubmissionId).toBe(submission.id);
+        const fileHistory = await prisma.submissionHistory.findUniqueOrThrow({
+          where: {
+            id: submissionFile.submissionHistoryId!,
+          },
+          select: { submissionId: true },
+        });
+        expect(fileHistory.submissionId).toBe(submission.id);
         expect(submissionFile.lifecycle).toBe('ATTACHED');
       }
       const contestProgramId = seedId(
@@ -1114,15 +1108,14 @@ describe('seed profile=demo 계약 (integration)', () => {
       for (const application of contestApplications) {
         expect(application.status).toBe(ApplicationStatus.APPROVED);
       }
-      const contestSubmissionStatuses =
-        await prisma.milestoneDocumentSubmission.findMany({
-          where: {
-            milestoneDocument: {
-              milestone: { programId: contestProgramId },
-            },
+      const contestSubmissionStatuses = await prisma.submission.findMany({
+        where: {
+          requirement: {
+            milestone: { programId: contestProgramId },
           },
-          select: { status: true },
-        });
+        },
+        select: { status: true },
+      });
       const contestStatusSet = new Set(
         contestSubmissionStatuses.map((submission) => submission.status),
       );
@@ -1183,16 +1176,16 @@ describe('seed profile=demo 계약 (integration)', () => {
       await prisma.file.deleteMany({
         where: { kind: 'SUBMISSION', id: preservedFileId },
       });
-      await prisma.milestoneDocumentSubmissionHistory.deleteMany({
-        where: { milestoneDocumentSubmissionId: preservedSubmissionId },
+      await prisma.submissionHistory.deleteMany({
+        where: { submissionId: preservedSubmissionId },
       });
-      await prisma.milestoneDocumentSubmission.deleteMany({
+      await prisma.submission.deleteMany({
         where: { id: preservedSubmissionId },
       });
-      await prisma.milestoneDocumentSubmission.create({
+      await prisma.submission.create({
         data: {
           id: preservedSubmissionId,
-          milestoneDocumentId: contestDocumentId,
+          requirementId: contestDocumentId,
           teamId: contestApplicationId,
           status: SubmissionStatus.SUBMITTED,
           revision: 1,
@@ -1203,11 +1196,11 @@ describe('seed profile=demo 계약 (integration)', () => {
           submittedById: parkHaeunUserId,
         },
       });
-      await prisma.milestoneDocumentSubmissionHistory.create({
+      await prisma.submissionHistory.create({
         data: {
           id: preservedHistoryId,
-          milestoneDocumentSubmissionId: preservedSubmissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          submissionId: preservedSubmissionId,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content: {
             type: MilestoneSubmissionType.FILE,
@@ -1232,24 +1225,23 @@ describe('seed profile=demo 계약 (integration)', () => {
         },
       });
       await expect(runProfile('demo', new SeedStats())).resolves.not.toThrow();
-      const submissionsForPair =
-        await prisma.milestoneDocumentSubmission.findMany({
-          where: {
-            teamId: contestApplicationId,
-            milestoneDocumentId: contestDocumentId,
-          },
-        });
+      const submissionsForPair = await prisma.submission.findMany({
+        where: {
+          teamId: contestApplicationId,
+          requirementId: contestDocumentId,
+        },
+      });
       expect(submissionsForPair).toHaveLength(1);
       expect(submissionsForPair[0]?.id).toBe(preservedSubmissionId);
       const [preservedHistory, preservedFile, teamSuffixedSubmission] =
         await Promise.all([
-          prisma.milestoneDocumentSubmissionHistory.findUnique({
+          prisma.submissionHistory.findUnique({
             where: { id: preservedHistoryId },
           }),
           prisma.file.findUnique({
             where: { kind: 'SUBMISSION', id: preservedFileId },
           }),
-          prisma.milestoneDocumentSubmission.findUnique({
+          prisma.submission.findUnique({
             where: {
               id: seedId(
                 'demo',
@@ -1545,27 +1537,26 @@ describe('seed profile=all 멱등성 (integration)', () => {
           )
           .map((team) => team.id),
       ).toEqual([]);
-      const documentSubmissions =
-        await prisma.milestoneDocumentSubmission.findMany({
-          where: { id: { startsWith: 'seed:program-overview:' } },
-          select: {
-            revision: true,
-            histories: {
-              where: {
-                event: {
-                  in: [
-                    MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                    MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-                  ],
-                },
+      const documentSubmissions = await prisma.submission.findMany({
+        where: { id: { startsWith: 'seed:program-overview:' } },
+        select: {
+          revision: true,
+          histories: {
+            where: {
+              event: {
+                in: [
+                  SubmissionHistoryEvent.SUBMITTED,
+                  SubmissionHistoryEvent.RESUBMITTED,
+                ],
               },
-              select: { id: true, revision: true },
             },
-            files: {
-              select: { submissionHistoryId: true },
-            },
+            select: { id: true, revision: true },
           },
-        });
+          files: {
+            select: { submissionHistoryId: true },
+          },
+        },
+      });
       expect(documentSubmissions.length).toBeGreaterThan(0);
       for (const submission of documentSubmissions) {
         const current = submission.histories.filter(

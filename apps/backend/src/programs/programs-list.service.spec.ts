@@ -1,8 +1,10 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { ProgramViewerService } from './program-viewer.service';
+import {
+  ProgramViewerService,
+  type ProgramViewer,
+} from './program-viewer.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import type { ProgramViewer } from './program-viewer.service';
 import {
   ApplicationStatus,
   Prisma,
@@ -14,15 +16,12 @@ import {
   type ProgramListDerivedStatus,
   type ProgramListStatusInput,
   ProgramListStatusFilterRepository,
-} from './program-list-status-filter.repository';
-import { PROGRAM_LIST_QUERY_STATUSES } from './program-list.config';
-import {
   ProgramsRepository,
   type ProgramListRecord,
 } from './programs.repository';
-import { ProgramsService } from './programs.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { PROGRAM_LIST_QUERY_STATUSES } from './program-list.config';
+import { ProgramsService, ProgramCoverUrlService } from './programs.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 const NOW = new Date('2026-07-22T00:00:00.000Z');
 

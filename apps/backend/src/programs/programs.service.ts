@@ -1,3 +1,11 @@
+import {
+  Injectable,
+  Inject,
+  BadRequestException,
+  NotFoundException,
+  ServiceUnavailableException,
+  StreamableFile,
+} from '@nestjs/common';
 import { HTTP_AUTH_KINDS } from '../platform/auth.config';
 import { type OptionalSessionRequest } from '../auth/http-auth.types';
 import {
@@ -5,7 +13,6 @@ import {
   type ProgramViewer,
   ProgramViewerRole,
 } from './program-viewer.service';
-import { Injectable, Inject, BadRequestException } from '@nestjs/common';
 import {
   ApplicationStatus,
   SubmissionStatus,
@@ -16,7 +23,17 @@ import {
   DomainException,
   type ProblemDetailExtensions,
 } from '../platform/error-code.error';
-import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
+import {
+  PROGRAM_READ_ERROR_CODES,
+  ProgramAuthoringUploadTokenError,
+  ProgramAuthoringAttachmentRaceError,
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringIdempotencyRaceError,
+  ProgramErrorCode,
+  PROGRAM_ERROR_CODES,
+  type ProgramAuthoringValidationIssue,
+  ProgramAuthoringValidationError,
+} from './programs.error';
 import {
   ProgramsRepository,
   ProgramListRecord,
@@ -26,34 +43,26 @@ import {
   ProgramLifecycleRepository,
   ProgramPurgeDeletedCounts,
   type ProgramDeletionScopeCounts,
+  ProgramHistoryRepository,
+  type ProgramListQuery,
 } from './programs.repository';
 import { MILESTONE_NOT_SUBMITTED } from './milestone-completion.config';
-import { type ProgramListQuery } from './program-list-status-filter.repository';
 import { type SubmissionCompletionTargetRow } from './submission-completion.config';
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { MilestoneCompletionService } from './submissions.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
   ProgramTemplatesService,
   PROGRAM_PARTICIPATION,
 } from './team-application.service';
-import {
-  ProgramAuthoringUploadTokenError,
-  ProgramAuthoringAttachmentRaceError,
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringIdempotencyRaceError,
-} from './program-authoring.error';
-import {
-  ProgramErrorCode,
-  PROGRAM_ERROR_CODES,
-} from './program-error-code.error';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import {
   ProgramNoticeFetchClient,
   type ProgramNoticePreview,
 } from './program-notice-fetch.client';
-import { ProgramHistoryRepository } from './programs.repository';
-import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
+import {
+  ProgramAuthoringUploadTransactionRepository,
+  ProgramCoverRepository,
+} from './files.repository';
 import {
   type ProgramAuthoringRequest,
   ProgramAuthoringPlan,
@@ -61,15 +70,26 @@ import {
   type ProgramAuthoringDocumentPlan,
   type ProgramAuthoringProgram,
 } from './files.config';
-import {
-  type ProgramAuthoringValidationIssue,
-  ProgramAuthoringValidationError,
-} from './program-authoring-validation.error';
 import { createHash } from 'node:crypto';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { ProgramAuthoringUploadService } from './files.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-
+import { type ObjectStoragePort } from '../platform/object-storage.types';
+import { ObjectStorageError } from '../platform/object-storage.error';
+import { OBJECT_STORAGE } from '../platform/object-storage.config';
+@Injectable()
+export class ProgramCoverUrlService {
+  programCoverImageUrl(
+    programId: string,
+    coverId: string | null | undefined,
+    externalImageUrl?: string | null,
+  ): string | null {
+    if (externalImageUrl != null) return externalImageUrl;
+    return coverId
+      ? `/programs/${encodeURIComponent(programId)}/cover/${encodeURIComponent(coverId)}`
+      : null;
+  }
+}
 export interface ProgramListItemNote {
   readonly text: string;
   readonly icon?: 'team';
@@ -183,12 +203,12 @@ export class ProgramsService {
   }
   private toTargetSubmissionAxes<
     T extends {
-      readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+      readonly submissions: readonly SubmissionCompletionTargetRow[];
     },
   >(application: T) {
     const { submissions, documentSubmissions } =
       this.milestoneCompletionService.projectSubmissionCompletionTargets(
-        application.milestoneDocumentSubmissions,
+        application.submissions,
       );
     return {
       ...application,
@@ -364,9 +384,9 @@ export class ProgramsService {
             dDay: deadline.dDay,
             deadlineLabel: deadline.label,
             description: milestone.instructions,
-            submissionItemCount: milestone._count.documents,
+            submissionItemCount: milestone._count.requirements,
             viewerSubmissionStatus:
-              milestone._count.documents > 0 && studentApplication
+              milestone._count.requirements > 0 && studentApplication
                 ? this.milestoneStatusFor(
                     milestone,
                     studentApplication.submissions,
@@ -374,7 +394,7 @@ export class ProgramsService {
                   )
                 : null,
             applicationSubmissionSummary:
-              milestone._count.documents > 0 && staffApplications
+              milestone._count.requirements > 0 && staffApplications
                 ? this.summaryForMilestone(milestone, staffApplications)
                 : null,
           };
@@ -388,7 +408,7 @@ export class ProgramsService {
   private summaryForMilestone(
     milestone: {
       readonly id: string;
-      readonly documents: readonly {
+      readonly requirements: readonly {
         readonly id: string;
       }[];
     },
@@ -416,7 +436,7 @@ export class ProgramsService {
   private milestoneStatusFor(
     milestone: {
       readonly id: string;
-      readonly documents: readonly {
+      readonly requirements: readonly {
         readonly id: string;
       }[];
     },
@@ -425,7 +445,7 @@ export class ProgramsService {
   ) {
     return this.milestoneCompletionService.milestoneCompletionStatus({
       submissionAxisInUse: false,
-      requiredDocumentStatuses: milestone.documents.map(
+      requiredDocumentStatuses: milestone.requirements.map(
         (document) =>
           documentSubmissions.find(
             (submission) => submission.milestoneDocumentId === document.id,
@@ -1058,4 +1078,170 @@ function sameProgramDeletionScopeCounts(
     left.submissionEvents === right.submissionEvents &&
     left.scopeFingerprint === right.scopeFingerprint
   );
+}
+export type CreatedProgram = {
+  readonly id: string;
+  readonly category: ProgramCategory;
+  readonly applicationTemplateKey: string;
+  readonly applicationTemplateVersion: number;
+  readonly endAt: Date;
+};
+
+export type CreateProgramCommand = {
+  readonly name: string;
+  readonly organizer: string;
+  readonly trackType: ProgramTrackType;
+  readonly applicationStartAt: string;
+  readonly applicationEndAt: string;
+  readonly startAt: string;
+  readonly endAt: string;
+  readonly teamMinSize?: number | null;
+  readonly teamMaxSize?: number | null;
+  readonly description: string;
+};
+
+@Injectable()
+export class ProgramCoverService {
+  constructor(
+    private readonly repository: ProgramCoverRepository,
+    @Inject(OBJECT_STORAGE)
+    private readonly storage: ObjectStoragePort,
+  ) {}
+
+  async streamable(
+    programId: string,
+    coverId: string,
+  ): Promise<StreamableFile> {
+    const cover = await this.read(programId, coverId);
+    return new StreamableFile(cover.body, {
+      type: cover.contentType,
+      length: cover.size,
+      disposition: 'inline',
+    });
+  }
+
+  async read(programId: string, coverId: string) {
+    const cover = await this.repository.findPublicCover(programId, coverId);
+    if (cover === null)
+      throw new NotFoundException('Program cover was not found.');
+    try {
+      return {
+        body: await this.storage.get(cover.storageKey),
+        contentType: cover.mimeType,
+        size: cover.sizeBytes,
+      };
+    } catch (error) {
+      if (!(error instanceof ObjectStorageError)) throw error;
+      if (error.code === 'SUBMISSION_FILE_STORAGE_GET_NOT_FOUND') {
+        throw new NotFoundException('Program cover was not found.');
+      }
+      throw new ServiceUnavailableException(
+        'Program cover is temporarily unavailable.',
+      );
+    }
+  }
+}
+
+const INVALID_END_AT_FIELD_ERROR = {
+  field: 'endAt',
+  code: 'INVALID_END_AT',
+  message:
+    'Program end must be a valid date after the application period ends.',
+} as const;
+
+@Injectable()
+export class ProgramCreationService {
+  constructor(
+    private readonly repository: ProgramsRepository,
+    private readonly programHistory: ProgramHistoryRepository,
+    private readonly historyMetadataService: HistoryMetadataService,
+    private readonly programScheduleService: ProgramScheduleService,
+    private readonly programTemplatesService: ProgramTemplatesService,
+  ) {}
+
+  async create(githubId: bigint, input: CreateProgramCommand) {
+    const name = input.name.trim();
+    const organizer = input.organizer.trim();
+    const description = input.description.trim();
+    const applicationStartAt = new Date(input.applicationStartAt);
+    const applicationEndAt = new Date(input.applicationEndAt);
+    const startAt = new Date(input.startAt);
+    const endAt = new Date(input.endAt);
+    const template = this.programTemplatesService.getProgramTemplate(
+      ProgramCategory.BASIC,
+    );
+    const teamMinSize = input.teamMinSize ?? template.teamSize.defaultMin;
+    const teamMaxSize = input.teamMaxSize ?? template.teamSize.defaultMax;
+    const hasValidApplicationPeriod =
+      !Number.isNaN(applicationStartAt.getTime()) &&
+      !Number.isNaN(applicationEndAt.getTime()) &&
+      applicationEndAt >= applicationStartAt;
+    const hasValidProgramPeriod =
+      !Number.isNaN(startAt.getTime()) &&
+      !Number.isNaN(endAt.getTime()) &&
+      startAt >= applicationEndAt &&
+      endAt > startAt;
+    const hasValidTeamSize =
+      Number.isInteger(teamMinSize) &&
+      Number.isInteger(teamMaxSize) &&
+      teamMinSize >= 1 &&
+      teamMinSize <= teamMaxSize;
+
+    if (
+      !name ||
+      !organizer ||
+      !description ||
+      !hasValidApplicationPeriod ||
+      !hasValidTeamSize
+    ) {
+      throw new DomainException(
+        PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+      );
+    }
+
+    if (
+      typeof input.endAt !== 'string' ||
+      !Number.isFinite(endAt.getTime()) ||
+      this.programScheduleService.isProgramEndAtUndecided(endAt) ||
+      !hasValidProgramPeriod
+    ) {
+      throw new DomainException(
+        PROGRAM_ERROR_CODES[ProgramErrorCode.VALIDATION_ERROR],
+        { fieldErrors: [INVALID_END_AT_FIELD_ERROR] },
+      );
+    }
+
+    return this.repository.withCreateTransaction(async (writer) => {
+      const program = await this.repository.createProgram(
+        {
+          createdByGithubId: githubId,
+          name,
+          organizer,
+          category: ProgramCategory.BASIC,
+          trackType: input.trackType,
+          applicationTemplateKey: template.key,
+          applicationTemplateVersion: template.version,
+          applicationStartAt,
+          applicationEndAt,
+          startAt,
+          endAt,
+          teamMinSize,
+          teamMaxSize,
+          description,
+        },
+        writer,
+      );
+      await this.programHistory.append(writer, {
+        programId: program.id,
+        actorGithubId: githubId,
+        event: 'CREATED',
+        metadata: this.historyMetadataService.createProgramCreatedAuditMetadata(
+          {
+            programName: program.name,
+          },
+        ),
+      });
+      return program;
+    });
+  }
 }

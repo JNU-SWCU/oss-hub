@@ -1,10 +1,10 @@
 import { ReviewDecision } from '@prisma/client';
 import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import { SubmissionsService } from './submissions.service';
 
 const service = Object.create(
-  SubmissionReviewsService.prototype,
-) as SubmissionReviewsService;
+  SubmissionsService.prototype,
+) as SubmissionsService;
 
 describe('SubmissionReviewsService.reviewInputFromRequest', () => {
   it.each(Object.values(ReviewDecision))(

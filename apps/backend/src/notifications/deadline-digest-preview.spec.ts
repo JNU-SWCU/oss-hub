@@ -20,7 +20,7 @@ const source: DeadlineProgramSource = {
       id: 'milestone-1',
       name: 'First plan',
       dueAt: new Date('2026-08-14T12:00:00Z'),
-      documents: [{ id: 'doc-1', required: true }],
+      requirements: [{ id: 'doc-1', required: true }],
     },
   ],
   teams: [

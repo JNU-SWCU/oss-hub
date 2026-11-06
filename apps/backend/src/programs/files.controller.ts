@@ -23,15 +23,13 @@ import {
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from './submissions-error-code.error';
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './submissions.error';
 import { type AuthenticatedRequest } from '../auth/http-auth.types';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { Protected } from '../auth/auth-route.decorator';
 import { UploadedMilestoneDocumentFileResponseDto } from './dto/uploaded-milestone-document-file-response.dto';
-import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
 import { type MilestoneDocumentFileUpload } from './files.config';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;

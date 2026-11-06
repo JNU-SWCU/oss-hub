@@ -1,12 +1,14 @@
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { ApprovalStatus, DepartmentType, UserType } from '@prisma/client';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { PlatformRepository } from '../platform/platform.repository';
+import { MilestoneCompletionService } from './submissions.service';
 import {
+  ApprovalStatus,
+  DepartmentType,
+  UserType,
   AccountStatus,
   ApplicationStatus,
   SubmissionStatus,
 } from '@prisma/client';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { PlatformRepository } from '../platform/platform.repository';
 import { MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
 import {
@@ -18,13 +20,13 @@ import {
 import { MILESTONE_SCENARIOS } from '../../prisma/seeds/milestones';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { SubmissionMatrixRepository } from './submission-matrix.repository';
+import { SubmissionMatrixRepository } from './submissions.repository';
 import {
   SubmissionMatrixService,
   type SubmissionMatrixQuery,
   type MatrixRowResult,
 } from './submission-matrix.service';
-import { SubmissionsErrorCode } from './submissions-error-code.error';
+import { SubmissionsErrorCode } from './submissions.error';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

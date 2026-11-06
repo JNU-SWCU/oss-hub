@@ -1,16 +1,20 @@
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { ProgramHistoryRepository } from './programs.repository';
+import {
+  ProgramHistoryRepository,
+  ProgramLifecycleRepository,
+  ProgramDeletionScopeRepository,
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ProgramLifecycleRepository } from './programs.repository';
-import { ProgramLifecycleService } from './programs.service';
-import { ProgramDeletionScopeRepository } from './programs.repository';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
-import { ProgramsRepository } from './programs.repository';
+import {
+  ProgramLifecycleService,
+  ProgramCreationService,
+} from './programs.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramCreationService } from './program-creation.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ApplicationsRepository } from './team.repository';
@@ -67,7 +71,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { program: { name: { startsWith: prefix } } } },
   });
   await prisma.milestone.deleteMany({
@@ -103,7 +107,7 @@ it.each(['delete', 'purge'] as const)(
             name: 'Retained milestone',
             startAt: new Date('2026-11-06T00:00:00Z'),
             dueAt: new Date('2026-11-20T00:00:00Z'),
-            documents: {
+            requirements: {
               create: {
                 name: 'Retained document',
                 required: true,

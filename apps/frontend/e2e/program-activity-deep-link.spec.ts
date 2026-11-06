@@ -36,7 +36,6 @@ async function installProgramRoutes(
     organizer: 'JNU SWCU',
     trackType: 'EXTRACURRICULAR',
     applicationTemplateKey: 'oss-contest',
-    lifecycle: 'PUBLISHED',
     repositoryProvisioningEnabled: true,
     description: '비동기 상세 로드 회귀 테스트',
     applicationPeriod: {
@@ -85,7 +84,6 @@ async function installProgramRoutes(
           programId,
           name: '활동 이동 확인 프로그램',
           trackType: 'EXTRACURRICULAR',
-          lifecycle: 'PUBLISHED',
           milestoneCount: 1,
           boardPostCount: 0,
           participantCount: activityRows.length,

@@ -27,7 +27,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { type DeadlineDigestMail } from '../notifications/gmail-mail.client';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -98,10 +98,10 @@ function errorCode(error: unknown): string | null {
   return error instanceof DomainException ? error.errorCode.code : null;
 }
 async function cleanup(): Promise<void> {
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { teamId: TEAM_ID },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestoneId: MILESTONE_ID },
   });
   await prisma.milestone.deleteMany({ where: { id: MILESTONE_ID } });
@@ -173,7 +173,7 @@ async function seed(): Promise<void> {
       dueAt: MILESTONE_DUE_AT,
     },
   });
-  await prisma.milestoneDocument.createMany({
+  await prisma.requirement.createMany({
     data: [
       {
         id: DOCUMENT_REQUIRED_ID,
@@ -272,9 +272,9 @@ describe('편집 화면의 마감 알림 스위치 — 발송 대상 조회까�
       PROGRAM_ID,
       updateRequest(true),
     );
-    await prisma.milestoneDocumentSubmission.create({
+    await prisma.submission.create({
       data: {
-        milestoneDocumentId: DOCUMENT_REQUIRED_ID,
+        requirementId: DOCUMENT_REQUIRED_ID,
         teamId: TEAM_ID,
         submittedById: LEADER_ID,
       },

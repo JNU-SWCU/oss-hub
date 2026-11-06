@@ -11,7 +11,6 @@ import type {
 } from './dto';
 import { ApiError, apiClient } from '@/lib/api-client';
 import { PROGRAM_EDIT_ERROR_CODES } from './program-edit-error-codes';
-import { parseProgramLifecycle } from '../program-lifecycle';
 
 export function editableMilestoneSnapshotFailure(
   error: unknown,
@@ -40,28 +39,24 @@ export function editableMilestoneSnapshotFailure(
   return { kind: 'unknown' };
 }
 
-export async function getEditableProgram(
+export function getEditableProgram(
   programId: string,
 ): Promise<EditableProgram> {
-  return parseProgramLifecycle(
-    await apiClient<EditableProgram>(
-      `programs/${encodeURIComponent(programId)}/edit`,
-    ),
+  return apiClient<EditableProgram>(
+    `programs/${encodeURIComponent(programId)}/edit`,
   );
 }
 
-export async function updateProgram(
+export function updateProgram(
   programId: string,
   input: UpdateProgramInput,
 ): Promise<EditableProgram> {
-  return parseProgramLifecycle(
-    await apiClient<EditableProgram>(
-      `programs/${encodeURIComponent(programId)}`,
-      {
-        method: 'PATCH',
-        body: JSON.stringify(input),
-      },
-    ),
+  return apiClient<EditableProgram>(
+    `programs/${encodeURIComponent(programId)}`,
+    {
+      method: 'PATCH',
+      body: JSON.stringify(input),
+    },
   );
 }
 

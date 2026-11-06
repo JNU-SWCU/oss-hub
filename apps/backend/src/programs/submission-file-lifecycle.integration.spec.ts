@@ -15,7 +15,7 @@ import {
   S3Client,
 } from '@aws-sdk/client-s3';
 import {
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   MilestoneSubmissionType,
   FileLifecycle,
   SubmissionStatus,
@@ -110,7 +110,7 @@ async function createPending(options: {
       uploaderId: USER_ID,
       teamId: TEAM_ID,
       requirementId: (
-        await prisma.milestoneDocument.findFirstOrThrow({
+        await prisma.requirement.findFirstOrThrow({
           where: { milestoneId: MILESTONE_ID },
           select: { id: true },
         })
@@ -134,7 +134,7 @@ async function createSubmissionHistory(suffix: string): Promise<{
   const documentId = `${SUBMISSION_PREFIX}-document-${suffix}`;
   const submissionId = `${SUBMISSION_PREFIX}-${suffix}`;
   const historyId = `${SUBMISSION_PREFIX}-history-${suffix}`;
-  await prisma.milestoneDocument.create({
+  await prisma.requirement.create({
     data: {
       milestoneId: MILESTONE_ID,
       id: documentId,
@@ -143,21 +143,21 @@ async function createSubmissionHistory(suffix: string): Promise<{
       sortOrder: -1,
     },
   });
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       id: submissionId,
-      milestoneDocumentId: documentId,
+      requirementId: documentId,
       teamId: TEAM_ID,
       status: SubmissionStatus.SUBMITTED,
       revision: 1,
       submittedById: USER_ID,
     },
   });
-  await prisma.milestoneDocumentSubmissionHistory.create({
+  await prisma.submissionHistory.create({
     data: {
       id: historyId,
-      milestoneDocumentSubmissionId: submissionId,
-      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      submissionId: submissionId,
+      event: SubmissionHistoryEvent.SUBMITTED,
       revision: 1,
       content: { type: MilestoneSubmissionType.FILE },
       actorId: USER_ID,
@@ -183,13 +183,13 @@ describeIntegration(
       await prisma.file.deleteMany({
         where: { kind: 'SUBMISSION', storageKey: { startsWith: PREFIX } },
       });
-      await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+      await prisma.submissionHistory.deleteMany({
         where: { submission: { id: { startsWith: SUBMISSION_PREFIX } } },
       });
-      await prisma.milestoneDocumentSubmission.deleteMany({
+      await prisma.submission.deleteMany({
         where: { id: { startsWith: SUBMISSION_PREFIX } },
       });
-      await prisma.milestoneDocument.deleteMany({
+      await prisma.requirement.deleteMany({
         where: { id: { startsWith: `${SUBMISSION_PREFIX}-document-` } },
       });
     });

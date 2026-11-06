@@ -4,7 +4,7 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import { ProgramSubmissionsController } from './program-submissions.controller';
+import { ProgramSubmissionsController } from './submissions.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,

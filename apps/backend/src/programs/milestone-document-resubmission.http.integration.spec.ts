@@ -1,6 +1,6 @@
 import { ReviewDecision } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,
@@ -50,12 +50,11 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     });
 
     expect(response.status).toBe(201);
-    const events =
-      await fixture.prisma.milestoneDocumentSubmissionHistory.findMany({
-        where: { submission: { milestoneDocumentId: flowIds.document } },
-        orderBy: { createdAt: 'asc' },
-        select: { event: true, revision: true },
-      });
+    const events = await fixture.prisma.submissionHistory.findMany({
+      where: { submission: { requirementId: flowIds.document } },
+      orderBy: { createdAt: 'asc' },
+      select: { event: true, revision: true },
+    });
     expect(events).toEqual([
       { event: 'SUBMITTED', revision: 1 },
       {
@@ -94,13 +93,12 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
       },
     });
     expect(response.status).toBe(201);
-    const history =
-      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-        where: {
-          event: 'CHANGES_REQUESTED',
-          submission: { milestoneDocumentId: flowIds.document },
-        },
-      });
+    const history = await fixture.prisma.submissionHistory.findFirstOrThrow({
+      where: {
+        event: 'CHANGES_REQUESTED',
+        submission: { requirementId: flowIds.document },
+      },
+    });
     expect(history.comment).toBeNull();
     await fixture.closeDeadline();
     expect((await fixture.submit('기한 없이 보완')).status).toBe(201);
@@ -117,15 +115,14 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
         })
       ).status,
     ).toBe(201);
-    const requested =
-      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-        where: {
-          event: 'CHANGES_REQUESTED',
-          submission: {
-            milestoneDocumentId: flowIds.document,
-          },
+    const requested = await fixture.prisma.submissionHistory.findFirstOrThrow({
+      where: {
+        event: 'CHANGES_REQUESTED',
+        submission: {
+          requirementId: flowIds.document,
         },
-      });
+      },
+    });
     await fixture.closeDeadline();
     expect(
       (
@@ -143,18 +140,17 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     expect(await response.json()).toMatchObject({
       code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
     });
-    const submission =
-      await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-        where: { milestoneDocumentId: flowIds.document },
-        select: {
-          revision: true,
-          status: true,
-          histories: {
-            orderBy: { revision: 'asc' },
-            select: { id: true, event: true, revision: true, content: true },
-          },
+    const submission = await fixture.prisma.submission.findFirstOrThrow({
+      where: { requirementId: flowIds.document },
+      select: {
+        revision: true,
+        status: true,
+        histories: {
+          orderBy: { revision: 'asc' },
+          select: { id: true, event: true, revision: true, content: true },
         },
-      });
+      },
+    });
     expect(submission).toMatchObject({
       revision: 2,
       status: 'SUBMITTED',
@@ -192,17 +188,16 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
         expectedRevision: 1,
         expectedLatestReviewId: null,
       });
-      const requested =
-        await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow(
-          {
-            where: {
-              event: 'CHANGES_REQUESTED',
-              submission: {
-                milestoneDocumentId: flowIds.document,
-              },
+      const requested = await fixture.prisma.submissionHistory.findFirstOrThrow(
+        {
+          where: {
+            event: 'CHANGES_REQUESTED',
+            submission: {
+              requirementId: flowIds.document,
             },
           },
-        );
+        },
+      );
       await fixture.closeDeadline();
       await fixture.submit('보완 제출');
       expect(

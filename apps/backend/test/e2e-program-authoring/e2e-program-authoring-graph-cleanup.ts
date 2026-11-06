@@ -34,18 +34,17 @@ export async function removeAdoptedGraph(
       select: { id: true },
     });
     const teamIds = applications.map((application) => application.id);
-    const documentSubmissions =
-      await transaction.milestoneDocumentSubmission.findMany({
-        where: { teamId: { in: teamIds } },
-        select: { id: true },
-      });
+    const documentSubmissions = await transaction.submission.findMany({
+      where: { teamId: { in: teamIds } },
+      select: { id: true },
+    });
     const documentSubmissionIds = documentSubmissions.map(
       (submission) => submission.id,
     );
     const documentSubmissionHistories =
-      await transaction.milestoneDocumentSubmissionHistory.findMany({
+      await transaction.submissionHistory.findMany({
         where: {
-          milestoneDocumentSubmissionId: { in: documentSubmissionIds },
+          submissionId: { in: documentSubmissionIds },
         },
         select: { id: true },
       });
@@ -79,10 +78,10 @@ export async function removeAdoptedGraph(
         ],
       },
     });
-    await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+    await transaction.submissionHistory.deleteMany({
       where: { id: { in: documentSubmissionHistoryIds } },
     });
-    await transaction.milestoneDocumentSubmission.deleteMany({
+    await transaction.submission.deleteMany({
       where: { id: { in: documentSubmissionIds } },
     });
     await transaction.teamMember.deleteMany({
@@ -95,7 +94,7 @@ export async function removeAdoptedGraph(
         requirement: { milestone: { programId: graph.programId } },
       },
     });
-    await transaction.milestoneDocument.deleteMany({
+    await transaction.requirement.deleteMany({
       where: { milestone: { programId: graph.programId } },
     });
     await transaction.milestone.deleteMany({

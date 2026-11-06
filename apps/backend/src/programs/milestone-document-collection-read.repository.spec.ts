@@ -1,7 +1,7 @@
 import { FileMetadataRepository } from './files.repository';
 import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentCollectionReadRepository } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 
 describe('milestone-document-history-query.repository', () => {

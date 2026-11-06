@@ -31,13 +31,15 @@ import { BarrierRepositoriesRepository } from '../github/repositories.integratio
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import { SubmissionReviewsErrorCode } from './submissions.error';
+import { SubmissionReviewsRepository } from './submissions.repository';
+import {
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 
 const repositoryUrlService = new RepositoryUrlService();
 assertIsolatedIntegrationDatabase({
@@ -58,7 +60,7 @@ const repositories = new RepositoriesService(
   new HistoryMetadataService(),
   new RepositoryUrlService(),
 );
-const service = new SubmissionReviewsService(
+const service = new SubmissionsService(
   new SubmissionReviewsRepository(prisma, new PlatformRepository()),
   repositories,
   new RepositoryPublishService(),
@@ -169,27 +171,27 @@ describe('SubmissionReviewsService integration', () => {
   });
   beforeEach(() => github.publishRepository.mockReset());
   afterAll(async () => {
-    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    await prisma.submissionHistory.deleteMany({
       where: {
         submission: {
-          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
+          requirement: { milestone: { programId: PROGRAM_ID } },
         },
       },
     });
-    await prisma.milestoneDocumentSubmission.deleteMany({
-      where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
+    await prisma.submission.deleteMany({
+      where: { requirement: { milestone: { programId: PROGRAM_ID } } },
     });
     await prisma.file.deleteMany({
       where: {
         kind: 'SUBMISSION',
         submission: {
-          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
+          requirement: { milestone: { programId: PROGRAM_ID } },
         },
       },
     });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
-    await prisma.milestoneDocument.deleteMany({
+    await prisma.requirement.deleteMany({
       where: { milestone: { programId: PROGRAM_ID } },
     });
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -239,7 +241,7 @@ describe('SubmissionReviewsService integration', () => {
       comment: null,
     });
     await expect(
-      prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+      prisma.submission.findUniqueOrThrow({
         where: { id: EXISTING_SUBMISSION_ID },
         select: {
           status: true,

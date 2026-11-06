@@ -37,7 +37,6 @@ const detail: ProgramDetail = {
   organizer: '기관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '',
   repositoryProvisioningEnabled: false,
   applicationPeriod: {
@@ -52,7 +51,6 @@ const overview: ProgramOverview = {
   programId: detail.id,
   name: detail.name,
   trackType: detail.trackType,
-  lifecycle: detail.lifecycle,
   milestoneCount: 0,
   boardPostCount: 0,
   participantCount: 1,

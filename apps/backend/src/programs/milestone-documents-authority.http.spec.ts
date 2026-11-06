@@ -6,13 +6,15 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import {
+  RequirementArchiveService,
+  MilestoneDocumentCollectionService,
+} from './requirement-archive.service';
 import { MilestoneDocumentFilesService } from './files.service';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsController } from './milestone-documents.controller';
-import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementsController } from './requirements.controller';
+import { RequirementsService } from './requirements.service';
+import { RequirementsRepository } from './requirements.repository';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
@@ -79,12 +81,12 @@ beforeAll(async () => {
     (operation: (value: typeof store) => Promise<unknown>) => operation(store),
   );
   const module = await Test.createTestingModule({
-    controllers: [MilestoneDocumentsController],
+    controllers: [RequirementsController],
     providers: [
       ...STATELESS_PROVIDERS,
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       OriginGuard,
-      MilestoneDocumentsService,
+      RequirementsService,
       {
         provide: AuthConfig,
         useValue: { sessionSecret: secret, allowedOrigin: origin },
@@ -105,13 +107,13 @@ beforeAll(async () => {
         },
       },
       {
-        provide: MilestoneDocumentsRepository,
+        provide: RequirementsRepository,
         useValue: { withTransaction: writer },
       },
       {
-        provide: MilestoneDocumentArchiveService,
+        provide: RequirementArchiveService,
         useValue: Object.assign(
-          Object.create(MilestoneDocumentArchiveService.prototype) as object,
+          Object.create(RequirementArchiveService.prototype) as object,
           { downloadResponseService: new DownloadResponseService() },
         ),
       },

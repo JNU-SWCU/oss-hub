@@ -1,19 +1,21 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsService } from './requirements.service';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { updateInput } from '../../test/program-editor-service-fixtures';
 import { DomainException } from '../platform/error-code.error';
-import { ProgramErrorCode } from './program-error-code.error';
+import { ProgramErrorCode } from './programs.error';
 import {
   cleanup,
   createMilestone,
@@ -88,7 +90,7 @@ describe('ProgramEditorService integration', () => {
     const milestoneId = `${TEST_PREFIX}milestone:grace-retention`;
     await createProgram(programId, false);
     await createMilestone(milestoneId, programId);
-    const document = await prisma.milestoneDocument.create({
+    const document = await prisma.requirement.create({
       data: {
         milestoneId,
         name: 'Synthetic grace document',
@@ -96,8 +98,8 @@ describe('ProgramEditorService integration', () => {
         sortOrder: 1,
       },
     });
-    const documents = new MilestoneDocumentsService(
-      new MilestoneDocumentsRepository(
+    const documents = new RequirementsService(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -143,7 +145,7 @@ describe('ProgramEditorService integration', () => {
     const program = await prisma.program.findUniqueOrThrow({
       where: { id: programId },
     });
-    const saved = await prisma.milestoneDocument.findUniqueOrThrow({
+    const saved = await prisma.requirement.findUniqueOrThrow({
       where: { id: document.id },
     });
     expect({ endAt: program.endAt, graceDueAt: saved.graceDueAt }).toEqual(

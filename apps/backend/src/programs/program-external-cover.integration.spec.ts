@@ -2,17 +2,22 @@ import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { Test } from '@nestjs/testing';
 import { ProgramsController } from './programs.controller';
-import { ProgramCoverService } from './program-creation.service';
+import {
+  ProgramCoverService,
+  ProgramsService,
+  ProgramCoverUrlService,
+} from './programs.service';
 import { ProgramCoverRepository } from './files.repository';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
-import { ProgramsRepository } from './programs.repository';
-import { ProgramsService } from './programs.service';
 import {
   COVER_ACTOR,
   GITHUB_ID,
@@ -24,8 +29,7 @@ import {
   seedUpload,
   authoring,
 } from './program-cover.integration-fixtures';
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

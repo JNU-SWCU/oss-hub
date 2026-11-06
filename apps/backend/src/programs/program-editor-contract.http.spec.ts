@@ -23,7 +23,7 @@ import {
   editableProgram,
   updateInput,
 } from '../../test/program-editor-service-fixtures';
-import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import { ProgramAuthoringUploadTokenError } from './programs.error';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 

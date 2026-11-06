@@ -10,24 +10,26 @@ import {
   FilesService,
   SubmissionFileAdmissionService,
   MilestoneDocumentFilesService,
+  MilestoneDocumentFileNameService,
+  MilestoneDocumentSubmissionWindowService,
 } from './files.service';
 import { UsersModule } from '../users/users.module';
 import { UserProfileService } from '../users/user-profile.service';
-import { MilestoneDocumentsController } from './milestone-documents.controller';
+import { RequirementsController } from './requirements.controller';
 import { MilestoneDocumentFilesController } from './files.controller';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import {
+  RequirementArchiveService,
   MilestoneDocumentCollectionService,
   MilestoneDocumentCurrentFileService,
-} from './milestone-document-collection.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
+} from './requirement-archive.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  MilestoneDocumentCurrentFileRepository,
+  RequirementsRepository,
+} from './requirements.repository';
+import { MilestoneDocumentReviewsService } from './submissions.service';
 import { ProgramsModule } from './programs.module';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { RequirementsService } from './requirements.service';
 
 describe('ProgramsModule milestone documents', () => {
   const getMetadataArray = (key: string): unknown[] => {
@@ -45,9 +47,9 @@ describe('ProgramsModule milestone documents', () => {
 
     expect(controllers).toEqual(
       expect.arrayContaining([
-        MilestoneDocumentsController,
+        RequirementsController,
         MilestoneDocumentFilesController,
-        MilestoneDocumentsController,
+        RequirementsController,
       ]),
     );
   });
@@ -57,8 +59,8 @@ describe('ProgramsModule milestone documents', () => {
 
     expect(providers).toEqual(
       expect.arrayContaining([
-        MilestoneDocumentsService,
-        MilestoneDocumentsRepository,
+        RequirementsService,
+        RequirementsRepository,
         MilestoneDocumentCollectionService,
         MilestoneDocumentCollectionReadRepository,
         MilestoneDocumentCurrentFileRepository,
@@ -66,7 +68,7 @@ describe('ProgramsModule milestone documents', () => {
         MilestoneDocumentFilesService,
         MilestoneDocumentReviewsService,
 
-        MilestoneDocumentArchiveService,
+        RequirementArchiveService,
       ]),
     );
   });
@@ -78,7 +80,7 @@ describe('ProgramsModule milestone documents', () => {
     expect(
       Reflect.getMetadata('design:paramtypes', MilestoneDocumentFilesService),
     ).toEqual([
-      MilestoneDocumentsRepository,
+      RequirementsRepository,
       Object,
       FilesService,
       MilestoneDocumentSubmissionWindowService,
@@ -94,7 +96,7 @@ describe('ProgramsModule milestone documents', () => {
 
     expect(exports).toEqual(
       expect.arrayContaining([
-        MilestoneDocumentsService,
+        RequirementsService,
         MilestoneDocumentFilesService,
         MilestoneDocumentCurrentFileService,
       ]),

@@ -40,13 +40,13 @@ function source(): DeadlineProgramSource {
         id: 'before',
         name: '이미 지난 마감',
         dueAt: new Date(NOW.getTime() - 1),
-        documents: [{ id: 'before-required', required: true }],
+        requirements: [{ id: 'before-required', required: true }],
       },
       {
         id: 'at-now',
         name: '현재 마감',
         dueAt: NOW,
-        documents: [
+        requirements: [
           { id: 'required-now', required: true },
           { id: 'optional-now', required: false },
         ],
@@ -55,25 +55,25 @@ function source(): DeadlineProgramSource {
         id: 'at-end',
         name: '24시간 경계 마감',
         dueAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000),
-        documents: [{ id: 'required-end', required: true }],
+        requirements: [{ id: 'required-end', required: true }],
       },
       {
         id: 'after',
         name: '경계 밖 마감',
         dueAt: new Date(NOW.getTime() + 24 * 60 * 60 * 1000 + 1),
-        documents: [{ id: 'after-required', required: true }],
+        requirements: [{ id: 'after-required', required: true }],
       },
       {
         id: 'optional-only',
         name: '선택 서류만 있는 마감',
         dueAt: new Date(NOW.getTime() + 60_000),
-        documents: [{ id: 'optional', required: false }],
+        requirements: [{ id: 'optional', required: false }],
       },
       {
         id: 'informational',
         name: '안내용 마감',
         dueAt: new Date(NOW.getTime() + 120_000),
-        documents: [],
+        requirements: [],
       },
     ],
     teams: [
@@ -225,7 +225,7 @@ describe('deadline digest eligibility', () => {
           id: 'e2e:program-authoring:required-milestone',
           name: 'E2E required milestone',
           dueAt: new Date('2026-08-20T09:00:00.000Z'),
-          documents: [{ id: requiredDocumentId, required: true }],
+          requirements: [{ id: requiredDocumentId, required: true }],
         },
       ],
       teams: [

@@ -8,10 +8,10 @@ import {
   type ProgramArchiveIntegrationFixture,
 } from './milestone-document-archive.integration-fixture';
 import {
-  MilestoneDocumentArchiveService,
+  RequirementArchiveService,
   type ProgramDocumentArchiveScope,
-} from './milestone-document-archive.service';
-import { ProgramDocumentArchivesController } from './program-document-archives.controller';
+} from './requirement-archive.service';
+import { ProgramDocumentArchivesController } from './requirements.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { DownloadResponseService } from './download-response.service';
 import {
@@ -51,7 +51,7 @@ export async function startArchiveHttp(
             databaseSessionPrincipal(fixture.prisma, githubId),
         },
       },
-      { provide: MilestoneDocumentArchiveService, useValue: fixture.service },
+      { provide: RequirementArchiveService, useValue: fixture.service },
     ],
   }).compile();
   const app = module.createNestApplication();

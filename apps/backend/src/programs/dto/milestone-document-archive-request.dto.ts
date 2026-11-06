@@ -8,7 +8,7 @@ import {
 import {
   MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS,
   type MilestoneDocumentArchiveGrouping,
-} from '../milestone-document-archive.service';
+} from '../requirement-archive.service';
 
 export class MilestoneDocumentArchiveRequestDto {
   @IsOptional()

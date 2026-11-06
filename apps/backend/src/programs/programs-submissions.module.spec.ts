@@ -1,6 +1,6 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { PlatformModule } from '../platform/platform.module';
-import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
+import { SubmissionDashboardSummaryService } from './submission-matrix.service';
 import { FileCleanupRetryService } from './file-cleanup.service';
 import { FilesRepository } from './files.repository';
 import { FilesService } from './files.service';

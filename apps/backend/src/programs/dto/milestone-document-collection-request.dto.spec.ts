@@ -1,4 +1,4 @@
-import { MilestoneDocumentCollectionService } from '../milestone-document-collection.service';
+import { MilestoneDocumentCollectionService } from '../requirement-archive.service';
 import 'reflect-metadata';
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';

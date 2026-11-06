@@ -8,7 +8,7 @@ import type {
   SubmissionReviewResult,
   SubmissionRevisionRecord,
   SubmissionRevisionContent,
-} from '../submission-reviews.repository';
+} from '../submissions.repository';
 export class SubmissionReviewResponseDto {
   declare readonly id: string;
   declare readonly decision: ReviewDecision;

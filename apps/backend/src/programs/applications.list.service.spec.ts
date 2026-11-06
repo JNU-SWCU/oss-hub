@@ -17,10 +17,12 @@ import {
   type ApplicationListPage,
   type ApplicationListSource,
 } from './team.repository';
-import { ApplicationsErrorCode } from './applications-error-code.error';
-import { TeamApplicationService } from './team-application.service';
+import { ApplicationsErrorCode } from './teams.error';
+import {
+  TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './team-application.service';
 
 const PROGRAM_ID = 'synthetic-program';
 

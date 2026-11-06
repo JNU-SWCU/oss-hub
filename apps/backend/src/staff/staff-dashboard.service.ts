@@ -1,14 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { ProgramActivitySummaryService } from '../programs/program-activity-summary.service';
-import type { ProgramActivitySummary } from '../programs/program-activity-summary.service';
-import { SubmissionDashboardSummaryService } from '../programs/submission-dashboard-summary.service';
-import type { SubmissionDashboardProgramSummary } from '../programs/submission-dashboard-summary.service';
+import {
+  ProgramActivitySummaryService,
+  type ProgramActivitySummary,
+} from '../programs/program-activity-summary.service';
+import {
+  SubmissionDashboardSummaryService,
+  type SubmissionDashboardProgramSummary,
+} from '../programs/submission-matrix.service';
 import { TeamApplicationService } from '../programs/team-application.service';
 import type {
   StaffDashboardApplicationCounts,
   StaffDashboardProgramSummary,
 } from '../programs/team.repository';
-import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import { ProgramCoverUrlService } from '../programs/programs.service';
 
 export type StaffDashboardComposedApplicationCounts =
   StaffDashboardApplicationCounts & {

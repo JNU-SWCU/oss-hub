@@ -22,7 +22,7 @@ import {
   type ProgramAuthoringPendingUploadConsumption,
   type ProgramAuthoringUploadToken,
 } from './files.config';
-import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
+import { ProgramEditorMilestoneEditRaceError } from './programs.error';
 
 export type ProgramAuthority = PrismaTypes.UserGetPayload<{
   select: typeof USER_AUTHORITY_SELECT & {
@@ -329,7 +329,7 @@ export class ProgramEditorRepository {
             {
               submissionHistory: {
                 submission: {
-                  milestoneDocument: {
+                  requirement: {
                     milestone: { programId: input.programId },
                   },
                 },
@@ -399,7 +399,7 @@ export class ProgramEditorRepository {
     const milestone = await transaction.milestone.create({
       data: {
         ...input,
-        documents: {
+        requirements: {
           create: {
             name: '제출 항목 1',
             required: true,
@@ -450,7 +450,7 @@ export class ProgramEditorRepository {
     transaction: PrismaTypes.TransactionClient,
     programId: string,
   ): Promise<Date | null> {
-    const result = await transaction.milestoneDocument.aggregate({
+    const result = await transaction.requirement.aggregate({
       where: { milestone: { programId } },
       _max: { graceDueAt: true },
     });
@@ -461,7 +461,7 @@ export class ProgramEditorRepository {
     milestoneId: string,
     excludedDocumentIds: readonly string[] = [],
   ): Promise<Date | null> {
-    const result = await transaction.milestoneDocument.aggregate({
+    const result = await transaction.requirement.aggregate({
       where: {
         milestoneId,
         id: { notIn: [...excludedDocumentIds] },
@@ -550,7 +550,7 @@ export class ProgramEditorRepository {
     });
     if (milestone === null || milestone.programId !== programId) return null;
     await lockDocuments?.();
-    const documents = await transaction.milestoneDocument.findMany({
+    const documents = await transaction.requirement.findMany({
       where: { milestoneId },
       orderBy: { id: 'asc' },
       select: {
@@ -608,10 +608,10 @@ export class ProgramEditorRepository {
     documentIds: readonly string[],
   ): Promise<number> {
     if (documentIds.length === 0) return 0;
-    return transaction.milestoneDocumentSubmissionHistory.count({
+    return transaction.submissionHistory.count({
       where: {
         submission: {
-          milestoneDocumentId: { in: [...documentIds] },
+          requirementId: { in: [...documentIds] },
         },
       },
     });
@@ -643,7 +643,7 @@ export class ProgramEditorRepository {
         instructions: input.instructions,
       },
     });
-    const existing = await transaction.milestoneDocument.findMany({
+    const existing = await transaction.requirement.findMany({
       where: {
         milestoneId: input.milestoneId,
       },
@@ -664,7 +664,7 @@ export class ProgramEditorRepository {
         where: { requirementId: { in: deletedIds } },
         data: { requirementId: null },
       });
-      await transaction.milestoneDocument.deleteMany({
+      await transaction.requirement.deleteMany({
         where: { id: { in: deletedIds } },
       });
     }
@@ -673,7 +673,7 @@ export class ProgramEditorRepository {
       const milestoneDocumentId =
         document.id ??
         (
-          await transaction.milestoneDocument.create({
+          await transaction.requirement.create({
             data: {
               milestoneId: input.milestoneId,
               name: document.name,
@@ -684,7 +684,7 @@ export class ProgramEditorRepository {
           })
         ).id;
       if (document.id !== null) {
-        await transaction.milestoneDocument.update({
+        await transaction.requirement.update({
           where: {
             id: milestoneDocumentId,
           },
@@ -745,10 +745,9 @@ export class ProgramEditorRepository {
       },
     });
     if (milestone === null || milestone.programId !== programId) return null;
-    const documentSubmissionCount =
-      await transaction.milestoneDocumentSubmission.count({
-        where: { milestoneDocument: { milestoneId } },
-      });
+    const documentSubmissionCount = await transaction.submission.count({
+      where: { requirement: { milestoneId } },
+    });
     return {
       id: milestone.id,
       programId: milestone.programId,
@@ -770,7 +769,7 @@ export class ProgramEditorRepository {
       where: { requirement: { milestoneId } },
       data: { requirementId: null },
     });
-    await transaction.milestoneDocument.deleteMany({
+    await transaction.requirement.deleteMany({
       where: { milestoneId },
     });
     await transaction.milestone.delete({ where: { id: milestoneId } });

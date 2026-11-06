@@ -1,4 +1,19 @@
 import {
+  Injectable,
+  Inject,
+  Optional,
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+  StreamableFile,
+} from '@nestjs/common';
+import {
+  ReviewDecision,
+  SubmissionStatus,
+  RequirementSubmissionType,
+} from '@prisma/client';
+import { ProgramScheduleService } from './program-schedule.service';
+import {
   ValidatedProgramAuthoringUpload,
   type ProgramExternalCover,
   ProgramAuthoringUploadToken,
@@ -8,15 +23,6 @@ import {
   type DownloadedMilestoneDocumentTemplate,
   type DownloadedMilestoneDocumentSubmissionFile,
 } from './files.config';
-import {
-  Inject,
-  Injectable,
-  Optional,
-  BadRequestException,
-  ConflictException,
-  NotFoundException,
-  StreamableFile,
-} from '@nestjs/common';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
@@ -38,10 +44,12 @@ import {
   PROGRAM_COVER_MAX_BYTES,
   SUBMISSION_FILE_EXTENSIONS,
 } from './submission-upload.config';
-import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import {
+  ProgramAuthoringUploadTokenError,
+  ProgramAuthoringValidationError,
+} from './programs.error';
 import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
 import { DomainException } from '../platform/error-code.error';
-import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { randomUUID, createHash } from 'node:crypto';
 import { extname } from 'node:path';
@@ -56,27 +64,219 @@ import {
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from './submissions-error-code.error';
-import { ProgramScheduleService } from './program-schedule.service';
-import {
   SubmissionZipRejection,
   MAX_ENTRY_COUNT,
   MAX_TOTAL_UNCOMPRESSED_BYTES,
   MAX_ENTRY_UNCOMPRESSED_BYTES,
-} from './submission-zip.error';
-import { fromBufferPromise, type Entry } from 'yauzl';
-import { UserProfileService } from '../users/user-profile.service';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
+  SubmissionMembershipChangedError,
   MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { RequirementSubmissionType } from '@prisma/client';
+} from './submissions.error';
+import { fromBufferPromise, type Entry } from 'yauzl';
+import { UserProfileService } from '../users/user-profile.service';
+import { RequirementsRepository } from './requirements.repository';
+@Injectable()
+export class MilestoneDocumentSubmissionWindowService {
+  constructor(
+    private readonly programScheduleService: ProgramScheduleService,
+  ) {}
 
+  isResubmissionAllowedAfter(latestDecision: ReviewDecision | null): boolean {
+    if (latestDecision === null) return true;
+    switch (latestDecision) {
+      case ReviewDecision.APPROVED:
+      case ReviewDecision.REJECTED:
+        return false;
+      case ReviewDecision.CHANGES_REQUESTED:
+        return true;
+    }
+  }
+
+  isChangeRequestResubmissionOpen({
+    latestDecision,
+    submissionStatus,
+  }: {
+    readonly latestDecision: ReviewDecision | null;
+    readonly submissionStatus: SubmissionStatus | null;
+  }): boolean {
+    return (
+      latestDecision === ReviewDecision.CHANGES_REQUESTED &&
+      submissionStatus === SubmissionStatus.CHANGES_REQUESTED
+    );
+  }
+
+  milestoneDocumentSubmissionBlock({
+    dueAt,
+    graceDueAt = null,
+    now,
+    hasSubmission,
+    latestDecision,
+    submissionStatus,
+  }: {
+    readonly dueAt: Date;
+    readonly graceDueAt?: Date | null;
+    readonly now: Date;
+    readonly hasSubmission: boolean;
+    readonly latestDecision: ReviewDecision | null;
+
+    readonly submissionStatus: SubmissionStatus | null;
+  }): MilestoneDocumentSubmissionBlock | null {
+    if (
+      latestDecision === ReviewDecision.APPROVED ||
+      latestDecision === ReviewDecision.REJECTED
+    ) {
+      return 'RESUBMISSION_NOT_ALLOWED';
+    }
+    if (!this.programScheduleService.hasProgramDeadlinePassed(dueAt, now))
+      return null;
+    if (
+      this.isChangeRequestResubmissionOpen({ latestDecision, submissionStatus })
+    ) {
+      return null;
+    }
+
+    if (latestDecision === ReviewDecision.CHANGES_REQUESTED && hasSubmission) {
+      return 'RESUBMISSION_ALREADY_USED';
+    }
+    if (
+      latestDecision === null &&
+      graceDueAt !== null &&
+      !this.programScheduleService.hasProgramDeadlinePassed(graceDueAt, now)
+    )
+      return null;
+    return hasSubmission ? 'SUBMISSION_REPLACEMENT_CLOSED' : 'MILESTONE_CLOSED';
+  }
+}
+
+export type MilestoneDocumentSubmissionBlock =
+  | 'MILESTONE_CLOSED'
+  | 'SUBMISSION_REPLACEMENT_CLOSED'
+  | 'RESUBMISSION_NOT_ALLOWED'
+  | 'RESUBMISSION_ALREADY_USED';
+@Injectable()
+export class MilestoneDocumentFileNameService {
+  milestoneDocumentDownloadFileName(
+    input: MilestoneDocumentDownloadFileNameInput,
+  ): string {
+    return `${baseName(input)}${extensionOf(input.originalFileName)}`;
+  }
+
+  milestoneDocumentTextEntryFileName(
+    input: Omit<MilestoneDocumentDownloadFileNameInput, 'originalFileName'>,
+  ): string {
+    return `${baseName(input)}.txt`;
+  }
+
+  milestoneDocumentArchiveFolderName(value: string): string {
+    const segment = safeSegment(value);
+
+    const stem = segment.split('.')[0] ?? segment;
+    return WINDOWS_RESERVED_NAMES.has(normalizeDeviceDigits(stem).toUpperCase())
+      ? `${segment}_`
+      : segment;
+  }
+}
+
+const UNSAFE_CHARACTERS = new Set([
+  '/',
+  '\\',
+  ':',
+  '*',
+  '?',
+  '"',
+  '<',
+  '>',
+  '|',
+  ';',
+  ',',
+  "'",
+]);
+
+const FALLBACK_SEGMENT = 'file';
+
+const MAX_SEGMENT_UNITS = 100;
+
+const WINDOWS_RESERVED_NAMES: ReadonlySet<string> = new Set([
+  'CON',
+  'PRN',
+  'AUX',
+  'NUL',
+  ...Array.from({ length: 9 }, (_unused, index) => `COM${index + 1}`),
+  ...Array.from({ length: 9 }, (_unused, index) => `LPT${index + 1}`),
+]);
+
+function normalizeDeviceDigits(value: string): string {
+  return value.replace(/[¹²³]/g, (character) =>
+    String({ '¹': 1, '²': 2, '³': 3 }[character] ?? character),
+  );
+}
+
+function baseName(
+  input: Omit<MilestoneDocumentDownloadFileNameInput, 'originalFileName'>,
+): string {
+  return `${safeSegment(input.teamName)}_${safeSegment(input.documentName)}`;
+}
+
+function replaceUnsafe(value: string): string {
+  return [...value]
+    .map((character) => {
+      const code = character.codePointAt(0) ?? 0;
+
+      if (code < 0x20 || code === 0x7f) return '_';
+      if (isInvisibleFormatting(code)) return '_';
+      return UNSAFE_CHARACTERS.has(character) ? '_' : character;
+    })
+    .join('');
+}
+
+function isInvisibleFormatting(code: number): boolean {
+  return (
+    (code >= 0x200b && code <= 0x200f) ||
+    (code >= 0x202a && code <= 0x202e) ||
+    (code >= 0x2066 && code <= 0x2069) ||
+    code === 0xfeff
+  );
+}
+
+function safeSegment(value: string): string {
+  const normalized = truncate(replaceUnsafe(value).replace(/\s+/g, ' ').trim())
+    .replace(/\.+$/, '')
+    .trim();
+
+  if (normalized.length === 0 || /^\.+$/.test(normalized)) {
+    return FALLBACK_SEGMENT;
+  }
+  return normalized;
+}
+
+function truncate(value: string): string {
+  if (value.length <= MAX_SEGMENT_UNITS) return value;
+  let units = 0;
+  let cut = '';
+  for (const character of value) {
+    if (units + character.length > MAX_SEGMENT_UNITS) break;
+    units += character.length;
+    cut += character;
+  }
+  return cut.trim();
+}
+
+function extensionOf(originalFileName: string): string {
+  const dot = originalFileName.lastIndexOf('.');
+  if (dot <= 0 || dot === originalFileName.length - 1) return '';
+  const extension = replaceUnsafe(originalFileName.slice(dot + 1)).replace(
+    /\s+/g,
+    '',
+  );
+  return extension.length > 0 ? `.${extension}` : '';
+}
+
+export interface MilestoneDocumentDownloadFileNameInput {
+  readonly teamName: string;
+  readonly documentName: string;
+  readonly originalFileName: string;
+}
 const LATIN1_MAX_CODE_POINT = 0xff;
 
 const UTF8_DECODER = new TextDecoder('utf-8', { fatal: true });
@@ -750,7 +950,7 @@ export class FilesService {
 @Injectable()
 export class MilestoneDocumentFilesService {
   constructor(
-    private readonly repository: MilestoneDocumentsRepository,
+    private readonly repository: RequirementsRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
     private readonly submissionFiles: FilesService,

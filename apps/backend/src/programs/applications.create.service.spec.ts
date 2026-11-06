@@ -12,14 +12,16 @@ import type {
   ApplicationStudentActor,
   CreatedApplication,
 } from './team.repository';
-import { ApplicationsErrorCode } from './applications-error-code.error';
-import { TeamApplicationService } from './team-application.service';
 import {
+  ApplicationsErrorCode,
   ApplicationDuplicateError,
   ApplicationTeamMembershipConflictError,
-} from './applications.error';
+} from './teams.error';
+import {
+  TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './team-application.service';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const GITHUB_ID = 4_242n;

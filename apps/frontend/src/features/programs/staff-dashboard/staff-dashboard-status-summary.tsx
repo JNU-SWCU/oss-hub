@@ -24,7 +24,6 @@ export function StaffDashboardStatusSummary({
       <StatusCount
         label={STAFF_RECRUITMENT_BADGES.ended.label}
         count={summary.ended}
-        subset={{ label: '내림', count: summary.archived }}
       />
     </section>
   );
@@ -33,12 +32,9 @@ export function StaffDashboardStatusSummary({
 function StatusCount({
   label,
   count,
-  subset,
 }: {
   readonly label: string;
   readonly count: number;
-
-  readonly subset?: { readonly label: string; readonly count: number };
 }): ReactElement {
   return (
     <Card size="sm">
@@ -46,22 +42,7 @@ function StatusCount({
         <CardTitle className="text-muted-foreground">{label}</CardTitle>
       </CardHeader>
       <CardContent>
-        <p
-          className="text-2xl font-semibold tabular-nums"
-          aria-label={
-            subset === undefined
-              ? undefined
-              : `${count}개, ${subset.label} ${subset.count}개 포함`
-          }
-        >
-          {count}개
-          {subset === undefined ? null : (
-            <span className="text-xs font-normal text-muted-foreground">
-              {' / '}
-              {subset.label} {subset.count}개
-            </span>
-          )}
-        </p>
+        <p className="text-2xl font-semibold tabular-nums">{count}개</p>
       </CardContent>
     </Card>
   );

@@ -4,14 +4,14 @@ import { DomainException } from '../platform/error-code.error';
 import {
   PROGRAM_OVERVIEW_ERROR_CODES,
   ProgramOverviewErrorCode,
-} from './program-overview-error-code.error';
+} from './programs.error';
 import {
   MilestoneDocumentCatalogEntry,
   MilestoneSchedule,
   ProgramOverviewRepository,
   ProgramOverviewRecord,
   type PublicTeamRow,
-} from './program-overview.repository';
+} from './programs.repository';
 import { UserProfileService } from '../users/user-profile.service';
 
 export interface ProgramOverviewViewerStats {

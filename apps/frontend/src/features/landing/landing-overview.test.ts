@@ -129,7 +129,6 @@ describe('landing public overview boundary', () => {
           id: 'seed:intake:program-seven-templates:BASIC',
           name: 'seed-program-basic',
           organizer: 'seed-organizer',
-          lifecycle: 'PUBLISHED',
           description: '시드 fixture 설명',
         },
       ],

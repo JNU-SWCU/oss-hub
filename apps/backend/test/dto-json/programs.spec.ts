@@ -117,8 +117,8 @@ import {
 import {
   type MilestoneDocumentCollectionResult,
   type MilestoneDocumentViewerResult,
-} from '../../src/programs/milestone-documents.service';
-import { type MilestoneDocumentRecord } from '../../src/programs/milestone-document-collection-read.repository';
+} from '../../src/programs/requirements.service';
+import { type MilestoneDocumentRecord } from '../../src/programs/requirements.repository';
 import {
   type EditableProgramView,
   type ProgramMilestoneEditView,
@@ -142,7 +142,7 @@ import {
   type PublicUserProfileResult,
 } from '../../src/programs/public-projects.service';
 import { PublicProjectApplicationMode } from '../../src/programs/public-projects.config';
-import { type SubmissionReviewContext } from '../../src/programs/submission-reviews.repository';
+import { type SubmissionReviewContext } from '../../src/programs/submissions.repository';
 import { type SentTeamInvitationRecord } from '../../src/programs/team-invitations.repository';
 const programTemplatesService = new ProgramTemplatesService();
 const at = (iso: string): Date => new Date(iso);

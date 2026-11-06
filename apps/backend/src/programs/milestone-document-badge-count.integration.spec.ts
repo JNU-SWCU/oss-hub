@@ -3,10 +3,13 @@ import { UserProfileService } from '../users/user-profile.service';
 import {
   type MilestoneDocumentCollectionQuery,
   MilestoneDocumentCollectionService,
-} from './milestone-document-collection.service';
+} from './requirement-archive.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -14,8 +17,7 @@ import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsService } from './requirements.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,7 +31,7 @@ const optionalDocumentId = `${prefix}-document-optional`;
 const staffId = `${prefix}-staff`;
 const staffGithubId = 9600000000998001n;
 const prisma = new PrismaService();
-const repository = new MilestoneDocumentsRepository(
+const repository = new RequirementsRepository(
   prisma,
   new LockProgramTreeRepository(),
   new PlatformRepository(),
@@ -43,7 +45,7 @@ const repository = new MilestoneDocumentsRepository(
   ),
   new FileMetadataRepository(),
 );
-const service = new MilestoneDocumentsService(
+const service = new RequirementsService(
   repository,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),
@@ -65,12 +67,12 @@ interface TeamFixture {
   readonly submitsRequiredDocument: boolean;
 }
 async function cleanup(): Promise<void> {
-  await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { milestoneDocument: { milestoneId } },
+  await prisma.submission.deleteMany({
+    where: { requirement: { milestoneId } },
   });
   await prisma.teamMember.deleteMany({ where: { programId } });
   await prisma.team.deleteMany({ where: { programId } });
-  await prisma.milestoneDocument.deleteMany({ where: { milestoneId } });
+  await prisma.requirement.deleteMany({ where: { milestoneId } });
   await prisma.milestone.deleteMany({ where: { id: milestoneId } });
   await prisma.program.deleteMany({ where: { id: programId } });
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
@@ -121,10 +123,10 @@ async function createTeams(teams: readonly TeamFixture[]): Promise<void> {
       },
     });
     if (team.submitsRequiredDocument) {
-      await prisma.milestoneDocumentSubmission.create({
+      await prisma.submission.create({
         data: {
           id: `${prefix}-${team.key}-submission`,
-          milestoneDocumentId: requiredDocumentId,
+          requirementId: requiredDocumentId,
           teamId,
           submittedById: userId,
           submittedAt: new Date('2026-03-01'),
@@ -210,7 +212,7 @@ describe('교직원 서류 제출 카운트 — 배지와 수합 표 합계', ()
         },
       },
     });
-    await prisma.milestoneDocument.createMany({
+    await prisma.requirement.createMany({
       data: [
         {
           id: requiredDocumentId,

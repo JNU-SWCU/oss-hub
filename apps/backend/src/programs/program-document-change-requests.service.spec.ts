@@ -3,17 +3,15 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import { type ProgramArchiveReader } from './milestone-document-archive.repository';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
 import {
-  type MilestoneDocumentsRepository,
+  type ProgramArchiveReader,
+  type RequirementsRepository,
   type MilestoneDocumentWriteStore,
-} from './milestone-documents.repository';
-import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
-import {
   type ProgramDocumentChangeRequestCandidate,
   type ProgramDocumentChangeRequestInput,
-} from './milestone-document-collection-read.repository';
+} from './requirements.repository';
+import { ProgramDocumentChangeRequestsService } from './requirements.service';
 
 const programDocumentChangeRequestsService =
   new ProgramDocumentChangeRequestsService(
@@ -111,7 +109,7 @@ function service(input: {
     store,
     repo,
     service: new ProgramDocumentChangeRequestsService(
-      repo as unknown as MilestoneDocumentsRepository,
+      repo as unknown as RequirementsRepository,
       input.programs ?? programs(),
       new SubmissionsRepository(
         new PlatformRepository(),

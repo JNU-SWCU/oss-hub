@@ -1,20 +1,18 @@
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { StudentRepositoryUrlContextRepository } from './team.repository';
+import {
+  StudentRepositoryUrlContextRepository,
+  StudentRepositoryUrlTransactionRepository,
+  type StudentRepositoryUrlRepository,
+  type StudentRepositoryUrlContext,
+  type TeamRepositoryUrlContext,
+} from './team.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ApplicationStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 
 import { StudentRepositoryUrlService } from './team-application.service';
-import {
-  StudentRepositoryUrlTransactionRepository,
-  type StudentRepositoryUrlRepository,
-} from './team.repository';
-import type {
-  StudentRepositoryUrlContext,
-  TeamRepositoryUrlContext,
-} from './team.repository';
 
 const context: StudentRepositoryUrlContext = {
   id: 'team',
@@ -395,4 +393,4 @@ it('rechecks staff access after locking before relinking', async () => {
   expect(history).not.toHaveBeenCalled();
 });
 
-import { repositoryUrlError } from './applications-error-code.error';
+import { repositoryUrlError } from './teams.error';
