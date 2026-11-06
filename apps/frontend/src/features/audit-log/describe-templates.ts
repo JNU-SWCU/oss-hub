@@ -261,6 +261,12 @@ export const SENTENCE_TEMPLATES: Readonly<
       '을(를) 검토 대기로 되돌렸습니다',
       '님의 신청을 검토 대기로 되돌렸습니다',
     ),
+  APPLICATION_REPOSITORY_URL_CHANGED: (record) =>
+    nameTargetSentence(
+      record,
+      '의 저장소 주소를 바꿨습니다',
+      '에서 팀 저장소 주소를 바꿨습니다',
+    ),
   USER_PROFILE_UPDATED: (record) =>
     handleTargetSentence(
       record,

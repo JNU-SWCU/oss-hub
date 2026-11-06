@@ -19,6 +19,7 @@ describe('AuditLogActionValue', () => {
     ['APPLICATION_APPROVED', '신청 승인', 'approved'],
     ['APPLICATION_REJECTED', '신청 반려', 'rejected'],
     ['APPLICATION_REVERTED', '검토 대기로', 'closed'],
+    ['APPLICATION_REPOSITORY_URL_CHANGED', '저장소 주소 변경', 'closed'],
     ['USER_PROFILE_UPDATED', '프로필 수정', 'closed'],
     ['USER_PHONE_UPDATED', '전화번호 수정', 'closed'],
   ] as const)(

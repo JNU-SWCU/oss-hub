@@ -312,6 +312,25 @@ describe('describeAuditLog', () => {
     );
   });
 
+  it('APPLICATION_REPOSITORY_URL_CHANGED는 그 프로그램에서 팀 저장소 주소를 바꿨다고 서술한다', () => {
+    const record: AuditLogRecord = {
+      id: 'audit-repository-url-changed',
+      actor: 'synthetic-leader',
+      action: 'APPLICATION_REPOSITORY_URL_CHANGED',
+      targetType: 'TEAM',
+      targetId: 'team-synthetic-1',
+      target: '합성 프로그램',
+      occurredAt: '2026-07-24T06:20:00.000Z',
+    };
+
+    expect(sentenceText(record)).toBe(
+      'synthetic-leader님이 합성 프로그램에서 팀 저장소 주소를 바꿨습니다',
+    );
+    expect(sentenceText({ ...record, target: 'TEAM / team-synthetic-1' })).toBe(
+      'synthetic-leader님이 팀 team-synthetic-1의 저장소 주소를 바꿨습니다',
+    );
+  });
+
   function membershipRecord(
     teamMembership: TeamMembershipChangeSummary | undefined,
     overrides: Partial<AuditLogRecord> = {},
