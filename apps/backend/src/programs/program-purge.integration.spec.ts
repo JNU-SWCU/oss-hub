@@ -779,16 +779,6 @@ async function seedFullChildGraph(
       pendingExpiresAt: null,
     },
   });
-  await prisma.outboxEvent.create({
-    data: {
-      id: p('outbox-event'),
-      type: 'PROGRAM_TEST_EVENT',
-      aggregateType: 'PROGRAM',
-      aggregateId: programId,
-      idempotencyKey: p('outbox-idempotency'),
-      payload: { seedPlaceholder: true },
-    },
-  });
   const applicationOutboxEventId = p('application-outbox-event');
   await prisma.outboxEvent.create({
     data: {
@@ -930,7 +920,6 @@ async function programChildRowCounts(
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
-    programOutboxEvents,
     applicationOutboxEvents,
     programLinkedNotifications,
   ] = await Promise.all([
@@ -987,9 +976,6 @@ async function programChildRowCounts(
     }),
     prisma.program.count({ where: { id: programId, createdBy: 'USER' } }),
     prisma.file.count({ where: { kind: 'UPLOAD', programId: programId } }),
-    prisma.outboxEvent.count({
-      where: { aggregateType: 'PROGRAM', aggregateId: programId },
-    }),
     teamIds.length > 0
       ? prisma.outboxEvent.count({
           where: {
@@ -1031,7 +1017,7 @@ async function programChildRowCounts(
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
-    outboxEvents: programOutboxEvents + applicationOutboxEvents,
+    outboxEvents: applicationOutboxEvents,
     programLinkedNotifications,
   };
 }
@@ -1187,7 +1173,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(before.applications).toBe(2);
     expect(before.submissions).toBe(1);
     expect(before.submissionHistories).toBe(2);
-    expect(before.outboxEvents).toBe(2);
+    expect(before.outboxEvents).toBe(1);
     expect(before.programLinkedNotifications).toBe(2);
     await expect(
       prisma.repositoryInvitation.findUnique({
