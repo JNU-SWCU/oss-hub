@@ -4,18 +4,6 @@ import { CONSENTED_RESPONSE } from './support/member-access-fixture';
 const title =
   '합성 오픈소스 프로젝트의 긴 제목으로 모바일 줄바꿈을 확인합니다 '.repeat(3);
 const programId = 'qa170-program';
-const projectId = 'qa170-project';
-const project = {
-  projectId,
-  programId,
-  programName: '합성 오픈소스 프로그램',
-  trackType: 'EXTRACURRICULAR',
-  applicationMode: 'TEAM',
-  displayName: title,
-  repositoryName: 'qa170-synthetic',
-  githubUrl: 'https://github.com/JNU-SWCU/qa170-synthetic',
-  publishedAt: '2026-09-01T00:00:00.000Z',
-};
 const programDetail = {
   id: programId,
   name: title,
@@ -83,18 +71,6 @@ async function installRoutes(page: Page) {
       });
     } else if (path === '/api/v1/programs/ended-years') {
       await route.fulfill({ json: { years: [2026] } });
-    } else if (path === '/api/v1/projects') {
-      await route.fulfill({
-        json: { items: [project], pageSize: 12, nextPageId: null },
-      });
-    } else if (path === `/api/v1/projects/${projectId}`) {
-      await route.fulfill({
-        json: {
-          ...project,
-          metrics: { commitCount: 0, pullRequestCount: 0, releaseCount: 0 },
-          contributors: [],
-        },
-      });
     } else if (path === `/api/v1/programs/${programId}/viewer`) {
       await route.fulfill({ json: programDetail });
     } else if (path === `/api/v1/programs/${programId}`) {
@@ -144,9 +120,14 @@ for (const width of [1440, 390]) {
       readonly rootPadding: string;
       readonly headerPadding: string;
     }[] = [];
-    for (const [route, slot, detail] of [
-      ['/programs?status=ended', 'program-card', `/programs/${programId}`],
-      ['/programs', 'program-card', `/programs/${programId}`],
+    for (const [list, route, slot, detail] of [
+      [
+        'ended',
+        '/programs?status=ended',
+        'program-card',
+        `/programs/${programId}`,
+      ],
+      ['current', '/programs', 'program-card', `/programs/${programId}`],
     ]) {
       await page.goto(route);
       const card = page.locator(`[data-slot="${slot}"]`).first();
@@ -183,11 +164,13 @@ for (const width of [1440, 390]) {
       );
       await page.screenshot({
         style: 'nextjs-portal { visibility: hidden; }',
-        path: testInfo.outputPath(`qa170-staff-${slot}-${width}.png`),
+        path: testInfo.outputPath(`qa170-staff-${list}-${slot}-${width}.png`),
       });
       await card.screenshot({
         style: 'nextjs-portal { visibility: hidden; }',
-        path: testInfo.outputPath(`qa170-staff-${slot}-${width}-element.png`),
+        path: testInfo.outputPath(
+          `qa170-staff-${list}-${slot}-${width}-element.png`,
+        ),
       });
       const link = page.locator(`a[href="${detail}"]`).filter({ has: card });
       await expect(link).toHaveCount(1);
@@ -210,23 +193,25 @@ for (const width of [1440, 390]) {
     }
     expect(styles[0].radius).toEqual(styles[1].radius);
     expect(styles[0].fontSize).toEqual(styles[1].fontSize);
-    expect(styles[0].inset, 'AC7 project card uses 12px compact padding').toBe(
-      12,
-    );
+    expect(
+      styles[0].inset,
+      'AC7 ended program card uses 12px compact padding',
+    ).toBe(12);
     expect(
       styles[0].headerPadding,
-      'AC7 project program header carries no inline padding',
+      'AC7 ended program header carries no inline padding',
     ).toBe('0px');
-    expect(styles[1].inset, 'AC7 program card uses 12px compact padding').toBe(
-      12,
-    );
+    expect(
+      styles[1].inset,
+      'AC7 current program card uses 12px compact padding',
+    ).toBe(12);
     expect(
       styles[1].rootPadding,
-      'AC7 program card pads uniformly by 12px',
+      'AC7 current program card pads uniformly by 12px',
     ).toBe('12px');
     expect(
       styles[1].headerPadding,
-      'AC7 program header carries no inline padding of its own',
+      'AC7 current program header carries no inline padding of its own',
     ).toBe('0px');
   });
 }
