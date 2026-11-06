@@ -1,5 +1,8 @@
 import { FileMetadataRepository } from './files.repository';
-import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
+import {
+  SUBMISSION_REVIEW_EVENTS,
+  type SubmissionReviewDecision,
+} from './submission-history.config';
 import { Injectable, Inject } from '@nestjs/common';
 import {
   Prisma,
@@ -249,8 +252,7 @@ export class SubmissionsRepository {
     });
   }
 }
-export type SubmissionReviewDecision =
-  'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
+export type { SubmissionReviewDecision };
 export interface UpsertSubmissionInput {
   readonly requirementId: string;
   readonly teamId: string;

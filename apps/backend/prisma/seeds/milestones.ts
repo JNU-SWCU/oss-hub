@@ -5,6 +5,7 @@ import {
   SubmissionStatus,
   UserType,
 } from '@prisma/client';
+import type { SubmissionReviewDecision } from '../../src/programs/submission-history.config';
 import {
   applicationTemplateKey,
   offsetDays,
@@ -104,7 +105,7 @@ async function createSubmissionScenario(
     submittedById: string;
     status: SubmissionStatus;
     review?: {
-      decision: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
+      decision: SubmissionReviewDecision;
       comment?: string;
     };
   },
