@@ -12,7 +12,7 @@ import { AdminProfileService } from './admin-profile.service';
 import { UsersController } from './users.controller';
 import { UsersService } from './users.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
@@ -36,7 +36,7 @@ const usersService = {
   patchMyProfile: jest.fn().mockResolvedValue(myProfile),
 };
 const adminAccessMutationService = new AdminAccessMutationService(
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 const adminAccessService = Object.assign(
@@ -55,7 +55,7 @@ const adminProfileService = Object.assign(
   {
     adminAccessMutationService,
     adminProfileMutationService: new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       adminAccessMutationService,
     ),
@@ -83,7 +83,7 @@ describe('온보딩 프로필 저장 라우트 — UsersModule 실제 등록 순
       providers: [
         ...STATELESS_PROVIDERS,
         AdminAccessMutationService,
-        AuditLogMetadataService,
+        HistoryMetadataService,
         UserProfileService,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,

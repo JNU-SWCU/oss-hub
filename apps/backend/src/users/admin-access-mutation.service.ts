@@ -19,9 +19,9 @@ import type {
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.config';
-import type { AccessAuditAction } from '../platform/audit-log-metadata.config';
-import type { AccessAuditMetadata } from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
+import type { AccessAuditAction } from '../platform/history-metadata.config';
+import type { AccessAuditMetadata } from '../platform/history-metadata.config';
 import {
   type AdminAccessActor,
   type AdminAccessPrincipal,
@@ -32,7 +32,7 @@ import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import { AdminAccessPendingRequest } from './admin-access-read-ordering.repository';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { Injectable } from '@nestjs/common';
 import { UserProfileService } from './user-profile.service';
 
@@ -485,7 +485,7 @@ function assertNeverForAdminAccessMutation(value: never): never {
 
 type MutationDependencies = {
   readonly repository: AdminAccessRepositoryPort;
-  readonly auditLog: Pick<UserHistoryRepository, 'record'>;
+  readonly userHistory: Pick<UserHistoryRepository, 'record'>;
 };
 
 type MutationInput = {
@@ -516,7 +516,7 @@ export interface AdminAccessPatchRequest {
 @Injectable()
 export class AdminAccessMutationService {
   constructor(
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly userProfileService: UserProfileService,
   ) {}
 
@@ -634,7 +634,7 @@ export class AdminAccessMutationService {
           result,
           requestEffect: transition.outcome.requestEffect,
         });
-        await dependencies.auditLog.record(
+        await dependencies.userHistory.record(
           {
             actorGithubId: input.actorGithubId,
             action: audit.action,
@@ -850,7 +850,7 @@ export class AdminAccessMutationService {
           action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_APPROVED,
           targetType: 'ROLE_REQUEST',
           targetId: requestId,
-          metadata: this.auditLogMetadataService.createAccessAuditMetadata({
+          metadata: this.historyMetadataService.createAccessAuditMetadata({
             ...common,
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_APPROVED,
           }),
@@ -869,7 +869,7 @@ export class AdminAccessMutationService {
           action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REJECTED,
           targetType: 'ROLE_REQUEST',
           targetId: requestId,
-          metadata: this.auditLogMetadataService.createAccessAuditMetadata({
+          metadata: this.historyMetadataService.createAccessAuditMetadata({
             ...common,
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
             rejectionReason: decision.reason,
@@ -887,7 +887,7 @@ export class AdminAccessMutationService {
           action: ACCESS_AUDIT_ACTIONS.ROLE_REQUEST_REVOKED,
           targetType: decidedRequest === null ? 'USER' : 'ROLE_REQUEST',
           targetId: decidedRequest?.id ?? input.before.id,
-          metadata: this.auditLogMetadataService.createAccessAuditMetadata({
+          metadata: this.historyMetadataService.createAccessAuditMetadata({
             ...common,
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REVOKED,
           }),
@@ -935,7 +935,7 @@ export class AdminAccessMutationService {
         action: ACCESS_AUDIT_ACTIONS.DIRECT_ROLE_CHANGED,
         targetType: 'USER',
         targetId: input.before.id,
-        metadata: this.auditLogMetadataService.createAccessAuditMetadata({
+        metadata: this.historyMetadataService.createAccessAuditMetadata({
           ...common,
           eventKind: ACCESS_AUDIT_EVENT_KINDS.DIRECT_ROLE_CHANGED,
         }),
@@ -946,7 +946,7 @@ export class AdminAccessMutationService {
         action: ACCESS_AUDIT_ACTIONS.ACCOUNT_STATUS_CHANGED,
         targetType: 'USER',
         targetId: input.before.id,
-        metadata: this.auditLogMetadataService.createAccessAuditMetadata({
+        metadata: this.historyMetadataService.createAccessAuditMetadata({
           ...common,
           eventKind: ACCESS_AUDIT_EVENT_KINDS.ACCOUNT_STATUS_CHANGED,
         }),

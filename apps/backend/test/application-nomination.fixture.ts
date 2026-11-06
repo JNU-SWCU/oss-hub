@@ -2,7 +2,7 @@ import { TeamHistoryRepository } from '../src/programs/team-history.repository';
 import { assertIsolatedIntegrationDatabase } from './integration-database.guard';
 import { PrismaService } from '../src/platform/prisma.service';
 import { PlatformRepository } from '../src/platform/platform.repository';
-import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../src/platform/history-metadata.service';
 import { RepositoryProvisionGenerationRepository } from '../src/platform/repository-provision-generation.repository';
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
@@ -44,7 +44,7 @@ const invitations = new TeamInvitationsRepository(
 );
 const invitationService = new TeamInvitationsService(
   invitations,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 

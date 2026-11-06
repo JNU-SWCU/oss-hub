@@ -29,7 +29,7 @@ import {
   RepositoryProvisionSupersededError,
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { RepositoryUrlService } from './repository-url.service';
 
@@ -50,7 +50,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -75,7 +75,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -115,7 +115,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -193,7 +193,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -236,7 +236,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -289,7 +289,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -328,7 +328,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -367,7 +367,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -398,7 +398,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -440,7 +440,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -486,7 +486,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -547,7 +547,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -605,7 +605,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -675,7 +675,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -720,7 +720,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -784,7 +784,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -875,7 +875,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -930,7 +930,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1002,7 +1002,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1062,7 +1062,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1114,7 +1114,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1144,7 +1144,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1175,7 +1175,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 

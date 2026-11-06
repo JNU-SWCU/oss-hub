@@ -400,11 +400,11 @@ Target의 상대 이름은 `apps/backend/src/programs/` 기준이다. DTO와 설
 | `apps/backend/src/programs/team-invitations.repository.ts`                              | keep   | `team-invitations.repository.ts`                                           |    8 | present |          755 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
 | `apps/backend/src/programs/team-invitations.service.ts`                                 | keep   | `team-invitations.service.ts`                                              |    8 | present |          249 | 기존 설정·계산/편집 경계 유지; 마지막 구조 정리에서 재확인                                                     |
 | `apps/backend/src/programs/teams-error-code.error.ts`                                   | merge  | `teams.error.ts`                                                           |   11 | present |          100 | 오류를 도메인 접두사로 통합; 유지 도메인 오류는 정규화                                                         |
-| `apps/backend/src/platform/audit-log-error-code.error.ts`                               | delete | -                                                                          |   10 | present |           26 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-error-code.error.ts`                               | delete | -                                                                          |   10 | deleted |           26 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
 | `apps/backend/src/platform/audit-log-feed.config.ts`                                    | delete | -                                                                          |   10 | deleted |           62 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
-| `apps/backend/src/platform/audit-log-history-metadata.config.ts`                        | delete | -                                                                          |   10 | present |           22 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
-| `apps/backend/src/platform/audit-log-metadata.config.ts`                                | delete | -                                                                          |   10 | present |          483 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
-| `apps/backend/src/platform/audit-log-metadata.service.ts`                               | delete | -                                                                          |   10 | present |         1065 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-history-metadata.config.ts`                        | delete | -                                                                          |   10 | deleted |           22 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-metadata.config.ts`                                | delete | -                                                                          |   10 | deleted |          483 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
+| `apps/backend/src/platform/audit-log-metadata.service.ts`                               | delete | -                                                                          |   10 | deleted |         1065 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
 | `apps/backend/src/platform/audit-log-query.types.ts`                                    | delete | -                                                                          |   10 | deleted |            8 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
 | `apps/backend/src/platform/audit-log-read.service.ts`                                   | merge  | `apps/backend/src/platform/audit-log-read.service.ts (History UNION only)` |   10 | present |          214 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
 | `apps/backend/src/platform/audit-log-transaction-writer.types.ts`                       | delete | -                                                                          |   10 | deleted |            3 | 계약 14·20: 범용 AuditLog 제거, History UNION 읽기만 유지                                                      |
@@ -743,3 +743,21 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 | platform/audit-log* 제품 파일 | 10 | 2257 | 6 | 2077 |
 
 범용 AuditLog service·repository·transaction writer 타입과 feed 설정·쿼리 타입 5개를 지웠다. ProgramHistory writer는 새 파일 없이 `programs.repository.ts`에 둔다. 메타데이터 생성기(`audit-log-metadata.*`, `audit-log-history-metadata.config.ts`)와 `audit-log-error-code.error.ts`는 2단계에서 쓰는 도메인으로 옮기거나 지운다.
+
+## Todo 10 2단계: AuditLog 테이블 삭제
+
+기준은 1단계 head `97114d519`(#1758)다. `20261106000000_retire_audit_log`는 1단계 복사를 다시 실행하고 대조한 뒤에만 `AuditLog` 테이블을 지운다. 경로가 정해지지 않은 행, 복사되지 않은 행, 대조가 어긋난 행이 하나라도 있으면 0행 삭제로 중단한다. Prisma 모델 `AuditLog`와 `User.auditLogs` 관계를 지웠다. `reject_audit_log_mutation()` 함수는 UserHistory·AdminHistory 트리거가 함께 쓰므로 남긴다.
+
+| Path | Action | Target | Todo | State | Before lines | 이유 |
+| --- | --- | --- | ---: | --- | ---: | --- |
+| `apps/backend/src/platform/history-metadata.config.ts` | keep | `history-metadata.config.ts` | 10 | present | 0 | 도메인 이력 쓰기가 쓰는 메타데이터 타입·상수만 `audit-log-metadata.config.ts`·`audit-log-history-metadata.config.ts`에서 옮김 |
+| `apps/backend/src/platform/history-metadata.service.ts` | keep | `history-metadata.service.ts` | 10 | present | 0 | 도메인 이력 쓰기가 쓰는 생성 메서드만 `audit-log-metadata.service.ts`에서 옮김; 옛 AuditLog parser 제거 |
+| `apps/backend/src/platform/history.error.ts` | keep | `history.error.ts` | 10 | present | 0 | `audit-log-error-code.error.ts` 이름 변경; 오류 class는 service 파일에서 export하지 않는다 |
+
+| 범위 | 1단계 files | 1단계 lines | Todo 10 2단계 files | Todo 10 2단계 lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 194 | 32528 | 194 | 32528 |
+| platform/audit-log* 제품 파일 | 6 | 2077 | 2 | 479 |
+| platform/history* 제품 파일 | 0 | 0 | 3 | 444 |
+
+`platform/audit-log*` 제품 파일은 읽기 service와 읽기 repository만 남는다. 메타데이터 생성기는 users·programs·github가 함께 쓰므로 도메인별로 나누지 않고 공유 platform 파일로 이름을 바꿨다. 메서드 이름과 저장 모양은 그대로다. 옛 AuditLog 행만 읽던 parser와 그 전용 타입은 지웠다.

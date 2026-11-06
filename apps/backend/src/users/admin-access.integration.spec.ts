@@ -17,7 +17,7 @@ import { AdminAccessService } from './admin-access.service';
 import { IndependentAuthorityRepository } from './independent-authority.repository';
 import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { IndependentAuthorityService } from './independent-authority.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 assertIsolatedIntegrationDatabase({
@@ -32,12 +32,12 @@ const repository = new AdminAccessRepository(
   new AdminRepository(prisma),
   new UserTransitionRepository(),
 );
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 const service = new AdminAccessService(
   repository,
-  auditLog,
+  userHistory,
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ),
 );
@@ -83,10 +83,10 @@ describe('Admin access real PostgreSQL transactions', () => {
           new AdminRepository(prisma),
         ),
       ),
-      auditLog,
-      new AuditLogMetadataService(),
+      userHistory,
+      new HistoryMetadataService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
       new UserProfileService(),

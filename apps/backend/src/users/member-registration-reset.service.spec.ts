@@ -1,6 +1,6 @@
 import { buildRow } from '../auth/auth.repository.spec-support';
 import { PrismaService } from '../platform/prisma.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 import { MemberRegistrationResetService } from './member-registration-reset.service';
@@ -44,7 +44,7 @@ function harness() {
       .fn<Promise<void>, [UserAuditInput, UserHistoryTransaction]>()
       .mockResolvedValue(undefined),
   };
-  const metadata = new AuditLogMetadataService();
+  const metadata = new HistoryMetadataService();
   const service = new MemberRegistrationResetService(
     { withTransaction: (operation) => operation(store) },
     audit,

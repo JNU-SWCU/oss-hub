@@ -27,6 +27,7 @@ const migrationSql = (name: string) =>
   readFileSync(resolve(__dirname, 'migrations', name, 'migration.sql'), 'utf8');
 const prepareSql = migrationSql('20261105220000_prepare_audit_history_events');
 const copySql = migrationSql('20261105220100_copy_audit_log_to_domain_history');
+const retireSql = migrationSql('20261106000000_retire_audit_log');
 const toolingPath = (file: string) =>
   resolve(
     __dirname,
@@ -35,6 +36,7 @@ const toolingPath = (file: string) =>
   );
 const checkBeforeSql = readFileSync(toolingPath('check-before.sql'), 'utf8');
 const checkCopySql = readFileSync(toolingPath('check-copy.sql'), 'utf8');
+const checkRetiredSql = readFileSync(toolingPath('check-retired.sql'), 'utf8');
 
 const routeBlock = (sql: string) =>
   sql.slice(
@@ -146,6 +148,16 @@ const withoutIdAndTime = (record: AuditLogRecord) => ({
   occurredAt: new Date(0),
 });
 
+const addRow = (
+  id: string,
+  targetType: string,
+  targetId: string,
+  action: string,
+  metadata = '{}',
+) =>
+  `INSERT INTO "AuditLog" (id, "actorId", action, "targetType", "targetId", metadata, "occurredAt")
+   VALUES ('${id}', 'user-actor', '${action}', '${targetType}', '${targetId}', '${metadata}', '2026-09-02')`;
+
 beforeEach(async () => {
   await resetAuditFixture(prisma);
   await applyAuditFixtureSql(prisma, prepareSql);
@@ -156,9 +168,10 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('keeps one routing definition across the migration and both checks', () => {
+it('keeps one routing definition across both migrations and both checks', () => {
   const block = routeBlock(copySql);
   expect(block.length).toBeGreaterThan(1000);
+  expect(routeBlock(retireSql)).toBe(block);
   expect(routeBlock(checkBeforeSql)).toBe(block);
   expect(routeBlock(checkCopySql)).toBe(block);
 });
@@ -285,16 +298,6 @@ describe('copy migration', () => {
         VALUES ('p', 'program-live', 'CREATED', 'APPLICATION', '{"schemaVersion":1}')`),
     ).rejects.toThrow('ProgramHistory_data_check');
   });
-
-  const addRow = (
-    id: string,
-    targetType: string,
-    targetId: string,
-    action: string,
-    metadata = '{}',
-  ) =>
-    `INSERT INTO "AuditLog" (id, "actorId", action, "targetType", "targetId", metadata, "occurredAt")
-     VALUES ('${id}', 'user-actor', '${action}', '${targetType}', '${targetId}', '${metadata}', '2026-09-02')`;
 
   it.each([
     [
@@ -458,5 +461,111 @@ describe('audit screen parity after the copy', () => {
     await expect(scalar('SELECT count(*) FROM "AuditLog"')).resolves.toBe(
       feed.total + DELETE_BUCKET_ROWS,
     );
+  });
+});
+
+describe('retire migration', () => {
+  const count = (table: string) => scalar(`SELECT count(*) FROM "${table}"`);
+  const counts = async () => [
+    await count('AuditLog'),
+    await count('TeamHistory'),
+    await count('ProgramHistory'),
+  ];
+
+  it('copies rows the previous image wrote after the copy, then drops AuditLog', async () => {
+    await applyAuditFixtureSql(prisma, copySql);
+    await execute(
+      addRow('late-created', 'PROGRAM', 'program-live', 'PROGRAM_CREATED'),
+    );
+    await execute(addRow('late-joined', 'TEAM', 'team-live', 'TEAM_JOINED'));
+    await execute(
+      `DELETE FROM "TeamHistory" WHERE id = 'team-audit:team-joined'`,
+    );
+    const teamBefore = await count('TeamHistory');
+    const programBefore = await count('ProgramHistory');
+    await expect(check(checkRetiredSql)).resolves.toBe(1);
+
+    await applyAuditFixtureSql(prisma, retireSql);
+
+    await expect(tableExists('AuditLog')).resolves.toBe(false);
+    await expect(check(checkRetiredSql)).resolves.toBe(0);
+    await expect(count('TeamHistory')).resolves.toBe(teamBefore + 2);
+    await expect(count('ProgramHistory')).resolves.toBe(programBefore + 1);
+    await expect(
+      scalar(`SELECT count(*) FROM "ProgramHistory"
+        WHERE id = 'program-audit:late-created' AND "programId" = 'program-live'
+          AND event = 'CREATED' AND "actorId" = 'user-actor' AND data->'metadata' = '{}'`),
+    ).resolves.toBe(1);
+    await expect(
+      scalar(`SELECT count(*) FROM "TeamHistory"
+        WHERE id IN ('team-audit:late-joined', 'team-audit:team-joined')
+          AND "teamId" = 'team-live' AND event = 'JOINED'`),
+    ).resolves.toBe(2);
+  });
+
+  it.each([
+    [
+      'an application row #1752 did not copy',
+      addRow(
+        'late',
+        'APPLICATION',
+        'application-mapped',
+        'APPLICATION_SUBMITTED',
+      ),
+      'application_not_copied=1',
+    ],
+    [
+      'a live user row the consolidation did not import',
+      addRow('late', 'USER', 'user-target', 'USER_PROFILE_UPDATED'),
+      'user_not_imported=1',
+    ],
+    [
+      'a connection change row on a live repository',
+      addRow(
+        'late',
+        'REPOSITORY',
+        'repository-with-team',
+        'REPOSITORY_CONNECTION_CHANGED',
+      ),
+      'unrouted=1',
+    ],
+    [
+      'a deletion row on a live team',
+      addRow(
+        'late',
+        'TEAM',
+        'team-live',
+        'TEAM_DELETED',
+        '{"programName":"Live Program"}',
+      ),
+      'unrouted=1',
+    ],
+    [
+      'copied metadata that is not an object',
+      addRow('late', 'PROGRAM', 'program-live', 'PROGRAM_CREATED', '[1]'),
+      'metadata_not_object=1',
+    ],
+    [
+      'a team copy altered after the copy migration',
+      `UPDATE "TeamHistory" SET "actorId" = 'user-target' WHERE id = 'team-audit:team-joined'`,
+      'team_missing=1',
+    ],
+    [
+      'a program copy altered after the copy migration',
+      `UPDATE "ProgramHistory" SET "programId" = 'other' WHERE id = 'program-audit:program-created'`,
+      'program_missing=1',
+    ],
+  ])('aborts with no row deleted on %s', async (_name, fault, message) => {
+    await applyAuditFixtureSql(prisma, copySql);
+    await execute(fault);
+    const before = await counts();
+
+    await expect(applyAuditFixtureSql(prisma, retireSql)).rejects.toThrow(
+      message,
+    );
+
+    await expect(tableExists('AuditLog')).resolves.toBe(true);
+    await expect(check(checkRetiredSql)).resolves.toBe(1);
+    await expect(counts()).resolves.toEqual(before);
   });
 });

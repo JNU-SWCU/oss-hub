@@ -43,7 +43,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PublicProjectsRepository } from './public-projects.repository';
 import { ProgramErrorCode } from './program-error-code.error';
 import { ProgramLifecycleService } from './programs.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -63,7 +63,7 @@ const programHistory = new ProgramHistoryRepository();
 const lifecycle = new ProgramLifecycleService(
   new ProgramLifecycleRepository(prisma, new ProgramDeletionScopeRepository()),
   programHistory,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new PrismaSerializationRetryRepository(),
 );
 const storageConfig = new ObjectStorageConfig();
@@ -1660,7 +1660,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         new ProgramDeletionScopeRepository(),
       ),
       failingHistory,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new PrismaSerializationRetryRepository(),
     );
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
@@ -1953,7 +1953,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
           new ProgramDeletionScopeRepository(),
         ),
         programHistory,
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new PrismaSerializationRetryRepository(),
       );
       const raceRowId = `${fixture.programId}-in-tx-race-${scopeField}`;

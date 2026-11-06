@@ -6,17 +6,17 @@ import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
 import {
   USER_PROFILE_AUDIT_ACTIONS,
   USER_PROFILE_AUDIT_FIELDS,
-} from '../platform/audit-log-metadata.config';
-import type { UserProfileAuditAction } from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
+import type { UserProfileAuditAction } from '../platform/history-metadata.config';
 import type {
   UserProfileAuditMetadata,
   UserProfileAuditFieldChange,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import {
   type AdminProfileTargetRecord,
   type AdminProfileRepositoryPort,
 } from './admin-profile.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { Injectable } from '@nestjs/common';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
@@ -80,7 +80,7 @@ function diffAdminProfileFields(
 
 type MutationDependencies = {
   readonly repository: AdminProfileRepositoryPort;
-  readonly auditLog: Pick<UserHistoryRepository, 'record'>;
+  readonly userHistory: Pick<UserHistoryRepository, 'record'>;
 };
 
 type MutationInput = {
@@ -92,7 +92,7 @@ type MutationInput = {
 @Injectable()
 export class AdminProfileMutationService {
   constructor(
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly userProfileService: UserProfileService,
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
@@ -216,7 +216,7 @@ export class AdminProfileMutationService {
         after,
       });
       if (audit) {
-        await dependencies.auditLog.record(
+        await dependencies.userHistory.record(
           {
             actorGithubId: input.actorGithubId,
             action: audit.action,
@@ -246,7 +246,7 @@ export class AdminProfileMutationService {
       action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
       targetType: 'USER',
       targetId: input.target.id,
-      metadata: this.auditLogMetadataService.createUserProfileAuditMetadata({
+      metadata: this.historyMetadataService.createUserProfileAuditMetadata({
         actor: {
           displayName: input.actor.name,
           githubLogin: input.actor.githubLogin,

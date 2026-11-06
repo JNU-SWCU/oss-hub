@@ -13,7 +13,7 @@ import {
   roleFacts,
 } from './admin-access.service.spec-support';
 import { ADMIN_ACCESS_PENDING_FILTERS } from './admin-access-query.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 describe('AdminAccessService reads', () => {
@@ -28,7 +28,7 @@ describe('AdminAccessService reads', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -47,7 +47,7 @@ describe('AdminAccessService reads', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -85,7 +85,7 @@ describe('AdminAccessService reads', () => {
         repository,
         auditLogHarness().service,
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       );
@@ -101,7 +101,7 @@ describe('AdminAccessService reads', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -129,7 +129,7 @@ describe('AdminAccessService reads', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -156,7 +156,7 @@ describe('AdminAccessService reads', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -182,7 +182,7 @@ describe('AdminAccessService reads', () => {
       repository,
       auditLogHarness().service,
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );

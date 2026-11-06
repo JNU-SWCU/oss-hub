@@ -11,7 +11,7 @@ import { TeamsController } from './teams.controller';
 import type { TeamRepository, StaffTeamDetailRecord } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -64,7 +64,7 @@ const findUnique = jest.fn();
 const service = new TeamMembershipService(
   { findStaffTeamDetail } as unknown as TeamRepository,
   stubTeamDeletionRepository({ readScopeCounts }),
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),
