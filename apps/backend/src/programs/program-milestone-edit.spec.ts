@@ -5,7 +5,7 @@ import {
   ProgramAuthoringUploadService,
 } from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
-import { ProgramMilestoneEditValidationError } from './program-editor.error';
+import { ProgramMilestoneEditValidationError } from './programs.error';
 import { ProgramEditorService } from './program-editor.service';
 import { ProgramCoverUrlService } from './programs.service';
 

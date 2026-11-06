@@ -15,11 +15,11 @@ import {
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from './submissions-error-code.error';
+  UnexpectedSubmissionStatusError,
+} from './submissions.error';
 import { SubmissionStatus } from '@prisma/client';
 import { type DocumentDeliveryStatus } from './requirements.repository';
 import { MilestoneDocumentCollectionService } from './requirement-archive.service';
-import { UnexpectedSubmissionStatusError } from './submission-dashboard-summary.error';
 import {
   MILESTONE_NOT_SUBMITTED,
   type MilestoneCompletionStatus,

@@ -9,7 +9,7 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
 
 const milestoneDocumentCollectionService =
   new MilestoneDocumentCollectionService({} as never);

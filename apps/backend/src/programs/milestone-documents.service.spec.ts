@@ -19,17 +19,17 @@ import {
   ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import { RequirementsRepository } from './requirements.repository';
-import { RequirementsService } from './requirements.service';
 import {
+  SubmissionMembershipChangedError,
+  MilestoneDocumentsErrorCode,
   MilestoneDocumentDeadlineClosedError,
   MilestoneDocumentMissingError,
   MilestoneDocumentPendingFileMissingError,
   MilestoneDocumentReviewChangedError,
   MilestoneDocumentSubmissionChangedError,
-} from './milestone-document-submission.error';
+} from './submissions.error';
+import { RequirementsRepository } from './requirements.repository';
+import { RequirementsService } from './requirements.service';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';

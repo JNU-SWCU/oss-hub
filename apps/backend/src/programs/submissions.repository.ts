@@ -22,8 +22,8 @@ import {
   MilestoneDocumentSubmissionChangedError,
   MilestoneDocumentRevisionChangedError,
   MilestoneDocumentMissingError,
-} from './milestone-document-submission.error';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+  SubmissionMembershipChangedError,
+} from './submissions.error';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
 import { MATRIX_APPLICATION_MODES } from './submission-matrix.config';
 import type { PublishBlockedReason } from '../github/repository-publish.config';

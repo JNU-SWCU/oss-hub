@@ -13,10 +13,12 @@ import {
   ApplicationsRepository,
   type ApplicationListSource,
 } from './team.repository';
-import { ApplicationsErrorCode } from './applications-error-code.error';
-import { TeamApplicationService } from './team-application.service';
+import { ApplicationsErrorCode } from './teams.error';
+import {
+  TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './team-application.service';
 
 const APPLICATION_ID = 'synthetic-application';
 const SUBMITTED_AT = new Date('2026-08-05T05:32:00.000Z');

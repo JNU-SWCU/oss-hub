@@ -14,10 +14,7 @@ import {
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.error';
+import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 import { ProgramCreationService } from './programs.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 

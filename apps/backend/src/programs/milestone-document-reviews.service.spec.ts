@@ -3,7 +3,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentReviewsService } from './submissions.service';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
 import { RequirementsRepository } from './requirements.repository';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';

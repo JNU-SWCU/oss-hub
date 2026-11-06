@@ -1,4 +1,4 @@
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import { SubmissionMembershipChangedError } from './submissions.error';
 
 const APPLICATION_ID = 'synthetic-application';
 const DEPARTED_ID = 'synthetic-departed';

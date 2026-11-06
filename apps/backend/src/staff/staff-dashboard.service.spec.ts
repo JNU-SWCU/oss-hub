@@ -10,7 +10,7 @@ import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
-} from '../programs/applications-error-code.error';
+} from '../programs/teams.error';
 import { StaffDashboardService } from './staff-dashboard.service';
 import { StaffModule } from './staff.module';
 import { ProgramCoverUrlService } from '../programs/programs.service';

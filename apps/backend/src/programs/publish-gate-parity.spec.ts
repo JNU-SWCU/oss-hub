@@ -14,7 +14,7 @@ import {
   type ReviewContextRow,
   type PublishEligibilityRow,
 } from './submissions.repository';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
+import { SubmissionReviewsErrorCode } from './submissions.error';
 import {
   SubmissionsService,
   MilestoneCompletionService,

@@ -11,7 +11,7 @@ import type {
   TeamProgramRecord,
 } from './team.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import { ApplicationsErrorCode } from './applications-error-code.error';
+import { ApplicationsErrorCode, TeamsErrorCode } from './teams.error';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { AccountStatus, ProgramCategory } from '@prisma/client';
 import { Test } from '@nestjs/testing';
@@ -20,7 +20,6 @@ import { AuthService } from '../auth/auth.service';
 import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { TeamsErrorCode } from './teams-error-code.error';
 import {
   TeamsController,
   ProgramApplicationsController,

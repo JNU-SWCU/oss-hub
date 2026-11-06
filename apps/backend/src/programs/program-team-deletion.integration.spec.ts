@@ -29,7 +29,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { TeamsErrorCode } from './teams-error-code.error';
+import { TeamsErrorCode } from './teams.error';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';

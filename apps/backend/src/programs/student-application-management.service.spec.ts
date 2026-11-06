@@ -4,11 +4,15 @@ import { TeamHistoryRepository } from './team-history.repository';
 import { ApplicationStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
-import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsRepository } from './team.repository';
-import { StudentApplicationManagementRepository } from './team.repository';
-import { StudentApplicationManagementService } from './team-application.service';
-import { ApplicationAnswersService } from './team-application.service';
+import { ApplicationsErrorCode } from './teams.error';
+import {
+  ApplicationsRepository,
+  StudentApplicationManagementRepository,
+} from './team.repository';
+import {
+  StudentApplicationManagementService,
+  ApplicationAnswersService,
+} from './team-application.service';
 
 const NOW = new Date('2026-07-15T00:00:00.000Z');
 const OPEN_PROGRAM = {

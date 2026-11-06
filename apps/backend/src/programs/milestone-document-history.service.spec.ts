@@ -9,7 +9,7 @@ import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-documen
 import { SubmissionHistoryEvent } from '@prisma/client';
 import { RequirementsRepository } from './requirements.repository';
 import { RequirementsService } from './requirements.service';
-import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
+import { InvalidMilestoneDocumentHistoryCursorError } from './submissions.error';
 
 describe('MilestoneDocumentsService historyForStaff', () => {
   it('checks the document and application program before returning a bounded page', async () => {

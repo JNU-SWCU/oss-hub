@@ -1,6 +1,6 @@
 import { AccountStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { TeamInvitationErrorCode } from './team-invitation-error-code.error';
+import { TeamInvitationErrorCode } from './teams.error';
 import {
   buildService,
   type MockRepository,

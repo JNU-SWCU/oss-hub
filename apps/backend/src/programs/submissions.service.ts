@@ -20,7 +20,13 @@ import {
   type RepositoryPublishEligibility,
   type PublishBlockedReason,
 } from '../github/repository-publish.config';
-import { SubmissionRevisionInvariantError } from './submission-review-context-mapper.error';
+import {
+  SubmissionRevisionInvariantError,
+  SUBMISSION_REVIEWS_ERROR_CODES,
+  SubmissionReviewsErrorCode,
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './submissions.error';
 import {
   ReviewContextRow,
   SubmissionRevisionRecord,
@@ -38,18 +44,10 @@ import { DomainException } from '../platform/error-code.error';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
 import { RepositoriesService } from '../github/repositories.service';
-import {
-  SUBMISSION_REVIEWS_ERROR_CODES,
-  SubmissionReviewsErrorCode,
-} from './submission-reviews-error-code.error';
 import { RepositoryNotFoundError } from '../github/repositories.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { SubmissionFileAdmissionService } from './files.service';
-import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
 import {
   type CreateMilestoneDocumentReviewInput,
   type CreatedMilestoneDocumentReview,

@@ -18,15 +18,15 @@ import {
 } from './programs.service';
 import { createHash } from 'node:crypto';
 import { Test } from '@nestjs/testing';
-import { ProgramHistoryRepository } from './programs.repository';
 import {
+  ProgramHistoryRepository,
   ProgramAuthoringRepository,
   type ProgramAuthoringTransactionStore,
 } from './programs.repository';
 import {
   ProgramAuthoringIdempotencyRaceError,
   ProgramAuthoringIdempotencyConflictError,
-} from './program-authoring.error';
+} from './programs.error';
 import {
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,

@@ -11,7 +11,7 @@ import {
 } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
-import { TeamsErrorCode } from './teams-error-code.error';
+import { TeamsErrorCode } from './teams.error';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';

@@ -27,7 +27,7 @@ import {
   type UpsertMilestoneDocumentSubmissionInput,
   SubmissionsRepository,
 } from './submissions.repository';
-import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
+import { InvalidMilestoneDocumentHistoryCursorError } from './submissions.error';
 export interface MilestoneDocumentArchiveDocument {
   readonly id: string;
   readonly name: string;

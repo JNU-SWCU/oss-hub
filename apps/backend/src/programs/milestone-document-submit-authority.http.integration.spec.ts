@@ -1,6 +1,6 @@
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,

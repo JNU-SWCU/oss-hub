@@ -31,7 +31,8 @@ import {
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+  MilestoneDocumentArchiveEntryError,
+} from './submissions.error';
 import { type Response } from 'express';
 import { OriginGuard } from '../platform/origin.guard';
 import { RolesGuard } from '../platform/roles.guard';
@@ -40,7 +41,6 @@ import { MilestoneDocumentFilesController } from './files.controller';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
 import { MilestoneDocumentReviewsService } from './submissions.service';
 import { RequirementsService } from './requirements.service';
-import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {

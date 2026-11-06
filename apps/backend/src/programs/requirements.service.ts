@@ -7,11 +7,18 @@ import {
 } from '@prisma/client';
 import { Injectable, Inject } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import {
+  SubmissionMembershipChangedError,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+  MilestoneDocumentDeadlineClosedError,
+  MilestoneDocumentMissingError,
+  MilestoneDocumentPendingFileMissingError,
+  MilestoneDocumentReviewChangedError,
+  MilestoneDocumentSubmissionChangedError,
+  MilestoneDocumentRevisionChangedError,
+  InvalidMilestoneDocumentHistoryCursorError,
+} from './submissions.error';
 import {
   RequirementsRepository,
   type UpdateMilestoneDocumentInput,
@@ -33,15 +40,6 @@ import {
   type UpsertMilestoneDocumentSubmissionInput,
   SubmissionsRepository,
 } from './submissions.repository';
-import {
-  MilestoneDocumentDeadlineClosedError,
-  MilestoneDocumentMissingError,
-  MilestoneDocumentPendingFileMissingError,
-  MilestoneDocumentReviewChangedError,
-  MilestoneDocumentSubmissionChangedError,
-  MilestoneDocumentRevisionChangedError,
-} from './milestone-document-submission.error';
-import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 import {
   MilestoneDocumentCollectionService,
   type MilestoneDocumentCollectionPage,

@@ -24,7 +24,17 @@ import {
   DomainException,
   type ProblemDetailExtensions,
 } from '../platform/error-code.error';
-import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
+import {
+  PROGRAM_READ_ERROR_CODES,
+  ProgramAuthoringUploadTokenError,
+  ProgramAuthoringAttachmentRaceError,
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringIdempotencyRaceError,
+  ProgramErrorCode,
+  PROGRAM_ERROR_CODES,
+  type ProgramAuthoringValidationIssue,
+  ProgramAuthoringValidationError,
+} from './programs.error';
 import {
   ProgramsRepository,
   ProgramListRecord,
@@ -45,16 +55,6 @@ import {
   ProgramTemplatesService,
   PROGRAM_PARTICIPATION,
 } from './team-application.service';
-import {
-  ProgramAuthoringUploadTokenError,
-  ProgramAuthoringAttachmentRaceError,
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringIdempotencyRaceError,
-} from './program-authoring.error';
-import {
-  ProgramErrorCode,
-  PROGRAM_ERROR_CODES,
-} from './program-error-code.error';
 import { PROGRAM_NOTICE_ERRORS } from './program-notice-error-code.error';
 import {
   ProgramNoticeFetchClient,
@@ -71,10 +71,6 @@ import {
   type ProgramAuthoringDocumentPlan,
   type ProgramAuthoringProgram,
 } from './files.config';
-import {
-  type ProgramAuthoringValidationIssue,
-  ProgramAuthoringValidationError,
-} from './program-authoring-validation.error';
 import { createHash } from 'node:crypto';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { ProgramAuthoringUploadService } from './files.service';

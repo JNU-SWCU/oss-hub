@@ -29,7 +29,7 @@ import { MemberKind } from '../users/user-contract.config';
 import { Readable } from 'node:stream';
 import { type UnwrapTuple } from '@prisma/client/runtime/library';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { ProgramErrorCode } from './program-error-code.error';
+import { ProgramErrorCode } from './programs.error';
 import {
   ProgramEditorRepository,
   type ProgramEditorTransactionStore,
@@ -50,7 +50,7 @@ import {
   STAFF_GITHUB_ID,
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
-import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
+import { MilestoneDocumentMissingError } from './submissions.error';
 import { ProgramCoverUrlService } from './programs.service';
 
 assertIsolatedIntegrationDatabase({

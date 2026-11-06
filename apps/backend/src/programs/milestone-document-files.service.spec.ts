@@ -16,14 +16,14 @@ import {
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+  SubmissionMembershipChangedError,
+} from './submissions.error';
 import { MilestoneDocumentFileUpload } from './files.config';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
 } from './files.error';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 

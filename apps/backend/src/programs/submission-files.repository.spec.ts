@@ -3,7 +3,7 @@ import { ProgramScheduleService } from './program-schedule.service';
 import { AccountStatus, Prisma, FileLifecycle } from '@prisma/client';
 import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import { SubmissionMembershipChangedError } from './submissions.error';
 
 const mockLockSubmissionMembership = jest.fn<
   ReturnType<PlatformRepository['lockSubmissionMembership']>,

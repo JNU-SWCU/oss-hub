@@ -4,7 +4,7 @@ import { DomainException } from '../platform/error-code.error';
 import {
   PROGRAM_OVERVIEW_ERROR_CODES,
   ProgramOverviewErrorCode,
-} from './program-overview-error-code.error';
+} from './programs.error';
 import {
   MilestoneDocumentCatalogEntry,
   MilestoneSchedule,

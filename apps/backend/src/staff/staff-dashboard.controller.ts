@@ -11,7 +11,7 @@ import { DomainException } from '../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
-} from '../programs/applications-error-code.error';
+} from '../programs/teams.error';
 
 const staffListOnly = () =>
   new DomainException(

@@ -30,7 +30,7 @@ import {
   PublicProjectsService,
   PublicEligibilityService,
 } from './public-projects.service';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
+import { SubmissionReviewsErrorCode } from './submissions.error';
 import { SubmissionReviewsRepository } from './submissions.repository';
 import {
   SubmissionsService,

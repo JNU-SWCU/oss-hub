@@ -7,7 +7,7 @@ import { signatureValidZip } from './submission-zip-builder.fixture';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from './submissions-error-code.error';
+} from './submissions.error';
 
 const MIB = 1024 * 1024;
 const TRADITIONAL_ENCRYPTION_HEADER_BYTES = 12;

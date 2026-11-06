@@ -41,7 +41,7 @@ import { FileCleanupService } from './file-cleanup.service';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { ProgramErrorCode } from './program-error-code.error';
+import { ProgramErrorCode } from './programs.error';
 import { ProgramLifecycleService } from './programs.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 

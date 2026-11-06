@@ -35,10 +35,13 @@ import {
   type TeamDeletionNotificationEvent,
   type TeamDeletionNotificationStore,
 } from './team.repository';
-import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
+import {
+  TEAMS_ERROR_CODES,
+  TeamsErrorCode,
+  InvalidRepositoryUrlHistoryError,
+} from './teams.error';
 import type { TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
-import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './submissions.service';

@@ -11,9 +11,15 @@ import {
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { createHash } from 'node:crypto';
 import { ProgramTrackType, FileLifecycle } from '@prisma/client';
-import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
-import { ProgramHistoryRepository } from './programs.repository';
-import { ProgramAuthoringRepository } from './programs.repository';
+import {
+  ProgramAuthoringValidationError,
+  ProgramAuthoringIdempotencyConflictError,
+  ProgramAuthoringUploadTokenError,
+} from './programs.error';
+import {
+  ProgramHistoryRepository,
+  ProgramAuthoringRepository,
+} from './programs.repository';
 import { ProgramAuthoringService } from './programs.service';
 import {
   AUTHORING_TEST_PREFIX,
@@ -22,10 +28,6 @@ import {
   authoringMilestone,
   authoringRequest,
 } from './program-authoring.integration-support';
-import {
-  ProgramAuthoringIdempotencyConflictError,
-  ProgramAuthoringUploadTokenError,
-} from './program-authoring.error';
 import { type ProgramAuthoringDocumentRequest } from './files.config';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 

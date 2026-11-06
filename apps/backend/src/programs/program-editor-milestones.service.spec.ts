@@ -6,10 +6,7 @@ import {
 } from './files.service';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { DomainException } from '../platform/error-code.error';
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.error';
+import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 import {
   createProgramEditorServiceHarness,
   milestoneInput,

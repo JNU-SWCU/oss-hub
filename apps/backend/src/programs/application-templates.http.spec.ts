@@ -5,7 +5,7 @@ import { OriginGuard } from '../platform/origin.guard';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { ApplicationTemplatesController } from './teams.controller';
-import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
+import { PROGRAM_READ_ERROR_CODES } from './programs.error';
 import { ProgramActivityService } from './program-activity.service';
 import {
   ProgramCreationService,

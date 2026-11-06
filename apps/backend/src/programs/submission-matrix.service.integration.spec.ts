@@ -26,7 +26,7 @@ import {
   type SubmissionMatrixQuery,
   type MatrixRowResult,
 } from './submission-matrix.service';
-import { SubmissionsErrorCode } from './submissions-error-code.error';
+import { SubmissionsErrorCode } from './submissions.error';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

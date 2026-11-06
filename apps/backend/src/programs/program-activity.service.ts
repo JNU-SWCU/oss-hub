@@ -1,15 +1,15 @@
-import { ProgramViewerService } from './program-viewer.service';
+import {
+  ProgramViewerService,
+  type ProgramStudentViewer,
+  type ProgramViewer,
+} from './program-viewer.service';
 import { Inject, Injectable } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
-import { PROGRAM_READ_ERROR_CODES } from './program-read-error-code.error';
 import {
+  PROGRAM_READ_ERROR_CODES,
   ProgramErrorCode,
   PROGRAM_ERROR_CODES as CREATION_ERROR_CODES,
-} from './program-error-code.error';
-import type {
-  ProgramStudentViewer,
-  ProgramViewer,
-} from './program-viewer.service';
+} from './programs.error';
 import {
   ProgramActivityRepository,
   type ProgramRepositoryActivity,

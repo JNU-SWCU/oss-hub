@@ -23,7 +23,7 @@ import {
   type ProgramAuthoringPendingUploadConsumption,
   type ProgramAuthoringUploadToken,
 } from './files.config';
-import { ProgramEditorMilestoneEditRaceError } from './program-editor.error';
+import { ProgramEditorMilestoneEditRaceError } from './programs.error';
 
 export type ProgramAuthority = PrismaTypes.UserGetPayload<{
   select: typeof USER_AUTHORITY_SELECT & {

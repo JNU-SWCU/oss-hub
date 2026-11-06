@@ -2,7 +2,7 @@ import { FileMetadataRepository } from './files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import { SubmissionMembershipChangedError } from './submissions.error';
 import {
   SubmissionsRepository,
   SubmissionReviewsRepository,

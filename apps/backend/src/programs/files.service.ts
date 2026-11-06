@@ -44,10 +44,12 @@ import {
   PROGRAM_COVER_MAX_BYTES,
   SUBMISSION_FILE_EXTENSIONS,
 } from './submission-upload.config';
-import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
+import {
+  ProgramAuthoringUploadTokenError,
+  ProgramAuthoringValidationError,
+} from './programs.error';
 import { PROGRAM_COVER_STORAGE_PREFIX } from './program-cover.config';
 import { DomainException } from '../platform/error-code.error';
-import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { randomUUID, createHash } from 'node:crypto';
 import { extname } from 'node:path';
@@ -62,21 +64,17 @@ import {
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-} from './submissions-error-code.error';
-import {
   SubmissionZipRejection,
   MAX_ENTRY_COUNT,
   MAX_TOTAL_UNCOMPRESSED_BYTES,
   MAX_ENTRY_UNCOMPRESSED_BYTES,
-} from './submission-zip.error';
-import { fromBufferPromise, type Entry } from 'yauzl';
-import { UserProfileService } from '../users/user-profile.service';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import {
+  SubmissionMembershipChangedError,
   MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+} from './submissions.error';
+import { fromBufferPromise, type Entry } from 'yauzl';
+import { UserProfileService } from '../users/user-profile.service';
 import { RequirementsRepository } from './requirements.repository';
 @Injectable()
 export class MilestoneDocumentSubmissionWindowService {

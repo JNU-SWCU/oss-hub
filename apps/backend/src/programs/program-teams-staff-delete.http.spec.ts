@@ -7,7 +7,7 @@ import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
-import { TeamsErrorCode } from './teams-error-code.error';
+import { TeamsErrorCode } from './teams.error';
 import { TeamsController } from './teams.controller';
 import type {
   TeamRepository,

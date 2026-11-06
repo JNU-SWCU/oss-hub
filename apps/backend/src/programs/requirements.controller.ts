@@ -38,7 +38,7 @@ import { UpdateMilestoneDocumentGraceRequestDto } from './dto/update-milestone-d
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+} from './submissions.error';
 import { MilestoneDocumentFilesService } from './files.service';
 import { MilestoneDocumentReviewsService } from './submissions.service';
 import {

@@ -22,14 +22,12 @@ import { DomainException } from '../platform/error-code.error';
 import {
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
-} from './submission-reviews-error-code.error';
+  SUBMISSIONS_ERROR_CODES,
+  SubmissionsErrorCode,
+} from './submissions.error';
 import { SubmissionMatrixRequestDto } from './dto/submission-matrix-request.dto';
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import {
-  SUBMISSIONS_ERROR_CODES,
-  SubmissionsErrorCode,
-} from './submissions-error-code.error';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { OriginGuard } from '../platform/origin.guard';
 import { ConfirmRepositoryPublishRequestDto } from './dto/confirm-repository-publish-request.dto';

@@ -1,4 +1,4 @@
-import { ProgramOverviewErrorCode } from './program-overview-error-code.error';
+import { ProgramOverviewErrorCode } from './programs.error';
 import {
   CurrentSubmissionMilestone,
   MilestoneDocumentCatalogEntry,

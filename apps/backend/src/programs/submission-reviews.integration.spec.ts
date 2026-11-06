@@ -31,7 +31,7 @@ import { BarrierRepositoriesRepository } from '../github/repositories.integratio
 import { RepositoriesRepository } from '../github/repositories.repository';
 import { RepositoriesService } from '../github/repositories.service';
 import { PublicProjectsRepository } from './public-projects.repository';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
+import { SubmissionReviewsErrorCode } from './submissions.error';
 import { SubmissionReviewsRepository } from './submissions.repository';
 import {
   SubmissionsService,

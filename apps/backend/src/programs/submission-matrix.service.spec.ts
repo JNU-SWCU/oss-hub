@@ -16,7 +16,7 @@ import {
   SubmissionMatrixService,
   type SubmissionMatrixQuery,
 } from './submission-matrix.service';
-import { SubmissionsErrorCode } from './submissions-error-code.error';
+import { SubmissionsErrorCode } from './submissions.error';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;
 const PROGRAM_ID = 'synthetic-matrix-program';

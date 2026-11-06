@@ -1,7 +1,7 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma, type Prisma as PrismaTypes } from '@prisma/client';
-import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
+import { Injectable, Inject } from '@nestjs/common';
 import {
+  Prisma,
+  type Prisma as PrismaTypes,
   AccountStatus,
   ApplicationStatus,
   OutboxEventStatus,
@@ -16,7 +16,9 @@ import {
   TeamHistoryEvent,
   type ProgramTrackType,
   FileLifecycle,
+  CollectionRepositoryPresence,
 } from '@prisma/client';
+import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { PrismaService } from '../platform/prisma.service';
 import {
   RepositoryProvisionGenerationRepository,
@@ -25,6 +27,7 @@ import {
 import {
   STUDENT_MEMBER_WHERE,
   USER_PROFILE_NAME_SELECT,
+  USER_AUTHORITY_SELECT,
 } from '../platform/user-profile-read.config';
 import {
   type AppendReviewHistoryInput,
@@ -34,20 +37,20 @@ import {
 import {
   RepositoryEventAlreadyExistsError,
   ApplicationTeamMembershipConflictError,
-} from './applications.error';
+  TeamDeletedScopeMismatchError,
+  repositoryUrlError,
+} from './teams.error';
 import {
   APPLICATION_DECISION_ACTIONS,
   APPLICATION_LIST_STATUSES,
   APPLICATION_LIST_VIEWS,
 } from './applications.config';
 import { PlatformRepository } from '../platform/platform.repository';
-import { Inject } from '@nestjs/common';
 import {
   STUDENT_APPLICATION_MANAGEMENT_CLOCK,
   RESUBMITTABLE_STATUSES,
   CANCELLABLE_STATUSES,
 } from './student-application-management.config';
-import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
   ProgramTeamRepositoryEvidenceRepository,
   type TeamActivityScope,
@@ -59,8 +62,6 @@ import {
 } from './program-team-repository-evidence.repository';
 import { type SubmissionCompletionTargetRow } from './submission-completion.config';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletedScopeMismatchError } from './program-team-deletion.error';
-import { CollectionRepositoryPresence } from '@prisma/client';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import type { RepositoryDeletionCounts } from '../platform/repository-audit-metadata.config';
@@ -3462,5 +3463,3 @@ export class StudentRepositoryUrlRepository {
     );
   }
 }
-
-import { repositoryUrlError } from './applications-error-code.error';

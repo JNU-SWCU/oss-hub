@@ -39,7 +39,12 @@ import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
   repositoryUrlError,
-} from './applications-error-code.error';
+  RepositoryEventAlreadyExistsError,
+  ApplicationDuplicateError,
+  ApplicationTeamMembershipConflictError,
+  TEAMS_ERROR_CODES,
+  TeamsErrorCode,
+} from './teams.error';
 import {
   ProgramCategory,
   ApplicationStatus,
@@ -50,13 +55,7 @@ import {
   TeamHistoryEvent,
 } from '@prisma/client';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import {
-  RepositoryEventAlreadyExistsError,
-  ApplicationDuplicateError,
-  ApplicationTeamMembershipConflictError,
-} from './applications.error';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 import {
   CANCELLABLE_STATUSES,
   RESUBMITTABLE_STATUSES,

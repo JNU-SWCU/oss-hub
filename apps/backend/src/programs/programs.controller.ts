@@ -54,10 +54,7 @@ import {
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.error';
+import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

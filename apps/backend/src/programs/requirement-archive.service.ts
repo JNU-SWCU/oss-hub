@@ -30,13 +30,13 @@ import {
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+  MilestoneDocumentArchiveEntryError,
+} from './submissions.error';
 import {
   SubmissionFileAdmissionService,
   MilestoneDocumentFileNameService,
 } from './files.service';
 import { ZipFile } from 'yazl';
-import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
   readonly scope?: 'all';
   readonly deliveryStatus?: DocumentDeliveryStatus;

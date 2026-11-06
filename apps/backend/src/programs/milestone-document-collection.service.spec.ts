@@ -9,7 +9,7 @@ import {
   type MilestoneDocumentCurrentFileReader,
 } from './requirements.repository';
 import { MilestoneDocumentCurrentFileService } from './requirement-archive.service';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
 
 describe('milestone-document-current-file.service', () => {
   const CURRENT_FILE: CurrentMilestoneDocumentFile = {
