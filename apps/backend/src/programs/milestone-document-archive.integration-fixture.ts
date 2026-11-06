@@ -1,13 +1,13 @@
 import { FileMetadataRepository } from './files.repository';
-import { MilestoneDocumentFileNameService } from './files.service';
+import { RequirementFileNameService } from './files.service';
 import {
-  MilestoneDocumentCollectionService,
+  RequirementCollectionService,
   RequirementArchiveService,
 } from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import {
-  MilestoneDocumentCollectionReadRepository,
-  MilestoneDocumentArchiveRepository,
+  RequirementCollectionReadRepository,
+  RequirementArchiveRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -34,16 +34,16 @@ export class ProgramArchiveIntegrationFixture {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         this.prisma,
         new FileMetadataRepository(),
       ),
       new FileMetadataRepository(),
     ),
     this.storage,
-    new MilestoneDocumentArchiveRepository(this.prisma),
-    new MilestoneDocumentCollectionService({} as never),
-    new MilestoneDocumentFileNameService(),
+    new RequirementArchiveRepository(this.prisma),
+    new RequirementCollectionService({} as never),
+    new RequirementFileNameService(),
     new DownloadResponseService(),
   );
   async seed(): Promise<void> {

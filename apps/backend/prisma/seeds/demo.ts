@@ -360,7 +360,7 @@ async function upsertDemoSubmission(
   const documentId = seedId('demo', 'milestone-document', params.milestoneId);
   await upsertTracked(
     stats,
-    'MilestoneDocument',
+    'Requirement',
     () => prisma.requirement.findUnique({ where: { id: documentId } }),
     () =>
       prisma.requirement.upsert({
@@ -388,7 +388,7 @@ async function upsertDemoSubmission(
       : { type: 'FILE', fileId };
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmission',
+    'Submission',
     () =>
       prisma.submission.findUnique({
         where: { id: submissionId },
@@ -423,7 +423,7 @@ async function upsertDemoSubmission(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmissionHistory',
+    'SubmissionHistory',
     () =>
       prisma.submissionHistory.findUnique({
         where: { id: submissionHistoryId },
@@ -503,7 +503,7 @@ async function upsertDemoSubmission(
     );
     await upsertTracked(
       stats,
-      'MilestoneDocumentSubmissionHistory',
+      'SubmissionHistory',
       () =>
         prisma.submissionHistory.findUnique({
           where: { id: reviewId },
@@ -1303,17 +1303,17 @@ export async function teardownDemo(
   for (const file of demoSubmissionFiles) {
     await storage.delete(file.storageKey);
   }
-  await countAndDelete('MilestoneDocumentSubmissionHistory', () =>
+  await countAndDelete('SubmissionHistory', () =>
     prisma.submissionHistory.deleteMany({
       where: {
         submissionId: { startsWith: seedDemoPrefix },
       },
     }),
   );
-  await countAndDelete('MilestoneDocumentSubmission', () =>
+  await countAndDelete('Submission', () =>
     prisma.submission.deleteMany({ where: seedIdFilter }),
   );
-  await countAndDelete('MilestoneDocument', () =>
+  await countAndDelete('Requirement', () =>
     prisma.requirement.deleteMany({ where: seedIdFilter }),
   );
   await countAndDelete('BoardComment', () =>

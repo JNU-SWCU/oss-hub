@@ -114,8 +114,8 @@ async function setSubmissions(
     where: { teamId },
   });
   await prisma.submission.createMany({
-    data: rows.map(([milestoneDocumentId, status]) => ({
-      requirementId: milestoneDocumentId,
+    data: rows.map(([requirementId, status]) => ({
+      requirementId: requirementId,
       teamId,
       status,
       submittedById: STUDENT_ID,

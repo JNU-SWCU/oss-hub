@@ -1,11 +1,11 @@
 import { FileMetadataRepository } from './files.repository';
 import { AccountStatus, FileLifecycle } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { MilestoneDocumentCurrentFileRepository } from './requirements.repository';
+import { RequirementCurrentFileRepository } from './requirements.repository';
 
 const NOW = new Date('2026-09-20T00:00:00.000Z');
 
-describe('MilestoneDocumentCurrentFileRepository', () => {
+describe('RequirementCurrentFileRepository', () => {
   beforeEach(() => {
     jest.useFakeTimers().setSystemTime(NOW);
   });
@@ -27,7 +27,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
         },
       ],
     });
-    const repository = new MilestoneDocumentCurrentFileRepository(
+    const repository = new RequirementCurrentFileRepository(
       {
         submission: { findFirst },
       },
@@ -98,7 +98,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
 
   it('팀을 고르는 조건은 program·members 둘뿐이다 — 승인 상태도 applicant도 묻지 않는다', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
-    const repository = new MilestoneDocumentCurrentFileRepository(
+    const repository = new RequirementCurrentFileRepository(
       {
         submission: { findFirst },
       },
@@ -119,7 +119,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
 
   it('팀을 고르는 문은 현재 팀원 행 하나뿐이다 — 팀장 갈래도 OR 분기도 없다', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
-    const repository = new MilestoneDocumentCurrentFileRepository(
+    const repository = new RequirementCurrentFileRepository(
       {
         submission: { findFirst },
       },
@@ -145,7 +145,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
   });
 
   it('파일이 현재 revision과 다른 제출 이력에 연결됐으면 이전 파일을 돌려주지 않는다', async () => {
-    const repository = new MilestoneDocumentCurrentFileRepository(
+    const repository = new RequirementCurrentFileRepository(
       {
         submission: {
           findFirst: jest.fn().mockResolvedValue({
@@ -176,7 +176,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
 
   it('인가·소속·현재 제출·FILE·ATTACHED·만료 조건 중 하나라도 맞지 않으면 null만 돌려준다', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
-    const repository = new MilestoneDocumentCurrentFileRepository(
+    const repository = new RequirementCurrentFileRepository(
       {
         submission: { findFirst },
       },
@@ -193,7 +193,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
   });
 
   it('제출 행은 있지만 살아 있는 첨부가 없으면 null만 돌려준다', async () => {
-    const repository = new MilestoneDocumentCurrentFileRepository(
+    const repository = new RequirementCurrentFileRepository(
       {
         submission: {
           findFirst: jest.fn().mockResolvedValue({ files: [] }),

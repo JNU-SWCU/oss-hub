@@ -37,10 +37,9 @@ const TEAM_ID = seedId('milestones', 'team');
 const UPLOADER_USER_ID = seedId('milestones', 'user', 'team-leader');
 const TEAM_MEMBER_USER_ID = seedId('milestones', 'user', 'team-member');
 const MILESTONE_ID = 'issue-342-download-milestone';
-const MILESTONE_DOCUMENT_ID = 'issue-342-download-milestone-document';
-const MILESTONE_DOCUMENT_SUBMISSION_ID =
-  'issue-342-download-milestone-document-submission';
-const MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID =
+const REQUIREMENT_ID = 'issue-342-download-milestone-document';
+const SUBMISSION_ID = 'issue-342-download-milestone-document-submission';
+const SUBMISSION_HISTORY_ID =
   'issue-342-download-milestone-document-submission-history';
 const DOWNLOADABLE_FILE_ID = 'issue-342-downloadable-file';
 const PENDING_FILE_ID = 'issue-342-pending-file';
@@ -97,7 +96,7 @@ const BASE_FILE = {
   uploaderId: UPLOADER_USER_ID,
   kind: 'SUBMISSION',
   teamId: TEAM_ID,
-  requirementId: MILESTONE_DOCUMENT_ID,
+  requirementId: REQUIREMENT_ID,
   mimeType: 'application/pdf',
 } as const;
 const AUTHORIZED_DOWNLOADS = [
@@ -150,13 +149,13 @@ async function deleteIssue342Rows(): Promise<void> {
     where: { kind: 'SUBMISSION', id: { in: FILE_IDS } },
   });
   await prisma.submissionHistory.deleteMany({
-    where: { id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID },
+    where: { id: SUBMISSION_HISTORY_ID },
   });
   await prisma.submission.deleteMany({
-    where: { id: MILESTONE_DOCUMENT_SUBMISSION_ID },
+    where: { id: SUBMISSION_ID },
   });
   await prisma.requirement.deleteMany({
-    where: { id: MILESTONE_DOCUMENT_ID },
+    where: { id: REQUIREMENT_ID },
   });
   await prisma.milestone.deleteMany({ where: { id: MILESTONE_ID } });
   await prisma.admin.deleteMany({
@@ -202,7 +201,7 @@ describe('FilesRepository.findDownloadableFile integration', () => {
     });
     await prisma.requirement.create({
       data: {
-        id: MILESTONE_DOCUMENT_ID,
+        id: REQUIREMENT_ID,
         milestoneId: MILESTONE_ID,
         name: 'Internal legacy milestone submission',
         required: true,
@@ -211,8 +210,8 @@ describe('FilesRepository.findDownloadableFile integration', () => {
     });
     await prisma.submission.create({
       data: {
-        id: MILESTONE_DOCUMENT_SUBMISSION_ID,
-        requirementId: MILESTONE_DOCUMENT_ID,
+        id: SUBMISSION_ID,
+        requirementId: REQUIREMENT_ID,
         teamId: TEAM_ID,
         status: SubmissionStatus.SUBMITTED,
         revision: 1,
@@ -221,8 +220,8 @@ describe('FilesRepository.findDownloadableFile integration', () => {
     });
     await prisma.submissionHistory.create({
       data: {
-        id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-        submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+        id: SUBMISSION_HISTORY_ID,
+        submissionId: SUBMISSION_ID,
         event: SubmissionHistoryEvent.SUBMITTED,
         revision: 1,
         content: { type: 'FILE', fileId: DOWNLOADABLE_FILE_ID },
@@ -237,8 +236,8 @@ describe('FilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/downloadable',
           originalFileName: 'report.pdf',
           sizeBytes: 1024,
-          submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          submissionId: SUBMISSION_ID,
+          submissionHistoryId: SUBMISSION_HISTORY_ID,
           lifecycle: FileLifecycle.ATTACHED,
           expiresAt: FUTURE_EXPIRES_AT,
         },
@@ -258,8 +257,8 @@ describe('FilesRepository.findDownloadableFile integration', () => {
           storageKey: 'submission-files/issue-342/expired',
           originalFileName: 'expired.pdf',
           sizeBytes: 4096,
-          submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-          submissionHistoryId: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
+          submissionId: SUBMISSION_ID,
+          submissionHistoryId: SUBMISSION_HISTORY_ID,
           lifecycle: FileLifecycle.ATTACHED,
           expiresAt: PAST_EXPIRES_AT,
         },

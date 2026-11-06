@@ -339,7 +339,7 @@ describe('ProgramAuthoringService', () => {
     expect(transaction.createTemplate.mock.calls).toEqual([
       [
         {
-          milestoneDocumentId: 'document-id',
+          requirementId: 'document-id',
           actorId: ACTOR_ID,
           upload: expectedUpload,
         },

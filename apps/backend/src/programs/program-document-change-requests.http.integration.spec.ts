@@ -1,8 +1,8 @@
 import { SubmissionStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsErrorCode } from './submissions.error';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
 
@@ -10,7 +10,7 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
+const fixture = new RequirementFlowFixture();
 
 const extra = {
   student: 'qa1562-bulk-student-b',
@@ -286,7 +286,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
+      code: RequirementsErrorCode.REVIEW_TARGET_CHANGED,
     });
     await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,
@@ -336,7 +336,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
     expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
+      code: RequirementsErrorCode.REVIEW_TARGET_CHANGED,
     });
     await expect(changeRequestReviewCount()).resolves.toBe(0);
   });
@@ -350,7 +350,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
 
     expect(response.status).toBe(400);
     expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.INVALID_REQUEST,
+      code: RequirementsErrorCode.INVALID_REQUEST,
     });
     await expect(changeRequestReviewCount()).resolves.toBe(0);
   });
@@ -368,7 +368,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     expect(targets.status).toBe(403);
     expect(send.status).toBe(403);
     expect(await send.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.STAFF_ONLY,
+      code: RequirementsErrorCode.STAFF_ONLY,
     });
     await expect(statusOf(flowIds.team)).resolves.toBe(
       SubmissionStatus.SUBMITTED,

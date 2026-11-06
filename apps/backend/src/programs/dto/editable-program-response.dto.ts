@@ -1,6 +1,6 @@
 import type {
   EditableProgramView,
-  ProgramMilestoneDocumentView,
+  ProgramRequirementView,
   ProgramMilestoneEditView,
   ProgramMilestoneView,
 } from '../program-editor.repository';
@@ -26,16 +26,14 @@ export class ProgramMilestoneResponseDto {
     };
   }
 }
-export class ProgramMilestoneDocumentResponseDto {
-  declare readonly submissionType: ProgramMilestoneDocumentView['submissionType'];
+export class ProgramRequirementResponseDto {
+  declare readonly submissionType: ProgramRequirementView['submissionType'];
   declare readonly id: string;
   declare readonly name: string;
   declare readonly required: boolean;
   declare readonly sortOrder: number;
   declare readonly templateFileName: string | null;
-  static from(
-    document: ProgramMilestoneDocumentView,
-  ): ProgramMilestoneDocumentResponseDto {
+  static from(document: ProgramRequirementView): ProgramRequirementResponseDto {
     return {
       id: document.id,
       name: document.name,
@@ -61,7 +59,7 @@ export class ProgramMilestoneOperationResponseDto {
 export class ProgramMilestoneEditResponseDto {
   declare readonly milestone: ProgramMilestoneResponseDto;
   declare readonly operation: ProgramMilestoneOperationResponseDto;
-  declare readonly documents: readonly ProgramMilestoneDocumentResponseDto[];
+  declare readonly documents: readonly ProgramRequirementResponseDto[];
   declare readonly fileUpload: {
     readonly maxBytes: number;
     readonly maxLabel: string;
@@ -74,7 +72,7 @@ export class ProgramMilestoneEditResponseDto {
       milestone: ProgramMilestoneResponseDto.from(view.milestone),
       operation: ProgramMilestoneOperationResponseDto.from(view.operation),
       documents: view.documents.map((document) =>
-        ProgramMilestoneDocumentResponseDto.from(document),
+        ProgramRequirementResponseDto.from(document),
       ),
       fileUpload: {
         maxBytes: SUBMISSION_UPLOAD_MAX_BYTES,

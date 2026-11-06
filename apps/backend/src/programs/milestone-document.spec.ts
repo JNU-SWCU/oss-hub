@@ -1,28 +1,30 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './files.service';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { SubmissionWindowService } from './files.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import { RequirementsService } from './requirements.service';
-import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementReviewsService } from './submissions.service';
 import { SubmissionStatus } from '@prisma/client';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsErrorCode } from './submissions.error';
 
-const milestoneDocumentCollectionService =
-  new MilestoneDocumentCollectionService({} as never);
-const milestoneDocumentsService = new RequirementsService(
+const requirementCollectionService = new RequirementCollectionService(
   {} as never,
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
-  new MilestoneDocumentCollectionService({} as never),
+);
+const requirementsService = new RequirementsService(
+  {} as never,
+  new SubmissionWindowService(new ProgramScheduleService()),
+  new RequirementCollectionService({} as never),
   new ProgramScheduleService(),
   {} as never,
   new UserProfileService(),
 );
-const milestoneDocumentReviewsService = new MilestoneDocumentReviewsService(
+const requirementReviewsService = new RequirementReviewsService(
   {} as never,
   {} as never,
 );
-const milestoneDocumentSubmissionWindowService =
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService());
+const submissionWindowService = new SubmissionWindowService(
+  new ProgramScheduleService(),
+);
 
 describe('document-delivery-status', () => {
   const dueAt = new Date('2026-08-14T12:00:00Z');
@@ -74,7 +76,7 @@ describe('document-delivery-status', () => {
         expected: 'MISSING',
       },
     ])('$label', ({ dates, dueAt: deadline, expected }) => {
-      const status = milestoneDocumentCollectionService.documentDeliveryStatus({
+      const status = requirementCollectionService.documentDeliveryStatus({
         requiredFirstSubmissions: dates,
         dueAt: deadline,
       });
@@ -85,10 +87,10 @@ describe('document-delivery-status', () => {
 });
 
 describe('milestone-document-content', () => {
-  describe('parseMilestoneDocumentContent', () => {
+  describe('parseRequirementContent', () => {
     it('내용만 제출할 수 있다', () => {
       expect(
-        milestoneDocumentsService.parseMilestoneDocumentContent({
+        requirementsService.parseRequirementContent({
           text: '  진행 내용을 적었습니다.  ',
         }),
       ).toEqual({
@@ -99,7 +101,7 @@ describe('milestone-document-content', () => {
 
     it('파일만 제출할 수 있다', () => {
       expect(
-        milestoneDocumentsService.parseMilestoneDocumentContent({
+        requirementsService.parseRequirementContent({
           fileId: '  synthetic-file-id  ',
         }),
       ).toEqual({
@@ -110,7 +112,7 @@ describe('milestone-document-content', () => {
 
     it('내용과 파일을 함께 제출할 수 있다', () => {
       expect(
-        milestoneDocumentsService.parseMilestoneDocumentContent({
+        requirementsService.parseRequirementContent({
           text: '설명',
           fileId: 'synthetic-file-id',
         }),
@@ -119,26 +121,24 @@ describe('milestone-document-content', () => {
 
     it('내용과 파일이 모두 비어 있으면 거부한다', () => {
       try {
-        milestoneDocumentsService.parseMilestoneDocumentContent({
+        requirementsService.parseRequirementContent({
           text: '  ',
           fileId: '  ',
         });
         throw new Error('빈 제출이 거부되지 않았습니다.');
       } catch (error: unknown) {
         expect(error).toMatchObject({
-          errorCode: { code: MilestoneDocumentsErrorCode.CONTENT_REQUIRED },
+          errorCode: { code: RequirementsErrorCode.CONTENT_REQUIRED },
         });
       }
     });
 
     it('기존 저장 TEXT 본문 모양은 계속 읽을 수 있다', () => {
       expect(
-        milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
-          {
-            type: 'TEXT',
-            text: '기존 본문',
-          },
-        ),
+        requirementCollectionService.readRequirementSubmittedContent({
+          type: 'TEXT',
+          text: '기존 본문',
+        }),
       ).toEqual({ type: 'TEXT', text: '기존 본문' });
     });
   });
@@ -152,9 +152,7 @@ describe('milestone-document-review', () => {
       ['REJECTED', SubmissionStatus.REJECTED],
     ] as const)('%s는 제출 상태 %s에 대응한다', (decision, status) => {
       expect(
-        milestoneDocumentReviewsService.reviewDecisionToSubmissionStatus(
-          decision,
-        ),
+        requirementReviewsService.reviewDecisionToSubmissionStatus(decision),
       ).toBe(status);
     });
 
@@ -162,9 +160,7 @@ describe('milestone-document-review', () => {
       const decisions = ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const;
 
       const statuses = decisions.map((decision) =>
-        milestoneDocumentReviewsService.reviewDecisionToSubmissionStatus(
-          decision,
-        ),
+        requirementReviewsService.reviewDecisionToSubmissionStatus(decision),
       );
 
       expect(statuses).toHaveLength(decisions.length);
@@ -174,34 +170,26 @@ describe('milestone-document-review', () => {
 
   describe('isResubmissionAllowedAfter', () => {
     it('판정이 없으면 허용한다 — 첫 제출이거나 아직 아무도 보지 않았다', () => {
-      expect(
-        milestoneDocumentSubmissionWindowService.isResubmissionAllowedAfter(
-          null,
-        ),
-      ).toBe(true);
+      expect(submissionWindowService.isResubmissionAllowedAfter(null)).toBe(
+        true,
+      );
     });
 
     it('보완 요청 뒤에는 허용한다 — 「다시 내라」는 뜻이다', () => {
       expect(
-        milestoneDocumentSubmissionWindowService.isResubmissionAllowedAfter(
-          'CHANGES_REQUESTED',
-        ),
+        submissionWindowService.isResubmissionAllowedAfter('CHANGES_REQUESTED'),
       ).toBe(true);
     });
 
     it('승인 뒤에는 막는다 — 승인된 서류가 조용히 다른 내용으로 바뀌면 안 된다', () => {
       expect(
-        milestoneDocumentSubmissionWindowService.isResubmissionAllowedAfter(
-          'APPROVED',
-        ),
+        submissionWindowService.isResubmissionAllowedAfter('APPROVED'),
       ).toBe(false);
     });
 
     it('반려 뒤에는 막는다 — 끝난 판정이다', () => {
       expect(
-        milestoneDocumentSubmissionWindowService.isResubmissionAllowedAfter(
-          'REJECTED',
-        ),
+        submissionWindowService.isResubmissionAllowedAfter('REJECTED'),
       ).toBe(false);
     });
   });

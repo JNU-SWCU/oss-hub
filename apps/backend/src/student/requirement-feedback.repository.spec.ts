@@ -1,7 +1,7 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
+import { RequirementFeedbackRepository } from './requirement-feedback.repository';
 
 const REVIEWED_AT = new Date('2026-09-20T01:00:00.000Z');
 const REVIEWED_SINCE = new Date('2026-09-12T15:00:00.000Z');
@@ -17,7 +17,7 @@ function repositoryWith(
     submissionHistory: { findMany },
   } as unknown as PrismaService;
   return {
-    repository: new MilestoneDocumentFeedbackRepository(
+    repository: new RequirementFeedbackRepository(
       prisma,
       new PlatformRepository(),
     ),
@@ -26,7 +26,7 @@ function repositoryWith(
   };
 }
 
-describe('MilestoneDocumentFeedbackRepository', () => {
+describe('RequirementFeedbackRepository', () => {
   it('승인된 신청 중 지금 팀원인 신청의 판정을 기준 시각부터 최신순으로 최대 50건 읽는다', async () => {
     const { repository, findUnique, findMany } = repositoryWith(
       { id: 'synthetic-student' },

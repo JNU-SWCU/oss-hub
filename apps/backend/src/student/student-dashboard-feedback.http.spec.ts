@@ -4,7 +4,7 @@ import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
+import { RequirementFeedbackService } from './requirement-feedback.service';
 import { ProgramActivityService } from '../programs/program-activity.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
 import { StudentDashboardController } from './student-dashboard.controller';
@@ -77,7 +77,7 @@ beforeAll(async () => {
         },
       },
       {
-        provide: MilestoneDocumentFeedbackService,
+        provide: RequirementFeedbackService,
         useValue: { recentForParticipant },
       },
       { provide: StudentDashboardService, useValue: {} },

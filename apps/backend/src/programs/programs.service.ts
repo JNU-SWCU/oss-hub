@@ -161,7 +161,7 @@ type SubmissionRecord = {
   readonly status: SubmissionStatus;
 };
 type DocumentSubmissionRecord = {
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
   readonly status: SubmissionStatus;
 };
 const ANONYMOUS_VIEWER: ProgramViewer = {
@@ -213,7 +213,7 @@ export class ProgramsService {
     return {
       ...application,
       submissions,
-      milestoneDocumentSubmissions: documentSubmissions,
+      documentSubmissions,
     };
   }
   listQueryFromRequest(request: ProgramListQuery): ProgramListQuery {
@@ -390,7 +390,7 @@ export class ProgramsService {
                 ? this.milestoneStatusFor(
                     milestone,
                     studentApplication.submissions,
-                    studentApplication.milestoneDocumentSubmissions,
+                    studentApplication.documentSubmissions,
                   )
                 : null,
             applicationSubmissionSummary:
@@ -414,7 +414,7 @@ export class ProgramsService {
     },
     applications: readonly {
       readonly submissions: readonly SubmissionRecord[];
-      readonly milestoneDocumentSubmissions: readonly DocumentSubmissionRecord[];
+      readonly documentSubmissions: readonly DocumentSubmissionRecord[];
     }[],
   ): ApplicationSubmissionSummaryResult {
     const summary = { ...EMPTY_SUMMARY, total: applications.length };
@@ -422,7 +422,7 @@ export class ProgramsService {
       const status = this.milestoneStatusFor(
         milestone,
         application.submissions,
-        application.milestoneDocumentSubmissions,
+        application.documentSubmissions,
       );
       if (status === MILESTONE_NOT_SUBMITTED) summary.notSubmitted += 1;
       else if (status === SubmissionStatus.SUBMITTED) summary.submitted += 1;
@@ -448,7 +448,7 @@ export class ProgramsService {
       requiredDocumentStatuses: milestone.requirements.map(
         (document) =>
           documentSubmissions.find(
-            (submission) => submission.milestoneDocumentId === document.id,
+            (submission) => submission.requirementId === document.id,
           )?.status ?? null,
       ),
       submissionStatus:
@@ -697,7 +697,7 @@ export class ProgramAuthoringService {
           if (upload === undefined)
             throw new ProgramAuthoringAttachmentRaceError();
           await store.createTemplate({
-            milestoneDocumentId: documentId,
+            requirementId: documentId,
             actorId,
             upload,
           });

@@ -1,36 +1,36 @@
-import { MilestoneDocumentFileNameService } from './files.service';
+import { RequirementFileNameService } from './files.service';
 import {
-  MilestoneDocumentCollectionService,
-  type MilestoneDocumentArchiveCell,
-  type MilestoneDocumentArchiveCellState,
-  type MilestoneDocumentArchiveManifestRow,
+  RequirementCollectionService,
+  type RequirementArchiveCell,
+  type RequirementArchiveCellState,
+  type RequirementArchiveManifestRow,
   RequirementArchiveService,
 } from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import {
-  type MilestoneDocumentArchiveDocument,
-  type MilestoneDocumentArchiveTeam,
+  type RequirementArchiveDocument,
+  type RequirementArchiveTeam,
 } from './requirements.repository';
 
-const milestoneDocumentArchiveService = new RequirementArchiveService(
+const requirementArchiveService = new RequirementArchiveService(
   undefined as never,
   undefined as never,
   undefined as never,
-  new MilestoneDocumentCollectionService({} as never),
-  new MilestoneDocumentFileNameService(),
+  new RequirementCollectionService({} as never),
+  new RequirementFileNameService(),
   new DownloadResponseService(),
 );
 
 const BOM = '﻿';
 const CRLF = '\r\n';
 
-const CONSENT_DOCUMENT: MilestoneDocumentArchiveDocument = {
+const CONSENT_DOCUMENT: RequirementArchiveDocument = {
   id: 'doc-consent',
   name: '동의서',
   required: true,
 };
 
-const PLAN_DOCUMENT: MilestoneDocumentArchiveDocument = {
+const PLAN_DOCUMENT: RequirementArchiveDocument = {
   id: 'doc-plan',
   name: '계획서',
   required: false,
@@ -39,8 +39,8 @@ const PLAN_DOCUMENT: MilestoneDocumentArchiveDocument = {
 const TWO_DOCUMENTS = [CONSENT_DOCUMENT, PLAN_DOCUMENT];
 
 function team(
-  overrides: Partial<MilestoneDocumentArchiveTeam> = {},
-): MilestoneDocumentArchiveTeam {
+  overrides: Partial<RequirementArchiveTeam> = {},
+): RequirementArchiveTeam {
   return {
     teamId: 'app-1',
     teamName: '합성팀',
@@ -53,8 +53,8 @@ function team(
 
 function cell(
   documentId: string,
-  overrides: Partial<MilestoneDocumentArchiveCell> = {},
-): MilestoneDocumentArchiveCell {
+  overrides: Partial<RequirementArchiveCell> = {},
+): RequirementArchiveCell {
   return {
     documentId,
     state: 'NOT_SUBMITTED',
@@ -66,8 +66,8 @@ function cell(
 }
 
 function unsubmittedRow(
-  overrides: Partial<MilestoneDocumentArchiveTeam> = {},
-): MilestoneDocumentArchiveManifestRow {
+  overrides: Partial<RequirementArchiveTeam> = {},
+): RequirementArchiveManifestRow {
   return {
     team: team(overrides),
     cells: TWO_DOCUMENTS.map((document) => cell(document.id)),
@@ -85,7 +85,7 @@ function plainFields(csv: string, lineIndex: number): string[] {
   return line.split(',');
 }
 
-describe('milestoneDocumentArchiveManifestCsv', () => {
+describe('requirementArchiveManifestCsv', () => {
   describe('Excel 호환', () => {
     it('UTF-8 BOM으로 시작한다 — 없으면 Windows Excel이 한글을 지역 인코딩으로 읽어 깨뜨린다', () => {
       const input = {
@@ -94,9 +94,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(csv.codePointAt(0)).toBe(0xfeff);
       expect(csv.startsWith(`${BOM}팀,`)).toBe(true);
@@ -109,9 +107,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(csv.endsWith(CRLF)).toBe(true);
       expect(csv.replace(/\r\n/g, '')).not.toContain('\n');
@@ -124,9 +120,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       const input = { documents: TWO_DOCUMENTS, rows: [] };
 
       const header = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         0,
       );
 
@@ -167,9 +161,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const fields = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         1,
       );
 
@@ -201,9 +193,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const fields = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         1,
       );
 
@@ -231,9 +221,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(plainLines(csv)).toHaveLength(3);
       expect(plainFields(csv, 2)).toEqual([
@@ -251,7 +239,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
   });
 
   describe('칸 표기', () => {
-    const stateCases: [MilestoneDocumentArchiveCellState, string][] = [
+    const stateCases: [RequirementArchiveCellState, string][] = [
       ['NOT_SUBMITTED', '미제출'],
       ['SUBMITTED', '검토 대기'],
       ['APPROVED', '승인'],
@@ -266,9 +254,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const fields = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         1,
       );
 
@@ -292,9 +278,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const fields = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         1,
       );
 
@@ -318,9 +302,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const fields = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         1,
       );
 
@@ -350,9 +332,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(plainFields(csv, 1).slice(3)).toEqual([
         '승인',
@@ -380,9 +360,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const fields = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         1,
       );
 
@@ -409,9 +387,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
 
       expect(
         plainFields(
-          milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-            input,
-          ),
+          requirementArchiveService.requirementArchiveManifestCsv(input),
           1,
         )[5],
       ).toBe('계획서/합성팀_계획서.pdf · (내용 없음)');
@@ -436,9 +412,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
 
       expect(
         plainFields(
-          milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-            input,
-          ),
+          requirementArchiveService.requirementArchiveManifestCsv(input),
           1,
         )[5],
       ).toBe('(제출 내용을 가져올 수 없음)');
@@ -462,9 +436,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(csv).toContain('"합성""팀","합성, 신청자","합성\n닉"');
     });
@@ -486,9 +458,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
         };
 
         const csv =
-          milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-            input,
-          );
+          requirementArchiveService.requirementArchiveManifestCsv(input);
 
         expect(csv).toContain(`'${teamName}`);
         expect(csv).not.toContain(`${CRLF}${teamName}`);
@@ -502,9 +472,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(csv).toContain(`"'=1,2"`);
     });
@@ -516,9 +484,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(plainFields(csv, 1)[0]).toBe(`'-팀`);
     });
@@ -538,9 +504,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const csv =
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        );
+        requirementArchiveService.requirementArchiveManifestCsv(input);
 
       expect(csv).toContain(`${CRLF}합성팀,,"합성닉1, 합성닉2"${CRLF}`);
     });
@@ -552,9 +516,7 @@ describe('milestoneDocumentArchiveManifestCsv', () => {
       };
 
       const fields = plainFields(
-        milestoneDocumentArchiveService.milestoneDocumentArchiveManifestCsv(
-          input,
-        ),
+        requirementArchiveService.requirementArchiveManifestCsv(input),
         1,
       );
 

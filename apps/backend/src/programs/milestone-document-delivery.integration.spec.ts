@@ -1,39 +1,40 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { SubmissionWindowService } from './files.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
-  MilestoneDocumentCollectionResponseDto,
-  MilestoneDocumentDeliveryCollectionResponseDto,
-} from './dto/milestone-document-collection-response.dto';
+  RequirementCollectionResponseDto,
+  RequirementDeliveryCollectionResponseDto,
+} from './dto/requirement-collection-response.dto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   createDeadlineDigestIntegrationHarness,
   DIGEST_FIXTURE as fixture,
 } from '../notifications/deadline-digest.integration-support';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import { RequirementsService } from './requirements.service';
 
-const milestoneDocumentCollectionService =
-  new MilestoneDocumentCollectionService(undefined as never);
+const requirementCollectionService = new RequirementCollectionService(
+  undefined as never,
+);
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
 const harness = createDeadlineDigestIntegrationHarness();
-const repository = new MilestoneDocumentCollectionReadRepository(
+const repository = new RequirementCollectionReadRepository(
   harness.prisma,
   new FileMetadataRepository(),
 );
-const service = new MilestoneDocumentCollectionService(repository);
+const service = new RequirementCollectionService(repository);
 const legacyService = new RequirementsService(
   new RequirementsRepository(
     harness.prisma,
@@ -43,14 +44,14 @@ const legacyService = new RequirementsService(
       new PlatformRepository(),
       new FileMetadataRepository(),
     ),
-    new MilestoneDocumentCollectionReadRepository(
+    new RequirementCollectionReadRepository(
       harness.prisma,
       new FileMetadataRepository(),
     ),
     new FileMetadataRepository(),
   ),
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
-  new MilestoneDocumentCollectionService({} as never),
+  new SubmissionWindowService(new ProgramScheduleService()),
+  new RequirementCollectionService({} as never),
   new ProgramScheduleService(),
   new SubmissionsRepository(
     new PlatformRepository(),
@@ -97,16 +98,14 @@ it('preserves the existing collection response, approved population and paging c
       { ...query, pageSize: 2 },
       fixture.now,
     )
-    .then((result) =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-    );
+    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
   const old = await legacyService
     .collectForStaff(
       fixture.notifyMilestone,
       { ...query, pageSize: 2 },
       fixture.now,
     )
-    .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+    .then((result) => RequirementCollectionResponseDto.from(result));
   const { deliveryCounts, rows, ...unchanged } = result;
 
   expect({
@@ -161,9 +160,7 @@ it('keeps an on-time first submission complete after a late resubmission and rej
       { ...query, deliveryStatus: 'COMPLETE' },
       fixture.now,
     )
-    .then((result) =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-    );
+    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
 
   expect(result.total).toBe(1);
   expect(result.rows[0]).toMatchObject({
@@ -197,9 +194,7 @@ it.each([
         { ...query, deliveryStatus },
         fixture.now,
       )
-      .then((result) =>
-        MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-      );
+      .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
 
     expect(result.total).toBe(1);
     expect(result.rows[0]?.deliveryStatus).toBe(deliveryStatus);
@@ -213,9 +208,7 @@ it('filters missing rows before pagination and keeps whole-population counts', a
       { ...query, deliveryStatus: 'MISSING', page: 2, pageSize: 1 },
       fixture.now,
     )
-    .then((result) =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-    );
+    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
 
   expect(result.rows).toHaveLength(1);
   expect(result.rows[0]?.deliveryStatus).toBe('MISSING');
@@ -243,9 +236,7 @@ it('does not call optional-only milestones complete or missing', async () => {
       { ...query, deliveryStatus: 'NO_REQUIRED_ITEMS' },
       fixture.now,
     )
-    .then((result) =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-    );
+    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
 
   expect(result.total).toBe(4);
   expect(result.deliveryCounts).toEqual({
@@ -275,7 +266,7 @@ it('holds counts and visible details at one snapshot while another connection su
       },
     });
     return {
-      page: milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
+      page: requirementCollectionService.buildRequirementDeliveryPage(
         { documents, applications, submissions, dueAt: fixture.dueSoon },
         query,
       ),
@@ -284,9 +275,7 @@ it('holds counts and visible details at one snapshot while another connection su
   });
   const after = await service
     .collectForStaff(fixture.notifyMilestone, query, fixture.now)
-    .then((result) =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-    );
+    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
 
   expect(before.page.deliveryCounts.complete).toBe(1);
   expect(before.details).toHaveLength(1);
@@ -310,9 +299,7 @@ it('selects a document before paging and hydrates the same submitted cell', asyn
       },
       fixture.now,
     )
-    .then((result) =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-    );
+    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
   expect(result.total).toBe(1);
   expect(result.rows[0]?.cells[0]).toMatchObject({
     documentId: fixture.notifyDocument,
@@ -332,9 +319,7 @@ it('selects a document before paging and hydrates the same submitted cell', asyn
       },
       fixture.now,
     )
-    .then((result) =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from(result),
-    );
+    .then((result) => RequirementDeliveryCollectionResponseDto.from(result));
   expect(missing.total).toBe(3);
   expect(missing.rows).toHaveLength(1);
   expect(missing.rows[0]?.cells[0]).toMatchObject({

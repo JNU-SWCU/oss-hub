@@ -1,15 +1,15 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { signatureValidZip } from './submission-zip-builder.fixture';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsErrorCode } from './submissions.error';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
+const fixture = new RequirementFlowFixture();
 async function upload(
   name: string,
   type: string,
@@ -178,7 +178,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     );
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+      code: RequirementsErrorCode.RESUBMISSION_ALREADY_USED,
     });
     expect(
       await fixture.prisma.file.count({
@@ -254,8 +254,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
     const put = jest.spyOn(fixture.storage, 'put');
     const before = await footprint();
     for (const [archive, code] of [
-      [locked, MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED],
-      [nested, MilestoneDocumentsErrorCode.ZIP_NESTED],
+      [locked, RequirementsErrorCode.ZIP_PASSWORD_PROTECTED],
+      [nested, RequirementsErrorCode.ZIP_NESTED],
     ] as const) {
       const checked = await check(archive);
       const uploaded = await upload('bundle.zip', 'application/zip', archive);

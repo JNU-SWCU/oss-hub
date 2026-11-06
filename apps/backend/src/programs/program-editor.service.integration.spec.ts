@@ -1,10 +1,10 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './files.service';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { SubmissionWindowService } from './files.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -107,16 +107,14 @@ describe('ProgramEditorService integration', () => {
           new PlatformRepository(),
           new FileMetadataRepository(),
         ),
-        new MilestoneDocumentCollectionReadRepository(
+        new RequirementCollectionReadRepository(
           prisma,
           new FileMetadataRepository(),
         ),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),

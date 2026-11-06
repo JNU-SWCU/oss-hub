@@ -6,14 +6,14 @@ import {
   MinLength,
 } from 'class-validator';
 import {
-  MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS,
-  type MilestoneDocumentArchiveGrouping,
+  REQUIREMENT_ARCHIVE_GROUPINGS,
+  type RequirementArchiveGrouping,
 } from '../requirement-archive.service';
 
-export class MilestoneDocumentArchiveRequestDto {
+export class RequirementArchiveRequestDto {
   @IsOptional()
-  @IsIn(MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS)
-  declare readonly groupBy?: MilestoneDocumentArchiveGrouping;
+  @IsIn(REQUIREMENT_ARCHIVE_GROUPINGS)
+  declare readonly groupBy?: RequirementArchiveGrouping;
 
   @IsOptional()
   @IsString()

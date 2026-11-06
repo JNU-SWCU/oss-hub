@@ -10,34 +10,34 @@ import { DomainException } from '../platform/error-code.error';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
 import {
-  MilestoneDocumentCurrentFileRepository,
-  type MilestoneDocumentCurrentFileReader,
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCurrentFileRepository,
+  type RequirementCurrentFileReader,
+  RequirementCollectionReadRepository,
   type DocumentDeliveryStatus,
-  MilestoneDocumentCollectionApplication,
+  RequirementCollectionApplication,
   MilestoneContext,
-  MilestoneDocumentRecord,
-  MilestoneDocumentCollectionSubmission,
-  MilestoneDocumentSubmittedContent,
+  RequirementRecord,
+  RequirementCollectionSubmission,
+  RequirementSubmittedContent,
   RequirementsRepository,
-  MilestoneDocumentArchiveRepository,
+  RequirementArchiveRepository,
   type ProgramArchiveReader,
-  MilestoneDocumentArchiveDocument,
-  MilestoneDocumentArchiveTeam,
-  MilestoneDocumentArchiveSubmission,
+  RequirementArchiveDocument,
+  RequirementArchiveTeam,
+  RequirementArchiveSubmission,
   ArchiveProgram,
 } from './requirements.repository';
 import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-  MilestoneDocumentArchiveEntryError,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
+  RequirementArchiveEntryError,
 } from './submissions.error';
 import {
   SubmissionFileAdmissionService,
-  MilestoneDocumentFileNameService,
+  RequirementFileNameService,
 } from './files.service';
 import { ZipFile } from 'yazl';
-export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollectionQuery {
+export interface RequirementDeliveryQuery extends RequirementCollectionQuery {
   readonly scope?: 'all';
   readonly deliveryStatus?: DocumentDeliveryStatus;
   readonly document?: {
@@ -46,11 +46,11 @@ export interface MilestoneDocumentDeliveryQuery extends MilestoneDocumentCollect
   };
 }
 
-export type MilestoneDocumentDeliveryPage<
-  TApplication extends MilestoneDocumentCollectionApplicationRule,
-  TSubmission extends MilestoneDocumentCollectionSubmissionRule,
-> = Omit<MilestoneDocumentCollectionPage<TApplication, TSubmission>, 'rows'> & {
-  readonly rows: readonly (MilestoneDocumentCollectionPage<
+export type RequirementDeliveryPage<
+  TApplication extends RequirementCollectionApplicationRule,
+  TSubmission extends RequirementCollectionSubmissionRule,
+> = Omit<RequirementCollectionPage<TApplication, TSubmission>, 'rows'> & {
+  readonly rows: readonly (RequirementCollectionPage<
     TApplication,
     TSubmission
   >['rows'][number] & { readonly deliveryStatus: DocumentDeliveryStatus })[];
@@ -62,15 +62,15 @@ export type MilestoneDocumentDeliveryPage<
   };
 };
 
-export interface MilestoneDocumentDeliveryCollectionResult extends MilestoneDocumentDeliveryPage<
-  MilestoneDocumentCollectionApplication,
-  MilestoneDocumentCollectionCell
+export interface RequirementDeliveryCollectionResult extends RequirementDeliveryPage<
+  RequirementCollectionApplication,
+  RequirementCollectionCell
 > {
   readonly milestone: MilestoneContext;
-  readonly documents: readonly MilestoneDocumentRecord[];
+  readonly documents: readonly RequirementRecord[];
 }
 
-export interface DownloadedMilestoneDocumentCurrentFile {
+export interface DownloadedRequirementCurrentFile {
   readonly body: Readable;
   readonly fileName: string;
   readonly contentType: string;
@@ -78,10 +78,10 @@ export interface DownloadedMilestoneDocumentCurrentFile {
 }
 
 @Injectable()
-export class MilestoneDocumentCurrentFileService {
+export class RequirementCurrentFileService {
   constructor(
-    @Inject(MilestoneDocumentCurrentFileRepository)
-    private readonly repository: MilestoneDocumentCurrentFileReader,
+    @Inject(RequirementCurrentFileRepository)
+    private readonly repository: RequirementCurrentFileReader,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
     private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
@@ -102,21 +102,21 @@ export class MilestoneDocumentCurrentFileService {
     sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
-  ): Promise<DownloadedMilestoneDocumentCurrentFile> {
+  ): Promise<DownloadedRequirementCurrentFile> {
     const file = await this.repository.findForParticipant(
       sessionGithubId,
       milestoneId,
       documentId,
     );
     if (file === null) {
-      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND);
     }
 
     let body: Readable;
     try {
       body = await this.storage.get(file.storageKey);
     } catch {
-      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+      throw this.error(RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
     const fileName =
@@ -134,25 +134,25 @@ export class MilestoneDocumentCurrentFileService {
     };
   }
 
-  private error(code: MilestoneDocumentsErrorCode): DomainException {
-    return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
+  private error(code: RequirementsErrorCode): DomainException {
+    return new DomainException(REQUIREMENTS_ERROR_CODES[code]);
   }
 }
 
-const MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
+const REQUIREMENT_COLLECTION_DEFAULT_PAGE_SIZE = 20;
 
-export interface MilestoneDocumentCollectionRequest {
+export interface RequirementCollectionRequest {
   readonly scope?: 'all';
   readonly page?: number;
   readonly pageSize?: number;
-  readonly filter?: MilestoneDocumentCollectionFilter;
+  readonly filter?: RequirementCollectionFilter;
   readonly deliveryStatus?: DocumentDeliveryStatus;
   readonly documentId?: string;
   readonly submissionState?: 'ALL' | 'SUBMITTED' | 'MISSING';
 }
 
 @Injectable()
-export class MilestoneDocumentCollectionService {
+export class RequirementCollectionService {
   documentDeliveryStatus(input: {
     readonly requiredFirstSubmissions: readonly (Date | null)[];
     readonly dueAt: Date | null;
@@ -173,9 +173,9 @@ export class MilestoneDocumentCollectionService {
     return 'COMPLETE';
   }
 
-  readMilestoneDocumentSubmittedContent(
+  readRequirementSubmittedContent(
     stored: unknown,
-  ): MilestoneDocumentSubmittedContent | null {
+  ): RequirementSubmittedContent | null {
     if (typeof stored !== 'object' || stored === null) return null;
     const content = stored as Record<string, unknown>;
     switch (content.type) {
@@ -188,25 +188,25 @@ export class MilestoneDocumentCollectionService {
     }
   }
 
-  buildMilestoneDocumentCollectionPage<
-    TDocument extends MilestoneDocumentCollectionDocumentRule,
-    TApplication extends MilestoneDocumentCollectionApplicationRule,
-    TSubmission extends MilestoneDocumentCollectionSubmissionRule,
+  buildRequirementCollectionPage<
+    TDocument extends RequirementCollectionDocumentRule,
+    TApplication extends RequirementCollectionApplicationRule,
+    TSubmission extends RequirementCollectionSubmissionRule,
   >(
     documents: readonly TDocument[],
     applications: readonly TApplication[],
     submissions: readonly TSubmission[],
-    query: MilestoneDocumentCollectionQuery,
-  ): MilestoneDocumentCollectionPage<TApplication, TSubmission> {
+    query: RequirementCollectionQuery,
+  ): RequirementCollectionPage<TApplication, TSubmission> {
     const cellIndex = new Map<string, TSubmission>();
     for (const submission of submissions) {
       cellIndex.set(
-        cellKey(submission.teamId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.requirementId),
         submission,
       );
     }
 
-    const allRows: readonly MilestoneDocumentCollectionPageRow<
+    const allRows: readonly RequirementCollectionPageRow<
       TApplication,
       TSubmission
     >[] = applications.map((application) => ({
@@ -244,26 +244,25 @@ export class MilestoneDocumentCollectionService {
     };
   }
 
-  toMilestoneDocumentCollectionCell(
-    submission: MilestoneDocumentCollectionSubmission,
-  ): MilestoneDocumentCollectionCell {
+  toRequirementCollectionCell(
+    submission: RequirementCollectionSubmission,
+  ): RequirementCollectionCell {
     return {
       ...submission,
-      content: this.readMilestoneDocumentSubmittedContent(submission.content),
+      content: this.readRequirementSubmittedContent(submission.content),
     };
   }
 
   constructor(
-    private readonly repository: MilestoneDocumentCollectionReadRepository,
+    private readonly repository: RequirementCollectionReadRepository,
   ) {}
 
   collectionQueryFromRequest(
-    request: MilestoneDocumentCollectionRequest,
-  ): MilestoneDocumentDeliveryQuery {
+    request: RequirementCollectionRequest,
+  ): RequirementDeliveryQuery {
     return {
       page: request.page ?? 1,
-      pageSize:
-        request.pageSize ?? MILESTONE_DOCUMENT_COLLECTION_DEFAULT_PAGE_SIZE,
+      pageSize: request.pageSize ?? REQUIREMENT_COLLECTION_DEFAULT_PAGE_SIZE,
       filter: request.filter ?? 'ALL',
       ...(request.scope === undefined ? {} : { scope: request.scope }),
       ...(request.documentId === undefined
@@ -282,8 +281,8 @@ export class MilestoneDocumentCollectionService {
 
   collectForStaffFromRequest(
     milestoneId: string,
-    request: MilestoneDocumentCollectionRequest,
-  ): Promise<MilestoneDocumentDeliveryCollectionResult> {
+    request: RequirementCollectionRequest,
+  ): Promise<RequirementDeliveryCollectionResult> {
     return this.collectForStaff(
       milestoneId,
       this.collectionQueryFromRequest(request),
@@ -292,16 +291,14 @@ export class MilestoneDocumentCollectionService {
 
   async collectForStaff(
     milestoneId: string,
-    query: MilestoneDocumentDeliveryQuery,
+    query: RequirementDeliveryQuery,
     now = new Date(),
-  ): Promise<MilestoneDocumentDeliveryCollectionResult> {
+  ): Promise<RequirementDeliveryCollectionResult> {
     return this.repository.withSnapshot(async (store) => {
       const milestone = await store.findMilestone(milestoneId);
       if (milestone === null)
         throw new DomainException(
-          MILESTONE_DOCUMENTS_ERROR_CODES[
-            MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND
-          ],
+          REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.MILESTONE_NOT_FOUND],
         );
       const [documents, applications] = await Promise.all([
         store.findDocuments(milestoneId),
@@ -312,16 +309,14 @@ export class MilestoneDocumentCollectionService {
         !documents.some((document) => document.id === query.document?.id)
       )
         throw new DomainException(
-          MILESTONE_DOCUMENTS_ERROR_CODES[
-            MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND
-          ],
+          REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.DOCUMENT_NOT_FOUND],
         );
       const documentIds = documents.map((document) => document.id);
       const coordinates = await store.findCoordinates(
         documentIds,
         applications.map((application) => application.teamId),
       );
-      const page = this.buildMilestoneDocumentDeliveryPage(
+      const page = this.buildRequirementDeliveryPage(
         {
           documents,
           applications,
@@ -337,8 +332,8 @@ export class MilestoneDocumentCollectionService {
       );
       const detailByCell = new Map(
         details.map((submission) => [
-          `${submission.teamId}::${submission.milestoneDocumentId}`,
-          this.toMilestoneDocumentCollectionCell(submission),
+          `${submission.teamId}::${submission.requirementId}`,
+          this.toRequirementCollectionCell(submission),
         ]),
       );
       return {
@@ -358,10 +353,10 @@ export class MilestoneDocumentCollectionService {
     });
   }
 
-  buildMilestoneDocumentDeliveryPage<
-    TDocument extends MilestoneDocumentCollectionDocumentRule,
-    TApplication extends MilestoneDocumentCollectionApplicationRule,
-    TSubmission extends MilestoneDocumentCollectionSubmissionRule & {
+  buildRequirementDeliveryPage<
+    TDocument extends RequirementCollectionDocumentRule,
+    TApplication extends RequirementCollectionApplicationRule,
+    TSubmission extends RequirementCollectionSubmissionRule & {
       readonly firstSubmittedAt: Date;
     },
   >(
@@ -371,9 +366,9 @@ export class MilestoneDocumentCollectionService {
       readonly submissions: readonly TSubmission[];
       readonly dueAt: Date | null;
     },
-    query: MilestoneDocumentDeliveryQuery,
-  ): MilestoneDocumentDeliveryPage<TApplication, TSubmission> {
-    const base = this.buildMilestoneDocumentCollectionPage(
+    query: RequirementDeliveryQuery,
+  ): RequirementDeliveryPage<TApplication, TSubmission> {
+    const base = this.buildRequirementCollectionPage(
       source.documents,
       source.applications,
       source.submissions,
@@ -451,9 +446,9 @@ function cellKey(teamId: string, documentId: string): string {
 }
 
 function isSubmittedAt(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
+  row: RequirementCollectionPageRow<
+    RequirementCollectionApplicationRule,
+    RequirementCollectionSubmissionRule
   >,
   index: number,
 ): boolean {
@@ -461,11 +456,11 @@ function isSubmittedAt(
 }
 
 function hasMissingRequired(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
+  row: RequirementCollectionPageRow<
+    RequirementCollectionApplicationRule,
+    RequirementCollectionSubmissionRule
   >,
-  documents: readonly MilestoneDocumentCollectionDocumentRule[],
+  documents: readonly RequirementCollectionDocumentRule[],
 ): boolean {
   return documents.some(
     (document, index) => document.required && !isSubmittedAt(row, index),
@@ -473,22 +468,22 @@ function hasMissingRequired(
 }
 
 function hasZeroSubmission(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
+  row: RequirementCollectionPageRow<
+    RequirementCollectionApplicationRule,
+    RequirementCollectionSubmissionRule
   >,
-  documents: readonly MilestoneDocumentCollectionDocumentRule[],
+  documents: readonly RequirementCollectionDocumentRule[],
 ): boolean {
   return documents.length > 0 && row.cells.every((cell) => cell === null);
 }
 
 function matchesFilter(
-  row: MilestoneDocumentCollectionPageRow<
-    MilestoneDocumentCollectionApplicationRule,
-    MilestoneDocumentCollectionSubmissionRule
+  row: RequirementCollectionPageRow<
+    RequirementCollectionApplicationRule,
+    RequirementCollectionSubmissionRule
   >,
-  documents: readonly MilestoneDocumentCollectionDocumentRule[],
-  filter: MilestoneDocumentCollectionQuery['filter'],
+  documents: readonly RequirementCollectionDocumentRule[],
+  filter: RequirementCollectionQuery['filter'],
 ): boolean {
   switch (filter) {
     case 'HAS_MISSING':
@@ -500,51 +495,51 @@ function matchesFilter(
   }
 }
 
-export interface MilestoneDocumentCollectionQuery {
+export interface RequirementCollectionQuery {
   readonly page: number;
   readonly pageSize: number;
-  readonly filter: MilestoneDocumentCollectionFilter;
+  readonly filter: RequirementCollectionFilter;
 }
 
-export interface MilestoneDocumentCollectionDocumentRule {
+export interface RequirementCollectionDocumentRule {
   readonly id: string;
   readonly required: boolean;
 }
 
-export interface MilestoneDocumentCollectionApplicationRule {
+export interface RequirementCollectionApplicationRule {
   readonly teamId: string;
 }
 
-export interface MilestoneDocumentCollectionSubmissionRule {
+export interface RequirementCollectionSubmissionRule {
   readonly teamId: string;
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
 }
 
-interface MilestoneDocumentCollectionPageRow<
-  TApplication extends MilestoneDocumentCollectionApplicationRule,
-  TSubmission extends MilestoneDocumentCollectionSubmissionRule,
+interface RequirementCollectionPageRow<
+  TApplication extends RequirementCollectionApplicationRule,
+  TSubmission extends RequirementCollectionSubmissionRule,
 > {
   readonly application: TApplication;
   readonly cells: readonly (TSubmission | null)[];
 }
 
-interface MilestoneDocumentCollectionFilterCounts {
+interface RequirementCollectionFilterCounts {
   readonly all: number;
   readonly hasMissing: number;
   readonly zeroSubmission: number;
 }
 
-interface MilestoneDocumentCollectionDocumentTotal {
+interface RequirementCollectionDocumentTotal {
   readonly documentId: string;
   readonly submitted: number;
   readonly total: number;
 }
 
-export interface MilestoneDocumentCollectionPage<
-  TApplication extends MilestoneDocumentCollectionApplicationRule,
-  TSubmission extends MilestoneDocumentCollectionSubmissionRule,
+export interface RequirementCollectionPage<
+  TApplication extends RequirementCollectionApplicationRule,
+  TSubmission extends RequirementCollectionSubmissionRule,
 > {
-  readonly rows: readonly MilestoneDocumentCollectionPageRow<
+  readonly rows: readonly RequirementCollectionPageRow<
     TApplication,
     TSubmission
   >[];
@@ -552,36 +547,35 @@ export interface MilestoneDocumentCollectionPage<
   readonly pageSize: number;
 
   readonly total: number;
-  readonly filterCounts: MilestoneDocumentCollectionFilterCounts;
-  readonly documentTotals: readonly MilestoneDocumentCollectionDocumentTotal[];
+  readonly filterCounts: RequirementCollectionFilterCounts;
+  readonly documentTotals: readonly RequirementCollectionDocumentTotal[];
 }
 
-export type MilestoneDocumentCollectionCell = Omit<
-  MilestoneDocumentCollectionSubmission,
+export type RequirementCollectionCell = Omit<
+  RequirementCollectionSubmission,
   'content'
 > & {
-  readonly content: MilestoneDocumentSubmittedContent | null;
+  readonly content: RequirementSubmittedContent | null;
 };
 
-export type MilestoneDocumentCollectionFilter =
-  (typeof MILESTONE_DOCUMENT_COLLECTION_FILTERS)[number];
+export type RequirementCollectionFilter =
+  (typeof REQUIREMENT_COLLECTION_FILTERS)[number];
 
-export const MILESTONE_DOCUMENT_COLLECTION_FILTERS = [
+export const REQUIREMENT_COLLECTION_FILTERS = [
   'ALL',
   'HAS_MISSING',
   'ZERO_SUBMISSION',
 ] as const;
-export type MilestoneDocumentArchiveGrouping = 'TEAM' | 'DOCUMENT';
+export type RequirementArchiveGrouping = 'TEAM' | 'DOCUMENT';
 
-export const MILESTONE_DOCUMENT_ARCHIVE_GROUPINGS: readonly MilestoneDocumentArchiveGrouping[] =
+export const REQUIREMENT_ARCHIVE_GROUPINGS: readonly RequirementArchiveGrouping[] =
   ['TEAM', 'DOCUMENT'];
 
-export type MilestoneDocumentArchiveLayout =
-  MilestoneDocumentArchiveGrouping | 'FLAT';
+export type RequirementArchiveLayout = RequirementArchiveGrouping | 'FLAT';
 
-const MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME = '제출현황.csv';
+const REQUIREMENT_ARCHIVE_MANIFEST_FILE_NAME = '제출현황.csv';
 
-type MilestoneDocumentArchiveEntry =
+type RequirementArchiveEntry =
   | {
       readonly kind: 'STORED_FILE';
       readonly path: string;
@@ -597,48 +591,45 @@ type MilestoneDocumentArchiveEntry =
       readonly body: string;
     };
 
-export type MilestoneDocumentArchiveCellState =
-  'NOT_SUBMITTED' | SubmissionStatus;
+export type RequirementArchiveCellState = 'NOT_SUBMITTED' | SubmissionStatus;
 
-type MilestoneDocumentArchiveOmission =
+type RequirementArchiveOmission =
   | 'FILE_UNAVAILABLE'
   | 'CONTENT_UNAVAILABLE'
   | 'CONTENT_AND_FILE_UNAVAILABLE'
   | 'SUBMISSION_UNAVAILABLE';
 
-export interface MilestoneDocumentArchiveCell {
+export interface RequirementArchiveCell {
   readonly documentId: string;
-  readonly state: MilestoneDocumentArchiveCellState;
+  readonly state: RequirementArchiveCellState;
   readonly submittedAt: Date | null;
 
   readonly path: string | null;
-  readonly omission: MilestoneDocumentArchiveOmission | null;
+  readonly omission: RequirementArchiveOmission | null;
 }
 
-export interface MilestoneDocumentArchiveManifestRow {
-  readonly team: MilestoneDocumentArchiveTeam;
-  readonly cells: readonly MilestoneDocumentArchiveCell[];
+export interface RequirementArchiveManifestRow {
+  readonly team: RequirementArchiveTeam;
+  readonly cells: readonly RequirementArchiveCell[];
 }
 
-export interface MilestoneDocumentArchivePlan {
-  readonly entries: readonly MilestoneDocumentArchiveEntry[];
-  readonly manifest: readonly MilestoneDocumentArchiveManifestRow[];
+export interface RequirementArchivePlan {
+  readonly entries: readonly RequirementArchiveEntry[];
+  readonly manifest: readonly RequirementArchiveManifestRow[];
 
   readonly storedBytes: number;
 
   readonly inlineBytes: number;
 }
 
-export interface BuildMilestoneDocumentArchivePlanInput {
-  readonly documents: readonly MilestoneDocumentArchiveDocument[];
-  readonly teams: readonly MilestoneDocumentArchiveTeam[];
-  readonly submissions: readonly MilestoneDocumentArchiveSubmission[];
-  readonly layout: MilestoneDocumentArchiveLayout;
+export interface BuildRequirementArchivePlanInput {
+  readonly documents: readonly RequirementArchiveDocument[];
+  readonly teams: readonly RequirementArchiveTeam[];
+  readonly submissions: readonly RequirementArchiveSubmission[];
+  readonly layout: RequirementArchiveLayout;
 }
 
-function archiveOmissionLabel(
-  omission: MilestoneDocumentArchiveOmission,
-): string {
+function archiveOmissionLabel(omission: RequirementArchiveOmission): string {
   switch (omission) {
     case 'FILE_UNAVAILABLE':
       return '(첨부를 가져올 수 없음)';
@@ -678,7 +669,7 @@ function collisionKey(path: string): string {
 function archiveDocumentsWithStageNames(
   milestones: ArchiveProgram['milestones'],
   isSingleMilestone: boolean,
-): readonly MilestoneDocumentArchiveDocument[] {
+): readonly RequirementArchiveDocument[] {
   return milestones.flatMap((milestone) =>
     milestone.requirements.map((document) => ({
       ...document,
@@ -689,19 +680,16 @@ function archiveDocumentsWithStageNames(
   );
 }
 
-const CELL_STATE_LABELS: Readonly<
-  Record<MilestoneDocumentArchiveCellState, string>
-> = {
-  NOT_SUBMITTED: '미제출',
-  SUBMITTED: '검토 대기',
-  APPROVED: '승인',
-  CHANGES_REQUESTED: '보완 요청',
-  REJECTED: '반려',
-};
+const CELL_STATE_LABELS: Readonly<Record<RequirementArchiveCellState, string>> =
+  {
+    NOT_SUBMITTED: '미제출',
+    SUBMITTED: '검토 대기',
+    APPROVED: '승인',
+    CHANGES_REQUESTED: '보완 요청',
+    REJECTED: '반려',
+  };
 
-const OMISSION_LABELS: Readonly<
-  Record<MilestoneDocumentArchiveOmission, string>
-> = {
+const OMISSION_LABELS: Readonly<Record<RequirementArchiveOmission, string>> = {
   FILE_UNAVAILABLE: '(첨부를 가져올 수 없음)',
   CONTENT_UNAVAILABLE: '(내용 없음)',
   CONTENT_AND_FILE_UNAVAILABLE: '(내용 없음 · 첨부를 가져올 수 없음)',
@@ -714,19 +702,19 @@ const ROW_SEPARATOR = '\r\n';
 
 const FORMULA_TRIGGERS = new Set(['=', '+', '-', '@', '\t', '\r']);
 
-export interface MilestoneDocumentArchiveManifestCsvInput {
-  readonly documents: readonly MilestoneDocumentArchiveDocument[];
-  readonly rows: readonly MilestoneDocumentArchiveManifestRow[];
+export interface RequirementArchiveManifestCsvInput {
+  readonly documents: readonly RequirementArchiveDocument[];
+  readonly rows: readonly RequirementArchiveManifestRow[];
 }
 
 function cellOf(
-  cells: readonly MilestoneDocumentArchiveCell[],
+  cells: readonly RequirementArchiveCell[],
   documentId: string,
-): MilestoneDocumentArchiveCell | null {
+): RequirementArchiveCell | null {
   return cells.find((cell) => cell.documentId === documentId) ?? null;
 }
 
-function cellColumns(cell: MilestoneDocumentArchiveCell | null): string[] {
+function cellColumns(cell: RequirementArchiveCell | null): string[] {
   if (cell === null) return ['', '', ''];
   return [
     CELL_STATE_LABELS[cell.state],
@@ -758,10 +746,10 @@ function csvField(value: string): string {
     : guarded;
 }
 
-export type MilestoneDocumentArchiveScope =
+export type RequirementArchiveScope =
   | {
       readonly kind: 'ALL';
-      readonly grouping: MilestoneDocumentArchiveGrouping;
+      readonly grouping: RequirementArchiveGrouping;
     }
   | { readonly kind: 'DOCUMENT'; readonly documentId: string };
 
@@ -769,9 +757,9 @@ export type ProgramDocumentArchiveScope = (
   | { readonly kind: 'PROGRAM' }
   | { readonly kind: 'MILESTONE'; readonly milestoneId: string }
   | { readonly kind: 'TEAM'; readonly teamId: string }
-) & { readonly grouping?: MilestoneDocumentArchiveGrouping };
+) & { readonly grouping?: RequirementArchiveGrouping };
 
-export interface MilestoneDocumentArchive {
+export interface RequirementArchive {
   readonly body: Readable;
   readonly fileName: string;
   readonly contentType: 'application/zip';
@@ -788,12 +776,12 @@ interface ZipFileFinalSize {
   ): void;
 }
 
-const archiveLogger = new Logger('MilestoneDocumentArchive');
+const archiveLogger = new Logger('RequirementArchive');
 
 const programArchiveLogger = new Logger('ProgramDocumentArchivesController');
 
 function failedStorageKey(error: Error): string {
-  return error instanceof MilestoneDocumentArchiveEntryError
+  return error instanceof RequirementArchiveEntryError
     ? error.storageKey
     : 'unknown';
 }
@@ -804,10 +792,10 @@ export class RequirementArchiveService {
     private readonly repository: RequirementsRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
-    @Inject(MilestoneDocumentArchiveRepository)
+    @Inject(RequirementArchiveRepository)
     private readonly programs: ProgramArchiveReader,
-    private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
-    private readonly milestoneDocumentFileNameService: MilestoneDocumentFileNameService,
+    private readonly requirementCollectionService: RequirementCollectionService,
+    private readonly requirementFileNameService: RequirementFileNameService,
     private readonly downloadResponseService: DownloadResponseService,
   ) {}
 
@@ -830,8 +818,8 @@ export class RequirementArchiveService {
       );
       this.downloadResponseService.respondWithDownloadFailure(
         response,
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+        REQUIREMENTS_ERROR_CODES[
+          RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE
         ],
         'END',
       );
@@ -857,8 +845,8 @@ export class RequirementArchiveService {
       );
       this.downloadResponseService.respondWithDownloadFailure(
         response,
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE
+        REQUIREMENTS_ERROR_CODES[
+          RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE
         ],
         'DESTROY',
       );
@@ -899,24 +887,20 @@ export class RequirementArchiveService {
       return { kind: 'TEAM', teamId: request.teamId, ...grouping };
     }
     throw new DomainException(
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.INVALID_REQUEST
-      ],
+      REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.INVALID_REQUEST],
     );
   }
 
   milestoneArchiveScopeFromRequest(request: {
-    readonly groupBy?: MilestoneDocumentArchiveGrouping;
+    readonly groupBy?: RequirementArchiveGrouping;
     readonly documentId?: string;
-  }): MilestoneDocumentArchiveScope {
+  }): RequirementArchiveScope {
     if (request.documentId === undefined) {
       return { kind: 'ALL', grouping: request.groupBy ?? 'TEAM' };
     }
     if (request.groupBy !== undefined) {
       throw new DomainException(
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.INVALID_REQUEST
-        ],
+        REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.INVALID_REQUEST],
       );
     }
     return { kind: 'DOCUMENT', documentId: request.documentId };
@@ -926,24 +910,24 @@ export class RequirementArchiveService {
     programId: string,
     scope: ProgramDocumentArchiveScope,
     now: Date = new Date(),
-  ): Promise<MilestoneDocumentArchive> {
+  ): Promise<RequirementArchive> {
     const program = await this.programs.findProgram(programId);
     if (program === null) {
-      throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.PROGRAM_NOT_FOUND);
     }
     const milestones =
       scope.kind === 'MILESTONE'
         ? program.milestones.filter((item) => item.id === scope.milestoneId)
         : program.milestones;
     if (scope.kind === 'MILESTONE' && milestones.length === 0) {
-      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.MILESTONE_NOT_FOUND);
     }
     const teams = await this.programs.findApprovedTeams(
       programId,
       scope.kind === 'TEAM' ? scope.teamId : undefined,
     );
     if (scope.kind === 'TEAM' && teams.length === 0) {
-      throw this.error(MilestoneDocumentsErrorCode.ARCHIVE_TEAM_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.ARCHIVE_TEAM_NOT_FOUND);
     }
     const documents = archiveDocumentsWithStageNames(
       milestones,
@@ -953,7 +937,7 @@ export class RequirementArchiveService {
       documents.map((document) => document.id),
       now,
     );
-    const plan = this.buildMilestoneDocumentArchivePlan({
+    const plan = this.buildRequirementArchivePlan({
       documents,
       teams,
       submissions,
@@ -963,18 +947,18 @@ export class RequirementArchiveService {
     const fileName =
       scope.kind === 'MILESTONE' && milestone !== undefined
         ? this.archiveFileName(milestone.name, milestone.dueAt)
-        : `${this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
+        : `${this.requirementFileNameService.requirementArchiveFolderName(`${program.name}_${scope.kind === 'TEAM' ? teams[0]?.teamName : '전체'}`)}_현재제출.zip`;
     return this.createArchive(documents, plan, fileName, now);
   }
 
   async archiveForStaff(
     milestoneId: string,
-    scope: MilestoneDocumentArchiveScope,
+    scope: RequirementArchiveScope,
     now: Date = new Date(),
-  ): Promise<MilestoneDocumentArchive> {
+  ): Promise<RequirementArchive> {
     const milestone = await this.repository.findMilestone(milestoneId);
     if (milestone === null) {
-      throw this.error(MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.MILESTONE_NOT_FOUND);
     }
 
     const [allDocuments, teams] = await Promise.all([
@@ -989,7 +973,7 @@ export class RequirementArchiveService {
         ? allDocuments.filter((document) => document.id === scope.documentId)
         : allDocuments;
     if (scope.kind === 'DOCUMENT' && documents.length === 0) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
     const submissions = await this.repository.findSubmissionsForArchive(
@@ -997,7 +981,7 @@ export class RequirementArchiveService {
       now,
     );
 
-    const plan = this.buildMilestoneDocumentArchivePlan({
+    const plan = this.buildRequirementArchivePlan({
       documents,
       teams,
       submissions,
@@ -1017,13 +1001,13 @@ export class RequirementArchiveService {
   }
 
   private createArchive(
-    documents: readonly MilestoneDocumentArchiveDocument[],
-    plan: MilestoneDocumentArchivePlan,
+    documents: readonly RequirementArchiveDocument[],
+    plan: RequirementArchivePlan,
     fileName: string,
     now: Date,
-  ): MilestoneDocumentArchive {
+  ): RequirementArchive {
     if (plan.storedBytes + plan.inlineBytes > MAX_ARCHIVE_BYTES) {
-      throw this.error(MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE);
+      throw this.error(RequirementsErrorCode.ARCHIVE_TOO_LARGE);
     }
 
     const zip = new ZipFile();
@@ -1044,13 +1028,13 @@ export class RequirementArchiveService {
 
     zip.addBuffer(
       Buffer.from(
-        this.milestoneDocumentArchiveManifestCsv({
+        this.requirementArchiveManifestCsv({
           documents,
           rows: plan.manifest,
         }),
         'utf8',
       ),
-      MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,
+      REQUIREMENT_ARCHIVE_MANIFEST_FILE_NAME,
       { mtime: now, compress: false },
     );
 
@@ -1084,10 +1068,7 @@ export class RequirementArchiveService {
 
               body.once('error', (error: unknown) => {
                 output.destroy(
-                  new MilestoneDocumentArchiveEntryError(
-                    entry.storageKey,
-                    error,
-                  ),
+                  new RequirementArchiveEntryError(entry.storageKey, error),
                 );
               });
               activeBody = body;
@@ -1099,7 +1080,7 @@ export class RequirementArchiveService {
 
             (error: unknown) =>
               openStream(
-                new MilestoneDocumentArchiveEntryError(entry.storageKey, error),
+                new RequirementArchiveEntryError(entry.storageKey, error),
                 undefined as never,
               ),
           );
@@ -1111,7 +1092,7 @@ export class RequirementArchiveService {
     (zip as unknown as ZipFileFinalSize).end(
       {
         forceZip64Format: needsZip64Eocd([
-          MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME,
+          REQUIREMENT_ARCHIVE_MANIFEST_FILE_NAME,
           ...plan.entries.map((entry) => entry.path),
         ]),
         comment: '',
@@ -1129,27 +1110,27 @@ export class RequirementArchiveService {
     };
   }
 
-  private error(code: MilestoneDocumentsErrorCode): DomainException {
-    return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
+  private error(code: RequirementsErrorCode): DomainException {
+    return new DomainException(REQUIREMENTS_ERROR_CODES[code]);
   }
 
-  buildMilestoneDocumentArchivePlan(
-    input: BuildMilestoneDocumentArchivePlanInput,
-  ): MilestoneDocumentArchivePlan {
+  buildRequirementArchivePlan(
+    input: BuildRequirementArchivePlanInput,
+  ): RequirementArchivePlan {
     const { documents, teams, submissions, layout } = input;
 
-    const cellIndex = new Map<string, MilestoneDocumentArchiveSubmission>();
+    const cellIndex = new Map<string, RequirementArchiveSubmission>();
     for (const submission of submissions) {
       cellIndex.set(
-        cellKey(submission.teamId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.requirementId),
         submission,
       );
     }
 
     const takenPaths = new Set<string>([
-      collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME),
+      collisionKey(REQUIREMENT_ARCHIVE_MANIFEST_FILE_NAME),
     ]);
-    const entries: MilestoneDocumentArchiveEntry[] = [];
+    const entries: RequirementArchiveEntry[] = [];
     let storedBytes = 0;
     let inlineBytes = 0;
 
@@ -1211,11 +1192,11 @@ export class RequirementArchiveService {
   }
 
   private archiveOmission(
-    submission: MilestoneDocumentArchiveSubmission,
-  ): MilestoneDocumentArchiveOmission | null {
+    submission: RequirementArchiveSubmission,
+  ): RequirementArchiveOmission | null {
     const contentUnavailable =
       submission.content !== null &&
-      this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
+      this.requirementCollectionService.readRequirementSubmittedContent(
         submission.content,
       ) === null;
     const fileUnavailable =
@@ -1228,11 +1209,11 @@ export class RequirementArchiveService {
   }
 
   private buildEntries(input: {
-    readonly team: MilestoneDocumentArchiveTeam;
-    readonly document: MilestoneDocumentArchiveDocument;
-    readonly submission: MilestoneDocumentArchiveSubmission;
-    readonly layout: MilestoneDocumentArchiveLayout;
-  }): readonly MilestoneDocumentArchiveEntry[] {
+    readonly team: RequirementArchiveTeam;
+    readonly document: RequirementArchiveDocument;
+    readonly submission: RequirementArchiveSubmission;
+    readonly layout: RequirementArchiveLayout;
+  }): readonly RequirementArchiveEntry[] {
     const { team, document, submission, layout } = input;
 
     const prefix =
@@ -1240,16 +1221,14 @@ export class RequirementArchiveService {
         ? ''
         : `${this.archiveFolderPath(layout === 'TEAM' ? team.teamName : document.name)}/`;
 
-    const entries: MilestoneDocumentArchiveEntry[] = [];
+    const entries: RequirementArchiveEntry[] = [];
     if (submission.file !== null) {
       const fileName =
-        this.milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(
-          {
-            teamName: team.teamName,
-            documentName: document.name,
-            originalFileName: submission.file.originalFileName,
-          },
-        );
+        this.requirementFileNameService.requirementDownloadFileName({
+          teamName: team.teamName,
+          documentName: document.name,
+          originalFileName: submission.file.originalFileName,
+        });
       entries.push({
         kind: 'STORED_FILE',
         path: `${prefix}${fileName}`,
@@ -1260,13 +1239,13 @@ export class RequirementArchiveService {
     }
 
     const content =
-      this.milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
+      this.requirementCollectionService.readRequirementSubmittedContent(
         submission.content,
       );
     if (content !== null) {
       entries.push({
         kind: 'INLINE_TEXT',
-        path: `${prefix}${this.milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName(
+        path: `${prefix}${this.requirementFileNameService.requirementTextEntryFileName(
           {
             teamName: team.teamName,
             documentName: document.name,
@@ -1281,12 +1260,10 @@ export class RequirementArchiveService {
 
   private archiveFolderPath(name: string): string {
     const folder =
-      this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        name,
-      );
+      this.requirementFileNameService.requirementArchiveFolderName(name);
 
     return collisionKey(folder) ===
-      collisionKey(MILESTONE_DOCUMENT_ARCHIVE_MANIFEST_FILE_NAME)
+      collisionKey(REQUIREMENT_ARCHIVE_MANIFEST_FILE_NAME)
       ? `${folder} (2)`
       : folder;
   }
@@ -1298,11 +1275,11 @@ export class RequirementArchiveService {
       month: '2-digit',
       day: '2-digit',
     }).format(dueAt);
-    return `${this.milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(name)}_${due}.zip`;
+    return `${this.requirementFileNameService.requirementArchiveFolderName(name)}_${due}.zip`;
   }
 
-  milestoneDocumentArchiveManifestCsv(
-    input: MilestoneDocumentArchiveManifestCsvInput,
+  requirementArchiveManifestCsv(
+    input: RequirementArchiveManifestCsvInput,
   ): string {
     const header = [
       '팀',

@@ -6,8 +6,8 @@ import {
   DomainException,
 } from '../platform/error-code.error';
 import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
 } from './submissions.error';
 import {
   ProgramEditorRepository,
@@ -51,7 +51,7 @@ export type UpsertMilestoneCommand = {
   readonly dueAt: string;
   readonly instructions?: string | null;
 };
-type EditMilestoneDocumentCommand = {
+type EditRequirementCommand = {
   readonly id: string | null;
   readonly name: string;
   readonly required: boolean;
@@ -62,7 +62,7 @@ export type EditMilestoneCommand = {
   readonly startAt: string;
   readonly dueAt: string;
   readonly instructions: string | null;
-  readonly documents: readonly EditMilestoneDocumentCommand[];
+  readonly documents: readonly EditRequirementCommand[];
   readonly expectedFingerprint: string;
 };
 export type MilestoneUpdateCommand =
@@ -498,8 +498,8 @@ export class ProgramEditorService {
       );
       if (locked.view.documents.length > 0 && input.documents.length === 0) {
         throw new DomainException(
-          MILESTONE_DOCUMENTS_ERROR_CODES[
-            MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED
+          REQUIREMENTS_ERROR_CODES[
+            RequirementsErrorCode.LAST_DOCUMENT_REQUIRED
           ],
         );
       }

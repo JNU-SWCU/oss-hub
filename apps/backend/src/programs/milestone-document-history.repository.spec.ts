@@ -1,6 +1,6 @@
 import { FileMetadataRepository } from './files.repository';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -8,7 +8,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { SubmissionHistoryEvent, Prisma, FileLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { InvalidMilestoneDocumentHistoryCursorError } from './submissions.error';
+import { InvalidRequirementHistoryCursorError } from './submissions.error';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
   const calls = mock.mock.calls as readonly (readonly unknown[])[];
@@ -21,7 +21,7 @@ const submissionRecord = (revision = 2, historyCount = revision) => ({
   _count: { histories: historyCount },
 });
 
-describe('MilestoneDocumentsRepository history page', () => {
+describe('RequirementsRepository history page', () => {
   it('reads at most limit+1 rows, returns chronological items, and exposes a cursor', async () => {
     const findUnique = jest.fn().mockResolvedValue(submissionRecord(3, 2));
     const newest = new Date('2026-09-03T00:00:00.000Z');
@@ -58,7 +58,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findUnique },
           submissionHistory: {
@@ -110,7 +110,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord()),
@@ -155,7 +155,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord()),
@@ -177,7 +177,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         'history-from-another-submission',
         20,
       ),
-    ).rejects.toBeInstanceOf(InvalidMilestoneDocumentHistoryCursorError);
+    ).rejects.toBeInstanceOf(InvalidRequirementHistoryCursorError);
     expect(findMany).not.toHaveBeenCalled();
   });
 
@@ -233,7 +233,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord()),
@@ -315,7 +315,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
@@ -392,7 +392,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
@@ -460,7 +460,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),

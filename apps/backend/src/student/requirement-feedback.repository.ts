@@ -31,7 +31,7 @@ const recentReviewSelect = {
 type RecentReviewRow = Prisma.SubmissionHistoryGetPayload<{
   select: typeof recentReviewSelect;
 }>;
-export interface RecentMilestoneDocumentReview {
+export interface RecentRequirementReview {
   readonly id: string;
   readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
@@ -45,7 +45,7 @@ export interface RecentMilestoneDocumentReview {
   readonly submissionStatus: SubmissionStatus;
 }
 @Injectable()
-export class MilestoneDocumentFeedbackRepository {
+export class RequirementFeedbackRepository {
   constructor(
     private readonly prisma: PrismaService,
     private readonly platformRepository: PlatformRepository,
@@ -53,7 +53,7 @@ export class MilestoneDocumentFeedbackRepository {
   async findRecentForParticipant(
     sessionGithubId: bigint,
     reviewedSince: Date,
-  ): Promise<readonly RecentMilestoneDocumentReview[]> {
+  ): Promise<readonly RecentRequirementReview[]> {
     const user = await this.prisma.user.findUnique({
       where: { githubId: sessionGithubId },
       select: { id: true },
@@ -83,7 +83,7 @@ export class MilestoneDocumentFeedbackRepository {
     return rows.map(toRecentReview);
   }
 }
-function toRecentReview(row: RecentReviewRow): RecentMilestoneDocumentReview {
+function toRecentReview(row: RecentReviewRow): RecentRequirementReview {
   const document = row.submission.requirement;
   return {
     id: row.id,

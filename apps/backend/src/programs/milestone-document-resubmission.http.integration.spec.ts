@@ -1,7 +1,7 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsErrorCode } from './submissions.error';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
 import type { SubmissionReviewDecision } from './submissions.repository';
@@ -10,7 +10,7 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
+const fixture = new RequirementFlowFixture();
 const reviewsPath = () =>
   `${fixture.documentPath()}/teams/${flowIds.team}/reviews`;
 
@@ -138,7 +138,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
 
     expect(response.status).toBe(422);
     expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+      code: RequirementsErrorCode.RESUBMISSION_ALREADY_USED,
     });
     const submission = await fixture.prisma.submission.findFirstOrThrow({
       where: { requirementId: flowIds.document },
@@ -176,7 +176,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     expect(stale.status).toBe(409);
     const staleBody: unknown = await stale.json();
     expect(staleBody).toMatchObject({
-      code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
+      code: RequirementsErrorCode.REVIEW_TARGET_CHANGED,
     });
   });
 
@@ -214,7 +214,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
       expect(response.status).toBe(409);
       const body: unknown = await response.json();
       expect(body).toMatchObject({
-        code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED,
+        code: RequirementsErrorCode.RESUBMISSION_NOT_ALLOWED,
       });
     },
   );
@@ -227,7 +227,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     expect(response.status).toBe(422);
     const body: unknown = await response.json();
     expect(body).toMatchObject({
-      code: MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
+      code: RequirementsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
     });
   });
 

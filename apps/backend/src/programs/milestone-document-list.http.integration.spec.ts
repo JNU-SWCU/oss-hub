@@ -11,16 +11,16 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import {
   RequirementArchiveService,
-  MilestoneDocumentCollectionService,
+  RequirementCollectionService,
 } from './requirement-archive.service';
 import {
-  MilestoneDocumentFilesService,
+  RequirementFilesService,
   SubmissionFileAdmissionService,
-  MilestoneDocumentFileNameService,
-  MilestoneDocumentSubmissionWindowService,
+  RequirementFileNameService,
+  SubmissionWindowService,
 } from './files.service';
 import { RequirementsController } from './requirements.controller';
-import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementReviewsService } from './submissions.service';
 import { RequirementsRepository } from './requirements.repository';
 import { RequirementsService } from './requirements.service';
 import { AuthSessionService } from '../platform/auth-session.service';
@@ -70,23 +70,23 @@ describe('authenticated milestone document list filename contract', () => {
       controllers: [RequirementsController],
       providers: [
         ...STATELESS_PROVIDERS,
-        { provide: MilestoneDocumentCollectionService, useValue: {} },
+        { provide: RequirementCollectionService, useValue: {} },
         RequirementsRepository,
         RequirementsService,
-        MilestoneDocumentFileNameService,
-        MilestoneDocumentSubmissionWindowService,
+        RequirementFileNameService,
+        SubmissionWindowService,
         ProgramScheduleService,
         SubmissionFileAdmissionService,
         AuthSessionService,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         {
-          provide: MilestoneDocumentFilesService,
+          provide: RequirementFilesService,
           useValue: Object.assign(
-            Object.create(MilestoneDocumentFilesService.prototype) as object,
+            Object.create(RequirementFilesService.prototype) as object,
             { downloadResponseService: new DownloadResponseService() },
           ),
         },
-        { provide: MilestoneDocumentReviewsService, useValue: {} },
+        { provide: RequirementReviewsService, useValue: {} },
         {
           provide: RequirementArchiveService,
           useValue: Object.assign(

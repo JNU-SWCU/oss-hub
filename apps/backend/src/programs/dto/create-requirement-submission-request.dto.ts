@@ -10,7 +10,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 
-export class MilestoneDocumentSubmissionContentRequestDto {
+export class SubmissionContentRequestDto {
   @IsOptional()
   @IsString()
   @MaxLength(128)
@@ -22,7 +22,7 @@ export class MilestoneDocumentSubmissionContentRequestDto {
   declare readonly text?: string;
 }
 
-export class CreateMilestoneDocumentSubmissionRequestDto {
+export class CreateRequirementSubmissionRequestDto {
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -36,6 +36,6 @@ export class CreateMilestoneDocumentSubmissionRequestDto {
   @ValidateNested()
   @IsDefined()
   @IsObject()
-  @Type(() => MilestoneDocumentSubmissionContentRequestDto)
-  declare readonly content: MilestoneDocumentSubmissionContentRequestDto;
+  @Type(() => SubmissionContentRequestDto)
+  declare readonly content: SubmissionContentRequestDto;
 }

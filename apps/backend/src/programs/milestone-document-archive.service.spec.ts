@@ -1,6 +1,6 @@
-import { MilestoneDocumentFileNameService } from './files.service';
+import { RequirementFileNameService } from './files.service';
 import {
-  MilestoneDocumentCollectionService,
+  RequirementCollectionService,
   RequirementArchiveService,
 } from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
@@ -8,8 +8,8 @@ import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
 import {
-  MilestoneDocumentsErrorCode,
-  MilestoneDocumentArchiveEntryError,
+  RequirementsErrorCode,
+  RequirementArchiveEntryError,
 } from './submissions.error';
 import type { RequirementsRepository } from './requirements.repository';
 
@@ -114,7 +114,7 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
     findSubmissionsForArchive: jest.fn().mockResolvedValue([
       {
         teamId: 'app-a',
-        milestoneDocumentId: 'doc-plan',
+        requirementId: 'doc-plan',
         submittedAt,
         status: SubmissionStatus.APPROVED,
         content: null,
@@ -126,7 +126,7 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
       },
       {
         teamId: 'app-a',
-        milestoneDocumentId: 'doc-summary',
+        requirementId: 'doc-summary',
         submittedAt,
         status: SubmissionStatus.SUBMITTED,
         content: { type: 'TEXT', text: '이번 달에 한 일' },
@@ -134,7 +134,7 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
       },
       {
         teamId: 'app-b',
-        milestoneDocumentId: 'doc-plan',
+        requirementId: 'doc-plan',
         submittedAt,
         status: SubmissionStatus.SUBMITTED,
         content: null,
@@ -210,7 +210,7 @@ function manyTeams(teams: number): Record<string, jest.Mock> {
     findSubmissionsForArchive: jest.fn().mockResolvedValue(
       applications.map((application) => ({
         teamId: application.teamId,
-        milestoneDocumentId: 'doc-plan',
+        requirementId: 'doc-plan',
         submittedAt,
         status: SubmissionStatus.SUBMITTED,
         content: null,
@@ -243,8 +243,8 @@ function buildService(
         findProgram: jest.fn(),
         findApprovedTeams: jest.fn(),
       },
-      new MilestoneDocumentCollectionService({} as never),
-      new MilestoneDocumentFileNameService(),
+      new RequirementCollectionService({} as never),
+      new RequirementFileNameService(),
       new DownloadResponseService(),
     ),
     repositoryMocks,
@@ -253,7 +253,7 @@ function buildService(
   };
 }
 
-describe('MilestoneDocumentArchiveService', () => {
+describe('RequirementArchiveService', () => {
   it('마일스톤이 없으면 404로 막는다', async () => {
     const { service } = buildService({
       findMilestone: jest.fn().mockResolvedValue(null),
@@ -266,7 +266,7 @@ describe('MilestoneDocumentArchiveService', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_NOT_FOUND },
     });
   });
 
@@ -474,7 +474,7 @@ describe('MilestoneDocumentArchiveService', () => {
           now,
         ),
       ).rejects.toMatchObject({
-        errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+        errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
       });
 
       expect(storageMocks.get).not.toHaveBeenCalled();
@@ -552,7 +552,7 @@ describe('MilestoneDocumentArchiveService', () => {
       findSubmissionsForArchive: jest.fn().mockResolvedValue([
         {
           teamId: 'app-a',
-          milestoneDocumentId: 'doc-plan',
+          requirementId: 'doc-plan',
           submittedAt,
           status: SubmissionStatus.SUBMITTED,
           content: null,
@@ -572,7 +572,7 @@ describe('MilestoneDocumentArchiveService', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE },
+      errorCode: { code: RequirementsErrorCode.ARCHIVE_TOO_LARGE },
     });
 
     expect(storageMocks.get).not.toHaveBeenCalled();
@@ -583,7 +583,7 @@ describe('MilestoneDocumentArchiveService', () => {
       findSubmissionsForArchive: jest.fn().mockResolvedValue([
         {
           teamId: 'app-a',
-          milestoneDocumentId: 'doc-plan',
+          requirementId: 'doc-plan',
           submittedAt,
           status: SubmissionStatus.SUBMITTED,
           content: null,
@@ -613,7 +613,7 @@ describe('MilestoneDocumentArchiveService', () => {
       findSubmissionsForArchive: jest.fn().mockResolvedValue([
         {
           teamId: 'app-a',
-          milestoneDocumentId: 'doc-plan',
+          requirementId: 'doc-plan',
           submittedAt,
           status: SubmissionStatus.SUBMITTED,
           content: null,
@@ -771,8 +771,8 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const failure = await archiveFailure(archive.body);
 
-    expect(failure).toBeInstanceOf(MilestoneDocumentArchiveEntryError);
-    expect((failure as MilestoneDocumentArchiveEntryError).storageKey).toBe(
+    expect(failure).toBeInstanceOf(RequirementArchiveEntryError);
+    expect((failure as RequirementArchiveEntryError).storageKey).toBe(
       'objects/plan',
     );
 
@@ -794,7 +794,7 @@ describe('MilestoneDocumentArchiveService', () => {
     const failure = await archiveFailure(archive.body);
 
     const failureText = `${(failure as Error).message} ${
-      (failure as MilestoneDocumentArchiveEntryError).storageKey
+      (failure as RequirementArchiveEntryError).storageKey
     }`;
     expect(failureText).not.toContain('코드나무');
     expect(failureText).not.toContain('최종_진짜최종.pdf');
@@ -831,8 +831,8 @@ describe('MilestoneDocumentArchiveService', () => {
 
     const failure = await archiveFailure(archive.body);
 
-    expect(failure).toBeInstanceOf(MilestoneDocumentArchiveEntryError);
-    expect((failure as MilestoneDocumentArchiveEntryError).storageKey).toBe(
+    expect(failure).toBeInstanceOf(RequirementArchiveEntryError);
+    expect((failure as RequirementArchiveEntryError).storageKey).toBe(
       'objects/plan',
     );
     expect((failure as Error).message).toBe('storage connection reset');

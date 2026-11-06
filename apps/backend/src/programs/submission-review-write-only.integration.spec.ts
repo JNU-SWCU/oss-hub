@@ -4,11 +4,11 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
   RequirementsRepository,
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
 } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
 
@@ -16,9 +16,9 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
+const fixture = new RequirementFlowFixture();
 const platform = new PlatformRepository();
-const collection = new MilestoneDocumentCollectionReadRepository(
+const collection = new RequirementCollectionReadRepository(
   fixture.prisma,
   new FileMetadataRepository(),
 );

@@ -8,8 +8,8 @@ import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { AccountStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
 } from './submissions.error';
 import {
   PROGRAM_ERROR_CODES,
@@ -156,9 +156,7 @@ describe('ProgramEditorService authority', () => {
       service.updateMilestoneEdit(101n, 'milestone-1', requestFor(locked)),
     ).rejects.toMatchObject<Partial<DomainException>>({
       errorCode:
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED
-        ],
+        REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.LAST_DOCUMENT_REQUIRED],
     });
     expect(store.lockAttachableUploads.mock.calls).toHaveLength(0);
     expect(store.applyMilestoneEdit.mock.calls).toHaveLength(0);

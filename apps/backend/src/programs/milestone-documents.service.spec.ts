@@ -1,20 +1,20 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import {
-  type MilestoneDocumentCollectionQuery,
-  MilestoneDocumentCollectionService,
+  type RequirementCollectionQuery,
+  RequirementCollectionService,
 } from './requirement-archive.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { SubmissionWindowService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   SubmissionsRepository,
   type SubmissionReviewDecision,
 } from './submissions.repository';
-import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
-import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
-import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
-import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
+import { RequirementCollectionResponseDto } from './dto/requirement-collection-response.dto';
+import { RequirementHistoryPageResponseDto } from './dto/requirement-history-page-response.dto';
+import { RequirementResponseDto } from './dto/requirement-response.dto';
+import { SubmissionResponseDto } from './dto/submission-response.dto';
 import {
   SubmissionHistoryEvent,
   Prisma,
@@ -22,12 +22,12 @@ import {
 } from '@prisma/client';
 import {
   SubmissionMembershipChangedError,
-  MilestoneDocumentsErrorCode,
-  MilestoneDocumentDeadlineClosedError,
-  MilestoneDocumentMissingError,
-  MilestoneDocumentPendingFileMissingError,
-  MilestoneDocumentReviewChangedError,
-  MilestoneDocumentSubmissionChangedError,
+  RequirementsErrorCode,
+  RequirementDeadlineClosedError,
+  RequirementMissingError,
+  RequirementPendingFileMissingError,
+  RequirementReviewChangedError,
+  SubmissionChangedError,
 } from './submissions.error';
 import { RequirementsRepository } from './requirements.repository';
 import { RequirementsService } from './requirements.service';
@@ -51,8 +51,8 @@ function baseDocument(overrides: Partial<Record<string, unknown>> = {}) {
 }
 
 function collectionQuery(
-  overrides: Partial<MilestoneDocumentCollectionQuery> = {},
-): MilestoneDocumentCollectionQuery {
+  overrides: Partial<RequirementCollectionQuery> = {},
+): RequirementCollectionQuery {
   return { page: 1, pageSize: 20, filter: 'ALL', ...overrides };
 }
 
@@ -198,7 +198,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   };
 }
 
-describe('MilestoneDocumentsService.listByMilestone', () => {
+describe('RequirementsService.listByMilestone', () => {
   it('milestoneId로 리포지토리를 조회해 그대로 반환한다', async () => {
     const documents = [baseDocument()];
     const findByMilestoneId = jest.fn().mockResolvedValue(documents);
@@ -207,10 +207,8 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
     } as unknown as RequirementsRepository;
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -226,7 +224,7 @@ describe('MilestoneDocumentsService.listByMilestone', () => {
   });
 });
 
-describe('MilestoneDocumentsService.listForViewer', () => {
+describe('RequirementsService.listForViewer', () => {
   it.each([
     { hasStaffAccess: false, hasAdminAccess: false },
     { hasStaffAccess: false, hasAdminAccess: true },
@@ -257,7 +255,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
         }),
         findSubmittedSummaries: jest.fn().mockResolvedValue([
           {
-            milestoneDocumentId: syntheticDocumentId,
+            requirementId: syntheticDocumentId,
             submittedAt: new Date('2026-09-16T00:00:00Z'),
             revision: 2,
             status: SubmissionStatus.APPROVED,
@@ -270,10 +268,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       });
       const result = await new RequirementsService(
         repository,
-        new MilestoneDocumentSubmissionWindowService(
-          new ProgramScheduleService(),
-        ),
-        new MilestoneDocumentCollectionService({} as never),
+        new SubmissionWindowService(new ProgramScheduleService()),
+        new RequirementCollectionService({} as never),
         new ProgramScheduleService(),
         new SubmissionsRepository(
           new PlatformRepository(),
@@ -304,10 +300,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -319,7 +313,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     await expect(
       service.listForViewer(1n, syntheticMilestoneId),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_NOT_FOUND },
     });
   });
 
@@ -347,10 +341,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -362,7 +354,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
       .then((records) =>
-        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+        records.map((result) => RequirementResponseDto.from(result)),
       );
 
     expect(result).toEqual([
@@ -407,7 +399,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           submittedAt,
           revision: 2,
           status: SubmissionStatus.SUBMITTED,
@@ -420,10 +412,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -435,7 +425,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
       .then((records) =>
-        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+        records.map((result) => RequirementResponseDto.from(result)),
       );
 
     expect(result).toEqual([
@@ -480,7 +470,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           revision: 1,
           status: SubmissionStatus.SUBMITTED,
@@ -494,10 +484,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
 
     const result = await new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -540,7 +528,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           submittedAt,
           revision: 1,
           status: SubmissionStatus.CHANGES_REQUESTED,
@@ -557,10 +545,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -572,7 +558,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
       .then((records) =>
-        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+        records.map((result) => RequirementResponseDto.from(result)),
       );
 
     expect(result[0]?.viewerSubmission).toEqual({
@@ -612,10 +598,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -627,7 +611,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
       .then((records) =>
-        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+        records.map((result) => RequirementResponseDto.from(result)),
       );
 
     expect(result).toEqual([
@@ -643,10 +627,8 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -658,7 +640,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
     const result = await service
       .listForViewer(1n, syntheticMilestoneId)
       .then((records) =>
-        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+        records.map((result) => RequirementResponseDto.from(result)),
       );
 
     expect(result).toEqual([
@@ -669,7 +651,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
   });
 });
 
-describe('MilestoneDocumentsService CRUD (교직원)', () => {
+describe('RequirementsService CRUD (교직원)', () => {
   it('createDocument는 마일스톤을 잠근 뒤 추가하고 sortOrder를 그대로 넘긴다', async () => {
     const created = baseDocument({ id: 'cuid-synthetic-document-new' });
     const { mocks, transactionCalls, repository } = buildRepository({
@@ -677,10 +659,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -710,10 +690,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -729,7 +707,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         sortOrder: 2,
       }),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_NOT_FOUND },
     });
   });
 
@@ -742,10 +720,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -761,7 +737,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         sortOrder: 1,
       }),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(mocks.updateDocument).not.toHaveBeenCalled();
   });
@@ -772,10 +748,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -791,7 +765,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
         sortOrder: 1,
       }),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(transactionCalls).toEqual(['lockDocument']);
     expect(mocks.updateDocument).not.toHaveBeenCalled();
@@ -803,10 +777,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -836,10 +808,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -874,10 +844,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -918,10 +886,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -933,7 +899,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     await expect(
       service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_HAS_SUBMISSIONS },
     });
     expect(mocks.deleteDocument).not.toHaveBeenCalled();
   });
@@ -942,10 +908,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     const { mocks, repository } = buildRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -958,7 +922,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
       service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED,
+        code: RequirementsErrorCode.LAST_DOCUMENT_REQUIRED,
       },
     });
     expect(mocks.countSubmissionsForDocument).not.toHaveBeenCalled();
@@ -975,10 +939,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1011,10 +973,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1026,7 +986,7 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     await expect(
       service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(mocks.deleteDocument).not.toHaveBeenCalled();
   });
@@ -1037,10 +997,8 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1052,14 +1010,14 @@ describe('MilestoneDocumentsService CRUD (교직원)', () => {
     await expect(
       service.deleteDocument(syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(mocks.lockDocument).not.toHaveBeenCalled();
     expect(mocks.deleteDocument).not.toHaveBeenCalled();
   });
 });
 
-describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
+describe('RequirementsService.reorderDocuments (교직원)', () => {
   const secondDocumentId = 'cuid-synthetic-document-2';
   const thirdDocumentId = 'cuid-synthetic-document-3';
 
@@ -1094,10 +1052,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1109,7 +1065,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     await expect(
       service.reorderDocuments(syntheticMilestoneId, [syntheticDocumentId]),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_NOT_FOUND },
     });
     expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
@@ -1133,10 +1089,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1166,10 +1120,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     );
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1196,10 +1148,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1211,7 +1161,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     await expect(
       service.reorderDocuments(syntheticMilestoneId, lockedIds),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
+      errorCode: { code: RequirementsErrorCode.INVALID_REQUEST },
     });
     expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
@@ -1224,10 +1174,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1239,7 +1187,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     await expect(
       service.reorderDocuments(syntheticMilestoneId, lockedIds),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
+      errorCode: { code: RequirementsErrorCode.INVALID_REQUEST },
     });
     expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
@@ -1248,10 +1196,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     const { mocks, repository } = reorderRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1266,7 +1212,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
         syntheticDocumentId,
       ]),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
+      errorCode: { code: RequirementsErrorCode.INVALID_REQUEST },
     });
     expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
@@ -1275,10 +1221,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     const { mocks, repository } = reorderRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1294,7 +1238,7 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
         secondDocumentId,
       ]),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
+      errorCode: { code: RequirementsErrorCode.INVALID_REQUEST },
     });
     expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
@@ -1303,10 +1247,8 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
     const { mocks, repository } = reorderRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1322,23 +1264,21 @@ describe('MilestoneDocumentsService.reorderDocuments (교직원)', () => {
         'cuid-synthetic-document-other-milestone',
       ]),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_REQUEST },
+      errorCode: { code: RequirementsErrorCode.INVALID_REQUEST },
     });
     expect(mocks.applyDocumentOrder).not.toHaveBeenCalled();
   });
 });
 
-describe('MilestoneDocumentsService.submit (학생)', () => {
+describe('RequirementsService.submit (학생)', () => {
   const now = new Date('2026-09-16T14:22:00.000Z');
 
   it('학생 유형이 아니면 STUDENT_ONLY로 거부한다', async () => {
     const { mocks, repository } = buildRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1356,7 +1296,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.STUDENT_ONLY },
+      errorCode: { code: RequirementsErrorCode.STUDENT_ONLY },
     });
     expect(mocks.findActiveStudentByGithubId).toHaveBeenCalledWith(1n);
     expect(mocks.findStudentApplication).not.toHaveBeenCalled();
@@ -1375,10 +1315,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1396,7 +1334,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         new Date('2026-09-19T09:00:00.001Z'),
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_CLOSED },
     });
     expect(mocks.upsertSubmission).not.toHaveBeenCalled();
   });
@@ -1417,10 +1355,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1439,7 +1375,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
+        code: RequirementsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
       },
     });
     expect(mocks.upsertSubmission).not.toHaveBeenCalled();
@@ -1457,14 +1393,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       }),
       upsertSubmission: jest
         .fn()
-        .mockRejectedValue(new MilestoneDocumentDeadlineClosedError()),
+        .mockRejectedValue(new RequirementDeadlineClosedError()),
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1482,7 +1416,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_CLOSED },
     });
   });
 
@@ -1506,10 +1440,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1526,10 +1458,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         { text: '본문', fileId: null },
         now,
       )
-      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
+      .then((result) => SubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
@@ -1561,10 +1493,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1582,7 +1512,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+      errorCode: { code: RequirementsErrorCode.NOT_APPLICATION_MEMBER },
     });
     expect(mocks.findStudentApplication).toHaveBeenCalledWith(
       syntheticUserId,
@@ -1612,10 +1542,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1634,7 +1562,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+        code: RequirementsErrorCode.APPLICATION_APPROVAL_REQUIRED,
       },
     });
   });
@@ -1667,10 +1595,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1687,10 +1613,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         { text: '본문', fileId: null },
         now,
       )
-      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
+      .then((result) => SubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
@@ -1742,10 +1668,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1762,10 +1686,10 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         { text: null, fileId: 'cuid-synthetic-file' },
         now,
       )
-      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
+      .then((result) => SubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticApplicationId,
       submittedById: syntheticUserId,
       submittedAt: now,
@@ -1807,10 +1731,8 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1827,7 +1749,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         { text: '설명', fileId: 'cuid-synthetic-file' },
         now,
       )
-      .then((result) => MilestoneDocumentSubmissionResponseDto.from(result));
+      .then((result) => SubmissionResponseDto.from(result));
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -1861,14 +1783,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       }),
       upsertSubmission: jest
         .fn()
-        .mockRejectedValue(new MilestoneDocumentPendingFileMissingError()),
+        .mockRejectedValue(new RequirementPendingFileMissingError()),
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1886,7 +1806,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.PENDING_FILE_NOT_FOUND },
     });
   });
 
@@ -1910,14 +1830,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       }),
       upsertSubmission: jest
         .fn()
-        .mockRejectedValue(new MilestoneDocumentMissingError()),
+        .mockRejectedValue(new RequirementMissingError()),
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -1935,12 +1853,12 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
   });
 });
 
-describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
+describe('RequirementsService.submit — 판정 뒤 재제출', () => {
   const now = new Date('2026-09-16T14:22:00.000Z');
 
   function resubmitRepository(
@@ -1991,10 +1909,8 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2004,7 +1920,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
+      errorCode: { code: RequirementsErrorCode.RESUBMISSION_NOT_ALLOWED },
     });
     expect(mocks.upsertSubmission).not.toHaveBeenCalled();
   });
@@ -2016,10 +1932,8 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2029,7 +1943,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED },
+      errorCode: { code: RequirementsErrorCode.RESUBMISSION_NOT_ALLOWED },
     });
     expect(mocks.upsertSubmission).not.toHaveBeenCalled();
   });
@@ -2041,10 +1955,8 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2066,10 +1978,8 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     const { mocks, repository } = resubmitRepository(null);
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2089,10 +1999,8 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     const { mocks, repository } = resubmitRepository(null);
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2115,13 +2023,11 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       repository as unknown as { upsertSubmission: jest.Mock }
     ).upsertSubmission = jest
       .fn()
-      .mockRejectedValue(new MilestoneDocumentReviewChangedError());
+      .mockRejectedValue(new RequirementReviewChangedError());
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2131,7 +2037,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.REVIEW_CHANGED },
+      errorCode: { code: RequirementsErrorCode.REVIEW_CHANGED },
     });
   });
 
@@ -2145,10 +2051,8 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     );
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2158,7 +2062,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     );
 
     await expect(resubmit(service)).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+      errorCode: { code: RequirementsErrorCode.NOT_APPLICATION_MEMBER },
     });
   });
 
@@ -2169,10 +2073,8 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2192,7 +2094,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   });
 });
 
-describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제출 (#1097)', () => {
+describe('RequirementsService.submit — 마감 뒤 보완 요청 재제출 (#1097)', () => {
   const dueAt = new Date('2026-09-19T09:00:00.000Z');
   const beforeDeadline = new Date('2026-09-19T08:59:59.999Z');
   const afterDeadline = new Date('2026-09-19T09:00:00.001Z');
@@ -2250,10 +2152,8 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2283,10 +2183,8 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2297,7 +2195,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
 
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+        code: RequirementsErrorCode.RESUBMISSION_ALREADY_USED,
       },
     });
     expect(mocks.upsertSubmission).not.toHaveBeenCalled();
@@ -2309,10 +2207,8 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     );
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2338,15 +2234,11 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
     const { mocks, repository } = changeRequestedRepository(
       SubmissionStatus.CHANGES_REQUESTED,
     );
-    mocks.upsertSubmission.mockRejectedValue(
-      new MilestoneDocumentSubmissionChangedError(),
-    );
+    mocks.upsertSubmission.mockRejectedValue(new SubmissionChangedError());
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2357,13 +2249,13 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
 
     await expect(submitAt(service, afterDeadline)).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+        code: RequirementsErrorCode.RESUBMISSION_ALREADY_USED,
       },
     });
   });
 });
 
-describe('MilestoneDocumentsService.collectForStaff', () => {
+describe('RequirementsService.collectForStaff', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
   const secondDocumentId = 'cuid-synthetic-document-2';
   const secondApplicationId = 'cuid-synthetic-application-2';
@@ -2405,10 +2297,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2420,7 +2310,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     await expect(
       service.collectForStaff(syntheticMilestoneId, collectionQuery(), now),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_NOT_FOUND },
     });
   });
 
@@ -2428,10 +2318,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2442,7 +2330,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.milestone).toEqual({
       id: syntheticMilestoneId,
@@ -2472,10 +2360,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { mocks, repository } = collectionRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2486,7 +2372,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledWith(
       syntheticProgramId,
@@ -2506,10 +2392,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2520,7 +2404,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     for (const row of result.rows) {
       expect(row.cells).toEqual([
@@ -2553,7 +2437,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           revision: 1,
@@ -2563,7 +2447,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           review: null,
         },
         {
-          milestoneDocumentId: secondDocumentId,
+          requirementId: secondDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
 
@@ -2577,10 +2461,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2591,7 +2473,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells).toEqual([
       {
@@ -2629,7 +2511,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { mocks, repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
@@ -2641,10 +2523,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2655,7 +2535,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(mocks.findSubmissionsForCollection).toHaveBeenCalledWith(
       [syntheticDocumentId, secondDocumentId],
@@ -2678,7 +2558,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: secondDocumentId,
+          requirementId: secondDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
@@ -2690,10 +2570,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2704,7 +2582,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[1]?.content).toEqual({
       type: 'TEXT',
@@ -2716,7 +2594,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: secondDocumentId,
+          requirementId: secondDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-17T10:00:00.000Z'),
           status: SubmissionStatus.SUBMITTED,
@@ -2728,10 +2606,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2742,7 +2618,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[1]?.isSubmitted).toBe(true);
     expect(result.rows[0]?.cells[1]?.content).toBeNull();
@@ -2753,7 +2629,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-19T08:00:00.000Z'),
           revision: 2,
@@ -2771,10 +2647,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2785,7 +2659,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[0]).toEqual({
       documentId: syntheticDocumentId,
@@ -2809,7 +2683,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { repository } = collectionRepository({
       findSubmissionsForCollection: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.APPROVED,
@@ -2823,7 +2697,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           },
         },
         {
-          milestoneDocumentId: secondDocumentId,
+          requirementId: secondDocumentId,
           teamId: syntheticApplicationId,
           submittedAt: new Date('2026-09-16T14:22:00.000Z'),
           status: SubmissionStatus.REJECTED,
@@ -2840,10 +2714,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2854,7 +2726,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells.map((cell) => cell.status)).toEqual([
       SubmissionStatus.APPROVED,
@@ -2866,10 +2738,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     const { mocks, repository } = collectionRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2880,7 +2750,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(mocks.findByMilestoneId).toHaveBeenCalledTimes(1);
     expect(mocks.findApprovedApplicationsForCollection).toHaveBeenCalledTimes(
@@ -2895,7 +2765,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   it('좌표를 읽은 뒤 제출이 들어와도 같은 snapshot의 count·행·cell을 함께 반환한다', async () => {
     const oldCoordinates: readonly {
       teamId: string;
-      milestoneDocumentId: string;
+      requirementId: string;
     }[] = [];
     const snapshotStore = {
       findMilestone: jest.fn().mockResolvedValue({
@@ -2918,7 +2788,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         .mockImplementation(() => {
           outsideSubmissionQuery.mockResolvedValue([
             {
-              milestoneDocumentId: syntheticDocumentId,
+              requirementId: syntheticDocumentId,
               teamId: syntheticApplicationId,
             },
           ]);
@@ -2937,10 +2807,8 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
     } as unknown as RequirementsRepository;
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -2951,7 +2819,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.total).toBe(1);
     expect(result.documentTotals).toEqual([
@@ -2967,7 +2835,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
   });
 });
 
-describe('MilestoneDocumentsService.historyForParticipant', () => {
+describe('RequirementsService.historyForParticipant', () => {
   const query = { cursor: null, limit: 20 };
 
   it('승인된 참여자에게 자기 이력을 주되 교직원 이름은 가린다', async () => {
@@ -3021,10 +2889,8 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3040,7 +2906,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         syntheticDocumentId,
         query,
       )
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
 
     expect(result.nextCursor).toBe('history-cursor');
     expect(result.isComplete).toBe(false);
@@ -3097,10 +2963,8 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3116,7 +2980,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         syntheticDocumentId,
         query,
       )
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
 
     expect(result.items.map((item) => item.revision)).toEqual([1]);
     expect(result.isComplete).toBe(true);
@@ -3153,7 +3017,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
       }),
       findSubmittedSummaries: jest.fn().mockResolvedValue([
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           submittedAt,
           revision: 1,
           status: SubmissionStatus.SUBMITTED,
@@ -3181,10 +3045,8 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3196,7 +3058,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     const list = await service
       .listForViewer(8_100_002n, syntheticMilestoneId)
       .then((records) =>
-        records.map((result) => MilestoneDocumentResponseDto.from(result)),
+        records.map((result) => RequirementResponseDto.from(result)),
       );
     const history = await service
       .historyForParticipant(
@@ -3205,7 +3067,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         syntheticDocumentId,
         query,
       )
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
 
     expect(list[0]?.viewerSubmission?.history).toEqual({
       hasHistory: true,
@@ -3243,10 +3105,8 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3263,13 +3123,13 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         query,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(mocks.findStudentApplication).not.toHaveBeenCalled();
   });
 });
 
-describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필터·집계', () => {
+describe('RequirementsService.collectForStaff — 페이지네이션·필터·집계', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
   const requiredDocumentId = syntheticDocumentId;
   const optionalDocumentId = 'cuid-synthetic-document-2';
@@ -3281,11 +3141,11 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
   function submission(
     teamId: string,
-    milestoneDocumentId: string,
+    requirementId: string,
     status: SubmissionStatus = SubmissionStatus.SUBMITTED,
   ) {
     return {
-      milestoneDocumentId,
+      requirementId,
       teamId,
       submittedAt,
       status,
@@ -3337,19 +3197,19 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
       findSubmissionCoordinatesForCollection: jest.fn().mockResolvedValue([
         {
           teamId: bothApplicationId,
-          milestoneDocumentId: requiredDocumentId,
+          requirementId: requiredDocumentId,
         },
         {
           teamId: bothApplicationId,
-          milestoneDocumentId: optionalDocumentId,
+          requirementId: optionalDocumentId,
         },
         {
           teamId: requiredOnlyApplicationId,
-          milestoneDocumentId: requiredDocumentId,
+          requirementId: requiredDocumentId,
         },
         {
           teamId: optionalOnlyApplicationId,
-          milestoneDocumentId: optionalDocumentId,
+          requirementId: optionalDocumentId,
         },
       ]),
       findSubmissionsForCollection: jest
@@ -3368,10 +3228,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3382,7 +3240,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.page).toBe(1);
     expect(result.pageSize).toBe(20);
@@ -3394,10 +3252,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3412,14 +3268,14 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ pageSize: 2 }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
     const second = await service
       .collectForStaff(
         syntheticMilestoneId,
         collectionQuery({ page: 2, pageSize: 2 }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(first.rows.map((row) => row.teamName)).toEqual([
       '가나다팀',
@@ -3442,10 +3298,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3460,7 +3314,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ page: 9, pageSize: 2 }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(4);
@@ -3470,10 +3324,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3488,7 +3340,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'HAS_MISSING' }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows.map((row) => row.teamName)).toEqual([
       '사아자팀',
@@ -3501,10 +3353,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3519,7 +3369,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION' }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows.map((row) => row.teamName)).toEqual(['차카타팀']);
     expect(result.total).toBe(1);
@@ -3533,10 +3383,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3551,7 +3399,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION' }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows).toEqual([]);
     expect(result.total).toBe(0);
@@ -3569,10 +3417,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3587,7 +3433,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'HAS_MISSING' }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.rows).toEqual([]);
     expect(result.filterCounts.hasMissing).toBe(0);
@@ -3598,10 +3444,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3616,7 +3460,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.filterCounts).toEqual({
       all: 4,
@@ -3646,10 +3490,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     });
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3660,7 +3502,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
 
     const result = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(result.filterCounts).toEqual({
       all: 4,
@@ -3678,7 +3520,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'HAS_MISSING' }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
     expect(hasMissing.rows.map((row) => row.teamName)).toEqual([
       '사아자팀',
       '차카타팀',
@@ -3690,7 +3532,7 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION' }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
     expect(zeroSubmission.rows.map((row) => row.teamName)).toEqual([
       '차카타팀',
     ]);
@@ -3700,10 +3542,8 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
     const { repository } = filterRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3718,10 +3558,10 @@ describe('MilestoneDocumentsService.collectForStaff — 페이지네이션·필�
         collectionQuery({ filter: 'ZERO_SUBMISSION', pageSize: 1 }),
         now,
       )
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
     const all = await service
       .collectForStaff(syntheticMilestoneId, collectionQuery(), now)
-      .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
+      .then((result) => RequirementCollectionResponseDto.from(result));
 
     expect(filtered.documentTotals).toEqual([
       { documentId: requiredDocumentId, submitted: 2, total: 4 },
@@ -3750,10 +3590,8 @@ describe('document grace configuration', () => {
       });
       const service = new RequirementsService(
         repository,
-        new MilestoneDocumentSubmissionWindowService(
-          new ProgramScheduleService(),
-        ),
-        new MilestoneDocumentCollectionService({} as never),
+        new SubmissionWindowService(new ProgramScheduleService()),
+        new RequirementCollectionService({} as never),
         new ProgramScheduleService(),
         new SubmissionsRepository(
           new PlatformRepository(),
@@ -3769,7 +3607,7 @@ describe('document grace configuration', () => {
       if (accepted) await expect(update).resolves.toBeUndefined();
       else {
         await expect(update).rejects.toMatchObject({
-          errorCode: { code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT },
+          errorCode: { code: RequirementsErrorCode.INVALID_GRACE_DUE_AT },
         });
         expect(mocks.updateGraceDueAt).not.toHaveBeenCalled();
       }
@@ -3782,10 +3620,8 @@ describe('document grace configuration', () => {
       const { repository, mocks } = buildRepository();
       const service = new RequirementsService(
         repository,
-        new MilestoneDocumentSubmissionWindowService(
-          new ProgramScheduleService(),
-        ),
-        new MilestoneDocumentCollectionService({} as never),
+        new SubmissionWindowService(new ProgramScheduleService()),
+        new RequirementCollectionService({} as never),
         new ProgramScheduleService(),
         new SubmissionsRepository(
           new PlatformRepository(),
@@ -3812,10 +3648,8 @@ describe('document grace configuration', () => {
     const { repository, mocks } = buildRepository();
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -3830,7 +3664,7 @@ describe('document grace configuration', () => {
         graceDueAt,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT },
+      errorCode: { code: RequirementsErrorCode.INVALID_GRACE_DUE_AT },
     });
     expect(mocks.updateGraceDueAt).not.toHaveBeenCalled();
   });

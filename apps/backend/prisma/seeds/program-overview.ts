@@ -57,20 +57,20 @@ async function upsertMilestone(
       }),
   );
 }
-type MilestoneDocumentSeed = {
+type RequirementSeed = {
   readonly id: string;
   readonly milestoneId: string;
   readonly name: string;
   readonly required: boolean;
   readonly sortOrder: number;
 };
-async function upsertMilestoneDocument(
+async function upsertRequirement(
   stats: SeedStats,
-  params: MilestoneDocumentSeed,
+  params: RequirementSeed,
 ): Promise<void> {
   await upsertTracked(
     stats,
-    'MilestoneDocument',
+    'Requirement',
     () => prisma.requirement.findUnique({ where: { id: params.id } }),
     () =>
       prisma.requirement.upsert({
@@ -90,11 +90,11 @@ async function upsertMilestoneDocument(
       }),
   );
 }
-async function upsertMilestoneDocumentTemplateFile(
+async function upsertRequirementTemplateFile(
   stats: SeedStats,
   params: {
     readonly id: string;
-    readonly milestoneDocumentId: string;
+    readonly requirementId: string;
     readonly originalFileName: string;
     readonly mimeType: string;
     readonly uploadedById: string;
@@ -103,7 +103,7 @@ async function upsertMilestoneDocumentTemplateFile(
   const storageKey = `program-overview/${params.id}`;
   await upsertTracked(
     stats,
-    'MilestoneDocumentTemplateFile',
+    'RequirementTemplateFile',
     () =>
       prisma.file.findUnique({ where: { kind: 'TEMPLATE', id: params.id } }),
     async () =>
@@ -118,7 +118,7 @@ async function upsertMilestoneDocumentTemplateFile(
           kind: 'TEMPLATE',
           lifecycle: 'ATTACHED',
           id: params.id,
-          requirementId: params.milestoneDocumentId,
+          requirementId: params.requirementId,
           storageKey: storageKey,
           originalFileName: params.originalFileName,
           mimeType: params.mimeType,
@@ -129,11 +129,11 @@ async function upsertMilestoneDocumentTemplateFile(
       }),
   );
 }
-async function upsertMilestoneDocumentSubmission(
+async function upsertSubmission(
   stats: SeedStats,
   params: {
     readonly id: string;
-    readonly milestoneDocumentId: string;
+    readonly requirementId: string;
     readonly milestoneId: string;
     readonly submittedById: string;
     readonly originalFileName: string;
@@ -142,7 +142,7 @@ async function upsertMilestoneDocumentSubmission(
   const submittedAt = offsetDays(-2);
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmission',
+    'Submission',
     () =>
       prisma.submission.findUnique({
         where: { id: params.id },
@@ -153,7 +153,7 @@ async function upsertMilestoneDocumentSubmission(
         update: { submittedAt },
         create: {
           id: params.id,
-          requirementId: params.milestoneDocumentId,
+          requirementId: params.requirementId,
           teamId: APPLICATION_ID,
           status: SubmissionStatus.SUBMITTED,
           submittedById: params.submittedById,
@@ -499,52 +499,52 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
   const m3Doc1 = seedId('program-overview', 'milestone-document', 'm3-d1');
   const m3Doc2 = seedId('program-overview', 'milestone-document', 'm3-d2');
   const m3Doc3 = seedId('program-overview', 'milestone-document', 'm3-d3');
-  await upsertMilestoneDocument(stats, {
+  await upsertRequirement(stats, {
     id: m3Doc1,
     milestoneId: milestoneIds.m3,
     name: '개인정보 수집·이용 동의서',
     required: true,
     sortOrder: 1,
   });
-  await upsertMilestoneDocument(stats, {
+  await upsertRequirement(stats, {
     id: m3Doc2,
     milestoneId: milestoneIds.m3,
     name: '프로젝트 계획서',
     required: true,
     sortOrder: 2,
   });
-  await upsertMilestoneDocument(stats, {
+  await upsertRequirement(stats, {
     id: m3Doc3,
     milestoneId: milestoneIds.m3,
     name: '팀 구성 확인서',
     required: false,
     sortOrder: 3,
   });
-  await upsertMilestoneDocumentTemplateFile(stats, {
+  await upsertRequirementTemplateFile(stats, {
     id: seedId('program-overview', 'milestone-document-template', 'm3-d1'),
-    milestoneDocumentId: m3Doc1,
+    requirementId: m3Doc1,
     originalFileName: 'consent-form-v1.pdf',
     mimeType: 'application/pdf',
     uploadedById: staff.id,
   });
-  await upsertMilestoneDocumentTemplateFile(stats, {
+  await upsertRequirementTemplateFile(stats, {
     id: seedId('program-overview', 'milestone-document-template', 'm3-d2'),
-    milestoneDocumentId: m3Doc2,
+    requirementId: m3Doc2,
     originalFileName: 'project-plan-template-v1.docx',
     mimeType:
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     uploadedById: staff.id,
   });
-  await upsertMilestoneDocumentSubmission(stats, {
+  await upsertSubmission(stats, {
     id: seedId('program-overview', 'milestone-document-submission', 'm3-d1'),
-    milestoneDocumentId: m3Doc1,
+    requirementId: m3Doc1,
     milestoneId: milestoneIds.m3,
     submittedById: leader.id,
     originalFileName: 'consent-form-signed.pdf',
   });
-  await upsertMilestoneDocumentSubmission(stats, {
+  await upsertSubmission(stats, {
     id: seedId('program-overview', 'milestone-document-submission', 'm3-d2'),
-    milestoneDocumentId: m3Doc2,
+    requirementId: m3Doc2,
     milestoneId: milestoneIds.m3,
     submittedById: member.id,
     originalFileName: 'project-plan-draft.pdf',
@@ -552,30 +552,30 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
   const m4Doc1 = seedId('program-overview', 'milestone-document', 'm4-d1');
   const m4Doc2 = seedId('program-overview', 'milestone-document', 'm4-d2');
   const m4Doc3 = seedId('program-overview', 'milestone-document', 'm4-d3');
-  await upsertMilestoneDocument(stats, {
+  await upsertRequirement(stats, {
     id: m4Doc1,
     milestoneId: milestoneIds.m4,
     name: '중간 산출물 보고서',
     required: true,
     sortOrder: 1,
   });
-  await upsertMilestoneDocument(stats, {
+  await upsertRequirement(stats, {
     id: m4Doc2,
     milestoneId: milestoneIds.m4,
     name: '발표자료',
     required: true,
     sortOrder: 2,
   });
-  await upsertMilestoneDocument(stats, {
+  await upsertRequirement(stats, {
     id: m4Doc3,
     milestoneId: milestoneIds.m4,
     name: '시연 영상 링크',
     required: false,
     sortOrder: 3,
   });
-  await upsertMilestoneDocumentTemplateFile(stats, {
+  await upsertRequirementTemplateFile(stats, {
     id: seedId('program-overview', 'milestone-document-template', 'm4-d1'),
-    milestoneDocumentId: m4Doc1,
+    requirementId: m4Doc1,
     originalFileName: 'interim-report-template-v2.pdf',
     mimeType: 'application/pdf',
     uploadedById: staff.id,

@@ -78,7 +78,7 @@ it('deletes a template attached after the program purge snapshot', async () => {
       ACTOR,
       [
         {
-          milestoneDocumentId: requirement.id,
+          requirementId: requirement.id,
           upload: { ...upload, unexpired: true },
         },
       ],

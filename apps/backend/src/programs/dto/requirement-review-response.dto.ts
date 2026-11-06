@@ -1,14 +1,12 @@
-import type { CreatedMilestoneDocumentReview } from '../requirements.repository';
+import type { CreatedRequirementReview } from '../requirements.repository';
 import type { SubmissionReviewDecision } from '../submissions.repository';
-export class MilestoneDocumentReviewResponseDto {
+export class RequirementReviewResponseDto {
   declare readonly id: string;
   declare readonly decision: SubmissionReviewDecision;
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
   declare readonly reviewerNickname: string;
-  static from(
-    review: CreatedMilestoneDocumentReview,
-  ): MilestoneDocumentReviewResponseDto {
+  static from(review: CreatedRequirementReview): RequirementReviewResponseDto {
     return {
       id: review.id,
       decision: review.decision,

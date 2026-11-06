@@ -23,8 +23,8 @@ import {
   SubmissionRevisionInvariantError,
   SUBMISSION_REVIEWS_ERROR_CODES,
   SubmissionReviewsErrorCode,
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
 } from './submissions.error';
 import {
   ReviewContextRow,
@@ -49,8 +49,8 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { SubmissionFileAdmissionService } from './files.service';
 import {
-  type CreateMilestoneDocumentReviewInput,
-  type CreatedMilestoneDocumentReview,
+  type CreateRequirementReviewInput,
+  type CreatedRequirementReview,
   RequirementsRepository,
 } from './requirements.repository';
 @Injectable()
@@ -98,13 +98,13 @@ export class MilestoneCompletionService {
       readonly status: SubmissionStatus;
     }[],
     documentSubmissions: readonly {
-      readonly milestoneDocumentId: string;
+      readonly requirementId: string;
       readonly status: SubmissionStatus;
     }[],
   ): boolean {
     const statusByDocument = new Map(
       documentSubmissions.map((submission) => [
-        submission.milestoneDocumentId,
+        submission.requirementId,
         submission.status,
       ]),
     );
@@ -128,12 +128,12 @@ export class MilestoneCompletionService {
       status: SubmissionStatus;
     }[] = [];
     const documentSubmissions: {
-      milestoneDocumentId: string;
+      requirementId: string;
       status: SubmissionStatus;
     }[] = [];
     for (const targetRow of targetRows) {
       documentSubmissions.push({
-        milestoneDocumentId: targetRow.requirement.id,
+        requirementId: targetRow.requirement.id,
         status: targetRow.status,
       });
     }
@@ -358,7 +358,7 @@ export class SubmissionsService {
       const nextStatus = decisionStatus(input.decision);
       const review = await store.createReview({
         submissionHistoryId: target.revision.id,
-        milestoneDocumentSubmissionId: target.id,
+        submissionId: target.id,
         revision: input.revision,
         reviewerId,
         decision: input.decision,
@@ -534,17 +534,17 @@ function submissionReviewDecision(event: string): SubmissionReviewDecision {
     return event;
   throw new TypeError('Expected a submission review event');
 }
-export interface MilestoneDocumentReviewRequest {
+export interface RequirementReviewRequest {
   readonly decision: SubmissionReviewDecision;
   readonly comment?: string;
   readonly expectedRevision: number;
   readonly expectedLatestReviewId: string | null;
 }
 @Injectable()
-export class MilestoneDocumentReviewsService {
+export class RequirementReviewsService {
   constructor(
     private readonly repository: RequirementsRepository,
-    private readonly milestoneDocumentSubmissionRepository: SubmissionsRepository,
+    private readonly submissionRepository: SubmissionsRepository,
   ) {}
   reviewDecisionToSubmissionStatus(
     decision: SubmissionReviewDecision,
@@ -559,8 +559,8 @@ export class MilestoneDocumentReviewsService {
     }
   }
   reviewInputFromRequest(
-    request: MilestoneDocumentReviewRequest,
-  ): CreateMilestoneDocumentReviewInput {
+    request: RequirementReviewRequest,
+  ): CreateRequirementReviewInput {
     return {
       decision: request.decision,
       comment: request.comment?.trim() || null,
@@ -573,8 +573,8 @@ export class MilestoneDocumentReviewsService {
     milestoneId: string,
     documentId: string,
     teamId: string,
-    request: MilestoneDocumentReviewRequest,
-  ): ReturnType<MilestoneDocumentReviewsService['review']> {
+    request: RequirementReviewRequest,
+  ): ReturnType<RequirementReviewsService['review']> {
     return this.review(
       reviewerId,
       milestoneId,
@@ -588,57 +588,56 @@ export class MilestoneDocumentReviewsService {
     milestoneId: string,
     documentId: string,
     teamId: string,
-    input: CreateMilestoneDocumentReviewInput,
+    input: CreateRequirementReviewInput,
     now: () => Date = () => new Date(),
-  ): Promise<CreatedMilestoneDocumentReview> {
+  ): Promise<CreatedRequirementReview> {
     const documentContext =
       await this.repository.findDocumentContext(documentId);
     if (
       documentContext === null ||
       documentContext.milestoneId !== milestoneId
     ) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
     }
     const applicationProgramId =
       await this.repository.findApplicationProgramId(teamId);
     if (applicationProgramId !== documentContext.programId) {
-      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.SUBMISSION_NOT_FOUND);
     }
     const created = await this.repository.withTransaction(async (store) => {
       if (!(await store.lockProgramForReview(documentContext.programId))) {
-        throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+        throw this.error(RequirementsErrorCode.PROGRAM_NOT_FOUND);
       }
       const locked = await store.lockDocument(documentId);
       if (locked === null || locked.milestoneId !== milestoneId) {
-        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+        throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
       }
       const submission = await store.findSubmissionForReview(
         documentId,
         teamId,
       );
       if (submission === null) {
-        throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+        throw this.error(RequirementsErrorCode.SUBMISSION_NOT_FOUND);
       }
 
       if (await store.isApplicationParticipant(teamId, reviewerId)) {
-        throw this.error(MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN);
+        throw this.error(RequirementsErrorCode.SELF_REVIEW_FORBIDDEN);
       }
       if (submission.revision !== input.expectedRevision) {
-        throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
+        throw this.error(RequirementsErrorCode.REVIEW_TARGET_CHANGED);
       }
       const latestReviewId = await store.findLatestReviewIdForSubmission(
         submission.id,
       );
       if (latestReviewId !== input.expectedLatestReviewId) {
-        throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
+        throw this.error(RequirementsErrorCode.REVIEW_TARGET_CHANGED);
       }
-      const reviewedAt =
-        this.milestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
-          now(),
-          submission.latestHistoryCreatedAt,
-        );
+      const reviewedAt = this.submissionRepository.nextHistoryCreatedAt(
+        now(),
+        submission.latestHistoryCreatedAt,
+      );
       const review = await store.createReview({
-        milestoneDocumentSubmissionId: submission.id,
+        submissionId: submission.id,
         submissionHistoryId: submission.submissionHistoryId,
         revision: submission.revision,
         reviewerId,
@@ -654,7 +653,7 @@ export class MilestoneDocumentReviewsService {
     });
     return created;
   }
-  private error(code: MilestoneDocumentsErrorCode): DomainException {
-    return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
+  private error(code: RequirementsErrorCode): DomainException {
+    return new DomainException(REQUIREMENTS_ERROR_CODES[code]);
   }
 }

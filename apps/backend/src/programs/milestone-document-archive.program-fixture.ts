@@ -1,6 +1,6 @@
-import { MilestoneDocumentFileNameService } from './files.service';
+import { RequirementFileNameService } from './files.service';
 import {
-  MilestoneDocumentCollectionService,
+  RequirementCollectionService,
   RequirementArchiveService,
 } from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
@@ -10,7 +10,7 @@ import type { ObjectStoragePort } from '../platform/object-storage.types';
 import {
   type RequirementsRepository,
   type ArchiveProgram,
-  type MilestoneDocumentArchiveSubmission,
+  type RequirementArchiveSubmission,
 } from './requirements.repository';
 
 export const now = new Date('2026-09-03T00:00:00Z');
@@ -32,17 +32,17 @@ export const teams = ['가팀', '나팀'].map((teamName, index) => ({
 }));
 export function submission(
   teamId: string,
-  milestoneDocumentId: string,
+  requirementId: string,
   status: SubmissionStatus = SubmissionStatus.SUBMITTED,
-): MilestoneDocumentArchiveSubmission {
+): RequirementArchiveSubmission {
   return {
     teamId,
-    milestoneDocumentId,
+    requirementId,
     status,
     submittedAt: now,
     content: {
       type: 'TEXT',
-      text: `${teamId}-${milestoneDocumentId} 최신 글`,
+      text: `${teamId}-${requirementId} 최신 글`,
     },
     hasCurrentFileEvidence: false,
     file: null,
@@ -85,8 +85,8 @@ export function fixture() {
       repository as unknown as RequirementsRepository,
       storage,
       programs,
-      new MilestoneDocumentCollectionService({} as never),
-      new MilestoneDocumentFileNameService(),
+      new RequirementCollectionService({} as never),
+      new RequirementFileNameService(),
       new DownloadResponseService(),
     ),
   };

@@ -188,14 +188,14 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
       prisma.teamMember.count({ where: { teamId: { startsWith: 'seed:' } } }),
   ],
   [
-    'MilestoneDocumentSubmission',
+    'Submission',
     () =>
       prisma.submission.count({
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
   [
-    'MilestoneDocumentSubmissionHistory',
+    'SubmissionHistory',
     () =>
       prisma.submissionHistory.count({
         where: { id: { startsWith: 'seed:' } },
@@ -232,21 +232,21 @@ const SEEDED_MODEL_COUNTERS: ReadonlyArray<
       }),
   ],
   [
-    'MilestoneDocument',
+    'Requirement',
     () =>
       prisma.requirement.count({
         where: { id: { startsWith: 'seed:' } },
       }),
   ],
   [
-    'MilestoneDocumentTemplateFile',
+    'RequirementTemplateFile',
     () =>
       prisma.file.count({
         where: { kind: 'TEMPLATE', id: { startsWith: 'seed:' } },
       }),
   ],
   [
-    'MilestoneDocumentSubmission',
+    'Submission',
     () =>
       prisma.submission.count({
         where: { id: { startsWith: 'seed:' } },
@@ -871,7 +871,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       teamMembers,
       applications,
       milestones,
-      milestoneDocuments,
+      requirements,
       documentSubmissions,
       submissionHistories,
       submissionFiles,
@@ -933,9 +933,9 @@ describe('seed profile=demo 계약 (integration)', () => {
       TeamMember: teamMembers,
       Application: applications,
       Milestone: milestones,
-      MilestoneDocument: milestoneDocuments,
-      MilestoneDocumentSubmission: documentSubmissions,
-      MilestoneDocumentSubmissionHistory: submissionHistories,
+      Requirement: requirements,
+      Submission: documentSubmissions,
+      SubmissionHistory: submissionHistories,
       SubmissionFile: submissionFiles,
       BoardPost: boardPosts,
       BoardComment: boardComments,
@@ -999,9 +999,7 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(countsAfterFirstRun.Team).toBeGreaterThanOrEqual(6);
       expect(countsAfterFirstRun.Application).toBeGreaterThanOrEqual(6);
       expect(countsAfterFirstRun.Milestone).toBeGreaterThan(0);
-      expect(
-        countsAfterFirstRun.MilestoneDocumentSubmission,
-      ).toBeGreaterThanOrEqual(9);
+      expect(countsAfterFirstRun.Submission).toBeGreaterThanOrEqual(9);
       expect(countsAfterFirstRun.SubmissionFile).toBeGreaterThan(0);
       const reviewEvents = await prisma.submissionHistory.count({
         where: {
@@ -1263,12 +1261,8 @@ describe('seed profile=demo 계약 (integration)', () => {
       expect(countsBeforeTeardown.User).toBeGreaterThan(0);
       expect(countsBeforeTeardown.Program).toBeGreaterThan(0);
       expect(countsBeforeTeardown.Team).toBeGreaterThan(0);
-      expect(countsBeforeTeardown.MilestoneDocumentSubmission).toBeGreaterThan(
-        0,
-      );
-      expect(
-        countsBeforeTeardown.MilestoneDocumentSubmissionHistory,
-      ).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.Submission).toBeGreaterThan(0);
+      expect(countsBeforeTeardown.SubmissionHistory).toBeGreaterThan(0);
       await runTeardown('demo', new SeedStats());
       const countsAfterTeardown = await countDemoSeeded();
       for (const count of Object.values(countsAfterTeardown)) {

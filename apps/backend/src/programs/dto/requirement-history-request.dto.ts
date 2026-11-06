@@ -8,7 +8,7 @@ import {
   Min,
 } from 'class-validator';
 
-export class MilestoneDocumentHistoryRequestDto {
+export class RequirementHistoryRequestDto {
   @IsOptional()
   @IsString()
   @MaxLength(64)

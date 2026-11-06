@@ -28,7 +28,7 @@ const overviewView = {
     myDocumentsCompleted: null,
     myDocumentsTotal: null,
     fullySubmittedParticipantCount: null,
-    milestoneDocuments: [],
+    requirements: [],
   },
 };
 

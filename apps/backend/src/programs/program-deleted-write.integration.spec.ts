@@ -16,7 +16,7 @@ import {
 } from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { MilestoneDocumentArchiveRepository } from './requirements.repository';
+import { RequirementArchiveRepository } from './requirements.repository';
 import { SubmissionReviewsRepository } from './submissions.repository';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -300,7 +300,7 @@ describe.each([ProgramLifecycle.PUBLISHED, ProgramLifecycle.DELETED])(
       }
     });
     it('resolves the program before a bulk document change request', async () => {
-      const programs = new MilestoneDocumentArchiveRepository(prisma);
+      const programs = new RequirementArchiveRepository(prisma);
       const found = await programs.findProgram(programId);
       if (lifecycle === ProgramLifecycle.DELETED) expect(found).toBeNull();
       else

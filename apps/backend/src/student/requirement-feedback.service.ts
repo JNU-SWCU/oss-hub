@@ -1,10 +1,10 @@
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  MilestoneDocumentFeedbackRepository,
-  type RecentMilestoneDocumentReview,
-} from './milestone-document-feedback.repository';
+  RequirementFeedbackRepository,
+  type RecentRequirementReview,
+} from './requirement-feedback.repository';
 import type { SubmissionReviewDecision } from '../programs/submissions.repository';
-interface MilestoneDocumentFeedbackItemResult {
+interface RequirementFeedbackItemResult {
   readonly id: string;
   readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
@@ -15,13 +15,11 @@ interface MilestoneDocumentFeedbackItemResult {
   readonly milestoneName: string;
   readonly itemName: string;
 }
-export interface MilestoneDocumentFeedbackResult {
-  readonly items: readonly MilestoneDocumentFeedbackItemResult[];
+export interface RequirementFeedbackResult {
+  readonly items: readonly RequirementFeedbackItemResult[];
 }
-export const MILESTONE_DOCUMENT_FEEDBACK_CLOCK = Symbol(
-  'MILESTONE_DOCUMENT_FEEDBACK_CLOCK',
-);
-export type MilestoneDocumentFeedbackClock = () => Date;
+export const REQUIREMENT_FEEDBACK_CLOCK = Symbol('REQUIREMENT_FEEDBACK_CLOCK');
+export type RequirementFeedbackClock = () => Date;
 const FEEDBACK_WINDOW_DAYS = 7;
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -30,19 +28,19 @@ function feedbackWindowStart(now: Date): Date {
   return new Date((seoulDay - FEEDBACK_WINDOW_DAYS) * DAY_MS - SEOUL_OFFSET_MS);
 }
 @Injectable()
-export class MilestoneDocumentFeedbackService {
+export class RequirementFeedbackService {
   constructor(
-    @Inject(MilestoneDocumentFeedbackRepository)
+    @Inject(RequirementFeedbackRepository)
     private readonly repository: Pick<
-      MilestoneDocumentFeedbackRepository,
+      RequirementFeedbackRepository,
       'findRecentForParticipant'
     >,
-    @Inject(MILESTONE_DOCUMENT_FEEDBACK_CLOCK)
-    private readonly clock: MilestoneDocumentFeedbackClock,
+    @Inject(REQUIREMENT_FEEDBACK_CLOCK)
+    private readonly clock: RequirementFeedbackClock,
   ) {}
   async recentForParticipant(
     sessionGithubId: bigint,
-  ): Promise<MilestoneDocumentFeedbackResult> {
+  ): Promise<RequirementFeedbackResult> {
     const reviews = await this.repository.findRecentForParticipant(
       sessionGithubId,
       feedbackWindowStart(this.clock()),
@@ -50,8 +48,8 @@ export class MilestoneDocumentFeedbackService {
     return { items: reviews.map((review) => this.toFeedbackItem(review)) };
   }
   private toFeedbackItem(
-    review: RecentMilestoneDocumentReview,
-  ): MilestoneDocumentFeedbackItemResult {
+    review: RecentRequirementReview,
+  ): RequirementFeedbackItemResult {
     return {
       id: review.id,
       decision: review.decision,

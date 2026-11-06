@@ -5,14 +5,14 @@ import { Readable } from 'node:stream';
 import { buffer } from 'node:stream/consumers';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import {
-  type CurrentMilestoneDocumentFile,
-  type MilestoneDocumentCurrentFileReader,
+  type CurrentRequirementFile,
+  type RequirementCurrentFileReader,
 } from './requirements.repository';
-import { MilestoneDocumentCurrentFileService } from './requirement-archive.service';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementCurrentFileService } from './requirement-archive.service';
+import { RequirementsErrorCode } from './submissions.error';
 
 describe('milestone-document-current-file.service', () => {
-  const CURRENT_FILE: CurrentMilestoneDocumentFile = {
+  const CURRENT_FILE: CurrentRequirementFile = {
     storageKey: 'objects/current',
     originalFileName: 'current.pdf',
     mimeType: 'application/pdf',
@@ -31,8 +31,8 @@ describe('milestone-document-current-file.service', () => {
   }
 
   function buildReader(
-    file: CurrentMilestoneDocumentFile | null,
-  ): MilestoneDocumentCurrentFileReader {
+    file: CurrentRequirementFile | null,
+  ): RequirementCurrentFileReader {
     return { findForParticipant: jest.fn().mockResolvedValue(file) };
   }
 
@@ -42,7 +42,7 @@ describe('milestone-document-current-file.service', () => {
       .digest('hex');
   }
 
-  describe('MilestoneDocumentCurrentFileService', () => {
+  describe('RequirementCurrentFileService', () => {
     it.each([
       'cross-team',
       'unauthorized-private-file',
@@ -59,7 +59,7 @@ describe('milestone-document-current-file.service', () => {
         Promise.resolve(Readable.from(Buffer.from('unused'))),
       );
       const storage = buildStorage(get);
-      const service = new MilestoneDocumentCurrentFileService(
+      const service = new RequirementCurrentFileService(
         buildReader(null),
         storage,
         new SubmissionFileAdmissionService(),
@@ -70,7 +70,7 @@ describe('milestone-document-current-file.service', () => {
         service.download(34_290_000n, 'milestone-hidden', 'document-hidden'),
       ).rejects.toMatchObject({
         errorCode: {
-          code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+          code: RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND,
           status: 404,
         },
       });
@@ -79,7 +79,7 @@ describe('milestone-document-current-file.service', () => {
 
     it('현재 첨부가 교체되면 다음 다운로드는 새 bytes만 돌려준다', async () => {
       let current = CURRENT_FILE;
-      const reader: MilestoneDocumentCurrentFileReader = {
+      const reader: RequirementCurrentFileReader = {
         findForParticipant: jest.fn(() => Promise.resolve(current)),
       };
       const bytesByKey = new Map([
@@ -89,7 +89,7 @@ describe('milestone-document-current-file.service', () => {
       const get = jest.fn((key: string) =>
         Promise.resolve(Readable.from(bytesByKey.get(key) ?? Buffer.alloc(0))),
       );
-      const service = new MilestoneDocumentCurrentFileService(
+      const service = new RequirementCurrentFileService(
         reader,
         buildStorage(get),
         new SubmissionFileAdmissionService(),
@@ -124,7 +124,7 @@ describe('milestone-document-current-file.service', () => {
     });
 
     it('저장된 이름을 다시 위생 처리하고 내려주기 타입은 확장자로 고른다', async () => {
-      const service = new MilestoneDocumentCurrentFileService(
+      const service = new RequirementCurrentFileService(
         buildReader({
           ...CURRENT_FILE,
           originalFileName: '../../current.pdf',
@@ -149,7 +149,7 @@ describe('milestone-document-current-file.service', () => {
     });
 
     it('스토리지 오류 원문을 노출하지 않고 MSD_012로 감싼다', async () => {
-      const service = new MilestoneDocumentCurrentFileService(
+      const service = new RequirementCurrentFileService(
         buildReader(CURRENT_FILE),
         buildStorage(() => Promise.reject(new Error('synthetic raw error'))),
         new SubmissionFileAdmissionService(),
@@ -160,7 +160,7 @@ describe('milestone-document-current-file.service', () => {
         service.download(34_290_000n, 'milestone-current', 'document-current'),
       ).rejects.toMatchObject({
         errorCode: {
-          code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE,
+          code: RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE,
         },
       });
     });

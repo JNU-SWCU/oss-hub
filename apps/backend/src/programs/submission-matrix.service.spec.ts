@@ -1,5 +1,5 @@
 import { MilestoneCompletionService } from './submissions.service';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -28,7 +28,7 @@ interface FakeFixtures {
   readonly submissions?: readonly MatrixSubmissionRecord[];
   readonly firstSubmissions?: readonly {
     readonly teamId: string;
-    readonly milestoneDocumentId: string;
+    readonly requirementId: string;
     readonly firstSubmittedAt: Date;
   }[];
   readonly changeRequests?: readonly MatrixDocumentChangeRequest[];
@@ -96,7 +96,7 @@ describe('SubmissionMatrixService', () => {
     const repository = new FakeSubmissionMatrixRepository();
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentCollectionService({} as never),
+      new RequirementCollectionService({} as never),
       new MilestoneCompletionService(),
     );
 
@@ -143,7 +143,7 @@ describe('SubmissionMatrixService', () => {
       submissions: [
         {
           id: 'submission-1',
-          milestoneDocumentId: 'required-1',
+          requirementId: 'required-1',
           teamId: 'application-personal',
           milestoneId: 'milestone-1',
           status: SubmissionStatus.CHANGES_REQUESTED,
@@ -154,7 +154,7 @@ describe('SubmissionMatrixService', () => {
       firstSubmissions: [
         {
           teamId: 'application-personal',
-          milestoneDocumentId: 'required-1',
+          requirementId: 'required-1',
           firstSubmittedAt: new Date('2026-08-18T01:00:00Z'),
         },
       ],
@@ -165,7 +165,7 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentCollectionService({} as never),
+      new RequirementCollectionService({} as never),
       new MilestoneCompletionService(),
     );
 
@@ -259,7 +259,7 @@ describe('SubmissionMatrixService', () => {
     });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentCollectionService({} as never),
+      new RequirementCollectionService({} as never),
       new MilestoneCompletionService(),
     );
 
@@ -276,7 +276,7 @@ describe('SubmissionMatrixService', () => {
     const repository = new FakeSubmissionMatrixRepository({ total: 42 });
     const service = new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentCollectionService({} as never),
+      new RequirementCollectionService({} as never),
       new MilestoneCompletionService(),
     );
 

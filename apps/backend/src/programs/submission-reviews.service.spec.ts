@@ -156,7 +156,7 @@ describe('SubmissionReviewsService.review', () => {
         [
           {
             submissionHistoryId: 'revision-2',
-            milestoneDocumentSubmissionId: 'submission-1',
+            submissionId: 'submission-1',
             revision: 2,
             reviewerId: 'reviewer-1',
             decision,

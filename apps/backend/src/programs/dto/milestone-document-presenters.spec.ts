@@ -1,10 +1,10 @@
-import { MilestoneDocumentFeedbackResponseDto } from '../../student/dto/milestone-document-feedback-response.dto';
-import { MilestoneDocumentHistoryPageResponseDto } from './milestone-document-history-page-response.dto';
-import { MilestoneDocumentResponseDto } from './milestone-document-response.dto';
-import { type MilestoneDocumentViewerResult } from '../requirements.service';
+import { RequirementFeedbackResponseDto } from '../../student/dto/requirement-feedback-response.dto';
+import { RequirementHistoryPageResponseDto } from './requirement-history-page-response.dto';
+import { RequirementResponseDto } from './requirement-response.dto';
+import { type RequirementViewerResult } from '../requirements.service';
 const when = new Date('2026-10-20T01:02:03.123Z');
 it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 양식 ID는 노출하지 않는다', () => {
-  const result: MilestoneDocumentViewerResult = {
+  const result: RequirementViewerResult = {
     id: 'document',
     milestoneId: 'milestone',
     name: '보고서',
@@ -27,7 +27,7 @@ it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 �
       history: { hasHistory: true, isComplete: false },
     },
   };
-  expect(MilestoneDocumentResponseDto.from(result)).toEqual({
+  expect(RequirementResponseDto.from(result)).toEqual({
     id: 'document',
     milestoneId: 'milestone',
     name: '보고서',
@@ -54,7 +54,7 @@ it('겸직자의 제출 상태와 운영 집계를 함께 보존하고 내부 �
     },
   });
   expect(result.viewerSubmission?.submittedAt).toBe(when);
-  const absent = MilestoneDocumentResponseDto.from({
+  const absent = RequirementResponseDto.from({
     ...result,
     viewerSubmission: undefined,
     teamSubmissionCount: undefined,
@@ -75,7 +75,7 @@ it('학생 이력의 이미 가려진 검토자와 null 이력을 보존하고 �
     content: null,
   };
   expect(
-    MilestoneDocumentHistoryPageResponseDto.from({
+    RequirementHistoryPageResponseDto.from({
       items: [item, { ...item, downloadableFileId: null }],
       nextCursor: 'opaque-cursor',
       isComplete: false,
@@ -108,7 +108,7 @@ it('학생 이력의 이미 가려진 검토자와 null 이력을 보존하고 �
   });
 });
 it('피드백의 마감 null과 기존 URL 인코딩을 보존한다', () => {
-  const result = MilestoneDocumentFeedbackResponseDto.from({
+  const result = RequirementFeedbackResponseDto.from({
     items: [
       {
         id: 'review',

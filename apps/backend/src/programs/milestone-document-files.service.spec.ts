@@ -1,24 +1,24 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
-  MilestoneDocumentSubmissionWindowService,
-  MilestoneDocumentFileNameService,
+  SubmissionWindowService,
+  RequirementFileNameService,
   SubmissionFileAdmissionService,
   type FilesService,
-  MilestoneDocumentFilesService,
+  RequirementFilesService,
 } from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { Readable } from 'node:stream';
 import {
   RequirementsRepository,
-  type MilestoneDocumentWriteStore,
+  type RequirementWriteStore,
 } from './requirements.repository';
 import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
   SubmissionMembershipChangedError,
 } from './submissions.error';
-import { MilestoneDocumentFileUpload } from './files.config';
+import { RequirementFileUpload } from './files.config';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import {
   SubmissionFileQuotaExceededError,
@@ -102,7 +102,7 @@ const syntheticApplicationId = 'cuid-synthetic-application';
 const syntheticProgramId = 'cuid-synthetic-program';
 const syntheticUserId = 'cuid-synthetic-user';
 
-const pdfFile: MilestoneDocumentFileUpload = {
+const pdfFile: RequirementFileUpload = {
   buffer: Buffer.concat([Buffer.from('%PDF-'), Buffer.from('synthetic body')]),
   originalname: '계획서.pdf',
   mimetype: 'application/pdf',
@@ -166,13 +166,11 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     }),
   };
   const withTransaction = jest.fn(
-    async (
-      operation: (store: MilestoneDocumentWriteStore) => Promise<unknown>,
-    ) =>
+    async (operation: (store: RequirementWriteStore) => Promise<unknown>) =>
       operation({
         lockDocument: baseMocks.lockDocument,
         upsertTemplateFile: baseMocks.upsertTemplateFile,
-      } as unknown as MilestoneDocumentWriteStore),
+      } as unknown as RequirementWriteStore),
   );
   const mocks = { ...baseMocks, withTransaction, ...overrides };
   return {
@@ -215,16 +213,14 @@ function buildStorage(overrides: Partial<Record<string, jest.Mock>> = {}) {
   return { mocks, storage: mocks as unknown as ObjectStoragePort };
 }
 
-describe('MilestoneDocumentFilesService.upload (학생)', () => {
+describe('RequirementFilesService.upload (학생)', () => {
   it('유효하지 않은 파일이면 INVALID_FILE_UPLOAD로 거부한다', async () => {
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -239,24 +235,22 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD },
+      errorCode: { code: RequirementsErrorCode.INVALID_FILE_UPLOAD },
     });
   });
 
   it('상한을 넘으면 FILE_TOO_LARGE로 거부하고 문구에 상한을 적는다', async () => {
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
     );
-    const tooLarge: MilestoneDocumentFileUpload = {
+    const tooLarge: RequirementFileUpload = {
       ...pdfFile,
       size: SUBMISSION_UPLOAD_MAX_BYTES + 1,
     };
@@ -270,26 +264,22 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.FILE_TOO_LARGE },
+      errorCode: { code: RequirementsErrorCode.FILE_TOO_LARGE },
     });
     expect(
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MilestoneDocumentsErrorCode.FILE_TOO_LARGE
-      ].message,
+      REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.FILE_TOO_LARGE].message,
     ).toBe(
       `파일은 ${SUBMISSION_UPLOAD_MAX_BYTES / 1024 / 1024} MB 이하여야 합니다.`,
     );
   });
 
   it('milestoneId/documentId가 opaque id 형태가 아니면 INVALID_FILE_UPLOAD로 거부한다', async () => {
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -304,24 +294,22 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD },
+      errorCode: { code: RequirementsErrorCode.INVALID_FILE_UPLOAD },
     });
   });
 
   it('서명이 확장자와 다른 파일은 UNSUPPORTED_FILE_TYPE으로 거부한다', async () => {
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
     );
-    const forged: MilestoneDocumentFileUpload = {
+    const forged: RequirementFileUpload = {
       ...pdfFile,
       buffer: Buffer.from('not-a-real-pdf'),
     };
@@ -335,7 +323,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE },
+      errorCode: { code: RequirementsErrorCode.UNSUPPORTED_FILE_TYPE },
     });
   });
 
@@ -343,14 +331,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const { repository } = buildRepository({
       findActiveStudentByGithubId: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -365,7 +351,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.STUDENT_ONLY },
+      errorCode: { code: RequirementsErrorCode.STUDENT_ONLY },
     });
   });
 
@@ -380,14 +366,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         required: true,
       }),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -402,7 +386,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
   });
 
@@ -422,14 +406,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         file: null,
       }),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -453,14 +435,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const { repository } = buildRepository({
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -475,7 +455,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+      errorCode: { code: RequirementsErrorCode.NOT_APPLICATION_MEMBER },
     });
   });
 
@@ -487,14 +467,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         programEndAt: new Date('2026-12-19T00:00:00.000Z'),
       }),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -510,7 +488,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+        code: RequirementsErrorCode.APPLICATION_APPROVAL_REQUIRED,
       },
     });
   });
@@ -528,14 +506,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       }),
     });
     const { mocks, submissionFiles } = buildSubmissionFiles();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -550,7 +526,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         new Date('2026-09-19T09:00:00.001Z'),
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED },
+      errorCode: { code: RequirementsErrorCode.MILESTONE_CLOSED },
     });
     expect(mocks.createPending).not.toHaveBeenCalled();
   });
@@ -566,14 +542,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         decision: 'CHANGES_REQUESTED',
       }),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -603,14 +577,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       }),
     });
     const { mocks, submissionFiles } = buildSubmissionFiles();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -626,7 +598,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+        code: RequirementsErrorCode.RESUBMISSION_ALREADY_USED,
       },
     });
     expect(mocks.createPending).not.toHaveBeenCalled();
@@ -638,14 +610,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         .fn()
         .mockRejectedValue(new SubmissionFileRetentionUnavailableError()),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       buildStorage().storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -661,7 +631,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
+        code: RequirementsErrorCode.FILE_RETENTION_UNAVAILABLE,
       },
     });
   });
@@ -678,14 +648,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         ),
     });
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -700,7 +668,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+      errorCode: { code: RequirementsErrorCode.NOT_APPLICATION_MEMBER },
     });
     expect(storageMocks.put).not.toHaveBeenCalled();
   });
@@ -712,14 +680,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         .mockRejectedValue(new SubmissionFileQuotaExceededError()),
     });
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -735,7 +701,7 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+        code: RequirementsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
       },
     });
     expect(storageMocks.put).not.toHaveBeenCalled();
@@ -748,14 +714,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
       const { mocks: submissionFileMocks, submissionFiles } =
         buildSubmissionFiles();
       const { mocks: storageMocks, storage } = buildStorage();
-      const service = new MilestoneDocumentFilesService(
+      const service = new RequirementFilesService(
         buildRepository().repository,
         storage,
         submissionFiles,
-        new MilestoneDocumentSubmissionWindowService(
-          new ProgramScheduleService(),
-        ),
-        new MilestoneDocumentFileNameService(),
+        new SubmissionWindowService(new ProgramScheduleService()),
+        new RequirementFileNameService(),
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
         new UserProfileService(),
@@ -772,9 +736,8 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         errorCode: {
           code: expectedCode,
           message:
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              expectedCode as MilestoneDocumentsErrorCode
-            ]?.message,
+            REQUIREMENTS_ERROR_CODES[expectedCode as RequirementsErrorCode]
+              ?.message,
           status: 422,
         },
       });
@@ -788,14 +751,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const { mocks: submissionFileMocks, submissionFiles } =
       buildSubmissionFiles();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -823,14 +784,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const { mocks: submissionFileMocks, submissionFiles } =
       buildSubmissionFiles();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -862,14 +821,12 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
     const { storage } = buildStorage({
       put: jest.fn().mockRejectedValue(new Error('s3 down')),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       buildRepository().repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -884,25 +841,23 @@ describe('MilestoneDocumentFilesService.upload (학생)', () => {
         UPLOAD_NOW,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE },
+      errorCode: { code: RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE },
     });
   });
 });
 
-describe('MilestoneDocumentFilesService.check (학생, 제출 전 판정)', () => {
+describe('RequirementFilesService.check (학생, 제출 전 판정)', () => {
   function setup() {
     const { mocks: repositoryMocks, repository } = buildRepository();
     const { mocks: submissionFileMocks, submissionFiles } =
       buildSubmissionFiles();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -914,7 +869,7 @@ describe('MilestoneDocumentFilesService.check (학생, 제출 전 판정)', () =
     return { callCount, service };
   }
 
-  const zipUpload = (buffer: Buffer): MilestoneDocumentFileUpload => ({
+  const zipUpload = (buffer: Buffer): RequirementFileUpload => ({
     buffer,
     originalname: '제출묶음.zip',
     mimetype: 'application/zip',
@@ -943,18 +898,14 @@ describe('MilestoneDocumentFilesService.check (학생, 제출 전 판정)', () =
         status: 'rejected',
         reason: {
           errorCode:
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              expectedCode as MilestoneDocumentsErrorCode
-            ],
+            REQUIREMENTS_ERROR_CODES[expectedCode as RequirementsErrorCode],
         },
       });
       expect(uploaded).toMatchObject({
         status: 'rejected',
         reason: {
           errorCode:
-            MILESTONE_DOCUMENTS_ERROR_CODES[
-              expectedCode as MilestoneDocumentsErrorCode
-            ],
+            REQUIREMENTS_ERROR_CODES[expectedCode as RequirementsErrorCode],
         },
       });
       expect(checking.callCount()).toBe(0);
@@ -970,7 +921,7 @@ describe('MilestoneDocumentFilesService.check (학생, 제출 전 판정)', () =
   });
 });
 
-describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올리기"/"양식 교체")', () => {
+describe('RequirementFilesService.uploadTemplate (교직원, "양식 올리기"/"양식 교체")', () => {
   it.each([
     ['template.jpg', Buffer.from([0xff, 0xd8, 0xff])],
     ['template.jpeg', Buffer.from([0xff, 0xd8, 0xff])],
@@ -983,14 +934,12 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
     async (originalname, buffer) => {
       const { repository } = buildRepository();
       const { mocks, storage } = buildStorage();
-      const service = new MilestoneDocumentFilesService(
+      const service = new RequirementFilesService(
         repository,
         storage,
         buildSubmissionFiles().submissionFiles,
-        new MilestoneDocumentSubmissionWindowService(
-          new ProgramScheduleService(),
-        ),
-        new MilestoneDocumentFileNameService(),
+        new SubmissionWindowService(new ProgramScheduleService()),
+        new RequirementFileNameService(),
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
         new UserProfileService(),
@@ -1021,7 +970,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
           },
         ),
       ).rejects.toMatchObject({
-        errorCode: { code: MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE },
+        errorCode: { code: RequirementsErrorCode.UNSUPPORTED_FILE_TYPE },
       });
       expect(mocks.put).toHaveBeenCalledTimes(1);
     },
@@ -1031,14 +980,12 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
     const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1052,21 +999,19 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
         pdfFile,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
   });
 
   it('통과하면 스토리지에 올리고 템플릿 파일을 upsert한다', async () => {
     const { mocks: repositoryMocks, repository } = buildRepository();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1082,7 +1027,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
     expect(storageMocks.put).toHaveBeenCalledTimes(1);
     expect(repositoryMocks.upsertTemplateFile).toHaveBeenCalledWith(
       expect.objectContaining({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         uploadedById: 'staff-1',
         originalFileName: '계획서.pdf',
       }),
@@ -1093,14 +1038,12 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
   it('스토리지 업로드 뒤 잠금·소속 재확인·upsert 순서로 DB를 변경한다', async () => {
     const { mocks: repositoryMocks, repository } = buildRepository();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1138,14 +1081,12 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
       milestoneId: 'cuid-synthetic-other-milestone',
     });
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1159,7 +1100,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
         pdfFile,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(storageMocks.put).toHaveBeenCalledTimes(1);
     expect(repositoryMocks.upsertTemplateFile).not.toHaveBeenCalled();
@@ -1168,14 +1109,12 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
   it('잠금 뒤 문서가 없으면 DOCUMENT_NOT_FOUND로 거부하고 upsert하지 않는다', async () => {
     const { mocks: repositoryMocks, repository } = buildRepository();
     repositoryMocks.lockDocument.mockResolvedValue(null);
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1189,7 +1128,7 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
         pdfFile,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(repositoryMocks.upsertTemplateFile).not.toHaveBeenCalled();
   });
@@ -1197,14 +1136,12 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
   it('multipart latin1 깨짐을 복구한 한글 양식 파일명을 저장한다', async () => {
     const { mocks: repositoryMocks, repository } = buildRepository();
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1228,19 +1165,17 @@ describe('MilestoneDocumentFilesService.uploadTemplate (교직원, "양식 올�
   });
 });
 
-describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)', () => {
+describe('RequirementFilesService.downloadTemplate ("양식" 다운로드)', () => {
   it('세션 계정을 찾지 못하면 NOT_APPLICATION_MEMBER로 거부한다', async () => {
     const { repository } = buildRepository({
       findActiveUser: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1249,7 +1184,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     await expect(
       service.downloadTemplate(1n, syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+      errorCode: { code: RequirementsErrorCode.NOT_APPLICATION_MEMBER },
     });
   });
 
@@ -1272,14 +1207,12 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
       }),
       findStudentApplication: jest.fn(),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1298,14 +1231,12 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const { repository } = buildRepository({
       findStudentApplication: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1314,7 +1245,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     await expect(
       service.downloadTemplate(1n, syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER },
+      errorCode: { code: RequirementsErrorCode.NOT_APPLICATION_MEMBER },
     });
   });
 
@@ -1322,14 +1253,12 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     const { repository } = buildRepository({
       findTemplateForDownload: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1338,21 +1267,19 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
     await expect(
       service.downloadTemplate(1n, syntheticMilestoneId, syntheticDocumentId),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.TEMPLATE_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.TEMPLATE_NOT_FOUND },
     });
   });
 
   it('통과하면 스토리지에서 body를 읽어 다운로드 응답을 돌려준다', async () => {
     const { repository } = buildRepository();
     const { mocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1370,7 +1297,7 @@ describe('MilestoneDocumentFilesService.downloadTemplate ("양식" 다운로드)
   });
 });
 
-describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () => {
+describe('RequirementFilesService.downloadSubmissionFile (교직원)', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
 
   it('서류 항목이 이 마일스톤 소속이 아니면 DOCUMENT_NOT_FOUND로 거부한다', async () => {
@@ -1385,14 +1312,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         required: true,
       }),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1406,7 +1331,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
     expect(mocks.findSubmissionFileForStaffDownload).not.toHaveBeenCalled();
   });
@@ -1415,14 +1340,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const { repository } = buildRepository({
       findDocumentContext: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1436,7 +1359,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND },
+      errorCode: { code: RequirementsErrorCode.DOCUMENT_NOT_FOUND },
     });
   });
 
@@ -1447,14 +1370,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         .mockResolvedValue('cuid-synthetic-other-program'),
     });
     const { mocks: storageMocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1469,7 +1390,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+        code: RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND,
       },
     });
     expect(mocks.findSubmissionFileForStaffDownload).not.toHaveBeenCalled();
@@ -1480,14 +1401,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const { mocks, repository } = buildRepository({
       findApplicationProgramId: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1502,7 +1421,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+        code: RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND,
       },
     });
     expect(mocks.findSubmissionFileForStaffDownload).not.toHaveBeenCalled();
@@ -1512,14 +1431,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const { repository } = buildRepository({
       findSubmissionFileForStaffDownload: jest.fn().mockResolvedValue(null),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1534,21 +1451,19 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
       ),
     ).rejects.toMatchObject({
       errorCode: {
-        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+        code: RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND,
       },
     });
   });
 
   it('첨부 조회에 현재 시각을 넘겨 만료된 파일이 걸러지게 한다', async () => {
     const { mocks, repository } = buildRepository();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1570,14 +1485,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
 
   it('내려받는 이름을 `팀명_서류명.확장자`로 다시 붙인다', async () => {
     const { repository } = buildRepository();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1604,14 +1517,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         teamName: '가나다팀',
       }),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1630,14 +1541,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
   it('통과하면 스토리지에서 body를 읽어 다운로드 응답을 돌려준다', async () => {
     const { repository } = buildRepository();
     const { mocks, storage } = buildStorage();
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1675,14 +1584,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         teamName: '라마바팀',
       }),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       buildStorage().storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1703,14 +1610,12 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
     const { storage } = buildStorage({
       get: jest.fn().mockRejectedValue(new Error('synthetic storage down')),
     });
-    const service = new MilestoneDocumentFilesService(
+    const service = new RequirementFilesService(
       repository,
       storage,
       buildSubmissionFiles().submissionFiles,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -1724,7 +1629,7 @@ describe('MilestoneDocumentFilesService.downloadSubmissionFile (교직원)', () 
         now,
       ),
     ).rejects.toMatchObject({
-      errorCode: { code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE },
+      errorCode: { code: RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE },
     });
   });
 });

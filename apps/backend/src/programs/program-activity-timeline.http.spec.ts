@@ -10,7 +10,7 @@ import { StudentDashboardController } from '../student/student-dashboard.control
 import { ProgramsRepository } from './programs.repository';
 import { ProgramViewerService } from './program-viewer.service';
 import { StudentDashboardService } from '../student/student-dashboard.service';
-import { MilestoneDocumentFeedbackService } from '../student/milestone-document-feedback.service';
+import { RequirementFeedbackService } from '../student/requirement-feedback.service';
 import { protectedRouteGuardStub } from '../../test/global-authentication-guard.fixture';
 
 let application: INestApplication | undefined;
@@ -40,7 +40,7 @@ beforeAll(async () => {
       protectedRouteGuardStub({ canActivate: () => true }),
       ProgramActivityService,
       { provide: StudentDashboardService, useValue: {} },
-      { provide: MilestoneDocumentFeedbackService, useValue: {} },
+      { provide: RequirementFeedbackService, useValue: {} },
       { provide: ProgramCreationService, useValue: {} },
       { provide: ProgramsService, useValue: {} },
 

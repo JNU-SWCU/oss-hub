@@ -19,11 +19,11 @@ import { MyRepositoriesController } from '../../src/student/my-repositories.cont
 import { GithubOperationsConfig } from '../../src/github/github-operations.config';
 import { RepositoriesRepository } from '../../src/github/repositories.repository';
 import { RepositoriesReadService } from '../../src/github/repositories-read.service';
-import { MilestoneDocumentFeedbackRepository } from '../../src/student/milestone-document-feedback.repository';
+import { RequirementFeedbackRepository } from '../../src/student/requirement-feedback.repository';
 import {
-  MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
-  MilestoneDocumentFeedbackService,
-} from '../../src/student/milestone-document-feedback.service';
+  REQUIREMENT_FEEDBACK_CLOCK,
+  RequirementFeedbackService,
+} from '../../src/student/requirement-feedback.service';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { StudentDashboardController } from '../../src/student/student-dashboard.controller';
 import {
@@ -287,7 +287,7 @@ describe('Audience authorization HTTP characterization', () => {
         StudentDashboardService,
         ProgramActivityService,
         ProgramViewerService,
-        MilestoneDocumentFeedbackService,
+        RequirementFeedbackService,
         RepositoriesReadService,
         StaffDashboardService,
         StaffInsightsService,
@@ -351,7 +351,7 @@ describe('Audience authorization HTTP characterization', () => {
         },
         { provide: SYSTEM_STATUS_CLOCK, useValue: () => new Date(0) },
         {
-          provide: MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
+          provide: REQUIREMENT_FEEDBACK_CLOCK,
           useValue: () => new Date(0),
         },
         {
@@ -375,7 +375,7 @@ describe('Audience authorization HTTP characterization', () => {
           useValue: { listOwnedProvisionJobs: () => Promise.resolve([]) },
         },
         {
-          provide: MilestoneDocumentFeedbackRepository,
+          provide: RequirementFeedbackRepository,
           useValue: { findRecentForParticipant: () => Promise.resolve([]) },
         },
         {
@@ -427,7 +427,7 @@ describe('Audience authorization HTTP characterization', () => {
                 applications: [],
                 milestones: [],
                 submissions: [],
-                milestoneDocuments: [],
+                requirements: [],
                 documentSubmissions: [],
               }),
           },

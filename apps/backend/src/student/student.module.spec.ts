@@ -1,11 +1,11 @@
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { GithubModule } from '../github/github.module';
 import { ProgramsModule } from '../programs/programs.module';
-import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
+import { RequirementFeedbackRepository } from './requirement-feedback.repository';
 import {
-  MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
-  MilestoneDocumentFeedbackService,
-} from './milestone-document-feedback.service';
+  REQUIREMENT_FEEDBACK_CLOCK,
+  RequirementFeedbackService,
+} from './requirement-feedback.service';
 import { MyRepositoriesController } from './my-repositories.controller';
 import { StudentDashboardController } from './student-dashboard.controller';
 import { StudentModule } from './student.module';
@@ -38,13 +38,13 @@ describe('StudentModule', () => {
         typeof provider === 'object' &&
         provider !== null &&
         'provide' in provider &&
-        provider.provide === MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
+        provider.provide === REQUIREMENT_FEEDBACK_CLOCK,
     );
 
     expect(providers).toEqual(
       expect.arrayContaining([
-        MilestoneDocumentFeedbackService,
-        MilestoneDocumentFeedbackRepository,
+        RequirementFeedbackService,
+        RequirementFeedbackRepository,
       ]),
     );
     const before = Date.now();

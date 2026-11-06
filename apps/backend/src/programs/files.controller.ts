@@ -18,19 +18,19 @@ import { MultipartFileUploadInterceptor } from '../platform/multipart-file-uploa
 import {
   FilesService,
   type SubmissionFileUpload,
-  MilestoneDocumentFilesService,
+  RequirementFilesService,
 } from './files.service';
 import {
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
 } from './submissions.error';
 import { type AuthenticatedRequest } from '../auth/http-auth.types';
 import { SUBMISSION_UPLOAD_MAX_BYTES } from './submission-upload.config';
 import { Protected } from '../auth/auth-route.decorator';
-import { UploadedMilestoneDocumentFileResponseDto } from './dto/uploaded-milestone-document-file-response.dto';
-import { type MilestoneDocumentFileUpload } from './files.config';
+import { UploadedRequirementFileResponseDto } from './dto/uploaded-requirement-file-response.dto';
+import { type RequirementFileUpload } from './files.config';
 
 type SubmissionRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 const SubmissionFileUploadInterceptor = new MultipartFileUploadInterceptor(
@@ -80,46 +80,41 @@ export class FilesController {
 
 type ViewerRequest = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 
-const MilestoneDocumentFileUploadInterceptor =
-  new MultipartFileUploadInterceptor(
-    {
-      limits: {
-        fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
-        fieldNameSize: 100,
-        fieldSize: 512,
-        fields: 4,
-        files: 1,
-        parts: 4,
-      },
+const RequirementFileUploadInterceptor = new MultipartFileUploadInterceptor(
+  {
+    limits: {
+      fileSize: SUBMISSION_UPLOAD_MAX_BYTES,
+      fieldNameSize: 100,
+      fieldSize: 512,
+      fields: 4,
+      files: 1,
+      parts: 4,
     },
-    {
-      fileTooLarge:
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.FILE_TOO_LARGE
-        ],
-      invalidUpload:
-        MILESTONE_DOCUMENTS_ERROR_CODES[
-          MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD
-        ],
-    },
-  );
+  },
+  {
+    fileTooLarge:
+      REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.FILE_TOO_LARGE],
+    invalidUpload:
+      REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.INVALID_FILE_UPLOAD],
+  },
+);
 
 @Controller('milestone-document-files')
-export class MilestoneDocumentFilesController {
-  constructor(private readonly service: MilestoneDocumentFilesService) {}
+export class RequirementFilesController {
+  constructor(private readonly service: RequirementFilesService) {}
 
   @Post()
   @HttpCode(201)
   @Protected()
   @UseGuards(OriginGuard)
-  @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
+  @UseInterceptors(RequirementFileUploadInterceptor)
   async upload(
     @Req() request: ViewerRequest,
     @Body('milestoneId') milestoneId: unknown,
     @Body('documentId') documentId: unknown,
-    @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
-  ): Promise<UploadedMilestoneDocumentFileResponseDto> {
-    return UploadedMilestoneDocumentFileResponseDto.from(
+    @UploadedFile() file: RequirementFileUpload | undefined,
+  ): Promise<UploadedRequirementFileResponseDto> {
+    return UploadedRequirementFileResponseDto.from(
       await this.service.upload(
         request.sessionGithubId,
         milestoneId,
@@ -133,9 +128,9 @@ export class MilestoneDocumentFilesController {
   @HttpCode(204)
   @Protected()
   @UseGuards(OriginGuard)
-  @UseInterceptors(MilestoneDocumentFileUploadInterceptor)
+  @UseInterceptors(RequirementFileUploadInterceptor)
   check(
-    @UploadedFile() file: MilestoneDocumentFileUpload | undefined,
+    @UploadedFile() file: RequirementFileUpload | undefined,
   ): Promise<void> {
     return this.service.check(file);
   }

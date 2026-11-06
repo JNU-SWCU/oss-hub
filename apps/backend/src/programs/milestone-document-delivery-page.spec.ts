@@ -1,7 +1,8 @@
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 
-const milestoneDocumentCollectionService =
-  new MilestoneDocumentCollectionService(undefined as never);
+const requirementCollectionService = new RequirementCollectionService(
+  undefined as never,
+);
 
 const dueAt = new Date('2026-08-14T12:00:00Z');
 const documents = [
@@ -14,27 +15,26 @@ const applications = ['early', 'late', 'missing'].map((teamId) => ({
 const submissions = [
   {
     teamId: 'early',
-    milestoneDocumentId: 'required',
+    requirementId: 'required',
     firstSubmittedAt: new Date('2026-08-14T11:00:00Z'),
   },
   {
     teamId: 'late',
-    milestoneDocumentId: 'required',
+    requirementId: 'required',
     firstSubmittedAt: new Date('2026-08-14T12:00:00.001Z'),
   },
 ];
 
 it('counts the whole approved population before status filtering and pagination', () => {
-  const page =
-    milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
-      { documents, applications, submissions, dueAt },
-      {
-        filter: 'ALL',
-        deliveryStatus: 'COMPLETE',
-        page: 1,
-        pageSize: 1,
-      },
-    );
+  const page = requirementCollectionService.buildRequirementDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    {
+      filter: 'ALL',
+      deliveryStatus: 'COMPLETE',
+      page: 1,
+      pageSize: 1,
+    },
+  );
 
   expect(page.rows.map((row) => row.application.teamId)).toEqual(['early']);
   expect(page.total).toBe(1);
@@ -52,15 +52,14 @@ it('counts the whole approved population before status filtering and pagination'
 });
 
 it('keeps review-independent first submission and optional omission out of missing', () => {
-  const page =
-    milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
-      { documents, applications, submissions, dueAt },
-      {
-        filter: 'ALL',
-        page: 1,
-        pageSize: 10,
-      },
-    );
+  const page = requirementCollectionService.buildRequirementDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    {
+      filter: 'ALL',
+      page: 1,
+      pageSize: 10,
+    },
+  );
 
   expect(page.rows.map((row) => row.deliveryStatus)).toEqual([
     'COMPLETE',
@@ -70,15 +69,14 @@ it('keeps review-independent first submission and optional omission out of missi
 });
 
 it('represents no required items separately instead of claiming completion', () => {
-  const page =
-    milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
-      { documents: [], applications, submissions: [], dueAt },
-      {
-        filter: 'ALL',
-        page: 1,
-        pageSize: 10,
-      },
-    );
+  const page = requirementCollectionService.buildRequirementDeliveryPage(
+    { documents: [], applications, submissions: [], dueAt },
+    {
+      filter: 'ALL',
+      page: 1,
+      pageSize: 10,
+    },
+  );
 
   expect(page.deliveryCounts).toEqual({
     missing: 0,
@@ -95,11 +93,10 @@ it('filters a selected document before paging without shrinking milestone totals
     pageSize: 1,
     document: { id: 'required', submissionState: 'SUBMITTED' },
   } as const;
-  const page =
-    milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
-      { documents, applications, submissions, dueAt },
-      query,
-    );
+  const page = requirementCollectionService.buildRequirementDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    query,
+  );
   expect(page.rows.map((row) => row.application.teamId)).toEqual(['late']);
   expect(page.total).toBe(2);
   expect(page.documentTotals).toEqual([
@@ -117,11 +114,10 @@ it('selects missing optional documents without declaring the teams incomplete', 
     deliveryStatus: 'COMPLETE',
     document: { id: 'optional', submissionState: 'MISSING' },
   } as const;
-  const page =
-    milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
-      { documents, applications, submissions, dueAt },
-      query,
-    );
+  const page = requirementCollectionService.buildRequirementDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    query,
+  );
   expect(page.rows.map((row) => row.application.teamId)).toEqual(['early']);
   expect(page.rows[0]?.deliveryStatus).toBe('COMPLETE');
   expect(page.deliveryCounts.complete).toBe(1);
@@ -134,11 +130,10 @@ it('keeps whole-population totals when a document selection has no submitted tea
     pageSize: 20,
     document: { id: 'optional', submissionState: 'SUBMITTED' },
   } as const;
-  const page =
-    milestoneDocumentCollectionService.buildMilestoneDocumentDeliveryPage(
-      { documents, applications, submissions, dueAt },
-      query,
-    );
+  const page = requirementCollectionService.buildRequirementDeliveryPage(
+    { documents, applications, submissions, dueAt },
+    query,
+  );
   expect(page.rows).toEqual([]);
   expect(page.total).toBe(0);
   expect(page.documentTotals[1]).toEqual({

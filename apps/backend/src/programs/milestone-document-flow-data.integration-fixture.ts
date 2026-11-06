@@ -13,7 +13,7 @@ export const flowGithubIds = {
   student: 960000001135001n,
   staff: 960000001135002n,
 } as const;
-export async function seedMilestoneDocumentFlow(
+export async function seedRequirementFlow(
   prisma: PrismaService,
 ): Promise<void> {
   await prisma.user.createMany({

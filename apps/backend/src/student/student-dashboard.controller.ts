@@ -2,10 +2,10 @@ import { Controller, Get, Header, Inject, Query, Req } from '@nestjs/common';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
 import { ActivityTimelineRequestDto } from './dto/activity-timeline-request.dto';
 import { ActivityTimelineResponseDto } from './dto/activity-timeline-response.dto';
-import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
+import { RequirementFeedbackResponseDto } from './dto/requirement-feedback-response.dto';
 import { StudentDashboardResponseDto } from './dto/student-dashboard-response.dto';
 import { ProgramActivityService } from '../programs/program-activity.service';
-import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
+import { RequirementFeedbackService } from './requirement-feedback.service';
 import { StudentDashboardService } from './student-dashboard.service';
 import { Protected } from '../auth/auth-route.decorator';
 
@@ -20,7 +20,7 @@ export class StudentDashboardController {
       'getStudentDashboard'
     >,
     private readonly activity: ProgramActivityService,
-    private readonly feedback: MilestoneDocumentFeedbackService,
+    private readonly feedback: RequirementFeedbackService,
   ) {}
 
   @Get()
@@ -53,8 +53,8 @@ export class StudentDashboardController {
   @Protected()
   async recentFeedback(
     @Req() request: SessionIdentity,
-  ): Promise<MilestoneDocumentFeedbackResponseDto> {
-    return MilestoneDocumentFeedbackResponseDto.from(
+  ): Promise<RequirementFeedbackResponseDto> {
+    return RequirementFeedbackResponseDto.from(
       await this.feedback.recentForParticipant(request.sessionGithubId),
     );
   }

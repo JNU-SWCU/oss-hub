@@ -25,8 +25,8 @@ import {
 import { DownloadResponseService } from '../src/programs/download-response.service';
 import { MilestoneCompletionService } from '../src/programs/submissions.service';
 import {
-  MilestoneDocumentFileNameService,
-  MilestoneDocumentSubmissionWindowService,
+  RequirementFileNameService,
+  SubmissionWindowService,
   SubmissionFileAdmissionService,
 } from '../src/programs/files.service';
 import { ProgramCoverUrlService } from '../src/programs/programs.service';
@@ -58,8 +58,8 @@ export const STATELESS_PROVIDERS = [
   ApplicationAnswersService,
   DownloadResponseService,
   MilestoneCompletionService,
-  MilestoneDocumentFileNameService,
-  MilestoneDocumentSubmissionWindowService,
+  RequirementFileNameService,
+  SubmissionWindowService,
   ProgramCoverUrlService,
   ProgramScheduleService,
   ProgramTemplatesService,

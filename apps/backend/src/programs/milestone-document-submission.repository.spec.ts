@@ -8,7 +8,7 @@ import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submissions.error';
 import {
-  type UpsertMilestoneDocumentSubmissionInput,
+  type UpsertSubmissionInput,
   SubmissionsRepository,
 } from './submissions.repository';
 
@@ -170,10 +170,10 @@ function buildHarness(
 }
 
 function textInput(
-  overrides: Partial<UpsertMilestoneDocumentSubmissionInput> = {},
-): UpsertMilestoneDocumentSubmissionInput {
+  overrides: Partial<UpsertSubmissionInput> = {},
+): UpsertSubmissionInput {
   return {
-    milestoneDocumentId: DOCUMENT_ID,
+    requirementId: DOCUMENT_ID,
     teamId: APPLICATION_ID,
     submittedById: CURRENT_MEMBER_ID,
     submittedAt: NOW,
@@ -185,8 +185,8 @@ function textInput(
 }
 
 function fileInput(
-  overrides: Partial<UpsertMilestoneDocumentSubmissionInput> = {},
-): UpsertMilestoneDocumentSubmissionInput {
+  overrides: Partial<UpsertSubmissionInput> = {},
+): UpsertSubmissionInput {
   return textInput({
     content: Prisma.JsonNull,
     attachFile: {
@@ -202,7 +202,7 @@ beforeEach(() => {
   lockMembership.mockReset();
 });
 
-describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)', () => {
+describe('upsertSubmission — 현재 팀원 울타리 (#1269)', () => {
   it('지금 팀원이 아니면 제출·이력·첨부 어느 것도 쓰지 않고 거부한다', async () => {
     const harness = buildHarness({ member: false });
 
@@ -210,7 +210,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
       new PlatformRepository(),
       new FileMetadataRepository(),
     )
-      .upsertMilestoneDocumentSubmission(
+      .upsertSubmission(
         harness.prisma,
         fileInput({ submittedById: DEPARTED_MEMBER_ID }),
       )
@@ -235,7 +235,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
       new SubmissionsRepository(
         new PlatformRepository(),
         new FileMetadataRepository(),
-      ).upsertMilestoneDocumentSubmission(
+      ).upsertSubmission(
         harness.prisma,
         textInput({ submittedById: DEPARTED_MEMBER_ID }),
       ),
@@ -250,7 +250,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
     const detail = await new SubmissionsRepository(
       new PlatformRepository(),
       new FileMetadataRepository(),
-    ).upsertMilestoneDocumentSubmission(harness.prisma, textInput());
+    ).upsertSubmission(harness.prisma, textInput());
 
     expect(detail).toMatchObject({
       id: SUBMISSION_ID,
@@ -275,7 +275,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
     await new SubmissionsRepository(
       new PlatformRepository(),
       new FileMetadataRepository(),
-    ).upsertMilestoneDocumentSubmission(
+    ).upsertSubmission(
       harness.prisma,
       fileInput({
         submittedAt: AFTER_DEADLINE,
@@ -314,7 +314,7 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
     await new SubmissionsRepository(
       new PlatformRepository(),
       new FileMetadataRepository(),
-    ).upsertMilestoneDocumentSubmission(
+    ).upsertSubmission(
       harness.prisma,
       textInput({ submittedById: CURRENT_MEMBER_ID }),
     );
@@ -352,7 +352,7 @@ describe('atomic document grace admission', () => {
       await new SubmissionsRepository(
         new PlatformRepository(),
         new FileMetadataRepository(),
-      ).upsertMilestoneDocumentSubmission(
+      ).upsertSubmission(
         harness.prisma,
         textInput({
           submittedAt: AFTER_DEADLINE,
@@ -374,7 +374,7 @@ describe('atomic document grace admission', () => {
         new SubmissionsRepository(
           new PlatformRepository(),
           new FileMetadataRepository(),
-        ).upsertMilestoneDocumentSubmission(
+        ).upsertSubmission(
           harness.prisma,
           textInput({
             submittedAt: AFTER_DEADLINE,
@@ -385,7 +385,7 @@ describe('atomic document grace admission', () => {
             },
           }),
         ),
-      ).rejects.toHaveProperty('name', 'MilestoneDocumentDeadlineClosedError');
+      ).rejects.toHaveProperty('name', 'RequirementDeadlineClosedError');
       expect(harness.order).toContain('lock:Requirement');
       expect(harness.upsert).not.toHaveBeenCalled();
     },

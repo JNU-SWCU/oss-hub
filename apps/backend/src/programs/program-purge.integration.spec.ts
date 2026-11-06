@@ -923,10 +923,10 @@ async function programChildRowCounts(
     boardPosts,
     boardComments,
     submissionFilesAttached,
-    milestoneDocuments,
-    milestoneDocumentTemplateFiles,
-    milestoneDocumentSubmissions,
-    milestoneDocumentSubmissionHistories,
+    requirements,
+    requirementTemplateFiles,
+    submissions,
+    submissionHistories,
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
@@ -1024,10 +1024,10 @@ async function programChildRowCounts(
     boardPosts,
     boardComments,
     submissionFilesAttached,
-    milestoneDocuments,
-    milestoneDocumentTemplateFiles,
-    milestoneDocumentSubmissions,
-    milestoneDocumentSubmissionHistories,
+    requirements,
+    requirementTemplateFiles,
+    submissions,
+    submissionHistories,
     repositoryProvisionJobs,
     programCreateRequests,
     programAuthoringUploadsAttached,
@@ -1185,8 +1185,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
 
     expect(before.applications).toBe(2);
-    expect(before.milestoneDocumentSubmissions).toBe(1);
-    expect(before.milestoneDocumentSubmissionHistories).toBe(2);
+    expect(before.submissions).toBe(1);
+    expect(before.submissionHistories).toBe(2);
     expect(before.outboxEvents).toBe(2);
     expect(before.programLinkedNotifications).toBe(2);
     await expect(
@@ -1746,7 +1746,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(after.applications).toBe(2);
     expect(after.teams).toBe(2);
     expect(after.boardPosts).toBe(2);
-    expect(after.milestoneDocumentSubmissions).toBe(1);
+    expect(after.submissions).toBe(1);
   });
   it('race: 확인 뒤 추가된 댓글은 요약 건수가 같아도 지문 변경으로 삭제를 중단한다', async () => {
     const fixture = await seedFullChildGraph('toctou-comment-race');
@@ -1969,9 +1969,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
         expectedAfter.applications = before.applications + 1;
         expectedAfter.teams = before.teams + 1;
       } else {
-        expectedAfter.milestoneDocumentSubmissions =
-          before.milestoneDocumentSubmissions + 1;
-        expectedAfter.milestoneDocuments = before.milestoneDocuments + 1;
+        expectedAfter.submissions = before.submissions + 1;
+        expectedAfter.requirements = before.requirements + 1;
       }
       expect(after).toEqual(expectedAfter);
       await expect(

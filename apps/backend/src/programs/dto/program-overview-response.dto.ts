@@ -1,6 +1,6 @@
 import type { AuthorityLabel } from '../../users/authority-label.types';
 import type {
-  ProgramOverviewMilestoneDocument,
+  ProgramOverviewRequirement,
   ProgramOverviewRemainingMilestone,
   ProgramOverviewView,
 } from '../program-overview.service';
@@ -16,15 +16,15 @@ export class RemainingMilestoneResponseDto {
   }
 }
 
-export class MilestoneDocumentSummaryResponseDto {
+export class RequirementSummaryResponseDto {
   declare readonly milestoneId: string;
   declare readonly title: string;
   declare readonly completed: number;
   declare readonly total: number;
 
   static from(
-    entry: ProgramOverviewMilestoneDocument,
-  ): MilestoneDocumentSummaryResponseDto {
+    entry: ProgramOverviewRequirement,
+  ): RequirementSummaryResponseDto {
     return {
       milestoneId: entry.milestoneId,
       title: entry.title,
@@ -54,7 +54,7 @@ export class ProgramOverviewResponseDto {
 
   declare readonly fullySubmittedParticipantCount: number | null;
 
-  declare readonly milestoneDocuments: MilestoneDocumentSummaryResponseDto[];
+  declare readonly milestoneDocuments: RequirementSummaryResponseDto[];
 
   static from(view: ProgramOverviewView): ProgramOverviewResponseDto {
     return {
@@ -74,8 +74,8 @@ export class ProgramOverviewResponseDto {
       viewerDocumentsTotal: view.viewer.myDocumentsTotal,
       fullySubmittedParticipantCount:
         view.viewer.fullySubmittedParticipantCount,
-      milestoneDocuments: view.viewer.milestoneDocuments.map((entry) =>
-        MilestoneDocumentSummaryResponseDto.from(entry),
+      milestoneDocuments: view.viewer.requirements.map((entry) =>
+        RequirementSummaryResponseDto.from(entry),
       ),
     };
   }

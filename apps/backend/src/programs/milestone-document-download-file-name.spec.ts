@@ -1,7 +1,7 @@
-import { MilestoneDocumentFileNameService } from './files.service';
-const milestoneDocumentFileNameService = new MilestoneDocumentFileNameService();
+import { RequirementFileNameService } from './files.service';
+const requirementFileNameService = new RequirementFileNameService();
 
-describe('milestoneDocumentDownloadFileName', () => {
+describe('requirementDownloadFileName', () => {
   it('학생이 올린 원본 이름과 무관하게 `팀명_서류명.확장자`로 다시 붙인다', () => {
     const input = {
       teamName: '합성팀',
@@ -10,7 +10,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_개인정보 수집·이용 동의서.hwp');
   });
@@ -23,7 +23,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서.pdf');
   });
@@ -36,7 +36,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서');
   });
@@ -49,7 +49,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서');
   });
@@ -62,7 +62,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서');
   });
@@ -75,7 +75,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('.._.._etc_a_b_c.pdf');
     expect(result).not.toContain('/');
@@ -90,7 +90,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성__팀_동의서__ x=1.pdf');
     expect(result).not.toContain('"');
@@ -107,7 +107,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('가나다팀_팀 구성 확인서.png');
   });
@@ -120,7 +120,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('file_file.pdf');
   });
@@ -133,7 +133,7 @@ describe('milestoneDocumentDownloadFileName', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서.pd_f');
   });
@@ -156,7 +156,7 @@ describe('이름 한 칸의 길이 자르기', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe(`${'가'.repeat(100)}_${'나'.repeat(100)}.pdf`);
     expect(result.length).toBe(205);
@@ -164,21 +164,19 @@ describe('이름 한 칸의 길이 자르기', () => {
   });
 
   it('글 제출의 .txt 이름도 같은 길이로 자른다', () => {
-    const result =
-      milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName({
-        teamName: '가'.repeat(100),
-        documentName: '나'.repeat(200),
-      });
+    const result = requirementFileNameService.requirementTextEntryFileName({
+      teamName: '가'.repeat(100),
+      documentName: '나'.repeat(200),
+    });
 
     expect(result).toBe(`${'가'.repeat(100)}_${'나'.repeat(100)}.txt`);
     expect(result.length).toBeLessThanOrEqual(MAX_FILE_SYSTEM_NAME_LENGTH);
   });
 
   it('ZIP 안 폴더 한 칸도 100자로 자른다', () => {
-    const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        '가'.repeat(150),
-      );
+    const result = requirementFileNameService.requirementArchiveFolderName(
+      '가'.repeat(150),
+    );
 
     expect(result).toBe('가'.repeat(100));
     expect([...result]).toHaveLength(100);
@@ -188,9 +186,7 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(98)}😀${'나'.repeat(10)}`;
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe(`${'가'.repeat(98)}😀`);
     expect(result.length).toBe(100);
@@ -198,12 +194,11 @@ describe('이름 한 칸의 길이 자르기', () => {
   });
 
   it('세는 단위가 글자 수가 아니라 UTF-16 코드 단위다 — 이모지는 둘을 먹는다', () => {
-    const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName({
-        teamName: '😀'.repeat(50),
-        documentName: '😀'.repeat(100),
-        originalFileName: 'a.pdf',
-      });
+    const result = requirementFileNameService.requirementDownloadFileName({
+      teamName: '😀'.repeat(50),
+      documentName: '😀'.repeat(100),
+      originalFileName: 'a.pdf',
+    });
 
     expect(result.length).toBeLessThanOrEqual(MAX_FILE_SYSTEM_NAME_LENGTH);
     expect(hasLoneSurrogate(result)).toBe(false);
@@ -215,9 +210,7 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(99)}😀나`;
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe('가'.repeat(99));
     expect(hasLoneSurrogate(result)).toBe(false);
@@ -227,9 +220,7 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(99)}...${'나'.repeat(10)}`;
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe('가'.repeat(99));
     expect(result.endsWith('.')).toBe(false);
@@ -239,9 +230,7 @@ describe('이름 한 칸의 길이 자르기', () => {
     const value = `${'가'.repeat(99)} ${'나'.repeat(10)}`;
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe('가'.repeat(99));
     expect(result.endsWith(' ')).toBe(false);
@@ -249,45 +238,34 @@ describe('이름 한 칸의 길이 자르기', () => {
 
   it('위첨자 숫자로 적은 장치 이름도 비켜 간다', () => {
     expect(
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        'COM¹',
-      ),
+      requirementFileNameService.requirementArchiveFolderName('COM¹'),
     ).toBe('COM¹_');
     expect(
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        'lpt²',
-      ),
+      requirementFileNameService.requirementArchiveFolderName('lpt²'),
     ).toBe('lpt²_');
     expect(
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        'COM³.txt',
-      ),
+      requirementFileNameService.requirementArchiveFolderName('COM³.txt'),
     ).toBe('COM³.txt_');
 
     expect(
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        'COM¹',
-      ),
+      requirementFileNameService.requirementArchiveFolderName('COM¹'),
     ).toContain('¹');
 
     expect(
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        '가¹팀',
-      ),
+      requirementFileNameService.requirementArchiveFolderName('가¹팀'),
     ).toBe('가¹팀');
   });
 
   it('100자 이하는 그대로 둔다 — 필요 없는 자르기는 하지 않는다', () => {
-    const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        '가'.repeat(100),
-      );
+    const result = requirementFileNameService.requirementArchiveFolderName(
+      '가'.repeat(100),
+    );
 
     expect(result).toBe('가'.repeat(100));
   });
 });
 
-describe('milestoneDocumentArchiveFolderName — Windows 예약 장치 이름', () => {
+describe('requirementArchiveFolderName — Windows 예약 장치 이름', () => {
   it.each<[string, string]>([
     ['CON', 'CON_'],
     ['PRN', 'PRN_'],
@@ -309,9 +287,7 @@ describe('milestoneDocumentArchiveFolderName — Windows 예약 장치 이름', 
     ['CON.', 'CON_'],
   ])('예약 이름 %p은 `%s`로 비껴간다', (value, expected) => {
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe(expected);
   });
@@ -330,9 +306,7 @@ describe('milestoneDocumentArchiveFolderName — Windows 예약 장치 이름', 
     ['team-CON'],
   ])('예약이 아닌 이름 %p은 그대로 둔다', (value) => {
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe(value);
   });
@@ -345,7 +319,7 @@ describe('milestoneDocumentArchiveFolderName — Windows 예약 장치 이름', 
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('CON_NUL.pdf');
   });
@@ -367,10 +341,9 @@ describe('보이지 않는 서식 문자', () => {
     ['PDI(U+2069)', '\u2069'],
     ['BOM(U+FEFF)', '\ufeff'],
   ])('%s는 `_`로 바꾼다', (_name, invisible) => {
-    const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        `가나${invisible}다팀`,
-      );
+    const result = requirementFileNameService.requirementArchiveFolderName(
+      `가나${invisible}다팀`,
+    );
 
     expect(result).toBe('가나_다팀');
     expect(result).not.toContain(invisible);
@@ -384,7 +357,7 @@ describe('보이지 않는 서식 문자', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서_gpj.pdf');
     expect(result).not.toContain(RTL_OVERRIDE);
@@ -398,7 +371,7 @@ describe('보이지 않는 서식 문자', () => {
     };
 
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(input);
+      requirementFileNameService.requirementDownloadFileName(input);
 
     expect(result).toBe('합성팀_계획서.p_df');
   });
@@ -412,16 +385,14 @@ describe('보이지 않는 서식 문자', () => {
     ['emoji 😀 팀'],
   ])('한글·영문·숫자·공백이 섞인 %p은 그대로 살아남는다', (value) => {
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe(value);
     expect(result).not.toContain('_');
   });
 });
 
-describe('milestoneDocumentTextEntryFileName', () => {
+describe('requirementTextEntryFileName', () => {
   it.each<[string, string, string]>([
     ['합성팀', '팀 활동 보고', '합성팀_팀 활동 보고.txt'],
 
@@ -432,11 +403,10 @@ describe('milestoneDocumentTextEntryFileName', () => {
   ])(
     '팀명 %p · 서류명 %p은 `%s`로 담는다 — 원본 파일이 없으므로 확장자는 .txt로 고정한다',
     (teamName, documentName, expected) => {
-      const result =
-        milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName({
-          teamName,
-          documentName,
-        });
+      const result = requirementFileNameService.requirementTextEntryFileName({
+        teamName,
+        documentName,
+      });
 
       expect(result).toBe(expected);
     },
@@ -446,21 +416,18 @@ describe('milestoneDocumentTextEntryFileName', () => {
     const names = { teamName: '가나다팀', documentName: '계획서' };
 
     const textEntry =
-      milestoneDocumentFileNameService.milestoneDocumentTextEntryFileName(
-        names,
-      );
-    const fileEntry =
-      milestoneDocumentFileNameService.milestoneDocumentDownloadFileName({
-        ...names,
-        originalFileName: 'plan.pdf',
-      });
+      requirementFileNameService.requirementTextEntryFileName(names);
+    const fileEntry = requirementFileNameService.requirementDownloadFileName({
+      ...names,
+      originalFileName: 'plan.pdf',
+    });
 
     expect(textEntry).toBe('가나다팀_계획서.txt');
     expect(fileEntry).toBe('가나다팀_계획서.pdf');
   });
 });
 
-describe('milestoneDocumentArchiveFolderName', () => {
+describe('requirementArchiveFolderName', () => {
   it.each<[string, string]>([
     ['a/b', 'a_b'],
     ['a\\b', 'a_b'],
@@ -479,9 +446,7 @@ describe('milestoneDocumentArchiveFolderName', () => {
     ['팀  이름', '팀 이름'],
   ])('폴더 이름 %p은 `%s`가 된다', (value, expected) => {
     const result =
-      milestoneDocumentFileNameService.milestoneDocumentArchiveFolderName(
-        value,
-      );
+      requirementFileNameService.requirementArchiveFolderName(value);
 
     expect(result).toBe(expected);
     expect(result).not.toContain('/');

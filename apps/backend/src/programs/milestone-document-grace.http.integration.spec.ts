@@ -1,6 +1,6 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
 
@@ -8,7 +8,7 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
+const fixture = new RequirementFlowFixture();
 const graceDueAt = '2099-06-30T23:59:00+09:00';
 const setGrace = (value: string | null, actor: 'student' | 'staff' = 'staff') =>
   fixture.request(`${fixture.documentPath()}/grace`, {

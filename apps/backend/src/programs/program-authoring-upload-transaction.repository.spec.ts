@@ -115,8 +115,8 @@ describe('program authoring upload transaction', () => {
       prisma as never,
       ACTOR_ID,
       [
-        { milestoneDocumentId: 'document-b', upload: second },
-        { milestoneDocumentId: 'document-a', upload: first },
+        { requirementId: 'document-b', upload: second },
+        { requirementId: 'document-a', upload: first },
       ],
     );
 
@@ -168,7 +168,7 @@ describe('program authoring upload transaction', () => {
       new ProgramAuthoringUploadTransactionRepository().consumePendingProgramAuthoringUploads(
         prisma as never,
         ACTOR_ID,
-        [{ milestoneDocumentId: 'document-id', upload: upload() }],
+        [{ requirementId: 'document-id', upload: upload() }],
       ),
     ).rejects.toEqual(expect.any(ProgramAuthoringUploadConsumptionRaceError));
 

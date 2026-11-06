@@ -1,120 +1,105 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { SubmissionWindowService } from './files.service';
 import { SubmissionStatus } from '@prisma/client';
 
-const milestoneDocumentSubmissionWindowService =
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService());
+const submissionWindowService = new SubmissionWindowService(
+  new ProgramScheduleService(),
+);
 
 const dueAt = new Date('2026-09-19T09:00:00.000Z');
 
 const beforeDeadline = new Date('2026-09-19T08:59:59.999Z');
 const afterDeadline = new Date('2026-09-19T09:00:00.001Z');
 
-describe('milestoneDocumentSubmissionBlock', () => {
+describe('submissionBlock', () => {
   it('마감 전에는 첫 제출과 검토 전 교체를 허용한다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: beforeDeadline,
-          hasSubmission: false,
-          latestDecision: null,
-          submissionStatus: null,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: beforeDeadline,
+        hasSubmission: false,
+        latestDecision: null,
+        submissionStatus: null,
+      }),
     ).toBeNull();
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: beforeDeadline,
-          hasSubmission: true,
-          latestDecision: null,
-          submissionStatus: SubmissionStatus.SUBMITTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: beforeDeadline,
+        hasSubmission: true,
+        latestDecision: null,
+        submissionStatus: SubmissionStatus.SUBMITTED,
+      }),
     ).toBeNull();
   });
 
   it('마감 후 첫 제출과 검토 전 교체를 서로 다른 이유로 막는다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: afterDeadline,
-          hasSubmission: false,
-          latestDecision: null,
-          submissionStatus: null,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: afterDeadline,
+        hasSubmission: false,
+        latestDecision: null,
+        submissionStatus: null,
+      }),
     ).toBe('MILESTONE_CLOSED');
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: afterDeadline,
-          hasSubmission: true,
-          latestDecision: null,
-          submissionStatus: SubmissionStatus.SUBMITTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: afterDeadline,
+        hasSubmission: true,
+        latestDecision: null,
+        submissionStatus: SubmissionStatus.SUBMITTED,
+      }),
     ).toBe('SUBMISSION_REPLACEMENT_CLOSED');
   });
 
   it('보완 요청을 받고 아직 응하지 않았으면 마감 후에도 다시 제출할 수 있다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: afterDeadline,
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: afterDeadline,
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      }),
     ).toBeNull();
   });
 
   it('보완 요청에 응해 한 번 다시 낸 뒤에는 마감 후 재제출을 막는다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: afterDeadline,
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: afterDeadline,
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
 
-          submissionStatus: SubmissionStatus.SUBMITTED,
-        },
-      ),
+        submissionStatus: SubmissionStatus.SUBMITTED,
+      }),
     ).toBe('RESUBMISSION_ALREADY_USED');
   });
 
   it('마감 전이면 보완 요청에 응한 뒤에도 계속 고칠 수 있다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: beforeDeadline,
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: SubmissionStatus.SUBMITTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: beforeDeadline,
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: SubmissionStatus.SUBMITTED,
+      }),
     ).toBeNull();
   });
 
   it('제출이 없는데 보완 요청 판정만 있으면 마감으로 막는다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: afterDeadline,
-          hasSubmission: false,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: null,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: afterDeadline,
+        hasSubmission: false,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: null,
+      }),
     ).toBe('MILESTONE_CLOSED');
   });
 
@@ -126,15 +111,13 @@ describe('milestoneDocumentSubmissionBlock', () => {
     (latestDecision, submissionStatus) => {
       for (const now of [beforeDeadline, afterDeadline]) {
         expect(
-          milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-            {
-              dueAt,
-              now,
-              hasSubmission: true,
-              latestDecision,
-              submissionStatus,
-            },
-          ),
+          submissionWindowService.submissionBlock({
+            dueAt,
+            now,
+            hasSubmission: true,
+            latestDecision,
+            submissionStatus,
+          }),
         ).toBe('RESUBMISSION_NOT_ALLOWED');
       }
     },
@@ -156,16 +139,13 @@ describe('milestoneDocumentSubmissionBlock', () => {
   ] as const)(
     '마감 지남=%s · 판정=%s · 상태=%s 에서 서버 허용은 화면 허용(%s)과 같다',
     (closed, latestDecision, submissionStatus, screenAllows) => {
-      const blocked =
-        milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-          {
-            dueAt,
-            now: closed ? afterDeadline : beforeDeadline,
-            hasSubmission: submissionStatus !== null,
-            latestDecision,
-            submissionStatus,
-          },
-        );
+      const blocked = submissionWindowService.submissionBlock({
+        dueAt,
+        now: closed ? afterDeadline : beforeDeadline,
+        hasSubmission: submissionStatus !== null,
+        latestDecision,
+        submissionStatus,
+      });
 
       expect(blocked === null).toBe(screenAllows);
     },
@@ -173,71 +153,61 @@ describe('milestoneDocumentSubmissionBlock', () => {
 
   it('마감이 한참 지나도 응하지 않은 보완 요청은 다시 제출할 수 있다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: new Date('2026-09-26T09:00:00.001Z'),
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: new Date('2026-09-26T09:00:00.001Z'),
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      }),
     ).toBeNull();
   });
 
   it('마감 뒤 보완 요청에는 한 번 다시 제출할 수 있다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: new Date('2026-09-26T08:59:59.999Z'),
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: new Date('2026-09-26T08:59:59.999Z'),
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      }),
     ).toBeNull();
   });
 
   it('마감 뒤 이미 다시 낸 서류는 잠근다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: new Date('2026-09-26T08:59:59.999Z'),
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: SubmissionStatus.SUBMITTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: new Date('2026-09-26T08:59:59.999Z'),
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: SubmissionStatus.SUBMITTED,
+      }),
     ).toBe('RESUBMISSION_ALREADY_USED');
   });
 
   it('마감 전에는 보완 요청을 받은 서류를 수정할 수 있다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: beforeDeadline,
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: beforeDeadline,
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      }),
     ).toBeNull();
   });
 
   it('보완 요청은 별도 기한 없이 한 번 다시 제출할 수 있다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt,
-          now: afterDeadline,
-          hasSubmission: true,
-          latestDecision: 'CHANGES_REQUESTED',
-          submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
-        },
-      ),
+      submissionWindowService.submissionBlock({
+        dueAt,
+        now: afterDeadline,
+        hasSubmission: true,
+        latestDecision: 'CHANGES_REQUESTED',
+        submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+      }),
     ).toBeNull();
   });
 });
@@ -245,7 +215,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
 describe('isChangeRequestResubmissionOpen', () => {
   it('보완 요청을 받고 아직 응하지 않은 자리에서만 참이다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen({
+      submissionWindowService.isChangeRequestResubmissionOpen({
         latestDecision: 'CHANGES_REQUESTED',
         submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
       }),
@@ -254,7 +224,7 @@ describe('isChangeRequestResubmissionOpen', () => {
 
   it('이미 다시 낸 자리에서는 거짓이다 — 그 한 번이 마감을 지나가는 전부다', () => {
     expect(
-      milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen({
+      submissionWindowService.isChangeRequestResubmissionOpen({
         latestDecision: 'CHANGES_REQUESTED',
         submissionStatus: SubmissionStatus.SUBMITTED,
       }),
@@ -264,12 +234,10 @@ describe('isChangeRequestResubmissionOpen', () => {
   it('판정이 보완 요청이 아니면 상태가 무엇이든 거짓이다', () => {
     for (const latestDecision of [null, 'APPROVED', 'REJECTED'] as const) {
       expect(
-        milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen(
-          {
-            latestDecision,
-            submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
-          },
-        ),
+        submissionWindowService.isChangeRequestResubmissionOpen({
+          latestDecision,
+          submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+        }),
       ).toBe(false);
     }
   });
@@ -294,21 +262,15 @@ describe('document grace window', () => {
         submissionStatus: hasSubmission ? SubmissionStatus.SUBMITTED : null,
         now: graceDueAt,
       };
-      expect(
-        milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-          input,
-        ),
-      ).toBeNull();
+      expect(submissionWindowService.submissionBlock(input)).toBeNull();
     },
   );
 
   it('유예 기한 1ms 뒤에는 다시 마감한다', () => {
     const input = { ...base, now: new Date(graceDueAt.getTime() + 1) };
-    expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        input,
-      ),
-    ).toBe('MILESTONE_CLOSED');
+    expect(submissionWindowService.submissionBlock(input)).toBe(
+      'MILESTONE_CLOSED',
+    );
   });
 
   it.each(['APPROVED', 'REJECTED'] as const)(
@@ -320,11 +282,9 @@ describe('document grace window', () => {
         hasSubmission: true,
         latestDecision,
       };
-      expect(
-        milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-          input,
-        ),
-      ).toBe('RESUBMISSION_NOT_ALLOWED');
+      expect(submissionWindowService.submissionBlock(input)).toBe(
+        'RESUBMISSION_NOT_ALLOWED',
+      );
     },
   );
 
@@ -336,11 +296,7 @@ describe('document grace window', () => {
       latestDecision: 'CHANGES_REQUESTED' as const,
       submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
     };
-    expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        input,
-      ),
-    ).toBeNull();
+    expect(submissionWindowService.submissionBlock(input)).toBeNull();
   });
 
   it('유예가 이미 사용한 보완 재제출을 다시 열지 않는다', () => {
@@ -351,10 +307,8 @@ describe('document grace window', () => {
       latestDecision: 'CHANGES_REQUESTED' as const,
       submissionStatus: SubmissionStatus.SUBMITTED,
     };
-    expect(
-      milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        input,
-      ),
-    ).toBe('RESUBMISSION_ALREADY_USED');
+    expect(submissionWindowService.submissionBlock(input)).toBe(
+      'RESUBMISSION_ALREADY_USED',
+    );
   });
 });

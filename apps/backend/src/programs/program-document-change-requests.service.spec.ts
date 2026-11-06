@@ -3,11 +3,11 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsErrorCode } from './submissions.error';
 import {
   type ProgramArchiveReader,
   type RequirementsRepository,
-  type MilestoneDocumentWriteStore,
+  type RequirementWriteStore,
   type ProgramDocumentChangeRequestCandidate,
   type ProgramDocumentChangeRequestInput,
 } from './requirements.repository';
@@ -25,7 +25,7 @@ function candidate(
   teamId: string,
   status: SubmissionStatus,
 ): ProgramDocumentChangeRequestCandidate {
-  return { milestoneDocumentId: 'document-1', teamId, status };
+  return { requirementId: 'document-1', teamId, status };
 }
 const previewed = [
   candidate('application-a', SubmissionStatus.SUBMITTED),
@@ -61,19 +61,18 @@ function writeStore(
       .fn()
       .mockResolvedValue(['application-a', 'application-b', 'application-c']),
     findChangeRequestCandidates: jest.fn().mockResolvedValue(candidates),
-    findSubmissionForReview: jest.fn(
-      (milestoneDocumentId: string, teamId: string) =>
-        Promise.resolve({
-          id: `${teamId}:${milestoneDocumentId}`,
-          revision: 2,
-          submissionHistoryId: `history:${teamId}`,
-          latestHistoryCreatedAt: new Date('2026-10-11T00:00:00.000Z'),
-        }),
+    findSubmissionForReview: jest.fn((requirementId: string, teamId: string) =>
+      Promise.resolve({
+        id: `${teamId}:${requirementId}`,
+        revision: 2,
+        submissionHistoryId: `history:${teamId}`,
+        latestHistoryCreatedAt: new Date('2026-10-11T00:00:00.000Z'),
+      }),
     ),
     createReview: jest
       .fn<
-        ReturnType<MilestoneDocumentWriteStore['createReview']>,
-        Parameters<MilestoneDocumentWriteStore['createReview']>
+        ReturnType<RequirementWriteStore['createReview']>,
+        Parameters<RequirementWriteStore['createReview']>
       >()
       .mockResolvedValue({
         id: 'review',
@@ -92,8 +91,8 @@ function repository(
   return {
     findChangeRequestCandidates: jest.fn().mockResolvedValue(preview),
     withTransaction: jest.fn(
-      (operation: (store: MilestoneDocumentWriteStore) => Promise<unknown>) =>
-        operation(store as unknown as MilestoneDocumentWriteStore),
+      (operation: (store: RequirementWriteStore) => Promise<unknown>) =>
+        operation(store as unknown as RequirementWriteStore),
     ),
   };
 }
@@ -187,7 +186,7 @@ describe('ProgramDocumentChangeRequestsService.targets', () => {
     const error = await subject
       .targets(programId, { kind: 'PROGRAM' })
       .catch((caught: unknown) => caught);
-    expect(code(error)).toBe(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+    expect(code(error)).toBe(RequirementsErrorCode.PROGRAM_NOT_FOUND);
   });
 });
 describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
@@ -204,7 +203,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     });
     expect(store.createReview).toHaveBeenCalledTimes(2);
     expect(store.createReview).toHaveBeenCalledWith({
-      milestoneDocumentSubmissionId: 'application-a:document-1',
+      submissionId: 'application-a:document-1',
       submissionHistoryId: 'history:application-a',
       revision: 2,
       reviewerId: 'staff-1',
@@ -272,7 +271,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
     const error = await subject
       .requestChanges('staff-1', programId, request(), () => now)
       .catch((caught: unknown) => caught);
-    expect(code(error)).toBe(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
+    expect(code(error)).toBe(RequirementsErrorCode.REVIEW_TARGET_CHANGED);
     expect(store.createReview).not.toHaveBeenCalled();
     expect(store.updateSubmissionStatus).not.toHaveBeenCalled();
   });
@@ -314,7 +313,7 @@ it('사전 조회 뒤 삭제된 프로그램은 문서와 신청 잠금 전에 �
   store.lockProgramForReview.mockResolvedValue(false);
   await expect(
     subject.requestChanges('staff-1', programId, request()).catch(code),
-  ).resolves.toBe(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+  ).resolves.toBe(RequirementsErrorCode.PROGRAM_NOT_FOUND);
   expect(store.lockProgramDocumentIds).not.toHaveBeenCalled();
   expect(store.lockApprovedApplicationIds).not.toHaveBeenCalled();
   expect(store.createReview).not.toHaveBeenCalled();

@@ -1,17 +1,17 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './files.service';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { SubmissionWindowService } from './files.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
-import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
+import { RequirementHistoryPageResponseDto } from './dto/requirement-history-page-response.dto';
 import { SubmissionHistoryEvent } from '@prisma/client';
 import { RequirementsRepository } from './requirements.repository';
 import { RequirementsService } from './requirements.service';
-import { InvalidMilestoneDocumentHistoryCursorError } from './submissions.error';
+import { InvalidRequirementHistoryCursorError } from './submissions.error';
 
-describe('MilestoneDocumentsService historyForStaff', () => {
+describe('RequirementsService historyForStaff', () => {
   it('checks the document and application program before returning a bounded page', async () => {
     const repository = {
       findDocumentContext: jest.fn().mockResolvedValue({
@@ -40,10 +40,8 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     } as unknown as RequirementsRepository;
     const service = new RequirementsService(
       repository,
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -57,7 +55,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         cursor: null,
         limit: 20,
       })
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
 
     expect(result).toEqual({
       items: [
@@ -83,16 +81,14 @@ describe('MilestoneDocumentsService historyForStaff', () => {
       findApplicationProgramId: jest.fn().mockResolvedValue('program-1'),
       findSubmissionHistoryPage: jest
         .fn()
-        .mockRejectedValue(new InvalidMilestoneDocumentHistoryCursorError()),
+        .mockRejectedValue(new InvalidRequirementHistoryCursorError()),
     } as unknown as RequirementsRepository;
 
     await expect(
       new RequirementsService(
         repository,
-        new MilestoneDocumentSubmissionWindowService(
-          new ProgramScheduleService(),
-        ),
-        new MilestoneDocumentCollectionService({} as never),
+        new SubmissionWindowService(new ProgramScheduleService()),
+        new RequirementCollectionService({} as never),
         new ProgramScheduleService(),
         new SubmissionsRepository(
           new PlatformRepository(),
@@ -107,7 +103,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
   });
 });
 
-describe('MilestoneDocumentsService history download links', () => {
+describe('RequirementsService history download links', () => {
   const documentContext = {
     id: 'document-1',
     milestoneId: 'milestone-1',
@@ -169,10 +165,8 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -186,7 +180,7 @@ describe('MilestoneDocumentsService history download links', () => {
         cursor: null,
         limit: 20,
       })
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({
@@ -204,10 +198,8 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: 'file-1',
         }),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -221,7 +213,7 @@ describe('MilestoneDocumentsService history download links', () => {
         cursor: null,
         limit: 20,
       })
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({
@@ -238,10 +230,8 @@ describe('MilestoneDocumentsService history download links', () => {
           downloadableFileId: null,
         }),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentCollectionService({} as never),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
       new ProgramScheduleService(),
       new SubmissionsRepository(
         new PlatformRepository(),
@@ -255,7 +245,7 @@ describe('MilestoneDocumentsService history download links', () => {
         cursor: null,
         limit: 20,
       })
-      .then((result) => MilestoneDocumentHistoryPageResponseDto.from(result));
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
 
     expect(result.items[0]).toEqual(
       expect.objectContaining({

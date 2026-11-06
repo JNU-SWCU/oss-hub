@@ -1,7 +1,7 @@
 import { DownloadResponseService } from './download-response.service';
 import {
-  MilestoneDocumentSubmissionWindowService,
-  MilestoneDocumentFilesService,
+  SubmissionWindowService,
+  RequirementFilesService,
 } from './files.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
@@ -23,23 +23,23 @@ import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { RequirementsController } from './requirements.controller';
 import {
-  MilestoneDocumentCurrentFileService,
-  MilestoneDocumentCollectionService,
+  RequirementCurrentFileService,
+  RequirementCollectionService,
   RequirementArchiveService,
-  type MilestoneDocumentArchive,
+  type RequirementArchive,
 } from './requirement-archive.service';
 import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
-  MilestoneDocumentArchiveEntryError,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
+  RequirementArchiveEntryError,
 } from './submissions.error';
 import { type Response } from 'express';
 import { OriginGuard } from '../platform/origin.guard';
 import { RolesGuard } from '../platform/roles.guard';
 import { type AuthenticatedRequest } from '../auth/http-auth.types';
-import { MilestoneDocumentFilesController } from './files.controller';
-import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
-import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementFilesController } from './files.controller';
+import { RequirementArchiveRequestDto } from './dto/requirement-archive-request.dto';
+import { RequirementReviewsService } from './submissions.service';
 import { RequirementsService } from './requirements.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
@@ -90,11 +90,9 @@ describe('milestone-document-current-file.controller', () => {
           },
         },
         {
-          provide: MilestoneDocumentCurrentFileService,
+          provide: RequirementCurrentFileService,
           useValue: Object.assign(
-            Object.create(
-              MilestoneDocumentCurrentFileService.prototype,
-            ) as object,
+            Object.create(RequirementCurrentFileService.prototype) as object,
             {
               download,
               downloadResponseService: new DownloadResponseService(),
@@ -159,8 +157,8 @@ describe('milestone-document-current-file.controller', () => {
     async (documentId) => {
       download.mockRejectedValueOnce(
         new DomainException(
-          MILESTONE_DOCUMENTS_ERROR_CODES[
-            MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND
+          REQUIREMENTS_ERROR_CODES[
+            RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND
           ],
         ),
       );
@@ -172,7 +170,7 @@ describe('milestone-document-current-file.controller', () => {
       expect(response.status).toBe(404);
       await expect(response.json()).resolves.toMatchObject({
         status: 404,
-        code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+        code: RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND,
         detail: '제출된 파일을 찾을 수 없습니다.',
       });
     },
@@ -256,7 +254,7 @@ const collectForStaff = jest.fn().mockResolvedValue({
       deliveryStatus: 'COMPLETE',
       cells: [
         {
-          milestoneDocumentId: 'synthetic-document',
+          requirementId: 'synthetic-document',
           teamId: 'synthetic-application',
           revision: 1,
           status: 'SUBMITTED',
@@ -308,7 +306,7 @@ const check = jest.fn().mockResolvedValue(undefined);
 const ARCHIVE_FILE_NAME = '1차 중간산출물_2026-08-20.zip';
 const ARCHIVE_BODY = 'zip-body';
 
-const archiveForStaff = jest.fn((): Promise<MilestoneDocumentArchive> =>
+const archiveForStaff = jest.fn((): Promise<RequirementArchive> =>
   Promise.resolve({
     body: Readable.from(Buffer.from(ARCHIVE_BODY)),
     fileName: ARCHIVE_FILE_NAME,
@@ -340,7 +338,7 @@ beforeEach(() => {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [RequirementsController, MilestoneDocumentFilesController],
+    controllers: [RequirementsController, RequirementFilesController],
     providers: [
       protectedRouteGuardStub({
         canActivate: (context: ExecutionContext): boolean => {
@@ -354,9 +352,9 @@ beforeAll(async () => {
       }),
       ...STATELESS_PROVIDERS,
       {
-        provide: MilestoneDocumentCollectionService,
+        provide: RequirementCollectionService,
         useValue: Object.assign(
-          Object.create(MilestoneDocumentCollectionService.prototype) as object,
+          Object.create(RequirementCollectionService.prototype) as object,
           { collectForStaff },
         ),
       },
@@ -368,17 +366,16 @@ beforeAll(async () => {
             listForViewer,
             collectForStaff,
             submit,
-            milestoneDocumentSubmissionWindowService:
-              new MilestoneDocumentSubmissionWindowService(
-                new ProgramScheduleService(),
-              ),
+            submissionWindowService: new SubmissionWindowService(
+              new ProgramScheduleService(),
+            ),
           },
         ),
       },
       {
-        provide: MilestoneDocumentFilesService,
+        provide: RequirementFilesService,
         useValue: Object.assign(
-          Object.create(MilestoneDocumentFilesService.prototype) as object,
+          Object.create(RequirementFilesService.prototype) as object,
           {
             downloadTemplate,
             downloadSubmissionFile,
@@ -389,11 +386,11 @@ beforeAll(async () => {
         ),
       },
       {
-        provide: MilestoneDocumentReviewsService,
+        provide: RequirementReviewsService,
         useValue: Object.assign(
           Object.create(
-            MilestoneDocumentReviewsService.prototype,
-          ) as MilestoneDocumentReviewsService,
+            RequirementReviewsService.prototype,
+          ) as RequirementReviewsService,
           { review },
         ),
       },
@@ -592,7 +589,7 @@ it('서류 파일 판정은 업로드와 같은 세션+Origin 가드와 multipar
     Reflect.getMetadata(
       key,
       Object.getOwnPropertyDescriptor(
-        MilestoneDocumentFilesController.prototype,
+        RequirementFilesController.prototype,
         handler,
       )?.value as object,
     );
@@ -963,14 +960,14 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       };
     };
 
-    const documentScopeQuery = (): MilestoneDocumentArchiveRequestDto =>
-      Object.assign(new MilestoneDocumentArchiveRequestDto(), {
+    const documentScopeQuery = (): RequirementArchiveRequestDto =>
+      Object.assign(new RequirementArchiveRequestDto(), {
         documentId: 'synthetic-document',
       });
 
     const streamArchive = (
       probe: ArchiveResponseProbe,
-      query: MilestoneDocumentArchiveRequestDto = new MilestoneDocumentArchiveRequestDto(),
+      query: RequirementArchiveRequestDto = new RequirementArchiveRequestDto(),
     ): Promise<StreamableFile> => {
       if (application === undefined) {
         throw new Error('테스트 애플리케이션이 아직 뜨지 않았다');
@@ -1082,7 +1079,7 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       const nest = createNestStreamableProbe();
 
       streamable.errorHandler(
-        new MilestoneDocumentArchiveEntryError(
+        new RequirementArchiveEntryError(
           FAILED_STORAGE_KEY,
           new Error('SUBMISSION_FILE_STORAGE_GET_FAILED'),
         ),
@@ -1103,7 +1100,7 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
       const nest = createNestStreamableProbe();
 
       streamable.errorHandler(
-        new MilestoneDocumentArchiveEntryError(
+        new RequirementArchiveEntryError(
           FAILED_STORAGE_KEY,
           new Error('SUBMISSION_FILE_STORAGE_GET_FAILED'),
         ),

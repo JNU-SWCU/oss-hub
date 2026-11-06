@@ -9,7 +9,7 @@ import {
 } from 'class-validator';
 import { SUBMISSION_REVIEW_EVENTS } from '../submission-history.config';
 import type { SubmissionReviewDecision } from '../submissions.repository';
-export class CreateMilestoneDocumentReviewRequestDto {
+export class CreateRequirementReviewRequestDto {
   @IsIn(SUBMISSION_REVIEW_EVENTS)
   declare readonly decision: SubmissionReviewDecision;
   @IsOptional()

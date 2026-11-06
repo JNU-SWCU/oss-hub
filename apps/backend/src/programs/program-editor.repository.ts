@@ -37,7 +37,7 @@ export type ProgramMilestoneView = {
   readonly dueAt: Date;
   readonly instructions: string | null;
 };
-export type ProgramMilestoneDocumentView = {
+export type ProgramRequirementView = {
   readonly submissionType: RequirementSubmissionType;
   readonly id: string;
   readonly name: string;
@@ -52,7 +52,7 @@ type ProgramMilestoneOperationView = {
 export type ProgramMilestoneEditView = {
   readonly milestone: ProgramMilestoneView;
   readonly operation: ProgramMilestoneOperationView;
-  readonly documents: readonly ProgramMilestoneDocumentView[];
+  readonly documents: readonly ProgramRequirementView[];
   readonly fingerprint: string;
 };
 export type LockedProgramMilestoneEdit = {
@@ -669,7 +669,7 @@ export class ProgramEditorRepository {
     }
     const consumptions: ProgramAuthoringPendingUploadConsumption[] = [];
     for (const [index, document] of input.documents.entries()) {
-      const milestoneDocumentId =
+      const requirementId =
         document.id ??
         (
           await transaction.requirement.create({
@@ -685,7 +685,7 @@ export class ProgramEditorRepository {
       if (document.id !== null) {
         await transaction.requirement.update({
           where: {
-            id: milestoneDocumentId,
+            id: requirementId,
           },
           data: {
             name: document.name,
@@ -701,7 +701,7 @@ export class ProgramEditorRepository {
         if (upload === undefined) {
           throw new ProgramEditorMilestoneEditRaceError();
         }
-        consumptions.push({ milestoneDocumentId, upload });
+        consumptions.push({ requirementId, upload });
       }
     }
     await this.programAuthoringUploadTransactionRepository.consumePendingProgramAuthoringUploads(

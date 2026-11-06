@@ -19,7 +19,7 @@ import { ProgramsModule } from './programs.module';
 import {
   flowIds,
   flowGithubIds,
-  seedMilestoneDocumentFlow,
+  seedRequirementFlow,
 } from './milestone-document-flow-data.integration-fixture';
 import { AuthSessionService } from '../platform/auth-session.service';
 
@@ -30,7 +30,7 @@ export { flowIds } from './milestone-document-flow-data.integration-fixture';
 const sessionSecret = new Uint8Array(32).fill(37);
 const origin = 'https://synthetic.example';
 
-export class MilestoneDocumentFlowFixture {
+export class RequirementFlowFixture {
   readonly prisma = new PrismaService();
   readonly storage = new S3ObjectStorageClient(new ObjectStorageConfig());
   private app: INestApplication | undefined;
@@ -81,7 +81,7 @@ export class MilestoneDocumentFlowFixture {
 
   async reset(): Promise<void> {
     await this.clear();
-    await seedMilestoneDocumentFlow(this.prisma);
+    await seedRequirementFlow(this.prisma);
   }
 
   async request(

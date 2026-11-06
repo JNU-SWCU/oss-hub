@@ -108,12 +108,12 @@ export type ProgramAuthoringCreateRequestInput = {
   readonly programId: string;
 };
 export type ProgramAuthoringTemplateInput = {
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
   readonly actorId: string;
   readonly upload: ProgramAuthoringUploadToken;
 };
 export type ProgramAuthoringPendingUploadConsumption = {
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
   readonly upload: ProgramAuthoringUploadToken;
 };
 export interface ValidatedProgramAuthoringUpload {
@@ -134,32 +134,32 @@ export interface UploadedSubmissionFileResponse {
   readonly expiresAt: string;
 }
 
-export interface UploadedMilestoneDocumentFileResponse {
+export interface UploadedRequirementFileResponse {
   readonly fileId: string;
   readonly fileName: string;
   readonly contentType: string;
   readonly size: number;
   readonly expiresAt: string;
 }
-export interface MilestoneDocumentFileUpload {
+export interface RequirementFileUpload {
   readonly buffer: Buffer;
   readonly originalname: string;
   readonly mimetype: string;
   readonly size: number;
 }
-export interface UploadedMilestoneDocumentTemplateResponse {
+export interface UploadedRequirementTemplateResponse {
   readonly documentId: string;
   readonly hasTemplateFile: true;
   readonly fileName: string;
   readonly uploadedAt: string;
 }
-export interface DownloadedMilestoneDocumentTemplate {
+export interface DownloadedRequirementTemplate {
   readonly body: Readable;
   readonly fileName: string;
   readonly contentType: string;
   readonly contentLength: number;
 }
-export interface DownloadedMilestoneDocumentSubmissionFile {
+export interface DownloadedSubmissionFile {
   readonly body: Readable;
   readonly fileName: string;
   readonly contentType: string;

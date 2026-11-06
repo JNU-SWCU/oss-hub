@@ -1,13 +1,13 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import {
-  type MilestoneDocumentCollectionQuery,
-  MilestoneDocumentCollectionService,
+  type RequirementCollectionQuery,
+  RequirementCollectionService,
 } from './requirement-archive.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { SubmissionWindowService } from './files.service';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -39,16 +39,13 @@ const repository = new RequirementsRepository(
     new PlatformRepository(),
     new FileMetadataRepository(),
   ),
-  new MilestoneDocumentCollectionReadRepository(
-    prisma,
-    new FileMetadataRepository(),
-  ),
+  new RequirementCollectionReadRepository(prisma, new FileMetadataRepository()),
   new FileMetadataRepository(),
 );
 const service = new RequirementsService(
   repository,
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
-  new MilestoneDocumentCollectionService({} as never),
+  new SubmissionWindowService(new ProgramScheduleService()),
+  new RequirementCollectionService({} as never),
   new ProgramScheduleService(),
   new SubmissionsRepository(
     new PlatformRepository(),
@@ -56,7 +53,7 @@ const service = new RequirementsService(
   ),
   new UserProfileService(),
 );
-const collectionQuery: MilestoneDocumentCollectionQuery = {
+const collectionQuery: RequirementCollectionQuery = {
   page: 1,
   pageSize: 50,
   filter: 'ALL',

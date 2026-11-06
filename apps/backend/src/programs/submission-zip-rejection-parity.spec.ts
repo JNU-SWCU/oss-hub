@@ -1,18 +1,18 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
-  MilestoneDocumentSubmissionWindowService,
-  MilestoneDocumentFileNameService,
+  SubmissionWindowService,
+  RequirementFileNameService,
   SubmissionFileAdmissionService,
   FilesService,
-  MilestoneDocumentFilesService,
+  RequirementFilesService,
 } from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import { DomainException } from '../platform/error-code.error';
 import {
-  MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENT_ZIP_REJECTION_ERROR_CODES,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
   SUBMISSION_ZIP_REJECTION_ERROR_CODES,
   SUBMISSIONS_ERROR_CODES,
   SubmissionsErrorCode,
@@ -100,7 +100,7 @@ function submissionService() {
     new DownloadResponseService(),
   );
 }
-function milestoneDocumentService() {
+function requirementService() {
   const repository = {
     findActiveUser: jest.fn().mockResolvedValue({
       id: 'user-opaque',
@@ -136,12 +136,12 @@ function milestoneDocumentService() {
   };
   const storage = { put: jest.fn(), get: jest.fn(), delete: jest.fn() };
   const submissionFiles = { createPending: jest.fn() };
-  return new MilestoneDocumentFilesService(
+  return new RequirementFilesService(
     repository as unknown as RequirementsRepository,
     storage,
     submissionFiles as unknown as FilesService,
-    new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
-    new MilestoneDocumentFileNameService(),
+    new SubmissionWindowService(new ProgramScheduleService()),
+    new RequirementFileNameService(),
     new SubmissionFileAdmissionService(),
     new DownloadResponseService(),
     new UserProfileService(),
@@ -170,7 +170,7 @@ describe('제출 경로와 서류 경로는 같은 압축 파일에 같은 구�
       submissionService().check(file),
     );
     const documentCode = await rejectionCodeOf(
-      milestoneDocumentService().upload(
+      requirementService().upload(
         1n,
         'milestone-opaque',
         'document-opaque',
@@ -181,15 +181,11 @@ describe('제출 경로와 서류 경로는 같은 압축 파일에 같은 구�
     const submission =
       SUBMISSIONS_ERROR_CODES[submissionCode as SubmissionsErrorCode];
     const document =
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        documentCode as MilestoneDocumentsErrorCode
-      ];
+      REQUIREMENTS_ERROR_CODES[documentCode as RequirementsErrorCode];
     expect(document.message).toBe(submission.message);
     expect(document.status).toBe(submission.status);
     expect(submissionCode).not.toBe(SubmissionsErrorCode.UNSUPPORTED_FILE_TYPE);
-    expect(documentCode).not.toBe(
-      MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE,
-    );
+    expect(documentCode).not.toBe(RequirementsErrorCode.UNSUPPORTED_FILE_TYPE);
   });
 });
 describe('두 경로의 사유 표는 같은 갈래를 덮는다', () => {
@@ -199,9 +195,7 @@ describe('두 경로의 사유 표는 같은 갈래를 덮는다', () => {
   it('여덟 갈래 모두 양쪽에 코드가 있다', () => {
     for (const reason of reasons) {
       expect(SUBMISSION_ZIP_REJECTION_ERROR_CODES[reason]).toBeDefined();
-      expect(
-        MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[reason],
-      ).toBeDefined();
+      expect(REQUIREMENT_ZIP_REJECTION_ERROR_CODES[reason]).toBeDefined();
     }
   });
   it.each(
@@ -210,9 +204,7 @@ describe('두 경로의 사유 표는 같은 갈래를 덮는다', () => {
     const submission =
       SUBMISSIONS_ERROR_CODES[SUBMISSION_ZIP_REJECTION_ERROR_CODES[reason]];
     const document =
-      MILESTONE_DOCUMENTS_ERROR_CODES[
-        MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[reason]
-      ];
+      REQUIREMENTS_ERROR_CODES[REQUIREMENT_ZIP_REJECTION_ERROR_CODES[reason]];
     expect(document.message).toBe(submission.message);
     expect(document.status).toBe(submission.status);
     expect(submission.status).toBe(422);
@@ -222,7 +214,7 @@ describe('두 경로의 사유 표는 같은 갈래를 덮는다', () => {
       (reason) => SUBMISSION_ZIP_REJECTION_ERROR_CODES[reason],
     );
     const documentCodes = reasons.map(
-      (reason) => MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[reason],
+      (reason) => REQUIREMENT_ZIP_REJECTION_ERROR_CODES[reason],
     );
     expect(new Set(submissionCodes).size).toBe(reasons.length);
     expect(new Set(documentCodes).size).toBe(reasons.length);

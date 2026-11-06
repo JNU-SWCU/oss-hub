@@ -1,6 +1,6 @@
 import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from '../../src/programs/files.service';
-import { MilestoneDocumentCollectionService } from '../../src/programs/requirement-archive.service';
+import { SubmissionWindowService } from '../../src/programs/files.service';
+import { RequirementCollectionService } from '../../src/programs/requirement-archive.service';
 import {
   RequirementsService,
   ProgramDocumentChangeRequestsService,
@@ -20,7 +20,7 @@ import { PatchAdminAccessRequestDto } from '../../src/admin/dto/patch-admin-acce
 import { PatchAdminUserProfileRequestDto } from '../../src/admin/dto/patch-admin-user-profile-request.dto';
 import { PatchIndependentAuthorityRequestDto } from '../../src/admin/dto/patch-independent-authority-request.dto';
 import { ResetMemberRegistrationRequestDto } from '../../src/admin/dto/reset-member-registration-request.dto';
-import { CreateMilestoneDocumentSubmissionRequestDto } from '../../src/programs/dto/create-milestone-document-submission-request.dto';
+import { CreateRequirementSubmissionRequestDto } from '../../src/programs/dto/create-requirement-submission-request.dto';
 import { CreateProgramDocumentChangeRequestRequestDto } from '../../src/programs/dto/create-program-document-change-request-request.dto';
 import { ProgramDocumentChangeRequestTargetsRequestDto } from '../../src/programs/dto/program-document-change-request-targets-request.dto';
 import { UpdateStudentRepositoryUrlRequestDto } from '../../src/programs/dto/update-student-repository-url-request.dto';
@@ -32,10 +32,10 @@ import {
 import { ActivityTimelineRequestDto } from '../../src/student/dto/activity-timeline-request.dto';
 import { UpdateMyProfileRequestDto } from '../../src/users/dto/update-my-profile-request.dto';
 import { RankingYearService } from '../../src/ranking/ranking-year.service';
-const milestoneDocumentsService = new RequirementsService(
+const requirementsService = new RequirementsService(
   {} as never,
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
-  new MilestoneDocumentCollectionService({} as never),
+  new SubmissionWindowService(new ProgramScheduleService()),
+  new RequirementCollectionService({} as never),
   new ProgramScheduleService(),
   {} as never,
   new UserProfileService(),
@@ -334,7 +334,7 @@ parityCases(UpdateStudentRepositoryUrlRequestDto, {
   missing: {},
 });
 parityCases(
-  CreateMilestoneDocumentSubmissionRequestDto,
+  CreateRequirementSubmissionRequestDto,
   {
     text: { content: { text: ' t ' } },
     file: { content: { fileId: ' f ' } },
@@ -344,7 +344,7 @@ parityCases(
     missing: {},
     'long file id': { content: { fileId: 'f'.repeat(129) } },
   },
-  (dto) => milestoneDocumentsService.parseMilestoneDocumentContent(dto.content),
+  (dto) => requirementsService.parseRequirementContent(dto.content),
 );
 const CHANGE_REQUEST_BASE = {
   scope: 'PROGRAM',

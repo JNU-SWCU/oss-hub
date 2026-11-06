@@ -1,10 +1,10 @@
 import { SubmissionStatus } from '@prisma/client';
-import type { RecentMilestoneDocumentReview } from './milestone-document-feedback.repository';
-import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
+import type { RecentRequirementReview } from './requirement-feedback.repository';
+import { RequirementFeedbackService } from './requirement-feedback.service';
 const NOW = new Date('2026-09-23T03:00:00.000Z');
 function review(
-  overrides: Partial<RecentMilestoneDocumentReview> = {},
-): RecentMilestoneDocumentReview {
+  overrides: Partial<RecentRequirementReview> = {},
+): RecentRequirementReview {
   return {
     id: 'review-1',
     decision: 'CHANGES_REQUESTED',
@@ -21,19 +21,19 @@ function review(
   };
 }
 function serviceWith(
-  reviews: readonly RecentMilestoneDocumentReview[],
+  reviews: readonly RecentRequirementReview[],
   now: Date = NOW,
 ) {
   const findRecentForParticipant = jest.fn().mockResolvedValue(reviews);
   return {
-    service: new MilestoneDocumentFeedbackService(
+    service: new RequirementFeedbackService(
       { findRecentForParticipant },
       () => now,
     ),
     findRecentForParticipant,
   };
 }
-describe('MilestoneDocumentFeedbackService', () => {
+describe('RequirementFeedbackService', () => {
   it('판정을 저장소가 준 순서대로 신청 ID·학생 서류 화면 주소와 함께 싣는다', async () => {
     const { service } = serviceWith([
       review(),
@@ -133,7 +133,7 @@ describe('MilestoneDocumentFeedbackService', () => {
         reviewerId: 'synthetic-staff',
         reviewerNickname: 'synthetic-reviewer',
         programName: '합성 프로그램',
-      } as RecentMilestoneDocumentReview,
+      } as RecentRequirementReview,
     ]);
     const response = await service.recentForParticipant(34290202n);
     expect(Object.keys(response.items[0] ?? {}).sort()).toEqual(

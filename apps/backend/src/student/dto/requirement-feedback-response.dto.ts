@@ -1,6 +1,6 @@
-import type { MilestoneDocumentFeedbackResult } from '../milestone-document-feedback.service';
+import type { RequirementFeedbackResult } from '../requirement-feedback.service';
 import type { SubmissionReviewDecision } from '../../programs/submissions.repository';
-export class MilestoneDocumentFeedbackItemResponseDto {
+export class RequirementFeedbackItemResponseDto {
   declare readonly id: string;
   declare readonly decision: SubmissionReviewDecision;
   declare readonly comment: string | null;
@@ -12,8 +12,8 @@ export class MilestoneDocumentFeedbackItemResponseDto {
   declare readonly itemName: string;
   declare readonly href: string;
   static from(
-    item: MilestoneDocumentFeedbackResult['items'][number],
-  ): MilestoneDocumentFeedbackItemResponseDto {
+    item: RequirementFeedbackResult['items'][number],
+  ): RequirementFeedbackItemResponseDto {
     return {
       id: item.id,
       decision: item.decision,
@@ -28,14 +28,14 @@ export class MilestoneDocumentFeedbackItemResponseDto {
     };
   }
 }
-export class MilestoneDocumentFeedbackResponseDto {
-  declare readonly items: readonly MilestoneDocumentFeedbackItemResponseDto[];
+export class RequirementFeedbackResponseDto {
+  declare readonly items: readonly RequirementFeedbackItemResponseDto[];
   static from(
-    result: MilestoneDocumentFeedbackResult,
-  ): MilestoneDocumentFeedbackResponseDto {
+    result: RequirementFeedbackResult,
+  ): RequirementFeedbackResponseDto {
     return {
       items: result.items.map((item) =>
-        MilestoneDocumentFeedbackItemResponseDto.from(item),
+        RequirementFeedbackItemResponseDto.from(item),
       ),
     };
   }

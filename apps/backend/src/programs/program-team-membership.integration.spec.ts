@@ -40,7 +40,7 @@ const PROGRAM_ID = `${TEST_PREFIX}program`;
 const RUN_PREFIX = `${TEST_PREFIX}run-${randomUUID()}:`;
 
 const MILESTONE_ID = `${TEST_PREFIX}milestone`;
-const MILESTONE_DOCUMENT_ID = `${TEST_PREFIX}milestone-document`;
+const REQUIREMENT_ID = `${TEST_PREFIX}milestone-document`;
 
 const LEADER_ID = `${TEST_PREFIX}leader`;
 const MEMBER_A_ID = `${TEST_PREFIX}member-a`;
@@ -184,10 +184,10 @@ async function seedDurableFixturesOnce(): Promise<void> {
     },
   });
   await prisma.requirement.upsert({
-    where: { id: MILESTONE_DOCUMENT_ID },
+    where: { id: REQUIREMENT_ID },
     update: {},
     create: {
-      id: MILESTONE_DOCUMENT_ID,
+      id: REQUIREMENT_ID,
       milestoneId: MILESTONE_ID,
       name: 'Synthetic document',
       required: true,
@@ -257,7 +257,7 @@ async function seedSubmittedDocument(
   await prisma.submission.create({
     data: {
       id: submissionId,
-      requirementId: MILESTONE_DOCUMENT_ID,
+      requirementId: REQUIREMENT_ID,
       teamId,
       submittedById: submitterId,
       revision: 1,

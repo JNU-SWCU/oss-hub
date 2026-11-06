@@ -19,7 +19,7 @@ import {
 } from './submissions.error';
 import { SubmissionStatus } from '@prisma/client';
 import { type DocumentDeliveryStatus } from './requirements.repository';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import {
   MILESTONE_NOT_SUBMITTED,
   type MilestoneCompletionStatus,
@@ -75,7 +75,7 @@ export class SubmissionMatrixService {
   constructor(
     @Inject(SubmissionMatrixRepository)
     private readonly repository: SubmissionMatrixRepositoryPort,
-    private readonly milestoneDocumentCollectionService: MilestoneDocumentCollectionService,
+    private readonly requirementCollectionService: RequirementCollectionService,
     private readonly milestoneCompletionService: MilestoneCompletionService,
   ) {}
 
@@ -132,7 +132,7 @@ export class SubmissionMatrixService {
     }
     const firstSubmissionIndex = new Map(
       firstSubmissions.map((submission) => [
-        cellKey(submission.teamId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.requirementId),
         submission.firstSubmittedAt,
       ]),
     );
@@ -188,7 +188,7 @@ export class SubmissionMatrixService {
           this.milestoneCompletionService,
         ),
         deliveryStatus:
-          this.milestoneDocumentCollectionService.documentDeliveryStatus({
+          this.requirementCollectionService.documentDeliveryStatus({
             dueAt: milestone.dueAt,
             requiredFirstSubmissions: milestone.requiredDocumentIds.map(
               (documentId) =>
@@ -221,10 +221,7 @@ function toMatrixCell(
   completion: MilestoneCompletionService,
 ): Omit<MatrixCellResult, 'deliveryStatus' | 'changesRequestedCount'> {
   const byRequirement = new Map(
-    submissions.map((submission) => [
-      submission.milestoneDocumentId,
-      submission,
-    ]),
+    submissions.map((submission) => [submission.requirementId, submission]),
   );
   const status = completion.milestoneCompletionStatus({
     submissionAxisInUse: false,
@@ -310,7 +307,7 @@ export class SubmissionDashboardSummaryService {
       }
     }
     const requiredDocumentsByMilestone = new Map<string, string[]>();
-    for (const document of records.milestoneDocuments) {
+    for (const document of records.requirements) {
       if (
         milestoneProgramById.get(document.milestoneId) !==
         document.milestoneProgramId
@@ -334,7 +331,7 @@ export class SubmissionDashboardSummaryService {
         continue;
       }
       documentStatusByCell.set(
-        cellKey(submission.teamId, submission.milestoneDocumentId),
+        cellKey(submission.teamId, submission.requirementId),
         submission.status,
       );
     }

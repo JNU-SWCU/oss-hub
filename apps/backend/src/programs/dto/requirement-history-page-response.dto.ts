@@ -1,8 +1,8 @@
 import type { SubmissionHistoryEvent } from '@prisma/client';
-import type { MilestoneDocumentHistoryResult } from '../requirements.service';
-import type { MilestoneDocumentSubmittedContent } from '../requirements.repository';
+import type { RequirementHistoryResult } from '../requirements.service';
+import type { RequirementSubmittedContent } from '../requirements.repository';
 
-export class MilestoneDocumentHistoryItemResponseDto {
+export class RequirementHistoryItemResponseDto {
   declare readonly event: SubmissionHistoryEvent;
   declare readonly revision: number | null;
   declare readonly actorNickname: string;
@@ -11,11 +11,11 @@ export class MilestoneDocumentHistoryItemResponseDto {
   declare readonly fileName: string | null;
 
   declare readonly downloadUrl: string | null;
-  declare readonly content: MilestoneDocumentSubmittedContent | null;
+  declare readonly content: RequirementSubmittedContent | null;
 
   static from(
-    item: MilestoneDocumentHistoryResult['items'][number],
-  ): MilestoneDocumentHistoryItemResponseDto {
+    item: RequirementHistoryResult['items'][number],
+  ): RequirementHistoryItemResponseDto {
     return {
       event: item.event,
       revision: item.revision,
@@ -32,17 +32,17 @@ export class MilestoneDocumentHistoryItemResponseDto {
   }
 }
 
-export class MilestoneDocumentHistoryPageResponseDto {
-  declare readonly items: readonly MilestoneDocumentHistoryItemResponseDto[];
+export class RequirementHistoryPageResponseDto {
+  declare readonly items: readonly RequirementHistoryItemResponseDto[];
   declare readonly nextCursor: string | null;
   declare readonly isComplete: boolean;
 
   static from(
-    result: MilestoneDocumentHistoryResult,
-  ): MilestoneDocumentHistoryPageResponseDto {
+    result: RequirementHistoryResult,
+  ): RequirementHistoryPageResponseDto {
     return {
       items: result.items.map((item) =>
-        MilestoneDocumentHistoryItemResponseDto.from(item),
+        RequirementHistoryItemResponseDto.from(item),
       ),
       nextCursor: result.nextCursor,
       isComplete: result.isComplete,

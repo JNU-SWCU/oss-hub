@@ -241,7 +241,7 @@ export class StudentDashboardService {
     );
     const statusByDocument = new Map(
       documentSubmissions.map((submission) => [
-        submission.milestoneDocumentId,
+        submission.requirementId,
         submission.status,
       ]),
     );

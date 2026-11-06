@@ -8,10 +8,10 @@ import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   RequirementArchiveService,
-  MilestoneDocumentCollectionService,
+  RequirementCollectionService,
 } from './requirement-archive.service';
-import { MilestoneDocumentFilesService } from './files.service';
-import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementFilesService } from './files.service';
+import { RequirementReviewsService } from './submissions.service';
 import { RequirementsController } from './requirements.controller';
 import { RequirementsService } from './requirements.service';
 import { RequirementsRepository } from './requirements.repository';
@@ -117,15 +117,15 @@ beforeAll(async () => {
           { downloadResponseService: new DownloadResponseService() },
         ),
       },
-      { provide: MilestoneDocumentCollectionService, useValue: {} },
+      { provide: RequirementCollectionService, useValue: {} },
       {
-        provide: MilestoneDocumentFilesService,
+        provide: RequirementFilesService,
         useValue: Object.assign(
-          Object.create(MilestoneDocumentFilesService.prototype) as object,
+          Object.create(RequirementFilesService.prototype) as object,
           { downloadResponseService: new DownloadResponseService() },
         ),
       },
-      { provide: MilestoneDocumentReviewsService, useValue: {} },
+      { provide: RequirementReviewsService, useValue: {} },
     ],
   })
     .useMocker((token) => (token === Function ? undefined : {}))

@@ -1,31 +1,31 @@
-import { MilestoneDocumentFileNameService } from './files.service';
+import { RequirementFileNameService } from './files.service';
 import {
-  MilestoneDocumentCollectionService,
-  type MilestoneDocumentArchiveLayout,
+  RequirementCollectionService,
+  type RequirementArchiveLayout,
   RequirementArchiveService,
 } from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
 import {
-  type MilestoneDocumentArchiveDocument,
-  type MilestoneDocumentArchiveSubmission,
-  type MilestoneDocumentArchiveTeam,
+  type RequirementArchiveDocument,
+  type RequirementArchiveSubmission,
+  type RequirementArchiveTeam,
 } from './requirements.repository';
 
-const milestoneDocumentArchiveService = new RequirementArchiveService(
+const requirementArchiveService = new RequirementArchiveService(
   undefined as never,
   undefined as never,
   undefined as never,
-  new MilestoneDocumentCollectionService({} as never),
-  new MilestoneDocumentFileNameService(),
+  new RequirementCollectionService({} as never),
+  new RequirementFileNameService(),
   new DownloadResponseService(),
 );
 
 const submittedAt = new Date('2026-08-09T05:00:00.000Z');
 
 function document(
-  overrides: Partial<MilestoneDocumentArchiveDocument> = {},
-): MilestoneDocumentArchiveDocument {
+  overrides: Partial<RequirementArchiveDocument> = {},
+): RequirementArchiveDocument {
   return {
     id: 'cuid-synthetic-document',
     name: '사업계획서',
@@ -35,8 +35,8 @@ function document(
 }
 
 function team(
-  overrides: Partial<MilestoneDocumentArchiveTeam> = {},
-): MilestoneDocumentArchiveTeam {
+  overrides: Partial<RequirementArchiveTeam> = {},
+): RequirementArchiveTeam {
   return {
     teamId: 'cuid-synthetic-application',
     teamName: '코드나무',
@@ -47,11 +47,11 @@ function team(
 }
 
 function fileSubmission(
-  overrides: Partial<MilestoneDocumentArchiveSubmission> = {},
-): MilestoneDocumentArchiveSubmission {
+  overrides: Partial<RequirementArchiveSubmission> = {},
+): RequirementArchiveSubmission {
   return {
     teamId: 'cuid-synthetic-application',
-    milestoneDocumentId: 'cuid-synthetic-document',
+    requirementId: 'cuid-synthetic-document',
     submittedAt,
     status: SubmissionStatus.SUBMITTED,
     content: null,
@@ -66,12 +66,12 @@ function fileSubmission(
 }
 
 function plan(input: {
-  documents?: readonly MilestoneDocumentArchiveDocument[];
-  teams?: readonly MilestoneDocumentArchiveTeam[];
-  submissions?: readonly MilestoneDocumentArchiveSubmission[];
-  layout?: MilestoneDocumentArchiveLayout;
+  documents?: readonly RequirementArchiveDocument[];
+  teams?: readonly RequirementArchiveTeam[];
+  submissions?: readonly RequirementArchiveSubmission[];
+  layout?: RequirementArchiveLayout;
 }) {
-  return milestoneDocumentArchiveService.buildMilestoneDocumentArchivePlan({
+  return requirementArchiveService.buildRequirementArchivePlan({
     documents: input.documents ?? [document()],
     teams: input.teams ?? [team()],
     submissions: input.submissions ?? [],
@@ -79,7 +79,7 @@ function plan(input: {
   });
 }
 
-describe('buildMilestoneDocumentArchivePlan', () => {
+describe('buildRequirementArchivePlan', () => {
   it('팀별 묶기는 파일을 `팀명/팀명_서류명.확장자`에 놓는다', () => {
     const result = plan({ submissions: [fileSubmission()] });
 
@@ -236,7 +236,7 @@ describe('buildMilestoneDocumentArchivePlan', () => {
         document({ id: 'doc-a', name: '가서류' }),
         document({ id: 'doc-b', name: '나서류' }),
       ],
-      submissions: [fileSubmission({ milestoneDocumentId: 'doc-b' })],
+      submissions: [fileSubmission({ requirementId: 'doc-b' })],
     });
 
     expect(result.manifest[0]?.cells.map((cell) => cell.documentId)).toEqual([
@@ -438,9 +438,9 @@ describe('buildMilestoneDocumentArchivePlan', () => {
         }),
       ],
       submissions: [
-        fileSubmission({ milestoneDocumentId: 'doc-a' }),
+        fileSubmission({ requirementId: 'doc-a' }),
         fileSubmission({
-          milestoneDocumentId: 'doc-b',
+          requirementId: 'doc-b',
           file: null,
           content: { type: 'TEXT', text: '글' },
           hasCurrentFileEvidence: false,

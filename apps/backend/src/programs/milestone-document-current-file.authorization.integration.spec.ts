@@ -2,21 +2,21 @@ import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
-  MilestoneDocumentSubmissionWindowService,
-  MilestoneDocumentFileNameService,
+  SubmissionWindowService,
+  RequirementFileNameService,
   SubmissionFileAdmissionService,
   FilesService,
-  MilestoneDocumentFilesService,
+  RequirementFilesService,
 } from './files.service';
 import {
-  MilestoneDocumentCollectionService,
-  MilestoneDocumentCurrentFileService,
+  RequirementCollectionService,
+  RequirementCurrentFileService,
 } from './requirement-archive.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
 import {
-  MilestoneDocumentCollectionReadRepository,
-  MilestoneDocumentCurrentFileRepository,
+  RequirementCollectionReadRepository,
+  RequirementCurrentFileRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -39,7 +39,7 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsErrorCode } from './submissions.error';
 import { RequirementsService } from './requirements.service';
 
 assertIsolatedIntegrationDatabase({
@@ -127,16 +127,13 @@ const documentsRepository = new RequirementsRepository(
     new PlatformRepository(),
     new FileMetadataRepository(),
   ),
-  new MilestoneDocumentCollectionReadRepository(
-    prisma,
-    new FileMetadataRepository(),
-  ),
+  new RequirementCollectionReadRepository(prisma, new FileMetadataRepository()),
   new FileMetadataRepository(),
 );
 const documentsService = new RequirementsService(
   documentsRepository,
-  new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
-  new MilestoneDocumentCollectionService({} as never),
+  new SubmissionWindowService(new ProgramScheduleService()),
+  new RequirementCollectionService({} as never),
   new ProgramScheduleService(),
   new SubmissionsRepository(
     new PlatformRepository(),
@@ -150,10 +147,10 @@ const storage: ObjectStoragePort = {
     Promise.resolve(Readable.from(Buffer.from(`bytes:${objectKey}`))),
   delete: () => Promise.reject(new Error('unused')),
 };
-const currentFileService = new MilestoneDocumentCurrentFileService(
-  new MilestoneDocumentCurrentFileRepository(
+const currentFileService = new RequirementCurrentFileService(
+  new RequirementCurrentFileRepository(
     prisma as unknown as ConstructorParameters<
-      typeof MilestoneDocumentCurrentFileRepository
+      typeof RequirementCurrentFileRepository
     >[0],
     new FileMetadataRepository(),
   ),
@@ -162,7 +159,7 @@ const currentFileService = new MilestoneDocumentCurrentFileService(
   new DownloadResponseService(),
 );
 const sessionSecret = Buffer.from(`${prefix}-secret`).toString('base64url');
-let staffFilesService: MilestoneDocumentFilesService;
+let staffFilesService: RequirementFilesService;
 interface TeamFixture {
   readonly key: string;
   readonly leaderId: string;
@@ -347,7 +344,7 @@ async function downloadFails(
   throw new Error('내려받기가 거절되지 않았습니다.');
 }
 const hiddenAsMissing = {
-  code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+  code: RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND,
   status: 404,
 };
 let ownStorageKey = '';
@@ -381,14 +378,12 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
       .overrideProvider(OBJECT_STORAGE)
       .useValue(storage)
       .compile();
-    staffFilesService = new MilestoneDocumentFilesService(
+    staffFilesService = new RequirementFilesService(
       documentsRepository,
       storage,
       submissionsModule.get(FilesService),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),

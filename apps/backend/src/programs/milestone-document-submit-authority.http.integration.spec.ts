@@ -1,8 +1,8 @@
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsErrorCode } from './submissions.error';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
 
@@ -10,7 +10,7 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
+const fixture = new RequirementFlowFixture();
 
 function staffSubmit(): Promise<Response> {
   return fixture.request(`${fixture.documentPath()}/submissions`, {
@@ -48,7 +48,7 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.STUDENT_ONLY,
+      code: RequirementsErrorCode.STUDENT_ONLY,
     });
   });
 
@@ -70,7 +70,7 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
 
     expect(response.status).toBe(403);
     expect(await response.json()).toMatchObject({
-      code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER,
+      code: RequirementsErrorCode.NOT_APPLICATION_MEMBER,
     });
     await expect(
       fixture.prisma.submission.count({

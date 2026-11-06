@@ -1,11 +1,11 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
+import { RequirementFeedbackResponseDto } from './dto/requirement-feedback-response.dto';
 import { ApplicationStatus, ProgramCategory } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
-import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
+import { RequirementFeedbackService } from './requirement-feedback.service';
+import { RequirementFeedbackRepository } from './requirement-feedback.repository';
 import type { SubmissionReviewDecision } from '../programs/submissions.repository';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -21,8 +21,8 @@ const users = {
 const milestoneName = '합성 중간 보고';
 const now = new Date('2026-09-20T03:00:00.000Z');
 const prisma = new PrismaService();
-const service = new MilestoneDocumentFeedbackService(
-  new MilestoneDocumentFeedbackRepository(prisma, new PlatformRepository()),
+const service = new RequirementFeedbackService(
+  new RequirementFeedbackRepository(prisma, new PlatformRepository()),
   () => now,
 );
 async function cleanup(): Promise<void> {
@@ -273,7 +273,7 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
   it('지금 팀원인 승인 신청의 판정 중 서울 날짜로 7일 전 0시 이후 것을 모두 최신순으로 돌려준다', async () => {
     const { items } = await service
       .recentForParticipant(studentGithubId)
-      .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
+      .then((result) => RequirementFeedbackResponseDto.from(result));
     expect(items.map((item) => item.id)).toEqual([
       `${prefix}-review-legacy`,
       `${prefix}-review-document-5`,
@@ -288,7 +288,7 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
   it('판정마다 그 판정을 받은 신청 ID를 실어 프로그램 카드에 나눠 붙일 수 있게 한다', async () => {
     const { items } = await service
       .recentForParticipant(studentGithubId)
-      .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
+      .then((result) => RequirementFeedbackResponseDto.from(result));
     const teamIdOf = new Map(items.map((item) => [item.id, item.teamId]));
 
     expect(teamIdOf.get(`${prefix}-review-document-1`)).toBe(
@@ -301,7 +301,7 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
   it('이관한 항목도 항목 이름으로 부르고 검토자를 싣지 않는다', async () => {
     const { items } = await service
       .recentForParticipant(studentGithubId)
-      .then((result) => MilestoneDocumentFeedbackResponseDto.from(result));
+      .then((result) => RequirementFeedbackResponseDto.from(result));
     const href = `/programs/${prefix}-main-program/documents?milestoneId=${prefix}-main-milestone`;
     expect(items[0]).toEqual({
       id: `${prefix}-review-legacy`,

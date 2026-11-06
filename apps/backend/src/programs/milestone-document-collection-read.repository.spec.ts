@@ -1,14 +1,14 @@
 import { FileMetadataRepository } from './files.repository';
 import { type PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { MilestoneDocumentCollectionReadRepository } from './requirements.repository';
+import { RequirementCollectionReadRepository } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 
 describe('milestone-document-history-query.repository', () => {
   describe('milestone document history', () => {
     it('bounds routine review history reads to the latest 50 rows', () => {
       expect(
-        new MilestoneDocumentCollectionReadRepository(
+        new RequirementCollectionReadRepository(
           {} as PrismaService,
           new FileMetadataRepository(),
         ).boundedReviewHistoryQuery,

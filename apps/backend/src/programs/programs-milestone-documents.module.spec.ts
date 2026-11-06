@@ -9,25 +9,25 @@ import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import {
   FilesService,
   SubmissionFileAdmissionService,
-  MilestoneDocumentFilesService,
-  MilestoneDocumentFileNameService,
-  MilestoneDocumentSubmissionWindowService,
+  RequirementFilesService,
+  RequirementFileNameService,
+  SubmissionWindowService,
 } from './files.service';
 import { UsersModule } from '../users/users.module';
 import { UserProfileService } from '../users/user-profile.service';
 import { RequirementsController } from './requirements.controller';
-import { MilestoneDocumentFilesController } from './files.controller';
+import { RequirementFilesController } from './files.controller';
 import {
   RequirementArchiveService,
-  MilestoneDocumentCollectionService,
-  MilestoneDocumentCurrentFileService,
+  RequirementCollectionService,
+  RequirementCurrentFileService,
 } from './requirement-archive.service';
 import {
-  MilestoneDocumentCollectionReadRepository,
-  MilestoneDocumentCurrentFileRepository,
+  RequirementCollectionReadRepository,
+  RequirementCurrentFileRepository,
   RequirementsRepository,
 } from './requirements.repository';
-import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementReviewsService } from './submissions.service';
 import { ProgramsModule } from './programs.module';
 import { RequirementsService } from './requirements.service';
 
@@ -48,25 +48,25 @@ describe('ProgramsModule milestone documents', () => {
     expect(controllers).toEqual(
       expect.arrayContaining([
         RequirementsController,
-        MilestoneDocumentFilesController,
+        RequirementFilesController,
         RequirementsController,
       ]),
     );
   });
 
-  it('MilestoneDocumentFilesService와 파일 저장 provider 체인을 등록한다', () => {
+  it('RequirementFilesService와 파일 저장 provider 체인을 등록한다', () => {
     const providers = getMetadataArray(MODULE_METADATA.PROVIDERS);
 
     expect(providers).toEqual(
       expect.arrayContaining([
         RequirementsService,
         RequirementsRepository,
-        MilestoneDocumentCollectionService,
-        MilestoneDocumentCollectionReadRepository,
-        MilestoneDocumentCurrentFileRepository,
-        MilestoneDocumentCurrentFileService,
-        MilestoneDocumentFilesService,
-        MilestoneDocumentReviewsService,
+        RequirementCollectionService,
+        RequirementCollectionReadRepository,
+        RequirementCurrentFileRepository,
+        RequirementCurrentFileService,
+        RequirementFilesService,
+        RequirementReviewsService,
 
         RequirementArchiveService,
       ]),
@@ -78,13 +78,13 @@ describe('ProgramsModule milestone documents', () => {
 
     expect(providers).toContain(FilesService);
     expect(
-      Reflect.getMetadata('design:paramtypes', MilestoneDocumentFilesService),
+      Reflect.getMetadata('design:paramtypes', RequirementFilesService),
     ).toEqual([
       RequirementsRepository,
       Object,
       FilesService,
-      MilestoneDocumentSubmissionWindowService,
-      MilestoneDocumentFileNameService,
+      SubmissionWindowService,
+      RequirementFileNameService,
       SubmissionFileAdmissionService,
       DownloadResponseService,
       UserProfileService,
@@ -97,8 +97,8 @@ describe('ProgramsModule milestone documents', () => {
     expect(exports).toEqual(
       expect.arrayContaining([
         RequirementsService,
-        MilestoneDocumentFilesService,
-        MilestoneDocumentCurrentFileService,
+        RequirementFilesService,
+        RequirementCurrentFileService,
       ]),
     );
   });
@@ -129,8 +129,8 @@ describe('ProgramsModule milestone documents', () => {
       .compile();
 
     try {
-      expect(module.get(MilestoneDocumentFilesService)).toBeInstanceOf(
-        MilestoneDocumentFilesService,
+      expect(module.get(RequirementFilesService)).toBeInstanceOf(
+        RequirementFilesService,
       );
       expect(module.get(FilesService)).toBeInstanceOf(FilesService);
     } finally {

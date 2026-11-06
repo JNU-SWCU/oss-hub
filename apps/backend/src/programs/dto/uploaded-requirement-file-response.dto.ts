@@ -1,6 +1,6 @@
-import { type UploadedMilestoneDocumentFileResponse } from '../files.config';
+import { type UploadedRequirementFileResponse } from '../files.config';
 
-export class UploadedMilestoneDocumentFileResponseDto {
+export class UploadedRequirementFileResponseDto {
   declare readonly fileId: string;
   declare readonly fileName: string;
   declare readonly contentType: string;
@@ -8,8 +8,8 @@ export class UploadedMilestoneDocumentFileResponseDto {
   declare readonly expiresAt: string;
 
   static from(
-    file: UploadedMilestoneDocumentFileResponse,
-  ): UploadedMilestoneDocumentFileResponseDto {
+    file: UploadedRequirementFileResponse,
+  ): UploadedRequirementFileResponseDto {
     return {
       fileId: file.fileId,
       fileName: file.fileName,

@@ -1,7 +1,7 @@
 import { FileMetadataRepository } from './files.repository';
 import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
@@ -18,11 +18,11 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import {
   SubmissionMembershipChangedError,
-  MilestoneDocumentDeadlineClosedError,
-  MilestoneDocumentMissingError,
-  MilestoneDocumentPendingFileMissingError,
-  MilestoneDocumentReviewChangedError,
-  MilestoneDocumentSubmissionChangedError,
+  RequirementDeadlineClosedError,
+  RequirementMissingError,
+  RequirementPendingFileMissingError,
+  RequirementReviewChangedError,
+  SubmissionChangedError,
 } from './submissions.error';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
@@ -107,7 +107,7 @@ function attachMembershipFence(
   return { applicationFindUnique, applicationFindFirst, locks };
 }
 
-describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
+describe('RequirementsRepository.withCollectionSnapshot', () => {
   it('REPEATABLE READ transaction store로 좌표와 상세를 같은 DB snapshot에서 읽는다', async () => {
     const transaction = {
       milestone: {
@@ -180,7 +180,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -212,13 +212,13 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
     expect(result).toEqual({
       coordinates: [
         {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           teamId: syntheticTeamId,
         },
       ],
       submissions: [
         expect.objectContaining({
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           teamId: syntheticTeamId,
           revision: 1,
         }),
@@ -227,7 +227,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
+describe('RequirementsRepository.findByMilestoneId', () => {
   it('sortOrder 오름차순으로 조회하고 templateFile 유무를 templateFileId로 평탄화한다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
@@ -263,7 +263,7 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -299,7 +299,7 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findActiveUser', () => {
+describe('RequirementsRepository.findActiveUser', () => {
   it('githubId + ACTIVE 조건으로 id/role만 select한다', async () => {
     const findFirst = jest
       .fn()
@@ -313,7 +313,7 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -329,7 +329,7 @@ describe('MilestoneDocumentsRepository.findActiveUser', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
+describe('RequirementsRepository.findActiveStudentByGithubId', () => {
   it('교직원·관리자 권한과 관계없이 활성 학생 유형 계정만 찾는다', async () => {
     const findFirst = jest.fn().mockResolvedValue({ id: syntheticUserId });
     const prisma = { user: { findFirst } } as unknown as PrismaService;
@@ -341,7 +341,7 @@ describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -363,7 +363,7 @@ describe('MilestoneDocumentsRepository.findActiveStudentByGithubId', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissionsByDocument', () => {
+describe('RequirementsRepository.countApprovedApplications / countSubmissionsByDocument', () => {
   it('승인된 신청 수를 센다', async () => {
     const count = jest.fn().mockResolvedValue(8);
     const prisma = { team: { count } } as unknown as PrismaService;
@@ -375,7 +375,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -403,7 +403,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -436,7 +436,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -463,7 +463,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -488,7 +488,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
   });
 });
 
-describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
+describe('RequirementsRepository 교직원 CRUD (store)', () => {
   function buildStorePrisma() {
     const create = jest.fn().mockResolvedValue({
       id: syntheticDocumentId,
@@ -541,7 +541,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -586,7 +586,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -623,7 +623,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -665,7 +665,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -684,7 +684,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.upsertSubmission', () => {
+describe('RequirementsRepository.upsertSubmission', () => {
   function transactionPrisma(
     overrides: Record<string, unknown>,
 
@@ -763,7 +763,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -771,7 +771,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -799,7 +799,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -808,7 +808,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await expect(
       repository.upsertSubmission({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-19T09:00:00.001Z'),
@@ -821,7 +821,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         attachFile: null,
         expectedLatestReviewId: null,
       }),
-    ).rejects.toBeInstanceOf(MilestoneDocumentDeadlineClosedError);
+    ).rejects.toBeInstanceOf(RequirementDeadlineClosedError);
     expect(submissionUpsert).not.toHaveBeenCalled();
     expect(
       String(firstCallArgument<{ strings: string[] }>(queryRaw).strings),
@@ -844,7 +844,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -852,7 +852,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-20T00:00:00.000Z'),
@@ -889,7 +889,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -898,7 +898,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await expect(
       repository.upsertSubmission({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-20T00:00:00.000Z'),
@@ -911,7 +911,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         attachFile: null,
         expectedLatestReviewId: 'cuid-synthetic-review',
       }),
-    ).rejects.toBeInstanceOf(MilestoneDocumentSubmissionChangedError);
+    ).rejects.toBeInstanceOf(SubmissionChangedError);
     expect(submissionUpsert).not.toHaveBeenCalled();
     expect(historyCreate).not.toHaveBeenCalled();
   });
@@ -952,7 +952,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -960,7 +960,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-20T00:00:00.000Z'),
@@ -994,7 +994,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1002,7 +1002,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-18T00:00:00.000Z'),
@@ -1047,7 +1047,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1055,7 +1055,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1091,7 +1091,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1100,7 +1100,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await expect(
       repository.upsertSubmission({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1108,7 +1108,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         attachFile: null,
         expectedLatestReviewId: null,
       }),
-    ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
+    ).rejects.toBeInstanceOf(RequirementMissingError);
     expect(submissionUpsert).not.toHaveBeenCalled();
   });
 
@@ -1125,7 +1125,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1133,7 +1133,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: latest,
@@ -1178,7 +1178,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1187,7 +1187,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
     const result = await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt,
@@ -1221,7 +1221,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     expect(result.files).toHaveLength(1);
   });
 
-  it('pending 파일이 만료·소유자 불일치로 1건 붙지 않으면 MilestoneDocumentPendingFileMissingError를 던진다', async () => {
+  it('pending 파일이 만료·소유자 불일치로 1건 붙지 않으면 RequirementPendingFileMissingError를 던진다', async () => {
     const fileUpdateMany = jest.fn().mockResolvedValueOnce({ count: 0 });
     const { prisma } = transactionPrisma({
       file: { updateMany: fileUpdateMany, findMany: jest.fn() },
@@ -1234,7 +1234,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1243,7 +1243,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await expect(
       repository.upsertSubmission({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1255,7 +1255,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         },
         expectedLatestReviewId: null,
       }),
-    ).rejects.toBeInstanceOf(MilestoneDocumentPendingFileMissingError);
+    ).rejects.toBeInstanceOf(RequirementPendingFileMissingError);
   });
 
   it('잠근 뒤 다시 읽은 최신 판정이 기대와 다르면 제출을 쓰지 않는다', async () => {
@@ -1271,7 +1271,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1280,7 +1280,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await expect(
       repository.upsertSubmission({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1288,7 +1288,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         attachFile: null,
         expectedLatestReviewId: null,
       }),
-    ).rejects.toBeInstanceOf(MilestoneDocumentReviewChangedError);
+    ).rejects.toBeInstanceOf(RequirementReviewChangedError);
     expect(submissionUpsert).not.toHaveBeenCalled();
   });
 
@@ -1305,7 +1305,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1313,7 +1313,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1335,7 +1335,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1343,7 +1343,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1368,7 +1368,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1377,7 +1377,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt,
@@ -1409,7 +1409,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1417,7 +1417,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1453,7 +1453,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1461,7 +1461,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     );
 
     await repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1484,7 +1484,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1493,7 +1493,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     await expect(
       repository.upsertSubmission({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedById: syntheticUserId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
@@ -1513,7 +1513,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findMySubmission', () => {
+describe('RequirementsRepository.findMySubmission', () => {
   it('현재 revision과 연결된 파일만 학생의 현재 제출에 돌려준다', async () => {
     const findUnique = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-submission',
@@ -1541,7 +1541,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findUnique },
         } as unknown as PrismaService,
@@ -1604,7 +1604,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findUnique },
         } as unknown as PrismaService,
@@ -1622,7 +1622,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
+describe('RequirementsRepository 판정 쓰기 (store)', () => {
   function buildReviewStorePrisma(
     options: { latestReview?: { id: string } | null } = {},
   ) {
@@ -1665,7 +1665,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
       });
     const direct = { create: jest.fn(), update: jest.fn() };
     const prisma = {
-      milestoneDocumentReviewHistory: { create: direct.create },
+      requirementReviewHistory: { create: direct.create },
       submission: { update: direct.update },
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback({
@@ -1676,7 +1676,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
             findUnique: submissionFindUnique,
             update: submissionUpdate,
           },
-          milestoneDocumentReviewHistory: {
+          requirementReviewHistory: {
             create: reviewCreate,
             findFirst: reviewFindFirst,
           },
@@ -1711,7 +1711,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1771,7 +1771,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1795,7 +1795,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1827,7 +1827,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1852,7 +1852,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1862,7 +1862,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
     const result = await repository.withTransaction((store) =>
       store.createReview({
-        milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
+        submissionId: 'cuid-synthetic-submission',
         submissionHistoryId: 'cuid-synthetic-submission-history',
         revision: 3,
         reviewerId: 'cuid-synthetic-staff',
@@ -1911,7 +1911,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -1934,7 +1934,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.withTransaction', () => {
+describe('RequirementsRepository.withTransaction', () => {
   function buildTransactionPrisma() {
     const transactionQueryRaw = jest.fn().mockResolvedValue([
       {
@@ -1995,7 +1995,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2028,7 +2028,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2057,7 +2057,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2067,7 +2067,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
 
     await repository.withTransaction((store) =>
       store.upsertTemplateFile({
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         uploadedById: syntheticUserId,
         storageKey: 'objects/synthetic-template',
         originalFileName: '계획서.pdf',
@@ -2123,7 +2123,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2163,7 +2163,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2198,7 +2198,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2212,7 +2212,7 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
+describe('RequirementsRepository.findSubmissionsForCollection', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
 
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
@@ -2228,7 +2228,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2270,7 +2270,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2335,7 +2335,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findMany },
         } as unknown as PrismaService,
@@ -2374,7 +2374,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2414,7 +2414,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2460,7 +2460,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2520,7 +2520,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2580,7 +2580,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2613,7 +2613,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2635,7 +2635,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
+describe('RequirementsRepository.findSubmissionsForArchive', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
 
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
@@ -2651,7 +2651,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2696,7 +2696,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2759,7 +2759,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findMany },
         } as unknown as PrismaService,
@@ -2790,7 +2790,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2849,7 +2849,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findMany },
         } as unknown as PrismaService,
@@ -2891,7 +2891,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2924,7 +2924,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -2948,7 +2948,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
+describe('RequirementsRepository.findSubmittedSummaries', () => {
   it('제출 상태와 최신 판정을 한 번의 조회로 함께 싣는다 — 칸마다 다시 묻지 않는다', async () => {
     const submittedAt = new Date('2026-09-16T14:22:00.000Z');
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
@@ -2988,7 +2988,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3001,7 +3001,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(result[0]).toEqual({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       submittedAt,
       revision: 2,
       status: SubmissionStatus.CHANGES_REQUESTED,
@@ -3040,7 +3040,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3077,7 +3077,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findMany },
         } as unknown as PrismaService,
@@ -3104,7 +3104,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3118,7 +3118,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이름', () => {
+describe('RequirementsRepository.findSubmittedSummaries 현재 첨부 이름', () => {
   it('지금 붙어 있는 첨부의 이름을 함께 싣는다 — 재제출 폼이 무엇이 빠지는지 말해야 한다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
@@ -3146,7 +3146,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findMany },
         } as unknown as PrismaService,
@@ -3201,7 +3201,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findMany },
         } as unknown as PrismaService,
@@ -3223,7 +3223,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
   });
 });
 
-describe('MilestoneDocumentsRepository.findLatestReview', () => {
+describe('RequirementsRepository.findLatestReview', () => {
   it('(서류, 신청) 제출의 최신 판정을 id·decision만 뽑아 돌려준다', async () => {
     const findFirst = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
@@ -3240,7 +3240,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3282,7 +3282,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3295,7 +3295,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
+describe('RequirementsRepository.findApplicationProgramId', () => {
   it('신청의 programId만 select해 돌려준다', async () => {
     const findUnique = jest
       .fn()
@@ -3309,7 +3309,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3336,7 +3336,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3349,7 +3349,7 @@ describe('MilestoneDocumentsRepository.findApplicationProgramId', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () => {
+describe('RequirementsRepository.findSubmissionFileForStaffDownload', () => {
   const now = new Date('2026-09-20T00:00:00.000Z');
 
   it('ATTACHED이고 만료되지 않은 첨부 1개를 팀 이름과 함께 돌려준다', async () => {
@@ -3377,7 +3377,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3446,7 +3446,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         {
           submission: { findUnique },
         } as unknown as PrismaService,
@@ -3480,7 +3480,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3509,7 +3509,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3526,7 +3526,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
   });
 });
 
-describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
+describe('RequirementsRepository store.applyDocumentOrder', () => {
   const firstId = 'cuid-synthetic-document-1';
   const secondId = 'cuid-synthetic-document-2';
   const thirdId = 'cuid-synthetic-document-3';
@@ -3661,7 +3661,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3701,7 +3701,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3734,7 +3734,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3787,7 +3787,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3832,7 +3832,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3847,7 +3847,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
   });
 });
 
-describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 재제출', () => {
+describe('RequirementsRepository.upsertSubmission — 마감 뒤 동시 재제출', () => {
   const dueAt = new Date('2026-09-19T09:00:00.000Z');
   const reviewId = 'cuid-synthetic-review';
 
@@ -3928,7 +3928,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
     text: string,
   ): Promise<unknown> {
     return repository.upsertSubmission({
-      milestoneDocumentId: syntheticDocumentId,
+      requirementId: syntheticDocumentId,
       teamId: syntheticTeamId,
       submittedById: syntheticUserId,
       submittedAt: new Date('2026-09-20T00:00:00.000Z'),
@@ -3954,7 +3954,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
         new PlatformRepository(),
         new FileMetadataRepository(),
       ),
-      new MilestoneDocumentCollectionReadRepository(
+      new RequirementCollectionReadRepository(
         prisma,
         new FileMetadataRepository(),
       ),
@@ -3971,7 +3971,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
     expect(fulfilled).toHaveLength(1);
     expect(rejected).toHaveLength(1);
     expect((rejected[0] as PromiseRejectedResult).reason).toBeInstanceOf(
-      MilestoneDocumentSubmissionChangedError,
+      SubmissionChangedError,
     );
 
     expect(upsertCalls).toHaveLength(1);
