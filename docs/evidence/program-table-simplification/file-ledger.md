@@ -918,6 +918,8 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 
 이름이 `milestone-document`로 시작하던 테스트·fixture·테스트 지원 파일 43개도 같은 규칙으로 옮겼다. `apps/backend/src/programs`가 39개, `apps/backend/prisma`가 4개다. 바뀐 내용은 이 파일들을 가리키는 import 경로 18곳이고, 테스트 본문은 그대로다.
 
+programs 제품 파일은 153개 32198줄에서 153개 32092줄이 됐다. 파일은 이름만 바뀌어 수가 같다. 줄어든 106줄은 이름이 짧아져 prettier가 여러 줄을 한 줄로 합친 곳과, `files.service.ts`에서 지운 중복 `DownloadedSubmissionFile` 선언이다.
+
 purge 설정과 그 테스트에서 쓰는 곳이 없는 PROGRAM outbox 서술을 지웠다. `program-lifecycle.config.ts`의 `logical:Program->OutboxEvent`, 삭제 매트릭스 테스트의 같은 기대값과 `PROGRAM` aggregate 분류, 통합 테스트의 PROGRAM outbox seed와 그 개수 집계가 대상이다. 제품 코드가 만드는 outbox aggregate는 `Team`뿐이고, 운영 OutboxEvent에도 PROGRAM 행은 0건이다. 프로그램 purge는 행을 보존하는 상태 전환이라 동작은 같다.
 
 ## 후속 14: userHistory 이름 맞추기

@@ -226,16 +226,16 @@ A·B가 한 화면의 문구와 수를, C가 구조와 동작을 본다면 D는 
 
 > 이 문장을 지우면 옆의 버튼이 **말하지 못하게 되는 것**이 있는가?
 
-관찰(검증됨, `apps/frontend/src/features/programs/milestone-document-submission-form.tsx`):
+관찰(검증됨, `apps/frontend/src/features/programs/documents/submission-form.tsx`):
 파일 오류 자리에 설명문 `위에서 다른 파일을 바로 선택하거나 파일 없이 계속할 수 있습니다.`가 서고,
 바로 아래 버튼 라벨이 `파일 없이 계속`이다. 같은 사실이 산문으로 한 번, 컨트롤로 한 번이다.
 A의 자동 점검 AP-1은 **문자열이 정확히 같을 때만** 잡으므로 `…할 수 있습니다`로 끝나는 이 변형은 통과했다. 이 항목이 그 빈틈을 맡는다.
 라벨도 같은 규칙을 받는다 — 다만 `돌아가서 확인`은 화면 하나의 실수가 아니라 저장소 전역 관행이다.
-`program-authoring-confirmation-dialog.tsx:36`·`application-confirmation-dialog.tsx:61`·`milestone-document-resubmission-dialog.tsx:69`, 최소 셋 이상의 되돌릴 수 없는 확인 다이얼로그가 같은 라벨을 쓰고,
-`milestone-document-resubmission-dialog.tsx:15-16`의 설계 주석이 그 선택을 명시적으로 방어한다: 「그냥 「취소」보다 무엇을 할 수 있는지를 말한다」.
+`program-authoring-confirmation-dialog.tsx:36`·`application-confirmation-dialog.tsx:61`·`requirement-resubmission-dialog.tsx:69`, 최소 셋 이상의 되돌릴 수 없는 확인 다이얼로그가 같은 라벨을 쓰고,
+`requirement-resubmission-dialog.tsx:15-16`의 설계 주석이 그 선택을 명시적으로 방어한다: 「그냥 「취소」보다 무엇을 할 수 있는지를 말한다」.
 PM 판단(2026-09-08): 되돌릴 수 없는 확정 앞의 두 번째 버튼이 하는 일은 「이 창을 닫는다」 하나이고, 「돌아가서」라는 경로 서술은 다이얼로그가 놓인 자리가 이미 말한다 — 라벨이 행동 하나보다 길어지면 문장을 지고 있는 것이다.
 버튼은 행동 하나를 말하고 어디로 돌아가는지는 버튼이 놓인 자리가 말한다.
-**하지만 이건 화면 하나짜리 수정이 아니다.** 한 다이얼로그만 바꾸지 않는다 — 공유 라벨을 바꾸려면 그 라벨을 쓰는 모든 확인 다이얼로그와 `milestone-document-resubmission-dialog.tsx`의 설계 주석을 한 PR에서 같이 바꾸거나, 아니면 손대지 않는다.
+**하지만 이건 화면 하나짜리 수정이 아니다.** 한 다이얼로그만 바꾸지 않는다 — 공유 라벨을 바꾸려면 그 라벨을 쓰는 모든 확인 다이얼로그와 `requirement-resubmission-dialog.tsx`의 설계 주석을 한 PR에서 같이 바꾸거나, 아니면 손대지 않는다.
 어느 쪽인지는 owner 판단이므로 AP-20과 같이 티켓으로 올린다.
 
 **지우기 전에 확인하는 것**: 문장을 지우기 전에 그 문장의 `id`가 `aria-describedby`·`aria-labelledby`로 참조되고 있는지 본다.
