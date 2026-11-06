@@ -474,7 +474,7 @@ export interface ExhaustedSubmissionFileCleanup {
   readonly id: string;
   readonly deleteAttemptCount: number;
   readonly lastDeleteError: string | null;
-  readonly createdAt: Date | null;
+  readonly createdAt: Date;
 }
 
 @Injectable()
