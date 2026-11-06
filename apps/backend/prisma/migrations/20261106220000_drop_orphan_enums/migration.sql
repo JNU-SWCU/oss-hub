@@ -2,7 +2,8 @@ BEGIN;
 SET LOCAL lock_timeout = '5s';
 
 -- No column, domain, function or other type uses these enum types any more.
--- The guard names anything that still depends on a type or its array type and aborts.
+-- The guard names anything that still depends on a type or its array type, or any function
+-- whose body names a type, and aborts.
 -- DROP TYPE runs without CASCADE, so a dependency the guard misses still fails the migration.
 DO $$
 DECLARE
@@ -21,6 +22,20 @@ BEGIN
 
   IF dependents IS NOT NULL THEN
     RAISE EXCEPTION 'orphan enum removal aborted; still in use by: %', dependents
+      USING ERRCODE = 'dependent_objects_still_exist';
+  END IF;
+
+  -- Function bodies are text, so pg_depend does not see a type named inside them.
+  dependents := (
+    SELECT string_agg(p.oid::regprocedure::text, ', ')
+    FROM pg_proc AS p
+    JOIN pg_namespace AS n ON n.oid = p.pronamespace
+    WHERE n.nspname NOT IN ('pg_catalog', 'information_schema')
+      AND p.prosrc ~ 'MilestoneSubmissionType|RequirementKind|ReviewDecision'
+  );
+
+  IF dependents IS NOT NULL THEN
+    RAISE EXCEPTION 'orphan enum removal aborted; a function body names a type: %', dependents
       USING ERRCODE = 'dependent_objects_still_exist';
   END IF;
 END $$;
