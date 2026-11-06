@@ -1,4 +1,4 @@
-import { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import type { RecentMilestoneDocumentReview } from './milestone-document-feedback.repository';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 const NOW = new Date('2026-09-23T03:00:00.000Z');
@@ -7,7 +7,7 @@ function review(
 ): RecentMilestoneDocumentReview {
   return {
     id: 'review-1',
-    decision: ReviewDecision.CHANGES_REQUESTED,
+    decision: 'CHANGES_REQUESTED',
     comment: '표지를 보완해 주세요.',
     reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
     teamId: 'synthetic-application',
@@ -39,7 +39,7 @@ describe('MilestoneDocumentFeedbackService', () => {
       review(),
       review({
         id: 'review-0',
-        decision: ReviewDecision.APPROVED,
+        decision: 'APPROVED',
         comment: null,
         reviewedAt: new Date('2026-09-19T01:00:00.000Z'),
       }),
@@ -48,7 +48,7 @@ describe('MilestoneDocumentFeedbackService', () => {
     expect(response.items).toEqual([
       {
         id: 'review-1',
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
         comment: '표지를 보완해 주세요.',
         reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
         teamId: 'synthetic-application',
@@ -59,7 +59,7 @@ describe('MilestoneDocumentFeedbackService', () => {
       },
       expect.objectContaining({
         id: 'review-0',
-        decision: ReviewDecision.APPROVED,
+        decision: 'APPROVED',
         comment: null,
       }),
     ]);

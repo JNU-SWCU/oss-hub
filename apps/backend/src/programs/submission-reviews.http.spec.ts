@@ -3,11 +3,7 @@ import {
   type ExecutionContext,
   type INestApplication,
 } from '@nestjs/common';
-import {
-  RepositoryVisibility,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+import { RepositoryVisibility, SubmissionStatus } from '@prisma/client';
 import { Test } from '@nestjs/testing';
 import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
@@ -172,7 +168,7 @@ it('폐기된 마일스톤 단위 심사 API는 404로 종료한다', async () =
     {
       method: 'POST',
       headers: { 'content-type': 'application/json' },
-      body: JSON.stringify({ revision: 2, decision: ReviewDecision.APPROVED }),
+      body: JSON.stringify({ revision: 2, decision: 'APPROVED' }),
     },
   );
 

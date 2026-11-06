@@ -9,7 +9,6 @@ import {
   RequirementSubmissionType,
   ApplicationStatus,
   type Prisma as PrismaTypes,
-  type ReviewDecision,
   RepositoryVisibility,
   type RepositoryProvisionJobStatus,
 } from '@prisma/client';
@@ -250,6 +249,8 @@ export class SubmissionsRepository {
     });
   }
 }
+export type SubmissionReviewDecision =
+  'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
 export interface UpsertMilestoneDocumentSubmissionInput {
   readonly milestoneDocumentId: string;
   readonly teamId: string;
@@ -748,7 +749,7 @@ export interface MilestoneDocumentSubmissionDetail {
 type ApplicationMode = 'PERSONAL' | 'TEAM';
 export interface SubmissionReviewRecord {
   readonly id: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
 }
@@ -794,7 +795,7 @@ export interface SubmissionReviewContext {
 }
 export interface CreateSubmissionReviewInput {
   readonly revision: number;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
 }
 interface SubmissionReviewTarget {
@@ -845,7 +846,7 @@ interface CreateReviewRecordInput {
   readonly milestoneDocumentSubmissionId: string;
   readonly revision: number;
   readonly reviewerId: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
 }

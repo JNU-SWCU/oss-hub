@@ -1,4 +1,3 @@
-import { ReviewDecision } from '@prisma/client';
 import { CreateSubmissionReviewRequestDto } from './dto/create-submission-review-request.dto';
 import { SubmissionsService } from './submissions.service';
 
@@ -7,7 +6,7 @@ const service = Object.create(
 ) as SubmissionsService;
 
 describe('SubmissionReviewsService.reviewInputFromRequest', () => {
-  it.each(Object.values(ReviewDecision))(
+  it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
     '%s 사유는 선택이고 입력된 사유는 보존한다',
     (decision) => {
       for (const comment of [undefined, '   ', '  다시 확인  ']) {
@@ -28,7 +27,7 @@ describe('SubmissionReviewsService.reviewInputFromRequest', () => {
   it('승인 comment는 선택이며 입력된 값은 trim한다', () => {
     const dto = Object.assign(new CreateSubmissionReviewRequestDto(), {
       revision: 2,
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
       comment: '  확인했습니다  ',
     });
 
@@ -36,7 +35,7 @@ describe('SubmissionReviewsService.reviewInputFromRequest', () => {
 
     expect(input).toEqual({
       revision: 2,
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
       comment: '확인했습니다',
     });
   });

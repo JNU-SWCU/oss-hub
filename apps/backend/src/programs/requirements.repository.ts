@@ -3,7 +3,6 @@ import {
   ApplicationStatus,
   SubmissionStatus,
   Prisma,
-  ReviewDecision,
   RequirementSubmissionType,
   AccountStatus,
   SubmissionHistoryEvent,
@@ -26,6 +25,7 @@ import {
   type MilestoneDocumentSubmissionDetail,
   type UpsertMilestoneDocumentSubmissionInput,
   SubmissionsRepository,
+  type SubmissionReviewDecision,
 } from './submissions.repository';
 import { InvalidMilestoneDocumentHistoryCursorError } from './submissions.error';
 export interface MilestoneDocumentArchiveDocument {
@@ -136,14 +136,14 @@ export type MilestoneDocumentSubmittedContent = {
   readonly text: string;
 };
 export interface CreateMilestoneDocumentReviewInput {
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly expectedRevision: number;
   readonly expectedLatestReviewId: string | null;
 }
 interface MilestoneDocumentReviewRecord {
   readonly id: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
 }
@@ -217,7 +217,7 @@ export interface MilestoneDocumentCollectionSubmission {
 }
 export interface CreatedMilestoneDocumentReview {
   readonly id: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
   readonly reviewerNickname: string;
@@ -442,7 +442,7 @@ export class MilestoneDocumentCollectionReadStoreRepository {
     );
   }
 }
-function submissionReviewDecision(event: string): ReviewDecision {
+function submissionReviewDecision(event: string): SubmissionReviewDecision {
   if (
     event === 'APPROVED' ||
     event === 'REJECTED' ||
@@ -524,13 +524,13 @@ interface CreateMilestoneDocumentReviewRecordInput {
   readonly submissionHistoryId: string;
   readonly revision: number;
   readonly reviewerId: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
 }
 export interface LatestMilestoneDocumentReview {
   readonly id: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
 }
 export interface StaffDownloadableMilestoneDocumentFile {
   readonly storageKey: string;
@@ -1567,7 +1567,6 @@ export class RequirementsRepository {
     const result = await this.locks.lockProgramTree(scope.transaction, {
       stage: 'documents',
       after: scope.milestoneLock,
-      documentKind: 'DOCUMENT',
     });
     return result.documentIds;
   }

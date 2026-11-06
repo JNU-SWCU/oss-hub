@@ -9,7 +9,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  ReviewDecision,
   SubmissionStatus,
   TeamHistoryEvent,
 } from '@prisma/client';
@@ -237,7 +236,7 @@ describe('SubmissionReviewsService integration', () => {
     expect(before.currentRevision.review).toBeNull();
     await service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
       revision: 1,
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
       comment: null,
     });
     await expect(
@@ -253,12 +252,12 @@ describe('SubmissionReviewsService integration', () => {
       }),
     ).resolves.toMatchObject({
       status: SubmissionStatus.APPROVED,
-      histories: [{ event: ReviewDecision.APPROVED }],
+      histories: [{ event: 'APPROVED' }],
     });
     await expect(
       service.review(REVIEWER_ID, EXISTING_SUBMISSION_ID, {
         revision: 1,
-        decision: ReviewDecision.APPROVED,
+        decision: 'APPROVED',
         comment: null,
       }),
     ).rejects.toMatchObject({
@@ -268,7 +267,7 @@ describe('SubmissionReviewsService integration', () => {
   it('seed 보완요청의 판정 코멘트를 검토 문맥에 보존한다', async () => {
     const context = await service.context(CHANGES_REQUESTED_SUBMISSION_ID);
     expect(context.currentRevision.review).toMatchObject({
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '누락된 항목을 보완해 재제출해 주세요 (seed fixture)',
     });
   });

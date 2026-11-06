@@ -1,6 +1,5 @@
 import {
   SubmissionStatus,
-  ReviewDecision,
   FileLifecycle,
   RepositoryVisibility,
 } from '@prisma/client';
@@ -39,6 +38,7 @@ import {
   type SubmissionReviewResult,
   type PublishEligibilitySource,
   SubmissionsRepository,
+  type SubmissionReviewDecision,
 } from './submissions.repository';
 import { DomainException } from '../platform/error-code.error';
 import { GithubOperationsError } from '../github/github-app.error';
@@ -183,7 +183,7 @@ export class SubmissionsService {
   ) {}
   reviewInputFromRequest(request: {
     readonly revision: number;
-    readonly decision: ReviewDecision;
+    readonly decision: SubmissionReviewDecision;
     readonly comment?: string;
   }): CreateSubmissionReviewInput {
     return {
@@ -515,17 +515,17 @@ export class SubmissionsService {
     ];
   }
 }
-function decisionStatus(decision: ReviewDecision): SubmissionStatus {
+function decisionStatus(decision: SubmissionReviewDecision): SubmissionStatus {
   switch (decision) {
-    case ReviewDecision.APPROVED:
+    case 'APPROVED':
       return SubmissionStatus.APPROVED;
-    case ReviewDecision.CHANGES_REQUESTED:
+    case 'CHANGES_REQUESTED':
       return SubmissionStatus.CHANGES_REQUESTED;
-    case ReviewDecision.REJECTED:
+    case 'REJECTED':
       return SubmissionStatus.REJECTED;
   }
 }
-function submissionReviewDecision(event: string): ReviewDecision {
+function submissionReviewDecision(event: string): SubmissionReviewDecision {
   if (
     event === 'APPROVED' ||
     event === 'REJECTED' ||
@@ -535,7 +535,7 @@ function submissionReviewDecision(event: string): ReviewDecision {
   throw new TypeError('Expected a submission review event');
 }
 export interface MilestoneDocumentReviewRequest {
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment?: string;
   readonly expectedRevision: number;
   readonly expectedLatestReviewId: string | null;
@@ -546,13 +546,15 @@ export class MilestoneDocumentReviewsService {
     private readonly repository: RequirementsRepository,
     private readonly milestoneDocumentSubmissionRepository: SubmissionsRepository,
   ) {}
-  reviewDecisionToSubmissionStatus(decision: ReviewDecision): SubmissionStatus {
+  reviewDecisionToSubmissionStatus(
+    decision: SubmissionReviewDecision,
+  ): SubmissionStatus {
     switch (decision) {
-      case ReviewDecision.APPROVED:
+      case 'APPROVED':
         return SubmissionStatus.APPROVED;
-      case ReviewDecision.CHANGES_REQUESTED:
+      case 'CHANGES_REQUESTED':
         return SubmissionStatus.CHANGES_REQUESTED;
-      case ReviewDecision.REJECTED:
+      case 'REJECTED':
         return SubmissionStatus.REJECTED;
     }
   }

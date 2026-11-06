@@ -32,7 +32,6 @@ type Step =
   | {
       stage: 'documents';
       after: MilestoneLock;
-      documentKind: 'DOCUMENT' | 'ALL';
     };
 @Injectable()
 export class LockProgramTreeRepository {

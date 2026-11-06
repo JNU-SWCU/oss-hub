@@ -27,7 +27,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  ReviewDecision,
   SubmissionStatus,
   TeamHistoryEvent,
   HistorySource,
@@ -711,7 +710,7 @@ async function seedFullChildGraph(
     data: {
       id: p('document-review-history'),
       submissionId: documentSubmissionId,
-      event: ReviewDecision.CHANGES_REQUESTED,
+      event: 'CHANGES_REQUESTED',
       actorId: staffId,
       comment: 'Synthetic changes requested',
       revision: (

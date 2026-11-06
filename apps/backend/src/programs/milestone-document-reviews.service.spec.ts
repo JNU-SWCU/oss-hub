@@ -1,7 +1,10 @@
 import { FileMetadataRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
-import { SubmissionsRepository } from './submissions.repository';
-import { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import {
+  SubmissionsRepository,
+  type SubmissionReviewDecision,
+} from './submissions.repository';
+import { SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentReviewsService } from './submissions.service';
 import { MilestoneDocumentsErrorCode } from './submissions.error';
 import { RequirementsRepository } from './requirements.repository';
@@ -46,7 +49,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
       .mockResolvedValue(seenLatestReviewId),
     createReview: jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
       resubmissionDueAt,
@@ -117,7 +120,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
 function review(
   service: MilestoneDocumentReviewsService,
   clock: () => Date,
-  decision: ReviewDecision = ReviewDecision.CHANGES_REQUESTED,
+  decision: SubmissionReviewDecision = 'CHANGES_REQUESTED',
   comment: string | null = '2쪽 서명이 빠졌습니다.',
   version: {
     expectedRevision?: number;
@@ -142,7 +145,7 @@ function review(
   );
 }
 describe('MilestoneDocumentReviewsService.review — 인가 사슬', () => {
-  it.each(Object.values(ReviewDecision))(
+  it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
     '현재 팀원이면 자기 팀의 %s 판정을 기록하지 않는다',
     async (decision) => {
       const { mocks, clock, repository } = buildRepository({
@@ -382,7 +385,7 @@ describe('MilestoneDocumentReviewsService.review — 기대 버전 대조', () =
         new FileMetadataRepository(),
       ),
     );
-    await review(service, clock, ReviewDecision.APPROVED, null, {
+    await review(service, clock, 'APPROVED', null, {
       expectedLatestReviewId: null,
     });
     expect(mocks.createReview).toHaveBeenCalledTimes(1);
@@ -584,20 +587,20 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
       submissionHistoryId: syntheticSubmissionHistoryId,
       revision: seenRevision,
       reviewerId: syntheticStaffId,
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
     });
     expect(result).toEqual({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
       resubmissionDueAt,
       reviewerNickname: 'synthetic-staff',
     });
   });
-  it.each(Object.values(ReviewDecision))(
+  it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
     '%s 사유 없이 판정하고 옛 기한은 무시한다',
     async (decision) => {
       const { mocks, clock, repository } = buildRepository();
@@ -637,10 +640,10 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
         new FileMetadataRepository(),
       ),
     );
-    await review(service, clock, ReviewDecision.APPROVED, null);
+    await review(service, clock, 'APPROVED', null);
     expect(mocks.createReview).toHaveBeenCalledWith(
       expect.objectContaining({
-        decision: ReviewDecision.APPROVED,
+        decision: 'APPROVED',
         comment: null,
       }),
     );
@@ -648,10 +651,10 @@ describe('MilestoneDocumentReviewsService.review — 판정 저장과 응답', (
 });
 describe('MilestoneDocumentReviewsService.review — 판정 → 제출 상태', () => {
   it.each([
-    [ReviewDecision.APPROVED, SubmissionStatus.APPROVED],
-    [ReviewDecision.CHANGES_REQUESTED, SubmissionStatus.CHANGES_REQUESTED],
-    [ReviewDecision.REJECTED, SubmissionStatus.REJECTED],
-  ])('%s 판정은 제출 상태를 %s로 옮긴다', async (decision, status) => {
+    ['APPROVED', SubmissionStatus.APPROVED],
+    ['CHANGES_REQUESTED', SubmissionStatus.CHANGES_REQUESTED],
+    ['REJECTED', SubmissionStatus.REJECTED],
+  ] as const)('%s 판정은 제출 상태를 %s로 옮긴다', async (decision, status) => {
     const { mocks, clock, repository } = buildRepository();
     const service = new MilestoneDocumentReviewsService(
       repository,

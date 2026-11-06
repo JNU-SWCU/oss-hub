@@ -2,9 +2,7 @@ import {
   ApplicationStatus,
   BoardPostCategory,
   SubmissionHistoryEvent,
-  MilestoneSubmissionType,
   ProgramCategory,
-  ReviewDecision,
   FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -284,7 +282,7 @@ type DemoMilestoneSeed = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: 'FILE' | 'TEXT';
   readonly instructions: string;
 };
 async function upsertDemoMilestone(
@@ -330,18 +328,17 @@ async function upsertDemoMilestone(
 }
 type DemoSubmissionContent =
   | {
-      readonly kind: typeof MilestoneSubmissionType.TEXT;
+      readonly kind: 'TEXT';
       readonly text: string;
     }
   | {
-      readonly kind: typeof MilestoneSubmissionType.FILE;
+      readonly kind: 'FILE';
       readonly comment: string;
       readonly originalFileName: string;
       readonly mimeType: string;
     };
 type DemoReview = {
-  readonly decision:
-    typeof ReviewDecision.APPROVED | typeof ReviewDecision.CHANGES_REQUESTED;
+  readonly decision: 'APPROVED' | 'CHANGES_REQUESTED';
   readonly comment: string;
   readonly reviewedAt: Date;
 };
@@ -386,9 +383,9 @@ async function upsertDemoSubmission(
   );
   const fileId = seedId('demo', 'submission-file', params.slug);
   const content =
-    params.content.kind === MilestoneSubmissionType.TEXT
-      ? { type: MilestoneSubmissionType.TEXT, text: params.content.text }
-      : { type: MilestoneSubmissionType.FILE, fileId };
+    params.content.kind === 'TEXT'
+      ? { type: 'TEXT', text: params.content.text }
+      : { type: 'FILE', fileId };
   await upsertTracked(
     stats,
     'MilestoneDocumentSubmission',
@@ -437,9 +434,7 @@ async function upsertDemoSubmission(
         update: {
           content,
           comment:
-            params.content.kind === MilestoneSubmissionType.FILE
-              ? params.content.comment
-              : null,
+            params.content.kind === 'FILE' ? params.content.comment : null,
           actorId: params.submittedById,
           createdAt: params.submittedAt,
         },
@@ -450,16 +445,14 @@ async function upsertDemoSubmission(
           revision: 1,
           content,
           comment:
-            params.content.kind === MilestoneSubmissionType.FILE
-              ? params.content.comment
-              : null,
+            params.content.kind === 'FILE' ? params.content.comment : null,
           actorId: params.submittedById,
           createdAt: params.submittedAt,
         },
       }),
   );
   const fileContent = params.content;
-  if (fileContent.kind === MilestoneSubmissionType.FILE) {
+  if (fileContent.kind === 'FILE') {
     const storageKey = demoSubmissionFileStorageKey(fileId);
     const storedFile = await storage.put({
       objectKey: storageKey,
@@ -743,7 +736,7 @@ export async function seedDemo(
     name: '[필수] 중간 실습 일지 제출',
     startAt: offsetDays(-49),
     dueAt: offsetDays(7),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions:
       '운영 방식: 실습 4주 차까지의 진행 상황과 배운 점을 A4 1장 내외의 자유 양식으로 ' +
       '정리해 제출합니다. 제출 후 사업단 담당자가 확인 코멘트를 남길 수 있습니다 (seed fixture).',
@@ -755,7 +748,7 @@ export async function seedDemo(
     submittedById: studentId('kim-doyoon'),
     status: SubmissionStatus.SUBMITTED,
     content: {
-      kind: MilestoneSubmissionType.TEXT,
+      kind: 'TEXT',
       text: '대시보드 쿼리 튜닝 작업을 진행 중이며, 다음 주까지 인덱스 개선안을 정리하겠습니다 (seed fixture).',
     },
     submittedAt: offsetDays(-1),
@@ -852,7 +845,7 @@ export async function seedDemo(
         comment:
           '구독 알림 발송 기능까지 구현했고, 최종본 발표자료는 이번 주말까지 마무리하겠습니다 (seed fixture).',
         review: {
-          decision: ReviewDecision.APPROVED,
+          decision: 'APPROVED',
           comment:
             '구현 범위가 명확하고 진행 속도도 양호합니다. 승인합니다 (seed fixture).',
           reviewedAt: offsetDays(-1),
@@ -877,7 +870,7 @@ export async function seedDemo(
         comment:
           '정산 내역 CSV 내보내기 기능까지 구현했으나 발표자료는 아직 초안 단계입니다 (seed fixture).',
         review: {
-          decision: ReviewDecision.CHANGES_REQUESTED,
+          decision: 'CHANGES_REQUESTED',
           comment:
             '발표자료에 핵심 기능 데모 화면이 빠져 있습니다. 캡처를 추가해 다시 제출해 주세요 (seed fixture).',
           reviewedAt: offsetDays(-2),
@@ -913,7 +906,7 @@ export async function seedDemo(
         comment:
           '분실물 등록·검색·알림 기능을 모두 구현하고 발표자료도 완성했습니다 (seed fixture).',
         review: {
-          decision: ReviewDecision.APPROVED,
+          decision: 'APPROVED',
           comment:
             '기능 완성도가 높고 발표자료도 충실합니다. 승인합니다 (seed fixture).',
           reviewedAt: offsetDays(-3),
@@ -923,7 +916,7 @@ export async function seedDemo(
         status: SubmissionStatus.CHANGES_REQUESTED,
         text: '최종 발표자료 초안을 제출했습니다. 시연 영상 링크는 추후 추가하겠습니다 (seed fixture).',
         review: {
-          decision: ReviewDecision.CHANGES_REQUESTED,
+          decision: 'CHANGES_REQUESTED',
           comment:
             '시연 영상 링크가 비어 있습니다. 추가 후 다시 제출해 주세요 (seed fixture).',
           reviewedAt: offsetDays(-1),
@@ -944,7 +937,7 @@ export async function seedDemo(
         comment:
           '매칭 알고리즘 초안은 구현했으나 발표자료 작성이 지연되고 있습니다 (seed fixture).',
         review: {
-          decision: ReviewDecision.CHANGES_REQUESTED,
+          decision: 'CHANGES_REQUESTED',
           comment:
             '발표자료가 아직 제출되지 않았습니다. 데모데이 전까지 보완 제출 부탁드립니다 (seed fixture).',
           reviewedAt: offsetDays(-2),
@@ -963,7 +956,7 @@ export async function seedDemo(
     name: '[필수] 중간 데모데이 발표자료 제출',
     startAt: offsetDays(-28),
     dueAt: offsetDays(10),
-    submissionType: MilestoneSubmissionType.FILE,
+    submissionType: 'FILE',
     instructions:
       '운영 방식: 중간 점검용 발표자료(PDF)와 데모 링크를 함께 제출합니다. 사업단 담당자가 ' +
       '검토 후 승인 또는 보완 요청으로 결과를 안내합니다 (seed fixture).',
@@ -979,7 +972,7 @@ export async function seedDemo(
     name: '[필수] 최종 발표 및 시연',
     startAt: offsetDays(5),
     dueAt: offsetDays(34),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions:
       '운영 방식: 최종 산출물 요약과 시연 영상(또는 링크)을 정리해 제출합니다. 발표는 대회 ' +
       '종료 주간에 별도 공지된 일정으로 진행합니다 (seed fixture).',
@@ -1020,7 +1013,7 @@ export async function seedDemo(
       submittedById: leaderUserId,
       status: team.demoDaySubmission.status,
       content: {
-        kind: MilestoneSubmissionType.FILE,
+        kind: 'FILE',
         comment: team.demoDaySubmission.comment,
         originalFileName: demoDayOriginalFileName,
         mimeType: 'application/pdf',
@@ -1037,7 +1030,7 @@ export async function seedDemo(
         submittedById: leaderUserId,
         status: team.finalSubmission.status,
         content: {
-          kind: MilestoneSubmissionType.TEXT,
+          kind: 'TEXT',
           text: team.finalSubmission.text,
         },
         submittedAt: offsetDays(-1),
@@ -1137,7 +1130,7 @@ export async function seedDemo(
     name: '[필수] 1차 체크포인트 - 기획안 제출',
     startAt: offsetDays(-14),
     dueAt: offsetDays(3),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions:
       '운영 방식: 팀 프로젝트 기획안과 역할 분담을 간단히 정리해 제출합니다. 담당 멘토가 ' +
       '확인 후 다음 단계 진행 여부를 안내합니다 (seed fixture).',
@@ -1149,7 +1142,7 @@ export async function seedDemo(
     submittedById: studentId('kang-yerin'),
     status: SubmissionStatus.SUBMITTED,
     content: {
-      kind: MilestoneSubmissionType.TEXT,
+      kind: 'TEXT',
       text: '와이어프레임까지 완성했고, 이번 주 안에 백엔드 API 설계를 마무리할 예정입니다 (seed fixture).',
     },
     submittedAt: offsetDays(-1),
@@ -1233,7 +1226,7 @@ export async function seedDemo(
     name: '[필수] 월간 활동 기록 제출',
     startAt: offsetDays(-35),
     dueAt: offsetDays(2),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions:
       '운영 방식: 이번 달 기여 활동 내역과 소요 시간을 정리해 제출합니다. 승인된 활동 기록만 ' +
       '마일리지 반영 대상입니다 (seed fixture).',
@@ -1245,12 +1238,12 @@ export async function seedDemo(
     submittedById: studentId('jung-subin'),
     status: SubmissionStatus.APPROVED,
     content: {
-      kind: MilestoneSubmissionType.TEXT,
+      kind: 'TEXT',
       text: '이슈 12건을 트리아지했고, 문서 오탈자 수정 PR 3건을 올렸습니다 (seed fixture).',
     },
     submittedAt: offsetDays(-1),
     review: {
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
       comment:
         '활동 내역이 충실합니다. 이번 달 마일리지 반영 대상으로 승인합니다 (seed fixture).',
       reviewedAt: offsetDays(0),

@@ -5,7 +5,7 @@ import {
   FilesService,
 } from './files.service';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneSubmissionType, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import { DomainException } from '../platform/error-code.error';
 import {
@@ -36,7 +36,7 @@ const PROGRAM_END = new Date('2027-02-28T09:30:00.000Z');
 function authorization(
   overrides: Partial<{
     readonly applicationApproved: boolean;
-    readonly submissionType: MilestoneSubmissionType;
+    readonly submissionType: 'FILE' | 'TEXT';
     readonly dueAt: Date;
     readonly programEndAt: Date;
     readonly resubmissionStatus: SubmissionStatus;

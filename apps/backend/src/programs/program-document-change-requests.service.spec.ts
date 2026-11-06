@@ -1,7 +1,7 @@
 import { FileMetadataRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
-import { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
 import { MilestoneDocumentsErrorCode } from './submissions.error';
 import {
@@ -77,7 +77,7 @@ function writeStore(
       >()
       .mockResolvedValue({
         id: 'review',
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
         comment: null,
         reviewedAt: now,
         reviewerNickname: 'synthetic-staff',
@@ -208,7 +208,7 @@ describe('ProgramDocumentChangeRequestsService.requestChanges', () => {
       submissionHistoryId: 'history:application-a',
       revision: 2,
       reviewerId: 'staff-1',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '양식을 바꿔 다시 내 주세요.',
       reviewedAt: now,
     });

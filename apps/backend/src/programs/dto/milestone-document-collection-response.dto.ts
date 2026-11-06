@@ -1,4 +1,4 @@
-import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import type { SubmissionStatus } from '@prisma/client';
 import type { MilestoneDocumentCollectionResult } from '../requirements.service';
 import type {
   MilestoneDocumentDeliveryCollectionResult,
@@ -11,6 +11,7 @@ import type {
   DocumentDeliveryStatus,
   MilestoneDocumentSubmittedContent,
 } from '../requirements.repository';
+import type { SubmissionReviewDecision } from '../submissions.repository';
 export class MilestoneDocumentCollectionMilestoneResponseDto {
   declare readonly id: string;
   declare readonly programId: string;
@@ -54,7 +55,7 @@ export class MilestoneDocumentCollectionFileResponseDto {
 }
 export class MilestoneDocumentCollectionReviewResponseDto {
   declare readonly id: string;
-  declare readonly decision: ReviewDecision;
+  declare readonly decision: SubmissionReviewDecision;
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
   static from(

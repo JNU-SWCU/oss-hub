@@ -1,10 +1,10 @@
-import { ReviewDecision } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { MilestoneDocumentsErrorCode } from './submissions.error';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,
 } from './milestone-document-flow.integration-fixture';
+import type { SubmissionReviewDecision } from './submissions.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -15,7 +15,7 @@ const reviewsPath = () =>
   `${fixture.documentPath()}/teams/${flowIds.team}/reviews`;
 
 async function review(
-  decision: ReviewDecision,
+  decision: SubmissionReviewDecision,
   version: {
     readonly expectedRevision: number;
     readonly expectedLatestReviewId: string | null;
@@ -27,7 +27,7 @@ async function review(
     method: 'POST',
     json: {
       decision,
-      ...(decision === ReviewDecision.CHANGES_REQUESTED
+      ...(decision === 'CHANGES_REQUESTED'
         ? { resubmissionDueAt: '2099-12-31T00:00:00.000Z' }
         : {}),
       ...version,
@@ -43,7 +43,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
   it('stores one review event without a compatibility row and returns it to staff and students', async () => {
     expect((await fixture.submit('최초 제출')).status).toBe(201);
 
-    const response = await review(ReviewDecision.CHANGES_REQUESTED, {
+    const response = await review('CHANGES_REQUESTED', {
       expectedRevision: 1,
       expectedLatestReviewId: null,
       comment: '보완해 주세요.',
@@ -87,7 +87,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
       actor: 'staff',
       method: 'POST',
       json: {
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
         expectedRevision: 1,
         expectedLatestReviewId: null,
       },
@@ -108,7 +108,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     expect((await fixture.submit('최초 제출')).status).toBe(201);
     expect(
       (
-        await review(ReviewDecision.CHANGES_REQUESTED, {
+        await review('CHANGES_REQUESTED', {
           expectedRevision: 1,
           expectedLatestReviewId: null,
           comment: '실행 결과를 보완해 주세요.',
@@ -169,7 +169,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
       { type: 'TEXT', text: '최초 제출' },
       { type: 'TEXT', text: '첫 번째 보완' },
     ]);
-    const stale = await review(ReviewDecision.APPROVED, {
+    const stale = await review('APPROVED', {
       expectedRevision: 1,
       expectedLatestReviewId: requested.id,
     });
@@ -180,11 +180,11 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     });
   });
 
-  it.each([ReviewDecision.APPROVED, ReviewDecision.REJECTED])(
+  it.each(['APPROVED', 'REJECTED'] as const)(
     'blocks new revisions after final %s without deleting history',
     async (decision) => {
       await fixture.submit('최초 제출');
-      await review(ReviewDecision.CHANGES_REQUESTED, {
+      await review('CHANGES_REQUESTED', {
         expectedRevision: 1,
         expectedLatestReviewId: null,
       });
@@ -235,7 +235,7 @@ describe('QA152 current item submission HTTP + PostgreSQL + object-storage', () 
     'accepts an optional rejection reason and exposes the stored comment: %s',
     async (comment) => {
       expect((await fixture.submit('최초 제출')).status).toBe(201);
-      const response = await review(ReviewDecision.REJECTED, {
+      const response = await review('REJECTED', {
         expectedRevision: 1,
         expectedLatestReviewId: null,
         comment,

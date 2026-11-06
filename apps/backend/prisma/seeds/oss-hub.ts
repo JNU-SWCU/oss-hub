@@ -2,7 +2,6 @@ import {
   AccountStatus,
   ApplicationStatus,
   SubmissionHistoryEvent,
-  MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositorySource,
@@ -97,7 +96,7 @@ type OssHubMilestoneSeed = {
   readonly name: string;
   readonly startAt: Date;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: 'FILE' | 'TEXT';
   readonly instructions: string;
 };
 const PROGRAM_APPLICATION_START_AT = kstMidnight('2026-07-01');
@@ -207,7 +206,7 @@ export async function seedOssHub(
       name: 'AWS Staging',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-08'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: 'TEXT',
       instructions:
         '승인된 AWS 구조에 staging 환경을 배포하고 HTTPS·헬스체크·롤백 절차를 검증합니다.',
     },
@@ -216,7 +215,7 @@ export async function seedOssHub(
       name: 'Intake 기능 동결',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-08'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: 'TEXT',
       instructions:
         '프로그램 조회·신청·팀 구성·저장소 흐름의 happy path와 failure path를 모두 통과시켜 기능을 동결합니다.',
     },
@@ -225,7 +224,7 @@ export async function seedOssHub(
       name: 'Intake Gate',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-15'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: 'TEXT',
       instructions: '실사용자 시나리오와 권한·오류·회귀 검증을 완료합니다.',
     },
     {
@@ -233,7 +232,7 @@ export async function seedOssHub(
       name: '구현 마감',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-21'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: 'TEXT',
       instructions:
         'PRD·IA 필수 기능과 운영 표면의 구현 PR을 모두 검토(review) 이상 상태로 만듭니다.',
     },
@@ -242,7 +241,7 @@ export async function seedOssHub(
       name: 'Full-loop Dry-run',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-24'),
-      submissionType: MilestoneSubmissionType.FILE,
+      submissionType: 'FILE',
       instructions:
         '신청 → 저장소 → 활동 수집 → 마일스톤 → 검토 → 공개로 이어지는 전체 흐름을 합성 데이터로 재현합니다.',
     },
@@ -251,7 +250,7 @@ export async function seedOssHub(
       name: 'Full-loop Live Beta',
       startAt: kstMidnight('2026-08-27'),
       dueAt: kstMidnight('2026-08-31'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: 'TEXT',
       instructions:
         '승인된 베타 범위에서 실사용 검증을 진행하고 차단 이슈를 기록합니다.',
     },
@@ -260,7 +259,7 @@ export async function seedOssHub(
       name: 'Release Complete',
       startAt: PROGRAM_START_AT,
       dueAt: kstMidnight('2026-08-31'),
-      submissionType: MilestoneSubmissionType.TEXT,
+      submissionType: 'TEXT',
       instructions:
         '릴리스 체크리스트·운영 문서·복구 연습·최종 QA를 모두 완료합니다.',
     },
@@ -345,11 +344,11 @@ export async function seedOssHub(
     );
   }
   const awsStagingContent = {
-    type: MilestoneSubmissionType.TEXT,
+    type: 'TEXT',
     text: 'staging 배포와 HTTPS·헬스체크·롤백 절차 검증을 완료했습니다 (seed fixture).',
   };
   const intakeFreezeContent = {
-    type: MilestoneSubmissionType.TEXT,
+    type: 'TEXT',
     text: '프로그램 조회·신청·팀 구성·저장소 흐름의 happy/failure 경로 테스트를 마치고 기능을 동결했습니다 (seed fixture).',
   };
   const awsStagingDocumentId = seedId(

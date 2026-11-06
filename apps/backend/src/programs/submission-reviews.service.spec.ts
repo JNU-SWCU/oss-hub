@@ -3,7 +3,6 @@ import { SubmissionFileAdmissionService } from './files.service';
 import {
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
-  ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
@@ -94,7 +93,7 @@ function eligibilityRow(
 }
 
 describe('SubmissionReviewsService.review', () => {
-  it.each(Object.values(ReviewDecision))(
+  it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
     '현재 팀원이면 자기 팀의 %s 판정을 기록하지 않는다',
     async (decision) => {
       const { store, repository, repositories, isSubmissionParticipant } =
@@ -129,13 +128,9 @@ describe('SubmissionReviewsService.review', () => {
   );
 
   it.each([
-    [ReviewDecision.APPROVED, SubmissionStatus.APPROVED, null],
-    [
-      ReviewDecision.CHANGES_REQUESTED,
-      SubmissionStatus.CHANGES_REQUESTED,
-      '보완해 주세요',
-    ],
-    [ReviewDecision.REJECTED, SubmissionStatus.REJECTED, '요건 미충족'],
+    ['APPROVED', SubmissionStatus.APPROVED, null],
+    ['CHANGES_REQUESTED', SubmissionStatus.CHANGES_REQUESTED, '보완해 주세요'],
+    ['REJECTED', SubmissionStatus.REJECTED, '요건 미충족'],
   ] as const)(
     '%s 판정을 현재 제출 상태로 원자적으로 반영한다',
     async (decision, expectedStatus, comment) => {
@@ -200,7 +195,7 @@ describe('SubmissionReviewsService.review', () => {
 
     const review = service.review('reviewer-1', 'submission-1', {
       revision: 1,
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
       comment: null,
     });
 
@@ -228,7 +223,7 @@ describe('SubmissionReviewsService.review', () => {
 
     const review = service.review('reviewer-1', 'submission-1', {
       revision: 2,
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
       comment: null,
     });
 
