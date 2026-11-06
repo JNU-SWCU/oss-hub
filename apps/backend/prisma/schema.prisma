@@ -323,9 +323,6 @@ model Team {
   rejectionReason String?
   isRepositoryPublicationPlanned Boolean @default(true)
   repositoryConnectionMode RepositoryConnectionMode @default(NEW)
-  /// No code reads or writes it: GithubRepository.nameWithOwner is the only repository address.
-  /// Declared only so `prisma migrate diff` matches the database until the next release drops it.
-  repositoryUrl String? @ignore
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
