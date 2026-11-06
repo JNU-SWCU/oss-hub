@@ -601,7 +601,6 @@ describe('RepositoryProvisionWorkerService integration', () => {
         programId: programId(teamId),
         metadata: repositoryMetadata('stale-r1', 'stale R1'),
         source: RepositorySource.ORG_PROVISIONED,
-        currentConnectionMode: 'NEW',
         connectionMode: 'NEW',
       }),
     ).rejects.toMatchObject({
