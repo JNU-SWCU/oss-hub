@@ -587,7 +587,7 @@ describe('program team membership transactions integration', () => {
         },
       }),
     ).resolves.toEqual({
-      milestoneDocumentSubmissionId: submitted.submissionId,
+      submissionId: submitted.submissionId,
       actorId: MEMBER_A_ID,
       event: SubmissionHistoryEvent.SUBMITTED,
     });

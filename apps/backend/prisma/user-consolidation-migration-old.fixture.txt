@@ -55,8 +55,8 @@ model User {
   receivedTeamInvitations                TeamInvitation[]                     @relation("TeamInvitationInvitee")
   uploadedFiles                          File[]
   createdPrograms                        Program[]
-  milestoneDocumentSubmissions           MilestoneDocumentSubmission[]
-  milestoneDocumentSubmissionHistories   MilestoneDocumentSubmissionHistory[]
+  submissions                            Submission[]
+  submissionHistories                    SubmissionHistory[]
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
