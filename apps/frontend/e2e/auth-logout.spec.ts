@@ -29,10 +29,24 @@ const SETTINGS_ORIGIN_READS: F3ApiHandlers = {
 };
 
 const ANONYMOUS_HOME_READS: F3ApiHandlers = {
-  'GET /api/v1/programs': (route) => fulfillJson(route, { items: [] }),
+  'GET /api/v1/programs': (route) =>
+    fulfillJson(route, {
+      items: [],
+      page: 1,
+      pageSize: 20,
+      totalItems: 0,
+      totalPages: 0,
+    }),
   'GET /api/v1/programs/status-counts': (route) =>
-    fulfillJson(route, { published: 0, recruiting: 0, closed: 0, archived: 0 }),
-  'GET /api/v1/projects': (route) => fulfillJson(route, { items: [] }),
+    fulfillJson(route, {
+      all: 0,
+      recruiting: 0,
+      in_progress: 0,
+      upcoming: 0,
+      ended: 0,
+    }),
+  'GET /api/v1/projects': (route) =>
+    fulfillJson(route, { items: [], pageSize: 12, nextPageId: null }),
 };
 
 async function clickLogout(page: Page): Promise<void> {
