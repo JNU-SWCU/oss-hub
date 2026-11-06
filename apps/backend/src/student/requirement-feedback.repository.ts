@@ -100,11 +100,10 @@ function toRecentReview(row: RecentReviewRow): RecentRequirementReview {
   };
 }
 function submissionReviewDecision(event: string): SubmissionReviewDecision {
-  if (
-    event === 'APPROVED' ||
-    event === 'REJECTED' ||
-    event === 'CHANGES_REQUESTED'
-  )
-    return event;
-  throw new TypeError('Expected a submission review event');
+  const decision = SUBMISSION_REVIEW_EVENTS.find(
+    (candidate) => candidate === event,
+  );
+  if (decision === undefined)
+    throw new TypeError('Expected a submission review event');
+  return decision;
 }

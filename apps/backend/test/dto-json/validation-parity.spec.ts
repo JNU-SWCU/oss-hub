@@ -21,6 +21,8 @@ import { PatchAdminUserProfileRequestDto } from '../../src/admin/dto/patch-admin
 import { PatchIndependentAuthorityRequestDto } from '../../src/admin/dto/patch-independent-authority-request.dto';
 import { ResetMemberRegistrationRequestDto } from '../../src/admin/dto/reset-member-registration-request.dto';
 import { CreateRequirementSubmissionRequestDto } from '../../src/programs/dto/create-requirement-submission-request.dto';
+import { CreateRequirementReviewRequestDto } from '../../src/programs/dto/create-requirement-review-request.dto';
+import { CreateSubmissionReviewRequestDto } from '../../src/programs/dto/create-submission-review-request.dto';
 import { CreateProgramDocumentChangeRequestRequestDto } from '../../src/programs/dto/create-program-document-change-request-request.dto';
 import { ProgramDocumentChangeRequestTargetsRequestDto } from '../../src/programs/dto/program-document-change-request-targets-request.dto';
 import { UpdateStudentRepositoryUrlRequestDto } from '../../src/programs/dto/update-student-repository-url-request.dto';
@@ -391,3 +393,38 @@ parityCases(
       dto.teamId,
     ),
 );
+parityCases(CreateSubmissionReviewRequestDto, {
+  approved: { revision: 1, decision: 'APPROVED' },
+  rejected: { revision: 1, decision: 'REJECTED', comment: ' c ' },
+  'changes requested': { revision: 2, decision: 'CHANGES_REQUESTED' },
+  'other history event': { revision: 1, decision: 'SUBMITTED' },
+  lowercase: { revision: 1, decision: 'approved' },
+  'missing decision': { revision: 1 },
+  'zero revision': { revision: 0, decision: 'APPROVED' },
+  'non-string comment': { revision: 1, decision: 'APPROVED', comment: 1 },
+  'unknown field': { revision: 1, decision: 'APPROVED', pinned: true },
+  missing: {},
+});
+const REQUIREMENT_REVIEW_BASE = {
+  decision: 'APPROVED',
+  expectedRevision: 1,
+  expectedLatestReviewId: null,
+};
+parityCases(CreateRequirementReviewRequestDto, {
+  approved: REQUIREMENT_REVIEW_BASE,
+  rejected: { ...REQUIREMENT_REVIEW_BASE, decision: 'REJECTED' },
+  'changes requested': {
+    ...REQUIREMENT_REVIEW_BASE,
+    decision: 'CHANGES_REQUESTED',
+    comment: ' c ',
+    expectedLatestReviewId: 'r1',
+  },
+  'other history event': { ...REQUIREMENT_REVIEW_BASE, decision: 'SUBMITTED' },
+  lowercase: { ...REQUIREMENT_REVIEW_BASE, decision: 'approved' },
+  'missing decision': { expectedRevision: 1, expectedLatestReviewId: null },
+  'missing latest review id': { decision: 'APPROVED', expectedRevision: 1 },
+  'zero revision': { ...REQUIREMENT_REVIEW_BASE, expectedRevision: 0 },
+  'long comment': { ...REQUIREMENT_REVIEW_BASE, comment: 'c'.repeat(2001) },
+  'unknown field': { ...REQUIREMENT_REVIEW_BASE, pinned: true },
+  missing: {},
+});

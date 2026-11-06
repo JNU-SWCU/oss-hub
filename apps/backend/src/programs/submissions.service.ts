@@ -237,7 +237,11 @@ export class SubmissionsService {
       requirementId: row.requirement.id,
       latestReviewId:
         row.histories
-          .filter((history) => SUBMISSION_REVIEW_EVENTS.includes(history.event))
+          .filter((history) =>
+            SUBMISSION_REVIEW_EVENTS.some(
+              (decision) => decision === history.event,
+            ),
+          )
           .sort(
             (left, right) =>
               right.createdAt.getTime() - left.createdAt.getTime() ||
@@ -261,7 +265,9 @@ export class SubmissionsService {
         .filter(
           (history) =>
             history.revision === null &&
-            SUBMISSION_REVIEW_EVENTS.includes(history.event),
+            SUBMISSION_REVIEW_EVENTS.some(
+              (decision) => decision === history.event,
+            ),
         )
         .map((history) => ({
           id: history.id,
@@ -469,7 +475,7 @@ export class SubmissionsService {
     const review = events.find(
       (event) =>
         event.revision === history.revision &&
-        SUBMISSION_REVIEW_EVENTS.includes(event.event),
+        SUBMISSION_REVIEW_EVENTS.some((decision) => decision === event.event),
     );
     return {
       number: history.revision,
@@ -526,13 +532,12 @@ function decisionStatus(decision: SubmissionReviewDecision): SubmissionStatus {
   }
 }
 function submissionReviewDecision(event: string): SubmissionReviewDecision {
-  if (
-    event === 'APPROVED' ||
-    event === 'REJECTED' ||
-    event === 'CHANGES_REQUESTED'
-  )
-    return event;
-  throw new TypeError('Expected a submission review event');
+  const decision = SUBMISSION_REVIEW_EVENTS.find(
+    (candidate) => candidate === event,
+  );
+  if (decision === undefined)
+    throw new TypeError('Expected a submission review event');
+  return decision;
 }
 export interface RequirementReviewRequest {
   readonly decision: SubmissionReviewDecision;
