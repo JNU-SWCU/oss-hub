@@ -100,6 +100,13 @@ async function openRanking(
       }),
     }),
   );
+  await page.route('**/api/v1/team-invitations/received', (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      body: JSON.stringify([]),
+    }),
+  );
   await page.route('**/api/v1/ranking/years*', (route) =>
     route.fulfill({ status: 200, body: JSON.stringify({ years: [2026] }) }),
   );
