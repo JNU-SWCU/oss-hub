@@ -385,9 +385,7 @@ export class RepositoryProvisionWorkerService {
       teamId: context.teamId,
       programId: context.programId,
       connectionMode,
-      repositoryUrl,
       currentConnectionMode: context.currentConnectionMode,
-      currentRepositoryUrl: context.currentRepositoryUrl,
       ...(context.requestedByGithubId === null
         ? {}
         : {

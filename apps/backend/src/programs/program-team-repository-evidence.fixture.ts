@@ -40,7 +40,7 @@ jest.mock('../platform/prisma.service', () => ({
 export function givenRepository(
   lastSuccessAt: Date | null = new Date('2026-08-31Z'),
   failureCount = 0,
-  repositoryUrl: string | null = null,
+  repositoryConnectionMode: 'NEW' | 'OWN' = 'NEW',
 ) {
   teamFindFirst.mockResolvedValue({
     id: 'team',
@@ -61,8 +61,7 @@ export function givenRepository(
     id: 'team',
     status: 'APPROVED',
     updatedAt: new Date('2026-08-01Z'),
-    repositoryConnectionMode: 'NEW',
-    repositoryUrl,
+    repositoryConnectionMode,
     isRepositoryPublicationPlanned: false,
     repository: {
       id: 'current-repo',

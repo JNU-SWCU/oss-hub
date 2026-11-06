@@ -1018,16 +1018,12 @@ export class TeamApplicationService {
       submittedAt: row.submittedAt,
       rejectionReason: row.rejectionReason,
       repositoryConnectionMode: row.repositoryConnectionMode,
-      repositoryUrl: row.repositoryUrl,
       repositoryProvisioning:
         row.status === ApplicationStatus.APPROVED &&
         row.repository != null &&
         job?.status === RepositoryProvisionJobStatus.SUCCEEDED &&
         job.repositoryId === row.repository.id &&
-        row.repositoryUrl ===
-          this.repositoryUrlService.repositoryUrlFromNameWithOwner(
-            row.repository.nameWithOwner,
-          )
+        row.repositoryConnectionMode === RepositoryConnectionMode.OWN
           ? {
               enabled: row.program.repositoryProvisioningEnabled,
               jobStatus: 'SUCCEEDED',

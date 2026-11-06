@@ -26,6 +26,18 @@ import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { TeamApplicationService } from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
+import { StudentRepositoryUrlService } from './team-application.service';
+import { TeamMembershipService } from './team-membership.service';
+import {
+  ProgramTeamDeletionRepository,
+  TeamDeletionScopeRepository,
+  TeamRepository,
+} from './team.repository';
+import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
+import { TeamHistoryRepository } from './team-history.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
+import { RepositoryPublishService } from '../github/repository-publish.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 const parseProvisionPayload = (payload: unknown) =>
   new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
@@ -36,6 +48,32 @@ const applicationsService = new TeamApplicationService(
   new RepositoryUrlService(),
   new ApplicationAnswersService(),
   new RepositoryProvisionEventService(),
+);
+const teamsService = new TeamMembershipService(
+  new TeamRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    new PlatformRepository(),
+    new TeamHistoryRepository(),
+  ),
+  new ProgramTeamDeletionRepository(
+    new TeamHistoryRepository(),
+    prisma,
+    new TeamDeletionScopeRepository(),
+    new PrismaSerializationRetryRepository(),
+  ),
+  historyMetadataService,
+  new RepositoryPublishService(),
+  new RepositoryUrlService(),
+  new MilestoneCompletionService(),
+  new StudentRepositoryUrlService(
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+    {} as never,
+  ),
 );
 
 assertIsolatedIntegrationDatabase({
@@ -85,7 +123,6 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl: input.repositoryUrl,
     },
   );
   const entries = await prisma.teamHistory.findMany({
@@ -155,7 +192,6 @@ it('rolls back binding and queue changes when the team history write fails', asy
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,
-      repositoryUrl: null,
     },
   );
 });
@@ -259,7 +295,39 @@ it('projects a successful relink without an original provision outbox', async ()
     (await applicationsService.getForStaff(teamId)).application,
   ).toMatchObject({
     repositoryConnectionMode: RepositoryConnectionMode.OWN,
-    repositoryUrl: input.repositoryUrl,
+    repository: { url: input.repositoryUrl },
+    repositoryProvisioning: { jobStatus: 'SUCCEEDED' },
+  });
+});
+it('keeps a relinked repository SUCCEEDED after GitHub renames it', async () => {
+  await service.updateMine(githubId, programId, input);
+  await prisma.githubRepository.update({
+    where: { id: targetId },
+    data: { nameWithOwner: 'synthetic/target-renamed' },
+  });
+
+  expect(
+    await prisma.repositoryProvisionJob.findUnique({ where: { teamId } }),
+  ).toMatchObject({
+    repositoryId: targetId,
+    status: RepositoryProvisionJobStatus.SUCCEEDED,
+  });
+  expect(
+    await prisma.outboxEvent.count({
+      where: { aggregateId: teamId, type: REPOSITORY_PROVISION_EVENT_TYPE },
+    }),
+  ).toBe(0);
+  expect(
+    (await applicationsService.getForStaff(teamId)).application,
+  ).toMatchObject({
+    repositoryConnectionMode: RepositoryConnectionMode.OWN,
+    repository: { url: 'https://github.com/synthetic/target-renamed' },
+    repositoryProvisioning: { jobStatus: 'SUCCEEDED' },
+  });
+  expect(
+    (await teamsService.getForStaff(programId, teamId)).application,
+  ).toMatchObject({
+    repositoryConnectionMode: RepositoryConnectionMode.OWN,
     repositoryProvisioning: { jobStatus: 'SUCCEEDED' },
   });
 });
@@ -329,13 +397,13 @@ it('links a managed organization repository without re-arming provisioning', asy
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl: 'https://github.com/synthetic-org/target',
     },
   );
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({
     teamId,
+    nameWithOwner: 'synthetic-org/target',
     source: RepositorySource.ORG_PROVISIONED,
   });
   expect(

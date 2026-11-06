@@ -23,7 +23,6 @@ export class ApplicationListItemResponseDto {
 
   declare readonly repositoryConnectionMode: RepositoryConnectionMode;
 
-  declare readonly repositoryUrl: string | null;
   declare readonly repositoryProvisioning: {
     readonly enabled: boolean;
     readonly jobStatus: RepositoryProvisioningJobStatus;
@@ -58,7 +57,6 @@ export class ApplicationListItemResponseDto {
       submittedAt: item.submittedAt.toISOString(),
       rejectionReason: item.rejectionReason,
       repositoryConnectionMode: item.repositoryConnectionMode,
-      repositoryUrl: item.repositoryUrl,
       repositoryProvisioning: {
         enabled: item.repositoryProvisioning.enabled,
         jobStatus: item.repositoryProvisioning.jobStatus,
@@ -130,7 +128,6 @@ export class ApplicationDetailResponseDto {
 
   declare readonly repositoryConnectionMode: RepositoryConnectionMode;
 
-  declare readonly repositoryUrl: string | null;
   declare readonly repositoryProvisioning: {
     readonly enabled: boolean;
     readonly jobStatus: RepositoryProvisioningJobStatus;
@@ -167,7 +164,6 @@ export class ApplicationDetailResponseDto {
       submittedAt: item.submittedAt,
       rejectionReason: item.rejectionReason,
       repositoryConnectionMode: item.repositoryConnectionMode,
-      repositoryUrl: item.repositoryUrl,
       repositoryProvisioning: item.repositoryProvisioning,
       repository: item.repository,
       isRepositoryPublicationPlanned: item.isRepositoryPublicationPlanned,

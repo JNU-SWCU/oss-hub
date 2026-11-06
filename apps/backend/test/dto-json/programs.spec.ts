@@ -189,7 +189,6 @@ const applicationItem: ApplicationListItem = {
     safeErrorClass: null,
   },
   repositoryConnectionMode: 'NEW',
-  repositoryUrl: null,
   repository: { url: 'https://github.com/org/repo', visibility: 'PRIVATE' },
   isRepositoryPublicationPlanned: true,
   participation: 'TEAM',
@@ -749,7 +748,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
               safeErrorClass: 'AUTH',
             },
             repositoryConnectionMode: 'OWN',
-            repositoryUrl: 'https://github.com/me/own',
             repository: null,
             participation: 'INDIVIDUAL',
             team: null,
@@ -825,7 +823,6 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
         submittedAt: at('2026-01-05T00:00:00.000Z'),
         isRepositoryPublicationPlanned: false,
         repositoryConnectionMode: 'NEW',
-        repositoryUrl: null,
       }),
   ],
   [

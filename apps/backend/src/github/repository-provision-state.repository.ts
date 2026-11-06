@@ -44,7 +44,6 @@ export interface RepositoryProvisionContext {
   readonly requestedRepositoryUrl: string | null;
   readonly requestedByGithubId: bigint | null;
   readonly currentConnectionMode: RepositoryConnectionMode;
-  readonly currentRepositoryUrl: string | null;
   readonly teamId: string;
   readonly applicantGithubId: bigint;
   readonly applicationStatus: ApplicationStatus;
@@ -74,9 +73,7 @@ export interface RecordProvisionedRepositoryInput {
   readonly teamId: string;
   readonly programId: string;
   readonly connectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string | null;
   readonly currentConnectionMode: RepositoryConnectionMode;
-  readonly currentRepositoryUrl: string | null;
   readonly connectionAudit?: RepositoryConnectionAudit;
 
   readonly source: RepositorySource;
@@ -280,9 +277,7 @@ export class RepositoryProvisionStateRepository {
       readonly metadata: GithubRepositoryMetadata;
       readonly source: RepositorySource;
       readonly currentConnectionMode: RepositoryConnectionMode;
-      readonly currentRepositoryUrl: string | null;
       readonly connectionMode: RepositoryConnectionMode;
-      readonly repositoryUrl: string | null;
       readonly connectionAudit?: RepositoryConnectionAudit;
     },
   ): Promise<ProvisionedRepositoryRow> {
@@ -373,10 +368,7 @@ export class RepositoryProvisionStateRepository {
 
     await transaction.team.update({
       where: { id: input.teamId },
-      data: {
-        repositoryConnectionMode: input.connectionMode,
-        repositoryUrl: input.repositoryUrl,
-      },
+      data: { repositoryConnectionMode: input.connectionMode },
     });
     if (input.connectionAudit !== undefined) {
       const auditActor = await transaction.user.findUniqueOrThrow({
@@ -471,7 +463,6 @@ export class RepositoryProvisionStateRepository {
               status: true,
               programId: true,
               repositoryConnectionMode: true,
-              repositoryUrl: true,
               applicant: { select: { githubId: true, nickname: true } },
               program: {
                 select: {
@@ -532,9 +523,7 @@ export class RepositoryProvisionStateRepository {
             metadata: input.metadata,
             source: input.source,
             currentConnectionMode: input.currentConnectionMode,
-            currentRepositoryUrl: input.currentRepositoryUrl,
             connectionMode: input.connectionMode,
-            repositoryUrl: input.repositoryUrl,
             connectionAudit: input.connectionAudit,
           },
         );

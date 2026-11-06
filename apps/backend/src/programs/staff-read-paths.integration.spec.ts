@@ -327,7 +327,7 @@ describe('교직원 읽기 경로 — lean 목록 projection 과 검토 이력',
         repositoryProvisioning: expect.any(Object) as unknown,
       }),
     );
-    expect(page.items[0]).toHaveProperty('repositoryUrl');
+    expect(page.items[0]).not.toHaveProperty('repositoryUrl');
     expect(page.items[0]).toHaveProperty('repository');
   });
 

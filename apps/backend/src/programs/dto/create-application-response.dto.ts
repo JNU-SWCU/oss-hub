@@ -12,7 +12,6 @@ export class CreateApplicationResponseDto {
   declare readonly submittedAt: string;
   declare readonly isRepositoryPublicationPlanned: boolean;
   declare readonly repositoryConnectionMode: RepositoryConnectionMode;
-  declare readonly repositoryUrl: string | null;
 
   static from(application: CreatedApplication): CreateApplicationResponseDto {
     return {
@@ -24,7 +23,6 @@ export class CreateApplicationResponseDto {
       isRepositoryPublicationPlanned:
         application.isRepositoryPublicationPlanned,
       repositoryConnectionMode: application.repositoryConnectionMode,
-      repositoryUrl: application.repositoryUrl,
     };
   }
 }

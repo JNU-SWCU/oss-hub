@@ -9,6 +9,7 @@ import {
   ProgramCategory,
   RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
+  RepositorySource,
   RepositoryVisibility,
   ProgramTrackType,
 } from '@prisma/client';
@@ -20,6 +21,7 @@ import {
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { ApplicationsRepository } from './team.repository';
 import { TeamApplicationService } from './team-application.service';
+import { ApplicationsErrorCode } from './teams.error';
 import { StudentRepositoryUrlRepository } from './team.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { OwnRepositoryUrlValidationService } from '../github/own-repository-url-validation.service';
@@ -133,17 +135,18 @@ const OWN_REPOSITORY_URL = `https://github.com/${OWN_NAME_WITH_OWNER}`;
 const NO_CONSENT_GITHUB_REPOSITORY_ID = 8_520_100_002n;
 const NO_CONSENT_NAME_WITH_OWNER =
   'synthetic-own-chain-student/synthetic-own-chain-no-consent-repo';
-const NO_CONSENT_REPOSITORY_URL = `https://github.com/${NO_CONSENT_NAME_WITH_OWNER}`;
 
 const ORG_OWN_ORGANIZATION = 'synthetic-own-chain-org';
 const ORG_GITHUB_REPOSITORY_ID = 8_520_100_003n;
 const ORG_OWN_NAME_WITH_OWNER = `${ORG_OWN_ORGANIZATION}/synthetic-own-chain-org-repo`;
-const ORG_OWN_REPOSITORY_URL = `https://github.com/${ORG_OWN_NAME_WITH_OWNER}`;
 
 const ECONOVATION_ORGANIZATION = 'JNU-econovation';
 const ECONOVATION_GITHUB_REPOSITORY_ID = 8_520_100_004n;
 const ECONOVATION_NAME_WITH_OWNER = `${ECONOVATION_ORGANIZATION}/eco-knock-be-central`;
-const ECONOVATION_REPOSITORY_URL = `https://github.com/${ECONOVATION_NAME_WITH_OWNER}`;
+
+const PREVIOUS_GITHUB_REPOSITORY_ID = 8_520_100_005n;
+const PREVIOUS_NAME_WITH_OWNER =
+  'synthetic-own-chain-student/synthetic-own-chain-previous-repo';
 
 type ProvisionGithubClient = jest.Mocked<
   Pick<
@@ -282,14 +285,20 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     });
     await prisma.githubRepository.deleteMany({
       where: {
-        githubRepositoryId: {
-          in: [
-            OWN_GITHUB_REPOSITORY_ID,
-            NO_CONSENT_GITHUB_REPOSITORY_ID,
-            ORG_GITHUB_REPOSITORY_ID,
-            ECONOVATION_GITHUB_REPOSITORY_ID,
-          ],
-        },
+        OR: [
+          { teamId: { in: [...APPLICATION_IDS] } },
+          {
+            githubRepositoryId: {
+              in: [
+                OWN_GITHUB_REPOSITORY_ID,
+                NO_CONSENT_GITHUB_REPOSITORY_ID,
+                ORG_GITHUB_REPOSITORY_ID,
+                ECONOVATION_GITHUB_REPOSITORY_ID,
+                PREVIOUS_GITHUB_REPOSITORY_ID,
+              ],
+            },
+          },
+        ],
       },
     });
     await prisma.repositoryProvisionJob.deleteMany({
@@ -325,11 +334,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
 
   describe('TeamApplicationService 판정 권한', () => {
     it('실 DB의 STAFF 세션을 허용하고 해석한 처리자 ID를 판정·감사 이력에 남긴다', async () => {
-      await createOwnApplication(
-        AUTHORITY_APPLICATION_ID,
-        APPLICANT_ID,
-        OWN_REPOSITORY_URL,
-      );
+      await createOwnApplication(AUTHORITY_APPLICATION_ID, APPLICANT_ID, {
+        githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+        nameWithOwner: OWN_NAME_WITH_OWNER,
+      });
 
       const decision = await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
@@ -360,17 +368,40 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         }),
       ).resolves.toBe(1);
     });
+
+    it('저장소 행이 없는 OWN 팀은 승인하지 않고 OWN_REPOSITORY_URL_REQUIRED로 막는다', async () => {
+      await createOwnApplication(AUTHORITY_APPLICATION_ID, APPLICANT_ID, null);
+
+      await expect(
+        service.decide(
+          { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
+          AUTHORITY_APPLICATION_ID,
+          { action: 'APPROVE' },
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: ApplicationsErrorCode.OWN_REPOSITORY_URL_REQUIRED },
+      });
+      await expect(
+        prisma.team.findUniqueOrThrow({
+          where: { id: AUTHORITY_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({ processedById: null });
+      await expect(
+        prisma.outboxEvent.count({
+          where: { aggregateId: AUTHORITY_APPLICATION_ID },
+        }),
+      ).resolves.toBe(0);
+    });
   });
 
   it(
     '권한 확인→승인 판정→outbox 소비→worker 편입까지 실 DB로 완주해 ' +
       'owner/repo와 defaultBranch를 가진 수집 행을 남긴다',
     async () => {
-      await createOwnApplication(
-        CHAIN_APPLICATION_ID,
-        APPLICANT_ID,
-        OWN_REPOSITORY_URL,
-      );
+      await createOwnApplication(CHAIN_APPLICATION_ID, APPLICANT_ID, {
+        githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+        nameWithOwner: OWN_NAME_WITH_OWNER,
+      });
 
       const decision = await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
@@ -455,7 +486,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       await createOwnApplication(
         ORG_OWNER_EXTERNAL_APPLICATION_ID,
         ORG_OWNER_EXTERNAL_APPLICANT_ID,
-        ECONOVATION_REPOSITORY_URL,
+        {
+          githubRepositoryId: ECONOVATION_GITHUB_REPOSITORY_ID,
+          nameWithOwner: ECONOVATION_NAME_WITH_OWNER,
+        },
       );
 
       const decision = await service.decide(
@@ -526,7 +560,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await createOwnApplication(
       NO_CONSENT_APPLICATION_ID,
       NO_CONSENT_APPLICANT_ID,
-      NO_CONSENT_REPOSITORY_URL,
+      {
+        githubRepositoryId: NO_CONSENT_GITHUB_REPOSITORY_ID,
+        nameWithOwner: NO_CONSENT_NAME_WITH_OWNER,
+      },
     );
     const decision = await service.decide(
       { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
@@ -584,27 +621,17 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
   });
 
   it(
-    'org sweep이 먼저 teamId:null로 관찰해 둔 저장소를 OWN+ORGANIZATION ' +
-      '연결이 채택해 성공한다(#617 단계 D 회귀 — recordRepository가 teamId ' +
-      '기준으로만 upsert하면 githubRepositoryId unique 제약과 충돌해 항상 실패했다)',
+    'OWN+ORGANIZATION 연결이 이미 채택한 ORG_PROVISIONED 저장소를 승인 뒤 ' +
+      'worker가 같은 행으로 다시 기록해 성공한다(#617 단계 D 회귀 — ' +
+      'recordRepository가 teamId 기준으로만 upsert하면 githubRepositoryId ' +
+      'unique 제약과 충돌해 항상 실패했다)',
     async () => {
-      await prisma.githubRepository.create({
-        data: {
-          githubRepositoryId: ORG_GITHUB_REPOSITORY_ID,
-          nameWithOwner: ORG_OWN_NAME_WITH_OWNER,
-          defaultBranch: null,
-          archived: false,
-          visibility: RepositoryVisibility.PRIVATE,
-          source: 'ORG_PROVISIONED',
-          presence: 'PRESENT',
-        },
+      await createOwnApplication(ORG_OWN_APPLICATION_ID, ORG_OWN_APPLICANT_ID, {
+        githubRepositoryId: ORG_GITHUB_REPOSITORY_ID,
+        nameWithOwner: ORG_OWN_NAME_WITH_OWNER,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PRIVATE,
       });
-
-      await createOwnApplication(
-        ORG_OWN_APPLICATION_ID,
-        ORG_OWN_APPLICANT_ID,
-        ORG_OWN_REPOSITORY_URL,
-      );
       const decision = await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         ORG_OWN_APPLICATION_ID,
@@ -660,11 +687,10 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     },
   );
   it('keeps the relinked binding when an earlier approval outbox is consumed later', async () => {
-    await createOwnApplication(
-      CHAIN_APPLICATION_ID,
-      APPLICANT_ID,
-      OWN_REPOSITORY_URL,
-    );
+    await createOwnApplication(CHAIN_APPLICATION_ID, APPLICANT_ID, {
+      githubRepositoryId: PREVIOUS_GITHUB_REPOSITORY_ID,
+      nameWithOwner: PREVIOUS_NAME_WITH_OWNER,
+    });
     await service.decide(
       { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
       CHAIN_APPLICATION_ID,
@@ -736,13 +762,12 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       },
     ],
   ])(
-    'rejects unavailable legacy OWN repository %s during provisioning',
+    'rejects unavailable OWN repository %s during provisioning without touching the stored row',
     async (teamId, metadata) => {
-      await createOwnApplication(
-        teamId,
-        PRECHECK_APPLICANT_ID,
-        'https://github.com/synthetic/private',
-      );
+      await createOwnApplication(teamId, PRECHECK_APPLICANT_ID, {
+        githubRepositoryId: 8_520_100_099n,
+        nameWithOwner: 'synthetic/private',
+      });
       await service.decide(
         { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID },
         teamId,
@@ -765,9 +790,16 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         kind: 'FAILED_FINAL',
         errorCode: PROVISION_ERROR_CODES.OWN_REPOSITORY_NOT_FOUND,
       });
-      expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(
-        0,
-      );
+      await expect(
+        prisma.githubRepository.findMany({ where: { teamId } }),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          githubRepositoryId: 8_520_100_099n,
+          nameWithOwner: 'synthetic/private',
+          visibility: RepositoryVisibility.PUBLIC,
+          source: RepositorySource.EXTERNAL_PUBLIC,
+        }),
+      ]);
     },
   );
 });
@@ -797,7 +829,12 @@ async function consumeApproval(
 async function createOwnApplication(
   teamId: string,
   applicantId: string,
-  repositoryUrl: string,
+  repository: {
+    readonly githubRepositoryId: bigint;
+    readonly nameWithOwner: string;
+    readonly source?: RepositorySource;
+    readonly visibility?: RepositoryVisibility;
+  } | null,
 ): Promise<void> {
   const programId = programIdFor(teamId);
   await prisma.program.create({
@@ -845,9 +882,22 @@ async function createOwnApplication(
       answers: { synthetic: true },
       applicationTemplateVersion: 1,
       repositoryConnectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl,
     },
   });
+  if (repository !== null) {
+    await prisma.githubRepository.create({
+      data: {
+        teamId,
+        githubRepositoryId: repository.githubRepositoryId,
+        nameWithOwner: repository.nameWithOwner,
+        defaultBranch: null,
+        archived: false,
+        visibility: repository.visibility ?? RepositoryVisibility.PUBLIC,
+        source: repository.source ?? RepositorySource.EXTERNAL_PUBLIC,
+        presence: 'PRESENT',
+      },
+    });
+  }
 }
 
 function ownEnrollment(): RepositoryOwnEnrollmentService {

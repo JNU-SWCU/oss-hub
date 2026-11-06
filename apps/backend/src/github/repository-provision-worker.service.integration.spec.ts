@@ -602,9 +602,7 @@ describe('RepositoryProvisionWorkerService integration', () => {
         metadata: repositoryMetadata('stale-r1', 'stale R1'),
         source: RepositorySource.ORG_PROVISIONED,
         currentConnectionMode: 'NEW',
-        currentRepositoryUrl: null,
         connectionMode: 'NEW',
-        repositoryUrl: null,
       }),
     ).rejects.toMatchObject({
       name: 'RepositoryProvisionSupersededError',
@@ -1173,7 +1171,6 @@ describe('RepositoryProvisionWorkerService integration', () => {
         prisma.team.findUniqueOrThrow({ where: { id: teamId } }),
       ).resolves.toMatchObject({
         repositoryConnectionMode: 'OWN',
-        repositoryUrl: OWN_REPOSITORY_URL,
       });
       await prisma.repositoryProvisionJob.update({
         where: { teamId },
@@ -1213,7 +1210,6 @@ describe('RepositoryProvisionWorkerService integration', () => {
           }),
         ).resolves.toMatchObject({
           repositoryConnectionMode: 'OWN',
-          repositoryUrl: OWN_REPOSITORY_URL,
         });
         return;
       }
@@ -1227,7 +1223,6 @@ describe('RepositoryProvisionWorkerService integration', () => {
         }),
       ).resolves.toMatchObject({
         repositoryConnectionMode: 'NEW',
-        repositoryUrl: null,
         repository: {
           githubRepositoryId: 987654321n,
           source: RepositorySource.ORG_PROVISIONED,
@@ -1737,10 +1732,7 @@ async function createApplicationAndEvent(
       status: ApplicationStatus.APPROVED,
       ...(own === undefined
         ? {}
-        : {
-            repositoryConnectionMode: own.connectionMode,
-            repositoryUrl: own.repositoryUrl,
-          }),
+        : { repositoryConnectionMode: own.connectionMode }),
     },
   });
   await prisma.$transaction(async (transaction) => {

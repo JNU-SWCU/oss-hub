@@ -19,6 +19,7 @@ import {
 import {
   ApplicationStatus,
   OutboxEventStatus,
+  RepositoryConnectionMode,
   RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
@@ -490,7 +491,7 @@ export class TeamMembershipService {
           : null,
       repositoryProvisioning:
         repository &&
-        row.repositoryUrl === repositoryUrl &&
+        row.repositoryConnectionMode === RepositoryConnectionMode.OWN &&
         job?.repositoryId === repository.id &&
         job.status === RepositoryProvisionJobStatus.SUCCEEDED
           ? {

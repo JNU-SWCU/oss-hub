@@ -125,7 +125,6 @@ async function seedPendingInvitation(): Promise<void> {
 async function seedApplication(overrides?: {
   readonly status?: ApplicationStatus;
   readonly repositoryConnectionMode?: RepositoryConnectionMode;
-  readonly repositoryUrl?: string;
 }): Promise<void> {
   await prisma.team.update({
     where: { id: TARGET_TEAM_ID },
@@ -137,7 +136,6 @@ async function seedApplication(overrides?: {
       status: overrides?.status ?? ApplicationStatus.SUBMITTED,
       repositoryConnectionMode:
         overrides?.repositoryConnectionMode ?? RepositoryConnectionMode.NEW,
-      repositoryUrl: overrides?.repositoryUrl ?? null,
     },
   });
 }
@@ -793,7 +791,6 @@ describe('TeamInvitationsRepository acceptance atomicity integration', () => {
         {
           status: ApplicationStatus.APPROVED,
           repositoryConnectionMode: RepositoryConnectionMode.OWN,
-          repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
         },
         true,
       ],

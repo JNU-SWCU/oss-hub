@@ -350,7 +350,6 @@ export interface CreatedApplication {
   readonly submittedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string | null;
 }
 
 export interface ApplicationListAnswers {
@@ -388,7 +387,6 @@ export interface ApplicationListItem {
 
   readonly repositoryConnectionMode: RepositoryConnectionMode;
 
-  readonly repositoryUrl: string | null;
   readonly repository: ApplicationListRepository | null;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly participation: 'INDIVIDUAL' | 'TEAM';
@@ -415,7 +413,6 @@ export type ApplicationListRow = {
   readonly answers: Prisma.JsonValue;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string | null;
   readonly repository: {
     readonly id: string;
     readonly nameWithOwner: string;
@@ -553,6 +550,7 @@ type ApplicationWithProgram = PrismaTypes.TeamGetPayload<{
     applicant: { select: { id: true; nickname: true } };
     leader: { select: { id: true; nickname: true } };
     members: { select: { user: { select: { id: true; nickname: true } } } };
+    repository: { select: { nameWithOwner: true } };
   };
 }>;
 
@@ -1071,6 +1069,7 @@ export class ApplicationsRepository {
         applicant: { select: { id: true, nickname: true } },
         leader: { select: { id: true, nickname: true } },
         members: { select: { user: { select: { id: true, nickname: true } } } },
+        repository: { select: { nameWithOwner: true } },
       },
     });
     return application ? toApplicationDecisionTarget(application) : null;
@@ -1410,7 +1409,6 @@ export class ApplicationsRepository {
           submittedAt: true,
           isRepositoryPublicationPlanned: true,
           repositoryConnectionMode: true,
-          repositoryUrl: true,
         },
       });
       return { ...team, teamId: team.id };
@@ -1566,7 +1564,6 @@ const APPLICATION_LIST_SELECT = {
   answers: true,
   isRepositoryPublicationPlanned: true,
   repositoryConnectionMode: true,
-  repositoryUrl: true,
   repository: { select: { id: true, nameWithOwner: true, visibility: true } },
   program: { select: { repositoryProvisioningEnabled: true } },
   applicant: {
@@ -1593,7 +1590,9 @@ function toApplicationDecisionTarget(
       githubLogin: member.user.nickname,
     })),
     repositoryConnectionMode: application.repositoryConnectionMode,
-    repositoryUrl: application.repositoryUrl,
+    repositoryUrl: application.repository
+      ? `https://github.com/${application.repository.nameWithOwner}`
+      : null,
     processedById: application.processedById,
     processedAt: application.processedAt,
   };
@@ -1971,7 +1970,6 @@ export interface TeamApplicationRow {
   readonly id: string;
   readonly status: TeamApplicationView['status'];
   readonly repositoryConnectionMode: TeamApplicationView['repositoryConnectionMode'];
-  readonly repositoryUrl: string | null;
   readonly updatedAt: Date;
   readonly isRepositoryPublicationPlanned: boolean;
   readonly repository: {
@@ -2329,7 +2327,6 @@ export class TeamRepository {
         status: true,
         updatedAt: true,
         repositoryConnectionMode: true,
-        repositoryUrl: true,
         isRepositoryPublicationPlanned: true,
         repository: {
           select: {
@@ -3372,14 +3369,10 @@ export class StudentRepositoryUrlTransactionRepository {
       });
       repositoryId = created.id;
     }
-    const repositoryUrl = `https://github.com/${metadata.nameWithOwner}`;
 
     await tx.team.update({
       where: { id: context.id },
-      data: {
-        repositoryConnectionMode: RepositoryConnectionMode.OWN,
-        repositoryUrl,
-      },
+      data: { repositoryConnectionMode: RepositoryConnectionMode.OWN },
     });
 
     await this.repositoryProvisionGenerationRepository.settleProvisionGenerationForSynchronousConnection(
