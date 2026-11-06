@@ -258,7 +258,7 @@ describe('Audience authorization HTTP characterization', () => {
   const facets = { roles: [], accountStatuses: [], pendingRequests: [] };
   const emptyPage = { items: [], page: 1, limit: 20, total: 0, facets };
   const transactionStore = {
-    auditLogWriter: {},
+    userHistoryWriter: {},
     lockActiveAdmins: () => Promise.resolve(1),
     findActorByGithubId: findActor,
     findActor,

@@ -73,7 +73,7 @@ export type IndependentAuthorityTransition = IndependentAuthorityState & {
 };
 
 export interface IndependentAuthorityTransactionStore {
-  readonly auditLogWriter: UserHistoryTransaction;
+  readonly userHistoryWriter: UserHistoryTransaction;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   lockActiveAdmins(): Promise<number>;
   findUserForUpdate(userId: string): Promise<AdminAccessUserRow | null>;
@@ -121,7 +121,7 @@ export class IndependentAuthorityRepository implements IndependentAuthorityRepos
     transaction: Prisma.TransactionClient,
   ): IndependentAuthorityTransactionStore {
     return {
-      auditLogWriter: transaction,
+      userHistoryWriter: transaction,
       findActorByGithubId: this.findActorByGithubIdIn.bind(this, transaction),
       lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
       findUserForUpdate: this.findUserForUpdateIn.bind(this, transaction),

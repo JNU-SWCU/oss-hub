@@ -3,7 +3,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { AccountStatus } from '@prisma/client';
 import { UserHistoryRepository } from './user-history.repository';
 import type {
-  AuditLogRecordInput,
+  UserHistoryRecordInput,
   IndependentAuthorityAuditAction,
 } from '../platform/history-metadata.config';
 import type {
@@ -38,7 +38,7 @@ export type IndependentAuthorityCommand =
   StaffAccessMutationCommand | AdminAuthorityMutationCommand;
 
 export type IndependentAuthorityAuditRecordInput = Omit<
-  AuditLogRecordInput,
+  UserHistoryRecordInput,
   'action' | 'metadata'
 > & {
   readonly action: IndependentAuthorityAuditAction;
@@ -219,7 +219,7 @@ export class IndependentAuthorityService {
           after: transition,
           command,
         }),
-        store.auditLogWriter,
+        store.userHistoryWriter,
       );
       return {
         id: before.id,

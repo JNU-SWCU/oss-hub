@@ -39,8 +39,8 @@ class RevocationPauseTransactionStore implements AdminAccessTransactionStore {
     private readonly store: AdminAccessTransactionStore,
     private readonly onRevokedRequestWritten: () => Promise<void>,
   ) {}
-  get auditLogWriter() {
-    return this.store.auditLogWriter;
+  get userHistoryWriter() {
+    return this.store.userHistoryWriter;
   }
   findActorByGithubId(
     githubId: bigint,
@@ -127,8 +127,8 @@ class PausingActorRevalidationTransactionStore implements AdminAccessTransaction
       readonly onAfterLock?: () => Promise<void>;
     },
   ) {}
-  get auditLogWriter() {
-    return this.store.auditLogWriter;
+  get userHistoryWriter() {
+    return this.store.userHistoryWriter;
   }
   async findActorByGithubId(
     githubId: bigint,
@@ -215,8 +215,8 @@ export class PausingActorRevalidationAdminAccessRepository implements AdminAcces
 }
 class DecisionFailureTransactionStore implements AdminAccessTransactionStore {
   constructor(private readonly store: AdminAccessTransactionStore) {}
-  get auditLogWriter() {
-    return this.store.auditLogWriter;
+  get userHistoryWriter() {
+    return this.store.userHistoryWriter;
   }
   findActorByGithubId(
     githubId: bigint,
@@ -287,8 +287,8 @@ class BarrierIndependentAuthorityStore implements IndependentAuthorityTransactio
     private readonly store: IndependentAuthorityTransactionStore,
     private readonly barrier: TwoPartyBarrier,
   ) {}
-  get auditLogWriter() {
-    return this.store.auditLogWriter;
+  get userHistoryWriter() {
+    return this.store.userHistoryWriter;
   }
   findActorByGithubId(githubId: bigint) {
     return this.store.findActorByGithubId(githubId);

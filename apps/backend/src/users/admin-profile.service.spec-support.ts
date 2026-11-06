@@ -24,7 +24,7 @@ export function profileTarget(
 export class InMemoryAdminProfileRepository
   implements AdminProfileRepositoryPort, AdminProfileTransactionStore
 {
-  readonly auditLogWriter = new PrismaService();
+  readonly userHistoryWriter = new PrismaService();
   actor: AdminAccessActor | null = adminActor();
   target: AdminProfileTargetRecord | null = profileTarget();
   operations: string[] = [];

@@ -23,7 +23,7 @@ class AuditAuthorityStore
     IndependentAuthorityRepositoryPort,
     IndependentAuthorityTransactionStore
 {
-  readonly auditLogWriter = new PrismaService();
+  readonly userHistoryWriter = new PrismaService();
   target = targetUser();
   activeAdminCount = 2;
   events: string[] = [];
@@ -134,7 +134,7 @@ it.each([
       'audit',
     ]);
     expect(record).toHaveBeenCalledTimes(1);
-    expect(record.mock.calls[0]?.[1]).toBe(store.auditLogWriter);
+    expect(record.mock.calls[0]?.[1]).toBe(store.userHistoryWriter);
     expect(record.mock.calls[0]?.[0]).toMatchObject({
       actorGithubId,
       action: command,

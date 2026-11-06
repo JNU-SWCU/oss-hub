@@ -19,7 +19,7 @@ const allowedOrigin = 'http://frontend.test';
 describe('POST /users/:id/member-kind/reset HTTP contract', () => {
   let target = buildRow({ id: 'target', type: 'STUDENT' });
   const store = {
-    auditLogWriter: new PrismaService(),
+    userHistoryWriter: new PrismaService(),
     lockActiveAdmins: async () => {},
     findActorByGithubId: () =>
       Promise.resolve({

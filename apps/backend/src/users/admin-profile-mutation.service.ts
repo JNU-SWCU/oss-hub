@@ -224,7 +224,7 @@ export class AdminProfileMutationService {
             targetId: audit.targetId,
             metadata: audit.metadata,
           },
-          store.auditLogWriter,
+          store.userHistoryWriter,
         );
       }
 

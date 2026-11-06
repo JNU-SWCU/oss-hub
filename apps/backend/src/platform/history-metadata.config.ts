@@ -255,7 +255,7 @@ export type RepositoryPublishAuditMetadataInput = Omit<
 export type UserProfileAuditAction =
   (typeof USER_PROFILE_AUDIT_ACTIONS)[keyof typeof USER_PROFILE_AUDIT_ACTIONS];
 
-export type AuditLogRecordInput = {
+export type UserHistoryRecordInput = {
   readonly actorGithubId: bigint;
   readonly action: string;
   readonly targetType: string;

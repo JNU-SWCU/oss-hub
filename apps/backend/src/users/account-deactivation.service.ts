@@ -111,7 +111,7 @@ export class AccountDeactivationService {
             },
           }),
         },
-        store.auditLogWriter,
+        store.userHistoryWriter,
       );
 
       return { accountStatus: AccountStatus.DEACTIVATED };

@@ -77,7 +77,7 @@ function harness(requestId: string | null = 'approved-request') {
 it('revokes only the Admin relation and preserves User identity and approval', async () => {
   const h = harness();
   await h.repository.withTransaction(async (store) => {
-    expect(store.auditLogWriter).toBe(h.prisma);
+    expect(store.userHistoryWriter).toBe(h.prisma);
     const before = await store.findUserForUpdate('target');
     if (!before) throw new TypeError('Missing target');
     expect(

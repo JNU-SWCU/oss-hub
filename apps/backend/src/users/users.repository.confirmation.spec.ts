@@ -119,7 +119,7 @@ it('phone auditing precedes staff request submission in the same transaction', a
   h.recordPhoneAudit.mockImplementation(
     (store) =>
       new Promise<void>((resolve) => {
-        expect(store.auditLogWriter).toBe(h.transaction);
+        expect(store.userHistoryWriter).toBe(h.transaction);
         expect(h.current()?.approvalRequestId).toBeNull();
         resolve();
       }),
