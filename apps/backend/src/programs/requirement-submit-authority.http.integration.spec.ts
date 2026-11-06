@@ -4,7 +4,7 @@ import { RequirementsErrorCode } from './submissions.error';
 import {
   RequirementFlowFixture,
   flowIds,
-} from './milestone-document-flow.integration-fixture';
+} from './requirement-flow.integration-fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

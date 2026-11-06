@@ -6,7 +6,7 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   archiveId,
   type ProgramArchiveIntegrationFixture,
-} from './milestone-document-archive.integration-fixture';
+} from './requirement-archive.integration-fixture';
 import {
   RequirementArchiveService,
   type ProgramDocumentArchiveScope,

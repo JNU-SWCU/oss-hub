@@ -20,12 +20,12 @@ import {
   flowIds,
   flowGithubIds,
   seedRequirementFlow,
-} from './milestone-document-flow-data.integration-fixture';
+} from './requirement-flow-data.integration-fixture';
 import { AuthSessionService } from '../platform/auth-session.service';
 
 const authSessionService = new AuthSessionService();
 
-export { flowIds } from './milestone-document-flow-data.integration-fixture';
+export { flowIds } from './requirement-flow-data.integration-fixture';
 
 const sessionSecret = new Uint8Array(32).fill(37);
 const origin = 'https://synthetic.example';

@@ -1,8 +1,5 @@
 import { SubmissionStatus } from '@prisma/client';
-import {
-  archiveEntries,
-  collectArchive,
-} from './milestone-document-archive.fixture';
+import { archiveEntries, collectArchive } from './requirement-archive.fixture';
 import {
   now,
   fileBody,
@@ -10,7 +7,7 @@ import {
   teams,
   submission,
   fixture,
-} from './milestone-document-archive.program-fixture';
+} from './requirement-archive.program-fixture';
 
 describe('program, milestone and team current-submission ZIP scopes', () => {
   it('preserves document folders when staff select grouping by document across a program', async () => {

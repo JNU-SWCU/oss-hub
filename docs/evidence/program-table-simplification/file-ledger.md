@@ -916,6 +916,8 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 
 기준은 행 13(#1771)을 머지한 `2063ce823`이다. Todo 11이 남긴 `MilestoneDocument*` TS 이름과 파일 이름을 Prisma 모델 이름 `Requirement`·`Submission`·`SubmissionHistory`에 맞췄다. 위 표의 DTO 12개는 경로만 새 파일 이름으로 바꿨고 동작, API 경로, 응답 필드, DB 이름은 그대로다. `create-milestone-document-submission-request.dto.ts`는 규칙대로면 `create-submission-request.dto.ts`가 되지만, 이 경로는 Todo 4에서 지운 파일이라 다시 쓰지 않고 `create-requirement-submission-request.dto.ts`로 정했다.
 
+이름이 `milestone-document`로 시작하던 테스트·fixture·테스트 지원 파일 43개도 같은 규칙으로 옮겼다. `apps/backend/src/programs`가 39개, `apps/backend/prisma`가 4개다. 바뀐 내용은 이 파일들을 가리키는 import 경로 18곳이고, 테스트 본문은 그대로다.
+
 purge 설정과 그 테스트에서 쓰는 곳이 없는 PROGRAM outbox 서술을 지웠다. `program-lifecycle.config.ts`의 `logical:Program->OutboxEvent`, 삭제 매트릭스 테스트의 같은 기대값과 `PROGRAM` aggregate 분류, 통합 테스트의 PROGRAM outbox seed와 그 개수 집계가 대상이다. 제품 코드가 만드는 outbox aggregate는 `Team`뿐이고, 운영 OutboxEvent에도 PROGRAM 행은 0건이다. 프로그램 purge는 행을 보존하는 상태 전환이라 동작은 같다.
 
 ## 후속 14: userHistory 이름 맞추기

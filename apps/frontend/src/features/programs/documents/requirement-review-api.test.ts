@@ -143,7 +143,7 @@ describe('createRequirementReview', () => {
 });
 
 describe('판정 계약 상수', () => {
-  it('백엔드 ReviewDecision 세 값과 같다', () => {
+  it('백엔드 SUBMISSION_REVIEW_EVENTS와 같은 판정 세 값을 가진다', () => {
     expect([...REQUIREMENT_REVIEW_DECISIONS]).toEqual([
       'APPROVED',
       'CHANGES_REQUESTED',

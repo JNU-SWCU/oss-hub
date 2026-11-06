@@ -1,11 +1,11 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { archiveEntries } from './milestone-document-archive.fixture';
+import { archiveEntries } from './requirement-archive.fixture';
 import {
   archiveId,
   ProgramArchiveIntegrationFixture,
   retainedImage,
-} from './milestone-document-archive.integration-fixture';
-import { startArchiveHttp } from './milestone-document-archive.http-fixture';
+} from './requirement-archive.integration-fixture';
+import { startArchiveHttp } from './requirement-archive.http-fixture';
 import { type ProgramDocumentArchiveScope } from './requirement-archive.service';
 
 assertIsolatedIntegrationDatabase({

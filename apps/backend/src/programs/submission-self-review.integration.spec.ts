@@ -16,8 +16,8 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import {
   RequirementFlowFixture,
   flowIds,
-} from './milestone-document-flow.integration-fixture';
-import { flowGithubIds } from './milestone-document-flow-data.integration-fixture';
+} from './requirement-flow.integration-fixture';
+import { flowGithubIds } from './requirement-flow-data.integration-fixture';
 import {
   RequirementReviewsService,
   SubmissionsService,

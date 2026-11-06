@@ -3,7 +3,7 @@ import { RequirementsErrorCode } from './submissions.error';
 import {
   RequirementFlowFixture,
   flowIds,
-} from './milestone-document-flow.integration-fixture';
+} from './requirement-flow.integration-fixture';
 import type { SubmissionReviewDecision } from './submissions.repository';
 
 assertIsolatedIntegrationDatabase({

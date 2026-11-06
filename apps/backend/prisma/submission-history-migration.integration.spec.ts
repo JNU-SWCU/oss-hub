@@ -7,7 +7,7 @@ import {
   inSubmissionHistoryFixtureSchema,
   relationExists,
   resetSubmissionHistoryFixture,
-} from './milestone-document-submission-history-migration-test-support';
+} from './submission-history-migration-test-support';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

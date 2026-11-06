@@ -2,7 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import {
   RequirementFlowFixture,
   flowIds,
-} from './milestone-document-flow.integration-fixture';
+} from './requirement-flow.integration-fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
