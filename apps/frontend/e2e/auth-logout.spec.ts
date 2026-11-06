@@ -28,7 +28,7 @@ const SETTINGS_ORIGIN_READS: F3ApiHandlers = {
   'GET /api/v1/team-invitations/received': (route) => fulfillJson(route, []),
 };
 
-const ANONYMOUS_HOME_READS: F3ApiHandlers = {
+const PROGRAM_LIST_READS: F3ApiHandlers = {
   'GET /api/v1/programs': (route) =>
     fulfillJson(route, {
       items: [],
@@ -45,8 +45,6 @@ const ANONYMOUS_HOME_READS: F3ApiHandlers = {
       upcoming: 0,
       ended: 0,
     }),
-  'GET /api/v1/projects': (route) =>
-    fulfillJson(route, { items: [], pageSize: 12, nextPageId: null }),
 };
 
 async function clickLogout(page: Page): Promise<void> {
@@ -60,7 +58,7 @@ test('logout success returns to the anonymous home introduction', async ({
   const audit = installBrowserAudit(page);
   const fixture = await installLogoutFixture(page, 'success', {
     ...SETTINGS_ORIGIN_READS,
-    ...ANONYMOUS_HOME_READS,
+    ...PROGRAM_LIST_READS,
   });
 
   await page.goto(F3_LOGOUT_ORIGIN_PATH);
