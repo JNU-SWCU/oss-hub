@@ -258,15 +258,12 @@ it.each([
   },
 );
 
-it('fresh deploy has the final enum and rerun records no additional migration', async () => {
+it('fresh deploy ends without the enum and rerun records no additional migration', async () => {
   await expect(
     prisma.$queryRaw`
-      SELECT enumlabel AS label
-      FROM pg_enum
-      WHERE enumtypid = '"MilestoneSubmissionType"'::regtype
-      ORDER BY enumsortorder
+      SELECT to_regtype('"MilestoneSubmissionType"')::text AS type
     `,
-  ).resolves.toEqual([{ label: 'FILE' }, { label: 'TEXT' }]);
+  ).resolves.toEqual([{ type: null }]);
   const before = await prisma.$queryRaw<
     readonly { readonly appliedStepsCount: number }[]
   >`

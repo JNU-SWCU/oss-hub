@@ -5,11 +5,9 @@ import {
   ApplicationStatus,
   UserType,
   SubmissionHistoryEvent,
-  MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositoryVisibility,
-  ReviewDecision,
   ApprovalStatus,
   SubmissionStatus,
 } from '@prisma/client';
@@ -675,10 +673,10 @@ describe('seed profile=oss-hub contract (integration)', () => {
       expect(awsStagingSubmission.histories).toHaveLength(2);
       expect(
         awsStagingSubmission.histories.find(
-          (history) => history.event === ReviewDecision.APPROVED,
+          (history) => history.event === 'APPROVED',
         ),
       ).toMatchObject({
-        event: ReviewDecision.APPROVED,
+        event: 'APPROVED',
         actorId: AUTH_SCENARIOS['staff-approved'],
       });
 
@@ -770,7 +768,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
           name: '구버전 계획서',
           required: true,
           sortOrder: 0,
-          submissionType: MilestoneSubmissionType.TEXT,
+          submissionType: 'TEXT',
         },
       });
       const staleSubmissionId = seedId(
@@ -786,7 +784,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
           status: SubmissionStatus.SUBMITTED,
           revision: 1,
           content: {
-            type: MilestoneSubmissionType.TEXT,
+            type: 'TEXT',
             text: '구버전 제출 (stale cleanup test).',
           },
           submittedById: AUTH_SCENARIOS['staff-approved'],
@@ -805,7 +803,7 @@ describe('seed profile=oss-hub contract (integration)', () => {
           event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content: {
-            type: MilestoneSubmissionType.TEXT,
+            type: 'TEXT',
             text: '구버전 제출 (stale cleanup test).',
           },
           actorId: AUTH_SCENARIOS['staff-approved'],
@@ -1190,7 +1188,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           status: SubmissionStatus.SUBMITTED,
           revision: 1,
           content: {
-            type: MilestoneSubmissionType.FILE,
+            type: 'FILE',
             fileId: preservedFileId,
           },
           submittedById: parkHaeunUserId,
@@ -1203,7 +1201,7 @@ describe('seed profile=demo 계약 (integration)', () => {
           event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content: {
-            type: MilestoneSubmissionType.FILE,
+            type: 'FILE',
             fileId: preservedFileId,
           },
           actorId: parkHaeunUserId,

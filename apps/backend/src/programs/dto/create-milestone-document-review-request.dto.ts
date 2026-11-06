@@ -1,6 +1,5 @@
-import { ReviewDecision } from '@prisma/client';
 import {
-  IsEnum,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -8,9 +7,11 @@ import {
   Min,
   ValidateIf,
 } from 'class-validator';
+import { SUBMISSION_REVIEW_EVENTS } from '../submission-history.config';
+import type { SubmissionReviewDecision } from '../submissions.repository';
 export class CreateMilestoneDocumentReviewRequestDto {
-  @IsEnum(ReviewDecision)
-  declare readonly decision: ReviewDecision;
+  @IsIn(SUBMISSION_REVIEW_EVENTS)
+  declare readonly decision: SubmissionReviewDecision;
   @IsOptional()
   @IsString()
   @MaxLength(2000)

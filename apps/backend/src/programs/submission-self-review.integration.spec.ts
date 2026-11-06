@@ -7,10 +7,11 @@ import {
 import {
   SubmissionsRepository,
   SubmissionReviewsRepository,
+  type SubmissionReviewDecision,
 } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   MilestoneDocumentFlowFixture,
@@ -68,7 +69,7 @@ const operators = [
 async function review(
   path: ReviewPath,
   actorGithubId: bigint,
-  decision: ReviewDecision,
+  decision: SubmissionReviewDecision,
 ): Promise<unknown> {
   const { id: reviewerId } = await fixture.prisma.user.findUniqueOrThrow({
     where: { githubId: actorGithubId },
@@ -131,10 +132,12 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
   afterAll(() => fixture.stop());
   it.each(
     operators.flatMap((operator) =>
-      Object.values(ReviewDecision).map((decision) => ({
-        ...operator,
-        decision,
-      })),
+      (['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const).map(
+        (decision) => ({
+          ...operator,
+          decision,
+        }),
+      ),
     ),
   )(
     '학생·$kind인 팀장의 $decision은 원장을 바꾸지 않는다',
@@ -179,7 +182,7 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
       },
     });
     await expect(
-      review(path, flowGithubIds.staff, ReviewDecision.APPROVED),
+      review(path, flowGithubIds.staff, 'APPROVED'),
     ).rejects.toMatchObject({
       errorCode: {
         code: path === 'document' ? 'MSD_046' : 'SUB_033',
@@ -211,7 +214,7 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
             : {}),
         },
       });
-      await review(path, flowGithubIds.staff, ReviewDecision.APPROVED);
+      await review(path, flowGithubIds.staff, 'APPROVED');
       await expect(
         fixture.prisma.submission.findFirstOrThrow({
           where: { teamId: flowIds.team },

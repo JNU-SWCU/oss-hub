@@ -903,3 +903,11 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 - `team-application/retire.json`·`retire-preflight.sql`·`check-retired.sql`: `task-9-retire-rehearsal.sh:9·111·168`이 작업 트리에서 읽는다. 이 스크립트는 합성 DB를 `20261105110000`까지만 만들어 대응표가 있으므로 지금도 돈다.
 - 스키마 이름을 테스트마다 바꾸는 통합 테스트 픽스처(`audit-log-removal-migration.fixture.ts:21`, `team-application-merge.fixture.ts:15`, `team-application-retirement.integration.spec.ts:25`): 옛 마이그레이션을 픽스처 스키마로 재생한다.
 - 과거 증거 문서: 기록이라 고치지 않는다.
+
+## Todo 13: 쓰지 않는 enum 타입 삭제
+
+기준은 Todo 11 후속 머지 `6b1ecc889`(#1768, v0.24.64)다. schema.prisma에서 어떤 모델 필드도 쓰지 않는 enum `MilestoneSubmissionType`·`RequirementKind`·`ReviewDecision`을 지웠다. `20261106220000_drop_orphan_enums`는 한 트랜잭션에서 `lock_timeout` 5초로 세 타입을 CASCADE 없이 지운다. 지우기 전에 DO 블록이 세 타입이나 그 배열 타입에 기대는 열·도메인·함수 같은 객체를 찾으면 그 이름을 적고 중단한다.
+
+`ReviewDecision`을 import하던 백엔드 코드는 `submissions.repository.ts`의 리터럴 유니온 `SubmissionReviewDecision`을 쓴다. 요청 DTO 2개는 `@IsEnum(ReviewDecision)` 대신 값과 순서가 같은 기존 상수 `SUBMISSION_REVIEW_EVENTS`로 `@IsIn` 검사를 한다. 그래서 받는 값과 400 응답 문구가 같다. lockProgramTree의 `documentKind` 매개변수는 SQL을 바꾸지 않았으므로 매개변수와 호출 인자 3곳을 지웠다. 프론트의 `ReviewDecision`은 Prisma enum이 아닌 같은 이름의 지역 타입이라 그대로 둔다.
+
+더한 파일은 마이그레이션 하나뿐이고 지우거나 합친 파일은 없어 원장 행은 바뀌지 않는다. programs 제품 파일은 153개 32199줄에서 153개 32198줄이 됐다.

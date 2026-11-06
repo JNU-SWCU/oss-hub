@@ -1,15 +1,12 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { MilestoneDocumentFeedbackResponseDto } from './dto/milestone-document-feedback-response.dto';
-import {
-  ApplicationStatus,
-  ProgramCategory,
-  ReviewDecision,
-} from '@prisma/client';
+import { ApplicationStatus, ProgramCategory } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentFeedbackService } from './milestone-document-feedback.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
+import type { SubmissionReviewDecision } from '../programs/submissions.repository';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -124,7 +121,7 @@ async function createReviews(input: {
   readonly reviews: readonly {
     readonly key: string;
     readonly reviewedAt: string;
-    readonly decision?: ReviewDecision;
+    readonly decision?: SubmissionReviewDecision;
   }[];
 }): Promise<void> {
   const submissionId = `${prefix}-${input.application}-${input.document}-submission`;
@@ -141,7 +138,7 @@ async function createReviews(input: {
       id: `${prefix}-review-${review.key}`,
       submissionId,
       actorId: users.staff,
-      event: review.decision ?? ReviewDecision.CHANGES_REQUESTED,
+      event: review.decision ?? 'CHANGES_REQUESTED',
       revision: 1,
       comment: `합성 의견 ${review.key}`,
       createdAt: new Date(review.reviewedAt),
@@ -240,7 +237,7 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
         {
           key: 'legacy',
           reviewedAt: '2026-09-20T00:06:00.000Z',
-          decision: ReviewDecision.APPROVED,
+          decision: 'APPROVED',
         },
       ],
     });
@@ -308,7 +305,7 @@ describe('학생 대시보드 최근 피드백 — 실제 판정 이력 조회',
     const href = `/programs/${prefix}-main-program/documents?milestoneId=${prefix}-main-milestone`;
     expect(items[0]).toEqual({
       id: `${prefix}-review-legacy`,
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
       comment: '합성 의견 legacy',
       reviewedAt: '2026-09-20T00:06:00.000Z',
       teamId: `${prefix}-mine-team`,

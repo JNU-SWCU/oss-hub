@@ -21,7 +21,6 @@ import {
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
-  ReviewDecision,
   FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -304,7 +303,7 @@ async function seedApprovedTeam(
       data: {
         id: reviewHistoryId,
         submissionId: submissionId,
-        event: ReviewDecision.APPROVED,
+        event: 'APPROVED',
         actorId: STAFF_ID,
         revision: (
           await prisma.submissionHistory.findUniqueOrThrow({

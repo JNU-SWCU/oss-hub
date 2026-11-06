@@ -1,8 +1,8 @@
-import type { ReviewDecision } from '@prisma/client';
 import type { MilestoneDocumentFeedbackResult } from '../milestone-document-feedback.service';
+import type { SubmissionReviewDecision } from '../../programs/submissions.repository';
 export class MilestoneDocumentFeedbackItemResponseDto {
   declare readonly id: string;
-  declare readonly decision: ReviewDecision;
+  declare readonly decision: SubmissionReviewDecision;
   declare readonly comment: string | null;
   declare readonly reviewedAt: string;
   declare readonly teamId: string;

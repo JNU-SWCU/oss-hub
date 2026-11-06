@@ -1,9 +1,7 @@
 import {
   ApplicationStatus,
   SubmissionHistoryEvent,
-  MilestoneSubmissionType,
   ProgramCategory,
-  ReviewDecision,
   SubmissionStatus,
   UserType,
 } from '@prisma/client';
@@ -49,7 +47,7 @@ async function upsertMilestone(
     id: string;
     name: string;
     dueAt: Date;
-    submissionType: MilestoneSubmissionType;
+    submissionType: 'FILE' | 'TEXT';
   },
 ): Promise<void> {
   await upsertTracked(
@@ -106,7 +104,7 @@ async function createSubmissionScenario(
     submittedById: string;
     status: SubmissionStatus;
     review?: {
-      decision: ReviewDecision;
+      decision: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
       comment?: string;
     };
   },
@@ -410,27 +408,27 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     id: d5Id,
     name: 'seed-milestone-d5',
     dueAt: offsetDays(5),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
   });
   await upsertMilestone(stats, {
     id: d15Id,
     name: 'seed-milestone-d15',
     dueAt: offsetDays(15),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
   });
   const [overdueId] = MILESTONE_SCENARIOS['milestones-overdue'];
   await upsertMilestone(stats, {
     id: overdueId,
     name: 'seed-milestone-overdue',
     dueAt: offsetDays(-3),
-    submissionType: MilestoneSubmissionType.FILE,
+    submissionType: 'FILE',
   });
   const [withSubmissionId] = MILESTONE_SCENARIOS['milestone-with-submission'];
   await upsertMilestone(stats, {
     id: withSubmissionId,
     name: 'seed-milestone-with-submission',
     dueAt: offsetDays(10),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
   });
   await createSubmissionScenario(stats, {
     scenarioId: 'milestone-with-submission',
@@ -444,7 +442,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     id: existingId,
     name: 'seed-milestone-submission-existing',
     dueAt: offsetDays(12),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
   });
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-existing',
@@ -458,7 +456,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     id: approvedId,
     name: 'seed-milestone-submission-approved',
     dueAt: offsetDays(8),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
   });
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-approved',
@@ -466,7 +464,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     teamId: personalTeamId,
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.APPROVED,
-    review: { decision: ReviewDecision.APPROVED },
+    review: { decision: 'APPROVED' },
   });
   const [changesRequestedId] =
     MILESTONE_SCENARIOS['submission-changes-requested'];
@@ -474,7 +472,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     id: changesRequestedId,
     name: 'seed-milestone-submission-changes-requested',
     dueAt: offsetDays(6),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
   });
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-changes-requested',
@@ -483,7 +481,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     submittedById: teamMember.id,
     status: SubmissionStatus.CHANGES_REQUESTED,
     review: {
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '누락된 항목을 보완해 재제출해 주세요 (seed fixture)',
     },
   });
@@ -492,7 +490,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     id: rejectedId,
     name: 'seed-milestone-submission-rejected',
     dueAt: offsetDays(4),
-    submissionType: MilestoneSubmissionType.FILE,
+    submissionType: 'FILE',
   });
   await createSubmissionScenario(stats, {
     scenarioId: 'submission-rejected',
@@ -501,7 +499,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
     submittedById: applicantPersonal.id,
     status: SubmissionStatus.REJECTED,
     review: {
-      decision: ReviewDecision.REJECTED,
+      decision: 'REJECTED',
       comment: '제출 요건을 충족하지 못했습니다 (seed fixture)',
     },
   });

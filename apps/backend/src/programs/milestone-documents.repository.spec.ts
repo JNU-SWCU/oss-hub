@@ -12,7 +12,6 @@ import {
   ApplicationStatus,
   SubmissionHistoryEvent,
   Prisma,
-  ReviewDecision,
   FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -1647,14 +1646,14 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     });
     const reviewCreate = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt: new Date('2026-09-18T09:00:00.000Z'),
       reviewer: { nickname: 'synthetic-staff' },
     });
     const historyCreate = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
-      event: ReviewDecision.CHANGES_REQUESTED,
+      event: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       createdAt: new Date('2026-09-18T09:00:00.000Z'),
       actor: { nickname: 'synthetic-staff' },
@@ -1867,7 +1866,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
         submissionHistoryId: 'cuid-synthetic-submission-history',
         revision: 3,
         reviewerId: 'cuid-synthetic-staff',
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt,
       }),
@@ -1895,7 +1894,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
     expect(result).toEqual({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
       reviewerNickname: 'synthetic-staff',
@@ -2443,7 +2442,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         files: [],
         histories: [
           {
-            event: ReviewDecision.CHANGES_REQUESTED,
+            event: 'CHANGES_REQUESTED',
             comment: '2쪽 서명이 빠졌습니다.',
             createdAt: reviewedAt,
           },
@@ -2477,7 +2476,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     expect(call.select.status).toBe(true);
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(result[0]?.status).toBe(SubmissionStatus.SUBMITTED);
-    expect(result[0]?.review?.decision).toBe(ReviewDecision.CHANGES_REQUESTED);
+    expect(result[0]?.review?.decision).toBe('CHANGES_REQUESTED');
   });
 
   it('수합 표는 이력을 싣지 않고 최신 판정 한 건만 붙인다', async () => {
@@ -2493,7 +2492,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
         histories: [
           {
             id: 'cuid-synthetic-review-2',
-            event: ReviewDecision.CHANGES_REQUESTED,
+            event: 'CHANGES_REQUESTED',
             comment: '2쪽 서명이 빠졌습니다.',
             createdAt: reviewedAt,
             actor: { nickname: 'synthetic-staff-2' },
@@ -2501,7 +2500,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
           },
           {
             id: 'cuid-synthetic-review-1',
-            event: ReviewDecision.APPROVED,
+            event: 'APPROVED',
             comment: null,
             createdAt: firstReviewedAt,
             actor: { nickname: 'synthetic-staff-1' },
@@ -2552,7 +2551,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     });
     expect(result[0]?.review).toEqual({
       id: 'cuid-synthetic-review-2',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
       comment: '2쪽 서명이 빠졌습니다.',
       reviewedAt,
     });
@@ -2969,7 +2968,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
         histories: [
           {
             id: 'cuid-synthetic-review',
-            event: ReviewDecision.CHANGES_REQUESTED,
+            event: 'CHANGES_REQUESTED',
             comment: '2쪽 서명이 빠졌습니다.',
             createdAt: reviewedAt,
             actor: { nickname: 'synthetic-staff' },
@@ -3011,7 +3010,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       historyComplete: true,
       review: {
         id: 'cuid-synthetic-review',
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt,
       },
@@ -3228,7 +3227,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
   it('(서류, 신청) 제출의 최신 판정을 id·decision만 뽑아 돌려준다', async () => {
     const findFirst = jest.fn().mockResolvedValue({
       id: 'cuid-synthetic-review',
-      event: ReviewDecision.APPROVED,
+      event: 'APPROVED',
     });
     const prisma = {
       submissionHistory: { findFirst },
@@ -3266,7 +3265,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     });
     expect(result).toEqual({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
     });
   });
 

@@ -7,11 +7,7 @@ import {
   NotFoundException,
   StreamableFile,
 } from '@nestjs/common';
-import {
-  ReviewDecision,
-  SubmissionStatus,
-  RequirementSubmissionType,
-} from '@prisma/client';
+import { SubmissionStatus, RequirementSubmissionType } from '@prisma/client';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
   ValidatedProgramAuthoringUpload,
@@ -76,19 +72,22 @@ import {
 import { fromBufferPromise, type Entry } from 'yauzl';
 import { UserProfileService } from '../users/user-profile.service';
 import { RequirementsRepository } from './requirements.repository';
+import type { SubmissionReviewDecision } from './submissions.repository';
 @Injectable()
 export class MilestoneDocumentSubmissionWindowService {
   constructor(
     private readonly programScheduleService: ProgramScheduleService,
   ) {}
 
-  isResubmissionAllowedAfter(latestDecision: ReviewDecision | null): boolean {
+  isResubmissionAllowedAfter(
+    latestDecision: SubmissionReviewDecision | null,
+  ): boolean {
     if (latestDecision === null) return true;
     switch (latestDecision) {
-      case ReviewDecision.APPROVED:
-      case ReviewDecision.REJECTED:
+      case 'APPROVED':
+      case 'REJECTED':
         return false;
-      case ReviewDecision.CHANGES_REQUESTED:
+      case 'CHANGES_REQUESTED':
         return true;
     }
   }
@@ -97,11 +96,11 @@ export class MilestoneDocumentSubmissionWindowService {
     latestDecision,
     submissionStatus,
   }: {
-    readonly latestDecision: ReviewDecision | null;
+    readonly latestDecision: SubmissionReviewDecision | null;
     readonly submissionStatus: SubmissionStatus | null;
   }): boolean {
     return (
-      latestDecision === ReviewDecision.CHANGES_REQUESTED &&
+      latestDecision === 'CHANGES_REQUESTED' &&
       submissionStatus === SubmissionStatus.CHANGES_REQUESTED
     );
   }
@@ -118,14 +117,11 @@ export class MilestoneDocumentSubmissionWindowService {
     readonly graceDueAt?: Date | null;
     readonly now: Date;
     readonly hasSubmission: boolean;
-    readonly latestDecision: ReviewDecision | null;
+    readonly latestDecision: SubmissionReviewDecision | null;
 
     readonly submissionStatus: SubmissionStatus | null;
   }): MilestoneDocumentSubmissionBlock | null {
-    if (
-      latestDecision === ReviewDecision.APPROVED ||
-      latestDecision === ReviewDecision.REJECTED
-    ) {
+    if (latestDecision === 'APPROVED' || latestDecision === 'REJECTED') {
       return 'RESUBMISSION_NOT_ALLOWED';
     }
     if (!this.programScheduleService.hasProgramDeadlinePassed(dueAt, now))
@@ -136,7 +132,7 @@ export class MilestoneDocumentSubmissionWindowService {
       return null;
     }
 
-    if (latestDecision === ReviewDecision.CHANGES_REQUESTED && hasSubmission) {
+    if (latestDecision === 'CHANGES_REQUESTED' && hasSubmission) {
       return 'RESUBMISSION_ALREADY_USED';
     }
     if (

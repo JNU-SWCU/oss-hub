@@ -16,7 +16,6 @@ import {
 } from '@aws-sdk/client-s3';
 import {
   SubmissionHistoryEvent,
-  MilestoneSubmissionType,
   FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -159,7 +158,7 @@ async function createSubmissionHistory(suffix: string): Promise<{
       submissionId: submissionId,
       event: SubmissionHistoryEvent.SUBMITTED,
       revision: 1,
-      content: { type: MilestoneSubmissionType.FILE },
+      content: { type: 'FILE' },
       actorId: USER_ID,
     },
   });

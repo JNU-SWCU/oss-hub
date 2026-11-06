@@ -18,54 +18,49 @@ function transaction() {
 }
 
 describe('lockProgramTree', () => {
-  it.each(['DOCUMENT', 'ALL'] as const)(
-    'preserves ordered %s scope without reacquisition',
-    async (documentKind) => {
-      const { tx, query } = transaction();
-      const p = await locks.lockProgramTree(tx, {
+  it('preserves ordered scope without reacquisition', async () => {
+    const { tx, query } = transaction();
+    const p = await locks.lockProgramTree(tx, {
+      stage: 'program',
+      programId: 'p',
+    });
+    if (!p) throw new Error('missing program');
+    const m = await locks.lockProgramTree(tx, {
+      stage: 'milestone',
+      milestoneId: 'm',
+      after: p,
+    });
+    if (!m) throw new Error('missing milestone');
+    expect(
+      await locks.lockProgramTree(tx, {
+        stage: 'documents',
+        after: m,
+      }),
+    ).toEqual({ documentIds: ['d'] });
+    const sql = query.mock.calls[2]?.[0];
+    expect(sql?.values).toEqual(['m']);
+    expect(sql?.strings.join('')).toContain('ORDER BY "id"');
+    await expect(
+      locks.lockProgramTree(tx, {
         stage: 'program',
         programId: 'p',
-      });
-      if (!p) throw new Error('missing program');
-      const m = await locks.lockProgramTree(tx, {
+      }),
+    ).rejects.toHaveProperty('name', 'LockOrderError');
+    await expect(
+      locks.lockProgramTree(tx, {
         stage: 'milestone',
         milestoneId: 'm',
         after: p,
-      });
-      if (!m) throw new Error('missing milestone');
-      expect(
-        await locks.lockProgramTree(tx, {
-          stage: 'documents',
-          after: m,
-          documentKind,
-        }),
-      ).toEqual({ documentIds: ['d'] });
-      const sql = query.mock.calls[2]?.[0];
-      expect(sql?.values).toEqual(['m']);
-      expect(sql?.strings.join('')).toContain('ORDER BY "id"');
-      await expect(
-        locks.lockProgramTree(tx, {
-          stage: 'program',
-          programId: 'p',
-        }),
-      ).rejects.toHaveProperty('name', 'LockOrderError');
-      await expect(
-        locks.lockProgramTree(tx, {
-          stage: 'milestone',
-          milestoneId: 'm',
-          after: p,
-        }),
-      ).rejects.toHaveProperty('name', 'LockOrderError');
-      await expect(
-        locks.lockProgramTree(tx, {
-          stage: 'documents',
-          after: m,
-          documentKind,
-        }),
-      ).rejects.toHaveProperty('name', 'LockOrderError');
-      expect(query).toHaveBeenCalledTimes(3);
-    },
-  );
+      }),
+    ).rejects.toHaveProperty('name', 'LockOrderError');
+    await expect(
+      locks.lockProgramTree(tx, {
+        stage: 'documents',
+        after: m,
+      }),
+    ).rejects.toHaveProperty('name', 'LockOrderError');
+    expect(query).toHaveBeenCalledTimes(3);
+  });
 
   it('rejects repeats and foreign witnesses before issuing SQL', async () => {
     const first = transaction();
@@ -105,7 +100,6 @@ describe('lockProgramTree', () => {
       locks.lockProgramTree(second.tx, {
         stage: 'documents',
         after: m,
-        documentKind: 'ALL',
       }),
     ).rejects.toHaveProperty('name', 'LockOrderError');
     expect(second.query).not.toHaveBeenCalled();
@@ -127,7 +121,6 @@ describe('lockProgramTree', () => {
     await locks.lockProgramTree(tx, {
       stage: 'documents',
       after: m,
-      documentKind: 'DOCUMENT',
     });
     expect(query).toHaveBeenCalledTimes(2);
   });

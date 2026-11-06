@@ -3,7 +3,6 @@ import {
   Prisma,
   ApplicationStatus,
   RepositoryConnectionMode,
-  ReviewDecision,
 } from '@prisma/client';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.config';
 
@@ -130,7 +129,7 @@ interface SubmissionReviewEventInput {
   readonly milestoneDocumentSubmissionId: string;
   readonly revision: number;
   readonly reviewerId: string;
-  readonly decision: ReviewDecision;
+  readonly decision: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
   readonly comment: string | null;
   readonly reviewedAt: Date;
 }

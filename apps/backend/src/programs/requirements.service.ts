@@ -3,7 +3,6 @@ import {
   SubmissionHistoryEvent,
   RequirementSubmissionType,
   SubmissionStatus,
-  ReviewDecision,
 } from '@prisma/client';
 import { Injectable, Inject } from '@nestjs/common';
 import { DomainException } from '../platform/error-code.error';
@@ -872,7 +871,7 @@ export class ProgramDocumentChangeRequestsService {
             submissionHistoryId: submission.submissionHistoryId,
             revision: submission.revision,
             reviewerId,
-            decision: ReviewDecision.CHANGES_REQUESTED,
+            decision: 'CHANGES_REQUESTED',
             comment: input.comment,
             reviewedAt,
           });

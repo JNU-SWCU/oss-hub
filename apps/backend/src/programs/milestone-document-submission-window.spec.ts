@@ -1,6 +1,6 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './files.service';
-import { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 
 const milestoneDocumentSubmissionWindowService =
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService());
@@ -68,7 +68,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: afterDeadline,
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
         },
       ),
@@ -82,7 +82,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: afterDeadline,
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
 
           submissionStatus: SubmissionStatus.SUBMITTED,
         },
@@ -97,7 +97,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: beforeDeadline,
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: SubmissionStatus.SUBMITTED,
         },
       ),
@@ -111,7 +111,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: afterDeadline,
           hasSubmission: false,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: null,
         },
       ),
@@ -119,9 +119,9 @@ describe('milestoneDocumentSubmissionBlock', () => {
   });
 
   it.each([
-    [ReviewDecision.APPROVED, SubmissionStatus.APPROVED],
-    [ReviewDecision.REJECTED, SubmissionStatus.REJECTED],
-  ])(
+    ['APPROVED', SubmissionStatus.APPROVED],
+    ['REJECTED', SubmissionStatus.REJECTED],
+  ] as const)(
     '%s 판정 뒤에는 마감 여부와 관계없이 재제출을 막는다',
     (latestDecision, submissionStatus) => {
       for (const now of [beforeDeadline, afterDeadline]) {
@@ -143,26 +143,16 @@ describe('milestoneDocumentSubmissionBlock', () => {
   it.each([
     [false, null, null, true],
     [false, null, SubmissionStatus.SUBMITTED, true],
-    [
-      false,
-      ReviewDecision.CHANGES_REQUESTED,
-      SubmissionStatus.CHANGES_REQUESTED,
-      true,
-    ],
-    [false, ReviewDecision.CHANGES_REQUESTED, SubmissionStatus.SUBMITTED, true],
-    [false, ReviewDecision.APPROVED, SubmissionStatus.APPROVED, false],
-    [false, ReviewDecision.REJECTED, SubmissionStatus.REJECTED, false],
+    [false, 'CHANGES_REQUESTED', SubmissionStatus.CHANGES_REQUESTED, true],
+    [false, 'CHANGES_REQUESTED', SubmissionStatus.SUBMITTED, true],
+    [false, 'APPROVED', SubmissionStatus.APPROVED, false],
+    [false, 'REJECTED', SubmissionStatus.REJECTED, false],
     [true, null, null, false],
     [true, null, SubmissionStatus.SUBMITTED, false],
-    [
-      true,
-      ReviewDecision.CHANGES_REQUESTED,
-      SubmissionStatus.CHANGES_REQUESTED,
-      true,
-    ],
-    [true, ReviewDecision.CHANGES_REQUESTED, SubmissionStatus.SUBMITTED, false],
-    [true, ReviewDecision.APPROVED, SubmissionStatus.APPROVED, false],
-    [true, ReviewDecision.REJECTED, SubmissionStatus.REJECTED, false],
+    [true, 'CHANGES_REQUESTED', SubmissionStatus.CHANGES_REQUESTED, true],
+    [true, 'CHANGES_REQUESTED', SubmissionStatus.SUBMITTED, false],
+    [true, 'APPROVED', SubmissionStatus.APPROVED, false],
+    [true, 'REJECTED', SubmissionStatus.REJECTED, false],
   ] as const)(
     '마감 지남=%s · 판정=%s · 상태=%s 에서 서버 허용은 화면 허용(%s)과 같다',
     (closed, latestDecision, submissionStatus, screenAllows) => {
@@ -188,7 +178,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: new Date('2026-09-26T09:00:00.001Z'),
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
         },
       ),
@@ -202,7 +192,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: new Date('2026-09-26T08:59:59.999Z'),
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
         },
       ),
@@ -216,7 +206,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: new Date('2026-09-26T08:59:59.999Z'),
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: SubmissionStatus.SUBMITTED,
         },
       ),
@@ -230,7 +220,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: beforeDeadline,
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
         },
       ),
@@ -244,7 +234,7 @@ describe('milestoneDocumentSubmissionBlock', () => {
           dueAt,
           now: afterDeadline,
           hasSubmission: true,
-          latestDecision: ReviewDecision.CHANGES_REQUESTED,
+          latestDecision: 'CHANGES_REQUESTED',
           submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
         },
       ),
@@ -256,7 +246,7 @@ describe('isChangeRequestResubmissionOpen', () => {
   it('보완 요청을 받고 아직 응하지 않은 자리에서만 참이다', () => {
     expect(
       milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen({
-        latestDecision: ReviewDecision.CHANGES_REQUESTED,
+        latestDecision: 'CHANGES_REQUESTED',
         submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
       }),
     ).toBe(true);
@@ -265,18 +255,14 @@ describe('isChangeRequestResubmissionOpen', () => {
   it('이미 다시 낸 자리에서는 거짓이다 — 그 한 번이 마감을 지나가는 전부다', () => {
     expect(
       milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen({
-        latestDecision: ReviewDecision.CHANGES_REQUESTED,
+        latestDecision: 'CHANGES_REQUESTED',
         submissionStatus: SubmissionStatus.SUBMITTED,
       }),
     ).toBe(false);
   });
 
   it('판정이 보완 요청이 아니면 상태가 무엇이든 거짓이다', () => {
-    for (const latestDecision of [
-      null,
-      ReviewDecision.APPROVED,
-      ReviewDecision.REJECTED,
-    ] as const) {
+    for (const latestDecision of [null, 'APPROVED', 'REJECTED'] as const) {
       expect(
         milestoneDocumentSubmissionWindowService.isChangeRequestResubmissionOpen(
           {
@@ -325,7 +311,7 @@ describe('document grace window', () => {
     ).toBe('MILESTONE_CLOSED');
   });
 
-  it.each([ReviewDecision.APPROVED, ReviewDecision.REJECTED])(
+  it.each(['APPROVED', 'REJECTED'] as const)(
     '유예가 확정 검토를 우회하지 않는다: %s',
     (latestDecision) => {
       const input = {
@@ -347,7 +333,7 @@ describe('document grace window', () => {
       ...base,
       now: afterDeadline,
       hasSubmission: true,
-      latestDecision: ReviewDecision.CHANGES_REQUESTED,
+      latestDecision: 'CHANGES_REQUESTED' as const,
       submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
     };
     expect(
@@ -362,7 +348,7 @@ describe('document grace window', () => {
       ...base,
       now: afterDeadline,
       hasSubmission: true,
-      latestDecision: ReviewDecision.CHANGES_REQUESTED,
+      latestDecision: 'CHANGES_REQUESTED' as const,
       submissionStatus: SubmissionStatus.SUBMITTED,
     };
     expect(

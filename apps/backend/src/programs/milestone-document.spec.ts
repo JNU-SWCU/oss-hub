@@ -4,11 +4,7 @@ import { MilestoneDocumentSubmissionWindowService } from './files.service';
 import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 import { RequirementsService } from './requirements.service';
 import { MilestoneDocumentReviewsService } from './submissions.service';
-import {
-  MilestoneSubmissionType,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { MilestoneDocumentsErrorCode } from './submissions.error';
 
 const milestoneDocumentCollectionService =
@@ -139,11 +135,11 @@ describe('milestone-document-content', () => {
       expect(
         milestoneDocumentCollectionService.readMilestoneDocumentSubmittedContent(
           {
-            type: MilestoneSubmissionType.TEXT,
+            type: 'TEXT',
             text: '기존 본문',
           },
         ),
-      ).toEqual({ type: MilestoneSubmissionType.TEXT, text: '기존 본문' });
+      ).toEqual({ type: 'TEXT', text: '기존 본문' });
     });
   });
 });
@@ -151,10 +147,10 @@ describe('milestone-document-content', () => {
 describe('milestone-document-review', () => {
   describe('reviewDecisionToSubmissionStatus', () => {
     it.each([
-      [ReviewDecision.APPROVED, SubmissionStatus.APPROVED],
-      [ReviewDecision.CHANGES_REQUESTED, SubmissionStatus.CHANGES_REQUESTED],
-      [ReviewDecision.REJECTED, SubmissionStatus.REJECTED],
-    ])('%s는 제출 상태 %s에 대응한다', (decision, status) => {
+      ['APPROVED', SubmissionStatus.APPROVED],
+      ['CHANGES_REQUESTED', SubmissionStatus.CHANGES_REQUESTED],
+      ['REJECTED', SubmissionStatus.REJECTED],
+    ] as const)('%s는 제출 상태 %s에 대응한다', (decision, status) => {
       expect(
         milestoneDocumentReviewsService.reviewDecisionToSubmissionStatus(
           decision,
@@ -163,7 +159,7 @@ describe('milestone-document-review', () => {
     });
 
     it('모든 판정 값에 대응 상태가 있다 — 빠진 값이 있으면 undefined가 새어 나간다', () => {
-      const decisions = Object.values(ReviewDecision);
+      const decisions = ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const;
 
       const statuses = decisions.map((decision) =>
         milestoneDocumentReviewsService.reviewDecisionToSubmissionStatus(
@@ -188,7 +184,7 @@ describe('milestone-document-review', () => {
     it('보완 요청 뒤에는 허용한다 — 「다시 내라」는 뜻이다', () => {
       expect(
         milestoneDocumentSubmissionWindowService.isResubmissionAllowedAfter(
-          ReviewDecision.CHANGES_REQUESTED,
+          'CHANGES_REQUESTED',
         ),
       ).toBe(true);
     });
@@ -196,7 +192,7 @@ describe('milestone-document-review', () => {
     it('승인 뒤에는 막는다 — 승인된 서류가 조용히 다른 내용으로 바뀌면 안 된다', () => {
       expect(
         milestoneDocumentSubmissionWindowService.isResubmissionAllowedAfter(
-          ReviewDecision.APPROVED,
+          'APPROVED',
         ),
       ).toBe(false);
     });
@@ -204,7 +200,7 @@ describe('milestone-document-review', () => {
     it('반려 뒤에는 막는다 — 끝난 판정이다', () => {
       expect(
         milestoneDocumentSubmissionWindowService.isResubmissionAllowedAfter(
-          ReviewDecision.REJECTED,
+          'REJECTED',
         ),
       ).toBe(false);
     });

@@ -2,7 +2,6 @@ import {
   ApplicationStatus,
   BoardPostCategory,
   SubmissionHistoryEvent,
-  MilestoneSubmissionType,
   ProgramCategory,
   SubmissionStatus,
 } from '@prisma/client';
@@ -27,7 +26,7 @@ type MilestoneSeed = {
   readonly id: string;
   readonly name: string;
   readonly dueAt: Date;
-  readonly submissionType: MilestoneSubmissionType;
+  readonly submissionType: 'FILE' | 'TEXT';
   readonly instructions?: string;
 };
 async function upsertMilestone(
@@ -448,28 +447,28 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     id: milestoneIds.m1,
     name: '수강 신청 · 팀 등록',
     dueAt: offsetDays(-44),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions: '팀을 만들거나 모집 중인 팀에 들어갑니다.',
   });
   await upsertMilestone(stats, {
     id: milestoneIds.m2,
     name: '주제 선정 · 저장소 연결',
     dueAt: offsetDays(-20),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions: '팀 저장소를 만들고 프로그램에 연결합니다.',
   });
   await upsertMilestone(stats, {
     id: milestoneIds.m3,
     name: '프로젝트 계획서 제출',
     dueAt: offsetDays(7),
-    submissionType: MilestoneSubmissionType.FILE,
+    submissionType: 'FILE',
     instructions: '아래 서류를 모두 내야 제출이 끝납니다.',
   });
   await upsertMilestone(stats, {
     id: milestoneIds.m4,
     name: '1차 중간 산출물 제출',
     dueAt: offsetDays(35),
-    submissionType: MilestoneSubmissionType.FILE,
+    submissionType: 'FILE',
     instructions:
       '동작하는 결과물과 발표자료를 냅니다.\n\n' +
       '· 보고서는 새 양식(v2)으로 작성하고, 실행 방법(README 링크 가능)을 반드시 포함해 주세요.\n' +
@@ -480,21 +479,21 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
     id: milestoneIds.m5,
     name: '중간 평가',
     dueAt: offsetDays(42),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions: '담당 교수와 멘토가 1차 산출물을 평가합니다.',
   });
   await upsertMilestone(stats, {
     id: milestoneIds.m6,
     name: '최종 산출물 제출',
     dueAt: offsetDays(70),
-    submissionType: MilestoneSubmissionType.FILE,
+    submissionType: 'FILE',
     instructions: '최종 코드·문서·시연 영상을 냅니다.',
   });
   await upsertMilestone(stats, {
     id: milestoneIds.m7,
     name: '최종 발표 · 시연',
     dueAt: offsetDays(80),
-    submissionType: MilestoneSubmissionType.TEXT,
+    submissionType: 'TEXT',
     instructions: '팀별로 15분 발표합니다.',
   });
   const m3Doc1 = seedId('program-overview', 'milestone-document', 'm3-d1');

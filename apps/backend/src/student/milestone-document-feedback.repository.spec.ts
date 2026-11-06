@@ -1,9 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import {
-  ApplicationStatus,
-  ReviewDecision,
-  SubmissionStatus,
-} from '@prisma/client';
+import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
 
@@ -37,7 +33,7 @@ describe('MilestoneDocumentFeedbackRepository', () => {
       [
         {
           id: 'review-1',
-          event: ReviewDecision.CHANGES_REQUESTED,
+          event: 'CHANGES_REQUESTED',
           comment: '표지를 보완해 주세요.',
           createdAt: REVIEWED_AT,
           submission: {
@@ -94,7 +90,7 @@ describe('MilestoneDocumentFeedbackRepository', () => {
     expect(reviews).toEqual([
       {
         id: 'review-1',
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
         comment: '표지를 보완해 주세요.',
         reviewedAt: REVIEWED_AT,
         teamId: 'application-1',

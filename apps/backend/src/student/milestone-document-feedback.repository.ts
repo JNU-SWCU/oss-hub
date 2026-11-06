@@ -3,11 +3,11 @@ import { Injectable } from '@nestjs/common';
 import {
   ApplicationStatus,
   Prisma,
-  type ReviewDecision,
   type SubmissionStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import type { SubmissionReviewDecision } from '../programs/submissions.repository';
 const RECENT_FEEDBACK_LIMIT = 50;
 const recentReviewSelect = {
   id: true,
@@ -33,7 +33,7 @@ type RecentReviewRow = Prisma.SubmissionHistoryGetPayload<{
 }>;
 export interface RecentMilestoneDocumentReview {
   readonly id: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
   readonly teamId: string;
@@ -99,7 +99,7 @@ function toRecentReview(row: RecentReviewRow): RecentMilestoneDocumentReview {
     submissionStatus: row.submission.status,
   };
 }
-function submissionReviewDecision(event: string): ReviewDecision {
+function submissionReviewDecision(event: string): SubmissionReviewDecision {
   if (
     event === 'APPROVED' ||
     event === 'REJECTED' ||

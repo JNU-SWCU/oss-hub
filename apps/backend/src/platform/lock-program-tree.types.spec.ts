@@ -3,8 +3,8 @@ import * as ts from 'typescript';
 
 describe('program tree witness types', () => {
   it.each([
-    "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'documents', after: p, documentKind: 'ALL' });",
-    "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'documents', documentKind: 'ALL' });",
+    "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'documents', after: p });",
+    "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'documents' });",
     "new LockProgramTreeRepository().lockProgramTree(tx, { stage: 'milestone', milestoneId: 'm', after: m });",
     "const forged: MilestoneLock = { id: 'm', programId: 'p' };",
   ])('rejects invalid witness construction or transitions: %s', (statement) => {

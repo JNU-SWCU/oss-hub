@@ -7,16 +7,17 @@ import {
 import { ProgramScheduleService } from './program-schedule.service';
 import { MilestoneDocumentSubmissionWindowService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
-import { SubmissionsRepository } from './submissions.repository';
+import {
+  SubmissionsRepository,
+  type SubmissionReviewDecision,
+} from './submissions.repository';
 import { MilestoneDocumentCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import {
   SubmissionHistoryEvent,
-  MilestoneSubmissionType,
   Prisma,
-  ReviewDecision,
   SubmissionStatus,
 } from '@prisma/client';
 import {
@@ -547,7 +548,7 @@ describe('MilestoneDocumentsService.listForViewer', () => {
           currentFileName: null,
           historyComplete: true,
           review: {
-            decision: ReviewDecision.CHANGES_REQUESTED,
+            decision: 'CHANGES_REQUESTED',
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
           },
@@ -1498,7 +1499,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       upsertSubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
         status: SubmissionStatus.SUBMITTED,
-        content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
+        content: { type: 'TEXT', text: '본문' },
         submittedAt: now,
         files: [],
       }),
@@ -1537,7 +1538,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         allowAfterDeadline: false,
         expectedSubmissionStatus: null,
       },
-      content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
+      content: { type: 'TEXT', text: '본문' },
       attachFile: null,
       expectedLatestReviewId: null,
     });
@@ -1659,7 +1660,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       upsertSubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
         status: SubmissionStatus.SUBMITTED,
-        content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
+        content: { type: 'TEXT', text: '본문' },
         submittedAt: now,
         files: [],
       }),
@@ -1698,7 +1699,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
         allowAfterDeadline: false,
         expectedSubmissionStatus: null,
       },
-      content: { type: MilestoneSubmissionType.TEXT, text: '본문' },
+      content: { type: 'TEXT', text: '본문' },
       attachFile: null,
       expectedLatestReviewId: null,
     });
@@ -1799,7 +1800,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
       upsertSubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
         status: SubmissionStatus.SUBMITTED,
-        content: { type: MilestoneSubmissionType.TEXT, text: '설명' },
+        content: { type: 'TEXT', text: '설명' },
         submittedAt: now,
         files: [],
       }),
@@ -1830,7 +1831,7 @@ describe('MilestoneDocumentsService.submit (학생)', () => {
 
     expect(mocks.upsertSubmission).toHaveBeenCalledWith(
       expect.objectContaining({
-        content: { type: MilestoneSubmissionType.TEXT, text: '설명' },
+        content: { type: 'TEXT', text: '설명' },
         attachFile: {
           fileId: 'cuid-synthetic-file',
           uploaderId: syntheticUserId,
@@ -1943,7 +1944,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   const now = new Date('2026-09-16T14:22:00.000Z');
 
   function resubmitRepository(
-    latestReview: { id: string; decision: ReviewDecision } | null,
+    latestReview: { id: string; decision: SubmissionReviewDecision } | null,
   ) {
     return buildRepository({
       findActiveStudentByGithubId: jest
@@ -1966,7 +1967,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
       upsertSubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
         status: SubmissionStatus.SUBMITTED,
-        content: { type: MilestoneSubmissionType.TEXT, text: '고친 본문' },
+        content: { type: 'TEXT', text: '고친 본문' },
         submittedAt: now,
         files: [],
       }),
@@ -1986,7 +1987,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   it('승인된 서류는 다시 낼 수 없다 — RESUBMISSION_NOT_ALLOWED로 막는다', async () => {
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.APPROVED,
+      decision: 'APPROVED',
     });
     const service = new RequirementsService(
       repository,
@@ -2011,7 +2012,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   it('반려된 서류는 다시 낼 수 없다 — 끝난 판정이다', async () => {
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.REJECTED,
+      decision: 'REJECTED',
     });
     const service = new RequirementsService(
       repository,
@@ -2036,7 +2037,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   it('보완 요청을 받은 서류는 다시 낼 수 있다 — 그것이 보완 요청의 뜻이다', async () => {
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
     });
     const service = new RequirementsService(
       repository,
@@ -2164,7 +2165,7 @@ describe('MilestoneDocumentsService.submit — 판정 뒤 재제출', () => {
   it('울타리 판정의 행위자로 **이번 요청의 학생**을 넘긴다', async () => {
     const { mocks, repository } = resubmitRepository({
       id: 'cuid-synthetic-review',
-      decision: ReviewDecision.CHANGES_REQUESTED,
+      decision: 'CHANGES_REQUESTED',
     });
     const service = new RequirementsService(
       repository,
@@ -2217,7 +2218,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
       }),
       findLatestReview: jest.fn().mockResolvedValue({
         id: changeRequestReviewId,
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
       }),
       findMySubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
@@ -2226,7 +2227,7 @@ describe('MilestoneDocumentsService.submit — 마감 뒤 보완 요청 재제�
       upsertSubmission: jest.fn().mockResolvedValue({
         id: 'cuid-synthetic-submission',
         status: SubmissionStatus.SUBMITTED,
-        content: { type: MilestoneSubmissionType.TEXT, text: '고친 본문' },
+        content: { type: 'TEXT', text: '고친 본문' },
         submittedAt: afterDeadline,
         files: [],
       }),
@@ -2613,7 +2614,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
         file: null,
 
         content: {
-          type: MilestoneSubmissionType.TEXT,
+          type: 'TEXT',
           text: '3주차까지 인터뷰 8건을 마쳤습니다.',
         },
         status: SubmissionStatus.SUBMITTED,
@@ -2706,7 +2707,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       .then((result) => MilestoneDocumentCollectionResponseDto.from(result));
 
     expect(result.rows[0]?.cells[1]?.content).toEqual({
-      type: MilestoneSubmissionType.TEXT,
+      type: 'TEXT',
       text: longText,
     });
   });
@@ -2761,7 +2762,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           file: null,
           review: {
             id: 'cuid-synthetic-review',
-            decision: ReviewDecision.CHANGES_REQUESTED,
+            decision: 'CHANGES_REQUESTED',
             comment: '2쪽 서명이 빠졌습니다.',
             reviewedAt,
           },
@@ -2796,7 +2797,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
       status: SubmissionStatus.SUBMITTED,
       review: {
         id: 'cuid-synthetic-review',
-        decision: ReviewDecision.CHANGES_REQUESTED,
+        decision: 'CHANGES_REQUESTED',
         comment: '2쪽 서명이 빠졌습니다.',
         reviewedAt: reviewedAt.toISOString(),
       },
@@ -2816,7 +2817,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           file: null,
           review: {
             id: 'cuid-synthetic-review-1',
-            decision: ReviewDecision.APPROVED,
+            decision: 'APPROVED',
             comment: null,
             reviewedAt,
           },
@@ -2830,7 +2831,7 @@ describe('MilestoneDocumentsService.collectForStaff', () => {
           file: null,
           review: {
             id: 'cuid-synthetic-review-2',
-            decision: ReviewDecision.REJECTED,
+            decision: 'REJECTED',
             comment: '양식이 다릅니다.',
             reviewedAt,
           },

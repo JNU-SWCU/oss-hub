@@ -513,7 +513,6 @@ export class ProgramEditorRepository {
         await this.locks.lockProgramTree(transaction, {
           stage: 'documents',
           after: lockedMilestone,
-          documentKind: 'DOCUMENT',
         });
       },
     );
@@ -736,7 +735,6 @@ export class ProgramEditorRepository {
     await this.locks.lockProgramTree(transaction, {
       stage: 'documents',
       after: lockedMilestone,
-      documentKind: 'ALL',
     });
     const milestone = await transaction.milestone.findUnique({
       where: { id: milestoneId },

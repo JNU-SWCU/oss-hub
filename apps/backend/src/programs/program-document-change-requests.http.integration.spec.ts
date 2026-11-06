@@ -1,4 +1,4 @@
-import { ReviewDecision, SubmissionStatus } from '@prisma/client';
+import { SubmissionStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { MilestoneDocumentsErrorCode } from './submissions.error';
 import {
@@ -114,7 +114,7 @@ function sendChangeRequest(
 function changeRequestReviewCount(): Promise<number> {
   return fixture.prisma.submissionHistory.count({
     where: {
-      event: ReviewDecision.CHANGES_REQUESTED,
+      event: 'CHANGES_REQUESTED',
       submission: { requirementId: flowIds.document },
     },
   });
@@ -150,7 +150,7 @@ async function approveSecondTeam(): Promise<void> {
       actor: 'staff',
       method: 'POST',
       json: {
-        decision: ReviewDecision.APPROVED,
+        decision: 'APPROVED',
         expectedRevision: 1,
         expectedLatestReviewId: null,
       },
@@ -228,12 +228,12 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     const review = await fixture.prisma.submissionHistory.findFirstOrThrow({
       where: {
         submission: { teamId: flowIds.team },
-        event: ReviewDecision.CHANGES_REQUESTED,
+        event: 'CHANGES_REQUESTED',
       },
       select: { event: true, comment: true },
     });
     expect(review).toEqual({
-      event: ReviewDecision.CHANGES_REQUESTED,
+      event: 'CHANGES_REQUESTED',
       comment: '양식을 바꿔 다시 내 주세요.',
     });
     await expect(
@@ -295,7 +295,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     await expect(
       fixture.prisma.submissionHistory.count({
         where: {
-          event: ReviewDecision.CHANGES_REQUESTED,
+          event: 'CHANGES_REQUESTED',
           submission: {
             requirementId: flowIds.document,
           },

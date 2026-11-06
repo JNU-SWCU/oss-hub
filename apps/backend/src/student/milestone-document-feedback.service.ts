@@ -1,12 +1,12 @@
 import { Inject, Injectable } from '@nestjs/common';
-import { type ReviewDecision } from '@prisma/client';
 import {
   MilestoneDocumentFeedbackRepository,
   type RecentMilestoneDocumentReview,
 } from './milestone-document-feedback.repository';
+import type { SubmissionReviewDecision } from '../programs/submissions.repository';
 interface MilestoneDocumentFeedbackItemResult {
   readonly id: string;
-  readonly decision: ReviewDecision;
+  readonly decision: SubmissionReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: Date;
   readonly teamId: string;

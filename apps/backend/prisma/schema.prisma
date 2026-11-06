@@ -268,11 +268,6 @@ model Program {
 
 
 
-enum MilestoneSubmissionType {
-  FILE
-  TEXT
-}
-
 model Milestone {
   id        String  @id @default(cuid())
   programId String
@@ -493,11 +488,6 @@ enum SubmissionStatus {
 }
 
 
-enum RequirementKind {
-  DOCUMENT
-  LEGACY_MILESTONE_SUBMISSION
-}
-
 enum RequirementSubmissionType {
   FILE
   TEXT
@@ -580,12 +570,6 @@ model SubmissionHistory {
 
   @@index([submissionId, createdAt])
   @@index([actorId])
-}
-
-enum ReviewDecision {
-  APPROVED
-  REJECTED
-  CHANGES_REQUESTED
 }
 
 enum FileKind {
