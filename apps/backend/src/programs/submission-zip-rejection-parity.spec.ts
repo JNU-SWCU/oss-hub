@@ -1,8 +1,8 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import {
+  MilestoneDocumentSubmissionWindowService,
+  MilestoneDocumentFileNameService,
   SubmissionFileAdmissionService,
   FilesService,
   MilestoneDocumentFilesService,
@@ -14,7 +14,7 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { type MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { type RequirementsRepository } from './requirements.repository';
 import { type FilesRepository } from './files.repository';
 import { signatureValidZip } from './submission-zip-builder.fixture';
 import {
@@ -141,7 +141,7 @@ function milestoneDocumentService() {
   const storage = { put: jest.fn(), get: jest.fn(), delete: jest.fn() };
   const submissionFiles = { createPending: jest.fn() };
   return new MilestoneDocumentFilesService(
-    repository as unknown as MilestoneDocumentsRepository,
+    repository as unknown as RequirementsRepository,
     storage,
     submissionFiles as unknown as FilesService,
     new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),

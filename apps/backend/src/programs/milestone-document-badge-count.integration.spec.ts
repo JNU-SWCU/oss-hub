@@ -3,10 +3,13 @@ import { UserProfileService } from '../users/user-profile.service';
 import {
   type MilestoneDocumentCollectionQuery,
   MilestoneDocumentCollectionService,
-} from './milestone-document-collection.service';
+} from './requirement-archive.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -14,8 +17,7 @@ import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsService } from './requirements.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -29,7 +31,7 @@ const optionalDocumentId = `${prefix}-document-optional`;
 const staffId = `${prefix}-staff`;
 const staffGithubId = 9600000000998001n;
 const prisma = new PrismaService();
-const repository = new MilestoneDocumentsRepository(
+const repository = new RequirementsRepository(
   prisma,
   new LockProgramTreeRepository(),
   new PlatformRepository(),
@@ -43,7 +45,7 @@ const repository = new MilestoneDocumentsRepository(
   ),
   new FileMetadataRepository(),
 );
-const service = new MilestoneDocumentsService(
+const service = new RequirementsService(
   repository,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),

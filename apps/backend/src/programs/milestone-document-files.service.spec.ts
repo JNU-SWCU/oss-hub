@@ -1,8 +1,8 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import {
+  MilestoneDocumentSubmissionWindowService,
+  MilestoneDocumentFileNameService,
   SubmissionFileAdmissionService,
   type FilesService,
   MilestoneDocumentFilesService,
@@ -10,9 +10,9 @@ import {
 import { DownloadResponseService } from './download-response.service';
 import { Readable } from 'node:stream';
 import {
-  MilestoneDocumentsRepository,
+  RequirementsRepository,
   type MilestoneDocumentWriteStore,
-} from './milestone-documents.repository';
+} from './requirements.repository';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
@@ -177,7 +177,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
   const mocks = { ...baseMocks, withTransaction, ...overrides };
   return {
     mocks,
-    repository: mocks as unknown as MilestoneDocumentsRepository,
+    repository: mocks as unknown as RequirementsRepository,
   };
 }
 

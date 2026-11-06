@@ -8,13 +8,15 @@ import {
   givenRepository,
 } from './program-team-repository-evidence.fixture';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
+import {
+  ProgramTeamRepositoryEvidenceRepository,
+  type RepositoryUrlHistoryRows,
+} from './program-team-repository-evidence.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
-import type { RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 afterEach(() => jest.clearAllMocks());
 

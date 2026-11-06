@@ -1,14 +1,16 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsService } from './requirements.service';
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { updateInput } from '../../test/program-editor-service-fixtures';
@@ -96,8 +98,8 @@ describe('ProgramEditorService integration', () => {
         sortOrder: 1,
       },
     });
-    const documents = new MilestoneDocumentsService(
-      new MilestoneDocumentsRepository(
+    const documents = new RequirementsService(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),

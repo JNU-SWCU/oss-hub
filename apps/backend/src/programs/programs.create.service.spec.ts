@@ -1,13 +1,16 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  type ProgramHistoryRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   ProgramCategory,
   ProgramTrackType,
 } from '@prisma/client';
-import type { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import type { CreateProgramRequestDto } from './dto/create-program-request.dto';
@@ -15,8 +18,7 @@ import {
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
 } from './program-error-code.error';
-import { ProgramCreationService } from './program-creation.service';
-import { ProgramsRepository } from './programs.repository';
+import { ProgramCreationService } from './programs.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 const input: CreateProgramRequestDto = {

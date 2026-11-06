@@ -1,9 +1,9 @@
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementsService } from './requirements.service';
+import { MilestoneDocumentReviewsService } from './submissions.service';
 import {
   MilestoneSubmissionType,
   ReviewDecision,
@@ -13,7 +13,7 @@ import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.er
 
 const milestoneDocumentCollectionService =
   new MilestoneDocumentCollectionService({} as never);
-const milestoneDocumentsService = new MilestoneDocumentsService(
+const milestoneDocumentsService = new RequirementsService(
   {} as never,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),

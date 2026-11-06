@@ -1,5 +1,4 @@
-import { BadRequestException } from '@nestjs/common';
-import { Injectable } from '@nestjs/common';
+import { BadRequestException, Injectable } from '@nestjs/common';
 import {
   type TeamActivityView,
   type RepositoryUrlHistoryCursor,
@@ -32,8 +31,6 @@ import {
   type TeamMembershipAuditStore,
   type TeamRenameAuditEvent,
   type TeamApplicationRow,
-} from './team.repository';
-import {
   ProgramTeamDeletionRepository,
   type TeamDeletionNotificationEvent,
   type TeamDeletionNotificationStore,
@@ -44,7 +41,7 @@ import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { InvalidRepositoryUrlHistoryError } from './program-team-repository-evidence.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 import { StudentRepositoryUrlService } from './team-application.service';
 
 const TEAM_DELETED_NOTIFICATION_TYPE = 'TEAM_DELETED';

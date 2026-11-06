@@ -1,5 +1,5 @@
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneCompletionService } from './submissions.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { INestApplication } from '@nestjs/common';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -7,7 +7,7 @@ import {
   createDeadlineDigestIntegrationHarness,
   DIGEST_FIXTURE as fixture,
 } from '../notifications/deadline-digest.integration-support';
-import { SubmissionMatrixRepository } from './submission-matrix.repository';
+import { SubmissionMatrixRepository } from './submissions.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import {
   createMatrixDeliveryHttp,

@@ -1,6 +1,6 @@
 import { SubmissionStatus } from '@prisma/client';
 import { MILESTONE_NOT_SUBMITTED } from './milestone-completion.config';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 const milestoneCompletionService = new MilestoneCompletionService();
 describe('milestoneCompletionStatus — 코드 축만 쓰는 마일스톤', () => {
   it('필수 서류가 없으면 Submission 상태를 그대로 쓴다', () => {

@@ -1,8 +1,19 @@
 import { TeamHistoryRepository } from './team-history.repository';
-import { StudentRepositoryUrlService } from './team-application.service';
+import {
+  StudentRepositoryUrlService,
+  TeamApplicationService,
+  ApplicationAnswersService,
+  StudentApplicationManagementService,
+} from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team.repository';
+import {
+  TeamDeletionScopeRepository,
+  ProgramTeamDeletionRepository,
+  TeamRepository,
+  ApplicationsRepository,
+  StudentApplicationManagementRepository,
+} from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { MODULE_METADATA } from '@nestjs/common/constants';
@@ -16,8 +27,6 @@ import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramTeamDeletionRepository } from './team.repository';
-import { TeamRepository } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import {
   TeamsController,
@@ -25,22 +34,13 @@ import {
   StudentApplicationsController,
   ApplicationsController,
 } from './teams.controller';
-import {
-  TeamApplicationService,
-  ApplicationAnswersService,
-  StudentApplicationManagementService,
-} from './team-application.service';
-import {
-  ApplicationsRepository,
-  StudentApplicationManagementRepository,
-} from './team.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
   databaseSessionPrincipal,

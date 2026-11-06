@@ -1,17 +1,19 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsService } from './requirements.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -30,8 +32,8 @@ const FOREIGN_DOCUMENT_ID = 'test:1276:document-order:foreign';
 const prisma = new PrismaService();
 const staffGithubId = 9600000001276001n;
 const staffId = 'test:1276:document-order:staff';
-const service = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(
+const service = new RequirementsService(
+  new RequirementsRepository(
     prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),

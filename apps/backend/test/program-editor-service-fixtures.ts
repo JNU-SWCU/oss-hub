@@ -15,7 +15,7 @@ import {
   type ProgramEditorRepository,
   type ProgramEditorTransactionStore,
 } from '../src/programs/program-editor.repository';
-import { ProgramCoverUrlService } from '../src/programs/program-cover-url.service';
+import { ProgramCoverUrlService } from '../src/programs/programs.service';
 
 export const updateInput: UpdateProgramCommand = {
   name: '  Updated OSS  ',

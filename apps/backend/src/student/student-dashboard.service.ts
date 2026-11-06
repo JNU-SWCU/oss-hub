@@ -11,10 +11,12 @@ import {
   StudentDashboardRepository,
   type StudentDashboardApplicationRow,
 } from './student-dashboard.repository';
-import { MILESTONE_NOT_SUBMITTED } from '../programs/milestone-completion.config';
-import type { MilestoneCompletionStatus } from '../programs/milestone-completion.config';
-import { MilestoneCompletionService } from '../programs/milestone-completion.service';
-import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import {
+  MILESTONE_NOT_SUBMITTED,
+  type MilestoneCompletionStatus,
+} from '../programs/milestone-completion.config';
+import { MilestoneCompletionService } from '../programs/submissions.service';
+import { ProgramCoverUrlService } from '../programs/programs.service';
 export interface StudentDashboardMilestone {
   readonly id: string;
   readonly name: string;

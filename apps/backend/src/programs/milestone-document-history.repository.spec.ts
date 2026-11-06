@@ -1,11 +1,13 @@
 import { FileMetadataRepository } from './files.repository';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { SubmissionHistoryEvent, Prisma, FileLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 
 function firstCallArgument<T>(mock: jest.Mock): T {
@@ -42,7 +44,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         row('history-2', middle),
         row('history-1', oldest),
       ]);
-    const repository = new MilestoneDocumentsRepository(
+    const repository = new RequirementsRepository(
       {
         submission: { findUnique },
         submissionHistory: {
@@ -92,7 +94,7 @@ describe('MilestoneDocumentsRepository history page', () => {
 
   it('uses the supplied cursor without returning it again', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
-    const repository = new MilestoneDocumentsRepository(
+    const repository = new RequirementsRepository(
       {
         submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord()),
@@ -137,7 +139,7 @@ describe('MilestoneDocumentsRepository history page', () => {
 
   it('rejects a cursor that does not belong to the requested submission', async () => {
     const findMany = jest.fn();
-    const repository = new MilestoneDocumentsRepository(
+    const repository = new RequirementsRepository(
       {
         submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord()),
@@ -215,7 +217,7 @@ describe('MilestoneDocumentsRepository history page', () => {
       .fn()
       .mockResolvedValueOnce([decision, submission, olderSubmission])
       .mockResolvedValueOnce([olderSubmission]);
-    const repository = new MilestoneDocumentsRepository(
+    const repository = new RequirementsRepository(
       {
         submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord()),
@@ -297,7 +299,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository(
+    const repository = new RequirementsRepository(
       {
         submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
@@ -374,7 +376,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository(
+    const repository = new RequirementsRepository(
       {
         submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
@@ -442,7 +444,7 @@ describe('MilestoneDocumentsRepository history page', () => {
         ],
       },
     ]);
-    const repository = new MilestoneDocumentsRepository(
+    const repository = new RequirementsRepository(
       {
         submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),

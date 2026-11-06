@@ -38,8 +38,8 @@ import { ProgramViewerService } from '../../src/programs/program-viewer.service'
 import { StudentDashboardService } from '../../src/student/student-dashboard.service';
 import { loadRuntimeConfig } from '../../src/platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../../src/platform/runtime-config-instance.config';
-import { SubmissionDashboardSummaryRepository } from '../../src/programs/submission-dashboard-summary.repository';
-import { SubmissionDashboardSummaryService } from '../../src/programs/submission-dashboard-summary.service';
+import { SubmissionDashboardSummaryRepository } from '../../src/programs/submissions.repository';
+import { SubmissionDashboardSummaryService } from '../../src/programs/submission-matrix.service';
 import { SystemStatusController } from '../../src/admin/system-status.controller';
 import { SystemStatusRepository } from '../../src/admin/system-status.repository';
 import {

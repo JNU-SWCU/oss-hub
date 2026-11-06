@@ -13,8 +13,6 @@ import type {
   TeamRenameAuditEvent,
   TeamRenameResult,
   TeamStudentActor,
-} from './team.repository';
-import type {
   TeamDeletionResult,
   ProgramTeamDeletionRepository,
   TeamDeletionNotificationStore,
@@ -28,7 +26,7 @@ import { TeamsErrorCode } from './teams-error-code.error';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 const GITHUB_ID = 4_242n;
 const PROGRAM_ID = 'synthetic-program';

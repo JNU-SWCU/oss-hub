@@ -7,16 +7,19 @@ import {
 } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import {
+  MilestoneDocumentSubmissionWindowService,
+  MilestoneDocumentFileNameService,
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
   FilesService,
   MilestoneDocumentFilesService,
 } from './files.service';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramNoticeFetchClient } from './program-notice-fetch.client';
 import { ProgramDeletionScopeRepository } from './programs.repository';
@@ -32,7 +35,6 @@ import {
   type ProgramEditorTransactionStore,
 } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { SubmissionsRepository } from './submissions.repository';
 import { PrismaService } from '../platform/prisma.service';
@@ -49,7 +51,7 @@ import {
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
 import { MilestoneDocumentMissingError } from './milestone-document-submission.error';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -249,7 +251,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       milestoneId,
     );
     await new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -403,7 +405,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -457,7 +459,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       await seedGraph();
     const gate = deferred<void>();
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),
@@ -632,7 +634,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     const files = new MilestoneDocumentFilesService(
-      new MilestoneDocumentsRepository(
+      new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
         new PlatformRepository(),

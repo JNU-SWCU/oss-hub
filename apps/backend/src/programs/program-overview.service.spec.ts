@@ -6,7 +6,7 @@ import {
   ProgramOverviewRepository,
   ProgramOverviewRecord,
   PublicTeamRow,
-} from './program-overview.repository';
+} from './programs.repository';
 import { ProgramOverviewService } from './program-overview.service';
 import { UserProfileService } from '../users/user-profile.service';
 

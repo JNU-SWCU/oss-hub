@@ -2,8 +2,10 @@ import { FileMetadataRepository } from './files.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import {
+  RequirementsRepository,
+  MilestoneDocumentCollectionReadRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import {
   MilestoneDocumentFlowFixture,
@@ -20,7 +22,7 @@ const collection = new MilestoneDocumentCollectionReadRepository(
   fixture.prisma,
   new FileMetadataRepository(),
 );
-const repository = new MilestoneDocumentsRepository(
+const repository = new RequirementsRepository(
   fixture.prisma,
   new LockProgramTreeRepository(),
   platform,

@@ -15,7 +15,7 @@ import {
   milestoneInput,
 } from '../../test/program-editor-service-fixtures';
 import { ProgramEditorService } from './program-editor.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 
 const programEditorService = new ProgramEditorService(
   undefined as never,

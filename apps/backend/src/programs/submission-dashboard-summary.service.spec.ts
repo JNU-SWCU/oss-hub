@@ -5,9 +5,9 @@ import type {
   SubmissionDashboardMilestoneDocumentRecord,
   SubmissionDashboardMilestoneRecord,
   SubmissionDashboardSummaryRepositoryPort,
-} from './submission-dashboard-summary.repository';
-import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+} from './submissions.repository';
+import { SubmissionDashboardSummaryService } from './submission-matrix.service';
+import { MilestoneCompletionService } from './submissions.service';
 class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSummaryRepositoryPort {
   readonly calls: string[][] = [];
   constructor(

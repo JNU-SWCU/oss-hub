@@ -1,8 +1,10 @@
 import { ProgramScheduleService } from '../../src/programs/program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from '../../src/programs/milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionService } from '../../src/programs/milestone-document-collection.service';
-import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
-import { ProgramDocumentChangeRequestsService } from '../../src/programs/program-document-change-requests.service';
+import { MilestoneDocumentSubmissionWindowService } from '../../src/programs/files.service';
+import { MilestoneDocumentCollectionService } from '../../src/programs/requirement-archive.service';
+import {
+  RequirementsService,
+  ProgramDocumentChangeRequestsService,
+} from '../../src/programs/requirements.service';
 import { AdminAccessService } from '../../src/users/admin-access.service';
 import { AdminProfileMutationService } from '../../src/users/admin-profile-mutation.service';
 import { UsersService } from '../../src/users/users.service';
@@ -30,7 +32,7 @@ import {
 import { ActivityTimelineRequestDto } from '../../src/student/dto/activity-timeline-request.dto';
 import { UpdateMyProfileRequestDto } from '../../src/users/dto/update-my-profile-request.dto';
 import { RankingYearService } from '../../src/ranking/ranking-year.service';
-const milestoneDocumentsService = new MilestoneDocumentsService(
+const milestoneDocumentsService = new RequirementsService(
   {} as never,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),

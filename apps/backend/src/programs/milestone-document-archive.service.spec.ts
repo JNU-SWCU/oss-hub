@@ -1,12 +1,14 @@
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentFileNameService } from './files.service';
+import {
+  MilestoneDocumentCollectionService,
+  RequirementArchiveService,
+} from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import type { RequirementsRepository } from './requirements.repository';
 import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
@@ -145,7 +147,7 @@ function buildRepository(overrides: Record<string, jest.Mock> = {}) {
   };
   return {
     mocks,
-    repository: mocks as unknown as MilestoneDocumentsRepository,
+    repository: mocks as unknown as RequirementsRepository,
   };
 }
 
@@ -232,7 +234,7 @@ function buildService(
     storage,
   } = buildStorage(storageOverrides);
   return {
-    service: new MilestoneDocumentArchiveService(
+    service: new RequirementArchiveService(
       repository,
       storage,
       {

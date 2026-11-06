@@ -9,13 +9,15 @@ import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import { UserProfileService } from '../users/user-profile.service';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
-import { ProgramTeamDeletionRepository } from './team.repository';
+import {
+  ProgramTeamDeletionRepository,
+  TeamRepository,
+  TeamDeletionScopeRepository,
+} from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
-import { TeamRepository } from './team.repository';
 import { TeamInvitationsRepository } from './team-invitations.repository';
-import { TeamDeletionScopeRepository } from './team.repository';
-import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
+import { MilestoneDocumentArchiveRepository } from './requirements.repository';
+import { SubmissionReviewsRepository } from './submissions.repository';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,

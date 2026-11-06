@@ -7,7 +7,7 @@ import { PROGRAM_COVER_MAX_BYTES } from './submission-upload.config';
 import { FileLifecycle } from '@prisma/client';
 import { type ProgramAuthoringUploadFile } from './files.error';
 import { type ProgramAuthoringUploadToken } from './files.config';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 
 const programCoverUrlService = new ProgramCoverUrlService();
 const programAuthoringUploadService = new ProgramAuthoringUploadService(

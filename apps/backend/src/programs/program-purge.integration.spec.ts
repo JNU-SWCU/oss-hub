@@ -5,8 +5,9 @@ import {
   ProgramsRepository,
   ProgramDeletionScopeRepository,
   ProgramLifecycleRepository,
+  ProgramListStatusFilterRepository,
+  ProgramHistoryRepository,
 } from './programs.repository';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { createHash } from 'node:crypto';
 import { HeadObjectCommand, S3Client } from '@aws-sdk/client-s3';
@@ -33,7 +34,6 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { ProgramHistoryRepository } from './programs.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';

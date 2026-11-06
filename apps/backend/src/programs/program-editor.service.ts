@@ -26,13 +26,15 @@ import {
 } from './program-error-code.error';
 import { createHash } from 'node:crypto';
 import { ProgramMilestoneEditValidationError } from './program-editor.error';
-import { CreateProgramCommand } from './program-creation.service';
+import {
+  CreateProgramCommand,
+  ProgramCoverUrlService,
+} from './programs.service';
 import {
   type ProgramExternalCover,
   type ProgramAuthoringUploadToken,
 } from './files.config';
 import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
-import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramAuthoringUploadService } from './files.service';
 

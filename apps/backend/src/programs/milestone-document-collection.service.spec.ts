@@ -7,8 +7,8 @@ import { type ObjectStoragePort } from '../platform/object-storage.types';
 import {
   type CurrentMilestoneDocumentFile,
   type MilestoneDocumentCurrentFileReader,
-} from './milestone-document-current-file.repository';
-import { MilestoneDocumentCurrentFileService } from './milestone-document-collection.service';
+} from './requirements.repository';
+import { MilestoneDocumentCurrentFileService } from './requirement-archive.service';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
 
 describe('milestone-document-current-file.service', () => {

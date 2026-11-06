@@ -1,7 +1,7 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -14,10 +14,12 @@ import {
   createDeadlineDigestIntegrationHarness,
   DIGEST_FIXTURE as fixture,
 } from '../notifications/deadline-digest.integration-support';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementsService } from './requirements.service';
 
 const milestoneDocumentCollectionService =
   new MilestoneDocumentCollectionService(undefined as never);
@@ -32,8 +34,8 @@ const repository = new MilestoneDocumentCollectionReadRepository(
   new FileMetadataRepository(),
 );
 const service = new MilestoneDocumentCollectionService(repository);
-const legacyService = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(
+const legacyService = new RequirementsService(
+  new RequirementsRepository(
     harness.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),

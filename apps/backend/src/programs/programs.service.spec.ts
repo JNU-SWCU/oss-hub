@@ -1,7 +1,13 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
-import { ProgramViewerService } from './program-viewer.service';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import {
+  ProgramViewerService,
+  type ProgramViewer,
+} from './program-viewer.service';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
@@ -10,11 +16,8 @@ import {
   ProgramTrackType,
 } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
-import type { ProgramViewer } from './program-viewer.service';
-import { ProgramsRepository } from './programs.repository';
-import { ProgramsService } from './programs.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramsService, ProgramCoverUrlService } from './programs.service';
+import { MilestoneCompletionService } from './submissions.service';
 const programScheduleService = new ProgramScheduleService();
 const publicProgram = {
   id: 'program-1',

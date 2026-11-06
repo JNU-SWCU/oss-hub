@@ -1,14 +1,14 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
 import { SubmissionHistoryEvent } from '@prisma/client';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsRepository } from './requirements.repository';
+import { RequirementsService } from './requirements.service';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
 
 describe('MilestoneDocumentsService historyForStaff', () => {
@@ -37,8 +37,8 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         nextCursor: null,
         isComplete: true,
       }),
-    } as unknown as MilestoneDocumentsRepository;
-    const service = new MilestoneDocumentsService(
+    } as unknown as RequirementsRepository;
+    const service = new RequirementsService(
       repository,
       new MilestoneDocumentSubmissionWindowService(
         new ProgramScheduleService(),
@@ -84,10 +84,10 @@ describe('MilestoneDocumentsService historyForStaff', () => {
       findSubmissionHistoryPage: jest
         .fn()
         .mockRejectedValue(new InvalidMilestoneDocumentHistoryCursorError()),
-    } as unknown as MilestoneDocumentsRepository;
+    } as unknown as RequirementsRepository;
 
     await expect(
-      new MilestoneDocumentsService(
+      new RequirementsService(
         repository,
         new MilestoneDocumentSubmissionWindowService(
           new ProgramScheduleService(),
@@ -158,11 +158,11 @@ describe('MilestoneDocumentsService history download links', () => {
         nextCursor: null,
         isComplete: true,
       }),
-    } as unknown as MilestoneDocumentsRepository;
+    } as unknown as RequirementsRepository;
   }
 
   it('학생 이력의 살아 있는 첨부에는 본인 다운로드 주소를 준다', async () => {
-    const service = new MilestoneDocumentsService(
+    const service = new RequirementsService(
       repositoryWith(
         historyItem({
           fileName: '1차_계획서.pdf',
@@ -197,7 +197,7 @@ describe('MilestoneDocumentsService history download links', () => {
   });
 
   it('교직원 이력도 같은 주소를 받는다 — 재제출로 떨어져 나간 첨부에 닿을 길이다', async () => {
-    const service = new MilestoneDocumentsService(
+    const service = new RequirementsService(
       repositoryWith(
         historyItem({
           fileName: '1차_계획서.pdf',
@@ -231,7 +231,7 @@ describe('MilestoneDocumentsService history download links', () => {
   });
 
   it('보관 기한이 지난 첨부에는 주소를 주지 않는다 — 죽은 버튼을 세우지 않는다', async () => {
-    const service = new MilestoneDocumentsService(
+    const service = new RequirementsService(
       repositoryWith(
         historyItem({
           fileName: '만료된_계획서.pdf',

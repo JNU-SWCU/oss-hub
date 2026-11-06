@@ -1,5 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import { ProgramOverviewRepository } from './program-overview.repository';
+import { ProgramOverviewRepository } from './programs.repository';
 import { ProgramOverviewService } from './program-overview.service';
 import { UserProfileService } from '../users/user-profile.service';
 

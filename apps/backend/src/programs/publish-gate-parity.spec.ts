@@ -13,9 +13,12 @@ import {
   type SubmissionReviewsRepositoryPort,
   type ReviewContextRow,
   type PublishEligibilityRow,
-} from './submission-reviews.repository';
+} from './submissions.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import {
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import {
   PUBLISH_BLOCKED_REASONS,
   type PublishBlockedReason,
@@ -23,7 +26,6 @@ import {
 } from '../github/repository-publish.config';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 
 const NOW = new Date('2026-07-23T00:00:00.000Z');
 const PROGRAM_ENDED_AT = new Date('2026-07-01T00:00:00.000Z');
@@ -214,7 +216,7 @@ function serviceFor(eligibility: RepositoryPublishEligibility | null) {
   } as unknown as jest.Mocked<SubmissionReviewsRepositoryPort>;
   return {
     repositories,
-    service: new SubmissionReviewsService(
+    service: new SubmissionsService(
       repository,
       repositories,
       new RepositoryPublishService(),

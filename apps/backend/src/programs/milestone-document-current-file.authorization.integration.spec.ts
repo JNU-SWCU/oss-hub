@@ -1,9 +1,9 @@
 import { FileMetadataRepository, FilesRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
 import {
+  MilestoneDocumentSubmissionWindowService,
+  MilestoneDocumentFileNameService,
   SubmissionFileAdmissionService,
   FilesService,
   MilestoneDocumentFilesService,
@@ -11,10 +11,14 @@ import {
 import {
   MilestoneDocumentCollectionService,
   MilestoneDocumentCurrentFileService,
-} from './milestone-document-collection.service';
+} from './requirement-archive.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  MilestoneDocumentCurrentFileRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
@@ -35,10 +39,8 @@ import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
-import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
 import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsService } from './requirements.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -117,7 +119,7 @@ const users = {
   },
 } as const;
 const prisma = new PrismaService();
-const documentsRepository = new MilestoneDocumentsRepository(
+const documentsRepository = new RequirementsRepository(
   prisma,
   new LockProgramTreeRepository(),
   new PlatformRepository(),
@@ -131,7 +133,7 @@ const documentsRepository = new MilestoneDocumentsRepository(
   ),
   new FileMetadataRepository(),
 );
-const documentsService = new MilestoneDocumentsService(
+const documentsService = new RequirementsService(
   documentsRepository,
   new MilestoneDocumentSubmissionWindowService(new ProgramScheduleService()),
   new MilestoneDocumentCollectionService({} as never),

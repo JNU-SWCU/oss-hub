@@ -1,4 +1,4 @@
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
@@ -8,9 +8,9 @@ import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import {
   SubmissionMatrixRepository,
   type SubmissionMatrixRepositoryPort,
-} from './submission-matrix.repository';
+} from './submissions.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
-import { ProgramSubmissionsController } from './program-submissions.controller';
+import { ProgramSubmissionsController } from './submissions.controller';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';

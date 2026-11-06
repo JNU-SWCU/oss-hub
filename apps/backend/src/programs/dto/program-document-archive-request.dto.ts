@@ -5,7 +5,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
-import { type ProgramDocumentArchiveScope } from '../milestone-document-archive.service';
+import { type ProgramDocumentArchiveScope } from '../requirement-archive.service';
 
 export class ProgramDocumentArchiveRequestDto {
   @IsIn(['PROGRAM', 'MILESTONE', 'TEAM'])

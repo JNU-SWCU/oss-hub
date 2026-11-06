@@ -27,7 +27,7 @@ import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
 import { type DeadlineDigestMail } from '../notifications/gmail-mail.client';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

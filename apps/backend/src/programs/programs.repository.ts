@@ -1,23 +1,25 @@
+import { Injectable } from '@nestjs/common';
+import {
+  Prisma,
+  ProgramLifecycle,
+  type Program,
+  ApplicationStatus,
+  ProgramCategory,
+  type ProgramTrackType,
+  type ProgramHistoryEvent,
+  type Prisma as PrismaTypes,
+  AccountStatus,
+} from '@prisma/client';
+import {
+  PROGRAM_LIST_QUERY_STATUSES,
+  PROGRAM_LIST_QUERY_SORTS,
+  PROGRAM_LIST_QUERY_DIRECTIONS,
+} from './program-list.config';
 import {
   USER_AUTHORITY_SELECT,
   USER_PROFILE_NAME_SELECT,
 } from '../platform/user-profile-read.config';
-import { Injectable } from '@nestjs/common';
-import {
-  type Program,
-  ApplicationStatus,
-  Prisma,
-  ProgramCategory,
-  type ProgramTrackType,
-  type ProgramHistoryEvent,
-  type ProgramLifecycle,
-  type Prisma as PrismaTypes,
-} from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import {
-  ProgramListStatusFilterRepository,
-  type ProgramListQuery,
-} from './program-list-status-filter.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ProgramCoverRepository,
@@ -34,7 +36,243 @@ import {
   type ProgramAuthoringReplay,
   type ProgramAuthoringUploadToken,
 } from './files.config';
+import type { MemberKind } from '../users/user-contract.config';
+export type ProgramListQueryStatus =
+  (typeof PROGRAM_LIST_QUERY_STATUSES)[number];
 
+export type ProgramListQuerySort = (typeof PROGRAM_LIST_QUERY_SORTS)[number];
+
+export type ProgramListQueryDirection =
+  (typeof PROGRAM_LIST_QUERY_DIRECTIONS)[number];
+
+export interface ProgramListQuery {
+  readonly page: number;
+  readonly pageSize: number;
+  readonly search: string;
+  readonly status: ProgramListQueryStatus;
+  readonly year?: number;
+
+  readonly sort?: ProgramListQuerySort;
+
+  readonly direction?: ProgramListQueryDirection;
+}
+
+export type ProgramListDerivedStatus = Exclude<
+  ProgramListQueryStatus,
+  'all' | 'current'
+>;
+
+export type ProgramListStatusInput = {
+  readonly lifecycle: ProgramLifecycle;
+  readonly applicationStartAt: Date;
+  readonly applicationEndAt: Date;
+  readonly endAt: Date;
+};
+
+@Injectable()
+export class ProgramListStatusFilterRepository {
+  deriveProgramListStatus(
+    program: ProgramListStatusInput,
+    now: Date,
+  ): ProgramListDerivedStatus {
+    if (program.lifecycle === ProgramLifecycle.ARCHIVED) return 'ended';
+    if (program.endAt < now) return 'ended';
+    if (program.applicationStartAt > now) return 'upcoming';
+    if (program.applicationEndAt >= now) return 'recruiting';
+    return 'in_progress';
+  }
+
+  programListSortRank(status: ProgramListDerivedStatus): 0 | 1 | 2 | 3 {
+    switch (status) {
+      case 'recruiting':
+        return 0;
+      case 'upcoming':
+        return 1;
+      case 'in_progress':
+        return 2;
+      case 'ended':
+        return 3;
+    }
+  }
+
+  programListPrismaWhere(
+    status: ProgramListQueryStatus,
+    now: Date,
+  ): Prisma.ProgramWhereInput {
+    const whereByStatus = {
+      current: {
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        ...notDateEnded(now),
+      },
+      all: {
+        lifecycle: {
+          in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
+        },
+      },
+      ended: {
+        OR: [
+          { lifecycle: ProgramLifecycle.ARCHIVED },
+          {
+            lifecycle: ProgramLifecycle.PUBLISHED,
+            endAt: { lt: now },
+          },
+        ],
+      },
+      upcoming: {
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        applicationStartAt: { gt: now },
+        ...notDateEnded(now),
+      },
+      recruiting: {
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        applicationStartAt: { lte: now },
+        applicationEndAt: { gte: now },
+        ...notDateEnded(now),
+      },
+      in_progress: {
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        applicationStartAt: { lte: now },
+        applicationEndAt: { lt: now },
+        ...notDateEnded(now),
+      },
+    } satisfies Readonly<
+      Record<ProgramListQueryStatus, Prisma.ProgramWhereInput>
+    >;
+    return whereByStatus[status];
+  }
+
+  programListSqlStatusPredicate(
+    status: ProgramListQueryStatus,
+    now: Date,
+  ): Prisma.Sql {
+    if (status === 'all') {
+      return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')`;
+    }
+    if (status === 'current') {
+      return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND p."endAt" >= ${now}`;
+    }
+    return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED') AND (${programListStatusCaseSql(now)}) = ${status}`;
+  }
+
+  programEndYearRange(year: number) {
+    return {
+      gte: new Date(Date.UTC(year, 0, 1, -9)),
+      lt: new Date(Date.UTC(year + 1, 0, 1, -9)),
+    };
+  }
+
+  programListSortRankSql(now: Date): Prisma.Sql {
+    return Prisma.sql`
+    CASE (${programListStatusCaseSql(now)})
+      WHEN 'recruiting' THEN 0
+      WHEN 'upcoming' THEN 1
+      WHEN 'in_progress' THEN 2
+      WHEN 'ended' THEN 3
+    END
+  `;
+  }
+
+  programListStatusSortRank(status: ProgramListDerivedStatus): 0 | 1 | 2 | 3 {
+    switch (status) {
+      case 'recruiting':
+        return 0;
+      case 'in_progress':
+        return 1;
+      case 'upcoming':
+        return 2;
+      case 'ended':
+        return 3;
+    }
+  }
+
+  programListOrderBySql(
+    sort: ProgramListQuerySort | undefined,
+    direction: ProgramListQueryDirection | undefined,
+    now: Date,
+  ): Prisma.Sql {
+    const dir = direction === 'desc' ? Prisma.sql`DESC` : Prisma.sql`ASC`;
+    switch (sort) {
+      case 'name':
+        return Prisma.sql`p."name" ${dir}, p."id" ASC`;
+      case 'applicationPeriod':
+        return Prisma.sql`p."applicationStartAt" ${dir}, p."id" ASC`;
+      case 'status':
+        return Prisma.sql`
+        ${programListStatusSortRankSql(now)} ${dir},
+        p."applicationEndAt" ASC,
+        p."name" ASC,
+        p."id" ASC
+      `;
+      default:
+        return Prisma.sql`
+        ${this.programListSortRankSql(now)} ASC,
+        p."applicationEndAt" ASC,
+        p."name" ASC,
+        p."id" ASC
+      `;
+    }
+  }
+
+  programListSqlWhere(
+    status: ProgramListQueryStatus,
+    search: string,
+    now: Date,
+    year?: number,
+  ): Prisma.Sql {
+    const conditions: Prisma.Sql[] = [
+      this.programListSqlStatusPredicate(status, now),
+    ];
+    if (year !== undefined) {
+      const { gte, lt } = this.programEndYearRange(year);
+      conditions.push(Prisma.sql`p."endAt" >= ${gte} AND p."endAt" < ${lt}`);
+    }
+    if (search) {
+      conditions.push(Prisma.sql`p."name" ILIKE ${`%${search}%`}`);
+    }
+    return Prisma.sql`WHERE ${Prisma.join(conditions, ' AND ')}`;
+  }
+
+  programStatusCountsSql(now: Date): Prisma.Sql {
+    const statusCase = programListStatusCaseSql(now);
+    return Prisma.sql`
+    SELECT
+      COUNT(*)::int AS "all",
+      COUNT(*) FILTER (WHERE (${statusCase}) = 'recruiting')::int AS recruiting,
+      COUNT(*) FILTER (WHERE (${statusCase}) = 'in_progress')::int AS in_progress,
+      COUNT(*) FILTER (WHERE (${statusCase}) = 'upcoming')::int AS upcoming,
+      COUNT(*) FILTER (WHERE (${statusCase}) = 'ended')::int AS ended
+    FROM "Program" AS p
+    WHERE p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')
+  `;
+  }
+}
+
+const notDateEnded = (now: Date): Prisma.ProgramWhereInput => ({
+  endAt: { gte: now },
+});
+
+function programListStatusCaseSql(now: Date): Prisma.Sql {
+  return Prisma.sql`
+    CASE
+      WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'
+      WHEN p."endAt" < ${now} THEN 'ended'
+      WHEN p."applicationStartAt" > ${now} THEN 'upcoming'
+      WHEN p."applicationEndAt" >= ${now} THEN 'recruiting'
+      ELSE 'in_progress'
+    END
+  `;
+}
+
+function programListStatusSortRankSql(now: Date): Prisma.Sql {
+  return Prisma.sql`
+    CASE (${programListStatusCaseSql(now)})
+      WHEN 'recruiting' THEN 0
+      WHEN 'in_progress' THEN 1
+      WHEN 'upcoming' THEN 2
+      WHEN 'ended' THEN 3
+    END
+  `;
+}
 export type ProgramListRecord = {
   readonly id: string;
   readonly name: string;
@@ -886,5 +1124,353 @@ export class ProgramAuthoringRepository {
         },
       ],
     );
+  }
+}
+export interface ProgramOverviewRecord {
+  programId: string;
+  name: string;
+  trackType: string | null;
+  lifecycle: string;
+  milestoneCount: number;
+  boardPostCount: number;
+  participantCount: number;
+  teamCount: number;
+  connectedRepositoryCount: number;
+}
+interface PublicTeamMemberRow {
+  userId: string;
+  displayName: string;
+  isLeader: boolean;
+}
+export interface PublicTeamRow {
+  teamId: string;
+  name: string;
+  members: PublicTeamMemberRow[];
+}
+export interface CurrentSubmissionMilestone {
+  milestoneId: string;
+  documentIds: string[];
+  requiredDocumentIds: string[];
+}
+export interface ViewerIdentity {
+  readonly accountStatus: AccountStatus;
+  readonly name: string | null;
+  readonly studentId: string | null;
+  readonly department: string | null;
+  readonly profileCreatedAt: Date | null;
+  userId: string;
+  memberKind: MemberKind | null;
+  hasStaffAccess: boolean;
+  hasAdminAccess: boolean;
+}
+export interface MilestoneSchedule {
+  milestoneId: string;
+  label: string;
+  dueAt: Date;
+}
+export interface MilestoneDocumentCatalogEntry {
+  milestoneId: string;
+  title: string;
+  documentIds: string[];
+  requiredDocumentIds: string[];
+}
+const CURRENT_MILESTONE_SELECT = {
+  id: true,
+  requirements: {
+    where: {},
+    select: { id: true, required: true },
+    orderBy: { sortOrder: 'asc' as const },
+  },
+} satisfies Prisma.MilestoneSelect;
+type CurrentMilestoneSelection = {
+  id: string;
+  requirements: {
+    id: string;
+    required: boolean;
+  }[];
+};
+function toCurrentSubmissionMilestone(
+  milestone: CurrentMilestoneSelection,
+): CurrentSubmissionMilestone {
+  return {
+    milestoneId: milestone.id,
+    documentIds: milestone.requirements.map((document) => document.id),
+    requiredDocumentIds: milestone.requirements
+      .filter((document) => document.required)
+      .map((document) => document.id),
+  };
+}
+export interface ProgramApplicationTeamRow {
+  readonly id: string;
+}
+export interface SubmittedDocumentPairRow {
+  readonly teamId: string;
+  readonly milestoneDocumentId: string;
+}
+@Injectable()
+export class ProgramOverviewRepository {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly platformRepository: PlatformRepository,
+  ) {}
+  async findByProgramId(
+    programId: string,
+  ): Promise<ProgramOverviewRecord | null> {
+    const program = await this.prisma.program.findUnique({
+      where: { id: programId, lifecycle: { not: 'DELETED' } },
+      select: {
+        id: true,
+        name: true,
+        trackType: true,
+        lifecycle: true,
+        _count: { select: { milestones: true, boardPosts: true, teams: true } },
+      },
+    });
+    if (!program) {
+      return null;
+    }
+    const [teamMemberRows, connectedRepositoryCount] = await Promise.all([
+      this.prisma.teamMember.findMany({
+        where: { programId },
+        select: { userId: true },
+        distinct: ['userId'],
+      }),
+      this.prisma.githubRepository.count({ where: { team: { programId } } }),
+    ]);
+    const participantIds = new Set<string>(
+      teamMemberRows.map((row) => row.userId),
+    );
+    return {
+      programId: program.id,
+      name: program.name,
+      trackType: program.trackType,
+      lifecycle: program.lifecycle,
+      milestoneCount: program._count.milestones,
+      boardPostCount: program._count.boardPosts,
+      participantCount: participantIds.size,
+      teamCount: program._count.teams,
+      connectedRepositoryCount,
+    };
+  }
+  async programExists(programId: string): Promise<boolean> {
+    const count = await this.prisma.program.count({
+      where: { id: programId },
+    });
+    return count > 0;
+  }
+  async findViewerIdentity(githubId: bigint): Promise<ViewerIdentity | null> {
+    const user = await this.prisma.user.findFirst({
+      where: { githubId, accountStatus: AccountStatus.ACTIVE },
+      select: {
+        id: true,
+        accountStatus: true,
+        ...USER_AUTHORITY_SELECT,
+      },
+    });
+    if (user === null) {
+      return null;
+    }
+    return {
+      ...user,
+      userId: user.id,
+      memberKind: user.type === 'UNSELECTED' ? null : user.type,
+      hasStaffAccess:
+        user.type === 'STAFF' && user.approvalStatus === 'APPROVED',
+      hasAdminAccess: user.admin !== null,
+    };
+  }
+  async findCurrentSubmissionMilestone(
+    programId: string,
+    now: Date,
+  ): Promise<CurrentSubmissionMilestone | null> {
+    const upcoming = await this.prisma.milestone.findFirst({
+      where: {
+        programId,
+        dueAt: { gte: now },
+        requirements: { some: {} },
+      },
+      orderBy: { dueAt: 'asc' },
+      select: CURRENT_MILESTONE_SELECT,
+    });
+    const milestone =
+      upcoming ??
+      (await this.prisma.milestone.findFirst({
+        where: {
+          programId,
+          requirements: { some: {} },
+        },
+        orderBy: { dueAt: 'desc' },
+        select: CURRENT_MILESTONE_SELECT,
+      }));
+    return milestone ? toCurrentSubmissionMilestone(milestone) : null;
+  }
+  async findMilestoneSchedules(
+    programId: string,
+  ): Promise<MilestoneSchedule[]> {
+    const milestones = await this.prisma.milestone.findMany({
+      where: { programId },
+      orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
+      select: { id: true, name: true, dueAt: true },
+    });
+    return milestones.map((milestone) => ({
+      milestoneId: milestone.id,
+      label: milestone.name,
+      dueAt: milestone.dueAt,
+    }));
+  }
+  async findMilestoneDocumentCatalog(
+    programId: string,
+  ): Promise<MilestoneDocumentCatalogEntry[]> {
+    const milestones = await this.prisma.milestone.findMany({
+      where: { programId },
+      orderBy: { dueAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        requirements: {
+          where: {},
+          select: { id: true, required: true },
+          orderBy: { sortOrder: 'asc' },
+        },
+      },
+    });
+    return milestones.map((milestone) => ({
+      milestoneId: milestone.id,
+      title: milestone.name,
+      documentIds: milestone.requirements.map((document) => document.id),
+      requiredDocumentIds: milestone.requirements
+        .filter((document) => document.required)
+        .map((document) => document.id),
+    }));
+  }
+  async findApprovedViewerApplicationId(
+    programId: string,
+    userId: string,
+  ): Promise<string | null> {
+    const application = await this.prisma.team.findFirst({
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        ...this.platformRepository.programApplicationParticipantWhere(userId),
+      },
+      select: { id: true },
+    });
+    return application?.id ?? null;
+  }
+  async findViewerApplicationId(
+    programId: string,
+    userId: string,
+  ): Promise<string | null> {
+    const direct = await this.prisma.team.findFirst({
+      where: { programId, applicantId: userId },
+      select: { id: true },
+      orderBy: { submittedAt: 'desc' },
+    });
+    if (direct) {
+      return direct.id;
+    }
+    const membership = await this.prisma.teamMember.findUnique({
+      where: { programId_userId: { programId, userId } },
+      select: { teamId: true },
+    });
+    if (!membership) {
+      return null;
+    }
+
+    const teamApplication = await this.prisma.team.findFirst({
+      where: { programId, id: membership.teamId },
+      select: { id: true },
+      orderBy: { submittedAt: 'desc' },
+    });
+    return teamApplication?.id ?? null;
+  }
+  async countSubmittedDocuments(
+    teamId: string,
+    documentIds: string[],
+  ): Promise<number> {
+    if (documentIds.length === 0) {
+      return 0;
+    }
+    return this.prisma.submission.count({
+      where: { teamId, requirementId: { in: documentIds } },
+    });
+  }
+  async findSubmittedDocumentIds(
+    teamId: string,
+    documentIds: string[],
+  ): Promise<Set<string>> {
+    if (documentIds.length === 0) {
+      return new Set();
+    }
+    const rows = await this.prisma.submission.groupBy({
+      by: ['requirementId'],
+      where: { teamId, requirementId: { in: documentIds } },
+    });
+    return new Set(rows.map((row) => row.requirementId));
+  }
+  findProgramApplications(
+    programId: string,
+  ): Promise<readonly ProgramApplicationTeamRow[]> {
+    return this.prisma.team.findMany({
+      where: { programId },
+      select: { id: true },
+    });
+  }
+  async findSubmittedDocumentPairs(
+    teamIds: readonly string[],
+    documentIds: readonly string[],
+  ): Promise<readonly SubmittedDocumentPairRow[]> {
+    if (documentIds.length === 0) {
+      return [];
+    }
+    const rows = await this.prisma.submission.groupBy({
+      by: ['requirementId', 'teamId'],
+      where: {
+        teamId: { in: [...teamIds] },
+        requirementId: { in: [...documentIds] },
+      },
+    });
+    return rows.map((row) => ({
+      teamId: row.teamId,
+      milestoneDocumentId: row.requirementId,
+    }));
+  }
+  async countTeamMembers(
+    programId: string,
+    teamIds: readonly string[],
+  ): Promise<ReadonlyMap<string, number>> {
+    if (teamIds.length === 0) {
+      return new Map();
+    }
+    const memberCounts = await this.prisma.teamMember.groupBy({
+      by: ['teamId'],
+      where: { programId, teamId: { in: [...teamIds] } },
+      _count: { teamId: true },
+    });
+    return new Map(memberCounts.map((row) => [row.teamId, row._count.teamId]));
+  }
+  async listPublicTeams(programId: string): Promise<PublicTeamRow[]> {
+    const teams = await this.prisma.team.findMany({
+      where: { programId },
+      orderBy: { createdAt: 'asc' },
+      select: {
+        id: true,
+        name: true,
+        leaderId: true,
+        members: {
+          select: { userId: true, user: { select: { nickname: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+      },
+    });
+    return teams.map((team) => ({
+      teamId: team.id,
+      name: team.name,
+      members: team.members.map((member) => ({
+        userId: member.userId,
+        displayName: member.user.nickname,
+        isLeader: member.userId === team.leaderId,
+      })),
+    }));
   }
 }

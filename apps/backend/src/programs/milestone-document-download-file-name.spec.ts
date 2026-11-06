@@ -1,4 +1,4 @@
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
+import { MilestoneDocumentFileNameService } from './files.service';
 const milestoneDocumentFileNameService = new MilestoneDocumentFileNameService();
 
 describe('milestoneDocumentDownloadFileName', () => {

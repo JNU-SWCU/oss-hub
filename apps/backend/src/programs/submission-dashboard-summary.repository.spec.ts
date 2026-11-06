@@ -6,7 +6,7 @@ import {
   type DashboardMilestoneDocumentRow,
   type SubmissionDashboardSummaryDataSource,
   SubmissionDashboardSummaryRepository,
-} from './submission-dashboard-summary.repository';
+} from './submissions.repository';
 class FakeFindManyDelegate<TArgs, TRow> {
   readonly calls: TArgs[] = [];
   constructor(private readonly rows: readonly TRow[]) {}

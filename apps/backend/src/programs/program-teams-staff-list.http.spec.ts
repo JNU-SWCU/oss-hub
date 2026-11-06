@@ -6,6 +6,9 @@ import {
 import type {
   ApplicationsRepository,
   TeamManagementListPage,
+  TeamRepository,
+  StaffTeamDetailRecord,
+  TeamProgramRecord,
 } from './team.repository';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
 import { ApplicationsErrorCode } from './applications-error-code.error';
@@ -22,11 +25,6 @@ import {
   TeamsController,
   ProgramApplicationsController,
 } from './teams.controller';
-import type {
-  TeamRepository,
-  StaffTeamDetailRecord,
-  TeamProgramRecord,
-} from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import {
   EMPTY_TEAM_DELETION_SCOPE,
@@ -36,7 +34,7 @@ import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,

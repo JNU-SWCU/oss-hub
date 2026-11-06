@@ -11,7 +11,7 @@ import {
   ProgramOverviewRepository,
   ProgramOverviewRecord,
   type PublicTeamRow,
-} from './program-overview.repository';
+} from './programs.repository';
 import { UserProfileService } from '../users/user-profile.service';
 
 export interface ProgramOverviewViewerStats {

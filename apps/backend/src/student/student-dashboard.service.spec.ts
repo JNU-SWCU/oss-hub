@@ -14,8 +14,8 @@ import {
   type StudentDashboardApplicationRow,
 } from './student-dashboard.repository';
 import { StudentDashboardService } from './student-dashboard.service';
-import { MilestoneCompletionService } from '../programs/milestone-completion.service';
-import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import { MilestoneCompletionService } from '../programs/submissions.service';
+import { ProgramCoverUrlService } from '../programs/programs.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 const DUE_AT = new Date('2026-08-01T00:00:00.000Z');
 const SECOND_DUE_AT = new Date('2026-08-02T00:00:00.000Z');

@@ -1,12 +1,21 @@
-import { FileMetadataRepository } from './files.repository';
-import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
-import { Injectable, Inject } from '@nestjs/common';
 import {
   SubmissionStatus,
   ReviewDecision,
   FileLifecycle,
   RepositoryVisibility,
 } from '@prisma/client';
+import {
+  SubmissionCompletionTargetRow,
+  SubmissionCompletionProjections,
+} from './submission-completion.config';
+import {
+  MilestoneCompletionStatus,
+  MILESTONE_NOT_SUBMITTED,
+  MilestoneCompletionInput,
+} from './milestone-completion.config';
+import { Injectable, Inject } from '@nestjs/common';
+import { FileMetadataRepository } from './files.repository';
+import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import {
   type RepositoryPublishEligibility,
   type PublishBlockedReason,
@@ -23,7 +32,8 @@ import {
   type SubmissionReviewContext,
   type SubmissionReviewResult,
   type PublishEligibilitySource,
-} from './submission-reviews.repository';
+  SubmissionsRepository,
+} from './submissions.repository';
 import { DomainException } from '../platform/error-code.error';
 import { GithubOperationsError } from '../github/github-app.error';
 import { RepositoryPublishStateError } from '../github/repository-publish-state.error';
@@ -35,9 +45,117 @@ import {
 import { RepositoryNotFoundError } from '../github/repositories.error';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 import { SubmissionFileAdmissionService } from './files.service';
-
+import {
+  MILESTONE_DOCUMENTS_ERROR_CODES,
+  MilestoneDocumentsErrorCode,
+} from './milestone-documents-error-code.error';
+import {
+  type CreateMilestoneDocumentReviewInput,
+  type CreatedMilestoneDocumentReview,
+  RequirementsRepository,
+} from './requirements.repository';
+@Injectable()
+export class MilestoneCompletionService {
+  collectAxisStatuses(
+    input: MilestoneCompletionInput,
+  ): readonly MilestoneCompletionStatus[] {
+    const statuses: MilestoneCompletionStatus[] =
+      input.requiredDocumentStatuses.map(
+        (status) => status ?? MILESTONE_NOT_SUBMITTED,
+      );
+    if (isSubmissionAxisInUse(input)) {
+      statuses.push(input.submissionStatus ?? MILESTONE_NOT_SUBMITTED);
+    }
+    return statuses;
+  }
+  milestoneCompletionStatus(
+    input: MilestoneCompletionInput,
+  ): MilestoneCompletionStatus {
+    const statuses = this.collectAxisStatuses(input);
+    if (statuses.length === 0) return MILESTONE_NOT_SUBMITTED;
+    let worst: MilestoneCompletionStatus = SubmissionStatus.APPROVED;
+    let worstRank = STATUS_PRECEDENCE.indexOf(worst);
+    for (const status of statuses) {
+      const rank = STATUS_PRECEDENCE.indexOf(status);
+      if (rank < worstRank) {
+        worst = status;
+        worstRank = rank;
+      }
+    }
+    return worst;
+  }
+  isMilestoneComplete(input: MilestoneCompletionInput): boolean {
+    return this.milestoneCompletionStatus(input) === SubmissionStatus.APPROVED;
+  }
+  requiredMilestonesApproved(
+    milestones: readonly {
+      readonly id: string;
+      readonly requirements: readonly {
+        readonly id: string;
+      }[];
+    }[],
+    submissions: readonly {
+      readonly milestoneId: string;
+      readonly status: SubmissionStatus;
+    }[],
+    documentSubmissions: readonly {
+      readonly milestoneDocumentId: string;
+      readonly status: SubmissionStatus;
+    }[],
+  ): boolean {
+    const statusByDocument = new Map(
+      documentSubmissions.map((submission) => [
+        submission.milestoneDocumentId,
+        submission.status,
+      ]),
+    );
+    return milestones.every(
+      (milestone) =>
+        milestone.requirements.length === 0 ||
+        this.isMilestoneComplete({
+          submissionAxisInUse: false,
+          requiredDocumentStatuses: milestone.requirements.map(
+            (document) => statusByDocument.get(document.id) ?? null,
+          ),
+          submissionStatus: null,
+        }),
+    );
+  }
+  projectSubmissionCompletionTargets(
+    targetRows: readonly SubmissionCompletionTargetRow[],
+  ): SubmissionCompletionProjections {
+    const submissions: {
+      milestoneId: string;
+      status: SubmissionStatus;
+    }[] = [];
+    const documentSubmissions: {
+      milestoneDocumentId: string;
+      status: SubmissionStatus;
+    }[] = [];
+    for (const targetRow of targetRows) {
+      documentSubmissions.push({
+        milestoneDocumentId: targetRow.requirement.id,
+        status: targetRow.status,
+      });
+    }
+    return { submissions, documentSubmissions };
+  }
+}
+const STATUS_PRECEDENCE: readonly MilestoneCompletionStatus[] = [
+  SubmissionStatus.REJECTED,
+  SubmissionStatus.CHANGES_REQUESTED,
+  MILESTONE_NOT_SUBMITTED,
+  SubmissionStatus.SUBMITTED,
+  SubmissionStatus.APPROVED,
+];
+function isSubmissionAxisInUse(input: MilestoneCompletionInput): boolean {
+  if (input.submissionAxisInUse === false) return false;
+  return (
+    input.requiredDocumentStatuses.length === 0 ||
+    input.submissionStatus !== null
+  );
+}
 const PUBLISH_BLOCKED_ERROR_CODES = {
   REPOSITORY_NOT_READY: SubmissionReviewsErrorCode.REPOSITORY_NOT_READY,
   REPOSITORY_PUBLICATION_NOT_PLANNED:
@@ -53,7 +171,7 @@ const APPLICATION_MODES = {
   TEAM: 'TEAM',
 } as const;
 @Injectable()
-export class SubmissionReviewsService {
+export class SubmissionsService {
   constructor(
     @Inject(SubmissionReviewsRepository)
     private readonly repository: SubmissionReviewsRepositoryPort,
@@ -195,7 +313,7 @@ export class SubmissionReviewsService {
   reviewFromRequest(
     reviewerId: string,
     submissionId: string,
-    request: Parameters<SubmissionReviewsService['reviewInputFromRequest']>[0],
+    request: Parameters<SubmissionsService['reviewInputFromRequest']>[0],
   ): Promise<SubmissionReviewResult> {
     return this.review(
       reviewerId,
@@ -417,4 +535,126 @@ function submissionReviewDecision(event: string): ReviewDecision {
   )
     return event;
   throw new TypeError('Expected a submission review event');
+}
+export interface MilestoneDocumentReviewRequest {
+  readonly decision: ReviewDecision;
+  readonly comment?: string;
+  readonly expectedRevision: number;
+  readonly expectedLatestReviewId: string | null;
+}
+@Injectable()
+export class MilestoneDocumentReviewsService {
+  constructor(
+    private readonly repository: RequirementsRepository,
+    private readonly milestoneDocumentSubmissionRepository: SubmissionsRepository,
+  ) {}
+  reviewDecisionToSubmissionStatus(decision: ReviewDecision): SubmissionStatus {
+    switch (decision) {
+      case ReviewDecision.APPROVED:
+        return SubmissionStatus.APPROVED;
+      case ReviewDecision.CHANGES_REQUESTED:
+        return SubmissionStatus.CHANGES_REQUESTED;
+      case ReviewDecision.REJECTED:
+        return SubmissionStatus.REJECTED;
+    }
+  }
+  reviewInputFromRequest(
+    request: MilestoneDocumentReviewRequest,
+  ): CreateMilestoneDocumentReviewInput {
+    return {
+      decision: request.decision,
+      comment: request.comment?.trim() || null,
+      expectedRevision: request.expectedRevision,
+      expectedLatestReviewId: request.expectedLatestReviewId,
+    };
+  }
+  reviewFromRequest(
+    reviewerId: string,
+    milestoneId: string,
+    documentId: string,
+    teamId: string,
+    request: MilestoneDocumentReviewRequest,
+  ): ReturnType<MilestoneDocumentReviewsService['review']> {
+    return this.review(
+      reviewerId,
+      milestoneId,
+      documentId,
+      teamId,
+      this.reviewInputFromRequest(request),
+    );
+  }
+  async review(
+    reviewerId: string,
+    milestoneId: string,
+    documentId: string,
+    teamId: string,
+    input: CreateMilestoneDocumentReviewInput,
+    now: () => Date = () => new Date(),
+  ): Promise<CreatedMilestoneDocumentReview> {
+    const documentContext =
+      await this.repository.findDocumentContext(documentId);
+    if (
+      documentContext === null ||
+      documentContext.milestoneId !== milestoneId
+    ) {
+      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+    }
+    const applicationProgramId =
+      await this.repository.findApplicationProgramId(teamId);
+    if (applicationProgramId !== documentContext.programId) {
+      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+    }
+    const created = await this.repository.withTransaction(async (store) => {
+      if (!(await store.lockProgramForReview(documentContext.programId))) {
+        throw this.error(MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND);
+      }
+      const locked = await store.lockDocument(documentId);
+      if (locked === null || locked.milestoneId !== milestoneId) {
+        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      }
+      const submission = await store.findSubmissionForReview(
+        documentId,
+        teamId,
+      );
+      if (submission === null) {
+        throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND);
+      }
+
+      if (await store.isApplicationParticipant(teamId, reviewerId)) {
+        throw this.error(MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN);
+      }
+      if (submission.revision !== input.expectedRevision) {
+        throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
+      }
+      const latestReviewId = await store.findLatestReviewIdForSubmission(
+        submission.id,
+      );
+      if (latestReviewId !== input.expectedLatestReviewId) {
+        throw this.error(MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED);
+      }
+      const reviewedAt =
+        this.milestoneDocumentSubmissionRepository.nextHistoryCreatedAt(
+          now(),
+          submission.latestHistoryCreatedAt,
+        );
+      const review = await store.createReview({
+        milestoneDocumentSubmissionId: submission.id,
+        submissionHistoryId: submission.submissionHistoryId,
+        revision: submission.revision,
+        reviewerId,
+        decision: input.decision,
+        comment: input.comment,
+        reviewedAt,
+      });
+      await store.updateSubmissionStatus(
+        submission.id,
+        this.reviewDecisionToSubmissionStatus(input.decision),
+      );
+      return review;
+    });
+    return created;
+  }
+  private error(code: MilestoneDocumentsErrorCode): DomainException {
+    return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
+  }
 }

@@ -1,7 +1,10 @@
 import { ProgramScheduleService } from '../programs/program-schedule.service';
 import { ProgramTemplatesService } from '../programs/team-application.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
-import { ProgramListStatusFilterRepository } from '../programs/program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from '../programs/programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
@@ -12,12 +15,13 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import type { RepositoriesReadService } from '../github/repositories-read.service';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramsRepository } from '../programs/programs.repository';
 import { StudentDashboardRepository } from './student-dashboard.repository';
-import { ProgramsService } from '../programs/programs.service';
+import {
+  ProgramsService,
+  ProgramCoverUrlService,
+} from '../programs/programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
-import { MilestoneCompletionService } from '../programs/milestone-completion.service';
-import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import { MilestoneCompletionService } from '../programs/submissions.service';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,

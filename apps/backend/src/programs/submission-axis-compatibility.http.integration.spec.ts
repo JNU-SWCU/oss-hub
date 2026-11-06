@@ -3,12 +3,16 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
-import { SubmissionsRepository } from './submissions.repository';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
+import {
+  SubmissionsRepository,
+  SubmissionReviewsRepository,
+} from './submissions.repository';
 import { EventEmitter, once } from 'node:events';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import {
   MilestoneDocumentFlowFixture,
   flowIds,
@@ -20,7 +24,7 @@ assertIsolatedIntegrationDatabase({
 });
 const fixture = new MilestoneDocumentFlowFixture();
 const platform = new PlatformRepository();
-const writeRepository = new MilestoneDocumentsRepository(
+const writeRepository = new RequirementsRepository(
   fixture.prisma,
   new LockProgramTreeRepository(),
   platform,
@@ -42,7 +46,7 @@ beforeEach(async () => {
 afterAll(() => fixture.stop());
 it('holds the submission row lock before reading the item review version', async () => {
   expect((await fixture.submit('initial content')).status).toBe(201);
-  const repository = new MilestoneDocumentsRepository(
+  const repository = new RequirementsRepository(
     fixture.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),

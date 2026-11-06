@@ -1,7 +1,7 @@
 import { FileMetadataRepository } from './files.repository';
 import { AccountStatus, FileLifecycle } from '@prisma/client';
 import { MemberKind } from '../users/user-contract.config';
-import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
+import { MilestoneDocumentCurrentFileRepository } from './requirements.repository';
 
 const NOW = new Date('2026-09-20T00:00:00.000Z');
 

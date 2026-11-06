@@ -17,7 +17,7 @@ import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramEditorRepository } from './program-editor.repository';
 import { ProgramEditorService } from './program-editor.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 
 export const TEST_PREFIX = 'test:101:program-editor:concurrency:';
 export const STAFF_GITHUB_ID = 9101000001n;

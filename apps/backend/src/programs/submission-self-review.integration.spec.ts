@@ -1,7 +1,13 @@
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { SubmissionsRepository } from './submissions.repository';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
+import {
+  SubmissionsRepository,
+  SubmissionReviewsRepository,
+} from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
@@ -11,13 +17,13 @@ import {
   flowIds,
 } from './milestone-document-flow.integration-fixture';
 import { flowGithubIds } from './milestone-document-flow-data.integration-fixture';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { SubmissionReviewsService } from './submission-reviews.service';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
+import {
+  MilestoneDocumentReviewsService,
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -25,7 +31,7 @@ assertIsolatedIntegrationDatabase({
 });
 const fixture = new MilestoneDocumentFlowFixture();
 const documentReviews = new MilestoneDocumentReviewsService(
-  new MilestoneDocumentsRepository(
+  new RequirementsRepository(
     fixture.prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
@@ -44,7 +50,7 @@ const documentReviews = new MilestoneDocumentReviewsService(
     new FileMetadataRepository(),
   ),
 );
-const legacyReviews = new SubmissionReviewsService(
+const legacyReviews = new SubmissionsService(
   new SubmissionReviewsRepository(fixture.prisma, new PlatformRepository()),
   { publish: jest.fn() },
   new RepositoryPublishService(),

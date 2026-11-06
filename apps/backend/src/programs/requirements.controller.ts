@@ -18,7 +18,8 @@ import { type AuthenticatedRequest } from '../auth/http-auth.types';
 import {
   MilestoneDocumentCurrentFileService,
   MilestoneDocumentCollectionService,
-} from './milestone-document-collection.service';
+  RequirementArchiveService,
+} from './requirement-archive.service';
 import {
   MilestoneDocumentResponseDto,
   MilestoneDocumentListResponseDto,
@@ -38,15 +39,21 @@ import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
 } from './milestone-documents-error-code.error';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import { MilestoneDocumentFilesService } from './files.service';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { MilestoneDocumentReviewsService } from './submissions.service';
+import {
+  RequirementsService,
+  ProgramDocumentChangeRequestsService,
+} from './requirements.service';
 import { Protected } from '../auth/auth-route.decorator';
 import { DomainException } from '../platform/error-code.error';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
-
+import { ProgramDocumentArchiveRequestDto } from './dto/program-document-archive-request.dto';
+import { ProgramDocumentChangeRequestCountResponseDto } from './dto/program-document-change-request-count-response.dto';
+import { CreateProgramDocumentChangeRequestRequestDto } from './dto/create-program-document-change-request-request.dto';
+import { ProgramDocumentChangeRequestTargetsRequestDto } from './dto/program-document-change-request-targets-request.dto';
+import { ProgramDocumentChangeRequestTargetsResponseDto } from './dto/program-document-change-request-targets-response.dto';
 type ViewerRequest = Pick<
   AuthenticatedRequest,
   'sessionGithubId' | 'principal'
@@ -56,12 +63,12 @@ const staffOnly = () =>
     MILESTONE_DOCUMENTS_ERROR_CODES[MilestoneDocumentsErrorCode.STAFF_ONLY],
   );
 @Controller('milestones/:milestoneId/documents')
-export class MilestoneDocumentsController {
+export class RequirementsController {
   constructor(
-    private readonly service: MilestoneDocumentsService,
+    private readonly service: RequirementsService,
     private readonly filesService: MilestoneDocumentFilesService,
     private readonly reviewsService: MilestoneDocumentReviewsService,
-    private readonly archiveService: MilestoneDocumentArchiveService,
+    private readonly archiveService: RequirementArchiveService,
     private readonly collectionService: MilestoneDocumentCollectionService,
     private readonly currentFileService: MilestoneDocumentCurrentFileService,
   ) {}
@@ -278,6 +285,66 @@ export class MilestoneDocumentsController {
       request.sessionGithubId,
       milestoneId,
       documentId,
+    );
+  }
+}
+@Controller('programs/:programId/documents/collection/archive')
+export class ProgramDocumentArchivesController {
+  constructor(private readonly archives: RequirementArchiveService) {}
+
+  @Get()
+  @Header('Cache-Control', 'private, no-store')
+  @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
+  async archive(
+    @Param('programId') programId: string,
+    @Query() query: ProgramDocumentArchiveRequestDto,
+    @Res({ passthrough: true }) response: Response,
+  ): Promise<StreamableFile> {
+    return this.archives.streamArchiveForProgramStaff(
+      response,
+      programId,
+      query,
+    );
+  }
+}
+type SessionRequest = Pick<AuthenticatedRequest, 'principal'>;
+
+@Controller('programs/:programId/documents/change-requests')
+export class ProgramDocumentChangeRequestsController {
+  constructor(
+    private readonly changeRequests: ProgramDocumentChangeRequestsService,
+  ) {}
+
+  @Get('targets')
+  @Header('Cache-Control', 'private, no-store')
+  @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
+  async targets(
+    @Param('programId') programId: string,
+    @Query() query: ProgramDocumentChangeRequestTargetsRequestDto,
+  ): Promise<ProgramDocumentChangeRequestTargetsResponseDto> {
+    return ProgramDocumentChangeRequestTargetsResponseDto.from(
+      await this.changeRequests.targetsFromRequest(programId, query),
+    );
+  }
+
+  @Post()
+  @HttpCode(201)
+  @Protected()
+  @Roles(STAFF_AUDIENCE, staffOnly)
+  @UseGuards(OriginGuard)
+  async create(
+    @Req() request: SessionRequest,
+    @Param('programId') programId: string,
+    @Body() body: CreateProgramDocumentChangeRequestRequestDto,
+  ): Promise<ProgramDocumentChangeRequestCountResponseDto> {
+    return ProgramDocumentChangeRequestCountResponseDto.from(
+      await this.changeRequests.requestChangesFromRequest(
+        request.principal.id,
+        programId,
+        body,
+      ),
     );
   }
 }
