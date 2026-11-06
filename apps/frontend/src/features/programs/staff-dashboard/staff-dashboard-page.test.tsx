@@ -67,25 +67,20 @@ describe('staff dashboard parser and model', () => {
     ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
   });
 
-  it('게시 상태 부재만 허용하고 종료일 부재와 잘못된 게시 상태는 거부한다', () => {
+  it('종료일 부재는 거부하고 게시 상태는 있든 없든 읽는다', () => {
     const withoutEndAt = { ...fixtureProgram };
     Reflect.deleteProperty(withoutEndAt, 'endAt');
-    const withoutLifecycle = {
-      ...fixtureProgram,
-    };
-    Reflect.deleteProperty(withoutLifecycle, 'lifecycle');
+    const withLegacyLifecycle = { ...fixtureProgram, lifecycle: 'PUBLISHED' };
 
     expect(() =>
       parseStaffDashboardSummary({ programs: [withoutEndAt] }),
     ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+    expect(parseStaffDashboardSummary({ programs: [fixtureProgram] })).toEqual({
+      programs: [fixtureProgram],
+    });
     expect(
-      parseStaffDashboardSummary({ programs: [withoutLifecycle] }),
-    ).toEqual({ programs: [withoutLifecycle] });
-    expect(() =>
-      parseStaffDashboardSummary({
-        programs: [{ ...fixtureProgram, lifecycle: 'DRAFT' }],
-      }),
-    ).toThrow('운영 대시보드 응답 형식이 올바르지 않습니다.');
+      parseStaffDashboardSummary({ programs: [withLegacyLifecycle] }),
+    ).toEqual({ programs: [withLegacyLifecycle] });
   });
 
   it('빈 목록과 검색 결과 없음을 구분한다', () => {
@@ -156,43 +151,39 @@ describe('StaffDashboardOverview', () => {
 });
 
 describe('StaffDashboardStatusSummary', () => {
-  it('모집중 → 진행중 → 종료 순서로 세 장만 세우고 내림은 종료 카드에 붙인다', () => {
+  it('모집중 → 진행중 → 종료 순서로 세 장만 세운다', () => {
     const html = renderToStaticMarkup(
       <StaffDashboardStatusSummary
-        summary={{ recruiting: 2, inProgress: 1, ended: 3, archived: 1 }}
+        summary={{ recruiting: 2, inProgress: 1, ended: 3 }}
       />,
     );
 
     expect(html.match(/data-slot="card"/g)).toHaveLength(3);
     expect(html.indexOf('모집중')).toBeLessThan(html.indexOf('진행중'));
     expect(html.indexOf('진행중')).toBeLessThan(html.indexOf('>종료<'));
-
-    expect(textOf(html)).toContain('3개 / 내림 1개');
-    expect(html).not.toContain('그중');
-
-    expect(html).toContain('aria-label="3개, 내림 1개 포함"');
+    expect(textOf(html)).toContain('3개');
   });
 
-  it('내림이 없는 두 카드는 곁수 없이 수 하나만 말한다', () => {
+  it('세 카드 모두 곁수 없이 수 하나만 말한다', () => {
     const html = renderToStaticMarkup(
       <StaffDashboardStatusSummary
-        summary={{ recruiting: 2, inProgress: 1, ended: 3, archived: 1 }}
+        summary={{ recruiting: 2, inProgress: 1, ended: 3 }}
       />,
     );
 
-    expect(textOf(html).match(/ \/ /g)).toHaveLength(1);
-    expect(html.match(/aria-label="/g)).toHaveLength(2);
+    expect(textOf(html)).not.toContain(' / ');
+    expect(textOf(html)).not.toContain('내림');
+    expect(html.match(/aria-label="/g)).toHaveLength(1);
   });
 
-  it('내림이 없어도 종료 카드는 0개로 말한다', () => {
+  it('종료가 없어도 종료 카드는 0개로 말한다', () => {
     const html = renderToStaticMarkup(
       <StaffDashboardStatusSummary
-        summary={{ recruiting: 0, inProgress: 0, ended: 0, archived: 0 }}
+        summary={{ recruiting: 0, inProgress: 0, ended: 0 }}
       />,
     );
 
-    expect(textOf(html)).toContain('0개 / 내림 0개');
-    expect(html).toContain('aria-label="0개, 내림 0개 포함"');
+    expect(textOf(html).match(/0개/g)).toHaveLength(3);
   });
 });
 

@@ -49,7 +49,6 @@ const OVERVIEW: ProgramOverview = {
   programId: 'program-1',
   name: '합성 프로그램',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'PUBLISHED',
   milestoneCount: 2,
   boardPostCount: 0,
   participantCount: 3,

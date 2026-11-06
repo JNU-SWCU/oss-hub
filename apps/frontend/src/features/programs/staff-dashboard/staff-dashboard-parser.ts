@@ -10,7 +10,6 @@ import type {
   StaffDashboardSubmissionSummary,
   StaffDashboardSummary,
 } from './dto';
-import { hasCompatibleProgramLifecycle } from '../program-lifecycle';
 
 export class StaffDashboardResponseError extends Error {
   constructor() {
@@ -115,7 +114,6 @@ function isProgram(value: unknown): value is StaffDashboardProgramSummary {
     Date.parse(value.applicationPeriod.startsAt) <=
       Date.parse(value.applicationPeriod.endsAt) &&
     isIsoDate(value.endAt) &&
-    hasCompatibleProgramLifecycle(value) &&
     value.teamManagementPath === expectedTeamManagementPath &&
     isApplications(value.applications) &&
     isActivity(value.activity) &&

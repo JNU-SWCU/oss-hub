@@ -81,7 +81,6 @@ const DETAIL = {
   organizer: '합성 기관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: '',
   repositoryProvisioningEnabled: false,
   applicationPeriod: {
@@ -316,7 +315,6 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
         programId: 'program-1',
         name: DETAIL.name,
         trackType: DETAIL.trackType,
-        lifecycle: 'PUBLISHED',
         milestoneCount: 1,
         boardPostCount: 0,
         participantCount: 5,

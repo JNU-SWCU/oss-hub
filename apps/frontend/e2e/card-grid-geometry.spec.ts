@@ -33,7 +33,6 @@ async function installGeometryRoutes(page: Page, spec: Fixture = {}) {
           : '산학 협력 오픈소스 프로그램 합성 캡스톤 디자인 경진대회',
     organizer: '합성 주관',
     trackType: 'CURRICULAR',
-    lifecycle: 'PUBLISHED',
     applicationStartAt: '2026-01-01T00:00:00.000Z',
     applicationEndAt: '2026-12-31T00:00:00.000Z',
     endAt: null,

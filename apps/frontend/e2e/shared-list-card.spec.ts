@@ -50,7 +50,6 @@ async function installRoutes(page: Page) {
               name: title,
               organizer: '합성 주관',
               trackType: 'EXTRACURRICULAR',
-              lifecycle: 'PUBLISHED',
               applicationStartAt: '2026-01-01T00:00:00.000Z',
               applicationEndAt: '2026-12-31T00:00:00.000Z',
               endAt:
@@ -102,7 +101,6 @@ async function installRoutes(page: Page) {
           programId,
           name: title,
           trackType: 'EXTRACURRICULAR',
-          lifecycle: 'PUBLISHED',
           milestoneCount: 0,
           boardPostCount: 0,
           participantCount: 0,

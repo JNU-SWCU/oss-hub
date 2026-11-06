@@ -19,7 +19,6 @@ export function staffDashboardProgram(
       endsAt: '2026-07-31T23:59:59.000Z',
     },
     endAt: PROGRAM_END_AT_UNDECIDED,
-    lifecycle: 'PUBLISHED',
     applications: {
       total: 3,
       submitted: 1,
