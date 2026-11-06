@@ -276,7 +276,6 @@ function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
 
 function jobRow(
   team: { readonly name: string; readonly nicknames: readonly string[] } | null,
-  connectionMode: RepositoryConnectionMode = RepositoryConnectionMode.NEW,
   source: RepositorySource = RepositorySource.ORG_PROVISIONED,
 ) {
   return {
@@ -286,14 +285,8 @@ function jobRow(
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
       programId: 'program-1',
-      teamId: team === null ? null : 'team-1',
       applicant: { githubId: 42n, nickname: 'Applicant-Login' },
       program: { name: 'Synthetic', repositoryProvisioningEnabled: true },
-      repositoryConnectionMode: connectionMode,
-      repositoryUrl:
-        connectionMode === RepositoryConnectionMode.OWN
-          ? 'https://github.com/synthetic-owner/synthetic-repo'
-          : null,
       name: team?.name ?? 'Synthetic solo team',
       members: (team?.nicknames ?? []).map((nickname) => ({
         user: { nickname },
@@ -364,11 +357,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
       },
     });
     db.repositoryProvisionJob.findFirst.mockResolvedValue(
-      jobRow(
-        null,
-        RepositoryConnectionMode.OWN,
-        RepositorySource.EXTERNAL_PUBLIC,
-      ),
+      jobRow(null, RepositorySource.EXTERNAL_PUBLIC),
     );
 
     const context = await serviceFor(db).loadContext(
@@ -389,11 +378,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     const db = createDb();
     db.team.count.mockResolvedValue(0);
     db.repositoryProvisionJob.findFirst.mockResolvedValue(
-      jobRow(
-        null,
-        RepositoryConnectionMode.OWN,
-        RepositorySource.ORG_PROVISIONED,
-      ),
+      jobRow(null, RepositorySource.ORG_PROVISIONED),
     );
     await expect(
       serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
@@ -406,11 +391,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
   it('원래 NEW라도 현재 외부 저장소에는 팀 초대 원본을 요구하지 않는다', async () => {
     const db = createDb();
     db.repositoryProvisionJob.findFirst.mockResolvedValue(
-      jobRow(
-        null,
-        RepositoryConnectionMode.NEW,
-        RepositorySource.EXTERNAL_PUBLIC,
-      ),
+      jobRow(null, RepositorySource.EXTERNAL_PUBLIC),
     );
     const context = await serviceFor(db).loadContext(
       JOB_ID,
@@ -1073,9 +1054,6 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
       teamId: 'application-1',
       programId: 'program-1',
       connectionMode: RepositoryConnectionMode.OWN,
-      repositoryUrl: url,
-      currentConnectionMode: RepositoryConnectionMode.OWN,
-      currentRepositoryUrl: url,
       source: RepositorySource.EXTERNAL_PUBLIC,
       metadata: {
         githubRepositoryId: 7n,

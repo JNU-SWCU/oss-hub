@@ -80,7 +80,6 @@ export function provisionContext(
     requestedConnectionMode: 'NEW',
     requestedRepositoryUrl: null,
     requestedByGithubId: null,
-    currentConnectionMode: 'NEW',
     teamId: 'synthetic-application-id',
     applicantGithubId: 9_000_000_730_101n,
     applicationStatus: ApplicationStatus.APPROVED,

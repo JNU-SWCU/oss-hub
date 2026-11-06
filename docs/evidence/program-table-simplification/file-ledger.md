@@ -939,3 +939,7 @@ purge 설정과 그 테스트에서 쓰는 곳이 없는 PROGRAM outbox 서술�
 기준은 같은 계획 16행의 1단계 브랜치다. 1단계 뒤로 `Team.repositoryUrl`을 읽거나 쓰는 코드가 없어, 마이그레이션 `20261106230000_drop_team_repository_url`이 이 열을 지운다. 마이그레이션은 `Team`을 먼저 잠그고 값이 있는 행을 센다. 1단계 뒤로 이 열에 쓰는 코드가 없어 값은 1단계 전 운영에서 센 3개보다 늘 수 없으므로, 3개보다 많으면 아무것도 바꾸기 전에 멈춘다. 0개부터 3개까지는 지우고, 새 DB의 0개도 여기 든다. schema.prisma에서는 `@ignore` 선언을 지웠다.
 
 새 파일은 마이그레이션과 그 가드를 확인하는 통합 테스트 두 개다. 지우거나 합친 파일은 없어 원장 행은 바뀌지 않고, programs 제품 파일 수와 줄 수도 1단계와 같다.
+
+## Todo 16 후속: 읽지 않는 currentConnectionMode 정리
+
+기준은 #1774를 머지한 `5b0c623b8`이다. 발급 문맥과 기록 입력의 `currentConnectionMode`는 값을 넘기기만 하고 읽는 곳이 없어, 그 필드와 이 값만 위해 읽던 `Team.repositoryConnectionMode` 조회를 지웠다. 발급 상태 spec의 목과 입력에서도 조회하지 않거나 입력 타입에 없는 `repositoryConnectionMode`·`repositoryUrl`·`currentRepositoryUrl`·`teamId`를 뺐다. 파일 수와 동작은 그대로라 원장 행은 바뀌지 않고, programs 제품 파일 수와 줄 수도 2단계와 같다(153개 32087줄).

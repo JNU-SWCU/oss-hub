@@ -43,7 +43,6 @@ export interface RepositoryProvisionContext {
   readonly requestedConnectionMode: RepositoryConnectionMode;
   readonly requestedRepositoryUrl: string | null;
   readonly requestedByGithubId: bigint | null;
-  readonly currentConnectionMode: RepositoryConnectionMode;
   readonly teamId: string;
   readonly applicantGithubId: bigint;
   readonly applicationStatus: ApplicationStatus;
@@ -73,7 +72,6 @@ export interface RecordProvisionedRepositoryInput {
   readonly teamId: string;
   readonly programId: string;
   readonly connectionMode: RepositoryConnectionMode;
-  readonly currentConnectionMode: RepositoryConnectionMode;
   readonly connectionAudit?: RepositoryConnectionAudit;
 
   readonly source: RepositorySource;
@@ -276,7 +274,6 @@ export class RepositoryProvisionStateRepository {
       readonly teamId: string;
       readonly metadata: GithubRepositoryMetadata;
       readonly source: RepositorySource;
-      readonly currentConnectionMode: RepositoryConnectionMode;
       readonly connectionMode: RepositoryConnectionMode;
       readonly connectionAudit?: RepositoryConnectionAudit;
     },
@@ -462,7 +459,6 @@ export class RepositoryProvisionStateRepository {
               id: true,
               status: true,
               programId: true,
-              repositoryConnectionMode: true,
               applicant: { select: { githubId: true, nickname: true } },
               program: {
                 select: {
@@ -522,7 +518,6 @@ export class RepositoryProvisionStateRepository {
             teamId: input.teamId,
             metadata: input.metadata,
             source: input.source,
-            currentConnectionMode: input.currentConnectionMode,
             connectionMode: input.connectionMode,
             connectionAudit: input.connectionAudit,
           },
