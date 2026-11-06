@@ -5,7 +5,7 @@ import type {
   IndependentAuthorityAuditMetadata,
   UserProfileAuditMetadata,
   UserPhoneAuditMetadata,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 
 export type RequestSnapshot = {
   readonly id: string;

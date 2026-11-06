@@ -16,8 +16,8 @@ import {
   USER_PROFILE_AUDIT_FIELDS,
   USER_PROFILE_AUDIT_SCHEMA_VERSION,
   type UserPhoneAuditTransition,
-} from '../platform/audit-log-metadata.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+} from '../platform/history-metadata.config';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
@@ -148,13 +148,16 @@ function buildService(
     fillStudentId,
     updateProfileFields,
   };
-  const auditLog = { record } satisfies Pick<UserHistoryRepository, 'record'>;
+  const userHistory = { record } satisfies Pick<
+    UserHistoryRepository,
+    'record'
+  >;
   return {
     service: new UsersService(
       repository,
       { requireCurrent },
-      auditLog,
-      new AuditLogMetadataService(),
+      userHistory,
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     requireCurrent,

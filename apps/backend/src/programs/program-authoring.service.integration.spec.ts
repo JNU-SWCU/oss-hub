@@ -27,12 +27,12 @@ import {
   ProgramAuthoringUploadTokenError,
 } from './program-authoring.error';
 import { type ProgramAuthoringDocumentRequest } from './files.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new ProgramScheduleService(),
   new ProgramTemplatesService(),
   new ProgramAuthoringUploadService(
@@ -56,7 +56,7 @@ describe('ProgramAuthoringService integration', () => {
       ),
     ),
     new ProgramHistoryRepository(),
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new ProgramScheduleService(),
     new ProgramTemplatesService(),
     new ProgramAuthoringUploadService(

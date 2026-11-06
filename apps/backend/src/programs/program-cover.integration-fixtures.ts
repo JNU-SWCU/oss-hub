@@ -21,7 +21,7 @@ import { randomUUID } from 'node:crypto';
 import { Test } from '@nestjs/testing';
 import { ProgramTrackType } from '@prisma/client';
 import { ProgramHistoryRepository } from './programs.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramAuthoringService } from './programs.service';
 import { ProgramEditorRepository } from './program-editor.repository';
@@ -139,7 +139,7 @@ beforeAll(async () => {
       ProgramCoverRepository,
       ProgramAuthoringService,
       ProgramAuthoringRepository,
-      AuditLogMetadataService,
+      HistoryMetadataService,
       ProgramScheduleService,
       ProgramTemplatesService,
       {

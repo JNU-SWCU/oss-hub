@@ -53,7 +53,6 @@ import {
   type ProgramNoticePreview,
 } from './program-notice-fetch.client';
 import { ProgramHistoryRepository } from './programs.repository';
-import {} from '../platform/audit-log-metadata.config';
 import { ProgramAuthoringUploadTransactionRepository } from './files.repository';
 import {
   type ProgramAuthoringRequest,
@@ -67,7 +66,7 @@ import {
   ProgramAuthoringValidationError,
 } from './program-authoring-validation.error';
 import { createHash } from 'node:crypto';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { ProgramAuthoringUploadService } from './files.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 
@@ -550,7 +549,7 @@ export class ProgramAuthoringService {
     @Inject(ProgramAuthoringRepository)
     private readonly repository: ProgramAuthoringStore,
     private readonly programHistory: ProgramHistoryRepository,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly programScheduleService: ProgramScheduleService,
     private readonly programTemplatesService: ProgramTemplatesService,
     private readonly programAuthoringUploadService: ProgramAuthoringUploadService,
@@ -663,7 +662,7 @@ export class ProgramAuthoringService {
       programId: program.id,
       actorGithubId: githubId,
       event: 'CREATED',
-      metadata: this.auditLogMetadataService.createProgramCreatedAuditMetadata({
+      metadata: this.historyMetadataService.createProgramCreatedAuditMetadata({
         programName: program.name,
       }),
     });
@@ -933,7 +932,7 @@ export class ProgramLifecycleService {
   constructor(
     private readonly repository: ProgramLifecycleRepository,
     private readonly programHistory: ProgramHistoryRepository,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly prismaSerializationRetryRepository: PrismaSerializationRetryRepository,
   ) {}
   async delete(
@@ -964,7 +963,7 @@ export class ProgramLifecycleService {
         actorGithubId: githubId,
         event: 'DELETED',
         metadata:
-          this.auditLogMetadataService.createProgramDeletionAuditMetadata({
+          this.historyMetadataService.createProgramDeletionAuditMetadata({
             programName: program.name,
             lifecycle: program.lifecycle,
             blockingCounts,
@@ -1012,7 +1011,7 @@ export class ProgramLifecycleService {
           actorGithubId: githubId,
           event: 'DELETED',
           metadata:
-            this.auditLogMetadataService.createProgramDeletionAuditMetadata({
+            this.historyMetadataService.createProgramDeletionAuditMetadata({
               programName: program.name,
               lifecycle: program.lifecycle,
               blockingCounts: {

@@ -8,7 +8,7 @@ import type {
   UsersRepositoryPort,
 } from './users.repository';
 import { UsersService, type PatchUserProfileInput } from './users.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 type StudentIdFillOutcome = Awaited<
   ReturnType<UsersRepositoryPort['fillStudentId']>
@@ -95,7 +95,7 @@ function buildService(
       repository,
       { requireCurrent },
       { record },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
     requireCurrent,

@@ -20,7 +20,7 @@ import type {
 import { RepositoriesReadService } from './repositories-read.service';
 import { RepositoryProvisionStateError } from './repository-provision-state.error';
 import { RepositoryNotFoundError } from './repositories.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryUrlService } from './repository-url.service';
 
 describe('repository-own-enrollment.service', () => {
@@ -165,7 +165,7 @@ function serviceFrom(deps: ReturnType<typeof dependencies>) {
   return new RepositoriesService(
     deps.repository as unknown as RepositoriesRepository,
     deps.github as unknown as GithubAppClient,
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new RepositoryUrlService(),
   );
 }

@@ -60,7 +60,6 @@ model User {
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
-  auditLogs                              AuditLog[]
   loginHistories                         LoginHistory[]
   profile                                UserProfile?
 }

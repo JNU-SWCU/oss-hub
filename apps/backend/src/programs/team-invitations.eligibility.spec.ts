@@ -6,7 +6,7 @@ import { MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamInvitationsRepository } from './team-invitations.repository';
 import { TeamInvitationsService } from './team-invitations.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 const programId = 'cuid-synthetic-program';
 const teamId = 'cuid-synthetic-team';
@@ -93,7 +93,7 @@ describe('팀 초대 대상 자격', () => {
     );
     const service = new TeamInvitationsService(
       repository,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     );
 
@@ -155,7 +155,7 @@ describe('팀 초대 대상 자격', () => {
     };
     const service = new TeamInvitationsService(
       repository as unknown as TeamInvitationsRepository,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     );
 

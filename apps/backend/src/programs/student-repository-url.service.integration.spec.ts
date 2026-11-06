@@ -22,7 +22,7 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { TeamApplicationService } from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
@@ -30,7 +30,7 @@ import { ApplicationAnswersService } from './team-application.service';
 const parseProvisionPayload = (payload: unknown) =>
   new RepositoryProvisionEventService().parseRepositoryProvisionEvent(payload);
 
-const auditLogMetadataService = new AuditLogMetadataService();
+const historyMetadataService = new HistoryMetadataService();
 const applicationsService = new TeamApplicationService(
   applications,
   new RepositoryUrlService(),
@@ -427,7 +427,7 @@ it('serializes different targets into a continuous team history chain', async ()
     const data = row.data;
     if (data === null || typeof data !== 'object' || Array.isArray(data))
       throw new Error('Expected team history data');
-    return auditLogMetadataService.parseApplicationRepositoryUrlAuditMetadata(
+    return historyMetadataService.parseApplicationRepositoryUrlAuditMetadata(
       data.metadata,
     );
   });

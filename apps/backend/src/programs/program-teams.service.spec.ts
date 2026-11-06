@@ -25,7 +25,7 @@ import {
   stubTeamDeletionRepository,
 } from './program-teams.service.test-support';
 import { TeamsErrorCode } from './teams-error-code.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
@@ -177,7 +177,7 @@ function buildService(overrides: {
     service: new TeamMembershipService(
       repository,
       deletionRepository,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),
@@ -617,7 +617,7 @@ describe('TeamMembershipService membership transaction boundary', () => {
       service: new TeamMembershipService(
         repository,
         stubTeamDeletionRepository(),
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new RepositoryPublishService(),
         new RepositoryUrlService(),
         new MilestoneCompletionService(),

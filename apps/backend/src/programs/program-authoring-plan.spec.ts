@@ -14,12 +14,12 @@ import {
   type ProgramAuthoringRequest,
 } from './files.config';
 import { ProgramAuthoringService } from './programs.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new ProgramScheduleService(),
   new ProgramTemplatesService(),
   new ProgramAuthoringUploadService(

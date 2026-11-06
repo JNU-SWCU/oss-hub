@@ -17,7 +17,7 @@ import {
 } from './program-error-code.error';
 import { ProgramCreationService } from './program-creation.service';
 import { ProgramsRepository } from './programs.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 const input: CreateProgramRequestDto = {
   name: '  2026 OSS Contest  ',
@@ -67,7 +67,7 @@ describe('ProgramsService', () => {
       new ProgramListStatusFilterRepository(),
     ),
     programHistory,
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new ProgramScheduleService(),
     new ProgramTemplatesService(),
   );

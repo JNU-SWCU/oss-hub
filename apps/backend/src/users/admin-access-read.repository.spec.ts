@@ -22,21 +22,21 @@ import {
   AdminAccessMutationService,
 } from './admin-access-mutation.service';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import type { AdminAccessUserDetailRow } from './admin-access-read.repository';
 import type { AdminAccessUserDetailSource } from './admin-access-read.repository';
 const toDetail = (row: AdminAccessUserDetailRow | null) =>
   row &&
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ).toAdminAccessUserDetailRecord(row);
 const toRecord = (
   user: Parameters<AdminAccessReadRepository['toAdminAccessUserRow']>[0],
 ) =>
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ).toAdminAccessUserRecord(
     new AdminAccessReadRepository(
@@ -44,7 +44,7 @@ const toRecord = (
     ).toAdminAccessUserRow(user),
   );
 const adminAccessMutationService = new AdminAccessMutationService(
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 describe('admin access read profile completeness', () => {

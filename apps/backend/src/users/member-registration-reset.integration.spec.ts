@@ -7,7 +7,7 @@ import { Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminRepository } from './admin.repository';
 import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessReadRepository } from './admin-access-read.repository';
@@ -46,9 +46,9 @@ const audit = new UserHistoryRepository(transitions);
 const service = new MemberRegistrationResetService(
   repository,
   audit,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   profiles,
-  new AdminAccessMutationService(new AuditLogMetadataService(), profiles),
+  new AdminAccessMutationService(new HistoryMetadataService(), profiles),
 );
 let sequence = 0;
 const at = new Date('2026-01-01T00:00:00.000Z');
@@ -233,7 +233,7 @@ describe('registration reset persistence', () => {
       new UsersRepository(prisma, transitions),
       consents,
       audit,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       profiles,
     );
     await users.completeMyProfile(user.githubId, {
@@ -343,9 +343,9 @@ describe('registration reset persistence', () => {
     const failing = new MemberRegistrationResetService(
       repository,
       { record: jest.fn().mockRejectedValue(new Error('synthetic failure')) },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       profiles,
-      new AdminAccessMutationService(new AuditLogMetadataService(), profiles),
+      new AdminAccessMutationService(new HistoryMetadataService(), profiles),
     );
     await expect(
       failing.resetFromRequest(admin.githubId, user.id, expectState(user)),

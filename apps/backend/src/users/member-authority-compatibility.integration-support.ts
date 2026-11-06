@@ -17,7 +17,7 @@ import { AdminAccessRepository } from './admin-access.repository';
 import { AdminAccessService } from './admin-access.service';
 import { UsersRepository } from './users.repository';
 import { UsersService } from './users.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 export const compatibilityPrisma = new PrismaService();
@@ -25,7 +25,7 @@ export const compatibilityUsers = new UsersService(
   new UsersRepository(compatibilityPrisma, new UserTransitionRepository()),
   { requireCurrent: () => Promise.resolve(undefined) },
   new UserHistoryRepository(new UserTransitionRepository()),
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 export const compatibilityAccess = new AdminAccessService(
@@ -38,7 +38,7 @@ export const compatibilityAccess = new AdminAccessService(
   ),
   new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ),
 );

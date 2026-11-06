@@ -16,7 +16,7 @@ import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { AccountDeactivationRepository } from './account-deactivation.repository';
 import { AccountDeactivationService } from './account-deactivation.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -35,7 +35,7 @@ const service = new AccountDeactivationService(
     ),
   ),
   new UserHistoryRepository(new UserTransitionRepository()),
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
   new AuthConfig(loadRuntimeConfig({})),
   new AuthSessionService(),

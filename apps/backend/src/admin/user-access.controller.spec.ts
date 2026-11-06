@@ -20,7 +20,7 @@ import { PatchIndependentAuthorityRequestDto } from './dto/patch-independent-aut
 import { IndependentAuthorityService } from '../users/independent-authority.service';
 import { MemberRegistrationResetService } from '../users/member-registration-reset.service';
 import { ADMIN_ACCESS_COMMANDS } from '../users/admin-access-query.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from '../users/user-profile.service';
 import { AdminAccessMutationService } from '../users/admin-access-mutation.service';
 
@@ -293,7 +293,7 @@ describe('independent-authority.controller', () => {
 });
 
 const adminAccessMutationService = new AdminAccessMutationService(
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 
@@ -325,7 +325,7 @@ function serviceHarness() {
 function profileServiceHarness() {
   return onPrototype(AdminProfileService.prototype, {
     adminProfileMutationService: new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       adminAccessMutationService,
     ),

@@ -31,13 +31,13 @@ import {
   type ProgramAuthoringProgram,
   type ProgramAuthoringRequest,
 } from './files.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 
 const programAuthoringService = new ProgramAuthoringService(
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new ProgramScheduleService(),
   new ProgramTemplatesService(),
   new ProgramAuthoringUploadService(
@@ -215,7 +215,7 @@ function setup() {
     service: new ProgramAuthoringService(
       repository,
       programHistory,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new ProgramScheduleService(),
       new ProgramTemplatesService(),
       new ProgramAuthoringUploadService(
@@ -300,7 +300,7 @@ describe('ProgramAuthoringService', () => {
         },
         ProgramAuthoringService,
         { provide: ProgramAuthoringRepository, useValue: repository },
-        AuditLogMetadataService,
+        HistoryMetadataService,
         { provide: ProgramHistoryRepository, useValue: { append: jest.fn() } },
       ],
     }).compile();

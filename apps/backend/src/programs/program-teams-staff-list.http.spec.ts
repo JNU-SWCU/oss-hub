@@ -32,7 +32,7 @@ import {
   EMPTY_TEAM_DELETION_SCOPE,
   stubTeamDeletionRepository,
 } from './program-teams.service.test-support';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -200,7 +200,7 @@ const repository = {
 const service = new TeamMembershipService(
   repository,
   stubTeamDeletionRepository(),
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new RepositoryPublishService(),
   new RepositoryUrlService(),
   new MilestoneCompletionService(),

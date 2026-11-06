@@ -2,7 +2,7 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { PrismaService } from './prisma.service';
 import { AuditLogReadRepository } from './audit-log-read.repository';
 import { AuditLogReadService } from './audit-log-read.service';
-import { InvalidAuditLogMetadataError } from './audit-log-error-code.error';
+import { InvalidAuditLogMetadataError } from './history.error';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

@@ -22,7 +22,7 @@ import { AdminAccessRepository } from '../src/users/admin-access.repository';
 import { AdminAccessService } from '../src/users/admin-access.service';
 import { canonicalUserCreateFromLabel } from '../src/users/canonical-user-fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
-import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../src/platform/history-metadata.service';
 import { AdminAccessMutationService } from '../src/users/admin-access-mutation.service';
 import { CollectionUserActivityService } from '../src/github/collection-user-activity.service';
 import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
@@ -89,7 +89,7 @@ describe('accountStatus migration regression', () => {
     ),
     new UserHistoryRepository(transitions),
     new AdminAccessMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     ),
   );

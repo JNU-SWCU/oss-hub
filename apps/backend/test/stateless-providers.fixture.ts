@@ -12,7 +12,7 @@ import { AdminAccessHistoryRepository } from '../src/users/admin-access-history.
 import { AdminAccessReadOrderingRepository } from '../src/users/admin-access-read-ordering.repository';
 import { AdminAccessReadRepository } from '../src/users/admin-access-read.repository';
 import { ProgramNoticeFetchClient } from '../src/programs/program-notice-fetch.client';
-import { AuditLogMetadataService } from '../src/platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../src/platform/history-metadata.service';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
 import { RepositoryProvisionEventService } from '../src/github/repository-provision-event.service';
@@ -47,7 +47,7 @@ export const STATELESS_PROVIDERS = [
   AdminAccessReadOrderingRepository,
   AdminAccessReadRepository,
   ProgramNoticeFetchClient,
-  AuditLogMetadataService,
+  HistoryMetadataService,
   UserProfileService,
   RepositoryUrlService,
   RepositoryProvisionEventService,

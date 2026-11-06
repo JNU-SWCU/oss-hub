@@ -23,7 +23,7 @@ import { AdminAccessService } from './admin-access.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileService } from './admin-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
@@ -62,7 +62,7 @@ export class AdminAccessHttpHarness {
         AdminProfileRepository,
         AdminProfileMutationService,
         UserHistoryRepository,
-        AuditLogMetadataService,
+        HistoryMetadataService,
         UserProfileService,
         AuthSessionService,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,

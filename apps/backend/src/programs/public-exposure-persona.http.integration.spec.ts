@@ -17,10 +17,10 @@ import { PublicExposurePersonaHttpHarness } from './public-exposure-persona.http
 import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
-} from '../platform/audit-log-metadata.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+} from '../platform/history-metadata.config';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 
-const auditLogMetadataService = new AuditLogMetadataService();
+const historyMetadataService = new HistoryMetadataService();
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -857,7 +857,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
           targetType: 'ROLE_REQUEST',
           targetId: FOREIGN_SUITE_ROLE_REQUEST_ID,
           request: null,
-          metadata: auditLogMetadataService.createAccessAuditMetadata({
+          metadata: historyMetadataService.createAccessAuditMetadata({
             eventKind: ACCESS_AUDIT_EVENT_KINDS.ROLE_REQUEST_REJECTED,
             rejectionReason: 'synthetic-foreign-suite-rejection-reason',
             actor: {

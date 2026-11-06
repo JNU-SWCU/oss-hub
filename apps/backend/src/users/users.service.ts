@@ -5,7 +5,7 @@ import {
   USER_PROFILE_AUDIT_ACTIONS,
   USER_PHONE_AUDIT_TRANSITIONS,
   USER_PROFILE_AUDIT_FIELDS,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { DomainException } from '../platform/error-code.error';
 import { SystemErrorCode } from '../platform/system-error-code.error';
@@ -21,7 +21,7 @@ import {
 } from './users.repository';
 import { type UserProfileRecord } from './profile-validation.config';
 
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 
 export interface UserProfile {
@@ -106,8 +106,8 @@ export class UsersService {
     @Inject(ConsentsService)
     private readonly consentsService: Pick<ConsentsService, 'requireCurrent'>,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly userProfileService: UserProfileService,
   ) {}
 
@@ -332,13 +332,13 @@ export class UsersService {
     store,
     change,
   ) => {
-    await this.auditLog.record(
+    await this.userHistory.record(
       {
         actorGithubId: change.user.githubId,
         action: USER_PROFILE_AUDIT_ACTIONS.PROFILE_UPDATED,
         targetType: 'USER',
         targetId: change.user.id,
-        metadata: this.auditLogMetadataService.createUserProfileAuditMetadata({
+        metadata: this.historyMetadataService.createUserProfileAuditMetadata({
           actor: {
             displayName: change.user.name,
             githubLogin: change.user.githubLogin,
@@ -364,13 +364,13 @@ export class UsersService {
     store,
     change,
   ) => {
-    await this.auditLog.record(
+    await this.userHistory.record(
       {
         actorGithubId: change.user.githubId,
         action: USER_PROFILE_AUDIT_ACTIONS.PHONE_UPDATED,
         targetType: 'USER',
         targetId: change.user.id,
-        metadata: this.auditLogMetadataService.createUserPhoneAuditMetadata({
+        metadata: this.historyMetadataService.createUserPhoneAuditMetadata({
           actor: {
             displayName: change.user.name,
             githubLogin: change.user.githubLogin,

@@ -7,11 +7,11 @@ import {
   AdminAccessMutationService,
 } from './admin-access-mutation.service';
 import { ADMIN_ACCESS_REQUEST_DECISIONS } from './admin-access-query.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 
 const adminAccessMutationService = new AdminAccessMutationService(
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 

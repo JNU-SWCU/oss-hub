@@ -1,0 +1,26 @@
+{
+  "version": 1,
+  "name": "file-unification-retire",
+  "expectedHeadMigration": "20261105220100_copy_audit_log_to_domain_history",
+  "preflight": ["check-before-retire.sql"],
+  "stages": [
+    {
+      "id": "retire",
+      "apply": [
+        "../../../../apps/backend/prisma/migrations/20261105225000_retire_file_tables/migration.sql"
+      ],
+      "reconcile": ["check-retired.sql"]
+    }
+  ],
+  "backupBeforeStage": "retire",
+  "counts": [
+    {
+      "name": "file",
+      "file": "count-File.sql"
+    },
+    {
+      "name": "program",
+      "file": "count-Program.sql"
+    }
+  ]
+}
