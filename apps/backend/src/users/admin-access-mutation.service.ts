@@ -642,7 +642,7 @@ export class AdminAccessMutationService {
             targetId: audit.targetId,
             metadata: audit.metadata,
           },
-          store.auditLogWriter,
+          store.userHistoryWriter,
         );
         return result;
       });

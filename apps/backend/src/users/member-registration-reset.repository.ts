@@ -25,7 +25,7 @@ export type MemberRegistrationResetTarget = Prisma.UserGetPayload<{
   select: typeof TARGET_SELECT;
 }>;
 export interface MemberRegistrationResetStore {
-  readonly auditLogWriter: UserHistoryTransaction;
+  readonly userHistoryWriter: UserHistoryTransaction;
   lockActiveAdmins(): Promise<void>;
   findActorByGithubId(githubId: bigint): Promise<AdminAccessActor | null>;
   findTargetForUpdate(
@@ -58,7 +58,7 @@ export class MemberRegistrationResetRepository implements MemberRegistrationRese
         this.prisma.$transaction(
           (transaction) =>
             operation({
-              auditLogWriter: transaction,
+              userHistoryWriter: transaction,
               lockActiveAdmins: async () => {
                 await this.access.lockActiveAdminRows(transaction);
               },

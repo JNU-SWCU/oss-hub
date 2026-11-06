@@ -26,7 +26,7 @@ interface AccountDeactivationTarget {
 }
 
 export interface AccountDeactivationTransactionStore {
-  readonly auditLogWriter: UserHistoryTransaction;
+  readonly userHistoryWriter: UserHistoryTransaction;
   findForUpdate(githubId: bigint): Promise<AccountDeactivationTarget | null>;
   lockActiveAdmins(): Promise<number>;
   deactivate(userId: string): Promise<boolean>;
@@ -72,7 +72,7 @@ export class AccountDeactivationRepository implements AccountDeactivationReposit
     transaction: Prisma.TransactionClient,
   ): AccountDeactivationTransactionStore {
     return {
-      auditLogWriter: transaction,
+      userHistoryWriter: transaction,
       findForUpdate: this.findForUpdateIn.bind(this, transaction),
       lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
       deactivate: this.deactivateIn.bind(this, transaction),

@@ -1,9 +1,9 @@
 import { RolePanelShell } from '../../../../../_shell/role-panel-shell';
-import { MilestoneDocumentCollectionScreen } from '@/features/programs/documents/milestone-document-collection-screen';
+import { RequirementCollectionScreen } from '@/features/programs/documents/requirement-collection-screen';
 import { decodeRouteProgramId } from '@/features/programs/program-paths';
 import { ProgramDocumentArchivePanel } from '@/features/programs/documents/program-document-archive-panel';
 
-export default async function MilestoneDocumentCollectionPage({
+export default async function RequirementCollectionPage({
   params,
 }: {
   readonly params: Promise<{
@@ -15,7 +15,7 @@ export default async function MilestoneDocumentCollectionPage({
 
   return (
     <RolePanelShell allow={['staff']}>
-      <MilestoneDocumentCollectionScreen
+      <RequirementCollectionScreen
         programId={decodeRouteProgramId(id)}
         milestoneId={decodeRouteProgramId(milestoneId)}
       />

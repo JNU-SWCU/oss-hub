@@ -1059,7 +1059,7 @@ export class ProgramAuthoringRepository {
       input.actorId,
       [
         {
-          milestoneDocumentId: input.milestoneDocumentId,
+          requirementId: input.requirementId,
           upload: input.upload,
         },
       ],
@@ -1107,7 +1107,7 @@ export interface MilestoneSchedule {
   label: string;
   dueAt: Date;
 }
-export interface MilestoneDocumentCatalogEntry {
+export interface RequirementCatalogEntry {
   milestoneId: string;
   title: string;
   documentIds: string[];
@@ -1144,7 +1144,7 @@ export interface ProgramApplicationTeamRow {
 }
 export interface SubmittedDocumentPairRow {
   readonly teamId: string;
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
 }
 @Injectable()
 export class ProgramOverviewRepository {
@@ -1255,9 +1255,9 @@ export class ProgramOverviewRepository {
       dueAt: milestone.dueAt,
     }));
   }
-  async findMilestoneDocumentCatalog(
+  async findRequirementCatalog(
     programId: string,
-  ): Promise<MilestoneDocumentCatalogEntry[]> {
+  ): Promise<RequirementCatalogEntry[]> {
     const milestones = await this.prisma.milestone.findMany({
       where: { programId },
       orderBy: { dueAt: 'asc' },
@@ -1369,7 +1369,7 @@ export class ProgramOverviewRepository {
     });
     return rows.map((row) => ({
       teamId: row.teamId,
-      milestoneDocumentId: row.requirementId,
+      requirementId: row.requirementId,
     }));
   }
   async countTeamMembers(

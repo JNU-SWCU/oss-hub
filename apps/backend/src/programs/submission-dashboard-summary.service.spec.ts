@@ -2,7 +2,7 @@ import { SubmissionStatus } from '@prisma/client';
 import type {
   SubmissionDashboardApplicationRecord,
   SubmissionDashboardDocumentSubmissionRecord,
-  SubmissionDashboardMilestoneDocumentRecord,
+  SubmissionDashboardRequirementRecord,
   SubmissionDashboardMilestoneRecord,
   SubmissionDashboardSummaryRepositoryPort,
 } from './submissions.repository';
@@ -13,7 +13,7 @@ class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSum
   constructor(
     private readonly applications: readonly SubmissionDashboardApplicationRecord[],
     private readonly milestones: readonly SubmissionDashboardMilestoneRecord[],
-    private readonly milestoneDocuments: readonly SubmissionDashboardMilestoneDocumentRecord[] = [],
+    private readonly requirements: readonly SubmissionDashboardRequirementRecord[] = [],
     private readonly documentSubmissions: readonly SubmissionDashboardDocumentSubmissionRecord[] = [],
   ) {}
   listRecords(programIds: readonly string[]) {
@@ -22,7 +22,7 @@ class FakeSubmissionDashboardSummaryRepository implements SubmissionDashboardSum
       applications: this.applications,
       milestones: this.milestones,
       submissions: [],
-      milestoneDocuments: this.milestoneDocuments,
+      requirements: this.requirements,
       documentSubmissions: this.documentSubmissions,
     });
   }
@@ -65,7 +65,7 @@ describe('SubmissionDashboardSummaryService', () => {
       ],
       [
         {
-          milestoneDocumentId: 'milestone-a-1-item',
+          requirementId: 'milestone-a-1-item',
           teamId: 'approved-personal',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-1',
@@ -73,7 +73,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.SUBMITTED,
         },
         {
-          milestoneDocumentId: 'milestone-a-2-item',
+          requirementId: 'milestone-a-2-item',
           teamId: 'approved-personal',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-2',
@@ -81,7 +81,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.APPROVED,
         },
         {
-          milestoneDocumentId: 'milestone-a-1-item',
+          requirementId: 'milestone-a-1-item',
           teamId: 'approved-team',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-1',
@@ -89,7 +89,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.CHANGES_REQUESTED,
         },
         {
-          milestoneDocumentId: 'milestone-a-2-item',
+          requirementId: 'milestone-a-2-item',
           teamId: 'approved-team',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a-2',
@@ -97,7 +97,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.REJECTED,
         },
         {
-          milestoneDocumentId: 'milestone-b-1-item',
+          requirementId: 'milestone-b-1-item',
           teamId: 'approved-other',
           applicationProgramId: 'program-b',
           milestoneId: 'milestone-b-1',
@@ -183,7 +183,7 @@ describe('SubmissionDashboardSummaryService', () => {
       ],
       [
         {
-          milestoneDocumentId: 'milestone-a-item',
+          requirementId: 'milestone-a-item',
           teamId: 'pending-application',
           applicationProgramId: 'program-a',
           milestoneId: 'milestone-a',
@@ -191,7 +191,7 @@ describe('SubmissionDashboardSummaryService', () => {
           status: SubmissionStatus.APPROVED,
         },
         {
-          milestoneDocumentId: 'foreign-milestone-item',
+          requirementId: 'foreign-milestone-item',
           teamId: 'approved-application',
           applicationProgramId: 'program-a',
           milestoneId: 'foreign-milestone',
@@ -307,7 +307,7 @@ describe('SubmissionDashboardSummaryService', () => {
           'milestone-both',
         ),
         {
-          milestoneDocumentId: 'milestone-both-item',
+          requirementId: 'milestone-both-item',
           teamId: 'team-both',
           applicationProgramId: 'program-both',
           milestoneId: 'milestone-both',
@@ -374,7 +374,7 @@ describe('SubmissionDashboardSummaryService', () => {
           'm-doc',
         ),
         {
-          milestoneDocumentId: 'm-code-item',
+          requirementId: 'm-code-item',
           teamId: 'team-1',
           applicationProgramId: 'p',
           milestoneId: 'm-code',
@@ -402,7 +402,7 @@ describe('SubmissionDashboardSummaryService', () => {
 });
 function documentSubmission(
   teamId: string,
-  milestoneDocumentId: string,
+  requirementId: string,
   status: SubmissionStatus,
   programId: string,
   milestoneId: string,
@@ -410,7 +410,7 @@ function documentSubmission(
   return {
     teamId,
     applicationProgramId: programId,
-    milestoneDocumentId,
+    requirementId,
     milestoneId,
     milestoneProgramId: programId,
     status,

@@ -35,7 +35,7 @@ function pendingRow(suffix: string, sizeBytes: number) {
     uploaderId: UPLOADER_ID,
     teamId: TEAM_ID,
     milestoneId: MILESTONE_ID,
-    milestoneDocumentId: seedId(
+    requirementId: seedId(
       'milestones',
       MILESTONE_ID,
       'legacy-submission-document',
@@ -62,7 +62,7 @@ function retainedFile(
   sizeBytes: number,
   lifecycle: FileLifecycle = FileLifecycle.PENDING,
 ) {
-  const { milestoneId, milestoneDocumentId, ...metadata } = pendingRow(
+  const { milestoneId, requirementId, ...metadata } = pendingRow(
     suffix,
     sizeBytes,
   );
@@ -70,7 +70,7 @@ function retainedFile(
   return {
     ...metadata,
     kind: 'SUBMISSION' as const,
-    requirementId: milestoneDocumentId,
+    requirementId: requirementId,
     lifecycle,
     expiresAt: PENDING_EXPIRES_AT,
     deletedAt: lifecycle === FileLifecycle.DELETED ? PENDING_EXPIRES_AT : null,

@@ -9,27 +9,27 @@ import {
 } from './submissions.repository';
 import { EventEmitter, once } from 'node:events';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
-} from './milestone-document-flow.integration-fixture';
+} from './requirement-flow.integration-fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
+const fixture = new RequirementFlowFixture();
 const platform = new PlatformRepository();
 const writeRepository = new RequirementsRepository(
   fixture.prisma,
   new LockProgramTreeRepository(),
   platform,
   new SubmissionsRepository(platform, new FileMetadataRepository()),
-  new MilestoneDocumentCollectionReadRepository(
+  new RequirementCollectionReadRepository(
     fixture.prisma,
     new FileMetadataRepository(),
   ),
@@ -54,7 +54,7 @@ it('holds the submission row lock before reading the item review version', async
       new PlatformRepository(),
       new FileMetadataRepository(),
     ),
-    new MilestoneDocumentCollectionReadRepository(
+    new RequirementCollectionReadRepository(
       fixture.prisma,
       new FileMetadataRepository(),
     ),
@@ -312,7 +312,7 @@ it('rolls back the review event when updating the submission fails', async () =>
   await expect(
     fixture.prisma.$transaction(async (transaction) => {
       await new PlatformRepository().appendSubmissionReviewEvent(transaction, {
-        milestoneDocumentSubmissionId: submission.id,
+        submissionId: submission.id,
         submissionHistoryId: history.id,
         revision: 1,
         reviewerId: flowIds.staff,
@@ -422,7 +422,7 @@ it('rejects an admitted item submission if the program was deleted before its wr
   });
   await expect(
     writeRepository.upsertSubmission({
-      milestoneDocumentId: flowIds.document,
+      requirementId: flowIds.document,
       teamId: flowIds.team,
       submittedById: flowIds.student,
       submittedAt: new Date(),
@@ -474,7 +474,7 @@ it('serializes review commit before program deletion with two transactions and n
       signals.emit('target-ready');
       await continueReview;
       await store.createReview({
-        milestoneDocumentSubmissionId: target.id,
+        submissionId: target.id,
         submissionHistoryId: target.revision.id,
         revision: target.currentRevision,
         reviewerId: flowIds.staff,

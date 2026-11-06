@@ -42,12 +42,12 @@ export const programEntries = {
   documents: [
     'queries',
     'components/milestone-row',
-    'milestone-document-dto',
-    'milestone-document-editor',
-    'milestone-document-editor-flow',
-    'milestone-document-list',
-    'milestone-document-pointer',
-    'milestone-document-upload-policy',
+    'requirement-dto',
+    'requirement-editor',
+    'requirement-editor-flow',
+    'requirement-list',
+    'requirement-pointer',
+    'requirement-upload-policy',
     'milestone-submission-access',
   ],
   teams: [

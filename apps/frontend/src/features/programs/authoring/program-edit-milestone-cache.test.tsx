@@ -52,8 +52,8 @@ vi.mock('./api', () => ({
   createMilestone: vi.fn(),
   deleteMilestone: vi.fn(),
 }));
-vi.mock('../documents/milestone-document-api', () => ({
-  listMilestoneDocuments: vi.fn().mockResolvedValue({
+vi.mock('../documents/requirement-api', () => ({
+  listRequirements: vi.fn().mockResolvedValue({
     documents: [],
     fileUpload: {
       maxBytes: 5242880,

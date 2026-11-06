@@ -6,7 +6,7 @@ import {
   ProgramOverviewErrorCode,
 } from './programs.error';
 import {
-  MilestoneDocumentCatalogEntry,
+  RequirementCatalogEntry,
   MilestoneSchedule,
   ProgramOverviewRepository,
   ProgramOverviewRecord,
@@ -20,10 +20,10 @@ export interface ProgramOverviewViewerStats {
   myDocumentsTotal: number | null;
   fullySubmittedParticipantCount: number | null;
 
-  milestoneDocuments: ProgramOverviewMilestoneDocument[];
+  requirements: ProgramOverviewRequirement[];
 }
 
-export interface ProgramOverviewMilestoneDocument {
+export interface ProgramOverviewRequirement {
   milestoneId: string;
   title: string;
   completed: number;
@@ -45,7 +45,7 @@ const EMPTY_VIEWER_STATS: ProgramOverviewViewerStats = {
   myDocumentsCompleted: null,
   myDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
-  milestoneDocuments: [],
+  requirements: [],
 };
 
 function remainingMilestones(
@@ -59,19 +59,19 @@ function remainingMilestones(
 }
 
 function excludeEmptyDocumentEntries(
-  entries: ProgramOverviewMilestoneDocument[],
-): ProgramOverviewMilestoneDocument[] {
+  entries: ProgramOverviewRequirement[],
+): ProgramOverviewRequirement[] {
   return entries.filter((entry) => entry.total > 0);
 }
 
 function documentedCatalog(
-  catalog: readonly MilestoneDocumentCatalogEntry[],
-): MilestoneDocumentCatalogEntry[] {
+  catalog: readonly RequirementCatalogEntry[],
+): RequirementCatalogEntry[] {
   return catalog.filter((entry) => entry.documentIds.length > 0);
 }
 
 function sumStudentDocuments(
-  catalog: readonly MilestoneDocumentCatalogEntry[],
+  catalog: readonly RequirementCatalogEntry[],
   submittedDocumentIds: ReadonlySet<string>,
 ): { completed: number; total: number } {
   let completed = 0;
@@ -204,7 +204,7 @@ export class ProgramOverviewService {
 
     const [teamId, catalog] = await Promise.all([
       this.repository.findViewerApplicationId(programId, userId),
-      this.repository.findMilestoneDocumentCatalog(programId),
+      this.repository.findRequirementCatalog(programId),
     ]);
     const allDocumentIds = catalog.flatMap((entry) => entry.documentIds);
     const submittedDocumentIds = teamId
@@ -220,7 +220,7 @@ export class ProgramOverviewService {
       myDocumentsCompleted: completed,
       myDocumentsTotal: total,
       fullySubmittedParticipantCount: null,
-      milestoneDocuments: excludeEmptyDocumentEntries(
+      requirements: excludeEmptyDocumentEntries(
         catalog.map((entry) => ({
           milestoneId: entry.milestoneId,
           title: entry.title,
@@ -251,7 +251,7 @@ export class ProgramOverviewService {
         programId,
         milestone.requiredDocumentIds,
       ),
-      this.repository.findMilestoneDocumentCatalog(programId),
+      this.repository.findRequirementCatalog(programId),
     ]);
     const withDocuments = documentedCatalog(catalog);
     const completedByMilestone = await this.countFullySubmittedTeamsByMilestone(
@@ -264,7 +264,7 @@ export class ProgramOverviewService {
       myDocumentsCompleted: null,
       myDocumentsTotal: null,
       fullySubmittedParticipantCount,
-      milestoneDocuments: withDocuments.map((entry) => ({
+      requirements: withDocuments.map((entry) => ({
         milestoneId: entry.milestoneId,
         title: entry.title,
         completed: completedByMilestone.get(entry.milestoneId) ?? 0,
@@ -360,7 +360,7 @@ export class ProgramOverviewService {
     const byApplication = new Map<string, Set<string>>();
     for (const row of rows) {
       const set = byApplication.get(row.teamId) ?? new Set<string>();
-      set.add(row.milestoneDocumentId);
+      set.add(row.requirementId);
       byApplication.set(row.teamId, set);
     }
     return byApplication;

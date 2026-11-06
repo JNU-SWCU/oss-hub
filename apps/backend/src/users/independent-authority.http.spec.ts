@@ -38,7 +38,7 @@ class HttpAuthorityStore
     IndependentAuthorityRepositoryPort,
     IndependentAuthorityTransactionStore
 {
-  readonly auditLogWriter = new PrismaService();
+  readonly userHistoryWriter = new PrismaService();
   actor: AdminAccessActor = adminActor();
   target: AdminAccessUserRow = targetUser();
   activeAdminCount = 2;

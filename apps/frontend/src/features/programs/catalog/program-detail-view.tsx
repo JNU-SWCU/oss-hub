@@ -19,7 +19,7 @@ import { Collapsible, CollapsibleContent } from '@/components/ui/collapsible';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { ActivityGraphPanel } from './components/activity-graph-panel';
 import { MilestoneRow } from '../documents/components/milestone-row';
-import { MilestoneDocumentSection } from '../documents/milestone-document-list';
+import { RequirementSection } from '../documents/requirement-list';
 import { milestoneSubmissionAccess } from '../documents/milestone-submission-access';
 import type { MilestoneSubmissionAccess } from '../documents/milestone-submission-access';
 import {
@@ -259,7 +259,7 @@ function MilestoneGroup({
     />
   );
   const detail = (
-    <MilestoneDocumentSection
+    <RequirementSection
       programId={program.id}
       milestoneId={milestone.id}
       viewerRole={program.viewer.role}

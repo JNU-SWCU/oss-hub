@@ -1,25 +1,25 @@
 import { apiClient } from './api-client';
-export const MILESTONE_DOCUMENT_REVIEW_DECISIONS = [
+export const REQUIREMENT_REVIEW_DECISIONS = [
   'APPROVED',
   'CHANGES_REQUESTED',
   'REJECTED',
 ] as const;
-export type MilestoneDocumentReviewDecision =
-  (typeof MILESTONE_DOCUMENT_REVIEW_DECISIONS)[number];
-export interface MilestoneDocumentReviewInput {
-  readonly decision: MilestoneDocumentReviewDecision;
+export type RequirementReviewDecision =
+  (typeof REQUIREMENT_REVIEW_DECISIONS)[number];
+export interface RequirementReviewInput {
+  readonly decision: RequirementReviewDecision;
   readonly comment?: string;
   readonly expectedRevision: number;
   readonly expectedLatestReviewId: string | null;
 }
-export interface CreatedMilestoneDocumentReview {
+export interface CreatedRequirementReview {
   readonly id: string;
-  readonly decision: MilestoneDocumentReviewDecision;
+  readonly decision: RequirementReviewDecision;
   readonly comment: string | null;
   readonly reviewedAt: string;
   readonly reviewerNickname: string;
 }
-export const MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH = 2000;
+export const REQUIREMENT_REVIEW_COMMENT_MAX_LENGTH = 2000;
 function reviewsPath(
   milestoneId: string,
   documentId: string,
@@ -27,13 +27,13 @@ function reviewsPath(
 ): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents/${encodeURIComponent(documentId)}/teams/${encodeURIComponent(teamId)}/reviews`;
 }
-export function createMilestoneDocumentReview(
+export function createRequirementReview(
   milestoneId: string,
   documentId: string,
   teamId: string,
-  input: MilestoneDocumentReviewInput,
-): Promise<CreatedMilestoneDocumentReview> {
-  return apiClient<CreatedMilestoneDocumentReview>(
+  input: RequirementReviewInput,
+): Promise<CreatedRequirementReview> {
+  return apiClient<CreatedRequirementReview>(
     reviewsPath(milestoneId, documentId, teamId),
     {
       method: 'POST',
@@ -41,12 +41,12 @@ export function createMilestoneDocumentReview(
     },
   );
 }
-export function milestoneDocumentReviewFormError(
-  decision: MilestoneDocumentReviewDecision | null,
+export function requirementReviewFormError(
+  decision: RequirementReviewDecision | null,
   comment: string,
 ): string | null {
   if (decision === null) return '승인, 보완 요청, 반려 중 하나를 골라 주세요.';
-  if (comment.length > MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH) {
+  if (comment.length > REQUIREMENT_REVIEW_COMMENT_MAX_LENGTH) {
     return '사유는 2,000자까지 쓸 수 있습니다.';
   }
   return null;

@@ -22,27 +22,27 @@ import { CreateApplicationResponseDto } from '../../src/programs/dto/create-appl
 import { CreateProgramResponseDto } from '../../src/programs/dto/create-program-response.dto';
 import {
   EditableProgramResponseDto,
-  ProgramMilestoneDocumentResponseDto,
+  ProgramRequirementResponseDto,
   ProgramMilestoneEditResponseDto,
   ProgramMilestoneOperationResponseDto,
   ProgramMilestoneResponseDto,
 } from '../../src/programs/dto/editable-program-response.dto';
 import { InvitationCandidateResponseDto } from '../../src/programs/dto/invitation-candidate-response.dto';
 import {
-  MilestoneDocumentCollectionResponseDto,
-  MilestoneDocumentDeliveryCollectionResponseDto,
-} from '../../src/programs/dto/milestone-document-collection-response.dto';
-import { MilestoneDocumentHistoryPageResponseDto } from '../../src/programs/dto/milestone-document-history-page-response.dto';
+  RequirementCollectionResponseDto,
+  RequirementDeliveryCollectionResponseDto,
+} from '../../src/programs/dto/requirement-collection-response.dto';
+import { RequirementHistoryPageResponseDto } from '../../src/programs/dto/requirement-history-page-response.dto';
 import {
-  MilestoneDocumentListResponseDto,
-  MilestoneDocumentResponseDto,
-  MilestoneDocumentUploadPolicyResponseDto,
-} from '../../src/programs/dto/milestone-document-response.dto';
-import { MilestoneDocumentReviewResponseDto } from '../../src/programs/dto/milestone-document-review-response.dto';
+  RequirementListResponseDto,
+  RequirementResponseDto,
+  RequirementUploadPolicyResponseDto,
+} from '../../src/programs/dto/requirement-response.dto';
+import { RequirementReviewResponseDto } from '../../src/programs/dto/requirement-review-response.dto';
 import {
-  MilestoneDocumentSubmissionFileResponseDto,
-  MilestoneDocumentSubmissionResponseDto,
-} from '../../src/programs/dto/milestone-document-submission-response.dto';
+  SubmissionFileResponseDto,
+  SubmissionResponseDto,
+} from '../../src/programs/dto/submission-response.dto';
 import { MyProgramTeamResponseDto } from '../../src/programs/dto/my-program-team-response.dto';
 import { MyStudentApplicationResponseDto } from '../../src/programs/dto/my-student-application-response.dto';
 import {
@@ -58,7 +58,7 @@ import {
 import { ProgramAuthoringUploadPolicyResponseDto } from '../../src/programs/dto/program-authoring-upload-policy-response.dto';
 import { ProgramNoticePreviewResponseDto } from '../../src/programs/dto/program-notice-preview-response.dto';
 import {
-  MilestoneDocumentSummaryResponseDto,
+  RequirementSummaryResponseDto,
   ProgramOverviewResponseDto,
   RemainingMilestoneResponseDto,
 } from '../../src/programs/dto/program-overview-response.dto';
@@ -108,17 +108,17 @@ import {
   StudentApplicationResponseDto,
 } from '../../src/programs/dto/student-application-response.dto';
 import { StudentRepositoryUrlResponseDto } from '../../src/programs/dto/student-repository-url-response.dto';
-import { UploadedMilestoneDocumentFileResponseDto } from '../../src/programs/dto/uploaded-milestone-document-file-response.dto';
+import { UploadedRequirementFileResponseDto } from '../../src/programs/dto/uploaded-requirement-file-response.dto';
 import { UploadedSubmissionFileResponseDto } from '../../src/programs/dto/uploaded-submission-file-response.dto';
 import {
   type ApplicationListItem,
   type TeamManagementListItem,
 } from '../../src/programs/team.repository';
 import {
-  type MilestoneDocumentCollectionResult,
-  type MilestoneDocumentViewerResult,
+  type RequirementCollectionResult,
+  type RequirementViewerResult,
 } from '../../src/programs/requirements.service';
-import { type MilestoneDocumentRecord } from '../../src/programs/requirements.repository';
+import { type RequirementRecord } from '../../src/programs/requirements.repository';
 import {
   type EditableProgramView,
   type ProgramMilestoneEditView,
@@ -263,7 +263,7 @@ const editableProgram: EditableProgramView = {
   description: 'Description',
   milestones: [milestoneView],
 };
-const documentRecord: MilestoneDocumentRecord = {
+const documentRecord: RequirementRecord = {
   id: 'document-1',
   milestoneId: 'milestone-1',
   name: 'Plan',
@@ -274,7 +274,7 @@ const documentRecord: MilestoneDocumentRecord = {
   templateFileId: 'file-1',
   templateFileName: 'plan.hwp',
 };
-const optionalDocumentRecord: MilestoneDocumentRecord = {
+const optionalDocumentRecord: RequirementRecord = {
   ...documentRecord,
   id: 'document-2',
   name: 'Text',
@@ -284,7 +284,7 @@ const optionalDocumentRecord: MilestoneDocumentRecord = {
   templateFileId: null,
   templateFileName: null,
 };
-const collectionResult: MilestoneDocumentCollectionResult = {
+const collectionResult: RequirementCollectionResult = {
   milestone: {
     id: 'milestone-1',
     programId: 'program-1',
@@ -302,7 +302,7 @@ const collectionResult: MilestoneDocumentCollectionResult = {
       },
       cells: [
         {
-          milestoneDocumentId: 'document-1',
+          requirementId: 'document-1',
           teamId: 'application-1',
           submittedAt: at('2026-02-09T00:00:00.000Z'),
           revision: 2,
@@ -317,7 +317,7 @@ const collectionResult: MilestoneDocumentCollectionResult = {
           },
         },
         {
-          milestoneDocumentId: 'document-2',
+          requirementId: 'document-2',
           teamId: 'application-1',
           submittedAt: at('2026-02-09T01:00:00.000Z'),
           revision: 1,
@@ -347,7 +347,7 @@ const collectionResult: MilestoneDocumentCollectionResult = {
     { documentId: 'document-2', submitted: 1, total: 2 },
   ],
 };
-const viewerResult: MilestoneDocumentViewerResult = {
+const viewerResult: RequirementViewerResult = {
   ...documentRecord,
   viewerSubmission: {
     submitted: true,
@@ -456,7 +456,7 @@ const overview: ProgramOverviewView = {
     myDocumentsCompleted: null,
     myDocumentsTotal: null,
     fullySubmittedParticipantCount: 4,
-    milestoneDocuments: [
+    requirements: [
       { milestoneId: 'milestone-1', title: 'Kickoff', completed: 1, total: 2 },
     ],
   },
@@ -844,9 +844,8 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () => ProgramMilestoneResponseDto.from(milestoneView),
   ],
   [
-    'ProgramMilestoneDocumentResponseDto',
-    () =>
-      ProgramMilestoneDocumentResponseDto.from(milestoneEditView.documents[0]!),
+    'ProgramRequirementResponseDto',
+    () => ProgramRequirementResponseDto.from(milestoneEditView.documents[0]!),
   ],
   [
     'ProgramMilestoneOperationResponseDto',
@@ -883,13 +882,13 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'MilestoneDocumentCollectionResponseDto',
-    () => MilestoneDocumentCollectionResponseDto.from(collectionResult),
+    'RequirementCollectionResponseDto',
+    () => RequirementCollectionResponseDto.from(collectionResult),
   ],
   [
-    'MilestoneDocumentDeliveryCollectionResponseDto',
+    'RequirementDeliveryCollectionResponseDto',
     () =>
-      MilestoneDocumentDeliveryCollectionResponseDto.from({
+      RequirementDeliveryCollectionResponseDto.from({
         ...collectionResult,
         rows: [
           { ...collectionResult.rows[0]!, deliveryStatus: 'LATE' },
@@ -904,9 +903,9 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'MilestoneDocumentHistoryPageResponseDto',
+    'RequirementHistoryPageResponseDto',
     () =>
-      MilestoneDocumentHistoryPageResponseDto.from({
+      RequirementHistoryPageResponseDto.from({
         items: [
           {
             event: 'SUBMITTED',
@@ -934,25 +933,25 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'MilestoneDocumentResponseDto plain',
-    () => MilestoneDocumentResponseDto.from(optionalDocumentRecord),
+    'RequirementResponseDto plain',
+    () => RequirementResponseDto.from(optionalDocumentRecord),
   ],
   [
-    'MilestoneDocumentResponseDto viewer',
-    () => MilestoneDocumentResponseDto.from(viewerResult),
+    'RequirementResponseDto viewer',
+    () => RequirementResponseDto.from(viewerResult),
   ],
   [
-    'MilestoneDocumentResponseDto viewer without submission',
+    'RequirementResponseDto viewer without submission',
     () =>
-      MilestoneDocumentResponseDto.from({
+      RequirementResponseDto.from({
         ...documentRecord,
         teamSubmissionCount: { submitted: 0, total: 3 },
       }),
   ],
   [
-    'MilestoneDocumentResponseDto viewer review null',
+    'RequirementResponseDto viewer review null',
     () =>
-      MilestoneDocumentResponseDto.from({
+      RequirementResponseDto.from({
         ...documentRecord,
         viewerSubmission: {
           ...viewerResult.viewerSubmission!,
@@ -962,21 +961,21 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'MilestoneDocumentUploadPolicyResponseDto',
-    () => MilestoneDocumentUploadPolicyResponseDto.from(),
+    'RequirementUploadPolicyResponseDto',
+    () => RequirementUploadPolicyResponseDto.from(),
   ],
   [
-    'MilestoneDocumentListResponseDto',
+    'RequirementListResponseDto',
     () =>
-      MilestoneDocumentListResponseDto.from([
-        MilestoneDocumentResponseDto.from(documentRecord),
-        MilestoneDocumentResponseDto.from(viewerResult),
+      RequirementListResponseDto.from([
+        RequirementResponseDto.from(documentRecord),
+        RequirementResponseDto.from(viewerResult),
       ]),
   ],
   [
-    'MilestoneDocumentReviewResponseDto',
+    'RequirementReviewResponseDto',
     () =>
-      MilestoneDocumentReviewResponseDto.from({
+      RequirementReviewResponseDto.from({
         id: 'review-1',
         decision: 'APPROVED',
         comment: null,
@@ -985,9 +984,9 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'MilestoneDocumentSubmissionFileResponseDto',
+    'SubmissionFileResponseDto',
     () =>
-      MilestoneDocumentSubmissionFileResponseDto.from({
+      SubmissionFileResponseDto.from({
         id: 'file-1',
         originalFileName: 'plan.pdf',
         mimeType: 'application/pdf',
@@ -995,9 +994,9 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'MilestoneDocumentSubmissionResponseDto',
+    'SubmissionResponseDto',
     () =>
-      MilestoneDocumentSubmissionResponseDto.from({
+      SubmissionResponseDto.from({
         id: 'submission-1',
         status: 'SUBMITTED',
         content: { type: 'TEXT', text: 'hello' },
@@ -1117,11 +1116,8 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
     () => RemainingMilestoneResponseDto.from(overview.remainingMilestones[0]!),
   ],
   [
-    'MilestoneDocumentSummaryResponseDto',
-    () =>
-      MilestoneDocumentSummaryResponseDto.from(
-        overview.viewer.milestoneDocuments[0]!,
-      ),
+    'RequirementSummaryResponseDto',
+    () => RequirementSummaryResponseDto.from(overview.viewer.requirements[0]!),
   ],
   [
     'ProgramOverviewResponseDto',
@@ -1478,9 +1474,9 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'UploadedMilestoneDocumentFileResponseDto',
+    'UploadedRequirementFileResponseDto',
     () =>
-      UploadedMilestoneDocumentFileResponseDto.from({
+      UploadedRequirementFileResponseDto.from({
         fileId: 'file-1',
         fileName: 'report.pdf',
         contentType: 'application/pdf',

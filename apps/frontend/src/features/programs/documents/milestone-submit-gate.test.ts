@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import type { MilestoneDocumentViewerSubmission } from './milestone-document-dto';
+import type { RequirementViewerSubmission } from './requirement-dto';
 import { milestoneSubmissionAccess } from './milestone-submission-access';
 import {
-  milestoneDocumentSubmitGate,
+  requirementSubmitGate,
   milestoneRowSubmitGate,
 } from './milestone-submit-gate';
 import type { ApplicationStatus } from '../program-contract';
@@ -16,8 +16,8 @@ function access(applicationStatus: ApplicationStatus | null) {
 }
 
 function submission(
-  status: MilestoneDocumentViewerSubmission['status'],
-): MilestoneDocumentViewerSubmission {
+  status: RequirementViewerSubmission['status'],
+): RequirementViewerSubmission {
   return {
     submitted: status !== null,
     submittedAt: status === null ? null : '2026-08-01T10:00:00+09:00',
@@ -33,13 +33,13 @@ function submission(
 const OPEN_DUE = '2099-08-20T23:59:59+09:00';
 const PAST_DUE = '2020-08-20T23:59:59+09:00';
 
-describe('milestoneDocumentSubmitGate', () => {
+describe('requirementSubmitGate', () => {
   it.each([
     ['APPROVED' as const, '승인된 제출 항목은 다시 제출할 수 없습니다.'],
     ['REJECTED' as const, '반려된 제출 항목은 다시 제출할 수 없습니다.'],
   ])('판정이 끝난 %s 서류는 신청 안내보다 먼저 말한다', (status, note) => {
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access('SUBMITTED'),
         viewerSubmission: submission(status),
         closed: false,
@@ -49,7 +49,7 @@ describe('milestoneDocumentSubmitGate', () => {
 
   it('신청 전이어도 판정이 끝난 서류는 그 서류의 이유를 말한다', () => {
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access(null),
         viewerSubmission: submission('APPROVED'),
         closed: false,
@@ -62,7 +62,7 @@ describe('milestoneDocumentSubmitGate', () => {
 
   it('마감이 지난 첫 제출은 신청 안내보다 마감을 먼저 말한다', () => {
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access('SUBMITTED'),
         viewerSubmission: submission(null),
         closed: true,
@@ -72,7 +72,7 @@ describe('milestoneDocumentSubmitGate', () => {
 
   it('마감 뒤 보완 요청은 마감을 지나 신청 상태에 닿는다', () => {
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access('SUBMITTED'),
         viewerSubmission: submission('CHANGES_REQUESTED'),
         closed: true,
@@ -85,7 +85,7 @@ describe('milestoneDocumentSubmitGate', () => {
     ['SUBMITTED' as const, '승인 후 제출할 수 있습니다'],
   ])('%s 신청은 걸릴 것이 없을 때 신청 상태를 이유로 든다', (status, note) => {
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access(status),
         viewerSubmission: submission(null),
         closed: false,
@@ -101,7 +101,7 @@ describe('milestoneDocumentSubmitGate', () => {
     ['REJECTED' as const, null],
   ])('%s 신청 · %s 서류는 열려 있다', (applicationStatus, status) => {
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access(applicationStatus),
         viewerSubmission: submission(status),
         closed: false,
@@ -173,7 +173,7 @@ describe('document grace submission gate', () => {
     '유예 시각까지 %s 제출을 연다',
     (status) => {
       expect(
-        milestoneDocumentSubmitGate({
+        requirementSubmitGate({
           submissionAccess: access('APPROVED'),
           viewerSubmission: submission(status),
           closed: true,
@@ -187,7 +187,7 @@ describe('document grace submission gate', () => {
     '없거나 지난 유예는 마감을 유지한다: %s',
     (graceDueAt) => {
       expect(
-        milestoneDocumentSubmitGate({
+        requirementSubmitGate({
           submissionAccess: access('APPROVED'),
           viewerSubmission: submission(null),
           closed: true,
@@ -207,7 +207,7 @@ describe('document grace submission gate', () => {
       },
     };
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access('APPROVED'),
         viewerSubmission,
         closed: true,
@@ -226,7 +226,7 @@ describe('document grace submission gate', () => {
       },
     };
     expect(
-      milestoneDocumentSubmitGate({
+      requirementSubmitGate({
         submissionAccess: access('APPROVED'),
         viewerSubmission,
         closed: true,
@@ -239,7 +239,7 @@ describe('document grace submission gate', () => {
 
 it('마감 전부터 열어 둔 화면도 유예가 만료되면 제출을 닫는다', () => {
   expect(
-    milestoneDocumentSubmitGate({
+    requirementSubmitGate({
       submissionAccess: access('APPROVED'),
       viewerSubmission: submission(null),
       closed: false,

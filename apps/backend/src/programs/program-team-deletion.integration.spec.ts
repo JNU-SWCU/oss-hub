@@ -45,7 +45,7 @@ const TEST_PREFIX = 'synthetic-team-deletion:';
 const PROGRAM_ID = `${TEST_PREFIX}program`;
 const OTHER_PROGRAM_ID = `${TEST_PREFIX}other-program`;
 const MILESTONE_ID = `${TEST_PREFIX}milestone`;
-const MILESTONE_DOCUMENT_ID = `${TEST_PREFIX}milestone-document`;
+const REQUIREMENT_ID = `${TEST_PREFIX}milestone-document`;
 
 const STAFF_ID = `${TEST_PREFIX}staff`;
 const LEADER_ID = `${TEST_PREFIX}leader`;
@@ -219,10 +219,10 @@ async function seedDurableFixturesOnce(): Promise<void> {
     },
   });
   await prisma.requirement.upsert({
-    where: { id: MILESTONE_DOCUMENT_ID },
+    where: { id: REQUIREMENT_ID },
     update: {},
     create: {
-      id: MILESTONE_DOCUMENT_ID,
+      id: REQUIREMENT_ID,
       milestoneId: MILESTONE_ID,
       name: 'Synthetic document',
       required: true,
@@ -284,7 +284,7 @@ async function seedApprovedTeam(
     await prisma.submission.create({
       data: {
         id: submissionId,
-        requirementId: MILESTONE_DOCUMENT_ID,
+        requirementId: REQUIREMENT_ID,
         teamId,
         submittedById: LEADER_ID,
         revision: 1,
@@ -321,7 +321,7 @@ async function seedApprovedTeam(
         teamId,
         submissionId: submissionId,
         submissionHistoryId: historyId,
-        requirementId: MILESTONE_DOCUMENT_ID,
+        requirementId: REQUIREMENT_ID,
         lifecycle: FileLifecycle.ATTACHED,
         pendingExpiresAt: null,
         expiresAt: new Date('2099-12-31T00:00:00.000Z'),

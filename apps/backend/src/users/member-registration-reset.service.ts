@@ -130,7 +130,7 @@ export class MemberRegistrationResetService {
             after,
           }),
         },
-        store.auditLogWriter,
+        store.userHistoryWriter,
       );
       return {
         id: userId,

@@ -286,13 +286,13 @@ export class ProgramAuthoringUploadTransactionRepository {
     actorId: string,
     consumptions: readonly ProgramAuthoringPendingUploadConsumption[],
   ) {
-    for (const { milestoneDocumentId, upload } of [...consumptions].sort(
+    for (const { requirementId, upload } of [...consumptions].sort(
       (left, right) => left.upload.id.localeCompare(right.upload.id),
     )) {
       await transaction.file.updateMany({
         where: {
           kind: 'TEMPLATE',
-          requirementId: milestoneDocumentId,
+          requirementId: requirementId,
           lifecycle: 'ATTACHED',
         },
         data: { lifecycle: 'DELETE_PENDING', nextDeleteAttemptAt: new Date() },
@@ -307,7 +307,7 @@ export class ProgramAuthoringUploadTransactionRepository {
         data: {
           kind: 'TEMPLATE',
           lifecycle: 'ATTACHED',
-          requirementId: milestoneDocumentId,
+          requirementId: requirementId,
           pendingExpiresAt: null,
           attachedAt: new Date(),
         },
@@ -448,7 +448,7 @@ export interface CreatePendingSubmissionFileInput {
   readonly uploaderId: string;
   readonly teamId: string;
   readonly milestoneId: string;
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
   readonly storageKey: string;
   readonly originalFileName: string;
   readonly mimeType: string;
@@ -649,7 +649,7 @@ export class FilesRepository {
           uploaderId: input.uploaderId,
           kind: 'SUBMISSION',
           teamId: input.teamId,
-          requirementId: input.milestoneDocumentId,
+          requirementId: input.requirementId,
           storageKey: input.storageKey,
           originalFileName: input.originalFileName,
           mimeType: input.mimeType,

@@ -6,7 +6,7 @@ import { assertIsolatedIntegrationDatabase } from '../test/integration-database.
 import { PlatformRepository } from '../src/platform/platform.repository';
 import { ProgramOverviewRepository } from '../src/programs/programs.repository';
 import { SubmissionMatrixRepository } from '../src/programs/submissions.repository';
-import { MilestoneDocumentCollectionReadRepository } from '../src/programs/requirements.repository';
+import { RequirementCollectionReadRepository } from '../src/programs/requirements.repository';
 import { TeamRepository } from '../src/programs/team.repository';
 import { TeamHistoryRepository } from '../src/programs/team-history.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from '../src/programs/program-team-repository-evidence.repository';
@@ -347,7 +347,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
   const platform = new PlatformRepository();
   const overview = new ProgramOverviewRepository(prisma, platform);
   const matrix = new SubmissionMatrixRepository(prisma, platform);
-  const collection = new MilestoneDocumentCollectionReadRepository(
+  const collection = new RequirementCollectionReadRepository(
     prisma,
     new FileMetadataRepository(),
   );
@@ -404,7 +404,7 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     {
       name: 'document-collection',
       method:
-        'MilestoneDocumentCollectionReadRepository.withSnapshot + findMilestone/findDocuments/findApplications/findCoordinates/findDetails',
+        'RequirementCollectionReadRepository.withSnapshot + findMilestone/findDocuments/findApplications/findCoordinates/findDetails',
       run: async () => {
         await collection.withSnapshot(async (store) => {
           const milestone = await store.findMilestone(id('milestone-0'));

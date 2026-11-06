@@ -17,7 +17,7 @@ export interface EditableMilestone {
   readonly dueAt: string;
   readonly instructions: string | null;
 }
-export interface EditableMilestoneDocument {
+export interface EditableRequirement {
   readonly submissionType: 'FILE' | 'TEXT' | 'FILE_OR_TEXT';
   readonly id: string;
   readonly name: string;
@@ -31,7 +31,7 @@ export interface EditableMilestoneEditSnapshot {
     readonly startAt: string;
     readonly endAt: string;
   };
-  readonly documents: readonly EditableMilestoneDocument[];
+  readonly documents: readonly EditableRequirement[];
   readonly fileUpload: {
     readonly maxBytes: number;
     readonly maxLabel: string;
@@ -40,7 +40,7 @@ export interface EditableMilestoneEditSnapshot {
   };
   readonly fingerprint: string;
 }
-export type UpdateEditableMilestoneDocumentInput = {
+export type UpdateEditableRequirementInput = {
   readonly id: string | null;
   readonly name: string;
   readonly required: boolean;
@@ -52,7 +52,7 @@ export type UpdateEditableMilestoneInput = {
   readonly startAt: string;
   readonly dueAt: string;
   readonly instructions: string | null;
-  readonly documents: readonly UpdateEditableMilestoneDocumentInput[];
+  readonly documents: readonly UpdateEditableRequirementInput[];
 };
 export type EditableMilestoneSnapshotFailure =
   | {

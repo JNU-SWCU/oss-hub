@@ -88,7 +88,7 @@ it('locks User rows before returning raw current state and the same history writ
   const result = await h.repository.withTransaction(async (store) => ({
     count: await store.lockActiveAdmins(),
     target: await store.findUserForUpdate('target'),
-    writer: store.auditLogWriter,
+    writer: store.userHistoryWriter,
   }));
   expect(result).toMatchObject({
     count: 2,

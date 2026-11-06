@@ -150,7 +150,7 @@ export class AdminAccessRepository implements AdminAccessRepositoryPort {
     transaction: Prisma.TransactionClient,
   ): AdminAccessTransactionStore {
     return {
-      auditLogWriter: transaction,
+      userHistoryWriter: transaction,
       findActorByGithubId: this.findActorByGithubIdIn.bind(this, transaction),
       lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
       findUserForUpdate: this.findUserForUpdateIn.bind(this, transaction),

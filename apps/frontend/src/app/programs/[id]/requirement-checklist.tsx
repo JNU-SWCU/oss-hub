@@ -12,8 +12,8 @@ import {
 } from '@/features/programs/catalog/program-detail-format';
 import type { ProgramMilestone } from '@/features/programs/catalog/dto';
 import { milestoneSubmissionAccess } from '@/features/programs/documents/milestone-submission-access';
-import { MilestoneDocumentSection } from '@/features/programs/documents/milestone-document-list';
-import { useMilestoneDocumentsQuery } from '@/features/programs/documents/queries';
+import { RequirementSection } from '@/features/programs/documents/requirement-list';
+import { useRequirementsQuery } from '@/features/programs/documents/queries';
 import {
   ChecklistLoadFailure,
   ChecklistParticipationRequired,
@@ -30,12 +30,7 @@ function RequirementRow({
   readonly milestone: ProgramMilestone;
   readonly onSelect?: () => void;
 }) {
-  const result = useMilestoneDocumentsQuery(
-    programId,
-    milestone.id,
-    true,
-    'all',
-  );
+  const result = useRequirementsQuery(programId, milestone.id, true, 'all');
   const documents = result.data?.documents;
   const submitted =
     documents?.filter((document) => document.viewerSubmission?.submitted)
@@ -175,7 +170,7 @@ export function RequirementChecklistPage({
             onCloseSelected?.();
           }}
         >
-          <MilestoneDocumentSection
+          <RequirementSection
             programId={programId}
             milestoneId={selected.id}
             viewerRole="STUDENT"

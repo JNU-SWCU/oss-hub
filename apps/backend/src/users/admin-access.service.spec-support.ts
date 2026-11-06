@@ -137,7 +137,7 @@ type LegacyAdminAccessUserUpdate = Omit<
 export class InMemoryAdminAccessRepository
   implements AdminAccessRepositoryPort, AdminAccessTransactionStore
 {
-  readonly auditLogWriter = new PrismaService();
+  readonly userHistoryWriter = new PrismaService();
   actor: AdminAccessActor | null = adminActor();
   target: AdminAccessUserRow | null = accessUser();
   authoritativeTarget: AdminAccessUserRow | null = null;

@@ -3,11 +3,11 @@ import { createRoot } from 'react-dom/client';
 import { notifyManager, QueryClientProvider } from '@tanstack/react-query';
 import { afterEach, expect, it, vi } from 'vitest';
 import { createTestQueryClient } from '../../../../test-support/render-with-query';
-import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
-import { milestoneDocumentsKey } from '@/lib/query-keys';
-import { MilestoneDocumentSection } from './milestone-document-list';
-import { MilestoneDocumentSubmissionForm } from './milestone-document-submission-form';
-import type { MilestoneDocument } from './milestone-document-dto';
+import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
+import { requirementsKey } from '@/lib/query-keys';
+import { RequirementSection } from './requirement-list';
+import { SubmissionForm } from './submission-form';
+import type { Requirement } from './requirement-dto';
 
 Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   configurable: true,
@@ -31,11 +31,11 @@ it.each([
     try {
       await act(async () =>
         root.render(
-          <MilestoneDocumentSubmissionForm
+          <SubmissionForm
             documentId="requirement"
             documentName="결과"
             submissionType={submissionType}
-            fileUpload={milestoneDocumentUploadPolicy()}
+            fileUpload={requirementUploadPolicy()}
             currentFileName={null}
             submitting={false}
             onCancel={vi.fn()}
@@ -67,7 +67,7 @@ it('keeps the revision observed when editing and reloads after a concurrent subm
   const root = createRoot(container);
   const queryClient = createTestQueryClient();
   notifyManager.setScheduler(queueMicrotask);
-  let current: MilestoneDocument = {
+  let current: Requirement = {
     id: 'document',
     milestoneId: 'milestone',
     name: '활동 기록',
@@ -89,7 +89,7 @@ it('keeps the revision observed when editing and reloads after a concurrent subm
   };
   const payload = () => ({
     documents: [current],
-    fileUpload: milestoneDocumentUploadPolicy(),
+    fileUpload: requirementUploadPolicy(),
   });
   const writes: unknown[] = [];
   vi.stubGlobal(
@@ -143,7 +143,7 @@ it('keeps the revision observed when editing and reloads after a concurrent subm
     await act(async () =>
       root.render(
         <QueryClientProvider client={queryClient}>
-          <MilestoneDocumentSection
+          <RequirementSection
             programId="program"
             milestoneId="milestone"
             viewerRole="STUDENT"
@@ -161,7 +161,7 @@ it('keeps the revision observed when editing and reloads after a concurrent subm
     current = { ...current, viewerSubmission: { ...viewer, revision: 4 } };
     await act(async () => {
       queryClient.setQueryData(
-        milestoneDocumentsKey('program', 'milestone', 'all'),
+        requirementsKey('program', 'milestone', 'all'),
         payload(),
       );
     });

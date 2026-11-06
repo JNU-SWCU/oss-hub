@@ -1,0 +1,153 @@
+import { SubmissionStatus } from '@prisma/client';
+import type { RecentRequirementReview } from './requirement-feedback.repository';
+import { RequirementFeedbackService } from './requirement-feedback.service';
+const NOW = new Date('2026-09-23T03:00:00.000Z');
+function review(
+  overrides: Partial<RecentRequirementReview> = {},
+): RecentRequirementReview {
+  return {
+    id: 'review-1',
+    decision: 'CHANGES_REQUESTED',
+    comment: '표지를 보완해 주세요.',
+    reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
+    teamId: 'synthetic-application',
+    programId: 'synthetic-program',
+    milestoneId: 'seed:milestone',
+    milestoneName: '중간 보고',
+    documentName: '합성 계획서',
+    submissionId: 'submission-1',
+    submissionStatus: SubmissionStatus.CHANGES_REQUESTED,
+    ...overrides,
+  };
+}
+function serviceWith(
+  reviews: readonly RecentRequirementReview[],
+  now: Date = NOW,
+) {
+  const findRecentForParticipant = jest.fn().mockResolvedValue(reviews);
+  return {
+    service: new RequirementFeedbackService(
+      { findRecentForParticipant },
+      () => now,
+    ),
+    findRecentForParticipant,
+  };
+}
+describe('RequirementFeedbackService', () => {
+  it('판정을 저장소가 준 순서대로 신청 ID·학생 서류 화면 주소와 함께 싣는다', async () => {
+    const { service } = serviceWith([
+      review(),
+      review({
+        id: 'review-0',
+        decision: 'APPROVED',
+        comment: null,
+        reviewedAt: new Date('2026-09-19T01:00:00.000Z'),
+      }),
+    ]);
+    const response = await service.recentForParticipant(34290200n);
+    expect(response.items).toEqual([
+      {
+        id: 'review-1',
+        decision: 'CHANGES_REQUESTED',
+        comment: '표지를 보완해 주세요.',
+        reviewedAt: new Date('2026-09-20T01:00:00.000Z'),
+        teamId: 'synthetic-application',
+        programId: 'synthetic-program',
+        milestoneId: 'seed:milestone',
+        milestoneName: '중간 보고',
+        itemName: '합성 계획서',
+      },
+      expect.objectContaining({
+        id: 'review-0',
+        decision: 'APPROVED',
+        comment: null,
+      }),
+    ]);
+  });
+  it.each([
+    [
+      '서울 0시 30분(UTC로는 전날)',
+      '2026-09-20T15:30:00.000Z',
+      '2026-09-13T15:00:00.000Z',
+    ],
+    ['서울 23시 59분', '2026-09-20T14:59:59.999Z', '2026-09-12T15:00:00.000Z'],
+  ])(
+    '%s에는 서울 날짜로 7일 전 0시부터의 판정을 읽는다',
+    async (_label, now, reviewedSince) => {
+      const { service, findRecentForParticipant } = serviceWith(
+        [],
+        new Date(now),
+      );
+      await service.recentForParticipant(34290204n);
+      expect(findRecentForParticipant).toHaveBeenCalledWith(
+        34290204n,
+        new Date(reviewedSince),
+      );
+    },
+  );
+  it('이관한 항목의 판정도 항목 이름으로 표시한다', async () => {
+    const { service } = serviceWith([
+      review({
+        documentName: '이관 당시 마일스톤 이름',
+        milestoneName: '최종 보고',
+      }),
+    ]);
+    const response = await service.recentForParticipant(34290201n);
+    expect(response.items[0]?.itemName).toBe('이관 당시 마일스톤 이름');
+  });
+  it('옛 기한 값이 있어도 모든 판정에 기한 없는 호환 응답을 보낸다', async () => {
+    const { service } = serviceWith([
+      review({
+        id: 'review-3',
+        submissionId: 'submission-a',
+        reviewedAt: new Date('2026-09-22T01:00:00.000Z'),
+      }),
+      review({
+        id: 'review-2',
+        submissionId: 'submission-b',
+        submissionStatus: SubmissionStatus.SUBMITTED,
+        reviewedAt: new Date('2026-09-21T01:00:00.000Z'),
+      }),
+      review({
+        id: 'review-1',
+        submissionId: 'submission-a',
+        reviewedAt: new Date('2026-09-18T01:00:00.000Z'),
+      }),
+    ]);
+    const response = await service.recentForParticipant(34290203n);
+    expect(
+      response.items.map((item) => [
+        item.id,
+        Object.hasOwn(item, 'resubmissionDueAt'),
+      ]),
+    ).toEqual([
+      ['review-3', false],
+      ['review-2', false],
+      ['review-1', false],
+    ]);
+  });
+  it('응답 항목에 검토자 정보와 카드 제목이 이미 가진 프로그램 이름을 싣지 않는다', async () => {
+    const { service } = serviceWith([
+      {
+        ...review(),
+        reviewerId: 'synthetic-staff',
+        reviewerNickname: 'synthetic-reviewer',
+        programName: '합성 프로그램',
+      } as RecentRequirementReview,
+    ]);
+    const response = await service.recentForParticipant(34290202n);
+    expect(Object.keys(response.items[0] ?? {}).sort()).toEqual(
+      [
+        'comment',
+        'decision',
+        'id',
+        'itemName',
+        'milestoneId',
+        'milestoneName',
+        'programId',
+        'reviewedAt',
+        'teamId',
+      ].sort(),
+    );
+  });
+});

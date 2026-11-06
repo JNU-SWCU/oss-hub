@@ -8,7 +8,7 @@ import type {
   EditableMilestone,
   EditableProgram,
   EditableMilestoneEditSnapshot,
-  EditableMilestoneDocument,
+  EditableRequirement,
 } from './dto';
 import { ProgramEditBasicForm } from './program-edit-basic-form';
 import type { ProgramCoverSelection } from './program-cover-selection';
@@ -50,7 +50,7 @@ interface ProgramEditViewProps {
   readonly milestoneSnapshotLoadFailed?: boolean;
   readonly canonicalDocumentsByMilestoneId?: ReadonlyMap<
     string,
-    readonly EditableMilestoneDocument[]
+    readonly EditableRequirement[]
   >;
 
   readonly canDeleteProgram: boolean;
@@ -72,7 +72,7 @@ interface ProgramEditViewProps {
     documents?: ProgramMilestoneDraft['documents'],
   ) => void;
   readonly onRefreshMilestone?: () => void;
-  readonly onMilestoneDocumentsDirtyChange?: (dirty: boolean) => void;
+  readonly onRequirementsDirtyChange?: (dirty: boolean) => void;
   readonly onRestartMilestoneFromLatest?: (
     snapshot: EditableMilestoneEditSnapshot,
   ) => void;
@@ -154,7 +154,7 @@ export function ProgramEditView({
   onMilestoneFieldChange,
   onSaveMilestone,
   onRefreshMilestone,
-  onMilestoneDocumentsDirtyChange,
+  onRequirementsDirtyChange,
   onRestartMilestoneFromLatest,
   onRequestDeleteMilestone,
   onCancelDelete,
@@ -262,7 +262,7 @@ export function ProgramEditView({
               onSave={onSaveMilestone}
               onRefreshMilestone={onRefreshMilestone ?? (() => undefined)}
               onDocumentsDirtyChange={
-                onMilestoneDocumentsDirtyChange ?? (() => undefined)
+                onRequirementsDirtyChange ?? (() => undefined)
               }
               onRestartMilestoneFromLatest={
                 onRestartMilestoneFromLatest ?? (() => undefined)

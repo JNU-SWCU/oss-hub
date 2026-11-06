@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { CollapsibleTrigger } from '@/components/ui/collapsible';
 import {
   programDocumentsHref,
-  programMilestoneDocumentsHref,
+  programRequirementsHref,
 } from '@/lib/program-route';
 import { SUBMISSION_STATUS_BADGE } from '@/lib/status-vocabulary';
 import { cn } from '@/lib/utils';
@@ -199,7 +199,7 @@ export function MilestoneRow({
 
               {milestone.submissionItemCount > 0 ? (
                 <Link
-                  href={programMilestoneDocumentsHref(programId, milestone.id)}
+                  href={programRequirementsHref(programId, milestone.id)}
                   className="text-small w-fit font-semibold underline underline-offset-2 hover:opacity-80"
                 >
                   서류 수합

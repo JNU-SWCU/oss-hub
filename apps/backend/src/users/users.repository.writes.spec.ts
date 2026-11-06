@@ -77,7 +77,7 @@ describe('flat User profile completion writes', () => {
     );
     const user: unknown = expect.objectContaining({ id: 'user' });
     expect(h.recordPhoneAudit).toHaveBeenCalledWith(
-      { auditLogWriter: h.transaction },
+      { userHistoryWriter: h.transaction },
       { user, transition: 'set' },
     );
   });
@@ -132,7 +132,7 @@ describe('profile and phone updates', () => {
       githubLogin: 'user',
     });
     expect(h.recordPhoneAudit).toHaveBeenCalledWith(
-      { auditLogWriter: h.transaction },
+      { userHistoryWriter: h.transaction },
       {
         user,
         transition: 'set',
@@ -170,7 +170,7 @@ describe('profile and phone updates', () => {
       expect(h.current()?.phone).toBe('00012345678');
       const user: unknown = expect.objectContaining({ phone });
       expect(h.recordPhoneAudit).toHaveBeenCalledWith(
-        { auditLogWriter: h.transaction },
+        { userHistoryWriter: h.transaction },
         { user, transition },
       );
     },
@@ -230,7 +230,7 @@ describe('locked staffNumber updates', () => {
       expect(h.current()?.staffNumber).toBe(staffNumber);
       const user: unknown = expect.objectContaining({ id: 'user' });
       expect(h.recordStaffNumberAudit).toHaveBeenCalledWith(
-        { auditLogWriter: h.transaction },
+        { userHistoryWriter: h.transaction },
         {
           user,
           before: 'old-number',
@@ -249,7 +249,7 @@ describe('locked staffNumber updates', () => {
       h.recordPhoneAudit,
     );
     expect(h.recordStaffNumberAudit).toHaveBeenCalledWith(
-      { auditLogWriter: h.transaction },
+      { userHistoryWriter: h.transaction },
       expect.objectContaining({ before: 'concurrent', after: 'next' }),
     );
   });
@@ -259,7 +259,7 @@ describe('locked staffNumber updates', () => {
     h.recordStaffNumberAudit.mockImplementation(
       (store) =>
         new Promise<void>((resolve) => {
-          expect(store.auditLogWriter).toBe(h.transaction);
+          expect(store.userHistoryWriter).toBe(h.transaction);
           order.push('staff');
           resolve();
         }),
@@ -267,7 +267,7 @@ describe('locked staffNumber updates', () => {
     h.recordPhoneAudit.mockImplementation(
       (store) =>
         new Promise<void>((resolve) => {
-          expect(store.auditLogWriter).toBe(h.transaction);
+          expect(store.userHistoryWriter).toBe(h.transaction);
           order.push('phone');
           resolve();
         }),
@@ -309,7 +309,7 @@ describe('locked staffNumber updates', () => {
       githubLogin: 'user',
     });
     expect(h.recordStaffNumberAudit).toHaveBeenCalledWith(
-      { auditLogWriter: h.transaction },
+      { userHistoryWriter: h.transaction },
       expect.objectContaining({ user }),
     );
   });

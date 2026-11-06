@@ -1,7 +1,7 @@
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import {
@@ -14,12 +14,12 @@ import { LockProgramTreeRepository } from '../platform/lock-program-tree.reposit
 import { SubmissionStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
-  MilestoneDocumentFlowFixture,
+  RequirementFlowFixture,
   flowIds,
-} from './milestone-document-flow.integration-fixture';
-import { flowGithubIds } from './milestone-document-flow-data.integration-fixture';
+} from './requirement-flow.integration-fixture';
+import { flowGithubIds } from './requirement-flow-data.integration-fixture';
 import {
-  MilestoneDocumentReviewsService,
+  RequirementReviewsService,
   SubmissionsService,
   MilestoneCompletionService,
 } from './submissions.service';
@@ -30,8 +30,8 @@ assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
 });
-const fixture = new MilestoneDocumentFlowFixture();
-const documentReviews = new MilestoneDocumentReviewsService(
+const fixture = new RequirementFlowFixture();
+const documentReviews = new RequirementReviewsService(
   new RequirementsRepository(
     fixture.prisma,
     new LockProgramTreeRepository(),
@@ -40,7 +40,7 @@ const documentReviews = new MilestoneDocumentReviewsService(
       new PlatformRepository(),
       new FileMetadataRepository(),
     ),
-    new MilestoneDocumentCollectionReadRepository(
+    new RequirementCollectionReadRepository(
       fixture.prisma,
       new FileMetadataRepository(),
     ),

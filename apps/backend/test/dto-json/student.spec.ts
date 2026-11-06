@@ -1,5 +1,5 @@
 import { ActivityTimelineResponseDto } from '../../src/student/dto/activity-timeline-response.dto';
-import { MilestoneDocumentFeedbackResponseDto } from '../../src/student/dto/milestone-document-feedback-response.dto';
+import { RequirementFeedbackResponseDto } from '../../src/student/dto/requirement-feedback-response.dto';
 import { MyRepositoriesResponseDto } from '../../src/student/dto/my-repositories-response.dto';
 import { StudentDashboardResponseDto } from '../../src/student/dto/student-dashboard-response.dto';
 import type { MyRepositoryResult } from '../../src/github/repositories-read.types';
@@ -86,9 +86,9 @@ const cases: ReadonlyArray<readonly [string, () => unknown]> = [
       }),
   ],
   [
-    'MilestoneDocumentFeedbackResponseDto',
+    'RequirementFeedbackResponseDto',
     () =>
-      MilestoneDocumentFeedbackResponseDto.from({
+      RequirementFeedbackResponseDto.from({
         items: [
           {
             id: 'review-1',

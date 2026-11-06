@@ -80,11 +80,11 @@ export const SUBMISSION_REVIEWS_ERROR_CODES: Record<
     message: '공개 전환에는 명시적 확인이 필요합니다.',
   },
 };
-export class InvalidMilestoneDocumentHistoryCursorError extends Error {
-  override readonly name = 'InvalidMilestoneDocumentHistoryCursorError';
+export class InvalidRequirementHistoryCursorError extends Error {
+  override readonly name = 'InvalidRequirementHistoryCursorError';
 }
-export class MilestoneDocumentArchiveEntryError extends Error {
-  override readonly name = 'MilestoneDocumentArchiveEntryError';
+export class RequirementArchiveEntryError extends Error {
+  override readonly name = 'RequirementArchiveEntryError';
 
   constructor(
     readonly storageKey: string,
@@ -93,28 +93,28 @@ export class MilestoneDocumentArchiveEntryError extends Error {
     super(cause instanceof Error ? cause.message : String(cause), { cause });
   }
 }
-export class MilestoneDocumentPendingFileMissingError extends Error {
-  override readonly name = 'MilestoneDocumentPendingFileMissingError';
+export class RequirementPendingFileMissingError extends Error {
+  override readonly name = 'RequirementPendingFileMissingError';
 }
 
-export class MilestoneDocumentReviewChangedError extends Error {
-  override readonly name = 'MilestoneDocumentReviewChangedError';
+export class RequirementReviewChangedError extends Error {
+  override readonly name = 'RequirementReviewChangedError';
 }
 
-export class MilestoneDocumentDeadlineClosedError extends Error {
-  override readonly name = 'MilestoneDocumentDeadlineClosedError';
+export class RequirementDeadlineClosedError extends Error {
+  override readonly name = 'RequirementDeadlineClosedError';
 }
 
-export class MilestoneDocumentSubmissionChangedError extends Error {
-  override readonly name = 'MilestoneDocumentSubmissionChangedError';
+export class SubmissionChangedError extends Error {
+  override readonly name = 'SubmissionChangedError';
 }
 
-export class MilestoneDocumentRevisionChangedError extends Error {
-  override readonly name = 'MilestoneDocumentRevisionChangedError';
+export class RequirementRevisionChangedError extends Error {
+  override readonly name = 'RequirementRevisionChangedError';
 }
 
-export class MilestoneDocumentMissingError extends Error {
-  override readonly name = 'MilestoneDocumentMissingError';
+export class RequirementMissingError extends Error {
+  override readonly name = 'RequirementMissingError';
 }
 export class UnexpectedSubmissionStatusError extends Error {
   override readonly name = 'UnexpectedSubmissionStatusError';
@@ -409,7 +409,7 @@ export const SUBMISSION_ZIP_REJECTION_ERROR_CODES: Readonly<
   [SubmissionZipRejection.EXPANDS_TOO_MUCH]:
     SubmissionsErrorCode.ZIP_EXPANDS_TOO_MUCH,
 };
-export const MilestoneDocumentsErrorCode = {
+export const RequirementsErrorCode = {
   SELF_REVIEW_FORBIDDEN: 'MSD_046',
   STAFF_ONLY: 'MSD_001',
   STUDENT_ONLY: 'MSD_002',
@@ -454,250 +454,250 @@ export const MilestoneDocumentsErrorCode = {
   INVALID_GRACE_DUE_AT: 'MSD_045',
 } as const;
 
-export type MilestoneDocumentsErrorCode =
-  (typeof MilestoneDocumentsErrorCode)[keyof typeof MilestoneDocumentsErrorCode];
+export type RequirementsErrorCode =
+  (typeof RequirementsErrorCode)[keyof typeof RequirementsErrorCode];
 
-export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
-  Record<MilestoneDocumentsErrorCode, ErrorCode>
+export const REQUIREMENTS_ERROR_CODES: Readonly<
+  Record<RequirementsErrorCode, ErrorCode>
 > = {
-  [MilestoneDocumentsErrorCode.SUBMISSION_REVISION_CHANGED]: {
-    code: MilestoneDocumentsErrorCode.SUBMISSION_REVISION_CHANGED,
+  [RequirementsErrorCode.SUBMISSION_REVISION_CHANGED]: {
+    code: RequirementsErrorCode.SUBMISSION_REVISION_CHANGED,
     status: 409,
     message:
       '제출본이 변경되었습니다. 최신 제출 내역을 확인한 뒤 다시 제출해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH]: {
-    code: MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH,
+  [RequirementsErrorCode.CONTENT_TYPE_MISMATCH]: {
+    code: RequirementsErrorCode.CONTENT_TYPE_MISMATCH,
     status: 422,
     message: '이 항목의 제출 형식에 맞는 내용을 입력해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT]: {
-    code: MilestoneDocumentsErrorCode.INVALID_GRACE_DUE_AT,
+  [RequirementsErrorCode.INVALID_GRACE_DUE_AT]: {
+    code: RequirementsErrorCode.INVALID_GRACE_DUE_AT,
     status: 422,
     message:
       '유예 기한은 마일스톤 마감 이후이며 프로그램 종료 1년 뒤의 파일 보관 만료 시각보다 앞이어야 합니다.',
   },
-  [MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN]: {
-    code: MilestoneDocumentsErrorCode.SELF_REVIEW_FORBIDDEN,
+  [RequirementsErrorCode.SELF_REVIEW_FORBIDDEN]: {
+    code: RequirementsErrorCode.SELF_REVIEW_FORBIDDEN,
     status: 403,
     message:
       '자기 팀 서류는 검토할 수 없습니다. 다른 교직원이나 운영자에게 검토를 요청해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.PROGRAM_NOT_FOUND,
+  [RequirementsErrorCode.PROGRAM_NOT_FOUND]: {
+    code: RequirementsErrorCode.PROGRAM_NOT_FOUND,
     status: 404,
     message:
       '프로그램을 찾을 수 없습니다. 프로그램 목록에서 다시 선택해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.ARCHIVE_TEAM_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.ARCHIVE_TEAM_NOT_FOUND,
+  [RequirementsErrorCode.ARCHIVE_TEAM_NOT_FOUND]: {
+    code: RequirementsErrorCode.ARCHIVE_TEAM_NOT_FOUND,
     status: 404,
     message:
       '이 프로그램의 승인된 팀을 찾을 수 없습니다. 다운로드할 팀을 다시 선택해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.STAFF_ONLY]: {
-    code: MilestoneDocumentsErrorCode.STAFF_ONLY,
+  [RequirementsErrorCode.STAFF_ONLY]: {
+    code: RequirementsErrorCode.STAFF_ONLY,
     status: 403,
     message: '승인된 교직원만 사용할 수 있습니다.',
   },
-  [MilestoneDocumentsErrorCode.STUDENT_ONLY]: {
-    code: MilestoneDocumentsErrorCode.STUDENT_ONLY,
+  [RequirementsErrorCode.STUDENT_ONLY]: {
+    code: RequirementsErrorCode.STUDENT_ONLY,
     status: 403,
     message: '승인된 학생 계정만 제출할 수 있습니다.',
   },
-  [MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.MILESTONE_NOT_FOUND,
+  [RequirementsErrorCode.MILESTONE_NOT_FOUND]: {
+    code: RequirementsErrorCode.MILESTONE_NOT_FOUND,
     status: 404,
     message: '마일스톤을 찾을 수 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND,
+  [RequirementsErrorCode.DOCUMENT_NOT_FOUND]: {
+    code: RequirementsErrorCode.DOCUMENT_NOT_FOUND,
     status: 404,
     message: '서류 항목을 찾을 수 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER]: {
-    code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER,
+  [RequirementsErrorCode.NOT_APPLICATION_MEMBER]: {
+    code: RequirementsErrorCode.NOT_APPLICATION_MEMBER,
     status: 403,
     message: '해당 신청의 제출 권한이 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED]: {
-    code: MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
+  [RequirementsErrorCode.APPLICATION_APPROVAL_REQUIRED]: {
+    code: RequirementsErrorCode.APPLICATION_APPROVAL_REQUIRED,
     status: 403,
     message: '승인된 신청만 제출할 수 있습니다.',
   },
-  [MilestoneDocumentsErrorCode.CONTENT_REQUIRED]: {
-    code: MilestoneDocumentsErrorCode.CONTENT_REQUIRED,
+  [RequirementsErrorCode.CONTENT_REQUIRED]: {
+    code: RequirementsErrorCode.CONTENT_REQUIRED,
     status: 422,
     message: '제출 내용을 입력해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD]: {
-    code: MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD,
+  [RequirementsErrorCode.INVALID_FILE_UPLOAD]: {
+    code: RequirementsErrorCode.INVALID_FILE_UPLOAD,
     status: 400,
     message: '파일을 올바르게 입력해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE]: {
-    code: MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE,
+  [RequirementsErrorCode.UNSUPPORTED_FILE_TYPE]: {
+    code: RequirementsErrorCode.UNSUPPORTED_FILE_TYPE,
     status: 415,
     message: '지원하지 않는 파일 형식입니다.',
   },
-  [MilestoneDocumentsErrorCode.FILE_TOO_LARGE]: {
-    code: MilestoneDocumentsErrorCode.FILE_TOO_LARGE,
+  [RequirementsErrorCode.FILE_TOO_LARGE]: {
+    code: RequirementsErrorCode.FILE_TOO_LARGE,
     status: 413,
 
     message: SUBMISSION_UPLOAD_TOO_LARGE_MESSAGE,
   },
-  [MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE]: {
-    code: MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE,
+  [RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE]: {
+    code: RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE,
     status: 503,
     message: '파일 저장소를 사용할 수 없습니다. 잠시 후 다시 시도해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE]: {
-    code: MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
+  [RequirementsErrorCode.FILE_RETENTION_UNAVAILABLE]: {
+    code: RequirementsErrorCode.FILE_RETENTION_UNAVAILABLE,
     status: 422,
     message: '프로그램 종료일이 설정된 후 파일을 제출할 수 있습니다.',
   },
-  [MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.PENDING_FILE_NOT_FOUND,
+  [RequirementsErrorCode.PENDING_FILE_NOT_FOUND]: {
+    code: RequirementsErrorCode.PENDING_FILE_NOT_FOUND,
     status: 409,
     message: '업로드한 파일을 찾을 수 없거나 만료되었습니다. 다시 올려 주세요.',
   },
-  [MilestoneDocumentsErrorCode.TEMPLATE_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.TEMPLATE_NOT_FOUND,
+  [RequirementsErrorCode.TEMPLATE_NOT_FOUND]: {
+    code: RequirementsErrorCode.TEMPLATE_NOT_FOUND,
     status: 404,
     message: '등록된 양식 파일이 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS]: {
-    code: MilestoneDocumentsErrorCode.DOCUMENT_HAS_SUBMISSIONS,
+  [RequirementsErrorCode.DOCUMENT_HAS_SUBMISSIONS]: {
+    code: RequirementsErrorCode.DOCUMENT_HAS_SUBMISSIONS,
     status: 409,
     message:
       '제출 이력이 있는 항목은 삭제할 수 없습니다. 항목은 유지하고 이름이나 필수 여부를 수정해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.INVALID_REQUEST]: {
-    code: MilestoneDocumentsErrorCode.INVALID_REQUEST,
+  [RequirementsErrorCode.INVALID_REQUEST]: {
+    code: RequirementsErrorCode.INVALID_REQUEST,
     status: 400,
     message: '요청 값을 확인해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND,
+  [RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND]: {
+    code: RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND,
     status: 404,
     message: '제출된 파일을 찾을 수 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND]: {
-    code: MilestoneDocumentsErrorCode.SUBMISSION_NOT_FOUND,
+  [RequirementsErrorCode.SUBMISSION_NOT_FOUND]: {
+    code: RequirementsErrorCode.SUBMISSION_NOT_FOUND,
     status: 404,
     message: '제출된 서류를 찾을 수 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED]: {
-    code: MilestoneDocumentsErrorCode.RESUBMISSION_NOT_ALLOWED,
+  [RequirementsErrorCode.RESUBMISSION_NOT_ALLOWED]: {
+    code: RequirementsErrorCode.RESUBMISSION_NOT_ALLOWED,
     status: 409,
     message: '승인 또는 반려된 서류는 다시 제출할 수 없습니다.',
   },
-  [MilestoneDocumentsErrorCode.REVIEW_CHANGED]: {
-    code: MilestoneDocumentsErrorCode.REVIEW_CHANGED,
+  [RequirementsErrorCode.REVIEW_CHANGED]: {
+    code: RequirementsErrorCode.REVIEW_CHANGED,
     status: 409,
     message:
       '제출하는 사이에 교직원 검토 결과가 등록되었습니다. 새로고침 후 다시 확인해 주세요.',
   },
 
-  [MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED]: {
-    code: MilestoneDocumentsErrorCode.REVIEW_TARGET_CHANGED,
+  [RequirementsErrorCode.REVIEW_TARGET_CHANGED]: {
+    code: RequirementsErrorCode.REVIEW_TARGET_CHANGED,
     status: 409,
     message:
       '검토하는 사이에 제출물 또는 검토 결과가 바뀌었습니다. 새로고침 후 다시 확인해 주세요.',
   },
 
-  [MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE]: {
-    code: MilestoneDocumentsErrorCode.ARCHIVE_TOO_LARGE,
+  [RequirementsErrorCode.ARCHIVE_TOO_LARGE]: {
+    code: RequirementsErrorCode.ARCHIVE_TOO_LARGE,
     status: 413,
     message:
       '한 번에 내려받기에는 제출 파일이 너무 많습니다. 담당자에게 문의해 주세요.',
   },
 
-  [MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED]: {
-    code: MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
+  [RequirementsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED]: {
+    code: RequirementsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
     status: 413,
     message: '보관 중인 제출 파일 한도를 초과했습니다.',
   },
-  [MilestoneDocumentsErrorCode.MILESTONE_CLOSED]: {
-    code: MilestoneDocumentsErrorCode.MILESTONE_CLOSED,
+  [RequirementsErrorCode.MILESTONE_CLOSED]: {
+    code: RequirementsErrorCode.MILESTONE_CLOSED,
     status: 422,
     message:
       '마감된 마일스톤입니다. 일정 변경이 필요한 경우 담당 교직원에게 문의해 주세요.',
   },
-  [MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED]: {
-    code: MilestoneDocumentsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
+  [RequirementsErrorCode.SUBMISSION_REPLACEMENT_CLOSED]: {
+    code: RequirementsErrorCode.SUBMISSION_REPLACEMENT_CLOSED,
     status: 422,
     message:
       '마감 이후에는 검토 전 제출을 바꿀 수 없습니다. 보완 요청을 받은 경우 다시 제출할 수 있습니다.',
   },
-  [MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED]: {
-    code: MilestoneDocumentsErrorCode.LAST_DOCUMENT_REQUIRED,
+  [RequirementsErrorCode.LAST_DOCUMENT_REQUIRED]: {
+    code: RequirementsErrorCode.LAST_DOCUMENT_REQUIRED,
     status: 409,
     message:
       '마일스톤에는 제출 항목이 하나 이상 필요합니다. 새 항목을 만든 뒤 기존 항목을 삭제해 주세요.',
   },
 
-  [MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED]: {
-    code: MilestoneDocumentsErrorCode.RESUBMISSION_ALREADY_USED,
+  [RequirementsErrorCode.RESUBMISSION_ALREADY_USED]: {
+    code: RequirementsErrorCode.RESUBMISSION_ALREADY_USED,
     status: 422,
     message:
       '보완 요청에 응해 이미 다시 제출했습니다. 마감 이후에는 검토 결과가 나올 때까지 내용을 바꿀 수 없습니다.',
   },
 
-  [MilestoneDocumentsErrorCode.ZIP_UNREADABLE]: {
-    code: MilestoneDocumentsErrorCode.ZIP_UNREADABLE,
+  [RequirementsErrorCode.ZIP_UNREADABLE]: {
+    code: RequirementsErrorCode.ZIP_UNREADABLE,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[SubmissionZipRejection.UNREADABLE],
   },
-  [MilestoneDocumentsErrorCode.ZIP_ENTRY_NOT_ALLOWED]: {
-    code: MilestoneDocumentsErrorCode.ZIP_ENTRY_NOT_ALLOWED,
+  [RequirementsErrorCode.ZIP_ENTRY_NOT_ALLOWED]: {
+    code: RequirementsErrorCode.ZIP_ENTRY_NOT_ALLOWED,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[
         SubmissionZipRejection.ENTRY_NOT_ALLOWED
       ],
   },
-  [MilestoneDocumentsErrorCode.ZIP_NESTED]: {
-    code: MilestoneDocumentsErrorCode.ZIP_NESTED,
+  [RequirementsErrorCode.ZIP_NESTED]: {
+    code: RequirementsErrorCode.ZIP_NESTED,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[SubmissionZipRejection.NESTED_ARCHIVE],
   },
-  [MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED]: {
-    code: MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED,
+  [RequirementsErrorCode.ZIP_PASSWORD_PROTECTED]: {
+    code: RequirementsErrorCode.ZIP_PASSWORD_PROTECTED,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[
         SubmissionZipRejection.PASSWORD_PROTECTED
       ],
   },
-  [MilestoneDocumentsErrorCode.ZIP_UNSUPPORTED_COMPRESSION]: {
-    code: MilestoneDocumentsErrorCode.ZIP_UNSUPPORTED_COMPRESSION,
+  [RequirementsErrorCode.ZIP_UNSUPPORTED_COMPRESSION]: {
+    code: RequirementsErrorCode.ZIP_UNSUPPORTED_COMPRESSION,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[
         SubmissionZipRejection.UNSUPPORTED_COMPRESSION
       ],
   },
-  [MilestoneDocumentsErrorCode.ZIP_TOO_MANY_ENTRIES]: {
-    code: MilestoneDocumentsErrorCode.ZIP_TOO_MANY_ENTRIES,
+  [RequirementsErrorCode.ZIP_TOO_MANY_ENTRIES]: {
+    code: RequirementsErrorCode.ZIP_TOO_MANY_ENTRIES,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[
         SubmissionZipRejection.TOO_MANY_ENTRIES
       ],
   },
-  [MilestoneDocumentsErrorCode.ZIP_CONTENT_TOO_LARGE]: {
-    code: MilestoneDocumentsErrorCode.ZIP_CONTENT_TOO_LARGE,
+  [RequirementsErrorCode.ZIP_CONTENT_TOO_LARGE]: {
+    code: RequirementsErrorCode.ZIP_CONTENT_TOO_LARGE,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[
         SubmissionZipRejection.CONTENT_TOO_LARGE
       ],
   },
-  [MilestoneDocumentsErrorCode.ZIP_EXPANDS_TOO_MUCH]: {
-    code: MilestoneDocumentsErrorCode.ZIP_EXPANDS_TOO_MUCH,
+  [RequirementsErrorCode.ZIP_EXPANDS_TOO_MUCH]: {
+    code: RequirementsErrorCode.ZIP_EXPANDS_TOO_MUCH,
     status: 422,
     message:
       SUBMISSION_ZIP_REJECTION_MESSAGES[
@@ -706,23 +706,21 @@ export const MILESTONE_DOCUMENTS_ERROR_CODES: Readonly<
   },
 };
 
-export const MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES: Readonly<
-  Record<SubmissionZipRejection, MilestoneDocumentsErrorCode>
+export const REQUIREMENT_ZIP_REJECTION_ERROR_CODES: Readonly<
+  Record<SubmissionZipRejection, RequirementsErrorCode>
 > = {
-  [SubmissionZipRejection.UNREADABLE]:
-    MilestoneDocumentsErrorCode.ZIP_UNREADABLE,
+  [SubmissionZipRejection.UNREADABLE]: RequirementsErrorCode.ZIP_UNREADABLE,
   [SubmissionZipRejection.ENTRY_NOT_ALLOWED]:
-    MilestoneDocumentsErrorCode.ZIP_ENTRY_NOT_ALLOWED,
-  [SubmissionZipRejection.NESTED_ARCHIVE]:
-    MilestoneDocumentsErrorCode.ZIP_NESTED,
+    RequirementsErrorCode.ZIP_ENTRY_NOT_ALLOWED,
+  [SubmissionZipRejection.NESTED_ARCHIVE]: RequirementsErrorCode.ZIP_NESTED,
   [SubmissionZipRejection.PASSWORD_PROTECTED]:
-    MilestoneDocumentsErrorCode.ZIP_PASSWORD_PROTECTED,
+    RequirementsErrorCode.ZIP_PASSWORD_PROTECTED,
   [SubmissionZipRejection.UNSUPPORTED_COMPRESSION]:
-    MilestoneDocumentsErrorCode.ZIP_UNSUPPORTED_COMPRESSION,
+    RequirementsErrorCode.ZIP_UNSUPPORTED_COMPRESSION,
   [SubmissionZipRejection.TOO_MANY_ENTRIES]:
-    MilestoneDocumentsErrorCode.ZIP_TOO_MANY_ENTRIES,
+    RequirementsErrorCode.ZIP_TOO_MANY_ENTRIES,
   [SubmissionZipRejection.CONTENT_TOO_LARGE]:
-    MilestoneDocumentsErrorCode.ZIP_CONTENT_TOO_LARGE,
+    RequirementsErrorCode.ZIP_CONTENT_TOO_LARGE,
   [SubmissionZipRejection.EXPANDS_TOO_MUCH]:
-    MilestoneDocumentsErrorCode.ZIP_EXPANDS_TOO_MUCH,
+    RequirementsErrorCode.ZIP_EXPANDS_TOO_MUCH,
 };

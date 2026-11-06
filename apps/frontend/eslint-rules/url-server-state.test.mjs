@@ -120,7 +120,7 @@ describe('no-effect-server-fetch', () => {
     'features/profile/components/profile-onboarding-screen.tsx',
     'features/profile/settings/components/settings-screen.tsx',
     'features/programs/authoring/program-edit-page.tsx',
-    'features/programs/documents/milestone-document-editor.tsx',
+    'features/programs/documents/requirement-editor.tsx',
   ])('accepts the verified form seed boundary %s', (file) => {
     expect(
       lint(

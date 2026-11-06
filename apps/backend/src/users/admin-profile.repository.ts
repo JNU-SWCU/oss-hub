@@ -35,7 +35,7 @@ export type AdminProfileLegacyFields = {
 export type AdminProfileApplyOutcome = 'applied' | 'studentIdTaken';
 
 export interface AdminProfileTransactionStore {
-  readonly auditLogWriter: UserHistoryTransaction;
+  readonly userHistoryWriter: UserHistoryTransaction;
 
   lockActiveAdmins(): Promise<void>;
   findActor(githubId: bigint): Promise<AdminAccessActor | null>;
@@ -101,7 +101,7 @@ export class AdminProfileRepository implements AdminProfileRepositoryPort {
     transaction: Prisma.TransactionClient,
   ): AdminProfileTransactionStore {
     return {
-      auditLogWriter: transaction,
+      userHistoryWriter: transaction,
       lockActiveAdmins: this.lockActiveAdminsIn.bind(this, transaction),
       findActor: this.findActorIn.bind(this, transaction),
       findTarget: this.findTargetIn.bind(this, transaction),

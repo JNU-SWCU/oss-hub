@@ -35,7 +35,7 @@ export type ProfileCompletionOutcome =
   'completed' | 'conflict' | 'student-id-taken';
 
 type AuditWriterStore = {
-  readonly auditLogWriter: UserHistoryTransaction;
+  readonly userHistoryWriter: UserHistoryTransaction;
 };
 
 type PhoneAuditTransition = 'set' | 'replaced';
@@ -274,7 +274,7 @@ export class UsersRepository implements UsersRepositoryPort {
         fields.staffNumber !== current.staffNumber
       ) {
         await recordStaffNumberAudit(
-          { auditLogWriter: transaction },
+          { userHistoryWriter: transaction },
           {
             user: auditable(toUserProfileRecord(current)),
             before: current.staffNumber,
@@ -300,7 +300,7 @@ async function writeUserPhoneIfChanged(
   if (phone === undefined || phone === user.phone) return;
   await transaction.user.update({ where: { id: user.id }, data: { phone } });
   await recordPhoneAudit(
-    { auditLogWriter: transaction },
+    { userHistoryWriter: transaction },
     {
       user: auditable(user),
       transition: user.phone == null ? 'set' : 'replaced',

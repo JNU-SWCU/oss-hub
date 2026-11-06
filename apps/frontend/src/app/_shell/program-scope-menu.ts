@@ -26,7 +26,7 @@ export function programScopeBackHref(): string {
   return '/programs';
 }
 
-interface ProgramScopeMilestoneDocsSummary {
+interface ProgramScopeRequirementSummary {
   readonly milestoneId: string;
   readonly title: string;
 
@@ -61,7 +61,7 @@ export interface ProgramScopeSidebarInput {
 
   readonly milestones?: readonly ProgramScopeMilestoneNavigation[];
 
-  readonly milestoneDocuments?: readonly ProgramScopeMilestoneDocsSummary[];
+  readonly milestoneDocuments?: readonly ProgramScopeRequirementSummary[];
 }
 
 export function programScopeSidebarGroups(

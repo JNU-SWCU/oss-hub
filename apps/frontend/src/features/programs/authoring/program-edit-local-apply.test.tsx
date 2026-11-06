@@ -1,8 +1,8 @@
 import { act } from 'react';
 import { createRoot, type Root } from 'react-dom/client';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { LocalMilestoneDocumentsEditor } from '../documents/milestone-document-editor';
-import { toLocalMilestoneDocuments } from '../documents/milestone-document-editor-flow';
+import { LocalRequirementsEditor } from '../documents/requirement-editor';
+import { toLocalRequirements } from '../documents/requirement-editor-flow';
 import { toMilestoneForm } from './program-edit-flow';
 import { ProgramEditMilestoneScheduleEditor } from './program-edit-milestone-schedule-editor';
 
@@ -70,7 +70,7 @@ describe('프로그램 편집의 초안 적용', () => {
   });
 
   it('제출 항목 이름 적용은 편집을 끝내고 서버 저장 없이 다른 항목 편집을 이어간다', async () => {
-    const documents = toLocalMilestoneDocuments(
+    const documents = toLocalRequirements(
       ['기획서', '결과물'].map((name, index) => ({
         id: `document-${index + 1}`,
         milestoneId: 'milestone-1',
@@ -85,7 +85,7 @@ describe('프로그램 편집의 초안 적용', () => {
     const fetchMock = vi.spyOn(globalThis, 'fetch');
     await act(async () => {
       root.render(
-        <LocalMilestoneDocumentsEditor
+        <LocalRequirementsEditor
           milestoneId="milestone-1"
           documents={documents}
           fileUpload={{

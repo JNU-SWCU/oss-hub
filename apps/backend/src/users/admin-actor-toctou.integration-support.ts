@@ -32,8 +32,8 @@ class PausingActorReadAccessStore implements AdminAccessTransactionStore {
     private readonly store: AdminAccessTransactionStore,
     private readonly onActorRead: ActorReadPause,
   ) {}
-  get auditLogWriter() {
-    return this.store.auditLogWriter;
+  get userHistoryWriter() {
+    return this.store.userHistoryWriter;
   }
   private locked = false;
   async findActorByGithubId(
@@ -116,8 +116,8 @@ class PausingActorReadProfileStore implements AdminProfileTransactionStore {
     private readonly store: AdminProfileTransactionStore,
     private readonly onActorRead: ActorReadPause,
   ) {}
-  get auditLogWriter() {
-    return this.store.auditLogWriter;
+  get userHistoryWriter() {
+    return this.store.userHistoryWriter;
   }
   lockActiveAdmins(): Promise<void> {
     return this.store.lockActiveAdmins();

@@ -325,7 +325,7 @@ export type AdminAccessInsertedRequest = {
 };
 
 export interface AdminAccessTransactionStore {
-  readonly auditLogWriter: UserHistoryTransaction;
+  readonly userHistoryWriter: UserHistoryTransaction;
   findActorByGithubId(
     githubId: bigint,
     forUpdate?: boolean,

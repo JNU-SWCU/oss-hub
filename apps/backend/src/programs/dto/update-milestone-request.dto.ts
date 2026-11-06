@@ -17,7 +17,7 @@ function trimString(value: unknown): unknown {
   return typeof value === 'string' ? value.trim() : value;
 }
 
-export class UpdateMilestoneDocumentRequestDto {
+export class UpdateRequirementRequestDto {
   @IsDefined()
   @ValidateIf((_object, value: unknown) => value !== null)
   @Transform(({ value }: { readonly value: unknown }) => trimString(value))
@@ -65,8 +65,8 @@ export class UpdateMilestoneRequestDto implements EditMilestoneCommand {
   @IsArray()
   @ArrayMaxSize(20)
   @ValidateNested({ each: true })
-  @Type(() => UpdateMilestoneDocumentRequestDto)
-  declare readonly documents: readonly UpdateMilestoneDocumentRequestDto[];
+  @Type(() => UpdateRequirementRequestDto)
+  declare readonly documents: readonly UpdateRequirementRequestDto[];
 
   @IsString()
   @Matches(/^[a-f0-9]{64}$/)

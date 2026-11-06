@@ -1,0 +1,23 @@
+import { Type } from 'class-transformer';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
+
+export class RequirementHistoryRequestDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  declare readonly cursor?: string;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  declare readonly limit?: number;
+}

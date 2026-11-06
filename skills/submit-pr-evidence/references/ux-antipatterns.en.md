@@ -235,18 +235,18 @@ All four were observed in 2026-09 submission/download screens (PR #1230).
 
 > If this sentence disappeared, **would the adjacent button lose any meaning**?
 
-Verified observation in `apps/frontend/src/features/programs/milestone-document-submission-form.tsx`:
+Verified observation in `apps/frontend/src/features/programs/documents/submission-form.tsx`:
 An explanation in the file-error area said `위에서 다른 파일을 바로 선택하거나 파일 없이 계속할 수 있습니다.` (“Select another file above, or continue without a file”), immediately above the button `파일 없이 계속` (“Continue without a file”).
 The same fact appeared once as prose and once as a control.
 The automated AP-1 check in A detects **exact string matches only**, so this variation ending in `…할 수 있습니다` (“you can…”) passed; AP-17 covers that gap.
 Labels follow the same rule, but `돌아가서 확인` (“go back and check”) is a repository-wide convention, not an isolated screen mistake.
-At least three irreversible-confirmation dialogs use that label: `program-authoring-confirmation-dialog.tsx:36`, `application-confirmation-dialog.tsx:61`, and `milestone-document-resubmission-dialog.tsx:69`.
-A design comment at `milestone-document-resubmission-dialog.tsx:15-16` explicitly defends it: “It says what you can do, rather than simply ‘Cancel.’”
+At least three irreversible-confirmation dialogs use that label: `program-authoring-confirmation-dialog.tsx:36`, `application-confirmation-dialog.tsx:61`, and `requirement-resubmission-dialog.tsx:69`.
+A design comment at `requirement-resubmission-dialog.tsx:15-16` explicitly defends it: “It says what you can do, rather than simply ‘Cancel.’”
 PM decision (2026-09-08): the second button before irreversible confirmation has one action—close this dialog—and the dialog's position already communicates “go back.”
 A label longer than one action is carrying a sentence.
 The button states one action; its position states where the user returns.
 **However, this is not a single-screen fix.**
-Do not change only one dialog: changing a shared label requires updating every confirmation dialog using it and the design comment in `milestone-document-resubmission-dialog.tsx` in the same PR, or leaving it alone.
+Do not change only one dialog: changing a shared label requires updating every confirmation dialog using it and the design comment in `requirement-resubmission-dialog.tsx` in the same PR, or leaving it alone.
 The owner must decide, so raise a ticket together with AP-20.
 
 **Check before removing text**: before deleting a sentence, check whether its `id` is referenced by `aria-describedby` or `aria-labelledby`.

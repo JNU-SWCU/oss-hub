@@ -7,7 +7,7 @@ import {
   ApplicationStatus,
   SubmissionStatus,
 } from '@prisma/client';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { MemberKind } from '../users/user-contract.config';
 import { runProfile } from '../../prisma/seed';
@@ -36,7 +36,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const service = new SubmissionMatrixService(
   new SubmissionMatrixRepository(prisma, new PlatformRepository()),
-  new MilestoneDocumentCollectionService({} as never),
+  new RequirementCollectionService({} as never),
   new MilestoneCompletionService(),
 );
 

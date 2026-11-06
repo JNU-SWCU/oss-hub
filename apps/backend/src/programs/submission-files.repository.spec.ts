@@ -381,7 +381,7 @@ describe('FilesRepository.createPending membership lock', () => {
     uploaderId: 'user-current-member',
     teamId: 'application-opaque',
     milestoneId: 'milestone-opaque',
-    milestoneDocumentId: 'requirement-opaque',
+    requirementId: 'requirement-opaque',
     storageKey: 'submission-files/opaque',
     originalFileName: 'report.pdf',
     mimeType: 'application/pdf',

@@ -3160,11 +3160,10 @@ async function deleteTeamTree(
     },
     data: detachedFileFks,
   });
-  const milestoneDocumentSubmissionHistories =
-    await tx.submissionHistory.deleteMany({
-      where: { submission: { teamId } },
-    });
-  const milestoneDocumentSubmissions = await tx.submission.deleteMany({
+  const submissionHistories = await tx.submissionHistory.deleteMany({
+    where: { submission: { teamId } },
+  });
+  const submissions = await tx.submission.deleteMany({
     where: { teamId },
   });
 
@@ -3177,11 +3176,11 @@ async function deleteTeamTree(
     teams: 1,
     members: teamMembers.count,
     invitations: teamInvitations.count,
-    submissions: milestoneDocumentSubmissions.count,
+    submissions: submissions.count,
     submissionEvents:
       pendingSubmissionFiles.count +
       deletedSubmissionFiles.count +
-      milestoneDocumentSubmissionHistories.count,
+      submissionHistories.count,
     detachedRepositories: githubRepositoriesDeleted.count,
   };
 }

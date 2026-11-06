@@ -38,9 +38,9 @@ import {
   type ProgramMilestoneDraft,
 } from './program-edit-flow';
 import {
-  buildLocalMilestoneDocumentInputs,
-  validateLocalMilestoneDocuments,
-} from '../documents/milestone-document-editor-flow';
+  buildLocalRequirementInputs,
+  validateLocalRequirements,
+} from '../documents/requirement-editor-flow';
 import {
   cleanupPreparedUploads,
   createProgramSubmissionRuntime,
@@ -106,8 +106,7 @@ export function ProgramEditPage({
     useState<ReadonlyMap<string, EditableMilestoneEditSnapshot['documents']>>(
       new Map(),
     );
-  const [hasUnsavedMilestoneDocuments, setHasUnsavedMilestoneDocuments] =
-    useState(false);
+  const [hasUnsavedRequirements, setHasUnsavedRequirements] = useState(false);
   const editRegionRef = useRef<HTMLDivElement>(null);
   const latestLoadId = useRef(0);
 
@@ -115,7 +114,7 @@ export function ProgramEditPage({
   const hasUnsavedMilestoneChanges = hasUnsavedMilestoneEdit(milestoneEditor);
 
   const { completeAndNavigate } = useProgramExitGuard(
-    isDirty || hasUnsavedMilestoneChanges || hasUnsavedMilestoneDocuments,
+    isDirty || hasUnsavedMilestoneChanges || hasUnsavedRequirements,
   );
 
   const load = useCallback(async () => {
@@ -383,7 +382,7 @@ export function ProgramEditPage({
       ) {
         const milestoneId = milestoneEditor.form.id;
         if (milestoneId === null) return;
-        const documentError = validateLocalMilestoneDocuments(documents);
+        const documentError = validateLocalRequirements(documents);
         if (documentError !== null) {
           setMilestoneEditor((current) =>
             current.mode === 'closed'
@@ -439,7 +438,7 @@ export function ProgramEditPage({
             ),
           ).dueAt,
           instructions: milestoneEditor.form.instructions.trim() || null,
-          documents: buildLocalMilestoneDocumentInputs(documents, uploads),
+          documents: buildLocalRequirementInputs(documents, uploads),
         });
         setCanonicalDocumentsByMilestoneId((current) => {
           const next = new Map(current);
@@ -493,7 +492,7 @@ export function ProgramEditPage({
       }
       void invalidateProgram(queryClient, programId);
       setMilestoneEditor({ mode: 'closed' });
-      setHasUnsavedMilestoneDocuments(false);
+      setHasUnsavedRequirements(false);
     } catch (error: unknown) {
       if (milestoneEditor.mode === 'edit') {
         const failure = editableMilestoneSnapshotFailure(error);
@@ -634,7 +633,7 @@ export function ProgramEditPage({
             deleteUpload: deleteAuthoringUpload,
           });
           setMilestoneEditor({ mode: 'closed' });
-          setHasUnsavedMilestoneDocuments(false);
+          setHasUnsavedRequirements(false);
         }}
         onMilestoneFieldChange={updateMilestoneField}
         onSaveMilestone={(event, documents) =>
@@ -646,7 +645,7 @@ export function ProgramEditPage({
         }}
         latestMilestoneSnapshot={latestMilestoneSnapshot}
         milestoneSnapshotLoadFailed={milestoneSnapshotLoadFailed}
-        onMilestoneDocumentsDirtyChange={setHasUnsavedMilestoneDocuments}
+        onRequirementsDirtyChange={setHasUnsavedRequirements}
         onRestartMilestoneFromLatest={(snapshot) => {
           setMilestoneSnapshot(snapshot);
           setLatestMilestoneSnapshot(null);
@@ -661,7 +660,7 @@ export function ProgramEditPage({
                 }
               : current,
           );
-          setHasUnsavedMilestoneDocuments(false);
+          setHasUnsavedRequirements(false);
         }}
         onRequestDeleteMilestone={(milestone) => {
           setDeleteError(null);

@@ -9,16 +9,16 @@ import {
 } from 'react';
 import { Button } from '@/components/ui/button';
 import {
-  milestoneDocumentDropZones,
-  milestoneDocumentDropTarget,
-  type MilestoneDocumentDropZone,
-} from '../documents/milestone-document-pointer';
+  requirementDropZones,
+  requirementDropTarget,
+  type RequirementDropZone,
+} from '../documents/requirement-pointer';
 
 interface DragPosition {
   readonly activeId: string;
   readonly overId: string | null;
   readonly pointerId: number | null;
-  readonly dropZones: readonly MilestoneDocumentDropZone[];
+  readonly dropZones: readonly RequirementDropZone[];
 }
 
 export type SortableAttachment = {
@@ -65,7 +65,7 @@ export function ProgramAuthoringSortableAttachments<
   function start(
     requirementId: string,
     pointerId: number | null,
-    dropZones: readonly MilestoneDocumentDropZone[] = [],
+    dropZones: readonly RequirementDropZone[] = [],
   ) {
     if (reorderDisabled) return;
     setDrag({
@@ -101,7 +101,7 @@ export function ProgramAuthoringSortableAttachments<
 
   function overFromPoint(event: PointerEvent<HTMLButtonElement>) {
     if (drag === null || drag.pointerId !== event.pointerId) return;
-    const overId = milestoneDocumentDropTarget(drag.dropZones, {
+    const overId = requirementDropTarget(drag.dropZones, {
       x: event.clientX,
       y: event.clientY,
     });
@@ -121,12 +121,12 @@ export function ProgramAuthoringSortableAttachments<
       event.currentTarget
         .closest('ul')
         ?.querySelectorAll<HTMLElement>('[data-sortable-document-id]') ?? [];
-    start(requirementId, event.pointerId, milestoneDocumentDropZones(rows));
+    start(requirementId, event.pointerId, requirementDropZones(rows));
   }
 
   function handlePointerUp(event: PointerEvent<HTMLButtonElement>) {
     if (drag === null || drag.pointerId !== event.pointerId) return;
-    const overId = milestoneDocumentDropTarget(drag.dropZones, {
+    const overId = requirementDropTarget(drag.dropZones, {
       x: event.clientX,
       y: event.clientY,
     });

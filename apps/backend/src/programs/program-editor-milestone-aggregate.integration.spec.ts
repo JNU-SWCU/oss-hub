@@ -8,16 +8,16 @@ import {
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
-  MilestoneDocumentSubmissionWindowService,
-  MilestoneDocumentFileNameService,
+  SubmissionWindowService,
+  RequirementFileNameService,
   SubmissionFileAdmissionService,
   ProgramAuthoringUploadService,
   FilesService,
-  MilestoneDocumentFilesService,
+  RequirementFilesService,
 } from './files.service';
 import { DownloadResponseService } from './download-response.service';
 import {
-  MilestoneDocumentCollectionReadRepository,
+  RequirementCollectionReadRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -50,7 +50,7 @@ import {
   STAFF_GITHUB_ID,
   TEST_PREFIX,
 } from './program-editor.integration-fixtures';
-import { MilestoneDocumentMissingError } from './submissions.error';
+import { RequirementMissingError } from './submissions.error';
 import { ProgramCoverUrlService } from './programs.service';
 
 assertIsolatedIntegrationDatabase({
@@ -250,7 +250,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       STAFF_GITHUB_ID,
       milestoneId,
     );
-    await new MilestoneDocumentFilesService(
+    await new RequirementFilesService(
       new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
@@ -259,7 +259,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           new PlatformRepository(),
           new FileMetadataRepository(),
         ),
-        new MilestoneDocumentCollectionReadRepository(
+        new RequirementCollectionReadRepository(
           prisma,
           new FileMetadataRepository(),
         ),
@@ -277,10 +277,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -404,7 +402,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         { id: secondDocumentId, name: 'Document 2', required: true },
       ]),
     );
-    const files = new MilestoneDocumentFilesService(
+    const files = new RequirementFilesService(
       new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
@@ -413,7 +411,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           new PlatformRepository(),
           new FileMetadataRepository(),
         ),
-        new MilestoneDocumentCollectionReadRepository(
+        new RequirementCollectionReadRepository(
           prisma,
           new FileMetadataRepository(),
         ),
@@ -431,10 +429,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -458,7 +454,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const { milestoneId, firstDocumentId, secondDocumentId } =
       await seedGraph();
     const gate = deferred<void>();
-    const files = new MilestoneDocumentFilesService(
+    const files = new RequirementFilesService(
       new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
@@ -467,7 +463,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           new PlatformRepository(),
           new FileMetadataRepository(),
         ),
-        new MilestoneDocumentCollectionReadRepository(
+        new RequirementCollectionReadRepository(
           prisma,
           new FileMetadataRepository(),
         ),
@@ -494,10 +490,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),
@@ -544,8 +538,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     const submission = new SubmissionsRepository(
       new PlatformRepository(),
       new FileMetadataRepository(),
-    ).upsertMilestoneDocumentSubmission(submissionPrisma, {
-      milestoneDocumentId: firstDocumentId,
+    ).upsertSubmission(submissionPrisma, {
+      requirementId: firstDocumentId,
       teamId: application.id,
       submittedById: application.studentId,
       submittedAt: new Date('2026-08-18T00:00:00.000Z'),
@@ -597,8 +591,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       new SubmissionsRepository(
         new PlatformRepository(),
         new FileMetadataRepository(),
-      ).upsertMilestoneDocumentSubmission(prisma, {
-        milestoneDocumentId: firstDocumentId,
+      ).upsertSubmission(prisma, {
+        requirementId: firstDocumentId,
         teamId: application.id,
         submittedById: application.studentId,
         submittedAt: new Date('2026-08-18T00:00:00.000Z'),
@@ -606,7 +600,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         content: Prisma.JsonNull,
         attachFile: null,
       }),
-    ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
+    ).rejects.toBeInstanceOf(RequirementMissingError);
     expect(
       await prisma.submission.count({
         where: { requirementId: firstDocumentId },
@@ -633,7 +627,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         ...snapshot.documents.slice(1),
       ]),
     );
-    const files = new MilestoneDocumentFilesService(
+    const files = new RequirementFilesService(
       new RequirementsRepository(
         prisma,
         new LockProgramTreeRepository(),
@@ -642,7 +636,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
           new PlatformRepository(),
           new FileMetadataRepository(),
         ),
-        new MilestoneDocumentCollectionReadRepository(
+        new RequirementCollectionReadRepository(
           prisma,
           new FileMetadataRepository(),
         ),
@@ -660,10 +654,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
         new SubmissionFileAdmissionService(),
         new DownloadResponseService(),
       ),
-      new MilestoneDocumentSubmissionWindowService(
-        new ProgramScheduleService(),
-      ),
-      new MilestoneDocumentFileNameService(),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementFileNameService(),
       new SubmissionFileAdmissionService(),
       new DownloadResponseService(),
       new UserProfileService(),

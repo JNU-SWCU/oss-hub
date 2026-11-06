@@ -32,7 +32,7 @@ async function completedTeamsByMilestone(
       documentIds: ['doc-current'],
       requiredDocumentIds: [],
     }),
-    findMilestoneDocumentCatalog: jest.fn().mockResolvedValue(
+    findRequirementCatalog: jest.fn().mockResolvedValue(
       milestones.map((milestone) => ({
         milestoneId: milestone.milestoneId,
         title: milestone.milestoneId,
@@ -47,7 +47,7 @@ async function completedTeamsByMilestone(
     new UserProfileService(),
   ).getOverview(syntheticProgramId, 1n);
   return new Map(
-    (overview.viewer.milestoneDocuments ?? []).map((entry) => [
+    (overview.viewer.requirements ?? []).map((entry) => [
       entry.milestoneId,
       entry.completed,
     ]),
@@ -179,7 +179,7 @@ describe('ProgramOverviewRepository', () => {
   });
 
   describe('findSubmittedDocumentIds', () => {
-    it('groupBy(milestoneDocumentId) 1회로 제출 서류 id를 모은다', async () => {
+    it('groupBy(requirementId) 1회로 제출 서류 id를 모은다', async () => {
       const submissionGroupBy = jest
         .fn()
         .mockResolvedValue([

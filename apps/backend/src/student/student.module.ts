@@ -1,11 +1,11 @@
 import { Module } from '@nestjs/common';
 import { GithubModule } from '../github/github.module';
 import { ProgramsModule } from '../programs/programs.module';
-import { MilestoneDocumentFeedbackRepository } from './milestone-document-feedback.repository';
+import { RequirementFeedbackRepository } from './requirement-feedback.repository';
 import {
-  MILESTONE_DOCUMENT_FEEDBACK_CLOCK,
-  MilestoneDocumentFeedbackService,
-} from './milestone-document-feedback.service';
+  REQUIREMENT_FEEDBACK_CLOCK,
+  RequirementFeedbackService,
+} from './requirement-feedback.service';
 import { MyRepositoriesController } from './my-repositories.controller';
 import { StudentDashboardController } from './student-dashboard.controller';
 import { StudentDashboardRepository } from './student-dashboard.repository';
@@ -17,9 +17,9 @@ import { StudentDashboardService } from './student-dashboard.service';
   providers: [
     StudentDashboardRepository,
     StudentDashboardService,
-    MilestoneDocumentFeedbackRepository,
-    MilestoneDocumentFeedbackService,
-    { provide: MILESTONE_DOCUMENT_FEEDBACK_CLOCK, useValue: () => new Date() },
+    RequirementFeedbackRepository,
+    RequirementFeedbackService,
+    { provide: REQUIREMENT_FEEDBACK_CLOCK, useValue: () => new Date() },
   ],
 })
 export class StudentModule {}

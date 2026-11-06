@@ -30,7 +30,7 @@ function harness() {
     accountStatus: 'ACTIVE' as const,
   };
   const store = {
-    auditLogWriter: new PrismaService(),
+    userHistoryWriter: new PrismaService(),
     lockActiveAdmins: jest.fn().mockResolvedValue(undefined),
     findActorByGithubId: jest.fn().mockResolvedValue(actor),
     findTargetForUpdate: jest
@@ -92,7 +92,7 @@ describe('member registration reset', () => {
       expect(recorded).toMatchObject({
         metadata: { command: 'RESET_MEMBER_KIND' },
       });
-      expect(h.audit.record.mock.calls[0]?.[1]).toBe(h.store.auditLogWriter);
+      expect(h.audit.record.mock.calls[0]?.[1]).toBe(h.store.userHistoryWriter);
     },
   );
   it.each([

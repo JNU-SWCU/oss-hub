@@ -1,4 +1,4 @@
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import { ValidationPipe, type INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import { SubmissionStatus } from '@prisma/client';
@@ -68,7 +68,7 @@ const repository: SubmissionMatrixRepositoryPort = {
     Promise.resolve([
       {
         id: 'synthetic-submission',
-        milestoneDocumentId: 'synthetic-required-document',
+        requirementId: 'synthetic-required-document',
         teamId: 'synthetic-application-personal',
         milestoneId: 'synthetic-milestone',
         status: SubmissionStatus.SUBMITTED,
@@ -81,7 +81,7 @@ const repository: SubmissionMatrixRepositoryPort = {
     Promise.resolve([
       {
         teamId: 'synthetic-application-personal',
-        milestoneDocumentId: 'synthetic-required-document',
+        requirementId: 'synthetic-required-document',
         firstSubmittedAt: new Date('2026-08-19T01:00:00.000Z'),
       },
     ]),
@@ -101,8 +101,8 @@ beforeAll(async () => {
       ...STATELESS_PROVIDERS,
       SubmissionMatrixService,
       {
-        provide: MilestoneDocumentCollectionService,
-        useValue: new MilestoneDocumentCollectionService({} as never),
+        provide: RequirementCollectionService,
+        useValue: new RequirementCollectionService({} as never),
       },
       ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
       {

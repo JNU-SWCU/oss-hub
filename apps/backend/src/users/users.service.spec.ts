@@ -90,7 +90,7 @@ function buildService(
             (stored.role === 'STAFF' ? MemberKind.STAFF : MemberKind.STUDENT),
         }),
   );
-  const auditLogWriter = new PrismaService();
+  const userHistoryWriter = new PrismaService();
   const record = jest
     .fn<
       ReturnType<UserHistoryRepository['record']>,
@@ -110,7 +110,7 @@ function buildService(
       const phoneAudit =
         completion.phone === undefined ? undefined : overrides.phoneAudit;
       if (phoneAudit && outcome === 'completed') {
-        await recordPhoneAudit({ auditLogWriter }, phoneAudit);
+        await recordPhoneAudit({ userHistoryWriter }, phoneAudit);
       }
       return outcome;
     });
@@ -120,11 +120,11 @@ function buildService(
       async (_expected, fields, recordStaffNumberAudit, recordPhoneAudit) => {
         const staffNumberAudit = overrides.staffNumberAudit;
         if (staffNumberAudit && fields.staffNumber !== undefined) {
-          await recordStaffNumberAudit({ auditLogWriter }, staffNumberAudit);
+          await recordStaffNumberAudit({ userHistoryWriter }, staffNumberAudit);
         }
         const phoneAudit = overrides.phoneAudit;
         if (phoneAudit && fields.phone !== undefined) {
-          await recordPhoneAudit({ auditLogWriter }, phoneAudit);
+          await recordPhoneAudit({ userHistoryWriter }, phoneAudit);
         }
       },
     );
@@ -138,7 +138,7 @@ function buildService(
       const phoneAudit =
         fill.phone === undefined ? undefined : overrides.phoneAudit;
       if (phoneAudit && outcome === 'filled') {
-        await recordPhoneAudit({ auditLogWriter }, phoneAudit);
+        await recordPhoneAudit({ userHistoryWriter }, phoneAudit);
       }
       return outcome;
     });
@@ -166,7 +166,7 @@ function buildService(
     fillStudentId,
     updateProfileFields,
     record,
-    auditLogWriter,
+    userHistoryWriter,
   };
 }
 async function captureDomainException(
@@ -419,7 +419,7 @@ describe('저장소가 넘긴 감사 콜백', () => {
     };
   }
   it('가입 완료의 첫 연락처 저장을 SET 전이 감사로 남긴다', async () => {
-    const { service, record, auditLogWriter } = buildService({
+    const { service, record, userHistoryWriter } = buildService({
       user: auditedEmptyUser,
       phoneAudit: { user: auditedEmptyUser, transition: 'set' },
     });
@@ -431,12 +431,12 @@ describe('저장소가 넘긴 감사 콜백', () => {
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
       expectedPhoneAudit(auditedEmptyUser, USER_PHONE_AUDIT_TRANSITIONS.SET),
-      auditLogWriter,
+      userHistoryWriter,
     );
-    expect(record.mock.calls[0]?.[1]).toBe(auditLogWriter);
+    expect(record.mock.calls[0]?.[1]).toBe(userHistoryWriter);
   });
   it('완료된 프로필의 연락처 교체를 REPLACED 전이 감사로 남긴다', async () => {
-    const { service, record, auditLogWriter, updateProfileFields } =
+    const { service, record, userHistoryWriter, updateProfileFields } =
       buildService({
         user: auditedStudent,
         phoneAudit: { user: auditedStudent, transition: 'replaced' },
@@ -452,9 +452,9 @@ describe('저장소가 넘긴 감사 콜백', () => {
     expect(record).toHaveBeenCalledTimes(1);
     expect(record).toHaveBeenCalledWith(
       expectedPhoneAudit(auditedStudent, USER_PHONE_AUDIT_TRANSITIONS.REPLACED),
-      auditLogWriter,
+      userHistoryWriter,
     );
-    expect(record.mock.calls[0]?.[1]).toBe(auditLogWriter);
+    expect(record.mock.calls[0]?.[1]).toBe(userHistoryWriter);
   });
   it.each([
     [' NEW-7 ', 'NEW-7'],
@@ -462,7 +462,7 @@ describe('저장소가 넘긴 감사 콜백', () => {
   ] as const)(
     '사번 %s 변경을 before·after 감사로 남긴다',
     async (staffNumber, after) => {
-      const { service, record, auditLogWriter } = buildService({
+      const { service, record, userHistoryWriter } = buildService({
         user: auditedStaff,
         staffNumberAudit: { user: auditedStaff, before: 'OLD-42', after },
       });
@@ -475,13 +475,13 @@ describe('저장소가 넘긴 감사 콜백', () => {
       expect(record).toHaveBeenCalledTimes(1);
       expect(record).toHaveBeenCalledWith(
         expectedStaffNumberAudit(auditedStaff, 'OLD-42', after),
-        auditLogWriter,
+        userHistoryWriter,
       );
-      expect(record.mock.calls[0]?.[1]).toBe(auditLogWriter);
+      expect(record.mock.calls[0]?.[1]).toBe(userHistoryWriter);
     },
   );
   it('사번과 연락처가 함께 바뀌면 감사를 각각 남긴다', async () => {
-    const { service, record, auditLogWriter } = buildService({
+    const { service, record, userHistoryWriter } = buildService({
       user: auditedStaff,
       staffNumberAudit: {
         user: auditedStaff,
@@ -500,11 +500,11 @@ describe('저장소가 넘긴 감사 콜백', () => {
     expect(record).toHaveBeenCalledTimes(2);
     expect(record).toHaveBeenCalledWith(
       expectedStaffNumberAudit(auditedStaff, 'OLD-42', 'NEW-7'),
-      auditLogWriter,
+      userHistoryWriter,
     );
     expect(record).toHaveBeenCalledWith(
       expectedPhoneAudit(auditedStaff, USER_PHONE_AUDIT_TRANSITIONS.SET),
-      auditLogWriter,
+      userHistoryWriter,
     );
   });
   it('감사 기록 실패를 삼키지 않고 그대로 전파한다', async () => {

@@ -1,47 +1,47 @@
 import { skipToken, useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { milestoneDocumentsKey, programFeatureKey } from '@/lib/query-keys';
+import { requirementsKey, programFeatureKey } from '@/lib/query-keys';
 import {
-  getMilestoneDocumentCollection,
-  getMilestoneDocumentHistory,
-} from './milestone-document-collection-api';
-import type { MilestoneDocumentCollectionQueryInput } from './milestone-document-collection-dto';
+  getRequirementCollection,
+  getRequirementHistory,
+} from './requirement-collection-api';
+import type { RequirementCollectionQueryInput } from './requirement-collection-dto';
 import {
-  getMilestoneDocumentParticipantHistory,
-  listMilestoneDocuments,
-} from './milestone-document-api';
+  getRequirementParticipantHistory,
+  listRequirements,
+} from './requirement-api';
 import { getProgramDetail } from '../catalog/api';
 import { listStaffProgramTeams } from '../teams/api';
 import { getProgramDocumentChangeRequestTargets } from './program-document-change-request-api';
 import type { ProgramDocumentChangeRequestScope } from './program-document-change-request-dto';
-import type { MilestoneDocument } from './milestone-document-dto';
-import type { MilestoneDocumentReviewTarget } from './milestone-document-review';
+import type { Requirement } from './requirement-dto';
+import type { RequirementReviewTarget } from './requirement-review';
 
-export function useMilestoneDocumentsQuery(
+export function useRequirementsQuery(
   programId: string,
   milestoneId: string,
   enabled: boolean,
   scope?: 'all',
 ) {
   return useQuery({
-    queryKey: milestoneDocumentsKey(programId, milestoneId, scope),
-    queryFn: () => listMilestoneDocuments(milestoneId, scope),
+    queryKey: requirementsKey(programId, milestoneId, scope),
+    queryFn: () => listRequirements(milestoneId, scope),
     enabled,
   });
 }
 
-export function useMilestoneDocumentParticipantHistoryQuery(
+export function useRequirementParticipantHistoryQuery(
   programId: string,
-  document: MilestoneDocument,
+  document: Requirement,
 ) {
   return useInfiniteQuery({
     queryKey: [
-      ...milestoneDocumentsKey(programId, document.milestoneId),
+      ...requirementsKey(programId, document.milestoneId),
       'participant-history',
       document.id,
       document.viewerSubmission?.revision,
     ],
     queryFn: ({ pageParam }: { readonly pageParam: string | null }) =>
-      getMilestoneDocumentParticipantHistory(
+      getRequirementParticipantHistory(
         document.milestoneId,
         document.id,
         pageParam,
@@ -54,14 +54,14 @@ export function useMilestoneDocumentParticipantHistoryQuery(
   });
 }
 
-export function useMilestoneDocumentReviewHistoryQuery(
+export function useRequirementReviewHistoryQuery(
   programId: string,
   milestoneId: string,
-  target: MilestoneDocumentReviewTarget | null,
+  target: RequirementReviewTarget | null,
 ) {
   return useInfiniteQuery({
     queryKey: [
-      ...milestoneDocumentsKey(programId, milestoneId),
+      ...requirementsKey(programId, milestoneId),
       'review-history',
       target?.documentId,
       target?.teamId,
@@ -70,7 +70,7 @@ export function useMilestoneDocumentReviewHistoryQuery(
       target === null
         ? skipToken
         : ({ pageParam }: { readonly pageParam: string | null }) =>
-            getMilestoneDocumentHistory(
+            getRequirementHistory(
               milestoneId,
               target.documentId,
               target.teamId,
@@ -121,10 +121,10 @@ export function useProgramDocumentChangeRequestTargetsQuery(
   });
 }
 
-export function useMilestoneDocumentCollectionQuery(
+export function useRequirementCollectionQuery(
   programId: string,
   milestoneId: string,
-  input: MilestoneDocumentCollectionQueryInput,
+  input: RequirementCollectionQueryInput,
 ) {
   return useQuery({
     queryKey: programFeatureKey(
@@ -134,6 +134,6 @@ export function useMilestoneDocumentCollectionQuery(
       milestoneId,
       input,
     ),
-    queryFn: () => getMilestoneDocumentCollection(milestoneId, input),
+    queryFn: () => getRequirementCollection(milestoneId, input),
   });
 }

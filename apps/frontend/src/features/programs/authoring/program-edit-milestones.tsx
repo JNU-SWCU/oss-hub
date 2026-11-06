@@ -8,14 +8,14 @@ import { Card, CardContent } from '@/components/ui/card';
 import type {
   EditableMilestone,
   EditableMilestoneEditSnapshot,
-  EditableMilestoneDocument,
+  EditableRequirement,
 } from './dto';
 import {
   type ProgramMilestoneEditor,
   type ProgramMilestoneField,
   type ProgramMilestoneDraft,
 } from './program-edit-flow';
-import { ReadOnlyMilestoneDocuments } from '../documents/milestone-document-editor';
+import { ReadOnlyRequirements } from '../documents/requirement-editor';
 import { formatSeoulShortRange } from '../catalog/program-detail-format';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
@@ -37,7 +37,7 @@ interface ProgramEditMilestonesProps {
   readonly snapshotLoadFailed?: boolean;
   readonly canonicalDocumentsByMilestoneId?: ReadonlyMap<
     string,
-    readonly EditableMilestoneDocument[]
+    readonly EditableRequirement[]
   >;
   readonly onAdd: () => void;
   readonly onEdit: (milestone: EditableMilestone) => void;
@@ -170,7 +170,7 @@ export function ProgramEditMilestones({
               onEdit={() => onEdit(milestone)}
               onDelete={() => onRequestDelete(milestone)}
             >
-              <ReadOnlyMilestoneDocuments
+              <ReadOnlyRequirements
                 programId={programId}
                 milestoneId={milestone.id}
                 canonicalDocuments={canonicalDocumentsByMilestoneId?.get(

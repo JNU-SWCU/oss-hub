@@ -54,9 +54,9 @@ import {
   ProgramAuthoringUploadService,
   FilesService,
   SubmissionFileAdmissionService,
-  MilestoneDocumentFilesService,
-  MilestoneDocumentFileNameService,
-  MilestoneDocumentSubmissionWindowService,
+  RequirementFilesService,
+  RequirementFileNameService,
+  SubmissionWindowService,
 } from './files.service';
 import {
   ApplicationTemplatesController,
@@ -115,11 +115,11 @@ import {
 } from './submissions.controller';
 import {
   FilesController,
-  MilestoneDocumentFilesController,
+  RequirementFilesController,
 } from './files.controller';
 import {
   SubmissionsService,
-  MilestoneDocumentReviewsService,
+  RequirementReviewsService,
   MilestoneCompletionService,
 } from './submissions.service';
 import {
@@ -128,9 +128,9 @@ import {
   ProgramDocumentChangeRequestsController,
 } from './requirements.controller';
 import {
-  MilestoneDocumentArchiveRepository,
-  MilestoneDocumentCollectionReadRepository,
-  MilestoneDocumentCurrentFileRepository,
+  RequirementArchiveRepository,
+  RequirementCollectionReadRepository,
+  RequirementCurrentFileRepository,
   RequirementsRepository,
 } from './requirements.repository';
 import {
@@ -139,8 +139,8 @@ import {
 } from './requirements.service';
 import {
   RequirementArchiveService,
-  MilestoneDocumentCollectionService,
-  MilestoneDocumentCurrentFileService,
+  RequirementCollectionService,
+  RequirementCurrentFileService,
 } from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import { ProgramScheduleService } from './program-schedule.service';
@@ -169,12 +169,12 @@ import { ProgramScheduleService } from './program-schedule.service';
     ProgramDocumentArchivesController,
     ProgramDocumentChangeRequestsController,
     RequirementsController,
-    MilestoneDocumentFilesController,
+    RequirementFilesController,
   ],
   providers: [
     SubmissionReviewsRepository,
     SubmissionMatrixRepository,
-    MilestoneDocumentCollectionReadRepository,
+    RequirementCollectionReadRepository,
     StudentRepositoryUrlContextRepository,
     ProgramListStatusFilterRepository,
     ProgramAuthoringUploadTransactionRepository,
@@ -183,8 +183,8 @@ import { ProgramScheduleService } from './program-schedule.service';
     ApplicationAnswersService,
     DownloadResponseService,
     MilestoneCompletionService,
-    MilestoneDocumentFileNameService,
-    MilestoneDocumentSubmissionWindowService,
+    RequirementFileNameService,
+    SubmissionWindowService,
     ProgramScheduleService,
     ProgramTemplatesService,
     SubmissionFileAdmissionService,
@@ -249,18 +249,18 @@ import { ProgramScheduleService } from './program-schedule.service';
     SubmissionsService,
     RequirementsService,
     RequirementsRepository,
-    MilestoneDocumentCollectionService,
-    MilestoneDocumentCurrentFileRepository,
-    MilestoneDocumentCurrentFileService,
-    MilestoneDocumentFilesService,
-    MilestoneDocumentReviewsService,
+    RequirementCollectionService,
+    RequirementCurrentFileRepository,
+    RequirementCurrentFileService,
+    RequirementFilesService,
+    RequirementReviewsService,
     ProgramDocumentChangeRequestsService,
     RequirementArchiveService,
-    MilestoneDocumentArchiveRepository,
+    RequirementArchiveRepository,
   ],
   exports: [
     MilestoneCompletionService,
-    MilestoneDocumentSubmissionWindowService,
+    SubmissionWindowService,
     ProgramCoverUrlService,
     ProgramActivityService,
     ProgramViewerService,
@@ -277,8 +277,8 @@ import { ProgramScheduleService } from './program-schedule.service';
     SubmissionDashboardSummaryService,
     FilesService,
     RequirementsService,
-    MilestoneDocumentFilesService,
-    MilestoneDocumentCurrentFileService,
+    RequirementFilesService,
+    RequirementCurrentFileService,
   ],
 })
 export class ProgramsModule {}

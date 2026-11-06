@@ -1,9 +1,9 @@
-import type { MilestoneDocumentViewerSubmission } from './milestone-document-dto';
+import type { RequirementViewerSubmission } from './requirement-dto';
 import {
-  isMilestoneDocumentDeadlineLocked,
-  isMilestoneDocumentResubmittable,
-  milestoneDocumentViewerDisplay,
-} from './milestone-document-review';
+  isRequirementDeadlineLocked,
+  isRequirementResubmittable,
+  requirementViewerDisplay,
+} from './requirement-review';
 import type {
   BlockedMilestoneSubmissionAccess,
   MilestoneSubmissionAccess,
@@ -12,12 +12,12 @@ import { isPastDue } from '../catalog/program-detail-format';
 import type { ProgramMilestone } from '../catalog/dto';
 import type { SubmissionStatus } from '../program-contract';
 
-export type MilestoneDocumentSubmitGate =
+export type RequirementSubmitGate =
   | { readonly kind: 'open' }
   | { readonly kind: 'settled'; readonly note: string }
   | { readonly kind: 'held'; readonly note: string };
 
-export function milestoneDocumentSubmitGate({
+export function requirementSubmitGate({
   submissionAccess,
   viewerSubmission,
   closed,
@@ -25,17 +25,17 @@ export function milestoneDocumentSubmitGate({
   now = Date.now(),
 }: {
   readonly submissionAccess: MilestoneSubmissionAccess;
-  readonly viewerSubmission: MilestoneDocumentViewerSubmission | undefined;
+  readonly viewerSubmission: RequirementViewerSubmission | undefined;
 
   readonly closed: boolean;
   readonly graceDueAt?: string | null;
   readonly now?: number;
-}): MilestoneDocumentSubmitGate {
-  if (!isMilestoneDocumentResubmittable(viewerSubmission)) {
+}): RequirementSubmitGate {
+  if (!isRequirementResubmittable(viewerSubmission)) {
     return {
       kind: 'settled',
       note:
-        milestoneDocumentViewerDisplay(viewerSubmission) === 'APPROVED'
+        requirementViewerDisplay(viewerSubmission) === 'APPROVED'
           ? '승인된 제출 항목은 다시 제출할 수 없습니다.'
           : '반려된 제출 항목은 다시 제출할 수 없습니다.',
     };
@@ -48,7 +48,7 @@ export function milestoneDocumentSubmitGate({
     viewerSubmission?.review == null &&
     viewerSubmission?.status !== 'CHANGES_REQUESTED';
   if (
-    isMilestoneDocumentDeadlineLocked(
+    isRequirementDeadlineLocked(
       closed || (graceDueAt !== null && isPastDue(graceDueAt, now)),
       viewerSubmission,
     ) &&

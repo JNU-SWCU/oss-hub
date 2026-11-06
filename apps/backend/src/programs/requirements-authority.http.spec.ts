@@ -1,0 +1,250 @@
+import { DownloadResponseService } from './download-response.service';
+import { ValidationPipe, type INestApplication } from '@nestjs/common';
+import { Test } from '@nestjs/testing';
+import { AccountStatus } from '@prisma/client';
+import { AuthConfig } from '../platform/auth.config';
+import { AuthService } from '../auth/auth.service';
+import { OriginGuard } from '../platform/origin.guard';
+import { ProblemDetailFilter } from '../platform/problem-detail.filter';
+import {
+  RequirementArchiveService,
+  RequirementCollectionService,
+} from './requirement-archive.service';
+import { RequirementFilesService } from './files.service';
+import { RequirementReviewsService } from './submissions.service';
+import { RequirementsController } from './requirements.controller';
+import { RequirementsService } from './requirements.service';
+import { RequirementsRepository } from './requirements.repository';
+import { AuthSessionService } from '../platform/auth-session.service';
+import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
+import {
+  GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+  sessionPrincipal,
+} from '../../test/global-authentication-guard.fixture';
+
+const authSessionService = new AuthSessionService();
+
+const secret = new Uint8Array(32).fill(47);
+const origin = 'https://jnu-oss-hub.com';
+const record = {
+  submissionType: 'FILE_OR_TEXT' as const,
+  id: 'document',
+  milestoneId: 'milestone',
+  name: '합성 서류',
+  required: true,
+  sortOrder: 1,
+  templateFileId: null,
+  templateFileName: null,
+};
+const actors = [
+  ['anonymous', null, false, false, AccountStatus.ACTIVE, 401],
+  ['student', 1n, false, false, AccountStatus.ACTIVE, 403],
+  ['inactive staff', 2n, true, false, AccountStatus.DEACTIVATED, 403],
+  ['staff', 3n, true, false, AccountStatus.ACTIVE, 200],
+  ['admin', 4n, false, true, AccountStatus.ACTIVE, 403],
+] as const;
+const routes = [
+  [
+    'PATCH',
+    '/document/grace',
+    { graceDueAt: '2099-01-01T00:00:00Z' },
+    204,
+    null,
+  ],
+] as const;
+const writer = jest.fn();
+let app: INestApplication;
+let base: string;
+
+beforeAll(async () => {
+  const store = {
+    lockMilestoneForGrace: jest.fn().mockResolvedValue({
+      id: 'milestone',
+      dueAt: new Date('2026-01-01'),
+      programEndAt: new Date('2099-01-01'),
+    }),
+    lockMilestone: jest
+      .fn()
+      .mockResolvedValue({ id: 'milestone', dueAt: new Date('2026-01-01') }),
+    updateGraceDueAt: jest.fn().mockResolvedValue(undefined),
+    lockDocument: jest.fn().mockResolvedValue(record),
+    lockDocumentIdsOfMilestone: jest
+      .fn()
+      .mockResolvedValue(['document', 'other']),
+    createDocument: jest.fn().mockResolvedValue(record),
+    updateDocument: jest.fn().mockResolvedValue(record),
+    applyDocumentOrder: jest.fn().mockResolvedValue([record]),
+    countSubmissionsForDocument: jest.fn().mockResolvedValue(0),
+    deleteDocument: jest.fn().mockResolvedValue(undefined),
+  };
+  writer.mockImplementation(
+    (operation: (value: typeof store) => Promise<unknown>) => operation(store),
+  );
+  const module = await Test.createTestingModule({
+    controllers: [RequirementsController],
+    providers: [
+      ...STATELESS_PROVIDERS,
+      ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
+      OriginGuard,
+      RequirementsService,
+      {
+        provide: AuthConfig,
+        useValue: { sessionSecret: secret, allowedOrigin: origin },
+      },
+      {
+        provide: AuthService,
+        useValue: {
+          getMe: (githubId: bigint) => {
+            const actor = actors.find((item) => item[1] === githubId);
+            return Promise.resolve(
+              sessionPrincipal({
+                hasStaffAccess: actor?.[2] ?? false,
+                hasAdminAccess: actor?.[3] ?? false,
+                accountStatus: actor?.[4] ?? null,
+              }),
+            );
+          },
+        },
+      },
+      {
+        provide: RequirementsRepository,
+        useValue: { withTransaction: writer },
+      },
+      {
+        provide: RequirementArchiveService,
+        useValue: Object.assign(
+          Object.create(RequirementArchiveService.prototype) as object,
+          { downloadResponseService: new DownloadResponseService() },
+        ),
+      },
+      { provide: RequirementCollectionService, useValue: {} },
+      {
+        provide: RequirementFilesService,
+        useValue: Object.assign(
+          Object.create(RequirementFilesService.prototype) as object,
+          { downloadResponseService: new DownloadResponseService() },
+        ),
+      },
+      { provide: RequirementReviewsService, useValue: {} },
+    ],
+  })
+    .useMocker((token) => (token === Function ? undefined : {}))
+    .compile();
+  app = module.createNestApplication();
+  app.setGlobalPrefix('api/v1');
+  app.useGlobalPipes(
+    new ValidationPipe({
+      transform: true,
+      whitelist: true,
+      forbidNonWhitelisted: true,
+    }),
+  );
+  app.useGlobalFilters(new ProblemDetailFilter());
+  await app.listen(0, '127.0.0.1');
+  base = `${await app.getUrl()}/api/v1/milestones/milestone/documents`;
+});
+
+afterAll(async () => {
+  await app.close();
+});
+beforeEach(() => {
+  writer.mockClear();
+});
+
+it.each(actors)(
+  'preserves the complete valid-request contract for %s',
+  async (_role, githubId, _staff, _admin, _active, expectedStatus) => {
+    for (const [method, path, body, successStatus, successBody] of routes) {
+      const response = await fetch(`${base}${path}`, {
+        method,
+        headers: {
+          origin,
+          'content-type': 'application/json',
+          ...(githubId === null
+            ? {}
+            : {
+                cookie: `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`,
+              }),
+        },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      expect(response.status).toBe(
+        expectedStatus === 200 ? successStatus : expectedStatus,
+      );
+      if (expectedStatus === 200) {
+        if (successStatus === 204) expect(await response.text()).toBe('');
+        else await expect(response.json()).resolves.toEqual(successBody);
+      } else {
+        await expect(response.json()).resolves.toEqual({
+          type: 'about:blank',
+          title: expectedStatus === 401 ? 'UNAUTHORIZED' : 'FORBIDDEN',
+          status: expectedStatus,
+          detail:
+            expectedStatus === 401
+              ? '로그인이 필요합니다.'
+              : '승인된 교직원만 사용할 수 있습니다.',
+          instance: `/api/v1/milestones/milestone/documents${path}`,
+          code: expectedStatus === 401 ? 'AUT_003' : 'MSD_001',
+        });
+      }
+    }
+    expect(writer).toHaveBeenCalledTimes(
+      expectedStatus === 200 ? routes.length : 0,
+    );
+  },
+);
+
+it.each([1n, 2n])(
+  'rejects a wrong-role actor before validating input for actor %s',
+  async (githubId) => {
+    const cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`;
+    for (const [method, path, body] of [
+      ['POST', '/document/teams/application/reviews', { decision: 'INVALID' }],
+      ['GET', '/collection?page=0', undefined],
+      ['GET', '/collection/archive?groupBy=INVALID', undefined],
+      ['GET', '/document/teams/application/history?limit=0', undefined],
+    ] as const) {
+      const response = await fetch(`${base}${path}`, {
+        method,
+        headers: { origin, cookie, 'content-type': 'application/json' },
+        body: body === undefined ? undefined : JSON.stringify(body),
+      });
+      expect(response.status).toBe(403);
+      await expect(response.json()).resolves.toMatchObject({
+        status: 403,
+        code: 'MSD_001',
+      });
+    }
+    expect(writer).not.toHaveBeenCalled();
+  },
+);
+
+it.each([1n, 2n])(
+  'checks missing and foreign Origin before staff authorization for actor %s',
+  async (githubId) => {
+    const cookie = `${authSessionService.sessionCookieName(false)}=${await authSessionService.issueSessionToken(secret, githubId, 0)}`;
+    for (const requestOrigin of [undefined, 'https://attacker.example']) {
+      for (const [method, path, body] of routes) {
+        const response = await fetch(`${base}${path}`, {
+          method,
+          headers: {
+            cookie,
+            'content-type': 'application/json',
+            ...(requestOrigin === undefined ? {} : { origin: requestOrigin }),
+          },
+          body: body === undefined ? undefined : JSON.stringify(body),
+        });
+        expect(response.status).toBe(403);
+        await expect(response.json()).resolves.toEqual({
+          type: 'about:blank',
+          title: 'FORBIDDEN',
+          status: 403,
+          detail: '허용되지 않은 Origin의 요청입니다.',
+          instance: `/api/v1/milestones/milestone/documents${path}`,
+          code: 'AUT_002',
+        });
+      }
+    }
+    expect(writer).not.toHaveBeenCalled();
+  },
+);

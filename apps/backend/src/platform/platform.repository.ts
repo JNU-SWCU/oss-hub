@@ -101,7 +101,7 @@ export class PlatformRepository {
   ) {
     const event = await transaction.submissionHistory.create({
       data: {
-        submissionId: input.milestoneDocumentSubmissionId,
+        submissionId: input.submissionId,
         event: input.decision,
         revision: input.revision,
         comment: input.comment,
@@ -126,7 +126,7 @@ type ApplicationCoordinates = Readonly<{ programId: string; id: string }>;
 
 interface SubmissionReviewEventInput {
   readonly submissionHistoryId: string;
-  readonly milestoneDocumentSubmissionId: string;
+  readonly submissionId: string;
   readonly revision: number;
   readonly reviewerId: string;
   readonly decision: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';

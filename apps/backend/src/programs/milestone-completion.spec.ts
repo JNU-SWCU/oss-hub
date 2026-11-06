@@ -89,7 +89,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
         [],
         [
           {
-            milestoneDocumentId: 'document-1',
+            requirementId: 'document-1',
             status: SubmissionStatus.APPROVED,
           },
         ],
@@ -108,7 +108,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
         [],
         [
           {
-            milestoneDocumentId: 'document-1',
+            requirementId: 'document-1',
             status: SubmissionStatus.APPROVED,
           },
         ],

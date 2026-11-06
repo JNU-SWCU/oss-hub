@@ -374,7 +374,7 @@ export async function seedOssHub(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocument',
+    'Requirement',
     () =>
       prisma.requirement.findUnique({
         where: { id: awsStagingDocumentId },
@@ -394,7 +394,7 @@ export async function seedOssHub(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmission',
+    'Submission',
     () =>
       prisma.submission.findUnique({
         where: { id: awsStagingSubmissionId },
@@ -421,7 +421,7 @@ export async function seedOssHub(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmissionHistory',
+    'SubmissionHistory',
     () =>
       prisma.submissionHistory.findUnique({
         where: { id: awsStagingHistoryId },
@@ -444,7 +444,7 @@ export async function seedOssHub(
     'staging 배포와 헬스체크·롤백 절차까지 확인했습니다. 통과 처리합니다 (seed fixture).';
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmissionHistory',
+    'SubmissionHistory',
     () =>
       prisma.submissionHistory.findUnique({
         where: { id: awsStagingReviewId },
@@ -482,7 +482,7 @@ export async function seedOssHub(
   const intakeFreezeSubmitterId = (users[2] ?? users[0])!.id;
   await upsertTracked(
     stats,
-    'MilestoneDocument',
+    'Requirement',
     () =>
       prisma.requirement.findUnique({
         where: { id: intakeFreezeDocumentId },
@@ -502,7 +502,7 @@ export async function seedOssHub(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmission',
+    'Submission',
     () =>
       prisma.submission.findUnique({
         where: { id: intakeFreezeSubmissionId },
@@ -529,7 +529,7 @@ export async function seedOssHub(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmissionHistory',
+    'SubmissionHistory',
     () =>
       prisma.submissionHistory.findUnique({
         where: { id: intakeFreezeHistoryId },

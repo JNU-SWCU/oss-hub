@@ -356,7 +356,7 @@ export class UsersService {
           ],
         }),
       },
-      store.auditLogWriter,
+      store.userHistoryWriter,
     );
   };
 
@@ -385,7 +385,7 @@ export class UsersService {
               : USER_PHONE_AUDIT_TRANSITIONS.REPLACED,
         }),
       },
-      store.auditLogWriter,
+      store.userHistoryWriter,
     );
   };
 

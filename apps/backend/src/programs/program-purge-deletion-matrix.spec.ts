@@ -78,10 +78,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
 
     expect(actual).toEqual(covered);
     expect(PROGRAM_PURGE_DELETION_ORDER.flatMap((step) => step.covers)).toEqual(
-      expect.arrayContaining([
-        'logical:Program->OutboxEvent',
-        'logical:Team->OutboxEvent',
-      ]),
+      expect.arrayContaining(['logical:Team->OutboxEvent']),
     );
   });
 
@@ -190,7 +187,6 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       'Program->File',
       'Program->GithubRepository',
       'Program->Application',
-      'logical:Program->OutboxEvent',
       'logical:Program->Notification[DEADLINE_DIGEST,idempotencyKey]',
     ]) {
       expect(teamCovers).not.toContain(programOnly);
@@ -345,7 +341,6 @@ const OUTBOX_AGGREGATE_TYPE_CLASSIFICATION: Record<
   string,
   { readonly programLinked: boolean; readonly shape: string }
 > = {
-  PROGRAM: { programLinked: true, shape: 'aggregateId === programId' },
   Team: {
     programLinked: true,
     shape: 'aggregateId === teamId; payload.programId',
@@ -389,8 +384,9 @@ describe('program-linked logical record allowlist (Notification/OutboxEvent)', (
         OUTBOX_AGGREGATE_TYPE_CLASSIFICATION[aggregateType];
       expect(classification).toBeDefined();
       if (classification?.programLinked) {
-        const target = aggregateType === 'PROGRAM' ? 'Program' : aggregateType;
-        expect(preservedRelations).toContain(`logical:${target}->OutboxEvent`);
+        expect(preservedRelations).toContain(
+          `logical:${aggregateType}->OutboxEvent`,
+        );
       }
     }
   });

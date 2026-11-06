@@ -27,7 +27,7 @@ class AuthorityStore
     IndependentAuthorityRepositoryPort,
     IndependentAuthorityTransactionStore
 {
-  readonly auditLogWriter = new PrismaService();
+  readonly userHistoryWriter = new PrismaService();
   actor: AdminAccessActor | null = {
     name: null,
     id: 'actor',

@@ -15,12 +15,12 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
-  MilestoneDocumentPendingFileMissingError,
-  MilestoneDocumentReviewChangedError,
-  MilestoneDocumentDeadlineClosedError,
-  MilestoneDocumentSubmissionChangedError,
-  MilestoneDocumentRevisionChangedError,
-  MilestoneDocumentMissingError,
+  RequirementPendingFileMissingError,
+  RequirementReviewChangedError,
+  RequirementDeadlineClosedError,
+  SubmissionChangedError,
+  RequirementRevisionChangedError,
+  RequirementMissingError,
   SubmissionMembershipChangedError,
 } from './submissions.error';
 import { USER_PROFILE_NAME_SELECT } from '../platform/user-profile-read.config';
@@ -38,17 +38,17 @@ export class SubmissionsRepository {
       ? requested
       : new Date(latest.getTime() + 1);
   }
-  milestoneDocumentSubmissionContent(
+  submissionContent(
     text: string | null,
   ): Prisma.InputJsonValue | typeof Prisma.JsonNull {
     return text === null
       ? Prisma.JsonNull
       : { type: RequirementSubmissionType.TEXT, text };
   }
-  upsertMilestoneDocumentSubmission(
+  upsertSubmission(
     prisma: PrismaService,
-    input: UpsertMilestoneDocumentSubmissionInput,
-  ): Promise<MilestoneDocumentSubmissionDetail> {
+    input: UpsertSubmissionInput,
+  ): Promise<SubmissionDetail> {
     return prisma.$transaction(async (transaction) => {
       const stillMember =
         await this.platformRepository.lockSubmissionMembership(
@@ -86,11 +86,11 @@ export class SubmissionsRepository {
       >(Prisma.sql`
       SELECT "id", "graceDueAt"
       FROM "Requirement"
-      WHERE "id" = ${input.milestoneDocumentId}
+      WHERE "id" = ${input.requirementId}
       FOR UPDATE
     `);
       const document = documents[0];
-      if (document === undefined) throw new MilestoneDocumentMissingError();
+      if (document === undefined) throw new RequirementMissingError();
       if (
         afterDeadline &&
         input.deadline !== undefined &&
@@ -101,19 +101,19 @@ export class SubmissionsRepository {
           input.submittedAt.getTime() <= document.graceDueAt.getTime()
         )
       ) {
-        throw new MilestoneDocumentDeadlineClosedError();
+        throw new RequirementDeadlineClosedError();
       }
       await transaction.$queryRaw(Prisma.sql`
         SELECT "id"
         FROM "Submission"
-        WHERE "requirementId" = ${input.milestoneDocumentId}
+        WHERE "requirementId" = ${input.requirementId}
           AND "teamId" = ${input.teamId}
         FOR UPDATE
       `);
       const latestHistory = await transaction.submissionHistory.findFirst({
         where: {
           submission: {
-            requirementId: input.milestoneDocumentId,
+            requirementId: input.requirementId,
             teamId: input.teamId,
           },
         },
@@ -128,7 +128,7 @@ export class SubmissionsRepository {
         where: {
           event: { in: SUBMISSION_REVIEW_EVENTS },
           submission: {
-            requirementId: input.milestoneDocumentId,
+            requirementId: input.requirementId,
             teamId: input.teamId,
           },
         },
@@ -136,7 +136,7 @@ export class SubmissionsRepository {
         select: { id: true },
       });
       if ((latestReview?.id ?? null) !== input.expectedLatestReviewId) {
-        throw new MilestoneDocumentReviewChangedError();
+        throw new RequirementReviewChangedError();
       }
       if (
         input.expectedRevision !== undefined ||
@@ -145,7 +145,7 @@ export class SubmissionsRepository {
         const current = await transaction.submission.findUnique({
           where: {
             requirementId_teamId: {
-              requirementId: input.milestoneDocumentId,
+              requirementId: input.requirementId,
               teamId: input.teamId,
             },
           },
@@ -155,19 +155,19 @@ export class SubmissionsRepository {
           input.expectedRevision !== undefined &&
           (current?.revision ?? 0) !== input.expectedRevision
         ) {
-          throw new MilestoneDocumentRevisionChangedError();
+          throw new RequirementRevisionChangedError();
         }
         if (
           afterDeadline &&
           input.deadline !== undefined &&
           (current?.status ?? null) !== input.deadline.expectedSubmissionStatus
         )
-          throw new MilestoneDocumentSubmissionChangedError();
+          throw new SubmissionChangedError();
       }
       const submission = await transaction.submission.upsert({
         where: {
           requirementId_teamId: {
-            requirementId: input.milestoneDocumentId,
+            requirementId: input.requirementId,
             teamId: input.teamId,
           },
         },
@@ -179,7 +179,7 @@ export class SubmissionsRepository {
           revision: { increment: 1 },
         },
         create: {
-          requirementId: input.milestoneDocumentId,
+          requirementId: input.requirementId,
           teamId: input.teamId,
           status: SubmissionStatus.SUBMITTED,
           content: input.content,
@@ -216,7 +216,7 @@ export class SubmissionsRepository {
             uploaderId: input.attachFile.uploaderId,
             kind: 'SUBMISSION',
             teamId: input.teamId,
-            requirementId: input.milestoneDocumentId,
+            requirementId: input.requirementId,
             lifecycle: FileLifecycle.PENDING,
             pendingExpiresAt: { gt: input.submittedAt },
           },
@@ -228,7 +228,7 @@ export class SubmissionsRepository {
           },
         });
         if (attached.count !== 1) {
-          throw new MilestoneDocumentPendingFileMissingError();
+          throw new RequirementPendingFileMissingError();
         }
       }
       const files = await transaction.file.findMany({
@@ -251,8 +251,8 @@ export class SubmissionsRepository {
 }
 export type SubmissionReviewDecision =
   'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED';
-export interface UpsertMilestoneDocumentSubmissionInput {
-  readonly milestoneDocumentId: string;
+export interface UpsertSubmissionInput {
+  readonly requirementId: string;
   readonly teamId: string;
   readonly submittedById: string;
   readonly submittedAt: Date;
@@ -285,7 +285,7 @@ const dashboardMilestoneSelect = {
   id: true,
   programId: true,
 } satisfies Prisma.MilestoneSelect;
-const dashboardMilestoneDocumentSelect = {
+const dashboardRequirementSelect = {
   id: true,
   milestoneId: true,
   milestone: { select: { programId: true } },
@@ -308,8 +308,8 @@ export type DashboardApplicationRow = Prisma.TeamGetPayload<{
 export type DashboardMilestoneRow = Prisma.MilestoneGetPayload<{
   select: typeof dashboardMilestoneSelect;
 }>;
-export type DashboardMilestoneDocumentRow = Prisma.RequirementGetPayload<{
-  select: typeof dashboardMilestoneDocumentSelect;
+export type DashboardRequirementRow = Prisma.RequirementGetPayload<{
+  select: typeof dashboardRequirementSelect;
 }>;
 export type DashboardDocumentSubmissionRow = Prisma.SubmissionGetPayload<{
   select: typeof dashboardDocumentSubmissionSelect;
@@ -330,8 +330,8 @@ export interface SubmissionDashboardSummaryDataSource {
   readonly requirement: {
     findMany(args: {
       readonly where: Prisma.RequirementWhereInput;
-      readonly select: typeof dashboardMilestoneDocumentSelect;
-    }): Promise<readonly DashboardMilestoneDocumentRow[]>;
+      readonly select: typeof dashboardRequirementSelect;
+    }): Promise<readonly DashboardRequirementRow[]>;
   };
   readonly submission: {
     findMany(args: {
@@ -355,7 +355,7 @@ interface SubmissionDashboardSubmissionRecord {
   readonly milestoneProgramId: string;
   readonly status: SubmissionStatus;
 }
-export interface SubmissionDashboardMilestoneDocumentRecord {
+export interface SubmissionDashboardRequirementRecord {
   readonly id: string;
   readonly milestoneId: string;
   readonly milestoneProgramId: string;
@@ -363,7 +363,7 @@ export interface SubmissionDashboardMilestoneDocumentRecord {
 export interface SubmissionDashboardDocumentSubmissionRecord {
   readonly teamId: string;
   readonly applicationProgramId: string;
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
   readonly milestoneId: string;
   readonly milestoneProgramId: string;
   readonly status: SubmissionStatus;
@@ -372,7 +372,7 @@ export interface SubmissionDashboardSummaryRecords {
   readonly applications: readonly SubmissionDashboardApplicationRecord[];
   readonly milestones: readonly SubmissionDashboardMilestoneRecord[];
   readonly submissions: readonly SubmissionDashboardSubmissionRecord[];
-  readonly milestoneDocuments: readonly SubmissionDashboardMilestoneDocumentRecord[];
+  readonly requirements: readonly SubmissionDashboardRequirementRecord[];
   readonly documentSubmissions: readonly SubmissionDashboardDocumentSubmissionRecord[];
 }
 export interface SubmissionDashboardSummaryRepositoryPort {
@@ -394,12 +394,12 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
         applications: [],
         milestones: [],
         submissions: [],
-        milestoneDocuments: [],
+        requirements: [],
         documentSubmissions: [],
       };
     }
     const programFilter = { in: [...programIds] };
-    const [applications, milestones, milestoneDocuments, targetSubmissions] =
+    const [applications, milestones, requirements, targetSubmissions] =
       await Promise.all([
         this.prisma.team.findMany({
           where: {
@@ -417,7 +417,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
             required: true,
             milestone: { is: { programId: programFilter } },
           },
-          select: dashboardMilestoneDocumentSelect,
+          select: dashboardRequirementSelect,
         }),
         this.prisma.submission.findMany({
           where: {
@@ -441,13 +441,13 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
       [];
     for (const submission of targetSubmissions) {
-      const { requirement: milestoneDocument } = submission;
+      const { requirement: requirement } = submission;
       documentSubmissions.push({
         teamId: submission.teamId,
         applicationProgramId: submission.team.programId,
-        milestoneDocumentId: submission.requirementId,
-        milestoneId: milestoneDocument.milestoneId,
-        milestoneProgramId: milestoneDocument.milestone.programId,
+        requirementId: submission.requirementId,
+        milestoneId: requirement.milestoneId,
+        milestoneProgramId: requirement.milestone.programId,
         status: submission.status,
       });
     }
@@ -455,7 +455,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
       applications,
       milestones,
       submissions,
-      milestoneDocuments: milestoneDocuments.map((document) => ({
+      requirements: requirements.map((document) => ({
         id: document.id,
         milestoneId: document.milestoneId,
         milestoneProgramId: document.milestone.programId,
@@ -471,7 +471,7 @@ export interface SubmissionMatrixFilter {
 }
 export interface MatrixDocumentFirstSubmission {
   readonly teamId: string;
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
   readonly firstSubmittedAt: Date;
 }
 async function findMatrixDocumentFirstSubmissions(
@@ -503,7 +503,7 @@ async function findMatrixDocumentFirstSubmissions(
   });
   return submissions.map((submission) => ({
     teamId: submission.teamId,
-    milestoneDocumentId: submission.requirementId,
+    requirementId: submission.requirementId,
     firstSubmittedAt:
       submission.histories[0]?.createdAt ?? submission.createdAt,
   }));
@@ -529,7 +529,7 @@ export interface MatrixSubmissionRecord {
   readonly id: string;
   readonly teamId: string;
   readonly milestoneId: string;
-  readonly milestoneDocumentId: string;
+  readonly requirementId: string;
   readonly status: SubmissionStatus;
   readonly currentRevision: number;
   readonly submittedAt: Date | null;
@@ -701,7 +701,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
       id: submission.id,
       teamId: submission.teamId,
       milestoneId: submission.requirement.milestoneId,
-      milestoneDocumentId: submission.requirementId,
+      requirementId: submission.requirementId,
       status: submission.status,
       currentRevision: submission.revision,
       submittedAt: submission.submittedAt,
@@ -733,18 +733,18 @@ type JsonObject = {
 type JsonArray = JsonValue[];
 type JsonValue = string | number | boolean | null | JsonObject | JsonArray;
 export type SubmissionRevisionContent = JsonValue;
-interface MilestoneDocumentSubmissionFile {
+interface SubmissionFile {
   readonly id: string;
   readonly originalFileName: string;
   readonly mimeType: string;
   readonly sizeBytes: number;
 }
-export interface MilestoneDocumentSubmissionDetail {
+export interface SubmissionDetail {
   readonly id: string;
   readonly status: SubmissionStatus;
   readonly content: JsonValue | null;
   readonly submittedAt: Date;
-  readonly files: readonly MilestoneDocumentSubmissionFile[];
+  readonly files: readonly SubmissionFile[];
 }
 type ApplicationMode = 'PERSONAL' | 'TEAM';
 export interface SubmissionReviewRecord {
@@ -843,7 +843,7 @@ export type ReviewContextRow = Prisma.SubmissionGetPayload<{
 }>;
 interface CreateReviewRecordInput {
   readonly submissionHistoryId: string;
-  readonly milestoneDocumentSubmissionId: string;
+  readonly submissionId: string;
   readonly revision: number;
   readonly reviewerId: string;
   readonly decision: SubmissionReviewDecision;

@@ -1,0 +1,257 @@
+import { FileMetadataRepository } from './files.repository';
+import { UserProfileService } from '../users/user-profile.service';
+import { ProgramScheduleService } from './program-schedule.service';
+import { SubmissionWindowService } from './files.service';
+import { RequirementCollectionService } from './requirement-archive.service';
+import { PlatformRepository } from '../platform/platform.repository';
+import { SubmissionsRepository } from './submissions.repository';
+import { RequirementHistoryPageResponseDto } from './dto/requirement-history-page-response.dto';
+import { SubmissionHistoryEvent } from '@prisma/client';
+import { RequirementsRepository } from './requirements.repository';
+import { RequirementsService } from './requirements.service';
+import { InvalidRequirementHistoryCursorError } from './submissions.error';
+
+describe('RequirementsService historyForStaff', () => {
+  it('checks the document and application program before returning a bounded page', async () => {
+    const repository = {
+      findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
+        id: 'document-1',
+        milestoneId: 'milestone-1',
+        programId: 'program-1',
+      }),
+      findApplicationProgramId: jest.fn().mockResolvedValue('program-1'),
+      findSubmissionHistoryPage: jest.fn().mockResolvedValue({
+        items: [
+          {
+            id: 'history-1',
+            event: SubmissionHistoryEvent.SUBMITTED,
+            revision: 1,
+            actorNickname: 'synthetic-student',
+            comment: null,
+            createdAt: new Date('2026-09-01T00:00:00.000Z'),
+            fileName: null,
+            content: { type: 'TEXT', text: '완료했습니다.' },
+          },
+        ],
+        nextCursor: null,
+        isComplete: true,
+      }),
+    } as unknown as RequirementsRepository;
+    const service = new RequirementsService(
+      repository,
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
+      new ProgramScheduleService(),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
+      new UserProfileService(),
+    );
+
+    const result = await service
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
+
+    expect(result).toEqual({
+      items: [
+        expect.objectContaining({
+          event: SubmissionHistoryEvent.SUBMITTED,
+          createdAt: '2026-09-01T00:00:00.000Z',
+          content: { type: 'TEXT', text: '완료했습니다.' },
+        }),
+      ],
+      nextCursor: null,
+      isComplete: true,
+    });
+  });
+
+  it('maps an out-of-scope cursor to the invalid-request contract', async () => {
+    const repository = {
+      findDocumentContext: jest.fn().mockResolvedValue({
+        submissionType: 'FILE_OR_TEXT',
+        id: 'document-1',
+        milestoneId: 'milestone-1',
+        programId: 'program-1',
+      }),
+      findApplicationProgramId: jest.fn().mockResolvedValue('program-1'),
+      findSubmissionHistoryPage: jest
+        .fn()
+        .mockRejectedValue(new InvalidRequirementHistoryCursorError()),
+    } as unknown as RequirementsRepository;
+
+    await expect(
+      new RequirementsService(
+        repository,
+        new SubmissionWindowService(new ProgramScheduleService()),
+        new RequirementCollectionService({} as never),
+        new ProgramScheduleService(),
+        new SubmissionsRepository(
+          new PlatformRepository(),
+          new FileMetadataRepository(),
+        ),
+        new UserProfileService(),
+      ).historyForStaff('milestone-1', 'document-1', 'application-1', {
+        cursor: 'foreign-history',
+        limit: 20,
+      }),
+    ).rejects.toMatchObject({ errorCode: { code: 'MSD_019' } });
+  });
+});
+
+describe('RequirementsService history download links', () => {
+  const documentContext = {
+    id: 'document-1',
+    milestoneId: 'milestone-1',
+    programId: 'program-1',
+  };
+
+  function historyItem(overrides: Record<string, unknown>) {
+    return {
+      id: 'history-1',
+      event: SubmissionHistoryEvent.SUBMITTED,
+      revision: 1,
+      actorNickname: 'synthetic-student',
+      comment: null,
+      createdAt: new Date('2026-09-01T00:00:00.000Z'),
+      fileName: null,
+      downloadableFileId: null,
+      content: null,
+      ...overrides,
+    };
+  }
+
+  function repositoryWith(item: Record<string, unknown>) {
+    return {
+      findDocumentContext: jest.fn().mockResolvedValue(documentContext),
+      findApplicationProgramId: jest.fn().mockResolvedValue('program-1'),
+      findActiveUser: jest.fn().mockResolvedValue({
+        id: 'user-1',
+        hasStaffAccess: false,
+        hasAdminAccess: false,
+        type: 'STUDENT',
+        approvalStatus: 'NOT_REQUIRED',
+        accountStatus: 'ACTIVE',
+        name: 'Synthetic viewer',
+        department: 'Synthetic department',
+        studentId: '123456',
+        departmentType: 'DEPARTMENT',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        admin: null,
+      }),
+      findStudentApplication: jest.fn().mockResolvedValue({
+        teamId: 'application-1',
+        approved: true,
+        programEndAt: new Date('2026-12-31T00:00:00.000Z'),
+      }),
+      findSubmissionHistoryPage: jest.fn().mockResolvedValue({
+        items: [item],
+        nextCursor: null,
+        isComplete: true,
+      }),
+    } as unknown as RequirementsRepository;
+  }
+
+  it('학생 이력의 살아 있는 첨부에는 본인 다운로드 주소를 준다', async () => {
+    const service = new RequirementsService(
+      repositoryWith(
+        historyItem({
+          fileName: '1차_계획서.pdf',
+          downloadableFileId: 'file-1',
+        }),
+      ),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
+      new ProgramScheduleService(),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
+      new UserProfileService(),
+    );
+
+    const result = await service
+      .historyForParticipant(1n, 'milestone-1', 'document-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        fileName: '1차_계획서.pdf',
+        downloadUrl: '/api/v1/submission-files/file-1',
+      }),
+    );
+  });
+
+  it('교직원 이력도 같은 주소를 받는다 — 재제출로 떨어져 나간 첨부에 닿을 길이다', async () => {
+    const service = new RequirementsService(
+      repositoryWith(
+        historyItem({
+          fileName: '1차_계획서.pdf',
+          downloadableFileId: 'file-1',
+        }),
+      ),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
+      new ProgramScheduleService(),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
+      new UserProfileService(),
+    );
+
+    const result = await service
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        downloadUrl: '/api/v1/submission-files/file-1',
+      }),
+    );
+  });
+
+  it('보관 기한이 지난 첨부에는 주소를 주지 않는다 — 죽은 버튼을 세우지 않는다', async () => {
+    const service = new RequirementsService(
+      repositoryWith(
+        historyItem({
+          fileName: '만료된_계획서.pdf',
+          downloadableFileId: null,
+        }),
+      ),
+      new SubmissionWindowService(new ProgramScheduleService()),
+      new RequirementCollectionService({} as never),
+      new ProgramScheduleService(),
+      new SubmissionsRepository(
+        new PlatformRepository(),
+        new FileMetadataRepository(),
+      ),
+      new UserProfileService(),
+    );
+
+    const result = await service
+      .historyForStaff('milestone-1', 'document-1', 'application-1', {
+        cursor: null,
+        limit: 20,
+      })
+      .then((result) => RequirementHistoryPageResponseDto.from(result));
+
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({
+        fileName: '만료된_계획서.pdf',
+        downloadUrl: null,
+      }),
+    );
+  });
+});

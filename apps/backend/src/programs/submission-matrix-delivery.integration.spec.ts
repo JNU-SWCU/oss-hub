@@ -1,5 +1,5 @@
 import { MilestoneCompletionService } from './submissions.service';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { INestApplication } from '@nestjs/common';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -25,7 +25,7 @@ const repository = new SubmissionMatrixRepository(
 );
 const service = new SubmissionMatrixService(
   repository,
-  new MilestoneDocumentCollectionService({} as never),
+  new RequirementCollectionService({} as never),
   new MilestoneCompletionService(),
 );
 const first = new Date(fixture.dueSoon.getTime() - 1);

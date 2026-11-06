@@ -1,5 +1,5 @@
 import { apiClient } from '@/lib/api-client';
-import { createMilestoneDocumentReview } from '@/lib/requirement-review';
+import { createRequirementReview } from '@/lib/requirement-review';
 export { publishRepository } from '@/lib/repository-publication';
 import type {
   CreateReviewRequest,
@@ -17,7 +17,7 @@ export async function createReview(
   context: ReviewContext,
   request: CreateReviewRequest,
 ): Promise<CreateReviewResponse> {
-  const review = await createMilestoneDocumentReview(
+  const review = await createRequirementReview(
     context.milestone.id,
     context.requirementId,
     context.application.id,

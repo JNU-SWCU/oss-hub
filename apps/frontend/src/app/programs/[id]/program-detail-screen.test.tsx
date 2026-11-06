@@ -30,12 +30,12 @@ vi.mock('@/features/programs/catalog/program-overview-api', () => ({
 }));
 
 vi.mock(
-  '@/features/programs/documents/milestone-document-api',
+  '@/features/programs/documents/requirement-api',
   async (importOriginal) => ({
     ...(await importOriginal<
-      typeof import('@/features/programs/documents/milestone-document-api')
+      typeof import('@/features/programs/documents/requirement-api')
     >()),
-    listMilestoneDocuments: vi.fn().mockResolvedValue({
+    listRequirements: vi.fn().mockResolvedValue({
       documents: [],
       fileUpload: {
         maxBytes: 1024,

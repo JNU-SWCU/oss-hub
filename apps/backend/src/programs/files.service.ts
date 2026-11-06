@@ -13,11 +13,11 @@ import {
   ValidatedProgramAuthoringUpload,
   type ProgramExternalCover,
   ProgramAuthoringUploadToken,
-  type UploadedMilestoneDocumentFileResponse,
-  type MilestoneDocumentFileUpload,
-  type UploadedMilestoneDocumentTemplateResponse,
-  type DownloadedMilestoneDocumentTemplate,
-  type DownloadedMilestoneDocumentSubmissionFile,
+  type UploadedRequirementFileResponse,
+  type RequirementFileUpload,
+  type UploadedRequirementTemplateResponse,
+  type DownloadedRequirementTemplate,
+  type DownloadedSubmissionFile,
 } from './files.config';
 import { type ObjectStoragePort } from '../platform/object-storage.types';
 import { OBJECT_STORAGE } from '../platform/object-storage.config';
@@ -65,16 +65,16 @@ import {
   MAX_TOTAL_UNCOMPRESSED_BYTES,
   MAX_ENTRY_UNCOMPRESSED_BYTES,
   SubmissionMembershipChangedError,
-  MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES,
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENT_ZIP_REJECTION_ERROR_CODES,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
 } from './submissions.error';
 import { fromBufferPromise, type Entry } from 'yauzl';
 import { UserProfileService } from '../users/user-profile.service';
 import { RequirementsRepository } from './requirements.repository';
 import type { SubmissionReviewDecision } from './submissions.repository';
 @Injectable()
-export class MilestoneDocumentSubmissionWindowService {
+export class SubmissionWindowService {
   constructor(
     private readonly programScheduleService: ProgramScheduleService,
   ) {}
@@ -105,7 +105,7 @@ export class MilestoneDocumentSubmissionWindowService {
     );
   }
 
-  milestoneDocumentSubmissionBlock({
+  submissionBlock({
     dueAt,
     graceDueAt = null,
     now,
@@ -120,7 +120,7 @@ export class MilestoneDocumentSubmissionWindowService {
     readonly latestDecision: SubmissionReviewDecision | null;
 
     readonly submissionStatus: SubmissionStatus | null;
-  }): MilestoneDocumentSubmissionBlock | null {
+  }): SubmissionBlock | null {
     if (latestDecision === 'APPROVED' || latestDecision === 'REJECTED') {
       return 'RESUBMISSION_NOT_ALLOWED';
     }
@@ -145,26 +145,24 @@ export class MilestoneDocumentSubmissionWindowService {
   }
 }
 
-export type MilestoneDocumentSubmissionBlock =
+export type SubmissionBlock =
   | 'MILESTONE_CLOSED'
   | 'SUBMISSION_REPLACEMENT_CLOSED'
   | 'RESUBMISSION_NOT_ALLOWED'
   | 'RESUBMISSION_ALREADY_USED';
 @Injectable()
-export class MilestoneDocumentFileNameService {
-  milestoneDocumentDownloadFileName(
-    input: MilestoneDocumentDownloadFileNameInput,
-  ): string {
+export class RequirementFileNameService {
+  requirementDownloadFileName(input: RequirementDownloadFileNameInput): string {
     return `${baseName(input)}${extensionOf(input.originalFileName)}`;
   }
 
-  milestoneDocumentTextEntryFileName(
-    input: Omit<MilestoneDocumentDownloadFileNameInput, 'originalFileName'>,
+  requirementTextEntryFileName(
+    input: Omit<RequirementDownloadFileNameInput, 'originalFileName'>,
   ): string {
     return `${baseName(input)}.txt`;
   }
 
-  milestoneDocumentArchiveFolderName(value: string): string {
+  requirementArchiveFolderName(value: string): string {
     const segment = safeSegment(value);
 
     const stem = segment.split('.')[0] ?? segment;
@@ -209,7 +207,7 @@ function normalizeDeviceDigits(value: string): string {
 }
 
 function baseName(
-  input: Omit<MilestoneDocumentDownloadFileNameInput, 'originalFileName'>,
+  input: Omit<RequirementDownloadFileNameInput, 'originalFileName'>,
 ): string {
   return `${safeSegment(input.teamName)}_${safeSegment(input.documentName)}`;
 }
@@ -268,7 +266,7 @@ function extensionOf(originalFileName: string): string {
   return extension.length > 0 ? `.${extension}` : '';
 }
 
-export interface MilestoneDocumentDownloadFileNameInput {
+export interface RequirementDownloadFileNameInput {
   readonly teamName: string;
   readonly documentName: string;
   readonly originalFileName: string;
@@ -829,12 +827,6 @@ export interface SubmissionFileUpload {
   readonly size: number;
 }
 
-export interface DownloadedSubmissionFile {
-  readonly body: Readable;
-  readonly fileName: string;
-  readonly contentType: string;
-  readonly contentLength: number;
-}
 export const MAX_FILE_BYTES = SUBMISSION_UPLOAD_MAX_BYTES;
 @Injectable()
 export class FilesService {
@@ -944,14 +936,14 @@ export class FilesService {
 }
 
 @Injectable()
-export class MilestoneDocumentFilesService {
+export class RequirementFilesService {
   constructor(
     private readonly repository: RequirementsRepository,
     @Inject(OBJECT_STORAGE)
     private readonly storage: ObjectStoragePort,
     private readonly submissionFiles: FilesService,
-    private readonly milestoneDocumentSubmissionWindowService: MilestoneDocumentSubmissionWindowService,
-    private readonly milestoneDocumentFileNameService: MilestoneDocumentFileNameService,
+    private readonly submissionWindowService: SubmissionWindowService,
+    private readonly requirementFileNameService: RequirementFileNameService,
     private readonly submissionFileAdmissionService: SubmissionFileAdmissionService,
     private readonly downloadResponseService: DownloadResponseService,
     private readonly userProfileService: UserProfileService,
@@ -989,18 +981,18 @@ export class MilestoneDocumentFilesService {
     sessionGithubId: bigint,
     milestoneId: unknown,
     documentId: unknown,
-    file: MilestoneDocumentFileUpload | undefined,
+    file: RequirementFileUpload | undefined,
     now: Date = new Date(),
-  ): Promise<UploadedMilestoneDocumentFileResponse> {
+  ): Promise<UploadedRequirementFileResponse> {
     const normalizedMilestoneId = this.requiredOpaqueId(milestoneId);
     const normalizedDocumentId = this.requiredOpaqueId(documentId);
     const originalName = await this.validateOriginalFileName(file);
-    const uploadedFile = file as MilestoneDocumentFileUpload;
+    const uploadedFile = file as RequirementFileUpload;
 
     const viewer =
       await this.repository.findActiveStudentByGithubId(sessionGithubId);
     if (viewer === null) {
-      throw this.error(MilestoneDocumentsErrorCode.STUDENT_ONLY);
+      throw this.error(RequirementsErrorCode.STUDENT_ONLY);
     }
 
     const documentContext =
@@ -1009,24 +1001,22 @@ export class MilestoneDocumentFilesService {
       documentContext === null ||
       documentContext.milestoneId !== normalizedMilestoneId
     ) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
     }
     const application = await this.repository.findStudentApplication(
       viewer.id,
       documentContext.programId,
     );
     if (application === null) {
-      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+      throw this.error(RequirementsErrorCode.NOT_APPLICATION_MEMBER);
     }
     if (!application.approved) {
-      throw this.error(
-        MilestoneDocumentsErrorCode.APPLICATION_APPROVAL_REQUIRED,
-      );
+      throw this.error(RequirementsErrorCode.APPLICATION_APPROVAL_REQUIRED);
     }
 
     switch (documentContext.submissionType) {
       case RequirementSubmissionType.TEXT:
-        throw this.error(MilestoneDocumentsErrorCode.CONTENT_TYPE_MISMATCH);
+        throw this.error(RequirementsErrorCode.CONTENT_TYPE_MISMATCH);
       case RequirementSubmissionType.FILE:
       case RequirementSubmissionType.FILE_OR_TEXT:
         break;
@@ -1047,19 +1037,16 @@ export class MilestoneDocumentFilesService {
       ),
     ]);
 
-    const blocked =
-      this.milestoneDocumentSubmissionWindowService.milestoneDocumentSubmissionBlock(
-        {
-          dueAt: documentContext.dueAt,
-          graceDueAt: documentContext.graceDueAt,
-          now,
-          hasSubmission: currentSubmission !== null,
-          latestDecision: latestReview?.decision ?? null,
-          submissionStatus: currentSubmission?.status ?? null,
-        },
-      );
+    const blocked = this.submissionWindowService.submissionBlock({
+      dueAt: documentContext.dueAt,
+      graceDueAt: documentContext.graceDueAt,
+      now,
+      hasSubmission: currentSubmission !== null,
+      latestDecision: latestReview?.decision ?? null,
+      submissionStatus: currentSubmission?.status ?? null,
+    });
     if (blocked !== null) {
-      throw this.error(MilestoneDocumentsErrorCode[blocked]);
+      throw this.error(RequirementsErrorCode[blocked]);
     }
 
     const objectKey =
@@ -1071,7 +1058,7 @@ export class MilestoneDocumentFilesService {
         uploaderId: viewer.id,
         teamId: application.teamId,
         milestoneId: normalizedMilestoneId,
-        milestoneDocumentId: normalizedDocumentId,
+        requirementId: normalizedDocumentId,
         storageKey: objectKey,
         originalFileName: originalName,
         mimeType: uploadedFile.mimetype,
@@ -1080,19 +1067,15 @@ export class MilestoneDocumentFilesService {
       });
     } catch (error) {
       if (error instanceof SubmissionMembershipChangedError) {
-        throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+        throw this.error(RequirementsErrorCode.NOT_APPLICATION_MEMBER);
       }
       if (error instanceof SubmissionFileQuotaExceededError) {
-        throw this.error(
-          MilestoneDocumentsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED,
-        );
+        throw this.error(RequirementsErrorCode.SUBMISSION_FILE_QUOTA_EXCEEDED);
       }
       if (error instanceof SubmissionFileRetentionUnavailableError) {
-        throw this.error(
-          MilestoneDocumentsErrorCode.FILE_RETENTION_UNAVAILABLE,
-        );
+        throw this.error(RequirementsErrorCode.FILE_RETENTION_UNAVAILABLE);
       }
-      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+      throw this.error(RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
     try {
@@ -1103,7 +1086,7 @@ export class MilestoneDocumentFilesService {
         objectKey,
       });
     } catch {
-      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+      throw this.error(RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
     return {
@@ -1115,7 +1098,7 @@ export class MilestoneDocumentFilesService {
     };
   }
 
-  async check(file: MilestoneDocumentFileUpload | undefined): Promise<void> {
+  async check(file: RequirementFileUpload | undefined): Promise<void> {
     await this.validateOriginalFileName(file);
   }
 
@@ -1123,10 +1106,10 @@ export class MilestoneDocumentFilesService {
     actorId: string,
     milestoneId: string,
     documentId: string,
-    file: MilestoneDocumentFileUpload | undefined,
-  ): Promise<UploadedMilestoneDocumentTemplateResponse> {
+    file: RequirementFileUpload | undefined,
+  ): Promise<UploadedRequirementTemplateResponse> {
     const originalName = await this.validateOriginalFileName(file, 'TEMPLATE');
-    const uploadedFile = file as MilestoneDocumentFileUpload;
+    const uploadedFile = file as RequirementFileUpload;
 
     const documentContext =
       await this.repository.findDocumentContext(documentId);
@@ -1134,7 +1117,7 @@ export class MilestoneDocumentFilesService {
       documentContext === null ||
       documentContext.milestoneId !== milestoneId
     ) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
     const objectKey =
@@ -1149,7 +1132,7 @@ export class MilestoneDocumentFilesService {
         objectKey,
       });
     } catch {
-      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+      throw this.error(RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
     await this.repository.withTransaction(async (store) => {
@@ -1158,11 +1141,11 @@ export class MilestoneDocumentFilesService {
         lockedDocument === null ||
         lockedDocument.milestoneId !== milestoneId
       ) {
-        throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+        throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
       }
 
       await store.upsertTemplateFile({
-        milestoneDocumentId: documentId,
+        requirementId: documentId,
         uploadedById: actorId,
         storageKey: objectKey,
         originalFileName: originalName,
@@ -1184,10 +1167,10 @@ export class MilestoneDocumentFilesService {
     sessionGithubId: bigint,
     milestoneId: string,
     documentId: string,
-  ): Promise<DownloadedMilestoneDocumentTemplate> {
+  ): Promise<DownloadedRequirementTemplate> {
     const viewer = await this.repository.findActiveUser(sessionGithubId);
     if (viewer === null) {
-      throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+      throw this.error(RequirementsErrorCode.NOT_APPLICATION_MEMBER);
     }
 
     const documentContext =
@@ -1196,7 +1179,7 @@ export class MilestoneDocumentFilesService {
       documentContext === null ||
       documentContext.milestoneId !== milestoneId
     ) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
     if (
@@ -1218,20 +1201,20 @@ export class MilestoneDocumentFilesService {
         documentContext.programId,
       );
       if (application === null) {
-        throw this.error(MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER);
+        throw this.error(RequirementsErrorCode.NOT_APPLICATION_MEMBER);
       }
     }
 
     const template = await this.repository.findTemplateForDownload(documentId);
     if (template === null) {
-      throw this.error(MilestoneDocumentsErrorCode.TEMPLATE_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.TEMPLATE_NOT_FOUND);
     }
 
     let body: Readable;
     try {
       body = await this.storage.get(template.storageKey);
     } catch {
-      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+      throw this.error(RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
     return {
@@ -1250,20 +1233,20 @@ export class MilestoneDocumentFilesService {
     documentId: string,
     teamId: string,
     now: Date = new Date(),
-  ): Promise<DownloadedMilestoneDocumentSubmissionFile> {
+  ): Promise<DownloadedSubmissionFile> {
     const documentContext =
       await this.repository.findDocumentContext(documentId);
     if (
       documentContext === null ||
       documentContext.milestoneId !== milestoneId
     ) {
-      throw this.error(MilestoneDocumentsErrorCode.DOCUMENT_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.DOCUMENT_NOT_FOUND);
     }
 
     const applicationProgramId =
       await this.repository.findApplicationProgramId(teamId);
     if (applicationProgramId !== documentContext.programId) {
-      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND);
     }
 
     const file = await this.repository.findSubmissionFileForStaffDownload(
@@ -1272,26 +1255,23 @@ export class MilestoneDocumentFilesService {
       now,
     );
     if (file === null) {
-      throw this.error(MilestoneDocumentsErrorCode.SUBMISSION_FILE_NOT_FOUND);
+      throw this.error(RequirementsErrorCode.SUBMISSION_FILE_NOT_FOUND);
     }
 
     let body: Readable;
     try {
       body = await this.storage.get(file.storageKey);
     } catch {
-      throw this.error(MilestoneDocumentsErrorCode.FILE_STORAGE_UNAVAILABLE);
+      throw this.error(RequirementsErrorCode.FILE_STORAGE_UNAVAILABLE);
     }
 
     return {
       body,
-      fileName:
-        this.milestoneDocumentFileNameService.milestoneDocumentDownloadFileName(
-          {
-            teamName: file.teamName,
-            documentName: documentContext.name,
-            originalFileName: file.originalFileName,
-          },
-        ),
+      fileName: this.requirementFileNameService.requirementDownloadFileName({
+        teamName: file.teamName,
+        documentName: documentContext.name,
+        originalFileName: file.originalFileName,
+      }),
       contentType:
         this.submissionFileAdmissionService.safeSubmissionFileContentType(
           file.originalFileName,
@@ -1301,14 +1281,14 @@ export class MilestoneDocumentFilesService {
   }
 
   private async validateOriginalFileName(
-    file: MilestoneDocumentFileUpload | undefined,
+    file: RequirementFileUpload | undefined,
     purpose: 'STUDENT' | 'TEMPLATE' = 'STUDENT',
   ): Promise<string> {
     if (file === undefined || !Buffer.isBuffer(file.buffer)) {
-      throw this.error(MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD);
+      throw this.error(RequirementsErrorCode.INVALID_FILE_UPLOAD);
     }
     if (file.size > MAX_FILE_BYTES || file.buffer.byteLength > MAX_FILE_BYTES) {
-      throw this.error(MilestoneDocumentsErrorCode.FILE_TOO_LARGE);
+      throw this.error(RequirementsErrorCode.FILE_TOO_LARGE);
     }
     const normalizedFileName =
       this.submissionFileAdmissionService.normalizeMultipartFileName(
@@ -1328,7 +1308,7 @@ export class MilestoneDocumentFilesService {
             normalizedFileName,
           );
     if (!valid) {
-      throw this.error(MilestoneDocumentsErrorCode.UNSUPPORTED_FILE_TYPE);
+      throw this.error(RequirementsErrorCode.UNSUPPORTED_FILE_TYPE);
     }
 
     if (normalizedFileName.toLowerCase().endsWith('.zip')) {
@@ -1337,9 +1317,7 @@ export class MilestoneDocumentFilesService {
           file.buffer,
         );
       if (zipRejection !== null) {
-        throw this.error(
-          MILESTONE_DOCUMENT_ZIP_REJECTION_ERROR_CODES[zipRejection],
-        );
+        throw this.error(REQUIREMENT_ZIP_REJECTION_ERROR_CODES[zipRejection]);
       }
     }
     return this.submissionFileAdmissionService.sanitizeSubmissionFileOriginalName(
@@ -1353,12 +1331,12 @@ export class MilestoneDocumentFilesService {
       value.length === 0 ||
       value !== value.trim()
     ) {
-      throw this.error(MilestoneDocumentsErrorCode.INVALID_FILE_UPLOAD);
+      throw this.error(RequirementsErrorCode.INVALID_FILE_UPLOAD);
     }
     return value;
   }
 
-  private error(code: MilestoneDocumentsErrorCode): DomainException {
-    return new DomainException(MILESTONE_DOCUMENTS_ERROR_CODES[code]);
+  private error(code: RequirementsErrorCode): DomainException {
+    return new DomainException(REQUIREMENTS_ERROR_CODES[code]);
   }
 }

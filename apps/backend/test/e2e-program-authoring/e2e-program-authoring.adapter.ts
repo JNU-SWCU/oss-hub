@@ -4,9 +4,9 @@ import { ApplicationStatus } from '@prisma/client';
 import { TeamApplicationService } from '../../src/programs/team-application.service';
 import { RepositoryOutboxConsumerService } from '../../src/github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../../src/github/repository-provision-worker.service';
-import { MilestoneDocumentCurrentFileService } from '../../src/programs/requirement-archive.service';
+import { RequirementCurrentFileService } from '../../src/programs/requirement-archive.service';
 import {
-  MilestoneDocumentFilesService,
+  RequirementFilesService,
   ProgramAuthoringUploadService,
 } from '../../src/programs/files.service';
 import { RequirementsService } from '../../src/programs/requirements.service';
@@ -66,9 +66,9 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     private readonly uploads: ProgramAuthoringUploadService,
     private readonly uploadMaintenance: FileCleanupService,
     private readonly authoring: ProgramAuthoringService,
-    private readonly files: MilestoneDocumentFilesService,
+    private readonly files: RequirementFilesService,
     private readonly documents: RequirementsService,
-    private readonly currentFiles: MilestoneDocumentCurrentFileService,
+    private readonly currentFiles: RequirementCurrentFileService,
     private readonly submissionFileCleanup: FileCleanupService,
   ) {
     this.fixtures = new E2eProgramAuthoringFixture(prisma);

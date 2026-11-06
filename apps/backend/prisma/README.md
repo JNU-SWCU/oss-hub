@@ -85,8 +85,8 @@ profile: `auth` (기본값) · `intake` · `milestones` · `repositories` · `pr
   `repository-public`은 `visibility: PUBLIC`이지만 `publishedAt: null`이라 공개 프로젝트 목록
   (`GET /api/v1/projects`)의 `publishedAt: { not: null }` 필터에 걸려 노출되지 않는다 — 합성
   fixture URL을 실제 저장소처럼 보이게 만들지 않기 위한 의도된 설계다.
-- `program-overview` — `seeds/program-overview.ts`: 마일스톤별 서류 항목(`MilestoneDocument`/
-  `MilestoneDocumentTemplateFile`/`MilestoneDocumentSubmission`)·프로그램 게시판(`BoardPost`/
+- `program-overview` — `seeds/program-overview.ts`: 마일스톤별 서류 항목(`Requirement`/
+  `RequirementTemplateFile`/`Submission`)·프로그램 게시판(`BoardPost`/
   `BoardComment`)·검색 초대형 팀 초대(`TeamInvitation`) 전용 합성 backbone이다. 다른 profile을
   참조하지 않는 자체 Program(`CAPSTONE`)·팀 1개(팀장·팀원 각 1명)·초대 대상 1명으로, 마일스톤
   7개(`#1 수강 신청 · 팀 등록` … `#7 최종 발표 · 시연`)를 만들고 `#3 프로젝트 계획서 제출`·

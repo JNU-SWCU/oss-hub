@@ -17,12 +17,12 @@ afterEach(() => {
   queryClient.clear();
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
-import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
+import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
 import { ActivityPanelBody } from './components/activity-graph-panel';
 import { MilestoneRow } from '../documents/components/milestone-row';
 import { ApiError } from '@/lib/api-client';
-import { MilestoneDocumentSectionBody } from '../documents/milestone-document-list';
-import type { MilestoneDocument } from '../documents/milestone-document-dto';
+import { RequirementSectionBody } from '../documents/requirement-list';
+import type { Requirement } from '../documents/requirement-dto';
 import { milestoneSubmissionAccess } from '../documents/milestone-submission-access';
 import {
   detailFailure,
@@ -811,9 +811,7 @@ describe('ProgramFactBar', () => {
   });
 });
 
-function buildDocument(
-  overrides: Partial<MilestoneDocument> = {},
-): MilestoneDocument {
+function buildDocument(overrides: Partial<Requirement> = {}): Requirement {
   return {
     id: 'document-1',
     milestoneId: 'milestone-1',
@@ -828,10 +826,10 @@ function buildDocument(
   };
 }
 
-describe('MilestoneDocumentSectionBody', () => {
+describe('RequirementSectionBody', () => {
   it('로딩 중에는 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={{ kind: 'loading' }}
@@ -849,7 +847,7 @@ describe('MilestoneDocumentSectionBody', () => {
 
   it('조회 실패 시 재시도 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={{ kind: 'failed' }}
@@ -868,13 +866,13 @@ describe('MilestoneDocumentSectionBody', () => {
 
   it('서류가 없으면 아무것도 그리지 않는다', () => {
     const html = renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [],
-          fileUpload: milestoneDocumentUploadPolicy(),
+          fileUpload: requirementUploadPolicy(),
         }}
         viewerRole="STUDENT"
         closed={false}
@@ -890,7 +888,7 @@ describe('MilestoneDocumentSectionBody', () => {
 
   it('교직원에게는 팀 제출 카운트를 보이고 양식 관리 컨트롤은 노출하지 않는다', () => {
     const html = renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={{
@@ -904,7 +902,7 @@ describe('MilestoneDocumentSectionBody', () => {
               teamSubmissionCount: { submitted: 2, total: 4 },
             }),
           ],
-          fileUpload: milestoneDocumentUploadPolicy(),
+          fileUpload: requirementUploadPolicy(),
         }}
         viewerRole="STAFF"
         closed={false}
@@ -924,13 +922,13 @@ describe('MilestoneDocumentSectionBody', () => {
 
   it('학생에게는 기존 양식 다운로드를 유지한다', () => {
     const html = renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [buildDocument({ hasTemplateFile: true })],
-          fileUpload: milestoneDocumentUploadPolicy(),
+          fileUpload: requirementUploadPolicy(),
         }}
         viewerRole="STUDENT"
         closed={false}
@@ -948,7 +946,7 @@ describe('MilestoneDocumentSectionBody', () => {
 
   it('학생에게는 검토 대기 배지와 제출 시각, 재제출 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={{
@@ -967,7 +965,7 @@ describe('MilestoneDocumentSectionBody', () => {
               },
             }),
           ],
-          fileUpload: milestoneDocumentUploadPolicy(),
+          fileUpload: requirementUploadPolicy(),
         }}
         viewerRole="STUDENT"
         closed={false}
@@ -986,13 +984,13 @@ describe('MilestoneDocumentSectionBody', () => {
 
   it('미제출 학생에게는 미제출 배지와 올리기 버튼을 보여준다', () => {
     const html = renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={{
           kind: 'ready',
           documents: [buildDocument()],
-          fileUpload: milestoneDocumentUploadPolicy(),
+          fileUpload: requirementUploadPolicy(),
         }}
         viewerRole="STUDENT"
         closed={false}

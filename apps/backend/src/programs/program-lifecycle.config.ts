@@ -9,7 +9,7 @@ const PURGE_RELATIONS = [
   {
     id: 'program-outbox-events',
     operation: 'DELETE',
-    covers: ['logical:Program->OutboxEvent', 'logical:Team->OutboxEvent'],
+    covers: ['logical:Team->OutboxEvent'],
   },
   {
     id: 'program-notifications',

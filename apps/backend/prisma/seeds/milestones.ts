@@ -78,7 +78,7 @@ async function upsertMilestone(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocument',
+    'Requirement',
     () => prisma.requirement.findUnique({ where: { id: documentId } }),
     () =>
       prisma.requirement.upsert({
@@ -121,7 +121,7 @@ async function createSubmissionScenario(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmission',
+    'Submission',
     () =>
       prisma.submission.findUnique({
         where: { id: targetSubmissionId },
@@ -148,7 +148,7 @@ async function createSubmissionScenario(
   );
   await upsertTracked(
     stats,
-    'MilestoneDocumentSubmissionHistory',
+    'SubmissionHistory',
     () =>
       prisma.submissionHistory.findUnique({
         where: { id: targetHistoryId },
@@ -172,7 +172,7 @@ async function createSubmissionScenario(
     const reviewId = seedId('milestones', params.scenarioId, 'target-review');
     await upsertTracked(
       stats,
-      'MilestoneDocumentSubmissionHistory',
+      'SubmissionHistory',
       () =>
         prisma.submissionHistory.findUnique({
           where: { id: reviewId },

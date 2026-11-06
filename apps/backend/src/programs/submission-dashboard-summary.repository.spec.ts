@@ -3,7 +3,7 @@ import {
   type DashboardApplicationRow,
   type DashboardMilestoneRow,
   type DashboardDocumentSubmissionRow,
-  type DashboardMilestoneDocumentRow,
+  type DashboardRequirementRow,
   type SubmissionDashboardSummaryDataSource,
   SubmissionDashboardSummaryRepository,
 } from './submissions.repository';
@@ -39,11 +39,11 @@ describe('SubmissionDashboardSummaryRepository', () => {
         programId: 'program-b',
       },
     ]);
-    const milestoneDocuments = new FakeFindManyDelegate<
+    const requirements = new FakeFindManyDelegate<
       Parameters<
         SubmissionDashboardSummaryDataSource['requirement']['findMany']
       >[0],
-      DashboardMilestoneDocumentRow
+      DashboardRequirementRow
     >([
       {
         id: 'document-a',
@@ -81,7 +81,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     const prisma = {
       team: applications,
       milestone: milestones,
-      requirement: milestoneDocuments,
+      requirement: requirements,
       submission: documentSubmissions,
     } satisfies SubmissionDashboardSummaryDataSource;
     const repository = new SubmissionDashboardSummaryRepository(prisma);
@@ -102,7 +102,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
         },
       ],
       submissions: [],
-      milestoneDocuments: [
+      requirements: [
         {
           id: 'document-a',
           milestoneId: 'milestone-a',
@@ -113,7 +113,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
         {
           teamId: 'approved-team',
           applicationProgramId: 'program-a',
-          milestoneDocumentId: 'document-a',
+          requirementId: 'document-a',
           milestoneId: 'milestone-a',
           milestoneProgramId: 'program-a',
           status: SubmissionStatus.APPROVED,
@@ -121,7 +121,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
         {
           teamId: 'approved-team',
           applicationProgramId: 'program-a',
-          milestoneDocumentId: 'legacy-document-a',
+          requirementId: 'legacy-document-a',
           milestoneId: 'milestone-a',
           milestoneProgramId: 'program-a',
           status: SubmissionStatus.SUBMITTED,
@@ -141,7 +141,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
       where: { programId: { in: ['program-a', 'program-b'] } },
       select: { id: true, programId: true },
     });
-    expect(milestoneDocuments.calls[0]).toEqual({
+    expect(requirements.calls[0]).toEqual({
       where: {
         required: true,
         milestone: { is: { programId: { in: ['program-a', 'program-b'] } } },
@@ -194,11 +194,11 @@ describe('SubmissionDashboardSummaryRepository', () => {
       >[0],
       DashboardMilestoneRow
     >([]);
-    const milestoneDocuments = new FakeFindManyDelegate<
+    const requirements = new FakeFindManyDelegate<
       Parameters<
         SubmissionDashboardSummaryDataSource['requirement']['findMany']
       >[0],
-      DashboardMilestoneDocumentRow
+      DashboardRequirementRow
     >([]);
     const documentSubmissions = new FakeFindManyDelegate<
       Parameters<
@@ -209,7 +209,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     const prisma = {
       team: applications,
       milestone: milestones,
-      requirement: milestoneDocuments,
+      requirement: requirements,
       submission: documentSubmissions,
     } satisfies SubmissionDashboardSummaryDataSource;
     const records = await new SubmissionDashboardSummaryRepository(
@@ -219,12 +219,12 @@ describe('SubmissionDashboardSummaryRepository', () => {
       applications: [],
       milestones: [],
       submissions: [],
-      milestoneDocuments: [],
+      requirements: [],
       documentSubmissions: [],
     });
     expect(applications.calls).toHaveLength(0);
     expect(milestones.calls).toHaveLength(0);
-    expect(milestoneDocuments.calls).toHaveLength(0);
+    expect(requirements.calls).toHaveLength(0);
     expect(documentSubmissions.calls).toHaveLength(0);
   });
 });

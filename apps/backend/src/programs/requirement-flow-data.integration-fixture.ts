@@ -1,0 +1,106 @@
+import { DepartmentType, MemberKind } from '../users/user-contract.config';
+import type { PrismaService } from '../platform/prisma.service';
+const prefix = 'qa152-document-flow';
+export const flowIds = {
+  program: `${prefix}-program`,
+  milestone: `${prefix}-milestone`,
+  document: `${prefix}-document`,
+  team: `${prefix}-team`,
+  student: `${prefix}-student`,
+  staff: `${prefix}-staff`,
+} as const;
+export const flowGithubIds = {
+  student: 960000001135001n,
+  staff: 960000001135002n,
+} as const;
+export async function seedRequirementFlow(
+  prisma: PrismaService,
+): Promise<void> {
+  await prisma.user.createMany({
+    data: [
+      {
+        id: flowIds.student,
+        githubId: flowGithubIds.student,
+        nickname: flowIds.student,
+        type: MemberKind.STUDENT,
+        approvalStatus: 'NOT_REQUIRED',
+      },
+      {
+        id: flowIds.staff,
+        githubId: flowGithubIds.staff,
+        nickname: flowIds.staff,
+        type: 'STAFF',
+        approvalStatus: 'APPROVED',
+        name: 'Synthetic staff',
+        department: 'Synthetic department',
+        profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+        departmentType: 'DEPARTMENT',
+      },
+    ],
+  });
+  await prisma.user.update({
+    where: { id: flowIds.student },
+    data: {
+      name: '합성 학생',
+      department: '합성 학과',
+      type: MemberKind.STUDENT,
+      departmentType: DepartmentType.DEPARTMENT,
+      profileCreatedAt: new Date('2026-01-01T00:00:00.000Z'),
+      profileUpdatedAt: new Date('2026-01-01T00:00:00.000Z'),
+    },
+  });
+  await prisma.program.create({
+    data: {
+      id: flowIds.program,
+      name: '합성 프로그램',
+      organizer: 'OSS Hub',
+      category: 'CAPSTONE',
+      applicationTemplateKey: 'capstone-v1',
+      applicationTemplateVersion: 1,
+      applicationStartAt: new Date('2000-01-01'),
+      applicationEndAt: new Date('2000-01-02'),
+      startAt: new Date('2000-01-03'),
+      endAt: new Date('2099-12-31'),
+      description: 'synthetic integration fixture',
+      milestones: {
+        create: {
+          startAt: new Date('2000-01-03'),
+          id: flowIds.milestone,
+          name: '합성 제출 단계',
+          dueAt: new Date('2099-01-01'),
+          requirements: {
+            create: {
+              id: flowIds.document,
+              name: '합성 계획서',
+              required: true,
+              sortOrder: 1,
+            },
+          },
+        },
+      },
+    },
+  });
+  await prisma.team.create({
+    data: {
+      id: flowIds.team,
+      programId: flowIds.program,
+      name: '합성 팀',
+      leaderId: flowIds.student,
+      members: { create: { userId: flowIds.student } },
+      applicantId: flowIds.student,
+      answers: { title: '합성 팀' },
+      applicationTemplateVersion: 1,
+    },
+  });
+  await prisma.team.update({
+    where: { id: flowIds.team },
+    data: {
+      programId: flowIds.program,
+      applicantId: flowIds.student,
+      status: 'APPROVED',
+      answers: { synthetic: true },
+      applicationTemplateVersion: 1,
+    },
+  });
+}

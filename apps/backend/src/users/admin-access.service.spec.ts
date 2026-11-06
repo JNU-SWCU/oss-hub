@@ -167,7 +167,7 @@ describe('AdminAccessService mutation', () => {
           },
         },
       },
-      repository.auditLogWriter,
+      repository.userHistoryWriter,
     );
   });
   it('rejects a pending request with its reason in the immutable audit', async () => {
@@ -231,7 +231,7 @@ describe('AdminAccessService mutation', () => {
           rejectionReason: '합성 반려 사유',
         },
       },
-      repository.auditLogWriter,
+      repository.userHistoryWriter,
     );
   });
   it('revokes a requestless STAFF grant without inventing an application', async () => {
@@ -288,7 +288,7 @@ describe('AdminAccessService mutation', () => {
     expect(repository.requestUpdates).toEqual([]);
     expect(audit.record).toHaveBeenCalledWith(
       expect.objectContaining({ targetType: 'USER', targetId: 'target' }),
-      repository.auditLogWriter,
+      repository.userHistoryWriter,
     );
     expect(repository.operations).not.toContain('decide-pending-request');
   });
@@ -346,7 +346,7 @@ describe('AdminAccessService mutation', () => {
           },
         },
       },
-      repository.auditLogWriter,
+      repository.userHistoryWriter,
     );
   });
   it.each([
@@ -725,7 +725,7 @@ describe('AdminAccessService mutation', () => {
           },
         },
       },
-      repository.auditLogWriter,
+      repository.userHistoryWriter,
     );
   });
   it('rejects STAFF SET_ROLE with ROL_004 and writes nothing', async () => {

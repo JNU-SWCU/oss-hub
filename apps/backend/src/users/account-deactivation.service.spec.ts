@@ -29,14 +29,14 @@ describe('AccountDeactivationService', () => {
     requestStatus: null,
   } as const;
   it('deactivates the current account and records the same-transaction audit', async () => {
-    const auditLogWriter = new PrismaService();
+    const userHistoryWriter = new PrismaService();
     const deactivate = jest.fn().mockResolvedValue(true);
     const lockActiveAdmins = jest.fn().mockResolvedValue(2);
     const findForUpdate = jest.fn().mockResolvedValue(account);
     const repository: AccountDeactivationRepositoryPort = {
       withTransaction: (operation) =>
         operation({
-          auditLogWriter,
+          userHistoryWriter,
           findForUpdate,
           lockActiveAdmins,
           deactivate,
@@ -84,7 +84,7 @@ describe('AccountDeactivationService', () => {
         },
       },
     });
-    expect(transactionWriter).toBe(auditLogWriter);
+    expect(transactionWriter).toBe(userHistoryWriter);
   });
   it('preserves a pending role-request snapshot in the audit', async () => {
     const record = jest
@@ -94,7 +94,7 @@ describe('AccountDeactivationService', () => {
       {
         withTransaction: (operation) =>
           operation({
-            auditLogWriter: new PrismaService(),
+            userHistoryWriter: new PrismaService(),
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
               memberKind: MemberKind.STAFF,
@@ -124,7 +124,7 @@ describe('AccountDeactivationService', () => {
       {
         withTransaction: (operation) =>
           operation({
-            auditLogWriter: new PrismaService(),
+            userHistoryWriter: new PrismaService(),
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
               hasAdminAccess: true,
@@ -150,7 +150,7 @@ describe('AccountDeactivationService', () => {
       {
         withTransaction: (operation) =>
           operation({
-            auditLogWriter: new PrismaService(),
+            userHistoryWriter: new PrismaService(),
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
               hasAdminAccess: true,
@@ -176,7 +176,7 @@ describe('AccountDeactivationService', () => {
       {
         withTransaction: (operation) =>
           operation({
-            auditLogWriter: new PrismaService(),
+            userHistoryWriter: new PrismaService(),
             findForUpdate: jest.fn().mockResolvedValue({
               ...account,
               hasAdminAccess: false,

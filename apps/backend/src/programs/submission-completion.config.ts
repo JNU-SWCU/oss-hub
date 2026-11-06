@@ -12,7 +12,7 @@ export interface SubmissionCompletionProjections {
     readonly status: SubmissionStatus;
   }[];
   readonly documentSubmissions: readonly {
-    readonly milestoneDocumentId: string;
+    readonly requirementId: string;
     readonly status: SubmissionStatus;
   }[];
 }

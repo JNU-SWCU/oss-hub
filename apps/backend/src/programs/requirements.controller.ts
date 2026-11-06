@@ -16,31 +16,31 @@ import {
 import { type Response } from 'express';
 import { type AuthenticatedRequest } from '../auth/http-auth.types';
 import {
-  MilestoneDocumentCurrentFileService,
-  MilestoneDocumentCollectionService,
+  RequirementCurrentFileService,
+  RequirementCollectionService,
   RequirementArchiveService,
 } from './requirement-archive.service';
 import {
-  MilestoneDocumentResponseDto,
-  MilestoneDocumentListResponseDto,
-} from './dto/milestone-document-response.dto';
-import { MilestoneDocumentDeliveryCollectionResponseDto } from './dto/milestone-document-collection-response.dto';
-import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
+  RequirementResponseDto,
+  RequirementListResponseDto,
+} from './dto/requirement-response.dto';
+import { RequirementDeliveryCollectionResponseDto } from './dto/requirement-collection-response.dto';
+import { RequirementHistoryPageResponseDto } from './dto/requirement-history-page-response.dto';
 import { OriginGuard } from '../platform/origin.guard';
-import { CreateMilestoneDocumentReviewRequestDto } from './dto/create-milestone-document-review-request.dto';
-import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
-import { CreateMilestoneDocumentSubmissionRequestDto } from './dto/create-milestone-document-submission-request.dto';
-import { MilestoneDocumentCollectionRequestDto } from './dto/milestone-document-collection-request.dto';
-import { MilestoneDocumentHistoryRequestDto } from './dto/milestone-document-history-request.dto';
-import { MilestoneDocumentReviewResponseDto } from './dto/milestone-document-review-response.dto';
-import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
-import { UpdateMilestoneDocumentGraceRequestDto } from './dto/update-milestone-document-grace-request.dto';
+import { CreateRequirementReviewRequestDto } from './dto/create-requirement-review-request.dto';
+import { RequirementArchiveRequestDto } from './dto/requirement-archive-request.dto';
+import { CreateRequirementSubmissionRequestDto } from './dto/create-requirement-submission-request.dto';
+import { RequirementCollectionRequestDto } from './dto/requirement-collection-request.dto';
+import { RequirementHistoryRequestDto } from './dto/requirement-history-request.dto';
+import { RequirementReviewResponseDto } from './dto/requirement-review-response.dto';
+import { SubmissionResponseDto } from './dto/submission-response.dto';
+import { UpdateRequirementGraceRequestDto } from './dto/update-requirement-grace-request.dto';
 import {
-  MILESTONE_DOCUMENTS_ERROR_CODES,
-  MilestoneDocumentsErrorCode,
+  REQUIREMENTS_ERROR_CODES,
+  RequirementsErrorCode,
 } from './submissions.error';
-import { MilestoneDocumentFilesService } from './files.service';
-import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementFilesService } from './files.service';
+import { RequirementReviewsService } from './submissions.service';
 import {
   RequirementsService,
   ProgramDocumentChangeRequestsService,
@@ -60,17 +60,17 @@ type ViewerRequest = Pick<
 >;
 const staffOnly = () =>
   new DomainException(
-    MILESTONE_DOCUMENTS_ERROR_CODES[MilestoneDocumentsErrorCode.STAFF_ONLY],
+    REQUIREMENTS_ERROR_CODES[RequirementsErrorCode.STAFF_ONLY],
   );
 @Controller('milestones/:milestoneId/documents')
 export class RequirementsController {
   constructor(
     private readonly service: RequirementsService,
-    private readonly filesService: MilestoneDocumentFilesService,
-    private readonly reviewsService: MilestoneDocumentReviewsService,
+    private readonly filesService: RequirementFilesService,
+    private readonly reviewsService: RequirementReviewsService,
     private readonly archiveService: RequirementArchiveService,
-    private readonly collectionService: MilestoneDocumentCollectionService,
-    private readonly currentFileService: MilestoneDocumentCurrentFileService,
+    private readonly collectionService: RequirementCollectionService,
+    private readonly currentFileService: RequirementCurrentFileService,
   ) {}
   @Get()
   @Header('Cache-Control', 'private, no-store')
@@ -80,11 +80,11 @@ export class RequirementsController {
     request: ViewerRequest,
     @Param('milestoneId')
     milestoneId: string,
-  ): Promise<MilestoneDocumentListResponseDto> {
-    return MilestoneDocumentListResponseDto.from(
+  ): Promise<RequirementListResponseDto> {
+    return RequirementListResponseDto.from(
       (
         await this.service.listForViewer(request.sessionGithubId, milestoneId)
-      ).map((result) => MilestoneDocumentResponseDto.from(result)),
+      ).map((result) => RequirementResponseDto.from(result)),
     );
   }
   @Get('collection')
@@ -95,9 +95,9 @@ export class RequirementsController {
     @Param('milestoneId')
     milestoneId: string,
     @Query()
-    query: MilestoneDocumentCollectionRequestDto,
-  ): Promise<MilestoneDocumentDeliveryCollectionResponseDto> {
-    return MilestoneDocumentDeliveryCollectionResponseDto.from(
+    query: RequirementCollectionRequestDto,
+  ): Promise<RequirementDeliveryCollectionResponseDto> {
+    return RequirementDeliveryCollectionResponseDto.from(
       await this.collectionService.collectForStaffFromRequest(
         milestoneId,
         query,
@@ -112,7 +112,7 @@ export class RequirementsController {
     @Param('milestoneId')
     milestoneId: string,
     @Query()
-    query: MilestoneDocumentArchiveRequestDto,
+    query: RequirementArchiveRequestDto,
     @Res({ passthrough: true })
     response: Response,
   ): Promise<StreamableFile> {
@@ -133,7 +133,7 @@ export class RequirementsController {
     @Param('documentId')
     documentId: string,
     @Body()
-    body: UpdateMilestoneDocumentGraceRequestDto,
+    body: UpdateRequirementGraceRequestDto,
   ): Promise<void> {
     return this.service.updateGraceDueAtFromRequest(
       milestoneId,
@@ -188,9 +188,9 @@ export class RequirementsController {
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('teamId') teamId: string,
-    @Query() query: MilestoneDocumentHistoryRequestDto,
-  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return MilestoneDocumentHistoryPageResponseDto.from(
+    @Query() query: RequirementHistoryRequestDto,
+  ): Promise<RequirementHistoryPageResponseDto> {
+    return RequirementHistoryPageResponseDto.from(
       await this.service.historyForStaff(
         milestoneId,
         documentId,
@@ -210,9 +210,9 @@ export class RequirementsController {
     @Param('documentId')
     documentId: string,
     @Query()
-    query: MilestoneDocumentHistoryRequestDto,
-  ): Promise<MilestoneDocumentHistoryPageResponseDto> {
-    return MilestoneDocumentHistoryPageResponseDto.from(
+    query: RequirementHistoryRequestDto,
+  ): Promise<RequirementHistoryPageResponseDto> {
+    return RequirementHistoryPageResponseDto.from(
       await this.service.historyForParticipant(
         request.sessionGithubId,
         milestoneId,
@@ -232,9 +232,9 @@ export class RequirementsController {
     @Param('milestoneId') milestoneId: string,
     @Param('documentId') documentId: string,
     @Param('teamId') teamId: string,
-    @Body() body: CreateMilestoneDocumentReviewRequestDto,
-  ): Promise<MilestoneDocumentReviewResponseDto> {
-    return MilestoneDocumentReviewResponseDto.from(
+    @Body() body: CreateRequirementReviewRequestDto,
+  ): Promise<RequirementReviewResponseDto> {
+    return RequirementReviewResponseDto.from(
       await this.reviewsService.reviewFromRequest(
         request.principal.id,
         milestoneId,
@@ -256,9 +256,9 @@ export class RequirementsController {
     @Param('documentId')
     documentId: string,
     @Body()
-    body: CreateMilestoneDocumentSubmissionRequestDto,
-  ): Promise<MilestoneDocumentSubmissionResponseDto> {
-    return MilestoneDocumentSubmissionResponseDto.from(
+    body: CreateRequirementSubmissionRequestDto,
+  ): Promise<SubmissionResponseDto> {
+    return SubmissionResponseDto.from(
       await this.service.submitFromRequest(
         request.sessionGithubId,
         milestoneId,

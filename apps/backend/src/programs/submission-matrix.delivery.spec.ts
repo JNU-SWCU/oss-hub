@@ -1,5 +1,5 @@
 import { MilestoneCompletionService } from './submissions.service';
-import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import { RequirementCollectionService } from './requirement-archive.service';
 import { SubmissionMatrixResponseDto } from './dto/submission-matrix-response.dto';
 import { SubmissionStatus } from '@prisma/client';
 import {
@@ -54,7 +54,7 @@ function setup(firstTimes: readonly (Date | null)[]) {
             : [
                 {
                   id: `submission-${index}`,
-                  milestoneDocumentId: `required-${index}`,
+                  requirementId: `required-${index}`,
                   teamId: 'application',
                   milestoneId: 'stage',
                   currentRevision: 3,
@@ -77,7 +77,7 @@ function setup(firstTimes: readonly (Date | null)[]) {
             : [
                 {
                   teamId: 'application',
-                  milestoneDocumentId: `required-${index}`,
+                  requirementId: `required-${index}`,
                   firstSubmittedAt,
                 },
               ],
@@ -88,7 +88,7 @@ function setup(firstTimes: readonly (Date | null)[]) {
   return {
     service: new SubmissionMatrixService(
       repository,
-      new MilestoneDocumentCollectionService({} as never),
+      new RequirementCollectionService({} as never),
       new MilestoneCompletionService(),
     ),
     repository,
@@ -144,12 +144,12 @@ it('does not treat another application or unrelated document as a required submi
     Promise.resolve([
       {
         teamId: 'other-application',
-        milestoneDocumentId: 'required-0',
+        requirementId: 'required-0',
         firstSubmittedAt: onTime,
       },
       {
         teamId: 'application',
-        milestoneDocumentId: 'optional-or-other-stage',
+        requirementId: 'optional-or-other-stage',
         firstSubmittedAt: onTime,
       },
     ]);
