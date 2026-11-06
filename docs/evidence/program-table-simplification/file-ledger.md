@@ -809,7 +809,7 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 
 ## Todo 11 마무리: 범위 확정과 죽은 값 정리
 
-기준은 2단계 머지 `aff9150be`(#1766, v0.24.62)다. schema.prisma, 마이그레이션, DB는 바꾸지 않는다. 동작 변경은 없고 죽은 코드와 값만 지운다.
+기준은 2단계 머지 `aff9150be`(#1766, v0.24.62)다. schema.prisma, 마이그레이션, DB는 바꾸지 않는다. 죽은 코드와 값을 지우고, 화면에 보이는 변화는 감사 로그 action 라벨 하나(F3)뿐이다.
 
 ### Todo 11 범위 확정
 
@@ -824,6 +824,8 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 - 프론트의 옛 provisioning 상태 `RETRYABLE_FAILED`·`FAILED`와 그 라벨, 그 값만 검사하던 테스트 경우를 지웠다. 백엔드 `RepositoryProvisionJobStatus`의 실패 값은 `FAILED_RETRYABLE`·`FAILED_FINAL`뿐이고, 두 응답 경로는 이 값을 그대로 내보낸다.
 - `deploy/jenkins/program-migration`에서 docs/evidence 밖 참조가 없는 단계 파일 18개를 지웠다. `audit-log/`·`files/`·`submission-axis/`·`team-application/`은 `apps/backend/prisma`의 마이그레이션 통합 테스트가 check SQL을 읽고 같은 디렉터리의 manifest가 그 SQL을 가리키므로 남긴다. `lib.sh`·`preflight.sh`·`reconcile.sh`·`rehearse.sh`·`backup.sh`·`verify-backup.sh`·`manifest.mjs`·`bounded.mjs`·`*.test.mjs`·`README.md`는 CI(`.github/workflows/ci.yml:182-183`)와 `knip.json:18-19`가 참조하므로 남긴다. 지운 경로를 적은 과거 증거 문서는 당시 기록이므로 고치지 않는다.
 - `submissionReviewDecision`은 `requirements.repository.ts`, `submissions.service.ts`, `student/milestone-document-feedback.repository.ts`에 같은 내용으로 남아 있다. 백엔드 경계 lint가 repository·service·config 파일의 함수 export를 막고, programs와 student 모듈이 함께 쓰는 provider를 새로 만들면 지우는 것보다 간접 단계가 늘어나므로 합치지 않는다. 1단계 통합 뒤 각 파일 안의 정의는 하나씩이다.
+- 프론트 문서 검토 표시 키 `PENDING`(`apps/frontend/src/features/programs/documents/milestone-document-review.ts:16-45`)은 남긴다(F4 IS-3 재확인). 서버가 보내는 API 값이 아니라, 프론트가 서버 상태 `SUBMITTED` 또는 상태 없음(`null`)에서 계산하는 화면 키(l.45)이므로 죽은 API 값이 아니다.
+- 감사 로그 action `APPLICATION_REPOSITORY_URL_CHANGED`에 라벨 `저장소 주소 변경`, 배지 색, 문장을 더했다(F3). 이 action은 팀 저장소 주소를 다시 연결할 때 지금도 `TeamHistory` `REPOSITORY_URL_CHANGED`로 기록되는데, 라벨 표에 없어 `기타 작업`과 원본 코드로 보였다. 감사 로그 목록 API의 `action` 필터는 100자 이하 문자열을 받아 화면과 같은 계산된 action으로 정확히 거르므로, 라벨 표에서 만들어지는 필터 선택지와 `?action=` 해석에 이 값이 더해져도 API가 거절하지 않는다. 배지 색 `closed`는 전의 대체 색과 같다.
 
 | 범위 | 2단계 머지 files | 2단계 머지 lines | Todo 11 마무리 files | Todo 11 마무리 lines |
 | --- | ---: | ---: | ---: | ---: |
@@ -870,3 +872,8 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 | `apps/frontend/src/features/programs/authoring/program-edit-danger-zone-section.test.tsx` | keep | `program-edit-danger-zone-section.test.tsx` | 11 | present | 446 | 테스트만 변경: 옛 백엔드 건수 경우 제거; 파일 0건·N건 문구 확인 |
 | `apps/frontend/src/features/programs/authoring/program-edit-page.test.tsx` | keep | `program-edit-page.test.tsx` | 11 | present | 931 | 테스트만 변경: purge 응답 목을 `files`만으로 갱신 |
 | `apps/frontend/src/features/programs/teams/program-staff-team-detail-page.test.tsx` | keep | `program-staff-team-detail-page.test.tsx` | 11 | present | 1038 | 테스트만 변경: 옛 provisioning 상태 라벨 경우를 현재 enum 값으로 교체 |
+| `apps/frontend/src/features/audit-log/types.ts` | keep | `types.ts` | 11 | present | 94 | 감사 로그 action `APPLICATION_REPOSITORY_URL_CHANGED` 라벨 `저장소 주소 변경` 추가(F3); 필터 선택지와 `?action=` 해석에도 들어감 |
+| `apps/frontend/src/features/audit-log/audit-log-action.tsx` | keep | `audit-log-action.tsx` | 11 | present | 80 | 같은 action의 배지 색 `closed` 추가(전의 대체 색과 같음) |
+| `apps/frontend/src/features/audit-log/describe-templates.ts` | keep | `describe-templates.ts` | 11 | present | 271 | 같은 action의 문장 추가(대체 문장 대신 `…에서 팀 저장소 주소를 바꿨습니다`) |
+| `apps/frontend/src/features/audit-log/audit-log-action.test.tsx` | keep | `audit-log-action.test.tsx` | 11 | present | 47 | 테스트만 변경: 새 라벨·배지 경우 추가 |
+| `apps/frontend/src/features/audit-log/describe.test.ts` | keep | `describe.test.ts` | 11 | present | 511 | 테스트만 변경: 새 문장의 이름 있는 대상·대체 대상 경우 추가 |
