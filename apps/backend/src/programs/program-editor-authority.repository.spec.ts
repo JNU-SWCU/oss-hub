@@ -80,7 +80,6 @@ describe('ProgramEditorRepository edit counts', () => {
     });
     const queryRaw = jest.fn().mockResolvedValue([
       {
-        applications: 2n,
         teams: 2n,
         boardPosts: 3n,
         submissions: 4n,
@@ -143,7 +142,7 @@ describe('ProgramEditorRepository edit counts', () => {
     expect(query.strings.join('')).toContain(
       'SELECT count(*) FROM "Submission"',
     );
-    expect(query.values).toHaveLength(30);
-    expect(query.values).toEqual(Array(30).fill('program-1'));
+    expect(query.values).toHaveLength(28);
+    expect(query.values).toEqual(Array(28).fill('program-1'));
   });
 });

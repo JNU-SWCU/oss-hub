@@ -1228,14 +1228,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(result).toMatchObject({
       id: fixture.programId,
       deleted: true,
-      deletedCounts: {
-        submissions: 0,
-        submissionRevisions: 0,
-        reviews: 0,
-        files: 4,
-        milestoneDocumentSubmissions: 0,
-        milestoneDocumentSubmissionHistories: 0,
-      },
+      deletedCounts: { files: 4 },
     });
     const after = await programChildRowCounts(fixture.programId, [
       fixture.teamId,
@@ -1430,13 +1423,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     ).resolves.toMatchObject({
       id: fixture.programId,
       deleted: true,
-      deletedCounts: {
-        applications: 0,
-        teams: 0,
-        boardPosts: 0,
-        submissions: 0,
-        files: 4,
-      },
+      deletedCounts: { files: 4 },
     });
     await expect(
       prisma.program.findUnique({ where: { id: fixture.programId } }),

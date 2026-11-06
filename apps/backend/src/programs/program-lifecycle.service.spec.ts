@@ -20,27 +20,7 @@ const scope: ProgramDeletionScopeCounts = {
   submissionEvents: 3,
   scopeFingerprint: 'fixture-fingerprint',
 };
-const queuedFiles: ProgramPurgeDeletedCounts = {
-  applications: 0,
-  teams: 0,
-  teamMembers: 0,
-  teamInvitations: 0,
-  boardPosts: 0,
-  boardComments: 0,
-  submissions: 0,
-  submissionRevisions: 0,
-  reviews: 0,
-  milestones: 0,
-  milestoneDocuments: 0,
-  milestoneDocumentSubmissions: 0,
-  milestoneDocumentSubmissionHistories: 0,
-  programCreateRequests: 0,
-  repositoryProvisionJobs: 0,
-  githubRepositoriesDetached: 0,
-  outboxEvents: 0,
-  notifications: 0,
-  files: 4,
-};
+const queuedFiles: ProgramPurgeDeletedCounts = { files: 4 };
 
 function setup(
   options: {

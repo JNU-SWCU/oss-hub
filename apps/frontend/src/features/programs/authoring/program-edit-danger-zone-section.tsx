@@ -24,29 +24,6 @@ interface ProgramEditDangerZoneSectionProps {
   readonly onDeleted: (notice?: string) => void;
 }
 
-const PURGE_COUNT_LABELS: Readonly<Record<string, string>> = {
-  applications: '지원서',
-  teams: '팀',
-  teamMembers: '팀원',
-  teamInvitations: '팀 초대',
-  boardPosts: '게시글',
-  boardComments: '댓글',
-  submissions: '제출물',
-  submissionRevisions: '제출물 리비전',
-  reviews: '검토',
-  files: '파일 삭제 대기',
-  milestones: '마일스톤',
-  milestoneDocuments: '마일스톤 서류',
-  milestoneDocumentSubmissions: '서류 제출',
-  milestoneDocumentSubmissionHistories: '서류 제출 이력',
-  milestoneDocumentReviewHistories: '서류 검토 이력',
-  programCreateRequests: '프로그램 작성 요청',
-  repositoryProvisionJobs: '저장소 발급 작업',
-  githubRepositoriesDetached: '분리된 GitHub 저장소 연결',
-  outboxEvents: '이벤트 대기열',
-  notifications: '알림',
-};
-
 export function ProgramEditDangerZoneSection({
   programId,
   programName,
@@ -195,13 +172,9 @@ export function ProgramEditDangerZoneSection({
 }
 
 function formatDeletedCounts(counts: ProgramPurgeDeletedCounts): string {
-  const items = (Object.entries(counts) as [string, number][])
-
-    .filter(
-      ([key, count]) => count > 0 && key !== 'milestoneDocumentSubmissions',
-    )
-    .map(([key, count]) => `${PURGE_COUNT_LABELS[key] ?? key} ${count}건`);
-  return items.join(' · ') || '정리할 업로드 파일이 없습니다.';
+  return counts.files > 0
+    ? `파일 삭제 대기 ${counts.files}건`
+    : '정리할 업로드 파일이 없습니다.';
 }
 
 function purgeErrorMessage(reason: unknown): string {

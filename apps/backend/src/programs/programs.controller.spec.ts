@@ -195,7 +195,7 @@ describe('program-lifecycle.controller', () => {
       const purgeResult = {
         id: 'program-1',
         deleted: true,
-        deletedCounts: { applications: 2, teams: 1 },
+        deletedCounts: { files: 1 },
       };
       lifecycle.purge.mockResolvedValue(purgeResult);
       const request = { sessionGithubId: 101n };

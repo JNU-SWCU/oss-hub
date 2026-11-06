@@ -231,7 +231,7 @@ describe('ProgramEditDangerZoneSection', () => {
       | ((value: {
           id: string;
           deleted: true;
-          deletedCounts: { applications: number; teams: number };
+          deletedCounts: { files: number };
         }) => void)
       | undefined;
     purgeProgramMock.mockReturnValue(
@@ -265,10 +265,10 @@ describe('ProgramEditDangerZoneSection', () => {
     resolvePurge?.({
       id: 'program-1',
       deleted: true,
-      deletedCounts: { applications: 2, teams: 1 },
+      deletedCounts: { files: 2 },
     });
     await flush();
-    expect(onDeleted).toHaveBeenCalledWith('지원서 2건 · 팀 1건');
+    expect(onDeleted).toHaveBeenCalledWith('파일 삭제 대기 2건');
     expect(root.queryClient.getQueryState(listKey)?.isInvalidated).toBe(true);
     expect(root.queryClient.getQueryState(yearsKey)?.isInvalidated).toBe(true);
     expect(root.queryClient.getQueryState(statusKey)?.isInvalidated).toBe(true);
@@ -328,7 +328,7 @@ describe('ProgramEditDangerZoneSection', () => {
     purgeProgramMock.mockResolvedValueOnce({
       id: 'program-1',
       deleted: true,
-      deletedCounts: { applications: 6 },
+      deletedCounts: { files: 0 },
     });
     await act(async () => getButton('삭제', dialog).click());
     await flush();
@@ -342,21 +342,12 @@ describe('ProgramEditDangerZoneSection', () => {
 
   it.each([
     {
-      backend: '기존 backend의 행 삭제 결과',
-      deletedCounts: { applications: 2, teams: 1 },
-      notice: '지원서 2건 · 팀 1건',
-    },
-    {
-      backend: '새 backend의 기록 보존과 파일 0건 결과',
-      deletedCounts: {
-        applications: 0,
-        teams: 0,
-        files: 0,
-      },
+      backend: '기록 보존과 파일 0건 결과',
+      deletedCounts: { files: 0 },
       notice: '정리할 업로드 파일이 없습니다.',
     },
     {
-      backend: '새 backend의 파일 정리 결과',
+      backend: '파일 정리 결과',
       deletedCounts: { files: 3 },
       notice: '파일 삭제 대기 3건',
     },

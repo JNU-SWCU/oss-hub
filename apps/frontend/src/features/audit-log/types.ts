@@ -64,6 +64,7 @@ export const AUDIT_LOG_ACTION_LABELS = {
   APPLICATION_APPROVED: '신청 승인',
   APPLICATION_REJECTED: '신청 반려',
   APPLICATION_REVERTED: '검토 대기로',
+  APPLICATION_REPOSITORY_URL_CHANGED: '저장소 주소 변경',
   USER_PROFILE_UPDATED: '프로필 수정',
   USER_PHONE_UPDATED: '전화번호 수정',
 } as const satisfies Readonly<Record<string, string>>;

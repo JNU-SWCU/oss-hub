@@ -6,7 +6,6 @@ describe('readProgramDeletionScopeCounts', () => {
     const queryRaw: jest.MockedFunction<
       (query: unknown) => Promise<
         readonly {
-          applications: bigint;
           teams: bigint;
           boardPosts: bigint;
           submissions: bigint;
@@ -16,7 +15,6 @@ describe('readProgramDeletionScopeCounts', () => {
       >
     > = jest.fn().mockResolvedValue([
       {
-        applications: 1n,
         teams: 1n,
         boardPosts: 0n,
         submissions: 2n,

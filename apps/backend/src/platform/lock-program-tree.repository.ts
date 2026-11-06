@@ -136,13 +136,7 @@ export class LockProgramTreeRepository {
         id: string;
       }[]
     >(
-      step.documentKind === 'ALL'
-        ? Prisma.sql`
-    SELECT "id" FROM "Requirement"
-    WHERE "milestoneId" = ${step.after.id}
-    ORDER BY "id" FOR UPDATE
-  `
-        : Prisma.sql`
+      Prisma.sql`
     SELECT "id" FROM "Requirement"
     WHERE "milestoneId" = ${step.after.id}
     ORDER BY "id" FOR UPDATE

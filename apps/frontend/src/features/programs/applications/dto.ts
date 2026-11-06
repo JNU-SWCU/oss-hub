@@ -153,8 +153,7 @@ type RepositoryProvisioningSafeErrorClass =
 
 export interface RepositoryProvisioning {
   readonly enabled: boolean;
-  readonly jobStatus:
-    RepositoryProvisioningJobStatus | 'RETRYABLE_FAILED' | 'FAILED';
+  readonly jobStatus: RepositoryProvisioningJobStatus;
   readonly updatedAt: string;
   readonly safeErrorClass: RepositoryProvisioningSafeErrorClass | null;
 }
