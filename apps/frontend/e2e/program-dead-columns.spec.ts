@@ -190,7 +190,6 @@ for (const width of [1440, 390]) {
     const staffApplication: ApplicationDetail = {
       ...application,
       repositoryConnectionMode: 'NEW',
-      repositoryUrl: null,
       repositoryProvisioning: {
         enabled: true,
         jobStatus: 'FAILED_RETRYABLE',

@@ -128,7 +128,6 @@ for (const width of [1440, 390]) {
               status: 'APPROVED',
               rejectionReason: null,
               repositoryConnectionMode: 'OWN',
-              repositoryUrl: 'https://github.com/synthetic/project',
               repositoryProvisioning: provisioning,
               participation: 'TEAM',
               applicant: {

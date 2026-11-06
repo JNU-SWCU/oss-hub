@@ -166,7 +166,6 @@ export interface ApplicationListItem {
   readonly programId: string;
   readonly repositoryConnectionMode: RepositoryConnectionMode;
 
-  readonly repositoryUrl: string | null;
   readonly status: ApplicationStatus;
   readonly rejectionReason: string | null;
   readonly repositoryProvisioning: RepositoryProvisioning;
