@@ -23,7 +23,7 @@ const routerMock = vi.hoisted(() => ({
 const getEditableProgramMock = vi.hoisted(() => vi.fn());
 const getEditableMilestoneMock = vi.hoisted(() => vi.fn());
 const updateEditableMilestoneMock = vi.hoisted(() => vi.fn());
-const listMilestoneDocumentsMock = vi.hoisted(() => vi.fn());
+const listRequirementsMock = vi.hoisted(() => vi.fn());
 
 vi.mock('next/navigation', () => ({
   useRouter: () => routerMock,
@@ -49,8 +49,8 @@ vi.mock('./api', async (importOriginal) => ({
   updateProgram: vi.fn(),
 }));
 
-vi.mock('../documents/milestone-document-api', () => ({
-  listMilestoneDocuments: listMilestoneDocumentsMock,
+vi.mock('../documents/requirement-api', () => ({
+  listRequirements: listRequirementsMock,
 }));
 
 const milestone: EditableMilestone = {
@@ -122,7 +122,7 @@ describe('마일스톤 스냅샷 저장 상태', () => {
         });
       });
     updateEditableMilestoneMock.mockReset();
-    listMilestoneDocumentsMock.mockResolvedValue({
+    listRequirementsMock.mockResolvedValue({
       documents: [],
       fileUpload: {
         maxBytes: 5242880,

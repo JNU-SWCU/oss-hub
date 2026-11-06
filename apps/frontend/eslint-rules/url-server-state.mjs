@@ -16,7 +16,7 @@ const effectFetchAllowlist = {
     '설정 폼의 편집 초기값을 fetchQuery staleTime 0으로 읽는다.',
   'features/programs/authoring/program-edit-page.tsx':
     '프로그램 편집 초기값을 fetchQuery staleTime 0으로 읽는다.',
-  'features/programs/documents/milestone-document-editor.tsx':
+  'features/programs/documents/requirement-editor.tsx':
     '편집용 제출 항목 기준값을 fetchQuery staleTime 0으로 읽는다.',
 };
 

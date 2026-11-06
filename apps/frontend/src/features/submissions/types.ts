@@ -92,7 +92,7 @@ export interface SubmissionChecklist {
   readonly items: readonly SubmissionChecklistItem[];
 }
 
-export interface MilestoneDocumentCurrentFileItem {
+export interface RequirementCurrentFileItem {
   readonly id: string;
   readonly name: string;
   readonly viewerSubmission?: {

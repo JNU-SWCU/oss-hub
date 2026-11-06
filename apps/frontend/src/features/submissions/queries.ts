@@ -1,10 +1,10 @@
 import { useQuery } from '@tanstack/react-query';
-import { milestoneDocumentsKey, programFeatureKey } from '@/lib/query-keys';
+import { requirementsKey, programFeatureKey } from '@/lib/query-keys';
 import {
   getSubmissionChecklist,
   getSubmissionForm,
   getSubmissionMatrix,
-  listMilestoneDocumentCurrentFiles,
+  listRequirementCurrentFiles,
 } from './api';
 import type { MatrixQueryInput } from './matrix';
 
@@ -32,16 +32,13 @@ export function useSubmissionFormQuery(programId: string, milestoneId: string) {
   });
 }
 
-export function useMilestoneDocumentCurrentFilesQuery(
+export function useRequirementCurrentFilesQuery(
   programId: string,
   milestoneId: string,
 ) {
   return useQuery({
-    queryKey: [
-      ...milestoneDocumentsKey(programId, milestoneId),
-      'current-files',
-    ],
-    queryFn: () => listMilestoneDocumentCurrentFiles(milestoneId),
+    queryKey: [...requirementsKey(programId, milestoneId), 'current-files'],
+    queryFn: () => listRequirementCurrentFiles(milestoneId),
     select: (documents) =>
       documents.filter(
         (document) => document.viewerSubmission?.hasCurrentFile === true,

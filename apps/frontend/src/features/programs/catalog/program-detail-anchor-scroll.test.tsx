@@ -12,8 +12,8 @@ vi.mock('./components/activity-graph-panel', () => ({
   ActivityGraphPanel: () => null,
 }));
 
-vi.mock('../documents/milestone-document-list', () => ({
-  MilestoneDocumentSection: () => null,
+vi.mock('../documents/requirement-list', () => ({
+  RequirementSection: () => null,
 }));
 
 import { ProgramDetailReadyState } from './program-detail-view';

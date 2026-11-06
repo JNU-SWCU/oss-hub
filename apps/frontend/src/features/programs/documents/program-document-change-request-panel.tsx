@@ -21,13 +21,13 @@ import {
   useProgramDocumentChangeRequestTargetsQuery,
 } from './queries';
 import {
-  MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH,
-  MILESTONE_DOCUMENT_REVIEW_ERROR_CODES,
-} from './milestone-document-review-api';
+  REQUIREMENT_REVIEW_COMMENT_MAX_LENGTH,
+  REQUIREMENT_REVIEW_ERROR_CODES,
+} from './requirement-review-api';
 import {
-  milestoneDocumentReviewFormError,
-  milestoneDocumentReviewCommentPayload,
-} from './milestone-document-review';
+  requirementReviewFormError,
+  requirementReviewCommentPayload,
+} from './requirement-review';
 import {
   changeRequestTargetCount,
   createProgramDocumentChangeRequest,
@@ -177,10 +177,7 @@ function ChangeRequestDialog({
       : 0;
 
   async function send() {
-    const error = milestoneDocumentReviewFormError(
-      'CHANGES_REQUESTED',
-      comment,
-    );
+    const error = requirementReviewFormError('CHANGES_REQUESTED', comment);
     setError(error);
     setNotice(null);
     if (error !== null) {
@@ -193,7 +190,7 @@ function ChangeRequestDialog({
       const result = await createProgramDocumentChangeRequest(programId, {
         scope,
         includeFinalDecisions,
-        comment: milestoneDocumentReviewCommentPayload(comment),
+        comment: requirementReviewCommentPayload(comment),
         expectedVersion: targets.targets.version,
       });
       setNotice({ kind: 'sent', count: result.requestedCount });
@@ -202,7 +199,7 @@ function ChangeRequestDialog({
       setNotice(
         cause instanceof ApiError &&
           cause.problem.code ===
-            MILESTONE_DOCUMENT_REVIEW_ERROR_CODES.REVIEW_TARGET_CHANGED
+            REQUIREMENT_REVIEW_ERROR_CODES.REVIEW_TARGET_CHANGED
           ? { kind: 'changed' }
           : {
               kind: 'error',
@@ -398,7 +395,7 @@ function ChangeRequestDialog({
             <Textarea
               id={`${id}-comment`}
               value={comment}
-              maxLength={MILESTONE_DOCUMENT_REVIEW_COMMENT_MAX_LENGTH}
+              maxLength={REQUIREMENT_REVIEW_COMMENT_MAX_LENGTH}
               disabled={busy}
               aria-invalid={error !== null}
               aria-describedby={`${id}-comment-description${error === null ? '' : ` ${id}-comment-error`}`}

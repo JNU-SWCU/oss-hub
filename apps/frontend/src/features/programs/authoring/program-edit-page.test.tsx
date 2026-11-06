@@ -52,7 +52,7 @@ const { purgeProgramMock, getEditableProgramMock, updateProgramMock } =
     purgeProgramMock: vi.fn(),
     updateProgramMock: vi.fn(),
   }));
-const listMilestoneDocumentsMock = vi.hoisted(() => vi.fn());
+const listRequirementsMock = vi.hoisted(() => vi.fn());
 const deleteMilestoneMock = vi.hoisted(() => vi.fn());
 
 vi.mock('./api', () => ({
@@ -63,8 +63,8 @@ vi.mock('./api', () => ({
   deleteMilestone: deleteMilestoneMock,
 }));
 
-vi.mock('../documents/milestone-document-api', () => ({
-  listMilestoneDocuments: listMilestoneDocumentsMock,
+vi.mock('../documents/requirement-api', () => ({
+  listRequirements: listRequirementsMock,
 }));
 
 const editableProgram: EditableProgram = {
@@ -360,7 +360,7 @@ describe('ProgramEditPage 컴포넌트', () => {
     purgeProgramMock.mockReset();
     updateProgramMock.mockReset();
     deleteMilestoneMock.mockReset();
-    listMilestoneDocumentsMock.mockResolvedValue({
+    listRequirementsMock.mockResolvedValue({
       documents: [],
       fileUpload: {
         maxBytes: 5242880,

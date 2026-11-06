@@ -12,8 +12,8 @@ import {
   TooltipTrigger,
 } from '@/components/ui/tooltip';
 import { cn } from '@/lib/utils';
-import type { MilestoneDocumentUploadPolicy } from '../documents/milestone-document-dto';
-import { milestoneDocumentUploadRejection } from '../documents/milestone-document-upload-policy';
+import type { RequirementUploadPolicy } from '../documents/requirement-dto';
+import { requirementUploadRejection } from '../documents/requirement-upload-policy';
 
 export type SubmissionItemValue = {
   readonly id: string;
@@ -59,7 +59,7 @@ export function ProgramAuthoringSubmissionItem({
     requirementId: string,
     name: string,
   ) => void;
-  readonly fileUpload?: MilestoneDocumentUploadPolicy;
+  readonly fileUpload?: RequirementUploadPolicy;
   readonly error?: string;
   readonly deleteLabel?: string;
   readonly nameConfirmLabel?: string;
@@ -98,7 +98,7 @@ export function ProgramAuthoringSubmissionItem({
     const rejection =
       file === null || fileUpload === undefined
         ? null
-        : milestoneDocumentUploadRejection(file, fileUpload);
+        : requirementUploadRejection(file, fileUpload);
     setSelectionError(rejection);
     if (file !== null && rejection === null)
       onFileChange(milestoneId, requirement.id, file);

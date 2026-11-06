@@ -19,9 +19,9 @@ afterEach(() => {
   queryClient.clear();
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
-import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
-import { MilestoneDocumentSectionBody } from './milestone-document-list';
-import type { MilestoneDocument } from './milestone-document-dto';
+import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
+import { RequirementSectionBody } from './requirement-list';
+import type { Requirement } from './requirement-dto';
 import { milestoneSubmissionAccess } from './milestone-submission-access';
 import { ProgramMilestones } from '../catalog/program-detail-view';
 import type { ProgramDetail, ProgramMilestone } from '../catalog/dto';
@@ -77,7 +77,7 @@ function programWith(
   };
 }
 
-function documentOf(milestoneId: string): MilestoneDocument {
+function documentOf(milestoneId: string): Requirement {
   return {
     id: `${milestoneId}-document`,
     milestoneId,
@@ -111,7 +111,7 @@ describe('마일스톤 목록의 경계', () => {
         return new Response(
           JSON.stringify({
             documents: milestoneId ? [documentOf(milestoneId)] : [],
-            fileUpload: milestoneDocumentUploadPolicy(),
+            fileUpload: requirementUploadPolicy(),
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
@@ -226,7 +226,7 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
 
   function bodyMarkup(state: 'ready' | 'failed'): string {
     return renderToStaticMarkup(
-      <MilestoneDocumentSectionBody
+      <RequirementSectionBody
         programId="program-1"
         onSubmitted={vi.fn()}
         state={
@@ -234,7 +234,7 @@ describe('제출 항목 블록이 그리지 않는 것', () => {
             ? {
                 kind: 'ready',
                 documents,
-                fileUpload: milestoneDocumentUploadPolicy(),
+                fileUpload: requirementUploadPolicy(),
               }
             : { kind: 'failed' }
         }

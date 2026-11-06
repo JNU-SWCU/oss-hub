@@ -20,10 +20,10 @@ import type {
 } from './program-edit-flow';
 import { ProgramEditMilestoneForm } from './program-edit-milestone-form';
 import { isMilestoneFormDirty } from './program-edit-state';
-import { isLocalMilestoneDocumentsDirty } from '../documents/milestone-document-editor-flow';
+import { isLocalRequirementsDirty } from '../documents/requirement-editor-flow';
 import type { ProgramScheduleCalendarEvent } from './program-schedule-calendar-model';
 import type { EditableMilestoneEditSnapshot } from './dto';
-import { LocalMilestoneDocumentsEditor } from '../documents/milestone-document-editor';
+import { LocalRequirementsEditor } from '../documents/requirement-editor';
 import {
   toProgramMilestoneDraft,
   toDateTimeLocal,
@@ -90,7 +90,7 @@ export function ProgramEditMilestoneDialog({
 
   useEffect(() => {
     onDocumentsDirtyChange?.(
-      draft !== null && isLocalMilestoneDocumentsDirty(draft.documents),
+      draft !== null && isLocalRequirementsDirty(draft.documents),
     );
   }, [draft, onDocumentsDirtyChange]);
 
@@ -114,7 +114,7 @@ export function ProgramEditMilestoneDialog({
     if (isBusy) return;
     if (
       isMilestoneFormDirty(editor.initialForm, editor.form) ||
-      (draft !== null && isLocalMilestoneDocumentsDirty(draft.documents))
+      (draft !== null && isLocalRequirementsDirty(draft.documents))
     ) {
       discardingRef.current = false;
       const activeElement = document.activeElement;
@@ -218,7 +218,7 @@ export function ProgramEditMilestoneDialog({
               ) : null}
               {draft !== null && snapshot !== null && snapshot !== undefined ? (
                 <div>
-                  <LocalMilestoneDocumentsEditor
+                  <LocalRequirementsEditor
                     key={draftVersion}
                     milestoneId={draft.id}
                     documents={draft.documents}

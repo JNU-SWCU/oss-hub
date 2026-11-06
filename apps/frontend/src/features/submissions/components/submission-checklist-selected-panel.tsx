@@ -10,7 +10,7 @@ import {
 } from '@/lib/status-vocabulary';
 import type { SubmissionUploadLimit } from '@/lib/submission-upload-policy';
 import { cn } from '@/lib/utils';
-import { MilestoneDocumentCurrentFiles } from '../milestone-document-current-files';
+import { RequirementCurrentFiles } from '../requirement-current-files';
 import {
   isRevisionNeeded,
   type ChecklistItemStatus,
@@ -233,7 +233,7 @@ function PanelCard({
   const body = (
     <>
       {children}
-      <MilestoneDocumentCurrentFiles
+      <RequirementCurrentFiles
         programId={programId}
         milestoneId={item.milestoneId}
       />

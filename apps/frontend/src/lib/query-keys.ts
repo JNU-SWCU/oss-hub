@@ -14,7 +14,7 @@ export function featureKey(feature: string, ...parameters: readonly unknown[]) {
   return [feature, ...parameters] as const;
 }
 
-export function milestoneDocumentsKey(
+export function requirementsKey(
   programId: string,
   milestoneId: string,
   scope?: 'all',

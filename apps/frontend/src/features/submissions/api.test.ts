@@ -5,11 +5,11 @@ import {
   checkSubmissionFile,
   createResubmission,
   createSubmission,
-  downloadMilestoneDocumentCurrentFile,
+  downloadRequirementCurrentFile,
   getSubmissionChecklist,
   getSubmissionForm,
   getSubmissionMatrix,
-  listMilestoneDocumentCurrentFiles,
+  listRequirementCurrentFiles,
   uploadSubmissionFile,
 } from './api';
 
@@ -54,9 +54,9 @@ describe('submissions api', () => {
     ['documents가 배열이 아닌 봉투', { documents: null }],
   ])('%s을 빈 목록으로 삼키지 않는다', async (_label, body) => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue(jsonResponse(body, 200)));
-    await expect(
-      listMilestoneDocumentCurrentFiles('milestone-1'),
-    ).rejects.toThrow('Invalid milestone document list response');
+    await expect(listRequirementCurrentFiles('milestone-1')).rejects.toThrow(
+      'Invalid milestone document list response',
+    );
   });
 
   it('마일스톤 서류 목록과 현재 파일 endpoint에서 식별자를 모두 인코딩한다', async () => {
@@ -77,8 +77,8 @@ describe('submissions api', () => {
       .mockResolvedValueOnce(fileResponse);
     vi.stubGlobal('fetch', request);
 
-    const documents = await listMilestoneDocumentCurrentFiles('milestone/1');
-    await downloadMilestoneDocumentCurrentFile('milestone/1', 'document/1');
+    const documents = await listRequirementCurrentFiles('milestone/1');
+    await downloadRequirementCurrentFile('milestone/1', 'document/1');
 
     expect(documents).toEqual([currentFileDocument]);
     expect(request).toHaveBeenNthCalledWith(

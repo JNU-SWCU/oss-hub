@@ -1,6 +1,6 @@
 import type { ViewerRole } from '../program-contract';
 
-interface ProgramOverviewMilestoneDocument {
+interface ProgramOverviewRequirement {
   readonly milestoneId: string;
   readonly title: string;
   readonly completed: number;
@@ -29,5 +29,5 @@ export interface ProgramOverview {
     readonly dueAt: string;
   }[];
 
-  readonly milestoneDocuments: readonly ProgramOverviewMilestoneDocument[];
+  readonly milestoneDocuments: readonly ProgramOverviewRequirement[];
 }

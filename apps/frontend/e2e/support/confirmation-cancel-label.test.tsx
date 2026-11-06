@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { AccountDeactivationSection } from '@/features/profile/settings/components/account-deactivation-section';
 import { ApplicationConfirmationDialog } from '@/features/programs/applications/application-confirmation-dialog';
 import { ApplicationDecisionDialog } from '@/features/programs/applications/application-decision-dialog';
-import { MilestoneDocumentResubmissionDialog } from '@/features/programs/documents/milestone-document-resubmission-dialog';
+import { RequirementResubmissionDialog } from '@/features/programs/documents/requirement-resubmission-dialog';
 import { ProgramAuthoringConfirmationDialog } from '@/features/programs/authoring/program-authoring-confirmation-dialog';
 import { ProgramEditPurgeConfirmation } from '@/features/programs/authoring/program-edit-purge-confirmation';
 
@@ -57,7 +57,7 @@ const cases: readonly {
   {
     name: '재제출',
     render: (onCancel, onConfirm) => (
-      <MilestoneDocumentResubmissionDialog
+      <RequirementResubmissionDialog
         documentName="합성 결과 보고서"
         submitting={false}
         onCancel={onCancel}

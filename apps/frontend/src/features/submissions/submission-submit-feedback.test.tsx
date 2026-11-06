@@ -66,7 +66,7 @@ vi.mock('./api', () => ({
       submittedAt: '2026-08-11T00:00:00.000Z',
     });
   },
-  listMilestoneDocumentCurrentFiles: () => Promise.resolve([]),
+  listRequirementCurrentFiles: () => Promise.resolve([]),
   checkSubmissionFile: (): Promise<void> => {
     api.checks += 1;
     return api.checkResult?.() ?? Promise.resolve();

@@ -13,32 +13,32 @@ import type {
   SubmissionChecklist,
   SubmissionFormData,
   SubmissionMatrixPage,
-  MilestoneDocumentCurrentFileItem,
+  RequirementCurrentFileItem,
   UploadedSubmissionFile,
 } from './types';
 
-function milestoneDocumentsPath(milestoneId: string): string {
+function requirementsPath(milestoneId: string): string {
   return `milestones/${encodeURIComponent(milestoneId)}/documents`;
 }
 
-export async function listMilestoneDocumentCurrentFiles(
+export async function listRequirementCurrentFiles(
   milestoneId: string,
-): Promise<readonly MilestoneDocumentCurrentFileItem[]> {
+): Promise<readonly RequirementCurrentFileItem[]> {
   const response = await apiClient<{
-    readonly documents: readonly MilestoneDocumentCurrentFileItem[];
-  }>(milestoneDocumentsPath(milestoneId));
+    readonly documents: readonly RequirementCurrentFileItem[];
+  }>(requirementsPath(milestoneId));
   const documents = response?.documents;
   if (!Array.isArray(response?.documents))
     throw new TypeError('Invalid milestone document list response');
   return documents;
 }
 
-export function downloadMilestoneDocumentCurrentFile(
+export function downloadRequirementCurrentFile(
   milestoneId: string,
   documentId: string,
 ): Promise<ApiFileDownload> {
   return apiFileClient(
-    `${milestoneDocumentsPath(milestoneId)}/${encodeURIComponent(documentId)}/submissions/current/file`,
+    `${requirementsPath(milestoneId)}/${encodeURIComponent(documentId)}/submissions/current/file`,
   );
 }
 

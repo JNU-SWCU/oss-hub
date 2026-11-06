@@ -15,9 +15,9 @@ import { isProgramEndAtUndecided } from './program-end-at';
 import type { ProgramTrackType } from '../program-contract';
 import { seoulDateTimeValue } from './seoul-date-time';
 import {
-  toLocalMilestoneDocuments,
-  type LocalMilestoneDocuments,
-} from '../documents/milestone-document-editor-flow';
+  toLocalRequirements,
+  type LocalRequirements,
+} from '../documents/requirement-editor-flow';
 
 export interface ProgramEditForm {
   readonly name: string;
@@ -76,7 +76,7 @@ export interface ProgramMilestoneForm {
 
 export type ProgramMilestoneDraft = {
   readonly id: string;
-  readonly documents: LocalMilestoneDocuments;
+  readonly documents: LocalRequirements;
 };
 
 export function toProgramMilestoneDraft(
@@ -85,7 +85,7 @@ export function toProgramMilestoneDraft(
   const milestone = snapshot.milestone;
   return {
     id: milestone.id,
-    documents: toLocalMilestoneDocuments(
+    documents: toLocalRequirements(
       snapshot.documents.map((document) => ({
         ...document,
         milestoneId: milestone.id,

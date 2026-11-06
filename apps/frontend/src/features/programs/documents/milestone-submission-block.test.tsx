@@ -13,12 +13,12 @@ afterEach(() => {
   queryClient.clear();
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
-import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
+import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
 import { ProgramMilestones } from '../catalog/program-detail-view';
 import type {
-  MilestoneDocument,
-  MilestoneDocumentViewerSubmission,
-} from './milestone-document-dto';
+  Requirement,
+  RequirementViewerSubmission,
+} from './requirement-dto';
 import type { ApplicationStatus } from '../program-contract';
 import type { ProgramDetail } from '../catalog/dto';
 
@@ -27,7 +27,7 @@ Object.defineProperty(globalThis, 'IS_REACT_ACT_ENVIRONMENT', {
   value: true,
 });
 
-const UNSUBMITTED: MilestoneDocumentViewerSubmission = {
+const UNSUBMITTED: RequirementViewerSubmission = {
   submitted: false,
   submittedAt: null,
   revision: null,
@@ -40,7 +40,7 @@ const UNSUBMITTED: MilestoneDocumentViewerSubmission = {
 
 function decided(
   status: 'APPROVED' | 'REJECTED' | 'CHANGES_REQUESTED',
-): MilestoneDocumentViewerSubmission {
+): RequirementViewerSubmission {
   return {
     submitted: true,
     submittedAt: '2026-08-01T10:00:00+09:00',
@@ -54,8 +54,8 @@ function decided(
 }
 
 function documentOf(
-  viewerSubmission: MilestoneDocumentViewerSubmission,
-): MilestoneDocument {
+  viewerSubmission: RequirementViewerSubmission,
+): Requirement {
   return {
     id: 'document-1',
     milestoneId: 'milestone-1',
@@ -134,7 +134,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
       viewerSubmission = UNSUBMITTED,
       due = OPEN_DUE,
     }: {
-      readonly viewerSubmission?: MilestoneDocumentViewerSubmission;
+      readonly viewerSubmission?: RequirementViewerSubmission;
       readonly due?: typeof OPEN_DUE | typeof PAST_DUE;
     } = {},
   ) {
@@ -144,7 +144,7 @@ describe('신청 상태가 마일스톤 블록의 위아래를 함께 정한다'
         new Response(
           JSON.stringify({
             documents: [documentOf(viewerSubmission)],
-            fileUpload: milestoneDocumentUploadPolicy(),
+            fileUpload: requirementUploadPolicy(),
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         ),

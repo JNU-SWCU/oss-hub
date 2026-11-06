@@ -13,8 +13,8 @@ afterEach(() => {
   queryClient.clear();
   notifyManager.setScheduler((callback) => setTimeout(callback, 0));
 });
-import { milestoneDocumentUploadPolicy } from '../../../../test-support/milestone-document-upload-policy';
-import type { MilestoneDocument } from './milestone-document-dto';
+import { requirementUploadPolicy } from '../../../../test-support/requirement-upload-policy';
+import type { Requirement } from './requirement-dto';
 import { ProgramMilestones } from '../catalog/program-detail-view';
 import type { ProgramDetail, ProgramMilestone } from '../catalog/dto';
 
@@ -67,7 +67,7 @@ function programWith(
   };
 }
 
-function documentOf(milestoneId: string): MilestoneDocument {
+function documentOf(milestoneId: string): Requirement {
   return {
     id: `${milestoneId}-document`,
     milestoneId,
@@ -121,7 +121,7 @@ describe('마일스톤 접기', () => {
         return new Response(
           JSON.stringify({
             documents: milestoneId ? [documentOf(milestoneId)] : [],
-            fileUpload: milestoneDocumentUploadPolicy(),
+            fileUpload: requirementUploadPolicy(),
           }),
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         );
