@@ -10,7 +10,7 @@ import {
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { TeamMembershipService } from './team-membership.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import type { RepositoryUrlHistoryRows } from './program-team-repository-evidence.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -22,7 +22,7 @@ function toPage(history: RepositoryUrlHistoryRows | undefined) {
   return new TeamMembershipService(
     undefined as never,
     undefined as never,
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new RepositoryPublishService(),
     new RepositoryUrlService(),
     new MilestoneCompletionService(),
@@ -101,7 +101,7 @@ it('reports an explicit repository relink as succeeded without inventing a provi
     new TeamMembershipService(
       undefined as never,
       undefined as never,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryPublishService(),
       new RepositoryUrlService(),
       new MilestoneCompletionService(),

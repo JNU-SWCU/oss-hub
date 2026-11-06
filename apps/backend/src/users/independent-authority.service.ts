@@ -5,12 +5,12 @@ import { UserHistoryRepository } from './user-history.repository';
 import type {
   AuditLogRecordInput,
   IndependentAuthorityAuditAction,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import type {
   IndependentAuthorityAuditMetadata,
   AuditPersonSnapshot,
   IndependentAuthorityAuditState,
-} from '../platform/audit-log-metadata.config';
+} from '../platform/history-metadata.config';
 import { ROLES_ERROR_CODES, RolesErrorCode } from './roles-error-code.error';
 import {
   IndependentAuthorityRepository,
@@ -31,7 +31,7 @@ import {
 } from './admin-access-query.config';
 import { type AdminAccessActor } from './admin-access-read.repository';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 
 export type IndependentAuthorityCommand =
@@ -77,8 +77,8 @@ export class IndependentAuthorityService {
     @Inject(IndependentAuthorityRepository)
     private readonly repository: IndependentAuthorityRepositoryPort,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
-    private readonly auditLogMetadataService: AuditLogMetadataService,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
+    private readonly historyMetadataService: HistoryMetadataService,
     private readonly adminAccessMutationService: AdminAccessMutationService,
     private readonly userProfileService: UserProfileService,
   ) {}
@@ -211,7 +211,7 @@ export class IndependentAuthorityService {
           decidedAt: new Date(),
         });
       }
-      await this.auditLog.record(
+      await this.userHistory.record(
         this.createIndependentAuthorityAudit({
           actorGithubId,
           actor,
@@ -251,7 +251,7 @@ export class IndependentAuthorityService {
       targetType: 'USER',
       targetId: target.id,
       metadata:
-        this.auditLogMetadataService.createIndependentAuthorityAuditMetadata({
+        this.historyMetadataService.createIndependentAuthorityAuditMetadata({
           command: command.command,
           actor: personSnapshot(actor),
           target: personSnapshot(target),

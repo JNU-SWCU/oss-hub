@@ -34,7 +34,7 @@ import { PublicProjectsRepository } from './public-projects.repository';
 import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
 import { SubmissionReviewsRepository } from './submission-reviews.repository';
 import { SubmissionReviewsService } from './submission-reviews.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { MilestoneCompletionService } from './milestone-completion.service';
@@ -55,7 +55,7 @@ const repositoriesRepository = new RepositoriesRepository(
 const repositories = new RepositoriesService(
   repositoriesRepository,
   github as unknown as GithubAppClient,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new RepositoryUrlService(),
 );
 const service = new SubmissionReviewsService(
@@ -358,7 +358,7 @@ describe('SubmissionReviewsService integration', () => {
     const concurrentRepositories = new RepositoriesService(
       barrierRepository as unknown as RepositoriesRepository,
       github as unknown as GithubAppClient,
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new RepositoryUrlService(),
     );
     const publishedAt = new Date('2026-07-31T00:00:00.000Z');

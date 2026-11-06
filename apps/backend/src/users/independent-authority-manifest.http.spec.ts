@@ -13,7 +13,7 @@ import { AdminProfileService } from './admin-profile.service';
 import { IndependentAuthorityService } from './independent-authority.service';
 import { ADMIN_ACCESS_COMMANDS } from './admin-access-query.config';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
@@ -62,7 +62,7 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
     Object.create(AdminAccessService.prototype) as object,
     {
       adminAccessMutationService: new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
       list: jest.fn(),
@@ -77,7 +77,7 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
     Object.create(IndependentAuthorityService.prototype) as object,
     {
       adminAccessMutationService: new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
       patchStaffAccess: jest.fn(),
@@ -96,7 +96,7 @@ describe('canonical authority routes in the auth manifest HTTP surface', () => {
       providers: [
         ...STATELESS_PROVIDERS,
         AdminAccessMutationService,
-        AuditLogMetadataService,
+        HistoryMetadataService,
         UserProfileService,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,

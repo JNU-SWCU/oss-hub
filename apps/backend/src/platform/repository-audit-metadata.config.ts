@@ -40,7 +40,7 @@ export type ApplicationRepositoryUrlAuditMetadataView =
 
 export const REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION = 1 as const;
 
-export type RepositoryConnectionAuditState = {
+type RepositoryConnectionAuditState = {
   readonly repositoryId: string | null;
   readonly nameWithOwner: string | null;
   readonly connectionMode: RepositoryConnectionMode;
@@ -53,6 +53,3 @@ export type RepositoryConnectionAuditMetadata = {
   readonly before: RepositoryConnectionAuditState;
   readonly after: RepositoryConnectionAuditState;
 };
-
-export type RepositoryConnectionAuditMetadataView =
-  RepositoryConnectionAuditMetadata;

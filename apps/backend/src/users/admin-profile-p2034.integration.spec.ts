@@ -10,14 +10,14 @@ import { AdminAccessHistoryRepository } from './admin-access-history.repository'
 import { AdminAccessRepository } from './admin-access.repository';
 import { Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { USER_PROFILE_AUDIT_ACTIONS } from '../platform/audit-log-metadata.config';
+import { USER_PROFILE_AUDIT_ACTIONS } from '../platform/history-metadata.config';
 import { UserHistoryRepository } from './user-history.repository';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { AdminProfileRepository } from './admin-profile.repository';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { USERS_ERROR_CODES, UsersErrorCode } from './users-error-code.error';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 assertIsolatedIntegrationDatabase({
@@ -41,7 +41,7 @@ const repository = new AdminProfileRepository(
   new PrismaSerializationRetryRepository(),
   new UserTransitionRepository(),
 );
-const auditLog = new UserHistoryRepository(new UserTransitionRepository());
+const userHistory = new UserHistoryRepository(new UserTransitionRepository());
 let sequence = 0;
 async function createTargetUser(): Promise<string> {
   sequence += 1;
@@ -114,14 +114,14 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
       where: { githubId: actor.githubId },
     });
     await new AdminProfileMutationService(
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     ).mutateAdminUserProfile(
-      { repository, auditLog },
+      { repository, userHistory },
       {
         actorGithubId: actor.githubId,
         userId,
@@ -170,14 +170,14 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
     const actorB = await createAdminActor('b');
     const outcomes = await Promise.allSettled([
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog },
+        { repository, userHistory },
         {
           actorGithubId: actorA.githubId,
           userId,
@@ -185,14 +185,14 @@ describe('AdminProfileRepository P2034 직렬화 충돌 재시도 (QA58)', () =>
         },
       ),
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ).mutateAdminUserProfile(
-        { repository, auditLog },
+        { repository, userHistory },
         {
           actorGithubId: actorB.githubId,
           userId,

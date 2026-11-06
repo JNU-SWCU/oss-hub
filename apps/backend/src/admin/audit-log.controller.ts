@@ -9,7 +9,7 @@ import { DomainException } from '../platform/error-code.error';
 import {
   AUDIT_LOG_ERROR_CODES,
   AuditLogErrorCode,
-} from '../platform/audit-log-error-code.error';
+} from '../platform/history.error';
 
 const adminOnly = () =>
   new DomainException(AUDIT_LOG_ERROR_CODES[AuditLogErrorCode.ADMIN_ONLY]);

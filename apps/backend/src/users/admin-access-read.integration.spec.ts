@@ -22,7 +22,7 @@ import {
   ADMIN_ACCESS_PENDING_FILTERS,
   ADMIN_ACCESS_ROLE_FILTERS,
 } from './admin-access-query.config';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
 assertIsolatedIntegrationDatabase({
@@ -40,7 +40,7 @@ const service = new AdminAccessService(
   ),
   new UserHistoryRepository(new UserTransitionRepository()),
   new AdminAccessMutationService(
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   ),
 );

@@ -17,7 +17,7 @@ export class AdminProfileService {
     @Inject(AdminProfileRepository)
     private readonly profileRepository: AdminProfileRepositoryPort,
     @Inject(UserHistoryRepository)
-    private readonly auditLog: Pick<UserHistoryRepository, 'record'>,
+    private readonly userHistory: Pick<UserHistoryRepository, 'record'>,
     private readonly adminProfileMutationService: AdminProfileMutationService,
     private readonly adminAccessMutationService: AdminAccessMutationService,
   ) {}
@@ -41,7 +41,7 @@ export class AdminProfileService {
     command: AdminProfileUpdateCommand,
   ): Promise<AdminProfileUpdateResult> {
     return this.adminProfileMutationService.mutateAdminUserProfile(
-      { repository: this.profileRepository, auditLog: this.auditLog },
+      { repository: this.profileRepository, userHistory: this.userHistory },
       { actorGithubId, userId, command },
     );
   }

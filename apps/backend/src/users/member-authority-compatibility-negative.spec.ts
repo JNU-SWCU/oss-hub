@@ -4,13 +4,13 @@ import { SystemErrorCode } from '../platform/system-error-code.error';
 import { profileRecord } from './member-authority-test-fixtures';
 import type { UsersRepositoryPort } from './users.repository';
 import { UsersService, type PatchUserProfileInput } from './users.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 const usersService = new UsersService(
   undefined as never,
   undefined as never,
   undefined as never,
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 const student = profileRecord('negative-student');
@@ -103,7 +103,7 @@ describe('member authority completion negative contract', () => {
       repository,
       { requireCurrent: () => Promise.resolve(undefined) },
       { record: jest.fn() },
-      new AuditLogMetadataService(),
+      new HistoryMetadataService(),
       new UserProfileService(),
     );
     const completion = service.completeMyProfile(801020n, validStudentInput);

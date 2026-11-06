@@ -113,7 +113,6 @@ model User {
   boardPosts                             BoardPost[]
   boardComments                          BoardComment[]
   notifications                          Notification[]
-  auditLogs                              AuditLog[]
   loginHistories                         LoginHistory[]
 }
 
@@ -265,10 +264,6 @@ model Program {
   boardPosts       BoardPost[]
 }
 
-enum ProgramCoverSource {
-  OWNED
-  EXTERNAL
-}
 
 
 enum MilestoneSubmissionType {
@@ -637,8 +632,8 @@ model File {
   nextDeleteAttemptAt DateTime?
   lastDeleteError String?
   deletedAt DateTime?
-  createdAt DateTime? @default(now())
-  updatedAt DateTime? @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   @@index([uploaderId])
   @@index([teamId, requirementId, lifecycle])
@@ -800,22 +795,6 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId])
-}
-
-model AuditLog {
-  id String @id @default(cuid())
-
-  actorId String
-  actor   User   @relation(fields: [actorId], references: [id])
-
-  action     String
-  targetType String
-  targetId   String
-  metadata   Json
-
-  occurredAt DateTime @default(now())
-
-  @@index([actorId])
 }
 
 enum CollectionRepositoryPresence {

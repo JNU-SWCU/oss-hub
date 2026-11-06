@@ -10,7 +10,7 @@ import {
   InMemoryAdminProfileRepository,
   profileTarget,
 } from './admin-profile.service.spec-support';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AdminProfileMutationService } from './admin-profile-mutation.service';
 import { UserProfileService } from './user-profile.service';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
@@ -28,15 +28,15 @@ describe('AdminProfileService.patchProfile', () => {
       profileRepository,
       audit.service,
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );
@@ -75,15 +75,15 @@ describe('AdminProfileService.patchProfile', () => {
         profileRepository,
         audit.service,
         new AdminProfileMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
           new AdminAccessMutationService(
-            new AuditLogMetadataService(),
+            new HistoryMetadataService(),
             new UserProfileService(),
           ),
         ),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       );
@@ -109,15 +109,15 @@ describe('AdminProfileService.patchProfile', () => {
       profileRepository,
       audit.service,
       new AdminProfileMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
         new AdminAccessMutationService(
-          new AuditLogMetadataService(),
+          new HistoryMetadataService(),
           new UserProfileService(),
         ),
       ),
       new AdminAccessMutationService(
-        new AuditLogMetadataService(),
+        new HistoryMetadataService(),
         new UserProfileService(),
       ),
     );

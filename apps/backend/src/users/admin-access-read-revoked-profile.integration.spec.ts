@@ -15,10 +15,10 @@ import {
   ADMIN_ACCESS_DEFAULT_SORT,
 } from './admin-access-query.config';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 const mutation = new AdminAccessMutationService(
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 assertIsolatedIntegrationDatabase({

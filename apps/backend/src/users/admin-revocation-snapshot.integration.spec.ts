@@ -1,7 +1,7 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import {
   deferred,
   backendPid,
@@ -34,7 +34,7 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const transitions = new UserTransitionRepository();
 const profiles = new UserProfileService();
-const metadata = new AuditLogMetadataService();
+const metadata = new HistoryMetadataService();
 const mutations = new AdminAccessMutationService(metadata, profiles);
 const history = new UserHistoryRepository(transitions);
 let sequence = 0;

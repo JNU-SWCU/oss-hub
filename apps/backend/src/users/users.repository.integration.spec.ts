@@ -12,7 +12,7 @@ import {
   type ProfileCompletionOutcome,
   type UsersRepositoryPort,
 } from './users.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { UserProfileService } from './user-profile.service';
 const userProfileService = new UserProfileService();
 assertIsolatedIntegrationDatabase({
@@ -57,7 +57,7 @@ const service = new UsersService(
   repository,
   { requireCurrent: () => Promise.resolve() },
   new UserHistoryRepository(new UserTransitionRepository()),
-  new AuditLogMetadataService(),
+  new HistoryMetadataService(),
   new UserProfileService(),
 );
 const recordPhoneAudit = jest
@@ -689,7 +689,7 @@ it('사번 감사 기록이 실패하면 프로필 변경도 롤백한다', asyn
     repository,
     { requireCurrent: () => Promise.resolve() },
     { record: jest.fn().mockRejectedValue(failure) },
-    new AuditLogMetadataService(),
+    new HistoryMetadataService(),
     new UserProfileService(),
   );
   await expect(

@@ -22,7 +22,7 @@ import {
   type AdminAccessInsertedRequest,
   type AdminAccessRevokedRequestInsert,
 } from './admin-access-read.repository';
-import { AuditLogMetadataService } from '../platform/audit-log-metadata.service';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
 import type { AdminAccessUserRow } from './admin-access-read.repository';
 import { AdminAccessMutationService } from './admin-access-mutation.service';
 import { UserProfileService } from './user-profile.service';
@@ -99,7 +99,7 @@ describe('independent authority HTTP contracts', () => {
         AdminAccessMutationService,
         UserProfileService,
         IndependentAuthorityService,
-        AuditLogMetadataService,
+        HistoryMetadataService,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
         OriginGuard,
         { provide: IndependentAuthorityRepository, useValue: store },
