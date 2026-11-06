@@ -132,7 +132,6 @@ export class AuthRouteStatusHarness {
         organizer: 'Synthetic organizer',
         trackType: null,
         applicationTemplateKey: 'basic',
-        lifecycle: 'PUBLISHED',
         description: 'Synthetic description',
         repositoryProvisioningEnabled: false,
         applicationPeriod: {

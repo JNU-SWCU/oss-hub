@@ -1,5 +1,5 @@
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
-import { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
+import { ProgramTrackType } from '@prisma/client';
 import type {
   ApplicationsRepository,
   StaffDashboardSummary,
@@ -21,7 +21,6 @@ describe('TeamApplicationService.staffSummary', () => {
             endsAt: new Date('2026-07-31T23:59:59.000Z'),
           },
           endAt: new Date('2026-09-30T23:59:59.000Z'),
-          lifecycle: ProgramLifecycle.PUBLISHED,
           applications: {
             total: 5,
             submitted: 2,

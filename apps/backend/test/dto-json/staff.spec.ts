@@ -128,7 +128,6 @@ const program: StaffDashboardComposedProgramSummary = {
     endsAt: at('2026-01-31T00:00:00.000Z'),
   },
   endAt: at('2026-06-30T00:00:00.000Z'),
-  lifecycle: 'PUBLISHED',
   teamManagementPath: '/programs/program-1/teams',
   applications: {
     total: 10,

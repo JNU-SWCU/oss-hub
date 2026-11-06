@@ -95,7 +95,6 @@ export class EditableProgramResponseDto {
   declare readonly name: string;
   declare readonly organizer: string;
   declare readonly trackType: EditableProgramView['trackType'];
-  declare readonly lifecycle: EditableProgramView['lifecycle'];
   declare readonly applicationTemplateKey: string;
   declare readonly applicationTemplateVersion: number;
   declare readonly applicationCount: number;
@@ -118,7 +117,6 @@ export class EditableProgramResponseDto {
       name: program.name,
       organizer: program.organizer,
       trackType: program.trackType,
-      lifecycle: program.lifecycle,
       applicationTemplateKey: program.applicationTemplateKey,
       applicationTemplateVersion: program.applicationTemplateVersion,
       applicationCount: program.applicationCount,

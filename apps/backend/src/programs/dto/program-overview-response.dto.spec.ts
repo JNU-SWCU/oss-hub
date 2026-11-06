@@ -4,7 +4,6 @@ const overviewView = {
   programId: 'cuid-synthetic-program',
   name: 'seed-program-overview-project',
   trackType: 'CURRICULAR',
-  lifecycle: 'PUBLISHED',
   milestoneCount: 2,
   boardPostCount: 3,
   participantCount: 188,

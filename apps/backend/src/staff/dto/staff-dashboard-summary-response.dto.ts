@@ -1,4 +1,4 @@
-import type { ProgramLifecycle, ProgramTrackType } from '@prisma/client';
+import type { ProgramTrackType } from '@prisma/client';
 import type {
   StaffDashboardActivitySummary,
   StaffDashboardComposedApplicationCounts,
@@ -86,8 +86,6 @@ export class StaffDashboardProgramSummaryResponseDto {
   };
 
   declare readonly endAt: string;
-
-  declare readonly lifecycle: ProgramLifecycle;
   declare readonly applications: StaffDashboardApplicationCountsResponseDto;
   declare readonly teamManagementPath: string;
   declare readonly activity: StaffDashboardActivitySummaryResponseDto;
@@ -106,7 +104,6 @@ export class StaffDashboardProgramSummaryResponseDto {
         endsAt: program.applicationPeriod.endsAt.toISOString(),
       },
       endAt: program.endAt.toISOString(),
-      lifecycle: program.lifecycle,
       applications: StaffDashboardApplicationCountsResponseDto.from(
         program.applications,
       ),

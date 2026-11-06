@@ -255,10 +255,8 @@ describe('RepositoryProvisionWorkerService integration', () => {
 
   it.each([
     ['PENDING', ProgramLifecycle.PUBLISHED],
-    ['PENDING', ProgramLifecycle.ARCHIVED],
     ['PENDING', ProgramLifecycle.DELETED],
     ['SUCCEEDED', ProgramLifecycle.PUBLISHED],
-    ['SUCCEEDED', ProgramLifecycle.ARCHIVED],
     ['SUCCEEDED', ProgramLifecycle.DELETED],
   ] as const)(
     '%s 작업은 %s 프로그램에서만 provider와 자식 쓰기를 진행한다',

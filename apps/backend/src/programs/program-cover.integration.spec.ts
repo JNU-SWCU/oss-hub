@@ -100,11 +100,11 @@ it('attaches one cover only on create and preserves idempotent replay after cons
   ).resolves.toBeNull();
   await prisma.program.update({
     where: { id: created.id },
-    data: { lifecycle: ProgramLifecycle.ARCHIVED },
+    data: { lifecycle: ProgramLifecycle.DELETED },
   });
   await expect(
     publicCovers.findPublicCover(created.id, cover.id),
-  ).resolves.not.toBeNull();
+  ).resolves.toBeNull();
 });
 
 it('rolls back cover attachment and token consumption if the rest of create fails', async () => {

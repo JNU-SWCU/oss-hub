@@ -45,7 +45,6 @@ const queuedFiles: ProgramPurgeDeletedCounts = {
 function setup(
   options: {
     readonly missing?: boolean;
-    readonly lifecycle?: ProgramLifecycle;
     readonly currentScope?: ProgramDeletionScopeCounts;
     readonly transactionError?: Error;
   } = {},
@@ -62,7 +61,7 @@ function setup(
     : {
         id: 'program-1',
         name: 'Synthetic program',
-        lifecycle: options.lifecycle ?? ProgramLifecycle.PUBLISHED,
+        lifecycle: ProgramLifecycle.PUBLISHED,
       };
   const queue = jest
     .spyOn(repository, 'purgeProgramTree')
@@ -116,14 +115,6 @@ describe('ProgramLifecycleService status deletion', () => {
       });
     },
   );
-
-  it('keeps the original archived state in the deletion history', async () => {
-    const { service, record } = setup({ lifecycle: ProgramLifecycle.ARCHIVED });
-    await service.purge(1001n, 'program-1', scope);
-    expect(record.mock.calls[0]?.[1]).toMatchObject({
-      metadata: { lifecycle: ProgramLifecycle.ARCHIVED },
-    });
-  });
 
   it.each(['delete', 'purge'] as const)(
     '%s rejects missing or previously deleted programs before queueing bytes',

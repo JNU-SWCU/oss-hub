@@ -17,7 +17,6 @@ import {
   ApplicationStatus,
   SubmissionStatus,
   type ProgramTrackType,
-  type ProgramLifecycle,
   ProgramCategory,
 } from '@prisma/client';
 import {
@@ -141,7 +140,6 @@ export interface ProgramDetailResult {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
-  readonly lifecycle: ProgramLifecycle;
   readonly description: string;
   readonly repositoryProvisioningEnabled: boolean;
   readonly applicationPeriod: {
@@ -359,7 +357,6 @@ export class ProgramsService {
         applicationTemplateKey: program.applicationTemplateKey,
         teamMinSize: program.teamMinSize,
         teamMaxSize: program.teamMaxSize,
-        lifecycle: program.lifecycle,
         description: program.description,
         repositoryProvisioningEnabled: program.repositoryProvisioningEnabled,
         applicationPeriod: {

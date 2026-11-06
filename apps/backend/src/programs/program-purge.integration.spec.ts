@@ -1047,11 +1047,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     s3.destroy();
     await Promise.all([prisma.$disconnect(), concurrentPrisma.$disconnect()]);
   });
-  it.each([
-    ProgramLifecycle.PUBLISHED,
-    ProgramLifecycle.ARCHIVED,
-    ProgramLifecycle.DELETED,
-  ])(
+  it.each([ProgramLifecycle.PUBLISHED, ProgramLifecycle.DELETED])(
     'student and staff write guards respect committed %s status',
     async (status) => {
       const fixture = await seedFullChildGraph(`guard-${status}`);
@@ -1404,11 +1400,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(history?.event).toBe('DELETED');
   });
-  it('purges a populated ARCHIVED program while preserving its account and unrelated programs', async () => {
-    const fixture = await seedFullChildGraph(
-      'archived',
-      ProgramLifecycle.ARCHIVED,
-    );
+  it('purges a populated program while preserving its account and unrelated programs', async () => {
+    const fixture = await seedFullChildGraph('account-keep');
     const unrelatedProgramId = await seedStandaloneProgram('unrelated');
     const applicant = await prisma.team.findUniqueOrThrow({
       where: { id: fixture.teamId },
@@ -1423,7 +1416,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.programId },
         select: { lifecycle: true },
       }),
-    ).resolves.toEqual({ lifecycle: ProgramLifecycle.ARCHIVED });
+    ).resolves.toEqual({ lifecycle: ProgramLifecycle.PUBLISHED });
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     expect(expectedScope).toMatchObject({
       applications: 2,
@@ -1469,7 +1462,7 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     expect(history?.event).toBe('DELETED');
     expect(history?.data).toMatchObject({
-      metadata: { lifecycle: ProgramLifecycle.ARCHIVED },
+      metadata: { lifecycle: ProgramLifecycle.PUBLISHED },
     });
   });
 
