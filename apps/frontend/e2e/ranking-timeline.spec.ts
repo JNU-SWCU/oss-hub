@@ -17,13 +17,14 @@ const SERIES = [
     totals: [20, 30, 140 - index * 10],
   })),
 ];
+const PREVIOUS_RANKS = [2, 1, 3, 6, null, 4, 5, 7, 8, 9, 10, 11] as const;
 const EXPECTED_CHANGE = {
-  'synthetic-001': '–',
-  'synthetic-002': '▲1',
-  'synthetic-003': '▼1',
-  [VIEWER]: '▲3',
+  'synthetic-001': '▲1',
+  'synthetic-002': '▼1',
+  'synthetic-003': '–',
+  [VIEWER]: '▲2',
   'synthetic-005': 'NEW',
-  'synthetic-012': '▲2',
+  'synthetic-012': '▼1',
 } as const;
 
 const CHART = '[data-history-chart="ready"]';
@@ -34,6 +35,7 @@ const RANKING_PAGE = {
   year: 2026,
   items: SERIES.map((series, index) => ({
     rank: index + 1,
+    previousRank: PREVIOUS_RANKS[index],
     githubLogin: series.githubLogin,
     commitCount: SERIES.length - index,
     pullRequestCount: 3,
@@ -195,7 +197,7 @@ test('로그 축 버튼은 선을 유지한 채 세로축을 10배 눈금으로 
   ).toBeVisible();
 });
 
-test('순위표 변화 칸은 직전 달과 비교한 값을 쓴다', async ({ page }) => {
+test('순위표 변화 칸은 직전 수집 순위와 비교한 값을 쓴다', async ({ page }) => {
   await openRanking(page);
 
   for (const [login, expected] of Object.entries(EXPECTED_CHANGE)) {
@@ -203,15 +205,16 @@ test('순위표 변화 칸은 직전 달과 비교한 값을 쓴다', async ({ p
   }
 });
 
-test('타임라인이 500 이어도 순위표는 그려지고 변화는 비워 둔다', async ({
+test('타임라인이 500 이어도 순위표와 변화 칸은 직전 수집 순위로 그린다', async ({
   page,
 }) => {
   await openRanking(page, { timelineStatus: 500 });
 
   await expect(page.locator(CHART)).toHaveCount(0);
   await expect(page.locator('[data-history-chart="error"]')).toBeVisible();
-  expect(await changeText(page, 'synthetic-001')).toBe('');
-  expect(await changeText(page, VIEWER)).toBe('');
+  for (const [login, expected] of Object.entries(EXPECTED_CHANGE)) {
+    expect(await changeText(page, login)).toBe(expected);
+  }
 });
 
 test('390px 에서도 가로 스크롤이 생기지 않는다', async ({ page }) => {
