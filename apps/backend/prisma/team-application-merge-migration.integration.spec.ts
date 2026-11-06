@@ -42,7 +42,6 @@ it('stores application state on Team after a fresh migration', async () => {
     'processedById',
     'rejectionReason',
     'repositoryConnectionMode',
-    'repositoryUrl',
     'revision',
     'status',
     'submittedAt',
