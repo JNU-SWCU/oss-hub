@@ -1,4 +1,4 @@
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import { ProgramListStatusFilterRepository } from './programs.repository';
 
 function normalize(sql: string): string {
   return sql.replace(/\s+/g, ' ').trim();

@@ -7,38 +7,47 @@ import {
   Patch,
   Req,
   UseGuards,
+  HttpCode,
+  Post,
+  Query,
+  Delete,
+  Header,
 } from '@nestjs/common';
 import { OriginGuard } from '../platform/origin.guard';
 import type { AuthenticatedRequest } from '../auth/http-auth.types';
-import { TeamApplicationService } from './team-application.service';
+import {
+  TeamApplicationService,
+  StudentApplicationManagementService,
+  ProgramTemplatesService,
+  StudentRepositoryUrlService,
+} from './team-application.service';
 import { ApplicationDecisionResponseDto } from './dto/application-decision-response.dto';
-import { ApplicationDetailResponseDto } from './dto/application-list-page-response.dto';
+import {
+  ApplicationDetailResponseDto,
+  ApplicationListPageResponseDto,
+} from './dto/application-list-page-response.dto';
 import { PatchApplicationDecisionRequestDto } from './dto/patch-application-decision-request.dto';
-import { Protected } from '../auth/auth-route.decorator';
+import { Protected, Public } from '../auth/auth-route.decorator';
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
 import {
   APPLICATIONS_ERROR_CODES,
   ApplicationsErrorCode,
-} from './applications-error-code.error';
-import { HttpCode, Post, Query } from '@nestjs/common';
+  TEAMS_ERROR_CODES,
+  TeamsErrorCode,
+} from './teams.error';
 import { ApplicationListRequestDto } from './dto/application-list-request.dto';
-import { ApplicationListPageResponseDto } from './dto/application-list-page-response.dto';
 import { CreateApplicationRequestDto } from './dto/create-application-request.dto';
 import { CreateApplicationResponseDto } from './dto/create-application-response.dto';
 import { TeamManagementListPageResponseDto } from './dto/team-management-list-page-response.dto';
-import { Delete, Header } from '@nestjs/common';
 import { MyStudentApplicationResponseDto } from './dto/my-student-application-response.dto';
 import { UpdateStudentApplicationRequestDto } from './dto/update-student-application-request.dto';
 import {
   StudentApplicationCancellationResponseDto,
   StudentApplicationResponseDto,
 } from './dto/student-application-response.dto';
-import { StudentApplicationManagementService } from './team-application.service';
 import { ApplicationTemplateListResponseDto } from './dto/application-template-response.dto';
-import { Public } from '../auth/auth-route.decorator';
-import { ProgramTemplatesService } from './team-application.service';
 import { DeleteTeamRequestDto } from './dto/delete-team-request.dto';
 import { MyProgramTeamResponseDto } from './dto/my-program-team-response.dto';
 import { RenameTeamRequestDto } from './dto/rename-team-request.dto';
@@ -54,10 +63,8 @@ import {
   RenameTeamResponseDto,
 } from './dto/program-team-response.dto';
 import { TeamMembershipService } from './team-membership.service';
-import { TEAMS_ERROR_CODES, TeamsErrorCode } from './teams-error-code.error';
 import { UpdateStudentRepositoryUrlRequestDto } from './dto/update-student-repository-url-request.dto';
 import { StudentRepositoryUrlResponseDto } from './dto/student-repository-url-response.dto';
-import { StudentRepositoryUrlService } from './team-application.service';
 
 type ApplicationActorRequest = Pick<AuthenticatedRequest, 'principal'>;
 

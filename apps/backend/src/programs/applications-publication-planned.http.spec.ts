@@ -13,7 +13,10 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { ApplicationsController } from './teams.controller';
+import {
+  ApplicationsController,
+  ProgramApplicationsController,
+} from './teams.controller';
 import type {
   ApplicationsRepository,
   ApplicationListItem,
@@ -24,18 +27,19 @@ import type {
   ApplicationListSource,
   ApplicationListSourcePage,
 } from './team.repository';
-import { TeamApplicationService } from './team-application.service';
-import { ProgramApplicationsController } from './teams.controller';
+import {
+  TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
 import { StaffDashboardController } from '../staff/staff-dashboard.controller';
 import { StaffDashboardService } from '../staff/staff-dashboard.service';
 import type { StaffInsightsRepository } from '../staff/staff-insights.repository';
 import { StaffInsightsService } from '../staff/staff-insights.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramCoverUrlService } from './programs.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { StaffInsightsQueryService } from '../staff/staff-insights-query.service';
-import { ApplicationAnswersService } from './team-application.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
   GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,

@@ -1,5 +1,5 @@
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneCompletionService } from './submissions.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import type { INestApplication } from '@nestjs/common';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -7,7 +7,7 @@ import {
   createDeadlineDigestIntegrationHarness,
   DIGEST_FIXTURE as fixture,
 } from '../notifications/deadline-digest.integration-support';
-import { SubmissionMatrixRepository } from './submission-matrix.repository';
+import { SubmissionMatrixRepository } from './submissions.repository';
 import { SubmissionMatrixService } from './submission-matrix.service';
 import {
   createMatrixDeliveryHttp,
@@ -34,8 +34,8 @@ let application: INestApplication;
 let baseUrl: string;
 
 async function cleanHistories() {
-  await harness.prisma.milestoneDocumentSubmissionHistory.deleteMany({
-    where: { milestoneDocumentSubmissionId: fixture.documentSubmission },
+  await harness.prisma.submissionHistory.deleteMany({
+    where: { submissionId: fixture.documentSubmission },
   });
 }
 beforeAll(async () => {
@@ -46,7 +46,7 @@ beforeAll(async () => {
 beforeEach(async () => {
   await cleanHistories();
   await harness.reset();
-  await harness.prisma.milestoneDocumentSubmission.update({
+  await harness.prisma.submission.update({
     where: { id: fixture.documentSubmission },
     data: { createdAt: first, submittedAt: late },
   });
@@ -67,7 +67,7 @@ async function requestMatrix(
 }
 
 it('exposes on-time delivery over the real route despite a late rejected revision', async () => {
-  await harness.prisma.milestoneDocumentSubmission.update({
+  await harness.prisma.submission.update({
     where: { id: fixture.documentSubmission },
     data: {
       createdAt: late,
@@ -137,7 +137,7 @@ it.each([
 ] as const)(
   'uses persisted creation time when first history is absent: %s',
   async (_, createdAt, deliveryStatus) => {
-    await harness.prisma.milestoneDocumentSubmission.update({
+    await harness.prisma.submission.update({
       where: { id: fixture.documentSubmission },
       data: { createdAt },
     });
@@ -173,7 +173,7 @@ it.each([
 ] as const)(
   'uses the required flag for %s item delivery completion',
   async (_, required, expected) => {
-    await harness.prisma.milestoneDocument.update({
+    await harness.prisma.requirement.update({
       where: { id: fixture.notifyDocument },
       data: { required },
     });
@@ -195,7 +195,7 @@ it.each([
 );
 
 it('does not mistake an unrelated history event or later revision for the first submission', async () => {
-  await harness.prisma.milestoneDocumentSubmission.update({
+  await harness.prisma.submission.update({
     where: { id: fixture.documentSubmission },
     data: {
       createdAt: late,

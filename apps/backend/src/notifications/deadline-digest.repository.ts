@@ -24,7 +24,7 @@ export type DeadlineProgramSource = {
     readonly id: string;
     readonly name: string;
     readonly dueAt: Date;
-    readonly documents: readonly {
+    readonly requirements: readonly {
       readonly id: string;
       readonly required: boolean;
     }[];
@@ -75,7 +75,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         milestones: {
           some: {
             dueAt: { gte: window.from, lte: window.to },
-            documents: {
+            requirements: {
               some: {
                 required: true,
               },
@@ -102,7 +102,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
             id: true,
             name: true,
             dueAt: true,
-            documents: {
+            requirements: {
               where: {},
               select: { id: true, required: true },
               orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
@@ -119,9 +119,9 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
               select: { user: { select: deadlineRecipientSelect } },
               orderBy: { userId: 'asc' },
             },
-            milestoneDocumentSubmissions: {
-              select: { milestoneDocumentId: true },
-              orderBy: { milestoneDocumentId: 'asc' },
+            submissions: {
+              select: { requirementId: true },
+              orderBy: { requirementId: 'asc' },
             },
           },
           orderBy: { id: 'asc' },
@@ -140,8 +140,8 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
         members: application.members.map(
           (member): DeadlineRecipientSource => member.user,
         ),
-        submittedDocumentIds: application.milestoneDocumentSubmissions.map(
-          (submission) => submission.milestoneDocumentId,
+        submittedDocumentIds: application.submissions.map(
+          (submission) => submission.requirementId,
         ),
       })),
     };

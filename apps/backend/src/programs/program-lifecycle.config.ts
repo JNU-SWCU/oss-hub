@@ -65,29 +65,26 @@ const PURGE_RELATIONS = [
     operation: 'TOMBSTONE',
     covers: [
       'Program->File',
-      'MilestoneDocument->File',
+      'Requirement->File',
       'Team->File',
-      'MilestoneDocumentSubmission->File',
-      'MilestoneDocumentSubmissionHistory->File',
+      'Submission->File',
+      'SubmissionHistory->File',
     ],
   },
   {
     id: 'milestone-document-submission-histories',
     operation: 'DELETE',
-    covers: ['MilestoneDocumentSubmission->MilestoneDocumentSubmissionHistory'],
+    covers: ['Submission->SubmissionHistory'],
   },
   {
     id: 'milestone-document-submissions',
     operation: 'DELETE',
-    covers: [
-      'MilestoneDocument->MilestoneDocumentSubmission',
-      'Team->MilestoneDocumentSubmission',
-    ],
+    covers: ['Requirement->Submission', 'Team->Submission'],
   },
   {
     id: 'milestone-documents',
     operation: 'DELETE',
-    covers: ['Milestone->MilestoneDocument'],
+    covers: ['Milestone->Requirement'],
   },
   {
     id: 'team-invitations',
@@ -120,8 +117,8 @@ export const PROGRAM_PURGE_DELETION_ORDER: readonly PurgeDeletionStep[] =
 const TEAM_SUBTREE_PARENTS: ReadonlySet<string> = new Set([
   'Team',
   'GithubRepository',
-  'MilestoneDocumentSubmission',
-  'MilestoneDocumentSubmissionHistory',
+  'Submission',
+  'SubmissionHistory',
 ]);
 
 const TEAM_ROW_RELATION = 'Program->Team';

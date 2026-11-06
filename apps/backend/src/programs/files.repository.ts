@@ -6,7 +6,7 @@ import {
   ProgramAuthoringUploadConsumptionRaceError,
   ProgramAuthoringUploadTokenError,
   PROGRAM_AUTHORING_UPLOAD_TOKEN_FAILURE,
-} from './program-authoring.error';
+} from './programs.error';
 import {
   type ProgramAuthoringUploadToken,
   type ProgramExternalCover,
@@ -19,7 +19,7 @@ import {
   STUDENT_MEMBER_WHERE,
 } from '../platform/user-profile-read.config';
 import { PlatformRepository } from '../platform/platform.repository';
-import { SubmissionMembershipChangedError } from './submission-membership-changed.error';
+import { SubmissionMembershipChangedError } from './submissions.error';
 import {
   SubmissionFileQuotaExceededError,
   SubmissionFileRetentionUnavailableError,
@@ -474,7 +474,7 @@ export interface ExhaustedSubmissionFileCleanup {
   readonly id: string;
   readonly deleteAttemptCount: number;
   readonly lastDeleteError: string | null;
-  readonly createdAt: Date | null;
+  readonly createdAt: Date;
 }
 
 @Injectable()

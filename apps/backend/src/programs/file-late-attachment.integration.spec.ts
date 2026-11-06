@@ -59,7 +59,7 @@ it('deletes a template attached after the program purge snapshot', async () => {
   const milestone = await prisma.milestone.findFirstOrThrow({
     where: { programId: program.id },
   });
-  const requirement = await prisma.milestoneDocument.create({
+  const requirement = await prisma.requirement.create({
     data: {
       milestoneId: milestone.id,
       name: 'Template',
@@ -112,7 +112,7 @@ it('deletes a submission file uploaded after the program purge snapshot', async 
   const milestone = await prisma.milestone.findFirstOrThrow({
     where: { programId: program.id },
   });
-  const requirement = await prisma.milestoneDocument.create({
+  const requirement = await prisma.requirement.create({
     data: {
       milestoneId: milestone.id,
       name: 'Submission',

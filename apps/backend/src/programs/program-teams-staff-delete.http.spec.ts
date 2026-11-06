@@ -7,17 +7,20 @@ import { AuthErrorCode } from '../auth/auth-error-code.error';
 import { OriginGuard } from '../platform/origin.guard';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { SystemErrorCode } from '../platform/system-error-code.error';
-import { TeamsErrorCode } from './teams-error-code.error';
+import { TeamsErrorCode } from './teams.error';
 import { TeamsController } from './teams.controller';
-import type { TeamRepository, TeamActorAuthority } from './team.repository';
-import type { TeamDeletionResult } from './team.repository';
+import type {
+  TeamRepository,
+  TeamActorAuthority,
+  TeamDeletionResult,
+} from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 

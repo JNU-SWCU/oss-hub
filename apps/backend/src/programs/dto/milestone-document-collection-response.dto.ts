@@ -1,14 +1,16 @@
 import type { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import type { MilestoneDocumentCollectionResult } from '../milestone-documents.service';
-import type { MilestoneDocumentDeliveryCollectionResult } from '../milestone-document-collection.service';
+import type { MilestoneDocumentCollectionResult } from '../requirements.service';
+import type {
+  MilestoneDocumentDeliveryCollectionResult,
+  MilestoneDocumentCollectionCell,
+} from '../requirement-archive.service';
 import type {
   MilestoneContext,
   MilestoneDocumentCollectionSubmission,
   MilestoneDocumentRecord,
   DocumentDeliveryStatus,
   MilestoneDocumentSubmittedContent,
-} from '../milestone-document-collection-read.repository';
-import type { MilestoneDocumentCollectionCell } from '../milestone-document-collection.service';
+} from '../requirements.repository';
 export class MilestoneDocumentCollectionMilestoneResponseDto {
   declare readonly id: string;
   declare readonly programId: string;

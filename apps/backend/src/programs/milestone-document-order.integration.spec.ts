@@ -1,17 +1,19 @@
 import { FileMetadataRepository } from './files.repository';
 import { UserProfileService } from '../users/user-profile.service';
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
+import {
+  MilestoneDocumentCollectionReadRepository,
+  RequirementsRepository,
+} from './requirements.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+import { RequirementsService } from './requirements.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -30,8 +32,8 @@ const FOREIGN_DOCUMENT_ID = 'test:1276:document-order:foreign';
 const prisma = new PrismaService();
 const staffGithubId = 9600000001276001n;
 const staffId = 'test:1276:document-order:staff';
-const service = new MilestoneDocumentsService(
-  new MilestoneDocumentsRepository(
+const service = new RequirementsService(
+  new RequirementsRepository(
     prisma,
     new LockProgramTreeRepository(),
     new PlatformRepository(),
@@ -56,7 +58,7 @@ const service = new MilestoneDocumentsService(
 );
 
 async function cleanup(): Promise<void> {
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { programId: PROGRAM_ID } },
   });
   await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -65,7 +67,7 @@ async function cleanup(): Promise<void> {
 }
 
 function storedOrder(milestoneId = MILESTONE_ID) {
-  return prisma.milestoneDocument.findMany({
+  return prisma.requirement.findMany({
     where: { milestoneId },
     orderBy: { sortOrder: 'asc' },
     select: { id: true, sortOrder: true },
@@ -117,7 +119,7 @@ describe('MilestoneDocumentsService durable document order', () => {
               id: MILESTONE_ID,
               name: 'Ordered documents',
               dueAt: new Date('2026-08-20T00:00:00.000Z'),
-              documents: {
+              requirements: {
                 create: DOCUMENT_IDS.map((id, index) => ({
                   id,
                   name: `Document ${index + 1}`,
@@ -132,7 +134,7 @@ describe('MilestoneDocumentsService durable document order', () => {
               id: OTHER_MILESTONE_ID,
               name: 'Other milestone',
               dueAt: new Date('2026-08-20T00:00:00.000Z'),
-              documents: {
+              requirements: {
                 create: {
                   id: FOREIGN_DOCUMENT_ID,
                   name: 'Foreign document',

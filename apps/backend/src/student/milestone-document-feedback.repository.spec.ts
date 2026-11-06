@@ -18,7 +18,7 @@ function repositoryWith(
   const findMany = jest.fn().mockResolvedValue(rows);
   const prisma = {
     user: { findUnique },
-    milestoneDocumentSubmissionHistory: { findMany },
+    submissionHistory: { findMany },
   } as unknown as PrismaService;
   return {
     repository: new MilestoneDocumentFeedbackRepository(
@@ -44,7 +44,7 @@ describe('MilestoneDocumentFeedbackRepository', () => {
             id: 'submission-1',
             status: SubmissionStatus.CHANGES_REQUESTED,
             teamId: 'application-1',
-            milestoneDocument: {
+            requirement: {
               name: '합성 계획서',
               milestone: {
                 id: 'milestone-1',

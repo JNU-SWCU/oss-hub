@@ -1,5 +1,8 @@
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import {
+  MilestoneDocumentSubmissionWindowService,
+  MilestoneDocumentFilesService,
+} from './files.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import {
   type INestApplication,
@@ -18,29 +21,26 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { MilestoneDocumentsController } from './milestone-documents.controller';
+import { RequirementsController } from './requirements.controller';
 import {
   MilestoneDocumentCurrentFileService,
   MilestoneDocumentCollectionService,
-} from './milestone-document-collection.service';
+  RequirementArchiveService,
+  type MilestoneDocumentArchive,
+} from './requirement-archive.service';
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+  MilestoneDocumentArchiveEntryError,
+} from './submissions.error';
 import { type Response } from 'express';
 import { OriginGuard } from '../platform/origin.guard';
 import { RolesGuard } from '../platform/roles.guard';
 import { type AuthenticatedRequest } from '../auth/http-auth.types';
 import { MilestoneDocumentFilesController } from './files.controller';
 import { MilestoneDocumentArchiveRequestDto } from './dto/milestone-document-archive-request.dto';
-import {
-  MilestoneDocumentArchiveService,
-  type MilestoneDocumentArchive,
-} from './milestone-document-archive.service';
-import { MilestoneDocumentFilesService } from './files.service';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentArchiveEntryError } from './milestone-document-archive.error';
+import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementsService } from './requirements.service';
 import { AuthSessionService } from '../platform/auth-session.service';
 import { STATELESS_PROVIDERS } from '../../test/stateless-providers.fixture';
 import {
@@ -69,7 +69,7 @@ describe('milestone-document-current-file.controller', () => {
 
   beforeAll(async () => {
     const moduleRef = await Test.createTestingModule({
-      controllers: [MilestoneDocumentsController],
+      controllers: [RequirementsController],
       providers: [
         ...STATELESS_PROVIDERS,
         ...GLOBAL_AUTHENTICATION_GUARD_PROVIDERS,
@@ -192,7 +192,7 @@ describe('milestone-document-current-file.controller', () => {
 
   it('로컬 가드 없이 전역 인증 가드가 미인증 요청을 401로 막는다', () => {
     const handler: unknown = Object.getOwnPropertyDescriptor(
-      MilestoneDocumentsController.prototype,
+      RequirementsController.prototype,
       'downloadCurrentSubmissionFile',
     )?.value;
 
@@ -340,10 +340,7 @@ beforeEach(() => {
 
 beforeAll(async () => {
   const moduleRef = await Test.createTestingModule({
-    controllers: [
-      MilestoneDocumentsController,
-      MilestoneDocumentFilesController,
-    ],
+    controllers: [RequirementsController, MilestoneDocumentFilesController],
     providers: [
       protectedRouteGuardStub({
         canActivate: (context: ExecutionContext): boolean => {
@@ -364,9 +361,9 @@ beforeAll(async () => {
         ),
       },
       {
-        provide: MilestoneDocumentsService,
+        provide: RequirementsService,
         useValue: Object.assign(
-          Object.create(MilestoneDocumentsService.prototype) as object,
+          Object.create(RequirementsService.prototype) as object,
           {
             listForViewer,
             collectForStaff,
@@ -401,11 +398,11 @@ beforeAll(async () => {
         ),
       },
       {
-        provide: MilestoneDocumentArchiveService,
+        provide: RequirementArchiveService,
         useValue: Object.assign(
           Object.create(
-            MilestoneDocumentArchiveService.prototype,
-          ) as MilestoneDocumentArchiveService,
+            RequirementArchiveService.prototype,
+          ) as RequirementArchiveService,
           {
             archiveForStaff,
             downloadResponseService: new DownloadResponseService(),
@@ -979,7 +976,7 @@ describe('교직원 서류 일괄 내려받기(ZIP)', () => {
         throw new Error('테스트 애플리케이션이 아직 뜨지 않았다');
       }
       return application
-        .get(MilestoneDocumentsController)
+        .get(RequirementsController)
         .archive('synthetic-milestone', query, probe.response);
     };
 
@@ -1388,7 +1385,7 @@ describe('교직원 서류 제출물 판정', () => {
 
 function readHandlerGuards(propertyKey: string): unknown {
   const handler: unknown = Object.getOwnPropertyDescriptor(
-    MilestoneDocumentsController.prototype,
+    RequirementsController.prototype,
     propertyKey,
   )?.value;
   expect(typeof handler).toBe('function');

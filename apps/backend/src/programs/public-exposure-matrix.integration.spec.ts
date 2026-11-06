@@ -30,14 +30,16 @@ import {
   PublicProjectsService,
   PublicEligibilityService,
 } from './public-projects.service';
-import { SubmissionReviewsErrorCode } from './submission-reviews-error-code.error';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import { SubmissionReviewsErrorCode } from './submissions.error';
+import { SubmissionReviewsRepository } from './submissions.repository';
+import {
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RankingYearService } from '../ranking/ranking-year.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 
 const repositoryUrlService = new RepositoryUrlService();
 assertIsolatedIntegrationDatabase({
@@ -83,7 +85,7 @@ const repositoriesService = new RepositoriesService(
   new HistoryMetadataService(),
   new RepositoryUrlService(),
 );
-const submissionReviewsService = new SubmissionReviewsService(
+const submissionReviewsService = new SubmissionsService(
   new SubmissionReviewsRepository(prisma, new PlatformRepository()),
   repositoriesService,
   new RepositoryPublishService(),

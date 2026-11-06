@@ -11,10 +11,12 @@ import {
   type ApplicationDecisionNotificationInput,
 } from './team.repository';
 import { APPLICATION_DECISION_ACTIONS } from './applications.config';
-import { ApplicationsErrorCode } from './applications-error-code.error';
-import { TeamApplicationService } from './team-application.service';
+import { ApplicationsErrorCode } from './teams.error';
+import {
+  TeamApplicationService,
+  ApplicationAnswersService,
+} from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { ApplicationAnswersService } from './team-application.service';
 
 const APPLICATION_ID = 'synthetic-application';
 const ACTOR_ID = 'synthetic-actor';

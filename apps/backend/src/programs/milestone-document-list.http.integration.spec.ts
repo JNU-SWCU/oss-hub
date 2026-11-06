@@ -9,19 +9,21 @@ import { AuthConfig } from '../platform/auth.config';
 import { AuthService } from '../auth/auth.service';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
 import { PrismaService } from '../platform/prisma.service';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
+import {
+  RequirementArchiveService,
+  MilestoneDocumentCollectionService,
+} from './requirement-archive.service';
 import {
   MilestoneDocumentFilesService,
   SubmissionFileAdmissionService,
+  MilestoneDocumentFileNameService,
+  MilestoneDocumentSubmissionWindowService,
 } from './files.service';
-import { MilestoneDocumentsController } from './milestone-documents.controller';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { RequirementsController } from './requirements.controller';
+import { MilestoneDocumentReviewsService } from './submissions.service';
+import { RequirementsRepository } from './requirements.repository';
+import { RequirementsService } from './requirements.service';
 import { AuthSessionService } from '../platform/auth-session.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { GLOBAL_AUTHENTICATION_GUARD_PROVIDERS } from '../../test/global-authentication-guard.fixture';
 
@@ -43,7 +45,7 @@ async function cleanup(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'TEMPLATE', requirement: { milestoneId } },
   });
-  await prisma.milestoneDocument.deleteMany({ where: { milestoneId } });
+  await prisma.requirement.deleteMany({ where: { milestoneId } });
   await prisma.milestone.deleteMany({ where: { id: milestoneId } });
   await prisma.program.deleteMany({ where: { id: programId } });
   await prisma.user.deleteMany({ where: { id: userId } });
@@ -65,12 +67,12 @@ describe('authenticated milestone document list filename contract', () => {
   beforeAll(async () => {
     await prisma.$connect();
     const module = await Test.createTestingModule({
-      controllers: [MilestoneDocumentsController],
+      controllers: [RequirementsController],
       providers: [
         ...STATELESS_PROVIDERS,
         { provide: MilestoneDocumentCollectionService, useValue: {} },
-        MilestoneDocumentsRepository,
-        MilestoneDocumentsService,
+        RequirementsRepository,
+        RequirementsService,
         MilestoneDocumentFileNameService,
         MilestoneDocumentSubmissionWindowService,
         ProgramScheduleService,
@@ -86,9 +88,9 @@ describe('authenticated milestone document list filename contract', () => {
         },
         { provide: MilestoneDocumentReviewsService, useValue: {} },
         {
-          provide: MilestoneDocumentArchiveService,
+          provide: RequirementArchiveService,
           useValue: Object.assign(
-            Object.create(MilestoneDocumentArchiveService.prototype) as object,
+            Object.create(RequirementArchiveService.prototype) as object,
             { downloadResponseService: new DownloadResponseService() },
           ),
         },
@@ -170,7 +172,7 @@ describe('authenticated milestone document list filename contract', () => {
     await prisma.$disconnect();
   });
   it('returns filename states without storage metadata over authenticated HTTP', async () => {
-    await prisma.milestoneDocument.createMany({
+    await prisma.requirement.createMany({
       data: [
         {
           id: `${prefix}-with-file`,

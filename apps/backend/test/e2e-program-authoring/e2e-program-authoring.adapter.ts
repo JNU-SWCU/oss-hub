@@ -4,12 +4,12 @@ import { ApplicationStatus } from '@prisma/client';
 import { TeamApplicationService } from '../../src/programs/team-application.service';
 import { RepositoryOutboxConsumerService } from '../../src/github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../../src/github/repository-provision-worker.service';
-import { MilestoneDocumentCurrentFileService } from '../../src/programs/milestone-document-collection.service';
+import { MilestoneDocumentCurrentFileService } from '../../src/programs/requirement-archive.service';
 import {
   MilestoneDocumentFilesService,
   ProgramAuthoringUploadService,
 } from '../../src/programs/files.service';
-import { MilestoneDocumentsService } from '../../src/programs/milestone-documents.service';
+import { RequirementsService } from '../../src/programs/requirements.service';
 import {
   DeadlineDigestService,
   type DeadlineDigestSendRequest,
@@ -67,7 +67,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
     private readonly uploadMaintenance: FileCleanupService,
     private readonly authoring: ProgramAuthoringService,
     private readonly files: MilestoneDocumentFilesService,
-    private readonly documents: MilestoneDocumentsService,
+    private readonly documents: RequirementsService,
     private readonly currentFiles: MilestoneDocumentCurrentFileService,
     private readonly submissionFileCleanup: FileCleanupService,
   ) {
@@ -364,7 +364,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       await transaction.file.deleteMany({
         where: { kind: 'UPLOAD', id: { in: files.map((upload) => upload.id) } },
       });
-      await transaction.milestoneDocument.deleteMany({
+      await transaction.requirement.deleteMany({
         where: { milestone: { programId: program.id } },
       });
       await transaction.milestone.deleteMany({

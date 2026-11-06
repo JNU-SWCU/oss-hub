@@ -1,5 +1,5 @@
 import { SubmissionStatus, RequirementSubmissionType } from '@prisma/client';
-import type { MilestoneDocumentViewerResult } from '../milestone-documents.service';
+import type { MilestoneDocumentViewerResult } from '../requirements.service';
 import {
   SUBMISSION_UPLOAD_ACCEPT,
   SUBMISSION_UPLOAD_FORMAT_LABEL,

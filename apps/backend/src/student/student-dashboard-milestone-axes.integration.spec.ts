@@ -1,7 +1,10 @@
 import { ProgramScheduleService } from '../programs/program-schedule.service';
 import { ProgramTemplatesService } from '../programs/team-application.service';
 import { ProgramViewerService } from '../programs/program-viewer.service';
-import { ProgramListStatusFilterRepository } from '../programs/program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from '../programs/programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
   ApplicationStatus,
@@ -12,12 +15,13 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import type { RepositoriesReadService } from '../github/repositories-read.service';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramsRepository } from '../programs/programs.repository';
 import { StudentDashboardRepository } from './student-dashboard.repository';
-import { ProgramsService } from '../programs/programs.service';
+import {
+  ProgramsService,
+  ProgramCoverUrlService,
+} from '../programs/programs.service';
 import { StudentDashboardService } from './student-dashboard.service';
-import { MilestoneCompletionService } from '../programs/milestone-completion.service';
-import { ProgramCoverUrlService } from '../programs/program-cover-url.service';
+import { MilestoneCompletionService } from '../programs/submissions.service';
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
   runnerSentinel: process.env.OSS_HUB_INTEGRATION_RUNNER,
@@ -106,12 +110,12 @@ async function setSubmissions(
   teamId: string,
   rows: readonly (readonly [string, SubmissionStatus])[],
 ): Promise<void> {
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { teamId },
   });
-  await prisma.milestoneDocumentSubmission.createMany({
+  await prisma.submission.createMany({
     data: rows.map(([milestoneDocumentId, status]) => ({
-      milestoneDocumentId,
+      requirementId: milestoneDocumentId,
       teamId,
       status,
       submittedById: STUDENT_ID,
@@ -124,7 +128,7 @@ async function nextMilestoneOf(teamId: string) {
   return items.find((item) => item.teamId === teamId)?.nextMilestone;
 }
 async function cleanup(): Promise<void> {
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { teamId: { in: APPLICATION_IDS } },
   });
   await prisma.teamMember.deleteMany({
@@ -133,7 +137,7 @@ async function cleanup(): Promise<void> {
   await prisma.team.deleteMany({
     where: { id: { in: APPLICATION_IDS } },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestoneId: { in: MILESTONE_IDS } },
   });
   await prisma.milestone.deleteMany({ where: { id: { in: MILESTONE_IDS } } });
@@ -181,7 +185,7 @@ async function seed(): Promise<void> {
       },
     ],
   });
-  await prisma.milestoneDocument.createMany({
+  await prisma.requirement.createMany({
     data: [
       documentRow(REQUIRED_FIRST_A, DOCUMENT_MILESTONE_FIRST, true),
       documentRow(REQUIRED_FIRST_B, DOCUMENT_MILESTONE_FIRST, true),
@@ -225,11 +229,11 @@ describe('StudentDashboardService milestone axes integration', () => {
   it('projects grace only from unsubmitted required documents and clears it after submission', async () => {
     const grace = new Date('2026-09-05T00:00:00.000Z');
     const later = new Date('2026-09-07T00:00:00.000Z');
-    await prisma.milestoneDocument.update({
+    await prisma.requirement.update({
       where: { id: REQUIRED_FIRST_A },
       data: { graceDueAt: grace },
     });
-    await prisma.milestoneDocument.update({
+    await prisma.requirement.update({
       where: { id: OPTIONAL_FIRST },
       data: { graceDueAt: later },
     });
@@ -247,7 +251,7 @@ describe('StudentDashboardService milestone axes integration', () => {
     expect(await nextMilestoneOf(DOCUMENT_APPLICATION)).toMatchObject({
       lateSubmissionDueAt: null,
     });
-    await prisma.milestoneDocument.updateMany({
+    await prisma.requirement.updateMany({
       where: { id: { in: [REQUIRED_FIRST_A, OPTIONAL_FIRST] } },
       data: { graceDueAt: null },
     });

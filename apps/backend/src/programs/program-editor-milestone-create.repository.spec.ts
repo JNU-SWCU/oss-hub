@@ -51,7 +51,7 @@ describe('ProgramEditorRepository milestone create', () => {
         startAt: milestone.startAt,
         dueAt: milestone.dueAt,
         instructions: null,
-        documents: {
+        requirements: {
           create: {
             name: '제출 항목 1',
             required: true,

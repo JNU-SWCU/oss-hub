@@ -12,7 +12,7 @@ import {
   type ProgramListQueryDirection,
   type ProgramListQuerySort,
   type ProgramListQueryStatus,
-} from '../program-list-status-filter.repository';
+} from '../programs.repository';
 import {
   PROGRAM_LIST_QUERY_DIRECTIONS,
   PROGRAM_LIST_QUERY_SORTS,

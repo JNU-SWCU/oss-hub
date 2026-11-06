@@ -8,7 +8,7 @@ import {
 import {
   MILESTONE_DOCUMENTS_ERROR_CODES,
   MilestoneDocumentsErrorCode,
-} from './milestone-documents-error-code.error';
+} from './submissions.error';
 import {
   ProgramEditorRepository,
   type ProgramMilestoneEditView,
@@ -19,20 +19,22 @@ import {
   type EditableProgramRow,
   type EditableProgramView,
 } from './program-editor.repository';
-import { ProgramAuthoringValidationError } from './program-authoring-validation.error';
 import {
+  ProgramAuthoringValidationError,
   PROGRAM_ERROR_CODES,
   ProgramErrorCode,
-} from './program-error-code.error';
+  ProgramMilestoneEditValidationError,
+  ProgramAuthoringUploadTokenError,
+} from './programs.error';
 import { createHash } from 'node:crypto';
-import { ProgramMilestoneEditValidationError } from './program-editor.error';
-import { CreateProgramCommand } from './program-creation.service';
+import {
+  CreateProgramCommand,
+  ProgramCoverUrlService,
+} from './programs.service';
 import {
   type ProgramExternalCover,
   type ProgramAuthoringUploadToken,
 } from './files.config';
-import { ProgramAuthoringUploadTokenError } from './program-authoring.error';
-import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramAuthoringUploadService } from './files.service';
 

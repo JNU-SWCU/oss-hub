@@ -7,7 +7,7 @@ import {
   IsOptional,
   IsString,
 } from 'class-validator';
-import { type CreateProgramCommand } from '../program-creation.service';
+import { type CreateProgramCommand } from '../programs.service';
 
 export class CreateProgramRequestDto implements CreateProgramCommand {
   @IsString()

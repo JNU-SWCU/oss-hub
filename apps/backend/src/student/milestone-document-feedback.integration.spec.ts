@@ -30,13 +30,13 @@ const service = new MilestoneDocumentFeedbackService(
 );
 async function cleanup(): Promise<void> {
   const owned = { startsWith: prefix };
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: { id: owned },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({ where: { id: owned } });
+  await prisma.submission.deleteMany({ where: { id: owned } });
   await prisma.teamMember.deleteMany({ where: { teamId: owned } });
   await prisma.team.deleteMany({ where: { id: owned } });
-  await prisma.milestoneDocument.deleteMany({ where: { id: owned } });
+  await prisma.requirement.deleteMany({ where: { id: owned } });
   await prisma.milestone.deleteMany({ where: { id: owned } });
   await prisma.program.deleteMany({ where: { id: owned } });
   await prisma.user.deleteMany({ where: { id: owned } });
@@ -61,7 +61,7 @@ async function createProgram(key: string, name: string): Promise<void> {
           id: `${prefix}-${key}-milestone`,
           name: milestoneName,
           dueAt: new Date('2026-12-31'),
-          documents: {
+          requirements: {
             create: [
               {
                 id: `${prefix}-${key}-document`,
@@ -128,18 +128,18 @@ async function createReviews(input: {
   }[];
 }): Promise<void> {
   const submissionId = `${prefix}-${input.application}-${input.document}-submission`;
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       id: submissionId,
-      milestoneDocumentId: input.document,
+      requirementId: input.document,
       teamId: `${prefix}-${input.application}-team`,
       submittedById: users.student,
     },
   });
-  await prisma.milestoneDocumentSubmissionHistory.createMany({
+  await prisma.submissionHistory.createMany({
     data: input.reviews.map((review) => ({
       id: `${prefix}-review-${review.key}`,
-      milestoneDocumentSubmissionId: submissionId,
+      submissionId,
       actorId: users.staff,
       event: review.decision ?? ReviewDecision.CHANGES_REQUESTED,
       revision: 1,

@@ -16,7 +16,9 @@ import {
 import {
   ProgramCoverService,
   ProgramCreationService,
-} from './program-creation.service';
+  ProgramLifecycleService,
+  ProgramsService,
+} from './programs.service';
 import { OriginGuard } from '../platform/origin.guard';
 import {
   type AuthenticatedRequest,
@@ -32,7 +34,6 @@ import { UpdateProgramRequestDto } from './dto/program-authoring-request.dto';
 import { UpsertMilestoneRequestDto } from './dto/upsert-milestone-request.dto';
 import { ProgramEditorService } from './program-editor.service';
 import { PurgeProgramRequestDto } from './dto/purge-program-request.dto';
-import { ProgramLifecycleService } from './programs.service';
 import { ProgramViewerRequestDto } from './dto/program-viewer-request.dto';
 import { CreateProgramRequestDto } from './dto/create-program-request.dto';
 import { CreateProgramResponseDto } from './dto/create-program-response.dto';
@@ -45,7 +46,6 @@ import { ProgramEndedYearsResponseDto } from './dto/program-ended-years-response
 import { ProgramListPageResponseDto } from './dto/program-list-response.dto';
 import { ProgramStatusCountsResponseDto } from './dto/program-status-counts-response.dto';
 import { ProgramActivityService } from './program-activity.service';
-import { ProgramsService } from './programs.service';
 import {
   Public,
   Protected,
@@ -54,10 +54,7 @@ import {
 import { STAFF_AUDIENCE } from '../platform/roles.guard';
 import { Roles } from '../platform/roles.decorator';
 import { DomainException } from '../platform/error-code.error';
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.error';
+import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 
 type SessionIdentity = Pick<AuthenticatedRequest, 'sessionGithubId'>;
 

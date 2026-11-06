@@ -31,9 +31,9 @@ describe('ProgramEditorRepository milestone deletion', () => {
           return Promise.resolve({});
         }),
       },
-      milestoneDocument: {
+      requirement: {
         deleteMany: jest.fn().mockImplementation(() => {
-          callOrder.push('milestoneDocument.deleteMany');
+          callOrder.push('requirement.deleteMany');
           return Promise.resolve({ count: 2 });
         }),
       },
@@ -43,9 +43,9 @@ describe('ProgramEditorRepository milestone deletion', () => {
           return Promise.resolve({ count: 1 });
         }),
       },
-      milestoneDocumentSubmission: {
+      submission: {
         count: jest.fn().mockImplementation(() => {
-          callOrder.push('milestoneDocumentSubmission.count');
+          callOrder.push('submission.count');
           return Promise.resolve(documentSubmissionCount);
         }),
       },
@@ -101,7 +101,7 @@ describe('ProgramEditorRepository milestone deletion', () => {
     expect(callOrder).toEqual([
       'file.updateMany',
       'file.updateMany',
-      'milestoneDocument.deleteMany',
+      'requirement.deleteMany',
       'milestone.delete',
     ]);
     expect(transaction.file.updateMany).toHaveBeenCalledWith({
@@ -118,7 +118,7 @@ describe('ProgramEditorRepository milestone deletion', () => {
       where: { requirement: { milestoneId: syntheticMilestoneId } },
       data: { requirementId: null },
     });
-    expect(transaction.milestoneDocument.deleteMany).toHaveBeenCalledWith({
+    expect(transaction.requirement.deleteMany).toHaveBeenCalledWith({
       where: { milestoneId: syntheticMilestoneId },
     });
     expect(transaction.milestone.delete).toHaveBeenCalledWith({
@@ -142,8 +142,8 @@ describe('ProgramEditorRepository milestone deletion', () => {
         },
       },
     });
-    expect(transaction.milestoneDocumentSubmission.count).toHaveBeenCalledWith({
-      where: { milestoneDocument: { milestoneId: syntheticMilestoneId } },
+    expect(transaction.submission.count).toHaveBeenCalledWith({
+      where: { requirement: { milestoneId: syntheticMilestoneId } },
     });
   });
 
@@ -158,7 +158,7 @@ describe('ProgramEditorRepository milestone deletion', () => {
       'lock:Program',
       'lock:Milestone',
       'lock:MilestoneDocument',
-      'milestoneDocumentSubmission.count',
+      'submission.count',
     ]);
 
     const documentLock = queries[2];

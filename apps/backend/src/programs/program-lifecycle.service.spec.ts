@@ -1,18 +1,16 @@
 import { Prisma, ProgramLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramHistoryRepository } from './programs.repository';
-import { HistoryMetadataService } from '../platform/history-metadata.service';
-import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import {
+  ProgramHistoryRepository,
   ProgramDeletionScopeRepository,
   type ProgramDeletionScopeCounts,
-} from './programs.repository';
-import {
   ProgramLifecycleRepository,
   type ProgramPurgeDeletedCounts,
 } from './programs.repository';
+import { HistoryMetadataService } from '../platform/history-metadata.service';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { ProgramLifecycleService } from './programs.service';
-import { ProgramErrorCode } from './program-error-code.error';
+import { ProgramErrorCode } from './programs.error';
 
 const scope: ProgramDeletionScopeCounts = {
   applications: 2,

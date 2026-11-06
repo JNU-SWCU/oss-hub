@@ -1,15 +1,16 @@
 import { ProgramScheduleService } from './program-schedule.service';
 import { ProgramTemplatesService } from './team-application.service';
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCategory } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { ProgramsService } from './programs.service';
-import { ProgramsRepository } from './programs.repository';
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
+import { ProgramsService, ProgramCoverUrlService } from './programs.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

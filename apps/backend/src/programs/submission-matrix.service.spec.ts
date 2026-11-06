@@ -1,5 +1,5 @@
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneCompletionService } from './submissions.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -10,13 +10,13 @@ import {
   type MatrixSubmissionRecord,
   type SubmissionMatrixRepositoryPort,
   type SubmissionMatrixFilter,
-} from './submission-matrix.repository';
+} from './submissions.repository';
 import { ApplicationStatus, SubmissionStatus } from '@prisma/client';
 import {
   SubmissionMatrixService,
   type SubmissionMatrixQuery,
 } from './submission-matrix.service';
-import { SubmissionsErrorCode } from './submissions-error-code.error';
+import { SubmissionsErrorCode } from './submissions.error';
 
 const STAFF_GITHUB_ID = 9_124_000_001n;
 const PROGRAM_ID = 'synthetic-matrix-program';

@@ -6,11 +6,15 @@ import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { DomainException } from '../platform/error-code.error';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
-import { ApplicationsErrorCode } from './applications-error-code.error';
-import { ApplicationsRepository } from './team.repository';
-import { StudentApplicationManagementRepository } from './team.repository';
-import { StudentApplicationManagementService } from './team-application.service';
-import { ApplicationAnswersService } from './team-application.service';
+import { ApplicationsErrorCode } from './teams.error';
+import {
+  ApplicationsRepository,
+  StudentApplicationManagementRepository,
+} from './team.repository';
+import {
+  StudentApplicationManagementService,
+  ApplicationAnswersService,
+} from './team-application.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,

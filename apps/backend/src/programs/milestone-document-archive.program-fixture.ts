@@ -1,15 +1,17 @@
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentFileNameService } from './files.service';
+import {
+  MilestoneDocumentCollectionService,
+  RequirementArchiveService,
+} from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
 import { SubmissionStatus } from '@prisma/client';
 import { Readable } from 'node:stream';
 import type { ObjectStoragePort } from '../platform/object-storage.types';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
-import type { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import {
+  type RequirementsRepository,
   type ArchiveProgram,
   type MilestoneDocumentArchiveSubmission,
-} from './milestone-document-archive.repository';
+} from './requirements.repository';
 
 export const now = new Date('2026-09-03T00:00:00Z');
 export const fileBody = Buffer.from('synthetic retained image');
@@ -19,7 +21,7 @@ export const program: ArchiveProgram = {
     id: `milestone-${index}`,
     name,
     dueAt: new Date('2026-09-30T00:00:00Z'),
-    documents: [{ id: `document-${index}`, name: '보고서', required: true }],
+    requirements: [{ id: `document-${index}`, name: '보고서', required: true }],
   })),
 };
 export const teams = ['가팀', '나팀'].map((teamName, index) => ({
@@ -79,8 +81,8 @@ export function fixture() {
     programs,
     repository,
     storage,
-    service: new MilestoneDocumentArchiveService(
-      repository as unknown as MilestoneDocumentsRepository,
+    service: new RequirementArchiveService(
+      repository as unknown as RequirementsRepository,
       storage,
       programs,
       new MilestoneDocumentCollectionService({} as never),

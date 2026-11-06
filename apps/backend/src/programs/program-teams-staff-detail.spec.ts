@@ -7,11 +7,11 @@ import { StaffTeamDetailResponseDto } from './dto/staff-team-detail-response.dto
 import { TeamRepository, type StaffTeamDetailRecord } from './team.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { stubTeamDeletionRepository } from './program-teams.service.test-support';
-import { TeamsErrorCode } from './teams-error-code.error';
+import { TeamsErrorCode } from './teams.error';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
@@ -93,7 +93,7 @@ describe('TeamMembershipService.getForStaff', () => {
             repositoryConnectionMode: 'NEW',
             repositoryUrl: null,
             isRepositoryPublicationPlanned: false,
-            milestoneDocumentSubmissions: [],
+            submissions: [],
             repository: null,
             updatedAt: new Date('2026-08-09T00:00:00Z'),
             job: {
@@ -178,7 +178,7 @@ describe('TeamMembershipService.getForStaff', () => {
             repositoryProvisioningEnabled: true,
             milestones: [],
           },
-          milestoneDocumentSubmissions: [],
+          submissions: [],
           outbox: null,
           job: {
             status: 'SUCCEEDED',
@@ -245,7 +245,7 @@ describe('TeamMembershipService.getForStaff', () => {
             repositoryProvisioningEnabled: true,
             milestones: [],
           },
-          milestoneDocumentSubmissions: [],
+          submissions: [],
           outbox: null,
           job: null,
         },
@@ -353,7 +353,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
                 repositoryProvisioningEnabled: false,
                 milestones: [],
               },
-              milestoneDocumentSubmissions: [],
+              submissions: [],
               ...(overrides.application ?? {}),
               ...(overrides.team ?? {}),
             },
@@ -453,13 +453,13 @@ describe('TeamRepository.findStaffTeamDetail', () => {
           startAt: new Date('2026-08-01T00:00:00.000Z'),
           endAt: new Date('2026-08-12T00:00:00.000Z'),
           milestones: [
-            { id: 'milestone-1', documents: [{ id: 'document-1' }] },
+            { id: 'milestone-1', requirements: [{ id: 'document-1' }] },
           ],
         },
-        milestoneDocumentSubmissions: [
+        submissions: [
           {
             status: 'APPROVED',
-            milestoneDocument: {
+            requirement: {
               id: 'document-1',
               milestoneId: 'milestone-1',
               kind: 'DOCUMENT',

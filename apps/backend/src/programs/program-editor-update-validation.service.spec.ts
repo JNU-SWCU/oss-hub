@@ -1,9 +1,6 @@
 import { ProgramTrackType } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
-import {
-  PROGRAM_ERROR_CODES,
-  ProgramErrorCode,
-} from './program-error-code.error';
+import { PROGRAM_ERROR_CODES, ProgramErrorCode } from './programs.error';
 import {
   createProgramEditorServiceHarness,
   editableProgram,

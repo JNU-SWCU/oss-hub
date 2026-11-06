@@ -1,7 +1,7 @@
 import {
   ApplicationStatus,
   BoardPostCategory,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   SubmissionStatus,
@@ -72,9 +72,9 @@ async function upsertMilestoneDocument(
   await upsertTracked(
     stats,
     'MilestoneDocument',
-    () => prisma.milestoneDocument.findUnique({ where: { id: params.id } }),
+    () => prisma.requirement.findUnique({ where: { id: params.id } }),
     () =>
-      prisma.milestoneDocument.upsert({
+      prisma.requirement.upsert({
         where: { id: params.id },
         update: {
           name: params.name,
@@ -145,16 +145,16 @@ async function upsertMilestoneDocumentSubmission(
     stats,
     'MilestoneDocumentSubmission',
     () =>
-      prisma.milestoneDocumentSubmission.findUnique({
+      prisma.submission.findUnique({
         where: { id: params.id },
       }),
     () =>
-      prisma.milestoneDocumentSubmission.upsert({
+      prisma.submission.upsert({
         where: { id: params.id },
         update: { submittedAt },
         create: {
           id: params.id,
-          milestoneDocumentId: params.milestoneDocumentId,
+          requirementId: params.milestoneDocumentId,
           teamId: APPLICATION_ID,
           status: SubmissionStatus.SUBMITTED,
           submittedById: params.submittedById,
@@ -162,48 +162,45 @@ async function upsertMilestoneDocumentSubmission(
         },
       }),
   );
-  const submission = await prisma.milestoneDocumentSubmission.findUniqueOrThrow(
-    {
-      where: { id: params.id },
-      select: { revision: true },
-    },
-  );
-  const currentHistory =
-    await prisma.milestoneDocumentSubmissionHistory.findFirst({
-      where: {
-        milestoneDocumentSubmissionId: params.id,
-        revision: submission.revision,
-        event: {
-          in: [
-            MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-            MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-          ],
-        },
+  const submission = await prisma.submission.findUniqueOrThrow({
+    where: { id: params.id },
+    select: { revision: true },
+  });
+  const currentHistory = await prisma.submissionHistory.findFirst({
+    where: {
+      submissionId: params.id,
+      revision: submission.revision,
+      event: {
+        in: [
+          SubmissionHistoryEvent.SUBMITTED,
+          SubmissionHistoryEvent.RESUBMITTED,
+        ],
       },
-      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-      select: { id: true },
-    });
+    },
+    orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+    select: { id: true },
+  });
   const historyId =
     currentHistory?.id ??
     seedId('program-overview', 'submission-history', params.id);
-  await prisma.milestoneDocumentSubmissionHistory.upsert({
+  await prisma.submissionHistory.upsert({
     where: { id: historyId },
     update: {
       event:
         submission.revision === 1
-          ? MilestoneDocumentSubmissionHistoryEvent.SUBMITTED
-          : MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+          ? SubmissionHistoryEvent.SUBMITTED
+          : SubmissionHistoryEvent.RESUBMITTED,
       revision: submission.revision,
       actorId: params.submittedById,
       createdAt: submittedAt,
     },
     create: {
       id: historyId,
-      milestoneDocumentSubmissionId: params.id,
+      submissionId: params.id,
       event:
         submission.revision === 1
-          ? MilestoneDocumentSubmissionHistoryEvent.SUBMITTED
-          : MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+          ? SubmissionHistoryEvent.SUBMITTED
+          : SubmissionHistoryEvent.RESUBMITTED,
       revision: submission.revision,
       actorId: params.submittedById,
       createdAt: submittedAt,

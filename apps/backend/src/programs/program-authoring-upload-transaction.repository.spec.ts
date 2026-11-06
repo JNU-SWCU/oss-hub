@@ -4,7 +4,7 @@ import { type ProgramAuthoringUploadToken } from './files.config';
 import {
   ProgramAuthoringUploadConsumptionRaceError,
   ProgramAuthoringUploadTokenError,
-} from './program-authoring.error';
+} from './programs.error';
 
 const ACTOR_ID = 'staff-id';
 const dateMatcher: unknown = expect.any(Date);

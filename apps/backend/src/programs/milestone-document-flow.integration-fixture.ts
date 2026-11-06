@@ -143,15 +143,15 @@ export class MilestoneDocumentFlowFixture {
       where: { kind: 'SUBMISSION', teamId: flowIds.team },
     });
     const submissionWhere = {
-      milestoneDocument: { milestoneId: flowIds.milestone },
+      requirement: { milestoneId: flowIds.milestone },
     };
-    await this.prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    await this.prisma.submissionHistory.deleteMany({
       where: { submission: submissionWhere },
     });
-    await this.prisma.milestoneDocumentSubmission.deleteMany({
+    await this.prisma.submission.deleteMany({
       where: submissionWhere,
     });
-    await this.prisma.milestoneDocument.deleteMany({
+    await this.prisma.requirement.deleteMany({
       where: { milestoneId: flowIds.milestone },
     });
     await this.prisma.milestone.deleteMany({

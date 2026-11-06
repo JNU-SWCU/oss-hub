@@ -1,11 +1,13 @@
 import { ProgramViewerService } from './program-viewer.service';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { ProgramActivityRepository } from './program-activity.repository';
-import { ProgramsRepository } from './programs.repository';
 import { ProgramActivityService } from './program-activity.service';
 
 assertIsolatedIntegrationDatabase({

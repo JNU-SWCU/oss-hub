@@ -3,7 +3,7 @@ import {
   TeamHistoryRepository,
   type ReviewHistoryWriterClient,
 } from './team-history.repository';
-import { ApplicationReviewHistoryTargetMissingError } from './review-history-writer.error';
+import { ApplicationReviewHistoryTargetMissingError } from './teams.error';
 
 const APPLICATION_ID = 'synthetic-application';
 const ACTOR_ID = 'synthetic-actor';

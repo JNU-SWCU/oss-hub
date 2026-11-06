@@ -15,16 +15,22 @@ import {
   StudentApplicationManagementRepository,
   StudentRepositoryUrlRepository,
 } from './team.repository';
-import { ProgramListStatusFilterRepository } from './program-list-status-filter.repository';
-import { SubmissionsRepository } from './submissions.repository';
 import {
+  ProgramListStatusFilterRepository,
   ProgramDeletionScopeRepository,
   ProgramAuthoringRepository,
   ProgramLifecycleRepository,
   ProgramsRepository,
+  ProgramHistoryRepository,
+  ProgramOverviewRepository,
 } from './programs.repository';
+import {
+  SubmissionsRepository,
+  SubmissionDashboardSummaryRepository,
+  SubmissionMatrixRepository,
+  SubmissionReviewsRepository,
+} from './submissions.repository';
 import { TeamHistoryRepository } from './team-history.repository';
-import { ProgramHistoryRepository } from './programs.repository';
 import { ProgramsController } from './programs.controller';
 import { PlatformModule } from '../platform/platform.module';
 import { Module } from '@nestjs/common';
@@ -36,6 +42,9 @@ import {
   ProgramNoticePreviewService,
   ProgramLifecycleService,
   ProgramsService,
+  ProgramCreationService,
+  ProgramCoverService,
+  ProgramCoverUrlService,
 } from './programs.service';
 import {
   FileCleanupService,
@@ -46,6 +55,8 @@ import {
   FilesService,
   SubmissionFileAdmissionService,
   MilestoneDocumentFilesService,
+  MilestoneDocumentFileNameService,
+  MilestoneDocumentSubmissionWindowService,
 } from './files.service';
 import {
   ApplicationTemplatesController,
@@ -56,10 +67,6 @@ import {
   StudentRepositoryUrlController,
 } from './teams.controller';
 import { MilestonesController } from './milestones.controller';
-import {
-  ProgramCreationService,
-  ProgramCoverService,
-} from './program-creation.service';
 import {
   ProgramActivityRepository,
   ProgramActivitySummaryRepository,
@@ -76,7 +83,6 @@ import { BoardController } from './board.controller';
 import { BoardRepository } from './board.repository';
 import { BoardService } from './board.service';
 import { ProgramOverviewController } from './program-overview.controller';
-import { ProgramOverviewRepository } from './program-overview.repository';
 import { ProgramOverviewService } from './program-overview.service';
 import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
@@ -98,39 +104,45 @@ import {
   ProgramTemplatesService,
 } from './team-application.service';
 import { STUDENT_APPLICATION_MANAGEMENT_CLOCK } from './student-application-management.config';
-import { SubmissionDashboardSummaryRepository } from './submission-dashboard-summary.repository';
-import { SubmissionDashboardSummaryService } from './submission-dashboard-summary.service';
-import { SubmissionMatrixRepository } from './submission-matrix.repository';
-import { SubmissionMatrixService } from './submission-matrix.service';
-import { SubmissionsController } from './submissions.controller';
-import { ProgramSubmissionsController } from './program-submissions.controller';
+import {
+  SubmissionDashboardSummaryService,
+  SubmissionMatrixService,
+} from './submission-matrix.service';
+import {
+  SubmissionsController,
+  ProgramSubmissionsController,
+  SubmissionRepositoryPublishingController,
+} from './submissions.controller';
 import {
   FilesController,
   MilestoneDocumentFilesController,
 } from './files.controller';
-import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
-import { SubmissionReviewsRepository } from './submission-reviews.repository';
-import { SubmissionReviewsService } from './submission-reviews.service';
-import { MilestoneDocumentsController } from './milestone-documents.controller';
-import { MilestoneDocumentArchiveRepository } from './milestone-document-archive.repository';
-import { ProgramDocumentArchivesController } from './program-document-archives.controller';
-import { ProgramDocumentChangeRequestsController } from './program-document-change-requests.controller';
-import { ProgramDocumentChangeRequestsService } from './program-document-change-requests.service';
-import { MilestoneDocumentArchiveService } from './milestone-document-archive.service';
 import {
+  SubmissionsService,
+  MilestoneDocumentReviewsService,
+  MilestoneCompletionService,
+} from './submissions.service';
+import {
+  RequirementsController,
+  ProgramDocumentArchivesController,
+  ProgramDocumentChangeRequestsController,
+} from './requirements.controller';
+import {
+  MilestoneDocumentArchiveRepository,
+  MilestoneDocumentCollectionReadRepository,
+  MilestoneDocumentCurrentFileRepository,
+  RequirementsRepository,
+} from './requirements.repository';
+import {
+  ProgramDocumentChangeRequestsService,
+  RequirementsService,
+} from './requirements.service';
+import {
+  RequirementArchiveService,
   MilestoneDocumentCollectionService,
   MilestoneDocumentCurrentFileService,
-} from './milestone-document-collection.service';
-import { MilestoneDocumentCollectionReadRepository } from './milestone-document-collection-read.repository';
-import { MilestoneDocumentCurrentFileRepository } from './milestone-document-current-file.repository';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
-import { MilestoneDocumentsService } from './milestone-documents.service';
+} from './requirement-archive.service';
 import { DownloadResponseService } from './download-response.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
-import { MilestoneDocumentFileNameService } from './milestone-document-file-name.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
-import { ProgramCoverUrlService } from './program-cover-url.service';
 import { ProgramScheduleService } from './program-schedule.service';
 
 @Module({
@@ -156,7 +168,7 @@ import { ProgramScheduleService } from './program-schedule.service';
     SubmissionRepositoryPublishingController,
     ProgramDocumentArchivesController,
     ProgramDocumentChangeRequestsController,
-    MilestoneDocumentsController,
+    RequirementsController,
     MilestoneDocumentFilesController,
   ],
   providers: [
@@ -234,16 +246,16 @@ import { ProgramScheduleService } from './program-schedule.service';
     SubmissionDashboardSummaryRepository,
     SubmissionDashboardSummaryService,
     SubmissionMatrixService,
-    SubmissionReviewsService,
-    MilestoneDocumentsService,
-    MilestoneDocumentsRepository,
+    SubmissionsService,
+    RequirementsService,
+    RequirementsRepository,
     MilestoneDocumentCollectionService,
     MilestoneDocumentCurrentFileRepository,
     MilestoneDocumentCurrentFileService,
     MilestoneDocumentFilesService,
     MilestoneDocumentReviewsService,
     ProgramDocumentChangeRequestsService,
-    MilestoneDocumentArchiveService,
+    RequirementArchiveService,
     MilestoneDocumentArchiveRepository,
   ],
   exports: [
@@ -264,7 +276,7 @@ import { ProgramScheduleService } from './program-schedule.service';
     TeamApplicationService,
     SubmissionDashboardSummaryService,
     FilesService,
-    MilestoneDocumentsService,
+    RequirementsService,
     MilestoneDocumentFilesService,
     MilestoneDocumentCurrentFileService,
   ],

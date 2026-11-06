@@ -2,9 +2,9 @@ import { FileMetadataRepository } from './files.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
-import { MilestoneDocumentReviewsService } from './milestone-document-reviews.service';
-import { MilestoneDocumentsErrorCode } from './milestone-documents-error-code.error';
-import { MilestoneDocumentsRepository } from './milestone-documents.repository';
+import { MilestoneDocumentReviewsService } from './submissions.service';
+import { MilestoneDocumentsErrorCode } from './submissions.error';
+import { RequirementsRepository } from './requirements.repository';
 
 const syntheticMilestoneId = 'cuid-synthetic-milestone';
 const syntheticProgramId = 'cuid-synthetic-program';
@@ -111,7 +111,7 @@ function buildRepository(overrides: Partial<Record<string, jest.Mock>> = {}) {
     repository: {
       ...mocks,
       withTransaction,
-    } as unknown as MilestoneDocumentsRepository,
+    } as unknown as RequirementsRepository,
   };
 }
 function review(

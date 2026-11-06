@@ -11,16 +11,20 @@ import { AUTH_ERROR_CODES, AuthErrorCode } from '../auth/auth-error-code.error';
 import { AuthConfig } from '../platform/auth.config';
 import { DomainException } from '../platform/error-code.error';
 import { ProblemDetailFilter } from '../platform/problem-detail.filter';
-import { SubmissionsController } from './submissions.controller';
-import { SubmissionRepositoryPublishingController } from './submission-repository-publishing.controller';
-import { SubmissionReviewsService } from './submission-reviews.service';
+import {
+  SubmissionsController,
+  SubmissionRepositoryPublishingController,
+} from './submissions.controller';
+import {
+  SubmissionsService,
+  MilestoneCompletionService,
+} from './submissions.service';
 import {
   type SubmissionReviewTransactionStore,
   type SubmissionReviewsRepositoryPort,
-} from './submission-reviews.repository';
+} from './submissions.repository';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
 import {
   protectedRouteGuardStub,
   sessionPrincipal,
@@ -132,8 +136,8 @@ beforeAll(async () => {
         useValue: { allowedOrigin: 'http://frontend.test' },
       },
       {
-        provide: SubmissionReviewsService,
-        useValue: new SubmissionReviewsService(
+        provide: SubmissionsService,
+        useValue: new SubmissionsService(
           repository,
           {
             publish: jest.fn(),

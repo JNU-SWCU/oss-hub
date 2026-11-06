@@ -3,7 +3,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import {
   AccountStatus,
   type Prisma,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   FileLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
@@ -149,13 +149,13 @@ async function deleteIssue342Rows(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'SUBMISSION', id: { in: FILE_IDS } },
   });
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: { id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { id: MILESTONE_DOCUMENT_SUBMISSION_ID },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { id: MILESTONE_DOCUMENT_ID },
   });
   await prisma.milestone.deleteMany({ where: { id: MILESTONE_ID } });
@@ -200,7 +200,7 @@ describe('FilesRepository.findDownloadableFile integration', () => {
         dueAt: new Date(program.startAt.getTime() + 86400000),
       },
     });
-    await prisma.milestoneDocument.create({
+    await prisma.requirement.create({
       data: {
         id: MILESTONE_DOCUMENT_ID,
         milestoneId: MILESTONE_ID,
@@ -209,21 +209,21 @@ describe('FilesRepository.findDownloadableFile integration', () => {
         sortOrder: 0,
       },
     });
-    await prisma.milestoneDocumentSubmission.create({
+    await prisma.submission.create({
       data: {
         id: MILESTONE_DOCUMENT_SUBMISSION_ID,
-        milestoneDocumentId: MILESTONE_DOCUMENT_ID,
+        requirementId: MILESTONE_DOCUMENT_ID,
         teamId: TEAM_ID,
         status: SubmissionStatus.SUBMITTED,
         revision: 1,
         submittedById: UPLOADER_USER_ID,
       },
     });
-    await prisma.milestoneDocumentSubmissionHistory.create({
+    await prisma.submissionHistory.create({
       data: {
         id: MILESTONE_DOCUMENT_SUBMISSION_HISTORY_ID,
-        milestoneDocumentSubmissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
-        event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+        submissionId: MILESTONE_DOCUMENT_SUBMISSION_ID,
+        event: SubmissionHistoryEvent.SUBMITTED,
         revision: 1,
         content: { type: 'FILE', fileId: DOWNLOADABLE_FILE_ID },
         actorId: UPLOADER_USER_ID,

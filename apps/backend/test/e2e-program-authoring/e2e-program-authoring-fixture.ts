@@ -79,10 +79,10 @@ export class E2eProgramAuthoringFixture {
       await transaction.file.deleteMany({
         where: { kind: 'SUBMISSION', teamId: { in: teamIds } },
       });
-      await transaction.milestoneDocumentSubmissionHistory.deleteMany({
+      await transaction.submissionHistory.deleteMany({
         where: { submission: { teamId: { in: teamIds } } },
       });
-      await transaction.milestoneDocumentSubmission.deleteMany({
+      await transaction.submission.deleteMany({
         where: { teamId: { in: teamIds } },
       });
       await transaction.teamInvitation.deleteMany({
@@ -100,7 +100,7 @@ export class E2eProgramAuthoringFixture {
           requirement: { milestoneId: E2E_MILESTONE_ID },
         },
       });
-      await transaction.milestoneDocument.deleteMany({
+      await transaction.requirement.deleteMany({
         where: { milestoneId: E2E_MILESTONE_ID },
       });
       await transaction.milestone.deleteMany({
@@ -172,7 +172,7 @@ export class E2eProgramAuthoringFixture {
         },
         update: {},
       });
-      await transaction.milestoneDocument.upsert({
+      await transaction.requirement.upsert({
         where: { id: E2E_DOCUMENT_ID },
         create: {
           id: E2E_DOCUMENT_ID,

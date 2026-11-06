@@ -1,5 +1,5 @@
 import { ProgramScheduleService } from './program-schedule.service';
-import { MilestoneDocumentSubmissionWindowService } from './milestone-document-submission-window.service';
+import { MilestoneDocumentSubmissionWindowService } from './files.service';
 import { ReviewDecision, SubmissionStatus } from '@prisma/client';
 
 const milestoneDocumentSubmissionWindowService =

@@ -3,7 +3,7 @@ import { signatureValidZip } from './submission-zip-builder.fixture';
 import {
   SUBMISSION_ZIP_REJECTION_MESSAGES,
   SubmissionZipRejection,
-} from './submission-zip.error';
+} from './submissions.error';
 
 const submissionFileAdmissionService = new SubmissionFileAdmissionService();
 

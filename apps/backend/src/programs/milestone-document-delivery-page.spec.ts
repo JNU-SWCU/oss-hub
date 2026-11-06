@@ -1,4 +1,4 @@
-import { MilestoneDocumentCollectionService } from './milestone-document-collection.service';
+import { MilestoneDocumentCollectionService } from './requirement-archive.service';
 
 const milestoneDocumentCollectionService =
   new MilestoneDocumentCollectionService(undefined as never);

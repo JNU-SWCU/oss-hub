@@ -48,7 +48,7 @@ describe('program storage invariants', () => {
     await prisma.file.deleteMany({
       where: { kind: 'TEMPLATE', uploaderId: prefix },
     });
-    await prisma.milestoneDocument.deleteMany({
+    await prisma.requirement.deleteMany({
       where: { milestone: { programId: prefix } },
     });
     await prisma.teamMember.deleteMany({ where: { programId: prefix } });
@@ -191,10 +191,10 @@ describe('program storage invariants', () => {
         },
       },
     };
-    await prisma.milestoneDocument.create({ data: document });
+    await prisma.requirement.create({ data: document });
 
     await expect(
-      prisma.milestoneDocument.create({
+      prisma.requirement.create({
         data: {
           ...document,
           name: 'Another synthetic requirement',

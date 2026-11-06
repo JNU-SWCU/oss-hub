@@ -2,14 +2,18 @@ import { TeamHistoryRepository } from './team-history.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
-import { TeamDeletionScopeRepository } from './team.repository';
+import {
+  TeamDeletionScopeRepository,
+  ProgramTeamDeletionRepository,
+  TeamRepository,
+} from './team.repository';
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import {
   AccountStatus,
   TeamHistoryEvent,
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   ProgramCategory,
   ProgramTrackType,
   RepositoryConnectionMode,
@@ -25,14 +29,12 @@ import { assertIsolatedIntegrationDatabase } from '../../test/integration-databa
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
-import { ProgramTeamDeletionRepository } from './team.repository';
-import { TeamRepository } from './team.repository';
-import { TeamsErrorCode } from './teams-error-code.error';
+import { TeamsErrorCode } from './teams.error';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
-import { MilestoneCompletionService } from './milestone-completion.service';
+import { MilestoneCompletionService } from './submissions.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -137,10 +139,10 @@ async function cleanupTeamScope(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'SUBMISSION', uploaderId: { startsWith: TEST_PREFIX } },
   });
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: { actorId: { startsWith: TEST_PREFIX } },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { submittedById: { startsWith: TEST_PREFIX } },
   });
   await prisma.repositoryProvisionJob.deleteMany({
@@ -217,7 +219,7 @@ async function seedDurableFixturesOnce(): Promise<void> {
       dueAt: new Date('2026-09-30T00:00:00.000Z'),
     },
   });
-  await prisma.milestoneDocument.upsert({
+  await prisma.requirement.upsert({
     where: { id: MILESTONE_DOCUMENT_ID },
     update: {},
     create: {
@@ -280,10 +282,10 @@ async function seedApprovedTeam(
   });
 
   if (programId === PROGRAM_ID) {
-    await prisma.milestoneDocumentSubmission.create({
+    await prisma.submission.create({
       data: {
         id: submissionId,
-        milestoneDocumentId: MILESTONE_DOCUMENT_ID,
+        requirementId: MILESTONE_DOCUMENT_ID,
         teamId,
         submittedById: LEADER_ID,
         revision: 1,
@@ -291,21 +293,21 @@ async function seedApprovedTeam(
         histories: {
           create: {
             id: historyId,
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            event: SubmissionHistoryEvent.SUBMITTED,
             revision: 1,
             actorId: LEADER_ID,
           },
         },
       },
     });
-    await prisma.milestoneDocumentSubmissionHistory.create({
+    await prisma.submissionHistory.create({
       data: {
         id: reviewHistoryId,
-        milestoneDocumentSubmissionId: submissionId,
+        submissionId: submissionId,
         event: ReviewDecision.APPROVED,
         actorId: STAFF_ID,
         revision: (
-          await prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
+          await prisma.submissionHistory.findUniqueOrThrow({
             where: { id: historyId },
             select: { revision: true },
           })
@@ -598,12 +600,12 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
     prisma.team.count({ where: { id: fixture.teamId } }),
   ).resolves.toBe(0);
   await expect(
-    prisma.milestoneDocumentSubmission.count({
+    prisma.submission.count({
       where: { id: fixture.submissionId },
     }),
   ).resolves.toBe(0);
   await expect(
-    prisma.milestoneDocumentSubmissionHistory.count({
+    prisma.submissionHistory.count({
       where: { id: fixture.historyId },
     }),
   ).resolves.toBe(0);
