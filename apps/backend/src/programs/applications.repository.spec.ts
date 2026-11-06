@@ -1,7 +1,7 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { TeamHistoryRepository } from './team-history.repository';
-import { Prisma, ProgramLifecycle } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { ApplicationsRepository } from './team.repository';
 import type { PrismaService } from '../platform/prisma.service';
 
@@ -36,9 +36,8 @@ function lockedSqlOf(queryRaw: LockQueryMock): Prisma.Sql {
 }
 
 describe('PrismaApplicationCreateStore.lockProgramForApply', () => {
-  it('프로그램 행을 잠그면서 신청 정책 네 필드를 함께 조회한다', async () => {
+  it('프로그램 행을 잠그면서 신청 정책 필드를 함께 조회한다', async () => {
     const policy = {
-      lifecycle: ProgramLifecycle.PUBLISHED,
       applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
       applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
       applicationTemplateVersion: 2,

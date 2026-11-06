@@ -272,7 +272,6 @@ const publicDetail: ProgramDetailResult = {
   organizer: 'Synthetic organizer',
   trackType: null,
   applicationTemplateKey: 'basic',
-  lifecycle: 'PUBLISHED',
   description: 'Synthetic description',
   repositoryProvisioningEnabled: false,
   applicationPeriod: {

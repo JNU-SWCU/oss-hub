@@ -1,7 +1,6 @@
 import type {
   ApplicationStatus,
   ProgramTrackType,
-  ProgramLifecycle,
   SubmissionStatus,
 } from '@prisma/client';
 import type { ProgramDetailResult } from '../programs.service';
@@ -73,7 +72,6 @@ export class ProgramDetailResponseDto {
   declare readonly organizer: string;
   declare readonly trackType: ProgramTrackType | null;
   declare readonly applicationTemplateKey: string;
-  declare readonly lifecycle: ProgramLifecycle;
   declare readonly description: string;
   declare readonly repositoryProvisioningEnabled: boolean;
   declare readonly viewer: {
@@ -99,7 +97,6 @@ export class ProgramDetailResponseDto {
       applicationTemplateKey: result.applicationTemplateKey,
       teamMinSize: result.teamMinSize,
       teamMaxSize: result.teamMaxSize,
-      lifecycle: result.lifecycle,
       description: result.description,
       repositoryProvisioningEnabled: result.repositoryProvisioningEnabled,
       viewer: {

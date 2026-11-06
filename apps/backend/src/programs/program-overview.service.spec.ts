@@ -19,7 +19,6 @@ const baseOverview: ProgramOverviewRecord = {
   programId: syntheticProgramId,
   name: 'seed-program-overview-project',
   trackType: 'CURRICULAR',
-  lifecycle: 'PUBLISHED',
   milestoneCount: 7,
   boardPostCount: 3,
   participantCount: 188,

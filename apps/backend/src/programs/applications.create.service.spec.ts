@@ -2,7 +2,6 @@ import { RepositoryProvisionEventService } from '../github/repository-provision-
 import {
   ApplicationStatus,
   ProgramCategory,
-  ProgramLifecycle,
   RepositoryConnectionMode,
 } from '@prisma/client';
 import { DomainException } from '../platform/error-code.error';
@@ -37,7 +36,6 @@ const OPEN_PROGRAM: ApplyProgramRecord = {
   id: PROGRAM_ID,
   name: '합성 프로그램',
   category: ProgramCategory.BASIC,
-  lifecycle: ProgramLifecycle.PUBLISHED,
   applicationTemplateVersion: 1,
   applicationStartAt: new Date('2026-07-01T00:00:00.000Z'),
   applicationEndAt: new Date('2026-07-31T23:59:59.000Z'),
@@ -140,24 +138,10 @@ function buildService(overrides: {
 }
 
 describe('TeamApplicationService.create', () => {
-  it('내린 프로그램 신청을 전용 오류로 차단한다', async () => {
-    const { service, createTeamWithLeader } = buildService({
-      program: { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
-    });
-
-    await expect(
-      service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
-    ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.PROGRAM_ARCHIVED, status: 422 },
-    });
-    expect(createTeamWithLeader).not.toHaveBeenCalled();
-  });
-
   it('잠금 전 정책이 닫혀 있어도 잠금 후 유효한 양식 버전으로 저장한다', async () => {
     const { service, createTeamWithLeader } = buildService({
       program: {
         ...OPEN_PROGRAM,
-        lifecycle: ProgramLifecycle.ARCHIVED,
         applicationEndAt: new Date('2026-07-01T00:00:00.000Z'),
       },
       store: {
@@ -198,10 +182,6 @@ describe('TeamApplicationService.create', () => {
     [
       { ...OPEN_PROGRAM, applicationTemplateVersion: 2 },
       ApplicationsErrorCode.TEMPLATE_VERSION_MISMATCH,
-    ],
-    [
-      { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
-      ApplicationsErrorCode.PROGRAM_ARCHIVED,
     ],
     [null, ApplicationsErrorCode.PROGRAM_NOT_FOUND],
   ])(
@@ -607,13 +587,16 @@ describe('TeamApplicationService.create — 최초 제출 이력', () => {
 
   it('신청이 만들어지지 않으면 이력도 남기지 않는다', async () => {
     const { service, appendReviewHistory } = buildService({
-      program: { ...OPEN_PROGRAM, lifecycle: ProgramLifecycle.ARCHIVED },
+      program: {
+        ...OPEN_PROGRAM,
+        applicationEndAt: new Date('2026-07-14T00:00:00.000Z'),
+      },
     });
 
     await expect(
       service.create(GITHUB_ID, PROGRAM_ID, DEFAULT_INPUT, NOW),
     ).rejects.toMatchObject({
-      errorCode: { code: ApplicationsErrorCode.PROGRAM_ARCHIVED },
+      errorCode: { code: ApplicationsErrorCode.APPLICATION_PERIOD_CLOSED },
     });
 
     expect(appendReviewHistory).not.toHaveBeenCalled();

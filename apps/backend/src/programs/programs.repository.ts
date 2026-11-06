@@ -63,7 +63,6 @@ export type ProgramListDerivedStatus = Exclude<
 >;
 
 export type ProgramListStatusInput = {
-  readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly endAt: Date;
@@ -75,7 +74,6 @@ export class ProgramListStatusFilterRepository {
     program: ProgramListStatusInput,
     now: Date,
   ): ProgramListDerivedStatus {
-    if (program.lifecycle === ProgramLifecycle.ARCHIVED) return 'ended';
     if (program.endAt < now) return 'ended';
     if (program.applicationStartAt > now) return 'upcoming';
     if (program.applicationEndAt >= now) return 'recruiting';
@@ -105,18 +103,11 @@ export class ProgramListStatusFilterRepository {
         ...notDateEnded(now),
       },
       all: {
-        lifecycle: {
-          in: [ProgramLifecycle.PUBLISHED, ProgramLifecycle.ARCHIVED],
-        },
+        lifecycle: ProgramLifecycle.PUBLISHED,
       },
       ended: {
-        OR: [
-          { lifecycle: ProgramLifecycle.ARCHIVED },
-          {
-            lifecycle: ProgramLifecycle.PUBLISHED,
-            endAt: { lt: now },
-          },
-        ],
+        lifecycle: ProgramLifecycle.PUBLISHED,
+        endAt: { lt: now },
       },
       upcoming: {
         lifecycle: ProgramLifecycle.PUBLISHED,
@@ -146,12 +137,12 @@ export class ProgramListStatusFilterRepository {
     now: Date,
   ): Prisma.Sql {
     if (status === 'all') {
-      return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')`;
+      return Prisma.sql`p."lifecycle" = 'PUBLISHED'`;
     }
     if (status === 'current') {
       return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND p."endAt" >= ${now}`;
     }
-    return Prisma.sql`p."lifecycle" IN ('PUBLISHED', 'ARCHIVED') AND (${programListStatusCaseSql(now)}) = ${status}`;
+    return Prisma.sql`p."lifecycle" = 'PUBLISHED' AND (${programListStatusCaseSql(now)}) = ${status}`;
   }
 
   programEndYearRange(year: number) {
@@ -242,7 +233,7 @@ export class ProgramListStatusFilterRepository {
       COUNT(*) FILTER (WHERE (${statusCase}) = 'upcoming')::int AS upcoming,
       COUNT(*) FILTER (WHERE (${statusCase}) = 'ended')::int AS ended
     FROM "Program" AS p
-    WHERE p."lifecycle" IN ('PUBLISHED', 'ARCHIVED')
+    WHERE p."lifecycle" = 'PUBLISHED'
   `;
   }
 }
@@ -254,7 +245,6 @@ const notDateEnded = (now: Date): Prisma.ProgramWhereInput => ({
 function programListStatusCaseSql(now: Date): Prisma.Sql {
   return Prisma.sql`
     CASE
-      WHEN p."lifecycle" = 'ARCHIVED' THEN 'ended'
       WHEN p."endAt" < ${now} THEN 'ended'
       WHEN p."applicationStartAt" > ${now} THEN 'upcoming'
       WHEN p."applicationEndAt" >= ${now} THEN 'recruiting'
@@ -279,7 +269,6 @@ export type ProgramListRecord = {
   readonly organizer: string;
   readonly trackType: ProgramTrackType | null;
   readonly applicationTemplateKey: string;
-  readonly lifecycle: ProgramLifecycle;
   readonly applicationStartAt: Date;
   readonly applicationEndAt: Date;
   readonly endAt: Date;
@@ -359,7 +348,6 @@ export class ProgramsRepository {
           p."organizer",
           p."trackType",
           p."applicationTemplateKey",
-          p."lifecycle",
           p."applicationStartAt",
           p."applicationEndAt",
           p."endAt",
@@ -416,7 +404,6 @@ export class ProgramsRepository {
     return this.prisma.program.findUnique({
       where: { id: programId, lifecycle: { not: 'DELETED' } },
       select: {
-        lifecycle: true,
         coverFileId: true,
         coverImageUrl: true,
         id: true,
@@ -1130,7 +1117,6 @@ export interface ProgramOverviewRecord {
   programId: string;
   name: string;
   trackType: string | null;
-  lifecycle: string;
   milestoneCount: number;
   boardPostCount: number;
   participantCount: number;
@@ -1222,7 +1208,6 @@ export class ProgramOverviewRepository {
         id: true,
         name: true,
         trackType: true,
-        lifecycle: true,
         _count: { select: { milestones: true, boardPosts: true, teams: true } },
       },
     });
@@ -1244,7 +1229,6 @@ export class ProgramOverviewRepository {
       programId: program.id,
       name: program.name,
       trackType: program.trackType,
-      lifecycle: program.lifecycle,
       milestoneCount: program._count.milestones,
       boardPostCount: program._count.boardPosts,
       participantCount: participantIds.size,
