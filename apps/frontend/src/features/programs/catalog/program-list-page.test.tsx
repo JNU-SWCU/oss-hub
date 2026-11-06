@@ -64,7 +64,6 @@ describe('ProgramListPage 종료 프로그램 목록', () => {
           name: '합성 종료 프로그램',
           organizer: '합성 운영처',
           trackType: 'EXTRACURRICULAR',
-          lifecycle: 'PUBLISHED',
           applicationStartAt: '2025-01-01T00:00:00.000Z',
           applicationEndAt: '2025-02-01T00:00:00.000Z',
           endAt: '2025-12-31T00:00:00.000Z',

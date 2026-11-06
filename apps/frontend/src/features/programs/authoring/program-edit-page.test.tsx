@@ -74,7 +74,6 @@ const editableProgram: EditableProgram = {
   trackType: 'EXTRACURRICULAR',
 
   applicationTemplateKey: 'oss-contest',
-  lifecycle: 'PUBLISHED',
   applicationTemplateVersion: 1,
   applicationCount: 0,
   deletionScopeCounts: {
@@ -390,21 +389,16 @@ describe('ProgramEditPage 컴포넌트', () => {
     vi.restoreAllMocks();
   });
 
-  it.each([
-    { lifecycle: 'PUBLISHED', storageBlocked: false },
-    { lifecycle: 'ARCHIVED', storageBlocked: false },
-    { lifecycle: 'PUBLISHED', storageBlocked: true },
-  ] as const)(
+  it.each([{ storageBlocked: false }, { storageBlocked: true }] as const)(
     '저장하지 않은 입력이 있어도 한 번 확인한 뒤 삭제한다 (%j)',
-    async ({ lifecycle, storageBlocked }) => {
+    async ({ storageBlocked }) => {
       sessionStorage.clear();
       if (storageBlocked) {
         vi.spyOn(sessionStorage, 'setItem').mockImplementation(() => {
           throw new DOMException('Blocked', 'SecurityError');
         });
       }
-      const program = { ...editableProgram, lifecycle };
-      getEditableProgramMock.mockResolvedValue(program);
+      getEditableProgramMock.mockResolvedValue(editableProgram);
       purgeProgramMock.mockResolvedValue({
         id: 'program-1',
         deleted: true,
@@ -443,7 +437,7 @@ describe('ProgramEditPage 컴포넌트', () => {
       expect(purgeProgramMock).toHaveBeenCalledTimes(1);
       expect(purgeProgramMock).toHaveBeenCalledWith(
         'program-1',
-        program.deletionScopeCounts,
+        editableProgram.deletionScopeCounts,
       );
       expect(confirmMock).not.toHaveBeenCalled();
       expect(routerPushMock).toHaveBeenCalledWith('/programs');

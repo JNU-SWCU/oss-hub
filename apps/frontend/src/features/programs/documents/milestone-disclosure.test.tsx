@@ -56,7 +56,6 @@ function programWith(
     organizer: '운영기관',
     trackType: 'CURRICULAR',
     applicationTemplateKey: 'basic',
-    lifecycle: 'PUBLISHED',
     description: '프로그램 설명',
     repositoryProvisioningEnabled: true,
     applicationPeriod: {

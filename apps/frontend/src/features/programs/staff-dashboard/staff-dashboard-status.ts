@@ -14,7 +14,6 @@ export function getStaffProgramRecruitmentState(
       name: program.name,
       organizer: '',
       trackType: program.trackType,
-      lifecycle: program.lifecycle,
       applicationStartAt: program.applicationPeriod.startsAt,
       applicationEndAt: program.applicationPeriod.endsAt,
       endAt: program.endAt,
@@ -28,8 +27,6 @@ export interface StaffDashboardStatusSummary {
   readonly recruiting: number;
   readonly inProgress: number;
   readonly ended: number;
-
-  readonly archived: number;
 }
 
 export function summarizeStaffDashboardStatuses(
@@ -39,7 +36,6 @@ export function summarizeStaffDashboardStatuses(
   let recruiting = 0;
   let inProgress = 0;
   let ended = 0;
-  let archived = 0;
 
   for (const program of programs) {
     switch (getStaffProgramRecruitmentState(program, now)) {
@@ -51,13 +47,11 @@ export function summarizeStaffDashboardStatuses(
         break;
       case 'ended':
         ended += 1;
-
-        if (program.lifecycle === 'ARCHIVED') archived += 1;
         break;
       case 'upcoming':
         break;
     }
   }
 
-  return { recruiting, inProgress, ended, archived };
+  return { recruiting, inProgress, ended };
 }

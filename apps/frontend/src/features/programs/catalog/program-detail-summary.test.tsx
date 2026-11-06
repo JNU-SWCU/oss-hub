@@ -10,7 +10,6 @@ const program: ProgramDetail = {
   organizer: '운영기관',
   trackType: 'EXTRACURRICULAR',
   applicationTemplateKey: 'oss-contest',
-  lifecycle: 'PUBLISHED',
   description: '프로그램 설명',
   repositoryProvisioningEnabled: true,
   applicationPeriod: {
@@ -25,7 +24,6 @@ const overview: ProgramOverview = {
   programId: 'program-1',
   name: 'OSS 경진대회',
   trackType: 'EXTRACURRICULAR',
-  lifecycle: 'PUBLISHED',
   milestoneCount: 1,
   boardPostCount: 0,
   participantCount: 12,

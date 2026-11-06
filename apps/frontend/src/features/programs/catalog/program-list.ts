@@ -11,10 +11,6 @@ export function getProgramRecruitmentState(
   program: ProgramListItem,
   now: Date,
 ): ProgramRecruitmentState {
-  if (program.lifecycle === 'ARCHIVED') {
-    return 'ended';
-  }
-
   const nowTime = now.getTime();
   const start = new Date(program.applicationStartAt).getTime();
   const applyEnd = new Date(program.applicationEndAt).getTime();
