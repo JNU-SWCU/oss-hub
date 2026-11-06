@@ -156,13 +156,10 @@ for (const width of [1440, 390]) {
     });
   });
 
-  test(`staff provisioning labels during rolling release at ${width}`, async ({
-    page,
-  }, testInfo) => {
+  test(`staff provisioning labels at ${width}`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
     await page.clock.setFixedTime(new Date('2026-08-15T00:00:00Z'));
-    let jobStatus: 'RETRYABLE_FAILED' | 'FAILED_RETRYABLE' = 'RETRYABLE_FAILED';
-    const detail = (): StaffTeamDetail => ({
+    const detail: StaffTeamDetail = {
       teamId,
       name: team.name,
       memberCount: team.memberCount,
@@ -174,7 +171,7 @@ for (const width of [1440, 390]) {
         repository: null,
         repositoryProvisioning: {
           enabled: true,
-          jobStatus,
+          jobStatus: 'FAILED_RETRYABLE',
           updatedAt: application.updatedAt,
           safeErrorClass: 'UNKNOWN',
         },
@@ -189,14 +186,14 @@ for (const width of [1440, 390]) {
         detachedRepositories: 0,
         scopeFingerprint: '0123456789abcdef0123456789abcdef',
       },
-    });
+    };
     const staffApplication: ApplicationDetail = {
       ...application,
       repositoryConnectionMode: 'NEW',
       repositoryUrl: null,
       repositoryProvisioning: {
         enabled: true,
-        jobStatus,
+        jobStatus: 'FAILED_RETRYABLE',
         updatedAt: application.updatedAt,
         safeErrorClass: 'UNKNOWN',
       },
@@ -235,7 +232,7 @@ for (const width of [1440, 390]) {
         [`GET /api/v1/programs/${programId}/overview`]: (route) =>
           fulfillJson(route, { ...overview, viewerRole: 'STAFF' }),
         [`GET /api/v1/programs/${programId}/teams/${teamId}`]: (route) =>
-          fulfillJson(route, detail()),
+          fulfillJson(route, detail),
         [`GET /api/v1/team-invitations/teams/${teamId}/sent`]: (route) =>
           fulfillJson(route, []),
         [`GET /api/v1/teams/${teamId}`]: (route) =>
@@ -247,13 +244,6 @@ for (const width of [1440, 390]) {
     );
 
     await page.goto(`/programs/${programId}/teams/${teamId}`);
-    await expect(page.getByText('저장소 발급 재시도 대기')).toBeVisible();
-    await page.screenshot({
-      path: testInfo.outputPath(`staff-legacy-${width}.png`),
-      fullPage: true,
-    });
-    jobStatus = 'FAILED_RETRYABLE';
-    await page.reload();
     await expect(page.getByText('저장소 발급 재시도 대기')).toBeVisible();
     await page.getByText('저장소 발급 재시도 대기').scrollIntoViewIfNeeded();
     await page.screenshot({
