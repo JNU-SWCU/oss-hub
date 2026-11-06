@@ -116,6 +116,7 @@ const ORG_OWNER_EXTERNAL_APPLICATION_ID =
 const AUTHORITY_APPLICATION_ID = 'synthetic-own-chain-authority-application';
 const AUTHORITY_DENIED_APPLICATION_ID =
   'synthetic-own-chain-authority-denied-application';
+const NEW_LINKED_APPLICATION_ID = 'synthetic-own-chain-new-linked-application';
 const APPLICATION_IDS = [
   CHAIN_APPLICATION_ID,
   NO_CONSENT_APPLICATION_ID,
@@ -125,6 +126,7 @@ const APPLICATION_IDS = [
   ORG_OWNER_EXTERNAL_APPLICATION_ID,
   AUTHORITY_APPLICATION_ID,
   AUTHORITY_DENIED_APPLICATION_ID,
+  NEW_LINKED_APPLICATION_ID,
 ] as const;
 
 const OWN_GITHUB_REPOSITORY_ID = 8_520_100_001n;
@@ -391,6 +393,33 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           where: { aggregateId: AUTHORITY_APPLICATION_ID },
         }),
       ).resolves.toBe(0);
+    });
+
+    it('저장소 행이 붙은 NEW 팀을 승인해도 발급 이벤트에 저장소 주소를 싣지 않아 되돌릴 수 있다', async () => {
+      await createOwnApplication(NEW_LINKED_APPLICATION_ID, APPLICANT_ID, {
+        githubRepositoryId: OWN_GITHUB_REPOSITORY_ID,
+        nameWithOwner: OWN_NAME_WITH_OWNER,
+      });
+      await prisma.team.update({
+        where: { id: NEW_LINKED_APPLICATION_ID },
+        data: { repositoryConnectionMode: RepositoryConnectionMode.NEW },
+      });
+      const staff = { id: STAFF_ACTOR_ID, githubId: STAFF_GITHUB_ID };
+
+      await expect(
+        service.decide(staff, NEW_LINKED_APPLICATION_ID, { action: 'APPROVE' }),
+      ).resolves.toMatchObject({ kind: 'APPROVED' });
+      await expect(
+        prisma.outboxEvent.findFirstOrThrow({
+          where: { aggregateId: NEW_LINKED_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({
+        payload: { repositoryConnectionMode: 'NEW', repositoryUrl: null },
+      });
+
+      await expect(
+        service.decide(staff, NEW_LINKED_APPLICATION_ID, { action: 'REVERT' }),
+      ).resolves.toMatchObject({ kind: 'REVERTED' });
     });
   });
 

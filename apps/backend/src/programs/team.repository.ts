@@ -1590,9 +1590,11 @@ function toApplicationDecisionTarget(
       githubLogin: member.user.nickname,
     })),
     repositoryConnectionMode: application.repositoryConnectionMode,
-    repositoryUrl: application.repository
-      ? `https://github.com/${application.repository.nameWithOwner}`
-      : null,
+    repositoryUrl:
+      application.repositoryConnectionMode === RepositoryConnectionMode.OWN &&
+      application.repository
+        ? `https://github.com/${application.repository.nameWithOwner}`
+        : null,
     processedById: application.processedById,
     processedAt: application.processedAt,
   };
