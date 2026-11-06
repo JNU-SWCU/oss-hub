@@ -8,6 +8,7 @@ import {
   ApplicationStatus,
   ProgramCategory,
   RepositoryConnectionMode,
+  RepositoryIssuanceOutcome,
   RepositoryProvisionJobStatus,
   RepositorySource,
   RepositoryVisibility,
@@ -310,6 +311,9 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
+    await prisma.repositoryIssuanceHistory.deleteMany({
+      where: { teamId: { in: [...APPLICATION_IDS] } },
+    });
     await prisma.notification.deleteMany({
       where: { type: 'APPLICATION_DECISION' },
     });
@@ -409,17 +413,39 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       await expect(
         service.decide(staff, NEW_LINKED_APPLICATION_ID, { action: 'APPROVE' }),
       ).resolves.toMatchObject({ kind: 'APPROVED' });
-      await expect(
-        prisma.outboxEvent.findFirstOrThrow({
-          where: { aggregateId: NEW_LINKED_APPLICATION_ID },
-        }),
-      ).resolves.toMatchObject({
+      const approvalEvent = await prisma.outboxEvent.findFirstOrThrow({
+        where: {
+          idempotencyKey: `repository-provision:${NEW_LINKED_APPLICATION_ID}`,
+        },
+      });
+      expect(approvalEvent).toMatchObject({
         payload: { repositoryConnectionMode: 'NEW', repositoryUrl: null },
       });
 
       await expect(
         service.decide(staff, NEW_LINKED_APPLICATION_ID, { action: 'REVERT' }),
       ).resolves.toMatchObject({ kind: 'REVERTED' });
+      await expect(
+        prisma.outboxEvent.count({
+          where: { aggregateId: NEW_LINKED_APPLICATION_ID },
+        }),
+      ).resolves.toBe(0);
+      await expect(
+        prisma.repositoryIssuanceHistory.findMany({
+          where: { teamId: NEW_LINKED_APPLICATION_ID },
+        }),
+      ).resolves.toEqual([
+        expect.objectContaining({
+          requestId: approvalEvent.id,
+          connectionMode: RepositoryConnectionMode.NEW,
+          outcome: RepositoryIssuanceOutcome.DISCARDED,
+        }),
+      ]);
+      await expect(
+        prisma.team.findUniqueOrThrow({
+          where: { id: NEW_LINKED_APPLICATION_ID },
+        }),
+      ).resolves.toMatchObject({ status: ApplicationStatus.SUBMITTED });
     });
   });
 
