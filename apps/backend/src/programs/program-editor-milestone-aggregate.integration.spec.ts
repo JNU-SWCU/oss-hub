@@ -937,14 +937,9 @@ describe('ProgramEditorService milestone aggregate integration', () => {
   });
   it.each([
     ['milestone metadata update', 'Milestone', 'UPDATE', 'id'],
-    ['new document insert', 'MilestoneDocument', 'INSERT', 'milestoneId'],
-    ['document delete', 'MilestoneDocument', 'DELETE', 'id'],
-    [
-      'existing document sort order update',
-      'MilestoneDocument',
-      'UPDATE',
-      'id',
-    ],
+    ['new document insert', 'Requirement', 'INSERT', 'milestoneId'],
+    ['document delete', 'Requirement', 'DELETE', 'id'],
+    ['existing document sort order update', 'Requirement', 'UPDATE', 'id'],
   ] as const)(
     'rolls back every real DB write when an AFTER trigger faults after %s',
     async (_label, table, event, targetColumn) => {
@@ -1558,7 +1553,7 @@ class PausingSubmissionPrisma extends PrismaService {
             const sql = query.strings?.join('') ?? '';
             if (
               !paused &&
-              sql.includes('FROM "MilestoneDocument"') &&
+              sql.includes('FROM "Requirement"') &&
               sql.includes('FOR UPDATE')
             ) {
               paused = true;

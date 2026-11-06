@@ -64,7 +64,7 @@ describe('ProgramEditorRepository locking', () => {
     expect(operations[0]).toContain('FOR UPDATE');
     expect(operations[1]).toContain('FROM "Milestone"');
     expect(operations[1]).toContain('FOR UPDATE');
-    expect(operations[2]).toContain('FROM "MilestoneDocument"');
+    expect(operations[2]).toContain('FROM "Requirement"');
     expect(operations[2]).toContain('FOR UPDATE');
   });
   it('returns null when aggregate milestone ownership changes after the parent lock', async () => {

@@ -84,7 +84,7 @@ describe('ProgramEditorRepository milestone deletion', () => {
 
   function lockedTable(query: { strings: string[] }): string {
     const sql = String(query.strings);
-    if (sql.includes('"MilestoneDocument"')) return 'MilestoneDocument';
+    if (sql.includes('"Requirement"')) return 'Requirement';
     if (sql.includes('"Milestone"')) return 'Milestone';
     if (sql.includes('"Program"')) return 'Program';
     return 'unknown';
@@ -157,12 +157,12 @@ describe('ProgramEditorRepository milestone deletion', () => {
     expect(callOrder).toEqual([
       'lock:Program',
       'lock:Milestone',
-      'lock:MilestoneDocument',
+      'lock:Requirement',
       'submission.count',
     ]);
 
     const documentLock = queries[2];
-    expect(String(documentLock?.strings)).toContain('FROM "MilestoneDocument"');
+    expect(String(documentLock?.strings)).toContain('FROM "Requirement"');
     expect(String(documentLock?.strings)).toContain('FOR UPDATE');
     expect(documentLock?.values).toEqual([syntheticMilestoneId]);
   });

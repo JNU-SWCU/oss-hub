@@ -18,7 +18,7 @@ it.each([
   const tx = {
     $queryRaw: jest.fn((sql: Prisma.Sql) => {
       queries.push(sql);
-      const table = sql.strings.join('').includes('MilestoneDocument')
+      const table = sql.strings.join('').includes('"Requirement"')
         ? 'documents'
         : sql.strings.join('').includes('FROM "Program"')
           ? 'program'

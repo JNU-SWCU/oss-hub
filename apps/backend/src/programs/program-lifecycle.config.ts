@@ -56,6 +56,8 @@ const PURGE_RELATIONS = [
       'GithubRepository->CollectionCommitFact',
       'GithubRepository->CollectionPullRequestFact',
       'GithubRepository->CollectionReleaseFact',
+      'GithubRepository->CollectionRepositoryYearAggregate',
+      'GithubRepository->CollectionContributorYearAggregate',
       'GithubRepository->GithubIssueHistory',
       'GithubRepository->GithubRepositoryOutsiderContribution',
     ],

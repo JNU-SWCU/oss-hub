@@ -89,9 +89,8 @@ function buildHarness(
     const table = tableOf(sql);
     order.push(`lock:${table}`);
     if (table === 'Milestone') return Promise.resolve([{ dueAt: NOW }]);
-    if (table === 'MilestoneDocumentSubmission')
-      return Promise.resolve([{ id: SUBMISSION_ID }]);
-    if (table === 'MilestoneDocument')
+    if (table === 'Submission') return Promise.resolve([{ id: SUBMISSION_ID }]);
+    if (table === 'Requirement')
       return Promise.resolve([
         { id: DOCUMENT_ID, graceDueAt: options.graceDueAt ?? null },
       ]);
@@ -297,8 +296,8 @@ describe('upsertMilestoneDocumentSubmission — 현재 팀원 울타리 (#1269)'
     expect(harness.order).toEqual([
       'fence:membership',
       'lock:Milestone',
-      'lock:MilestoneDocument',
-      'lock:MilestoneDocumentSubmission',
+      'lock:Requirement',
+      'lock:Submission',
       'read:latestHistory',
       'read:latestReview',
       'read:currentSubmission',
@@ -387,7 +386,7 @@ describe('atomic document grace admission', () => {
           }),
         ),
       ).rejects.toHaveProperty('name', 'MilestoneDocumentDeadlineClosedError');
-      expect(harness.order).toContain('lock:MilestoneDocument');
+      expect(harness.order).toContain('lock:Requirement');
       expect(harness.upsert).not.toHaveBeenCalled();
     },
   );

@@ -671,22 +671,22 @@ export class ProgramDeletionScopeRepository {
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS applications,
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
         (SELECT count(*) FROM "BoardPost" WHERE "programId" = ${programId}) AS "boardPosts",
-        (SELECT count(*) FROM "MilestoneDocumentSubmission" WHERE "milestoneDocumentId" IN (
+        (SELECT count(*) FROM "Submission" WHERE "requirementId" IN (
             SELECT document.id
-            FROM "MilestoneDocument" AS document
+            FROM "Requirement" AS document
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
           )) AS submissions,
         (
           (SELECT count(*) FROM "File" file WHERE file.kind='SUBMISSION' AND (file."programId" = ${programId}
               OR file."teamId" IN (SELECT id FROM "Team" WHERE "programId" = ${programId})
-              OR file."requirementId" IN (SELECT requirement.id FROM "MilestoneDocument" requirement JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
-              OR file."submissionHistoryId" IN (SELECT history.id FROM "MilestoneDocumentSubmissionHistory" history JOIN "MilestoneDocumentSubmission" submission ON submission.id=history."milestoneDocumentSubmissionId" JOIN "MilestoneDocument" requirement ON requirement.id=submission."milestoneDocumentId" JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})))
+              OR file."requirementId" IN (SELECT requirement.id FROM "Requirement" requirement JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
+              OR file."submissionHistoryId" IN (SELECT history.id FROM "SubmissionHistory" history JOIN "Submission" submission ON submission.id=history."submissionId" JOIN "Requirement" requirement ON requirement.id=submission."requirementId" JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})))
           +
-          (SELECT count(*) FROM "MilestoneDocumentSubmissionHistory" WHERE "milestoneDocumentSubmissionId" IN (
+          (SELECT count(*) FROM "SubmissionHistory" WHERE "submissionId" IN (
             SELECT document_submission.id
-            FROM "MilestoneDocumentSubmission" AS document_submission
-            INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
+            FROM "Submission" AS document_submission
+            INNER JOIN "Requirement" AS document ON document.id = document_submission."requirementId"
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
           ))
@@ -710,28 +710,28 @@ export class ProgramDeletionScopeRepository {
             SELECT CONCAT('Milestone:', id) FROM "Milestone" WHERE "programId" = ${programId}
             UNION ALL
             SELECT CONCAT('MilestoneDocument:', document.id)
-            FROM "MilestoneDocument" AS document
+            FROM "Requirement" AS document
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
             SELECT CONCAT('MilestoneDocumentSubmission:', document_submission.id)
-            FROM "MilestoneDocumentSubmission" AS document_submission
-            INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
+            FROM "Submission" AS document_submission
+            INNER JOIN "Requirement" AS document ON document.id = document_submission."requirementId"
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
             SELECT CONCAT('MilestoneDocumentSubmissionHistory:', history.id)
-            FROM "MilestoneDocumentSubmissionHistory" AS history
-            INNER JOIN "MilestoneDocumentSubmission" AS document_submission
-              ON document_submission.id = history."milestoneDocumentSubmissionId"
-            INNER JOIN "MilestoneDocument" AS document ON document.id = document_submission."milestoneDocumentId"
+            FROM "SubmissionHistory" AS history
+            INNER JOIN "Submission" AS document_submission
+              ON document_submission.id = history."submissionId"
+            INNER JOIN "Requirement" AS document ON document.id = document_submission."requirementId"
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
             SELECT CONCAT('File:', file.id) FROM "File" file WHERE file."programId" = ${programId}
               OR file."teamId" IN (SELECT id FROM "Team" WHERE "programId" = ${programId})
-              OR file."requirementId" IN (SELECT requirement.id FROM "MilestoneDocument" requirement JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
-              OR file."submissionHistoryId" IN (SELECT history.id FROM "MilestoneDocumentSubmissionHistory" history JOIN "MilestoneDocumentSubmission" submission ON submission.id=history."milestoneDocumentSubmissionId" JOIN "MilestoneDocument" requirement ON requirement.id=submission."milestoneDocumentId" JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
+              OR file."requirementId" IN (SELECT requirement.id FROM "Requirement" requirement JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
+              OR file."submissionHistoryId" IN (SELECT history.id FROM "SubmissionHistory" history JOIN "Submission" submission ON submission.id=history."submissionId" JOIN "Requirement" requirement ON requirement.id=submission."requirementId" JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})
             UNION ALL
             SELECT CONCAT('RepositoryProvisionJob:', job.id)
             FROM "RepositoryProvisionJob" AS job

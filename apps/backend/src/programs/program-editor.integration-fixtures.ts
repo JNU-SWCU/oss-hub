@@ -182,10 +182,9 @@ export async function cleanup(): Promise<void> {
   await prisma.user.deleteMany({ where: { id: { startsWith: TEST_PREFIX } } });
 }
 export async function installSyntheticAggregateFaultTrigger(input: {
-  readonly table: 'Milestone' | 'MilestoneDocument' | 'File';
+  readonly table: 'Milestone' | 'Requirement' | 'File';
   readonly event: 'INSERT' | 'UPDATE' | 'DELETE';
-  readonly targetColumn:
-    'id' | 'milestoneId' | 'milestoneDocumentId' | 'requirementId';
+  readonly targetColumn: 'id' | 'milestoneId' | 'requirementId';
   readonly targetId: string;
   readonly deferred?: boolean;
 }): Promise<() => Promise<void>> {

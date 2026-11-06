@@ -261,6 +261,9 @@ model Program {
   milestones       Milestone[]
   teams            Team[]
   boardPosts       BoardPost[]
+
+  @@unique([createdById, idempotencyKey])
+  @@unique([createdById, id])
 }
 
 
@@ -493,8 +496,6 @@ enum SubmissionStatus {
 enum RequirementKind {
   DOCUMENT
   LEGACY_MILESTONE_SUBMISSION
-
-  @@map("MilestoneDocumentKind")
 }
 
 enum RequirementSubmissionType {
@@ -521,14 +522,13 @@ model Requirement {
   submissions  Submission[]
 
   @@index([milestoneId, sortOrder])
-  @@map("MilestoneDocument")
 }
 
 
 model Submission {
   id String @id @default(cuid())
 
-  requirementId String      @map("milestoneDocumentId")
+  requirementId String
   requirement   Requirement @relation(fields: [requirementId], references: [id])
   teamId String
   team Team @relation(fields: [teamId], references: [id])
@@ -550,7 +550,6 @@ model Submission {
   @@unique([requirementId, teamId])
   @@index([teamId])
   @@index([submittedById])
-  @@map("MilestoneDocumentSubmission")
 }
 
 enum SubmissionHistoryEvent {
@@ -559,15 +558,13 @@ enum SubmissionHistoryEvent {
   CHANGES_REQUESTED
   APPROVED
   REJECTED
-
-  @@map("MilestoneDocumentSubmissionHistoryEvent")
 }
 
 model SubmissionHistory {
   id String @id @default(cuid())
 
-  submissionId String     @map("milestoneDocumentSubmissionId")
-  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Restrict, map: "MilestoneDocumentSubmissionHistory_submissionId_fkey")
+  submissionId String
+  submission   Submission @relation(fields: [submissionId], references: [id], onDelete: Restrict)
 
   event    SubmissionHistoryEvent
   revision Int?
@@ -583,7 +580,6 @@ model SubmissionHistory {
 
   @@index([submissionId, createdAt])
   @@index([actorId])
-  @@map("MilestoneDocumentSubmissionHistory")
 }
 
 enum ReviewDecision {
@@ -853,6 +849,9 @@ model GithubRepository {
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
 
+  repositoryYearAggregates  CollectionRepositoryYearAggregate[]  @ignore
+  contributorYearAggregates CollectionContributorYearAggregate[] @ignore
+
   @@index([source, visibility])
   @@index([visibility, presence])
   @@index([nextRunAt])
@@ -1036,6 +1035,42 @@ model CollectionReleaseFact {
   @@unique([repositoryId, githubReleaseId])
   @@index([repositoryId, publishedAt])
   @@index([authorGithubId])
+}
+
+/// No code reads or writes the year totals; 20261104130000 keeps the tables.
+/// Declared only so `prisma migrate diff` matches the database.
+model CollectionRepositoryYearAggregate {
+  repositoryId String
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  year             Int
+  commitCount      Int      @default(0)
+  pullRequestCount Int      @default(0)
+  releaseCount     Int      @default(0)
+  updatedAt        DateTime
+
+  @@id([repositoryId, year])
+  @@index([year])
+  @@ignore
+}
+
+/// Same as CollectionRepositoryYearAggregate, per contributor.
+model CollectionContributorYearAggregate {
+  repositoryId String
+  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+
+  githubUserId     BigInt
+  githubLogin      String
+  year             Int
+  commitCount      Int      @default(0)
+  pullRequestCount Int      @default(0)
+  releaseCount     Int      @default(0)
+  updatedAt        DateTime
+
+  @@id([repositoryId, githubUserId, year])
+  @@index([repositoryId, year])
+  @@index([githubUserId, year])
+  @@ignore
 }
 
 model GithubIssueHistory {

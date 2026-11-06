@@ -316,7 +316,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     });
     const holder = fixture.prisma.$transaction(
       async (tx) => {
-        await tx.$queryRaw`SELECT "id" FROM "MilestoneDocument" WHERE "id" = ${flowIds.document} FOR UPDATE`;
+        await tx.$queryRaw`SELECT "id" FROM "Requirement" WHERE "id" = ${flowIds.document} FOR UPDATE`;
         markLocked();
         await released;
       },

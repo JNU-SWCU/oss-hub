@@ -790,3 +790,15 @@ main 04ed6b30c와 비교했으며 테스트·fixture·support 파일을 제외�
 | programs 제품 파일 (DTO 포함) | 194 | 32532 | 153 | 32294 |
 
 코드 파일 통합은 원본 26개를 지우고 목적지 5개를 새로 만들었다(194→173, 32330줄). 오류 파일 통합은 원본 24개를 지우고 목적지 4개를 새로 만들었다(173→153).
+
+## Todo 11 2단계: 테이블 이름 변경
+
+기준은 1단계 head `8073f663f`(#1763)다. `20261106200000_rename_submission_axis_tables`는 한 트랜잭션에서 `lock_timeout` 5초로 테이블 `MilestoneDocument`·`MilestoneDocumentSubmission`·`MilestoneDocumentSubmissionHistory`를 `Requirement`·`Submission`·`SubmissionHistory`로, 열 `milestoneDocumentId`·`milestoneDocumentSubmissionId`를 `requirementId`·`submissionId`로, enum 타입을 `RequirementKind`·`SubmissionHistoryEvent`로 바꾸고 기본 키·외래 키·인덱스 이름을 Prisma 기본 이름에 맞춘다. 잠금을 5초 안에 얻지 못하면 아무 이름도 바뀌지 않는다. schema의 `@@map`·`@map`을 지웠고, raw SQL은 따옴표 식별자만 새 이름으로 옮겼다.
+
+파일을 더하거나 지우거나 합치지 않았으므로 경로 행은 없다. 늘어난 2줄은 `program-lifecycle.config.ts`에 있다. schema에 `@@ignore`로 선언한 연도 집계 테이블 두 개가 `GithubRepository`에 거는 외래 키를 기존 `github-repository-collection-descendants-preserved` 단계의 `covers`에 더한 줄이다. 단계와 동작은 그대로다.
+
+| 범위 | 1단계 files | 1단계 lines | Todo 11 2단계 files | Todo 11 2단계 lines |
+| --- | ---: | ---: | ---: | ---: |
+| programs 제품 파일 (DTO 포함) | 153 | 32294 | 153 | 32296 |
+
+`apps/backend/src/programs` 아래 디렉터리는 `dto` 하나다. 프로그램 도메인 테이블은 `Program`·`ProgramHistory`·`Milestone`·`Requirement`·`Team`·`TeamMember`·`TeamInvitation`·`TeamHistory`·`Submission`·`SubmissionHistory`·`File`·`BoardPost`·`BoardComment` 13개다.
