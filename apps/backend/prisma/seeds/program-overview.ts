@@ -7,6 +7,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import {
+  applicationTemplateKey,
   offsetDays,
   prisma,
   seedId,
@@ -313,7 +314,9 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
           name: 'seed-program-overview-project',
           organizer: 'seed-organizer-sw-center',
           category: ProgramCategory.CAPSTONE,
-          applicationTemplateKey: ProgramCategory.CAPSTONE.toLowerCase(),
+          applicationTemplateKey: applicationTemplateKey(
+            ProgramCategory.CAPSTONE,
+          ),
           applicationTemplateVersion: 1,
           applicationStartAt: offsetDays(-60),
           applicationEndAt: offsetDays(-46),
@@ -405,10 +408,7 @@ export async function seedProgramOverview(stats: SeedStats): Promise<void> {
         data: {
           programId: PROGRAM_ID,
           applicantId: leader.id,
-          answers: {
-            seedPlaceholder: true,
-            scenarioId: 'program-overview-team',
-          },
+          answers: { title: 'seed-program-overview-team' },
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
           submittedAt: offsetDays(-50),

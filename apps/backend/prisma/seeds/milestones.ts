@@ -8,6 +8,7 @@ import {
   UserType,
 } from '@prisma/client';
 import {
+  applicationTemplateKey,
   offsetDays,
   prisma,
   seedId,
@@ -213,7 +214,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
           name: 'seed-milestones-program',
           organizer: 'seed-organizer',
           category: ProgramCategory.BASIC,
-          applicationTemplateKey: ProgramCategory.BASIC.toLowerCase(),
+          applicationTemplateKey: applicationTemplateKey(ProgramCategory.BASIC),
           applicationTemplateVersion: 1,
           applicationStartAt: offsetDays(-60),
           applicationEndAt: offsetDays(-50),
@@ -327,7 +328,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         data: {
           programId: PROGRAM_ID,
           applicantId: applicantPersonal.id,
-          answers: { seedPlaceholder: true, scenarioId: 'milestones-personal' },
+          answers: { title: '마일스톤 개인 참여 1인 팀' },
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
         },
@@ -398,7 +399,7 @@ export async function seedMilestones(stats: SeedStats): Promise<void> {
         data: {
           programId: PROGRAM_ID,
           applicantId: teamLeader.id,
-          answers: { seedPlaceholder: true, scenarioId: 'milestones-team' },
+          answers: { title: 'seed-milestones-team' },
           applicationTemplateVersion: 1,
           status: ApplicationStatus.APPROVED,
         },

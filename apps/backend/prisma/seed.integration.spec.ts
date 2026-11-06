@@ -30,6 +30,10 @@ import { CONSENT_POLICY_VERSION } from '../src/users/consents.service';
 import { KNOWN_STORAGE_PREFIXES } from '../src/programs/file-cleanup.service';
 import { UserProfileService } from '../src/users/user-profile.service';
 import { RepositoryUrlService } from '../src/github/repository-url.service';
+import {
+  ApplicationAnswersService,
+  ProgramTemplatesService,
+} from '../src/programs/team-application.service';
 
 const repositoryUrlService = new RepositoryUrlService();
 function isProfileComplete(user: AuthUserRecord | null): boolean {
@@ -1510,6 +1514,37 @@ describe('seed profile=all 멱등성 (integration)', () => {
         0,
       );
       expect(totalRows).toBeGreaterThan(0);
+      const templateKeys = new ProgramTemplatesService()
+        .listProgramTemplates()
+        .map((template) => template.key);
+      const programs = await prisma.program.findMany({
+        where: { id: { startsWith: 'seed:' } },
+        select: { id: true, applicationTemplateKey: true },
+      });
+      expect(programs.length).toBeGreaterThan(0);
+      expect(
+        programs.filter(
+          (program) => !templateKeys.includes(program.applicationTemplateKey),
+        ),
+      ).toEqual([]);
+      const answersService = new ApplicationAnswersService();
+      const teams = await prisma.team.findMany({
+        where: { id: { startsWith: 'seed:' } },
+        select: { id: true, answers: true },
+      });
+      expect(
+        teams
+          .filter((team) => team.answers !== null)
+          .filter(
+            (team) =>
+              !answersService.normalizeAndValidateApplicationAnswers(
+                team.answers,
+                'seed-applicant',
+                'skip-length',
+              ).ok,
+          )
+          .map((team) => team.id),
+      ).toEqual([]);
       const documentSubmissions =
         await prisma.milestoneDocumentSubmission.findMany({
           where: { id: { startsWith: 'seed:program-overview:' } },
