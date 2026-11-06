@@ -19,7 +19,7 @@ const recentReviewSelect = {
       id: true,
       status: true,
       teamId: true,
-      milestoneDocument: {
+      requirement: {
         select: {
           name: true,
           milestone: { select: { id: true, name: true, programId: true } },
@@ -27,8 +27,8 @@ const recentReviewSelect = {
       },
     },
   },
-} satisfies Prisma.MilestoneDocumentSubmissionHistorySelect;
-type RecentReviewRow = Prisma.MilestoneDocumentSubmissionHistoryGetPayload<{
+} satisfies Prisma.SubmissionHistorySelect;
+type RecentReviewRow = Prisma.SubmissionHistoryGetPayload<{
   select: typeof recentReviewSelect;
 }>;
 export interface RecentMilestoneDocumentReview {
@@ -59,7 +59,7 @@ export class MilestoneDocumentFeedbackRepository {
       select: { id: true },
     });
     if (user === null) return [];
-    const rows = await this.prisma.milestoneDocumentSubmissionHistory.findMany({
+    const rows = await this.prisma.submissionHistory.findMany({
       where: {
         createdAt: { gte: reviewedSince },
         event: { in: SUBMISSION_REVIEW_EVENTS },
@@ -84,7 +84,7 @@ export class MilestoneDocumentFeedbackRepository {
   }
 }
 function toRecentReview(row: RecentReviewRow): RecentMilestoneDocumentReview {
-  const document = row.submission.milestoneDocument;
+  const document = row.submission.requirement;
   return {
     id: row.id,
     decision: submissionReviewDecision(row.event),

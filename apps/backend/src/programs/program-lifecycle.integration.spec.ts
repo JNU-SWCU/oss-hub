@@ -67,7 +67,7 @@ beforeAll(async () => {
 });
 
 afterEach(async () => {
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { program: { name: { startsWith: prefix } } } },
   });
   await prisma.milestone.deleteMany({
@@ -103,7 +103,7 @@ it.each(['delete', 'purge'] as const)(
             name: 'Retained milestone',
             startAt: new Date('2026-11-06T00:00:00Z'),
             dueAt: new Date('2026-11-20T00:00:00Z'),
-            documents: {
+            requirements: {
               create: {
                 name: 'Retained document',
                 required: true,

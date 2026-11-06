@@ -7,7 +7,7 @@ import { LockProgramTreeRepository } from '../platform/lock-program-tree.reposit
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   Prisma,
   ReviewDecision,
   FileLifecycle,
@@ -117,7 +117,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
           dueAt: new Date('2026-09-19T09:00:00.000Z'),
         }),
       },
-      milestoneDocument: {
+      requirement: {
         findMany: jest.fn().mockResolvedValue([
           {
             id: syntheticDocumentId,
@@ -139,18 +139,18 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
           },
         ]),
       },
-      milestoneDocumentSubmission: {
+      submission: {
         findMany: jest
           .fn()
           .mockResolvedValueOnce([
             {
-              milestoneDocumentId: syntheticDocumentId,
+              requirementId: syntheticDocumentId,
               teamId: syntheticTeamId,
             },
           ])
           .mockResolvedValueOnce([
             {
-              milestoneDocumentId: syntheticDocumentId,
+              requirementId: syntheticDocumentId,
               teamId: syntheticTeamId,
               submittedAt: new Date('2026-09-16T14:22:00.000Z'),
               revision: 1,
@@ -169,7 +169,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
     const outsideSubmissionFindMany = jest.fn();
     const prisma = {
       $transaction,
-      milestoneDocumentSubmission: { findMany: outsideSubmissionFindMany },
+      submission: { findMany: outsideSubmissionFindMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -206,9 +206,7 @@ describe('MilestoneDocumentsRepository.withCollectionSnapshot', () => {
     expect($transaction).toHaveBeenCalledWith(expect.any(Function), {
       isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead,
     });
-    expect(
-      transaction.milestoneDocumentSubmission.findMany,
-    ).toHaveBeenCalledTimes(2);
+    expect(transaction.submission.findMany).toHaveBeenCalledTimes(2);
     expect(outsideSubmissionFindMany).not.toHaveBeenCalled();
     expect(result).toEqual({
       coordinates: [
@@ -254,7 +252,7 @@ describe('MilestoneDocumentsRepository.findByMilestoneId', () => {
       },
     ]);
     const prisma = {
-      milestoneDocument: { findMany },
+      requirement: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -394,7 +392,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
   it('documentIds가 비어 있으면 groupBy를 호출하지 않고 빈 맵을 돌려준다', async () => {
     const groupBy = jest.fn();
     const prisma = {
-      milestoneDocumentSubmission: { groupBy },
+      submission: { groupBy },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -424,10 +422,10 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     const groupBy = jest
       .fn()
       .mockResolvedValue([
-        { milestoneDocumentId: syntheticDocumentId, _count: { _all: 6 } },
+        { requirementId: syntheticDocumentId, _count: { _all: 6 } },
       ]);
     const prisma = {
-      milestoneDocumentSubmission: { groupBy },
+      submission: { groupBy },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -454,7 +452,7 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
   it('분자는 분모와 같은 모집단 — 같은 프로그램의 승인된 신청 제출만 센다', async () => {
     const groupBy = jest.fn().mockResolvedValue([]);
     const prisma = {
-      milestoneDocumentSubmission: { groupBy },
+      submission: { groupBy },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -476,9 +474,9 @@ describe('MilestoneDocumentsRepository.countApprovedApplications / countSubmissi
     ]);
 
     expect(groupBy).toHaveBeenCalledWith({
-      by: ['milestoneDocumentId'],
+      by: ['requirementId'],
       where: {
-        milestoneDocumentId: { in: [syntheticDocumentId] },
+        requirementId: { in: [syntheticDocumentId] },
         team: {
           programId: 'cuid-program',
           status: ApplicationStatus.APPROVED,
@@ -510,14 +508,14 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
       count: jest.fn(),
     };
     const prisma = {
-      milestoneDocument: { create: direct.create, delete: direct.delete },
+      requirement: { create: direct.create, delete: direct.delete },
       file: { updateMany: direct.deleteMany },
-      milestoneDocumentSubmission: { count: direct.count },
+      submission: { count: direct.count },
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback({
-          milestoneDocument: { create, delete: documentDelete, aggregate },
+          requirement: { create, delete: documentDelete, aggregate },
           file: { updateMany: templateDeleteMany },
-          milestoneDocumentSubmission: { count },
+          submission: { count },
         }),
       ),
     } as unknown as PrismaService;
@@ -678,7 +676,7 @@ describe('MilestoneDocumentsRepository 교직원 CRUD (store)', () => {
     );
 
     expect(count).toHaveBeenCalledWith({
-      where: { milestoneDocumentId: syntheticDocumentId },
+      where: { requirementId: syntheticDocumentId },
     });
     expect(direct.count).not.toHaveBeenCalled();
     expect(result).toBe(2);
@@ -719,15 +717,13 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     const queryRaw = jest.fn().mockResolvedValue([{ id: syntheticDocumentId }]);
     const tx = {
       $queryRaw: queryRaw,
-      milestoneDocumentSubmission: {
+      submission: {
         upsert: submissionUpsert,
         findUnique: submissionFindUnique,
       },
-      milestoneDocumentSubmissionHistory: {
+      submissionHistory: {
         create: historyCreate,
-        findFirst: (
-          args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
-        ) =>
+        findFirst: (args: Prisma.SubmissionHistoryFindFirstArgs) =>
           args.where?.event === undefined
             ? historyFindFirst()
             : reviewFindFirst(),
@@ -936,7 +932,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     });
     const { prisma } = transactionPrisma({
       $queryRaw: queryRaw,
-      milestoneDocumentSubmission: {
+      submission: {
         upsert: jest.fn().mockResolvedValue({
           id: 'cuid-synthetic-submission',
           status: SubmissionStatus.SUBMITTED,
@@ -1040,7 +1036,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
     });
     const { prisma, fence } = transactionPrisma({
       $queryRaw: queryRaw,
-      milestoneDocumentSubmission: { upsert: submissionUpsert },
+      submission: { upsert: submissionUpsert },
     });
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -1391,8 +1387,8 @@ describe('MilestoneDocumentsRepository.upsertSubmission', () => {
 
     expect(historyCreate).toHaveBeenCalledWith({
       data: {
-        milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
-        event: MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+        submissionId: 'cuid-synthetic-submission',
+        event: SubmissionHistoryEvent.RESUBMITTED,
         revision: 2,
         actorId: syntheticUserId,
         content: { type: 'TEXT', text: '수정한 본문' },
@@ -1536,7 +1532,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
     });
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findUnique },
+        submission: { findUnique },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -1546,7 +1542,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findUnique },
+          submission: { findUnique },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -1599,7 +1595,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
     });
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findUnique },
+        submission: { findUnique },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -1609,7 +1605,7 @@ describe('MilestoneDocumentsRepository.findMySubmission', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findUnique },
+          submission: { findUnique },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -1637,7 +1633,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     const reviewFindFirst = jest
       .fn<
         Promise<{ id: string } | null>,
-        [Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs]
+        [Prisma.SubmissionHistoryFindFirstArgs]
       >()
       .mockResolvedValue(
         options.latestReview === undefined
@@ -1669,13 +1665,13 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     const direct = { create: jest.fn(), update: jest.fn() };
     const prisma = {
       milestoneDocumentReviewHistory: { create: direct.create },
-      milestoneDocumentSubmission: { update: direct.update },
+      submission: { update: direct.update },
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback({
           $queryRaw: jest
             .fn()
             .mockResolvedValue([{ id: 'cuid-synthetic-submission' }]),
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: submissionFindUnique,
             update: submissionUpdate,
           },
@@ -1683,11 +1679,9 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
             create: reviewCreate,
             findFirst: reviewFindFirst,
           },
-          milestoneDocumentSubmissionHistory: {
+          submissionHistory: {
             create: historyCreate,
-            findFirst: (
-              args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
-            ) =>
+            findFirst: (args: Prisma.SubmissionHistoryFindFirstArgs) =>
               args.where?.event === undefined
                 ? historyFindFirst()
                 : reviewFindFirst(args),
@@ -1729,8 +1723,8 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
     expect(submissionFindUnique).toHaveBeenCalledWith({
       where: {
-        milestoneDocumentId_teamId: {
-          milestoneDocumentId: syntheticDocumentId,
+        requirementId_teamId: {
+          requirementId: syntheticDocumentId,
           teamId: syntheticTeamId,
         },
       },
@@ -1742,8 +1736,8 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
           where: {
             event: {
               in: [
-                MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+                SubmissionHistoryEvent.SUBMITTED,
+                SubmissionHistoryEvent.RESUBMITTED,
               ],
             },
           },
@@ -1813,7 +1807,7 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
 
     expect(reviewFindFirst).toHaveBeenCalledWith({
       where: {
-        milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
+        submissionId: 'cuid-synthetic-submission',
         event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
       },
       orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -1881,8 +1875,8 @@ describe('MilestoneDocumentsRepository 판정 쓰기 (store)', () => {
     expect(direct.create).not.toHaveBeenCalled();
     expect(historyCreate).toHaveBeenCalledWith({
       data: {
-        milestoneDocumentSubmissionId: 'cuid-synthetic-submission',
-        event: MilestoneDocumentSubmissionHistoryEvent.CHANGES_REQUESTED,
+        submissionId: 'cuid-synthetic-submission',
+        event: SubmissionHistoryEvent.CHANGES_REQUESTED,
         revision: 3,
         actorId: 'cuid-synthetic-staff',
         comment: '2쪽 서명이 빠졌습니다.',
@@ -1962,14 +1956,14 @@ describe('MilestoneDocumentsRepository.withTransaction', () => {
     const directUpdate = jest.fn();
     const directTemplateUpsert = jest.fn();
     const prisma = {
-      milestoneDocument: { update: directUpdate },
-      milestoneDocumentSubmission: { count: directCount },
+      requirement: { update: directUpdate },
+      submission: { count: directCount },
       file: { create: directTemplateUpsert },
       $transaction: jest.fn((callback: (transaction: unknown) => unknown) =>
         callback({
           $queryRaw: transactionQueryRaw,
-          milestoneDocument: { update: transactionUpdate },
-          milestoneDocumentSubmission: { count: transactionCount },
+          requirement: { update: transactionUpdate },
+          submission: { count: transactionCount },
           file: {
             create: transactionTemplateUpsert,
             updateMany: transactionTemplateQueue,
@@ -2223,7 +2217,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
     const findMany = jest.fn();
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2249,7 +2243,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   it('ATTACHED이고 아직 만료되지 않은 첨부만 붙인다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
@@ -2265,7 +2259,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2314,7 +2308,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   it('현재 revision과 다른 이력의 파일은 수합 표에 현재 파일로 붙이지 않는다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
@@ -2332,7 +2326,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findMany },
+        submission: { findMany },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -2342,7 +2336,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findMany },
+          submission: { findMany },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -2360,7 +2354,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   it('붙은 첨부가 없으면 file은 null이다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
@@ -2369,7 +2363,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2398,7 +2392,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   it('칸에 리비전을 함께 싣는다 — 프런트가 판정 요청에 되돌려 보낼 값이다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-19T08:00:00.000Z'),
         revision: 2,
@@ -2409,7 +2403,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2440,7 +2434,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-19T08:00:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
@@ -2455,7 +2449,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2489,7 +2483,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.CHANGES_REQUESTED,
@@ -2515,7 +2509,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2565,7 +2559,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   it('글 제출의 본문을 칸 재료에 함께 싣는다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
@@ -2575,7 +2569,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2608,7 +2602,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForCollection', () => {
   it('표 조회의 select에는 storageKey가 없다 — 스토리지 열쇠가 응답 DTO로 샐 길을 구조적으로 막는다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2646,7 +2640,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
     const findMany = jest.fn();
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2672,7 +2666,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   it('첨부의 storageKey를 함께 뽑는다 — 표 조회와 갈라 둔 이유가 이 열쇠다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
@@ -2691,7 +2685,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2736,7 +2730,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   it('현재 revision과 다른 이력의 파일은 ZIP에 넣지 않는다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
@@ -2756,7 +2750,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findMany },
+        submission: { findMany },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -2766,7 +2760,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findMany },
+          submission: { findMany },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -2785,7 +2779,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   it('현재 revision 증거를 판정하도록 최신 첨부 1건을 읽는다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2809,7 +2803,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       select: { files: { where?: unknown; orderBy: unknown; take: number } };
     }>(findMany);
     expect(call.where).toEqual({
-      milestoneDocumentId: { in: [syntheticDocumentId] },
+      requirementId: { in: [syntheticDocumentId] },
     });
     expect(call.select.files.where).toBeUndefined();
     expect(call.select.files.orderBy).toEqual([
@@ -2826,7 +2820,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   it('현재 revision 파일이 만료됐으면 증거는 남기고 ZIP 파일만 제외한다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
@@ -2846,7 +2840,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findMany },
+        submission: { findMany },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -2856,7 +2850,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findMany },
+          submission: { findMany },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -2877,7 +2871,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   it('붙은 첨부가 없으면 file은 null이다 — 글 제출은 본문으로 담는다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         status: SubmissionStatus.SUBMITTED,
@@ -2886,7 +2880,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2919,7 +2913,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
   it('ZIP이 쓰지 않는 판정 이력은 빼고, 현재 파일 대조용 revision만 뽑는다', async () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -2944,7 +2938,7 @@ describe('MilestoneDocumentsRepository.findSubmissionsForArchive', () => {
     expect(call.select).not.toHaveProperty('reviewHistories');
     expect(call.select.revision).toBe(true);
     expect(call.select).toMatchObject({
-      milestoneDocumentId: true,
+      requirementId: true,
       teamId: true,
       submittedAt: true,
       status: true,
@@ -2959,7 +2953,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     const reviewedAt = new Date('2026-09-18T09:00:00.000Z');
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         submittedAt,
         revision: 2,
         status: SubmissionStatus.CHANGES_REQUESTED,
@@ -2983,7 +2977,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3025,7 +3019,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
   it('아직 아무도 판정하지 않았으면 review는 null이다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 1,
         status: SubmissionStatus.SUBMITTED,
@@ -3035,7 +3029,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       },
     ]);
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3063,7 +3057,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
   it('이전 revision 원장이 빠진 마이그레이션 제출은 불완전하다고 표시한다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 3,
         status: SubmissionStatus.SUBMITTED,
@@ -3074,7 +3068,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findMany },
+        submission: { findMany },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -3084,7 +3078,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findMany },
+          submission: { findMany },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -3099,7 +3093,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries', () => {
   it('documentIds가 비어 있으면 조회하지 않는다', async () => {
     const findMany = jest.fn();
     const prisma = {
-      milestoneDocumentSubmission: { findMany },
+      submission: { findMany },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3127,7 +3121,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
   it('지금 붙어 있는 첨부의 이름을 함께 싣는다 — 재제출 폼이 무엇이 빠지는지 말해야 한다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -3143,7 +3137,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findMany },
+        submission: { findMany },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -3153,7 +3147,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findMany },
+          submission: { findMany },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -3182,7 +3176,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
   it('지난 제출본에만 붙은 첨부는 이름도 비운다 — 붙어 있다는 말과 어긋나면 안 된다', async () => {
     const findMany = jest.fn().mockResolvedValue([
       {
-        milestoneDocumentId: syntheticDocumentId,
+        requirementId: syntheticDocumentId,
         submittedAt: new Date('2026-09-16T14:22:00.000Z'),
         revision: 2,
         status: SubmissionStatus.SUBMITTED,
@@ -3198,7 +3192,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findMany },
+        submission: { findMany },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -3208,7 +3202,7 @@ describe('MilestoneDocumentsRepository.findSubmittedSummaries 현재 첨부 이�
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findMany },
+          submission: { findMany },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -3235,7 +3229,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
       event: ReviewDecision.APPROVED,
     });
     const prisma = {
-      milestoneDocumentSubmissionHistory: { findFirst },
+      submissionHistory: { findFirst },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3260,7 +3254,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
     expect(findFirst).toHaveBeenCalledWith({
       where: {
         submission: {
-          milestoneDocumentId: syntheticDocumentId,
+          requirementId: syntheticDocumentId,
           teamId: syntheticTeamId,
         },
         event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
@@ -3277,7 +3271,7 @@ describe('MilestoneDocumentsRepository.findLatestReview', () => {
   it('판정이 없으면 null이다', async () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const prisma = {
-      milestoneDocumentSubmissionHistory: { findFirst },
+      submissionHistory: { findFirst },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3372,7 +3366,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       ],
     });
     const prisma = {
-      milestoneDocumentSubmission: { findUnique },
+      submission: { findUnique },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3400,8 +3394,8 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       select: { files: { where: unknown; orderBy: unknown; take: number } };
     }>(findUnique);
     expect(call.where).toEqual({
-      milestoneDocumentId_teamId: {
-        milestoneDocumentId: syntheticDocumentId,
+      requirementId_teamId: {
+        requirementId: syntheticDocumentId,
         teamId: syntheticTeamId,
       },
     });
@@ -3443,7 +3437,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
     });
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findUnique },
+        submission: { findUnique },
       } as unknown as PrismaService,
       new LockProgramTreeRepository(),
       new PlatformRepository(),
@@ -3453,7 +3447,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findUnique },
+          submission: { findUnique },
         } as unknown as PrismaService,
         new FileMetadataRepository(),
       ),
@@ -3475,7 +3469,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
       files: [],
     });
     const prisma = {
-      milestoneDocumentSubmission: { findUnique },
+      submission: { findUnique },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3504,7 +3498,7 @@ describe('MilestoneDocumentsRepository.findSubmissionFileForStaffDownload', () =
   it('제출 자체가 없으면 null이다', async () => {
     const findUnique = jest.fn().mockResolvedValue(null);
     const prisma = {
-      milestoneDocumentSubmission: { findUnique },
+      submission: { findUnique },
     } as unknown as PrismaService;
     const repository = new MilestoneDocumentsRepository(
       prisma,
@@ -3626,7 +3620,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
                 .sort((left, right) => left.id.localeCompare(right.id)),
             );
           },
-          milestoneDocument: {
+          requirement: {
             update: (args: UpdateArgs) => {
               operations.push(`update:${args.where.id}`);
               transactionUpdateArgs.push(args);
@@ -3641,7 +3635,7 @@ describe('MilestoneDocumentsRepository store.applyDocumentOrder', () => {
     );
 
     const prisma = {
-      milestoneDocument: { update: directUpdate, findMany: directFindMany },
+      requirement: { update: directUpdate, findMany: directFindMany },
       $transaction,
     } as unknown as PrismaService;
     return {
@@ -3885,7 +3879,7 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
             await acquire();
             return [{ id: syntheticDocumentId }];
           },
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: () => Promise.resolve({ status: submission.status }),
             upsert: (input: {
               readonly update: { readonly content: unknown };
@@ -3904,10 +3898,8 @@ describe('MilestoneDocumentsRepository.upsertSubmission — 마감 뒤 동시 �
             },
           },
 
-          milestoneDocumentSubmissionHistory: {
-            findFirst: (
-              args: Prisma.MilestoneDocumentSubmissionHistoryFindFirstArgs,
-            ) =>
+          submissionHistory: {
+            findFirst: (args: Prisma.SubmissionHistoryFindFirstArgs) =>
               Promise.resolve(
                 args.where?.event === undefined ? null : { id: reviewId },
               ),

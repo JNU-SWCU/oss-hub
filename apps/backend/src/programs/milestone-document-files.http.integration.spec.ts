@@ -57,7 +57,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   ] as const)(
     'preserves %s input semantics for text=%s file=%s and retains the optional comment',
     async (submissionType, hasText, hasFile, accepted) => {
-      await fixture.prisma.milestoneDocument.update({
+      await fixture.prisma.requirement.update({
         where: { id: flowIds.document },
         data: { submissionType },
       });
@@ -66,7 +66,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
           where: { id: flowIds.milestone },
           data: {},
         });
-        await fixture.prisma.milestoneDocument.update({
+        await fixture.prisma.requirement.update({
           where: { id: flowIds.document },
           data: {},
         });
@@ -103,16 +103,15 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
         },
       );
       expect(response.status).toBe(accepted ? 201 : 422);
-      const events =
-        await fixture.prisma.milestoneDocumentSubmissionHistory.findMany({
-          where: { submission: { milestoneDocumentId: flowIds.document } },
-          select: {
-            event: true,
-            comment: true,
-            content: true,
-            files: { select: { id: true } },
-          },
-        });
+      const events = await fixture.prisma.submissionHistory.findMany({
+        where: { submission: { requirementId: flowIds.document } },
+        select: {
+          event: true,
+          comment: true,
+          content: true,
+          files: { select: { id: true } },
+        },
+      });
       expect(events).toEqual(
         accepted
           ? [
@@ -132,11 +131,10 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
           : [],
       );
       if (accepted && submissionType === 'FILE') {
-        const submission =
-          await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-            where: { milestoneDocumentId: flowIds.document },
-            select: { id: true },
-          });
+        const submission = await fixture.prisma.submission.findFirstOrThrow({
+          where: { requirementId: flowIds.document },
+          select: { id: true },
+        });
         const legacyView = await fixture.request(
           'submissions/' + submission.id + '/review-context',
           { actor: 'staff' },
@@ -188,8 +186,8 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
       }),
     ).toBe(0);
     expect(
-      await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-        where: { milestoneDocumentId: flowIds.document },
+      await fixture.prisma.submission.findFirstOrThrow({
+        where: { requirementId: flowIds.document },
         select: { status: true, revision: true },
       }),
     ).toEqual({ status: 'SUBMITTED', revision: 2 });
@@ -283,10 +281,9 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
   });
   it('keeps an existing image downloadable without changing retention', async () => {
     await fixture.submit('기존 이미지가 있는 제출');
-    const history =
-      await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-        where: { submission: { milestoneDocumentId: flowIds.document } },
-      });
+    const history = await fixture.prisma.submissionHistory.findFirstOrThrow({
+      where: { submission: { requirementId: flowIds.document } },
+    });
     const bytes = Buffer.from([0xff, 0xd8, 0xff]);
     const storageKey = 'qa152-synthetic/existing-image';
     await fixture.storage.put({
@@ -301,7 +298,7 @@ describe('QA152 current file HTTP + PostgreSQL + object-storage', () => {
         kind: 'SUBMISSION',
         uploaderId: flowIds.student,
         teamId: flowIds.team,
-        submissionId: history.milestoneDocumentSubmissionId,
+        submissionId: history.submissionId,
         submissionHistoryId: history.id,
         lifecycle: 'ATTACHED',
         expiresAt: expiresAt,

@@ -88,7 +88,7 @@ export class ProgramArchiveIntegrationFixture {
           programId: archiveId(program),
           name: `단계 ${stage}`,
           dueAt: new Date('2026-12-01'),
-          documents: {
+          requirements: {
             create: {
               id: archiveId(`doc-${stage}`),
               name: '보고서',
@@ -99,7 +99,7 @@ export class ProgramArchiveIntegrationFixture {
         },
       });
     }
-    await this.prisma.milestoneDocument.create({
+    await this.prisma.requirement.create({
       data: {
         id: archiveId('legacy'),
         milestoneId: archiveId('a1'),
@@ -142,10 +142,10 @@ export class ProgramArchiveIntegrationFixture {
       [2, 'a1', SubmissionStatus.SUBMITTED],
       [3, 'b1', SubmissionStatus.SUBMITTED],
     ] as const) {
-      await this.prisma.milestoneDocumentSubmission.create({
+      await this.prisma.submission.create({
         data: {
           id: archiveId(`submission-${team}-${stage}`),
-          milestoneDocumentId: archiveId(`doc-${stage}`),
+          requirementId: archiveId(`doc-${stage}`),
           teamId: archiveId(`team-${team}`),
           submittedById: archiveId('user'),
           submittedAt: archiveNow,
@@ -218,13 +218,13 @@ export class ProgramArchiveIntegrationFixture {
       where: { kind: 'SUBMISSION', uploaderId: archiveId('user') },
     });
     const submissions = { team: { programId: programs } };
-    await this.prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    await this.prisma.submissionHistory.deleteMany({
       where: { submission: submissions },
     });
-    await this.prisma.milestoneDocumentSubmission.deleteMany({
+    await this.prisma.submission.deleteMany({
       where: submissions,
     });
-    await this.prisma.milestoneDocument.deleteMany({
+    await this.prisma.requirement.deleteMany({
       where: { milestone: { programId: programs } },
     });
     await this.prisma.milestone.deleteMany({ where: { programId: programs } });

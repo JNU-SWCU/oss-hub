@@ -1,7 +1,7 @@
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   RepositoryProvisionJobStatus,
@@ -267,19 +267,19 @@ export async function seedOssHub(
   });
   const staleMilestoneIds = staleMilestones.map((milestone) => milestone.id);
   if (staleMilestoneIds.length > 0) {
-    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    await prisma.submissionHistory.deleteMany({
       where: {
         submission: {
-          milestoneDocument: { milestoneId: { in: staleMilestoneIds } },
+          requirement: { milestoneId: { in: staleMilestoneIds } },
         },
       },
     });
-    await prisma.milestoneDocumentSubmission.deleteMany({
+    await prisma.submission.deleteMany({
       where: {
-        milestoneDocument: { milestoneId: { in: staleMilestoneIds } },
+        requirement: { milestoneId: { in: staleMilestoneIds } },
       },
     });
-    await prisma.milestoneDocument.deleteMany({
+    await prisma.requirement.deleteMany({
       where: { milestoneId: { in: staleMilestoneIds } },
     });
     await prisma.milestone.deleteMany({
@@ -372,11 +372,11 @@ export async function seedOssHub(
     stats,
     'MilestoneDocument',
     () =>
-      prisma.milestoneDocument.findUnique({
+      prisma.requirement.findUnique({
         where: { id: awsStagingDocumentId },
       }),
     () =>
-      prisma.milestoneDocument.upsert({
+      prisma.requirement.upsert({
         where: { id: awsStagingDocumentId },
         update: { name: 'AWS Staging 결과', required: true, sortOrder: 0 },
         create: {
@@ -392,11 +392,11 @@ export async function seedOssHub(
     stats,
     'MilestoneDocumentSubmission',
     () =>
-      prisma.milestoneDocumentSubmission.findUnique({
+      prisma.submission.findUnique({
         where: { id: awsStagingSubmissionId },
       }),
     () =>
-      prisma.milestoneDocumentSubmission.upsert({
+      prisma.submission.upsert({
         where: { id: awsStagingSubmissionId },
         update: {
           status: SubmissionStatus.APPROVED,
@@ -406,7 +406,7 @@ export async function seedOssHub(
         },
         create: {
           id: awsStagingSubmissionId,
-          milestoneDocumentId: awsStagingDocumentId,
+          requirementId: awsStagingDocumentId,
           teamId: APPLICATION_ID,
           status: SubmissionStatus.APPROVED,
           content: awsStagingContent,
@@ -419,17 +419,17 @@ export async function seedOssHub(
     stats,
     'MilestoneDocumentSubmissionHistory',
     () =>
-      prisma.milestoneDocumentSubmissionHistory.findUnique({
+      prisma.submissionHistory.findUnique({
         where: { id: awsStagingHistoryId },
       }),
     () =>
-      prisma.milestoneDocumentSubmissionHistory.upsert({
+      prisma.submissionHistory.upsert({
         where: { id: awsStagingHistoryId },
         update: { content: awsStagingContent },
         create: {
           id: awsStagingHistoryId,
-          milestoneDocumentSubmissionId: awsStagingSubmissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          submissionId: awsStagingSubmissionId,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content: awsStagingContent,
           actorId: users[0]!.id,
@@ -442,17 +442,17 @@ export async function seedOssHub(
     stats,
     'MilestoneDocumentSubmissionHistory',
     () =>
-      prisma.milestoneDocumentSubmissionHistory.findUnique({
+      prisma.submissionHistory.findUnique({
         where: { id: awsStagingReviewId },
       }),
     () =>
-      prisma.milestoneDocumentSubmissionHistory.upsert({
+      prisma.submissionHistory.upsert({
         where: { id: awsStagingReviewId },
         update: { comment: awsStagingReviewComment },
         create: {
           id: awsStagingReviewId,
-          milestoneDocumentSubmissionId: awsStagingSubmissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.APPROVED,
+          submissionId: awsStagingSubmissionId,
+          event: SubmissionHistoryEvent.APPROVED,
           revision: 1,
           comment: awsStagingReviewComment,
           actorId: AUTH_SCENARIOS['staff-approved'],
@@ -480,11 +480,11 @@ export async function seedOssHub(
     stats,
     'MilestoneDocument',
     () =>
-      prisma.milestoneDocument.findUnique({
+      prisma.requirement.findUnique({
         where: { id: intakeFreezeDocumentId },
       }),
     () =>
-      prisma.milestoneDocument.upsert({
+      prisma.requirement.upsert({
         where: { id: intakeFreezeDocumentId },
         update: { name: 'Intake 기능 동결 요약', required: true, sortOrder: 0 },
         create: {
@@ -500,11 +500,11 @@ export async function seedOssHub(
     stats,
     'MilestoneDocumentSubmission',
     () =>
-      prisma.milestoneDocumentSubmission.findUnique({
+      prisma.submission.findUnique({
         where: { id: intakeFreezeSubmissionId },
       }),
     () =>
-      prisma.milestoneDocumentSubmission.upsert({
+      prisma.submission.upsert({
         where: { id: intakeFreezeSubmissionId },
         update: {
           status: SubmissionStatus.SUBMITTED,
@@ -514,7 +514,7 @@ export async function seedOssHub(
         },
         create: {
           id: intakeFreezeSubmissionId,
-          milestoneDocumentId: intakeFreezeDocumentId,
+          requirementId: intakeFreezeDocumentId,
           teamId: APPLICATION_ID,
           status: SubmissionStatus.SUBMITTED,
           content: intakeFreezeContent,
@@ -527,11 +527,11 @@ export async function seedOssHub(
     stats,
     'MilestoneDocumentSubmissionHistory',
     () =>
-      prisma.milestoneDocumentSubmissionHistory.findUnique({
+      prisma.submissionHistory.findUnique({
         where: { id: intakeFreezeHistoryId },
       }),
     () =>
-      prisma.milestoneDocumentSubmissionHistory.upsert({
+      prisma.submissionHistory.upsert({
         where: { id: intakeFreezeHistoryId },
         update: {
           content: intakeFreezeContent,
@@ -539,8 +539,8 @@ export async function seedOssHub(
         },
         create: {
           id: intakeFreezeHistoryId,
-          milestoneDocumentSubmissionId: intakeFreezeSubmissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          submissionId: intakeFreezeSubmissionId,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content: intakeFreezeContent,
           actorId: intakeFreezeSubmitterId,

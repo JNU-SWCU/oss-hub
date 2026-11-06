@@ -5,7 +5,7 @@ import {
   Prisma,
   FileLifecycle,
   SubmissionStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   RequirementSubmissionType,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -104,33 +104,31 @@ export class SubmissionsRepository {
           AND "teamId" = ${input.teamId}
         FOR UPDATE
       `);
-      const latestHistory =
-        await transaction.milestoneDocumentSubmissionHistory.findFirst({
-          where: {
-            submission: {
-              milestoneDocumentId: input.milestoneDocumentId,
-              teamId: input.teamId,
-            },
+      const latestHistory = await transaction.submissionHistory.findFirst({
+        where: {
+          submission: {
+            requirementId: input.milestoneDocumentId,
+            teamId: input.teamId,
           },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          select: { createdAt: true },
-        });
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { createdAt: true },
+      });
       const submittedAt = this.nextHistoryCreatedAt(
         input.submittedAt,
         latestHistory?.createdAt ?? null,
       );
-      const latestReview =
-        await transaction.milestoneDocumentSubmissionHistory.findFirst({
-          where: {
-            event: { in: SUBMISSION_REVIEW_EVENTS },
-            submission: {
-              milestoneDocumentId: input.milestoneDocumentId,
-              teamId: input.teamId,
-            },
+      const latestReview = await transaction.submissionHistory.findFirst({
+        where: {
+          event: { in: SUBMISSION_REVIEW_EVENTS },
+          submission: {
+            requirementId: input.milestoneDocumentId,
+            teamId: input.teamId,
           },
-          orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-          select: { id: true },
-        });
+        },
+        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+        select: { id: true },
+      });
       if ((latestReview?.id ?? null) !== input.expectedLatestReviewId) {
         throw new MilestoneDocumentReviewChangedError();
       }
@@ -138,16 +136,15 @@ export class SubmissionsRepository {
         input.expectedRevision !== undefined ||
         (afterDeadline && input.deadline !== undefined)
       ) {
-        const current =
-          await transaction.milestoneDocumentSubmission.findUnique({
-            where: {
-              milestoneDocumentId_teamId: {
-                milestoneDocumentId: input.milestoneDocumentId,
-                teamId: input.teamId,
-              },
+        const current = await transaction.submission.findUnique({
+          where: {
+            requirementId_teamId: {
+              requirementId: input.milestoneDocumentId,
+              teamId: input.teamId,
             },
-            select: { status: true, revision: true },
-          });
+          },
+          select: { status: true, revision: true },
+        });
         if (
           input.expectedRevision !== undefined &&
           (current?.revision ?? 0) !== input.expectedRevision
@@ -161,10 +158,10 @@ export class SubmissionsRepository {
         )
           throw new MilestoneDocumentSubmissionChangedError();
       }
-      const submission = await transaction.milestoneDocumentSubmission.upsert({
+      const submission = await transaction.submission.upsert({
         where: {
-          milestoneDocumentId_teamId: {
-            milestoneDocumentId: input.milestoneDocumentId,
+          requirementId_teamId: {
+            requirementId: input.milestoneDocumentId,
             teamId: input.teamId,
           },
         },
@@ -176,7 +173,7 @@ export class SubmissionsRepository {
           revision: { increment: 1 },
         },
         create: {
-          milestoneDocumentId: input.milestoneDocumentId,
+          requirementId: input.milestoneDocumentId,
           teamId: input.teamId,
           status: SubmissionStatus.SUBMITTED,
           content: input.content,
@@ -191,22 +188,21 @@ export class SubmissionsRepository {
           revision: true,
         },
       });
-      const history =
-        await transaction.milestoneDocumentSubmissionHistory.create({
-          data: {
-            milestoneDocumentSubmissionId: submission.id,
-            event:
-              submission.revision === 1
-                ? MilestoneDocumentSubmissionHistoryEvent.SUBMITTED
-                : MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-            revision: submission.revision,
-            actorId: input.submittedById,
-            content: input.content,
-            createdAt: submittedAt,
-            ...(input.comment === undefined ? {} : { comment: input.comment }),
-          },
-          select: { id: true },
-        });
+      const history = await transaction.submissionHistory.create({
+        data: {
+          submissionId: submission.id,
+          event:
+            submission.revision === 1
+              ? SubmissionHistoryEvent.SUBMITTED
+              : SubmissionHistoryEvent.RESUBMITTED,
+          revision: submission.revision,
+          actorId: input.submittedById,
+          content: input.content,
+          createdAt: submittedAt,
+          ...(input.comment === undefined ? {} : { comment: input.comment }),
+        },
+        select: { id: true },
+      });
       if (input.attachFile !== null) {
         const attached = await transaction.file.updateMany({
           where: {

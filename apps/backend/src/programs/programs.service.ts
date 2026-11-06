@@ -185,12 +185,12 @@ export class ProgramsService {
   }
   private toTargetSubmissionAxes<
     T extends {
-      readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+      readonly submissions: readonly SubmissionCompletionTargetRow[];
     },
   >(application: T) {
     const { submissions, documentSubmissions } =
       this.milestoneCompletionService.projectSubmissionCompletionTargets(
-        application.milestoneDocumentSubmissions,
+        application.submissions,
       );
     return {
       ...application,
@@ -367,9 +367,9 @@ export class ProgramsService {
             dDay: deadline.dDay,
             deadlineLabel: deadline.label,
             description: milestone.instructions,
-            submissionItemCount: milestone._count.documents,
+            submissionItemCount: milestone._count.requirements,
             viewerSubmissionStatus:
-              milestone._count.documents > 0 && studentApplication
+              milestone._count.requirements > 0 && studentApplication
                 ? this.milestoneStatusFor(
                     milestone,
                     studentApplication.submissions,
@@ -377,7 +377,7 @@ export class ProgramsService {
                   )
                 : null,
             applicationSubmissionSummary:
-              milestone._count.documents > 0 && staffApplications
+              milestone._count.requirements > 0 && staffApplications
                 ? this.summaryForMilestone(milestone, staffApplications)
                 : null,
           };
@@ -391,7 +391,7 @@ export class ProgramsService {
   private summaryForMilestone(
     milestone: {
       readonly id: string;
-      readonly documents: readonly {
+      readonly requirements: readonly {
         readonly id: string;
       }[];
     },
@@ -419,7 +419,7 @@ export class ProgramsService {
   private milestoneStatusFor(
     milestone: {
       readonly id: string;
-      readonly documents: readonly {
+      readonly requirements: readonly {
         readonly id: string;
       }[];
     },
@@ -428,7 +428,7 @@ export class ProgramsService {
   ) {
     return this.milestoneCompletionService.milestoneCompletionStatus({
       submissionAxisInUse: false,
-      requiredDocumentStatuses: milestone.documents.map(
+      requiredDocumentStatuses: milestone.requirements.map(
         (document) =>
           documentSubmissions.find(
             (submission) => submission.milestoneDocumentId === document.id,

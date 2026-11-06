@@ -19,7 +19,7 @@ export const program: ArchiveProgram = {
     id: `milestone-${index}`,
     name,
     dueAt: new Date('2026-09-30T00:00:00Z'),
-    documents: [{ id: `document-${index}`, name: '보고서', required: true }],
+    requirements: [{ id: `document-${index}`, name: '보고서', required: true }],
   })),
 };
 export const teams = ['가팀', '나팀'].map((teamName, index) => ({

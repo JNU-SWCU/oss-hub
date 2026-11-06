@@ -65,12 +65,12 @@ interface TeamFixture {
   readonly submitsRequiredDocument: boolean;
 }
 async function cleanup(): Promise<void> {
-  await prisma.milestoneDocumentSubmission.deleteMany({
-    where: { milestoneDocument: { milestoneId } },
+  await prisma.submission.deleteMany({
+    where: { requirement: { milestoneId } },
   });
   await prisma.teamMember.deleteMany({ where: { programId } });
   await prisma.team.deleteMany({ where: { programId } });
-  await prisma.milestoneDocument.deleteMany({ where: { milestoneId } });
+  await prisma.requirement.deleteMany({ where: { milestoneId } });
   await prisma.milestone.deleteMany({ where: { id: milestoneId } });
   await prisma.program.deleteMany({ where: { id: programId } });
   await prisma.user.deleteMany({ where: { id: { startsWith: prefix } } });
@@ -121,10 +121,10 @@ async function createTeams(teams: readonly TeamFixture[]): Promise<void> {
       },
     });
     if (team.submitsRequiredDocument) {
-      await prisma.milestoneDocumentSubmission.create({
+      await prisma.submission.create({
         data: {
           id: `${prefix}-${team.key}-submission`,
-          milestoneDocumentId: requiredDocumentId,
+          requirementId: requiredDocumentId,
           teamId,
           submittedById: userId,
           submittedAt: new Date('2026-03-01'),
@@ -210,7 +210,7 @@ describe('교직원 서류 제출 카운트 — 배지와 수합 표 합계', ()
         },
       },
     });
-    await prisma.milestoneDocument.createMany({
+    await prisma.requirement.createMany({
       data: [
         {
           id: requiredDocumentId,

@@ -88,7 +88,7 @@ describe('ProgramEditorService integration', () => {
     const milestoneId = `${TEST_PREFIX}milestone:grace-retention`;
     await createProgram(programId, false);
     await createMilestone(milestoneId, programId);
-    const document = await prisma.milestoneDocument.create({
+    const document = await prisma.requirement.create({
       data: {
         milestoneId,
         name: 'Synthetic grace document',
@@ -143,7 +143,7 @@ describe('ProgramEditorService integration', () => {
     const program = await prisma.program.findUniqueOrThrow({
       where: { id: programId },
     });
-    const saved = await prisma.milestoneDocument.findUniqueOrThrow({
+    const saved = await prisma.requirement.findUniqueOrThrow({
       where: { id: document.id },
     });
     expect({ endAt: program.endAt, graceDueAt: saved.graceDueAt }).toEqual(

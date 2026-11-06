@@ -33,8 +33,8 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
 
     expect((await fixture.submit('여러 권한 학생의 제출')).status).toBe(201);
     await expect(
-      fixture.prisma.milestoneDocumentSubmission.findFirst({
-        where: { milestoneDocumentId: flowIds.document },
+      fixture.prisma.submission.findFirst({
+        where: { requirementId: flowIds.document },
         select: { teamId: true, submittedById: true },
       }),
     ).resolves.toEqual({
@@ -73,8 +73,8 @@ describe('마일스톤 서류 제출 — 학생 유형 판정', () => {
       code: MilestoneDocumentsErrorCode.NOT_APPLICATION_MEMBER,
     });
     await expect(
-      fixture.prisma.milestoneDocumentSubmission.count({
-        where: { milestoneDocumentId: flowIds.document },
+      fixture.prisma.submission.count({
+        where: { requirementId: flowIds.document },
       }),
     ).resolves.toBe(0);
   });

@@ -123,7 +123,7 @@ describe('readTeamDeletionScopeCounts', () => {
 
   it('세는 축은 좁힌 삭제 순서가 실제로 지우는 축과 같은 이름을 쓴다', () => {
     const covered = TEAM_PURGE_DELETION_ORDER.flatMap((step) => step.covers);
-    expect(covered).toContain('Team->MilestoneDocumentSubmission');
+    expect(covered).toContain('Team->Submission');
     expect(covered).toContain('Team->RepositoryProvisionJob');
     expect(covered).toContain('Team->TeamMember');
     expect(covered).toContain('Team->TeamInvitation');

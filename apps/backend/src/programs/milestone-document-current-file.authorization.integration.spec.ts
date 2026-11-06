@@ -25,7 +25,7 @@ import { Test } from '@nestjs/testing';
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   FileLifecycle,
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
@@ -172,10 +172,10 @@ async function cleanup(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'SUBMISSION', storageKey: { startsWith: `${prefix}/` } },
   });
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: { submission: { is: { teamId: { startsWith: prefix } } } },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { teamId: { startsWith: prefix } },
   });
   await prisma.teamMember.deleteMany({
@@ -184,7 +184,7 @@ async function cleanup(): Promise<void> {
   await prisma.team.deleteMany({
     where: { programId: { in: [programId, outsideProgramId] } },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: {
       milestoneId: { in: [milestoneId, otherMilestoneId, outsideMilestoneId] },
     },
@@ -279,10 +279,10 @@ async function seedSubmissionWithFile(input: {
 }): Promise<string> {
   const submissionId = `${prefix}-${input.key}-submission`;
   const revision = input.revision ?? 1;
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       id: submissionId,
-      milestoneDocumentId: input.documentId,
+      requirementId: input.documentId,
       teamId: input.teamId,
       submittedById: input.actorId,
       submittedAt: new Date('2026-03-01'),
@@ -290,11 +290,11 @@ async function seedSubmissionWithFile(input: {
     },
   });
   const historyId = `${prefix}-${input.key}-history`;
-  await prisma.milestoneDocumentSubmissionHistory.create({
+  await prisma.submissionHistory.create({
     data: {
       id: historyId,
-      milestoneDocumentSubmissionId: submissionId,
-      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      submissionId: submissionId,
+      event: SubmissionHistoryEvent.SUBMITTED,
       revision: input.historyRevision ?? revision,
       actorId: input.actorId,
       createdAt: new Date('2026-03-01'),
@@ -428,7 +428,7 @@ describe('마일스톤 서류 현재 제출 파일 — 「보기」와 「받기
     );
     await createProgram(programId, [milestoneId, otherMilestoneId]);
     await createProgram(outsideProgramId, [outsideMilestoneId]);
-    await prisma.milestoneDocument.createMany({
+    await prisma.requirement.createMany({
       data: [
         {
           id: ownDocumentId,

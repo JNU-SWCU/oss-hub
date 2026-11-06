@@ -56,7 +56,7 @@ const service = new MilestoneDocumentsService(
 );
 
 async function cleanup(): Promise<void> {
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { programId: PROGRAM_ID } },
   });
   await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -65,7 +65,7 @@ async function cleanup(): Promise<void> {
 }
 
 function storedOrder(milestoneId = MILESTONE_ID) {
-  return prisma.milestoneDocument.findMany({
+  return prisma.requirement.findMany({
     where: { milestoneId },
     orderBy: { sortOrder: 'asc' },
     select: { id: true, sortOrder: true },
@@ -117,7 +117,7 @@ describe('MilestoneDocumentsService durable document order', () => {
               id: MILESTONE_ID,
               name: 'Ordered documents',
               dueAt: new Date('2026-08-20T00:00:00.000Z'),
-              documents: {
+              requirements: {
                 create: DOCUMENT_IDS.map((id, index) => ({
                   id,
                   name: `Document ${index + 1}`,
@@ -132,7 +132,7 @@ describe('MilestoneDocumentsService durable document order', () => {
               id: OTHER_MILESTONE_ID,
               name: 'Other milestone',
               dueAt: new Date('2026-08-20T00:00:00.000Z'),
-              documents: {
+              requirements: {
                 create: {
                   id: FOREIGN_DOCUMENT_ID,
                   name: 'Foreign document',

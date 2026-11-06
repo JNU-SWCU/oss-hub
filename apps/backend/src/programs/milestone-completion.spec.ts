@@ -49,7 +49,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
         [
           {
             id: 'optional-only',
-            documents: [],
+            requirements: [],
           },
         ],
         [],
@@ -66,7 +66,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
     expect(milestoneCompletionService.isMilestoneComplete(input)).toBe(false);
     expect(
       milestoneCompletionService.requiredMilestonesApproved(
-        [{ id: 'informational', documents: [] }],
+        [{ id: 'informational', requirements: [] }],
         [],
         [],
       ),
@@ -77,7 +77,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
       {
         id: 'required-document',
         submissionType: null,
-        documents: [{ id: 'document-1' }],
+        requirements: [{ id: 'document-1' }],
       },
     ] as const;
     expect(
@@ -102,7 +102,7 @@ describe('requiredMilestonesApproved — 공개 집계의 축 없는 마일스�
         [
           {
             id: 'legacy-document-only',
-            documents: [{ id: 'document-1' }],
+            requirements: [{ id: 'document-1' }],
           },
         ],
         [],

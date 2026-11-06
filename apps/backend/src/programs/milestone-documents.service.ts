@@ -1,6 +1,6 @@
 import { UserProfileService } from '../users/user-profile.service';
 import {
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   RequirementSubmissionType,
   SubmissionStatus,
 } from '@prisma/client';
@@ -78,7 +78,7 @@ export interface MilestoneDocumentCollectionResult extends MilestoneDocumentColl
 }
 export interface MilestoneDocumentHistoryResult {
   readonly items: readonly {
-    readonly event: MilestoneDocumentSubmissionHistoryEvent;
+    readonly event: SubmissionHistoryEvent;
     readonly revision: number | null;
     readonly actorNickname: string;
     readonly comment: string | null;
@@ -674,11 +674,11 @@ export class MilestoneDocumentsService {
   }
 }
 function studentHistoryActorLabel(
-  event: MilestoneDocumentSubmissionHistoryEvent,
+  event: SubmissionHistoryEvent,
   actorNickname: string,
 ): string {
-  return event === MilestoneDocumentSubmissionHistoryEvent.SUBMITTED ||
-    event === MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED
+  return event === SubmissionHistoryEvent.SUBMITTED ||
+    event === SubmissionHistoryEvent.RESUBMITTED
     ? actorNickname
     : '담당 교직원';
 }

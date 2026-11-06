@@ -136,7 +136,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       { name: 'New document', sortOrder: 2 },
     ]);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -304,7 +304,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       errorCode: { code: ProgramErrorCode.MILESTONE_EDIT_CHANGED },
     });
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -313,7 +313,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
   it('edits a converted typed requirement without changing its submission type', async () => {
     const { milestoneId } = await seedGraph({ documentCount: 0 });
     const legacyId = `${TEST_PREFIX}legacy:${crypto.randomUUID()}`;
-    await prisma.milestoneDocument.create({
+    await prisma.requirement.create({
       data: {
         id: legacyId,
         milestoneId,
@@ -336,7 +336,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       ]),
     );
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: legacyId },
         select: { name: true, submissionType: true },
       }),
@@ -565,12 +565,12 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       errorCode: { code: 'PRG_009' },
     });
     expect(
-      await prisma.milestoneDocumentSubmissionHistory.count({
-        where: { submission: { milestoneDocumentId: firstDocumentId } },
+      await prisma.submissionHistory.count({
+        where: { submission: { requirementId: firstDocumentId } },
       }),
     ).toBe(1);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -606,8 +606,8 @@ describe('ProgramEditorService milestone aggregate integration', () => {
       }),
     ).rejects.toBeInstanceOf(MilestoneDocumentMissingError);
     expect(
-      await prisma.milestoneDocumentSubmission.count({
-        where: { milestoneDocumentId: firstDocumentId },
+      await prisma.submission.count({
+        where: { requirementId: firstDocumentId },
       }),
     ).toBe(0);
   });
@@ -861,7 +861,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     ).rejects.toThrow('Injected aggregate transaction fault');
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -927,7 +927,7 @@ describe('ProgramEditorService milestone aggregate integration', () => {
     ).rejects.toThrow('Injected aggregate transaction fault');
     expect(await graphBaseline(milestoneId, uploadId)).toEqual(baseline);
     expect(
-      await prisma.milestoneDocument.findUnique({
+      await prisma.requirement.findUnique({
         where: { id: firstDocumentId },
         select: { id: true },
       }),
@@ -1137,7 +1137,7 @@ async function seedGraph(
   const documentCount = options.documentCount ?? 2;
   const documents = await Promise.all(
     Array.from({ length: documentCount }, (_, index) =>
-      prisma.milestoneDocument.create({
+      prisma.requirement.create({
         data: {
           id: `${TEST_PREFIX}document:aggregate:${crypto.randomUUID()}`,
           milestoneId,
@@ -1435,7 +1435,7 @@ async function graphBaseline(milestoneId: string, uploadId: string) {
         instructions: true,
       },
     }),
-    prisma.milestoneDocument.findMany({
+    prisma.requirement.findMany({
       where: { milestoneId },
       orderBy: { id: 'asc' },
       select: {

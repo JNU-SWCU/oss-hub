@@ -105,32 +105,29 @@ export async function cleanup(): Promise<void> {
     select: { id: true },
   });
   const milestoneIds = milestones.map((milestone) => milestone.id);
-  const documents = await prisma.milestoneDocument.findMany({
+  const documents = await prisma.requirement.findMany({
     where: { milestoneId: { in: milestoneIds } },
     select: { id: true },
   });
   const documentIds = documents.map((document) => document.id);
-  const documentSubmissions = await prisma.milestoneDocumentSubmission.findMany(
-    {
-      where: {
-        OR: [
-          { teamId: { startsWith: `${TEST_PREFIX}application:` } },
-          { milestoneDocumentId: { in: documentIds } },
-        ],
-      },
-      select: { id: true },
+  const documentSubmissions = await prisma.submission.findMany({
+    where: {
+      OR: [
+        { teamId: { startsWith: `${TEST_PREFIX}application:` } },
+        { requirementId: { in: documentIds } },
+      ],
     },
-  );
+    select: { id: true },
+  });
   const documentSubmissionIds = documentSubmissions.map(
     (submission) => submission.id,
   );
-  const documentSubmissionHistories =
-    await prisma.milestoneDocumentSubmissionHistory.findMany({
-      where: {
-        milestoneDocumentSubmissionId: { in: documentSubmissionIds },
-      },
-      select: { id: true },
-    });
+  const documentSubmissionHistories = await prisma.submissionHistory.findMany({
+    where: {
+      submissionId: { in: documentSubmissionIds },
+    },
+    select: { id: true },
+  });
   const documentSubmissionHistoryIds = documentSubmissionHistories.map(
     (history) => history.id,
   );
@@ -155,10 +152,10 @@ export async function cleanup(): Promise<void> {
       ],
     },
   });
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: { id: { in: documentSubmissionHistoryIds } },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { id: { in: documentSubmissionIds } },
   });
   await prisma.team.deleteMany({
@@ -170,7 +167,7 @@ export async function cleanup(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'TEMPLATE', requirementId: { in: documentIds } },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { id: { in: documentIds } },
   });
   await prisma.milestone.deleteMany({

@@ -24,14 +24,14 @@ async function findMatrixDocumentFirstSubmissions(
   if (scope.teamIds.length === 0 || scope.documentIds.length === 0) {
     return [];
   }
-  const submissions = await prisma.milestoneDocumentSubmission.findMany({
+  const submissions = await prisma.submission.findMany({
     where: {
       teamId: { in: [...scope.teamIds] },
-      milestoneDocumentId: { in: [...scope.documentIds] },
+      requirementId: { in: [...scope.documentIds] },
     },
     select: {
       teamId: true,
-      milestoneDocumentId: true,
+      requirementId: true,
       createdAt: true,
       histories: {
         where: { event: 'SUBMITTED', revision: 1 },
@@ -43,7 +43,7 @@ async function findMatrixDocumentFirstSubmissions(
   });
   return submissions.map((submission) => ({
     teamId: submission.teamId,
-    milestoneDocumentId: submission.milestoneDocumentId,
+    milestoneDocumentId: submission.requirementId,
     firstSubmittedAt:
       submission.histories[0]?.createdAt ?? submission.createdAt,
   }));
@@ -159,13 +159,13 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
         id: true,
         name: true,
         dueAt: true,
-        documents: {
+        requirements: {
           where: { required: true },
           select: { id: true },
         },
       },
     });
-    return milestones.map(({ documents, ...milestone }) => ({
+    return milestones.map(({ requirements: documents, ...milestone }) => ({
       ...milestone,
       requiredDocumentIds: documents.map((document) => document.id),
     }));
@@ -202,46 +202,46 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     teamIds: readonly string[],
   ): Promise<readonly MatrixDocumentChangeRequest[]> {
     if (teamIds.length === 0) return [];
-    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+    const submissions = await this.prisma.submission.findMany({
       where: {
         teamId: { in: [...teamIds] },
         status: SubmissionStatus.CHANGES_REQUESTED,
-        milestoneDocument: {},
+        requirement: {},
       },
       select: {
         teamId: true,
-        milestoneDocument: { select: { milestoneId: true } },
+        requirement: { select: { milestoneId: true } },
       },
     });
     return submissions.map((submission) => ({
       teamId: submission.teamId,
-      milestoneId: submission.milestoneDocument.milestoneId,
+      milestoneId: submission.requirement.milestoneId,
     }));
   }
   async findCurrentSubmissions(
     teamIds: readonly string[],
   ): Promise<readonly MatrixSubmissionRecord[]> {
     if (teamIds.length === 0) return [];
-    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+    const submissions = await this.prisma.submission.findMany({
       where: {
         teamId: { in: [...teamIds] },
-        milestoneDocument: { required: true },
+        requirement: { required: true },
       },
       select: {
         id: true,
-        milestoneDocumentId: true,
+        requirementId: true,
         teamId: true,
         status: true,
         revision: true,
         submittedAt: true,
-        milestoneDocument: { select: { milestoneId: true } },
+        requirement: { select: { milestoneId: true } },
       },
     });
     return submissions.map((submission) => ({
       id: submission.id,
       teamId: submission.teamId,
-      milestoneId: submission.milestoneDocument.milestoneId,
-      milestoneDocumentId: submission.milestoneDocumentId,
+      milestoneId: submission.requirement.milestoneId,
+      milestoneDocumentId: submission.requirementId,
       status: submission.status,
       currentRevision: submission.revision,
       submittedAt: submission.submittedAt,

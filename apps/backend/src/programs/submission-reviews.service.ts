@@ -118,7 +118,7 @@ export class SubmissionReviewsService {
         )
       : [];
     return {
-      requirementId: row.milestoneDocument.id,
+      requirementId: row.requirement.id,
       latestReviewId:
         row.histories
           .filter((history) => SUBMISSION_REVIEW_EVENTS.includes(history.event))
@@ -136,7 +136,7 @@ export class SubmissionReviewsService {
           row.team.applicant.name ??
           row.team.applicant.nickname,
       },
-      milestone: row.milestoneDocument.milestone,
+      milestone: row.requirement.milestone,
       currentRevision: this.toRevisionRecord(current, row.histories, now),
       history: revisions
         .filter((history) => history.id !== current.id)
@@ -175,7 +175,7 @@ export class SubmissionReviewsService {
   ): Omit<RepositoryPublishEligibility, 'repositoryId'> {
     const { submissions, documentSubmissions } =
       this.milestoneCompletionService.projectSubmissionCompletionTargets(
-        application.milestoneDocumentSubmissions,
+        application.submissions,
       );
     const job = application.provisionJob;
     return {

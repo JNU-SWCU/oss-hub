@@ -34,7 +34,7 @@ const writeRepository = new MilestoneDocumentsRepository(
 beforeAll(() => fixture.start());
 beforeEach(async () => {
   await fixture.reset();
-  await fixture.prisma.milestoneDocument.update({
+  await fixture.prisma.requirement.update({
     where: { id: flowIds.document },
     data: { submissionType: 'TEXT' },
   });
@@ -115,12 +115,11 @@ it('returns the current submission and latest review through the requirement lis
 });
 it('keeps the existing public PK and history when the requirement API replaces a submission', async () => {
   expect((await fixture.submit('original content')).status).toBe(201);
-  const original =
-    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { milestoneDocumentId: flowIds.document },
-    });
+  const original = await fixture.prisma.submission.findFirstOrThrow({
+    where: { requirementId: flowIds.document },
+  });
   const publicId = 'synthetic-public-submission';
-  await fixture.prisma.milestoneDocumentSubmission.update({
+  await fixture.prisma.submission.update({
     where: { id: original.id },
     data: { id: publicId },
   });
@@ -148,9 +147,9 @@ it('keeps the existing public PK and history when the requirement API replaces a
     history: [{ number: 1 }],
   });
   expect(
-    await fixture.prisma.milestoneDocumentSubmission.count({
+    await fixture.prisma.submission.count({
       where: {
-        milestoneDocumentId: flowIds.document,
+        requirementId: flowIds.document,
         teamId: flowIds.team,
       },
     }),
@@ -183,9 +182,9 @@ it('rejects a stale requirement review after another reviewer decides the same r
   });
   expect(stale.status).toBe(409);
   expect(
-    await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+    await fixture.prisma.submissionHistory.count({
       where: {
-        submission: { milestoneDocumentId: flowIds.document },
+        submission: { requirementId: flowIds.document },
         event: { in: ['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] },
       },
     }),
@@ -211,17 +210,16 @@ it('preserves the observed revision and optional comment when two requirement cl
   ]);
   const stale = responses.find((response) => response.status === 409);
   expect(await stale?.json()).toMatchObject({ code: 'MSD_048' });
-  const submission =
-    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { milestoneDocumentId: flowIds.document },
-      select: {
-        revision: true,
-        histories: {
-          orderBy: { createdAt: 'asc' },
-          select: { revision: true, comment: true },
-        },
+  const submission = await fixture.prisma.submission.findFirstOrThrow({
+    where: { requirementId: flowIds.document },
+    select: {
+      revision: true,
+      histories: {
+        orderBy: { createdAt: 'asc' },
+        select: { revision: true, comment: true },
       },
-    });
+    },
+  });
   expect(submission).toEqual({
     revision: 2,
     histories: [
@@ -243,14 +241,13 @@ it('accepts an explicitly empty optional comment from a requirement client', asy
     },
   );
   expect(response.status).toBe(201);
-  const history =
-    await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-      where: {
-        submission: { milestoneDocumentId: flowIds.document },
-        event: 'SUBMITTED',
-      },
-      select: { comment: true },
-    });
+  const history = await fixture.prisma.submissionHistory.findFirstOrThrow({
+    where: {
+      submission: { requirementId: flowIds.document },
+      event: 'SUBMITTED',
+    },
+    select: { comment: true },
+  });
   expect(history.comment).toBeNull();
 });
 it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
@@ -271,10 +268,9 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
       },
     );
     expect(reviewed.status).toBe(201);
-    const submission =
-      await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-        where: { milestoneDocumentId: flowIds.document },
-      });
+    const submission = await fixture.prisma.submission.findFirstOrThrow({
+      where: { requirementId: flowIds.document },
+    });
     expect(submission.status).toBe(decision);
     const response = await fixture.request(
       `submissions/${submission.id}/review-context`,
@@ -289,9 +285,9 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
       },
     });
     expect(
-      await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+      await fixture.prisma.submissionHistory.count({
         where: {
-          milestoneDocumentSubmissionId: submission.id,
+          submissionId: submission.id,
           event: decision,
         },
       }),
@@ -300,17 +296,15 @@ it.each(['APPROVED', 'REJECTED', 'CHANGES_REQUESTED'] as const)(
 );
 it('rolls back the review event when updating the submission fails', async () => {
   expect((await fixture.submit('atomic rollback')).status).toBe(201);
-  const submission =
-    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { milestoneDocumentId: flowIds.document },
-    });
-  const history =
-    await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-      where: {
-        milestoneDocumentSubmissionId: submission.id,
-        event: 'SUBMITTED',
-      },
-    });
+  const submission = await fixture.prisma.submission.findFirstOrThrow({
+    where: { requirementId: flowIds.document },
+  });
+  const history = await fixture.prisma.submissionHistory.findFirstOrThrow({
+    where: {
+      submissionId: submission.id,
+      event: 'SUBMITTED',
+    },
+  });
   await expect(
     fixture.prisma.$transaction(async (transaction) => {
       await new PlatformRepository().appendSubmissionReviewEvent(transaction, {
@@ -322,23 +316,23 @@ it('rolls back the review event when updating the submission fails', async () =>
         comment: null,
         reviewedAt: new Date(),
       });
-      await transaction.milestoneDocumentSubmission.update({
+      await transaction.submission.update({
         where: { id: 'missing-submission' },
         data: { status: 'REJECTED' },
       });
     }),
   ).rejects.toMatchObject({ code: 'P2025' });
   expect(
-    await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+    await fixture.prisma.submissionHistory.count({
       where: {
-        milestoneDocumentSubmissionId: submission.id,
+        submissionId: submission.id,
         event: 'REJECTED',
       },
     }),
   ).toBe(0);
   expect(
     (
-      await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+      await fixture.prisma.submission.findUniqueOrThrow({
         where: { id: submission.id },
       })
     ).status,
@@ -370,8 +364,8 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
         throw new Error('Missing bulk version');
       expectedVersion = body.version;
     }
-    const where = { milestoneDocumentId: flowIds.document };
-    const before = await fixture.prisma.milestoneDocumentSubmission.findMany({
+    const where = { requirementId: flowIds.document };
+    const before = await fixture.prisma.submission.findMany({
       where,
       include: { histories: true },
     });
@@ -410,7 +404,7 @@ it.each(['create', 'replace', 'review', 'bulk-review'] as const)(
       operation === 'create' || operation === 'replace' ? 403 : 404,
     );
     expect(
-      await fixture.prisma.milestoneDocumentSubmission.findMany({
+      await fixture.prisma.submission.findMany({
         where,
         include: { histories: true },
       }),
@@ -439,8 +433,8 @@ it('rejects an admitted item submission if the program was deleted before its wr
     }),
   ).rejects.toBeInstanceOf(SubmissionMembershipChangedError);
   expect(
-    await fixture.prisma.milestoneDocumentSubmission.count({
-      where: { milestoneDocumentId: flowIds.document },
+    await fixture.prisma.submission.count({
+      where: { requirementId: flowIds.document },
     }),
   ).toBe(0);
 });
@@ -457,10 +451,9 @@ it('rejects a bulk review write scope if the program was deleted after admission
 });
 it('serializes review commit before program deletion with two transactions and no sleeps', async () => {
   expect((await fixture.submit('legacy delete race')).status).toBe(201);
-  const submission =
-    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { milestoneDocumentId: flowIds.document },
-    });
+  const submission = await fixture.prisma.submission.findFirstOrThrow({
+    where: { requirementId: flowIds.document },
+  });
   const repository = new SubmissionReviewsRepository(fixture.prisma, platform);
   const contender = new PrismaService();
   await contender.$connect();
@@ -548,23 +541,22 @@ it('serializes review commit before program deletion with two transactions and n
   ).toBe('DELETED');
   expect(
     (
-      await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+      await fixture.prisma.submission.findUniqueOrThrow({
         where: { id: submission.id },
       })
     ).status,
   ).toBe('APPROVED');
-  const event =
-    await fixture.prisma.milestoneDocumentSubmissionHistory.findFirstOrThrow({
-      where: {
-        milestoneDocumentSubmissionId: submission.id,
-        event: 'APPROVED',
-      },
-    });
+  const event = await fixture.prisma.submissionHistory.findFirstOrThrow({
+    where: {
+      submissionId: submission.id,
+      event: 'APPROVED',
+    },
+  });
   expect(event.revision).toBe(1);
   expect(
-    await fixture.prisma.milestoneDocumentSubmissionHistory.count({
+    await fixture.prisma.submissionHistory.count({
       where: {
-        milestoneDocumentSubmissionId: submission.id,
+        submissionId: submission.id,
         event: 'APPROVED',
         revision: 1,
       },

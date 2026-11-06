@@ -41,7 +41,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
     ]);
     const milestoneDocuments = new FakeFindManyDelegate<
       Parameters<
-        SubmissionDashboardSummaryDataSource['milestoneDocument']['findMany']
+        SubmissionDashboardSummaryDataSource['requirement']['findMany']
       >[0],
       DashboardMilestoneDocumentRow
     >([
@@ -53,26 +53,26 @@ describe('SubmissionDashboardSummaryRepository', () => {
     ]);
     const documentSubmissions = new FakeFindManyDelegate<
       Parameters<
-        SubmissionDashboardSummaryDataSource['milestoneDocumentSubmission']['findMany']
+        SubmissionDashboardSummaryDataSource['submission']['findMany']
       >[0],
       DashboardDocumentSubmissionRow
     >([
       {
         teamId: 'approved-team',
-        milestoneDocumentId: 'document-a',
+        requirementId: 'document-a',
         status: SubmissionStatus.APPROVED,
         team: { programId: 'program-a' },
-        milestoneDocument: {
+        requirement: {
           milestoneId: 'milestone-a',
           milestone: { programId: 'program-a' },
         },
       },
       {
         teamId: 'approved-team',
-        milestoneDocumentId: 'legacy-document-a',
+        requirementId: 'legacy-document-a',
         status: SubmissionStatus.SUBMITTED,
         team: { programId: 'program-a' },
-        milestoneDocument: {
+        requirement: {
           milestoneId: 'milestone-a',
           milestone: { programId: 'program-a' },
         },
@@ -81,8 +81,8 @@ describe('SubmissionDashboardSummaryRepository', () => {
     const prisma = {
       team: applications,
       milestone: milestones,
-      milestoneDocument: milestoneDocuments,
-      milestoneDocumentSubmission: documentSubmissions,
+      requirement: milestoneDocuments,
+      submission: documentSubmissions,
     } satisfies SubmissionDashboardSummaryDataSource;
     const repository = new SubmissionDashboardSummaryRepository(prisma);
     const records = await repository.listRecords(['program-a', 'program-b']);
@@ -160,7 +160,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
             status: ApplicationStatus.APPROVED,
           },
         },
-        milestoneDocument: {
+        requirement: {
           is: {
             milestone: {
               is: { programId: { in: ['program-a', 'program-b'] } },
@@ -171,10 +171,10 @@ describe('SubmissionDashboardSummaryRepository', () => {
       },
       select: {
         teamId: true,
-        milestoneDocumentId: true,
+        requirementId: true,
         status: true,
         team: { select: { programId: true } },
-        milestoneDocument: {
+        requirement: {
           select: {
             milestoneId: true,
             milestone: { select: { programId: true } },
@@ -196,21 +196,21 @@ describe('SubmissionDashboardSummaryRepository', () => {
     >([]);
     const milestoneDocuments = new FakeFindManyDelegate<
       Parameters<
-        SubmissionDashboardSummaryDataSource['milestoneDocument']['findMany']
+        SubmissionDashboardSummaryDataSource['requirement']['findMany']
       >[0],
       DashboardMilestoneDocumentRow
     >([]);
     const documentSubmissions = new FakeFindManyDelegate<
       Parameters<
-        SubmissionDashboardSummaryDataSource['milestoneDocumentSubmission']['findMany']
+        SubmissionDashboardSummaryDataSource['submission']['findMany']
       >[0],
       DashboardDocumentSubmissionRow
     >([]);
     const prisma = {
       team: applications,
       milestone: milestones,
-      milestoneDocument: milestoneDocuments,
-      milestoneDocumentSubmission: documentSubmissions,
+      requirement: milestoneDocuments,
+      submission: documentSubmissions,
     } satisfies SubmissionDashboardSummaryDataSource;
     const records = await new SubmissionDashboardSummaryRepository(
       prisma,

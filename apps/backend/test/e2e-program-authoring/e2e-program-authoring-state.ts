@@ -30,7 +30,7 @@ export async function stateForE2eProgramGraph(
   ] = await Promise.all([
     prisma.program.count({ where: { id: graph.programId } }),
     prisma.milestone.count({ where: { programId: graph.programId } }),
-    prisma.milestoneDocument.count({
+    prisma.requirement.count({
       where: { milestone: { programId: graph.programId } },
     }),
     prisma.team.count({ where: { programId: graph.programId } }),

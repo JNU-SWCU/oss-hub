@@ -286,7 +286,7 @@ function source(
         id: 'milestone-1',
         name: '최종 제출',
         dueAt: new Date('2026-08-14T12:00:00.000Z'),
-        documents: [{ id: 'required-1', required: true }],
+        requirements: [{ id: 'required-1', required: true }],
       },
     ],
     teams: [

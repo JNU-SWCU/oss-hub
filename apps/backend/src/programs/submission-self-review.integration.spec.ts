@@ -82,20 +82,19 @@ async function review(
       },
     );
   }
-  await fixture.prisma.milestoneDocument.update({
+  await fixture.prisma.requirement.update({
     where: { id: flowIds.document },
     data: {},
   });
-  const submission =
-    await fixture.prisma.milestoneDocumentSubmission.findUniqueOrThrow({
-      where: {
-        milestoneDocumentId_teamId: {
-          milestoneDocumentId: flowIds.document,
-          teamId: flowIds.team,
-        },
+  const submission = await fixture.prisma.submission.findUniqueOrThrow({
+    where: {
+      requirementId_teamId: {
+        requirementId: flowIds.document,
+        teamId: flowIds.team,
       },
-      select: { id: true },
-    });
+    },
+    select: { id: true },
+  });
   return legacyReviews.review(reviewerId, submission.id, {
     revision: 1,
     decision,
@@ -103,15 +102,14 @@ async function review(
   });
 }
 async function expectSubmissionUnchanged(): Promise<void> {
-  const submission =
-    await fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
-      where: { teamId: flowIds.team },
-      select: {
-        status: true,
-        revision: true,
-        histories: { select: { event: true } },
-      },
-    });
+  const submission = await fixture.prisma.submission.findFirstOrThrow({
+    where: { teamId: flowIds.team },
+    select: {
+      status: true,
+      revision: true,
+      histories: { select: { event: true } },
+    },
+  });
   expect(submission).toEqual({
     status: SubmissionStatus.SUBMITTED,
     revision: 1,
@@ -209,7 +207,7 @@ describe.each(paths)('%s 자기 팀 검토 차단', (path) => {
       });
       await review(path, flowGithubIds.staff, ReviewDecision.APPROVED);
       await expect(
-        fixture.prisma.milestoneDocumentSubmission.findFirstOrThrow({
+        fixture.prisma.submission.findFirstOrThrow({
           where: { teamId: flowIds.team },
           select: {
             status: true,

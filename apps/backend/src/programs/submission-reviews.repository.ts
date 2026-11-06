@@ -2,7 +2,7 @@ import { SUBMISSION_REVIEW_EVENTS } from './submission-history.config';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Injectable } from '@nestjs/common';
 import {
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   Prisma,
   SubmissionStatus,
   type Prisma as PrismaTypes,
@@ -91,7 +91,7 @@ export interface RepositoryPublishResult {
   readonly publishedAt: Date;
 }
 export interface PublishEligibilitySource {
-  readonly milestoneDocumentSubmissions: readonly SubmissionCompletionTargetRow[];
+  readonly submissions: readonly SubmissionCompletionTargetRow[];
   readonly isRepositoryPublicationPlanned: boolean;
   readonly provisionJob: {
     readonly status: RepositoryProvisionJobStatus;
@@ -101,7 +101,7 @@ export interface PublishEligibilitySource {
     readonly endAt: Date;
     readonly milestones: readonly {
       readonly id: string;
-      readonly documents: readonly {
+      readonly requirements: readonly {
         readonly id: string;
       }[];
     }[];
@@ -112,7 +112,7 @@ export interface PublishEligibilityRow {
   readonly visibility: RepositoryVisibility;
   readonly application: PublishEligibilitySource;
 }
-export type ReviewContextRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
+export type ReviewContextRow = Prisma.SubmissionGetPayload<{
   select: SubmissionReviewsRepository['REVIEW_CONTEXT_SELECT'];
 }>;
 interface CreateReviewRecordInput {
@@ -167,7 +167,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
   async findReviewContext(
     submissionId: string,
   ): Promise<ReviewContextRow | null> {
-    return this.prisma.milestoneDocumentSubmission.findUnique({
+    return this.prisma.submission.findUnique({
       where: {
         id: submissionId,
         team: { program: { lifecycle: { not: 'DELETED' } } },
@@ -196,7 +196,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
                 milestones: {
                   select: {
                     id: true,
-                    documents: {
+                    requirements: {
                       where: {
                         required: true,
                       },
@@ -206,10 +206,10 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
                 },
               },
             },
-            milestoneDocumentSubmissions: {
+            submissions: {
               select: {
                 status: true,
-                milestoneDocument: {
+                requirement: {
                   select: { id: true, milestoneId: true },
                 },
               },
@@ -240,7 +240,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
             milestones: {
               select: {
                 id: true,
-                documents: {
+                requirements: {
                   where: {
                     required: true,
                   },
@@ -250,10 +250,10 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
             },
           },
         },
-        milestoneDocumentSubmissions: {
+        submissions: {
           select: {
             status: true,
-            milestoneDocument: {
+            requirement: {
               select: { id: true, milestoneId: true },
             },
           },
@@ -267,7 +267,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         },
       },
     },
-    milestoneDocument: {
+    requirement: {
       select: { id: true, milestone: { select: { id: true, name: true } } },
     },
     histories: {
@@ -296,7 +296,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
         },
       },
     },
-  } satisfies Prisma.MilestoneDocumentSubmissionSelect;
+  } satisfies Prisma.SubmissionSelect;
   private submissionReviewTransactionStore(
     transaction: PrismaTypes.TransactionClient,
   ): SubmissionReviewTransactionStore {
@@ -315,7 +315,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     submissionId: string,
     userId: string,
   ): Promise<boolean> {
-    const submission = await transaction.milestoneDocumentSubmission.findFirst({
+    const submission = await transaction.submission.findFirst({
       where: {
         id: submissionId,
         team: this.platformRepository.programApplicationParticipantWhere(
@@ -330,7 +330,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     transaction: PrismaTypes.TransactionClient,
     submissionId: string,
   ): Promise<SubmissionReviewTarget | null> {
-    const resolved = await transaction.milestoneDocumentSubmission.findUnique({
+    const resolved = await transaction.submission.findUnique({
       where: {
         id: submissionId,
       },
@@ -360,43 +360,39 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
       WHERE "id" = ${targetId}
       FOR UPDATE
     `);
-    const submission = await transaction.milestoneDocumentSubmission.findUnique(
-      {
-        where: {
-          id: targetId,
-          team: { program: { lifecycle: { not: 'DELETED' } } },
-        },
-        select: { id: true, revision: true, status: true },
+    const submission = await transaction.submission.findUnique({
+      where: {
+        id: targetId,
+        team: { program: { lifecycle: { not: 'DELETED' } } },
       },
-    );
+      select: { id: true, revision: true, status: true },
+    });
     if (submission === null) return null;
-    const history =
-      await transaction.milestoneDocumentSubmissionHistory.findFirst({
-        where: {
-          milestoneDocumentSubmissionId: targetId,
-          revision: submission.revision,
-          event: {
-            in: [
-              MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-              MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-            ],
-          },
+    const history = await transaction.submissionHistory.findFirst({
+      where: {
+        submissionId: targetId,
+        revision: submission.revision,
+        event: {
+          in: [
+            SubmissionHistoryEvent.SUBMITTED,
+            SubmissionHistoryEvent.RESUBMITTED,
+          ],
         },
-        orderBy: { id: 'desc' },
-        select: {
-          id: true,
-        },
-      });
+      },
+      orderBy: { id: 'desc' },
+      select: {
+        id: true,
+      },
+    });
     if (history === null) return null;
-    const review =
-      await transaction.milestoneDocumentSubmissionHistory.findFirst({
-        where: {
-          milestoneDocumentSubmissionId: targetId,
-          revision: submission.revision,
-          event: { in: SUBMISSION_REVIEW_EVENTS },
-        },
-        select: { id: true },
-      });
+    const review = await transaction.submissionHistory.findFirst({
+      where: {
+        submissionId: targetId,
+        revision: submission.revision,
+        event: { in: SUBMISSION_REVIEW_EVENTS },
+      },
+      select: { id: true },
+    });
     return {
       id: submission.id,
       currentRevision: submission.revision,
@@ -422,7 +418,7 @@ export class SubmissionReviewsRepository implements SubmissionReviewsRepositoryP
     transaction: PrismaTypes.TransactionClient,
     input: TransitionSubmissionInput,
   ): Promise<boolean> {
-    const result = await transaction.milestoneDocumentSubmission.updateMany({
+    const result = await transaction.submission.updateMany({
       where: {
         id: input.submissionId,
         revision: input.expectedRevision,

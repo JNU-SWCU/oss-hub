@@ -143,7 +143,7 @@ async function seedAggregateProgram(storageKey: string): Promise<void> {
           name: `${E2E_PROGRAM_ID}:aggregate-milestone`,
           startAt: E2E_NOW,
           dueAt: AGGREGATE_MILESTONE_DUE_AT,
-          documents: {
+          requirements: {
             create: {
               id: AGGREGATE_DOCUMENT_ID,
               name: `${E2E_PROGRAM_ID}:aggregate-document`,
@@ -179,7 +179,7 @@ async function removeAggregateProgram(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'UPLOAD', programId: AGGREGATE_PROGRAM_ID },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { programId: AGGREGATE_PROGRAM_ID } },
   });
   await prisma.milestone.deleteMany({

@@ -43,7 +43,7 @@ async function cleanup(): Promise<void> {
   await prisma.file.deleteMany({
     where: { kind: 'TEMPLATE', requirement: { milestoneId } },
   });
-  await prisma.milestoneDocument.deleteMany({ where: { milestoneId } });
+  await prisma.requirement.deleteMany({ where: { milestoneId } });
   await prisma.milestone.deleteMany({ where: { id: milestoneId } });
   await prisma.program.deleteMany({ where: { id: programId } });
   await prisma.user.deleteMany({ where: { id: userId } });
@@ -170,7 +170,7 @@ describe('authenticated milestone document list filename contract', () => {
     await prisma.$disconnect();
   });
   it('returns filename states without storage metadata over authenticated HTTP', async () => {
-    await prisma.milestoneDocument.createMany({
+    await prisma.requirement.createMany({
       data: [
         {
           id: `${prefix}-with-file`,

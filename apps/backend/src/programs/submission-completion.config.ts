@@ -1,7 +1,7 @@
 import type { SubmissionStatus } from '@prisma/client';
 export interface SubmissionCompletionTargetRow {
   readonly status: SubmissionStatus;
-  readonly milestoneDocument: {
+  readonly requirement: {
     readonly id: string;
     readonly milestoneId: string;
   };

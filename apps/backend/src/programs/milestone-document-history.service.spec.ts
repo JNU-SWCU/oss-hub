@@ -6,7 +6,7 @@ import { MilestoneDocumentCollectionService } from './milestone-document-collect
 import { PlatformRepository } from '../platform/platform.repository';
 import { SubmissionsRepository } from './submissions.repository';
 import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-document-history-page-response.dto';
-import { MilestoneDocumentSubmissionHistoryEvent } from '@prisma/client';
+import { SubmissionHistoryEvent } from '@prisma/client';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { MilestoneDocumentsService } from './milestone-documents.service';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
@@ -25,7 +25,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
         items: [
           {
             id: 'history-1',
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            event: SubmissionHistoryEvent.SUBMITTED,
             revision: 1,
             actorNickname: 'synthetic-student',
             comment: null,
@@ -62,7 +62,7 @@ describe('MilestoneDocumentsService historyForStaff', () => {
     expect(result).toEqual({
       items: [
         expect.objectContaining({
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          event: SubmissionHistoryEvent.SUBMITTED,
           createdAt: '2026-09-01T00:00:00.000Z',
           content: { type: 'TEXT', text: '완료했습니다.' },
         }),
@@ -117,7 +117,7 @@ describe('MilestoneDocumentsService history download links', () => {
   function historyItem(overrides: Record<string, unknown>) {
     return {
       id: 'history-1',
-      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      event: SubmissionHistoryEvent.SUBMITTED,
       revision: 1,
       actorNickname: 'synthetic-student',
       comment: null,

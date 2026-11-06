@@ -364,7 +364,7 @@ export class E2eProgramAuthoringAdapter implements E2eProgramAuthoringPort {
       await transaction.file.deleteMany({
         where: { kind: 'UPLOAD', id: { in: files.map((upload) => upload.id) } },
       });
-      await transaction.milestoneDocument.deleteMany({
+      await transaction.requirement.deleteMany({
         where: { milestone: { programId: program.id } },
       });
       await transaction.milestone.deleteMany({

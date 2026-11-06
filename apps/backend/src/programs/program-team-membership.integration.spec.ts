@@ -7,7 +7,7 @@ import { ProgramTeamRepositoryEvidenceRepository } from './program-team-reposito
 import { randomUUID } from 'node:crypto';
 import {
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   ProgramCategory,
   ProgramTrackType,
   FileLifecycle,
@@ -113,10 +113,10 @@ async function cleanupTeamScope(): Promise<void> {
     where: { kind: 'SUBMISSION', uploaderId: { startsWith: TEST_PREFIX } },
   });
 
-  await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+  await prisma.submissionHistory.deleteMany({
     where: { submission: { team: { programId: PROGRAM_ID } } },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { team: { programId: PROGRAM_ID } },
   });
   await prisma.teamInvitation.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -181,7 +181,7 @@ async function seedDurableFixturesOnce(): Promise<void> {
       dueAt: new Date('2026-09-30T00:00:00.000Z'),
     },
   });
-  await prisma.milestoneDocument.upsert({
+  await prisma.requirement.upsert({
     where: { id: MILESTONE_DOCUMENT_ID },
     update: {},
     create: {
@@ -252,10 +252,10 @@ async function seedSubmittedDocument(
 ): Promise<SubmittedDocument> {
   const submissionId = `${teamId}:submission`;
   const historyId = `${teamId}:history`;
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       id: submissionId,
-      milestoneDocumentId: MILESTONE_DOCUMENT_ID,
+      requirementId: MILESTONE_DOCUMENT_ID,
       teamId,
       submittedById: submitterId,
       revision: 1,
@@ -263,7 +263,7 @@ async function seedSubmittedDocument(
       histories: {
         create: {
           id: historyId,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           actorId: submitterId,
         },
@@ -566,7 +566,7 @@ describe('program team membership transactions integration', () => {
     ).resolves.toEqual({ id: teamId, applicantId: LEADER_ID });
 
     await expect(
-      prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+      prisma.submission.findUniqueOrThrow({
         where: { id: submitted.submissionId },
         select: { teamId: true, submittedById: true, status: true },
       }),
@@ -576,10 +576,10 @@ describe('program team membership transactions integration', () => {
       status: SubmissionStatus.SUBMITTED,
     });
     await expect(
-      prisma.milestoneDocumentSubmissionHistory.findUniqueOrThrow({
+      prisma.submissionHistory.findUniqueOrThrow({
         where: { id: submitted.historyId },
         select: {
-          milestoneDocumentSubmissionId: true,
+          submissionId: true,
           actorId: true,
           event: true,
         },
@@ -587,7 +587,7 @@ describe('program team membership transactions integration', () => {
     ).resolves.toEqual({
       milestoneDocumentSubmissionId: submitted.submissionId,
       actorId: MEMBER_A_ID,
-      event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      event: SubmissionHistoryEvent.SUBMITTED,
     });
     await expect(
       prisma.file.findUniqueOrThrow({
@@ -643,12 +643,12 @@ describe('program team membership transactions integration', () => {
     await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(1);
     await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(1);
     await expect(
-      prisma.milestoneDocumentSubmission.count({
+      prisma.submission.count({
         where: { id: submitted.submissionId },
       }),
     ).resolves.toBe(1);
     await expect(
-      prisma.milestoneDocumentSubmissionHistory.count({
+      prisma.submissionHistory.count({
         where: { id: submitted.historyId },
       }),
     ).resolves.toBe(1);
@@ -917,7 +917,7 @@ describe('program team membership transactions integration', () => {
     ).resolves.toEqual({ leaderId: LEADER_ID });
     expect(await rosterOf(teamId)).toEqual([LEADER_ID]);
     await expect(
-      prisma.milestoneDocumentSubmissionHistory.count({
+      prisma.submissionHistory.count({
         where: { id: submitted.historyId },
       }),
     ).resolves.toBe(1);
@@ -993,7 +993,7 @@ describe('program team membership transactions integration', () => {
 
     await expect(prisma.team.count({ where: { id: teamId } })).resolves.toBe(1);
     await expect(
-      prisma.milestoneDocumentSubmission.count({
+      prisma.submission.count({
         where: { id: submitted.submissionId },
       }),
     ).resolves.toBe(1);

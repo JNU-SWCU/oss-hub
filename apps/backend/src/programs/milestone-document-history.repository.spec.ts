@@ -3,11 +3,7 @@ import { MilestoneDocumentCollectionReadRepository } from './milestone-document-
 import { SubmissionsRepository } from './submissions.repository';
 import { PlatformRepository } from '../platform/platform.repository';
 import { LockProgramTreeRepository } from '../platform/lock-program-tree.repository';
-import {
-  MilestoneDocumentSubmissionHistoryEvent,
-  Prisma,
-  FileLifecycle,
-} from '@prisma/client';
+import { SubmissionHistoryEvent, Prisma, FileLifecycle } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { MilestoneDocumentsRepository } from './milestone-documents.repository';
 import { InvalidMilestoneDocumentHistoryCursorError } from './milestone-documents.error';
@@ -31,7 +27,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     const oldest = new Date('2026-09-01T00:00:00.000Z');
     const row = (id: string, createdAt: Date) => ({
       id,
-      event: MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+      event: SubmissionHistoryEvent.RESUBMITTED,
       revision: Number(id.at(-1)),
       comment: null,
       content: Prisma.JsonNull,
@@ -48,8 +44,8 @@ describe('MilestoneDocumentsRepository history page', () => {
       ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: { findUnique },
-        milestoneDocumentSubmissionHistory: {
+        submission: { findUnique },
+        submissionHistory: {
           findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
           findMany,
         },
@@ -62,8 +58,8 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: { findUnique },
-          milestoneDocumentSubmissionHistory: {
+          submission: { findUnique },
+          submissionHistory: {
             findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
             findMany,
           },
@@ -98,10 +94,10 @@ describe('MilestoneDocumentsRepository history page', () => {
     const findMany = jest.fn().mockResolvedValue([]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord()),
         },
-        milestoneDocumentSubmissionHistory: {
+        submissionHistory: {
           findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
           findMany,
         },
@@ -114,10 +110,10 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord()),
           },
-          milestoneDocumentSubmissionHistory: {
+          submissionHistory: {
             findFirst: jest.fn().mockResolvedValue({ id: 'history-2' }),
             findMany,
           },
@@ -143,10 +139,10 @@ describe('MilestoneDocumentsRepository history page', () => {
     const findMany = jest.fn();
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord()),
         },
-        milestoneDocumentSubmissionHistory: {
+        submissionHistory: {
           findFirst: jest.fn().mockResolvedValue(null),
           findMany,
         },
@@ -159,10 +155,10 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord()),
           },
-          milestoneDocumentSubmissionHistory: {
+          submissionHistory: {
             findFirst: jest.fn().mockResolvedValue(null),
             findMany,
           },
@@ -188,7 +184,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     const older = new Date('2026-09-02T00:00:00.000Z');
     const row = (
       id: string,
-      event: MilestoneDocumentSubmissionHistoryEvent,
+      event: SubmissionHistoryEvent,
       createdAt: Date,
     ) => ({
       id,
@@ -202,17 +198,17 @@ describe('MilestoneDocumentsRepository history page', () => {
     });
     const submission = row(
       'history-submission',
-      MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+      SubmissionHistoryEvent.RESUBMITTED,
       tied,
     );
     const decision = row(
       'history-decision',
-      MilestoneDocumentSubmissionHistoryEvent.APPROVED,
+      SubmissionHistoryEvent.APPROVED,
       tied,
     );
     const olderSubmission = row(
       'history-older',
-      MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+      SubmissionHistoryEvent.SUBMITTED,
       older,
     );
     const findMany = jest
@@ -221,10 +217,10 @@ describe('MilestoneDocumentsRepository history page', () => {
       .mockResolvedValueOnce([olderSubmission]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord()),
         },
-        milestoneDocumentSubmissionHistory: {
+        submissionHistory: {
           findFirst: jest.fn().mockResolvedValue({ id: 'history-submission' }),
           findMany,
         },
@@ -237,10 +233,10 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord()),
           },
-          milestoneDocumentSubmissionHistory: {
+          submissionHistory: {
             findFirst: jest
               .fn()
               .mockResolvedValue({ id: 'history-submission' }),
@@ -285,7 +281,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         id: 'history-1',
-        event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+        event: SubmissionHistoryEvent.SUBMITTED,
         revision: 1,
         comment: null,
         content: Prisma.JsonNull,
@@ -303,10 +299,10 @@ describe('MilestoneDocumentsRepository history page', () => {
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
         },
-        milestoneDocumentSubmissionHistory: {
+        submissionHistory: {
           findFirst: jest.fn(),
           findMany,
         },
@@ -319,10 +315,10 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
           },
-          milestoneDocumentSubmissionHistory: {
+          submissionHistory: {
             findFirst: jest.fn(),
             findMany,
           },
@@ -362,7 +358,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         id: 'history-1',
-        event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+        event: SubmissionHistoryEvent.SUBMITTED,
         revision: 1,
         comment: null,
         content: Prisma.JsonNull,
@@ -380,10 +376,10 @@ describe('MilestoneDocumentsRepository history page', () => {
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
         },
-        milestoneDocumentSubmissionHistory: {
+        submissionHistory: {
           findFirst: jest.fn(),
           findMany,
         },
@@ -396,10 +392,10 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
           },
-          milestoneDocumentSubmissionHistory: {
+          submissionHistory: {
             findFirst: jest.fn(),
             findMany,
           },
@@ -430,7 +426,7 @@ describe('MilestoneDocumentsRepository history page', () => {
     const findMany = jest.fn().mockResolvedValue([
       {
         id: 'history-1',
-        event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+        event: SubmissionHistoryEvent.SUBMITTED,
         revision: 1,
         comment: null,
         content: Prisma.JsonNull,
@@ -448,10 +444,10 @@ describe('MilestoneDocumentsRepository history page', () => {
     ]);
     const repository = new MilestoneDocumentsRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
         },
-        milestoneDocumentSubmissionHistory: {
+        submissionHistory: {
           findFirst: jest.fn(),
           findMany,
         },
@@ -464,10 +460,10 @@ describe('MilestoneDocumentsRepository history page', () => {
       ),
       new MilestoneDocumentCollectionReadRepository(
         {
-          milestoneDocumentSubmission: {
+          submission: {
             findUnique: jest.fn().mockResolvedValue(submissionRecord(1, 1)),
           },
-          milestoneDocumentSubmissionHistory: {
+          submissionHistory: {
             findFirst: jest.fn(),
             findMany,
           },

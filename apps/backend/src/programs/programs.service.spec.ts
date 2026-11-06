@@ -36,8 +36,8 @@ const publicProgram = {
       startAt: new Date('2026-07-01T00:00:00+09:00'),
       dueAt: new Date('2026-07-21T23:59:59+09:00'),
       instructions: '설명',
-      documents: [{ id: 'today-item' }],
-      _count: { documents: 1 },
+      requirements: [{ id: 'today-item' }],
+      _count: { requirements: 1 },
     },
     {
       id: 'overdue',
@@ -45,8 +45,8 @@ const publicProgram = {
       startAt: new Date('2026-07-01T00:00:00+09:00'),
       dueAt: new Date('2026-07-20T23:59:59+09:00'),
       instructions: null,
-      documents: [{ id: 'overdue-item' }],
-      _count: { documents: 1 },
+      requirements: [{ id: 'overdue-item' }],
+      _count: { requirements: 1 },
     },
   ],
 };
@@ -126,10 +126,10 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: 'APPROVED',
-      milestoneDocumentSubmissions: [
+      submissions: [
         {
           status: SubmissionStatus.REJECTED,
-          milestoneDocument: {
+          requirement: {
             id: 'today-item',
             milestoneId: 'today',
           },
@@ -150,7 +150,7 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
-      milestoneDocumentSubmissions: [],
+      submissions: [],
     });
     const viewer: ProgramViewer = {
       githubId: 1n,
@@ -166,10 +166,10 @@ describe('ProgramsService detail', () => {
       select: {
         id: true,
         status: true,
-        milestoneDocumentSubmissions: {
+        submissions: {
           select: {
             status: true,
-            milestoneDocument: {
+            requirement: {
               select: { id: true, milestoneId: true },
             },
           },
@@ -203,10 +203,10 @@ describe('ProgramsService detail', () => {
     const { service, findMany } = createService();
     findMany.mockResolvedValue([
       {
-        milestoneDocumentSubmissions: [
+        submissions: [
           {
             status: SubmissionStatus.SUBMITTED,
-            milestoneDocument: {
+            requirement: {
               id: 'today-item',
               milestoneId: 'today',
             },
@@ -214,17 +214,17 @@ describe('ProgramsService detail', () => {
         ],
       },
       {
-        milestoneDocumentSubmissions: [
+        submissions: [
           {
             status: SubmissionStatus.CHANGES_REQUESTED,
-            milestoneDocument: {
+            requirement: {
               id: 'today-item',
               milestoneId: 'today',
             },
           },
         ],
       },
-      { milestoneDocumentSubmissions: [] },
+      { submissions: [] },
     ]);
     const viewer: ProgramViewer = {
       githubId: 2n,
@@ -243,7 +243,7 @@ describe('ProgramsService detail', () => {
   });
   it('교직원 제출 요약은 승인된 신청만 분모에 포함한다', async () => {
     const { service, findMany } = createService();
-    findMany.mockResolvedValue([{ milestoneDocumentSubmissions: [] }]);
+    findMany.mockResolvedValue([{ submissions: [] }]);
     const viewer: ProgramViewer = {
       githubId: 2n,
       userId: 'staff-1',
@@ -256,10 +256,10 @@ describe('ProgramsService detail', () => {
         status: ApplicationStatus.APPROVED,
       },
       select: {
-        milestoneDocumentSubmissions: {
+        submissions: {
           select: {
             status: true,
-            milestoneDocument: {
+            requirement: {
               select: { id: true, milestoneId: true },
             },
           },
@@ -276,17 +276,17 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
-      milestoneDocumentSubmissions: [
+      submissions: [
         {
           status: SubmissionStatus.APPROVED,
-          milestoneDocument: {
+          requirement: {
             id: 'doc-1',
             milestoneId: 'today',
           },
         },
         {
           status: SubmissionStatus.APPROVED,
-          milestoneDocument: {
+          requirement: {
             id: 'doc-2',
             milestoneId: 'today',
           },
@@ -307,10 +307,10 @@ describe('ProgramsService detail', () => {
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
-      milestoneDocumentSubmissions: [
+      submissions: [
         {
           status: SubmissionStatus.APPROVED,
-          milestoneDocument: {
+          requirement: {
             id: 'doc-1',
             milestoneId: 'today',
           },
@@ -330,24 +330,24 @@ describe('ProgramsService detail', () => {
     findUnique.mockResolvedValue(programWithRequiredDocuments());
     findMany.mockResolvedValue([
       {
-        milestoneDocumentSubmissions: [
+        submissions: [
           {
             status: SubmissionStatus.APPROVED,
-            milestoneDocument: {
+            requirement: {
               id: 'doc-1',
               milestoneId: 'today',
             },
           },
           {
             status: SubmissionStatus.APPROVED,
-            milestoneDocument: {
+            requirement: {
               id: 'doc-2',
               milestoneId: 'today',
             },
           },
         ],
       },
-      { milestoneDocumentSubmissions: [] },
+      { submissions: [] },
     ]);
     const viewer: ProgramViewer = {
       githubId: 2n,
@@ -371,15 +371,15 @@ describe('ProgramsService detail', () => {
       milestones: [
         {
           ...publicProgram.milestones[0],
-          documents: [],
-          _count: { documents: 0 },
+          requirements: [],
+          _count: { requirements: 0 },
         },
       ],
     });
     findFirst.mockResolvedValue({
       id: 'application-1',
       status: ApplicationStatus.APPROVED,
-      milestoneDocumentSubmissions: [],
+      submissions: [],
     });
     const detail = await service.detail('program-1', {
       githubId: 1n,
@@ -400,8 +400,8 @@ function programWithRequiredDocuments() {
       index === 0
         ? {
             ...milestone,
-            documents: [{ id: 'doc-1' }, { id: 'doc-2' }],
-            _count: { documents: 2 },
+            requirements: [{ id: 'doc-1' }, { id: 'doc-2' }],
+            _count: { requirements: 2 },
           }
         : milestone,
     ),

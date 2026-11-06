@@ -25,7 +25,7 @@ function singleRequirementSubmission(
 ) {
   return {
     status,
-    milestoneDocument: {
+    requirement: {
       id: `${milestoneId}-legacy-slot`,
       milestoneId,
     },
@@ -38,7 +38,7 @@ function documentSubmission(
 ) {
   return {
     status,
-    milestoneDocument: {
+    requirement: {
       id: documentId,
       milestoneId,
     },
@@ -49,7 +49,7 @@ function singleRequirementMilestone(id: string, name: string, dueAt: Date) {
     id,
     name,
     dueAt,
-    documents: [{ id: `${id}-legacy-slot`, graceDueAt: null }],
+    requirements: [{ id: `${id}-legacy-slot`, graceDueAt: null }],
   };
 }
 function documentMilestone(
@@ -62,7 +62,7 @@ function documentMilestone(
     id,
     name,
     dueAt,
-    documents: requiredDocumentIds.map((documentId) => ({
+    requirements: requiredDocumentIds.map((documentId) => ({
       id: documentId,
       graceDueAt: null,
     })),
@@ -85,7 +85,7 @@ function application(
     program: program([
       singleRequirementMilestone('milestone-1', 'First milestone', DUE_AT),
     ]),
-    milestoneDocumentSubmissions: [],
+    submissions: [],
     ...overrides,
   };
 }
@@ -114,7 +114,7 @@ describe('StudentDashboardService', () => {
     const submittedGrace = new Date('2026-08-06T00:00:00.000Z');
     const milestone = {
       ...documentMilestone('milestone-1', 'First milestone', DUE_AT, []),
-      documents: [
+      requirements: [
         { id: 'missing', graceDueAt: grace },
         { id: 'missing-earlier', graceDueAt: SECOND_DUE_AT },
         { id: 'submitted', graceDueAt: submittedGrace },
@@ -124,7 +124,7 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([
       application({
         program: program([milestone]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'submitted',
@@ -147,7 +147,7 @@ describe('StudentDashboardService', () => {
   it('does not extend a missing item with a submitted document grace period', async () => {
     const milestone = {
       ...documentMilestone('milestone-1', 'First milestone', DUE_AT, []),
-      documents: [
+      requirements: [
         { id: 'missing', graceDueAt: null },
         { id: 'submitted', graceDueAt: SECOND_DUE_AT },
       ],
@@ -155,7 +155,7 @@ describe('StudentDashboardService', () => {
     findParticipatingApplications.mockResolvedValue([
       application({
         program: program([milestone]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'submitted',
@@ -296,7 +296,7 @@ describe('StudentDashboardService', () => {
           singleRequirementMilestone('milestone-1', 'First', DUE_AT),
           singleRequirementMilestone('milestone-2', 'Second', SECOND_DUE_AT),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           singleRequirementSubmission('milestone-1', SubmissionStatus.APPROVED),
           singleRequirementSubmission(
             'milestone-2',
@@ -306,7 +306,7 @@ describe('StudentDashboardService', () => {
       }),
       application({
         id: 'application-2',
-        milestoneDocumentSubmissions: [
+        submissions: [
           singleRequirementSubmission('milestone-1', SubmissionStatus.APPROVED),
         ],
       }),
@@ -330,7 +330,7 @@ describe('StudentDashboardService', () => {
             'document-3',
           ]),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -362,7 +362,7 @@ describe('StudentDashboardService', () => {
             'document-3',
           ]),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -396,7 +396,7 @@ describe('StudentDashboardService', () => {
             'document-2',
           ]),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -428,10 +428,10 @@ describe('StudentDashboardService', () => {
               'First milestone',
               DUE_AT,
             ),
-            documents: [{ id: 'document-1', graceDueAt: null }],
+            requirements: [{ id: 'document-1', graceDueAt: null }],
           },
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -477,7 +477,7 @@ describe('StudentDashboardService', () => {
             'document-5',
           ]),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -521,7 +521,7 @@ describe('StudentDashboardService', () => {
             'document-1',
           ]),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'optional-document',
@@ -563,7 +563,7 @@ describe('StudentDashboardService', () => {
           documentMilestone('milestone-1', 'Report', DUE_AT, ['document-1']),
           documentMilestone('milestone-2', 'Closing notice', SECOND_DUE_AT, []),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -596,7 +596,7 @@ describe('StudentDashboardService', () => {
             'document-5',
           ]),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -639,7 +639,7 @@ describe('StudentDashboardService', () => {
             'document-5',
           ]),
         ]),
-        milestoneDocumentSubmissions: [
+        submissions: [
           documentSubmission(
             'milestone-1',
             'document-1',
@@ -676,7 +676,7 @@ describe('StudentDashboardService', () => {
       findParticipatingApplications.mockResolvedValue([
         application({
           status,
-          milestoneDocumentSubmissions: [
+          submissions: [
             singleRequirementSubmission(
               'milestone-1',
               SubmissionStatus.APPROVED,
@@ -839,10 +839,10 @@ describe('StudentDashboardRepository', () => {
     await repository.findParticipatingApplications(101n);
 
     const [args] = findMany.mock.calls[0] as [Prisma.TeamFindManyArgs];
-    expect(args.select?.milestoneDocumentSubmissions).toEqual({
+    expect(args.select?.submissions).toEqual({
       select: {
         status: true,
-        milestoneDocument: { select: { id: true, milestoneId: true } },
+        requirement: { select: { id: true, milestoneId: true } },
       },
     });
     expect(args.select?.name).toBe(true);

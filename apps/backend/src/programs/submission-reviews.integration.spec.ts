@@ -169,27 +169,27 @@ describe('SubmissionReviewsService integration', () => {
   });
   beforeEach(() => github.publishRepository.mockReset());
   afterAll(async () => {
-    await prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    await prisma.submissionHistory.deleteMany({
       where: {
         submission: {
-          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
+          requirement: { milestone: { programId: PROGRAM_ID } },
         },
       },
     });
-    await prisma.milestoneDocumentSubmission.deleteMany({
-      where: { milestoneDocument: { milestone: { programId: PROGRAM_ID } } },
+    await prisma.submission.deleteMany({
+      where: { requirement: { milestone: { programId: PROGRAM_ID } } },
     });
     await prisma.file.deleteMany({
       where: {
         kind: 'SUBMISSION',
         submission: {
-          milestoneDocument: { milestone: { programId: PROGRAM_ID } },
+          requirement: { milestone: { programId: PROGRAM_ID } },
         },
       },
     });
     await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
     await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
-    await prisma.milestoneDocument.deleteMany({
+    await prisma.requirement.deleteMany({
       where: { milestone: { programId: PROGRAM_ID } },
     });
     await prisma.milestone.deleteMany({ where: { programId: PROGRAM_ID } });
@@ -239,7 +239,7 @@ describe('SubmissionReviewsService integration', () => {
       comment: null,
     });
     await expect(
-      prisma.milestoneDocumentSubmission.findUniqueOrThrow({
+      prisma.submission.findUniqueOrThrow({
         where: { id: EXISTING_SUBMISSION_ID },
         select: {
           status: true,

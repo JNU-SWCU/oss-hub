@@ -78,7 +78,7 @@ export function givenRepository(
       repositoryProvisioningEnabled: true,
       milestones: [],
     },
-    milestoneDocumentSubmissions: [],
+    submissions: [],
   });
   historyQuery.mockResolvedValue([]);
   provisionFindUnique.mockResolvedValue(null);

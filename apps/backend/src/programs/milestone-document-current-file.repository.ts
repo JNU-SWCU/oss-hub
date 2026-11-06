@@ -15,16 +15,16 @@ const currentFileSelect = {
       submissionHistory: { select: { revision: true } },
     },
   },
-} satisfies Prisma.MilestoneDocumentSubmissionSelect;
+} satisfies Prisma.SubmissionSelect;
 
-type CurrentFileRow = Prisma.MilestoneDocumentSubmissionGetPayload<{
+type CurrentFileRow = Prisma.SubmissionGetPayload<{
   select: typeof currentFileSelect;
 }>;
 
 interface CurrentFilePrisma {
-  readonly milestoneDocumentSubmission: {
+  readonly submission: {
     findFirst(
-      args: Prisma.MilestoneDocumentSubmissionFindFirstArgs,
+      args: Prisma.SubmissionFindFirstArgs,
     ): Promise<CurrentFileRow | null>;
   };
 }
@@ -61,10 +61,10 @@ export class MilestoneDocumentCurrentFileRepository implements MilestoneDocument
       accountStatus: AccountStatus.ACTIVE,
       ...STUDENT_MEMBER_WHERE,
     } satisfies Prisma.UserWhereInput;
-    const submission = await this.prisma.milestoneDocumentSubmission.findFirst({
+    const submission = await this.prisma.submission.findFirst({
       where: {
-        milestoneDocumentId: documentId,
-        milestoneDocument: {
+        requirementId: documentId,
+        requirement: {
           is: {
             milestoneId,
           },

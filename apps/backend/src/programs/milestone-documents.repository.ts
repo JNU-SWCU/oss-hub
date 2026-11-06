@@ -20,7 +20,7 @@ import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   Prisma,
   type ReviewDecision,
   FileLifecycle,
@@ -78,7 +78,7 @@ export interface MilestoneDocumentSubmissionCoordinate {
   readonly teamId: string;
 }
 interface MilestoneDocumentCollectionHistoryRecord {
-  readonly event: MilestoneDocumentSubmissionHistoryEvent;
+  readonly event: SubmissionHistoryEvent;
   readonly revision: number | null;
   readonly actorNickname: string;
   readonly comment: string | null;
@@ -247,7 +247,7 @@ const documentRecordSelect = {
     take: 1,
     select: { id: true, originalFileName: true },
   },
-} satisfies Prisma.MilestoneDocumentSelect;
+} satisfies Prisma.RequirementSelect;
 function toDocumentRecord(row: {
   id: string;
   milestoneId: string;
@@ -311,8 +311,8 @@ function countSubmissionsForDocumentWith(
   client: Prisma.TransactionClient,
   documentId: string,
 ): Promise<number> {
-  return client.milestoneDocumentSubmission.count({
-    where: { milestoneDocumentId: documentId },
+  return client.submission.count({
+    where: { requirementId: documentId },
   });
 }
 type MilestoneDocumentWriteScope = {
@@ -341,16 +341,24 @@ export class MilestoneDocumentsRepository {
     teamIds: readonly string[],
   ): Promise<readonly ProgramDocumentChangeRequestCandidate[]> {
     if (teamIds.length === 0) return Promise.resolve([]);
-    return this.prisma.milestoneDocumentSubmission.findMany({
-      where: {
-        teamId: { in: [...teamIds] },
-        milestoneDocument: {
-          milestone: { programId },
+    return this.prisma.submission
+      .findMany({
+        where: {
+          teamId: { in: [...teamIds] },
+          requirement: {
+            milestone: { programId },
+          },
         },
-      },
-      orderBy: { id: 'asc' },
-      select: { milestoneDocumentId: true, teamId: true, status: true },
-    });
+        orderBy: { id: 'asc' },
+        select: { requirementId: true, teamId: true, status: true },
+      })
+      .then((rows) =>
+        rows.map(({ requirementId, teamId, status }) => ({
+          milestoneDocumentId: requirementId,
+          teamId,
+          status,
+        })),
+      );
   }
   withCollectionSnapshot<T>(
     operation: (store: MilestoneDocumentCollectionReadStore) => Promise<T>,
@@ -364,7 +372,7 @@ export class MilestoneDocumentsRepository {
   async findByMilestoneId(
     milestoneId: string,
   ): Promise<MilestoneDocumentRecord[]> {
-    const documents = await this.prisma.milestoneDocument.findMany({
+    const documents = await this.prisma.requirement.findMany({
       where: {
         milestoneId,
       },
@@ -410,7 +418,7 @@ export class MilestoneDocumentsRepository {
   async findDocumentContext(
     documentId: string,
   ): Promise<MilestoneDocumentContext | null> {
-    const document = await this.prisma.milestoneDocument.findFirst({
+    const document = await this.prisma.requirement.findFirst({
       where: { id: documentId },
       select: {
         id: true,
@@ -462,13 +470,13 @@ export class MilestoneDocumentsRepository {
     now: Date = new Date(),
   ): Promise<readonly MilestoneDocumentSubmissionSummary[]> {
     if (documentIds.length === 0) return [];
-    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+    const submissions = await this.prisma.submission.findMany({
       where: {
         teamId,
-        milestoneDocumentId: { in: [...documentIds] },
+        requirementId: { in: [...documentIds] },
       },
       select: {
-        milestoneDocumentId: true,
+        requirementId: true,
         submittedAt: true,
         revision: true,
         status: true,
@@ -478,8 +486,8 @@ export class MilestoneDocumentsRepository {
               where: {
                 event: {
                   in: [
-                    MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                    MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
+                    SubmissionHistoryEvent.SUBMITTED,
+                    SubmissionHistoryEvent.RESUBMITTED,
                   ],
                 },
               },
@@ -509,7 +517,7 @@ export class MilestoneDocumentsRepository {
           ? (submission.files[0] ?? null)
           : null;
       return {
-        milestoneDocumentId: submission.milestoneDocumentId,
+        milestoneDocumentId: submission.requirementId,
         submittedAt: submission.submittedAt,
         revision: submission.revision,
         status: submission.status,
@@ -532,15 +540,14 @@ export class MilestoneDocumentsRepository {
     milestoneDocumentId: string,
     teamId: string,
   ): Promise<LatestMilestoneDocumentReview | null> {
-    const review =
-      await this.prisma.milestoneDocumentSubmissionHistory.findFirst({
-        where: {
-          submission: { milestoneDocumentId, teamId },
-          event: { in: SUBMISSION_REVIEW_EVENTS },
-        },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        select: { id: true, event: true },
-      });
+    const review = await this.prisma.submissionHistory.findFirst({
+      where: {
+        submission: { requirementId: milestoneDocumentId, teamId },
+        event: { in: SUBMISSION_REVIEW_EVENTS },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { id: true, event: true },
+    });
     return review === null
       ? null
       : {
@@ -555,50 +562,47 @@ export class MilestoneDocumentsRepository {
     limit: number,
     now: Date = new Date(),
   ): Promise<MilestoneDocumentHistoryPage | null> {
-    const submission = await this.prisma.milestoneDocumentSubmission.findUnique(
-      {
-        where: {
-          milestoneDocumentId_teamId: {
-            milestoneDocumentId,
-            teamId,
-          },
+    const submission = await this.prisma.submission.findUnique({
+      where: {
+        requirementId_teamId: {
+          requirementId: milestoneDocumentId,
+          teamId,
         },
-        select: {
-          id: true,
-          revision: true,
-          _count: {
-            select: {
-              histories: {
-                where: {
-                  event: {
-                    in: [
-                      MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                      MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-                    ],
-                  },
+      },
+      select: {
+        id: true,
+        revision: true,
+        _count: {
+          select: {
+            histories: {
+              where: {
+                event: {
+                  in: [
+                    SubmissionHistoryEvent.SUBMITTED,
+                    SubmissionHistoryEvent.RESUBMITTED,
+                  ],
                 },
               },
             },
           },
         },
       },
-    );
+    });
     if (submission === null) return null;
     if (cursor !== null) {
-      const scopedCursor =
-        await this.prisma.milestoneDocumentSubmissionHistory.findFirst({
-          where: {
-            id: cursor,
-            milestoneDocumentSubmissionId: submission.id,
-          },
-          select: { id: true },
-        });
+      const scopedCursor = await this.prisma.submissionHistory.findFirst({
+        where: {
+          id: cursor,
+          submissionId: submission.id,
+        },
+        select: { id: true },
+      });
       if (scopedCursor === null) {
         throw new InvalidMilestoneDocumentHistoryCursorError();
       }
     }
-    const rows = await this.prisma.milestoneDocumentSubmissionHistory.findMany({
-      where: { milestoneDocumentSubmissionId: submission.id },
+    const rows = await this.prisma.submissionHistory.findMany({
+      where: { submissionId: submission.id },
       orderBy:
         this.milestoneDocumentCollectionReadRepository
           .milestoneDocumentHistoryDescendingOrderBy,
@@ -658,17 +662,15 @@ export class MilestoneDocumentsRepository {
     documentIds: readonly string[],
   ): Promise<ReadonlyMap<string, number>> {
     if (documentIds.length === 0) return new Map();
-    const grouped = await this.prisma.milestoneDocumentSubmission.groupBy({
-      by: ['milestoneDocumentId'],
+    const grouped = await this.prisma.submission.groupBy({
+      by: ['requirementId'],
       where: {
-        milestoneDocumentId: { in: [...documentIds] },
+        requirementId: { in: [...documentIds] },
         team: { programId, status: ApplicationStatus.APPROVED },
       },
       _count: { _all: true },
     });
-    return new Map(
-      grouped.map((row) => [row.milestoneDocumentId, row._count._all]),
-    );
+    return new Map(grouped.map((row) => [row.requirementId, row._count._all]));
   }
   async findApprovedApplicationsForCollection(
     programId: string,
@@ -691,10 +693,14 @@ export class MilestoneDocumentsRepository {
     documentIds: readonly string[],
   ): Promise<readonly MilestoneDocumentSubmissionCoordinate[]> {
     if (documentIds.length === 0) return [];
-    return this.prisma.milestoneDocumentSubmission.findMany({
-      where: { milestoneDocumentId: { in: [...documentIds] } },
-      select: { milestoneDocumentId: true, teamId: true },
+    const rows = await this.prisma.submission.findMany({
+      where: { requirementId: { in: [...documentIds] } },
+      select: { requirementId: true, teamId: true },
     });
+    return rows.map(({ requirementId, teamId }) => ({
+      milestoneDocumentId: requirementId,
+      teamId,
+    }));
   }
   async findSubmissionsForCollection(
     documentIds: readonly string[],
@@ -702,13 +708,13 @@ export class MilestoneDocumentsRepository {
     teamIds?: readonly string[],
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds?.length === 0) return [];
-    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
+    const submissions = await this.prisma.submission.findMany({
       where: {
-        milestoneDocumentId: { in: [...documentIds] },
+        requirementId: { in: [...documentIds] },
         ...(teamIds === undefined ? {} : { teamId: { in: [...teamIds] } }),
       },
       select: {
-        milestoneDocumentId: true,
+        requirementId: true,
         teamId: true,
         submittedAt: true,
         revision: true,
@@ -748,7 +754,7 @@ export class MilestoneDocumentsRepository {
             }
           : null;
       return {
-        milestoneDocumentId: submission.milestoneDocumentId,
+        milestoneDocumentId: submission.requirementId,
         teamId: submission.teamId,
         submittedAt: submission.submittedAt,
         revision: submission.revision,
@@ -772,10 +778,10 @@ export class MilestoneDocumentsRepository {
     now: Date,
   ): Promise<readonly MilestoneDocumentArchiveSubmissionRecord[]> {
     if (documentIds.length === 0) return [];
-    const submissions = await this.prisma.milestoneDocumentSubmission.findMany({
-      where: { milestoneDocumentId: { in: [...documentIds] } },
+    const submissions = await this.prisma.submission.findMany({
+      where: { requirementId: { in: [...documentIds] } },
       select: {
-        milestoneDocumentId: true,
+        requirementId: true,
         teamId: true,
         submittedAt: true,
         revision: true,
@@ -817,7 +823,7 @@ export class MilestoneDocumentsRepository {
             }
           : null;
       return {
-        milestoneDocumentId: submission.milestoneDocumentId,
+        milestoneDocumentId: submission.requirementId,
         teamId: submission.teamId,
         submittedAt: submission.submittedAt,
         status: submission.status,
@@ -840,32 +846,30 @@ export class MilestoneDocumentsRepository {
     teamId: string,
     now: Date,
   ): Promise<StaffDownloadableMilestoneDocumentFile | null> {
-    const submission = await this.prisma.milestoneDocumentSubmission.findUnique(
-      {
-        where: {
-          milestoneDocumentId_teamId: {
-            milestoneDocumentId,
-            teamId,
-          },
+    const submission = await this.prisma.submission.findUnique({
+      where: {
+        requirementId_teamId: {
+          requirementId: milestoneDocumentId,
+          teamId,
         },
-        select: {
-          team: { select: { name: true } },
-          revision: true,
-          files: {
-            where: unexpiredAttachedFileWhere(now),
-            orderBy: currentRevisionFileOrderBy,
-            take: 1,
-            select: {
-              storageKey: true,
-              originalFileName: true,
-              mimeType: true,
-              sizeBytes: true,
-              submissionHistory: { select: { revision: true } },
-            },
+      },
+      select: {
+        team: { select: { name: true } },
+        revision: true,
+        files: {
+          where: unexpiredAttachedFileWhere(now),
+          orderBy: currentRevisionFileOrderBy,
+          take: 1,
+          select: {
+            storageKey: true,
+            originalFileName: true,
+            mimeType: true,
+            sizeBytes: true,
+            submissionHistory: { select: { revision: true } },
           },
         },
       },
-    );
+    });
     const rawFile = submission?.files[0];
     const file =
       rawFile === undefined ? undefined : this.fileMetadata.read(rawFile);
@@ -917,32 +921,30 @@ export class MilestoneDocumentsRepository {
     milestoneDocumentId: string,
     teamId: string,
   ): Promise<MilestoneDocumentSubmissionDetail | null> {
-    const submission = await this.prisma.milestoneDocumentSubmission.findUnique(
-      {
-        where: {
-          milestoneDocumentId_teamId: {
-            milestoneDocumentId,
-            teamId,
-          },
+    const submission = await this.prisma.submission.findUnique({
+      where: {
+        requirementId_teamId: {
+          requirementId: milestoneDocumentId,
+          teamId,
         },
-        select: {
-          id: true,
-          status: true,
-          content: true,
-          submittedAt: true,
-          revision: true,
-          files: {
-            where: { lifecycle: FileLifecycle.ATTACHED },
-            orderBy: currentRevisionFileOrderBy,
-            take: 1,
-            select: {
-              ...attachedFileSelect,
-              submissionHistory: { select: { revision: true } },
-            },
+      },
+      select: {
+        id: true,
+        status: true,
+        content: true,
+        submittedAt: true,
+        revision: true,
+        files: {
+          where: { lifecycle: FileLifecycle.ATTACHED },
+          orderBy: currentRevisionFileOrderBy,
+          take: 1,
+          select: {
+            ...attachedFileSelect,
+            submissionHistory: { select: { revision: true } },
           },
         },
       },
-    );
+    });
     if (submission === null) return null;
     const rawFile = submission.files[0];
     const file =
@@ -1103,7 +1105,7 @@ export class MilestoneDocumentsRepository {
     documentId: string,
     graceDueAt: Date | null,
   ): Promise<void> {
-    await scope.transaction.milestoneDocument.update({
+    await scope.transaction.requirement.update({
       where: { id: documentId },
       data: { graceDueAt },
       select: { id: true },
@@ -1168,12 +1170,12 @@ export class MilestoneDocumentsRepository {
     milestoneId: string,
     input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
-    const last = await scope.transaction.milestoneDocument.aggregate({
+    const last = await scope.transaction.requirement.aggregate({
       where: { milestoneId },
       _max: { sortOrder: true },
     });
     const sortOrder = (last._max.sortOrder ?? 0) + 1;
-    const created = await scope.transaction.milestoneDocument.create({
+    const created = await scope.transaction.requirement.create({
       data: {
         milestoneId,
         ...input,
@@ -1200,7 +1202,7 @@ export class MilestoneDocumentsRepository {
     documentId: string,
     input: UpdateMilestoneDocumentInput,
   ): Promise<MilestoneDocumentRecord> {
-    const updated = await scope.transaction.milestoneDocument.update({
+    const updated = await scope.transaction.requirement.update({
       where: { id: documentId },
       data: input,
       select: documentRecordSelect,
@@ -1213,7 +1215,7 @@ export class MilestoneDocumentsRepository {
     documentIds: readonly string[],
   ): Promise<MilestoneDocumentRecord[]> {
     for (const [index, documentId] of documentIds.entries()) {
-      await scope.transaction.milestoneDocument.update({
+      await scope.transaction.requirement.update({
         where: {
           id: documentId,
           milestoneId,
@@ -1222,7 +1224,7 @@ export class MilestoneDocumentsRepository {
         select: { id: true },
       });
     }
-    const documents = await scope.transaction.milestoneDocument.findMany({
+    const documents = await scope.transaction.requirement.findMany({
       where: { milestoneId },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
@@ -1241,7 +1243,7 @@ export class MilestoneDocumentsRepository {
       where: { requirementId: documentId },
       data: { requirementId: null },
     });
-    await scope.transaction.milestoneDocument.delete({
+    await scope.transaction.requirement.delete({
       where: { id: documentId },
     });
   }
@@ -1278,32 +1280,31 @@ export class MilestoneDocumentsRepository {
         AND "teamId" = ${teamId}
       FOR UPDATE
     `);
-    const submission =
-      await scope.transaction.milestoneDocumentSubmission.findUnique({
-        where: {
-          milestoneDocumentId_teamId: {
-            milestoneDocumentId,
-            teamId,
-          },
+    const submission = await scope.transaction.submission.findUnique({
+      where: {
+        requirementId_teamId: {
+          requirementId: milestoneDocumentId,
+          teamId,
         },
-        select: {
-          id: true,
-          revision: true,
-          histories: {
-            where: {
-              event: {
-                in: [
-                  MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
-                  MilestoneDocumentSubmissionHistoryEvent.RESUBMITTED,
-                ],
-              },
+      },
+      select: {
+        id: true,
+        revision: true,
+        histories: {
+          where: {
+            event: {
+              in: [
+                SubmissionHistoryEvent.SUBMITTED,
+                SubmissionHistoryEvent.RESUBMITTED,
+              ],
             },
-            orderBy: [{ revision: 'desc' }, { createdAt: 'desc' }],
-            take: 1,
-            select: { id: true, revision: true },
           },
+          orderBy: [{ revision: 'desc' }, { createdAt: 'desc' }],
+          take: 1,
+          select: { id: true, revision: true },
         },
-      });
+      },
+    });
     const history = submission?.histories[0];
     if (
       submission === null ||
@@ -1312,12 +1313,11 @@ export class MilestoneDocumentsRepository {
     ) {
       return null;
     }
-    const latestHistory =
-      await scope.transaction.milestoneDocumentSubmissionHistory.findFirst({
-        where: { milestoneDocumentSubmissionId: submission.id },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        select: { createdAt: true },
-      });
+    const latestHistory = await scope.transaction.submissionHistory.findFirst({
+      where: { submissionId: submission.id },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { createdAt: true },
+    });
     return {
       id: submission.id,
       revision: submission.revision,
@@ -1329,15 +1329,14 @@ export class MilestoneDocumentsRepository {
     scope: MilestoneDocumentWriteScope,
     submissionId: string,
   ): Promise<string | null> {
-    const review =
-      await scope.transaction.milestoneDocumentSubmissionHistory.findFirst({
-        where: {
-          milestoneDocumentSubmissionId: submissionId,
-          event: { in: SUBMISSION_REVIEW_EVENTS },
-        },
-        orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
-        select: { id: true },
-      });
+    const review = await scope.transaction.submissionHistory.findFirst({
+      where: {
+        submissionId: submissionId,
+        event: { in: SUBMISSION_REVIEW_EVENTS },
+      },
+      orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
+      select: { id: true },
+    });
     return review?.id ?? null;
   }
   private async createReviewIn(
@@ -1361,7 +1360,7 @@ export class MilestoneDocumentsRepository {
     submissionId: string,
     status: SubmissionStatus,
   ): Promise<void> {
-    await scope.transaction.milestoneDocumentSubmission.update({
+    await scope.transaction.submission.update({
       where: { id: submissionId },
       data: { status },
       select: { id: true },
@@ -1420,14 +1419,22 @@ export class MilestoneDocumentsRepository {
     if (input.documentIds.length === 0 || input.teamIds.length === 0) {
       return Promise.resolve([]);
     }
-    return scope.transaction.milestoneDocumentSubmission.findMany({
-      where: {
-        milestoneDocumentId: { in: [...input.documentIds] },
-        teamId: { in: [...input.teamIds] },
-      },
-      orderBy: { id: 'asc' },
-      select: { milestoneDocumentId: true, teamId: true, status: true },
-    });
+    return scope.transaction.submission
+      .findMany({
+        where: {
+          requirementId: { in: [...input.documentIds] },
+          teamId: { in: [...input.teamIds] },
+        },
+        orderBy: { id: 'asc' },
+        select: { requirementId: true, teamId: true, status: true },
+      })
+      .then((rows) =>
+        rows.map(({ requirementId, teamId, status }) => ({
+          milestoneDocumentId: requirementId,
+          teamId,
+          status,
+        })),
+      );
   }
   private milestoneDocumentCollectionReadStore(
     transaction: Prisma.TransactionClient,
@@ -1458,7 +1465,7 @@ export class MilestoneDocumentsRepository {
     transaction: Prisma.TransactionClient,
     milestoneId: string,
   ): Promise<readonly MilestoneDocumentRecord[]> {
-    const documents = await transaction.milestoneDocument.findMany({
+    const documents = await transaction.requirement.findMany({
       where: { milestoneId },
       orderBy: { sortOrder: 'asc' },
       select: documentRecordSelect,
@@ -1488,10 +1495,14 @@ export class MilestoneDocumentsRepository {
     documentIds: readonly string[],
   ): Promise<readonly MilestoneDocumentSubmissionCoordinate[]> {
     if (documentIds.length === 0) return [];
-    return transaction.milestoneDocumentSubmission.findMany({
-      where: { milestoneDocumentId: { in: [...documentIds] } },
-      select: { milestoneDocumentId: true, teamId: true },
+    const rows = await transaction.submission.findMany({
+      where: { requirementId: { in: [...documentIds] } },
+      select: { requirementId: true, teamId: true },
     });
+    return rows.map(({ requirementId, teamId }) => ({
+      milestoneDocumentId: requirementId,
+      teamId,
+    }));
   }
   private async findSubmissionsForCollectionIn(
     transaction: Prisma.TransactionClient,
@@ -1500,13 +1511,13 @@ export class MilestoneDocumentsRepository {
     teamIds: readonly string[],
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
-    const submissions = await transaction.milestoneDocumentSubmission.findMany({
+    const submissions = await transaction.submission.findMany({
       where: {
-        milestoneDocumentId: { in: [...documentIds] },
+        requirementId: { in: [...documentIds] },
         teamId: { in: [...teamIds] },
       },
       select: {
-        milestoneDocumentId: true,
+        requirementId: true,
         teamId: true,
         submittedAt: true,
         revision: true,
@@ -1546,7 +1557,7 @@ export class MilestoneDocumentsRepository {
             }
           : null;
       return {
-        milestoneDocumentId: submission.milestoneDocumentId,
+        milestoneDocumentId: submission.requirementId,
         teamId: submission.teamId,
         submittedAt: submission.submittedAt,
         revision: submission.revision,

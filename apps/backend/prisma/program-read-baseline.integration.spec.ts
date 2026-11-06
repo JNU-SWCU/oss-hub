@@ -139,7 +139,7 @@ async function seed(): Promise<void> {
             dueAt: endAt,
           },
         });
-        await tx.milestoneDocument.createMany({
+        await tx.requirement.createMany({
           data: [0, 1].map((document) => ({
             id: id(`document-${milestone}-${document}`),
             milestoneId: id(`milestone-${milestone}`),
@@ -236,10 +236,10 @@ async function seed(): Promise<void> {
         for (let document = 0; document < seedSize.documents; document += 1) {
           const submissionId = id(`submission-${team}-${document}`);
           const historyId = id(`history-${team}-${document}`);
-          await tx.milestoneDocumentSubmission.create({
+          await tx.submission.create({
             data: {
               id: submissionId,
-              milestoneDocumentId: id(
+              requirementId: id(
                 `document-${Math.floor(document / 2)}-${document % 2}`,
               ),
               teamId,
@@ -273,10 +273,10 @@ async function seed(): Promise<void> {
               expiresAt: endAt,
             },
           });
-          await tx.milestoneDocumentSubmissionHistory.create({
+          await tx.submissionHistory.create({
             data: {
               id: id(`review-${team}-${document}`),
-              milestoneDocumentSubmissionId: submissionId,
+              submissionId: submissionId,
               revision: 1,
               actorId: leaderId,
               event: 'APPROVED',
@@ -309,13 +309,13 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     members: await prisma.teamMember.count({ where: { programId } }),
     applications: await prisma.team.count({ where: { programId } }),
     milestones: await prisma.milestone.count({ where: { programId } }),
-    documents: await prisma.milestoneDocument.count({
+    documents: await prisma.requirement.count({
       where: { id: { startsWith: prefix } },
     }),
-    submissions: await prisma.milestoneDocumentSubmission.count({
+    submissions: await prisma.submission.count({
       where: { id: { startsWith: prefix } },
     }),
-    histories: await prisma.milestoneDocumentSubmissionHistory.count({
+    histories: await prisma.submissionHistory.count({
       where: { id: { startsWith: prefix } },
     }),
     files: await prisma.file.count({

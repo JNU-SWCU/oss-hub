@@ -9,7 +9,7 @@ type E2eProgramAdoptionDocument = {
 type E2eProgramAdoptionMilestone = {
   readonly id: string;
   readonly name: string;
-  readonly documents: readonly E2eProgramAdoptionDocument[];
+  readonly requirements: readonly E2eProgramAdoptionDocument[];
 };
 export type E2eProgramAdoptionCandidate = {
   readonly id: string;
@@ -42,7 +42,7 @@ export async function adoptE2eProgramGraph(
         select: {
           id: true,
           name: true,
-          documents: {
+          requirements: {
             where: {},
             select: {
               id: true,
@@ -92,7 +92,7 @@ export function adoptPersistedE2eProgramGraph(
   const required = requiredFileMilestone(program, prefix);
   if (program === null || required === undefined)
     throw new E2eAdapterError(404);
-  const document = required.documents.find(
+  const document = required.requirements.find(
     ({ name, required }) =>
       name === `${prefix}required-document.pdf` && required,
   );
@@ -110,12 +110,12 @@ function requiredFileMilestone(
   return program?.milestones.find(
     (milestone) =>
       milestone.name === `${prefix}required-milestone` &&
-      milestone.documents.length === 2 &&
-      milestone.documents.some(
+      milestone.requirements.length === 2 &&
+      milestone.requirements.some(
         ({ name, required }) =>
           name === `${prefix}required-document.pdf` && required,
       ) &&
-      milestone.documents.some(
+      milestone.requirements.some(
         ({ name, required }) =>
           name === `${prefix}information-document.pdf` && !required,
       ),

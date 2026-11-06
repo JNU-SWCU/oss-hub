@@ -29,7 +29,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     });
     const repository = new MilestoneDocumentCurrentFileRepository(
       {
-        milestoneDocumentSubmission: { findFirst },
+        submission: { findFirst },
       },
       new FileMetadataRepository(),
     );
@@ -47,8 +47,8 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     };
     expect(findFirst).toHaveBeenCalledWith({
       where: {
-        milestoneDocumentId: 'document-current',
-        milestoneDocument: {
+        requirementId: 'document-current',
+        requirement: {
           is: {
             milestoneId: 'milestone-current',
           },
@@ -100,7 +100,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const repository = new MilestoneDocumentCurrentFileRepository(
       {
-        milestoneDocumentSubmission: { findFirst },
+        submission: { findFirst },
       },
       new FileMetadataRepository(),
     );
@@ -121,7 +121,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const repository = new MilestoneDocumentCurrentFileRepository(
       {
-        milestoneDocumentSubmission: { findFirst },
+        submission: { findFirst },
       },
       new FileMetadataRepository(),
     );
@@ -147,7 +147,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
   it('파일이 현재 revision과 다른 제출 이력에 연결됐으면 이전 파일을 돌려주지 않는다', async () => {
     const repository = new MilestoneDocumentCurrentFileRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findFirst: jest.fn().mockResolvedValue({
             revision: 2,
             files: [
@@ -178,7 +178,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
     const findFirst = jest.fn().mockResolvedValue(null);
     const repository = new MilestoneDocumentCurrentFileRepository(
       {
-        milestoneDocumentSubmission: { findFirst },
+        submission: { findFirst },
       },
       new FileMetadataRepository(),
     );
@@ -195,7 +195,7 @@ describe('MilestoneDocumentCurrentFileRepository', () => {
   it('제출 행은 있지만 살아 있는 첨부가 없으면 null만 돌려준다', async () => {
     const repository = new MilestoneDocumentCurrentFileRepository(
       {
-        milestoneDocumentSubmission: {
+        submission: {
           findFirst: jest.fn().mockResolvedValue({ files: [] }),
         },
       },

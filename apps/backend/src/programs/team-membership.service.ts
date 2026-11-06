@@ -449,7 +449,7 @@ export class TeamMembershipService {
     const { repository, job } = row;
     const completionTargets =
       this.milestoneCompletionService.projectSubmissionCompletionTargets(
-        row.milestoneDocumentSubmissions,
+        row.submissions,
       );
     const blockedReasons = repository
       ? this.repositoryPublishService.publishBlockedReasons(

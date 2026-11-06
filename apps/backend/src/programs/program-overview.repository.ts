@@ -54,7 +54,7 @@ export interface MilestoneDocumentCatalogEntry {
 }
 const CURRENT_MILESTONE_SELECT = {
   id: true,
-  documents: {
+  requirements: {
     where: {},
     select: { id: true, required: true },
     orderBy: { sortOrder: 'asc' as const },
@@ -62,7 +62,7 @@ const CURRENT_MILESTONE_SELECT = {
 } satisfies Prisma.MilestoneSelect;
 type CurrentMilestoneSelection = {
   id: string;
-  documents: {
+  requirements: {
     id: string;
     required: boolean;
   }[];
@@ -72,8 +72,8 @@ function toCurrentSubmissionMilestone(
 ): CurrentSubmissionMilestone {
   return {
     milestoneId: milestone.id,
-    documentIds: milestone.documents.map((document) => document.id),
-    requiredDocumentIds: milestone.documents
+    documentIds: milestone.requirements.map((document) => document.id),
+    requiredDocumentIds: milestone.requirements
       .filter((document) => document.required)
       .map((document) => document.id),
   };
@@ -165,7 +165,7 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         dueAt: { gte: now },
-        documents: { some: {} },
+        requirements: { some: {} },
       },
       orderBy: { dueAt: 'asc' },
       select: CURRENT_MILESTONE_SELECT,
@@ -175,7 +175,7 @@ export class ProgramOverviewRepository {
       (await this.prisma.milestone.findFirst({
         where: {
           programId,
-          documents: { some: {} },
+          requirements: { some: {} },
         },
         orderBy: { dueAt: 'desc' },
         select: CURRENT_MILESTONE_SELECT,
@@ -205,7 +205,7 @@ export class ProgramOverviewRepository {
       select: {
         id: true,
         name: true,
-        documents: {
+        requirements: {
           where: {},
           select: { id: true, required: true },
           orderBy: { sortOrder: 'asc' },
@@ -215,8 +215,8 @@ export class ProgramOverviewRepository {
     return milestones.map((milestone) => ({
       milestoneId: milestone.id,
       title: milestone.name,
-      documentIds: milestone.documents.map((document) => document.id),
-      requiredDocumentIds: milestone.documents
+      documentIds: milestone.requirements.map((document) => document.id),
+      requiredDocumentIds: milestone.requirements
         .filter((document) => document.required)
         .map((document) => document.id),
     }));
@@ -269,8 +269,8 @@ export class ProgramOverviewRepository {
     if (documentIds.length === 0) {
       return 0;
     }
-    return this.prisma.milestoneDocumentSubmission.count({
-      where: { teamId, milestoneDocumentId: { in: documentIds } },
+    return this.prisma.submission.count({
+      where: { teamId, requirementId: { in: documentIds } },
     });
   }
   async findSubmittedDocumentIds(
@@ -280,11 +280,11 @@ export class ProgramOverviewRepository {
     if (documentIds.length === 0) {
       return new Set();
     }
-    const rows = await this.prisma.milestoneDocumentSubmission.groupBy({
-      by: ['milestoneDocumentId'],
-      where: { teamId, milestoneDocumentId: { in: documentIds } },
+    const rows = await this.prisma.submission.groupBy({
+      by: ['requirementId'],
+      where: { teamId, requirementId: { in: documentIds } },
     });
-    return new Set(rows.map((row) => row.milestoneDocumentId));
+    return new Set(rows.map((row) => row.requirementId));
   }
   findProgramApplications(
     programId: string,
@@ -301,16 +301,16 @@ export class ProgramOverviewRepository {
     if (documentIds.length === 0) {
       return [];
     }
-    const rows = await this.prisma.milestoneDocumentSubmission.groupBy({
-      by: ['milestoneDocumentId', 'teamId'],
+    const rows = await this.prisma.submission.groupBy({
+      by: ['requirementId', 'teamId'],
       where: {
         teamId: { in: [...teamIds] },
-        milestoneDocumentId: { in: [...documentIds] },
+        requirementId: { in: [...documentIds] },
       },
     });
     return rows.map((row) => ({
       teamId: row.teamId,
-      milestoneDocumentId: row.milestoneDocumentId,
+      milestoneDocumentId: row.requirementId,
     }));
   }
   async countTeamMembers(

@@ -127,7 +127,7 @@ describe('ProgramAuthoringService integration', () => {
         milestones: {
           orderBy: { createdAt: 'asc' },
           select: {
-            documents: {
+            requirements: {
               orderBy: { sortOrder: 'asc' },
               select: {
                 name: true,
@@ -139,10 +139,10 @@ describe('ProgramAuthoringService integration', () => {
         },
       },
     });
-    expect(graph.milestones.map(({ documents }) => documents.length)).toEqual([
-      2, 1, 1,
-    ]);
-    expect(graph.milestones[0]?.documents[1]).toMatchObject({
+    expect(
+      graph.milestones.map(({ requirements: documents }) => documents.length),
+    ).toEqual([2, 1, 1]);
+    expect(graph.milestones[0]?.requirements[1]).toMatchObject({
       name: 'Optional template',
       required: false,
       files: [{ originalFileName: 'graph-template.pdf' }],

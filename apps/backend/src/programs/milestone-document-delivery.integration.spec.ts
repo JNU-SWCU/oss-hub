@@ -62,10 +62,10 @@ const first = new Date(fixture.dueSoon.getTime() - 1);
 const extraSubmissionId = 'test:qa153:collection:new-submission';
 
 async function cleanExtraRows() {
-  await harness.prisma.milestoneDocumentSubmissionHistory.deleteMany({
-    where: { milestoneDocumentSubmissionId: fixture.documentSubmission },
+  await harness.prisma.submissionHistory.deleteMany({
+    where: { submissionId: fixture.documentSubmission },
   });
-  await harness.prisma.milestoneDocumentSubmission.deleteMany({
+  await harness.prisma.submission.deleteMany({
     where: { id: extraSubmissionId },
   });
 }
@@ -73,7 +73,7 @@ beforeAll(() => harness.connect());
 beforeEach(async () => {
   await cleanExtraRows();
   await harness.reset();
-  await harness.prisma.milestoneDocumentSubmission.update({
+  await harness.prisma.submission.update({
     where: { id: fixture.documentSubmission },
     data: { createdAt: first, submittedAt: first },
   });
@@ -127,7 +127,7 @@ it('preserves the existing collection response, approved population and paging c
 });
 
 it('keeps an on-time first submission complete after a late resubmission and rejection', async () => {
-  await harness.prisma.milestoneDocumentSubmission.update({
+  await harness.prisma.submission.update({
     where: { id: fixture.documentSubmission },
     data: {
       createdAt: late,
@@ -184,7 +184,7 @@ it.each([
 ] as const)(
   'uses persisted header time without history: %s',
   async (_label, createdAt, deliveryStatus) => {
-    await harness.prisma.milestoneDocumentSubmission.update({
+    await harness.prisma.submission.update({
       where: { id: fixture.documentSubmission },
       data: { createdAt, submittedAt: late },
     });
@@ -230,7 +230,7 @@ it('filters missing rows before pagination and keeps whole-population counts', a
 });
 
 it('does not call optional-only milestones complete or missing', async () => {
-  await harness.prisma.milestoneDocument.update({
+  await harness.prisma.requirement.update({
     where: { id: fixture.notifyDocument },
     data: { required: false },
   });
@@ -262,10 +262,10 @@ it('holds counts and visible details at one snapshot while another connection su
     const documentIds = documents.map((document) => document.id);
     const teamIds = applications.map((application) => application.teamId);
     const submissions = await store.findCoordinates(documentIds, teamIds);
-    await harness.prisma.milestoneDocumentSubmission.create({
+    await harness.prisma.submission.create({
       data: {
         id: extraSubmissionId,
-        milestoneDocumentId: fixture.notifyDocument,
+        requirementId: fixture.notifyDocument,
         teamId: fixture.missingApplication,
         submittedById: fixture.studentMissing,
         createdAt: first,

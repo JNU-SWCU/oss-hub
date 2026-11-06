@@ -204,12 +204,12 @@ export class ProgramsRepository {
             instructions: true,
             _count: {
               select: {
-                documents: {
+                requirements: {
                   where: {},
                 },
               },
             },
-            documents: {
+            requirements: {
               where: {
                 required: true,
               },
@@ -229,11 +229,11 @@ export class ProgramsRepository {
       select: {
         id: true,
         status: true,
-        milestoneDocumentSubmissions: {
+        submissions: {
           select: {
             status: true,
-            milestoneDocument: { select: { id: true, milestoneId: true } },
-          } satisfies Prisma.MilestoneDocumentSubmissionSelect,
+            requirement: { select: { id: true, milestoneId: true } },
+          } satisfies Prisma.SubmissionSelect,
         },
       },
     });
@@ -242,11 +242,11 @@ export class ProgramsRepository {
     return this.prisma.team.findMany({
       where: { programId, status: ApplicationStatus.APPROVED },
       select: {
-        milestoneDocumentSubmissions: {
+        submissions: {
           select: {
             status: true,
-            milestoneDocument: { select: { id: true, milestoneId: true } },
-          } satisfies Prisma.MilestoneDocumentSubmissionSelect,
+            requirement: { select: { id: true, milestoneId: true } },
+          } satisfies Prisma.SubmissionSelect,
         },
       },
     });
@@ -645,7 +645,7 @@ export class ProgramLifecycleRepository {
         { requirement: { milestone: { programId } } },
         {
           submissionHistory: {
-            submission: { milestoneDocument: { milestone: { programId } } },
+            submission: { requirement: { milestone: { programId } } },
           },
         },
       ],
@@ -862,7 +862,7 @@ export class ProgramAuthoringRepository {
     milestoneId: string,
     plan: ProgramAuthoringDocumentPlan,
   ): Promise<string> {
-    const document = await prisma.milestoneDocument.create({
+    const document = await prisma.requirement.create({
       data: {
         milestoneId,
         name: plan.name,

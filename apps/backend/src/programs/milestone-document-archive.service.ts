@@ -137,7 +137,7 @@ function archiveDocumentsWithStageNames(
   isSingleMilestone: boolean,
 ): readonly MilestoneDocumentArchiveDocument[] {
   return milestones.flatMap((milestone) =>
-    milestone.documents.map((document) => ({
+    milestone.requirements.map((document) => ({
       ...document,
       name: isSingleMilestone
         ? document.name

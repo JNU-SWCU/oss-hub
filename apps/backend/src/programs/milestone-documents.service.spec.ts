@@ -13,7 +13,7 @@ import { MilestoneDocumentHistoryPageResponseDto } from './dto/milestone-documen
 import { MilestoneDocumentResponseDto } from './dto/milestone-document-response.dto';
 import { MilestoneDocumentSubmissionResponseDto } from './dto/milestone-document-submission-response.dto';
 import {
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   MilestoneSubmissionType,
   Prisma,
   ReviewDecision,
@@ -2995,7 +2995,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         items: [
           {
             id: 'history-1',
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            event: SubmissionHistoryEvent.SUBMITTED,
             revision: 1,
             actorNickname: '합성학생',
             comment: null,
@@ -3005,7 +3005,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
           },
           {
             id: 'history-2',
-            event: MilestoneDocumentSubmissionHistoryEvent.CHANGES_REQUESTED,
+            event: SubmissionHistoryEvent.CHANGES_REQUESTED,
             revision: 1,
             actorNickname: '내부 교직원 이름',
             comment: '보완해 주세요.',
@@ -3081,7 +3081,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         items: [
           {
             id: 'history-1',
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            event: SubmissionHistoryEvent.SUBMITTED,
             revision: 1,
             actorNickname: '합성학생',
             comment: null,
@@ -3165,7 +3165,7 @@ describe('MilestoneDocumentsService.historyForParticipant', () => {
         items: [
           {
             id: 'history-1',
-            event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+            event: SubmissionHistoryEvent.SUBMITTED,
             revision: 1,
             actorNickname: '합성학생',
             comment: null,

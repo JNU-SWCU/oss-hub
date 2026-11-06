@@ -17,32 +17,31 @@ const dashboardMilestoneDocumentSelect = {
   id: true,
   milestoneId: true,
   milestone: { select: { programId: true } },
-} satisfies Prisma.MilestoneDocumentSelect;
+} satisfies Prisma.RequirementSelect;
 const dashboardDocumentSubmissionSelect = {
   teamId: true,
-  milestoneDocumentId: true,
+  requirementId: true,
   status: true,
   team: { select: { programId: true } },
-  milestoneDocument: {
+  requirement: {
     select: {
       milestoneId: true,
       milestone: { select: { programId: true } },
     },
   },
-} satisfies Prisma.MilestoneDocumentSubmissionSelect;
+} satisfies Prisma.SubmissionSelect;
 export type DashboardApplicationRow = Prisma.TeamGetPayload<{
   select: typeof dashboardApplicationSelect;
 }>;
 export type DashboardMilestoneRow = Prisma.MilestoneGetPayload<{
   select: typeof dashboardMilestoneSelect;
 }>;
-export type DashboardMilestoneDocumentRow = Prisma.MilestoneDocumentGetPayload<{
+export type DashboardMilestoneDocumentRow = Prisma.RequirementGetPayload<{
   select: typeof dashboardMilestoneDocumentSelect;
 }>;
-export type DashboardDocumentSubmissionRow =
-  Prisma.MilestoneDocumentSubmissionGetPayload<{
-    select: typeof dashboardDocumentSubmissionSelect;
-  }>;
+export type DashboardDocumentSubmissionRow = Prisma.SubmissionGetPayload<{
+  select: typeof dashboardDocumentSubmissionSelect;
+}>;
 export interface SubmissionDashboardSummaryDataSource {
   readonly team: {
     findMany(args: {
@@ -56,15 +55,15 @@ export interface SubmissionDashboardSummaryDataSource {
       readonly select: typeof dashboardMilestoneSelect;
     }): Promise<readonly DashboardMilestoneRow[]>;
   };
-  readonly milestoneDocument: {
+  readonly requirement: {
     findMany(args: {
-      readonly where: Prisma.MilestoneDocumentWhereInput;
+      readonly where: Prisma.RequirementWhereInput;
       readonly select: typeof dashboardMilestoneDocumentSelect;
     }): Promise<readonly DashboardMilestoneDocumentRow[]>;
   };
-  readonly milestoneDocumentSubmission: {
+  readonly submission: {
     findMany(args: {
-      readonly where: Prisma.MilestoneDocumentSubmissionWhereInput;
+      readonly where: Prisma.SubmissionWhereInput;
       readonly select: typeof dashboardDocumentSubmissionSelect;
     }): Promise<readonly DashboardDocumentSubmissionRow[]>;
   };
@@ -141,14 +140,14 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
           where: { programId: programFilter },
           select: dashboardMilestoneSelect,
         }),
-        this.prisma.milestoneDocument.findMany({
+        this.prisma.requirement.findMany({
           where: {
             required: true,
             milestone: { is: { programId: programFilter } },
           },
           select: dashboardMilestoneDocumentSelect,
         }),
-        this.prisma.milestoneDocumentSubmission.findMany({
+        this.prisma.submission.findMany({
           where: {
             team: {
               is: {
@@ -156,7 +155,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
                 status: ApplicationStatus.APPROVED,
               },
             },
-            milestoneDocument: {
+            requirement: {
               is: {
                 milestone: { is: { programId: programFilter } },
                 required: true,
@@ -170,11 +169,11 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
     const documentSubmissions: SubmissionDashboardDocumentSubmissionRecord[] =
       [];
     for (const submission of targetSubmissions) {
-      const { milestoneDocument } = submission;
+      const { requirement: milestoneDocument } = submission;
       documentSubmissions.push({
         teamId: submission.teamId,
         applicationProgramId: submission.team.programId,
-        milestoneDocumentId: submission.milestoneDocumentId,
+        milestoneDocumentId: submission.requirementId,
         milestoneId: milestoneDocument.milestoneId,
         milestoneProgramId: milestoneDocument.milestone.programId,
         status: submission.status,

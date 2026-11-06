@@ -45,7 +45,7 @@ export class MilestoneCompletionService {
   requiredMilestonesApproved(
     milestones: readonly {
       readonly id: string;
-      readonly documents: readonly {
+      readonly requirements: readonly {
         readonly id: string;
       }[];
     }[],
@@ -66,10 +66,10 @@ export class MilestoneCompletionService {
     );
     return milestones.every(
       (milestone) =>
-        milestone.documents.length === 0 ||
+        milestone.requirements.length === 0 ||
         this.isMilestoneComplete({
           submissionAxisInUse: false,
-          requiredDocumentStatuses: milestone.documents.map(
+          requiredDocumentStatuses: milestone.requirements.map(
             (document) => statusByDocument.get(document.id) ?? null,
           ),
           submissionStatus: null,
@@ -89,7 +89,7 @@ export class MilestoneCompletionService {
     }[] = [];
     for (const targetRow of targetRows) {
       documentSubmissions.push({
-        milestoneDocumentId: targetRow.milestoneDocument.id,
+        milestoneDocumentId: targetRow.requirement.id,
         status: targetRow.status,
       });
     }

@@ -158,7 +158,7 @@ export class MilestoneDocumentCollectionReadRepository {
   readonly milestoneDocumentHistoryDescendingOrderBy = [
     { createdAt: 'desc' },
     { id: 'desc' },
-  ] satisfies Prisma.MilestoneDocumentSubmissionHistoryOrderByWithRelationInput[];
+  ] satisfies Prisma.SubmissionHistoryOrderByWithRelationInput[];
   readonly boundedReviewHistoryQuery = {
     where: { event: { in: SUBMISSION_REVIEW_EVENTS } },
     orderBy: [{ createdAt: 'desc' }, { id: 'desc' }],
@@ -171,7 +171,7 @@ export class MilestoneDocumentCollectionReadRepository {
       actor: { select: { nickname: true } },
       revision: true,
     },
-  } satisfies Prisma.MilestoneDocumentSubmission$historiesArgs;
+  } satisfies Prisma.Submission$historiesArgs;
 }
 @Injectable()
 export class MilestoneDocumentCollectionReadStoreRepository {
@@ -189,7 +189,7 @@ export class MilestoneDocumentCollectionReadStoreRepository {
   async findDocuments(
     milestoneId: string,
   ): Promise<readonly MilestoneDocumentRecord[]> {
-    const documents = await this.transaction.milestoneDocument.findMany({
+    const documents = await this.transaction.requirement.findMany({
       where: {
         milestoneId,
       },
@@ -245,26 +245,25 @@ export class MilestoneDocumentCollectionReadStoreRepository {
     teamIds: readonly string[],
   ): Promise<readonly DocumentDeliveryCoordinate[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
-    const submissions =
-      await this.transaction.milestoneDocumentSubmission.findMany({
-        where: {
-          milestoneDocumentId: { in: [...documentIds] },
-          teamId: { in: [...teamIds] },
+    const submissions = await this.transaction.submission.findMany({
+      where: {
+        requirementId: { in: [...documentIds] },
+        teamId: { in: [...teamIds] },
+      },
+      select: {
+        requirementId: true,
+        teamId: true,
+        createdAt: true,
+        histories: {
+          where: { event: 'SUBMITTED', revision: 1 },
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+          take: 1,
+          select: { createdAt: true },
         },
-        select: {
-          milestoneDocumentId: true,
-          teamId: true,
-          createdAt: true,
-          histories: {
-            where: { event: 'SUBMITTED', revision: 1 },
-            orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
-            take: 1,
-            select: { createdAt: true },
-          },
-        },
-      });
+      },
+    });
     return submissions.map((submission) => ({
-      milestoneDocumentId: submission.milestoneDocumentId,
+      milestoneDocumentId: submission.requirementId,
       teamId: submission.teamId,
 
       firstSubmittedAt:
@@ -277,68 +276,70 @@ export class MilestoneDocumentCollectionReadStoreRepository {
     now: Date,
   ): Promise<readonly MilestoneDocumentCollectionSubmission[]> {
     if (documentIds.length === 0 || teamIds.length === 0) return [];
-    const submissions =
-      await this.transaction.milestoneDocumentSubmission.findMany({
-        where: {
-          milestoneDocumentId: { in: [...documentIds] },
-          teamId: { in: [...teamIds] },
-        },
-        select: {
-          milestoneDocumentId: true,
-          teamId: true,
-          submittedAt: true,
-          revision: true,
-          status: true,
-          content: true,
-          files: {
-            where: { lifecycle: 'ATTACHED', expiresAt: { gt: now } },
-            orderBy: [
-              {
-                submissionHistory: {
-                  revision: { sort: 'desc', nulls: 'last' },
-                },
+    const submissions = await this.transaction.submission.findMany({
+      where: {
+        requirementId: { in: [...documentIds] },
+        teamId: { in: [...teamIds] },
+      },
+      select: {
+        requirementId: true,
+        teamId: true,
+        submittedAt: true,
+        revision: true,
+        status: true,
+        content: true,
+        files: {
+          where: { lifecycle: 'ATTACHED', expiresAt: { gt: now } },
+          orderBy: [
+            {
+              submissionHistory: {
+                revision: { sort: 'desc', nulls: 'last' },
               },
-              { createdAt: 'desc' },
-            ],
-            take: 1,
-            select: {
-              originalFileName: true,
-              mimeType: true,
-              sizeBytes: true,
-              submissionHistory: { select: { revision: true } },
             },
-          },
-          histories: {
-            ...this.milestoneDocumentCollectionReadRepository
-              .boundedReviewHistoryQuery,
-            take: 1,
+            { createdAt: 'desc' },
+          ],
+          take: 1,
+          select: {
+            originalFileName: true,
+            mimeType: true,
+            sizeBytes: true,
+            submissionHistory: { select: { revision: true } },
           },
         },
-      });
-    return submissions.map(({ files, histories, ...submission }) => {
-      const selectedFile =
-        files[0] === undefined ? undefined : this.fileMetadata.read(files[0]);
-      const review = histories[0];
-      return {
-        ...submission,
-        file:
-          selectedFile?.submissionHistory?.revision === submission.revision
-            ? {
-                originalFileName: selectedFile.originalFileName,
-                sizeBytes: selectedFile.sizeBytes,
-              }
-            : null,
-        review:
-          review === undefined
-            ? null
-            : {
-                id: review.id,
-                decision: submissionReviewDecision(review.event),
-                comment: review.comment,
-                reviewedAt: review.createdAt,
-              },
-      };
+        histories: {
+          ...this.milestoneDocumentCollectionReadRepository
+            .boundedReviewHistoryQuery,
+          take: 1,
+        },
+      },
     });
+    return submissions.map(
+      ({ files, histories, requirementId, ...submission }) => {
+        const selectedFile =
+          files[0] === undefined ? undefined : this.fileMetadata.read(files[0]);
+        const review = histories[0];
+        return {
+          milestoneDocumentId: requirementId,
+          ...submission,
+          file:
+            selectedFile?.submissionHistory?.revision === submission.revision
+              ? {
+                  originalFileName: selectedFile.originalFileName,
+                  sizeBytes: selectedFile.sizeBytes,
+                }
+              : null,
+          review:
+            review === undefined
+              ? null
+              : {
+                  id: review.id,
+                  decision: submissionReviewDecision(review.event),
+                  comment: review.comment,
+                  reviewedAt: review.createdAt,
+                },
+        };
+      },
+    );
   }
 }
 function submissionReviewDecision(event: string): ReviewDecision {

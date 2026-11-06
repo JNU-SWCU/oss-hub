@@ -68,10 +68,10 @@ async function cleanup(): Promise<void> {
   await prisma.notification.deleteMany({
     where: { userId: { startsWith: prefix } },
   });
-  await prisma.milestoneDocumentSubmission.deleteMany({
+  await prisma.submission.deleteMany({
     where: { team: { programId } },
   });
-  await prisma.milestoneDocument.deleteMany({
+  await prisma.requirement.deleteMany({
     where: { milestone: { programId } },
   });
   await prisma.milestone.deleteMany({ where: { programId } });
@@ -500,7 +500,7 @@ it('승인 전 상태라도 제출이 남으면 취소와 마지막 탈퇴를 �
       dueAt: new Date('2099-01-01'),
     },
   });
-  const document = await prisma.milestoneDocument.create({
+  const document = await prisma.requirement.create({
     data: {
       milestoneId: milestone.id,
       name: 'Synthetic requirement',
@@ -508,10 +508,10 @@ it('승인 전 상태라도 제출이 남으면 취소와 마지막 탈퇴를 �
       sortOrder: 1,
     },
   });
-  await prisma.milestoneDocumentSubmission.create({
+  await prisma.submission.create({
     data: {
       teamId: team.id,
-      milestoneDocumentId: document.id,
+      requirementId: document.id,
       submittedById: userId,
     },
   });

@@ -13,7 +13,7 @@ export interface ArchiveProgram {
     readonly id: string;
     readonly name: string;
     readonly dueAt: Date;
-    readonly documents: readonly MilestoneDocumentArchiveDocument[];
+    readonly requirements: readonly MilestoneDocumentArchiveDocument[];
   }[];
 }
 export interface MilestoneDocumentArchiveTeam {
@@ -56,7 +56,7 @@ export class MilestoneDocumentArchiveRepository implements ProgramArchiveReader 
             id: true,
             name: true,
             dueAt: true,
-            documents: {
+            requirements: {
               where: {},
               orderBy: [{ sortOrder: 'asc' }, { id: 'asc' }],
               select: { id: true, name: true, required: true },

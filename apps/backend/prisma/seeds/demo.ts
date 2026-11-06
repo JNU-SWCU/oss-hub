@@ -1,7 +1,7 @@
 import {
   ApplicationStatus,
   BoardPostCategory,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
@@ -316,7 +316,7 @@ async function upsertDemoMilestone(
       }),
   );
   const requirementId = seedId('demo', 'milestone-document', params.id);
-  await prisma.milestoneDocument.upsert({
+  await prisma.requirement.upsert({
     where: { id: requirementId },
     update: { name: params.name, submissionType: params.submissionType },
     create: {
@@ -365,9 +365,9 @@ async function upsertDemoSubmission(
   await upsertTracked(
     stats,
     'MilestoneDocument',
-    () => prisma.milestoneDocument.findUnique({ where: { id: documentId } }),
+    () => prisma.requirement.findUnique({ where: { id: documentId } }),
     () =>
-      prisma.milestoneDocument.upsert({
+      prisma.requirement.upsert({
         where: { id: documentId },
         update: {},
         create: {
@@ -394,11 +394,11 @@ async function upsertDemoSubmission(
     stats,
     'MilestoneDocumentSubmission',
     () =>
-      prisma.milestoneDocumentSubmission.findUnique({
+      prisma.submission.findUnique({
         where: { id: submissionId },
       }),
     () =>
-      prisma.milestoneDocumentSubmission.upsert({
+      prisma.submission.upsert({
         where: { id: submissionId },
         update: {
           status: params.status,
@@ -409,7 +409,7 @@ async function upsertDemoSubmission(
         },
         create: {
           id: submissionId,
-          milestoneDocumentId: documentId,
+          requirementId: documentId,
           teamId: params.teamId,
           status: params.status,
           revision: 1,
@@ -429,11 +429,11 @@ async function upsertDemoSubmission(
     stats,
     'MilestoneDocumentSubmissionHistory',
     () =>
-      prisma.milestoneDocumentSubmissionHistory.findUnique({
+      prisma.submissionHistory.findUnique({
         where: { id: submissionHistoryId },
       }),
     () =>
-      prisma.milestoneDocumentSubmissionHistory.upsert({
+      prisma.submissionHistory.upsert({
         where: { id: submissionHistoryId },
         update: {
           content,
@@ -446,8 +446,8 @@ async function upsertDemoSubmission(
         },
         create: {
           id: submissionHistoryId,
-          milestoneDocumentSubmissionId: submissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          submissionId: submissionId,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content,
           comment:
@@ -513,11 +513,11 @@ async function upsertDemoSubmission(
       stats,
       'MilestoneDocumentSubmissionHistory',
       () =>
-        prisma.milestoneDocumentSubmissionHistory.findUnique({
+        prisma.submissionHistory.findUnique({
           where: { id: reviewId },
         }),
       () =>
-        prisma.milestoneDocumentSubmissionHistory.upsert({
+        prisma.submissionHistory.upsert({
           where: { id: reviewId },
           update: {
             event: review.decision,
@@ -527,7 +527,7 @@ async function upsertDemoSubmission(
           },
           create: {
             id: reviewId,
-            milestoneDocumentSubmissionId: submissionId,
+            submissionId: submissionId,
             event: review.decision,
             revision: 1,
             comment: review.comment,
@@ -1312,17 +1312,17 @@ export async function teardownDemo(
     await storage.delete(file.storageKey);
   }
   await countAndDelete('MilestoneDocumentSubmissionHistory', () =>
-    prisma.milestoneDocumentSubmissionHistory.deleteMany({
+    prisma.submissionHistory.deleteMany({
       where: {
-        milestoneDocumentSubmissionId: { startsWith: seedDemoPrefix },
+        submissionId: { startsWith: seedDemoPrefix },
       },
     }),
   );
   await countAndDelete('MilestoneDocumentSubmission', () =>
-    prisma.milestoneDocumentSubmission.deleteMany({ where: seedIdFilter }),
+    prisma.submission.deleteMany({ where: seedIdFilter }),
   );
   await countAndDelete('MilestoneDocument', () =>
-    prisma.milestoneDocument.deleteMany({ where: seedIdFilter }),
+    prisma.requirement.deleteMany({ where: seedIdFilter }),
   );
   await countAndDelete('BoardComment', () =>
     prisma.boardComment.deleteMany({ where: seedIdFilter }),

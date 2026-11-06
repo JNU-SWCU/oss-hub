@@ -1,6 +1,6 @@
 import {
   ApplicationStatus,
-  MilestoneDocumentSubmissionHistoryEvent,
+  SubmissionHistoryEvent,
   MilestoneSubmissionType,
   ProgramCategory,
   ReviewDecision,
@@ -80,9 +80,9 @@ async function upsertMilestone(
   await upsertTracked(
     stats,
     'MilestoneDocument',
-    () => prisma.milestoneDocument.findUnique({ where: { id: documentId } }),
+    () => prisma.requirement.findUnique({ where: { id: documentId } }),
     () =>
-      prisma.milestoneDocument.upsert({
+      prisma.requirement.upsert({
         where: { id: documentId },
         update: { name: params.name, submissionType: params.submissionType },
         create: {
@@ -124,16 +124,16 @@ async function createSubmissionScenario(
     stats,
     'MilestoneDocumentSubmission',
     () =>
-      prisma.milestoneDocumentSubmission.findUnique({
+      prisma.submission.findUnique({
         where: { id: targetSubmissionId },
       }),
     () =>
-      prisma.milestoneDocumentSubmission.upsert({
+      prisma.submission.upsert({
         where: { id: targetSubmissionId },
         update: { status: params.status, revision: 1 },
         create: {
           id: targetSubmissionId,
-          milestoneDocumentId: documentId,
+          requirementId: documentId,
           teamId: params.teamId,
           status: params.status,
           content: { seedPlaceholder: true, scenarioId: params.scenarioId },
@@ -151,17 +151,17 @@ async function createSubmissionScenario(
     stats,
     'MilestoneDocumentSubmissionHistory',
     () =>
-      prisma.milestoneDocumentSubmissionHistory.findUnique({
+      prisma.submissionHistory.findUnique({
         where: { id: targetHistoryId },
       }),
     () =>
-      prisma.milestoneDocumentSubmissionHistory.upsert({
+      prisma.submissionHistory.upsert({
         where: { id: targetHistoryId },
         update: {},
         create: {
           id: targetHistoryId,
-          milestoneDocumentSubmissionId: targetSubmissionId,
-          event: MilestoneDocumentSubmissionHistoryEvent.SUBMITTED,
+          submissionId: targetSubmissionId,
+          event: SubmissionHistoryEvent.SUBMITTED,
           revision: 1,
           content: { seedPlaceholder: true, scenarioId: params.scenarioId },
           actorId: params.submittedById,
@@ -175,11 +175,11 @@ async function createSubmissionScenario(
       stats,
       'MilestoneDocumentSubmissionHistory',
       () =>
-        prisma.milestoneDocumentSubmissionHistory.findUnique({
+        prisma.submissionHistory.findUnique({
           where: { id: reviewId },
         }),
       () =>
-        prisma.milestoneDocumentSubmissionHistory.upsert({
+        prisma.submissionHistory.upsert({
           where: { id: reviewId },
           update: {
             event: review.decision,
@@ -188,7 +188,7 @@ async function createSubmissionScenario(
           },
           create: {
             id: reviewId,
-            milestoneDocumentSubmissionId: targetSubmissionId,
+            submissionId: targetSubmissionId,
             event: review.decision,
             revision: 1,
             comment: review.comment,

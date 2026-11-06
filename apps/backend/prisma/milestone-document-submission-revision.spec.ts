@@ -11,9 +11,7 @@ const MIGRATION_SQL = readFileSync(
 );
 
 function submissionModelBody(): string {
-  const match = /model MilestoneDocumentSubmission \{([\s\S]*?)\n\}/.exec(
-    SCHEMA,
-  );
+  const match = /model Submission \{([\s\S]*?)\n\}/.exec(SCHEMA);
   expect(match).not.toBeNull();
   return match?.[1] ?? '';
 }
@@ -24,7 +22,7 @@ function revisionLine(): string | undefined {
     .find((line) => line.trim().startsWith('revision '));
 }
 
-describe('MilestoneDocumentSubmission.revision — 판정을 본 그 제출물에 묶는 축', () => {
+describe('Submission.revision — 판정을 본 그 제출물에 묶는 축', () => {
   it('제출 모델에 revision 필드가 있다', () => {
     expect(revisionLine()).toBeDefined();
   });

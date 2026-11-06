@@ -66,7 +66,7 @@ function eligibilityRow(
     id: eligibility.repositoryId,
     visibility: eligibility.visibility,
     application: {
-      milestoneDocumentSubmissions: [],
+      submissions: [],
       isRepositoryPublicationPlanned:
         eligibility.isRepositoryPublicationPlanned,
       provisionJob:
@@ -80,7 +80,12 @@ function eligibilityRow(
         endAt: eligibility.programEndAt,
         milestones: eligibility.requiredMilestonesApproved
           ? []
-          : [{ id: 'milestone-1', documents: [{ id: 'required-document' }] }],
+          : [
+              {
+                id: 'milestone-1',
+                requirements: [{ id: 'required-document' }],
+              },
+            ],
       },
     },
   };
