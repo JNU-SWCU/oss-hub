@@ -758,7 +758,7 @@ const overviewBase: ProgramOverview = {
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: null,
   remainingMilestones: [],
-  milestoneDocuments: [],
+  requirements: [],
 };
 
 describe('ProgramFactBar', () => {

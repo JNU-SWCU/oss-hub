@@ -61,7 +61,7 @@ const overview: ProgramOverview = {
   viewerDocumentsTotal: 1,
   fullySubmittedParticipantCount: null,
   remainingMilestones: [],
-  milestoneDocuments: [],
+  requirements: [],
 };
 
 function Overview({ programId }: { readonly programId: string }) {

@@ -174,7 +174,7 @@ for (const width of [1440, 390]) {
             viewerDocumentsTotal: null,
             fullySubmittedParticipantCount: 0,
             remainingMilestones: [],
-            milestoneDocuments: [],
+            requirements: [],
           }),
         [`GET /api/v1/programs/${programId}/teams/me/membership`]: (route) =>
           fulfillJson(

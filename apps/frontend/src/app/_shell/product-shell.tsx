@@ -231,7 +231,7 @@ export function ProductShell({
         viewerParticipant: scopeParticipant,
         milestones: scopeMilestones,
 
-        milestoneDocuments: scopeOverview?.milestoneDocuments,
+        requirements: scopeOverview?.requirements,
       })
     : [];
   const scopePending = scopeOverviewStatus === 'pending';

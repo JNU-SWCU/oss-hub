@@ -96,7 +96,7 @@ async function installRoutes(page: Page) {
           viewerDocumentsTotal: null,
           fullySubmittedParticipantCount: 0,
           remainingMilestones: [],
-          milestoneDocuments: [],
+          requirements: [],
         },
       });
     } else if (path === `/api/v1/programs/${programId}/activity`) {

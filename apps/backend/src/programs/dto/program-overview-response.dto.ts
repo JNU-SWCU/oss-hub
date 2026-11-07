@@ -54,7 +54,7 @@ export class ProgramOverviewResponseDto {
 
   declare readonly fullySubmittedParticipantCount: number | null;
 
-  declare readonly milestoneDocuments: RequirementSummaryResponseDto[];
+  declare readonly requirements: RequirementSummaryResponseDto[];
 
   static from(view: ProgramOverviewView): ProgramOverviewResponseDto {
     return {
@@ -74,7 +74,7 @@ export class ProgramOverviewResponseDto {
       viewerDocumentsTotal: view.viewer.myDocumentsTotal,
       fullySubmittedParticipantCount:
         view.viewer.fullySubmittedParticipantCount,
-      milestoneDocuments: view.viewer.requirements.map((entry) =>
+      requirements: view.viewer.requirements.map((entry) =>
         RequirementSummaryResponseDto.from(entry),
       ),
     };

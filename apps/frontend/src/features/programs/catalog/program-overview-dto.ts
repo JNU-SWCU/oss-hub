@@ -29,5 +29,5 @@ export interface ProgramOverview {
     readonly dueAt: string;
   }[];
 
-  readonly milestoneDocuments: readonly ProgramOverviewRequirement[];
+  readonly requirements: readonly ProgramOverviewRequirement[];
 }

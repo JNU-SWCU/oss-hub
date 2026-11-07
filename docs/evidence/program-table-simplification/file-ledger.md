@@ -943,3 +943,7 @@ purge 설정과 그 테스트에서 쓰는 곳이 없는 PROGRAM outbox 서술�
 ## Todo 16 후속: 읽지 않는 currentConnectionMode 정리
 
 기준은 #1774를 머지한 `5b0c623b8`이다. 발급 문맥과 기록 입력의 `currentConnectionMode`는 값을 넘기기만 하고 읽는 곳이 없어, 그 필드와 이 값만 위해 읽던 `Team.repositoryConnectionMode` 조회를 지웠다. 발급 상태 spec의 목과 입력에서도 조회하지 않거나 입력 타입에 없는 `repositoryConnectionMode`·`repositoryUrl`·`currentRepositoryUrl`·`teamId`를 뺐다. 파일 수와 동작은 그대로라 원장 행은 바뀌지 않고, programs 제품 파일 수와 줄 수도 2단계와 같다(153개 32087줄).
+
+## 후속 12 마무리: 응답 필드와 범위 지문 키
+
+기준은 #1777을 머지한 `b0addb616`이다. 후속 12가 그대로 둔 옛 이름 두 갈래를 마저 바꿨다. 프로그램 개요 응답 필드 `milestoneDocuments`는 `requirements`가 됐고, 프론트 타입·사이드바 입력·테스트·e2e 목도 같은 이름을 쓴다. 프로그램 purge와 팀 삭제의 범위 지문을 만드는 키 접두어 `MilestoneDocument:`·`MilestoneDocumentSubmission:`·`MilestoneDocumentSubmissionHistory:`는 `Requirement:`·`Submission:`·`SubmissionHistory:`가 됐다. 지문은 삭제 미리보기가 돌려주고 확인 요청이 되돌려 보내는 값일 뿐 DB·outbox·이력에 남지 않는다. 그래서 배포 전에 연 삭제 확인 창만 범위 변경 409를 한 번 받고 새 범위로 다시 확인한다. 제품 파일에서 `MilestoneDocument` 이름은 0건이고, 과거 마이그레이션과 그 테스트·fixture, 이관 점검 SQL만 옛 이름을 쓴다. 더하거나 지운 파일은 없어 원장 행은 바뀌지 않고, programs 제품 파일 수와 줄 수도 그대로다(153개 32087줄).

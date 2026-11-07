@@ -53,7 +53,7 @@ async function installProgram(page: Page) {
           viewerDocumentsTotal: null,
           fullySubmittedParticipantCount: 0,
           remainingMilestones: [],
-          milestoneDocuments: [],
+          requirements: [],
         }),
       [`GET /api/v1/programs/${PROGRAM_ID}/activity`]: (route) =>
         fulfillJson(route, []),

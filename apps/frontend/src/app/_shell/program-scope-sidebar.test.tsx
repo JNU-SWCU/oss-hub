@@ -36,7 +36,7 @@ const studentGroups = programScopeSidebarGroups({
   teamCount: 47,
   boardPostCount: 3,
   viewerDocuments: { completed: 2, total: 6 },
-  milestoneDocuments: [
+  requirements: [
     {
       milestoneId: 'm3',
       title: '프로젝트 계획서 제출',
@@ -58,7 +58,7 @@ const staffGroups = programScopeSidebarGroups({
   viewerRole: 'STAFF',
   teamCount: 47,
   boardPostCount: 3,
-  milestoneDocuments: [
+  requirements: [
     {
       milestoneId: 'm3',
       title: '프로젝트 계획서 제출',

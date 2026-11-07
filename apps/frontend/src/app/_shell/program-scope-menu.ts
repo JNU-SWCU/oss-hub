@@ -61,7 +61,7 @@ export interface ProgramScopeSidebarInput {
 
   readonly milestones?: readonly ProgramScopeMilestoneNavigation[];
 
-  readonly milestoneDocuments?: readonly ProgramScopeRequirementSummary[];
+  readonly requirements?: readonly ProgramScopeRequirementSummary[];
 }
 
 export function programScopeSidebarGroups(
@@ -75,7 +75,7 @@ export function programScopeSidebarGroups(
     viewerDocuments,
     viewerParticipant,
     milestones,
-    milestoneDocuments = [],
+    requirements = [],
   } = input;
 
   if (viewerRole !== 'STUDENT' && viewerRole !== 'STAFF') {
@@ -136,16 +136,16 @@ export function programScopeSidebarGroups(
   const boardLocked = notParticipantStudent;
 
   const fallbackMilestones: readonly ProgramScopeMilestoneNavigation[] =
-    milestoneDocuments.map((milestone) => ({
-      milestoneId: milestone.milestoneId,
-      title: milestone.title,
+    requirements.map((requirement) => ({
+      milestoneId: requirement.milestoneId,
+      title: requirement.title,
       submissionEnabled: true,
     }));
   const navigationMilestones = (
     milestones ?? (isStaffView ? fallbackMilestones : [])
   ).filter((milestone) => isStaffView || milestone.submissionEnabled);
-  const documentSummaryByMilestone = new Map(
-    milestoneDocuments.map((milestone) => [milestone.milestoneId, milestone]),
+  const requirementSummaryByMilestone = new Map(
+    requirements.map((requirement) => [requirement.milestoneId, requirement]),
   );
 
   const documentsParent: ProgramScopeSidebarItem = isStaffView
@@ -179,7 +179,7 @@ export function programScopeSidebarGroups(
       : [];
   const milestoneItems: readonly ProgramScopeSidebarItem[] =
     navigationMilestones.map((milestone) => {
-      const summary = documentSummaryByMilestone.get(milestone.milestoneId);
+      const summary = requirementSummaryByMilestone.get(milestone.milestoneId);
       return {
         label: milestone.title,
         href: programDocumentsHref(programId, milestone.milestoneId),
