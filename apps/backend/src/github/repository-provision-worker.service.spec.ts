@@ -861,7 +861,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     );
 
     const result = await worker.runNext(
-      'worker-org-own-no-team',
+      'worker-org-own-reload-final',
       PROVISION_NOW,
     );
 
