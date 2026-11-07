@@ -37,6 +37,9 @@ export default defineConfig({
       components: {
         Footer: './src/components/Footer.astro',
         ThemeSelect: './src/components/ThemeToggle.astro',
+        LanguageSelect: './src/components/LanguageSelect.astro',
+        Header: './src/components/Header.astro',
+        SiteTitle: './src/components/SiteTitle.astro',
       },
       sidebar: [
         { label: '서비스 소개', translations: { en: 'Introduction' }, slug: 'intro' },

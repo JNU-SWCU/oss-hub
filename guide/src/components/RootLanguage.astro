@@ -1,0 +1,13 @@
+---
+import { rootDestination, preferredLanguage } from '../scripts/language.mjs';
+import { languagePreferenceKey } from '../scripts/language.mjs';
+const script = `(() => {
+  const preferredLanguage = ${preferredLanguage.toString()};
+  const rootDestination = ${rootDestination.toString()};
+  let saved;
+  try { saved = localStorage.getItem(${JSON.stringify(languagePreferenceKey)}); } catch {}
+  const destination = rootDestination(new URL(location.href), saved, navigator.languages, navigator.language, ${JSON.stringify(import.meta.env.BASE_URL)});
+  if (destination) location.replace(destination);
+})();`;
+---
+<script is:inline set:html={script} />

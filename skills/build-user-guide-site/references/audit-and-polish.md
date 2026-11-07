@@ -2,7 +2,7 @@
 
 ## 시각 검수 (`visual-audit`)
 
-배포된 사이트를 대상으로 합니다.
+배포된 사이트를 대상으로 합니다. 언어 진입·수동 선택·기존 URL 호환성의 브라우저 검수 항목은 [localization.md](localization.md#검수)를 따릅니다.
 
 ```bash
 node skills/build-user-guide-site/scripts/visual-audit.mjs [origin] [outJson]

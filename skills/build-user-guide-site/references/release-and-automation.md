@@ -13,7 +13,7 @@
 3. 이미지 인덱스 점검: `bash skills/build-user-guide-site/scripts/release-check.sh`. mdx가 참조하는 `src="role/name.webp"` 가 전부 인덱스에 있는지 봅니다. 없으면 `MISSING <파일>`을 찍고 1로 끝납니다.
 4. 커밋과 푸시.
 5. 배포 확인: `gh run list --workflow guide-pages.yml --limit 3`로 실행이 성공했는지 보고, `gh run watch <id>`로 기다립니다. 배포 주소는 `https://jnu-swcu.github.io/oss-hub/`.
-6. 한국어 root와 `/en/` 배포 주소에서 해당 변경과 언어 전환을 확인한다. 짧게 보고: 올린 것, 언어별 Pages 링크, 남은 일 한두 줄.
+6. [localization.md](localization.md)의 명시적 언어 주소와 루트 진입 계약에 따라 두 언어의 배포 결과를 확인한다. 짧게 보고: 올린 것, 언어별 Pages 링크, 남은 일 한두 줄.
 
 ## 자동화 구성 (파일에서 읽은 그대로)
 
@@ -44,3 +44,7 @@
 화면이 바뀌어도 같은 절차입니다. 바뀐 화면의 이미지만 다시 찍어 같은 파일 이름으로 덮어쓰고, 영향받는 본문과 `src/site.ts`의 `lastChecked`, `releaseVersion`을 고칩니다. 그 뒤 위 한 바퀴를 돕니다.
 
 `src/site.ts`의 `checkedCommit`은 가이드가 코드와 맞다고 확인한 마지막 `main` SHA입니다. 올리는 조건은 `SKILL.md`의 「어디서 시작할지」에 있습니다. 제품 변경과 함께 가이드를 고칠 때는 `checkedCommit`을 건드리지 않습니다. 그 시점에는 `main`의 SHA가 정해지지 않았고, 다음 `update`가 이미 맞춘 곳을 확인만 하고 지나갑니다.
+
+## 예약 갱신
+
+기존 자정 갱신은 매 실행 최신 `main`의 `SKILL.md`와 `references/localization.md`를 읽고 그 언어 범위 계약을 따른다. 같은 목적의 일정을 추가하지 않고, 다른 작업의 일정은 바꾸지 않는다.

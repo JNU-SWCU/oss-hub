@@ -1,0 +1,45 @@
+---
+import { isEnglishGuide } from './locale';
+import { languagePath } from '../scripts/language.mjs';
+const english = isEnglishGuide(Astro.url);
+const base = import.meta.env.BASE_URL;
+const pathname = /\/404(?:\.html)?\/?$/.test(Astro.url.pathname) ? `${base}/` : Astro.url.pathname;
+---
+<nav class="guide-language" aria-label={english ? 'Language' : '언어'}>
+  <a href={languagePath(pathname, 'en', base)} lang="en" hreflang="en" data-guide-language="en" aria-current={english ? 'page' : undefined}>EN</a>
+  <span aria-hidden="true">·</span>
+  <a href={languagePath(pathname, 'ko', base)} lang="ko" hreflang="ko" data-guide-language="ko" aria-current={!english ? 'page' : undefined}>KO</a>
+</nav>
+
+<script>
+  import { languagePreferenceKey } from '../scripts/language.mjs';
+  const links = document.querySelectorAll<HTMLAnchorElement>('[data-guide-language]');
+  function updateLinks() {
+    for (const link of links) {
+      const target = new URL(link.href);
+      target.search = location.search;
+      target.hash = location.hash;
+      link.href = target.href;
+    }
+  }
+  updateLinks();
+  window.addEventListener('hashchange', updateLinks);
+  window.addEventListener('pageshow', updateLinks);
+  for (const link of links) {
+    const remember = () => {
+      updateLinks();
+      try { localStorage.setItem(languagePreferenceKey, link.dataset.guideLanguage!); } catch {}
+    };
+    link.addEventListener('click', remember);
+    link.addEventListener('auxclick', remember);
+  }
+</script>
+
+<style>
+  .guide-language { display: flex; align-items: center; gap: 0.15rem; flex-shrink: 0; font-size: 0.875rem; white-space: nowrap; }
+  a { display: inline-flex; align-items: center; justify-content: center; min-width: 2rem; min-height: 2.75rem; color: var(--sl-color-gray-3); text-decoration: none; border-radius: 0.375rem; }
+  a[aria-current='page'] { color: var(--sl-color-white); font-weight: 700; text-decoration: underline; text-underline-offset: 0.3em; }
+  a:hover { color: var(--sl-color-white); background: var(--sl-color-gray-6); }
+  a:focus-visible { outline: 2px solid var(--guide-brand); outline-offset: 2px; }
+  span { color: var(--sl-color-gray-3); }
+</style>

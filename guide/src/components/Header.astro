@@ -1,0 +1,14 @@
+---
+import Header from '@astrojs/starlight/components/Header.astro';
+import LanguageSelect from './LanguageSelect.astro';
+---
+<div class="guide-header">
+  <div class="standard-header"><Header /></div>
+  <div class="mobile-language"><LanguageSelect /></div>
+</div>
+<style>
+  .guide-header { display: flex; align-items: center; gap: 0.5rem; height: 100%; }
+  .standard-header { flex: 1; min-width: 0; }
+  .mobile-language { flex-shrink: 0; }
+  @media (min-width: 50rem) { .mobile-language { display: none; } }
+</style>

@@ -1,0 +1,6 @@
+---
+import SiteTitle from '@astrojs/starlight/components/SiteTitle.astro';
+import { isEnglishGuide } from './locale';
+Astro.locals.starlightRoute.siteTitleHref = `${import.meta.env.BASE_URL.replace(/\/$/, '')}/${isEnglishGuide(Astro.url) ? 'en' : 'ko'}/`;
+---
+<SiteTitle />

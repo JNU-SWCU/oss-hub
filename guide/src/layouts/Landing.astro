@@ -1,0 +1,442 @@
+---
+import { getImage, Image } from 'astro:assets';
+import '~/styles/tokens.css';
+import Shot from '~/components/Shot.astro';
+import SiteNote from '~/components/SiteNote.astro';
+import ThemeToggle from '~/components/ThemeToggle.astro';
+import LanguageSelect from '~/components/LanguageSelect.astro';
+import RootLanguage from '~/components/RootLanguage.astro';
+
+const { detectLanguage = false } = Astro.props;
+import { lastChecked, releaseVersion, serviceUrl } from '~/site';
+
+const base = import.meta.env.BASE_URL.replace(/\/$/, '');
+const images = import.meta.glob<{ default: ImageMetadata }>(
+  '/src/assets/shots/landing/*.webp',
+  { eager: true },
+);
+const shot = (name: string) => images[`/src/assets/shots/landing/${name}.webp`]?.default;
+
+const heroAlt = '교직원 운영 대시보드. 모집중, 진행중, 종료 프로그램 수가 보입니다.';
+const heroMobile = await getImage({ src: shot('hero-mobile'), width: 780 });
+
+const flow = [
+  {
+    name: 'explore',
+    no: '01',
+    title: '탐색',
+    body: '프로그램의 신청 기간과 운영 일정, 제출 항목을 확인합니다.',
+    alt: '프로그램 목록. 모집중, 예정, 진행중 상태의 프로그램 카드가 나열되어 있습니다.',
+  },
+  {
+    name: 'apply',
+    no: '02',
+    title: '팀 구성·신청',
+    body: '팀 이름을 정하고 팀원을 초대한 뒤 신청서를 냅니다.',
+    alt: '프로그램 신청 화면. 신청서의 팀 이름 입력칸과 팀 구성원 영역, 개인정보 동의 칸, 신청 제출 버튼이 보입니다.',
+  },
+  {
+    name: 'decide',
+    no: '03',
+    title: '신청 판정',
+    body: '교직원이 신청을 검토해 승인하거나 반려합니다.',
+    alt: '교직원의 팀 관리 화면. 팀별 신청 상태가 검토 대기, 승인, 반려로 표시되어 있습니다.',
+  },
+  {
+    name: 'submit',
+    no: '04',
+    title: '활동·제출·검토',
+    body: '승인된 팀이 서류를 내면 교직원이 검토합니다. 보완 요청을 받으면 고쳐서 다시 냅니다.',
+    alt: '학생의 제출 현황 화면. 서류별 마감과 승인, 보완 요청 상태가 보입니다.',
+  },
+];
+
+const roles = [
+  {
+    name: '관리자',
+    href: `${base}/admin/`,
+    body: '교직원 권한 요청을 처리하고 관리자 접근과 계정 상태를 바꿉니다. 감사 로그와 시스템 상태도 확인합니다.',
+  },
+  {
+    name: '학생',
+    href: `${base}/student/`,
+    body: '프로그램을 찾아 팀으로 신청합니다. 승인되면 저장소에서 활동하며 서류를 냅니다.',
+  },
+  {
+    name: '교직원',
+    href: `${base}/staff/`,
+    body: '프로그램을 열어 운영하고, 신청을 판정하며 제출물을 검토합니다.',
+  },
+];
+
+const faq = [
+  {
+    q: '한 계정이 교직원이면서 관리자일 수 있나요?',
+    a: '네. 회원 유형과 관리자 접근을 따로 관리합니다.',
+  },
+  {
+    q: '교직원이나 관리자도 자기 팀의 신청을 판정할 수 있나요?',
+    a: '아니요. 자기가 속한 팀의 신청은 판정할 수 없고, 제출물도 검토할 수 없습니다.',
+  },
+  {
+    q: '신청이 승인되면 제출한 서류도 승인된 것인가요?',
+    a: '아닙니다. 신청 승인과 서류 검토는 별개이며, 서류마다 따로 결과가 나옵니다.',
+  },
+];
+
+const nav = [
+  ['서비스 소개', `${base}/intro/`],
+  ['시작하기', `${base}/start/`],
+  ['관리자', `${base}/admin/`],
+  ['학생', `${base}/student/`],
+  ['교직원', `${base}/staff/`],
+  ['FAQ', `${base}/faq/`],
+];
+---
+
+<!doctype html>
+<html lang="ko" data-theme="dark">
+  <head>
+    <meta charset="utf-8" />
+    {detectLanguage && <RootLanguage />}
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>OSS Hub 사용 가이드</title>
+    <meta
+      name="description"
+      content="전남대학교 SW중심대학사업단의 오픈소스 프로그램 서비스 OSS Hub를 관리자, 학생, 교직원 역할별로 안내합니다."
+    />
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin />
+    <link
+      rel="stylesheet"
+      crossorigin
+      href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css"
+    />
+    <link rel="icon" href={`${base}/favicon.svg`} type="image/svg+xml" />
+    <script is:inline>
+      (() => {
+        let stored = '';
+        try {
+          stored = localStorage.getItem('starlight-theme') || '';
+        } catch {}
+        const dark = matchMedia('(prefers-color-scheme: dark)').matches;
+        document.documentElement.dataset.theme =
+          stored || (dark ? 'dark' : 'light');
+      })();
+    </script>
+  </head>
+  <body>
+    <a class="skip" href="#main">본문으로 건너뛰기</a>
+    <header class="top">
+      <div class="wrap top-in">
+        <a class="brand" href={`${base}/ko/`}>
+          <svg viewBox="0 0 32 32" width="24" height="24" aria-hidden="true">
+            <rect width="32" height="32" rx="8" fill="#003399"></rect>
+            <circle cx="16" cy="16" r="7" fill="none" stroke="#fff" stroke-width="3.5"></circle>
+            <circle cx="16" cy="16" r="2" fill="#2aab63"></circle>
+          </svg>
+          <span>OSS Hub <em>사용 가이드</em></span>
+        </a>
+        <nav aria-label="주요 메뉴" class="menu">
+          {nav.map(([label, href]) => <a href={href}>{label}</a>)}
+        </nav>
+        <LanguageSelect />
+        <ThemeToggle />
+        <details class="menu-m">
+          <summary aria-label="메뉴">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+          </summary>
+          <nav aria-label="주요 메뉴">
+            {nav.map(([label, href]) => <a href={href}>{label}</a>)}
+          </nav>
+        </details>
+      </div>
+    </header>
+
+    <main id="main">
+      <section class="hero">
+        <div class="wrap hero-head">
+          <div>
+            <p class="eyebrow">전남대학교 SW중심대학사업단</p>
+            <h1>신청에서 검토까지,<br /><span>한 화면에서.</span></h1>
+          </div>
+          <div>
+          <p class="lede">
+            OSS Hub는 사업단의 오픈소스 프로그램을 운영하는 웹 서비스입니다.
+            이 가이드는 관리자, 학생, 교직원이 각자 화면에서 할 일을 순서대로 안내합니다.
+          </p>
+          <div class="cta">
+            <a class="btn primary" href={`${base}/start/`}>가이드 보기</a>
+            <a class="btn" href={serviceUrl}>OSS Hub 열기</a>
+          </div>
+          <nav class="hero-roles" aria-label="역할별 가이드">
+            <span>역할별 가이드</span>
+            {roles.map((r) => <a href={r.href}>{r.name}</a>)}
+          </nav>
+          <p class="meta"><span aria-hidden="true"></span>배포본 {releaseVersion} 기준 · {lastChecked} 확인</p>
+          </div>
+        </div>
+        <div class="wrap">
+          <picture class="frame frame-hero">
+            <source media="(max-width: 47.99rem)" srcset={heroMobile.src} width="780" height="1480" />
+            <Image src={shot('hero')} alt={heroAlt} widths={[960, 1440, 2000]} sizes="(min-width: 1200px) 1120px, 92vw" loading="eager" />
+          </picture>
+        </div>
+      </section>
+
+      <section class="band" aria-labelledby="about">
+        <div class="wrap about">
+          <h2 id="about">서비스 소개</h2>
+          <p>
+            프로그램을 찾아 팀으로 신청하는 일부터 서류 검토, GitHub 활동 확인까지 한 서비스에서 이어집니다.
+          </p>
+          <ul class="facts">
+            <li><strong>프로그램 신청</strong>모집 중인 프로그램의 일정을 확인하고 팀으로 신청합니다.</li>
+            <li><strong>서류 제출</strong>서류마다 마감을 확인해 내고 검토 결과를 받습니다.</li>
+            <li><strong>GitHub 연동</strong>GitHub 계정으로 로그인합니다. 팀 저장소의 활동도 기록됩니다.</li>
+          </ul>
+        </div>
+      </section>
+
+      <section class="flow" aria-labelledby="flow-h">
+        <div class="wrap">
+          <h2 id="flow-h" class="section-title">참여 흐름</h2>
+          {flow.map((s) => (
+            <article class="step">
+              <header>
+                <span class="no" aria-hidden="true">{s.no}</span>
+                <h3>{s.title}</h3>
+                <p>{s.body}</p>
+              </header>
+              <Shot src={`landing/${s.name}.webp`} alt={s.alt} sizes="(min-width: 1200px) 1120px, 92vw" />
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section class="roles" aria-labelledby="roles-h">
+        <div class="wrap">
+          <h2 id="roles-h" class="section-title">역할별 가이드</h2>
+          <ul class="cards">
+            {roles.map((r) => (
+              <li>
+                <a href={r.href}>
+                  <h3>{r.name}</h3>
+                  <p>{r.body}</p>
+                  <span class="more">가이드 보기 <span aria-hidden="true">→</span></span>
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      <section class="faq" aria-labelledby="faq-h">
+        <div class="wrap faq-in">
+          <div>
+            <h2 id="faq-h" class="section-title">자주 묻는 질문</h2>
+            <a class="link" href={`${base}/faq/`}>전체 보기 <span aria-hidden="true">→</span></a>
+          </div>
+          <div class="qa">
+            {faq.map((f) => (
+              <details>
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      <section class="outro">
+        <div class="wrap">
+          <h2>지금 OSS Hub를 열어 보세요.</h2>
+          <div class="cta">
+            <a class="btn primary" href={serviceUrl}>jnu-oss-hub.com</a>
+            <a class="btn" href={`${base}/start/`}>가이드 보기</a>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="foot">
+      <div class="wrap"><SiteNote /></div>
+    </footer>
+
+  </body>
+</html>
+
+<style is:global>
+  html {
+    scroll-behavior: smooth;
+    scroll-padding-top: 5rem;
+  }
+  body {
+    margin: 0;
+    background: var(--sl-color-black);
+    color: var(--sl-color-gray-2);
+    font-family: var(--sl-font);
+    line-height: 1.7;
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+  h1, h2, h3, p, ul { margin: 0; }
+  ul { padding: 0; list-style: none; }
+  a { color: inherit; text-decoration: none; }
+  .wrap { width: min(72rem, 100% - 2rem); margin-inline: auto; }
+  @media (min-width: 48rem) { .wrap { width: min(72rem, 100% - 4rem); } }
+
+  .skip {
+    position: absolute; left: 1rem; top: -4rem; z-index: 20;
+    padding: 0.5rem 0.9rem; border-radius: 0.5rem;
+    background: var(--sl-color-white); color: var(--sl-color-black);
+  }
+  .skip:focus { top: 1rem; }
+
+  .top {
+    position: sticky; top: 0; z-index: 10;
+    background: color-mix(in srgb, var(--sl-color-black) 82%, transparent);
+    backdrop-filter: saturate(160%) blur(14px);
+    border-bottom: 1px solid var(--guide-line);
+  }
+  .top-in { display: flex; align-items: center; gap: 1rem; min-height: 3.5rem; }
+  .brand { display: inline-flex; align-items: center; gap: 0.55rem; font-weight: 700; color: var(--sl-color-white); letter-spacing: -0.02em; white-space: nowrap; }
+  .brand em { font-style: normal; font-weight: 500; color: var(--sl-color-gray-3); }
+  .menu { display: none; margin-left: auto; gap: 0.25rem; }
+  .menu a { padding: 0.4rem 0.75rem; border-radius: 0.5rem; font-size: 0.9375rem; color: var(--sl-color-gray-2); }
+  .menu a:hover { background: var(--sl-color-gray-6); color: var(--sl-color-white); }
+  @media (min-width: 62rem) { .menu { display: flex; } }
+  .top-in > .guide-language { margin-left: auto; }
+  .theme-toggle { flex-shrink: 0; }
+  @media (max-width: 30rem) { .brand em { display: none; } .top-in { gap: 0.5rem; } }
+  @media (min-width: 62rem) { .theme-toggle { margin-left: 0.25rem; } }
+
+  .hero { padding: clamp(2.5rem, 6vw, 5rem) 0 0; position: relative; isolation: isolate; }
+  .menu-m { position: relative; }
+  .menu-m summary {
+    display: grid; place-items: center; width: 2.25rem; height: 2.25rem;
+    border: 1px solid var(--guide-line); border-radius: 0.6rem;
+    color: var(--sl-color-gray-1); cursor: pointer; list-style: none;
+  }
+  .menu-m summary::-webkit-details-marker { display: none; }
+  .menu-m nav {
+    position: absolute; right: 0; top: calc(100% + 0.5rem);
+    display: flex; flex-direction: column; min-width: 11rem; padding: 0.375rem;
+    border: 1px solid var(--guide-line); border-radius: 0.75rem;
+    background: var(--sl-color-black); box-shadow: var(--guide-shadow);
+  }
+  .menu-m nav a { padding: 0.6rem 0.75rem; border-radius: 0.5rem; color: var(--sl-color-gray-1); }
+  .menu-m nav a:hover { background: var(--sl-color-gray-6); }
+  @media (min-width: 62rem) { .menu-m { display: none; } }
+  .hero-head { display: grid; gap: 1.5rem; }
+  .hero-head .lede { margin-top: 0; }
+  @media (min-width: 62rem) {
+    .hero-head { grid-template-columns: 1.1fr 1fr; gap: 4rem; align-items: end; }
+  }
+  .hero::before {
+    content: ''; position: absolute; inset: 0 0 auto 0; height: 38rem; z-index: -1;
+    background:
+      radial-gradient(60rem 30rem at 80% 6%, color-mix(in srgb, var(--sl-color-accent) 32%, transparent), transparent 70%);
+    mask-image: linear-gradient(#000 55%, transparent);
+  }
+  .eyebrow { display: inline-flex; padding: 0.3rem 0.8rem; border: 1px solid var(--guide-line); border-radius: 999px; font-size: 0.8125rem; font-weight: 600; color: var(--guide-brand); }
+  h1 span { color: var(--guide-brand); }
+  h1 {
+    margin-top: 1rem; max-width: 18ch;
+    font-size: clamp(2.5rem, 4.5vw + 1rem, 4.75rem); font-weight: 750; line-height: 1.15;
+    letter-spacing: -0.025em; color: var(--sl-color-white);
+  }
+  .lede { margin-top: 1.5rem; max-width: 34rem; text-wrap: pretty; font-size: clamp(1rem, 0.6vw + 0.9rem, 1.1875rem); color: var(--sl-color-gray-2); }
+  .cta { display: flex; flex-wrap: wrap; gap: 0.75rem; margin-top: 2rem; }
+  .btn {
+    display: inline-flex; align-items: center; min-height: 2.9rem; padding: 0 1.4rem;
+    border: 1px solid var(--sl-color-gray-5); border-radius: 0.7rem;
+    font-weight: 600; color: var(--sl-color-white); transition: background 0.15s, border-color 0.15s;
+  }
+  .btn:hover { background: var(--sl-color-gray-6); }
+  .btn.primary { background: var(--guide-brand); border-color: var(--guide-brand); color: var(--sl-color-black); }
+  .btn.primary:hover { filter: brightness(1.1); }
+  .hero-roles { display: flex; flex-wrap: wrap; align-items: center; gap: 0.25rem 1rem; margin-top: 1.25rem; font-size: 0.9375rem; }
+  .hero-roles span { margin-right: 0.25rem; color: var(--sl-color-gray-3); }
+  .hero-roles a { display: inline-flex; align-items: center; min-height: 2.75rem; font-weight: 600; color: var(--sl-color-white); text-decoration: underline; text-decoration-color: var(--guide-brand); text-decoration-thickness: 2px; text-underline-offset: 0.3em; }
+  .hero-roles a:hover { color: var(--guide-brand); }
+  .meta { display: flex; align-items: center; gap: 0.5rem; margin-top: 0.75rem; font-size: 0.8125rem; font-variant-numeric: tabular-nums; color: var(--sl-color-gray-3); }
+  .meta span { width: 0.5rem; height: 0.5rem; border-radius: 50%; background: #2aab63; box-shadow: 0 0 0 3px color-mix(in srgb, #2aab63 25%, transparent); }
+  main p, .facts li { text-wrap: pretty; word-break: keep-all; }
+
+  .frame {
+    overflow: hidden;
+    border-radius: 0.9rem; background: var(--sl-color-gray-7);
+    outline: 1px solid var(--guide-line); outline-offset: -1px; box-shadow: var(--guide-shadow);
+  }
+  .frame img { display: block; width: 100%; height: auto; }
+  .frame-hero { display: block; width: min(19.5rem, 100%); margin: clamp(2.5rem, 6vw, 4.5rem) auto 0; border-radius: 1.5rem; box-shadow: var(--guide-shadow), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
+  @media (min-width: 48rem) {
+    .frame-hero { width: auto; aspect-ratio: 16 / 10; border-radius: 0.9rem; }
+    .frame-hero img { mask-image: linear-gradient(#000 80%, transparent); }
+  }
+  html[data-theme='dark'] .frame { outline-color: rgb(255 255 255 / 10%); }
+  html[data-theme='dark'] .frame img, html[data-theme='dark'] .shot img { filter: brightness(0.94) contrast(1.03); }
+  html[data-theme='dark'] .frame-hero { box-shadow: 0 0 0 1px rgb(255 255 255 / 8%), 0 40px 120px -30px color-mix(in srgb, var(--sl-color-accent) 35%, transparent); }
+
+  .band { margin-top: clamp(4rem, 9vw, 8rem); border-block: 1px solid var(--guide-line); background: var(--sl-color-gray-7); }
+  .about { display: grid; gap: 1.25rem; padding-block: clamp(3rem, 6vw, 5rem); }
+  .about h2, .section-title { font-size: clamp(1.5rem, 1.5vw + 1rem, 2.25rem); font-weight: 700; line-height: 1.3; letter-spacing: -0.025em; color: var(--sl-color-white); }
+  .about > p { max-width: 38rem; font-size: 1.0625rem; }
+  .facts { counter-reset: fact; display: grid; gap: 1px; margin-top: 1.5rem; background: var(--guide-line); border: 1px solid var(--guide-line); border-radius: 0.9rem; overflow: hidden; }
+  .facts li { padding: 1.4rem 1.5rem; background: var(--sl-color-black); font-size: 0.9375rem; }
+  .facts li::before { counter-increment: fact; content: counter(fact, decimal-leading-zero); display: block; margin-bottom: 0.75rem; font-size: 1.5rem; font-weight: 700; line-height: 1; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--guide-brand); opacity: 0.55; }
+  .facts strong { display: block; margin-bottom: 0.35rem; font-size: 1.0625rem; color: var(--sl-color-white); }
+  @media (min-width: 50rem) { .facts { grid-template-columns: repeat(3, 1fr); } }
+
+  .flow { padding-top: clamp(4rem, 9vw, 8rem); }
+  .step { margin-top: clamp(3rem, 7vw, 6rem); }
+  .step .shot { margin: 0; }
+  .step header { display: grid; gap: 0.5rem 2rem; margin-bottom: 1.5rem; }
+  .no {
+    font-size: clamp(2.25rem, 4vw, 3.5rem); font-weight: 600; line-height: 1; letter-spacing: -0.03em;
+    font-variant-numeric: tabular-nums; color: transparent;
+    -webkit-text-stroke: 1.5px var(--guide-brand);
+  }
+  .step h3 { font-size: clamp(1.25rem, 0.8vw + 1rem, 1.625rem); font-weight: 700; letter-spacing: -0.02em; color: var(--sl-color-white); }
+  .step header p { max-width: 36rem; }
+  @media (min-width: 56rem) {
+    .step header { grid-template-columns: 9rem 1fr; grid-template-areas: 'no title' 'no body'; align-items: start; }
+    .no { grid-area: no; }
+    .step h3 { grid-area: title; align-self: end; }
+    .step header p { grid-area: body; }
+  }
+
+  .roles { padding-top: clamp(4rem, 9vw, 8rem); }
+  .cards { display: grid; gap: 1rem; margin-top: 2rem; }
+  @media (min-width: 50rem) { .cards { grid-template-columns: repeat(3, 1fr); } }
+  .cards li { display: flex; }
+  .cards a {
+    display: flex; flex-direction: column; flex: 1; padding: 1.6rem;
+    border: 1px solid var(--guide-line); border-radius: 0.9rem; background: var(--sl-color-gray-7);
+    transition: border-color 0.15s, transform 0.15s;
+  }
+  .cards a:hover { border-color: var(--guide-brand); transform: translateY(-2px); }
+  .cards h3 { font-size: 1.25rem; font-weight: 700; letter-spacing: -0.02em; color: var(--sl-color-white); }
+  .cards p { margin-top: 0.6rem; font-size: 0.9375rem; flex: 1; }
+  .more { margin-top: 1.4rem; font-size: 0.9375rem; font-weight: 600; color: var(--guide-brand); }
+
+  .faq { padding-top: clamp(4rem, 9vw, 8rem); }
+  .faq-in { display: grid; gap: 2rem; }
+  @media (min-width: 56rem) { .faq-in { grid-template-columns: 1fr 2fr; gap: 4rem; } }
+  .link { display: inline-block; margin-top: 1rem; font-weight: 600; color: var(--guide-brand); }
+  .qa { border-top: 1px solid var(--guide-line); }
+  .qa details { border-bottom: 1px solid var(--guide-line); }
+  .qa summary {
+    display: flex; justify-content: space-between; gap: 1rem; padding: 1.25rem 0;
+    font-size: 1.0625rem; font-weight: 600; color: var(--sl-color-white); cursor: pointer; list-style: none;
+  }
+  .qa summary::-webkit-details-marker { display: none; }
+  .qa summary::after { content: '+'; font-weight: 400; color: var(--sl-color-gray-3); }
+  .qa details[open] summary::after { content: '−'; }
+  .qa details p { padding-bottom: 1.25rem; max-width: 38rem; }
+
+  .outro { margin-top: clamp(4rem, 9vw, 8rem); padding-block: clamp(4rem, 9vw, 7rem); border-top: 1px solid var(--guide-line); background: var(--sl-color-gray-7); text-align: center; }
+  .outro h2 { font-size: clamp(1.5rem, 1.5vw + 1rem, 2.25rem); font-weight: 700; letter-spacing: -0.025em; color: var(--sl-color-white); }
+  .outro .cta { justify-content: center; }
+  .foot { padding: 2rem 0 3rem; text-align: center; border-top: 1px solid var(--guide-line); }
+</style>
