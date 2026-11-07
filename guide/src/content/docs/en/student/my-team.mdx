@@ -1,0 +1,114 @@
+---
+title: Check your application and team
+description: Check application results and next steps, cancel an application, or leave a team.
+sidebar:
+  order: 5
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+## Check the dashboard
+
+Click `대시보드` (Dashboard) at the top to open `내 대시보드` (My dashboard). Programs you applied to appear as cards, each showing the next submission deadline, document progress, new feedback, and repository status.
+
+<Shot src="student/dashboard.webp" alt="My dashboard, with one in-progress card and one application-status card. ① points to Our team on the first card." caption="① Our team" />
+
+- Use the chips at the top: `전체` (All), `진행 중` (In progress), `새 피드백 있음` (New feedback), `마친 프로그램` (Completed programs), and `신청 상태` (Application status). The number is the count of cards in that group. A chip appears only when it has cards and its count is smaller than the total.
+- Before approval, applications appear under `신청 상태` (Application status) with a `신청` (Applied) badge; rejected applications show `반려` (Rejected). Open `신청 상세` (Application details) for the application screen or `우리 팀` (Our team) for the team screen.
+- Card links `제출 현황` (Submission status), `서류 내기` (Submit documents), and `다시 내기` (Resubmit) lead to [document submission](/oss-hub/en/student/submit/).
+- If you have not applied to any programs, `아직 신청한 프로그램이 없습니다` (You have not applied to any programs yet) and `프로그램 둘러보기` (Browse programs) appear.
+
+<Shot src="student/dashboard-filters.webp" alt="Dashboard filter chips. ① points to New feedback." caption="① New feedback chip" />
+<Shot src="student/dashboard-card.webp" alt="A program card on the dashboard with the next submission item, progress bar, new feedback, and repository status." caption="Program card" />
+<Shot src="student/dashboard-empty.webp" alt="Dashboard with no applications. ① points to Browse programs." caption="① Browse programs" />
+
+## Approval and rejection results
+
+A notification appears on the dashboard when a result is available. `교직원` (staff) decide whether to approve or reject applications.
+
+| Notification | What to do next |
+| --- | --- |
+| `{프로그램} 신청이 승인되었습니다` (Your program application was approved) | Click `제출 일정 확인` (Check submission schedule) to see [document deadlines](/oss-hub/en/student/submit/). If the program provisions repositories, check your [repository](/oss-hub/en/student/repository/) too. |
+| `{프로그램} 신청이 반려되었습니다` (Your program application was rejected) | Click `반려 사유 확인` (Check reason for rejection) to see `반려 사유` (Reason for rejection) in the application screen. The same reason appears in `우리 팀` (Our team). If no reason was provided, Our team shows `교직원이 남긴 사유가 없습니다. 자세한 내용은 주관 부서에 문의해 주세요.` (Staff did not leave a reason. Contact the organizing department for details). |
+| `{프로그램} 신청이 다시 검토 대기로 돌아갔습니다` (Your program application is awaiting review again) | Staff reversed the decision. Click `신청 상태 확인` (Check application status) to open the application and wait for another review. |
+
+<Shot src="student/notice-approved.webp" alt="Approval notification on the dashboard. ① points to Check submission schedule beside the approval message." caption="① Check submission schedule" />
+<Shot src="student/notice-rejected.webp" alt="Rejection notification on the dashboard. ① points to Check reason for rejection beside the rejection message." caption="① Check reason for rejection" />
+
+Application results are not emailed. Check these notifications and `우리 팀` (Our team). Email only reminds you about approaching deadlines. See [Settings](/oss-hub/en/student/settings/) for details.
+
+## Apply again after rejection
+
+During the application period, the team leader can edit and resubmit a rejected application. The team and members stay the same; staff do not need to return it to awaiting review first. <Verified status="policy" />
+
+<Steps>
+1. Read the reason for rejection in `우리 팀` (Our team). If no reason was provided, ask the organizing department what needs to change.
+2. Click `신청서 확인·수정` (View or edit application) to open the application.
+3. Revise it to address the reason.
+4. Click `신청서 다시 제출` (Resubmit application), then confirm with `다시 제출` (Resubmit) in the dialog.
+</Steps>
+
+<Success>
+The process is complete when `신청서를 다시 제출했습니다` (Application resubmitted) appears. The application returns to `검토 대기` (Awaiting review) for a staff decision.
+</Success>
+
+To apply with another team, leave your team instead of resubmitting. Leaders use `신청 취소` (Cancel application) to delete the team and application together, then apply again. Invited students must accept again to join the new team. Cancellation is not possible if there are submission records or a linked repository. Members can use `팀 탈퇴` (Leave team) and join another team.
+
+<Recover title="When the application period has ended">
+After the application period, the screen shows `신청 기간이 아닙니다` (Outside the application period). You cannot resubmit, cancel, or submit a new application. Contact the organizing department. Staff can change a rejected application directly to `승인` (Approved).
+</Recover>
+
+## Cancel an application
+
+During the application period, the current team leader can cancel a team application awaiting review or rejected. Cancellation is not possible if there are submission records or a linked repository.
+
+Approved applications cannot be edited or canceled. You also cannot cancel outside the application period or if you are not the current team leader.
+
+<Steps>
+1. Under `신청 상태` (Application status) in `우리 팀` (Our team), click ① `신청서 확인·수정` (View or edit application). `신청 상세` (Application details) under `신청 상태` (Application status) on the dashboard opens the same screen.
+2. Click `신청 취소` (Cancel application) at the bottom of the application screen.
+3. In `신청을 취소하시겠습니까?` (Cancel this application?), click `신청 취소` (Cancel application) to return to `대시보드` (Dashboard). The team and application are deleted together, memberships are removed, and sent invitations are cleared. During the application period, you can create a new team and submit again.
+</Steps>
+<Shot src="student/team-application-link.webp" alt="Application status card in Our team, showing that review is pending. ① points to View or edit application." caption="① View or edit application" />
+
+## The Our team screen
+
+Click `우리 팀` (Our team) on a dashboard card to open the team's page for that program. From the top, it shows the team name, `신청 상태` (Application status), and `팀 구성원` (Team members). After approval, `프로젝트 저장소` (Project repository), `우리 팀 활동` (Our team activity), and `제출 현황` (Submission status) follow. `팀 관리` (Team management) is at the bottom.
+
+<Shot src="student/team-header.webp" alt="Top of the Our team screen with the team and program names." caption="Team and program names" />
+<Shot src="student/team-status.webp" alt="Application status area in Our team." caption="Application status" />
+<Shot src="student/team-member-view.webp" alt="Our team as seen by a member. Below application status, ① outlines the Team members area showing the leader and member side by side." caption="① Team members. Members see the same list." />
+<Shot src="student/team-members.webp" alt="Team members as seen by the leader. ① points to Invite teammate; ② points to the transfer-leadership icon on a member row." caption="① Invite teammate ② Transfer leadership. Leaders and members are labeled separately." />
+
+If you have no team, the screen shows `아직 이 프로그램에서 속한 팀이 없습니다` (You do not belong to a team in this program yet), `신청 화면으로` (Go to application), and `프로그램 개요` (Program overview).
+
+<Shot src="student/team-none.webp" alt="Our team when you do not belong to a team. ① points to Go to application." caption="① Go to application" />
+
+### Leave a team
+
+A leader with other members remaining must transfer leadership first. In `팀 구성원` (Team members), click the ② arrow icon on the chosen member's row and confirm with `팀장 위임` (Transfer leadership). Hovering displays `{이름} 팀장 위임` (Transfer leadership to this person). The next leader is not selected automatically.
+
+After the transfer, you remain a regular member. Click `팀 탈퇴` (Leave team) in `팀 관리` (Team management) and confirm to leave. If other members remain, the team's application and submission records are retained.
+
+To remove a specific member, the leader clicks the icon at the end of that member's row. Hovering displays `팀에서 제외` (Remove from team).
+
+If only one member remains, the button changes to `팀 삭제` (Delete team).
+
+- Before approval, if there are no submission records or linked repositories, the last member's departure deletes the team and application together. Sent invitations are also cleared.
+- The last member of an approved team cannot leave.
+- The last member of a team with submission records or a linked repository also cannot leave.
+
+If `교직원` (staff) delete the team, the dashboard shows `{프로그램}의 팀 ‘{팀}’이 삭제되었습니다` (This team in the program has been deleted). The deletion reason appears with it; dismiss it with `확인했어요` (Got it). This notification is not sent when the team is deleted because you leave it yourself.
+
+<Success>
+After approval, the card moves to `진행 중` (In progress), and `제출 현황` (Submission status) appears in `우리 팀` (Our team).
+</Success>
+
+<Recover title="When a status looks unexpected">
+- If a dashboard card is missing, check that the top chip is `전체` (All).
+- `팀장만 다른 팀원을 제외할 수 있습니다.` (Only the team leader can remove other members): members cannot use this feature.
+- If a result takes a long time, the application is still waiting for `교직원` (staff) review. For urgent questions, use the program board or contact the organizing department.
+</Recover>

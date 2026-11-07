@@ -2,12 +2,12 @@
 
 집필 서브에이전트에게 그대로 넘기는 문서입니다. `<ROOT>`는 저장소(워크트리) 루트, `<G>`는 저장소 밖 작업 폴더입니다.
 
-OSS Hub 사용자 가이드(`guide/`, Astro Starlight)의 본문을 씁니다. 독자는 이 가이드만 보고 실제 서비스를 쓸 수 있어야 합니다. 요구는 "서비스 소개부터 사용 방법까지, 관리자 → 학생 → 교직원 순서로, 한국어로 자연스럽게, 최고 수준의 품질"입니다.
+OSS Hub 사용자 가이드(`guide/`, Astro Starlight)의 본문을 씁니다. 독자는 이 가이드만 보고 실제 서비스를 쓸 수 있어야 합니다. 서비스 소개부터 사용 방법까지 관리자 → 학생 → 교직원 순서로 씁니다. 언어와 경로는 [localization.md](localization.md)를 따르고, 지정된 언어의 독자에게 자연스럽게 씁니다.
 
 ## 먼저 읽을 것
 
 - `<G>/facts-<role>.md`, `<G>/manifest-<role>.md`
-- `guide/src/content/docs/<role>/index.mdx`, `guide/src/components/`
+- `guide/src/content/docs/<role>/index.mdx`, 대응하는 `en/<role>/index.mdx`, `guide/src/components/`
 - **사실의 우선순위: 화면(매니페스트의 대조 결과) > 사실표 > 코드 > 추측.** 라벨은 화면에 나온 그대로 씁니다. 모르면 지어내지 말고 `apps/` 코드를 읽어 확인하거나 `<Verified status="needed" />`로 표시합니다. `apps/`는 읽기만 합니다.
 
 ## 역할별로 빠뜨리지 않을 작업

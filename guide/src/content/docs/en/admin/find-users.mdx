@@ -1,0 +1,61 @@
+---
+title: Find users
+description: Search for accounts in the user list and understand the values in the table.
+sidebar:
+  order: 3
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+`사용자 목록` (User list) shows membership type, account status, and last sign-in together, and lets you change administrator access and account status directly. Use it to confirm you have the right account before deactivating it. Only administrators can open this screen.
+
+## Find an account
+
+<Steps>
+1. Open `사용자 목록` (User list) in the left-hand `관리자` (Administrator) section.
+2. Enter the person's name or nickname in ① the search field, whose placeholder is `이름 또는 GitHub 닉네임` (Name or GitHub nickname).
+3. To narrow by role, choose `미지정` (Unassigned), `학생` (Student), `교직원` (Staff), or `관리자` (Administrator) from ② `전체 역할` (All roles).
+4. To narrow by status, choose `활성` (Active) or `비활성` (Inactive) from ③ `전체 상태` (All statuses).
+5. If you entered a search term, click `검색` (Search). Role and status selections update the list immediately.
+</Steps>
+<Shot src="admin/users-filters.webp" alt="Search controls in the user list. ① marks the search field, ② All roles, and ③ All statuses." caption="① Search ② All roles ③ All statuses" />
+
+To show only inactive accounts, choose `비활성` (Inactive) from `전체 상태` (All statuses).
+
+<Shot src="admin/users-filter-inactive.webp" alt="User list with the status filter set to Inactive. ① marks the Inactive selection." caption="① Inactive selected" />
+
+## Read the table
+
+Each page shows 20 people in name order. Use `이전` (Previous) and `다음` (Next) below the table to move between pages. The total also appears, for example `1 / 1 페이지 (총 3명)` (Page 1 of 1, 3 people in total). Click a column heading to change the sort order.
+
+| Column | Meaning |
+| --- | --- |
+| `사용자` (User) | Name and GitHub nickname. If there is no name, it shows `이름 미등록` (Name not registered). |
+| `회원 유형` (Membership type) | `미지정` (Unassigned), `학생` (Student), or `교직원` (Staff). |
+| `관리자 접근` (Administrator access) | `허용` (Allowed) or `비허용` (Not allowed), independent of membership type. |
+| `계정 상태` (Account status) | `활성` (Active) or `비활성` (Inactive). |
+| `가입 일시` (Registered at) | When the account first registered. |
+| `마지막 로그인` (Last sign-in) | Shows `기록 없음` (No record) if the account has never signed in. |
+
+<Shot src="admin/users-list.webp" alt="User table with user, membership type, administrator access, account status, registration time, and last sign-in columns. ① marks the administrator access selector in a row." caption="① Change administrator access directly in the table" />
+
+Membership type, administrator access, and account status are independent. An account with the `교직원` (Staff) membership type may have administrator access set to `비허용` (Not allowed). Likewise, setting administrator access to `허용` (Allowed) does not change membership type.
+
+Badges below a name mean:
+
+- `요청 대기` (Request pending): There is an unprocessed staff access request. [Handle the request](/oss-hub/en/admin/applicants/) to approve or reject it.
+- `프로필 미완료` (Profile incomplete): The name, student number, or department is missing.
+
+<Shot src="admin/users-badge-pending.webp" alt="A row in the user list with a Request pending badge. ① marks the badge." caption="① Request pending badge" />
+
+Click `>` at the end of a row to open that person's details. See [Reset registration and change administrator access](/oss-hub/en/admin/change-role/) for the detail screen.
+
+<Success>
+Only accounts matching the search conditions remain, and `총 N명` (N people in total) below the table updates.
+</Success>
+
+<Recover title="If the list is empty">
+If changing the conditions still returns no results, check your search spelling and the `전체 역할` (All roles) and `전체 상태` (All statuses) selections. Reset both selectors to their defaults and leave only the search term to narrow down the cause.
+</Recover>

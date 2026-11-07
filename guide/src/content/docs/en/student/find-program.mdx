@@ -1,0 +1,44 @@
+---
+title: Find a program
+description: Browse program lists and details without signing in, and choose a program to apply for.
+sidebar:
+  order: 2
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+You can view program lists, program details, and `랭킹` (Rankings) without signing in. Only signed-in `학생` (students) can apply and submit work.
+
+## Choose from the list
+
+<Steps>
+1. Click `프로그램` (Programs) at the top. On a phone, it is a tab at the bottom. You can also open a program directly from `현재 모집 중인 프로그램` (Programs accepting applications) on the home page.
+2. Select a status on the left: `전체` (All), `모집중` (Accepting applications), `진행중` (In progress), `예정` (Upcoming), or `종료` (Ended). On a phone, these are horizontal chips above the list. Each number is the count of programs with that status.
+3. To find a program by name, type in ① `프로그램명 검색` (Search program names). Under `정렬 기준` (Sort by), choose `기본순` (Default), `프로그램 이름` (Program name), `지원 기간` (Application period), or `상태` (Status).
+4. Click ② a card to open its details. Any part of the card works, not just `자세히` (Details).
+</Steps>
+<Shot src="student/programs-search.webp" alt="Program list with status counts on the left. ① points to the program name search field; ② outlines the entire first program card." caption="① Search program names  ② Program card" />
+
+When signed in, cards for programs you applied to show a `신청` (Applied) or `반려` (Rejected) badge.
+
+## Check the details
+
+Details include `프로그램 안내` (Program information), `신청 기간` (Application period), `운영 기간` (Program period), and submission deadlines under `마일스톤` (Milestones). Students who have not applied and visitors who are not signed in see `신청하기` (Apply). It opens the [Create a team and apply](/oss-hub/en/student/apply/) screen. If you are not signed in, you go through GitHub login first. Staff, administrators, and students who have already applied do not see this button.
+
+<Shot src="intro/program-detail.webp" alt="Details of a program accepting applications, viewed before login. ① points to the Accepting applications badge beside the title; ② points to Apply at the top right." caption="① Accepting applications badge  ② Apply" />
+
+<Success>
+If the details show a `모집중` (Accepting applications) badge and an `신청하기` (Apply) button, the program is accepting applications now. You cannot apply outside the application period.
+</Success>
+
+<Recover title="When you cannot find a program">
+- `조건에 맞는 프로그램이 없습니다` (No programs match your criteria): clear the search term or click `전체` (All). There is no button to reset all filters at once.
+- `종료된 프로그램이 없습니다` (No ended programs) or `등록된 프로그램이 없습니다` (No registered programs): there are no programs to display yet.
+- `프로그램을 불러오지 못했습니다` (Could not load programs): wait a moment, then click `다시 시도` (Try again).
+- `프로그램을 찾을 수 없습니다` (Program not found): the program was deleted or is not public. Click `프로그램 목록으로` (Back to program list).
+- If `신청하기` (Apply) is disabled and `종료된 프로그램이라 신청을 받지 않습니다.` (This program has ended and is not accepting applications) appears, applications have closed.
+- There are no additional eligibility fields such as department restrictions. Your department does not block an application.
+- If your application is rejected, read `반려 사유` (Reason for rejection) in `우리 팀` (Our team), then follow [Apply again after rejection](/oss-hub/en/student/my-team/#apply-again-after-rejection).
+</Recover>

@@ -1,0 +1,65 @@
+---
+title: Handle staff access requests
+description: Approve or reject staff access requests in Registration requests.
+sidebar:
+  order: 2
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+`가입 신청` (Registration requests) is the queue for registered users who request the `교직원` (Staff) role. Approval gives the account staff access immediately. Rejection shows the requester your reason.
+
+This is not the screen for reviewing students applying to programs. Do that in the program's `팀 관리` (Team management) screen.
+
+Both administrators and staff can handle these requests, but cannot handle their own.
+
+Pending requests occur only for accounts that do not yet have staff access.
+
+No separate email is sent with the decision. Requesters check the status on their own screen. If rejecting a request, write a specific reason they can understand.
+
+## Approve a request
+
+<Steps>
+1. Open `가입 신청` (Registration requests) on the left. Requests appear newest first, 20 per page.
+2. Click ① the request to handle in the list image. To find someone by name or GitHub nickname, enter it in the search field above and click `검색` (Search).
+3. Check the name and department in `프로필` (Profile), then click ① `승인` (Approve) in the `대기 중인 요청` (Pending request) card.
+4. In the `요청 승인` (Approve request) dialog, click ① `승인 확정` (Confirm approval).
+</Steps>
+<Shot src="admin/applicants-list.webp" alt="Registration request list with user and request time columns. ① marks the first request row." caption="① Request to handle" />
+<Shot src="admin/applicant-detail-full.webp" alt="Request details with profile and pending request cards. ① marks Approve and ② Reject." caption="① Approve ② Reject" />
+<Shot src="admin/applicant-approve-dialog.webp" alt="Approve request confirmation dialog. ① marks Confirm approval." caption="① Confirm approval" />
+
+Approval takes effect as soon as you confirm it. Check once more that this is the right person before clicking.
+
+## Reject a request
+
+<Steps>
+1. Click ② `반려` (Reject) in the request details.
+2. Enter ① your reason in `반려 사유` (Rejection reason). The requester sees the text as written, but only the beginning appears if it is too long. Put the main point first.
+3. Click ② `반려 확정` (Confirm rejection).
+</Steps>
+<Shot src="admin/applicant-reject-dialog.webp" alt="Reject request dialog. ① marks the rejection reason field and ② Confirm rejection." caption="① Rejection reason ② Confirm rejection" />
+
+If the reason is empty, `반려 확정` (Confirm rejection) is dimmed and cannot be clicked.
+
+<Shot src="admin/applicant-reject-dialog-empty.webp" alt="Reject request dialog with an empty reason. ① marks the empty field; Confirm rejection is dimmed and disabled." caption="① An empty reason disables `반려 확정` (Confirm rejection)" />
+
+<Success>
+A brief notification says `…님에 대한 요청 승인 처리를 완료했습니다.` (The request for … has been approved) or `요청 반려 처리를 완료했습니다.` (The request has been rejected). The ellipsis is replaced by the other person's GitHub ID. The right-hand detail panel stays open; only its history changes to `승인` (Approved) or `반려` (Rejected). The processed request has already disappeared from the list behind the panel. Close the panel and select the next request. The decision is recorded in the [audit log](/oss-hub/en/admin/audit-log/) as `승인` (Approval) or `반려` (Rejection).
+</Success>
+
+## When the queue is empty
+
+`승인 대기 중인 요청이 없습니다` (No requests awaiting approval) means there are no requests, which is normal. If a search has no matches, you see `검색 결과가 없습니다` (No search results). Click `필터 초기화` (Reset filters) to return to the full list.
+
+<Shot src="admin/applicants-search-empty.webp" alt="Registration requests with no matches for the search term. The no-results message and Reset filters button are visible; ① marks the search field." caption="① Search term. The screen when no results match" />
+
+<Recover title="If a request cannot be processed">
+- `다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.` (Someone else changed this first. The information has been refreshed; review it before continuing.) Another person has already handled it. Check the updated screen to see whether anything still needs doing.
+- `자신의 가입 신청은 처리할 수 없습니다.` (You cannot handle your own registration request.) Ask another administrator or staff member to handle yours.
+- `비활성 계정은 승인할 수 없습니다. 계정이 다시 활성화된 뒤에 처리할 수 있습니다.` (Inactive accounts cannot be approved. You can process the request after reactivation.) The `승인` (Approve) button is locked for an inactive account, with this message below it. [Reactivate the account](/oss-hub/en/admin/deactivate/) before approving.
+- `역할을 선택하기 전에 온보딩 프로필을 완료해 주세요.` (Complete the onboarding profile before selecting a role.) An incomplete profile prevents approval. The requester must fill in their name, student number, and department.
+- `요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.` (The request could not be processed. Try again shortly.) Wait and retry. If it keeps happening, check [System status](/oss-hub/en/admin/system-status/).
+</Recover>

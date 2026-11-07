@@ -1,0 +1,90 @@
+---
+title: Reset registration and change administrator access
+description: Reset registration for accounts with no activity history, and grant or revoke administrator access.
+sidebar:
+  order: 4
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+An account has three separate values. Users choose their membership type when registering; administrators cannot change it directly to another type.
+
+| Value | Options | What an administrator can do |
+| --- | --- | --- |
+| `회원 유형` (Membership type) | `미지정` (Unassigned), `학생` (Student), `교직원` (Staff) | Use `가입 유형 되돌리기` (Reset registration type) to return an account to its initial state, but only if it has no activity history. |
+| `관리자 접근` (Administrator access) | `허용` (Allowed), `비허용` (Not allowed) | Change access to administrator screens only. Membership type stays the same. |
+| `계정 상태` (Account status) | `활성` (Active), `비활성` (Inactive) | Change [whether the account can sign in](/oss-hub/en/admin/deactivate/). |
+
+## When to use these actions
+
+- A staff member registered as a student by mistake: if there is no activity history, click `가입 유형 되돌리기` (Reset registration type) and ask them to register again.
+- Someone requests staff access: approve or reject it in [Handle staff access requests](/oss-hub/en/admin/applicants/).
+- A staff member stops working in that role: use `가입 유형 되돌리기` (Reset registration type) if there is no activity history. If there is, the registration cannot be reset; [deactivate the account](/oss-hub/en/admin/deactivate/) instead.
+- Someone will share administrative responsibilities: set administrator access to `허용` (Allowed).
+- Someone steps down from administration: `회수` (Revoke) their administrator access.
+
+Administrator access allows changes to member information and the status of every account. Grant it only to people who need it, and revoke it when their responsibilities end. The interface does not specify the organization's detailed criteria for granting access. <Verified status="policy" />
+
+## Open account details
+
+<Steps>
+1. In `사용자 목록` (User list), click `>` at the end of the target row.
+2. Under `접근 변경` (Change access) on the right, find ① `가입 유형 되돌리기` (Reset registration type), ② `관리자 접근` (Administrator access), and ③ `계정 상태` (Account status).
+</Steps>
+<Shot src="admin/user-detail-full.webp" alt="User details with Profile and Change access cards on the right. ① marks Reset registration type; ② and ③ mark the administrator access and account status selectors." caption="① Reset registration type ② Administrator access ③ Account status" />
+
+You can also change administrator access and account status using the selectors in the list table. Membership type appears as text only; resetting is available only in the detail screen. Before making changes, review `이력` (History). `요청 이력` (Request history) shows pending, approval, rejection, and revocation records; `로그인 이력` (Sign-in history) shows sign-in times.
+
+<Shot src="admin/user-history.webp" alt="History section in user details. Request history has one approval and sign-in history has four sign-ins." caption="Request history and sign-in history" />
+
+## Reset registration type
+
+This returns the account to its pre-registration state. It clears the name, student number, staff number, department, phone number, and staff approval status. The previous values remain in history. The user chooses a registration type again on their next visit.
+
+<Steps>
+1. Click `가입 유형 되돌리기` (Reset registration type) in the detail screen.
+2. In the dialog with the same title, click ① `되돌리기` (Reset).
+</Steps>
+<Shot src="admin/dialog-reset.webp" alt="Reset registration type dialog warning that the profile will be cleared. ① marks Reset." caption="① Reset" />
+
+The account cannot be reset if it has any activity history, such as applications, teams, submissions, or program management records.
+
+## Grant or revoke administrator access
+
+<Steps>
+1. Choose `허용` (Allowed) under `관리자 접근` (Administrator access) to open `관리자 접근 허용` (Grant administrator access). Click ① `허용 확정` (Confirm grant).
+2. To revoke access, choose `비허용` (Not allowed), then click ① `회수 확정` (Confirm revocation) in `관리자 접근 회수` (Revoke administrator access).
+</Steps>
+<Shot src="admin/dialog-admin-grant.webp" alt="Grant administrator access dialog. ① marks Confirm grant." caption="Grant access. ① Confirm grant" />
+<Shot src="admin/dialog-admin-revoke.webp" alt="Revoke administrator access dialog. ① marks Confirm revocation." caption="Revoke access. ① Confirm revocation" />
+
+You cannot revoke your own administrator access, so this screen cannot remove the last administrator. To step down, designate another administrator first and ask them to revoke your access.
+
+## Edit a profile
+
+Use ① the pencil button in `프로필` (Profile) to edit the name, student number, and department. Only students have a student number, which is six digits. Administrators can also change a previously saved number. Saving displays `…님의 프로필을 저장했습니다.` (The profile for … has been saved).
+
+For an account that has not completed registration, with membership type `미지정` (Unassigned) and all values `미등록` (Not registered), profile edits are not retained. A saved notification appears, but the values do not persist. Refresh to check, then ask the user to finish registering.
+
+<Shot src="admin/user-profile-card.webp" alt="Profile card in user details with name, student number, department, and other fields. ① marks the pencil button at the top right." caption="① Edit profile" />
+
+<Success>
+A notification such as `…님에 대한 가입 유형 되돌리기 처리를 완료했습니다.` (Registration type has been reset for …) includes the GitHub ID and action, and the screen shows the new values. Action names are `가입 유형 되돌리기` (Reset registration type), `관리자 접근 허용` (Grant administrator access), and `관리자 접근 회수` (Revoke administrator access). A reset account's membership type becomes `미지정` (Unassigned).
+
+The [audit log](/oss-hub/en/admin/audit-log/) records a reset as `역할 변경` (Role change) and administrator access grants and revocations as `기타 작업` (Other action). Details for `기타 작업` (Other action) show English action names such as `GRANT_ADMIN_ACCESS` as-is.
+</Success>
+
+<Recover title="If a control is locked or a change is rejected">
+- `자신의 가입 유형은 되돌릴 수 없습니다.` (You cannot reset your own registration type.) You cannot reset your own account.
+- `관리자 권한을 먼저 해제해 주세요.` (Remove administrator permissions first.) First set administrator access to `비허용` (Not allowed).
+- `선택된 가입 유형이 없습니다.` (No registration type has been selected.) The account is already unassigned, so there is nothing to reset.
+- `활동 기록이 있는 계정은 되돌릴 수 없습니다.` (Accounts with activity history cannot be reset.) If this appears in the confirmation dialog, resetting is unavailable. If a staff member has stopped working in that role, [deactivate the account](/oss-hub/en/admin/deactivate/).
+- Hovering over the administrator access selector shows `자기 계정의 관리자 접근은 회수할 수 없습니다.` (You cannot revoke administrator access for your own account). Another administrator must revoke yours.
+- `프로필(이름·학번·학과) 완성 전에는 부여할 수 없습니다.` (Access cannot be granted until the profile, including name, student number, and department, is complete.) If this appears below the selector, `허용` (Allowed) is unavailable. Although the message names all three fields, staff do not need a student number. Fill in missing profile values to enable `허용` (Allowed). Users who have not completed registration must finish it themselves.
+- `접근 상태가 변경되었습니다` (Access status has changed) and `다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.` (Someone else changed this first. The information has been refreshed; review it before continuing.) Another administrator made a change first. Review the refreshed values before deciding what to do.
+- `요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.` (The request could not be processed. Try again shortly.) Wait and retry.
+</Recover>
+<Shot src="admin/tooltip-self-revoke.webp" alt="Administrator access selector for your own account. ① marks Allowed, with a tooltip above explaining that you cannot revoke it yourself." caption="① Administrator access for your own account" />

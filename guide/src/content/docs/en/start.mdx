@@ -1,0 +1,95 @@
+---
+title: Getting started
+description: Sign in with GitHub, give consent, select a role, and enter your basic profile information.
+sidebar:
+  order: 2
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+There is no separate registration page. The first time you sign in with GitHub, OSS Hub takes you through three registration steps. Have your GitHub account ready.
+
+**The product interface and screenshots are in Korean.** This English guide retains each Korean control label and adds an English explanation; it does not describe an English-language product interface.
+
+## Sign in
+
+<Steps>
+1. Select `로그인` (Sign in) at the top right of the home page. You can also select `시작하기` (Get started).
+2. Sign in to your GitHub account and grant the requested permissions.
+</Steps>
+
+If you are signed in but have not finished registration, `가입 이어하기` (Continue registration) appears instead of `로그인` (Sign in). Select it to resume where you stopped.
+
+<Shot src="student/signup-consent.webp" alt="Registration step 1, 개인정보·활동 동의 (Personal information and activity consent), with three consent items and 동의하고 계속 (Agree and continue)." caption="The consent screen appears first after your initial sign-in." />
+
+After signing out, select `로그인` (Sign in) again to open GitHub's account selection screen. Check the account beside `Signed in as` and select `Continue`. To use another account, select `Use a different account`. An account that has already completed registration returns directly to OSS Hub.
+
+## Step 1. Consent
+
+<Steps>
+1. Read the consent items. Select `전문 보기` (View full text) beside each item to read the full policy.
+2. Check every item.
+3. Select `동의하고 계속` (Agree and continue).
+</Steps>
+
+Without consent, you cannot proceed or use the service. This screen appears again if the consent policy changes.
+
+## Step 2. Choose your role
+
+On `어떤 역할로 쓰시나요` (Which role will you use?), choose `학생` (Student) or `교직원` (Staff), then select `선택 완료` (Confirm selection). What happens after registration depends on your role.
+
+| | `학생` (Student) | `교직원` (Staff) |
+| --- | --- | --- |
+| Approval | Not required | Administrator approval required |
+| After registration | Start using the service immediately | Wait on the approval screen |
+| Responsibilities | Apply to programs and submit documents | Run programs, decide applications, and review submissions |
+
+<Shot src="staff/role-staff-card.webp" alt="Registration step 2. The 학생 (Student) card says approval is not required. The selected 교직원 (Staff) card says administrator approval is required." caption="Step 2: 교직원 (Staff) requires administrator approval." />
+
+You cannot select `관리자` (Administrator) here. An existing administrator grants that access to an account. Only the first administrator is designated separately when the service is first set up. See the [Administrator guide](/oss-hub/en/admin/).
+
+## Step 3. Enter your basic information
+
+Enter your name, department, and other basic information, then select `가입 마치기` (Finish registration). Students also enter a student number and phone number.
+
+<Shot src="student/signup-profile.webp" alt="Registration step 3 with name, student number, phone number, and department fields. Marker ① points to 가입 마치기 (Finish registration)." caption="Step 3: ① 가입 마치기 (Finish registration)" />
+
+- The student number must contain six digits and can only be entered once. You cannot change it after registration, so check it before continuing.
+- Students must choose `학과` (Department) as their affiliation type.
+
+For field rules and error messages, see [Register and complete your profile](/oss-hub/en/student/sign-up/).
+
+## After registration
+
+<Success>
+Students see the dashboard and `가입이 완료되었습니다` (Registration complete). They can apply to programs immediately.
+</Success>
+
+Staff see `교직원 승인을 기다리고 있습니다` (Waiting for staff approval). This screen offers two actions:
+
+- `상태 새로고침` (Refresh status): check whether your request has been approved.
+- `이름·학과 고치기` (Edit name and department): correct your information.
+
+<Shot src="staff/pending-waiting.webp" alt="Staff approval waiting screen. A pending status appears, with marker ① pointing to 상태 새로고침 (Refresh status). 이름·학과 고치기 (Edit name and department) appears below." caption="① 상태 새로고침 (Refresh status)" />
+
+Approval results are not sent as notifications, so check this screen yourself. If you need approval sooner, contact an administrator.
+
+## Continue with your role
+
+- `관리자` (Administrator): [Administrator guide](/oss-hub/en/admin/)
+- `학생` (Student): [Student guide](/oss-hub/en/student/)
+- `교직원` (Staff): [Staff guide](/oss-hub/en/staff/)
+
+## If you get stuck
+
+<Recover title="Trouble signing in or registering">
+- If you see `로그인 요청을 완료하지 못했습니다. 다시 시도해 주세요.` (Unable to complete sign-in. Please try again.), select `로그인` (Sign in) again. If it continues, your account may be deactivated; contact an administrator.
+- If consent could not be saved, select `다시 시도` (Try again).
+- If you stopped partway through registration, select `가입 이어하기` (Continue registration) at the top.
+- If you chose the wrong role, select `역할을 다시 고르기` (Choose your role again) in step 3.
+- If your staff request is rejected, the role selection screen reopens with `교직원 요청이 반려되었습니다` (Staff request rejected) and the reason. Choose `교직원` (Staff) again and select `선택 완료` (Confirm selection) to submit a new request. You can also choose `학생` (Student) and register as a student.
+- If you see `접근 권한이 없습니다` (Access denied), select `내 화면으로 돌아가기` (Return to my screen). That page is not available to your role.
+- `계정이 비활성화되었습니다` (Account deactivated) appears immediately after you deactivate your account in settings. Ask an administrator to reactivate it before using the service again. See [Deactivate and reactivate accounts](/oss-hub/en/admin/deactivate/).
+</Recover>

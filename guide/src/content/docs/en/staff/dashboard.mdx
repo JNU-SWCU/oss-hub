@@ -1,0 +1,54 @@
+---
+title: See your programs at a glance
+description: Check applications, activity, and submissions in the operations dashboard and find the program you need.
+sidebar:
+  order: 2
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+`운영 대시보드` (operations dashboard) brings together the status of all programs you operate. Start here to decide what needs attention first.
+
+The left-hand `교직원` (staff) menu has three entries.
+
+- `운영 대시보드`: this dashboard.
+- `학생 활성` (student engagement): see [Compare student engagement](/oss-hub/en/staff/insights/).
+- `가입 신청` (sign-up requests): the queue for staff role requests, not program applications. See [Handle staff role requests](/oss-hub/en/admin/applicants/).
+
+## Read the status summary
+
+<Steps>
+1. Open `운영 대시보드` in the left menu.
+2. Use the cards at the top to see counts of `모집중` (recruiting), `진행중` (in progress), and `종료` (ended) programs.
+3. Read the three groups of figures for each program.
+   - `신청` (applications): `전체` (total), `승인 대기` (pending approval), `승인` (approved), and `반려` (rejected). Pending applications need a decision.
+   - `활동` (activity): linked `저장소` (repositories), `Commit`, `PR`, and `Release` counts, plus recent activity.
+   - `제출` (submissions): milestone and target counts, then `미제출` (not submitted), `검토 대기` (awaiting review), `승인` (approved), `보완 요청` (revisions requested), and `반려` (rejected). Submissions awaiting review need attention.
+</Steps>
+<Shot src="staff/dashboard-row.webp" alt="One program row. Marker ① points to the program name, followed by application, activity, and submission figures." caption="① Program name, followed by `신청` (applications), `활동` (activity), and `제출` (submissions)" />
+
+## Find a program
+
+<Steps>
+1. Enter a program name or type in the search field.
+2. In ① `모집 상태` (recruitment status), choose `전체` (all), `모집중` (recruiting), `진행중` (in progress), `접수대기` (not yet accepting applications), or `종료` (ended).
+3. Click a program name to open its editor. The left menu changes to that program's menu: `프로그램 개요` (overview), `팀 관리` (teams), `서류 현황` (document status), and `게시판` (board).
+</Steps>
+<Shot src="staff/dashboard-full.webp" alt="Full operations dashboard. Marker ① points to create program at the top right. Status cards appear above the search, recruitment filter, and program list." caption="① `프로그램 만들기` (create program)" />
+<Shot src="staff/dashboard-filter.webp" alt="Operations dashboard filtered to programs in progress. Marker ① points to the recruitment status selector." caption="① `모집 상태` set to `진행중` (in progress)" />
+
+Start a new program with `프로그램 만들기` at the top right. See [Create a program](/oss-hub/en/staff/create-program/).
+
+There is no button in the staff interface to switch to a student view. Use the screenshots in the [student guide](/oss-hub/en/student/) to see what students see.
+
+<Success>
+Only programs matching your filters remain, with their application, activity, and submission figures visible.
+</Success>
+
+<Recover title="If the list is empty">
+- `등록된 프로그램이 없습니다` (no programs registered): no programs have been created yet. Click `프로그램 만들기`.
+- `검색 결과가 없습니다` (no search results): the search or recruitment filter does not match. Click `필터 초기화` (reset filters).
+- `운영 대시보드를 불러오지 못했습니다` (could not load the dashboard): click retry. If it keeps happening, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
+</Recover>

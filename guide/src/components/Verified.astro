@@ -1,8 +1,14 @@
 ---
+import { isEnglishGuide } from './locale';
 interface Props {
   status: 'done' | 'needed' | 'policy';
 }
-const labels = {
+const english = isEnglishGuide(Astro.url);
+const labels = english ? {
+  done: 'Verified',
+  needed: 'Verification needed',
+  policy: 'Policy confirmation needed',
+} : {
   done: '확인 완료',
   needed: '확인 필요',
   policy: '정책 확인 필요',

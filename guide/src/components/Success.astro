@@ -1,8 +1,10 @@
 ---
+import { isEnglishGuide } from './locale';
 interface Props {
   title?: string;
 }
-const { title = '성공 신호' } = Astro.props;
+const english = isEnglishGuide(Astro.url);
+const { title = english ? 'Success signal' : '성공 신호' } = Astro.props;
 ---
 
 <aside class="callout success" aria-label={title}>

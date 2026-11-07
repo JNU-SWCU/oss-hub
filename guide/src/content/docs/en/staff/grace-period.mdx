@@ -1,0 +1,37 @@
+---
+title: Accept submissions after the deadline
+description: Set a grace deadline for each document to accept first submissions and replacements after the original deadline.
+sidebar:
+  order: 9
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+A grace deadline allows first submissions and replacements until a specified time after the original deadline. Set it separately for each document. Submissions made during this period are marked late. Revision-request resubmission rules are separate from the grace deadline; check the submission screen to see how dates apply to a revision request.
+
+Set the deadline on a submission item row beneath a milestone in `프로그램 개요` (program overview).
+
+## Set a grace deadline
+
+<Steps>
+1. Under a milestone in `프로그램 개요`, find the item you want to extend and click ① `유예 기한 설정` (set grace deadline).
+2. Select a date and time in ① the date field. Times are in Korea Standard Time. The field is named `{서류명} 유예 기한 (한국 시간)` (document grace deadline, Korean time).
+3. Click ② `유예 기한 저장` (save grace deadline), or `취소` (cancel) to stop.
+</Steps>
+<Shot src="staff/grace-button.webp" alt="Submission item row beneath a milestone. Marker ① points to set grace deadline." caption="① `유예 기한 설정` (set grace deadline)" />
+<Shot src="staff/grace-editor.webp" alt="Grace deadline editor. Marker ① points to the date field and ② to save grace deadline." caption="① Date ② `유예 기한 저장` (save grace deadline). Date field order depends on your browser language." />
+
+<Success>
+The deadline appears on the submission item row. Students can submit or replace their work until that time.
+</Success>
+
+## Remove a grace deadline
+
+Click `유예 해제` (remove grace period) on the item row to return to the original deadline.
+
+<Recover title="If the deadline will not save">
+- If the save button is disabled, check that both the date and time are filled in.
+- If no document card appears, you may see `이 마일스톤에는 등록된 제출 항목이 없습니다` (no submission items registered for this milestone). First add an item in [Edit program dates and submission items](/oss-hub/en/staff/edit-program/).
+</Recover>

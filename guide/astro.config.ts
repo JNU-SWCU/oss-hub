@@ -6,11 +6,14 @@ export default defineConfig({
   base: '/oss-hub',
   integrations: [
     starlight({
-      title: 'OSS Hub 사용 가이드',
+      title: { ko: 'OSS Hub 사용 가이드', en: 'OSS Hub User Guide' },
       description:
         '전남대학교 오픈소스 SW 개발 사업단 프로그램을 위한 OSS Hub의 역할별 사용 안내입니다.',
       defaultLocale: 'root',
-      locales: { root: { label: '한국어', lang: 'ko' } },
+      locales: {
+        root: { label: '한국어', lang: 'ko' },
+        en: { label: 'English', lang: 'en' },
+      },
       social: [
         {
           icon: 'github',
@@ -36,12 +39,12 @@ export default defineConfig({
         ThemeSelect: './src/components/ThemeToggle.astro',
       },
       sidebar: [
-        { label: '서비스 소개', slug: 'intro' },
-        { label: '시작하기', slug: 'start' },
-        { label: '관리자', collapsed: true, items: [{ autogenerate: { directory: 'admin' } }] },
-        { label: '학생', collapsed: true, items: [{ autogenerate: { directory: 'student' } }] },
-        { label: '교직원', collapsed: true, items: [{ autogenerate: { directory: 'staff' } }] },
-        { label: '자주 묻는 질문', slug: 'faq' },
+        { label: '서비스 소개', translations: { en: 'Introduction' }, slug: 'intro' },
+        { label: '시작하기', translations: { en: 'Getting started' }, slug: 'start' },
+        { label: '관리자', translations: { en: 'Administrators' }, collapsed: true, items: [{ autogenerate: { directory: 'admin' } }] },
+        { label: '학생', translations: { en: 'Students' }, collapsed: true, items: [{ autogenerate: { directory: 'student' } }] },
+        { label: '교직원', translations: { en: 'Staff' }, collapsed: true, items: [{ autogenerate: { directory: 'staff' } }] },
+        { label: '자주 묻는 질문', translations: { en: 'Frequently asked questions' }, slug: 'faq' },
       ],
     }),
   ],

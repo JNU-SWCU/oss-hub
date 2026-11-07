@@ -1,0 +1,88 @@
+---
+title: Create a program
+description: Set basic information, dates, milestones, and operating options in the five-step program wizard.
+sidebar:
+  order: 3
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+Create a program in five steps: `기본 정보` (basic information), `신청/운영 일정` (application and program dates), `마일스톤` (milestones), `운영 설정` (operating settings), and `최종 검토` (final review). The program is not created until you click `생성 확정` (confirm creation) at the end.
+
+Start with `프로그램 만들기` (create program) on the [operations dashboard](/oss-hub/en/staff/dashboard/). See [Edit a program](/oss-hub/en/staff/edit-program/) for changes you can make afterward.
+
+If you try to leave while writing, `작성 중인 내용이 있습니다. 나가면 복구 정보가 삭제됩니다.` warns that leaving will delete the recovery information for your work in progress.
+
+## Step 1. Basic information
+
+<Steps>
+1. Enter the `프로그램명` (program name).
+2. Optionally upload a `대표 이미지` (cover image): JPG or PNG, up to 5 MB. Use `이미지 바꾸기` (change image) or `이미지 제거` (remove image) to replace or remove it.
+3. Fill in `주관기관/학과` (host organization or department), `교과/비교과` (curricular or extracurricular), and `참여 인원 / 팀 규모` (participant count / team size). The allowed participant count is 1–100.
+4. Write the `소개/설명` (introduction or description). Fields marked with an asterisk (`*`) are required.
+5. Click ① `계속` (continue).
+</Steps>
+<Shot src="staff/create-step1.webp" alt="Program creation step 1 with name, cover image, host, curricular status, participant count, and introduction fields. Marker ① points to continue." caption="① `계속` (continue)" />
+
+If an announcement already exists, use `공지에서 가져오기` (import from announcement) at the top right to import its title and content. Application dates, milestones, and submission items are not imported; set them in the following steps.
+
+## Step 2. Application and program dates
+
+<Steps>
+1. Click ① the `신청 기간` (application period) card, then select the first and last dates when students may apply in the calendar.
+2. Click `운영 기간` (program period) to switch the calendar, then select the program's start and end dates in the same way.
+3. Click `계속`.
+</Steps>
+<Shot src="staff/create-step2.webp" alt="Program creation step 2 with application and program period cards. Marker ① points to the application period." caption="① `신청 기간` (application period)" />
+
+The application deadline must be on or before the program end date. Otherwise, you cannot continue.
+
+## Step 3. Milestones
+
+Milestones are stages at which students submit documents. You can create 1–50 milestones.
+
+<Steps>
+1. Click ① `마일스톤 추가` (add milestone).
+2. Set the `기간` (period) in the dialog. It must start on or after the program start date and end no later than the program end date.
+3. Enter a `마일스톤 이름` (milestone name). Add any instructions for students under `운영자 공지` (organizer notice). Use `첨부파일 추가` (add attachment) for a reference file, up to 5 MB.
+4. Click `저장` (save).
+</Steps>
+<Shot src="staff/create-step3.webp" alt="Program creation step 3. A milestone card says there are no submission items. Marker ① points to add milestone." caption="① `마일스톤 추가` (add milestone)" />
+<Shot src="staff/create-milestone-dialog.webp" alt="Add milestone dialog with dates, organizer notice, and attachment controls. Marker ① points to the milestone name and ② to save." caption="① `마일스톤 이름` (name) ② `저장` (save). Date field order depends on your browser language." />
+
+You cannot create submission items at this step. `제출 항목이 없습니다. 수정에서 추가하세요.` (no submission items; add them in the editor) is expected. After creating the program, follow [Add submission items](/oss-hub/en/staff/edit-program/). Students see milestones without items as `제출 없음 · 안내용` (no submission; information only).
+
+## Step 4. Operating settings
+
+<Steps>
+1. Decide whether to enable ① `GitHub 저장소 발급` (GitHub repository provisioning). It is off by default. When enabled, a repository is created automatically when an application is approved. When off, `신청 승인 시 저장소를 자동으로 발급하지 않습니다.` explains that approval will not automatically create a repository.
+2. Decide whether to enable ② `제출 마감 알림` (submission deadline reminders). It is on by default. When off, `자동 알림과 프로그램별 수동 발송을 사용하지 않습니다.` explains that both automatic reminders and manual program messages are disabled. See [Send submission deadline reminders](/oss-hub/en/staff/reminder-mail/).
+3. Click `계속`.
+</Steps>
+<Shot src="staff/create-step4.webp" alt="Program creation step 4. Marker ① points to the enabled GitHub repository provisioning checkbox." caption="① Repository provisioning enabled" />
+<Shot src="staff/create-step4-off.webp" alt="Program creation step 4. Marker ① points to disabled repository provisioning and ② to submission deadline reminders." caption="① Repository provisioning off ② `제출 마감 알림` (deadline reminders)" />
+
+Repository provisioning requires at least one milestone. After creation, you still cannot delete the last milestone while provisioning is enabled.
+
+## Step 5. Review and create
+
+<Steps>
+1. Read your entries in `최종 검토` (final review). Use `이전` (back) to make corrections.
+2. Click `프로그램 만들기`.
+3. In `프로그램을 생성하시겠습니까?` (create this program?), click `생성 확정`.
+</Steps>
+<Shot src="staff/create-step5.webp" alt="Final review of program creation with an entry summary, back button, and create program button." caption="`최종 검토` (final review)" />
+<Shot src="staff/create-confirm-dialog.webp" alt="Program creation confirmation dialog with cancel and confirm creation buttons." caption="Click `생성 확정` (confirm creation) to create the program" />
+
+<Success>
+The program is created and its overview opens. You can find it later by name in `운영 대시보드`. Once the application period starts, students can find the program and apply.
+</Success>
+
+<Recover title="If creation fails">
+- `프로그램 생성에 실패했습니다. 같은 내용으로 다시 시도해 주세요.` means creation failed; your entries are retained. Before clicking `생성 확정` again, check the dashboard for a program with the same name.
+- `이전 요청으로 생성된 프로그램이 있을 수 있습니다…` means an earlier request may already have created it. Click `기존 프로그램 확인` (check existing program) and create again only if none exists, to avoid duplicates.
+- If step 2 says `시작일을 선택해 주세요.` (select a start date), click `운영 기간` and select both program dates too.
+- If you cannot continue, check for empty required (`*`) fields, an application deadline later than the program end, or a participant count outside 1–100.
+</Recover>

@@ -1,0 +1,61 @@
+---
+title: Your first visit
+description: Find your starting screen after signing in and learn which permissions program management requires.
+sidebar:
+  order: 1
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+The screen you see after signing in depends on your account's permissions. Use this page to identify your account type and find the menus you need.
+
+## Administrator-only accounts
+
+<Steps>
+1. Click `대시보드` (Dashboard) at the top.
+2. ① `사용자 목록` (User list) opens in the left-hand `관리자` (Administrator) section. Visiting `/dashboard` takes you to the same screen.
+</Steps>
+The `관리자` (Administrator) section contains `사용자 목록` (User list), `감사 로그` (Audit log), `시스템 상태` (System status), and `가입 신청` (Registration requests).
+
+This account does not have `운영 대시보드` (Operations dashboard) or `학생 활성` (Student engagement). Both screens are for approved staff.
+
+An administrator whose membership type is `학생` (Student) opens the student dashboard instead of `사용자 목록` (User list). In that case, open `사용자 목록` (User list) directly from the `관리자` (Administrator) section.
+
+## Accounts with both staff and administrator access
+
+Both `교직원` (Staff) and `관리자` (Administrator) appear at the top. The left-hand menu has two sections.
+
+<Steps>
+1. Click `대시보드` (Dashboard) at the top to open ① `운영 대시보드` (Operations dashboard). It shows counts of programs accepting applications, in progress, and ended, along with `프로그램 만들기` (Create program).
+2. Start administrative tasks from ② `사용자 목록` (User list) in the `관리자` (Administrator) section.
+</Steps>
+<Shot src="admin/entry-staff-and-admin.webp" alt="Operations dashboard for an account with staff and administrator access. The left menu has staff and administrator sections; ① marks the operations dashboard and ② the user list." caption="Account with staff and administrator access. ① Operations dashboard ② User list" />
+
+Staff access alone also allows you to open `학생 활성` (Student engagement) and `가입 신청` (Registration requests). For administrator-only accounts, only `가입 신청` (Registration requests) appears in the `관리자` (Administrator) section.
+
+## Where to manage programs
+
+Program management requires approved staff access. Administrator-only accounts cannot open management screens. If needed, register as staff and have your [request approved](/oss-hub/en/admin/applicants/). The steps below assume an account with both staff and administrator access.
+
+<Steps>
+1. Click `프로그램` (Programs) at the top. The list includes a `프로그램 만들기` (Create program) button.
+2. Click a program card to open its details.
+3. Choose `팀 관리` (Team management), `서류 현황` (Document status), or `게시판` (Board) on the left.
+4. Use ① `편집` (Edit) at the top right to change program information. Program deletion is also on this editing screen.
+</Steps>
+<Shot src="admin/program-detail-edit.webp" alt="Program details with overview, team management, document status, and board in the left menu. ① marks the Edit button at the top right." caption="Program details. ① Edit" />
+
+See the [Staff guide](/oss-hub/en/staff/) for detailed program management instructions. Deletion is covered separately in [Delete a program](/oss-hub/en/admin/delete-program/).
+
+<Success>
+Administrator access is working if you see the `관리자` (Administrator) section and can open `사용자 목록` (User list), `감사 로그` (Audit log), and `시스템 상태` (System status).
+</Success>
+
+<Recover title="If you see an access-denied message">
+If you see `접근 권한이 없습니다` (Access denied) and `현재 계정으로는 이 화면을 이용할 수 없습니다.` (This account cannot use this screen), click `내 화면으로 돌아가기` (Return to my screen). For example, this appears when an administrator without the Student membership type opens the `내 활동` (My activity) address. The left-hand menu remains available, so choose the screen you need.
+
+If you have administrator access but cannot see the `관리자` (Administrator) section, check whether you signed in with a different account. If it is still missing, ask another administrator to check that `관리자 접근` (Administrator access) is `허용` (Allowed) in `사용자 목록` (User list).
+</Recover>

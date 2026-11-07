@@ -1,4 +1,5 @@
 ---
+import { isEnglishGuide } from './locale';
 import { Image } from 'astro:assets';
 
 interface Props {
@@ -9,6 +10,7 @@ interface Props {
 }
 
 const { src, sizes } = Astro.props;
+const english = isEnglishGuide(Astro.url);
 const alt = Astro.props.alt.replaceAll('`', '');
 const caption = Astro.props.caption?.replaceAll('`', '');
 const files = import.meta.glob<{ default: ImageMetadata }>(
@@ -21,7 +23,7 @@ const cssWidth = Math.round(file.default.width / 2);
 ---
 
 <figure class="shot" style={`--shot-w: ${cssWidth}px`}>
-  <button type="button" class="shot-open" aria-label={`${alt} 크게 보기`}>
+  <button type="button" class="shot-open" aria-label={english ? `Enlarge: ${alt}` : `${alt} 크게 보기`} data-hint={english ? 'Tap to enlarge' : '눌러서 크게 보기'}>
     <Image
       src={file.default}
       alt={alt}
@@ -32,10 +34,10 @@ const cssWidth = Math.round(file.default.width / 2);
   {caption && <figcaption>{caption}</figcaption>}
   <dialog class="shot-dialog" aria-label={alt} autofocus>
     <form method="dialog">
-      <button class="shot-close" aria-label="닫기">닫기</button>
+      <button class="shot-close" aria-label={english ? 'Close' : '닫기'}>{english ? 'Close' : '닫기'}</button>
     </form>
     <Image src={file.default} alt={alt} widths={[1440, 2400]} sizes="96vw" loading="lazy" />
-    <p class="shot-hint" aria-hidden="true">좌우로 밀어서 보기</p>
+    <p class="shot-hint" aria-hidden="true">{english ? 'Swipe sideways to explore' : '좌우로 밀어서 보기'}</p>
   </dialog>
 </figure>
 
@@ -130,7 +132,7 @@ const cssWidth = Math.round(file.default.width / 2);
   }
   @media (max-width: 50rem) {
     .shot-open::after {
-      content: '눌러서 크게 보기';
+      content: attr(data-hint);
       display: block;
       margin-top: 0.5rem;
       text-align: end;

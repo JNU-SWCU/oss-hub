@@ -1,0 +1,58 @@
+---
+title: View the audit log
+description: Review administrative history to see who changed what and when.
+sidebar:
+  order: 6
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+`감사 로그` (Audit log) records administrative actions. Use it to look back at events such as who changed permissions or deleted a program. Only administrators can open it, and records are read-only here.
+
+## Find records
+
+<Steps>
+1. Open ① `감사 로그` (Audit log) in the left-hand `관리자` (Administrator) section.
+2. In the filter image, enter a GitHub ID in ① `행위자` (Actor) to see only that person's actions.
+3. Choose a type from ② `작업 종류` (Action type). The default is `전체` (All).
+4. To narrow the period, choose `시작일` (Start date) and `종료일` (End date).
+5. Click ③ `조회` (Search).
+</Steps>
+<Shot src="admin/audit-full.webp" alt="Audit log with filters and a records table. ① marks Audit log in the left menu." caption="① Audit log menu" />
+<Shot src="admin/audit-filter-bar.webp" alt="Audit log filters. ① marks Actor, ② Action type, and ③ Search." caption="① Actor ② Action type ③ Search. The order of date fields depends on the browser language" />
+
+Click `초기화` (Reset) to clear all conditions.
+
+<Shot src="admin/audit-filtered.webp" alt="Audit log filtered to Approval. ① marks Action type and ② Reset. There are three results." caption="① Action type `승인` (Approval) ② Reset" />
+
+## Read the table
+
+The columns are `발생 일시` (Occurred at), `행위자` (Actor), `대상` (Target), and `내용` (Details). `발생 일시` (Occurred at) shows both a relative time such as `3일 전` (3 days ago) and an exact time. `내용` (Details) contains a sentence such as “… approved …'s staff access request,” followed by an action-type badge. `총 N건` (N records in total) appears below; use `이전` (Previous) and `다음` (Next) to change pages.
+
+<Shot src="admin/audit-content-closeup.webp" alt="Close-up of the audit table showing occurrence time, actor, target, details, and action-type badges." caption="The description and action-type badge in the Details column" />
+
+The `작업 종류` (Action type) selector is a flat list. The groups below are a reference to help you find entries, not groups in the selector.
+
+| Reference group | Types |
+| --- | --- |
+| Permissions and accounts | `회원 가입` (Registration), `교직원 승인 신청` (Staff approval request), `이전 신청 종료` (Previous request closed), `교직원 승인` (Staff approval), `교직원 승인 회수` (Staff approval revoked), `교직원 접근 허용` (Staff access granted), `교직원 접근 회수` (Staff access revoked), `관리자 권한 부여` (Administrator permissions granted), `관리자 권한 회수` (Administrator permissions revoked), `승인` (Approval), `반려` (Rejection), `회수` (Revocation), `복구` (Restoration), `역할 변경` (Role change), `계정 상태 변경` (Account status change), `프로필 수정` (Profile edit), `전화번호 수정` (Phone number edit) |
+| Repositories | `저장소 공개` (Repository made public), `저장소 주소 변경` (Repository URL change) |
+| Programs | `생성` (Creation), `삭제` (Deletion) |
+| Teams | `생성` (Creation), `합류` (Joining), `이름 변경` (Rename), `삭제` (Deletion), `구성 변경` (Membership change) |
+| Applications | `신청 제출` (Application submitted), `신청 승인` (Application approved), `신청 반려` (Application rejected), `검토 대기로` (Returned to pending review) |
+
+`교직원 승인` (Staff approval) and `승인` (Approval) differ from `신청 승인` (Application approved). The first two record approval of [staff access requests](/oss-hub/en/admin/applicants/); `신청 승인` (Application approved) records approval of a program applicant. Selecting or changing membership type falls under `역할 변경` (Role change), but the table displays `신분 선택` (Membership selected) for the initial choice and `신분 변경` (Membership changed) for a change. Unlisted types appear as `기타 작업` (Other action).
+
+<Success>
+Matching records appear newest first, and `총 N건` (N records in total) below the table updates.
+</Success>
+
+<Recover title="If records are missing or cannot be loaded">
+`기록이 없습니다` (No records) and `조회 조건을 바꿔 보세요.` (Try changing your search conditions) mean no records match. Check the spelling in `행위자` (Actor) and the date range, or click `초기화` (Reset) to start again.
+
+<Shot src="admin/audit-empty.webp" alt="Audit log with no records. ① marks an actor value with no matching records." caption="① Actor with no matching records. The order of date fields depends on the browser language" />
+
+If you see `감사 로그를 불러오지 못했습니다. 잠시 후 다시 시도해 주세요.` (The audit log could not be loaded. Try again shortly), click `다시 시도` (Retry). If it keeps happening, check [System status](/oss-hub/en/admin/system-status/).
+</Recover>

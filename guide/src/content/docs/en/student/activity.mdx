@@ -1,0 +1,47 @@
+---
+title: View activity and rankings
+description: Check GitHub activity from your team repository and the overall rankings.
+sidebar:
+  order: 10
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Activity is collected automatically from your team repository. Collection starts after the repository is linked, so your [repository](/oss-hub/en/student/repository/) must be ready first.
+
+## My activity
+
+<Steps>
+1. Open `내 활동` (My activity) in the left menu. This screen is available only to students.
+2. Choose a time unit using the `월별` (Monthly) or `연도별` (Yearly) chip.
+3. Under `참여 프로그램` (Participating programs), see the programs you joined by year. Under `활동 추이` (Activity trends), see how your activity changes over time.
+</Steps>
+<Shot src="student/activity-month.webp" alt="My activity screen. ① points to the selected Monthly chip; participating programs and the activity trend chart appear below." caption="① Monthly" />
+<Shot src="student/activity-year.webp" alt="My activity in yearly view. ① points to the selected Yearly chip." caption="① Yearly" />
+<Shot src="student/activity-programs.webp" alt="Top of My activity, with participating programs listed by year." caption="Participating programs" />
+
+The activity total here adds Commit, Pull Request, and Release; Issue is counted separately. This differs from the ranking total. Team-level activity is also shown under `우리 팀 활동` (Our team activity) in `우리 팀` (Our team).
+
+<Shot src="student/team-activity.webp" alt="Our team activity area on the Our team screen." caption="Our team activity" />
+
+## Rankings
+
+You can open `랭킹` (Rankings) at the top without signing in. Rankings total Commit, PR, Issue, Repo, and Star. Star combines two counts: stars on your own public repositories, and stars on your organization's public repositories to which you personally committed or submitted a PR that year.
+
+In the `순위 변화` (Ranking changes) chart, each of the top ten participants has a different colored line with a profile photo at its end. Other participants appear as faint gray lines. Hover over a name in the legend to emphasize that person's line; click it to hide or show the line and profile photo.
+
+<Shot src="intro/ranking.webp" alt="Rankings screen with a monthly rank-change chart beside the yearly list. Profile photos appear at the ends of the top ten participants' lines." caption="Rankings" />
+<Shot src="intro/ranking-table.webp" alt="Ranking table with rank, participant, Commit, PR, Issue, Repo, Star, and total columns." caption="Ranking table" />
+
+<Success>
+Repository activity appears as charts and numbers. Updates may take time to appear.
+</Success>
+
+<Recover title="When activity is empty">
+- Activity is empty if no repository is linked or collection has not run yet. Check [repository registration](/oss-hub/en/student/repository/).
+- Activity also appears empty if the repository has no commits yet.
+</Recover>
+<Shot src="student/activity-empty.webp" alt="My activity when there is no activity." caption="When there is no activity" />

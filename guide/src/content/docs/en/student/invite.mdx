@@ -1,0 +1,56 @@
+---
+title: Invite teammates and accept invitations
+description: Invite teammates from Our team after applying, and accept or decline invitations in notifications.
+sidebar:
+  order: 4
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Only the team leader sends invitations. Invitations arrive as notifications inside OSS Hub, not by email, so recipients must sign in to check them. Recipients must accept or decline themselves.
+
+## Invite teammates
+
+Selecting students in an application sends invitations **when you submit the final application**. Selected students must still follow the acceptance steps below to become members. You and your selected students must meet the minimum to apply; accepted members must meet the minimum for approval.
+
+First, [submit the application](/oss-hub/en/student/apply/), then click `우리 팀 보기` (View our team). You can send invitations even while the status is `검토 대기` (Awaiting review).
+
+If a selected student declines, invite another student here to reach the required number of accepted members. In a program with a minimum of one person, you can submit alone and invite others afterward.
+
+<Steps>
+1. In `팀 구성원` (Team members) under `우리 팀` (Our team), click the person-shaped `팀원 초대` (Invite teammate) button.
+2. In the `팀원 초대` (Invite teammate) panel, enter at least two characters in ① `이름 또는 GitHub 아이디로 검색` (Search by name or GitHub username). Searching starts automatically as you type.
+3. Click ① `초대` (Invite) next to the person in the results.
+4. The person appears in the member list as `초대 대기` (Invitation pending). If you invited the wrong person, click `초대 취소` (Cancel invitation), the x beside them.
+5. Click `닫기` (Close) to close the panel.
+</Steps>
+<Shot src="student/invite-dialog.webp" alt="Invite teammate panel. ① points to the search field for a nickname or name." caption="① Search field" />
+<Shot src="student/invite-search.webp" alt="Teammate search results. ① points to the Invite button on the first result." caption="① Invite" />
+
+You can invite people in the same way after approval. They become members only after accepting. The minimum is checked at approval; the maximum and the one-team-per-program restriction are also checked when an invitation is accepted.
+
+## Accept an invitation
+
+<Steps>
+1. After signing in, open the bell-shaped `팀 초대 알림` (Team invitations) at the top. The invitation shows `{이름}님이 초대했습니다` (You were invited by this person), the team, the program, and its current member count.
+2. Click ① `수락` (Accept) to join or ② `거절` (Decline) to decline.
+</Steps>
+<Shot src="student/invite-notification.webp" alt="Team invitation notification showing the team and program. ① points to Accept and ② to Decline." caption="① Accept ② Decline" />
+
+<Success>
+After acceptance, the invitation disappears from notifications and you appear as a member in `우리 팀` (Our team). Staff can approve the application once the minimum is met. When there are no new invitations, `새로운 팀 초대가 없습니다.` (No new team invitations) appears.
+</Success>
+
+<Recover title="When you cannot send or find an invitation">
+- `이미 이 프로그램의 다른 팀에 소속된 사용자입니다.` (This user already belongs to another team in this program): each person can belong to only one team per program.
+- `현재 팀에서 탈퇴한 후 초대를 수락해 주세요.` (Leave your current team before accepting): accepting does not move you automatically. Members should use `팀 탈퇴` (Leave team). Leaders should delete the team using `신청 취소` (Cancel application), or use `팀장 위임` (Transfer leadership) and then leave, before accepting again.
+- `이미 대기 중인 초대가 있습니다.` (An invitation is already pending): wait for the recipient's response, or use `초대 취소` (Cancel invitation) and send it again.
+- `자기 자신을 초대할 수 없습니다.` (You cannot invite yourself) or `팀 최대 인원을 초과할 수 없습니다.` (You cannot exceed the maximum team size).
+- `활성 학생 계정만 팀원으로 초대할 수 있습니다.` (Only active student accounts can be invited): check that the recipient has finished signup.
+- `초대를 찾을 수 없습니다. 초대 목록을 다시 확인해 주세요.` (Invitation not found. Check your invitation list): this appears if an old notification refers to an invitation already accepted, declined, or canceled. Check the invitation list and `우리 팀` (Our team) again.
+- `팀장만 초대를 관리할 수 있습니다.` (Only the team leader can manage invitations): members cannot send invitations.
+- If there are no search results, check the name or GitHub username and whether the person signed up as a student.
+</Recover>
