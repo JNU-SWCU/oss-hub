@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  ApplicationRepositoryUrlAuditMetadataView,
-  RepositoryConnectionAuditMetadata,
-  REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION,
-} from './repository-audit-metadata.config';
+import { ApplicationRepositoryUrlAuditMetadataView } from './repository-audit-metadata.config';
 import {
   ACCESS_AUDIT_SCHEMA_VERSION,
   ACCESS_AUDIT_EVENT_KINDS,
@@ -129,15 +125,6 @@ export class HistoryMetadataService {
         repositoryId: value.after.repositoryId,
         repositoryUrl: value.after.repositoryUrl,
       },
-    };
-  }
-
-  createRepositoryConnectionAuditMetadata(
-    input: Omit<RepositoryConnectionAuditMetadata, 'schemaVersion'>,
-  ): RepositoryConnectionAuditMetadata {
-    return {
-      schemaVersion: REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION,
-      ...input,
     };
   }
 }

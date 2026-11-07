@@ -21,7 +21,6 @@ import {
 import { COLLABORATOR_OUTCOMES } from './github-app.client';
 import { RepositoryProvisionWorkerService } from './repository-provision-worker.service';
 import {
-  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
   DEFAULT_PROVISION_INVITATION_RECONCILIATION_INTERVAL_MS,
   PROVISION_ERROR_CODES,
 } from './repository-provision-state.config';
@@ -29,7 +28,6 @@ import {
   RepositoryProvisionSupersededError,
   RepositoryProvisionFailure,
 } from './repository-provision-state.error';
-import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryProvisionGithubService } from './repository-provision-github.service';
 import { RepositoryUrlService } from './repository-url.service';
 
@@ -50,7 +48,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -75,7 +72,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -115,7 +111,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -193,7 +188,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -236,7 +230,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -289,7 +282,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -328,7 +320,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -367,7 +358,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -398,7 +388,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -440,7 +429,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -486,7 +474,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -547,7 +534,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -605,7 +591,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -675,7 +660,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -720,7 +704,6 @@ describe('RepositoryProvisionWorkerService success', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -784,7 +767,6 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -836,7 +818,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     expect(state.loadContext.mock.calls).toHaveLength(2);
   });
 
-  it('OWN이 조직 저장소로 기록된 뒤 팀을 못 읽으면 초대 없이 최종 실패한다', async () => {
+  it('OWN이 조직 저장소로 기록된 뒤 재조회가 최종 실패하면 초대 없이 최종 실패한다', async () => {
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
     const repositoryUrl =
@@ -854,7 +836,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       .mockResolvedValueOnce(claimed)
       .mockRejectedValueOnce(
         new RepositoryProvisionFailure(
-          PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+          PROVISION_ERROR_CODES.INVALID_EVENT,
           false,
         ),
       );
@@ -875,19 +857,18 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
     const result = await worker.runNext(
-      'worker-org-own-no-team',
+      'worker-org-own-reload-final',
       PROVISION_NOW,
     );
 
     expect(result).toEqual({
       kind: 'FAILED_FINAL',
       jobId: 'synthetic-job-id',
-      errorCode: PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+      errorCode: PROVISION_ERROR_CODES.INVALID_EVENT,
     });
     expect(state.recordRepository.mock.calls).toHaveLength(1);
     expect(state.prepareInvitations.mock.calls).toHaveLength(0);
@@ -896,7 +877,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     expect(state.loadContext.mock.calls).toHaveLength(2);
     expect(state.failJob.mock.calls[0]?.[0]).toMatchObject({
       final: true,
-      errorCode: PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
+      errorCode: PROVISION_ERROR_CODES.INVALID_EVENT,
       expectedMembershipFingerprint: undefined,
     });
   });
@@ -930,7 +911,6 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1002,7 +982,6 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1062,7 +1041,6 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1114,7 +1092,6 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository,
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1144,7 +1121,6 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -1175,7 +1151,6 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
       {
         enrollExternalRepository: jest.fn(),
       } as unknown as RepositoryOwnEnrollmentService,
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 

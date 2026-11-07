@@ -670,9 +670,9 @@ export class ProgramDeletionScopeRepository {
         (SELECT count(*) FROM "Team" WHERE "programId" = ${programId}) AS teams,
         (SELECT count(*) FROM "BoardPost" WHERE "programId" = ${programId}) AS "boardPosts",
         (SELECT count(*) FROM "Submission" WHERE "requirementId" IN (
-            SELECT document.id
-            FROM "Requirement" AS document
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
+            SELECT requirement.id
+            FROM "Requirement" AS requirement
+            INNER JOIN "Milestone" AS milestone ON milestone.id = requirement."milestoneId"
             WHERE milestone."programId" = ${programId}
           )) AS submissions,
         (
@@ -682,10 +682,10 @@ export class ProgramDeletionScopeRepository {
               OR file."submissionHistoryId" IN (SELECT history.id FROM "SubmissionHistory" history JOIN "Submission" submission ON submission.id=history."submissionId" JOIN "Requirement" requirement ON requirement.id=submission."requirementId" JOIN "Milestone" milestone ON milestone.id=requirement."milestoneId" WHERE milestone."programId"=${programId})))
           +
           (SELECT count(*) FROM "SubmissionHistory" WHERE "submissionId" IN (
-            SELECT document_submission.id
-            FROM "Submission" AS document_submission
-            INNER JOIN "Requirement" AS document ON document.id = document_submission."requirementId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
+            SELECT submission.id
+            FROM "Submission" AS submission
+            INNER JOIN "Requirement" AS requirement ON requirement.id = submission."requirementId"
+            INNER JOIN "Milestone" AS milestone ON milestone.id = requirement."milestoneId"
             WHERE milestone."programId" = ${programId}
           ))
         ) AS "submissionEvents",
@@ -707,23 +707,23 @@ export class ProgramDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT('Milestone:', id) FROM "Milestone" WHERE "programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('Requirement:', document.id)
-            FROM "Requirement" AS document
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
+            SELECT CONCAT('Requirement:', requirement.id)
+            FROM "Requirement" AS requirement
+            INNER JOIN "Milestone" AS milestone ON milestone.id = requirement."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('Submission:', document_submission.id)
-            FROM "Submission" AS document_submission
-            INNER JOIN "Requirement" AS document ON document.id = document_submission."requirementId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
+            SELECT CONCAT('Submission:', submission.id)
+            FROM "Submission" AS submission
+            INNER JOIN "Requirement" AS requirement ON requirement.id = submission."requirementId"
+            INNER JOIN "Milestone" AS milestone ON milestone.id = requirement."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
             SELECT CONCAT('SubmissionHistory:', history.id)
             FROM "SubmissionHistory" AS history
-            INNER JOIN "Submission" AS document_submission
-              ON document_submission.id = history."submissionId"
-            INNER JOIN "Requirement" AS document ON document.id = document_submission."requirementId"
-            INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
+            INNER JOIN "Submission" AS submission
+              ON submission.id = history."submissionId"
+            INNER JOIN "Requirement" AS requirement ON requirement.id = submission."requirementId"
+            INNER JOIN "Milestone" AS milestone ON milestone.id = requirement."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
             SELECT CONCAT('File:', file.id) FROM "File" file WHERE file."programId" = ${programId}

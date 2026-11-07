@@ -120,16 +120,16 @@ function changeRequestReviewCount(): Promise<number> {
   });
 }
 
-async function waitForDocumentLockWaiter(): Promise<void> {
+async function waitForRequirementLockWaiter(): Promise<void> {
   for (let attempt = 0; attempt < 100; attempt += 1) {
     const rows = await fixture.prisma.$queryRaw<readonly { count: bigint }[]>`
       SELECT count(*) AS "count" FROM pg_stat_activity
-      WHERE wait_event_type = 'Lock' AND query LIKE '%FOR UPDATE OF document%'
+      WHERE wait_event_type = 'Lock' AND query LIKE '%FOR UPDATE OF requirement%'
     `;
     if ((rows[0]?.count ?? 0n) > 0n) return;
     await new Promise((resolve) => setTimeout(resolve, 50));
   }
-  throw new Error('bulk change request never waited on the document lock');
+  throw new Error('bulk change request never waited on the requirement lock');
 }
 
 async function previewVersion(query = 'scope=PROGRAM'): Promise<string> {
@@ -325,7 +325,7 @@ describe('#1562 서류 현황 일괄 보완 요청 — HTTP + PostgreSQL', () =>
     await locked;
 
     const sending = sendChangeRequest({ expectedVersion: previewed });
-    await waitForDocumentLockWaiter();
+    await waitForRequirementLockWaiter();
     await fixture.prisma.team.update({
       where: { id: extra.team },
       data: { status: 'REJECTED', rejectionReason: '합성 반려' },

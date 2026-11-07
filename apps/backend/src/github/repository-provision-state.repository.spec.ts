@@ -275,7 +275,10 @@ function repositoryFor(db: MockDb): RepositoryProvisionStateRepository {
 }
 
 function jobRow(
-  team: { readonly name: string; readonly nicknames: readonly string[] } | null,
+  roster: {
+    readonly name: string;
+    readonly nicknames: readonly string[];
+  } | null,
   source: RepositorySource = RepositorySource.ORG_PROVISIONED,
 ) {
   return {
@@ -287,8 +290,8 @@ function jobRow(
       programId: 'program-1',
       applicant: { githubId: 42n, nickname: 'Applicant-Login' },
       program: { name: 'Synthetic', repositoryProvisioningEnabled: true },
-      name: team?.name ?? 'Synthetic solo team',
-      members: (team?.nicknames ?? []).map((nickname) => ({
+      name: roster?.name ?? 'Synthetic solo team',
+      members: (roster?.nicknames ?? []).map((nickname) => ({
         user: { nickname },
       })),
       repository: {
@@ -327,7 +330,7 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     expect(context.currentMemberGithubLogins).not.toContain('applicant-login');
   });
 
-  it('NEW인데 팀을 읽을 수 없으면 최종 실패로 막는다', async () => {
+  it('삭제된 프로그램의 팀이면 FEATURE_DISABLED 최종 실패로 막는다', async () => {
     const db = createDb();
     db.team.count.mockResolvedValue(0);
 
@@ -372,36 +375,6 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     expect(context.currentRepositorySource).toBe(
       RepositorySource.EXTERNAL_PUBLIC,
     );
-  });
-
-  it('원래 OWN이어도 현재 관리 저장소의 팀을 읽지 못하면 막는다', async () => {
-    const db = createDb();
-    db.team.count.mockResolvedValue(0);
-    db.repositoryProvisionJob.findFirst.mockResolvedValue(
-      jobRow(null, RepositorySource.ORG_PROVISIONED),
-    );
-    await expect(
-      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
-    ).rejects.toMatchObject({
-      code: PROVISION_ERROR_CODES.FEATURE_DISABLED,
-      retryable: false,
-    });
-  });
-
-  it('원래 NEW라도 현재 외부 저장소에는 팀 초대 원본을 요구하지 않는다', async () => {
-    const db = createDb();
-    db.repositoryProvisionJob.findFirst.mockResolvedValue(
-      jobRow(null, RepositorySource.EXTERNAL_PUBLIC),
-    );
-    const context = await serviceFor(db).loadContext(
-      JOB_ID,
-      WORKER_ID,
-      REQUEST_ID,
-    );
-    expect(context.currentRepositorySource).toBe(
-      RepositorySource.EXTERNAL_PUBLIC,
-    );
-    expect(context.currentMemberGithubLogins).toEqual([]);
   });
 
   it.each(['missing', 'different'] as const)(

@@ -1771,12 +1771,12 @@ export class RequirementsRepository {
         id: string;
       }[]
     >(Prisma.sql`
-        SELECT document."id"
-        FROM "Requirement" document
-        JOIN "Milestone" milestone ON milestone."id" = document."milestoneId"
+        SELECT requirement."id"
+        FROM "Requirement" requirement
+        JOIN "Milestone" milestone ON milestone."id" = requirement."milestoneId"
         WHERE milestone."programId" = ${programId}
-        ORDER BY document."id"
-        FOR UPDATE OF document
+        ORDER BY requirement."id"
+        FOR UPDATE OF requirement
       `);
     return rows.map((row) => row.id);
   }

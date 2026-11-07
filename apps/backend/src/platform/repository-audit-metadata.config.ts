@@ -1,5 +1,3 @@
-import { RepositoryConnectionMode } from '@prisma/client';
-
 export type RepositoryDeletionCounts = {
   readonly repositories: number;
   readonly commits: number;
@@ -37,19 +35,3 @@ export type ApplicationRepositoryUrlAuditMetadataView =
       readonly schemaVersion: 1;
       readonly reason: string;
     });
-
-export const REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION = 1 as const;
-
-type RepositoryConnectionAuditState = {
-  readonly repositoryId: string | null;
-  readonly nameWithOwner: string | null;
-  readonly connectionMode: RepositoryConnectionMode;
-  readonly repositoryUrl: string | null;
-};
-
-export type RepositoryConnectionAuditMetadata = {
-  readonly schemaVersion: typeof REPOSITORY_CONNECTION_AUDIT_SCHEMA_VERSION;
-  readonly applicationId: string;
-  readonly before: RepositoryConnectionAuditState;
-  readonly after: RepositoryConnectionAuditState;
-};

@@ -42,7 +42,6 @@ import { PROVISION_ERROR_CODES } from '../github/repository-provision-state.conf
 import { RepositoryOutboxConsumerService } from '../github/repository-outbox-consumer.service';
 import { RepositoryProvisionWorkerService } from '../github/repository-provision-worker.service';
 import { RepositoryOwnEnrollmentService } from '../github/repositories.service';
-import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryProvisionGithubService } from '../github/repository-provision-github.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { RepositoryProvisionEventService } from '../github/repository-provision-event.service';
@@ -497,7 +496,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         state,
         github as unknown as GithubAppClient,
         ownEnrollment(),
-        new HistoryMetadataService(),
         new RepositoryProvisionGithubService(new RepositoryUrlService()),
       );
       const result = await worker.runNext(
@@ -576,7 +574,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         state,
         github as unknown as GithubAppClient,
         ownEnrollment(),
-        new HistoryMetadataService(),
         new RepositoryProvisionGithubService(new RepositoryUrlService()),
       );
       const result = await worker.runNext(
@@ -646,7 +643,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       state,
       github as unknown as GithubAppClient,
       ownEnrollment(),
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     );
 
@@ -714,7 +710,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         state,
         github as unknown as GithubAppClient,
         ownEnrollment(),
-        new HistoryMetadataService(),
         new RepositoryProvisionGithubService(new RepositoryUrlService()),
       );
       const result = await worker.runNext(
@@ -792,7 +787,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
       state,
       github as unknown as GithubAppClient,
       ownEnrollment(),
-      new HistoryMetadataService(),
       new RepositoryProvisionGithubService(new RepositoryUrlService()),
     ).runNext('synthetic-late-worker', queueNow);
     await expect(
@@ -838,7 +832,6 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         state,
         github as unknown as GithubAppClient,
         ownEnrollment(),
-        new HistoryMetadataService(),
         new RepositoryProvisionGithubService(new RepositoryUrlService()),
       ).runNext('synthetic-legacy-provision', queueNow);
       expect(result).toMatchObject({
