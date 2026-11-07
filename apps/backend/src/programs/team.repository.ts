@@ -183,9 +183,9 @@ export class TeamDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT('TeamInvitation:', id) FROM "TeamInvitation" WHERE "teamId" = ${teamId}
             UNION ALL
-            SELECT CONCAT('MilestoneDocumentSubmission:', id) FROM team_submission
+            SELECT CONCAT('Submission:', id) FROM team_submission
             UNION ALL
-            SELECT CONCAT('MilestoneDocumentSubmissionHistory:', id) FROM team_submission_history
+            SELECT CONCAT('SubmissionHistory:', id) FROM team_submission_history
             UNION ALL
             SELECT CONCAT('File:', id) FROM team_submission_file
             UNION ALL

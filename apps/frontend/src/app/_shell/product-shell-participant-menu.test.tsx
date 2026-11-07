@@ -83,7 +83,7 @@ const OVERVIEW: ProgramOverview = {
   viewerDocumentsTotal: 2,
   fullySubmittedParticipantCount: null,
   remainingMilestones: [],
-  milestoneDocuments: [
+  requirements: [
     { milestoneId: 'm1', title: '스터디 계획서', completed: 0, total: 1 },
   ],
 };

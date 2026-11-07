@@ -59,7 +59,7 @@ const OVERVIEW: ProgramOverview = {
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: 0,
   remainingMilestones: [],
-  milestoneDocuments: [],
+  requirements: [],
 };
 
 function apiError(status: number, code: string): ApiError {
@@ -144,7 +144,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       ...OVERVIEW,
       viewerDocumentsCompleted: 0,
       viewerDocumentsTotal: 1,
-      milestoneDocuments: [
+      requirements: [
         { milestoneId: 'plan', title: '계획서', completed: 0, total: 1 },
       ],
     };
@@ -178,7 +178,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       ...OVERVIEW,
       viewerDocumentsCompleted: 0,
       viewerDocumentsTotal: 1,
-      milestoneDocuments: [
+      requirements: [
         { milestoneId: 'plan', title: '계획서', completed: 0, total: 1 },
       ],
     };
@@ -211,7 +211,7 @@ describe('useProductShellData 프로그램 단계 탐색', () => {
       ...OVERVIEW,
       viewerDocumentsCompleted: 0,
       viewerDocumentsTotal: 1,
-      milestoneDocuments: [
+      requirements: [
         { milestoneId: 'plan', title: '계획서', completed: 0, total: 1 },
       ],
     };

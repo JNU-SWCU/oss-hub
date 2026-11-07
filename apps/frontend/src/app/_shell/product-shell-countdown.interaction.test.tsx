@@ -96,7 +96,7 @@ function overview(
     viewerDocumentsTotal: null,
     fullySubmittedParticipantCount: 1,
     remainingMilestones,
-    milestoneDocuments: [],
+    requirements: [],
   };
 }
 

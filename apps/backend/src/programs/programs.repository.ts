@@ -707,18 +707,18 @@ export class ProgramDeletionScopeRepository {
             UNION ALL
             SELECT CONCAT('Milestone:', id) FROM "Milestone" WHERE "programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('MilestoneDocument:', document.id)
+            SELECT CONCAT('Requirement:', document.id)
             FROM "Requirement" AS document
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('MilestoneDocumentSubmission:', document_submission.id)
+            SELECT CONCAT('Submission:', document_submission.id)
             FROM "Submission" AS document_submission
             INNER JOIN "Requirement" AS document ON document.id = document_submission."requirementId"
             INNER JOIN "Milestone" AS milestone ON milestone.id = document."milestoneId"
             WHERE milestone."programId" = ${programId}
             UNION ALL
-            SELECT CONCAT('MilestoneDocumentSubmissionHistory:', history.id)
+            SELECT CONCAT('SubmissionHistory:', history.id)
             FROM "SubmissionHistory" AS history
             INNER JOIN "Submission" AS document_submission
               ON document_submission.id = history."submissionId"

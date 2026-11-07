@@ -41,7 +41,7 @@ const overview = {
   viewerDocumentsTotal: null,
   fullySubmittedParticipantCount: 0,
   remainingMilestones: [],
-  milestoneDocuments: [],
+  requirements: [],
 };
 const program: ProgramDetail = {
   id: programId,

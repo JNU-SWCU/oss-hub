@@ -51,7 +51,7 @@ describe('ProgramScopeSidebar key', () => {
       teamCount: 3,
       boardPostCount: 2,
       viewerDocuments: { completed: 1, total: 9 },
-      milestoneDocuments: [
+      requirements: [
         { milestoneId: 'm1', title: '계획서', completed: 1, total: 3 },
         { milestoneId: 'm2', title: '중간 보고', completed: 0, total: 3 },
         { milestoneId: 'm3', title: '최종', completed: 0, total: 3 },

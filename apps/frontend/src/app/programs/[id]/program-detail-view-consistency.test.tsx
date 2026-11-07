@@ -325,7 +325,7 @@ describe('프로그램 상세와 셸의 참여 화면 일치', () => {
         viewerDocumentsTotal: operations ? null : 4,
         fullySubmittedParticipantCount: operations ? 2 : null,
         remainingMilestones: [],
-        milestoneDocuments: [
+        requirements: [
           {
             milestoneId: 'milestone-1',
             title: '합성 단계',

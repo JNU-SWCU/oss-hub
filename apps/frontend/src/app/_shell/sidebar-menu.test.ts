@@ -527,7 +527,7 @@ describe('programScopeSidebarGroups', () => {
       ...base,
       viewerRole: 'STUDENT',
       viewerDocuments: { completed: 2, total: 6 },
-      milestoneDocuments: [
+      requirements: [
         {
           milestoneId: 'm3',
           title: '프로젝트 계획서 제출',
@@ -562,7 +562,7 @@ describe('programScopeSidebarGroups', () => {
     const groups = programScopeSidebarGroups({
       ...base,
       viewerRole: 'STAFF',
-      milestoneDocuments: [
+      requirements: [
         {
           milestoneId: 'm3',
           title: '프로젝트 계획서 제출',
@@ -627,7 +627,7 @@ describe('programScopeSidebarGroups', () => {
           submissionEnabled: true,
         },
       ],
-      milestoneDocuments: [
+      requirements: [
         {
           milestoneId: 'm1',
           title: '1차 계획서',
@@ -669,7 +669,7 @@ describe('programScopeSidebarGroups', () => {
           submissionEnabled: false,
         },
       ],
-      milestoneDocuments: [],
+      requirements: [],
     });
 
     expect(groups[1]?.items.map((item) => item.label)).toEqual([
@@ -720,7 +720,7 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
     milestones: [
       { milestoneId: 'm1', title: '1차 계획서', submissionEnabled: true },
     ],
-    milestoneDocuments: [
+    requirements: [
       { milestoneId: 'm1', title: '1차 계획서', completed: 0, total: 1 },
     ],
   } as const;
@@ -787,7 +787,7 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
     const staff = programScopeSidebarGroups({
       ...base,
       viewerRole: 'STAFF',
-      milestoneDocuments: [
+      requirements: [
         { milestoneId: 'm1', title: '1차 계획서', completed: 2, total: 3 },
       ],
     });
@@ -795,7 +795,7 @@ describe('programScopeSidebarGroups — 참여자 전용 항목(#1099)', () => {
       ...base,
       viewerRole: 'STAFF',
       viewerParticipant: false,
-      milestoneDocuments: [
+      requirements: [
         { milestoneId: 'm1', title: '1차 계획서', completed: 2, total: 3 },
       ],
     });
