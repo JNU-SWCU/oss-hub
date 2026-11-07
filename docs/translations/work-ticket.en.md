@@ -9,9 +9,7 @@ Use the original template when publishing; retain its Korean execution block and
 
 Template metadata: name `작업 티켓` (Work ticket); description: work on one screen, publishable by any team member, with zero or one assignee; title `[P0] <화면 이름>` (screen name); labels `[ticket]`.
 
-[issue-ticket-contract.md](../../skills/manage-qa-tickets/references/issue-ticket-contract.en.md) owns the body format.
 The ticket contains only this screen's functional specification.
-Follow [readability.md](../../skills/submit-pr-evidence/references/readability.en.md).
 
 ## 시작
 
@@ -32,7 +30,7 @@ It tells the assignee to ask their agent to work on the numbered OSS Hub ticket;
 - Frontend: `apps/frontend/src/app/.../page.tsx` (plus `src/features/<domain>/...` where needed), URL `/...`. For a screenless exception ticket, replace this line with the artifact location.
 - Backend: `METHOD /api/v1/...` — `apps/backend/src/<module>/...`. List every endpoint this screen reads or creates; mark reused ones as existing.
 
-Logic changes—branches, state transitions, authorization, asynchronous processing, call order, or layering boundaries—need a Mermaid/DOT diagram in the PR; `skills/submit-pr-evidence/references/backend-diagram.md` owns that requirement.
+Logic changes—branches, state transitions, authorization, asynchronous processing, call order, or layering boundaries—need a Mermaid/DOT diagram in the PR.
 
 ## 재현
 

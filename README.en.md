@@ -259,7 +259,7 @@ compose.yml              # Production runtime
 
 ## Contributing
 
-Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR, following the [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md). Run `bash .github/check-public-safe.sh` and make it pass before you open a PR.
+Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR. Run `bash .github/check-public-safe.sh` and make it pass before you open a PR.
 
 See the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md). These are in Korean, and the Korean text is authoritative. The repository's skills have `SKILL.en.md` versions, and `docs/translations/` has the templates in English.
 
@@ -296,13 +296,10 @@ Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks.
 | What you want to know | Document |
 | --- | --- |
 | Contribution steps and where to start | [CONTRIBUTING.md](CONTRIBUTING.md) (Korean) |
-| Writing a PR and its evidence | [PR evidence procedure](skills/submit-pr-evidence/SKILL.en.md) |
-| What must stay out of a public repository | [Public safety check](skills/submit-pr-evidence/references/public-safety-check.en.md) |
 | Tests per changed path, and deployment | [CI workflow](.github/workflows/ci.yml) |
 | Database and seeds | [Prisma notes](apps/backend/prisma/README.md) (Korean) |
 | Frontend feature structure | [Features notes](apps/frontend/src/features/README.md) (Korean) |
 | Design tokens and Figma | [Figma plugin notes](apps/frontend/figma-plugin/README.md) (Korean) |
-| QA tickets and release QA | [Managing QA tickets](skills/manage-qa-tickets/SKILL.en.md), [Release QA](skills/run-release-qa/SKILL.en.md) |
 | PR and issue templates | [PR template](docs/translations/pull-request-template.en.md), [work ticket](docs/translations/work-ticket.en.md) |
 
 ## License

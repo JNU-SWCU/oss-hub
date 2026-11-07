@@ -5,8 +5,7 @@ title: "[P0] <화면 이름>"
 labels: [ticket]
 ---
 
-<!-- 이 본문 형식의 원본은 skills/manage-qa-tickets/references/issue-ticket-contract.md다. 이 티켓엔 이 화면의 기능 명세만. -->
-<!-- 공통 글쓰기 원칙: [readability.md](../../skills/submit-pr-evidence/references/readability.md). -->
+<!-- 이 티켓엔 이 화면의 기능 명세만. -->
 
 ## 시작
 담당자는 본인 에이전트에 한 줄: `oss-hub 티켓 #<번호> 진행해줘`
@@ -15,7 +14,7 @@ labels: [ticket]
 - 영역: <frontend | backend | infra> — Owner @handle
 - 프론트: `apps/frontend/src/app/.../page.tsx` (+ 필요 시 `src/features/<도메인>/...`), URL `/...` <!-- 화면 없는 예외 티켓은 이 줄을 "산출물 위치"로 대체 -->
 - 백엔드: `METHOD /api/v1/...` — `apps/backend/src/<모듈>/...` <!-- 이 화면이 읽는/새로 만드는 엔드포인트 전부. 기존 재사용은 "기존" 표기 -->
-<!-- 로직 변경(분기·상태 전이·인가·비동기 처리·호출 순서·계층 경계)이면 PR에 mermaid/DOT 다이어그램이 필요하다 — 원본 skills/submit-pr-evidence/references/backend-diagram.md -->
+<!-- 로직 변경(분기·상태 전이·인가·비동기 처리·호출 순서·계층 경계)이면 PR에 mermaid/DOT 다이어그램이 필요하다 -->
 
 ## 재현
 <!-- 결함 티켓만 채운다 — 조건 → 재현 단계 → 실제 결과 vs 기대 결과.

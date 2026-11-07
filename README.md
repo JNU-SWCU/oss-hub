@@ -258,7 +258,7 @@ compose.yml              # 운영 런타임
 
 ## 기여하기
 
-이슈에서 범위와 완료 조건을 정합니다. [로컬에서 시작하기](#로컬에서-시작하기)로 환경을 준비한 뒤 실제로 돌린 검증을 [PR 증거 절차](skills/submit-pr-evidence/SKILL.md)에 따라 PR에 적습니다. PR을 열기 전에 `bash .github/check-public-safe.sh`를 통과해야 합니다.
+이슈에서 범위와 완료 조건을 정합니다. [로컬에서 시작하기](#로컬에서-시작하기)로 환경을 준비한 뒤 실제로 돌린 검증을 PR에 적습니다. PR을 열기 전에 `bash .github/check-public-safe.sh`를 통과해야 합니다.
 
 자세한 내용은 [기여 안내](CONTRIBUTING.md), [행동 강령](CODE_OF_CONDUCT.md), [보안 정책](SECURITY.md)을 봅니다. 이 문서들의 기준본은 한국어입니다.
 
@@ -295,13 +295,10 @@ BACKEND_ORIGIN=https://backend.example.test pnpm build
 | 알고 싶은 내용 | 문서 |
 | --- | --- |
 | 기여 순서와 시작점 | [CONTRIBUTING.md](CONTRIBUTING.md) |
-| PR 작성과 증거 | [PR 증거 절차](skills/submit-pr-evidence/SKILL.md) |
-| 공개 저장소에 올리면 안 되는 것 | [공개 안전 점검](skills/submit-pr-evidence/references/public-safety-check.md) |
 | 변경 경로별 테스트와 배포 | [CI workflow](.github/workflows/ci.yml) |
 | 데이터베이스와 시드 | [Prisma 안내](apps/backend/prisma/README.md) |
 | 프런트엔드 기능 구조 | [features 안내](apps/frontend/src/features/README.md) |
 | 디자인 토큰과 Figma 연동 | [Figma 플러그인 안내](apps/frontend/figma-plugin/README.md) |
-| QA 티켓과 릴리스 QA | [QA 티켓 관리](skills/manage-qa-tickets/SKILL.md), [릴리스 QA](skills/run-release-qa/SKILL.md) |
 | PR과 이슈 양식 | [PR 템플릿](.github/pull_request_template.md), [작업 티켓](.github/ISSUE_TEMPLATE/work-ticket.md) |
 
 ## 라이선스

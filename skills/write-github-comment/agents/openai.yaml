@@ -1,4 +1,0 @@
-interface:
-  display_name: 'OSS Hub GitHub 코멘트 작성'
-  short_description: 'PR·Issue 지적·답글·UX 제안·진행 코멘트를 씁니다'
-  default_prompt: 'Use $write-github-comment for an OSS Hub PR or Issue comment or reply. Pick finding, reply, UX proposal, or progress. Require an element capture for screen talk. Do not repeat what PR widgets already show. Draft to a file and run public-safe --text-only. Post only after explicit permission. Not for PR bodies or QA ticket bodies.'
