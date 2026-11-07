@@ -1,9 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import {
-  RepositoryConnectionMode,
-  RepositoryInvitationStatus,
-  RepositorySource,
-} from '@prisma/client';
+import { RepositoryInvitationStatus } from '@prisma/client';
 import { InvalidRepositoryProvisionEventError } from './repositories.error';
 import {
   REPOSITORY_PROVISION_EVENT_TYPE,
@@ -12,7 +8,6 @@ import {
 import { RepositoryProvisionEventService } from './repository-provision-event.service';
 import {
   PROVISION_ERROR_CODES,
-  PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
   REVOCATION_INVITATION_STATUSES,
 } from './repository-provision-state.config';
 import { RepositoryProvisionFailure } from './repository-provision-state.error';
@@ -84,19 +79,9 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       }
       throw error;
     }
-    const team = application;
-    const requiresManagedMembership =
-      application.repository === null
-        ? requested.repositoryConnectionMode === RepositoryConnectionMode.NEW
-        : application.repository.source === RepositorySource.ORG_PROVISIONED;
-    if (team === null && requiresManagedMembership) {
-      throw RepositoryProvisionFailure.final(
-        PROVISION_MEMBERSHIP_UNAVAILABLE_ERROR_CODE,
-      );
-    }
-
-    const currentMemberGithubLogins =
-      team === null ? [] : this.loginsFromTeamMembers(team.members);
+    const currentMemberGithubLogins = this.loginsFromTeamMembers(
+      application.members,
+    );
     return {
       requestId: event.id,
       requestedConnectionMode: requested.repositoryConnectionMode,
@@ -112,7 +97,7 @@ export class RepositoryProvisionStateService implements RepositoryProvisionState
       programName: application.program.name,
       repositoryProvisioningEnabled:
         application.program.repositoryProvisioningEnabled,
-      subjectName: team.name,
+      subjectName: application.name,
       currentMemberGithubLogins,
       membershipFingerprint: this.membershipFingerprint(
         currentMemberGithubLogins,

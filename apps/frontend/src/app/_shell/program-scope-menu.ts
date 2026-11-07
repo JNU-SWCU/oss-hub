@@ -1,5 +1,6 @@
 import { programDocumentsHref, programMyTeamHref } from '@/lib/program-route';
 import { programHref } from '@/features/programs/program-paths';
+import type { ProgramOverviewRequirement } from '@/features/programs/catalog/program-overview-dto';
 import type { ShellIconName } from './shell-icons';
 
 export interface ProgramScopeSidebarItem {
@@ -24,15 +25,6 @@ export type ProgramScopeViewerRole = 'GUEST' | 'STUDENT' | 'STAFF' | 'ADMIN';
 
 export function programScopeBackHref(): string {
   return '/programs';
-}
-
-interface ProgramScopeRequirementSummary {
-  readonly milestoneId: string;
-  readonly title: string;
-
-  readonly completed: number;
-
-  readonly total: number;
 }
 
 interface ProgramScopeMilestoneNavigation {
@@ -61,7 +53,7 @@ export interface ProgramScopeSidebarInput {
 
   readonly milestones?: readonly ProgramScopeMilestoneNavigation[];
 
-  readonly requirements?: readonly ProgramScopeRequirementSummary[];
+  readonly requirements?: readonly ProgramOverviewRequirement[];
 }
 
 export function programScopeSidebarGroups(

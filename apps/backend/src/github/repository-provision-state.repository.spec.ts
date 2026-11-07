@@ -374,20 +374,6 @@ describe('RepositoryProvisionStateRepository.loadContext', () => {
     );
   });
 
-  it('원래 OWN이어도 현재 관리 저장소의 팀을 읽지 못하면 막는다', async () => {
-    const db = createDb();
-    db.team.count.mockResolvedValue(0);
-    db.repositoryProvisionJob.findFirst.mockResolvedValue(
-      jobRow(null, RepositorySource.ORG_PROVISIONED),
-    );
-    await expect(
-      serviceFor(db).loadContext(JOB_ID, WORKER_ID, REQUEST_ID),
-    ).rejects.toMatchObject({
-      code: PROVISION_ERROR_CODES.FEATURE_DISABLED,
-      retryable: false,
-    });
-  });
-
   it('원래 NEW라도 현재 외부 저장소에는 팀 초대 원본을 요구하지 않는다', async () => {
     const db = createDb();
     db.repositoryProvisionJob.findFirst.mockResolvedValue(

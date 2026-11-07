@@ -28,7 +28,6 @@ import {
   PROVISION_WORKER_OPTIONS,
   type RepositoryProvisionWorkerOptions,
 } from './repository-provision-state.config';
-import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { GithubOperationsError } from './github-app.error';
 
 export type RepositoryProvisionResult =
@@ -63,7 +62,6 @@ export class RepositoryProvisionWorkerService {
     private readonly state: RepositoryProvisionStateService,
     private readonly github: GithubAppClient,
     private readonly collectionEnrollment: RepositoryOwnEnrollmentService,
-    private readonly historyMetadataService: HistoryMetadataService,
     private readonly repositoryProvisionGithubService: RepositoryProvisionGithubService,
     @Optional()
     @Inject(PROVISION_WORKER_OPTIONS)
@@ -390,10 +388,6 @@ export class RepositoryProvisionWorkerService {
         : {
             connectionAudit: {
               actorGithubId: context.requestedByGithubId,
-              buildMetadata: (change) =>
-                this.historyMetadataService.createRepositoryConnectionAuditMetadata(
-                  change,
-                ),
             },
           }),
       source,

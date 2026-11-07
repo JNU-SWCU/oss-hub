@@ -18,7 +18,6 @@ import {
 } from '../platform/repository-provision-generation.repository';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import type { GithubRepositoryMetadata } from './github-app.client';
-import type { RepositoryConnectionAuditMetadata } from '../platform/repository-audit-metadata.config';
 import {
   DEFAULT_PROVISION_MAX_INVITATION_RECONCILIATIONS,
   PROVISION_ERROR_CODES,
@@ -167,9 +166,6 @@ interface LockedRepositoryClaimTarget {
 
 export interface RepositoryConnectionAudit {
   readonly actorGithubId: bigint;
-  readonly buildMetadata: (
-    change: Omit<RepositoryConnectionAuditMetadata, 'schemaVersion'>,
-  ) => RepositoryConnectionAuditMetadata;
 }
 
 export interface ProvisionedRepositoryRow {

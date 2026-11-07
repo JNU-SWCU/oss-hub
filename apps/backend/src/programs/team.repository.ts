@@ -113,9 +113,9 @@ export class TeamDeletionScopeRepository {
         SELECT id FROM "Team" WHERE "id" = ${teamId}
       ),
       team_submission AS (
-        SELECT document_submission.id
-        FROM "Submission" AS document_submission
-        WHERE document_submission."teamId" IN (SELECT id FROM team_record)
+        SELECT submission.id
+        FROM "Submission" AS submission
+        WHERE submission."teamId" IN (SELECT id FROM team_record)
       ),
       team_submission_history AS (
         SELECT history.id
