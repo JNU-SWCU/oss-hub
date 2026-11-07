@@ -1,0 +1,38 @@
+---
+title: View student engagement
+description: Compare GitHub activity and program participation by major.
+sidebar:
+  order: 8
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+`학생 활성` (Student engagement) compares GitHub activity and program participation by major. Use it to explain the initiative's impact or identify groups with lower participation. Approved staff can open it; it does not change data. Accounts with administrator access alone do not see it.
+
+<Steps>
+1. Open ① `학생 활성` (Student engagement) in the left-hand menu.
+2. Under `기간` (Period), choose `전체` (All) or a year.
+3. Under `비교 관점` (Comparison), choose `전공·비전공` (Major/non-major) or `학과` (Department).
+</Steps>
+<Shot src="admin/insights-full.webp" alt="Student engagement screen with period and comparison selectors, cards for registered students, active students, and program participants, followed by charts. ① marks Student engagement in the left menu." caption="① Student engagement menu" />
+
+## Read the numbers
+
+- `가입 학생` (Registered students): The number of students who have registered.
+- `활동 학생` (Active students): Students meeting the activity threshold, which is a total ranking score of at least 1.
+- `프로그램 참여자` (Program participants): Students whose program participation has been approved.
+- `활성 — 랭킹 지표` (Engagement — ranking metrics): Compares Commit, PR, Issue, Repo, Star (cumulative), and the total.
+- `학과별 활성` (Engagement by department): Compares students and activity by department.
+- `참여 — 프로그램별` (Participation — by program): Shows approved participation for each program.
+
+Some vertical-axis numbers in the `활성 — 랭킹 지표` (Engagement — ranking metrics) chart may be clipped. Do not copy values from the axis alone; hover over a bar to check its value.
+
+<Success>
+Numbers and charts update for the selected period and comparison, with a summary line at the top such as `기간 전체 · 기준 …` (Period: all · As of …).
+</Success>
+
+<Recover title="If the screen is empty or cannot load">
+`학과별 학생이 없습니다` (No students by department) and `승인된 참여가 없습니다` (No approved participation) mean there is nothing to aggregate for the selected period. Expand `기간` (Period) to `전체` (All). If you see `학생 활성을 불러오지 못했습니다` (Student engagement could not be loaded), refresh the page.
+</Recover>

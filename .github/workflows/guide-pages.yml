@@ -56,6 +56,7 @@ jobs:
 
   deploy:
     name: deploy
+    if: github.ref == 'refs/heads/main'
     needs: build
     runs-on: ubuntu-latest
     permissions:

@@ -13,7 +13,7 @@
 3. 이미지 인덱스 점검: `bash skills/build-user-guide-site/scripts/release-check.sh`. mdx가 참조하는 `src="role/name.webp"` 가 전부 인덱스에 있는지 봅니다. 없으면 `MISSING <파일>`을 찍고 1로 끝납니다.
 4. 커밋과 푸시.
 5. 배포 확인: `gh run list --workflow guide-pages.yml --limit 3`로 실행이 성공했는지 보고, `gh run watch <id>`로 기다립니다. 배포 주소는 `https://jnu-swcu.github.io/oss-hub/`.
-6. 짧게 보고: 올린 것, Pages 링크, 남은 일 한두 줄.
+6. 한국어 root와 `/en/` 배포 주소에서 해당 변경과 언어 전환을 확인한다. 짧게 보고: 올린 것, 언어별 Pages 링크, 남은 일 한두 줄.
 
 ## 자동화 구성 (파일에서 읽은 그대로)
 
@@ -22,7 +22,7 @@
 - 트리거: `main`으로의 push 중 `guide/**` 또는 이 워크플로 파일이 바뀐 경우, 그리고 `workflow_dispatch`.
 - 권한: `contents: read`. 동시성 그룹 `pages`(진행 중인 실행을 취소하지 않음).
 - `build` 작업: 체크아웃, pnpm 설정(`guide/package.json`), Node 24(pnpm 캐시 키는 `guide/pnpm-lock.yaml`), configure-pages, `pnpm install --frozen-lockfile`, `pnpm build`, `guide/dist` 업로드. 작업 디렉터리는 `guide`.
-- `deploy` 작업: `build` 뒤에 실행, `pages: write`와 `id-token: write`, 환경 `github-pages`, deploy-pages.
+- `deploy` 작업: `main`에서만 `build` 뒤에 실행, `pages: write`와 `id-token: write`, 환경 `github-pages`, deploy-pages.
 - 사용하는 액션은 SHA로 고정되어 있습니다.
 
 `.github/workflows/guide-check.yml`
@@ -31,14 +31,13 @@
 
 즉 `guide/`의 변경이 `main`에 들어가면 자동으로 빌드하고 배포합니다. 손으로 배포하지 않습니다.
 
-## 작업 브랜치에서 미리 배포하기
+## 작업 브랜치 빌드 확인
 
-큰 작업 중에 진행을 Pages에서 보려면 아래 두 가지를 임시로 엽니다. 변경을 `main`에 넣기 전에 되돌립니다.
+`gh workflow run guide-pages.yml --ref <작업 브랜치>`로 Linux 빌드를 실행한다. `deploy`는 `main`에서만 실행되므로 작업 브랜치의 수동 실행은 빌드와 `github-pages` 산출물 업로드까지만 한다.
 
-1. `guide-pages.yml`의 `branches`에 작업 브랜치를 더합니다. 되돌릴 때 지웁니다.
-2. 저장소 설정의 `github-pages` 환경에 그 브랜치의 배포 정책을 더합니다. 되돌릴 때 그 정책만 지웁니다.
+`gh run download <id> --name github-pages --dir <scratch>`로 산출물을 내려받아 로컬에서 확인할 수 있다. 정적 사이트이므로 배포 기준 경로 `/oss-hub/`를 유지해 제공한다. 빌드 산출물 다운로드는 공개 배포가 아니다.
 
-둘 다 되돌린 뒤에는 브랜치에 푸시해도 사이트가 바뀌지 않습니다. 사이트는 마지막 배포본을 유지하다가 `main` 배포로 넘어갑니다.
+검증 뒤 저장소 협업 절차로 `main`에 반영하면 Pages가 자동 배포한다. 미리보기를 위해 환경 보호 정책이나 배포 허용 브랜치를 늘리지 않는다.
 
 ## 갱신 때
 

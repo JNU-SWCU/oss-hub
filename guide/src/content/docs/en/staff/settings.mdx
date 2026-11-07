@@ -1,0 +1,38 @@
+---
+title: Change your profile and notifications
+description: Update your staff number, affiliation, and notification preferences, or deactivate your account when necessary.
+sidebar:
+  order: 13
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+Use `설정` (settings) to edit your profile and notification preferences. The layout is the same as for administrators; see also [My settings and notifications](/oss-hub/en/admin/my-settings/).
+
+## Update your profile and notifications
+
+<Steps>
+1. Click your name at the top right to open the account menu, then click `설정`.
+2. Under `프로필` (profile), edit `이름` (name), ① `교직원 번호 (선택)` (staff number, optional), `전화번호` (phone number), and `소속` (affiliation). Select an affiliation from the list or enter it yourself. You may leave the staff number blank.
+3. In `알림 수신` (notification preferences), check `수신 이메일` (recipient email) and set ② `마감 임박 알림 받기` (receive approaching-deadline reminders).
+4. Click `저장` (save).
+</Steps>
+<Shot src="staff/settings.webp" alt="Settings screen. Marker ① points to the staff number field and ② to the approaching-deadline reminder checkbox." caption="① Staff number ② `마감 임박 알림 받기` (receive deadline reminders)" />
+
+If you turn notifications off, you will not receive the staff summary described in [Send submission deadline reminders](/oss-hub/en/staff/reminder-mail/).
+
+<Success>
+`저장되었습니다.` (saved) appears.
+</Success>
+
+<Recover title="If changes will not save">
+- `이메일 형식이 올바르지 않습니다.` means the email format is invalid. Correct `수신 이메일` to the `이름@도메인` (name@domain) format.
+</Recover>
+
+## Deactivate your account
+
+Under `계정 관리` (account management), click `계정 비활성화` (deactivate account). The dialog asks `계정을 비활성화하시겠습니까?` (deactivate your account?). Clicking `비활성화하고 로그아웃` (deactivate and sign out) signs you out immediately and prevents further sign-in. Only an administrator can reactivate your account, so use this only when necessary. See [Deactivate and reactivate accounts](/oss-hub/en/admin/deactivate/) for the administrator's steps.
+
+After deactivation, you see `계정이 비활성화되었습니다` (account deactivated) and `홈으로 돌아가기` (return home). If you see `계정을 비활성화하지 못했습니다` (could not deactivate account), try again later.

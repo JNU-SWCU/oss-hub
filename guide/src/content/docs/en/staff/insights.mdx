@@ -1,0 +1,42 @@
+---
+title: Compare student engagement
+description: Compare GitHub activity and program participation by academic field and period.
+sidebar:
+  order: 11
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+`학생 활성` (student engagement) compares GitHub activity and program participation by academic field. Open ① `학생 활성` under `교직원` (staff) in the left menu.
+
+<Shot src="staff/insights-full.webp" alt="Student engagement screen. Marker ① points to student engagement in the left menu. Registered students, active students, and program participant cards appear above activity and participation charts." caption="① `학생 활성` (student engagement)" />
+
+## Change the period and comparison
+
+<Steps>
+1. Select a year in ① `기간` (period).
+2. In ② `비교 관점` (comparison view), choose `전공·비전공` (major versus non-major) or `학과` (department).
+3. The cards and charts below update.
+</Steps>
+<Shot src="staff/insights-filters.webp" alt="Period and comparison controls. Marker ① points to the period selector and ② to the department comparison choice." caption="① `기간` (period) ② `비교 관점` (comparison view)" />
+
+## Read the figures
+
+- `가입 학생` (registered students): the number of students who have signed up. `학과 미등록 N명` identifies students who have not entered a department.
+- `활동 학생` (active students): students whose ranking total, adding commits, PRs, issues, repositories, and stars, is at least 1.
+- `프로그램 참여자` (program participants): currently approved applicants and team members, counted without duplicates within each program.
+- `활성 — 랭킹 지표` (activity by ranking metric), `학과별 활성` (activity by department), and `참여 — 프로그램별` (participation by program): charts breaking the figures down by metric, department, and program.
+- If the denominator is zero, the display reads `x/0 (계산 불가)` (cannot calculate) instead of a percentage.
+
+<Success>
+The cards and charts reflect your selected period and comparison view.
+</Success>
+
+<Recover title="If the charts are empty">
+- `학과별 학생이 없습니다` (no students by department) or `승인된 참여가 없습니다` (no approved participation) means there are no eligible records for the selected period. This is normal. Try a different period.
+- `학생 활성을 불러오지 못했습니다` means engagement data could not be loaded. Refresh the screen. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
+</Recover>
+
+For the same type of statistics in the administrator interface, see [View student engagement](/oss-hub/en/admin/insights/).

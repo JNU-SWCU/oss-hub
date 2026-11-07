@@ -1,0 +1,41 @@
+---
+title: Publish program announcements
+description: Write, pin, edit, and delete announcements on a program board.
+sidebar:
+  order: 12
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+A program board lists posts for its participants. Open `게시판` (board) in the program menu. Posts written by staff automatically become announcements.
+
+## Write an announcement
+
+<Steps>
+1. Click ① `공지 쓰기` (write announcement) to open the form.
+2. Fill in `제목` (title) and `내용` (content).
+3. Click ① `올리기` (publish), or `취소` (cancel) to stop.
+</Steps>
+<Shot src="staff/board-list.webp" alt="Program board list. Marker ① points to the write announcement button." caption="① `공지 쓰기` (write announcement)" />
+<Shot src="staff/board-notice-form.webp" alt="Announcement form with title and content fields. Marker ① points to publish." caption="① `올리기` (publish)" />
+
+<Success>
+The announcement's detail screen opens. It also appears when you return to the board list. Publishing an announcement does not send a separate email or notification.
+</Success>
+
+## Pin, edit, or delete an announcement
+
+Click a post title to open its details, where `고정` (pin), `수정` (edit), and `삭제` (delete) are available. Pinned posts stay at the top of the list. Click ① `고정 해제` (unpin) to remove the pin.
+
+<Shot src="staff/board-detail.webp" alt="Post detail with pin, edit, and delete controls. Marker ① points to unpin." caption="① `고정 해제` (unpin)" />
+
+Only the author can edit or delete a post, and only staff can pin it. Deletion cannot be undone, so check that you have the right post before deleting. Use `댓글 달기` (add comment) to leave a comment.
+
+<Recover title="If you get stuck">
+- `작성자만 수정·삭제할 수 있습니다.` means only the author can edit or delete the post. Ask the author to make the change.
+- `교직원만 게시글을 고정할 수 있습니다.` means only staff can pin posts. Use an account with staff access.
+- `아직 등록된 글이 없습니다` (no posts yet) is a normal empty state. `첫 글을 남겨 보세요.` invites you to write the first post.
+</Recover>

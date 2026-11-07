@@ -1,0 +1,38 @@
+---
+title: Use the board
+description: Approved participants can post questions and read notices and comments.
+sidebar:
+  order: 9
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Each program has its own board, available only to approved participants and `교직원` (staff). Staff post notices; `학생` (students) post questions.
+
+## Post a question
+
+<Steps>
+1. Open `게시판` (Board) in the left menu of the program screen.
+2. Click ① `질문 쓰기` (Write a question).
+3. Fill in `제목` (Title) and `내용` (Content), then click ① `올리기` (Post).
+4. Click a post in the list to read it and its comments. To comment, enter your text in ① the field, then click ② `댓글 달기` (Add comment).
+</Steps>
+<Shot src="student/board-list.webp" alt="Board list with type, title, author, date, and comments columns. ① points to Write a question." caption="① Write a question" />
+<Shot src="student/board-write.webp" alt="Question form with title and content fields. ① points to Post." caption="① Post" />
+<Shot src="student/board-comment.webp" alt="Post with one comment. ① points to the comment field; ② points to Add comment." caption="① Comment field  ② Add comment" />
+
+The list's `구분` (Type) is either `공지` (Notice) or `질문` (Question), and `작성자` (Author) appears as `이름 · 역할` (Name · Role). Your own posts show ① `수정` (Edit) and ② `삭제` (Delete); comments have only `삭제` (Delete). Clicking Delete opens a confirmation dialog. Confirm to delete.
+
+<Shot src="student/board-post-own.webp" alt="Your own question post. ① points to Edit and ② to Delete, with the comments area below." caption="① Edit  ② Delete" />
+
+<Success>
+Your post appears in the list. `교직원` (staff) reply in the comments.
+</Success>
+
+<Recover title="When you cannot open the board">
+- If `아직 참여자가 아닙니다` (You are not a participant yet) appears, click ① `신청하러 가기` (Go to apply), or return with `프로그램 개요로` (Back to program overview). Before approval, `게시판` (Board) is hidden from the left menu and cannot be used even by opening its address directly.
+</Recover>
+<Shot src="student/board-nonparticipant.webp" alt="Notice shown to a nonparticipant. ① points to Go to apply." caption="① Go to apply" />

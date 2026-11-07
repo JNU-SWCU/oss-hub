@@ -1,0 +1,83 @@
+---
+title: Approve or reject team applications
+description: Review applications to a program and approve or reject each team.
+sidebar:
+  order: 5
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Decide student program applications in `팀 관리` (team management) in the program menu. This is separate from `가입 신청` (sign-up requests), the staff role-request queue. For that queue, see [Handle staff role requests](/oss-hub/en/admin/applicants/).
+
+## Decide an application
+
+<Steps>
+1. Click a program name on the [operations dashboard](/oss-hub/en/staff/dashboard/), then select `팀 관리` in its left menu.
+2. Filter applications with the chips at the top: `전체` (all), `검토 대기` (awaiting review), `승인` (approved), or `반려` (rejected). Click a team name to open [team details](/oss-hub/en/staff/team-detail/).
+3. In that row's ① `신청 상태` (application status) selector, choose `승인` or `반려`. Changing the status may reorder the rows, so verify the team by name.
+</Steps>
+<Shot src="staff/teams-list.webp" alt="Team management list with team composition, lead applicant, status, and latest submission columns. Marker ① points to the first row's application status selector." caption="① `신청 상태` (application status)" />
+
+Choosing `승인` from `검토 대기` sends the approval request without a confirmation dialog. Check the team and application first. Students must meet the minimum with themselves and their nominated members when applying, but nomination alone does not join a member to the team. The actual accepted member count, shown as `수락 1/2명` (1 of 2 accepted), must meet the minimum for approval. Pending invitations do not count.
+
+## Reject an application
+
+A rejection reason is optional. You can leave it blank; anything you write is shown to students exactly as entered. During the application period, the team leader can edit and resubmit the application, returning it to `검토 대기`.
+
+<Steps>
+1. Select `반려` to open `신청 반려` (reject application).
+2. If needed, explain the reason or requested changes in `반려 사유 (선택)` (rejection reason, optional).
+3. Click ② `반려 확정` (confirm rejection). For an approved team, the dialog also says `이미 승인한 신청입니다.` (this application is already approved). Confirmation changes it directly to `반려`, without passing through `검토 대기`.
+</Steps>
+<Shot src="staff/teams-reject-dialog.webp" alt="Reject application dialog. Marker ① points to the reason field and ② to confirm rejection." caption="① Rejection reason ② `반려 확정` (confirm rejection)" />
+
+## Approve a rejected application
+
+<Steps>
+1. Select `승인` on the rejected application to open `신청 승인` (approve application).
+2. Read the notice: the existing rejection reason will be cleared, and participation in the program will be confirmed.
+3. Click ① `승인 확정` (confirm approval).
+</Steps>
+<Shot src="staff/teams-approve-dialog.webp" alt="Approve application dialog. Marker ① points to confirm approval." caption="① `승인 확정` (confirm approval)" />
+
+<Success>
+The row's `상태` (status) changes. Students receive the result in a notice at the top of their dashboard. It does not appear in the notification bell, and no email is sent.
+</Success>
+
+## Return a rejected application to review
+
+A student resubmission automatically returns to `검토 대기`, so no manual reset is needed. Follow these steps only to restart review without a student resubmission.
+
+<Steps>
+1. Select `검토 대기`. The change takes effect without confirmation and clears the rejection reason.
+2. The student's dashboard displays `… 신청이 다시 검토 대기로 돌아갔습니다` (the application is awaiting review again).
+3. Once it shows `검토 대기`, decide the application again.
+</Steps>
+
+After the application period ends, students cannot resubmit, cancel, or start a new application. The remaining route is to [approve the rejected application](#approve-a-rejected-application).
+
+## Read repository provisioning status
+
+If automatic repository provisioning is enabled, approval creates the team's repository. In [team details](/oss-hub/en/staff/team-detail/), the repository section shows `저장소 발급 {상태}` (repository provisioning status), but only before a repository is connected.
+
+- `요청 전` (not requested), `대기 중` (pending), `생성 중` (creating), and `재시도 대기` (waiting to retry): provisioning is in progress. Wait for it to finish.
+- `생성 완료` (created): the repository has been created.
+- `사용 안 함` (disabled): this program does not create repositories automatically.
+- `생성 실패` (creation failed) or `확인 필요` (needs attention): the process did not finish automatically. There is no retry action on this screen. Contact an `관리자` (administrator).
+
+Team management lists teams that have submitted applications.
+
+## When a decision is blocked
+
+<Recover title="If a decision cannot be saved">
+- `팀 최소 인원이 부족해 승인할 수 없습니다. 초대한 팀원이 수락한 뒤 다시 승인해 주세요.` means accepted membership is below the minimum. The application stays awaiting review. Wait for invitees to accept before approving; repeated requests with the same member count will not work.
+- `저장소가 이미 만들어진 승인은 반려로 바꿀 수 없습니다` means a repository was already created after approval. Contact an administrator if rejection is essential.
+- `신청이 이미 취소되었습니다` means the student already canceled. Refresh the list.
+- `신청 상태가 변경되었습니다` or `다른 사람이 먼저 판정했습니다. 최신 상태로 갱신했습니다.` means another staff member decided first. Check the refreshed status before doing anything else.
+- `판정 결과를 확인하지 못했습니다. 새로고침한 뒤 이 신청의 상태를 다시 확인해 주세요.` means the result could not be confirmed. Refresh, check the actual status, and decide again only if needed.
+- `본인이 소속된 팀의 신청은 판정할 수 없습니다. 다른 교직원이나 운영자에게 검토를 요청해 주세요.` means you cannot decide your own team's application. The selector opens, but this message appears after you choose a result. Ask another staff member or operator to review it.
+- `아직 신청한 팀이 없습니다` (no teams have applied yet) is normal. If you see `조건에 맞는 팀이 없습니다` (no matching teams), click `필터 초기화` (reset filters).
+</Recover>

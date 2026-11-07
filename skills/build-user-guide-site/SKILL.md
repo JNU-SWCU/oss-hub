@@ -7,9 +7,9 @@ description: >-
   격리 스택에서 예시 데이터로 캡처하고(가리지 않고 번호 붙은 빨간 박스로 설명),
   서브에이전트를 병렬로 돌려 캡처·집필·사실 확인·시각 검수·윤문을 하고,
   마일스톤마다 푸시와 Pages 확인을 반복한다.
-  「가이드 전체 다시 만들어」「코드 바뀐 것만 가이드에 반영」「가이드 갱신」처럼 범위나 강도를 말할 때도 쓴다.
+  「가이드 전체 다시 만들어」「코드 바뀐 것만 가이드에 반영」「가이드 갱신」「영어 가이드」「English guide」「가이드 번역」 요청에도 쓴다.
   대상은 `guide/`와 그 Pages 배포뿐이며, 다른 문서 채널과 제품 코드, 저장소 협업 절차는 다루지 않는다.
-argument-hint: "[update|full] [low|mid|high]"
+argument-hint: "[update|full] [low|mid|high] [both|ko|en]"
 metadata:
   version: "1.6.0"
 ---
@@ -20,7 +20,7 @@ metadata:
 
 ## Output contract
 
-- `guide/`(Astro 7, Starlight 0.42, base `/oss-hub`)가 빌드되고, 사이드바는 서비스 소개 → 시작하기 → 관리자 → 학생 → 교직원 → 자주 묻는 질문 순이다.
+- `guide/`(Astro 7, Starlight 0.42, base `/oss-hub`)의 한국어와 영어가 빌드되고, 각 언어의 사이드바는 서비스 소개 → 시작하기 → 관리자 → 학생 → 교직원 → 자주 묻는 질문 순이다.
 - 모든 작업 페이지는 목적 → 번호 단계와 이미지 → 성공 신호(`Success`) → 막혔을 때(`Recover`) 순서다.
 - 이미지는 `guide/src/assets/shots/<role>/<name>.webp`이고 사람은 모두 예시 데이터이며 가린 곳이 없고, 설명은 번호 붙은 빨간 박스뿐이다.
 - 본문에 이름, 아이디, 이메일, 학번, localhost, 시드, 합성 데이터, "버그"가 없다.
@@ -33,9 +33,13 @@ metadata:
 - 캡처는 격리 스택과 합성 페르소나로만 한다. 로그인된 실제 브라우저(Aside 등)로 찍지 않는다.
 - 비밀 값, 토큰, 세션 서명 키, 테스트 계정 비밀번호, 학번, 편집 전 캡처를 이 스킬이나 저장소에 두지 않는다. `.env` 값은 읽지도 복사하지도 않는다.
 
+## 언어 계약
+
+영어·한국어 경로, 번역 범위, 화면 라벨, 검증일, 언어별 검수는 [`references/localization.md`](references/localization.md)가 소유한다. 집필·윤문·갱신 전에 읽는다.
+
 ## 어디서 시작할지
 
-인자는 `[update|full] [low|mid|high]`이고 말로 해도 같다. 「바뀐 것만」은 `update`, 「전체 다시」는 `full`, 「문구만」은 `low`, 「꼼꼼히」는 `high`다. 생략하면 `update mid`이고, `guide/`가 없으면 인자와 상관없이 `full high`다. 강도는 작업 범위를 정할 뿐 세션의 effort 설정과는 별개다. 범위와 강도를 받았으면 비용이나 바뀐 코드가 없다는 이유로 다시 묻지 않는다. 사용자가 이미 고른 것이므로 비용은 보고에 한 줄로 적고 그대로 진행한다.
+인자는 `[update|full] [low|mid|high] [both|ko|en]`이고 언어를 생략하면 `both`다. 말로 해도 같다. 「바뀐 것만」은 `update`, 「전체 다시」는 `full`, 「문구만」은 `low`, 「꼼꼼히」는 `high`다. 생략하면 `update mid`이고, `guide/`가 없으면 인자와 상관없이 `full high`다. 강도는 작업 범위를 정할 뿐 세션의 effort 설정과는 별개다. 범위와 강도를 받았으면 비용이나 바뀐 코드가 없다는 이유로 다시 묻지 않는다. 사용자가 이미 고른 것이므로 비용은 보고에 한 줄로 적고 그대로 진행한다.
 
 아래 번호는 워크플로 단계이고, 어느 칸이든 마지막은 8단계(릴리스)다.
 
@@ -48,7 +52,7 @@ metadata:
 
 1. `python3 skills/build-user-guide-site/scripts/guide-drift.py`로 `guide/src/site.ts`의 `checkedCommit` 뒤에 바뀐 코드 파일, 사라진 문구를 쓰는 쪽, 가이드에 없는 새 문구를 본다. 기준 커밋을 찾지 못하면 `full`로 알리고 넘어간다.
 2. 스크립트는 문구만 잡는다. 레이아웃, 권한, 분기가 바뀐 파일은 diff를 읽어 어느 쪽에 닿는지 직접 판단한다. 대응표를 따로 두지 않는 이유는 표가 코드보다 먼저 낡기 때문이다.
-3. 고칠 쪽과 다시 찍을 이미지 목록을 정한다. 바뀐 코드가 없으면 아무것도 고치지 않고 그대로 보고한다.
+3. 고칠 쪽과 다시 찍을 이미지 목록을 정한다. 제품 코드 변경이 없어도 요청된 번역, 언어 전환, 영어 페이지 누락은 처리한다. 제품 변경과 요청된 문서 변경이 모두 없을 때만 수정 없이 보고한다.
 
 `checkedCommit`은 `mid` 이상을 끝낸 뒤에만, 비교한 `main`의 SHA로 올린다. `low`는 이미지를 보지 않으므로 기준을 올리면 다음 갱신에서 그 화면이 빠진다. 이미지에 옛 문구가 남았으면 그 목록을 보고한다. `guide/` 최신 커밋을 기준으로 삼지 않는 것도 같은 이유다. 문장만 고친 커밋이 검토하지 않은 코드 변경을 건너뛰게 만든다.
 
@@ -61,7 +65,7 @@ metadata:
 3. **집필.** `write-intro`와 `write-<role>` 세 개를 병렬로. 기준은 [`references/writer-brief.md`](references/writer-brief.md). 사실의 우선순위는 화면 > 사실표 > 코드 > 추측.
 4. **사실 확인.** `factcheck-<role>`이 본문 주장을 화면과 코드에 대조해 불일치를 보고한다. 고치는 것은 집필 담당이다.
 5. **시각 검수.** 배포된 사이트를 `scripts/visual-audit.mjs`로 점검한다. 조합과 항목은 [`references/audit-and-polish.md`](references/audit-and-polish.md)에 있다.
-6. **윤문과 교정.** 사실이 확정된 뒤 `polish-<role>`이 `humanize-korean` 스킬로 MDX를 깨지 않게 다듬는다. 다시 읽을 때는 읽기 전용 교정 에이전트 세 개의 제안을 오케스트레이터가 골라 반영한다.
+6. **윤문과 교정.** 사실이 확정된 뒤 `polish-<role>-<locale>`이 한국어는 `humanize-korean`, 영어는 영어 독자 기준으로 MDX를 깨지 않게 다듬는다. 다시 읽을 때는 읽기 전용 교정 에이전트 세 개의 제안을 오케스트레이터가 골라 반영한다.
 7. **독자 시험.** Aside로 완성된 가이드를 처음 읽는 사람처럼 격리 스택에서 따라 해 본다. 같은 문서에 방법이 있다.
 8. **릴리스.** 마일스톤마다 [`references/release-and-automation.md`](references/release-and-automation.md)의 한 바퀴를 돈다.
 
@@ -88,6 +92,7 @@ metadata:
 
 ## 완료 체크리스트
 
+- [ ] 두 언어의 페이지 대응, 언어 전환, 언어 내 링크, 검색, 컴포넌트 라벨을 `localization.md` 기준으로 검수했다.
 - [ ] 사이드바 순서가 서비스 소개 → 시작하기 → 관리자 → 학생 → 교직원 → FAQ다.
 - [ ] 모든 이미지를 접촉 인쇄로 눈으로 봤고, 보이는 사람과 아이디는 모두 예시이며, 설명은 번호 붙은 빨간 박스다.
 - [ ] 본문 번호와 이미지의 박스 번호가 맞다.
@@ -113,4 +118,4 @@ metadata:
 
 - Node 24 이상, pnpm, Docker(격리 스택), `gh`, Python 3 + Pillow, numpy(접촉 인쇄, 여백 측정), Playwright와 `jose`(저장소의 `apps/frontend`, `apps/backend` 의존성에서 가져옴), 웹 사이트의 `sharp`.
 - 환경 변수: `SESSION_SECRET`(스택을 띄운 값과 같게), 선택으로 `GUIDE_BASE_URL`, `GUIDE_SHOT_ROOT`, `GUIDE_PG_CONTAINER`, `GUIDE_SMOKE_DIR`.
-- 윤문에 쓰는 `humanize-korean` 스킬.
+- 한국어 윤문에 쓰는 `humanize-korean` 스킬. 영어 전용 번역은 이 스킬에 의존하지 않는다.

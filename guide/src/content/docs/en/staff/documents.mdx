@@ -1,0 +1,75 @@
+---
+title: Track and download team documents
+description: Check team submission status, filter missing documents, download ZIP files, and send revision requests in bulk.
+sidebar:
+  order: 7
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+`서류 현황` (document status) is a table showing whether participating teams have submitted the required documents for each milestone. Open it from the program menu. Clicking a milestone beneath `서류 현황` in the left menu narrows the table to that milestone. To review individual documents, see [Review submitted documents](/oss-hub/en/staff/review-submission/).
+
+At the top right, ② `보완 요청 보내기` (send revision requests) sits beside ① `내려받기` (download).
+
+<Shot src="staff/documents-full.webp" alt="Document status screen with submission stage summaries and filter chips above the team-by-milestone table. Marker ① points to download and ② to send revision requests." caption="① `내려받기` (download) ② `보완 요청 보내기` (send revision requests)" />
+
+## Read submission status
+
+<Steps>
+1. In `팀별 제출 단계` (submission stages by team), check counts for `제출 완료 단계` (completed stages), `미제출 단계` (missing submissions), `필수 서류 없는 단계` (stages without required documents), and `지각 제출 단계` (late submissions).
+2. Read each cell where a team row meets a milestone column. It shows `제출 완료` (submitted), `미제출 있음` (documents missing), `지각 제출` (late submission), or `필수 서류 없음` (no required documents).
+3. Upcoming deadlines show remaining days, such as `D-3`. Overdue cells show elapsed days, such as `마감 초과 D+2` (two days overdue). A deadline today shows `오늘 마감` (due today).
+4. Cells submitted as a single submission include `열어 보기` (open), which opens `최종 제출 검토` (final submission review). Review milestones that collect individual documents in `서류 수합` (document collection) under `프로그램 개요` (program overview). Both screens are explained in [Review submitted documents](/oss-hub/en/staff/review-submission/).
+</Steps>
+<Shot src="staff/documents-matrix.webp" alt="Required document status table by team. Marker ① points to the missing-documents filter chip above the table." caption="① `미제출 있음` (documents missing) chip" />
+
+## Filter teams with missing documents
+
+<Steps>
+1. Click ① `미제출 있음`. The other chips work the same way: `전체` (all), `지각 제출`, `제출 완료`, and `필수 서류 없음`.
+2. To find a team, enter a name in `신청자·팀명·GitHub ID` (applicant, team name, or GitHub ID) and click `조회` (search). Click `초기화` (reset) to clear it.
+</Steps>
+<Shot src="staff/documents-filter-missing.webp" alt="Document status table filtered to teams with missing documents. Marker ① points to the selected missing-documents chip." caption="① Selected `미제출 있음` (documents missing) chip" />
+
+Status chips apply only to the currently displayed page. Scroll sideways if the table is too wide.
+
+## Download submissions as a ZIP
+
+<Steps>
+1. Click ① `내려받기` to open `다운로드 범위` (download scope).
+2. Choose `프로그램 전체` (whole program), ① `마일스톤` (milestone), or `팀` (team). For milestone or team scope, select the target.
+3. In `ZIP 폴더 묶기` (ZIP folder grouping), select `팀별로 묶기` (group by team) or `서류별로 묶기` (group by document).
+4. Click `ZIP 내려받기` (download ZIP).
+</Steps>
+<Shot src="staff/documents-download.webp" alt="Download scope panel with whole-program, milestone, and team choices, ZIP grouping, and download ZIP. Marker ① points to milestone scope." caption="① `마일스톤` (milestone) download scope" />
+
+The ZIP includes the current submission for each item, both text and files. It does not include earlier submission history.
+
+## Send revision requests in bulk
+
+Students receiving a revision request check its reason and the submission screen instructions before resubmitting. Your reason is shown exactly as written, so be specific about what needs changing.
+
+<Steps>
+1. Click ② `보완 요청 보내기`.
+2. Select `프로그램 전체` or `팀` as the scope. To include submissions already approved or rejected, enable `이미 승인·반려한 제출도 포함` (include previously approved or rejected submissions).
+3. Check the target count.
+4. Optionally enter up to 2,000 characters in `사유 (선택)` (reason, optional). You can leave it blank; there is no separate deadline field.
+5. Click `{n}건 보완 요청 보내기` (send revision requests for the shown number of submissions).
+</Steps>
+<Shot src="staff/requirement-bulk-review.webp" alt="Bulk revision request panel. Marker ② points to scope, ③ to the target count, and ⑤ to the send button. The reason is optional and there is no deadline field." caption="② Scope ③ Target count ⑤ Send" />
+
+Requests reach students immediately. Check the target count before sending.
+
+<Success>
+`제출 {n}건에 보완 요청을 보냈습니다.` confirms how many revision requests were sent. For a ZIP, `ZIP 파일을 준비했습니다. 브라우저의 다운로드 목록에서 확인해 주세요.` says it is ready; find it in your browser's downloads list.
+</Success>
+
+<Recover title="If the table is empty">
+- `마일스톤이 없습니다` means the program has no milestones. Add one in [Edit program dates and submission items](/oss-hub/en/staff/edit-program/).
+- `참여 중인 신청이 없습니다` means there are no approved teams yet. See [Approve or reject team applications](/oss-hub/en/staff/decide-application/).
+- `조건에 맞는 팀이 없습니다` means no teams match the filter or search. Click `전체 보기` (show all).
+- If the revision request target count is zero, change the scope or enable `이미 승인·반려한 제출도 포함`.
+</Recover>

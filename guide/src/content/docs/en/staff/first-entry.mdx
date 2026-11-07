@@ -1,0 +1,55 @@
+---
+title: Sign up as staff and wait for approval
+description: Request the staff role and check the waiting screen until an administrator approves you.
+sidebar:
+  order: 1
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Signing up does not immediately enable the `교직원` (staff) role. An administrator must approve you before you can create programs or decide applications. Until then, you see only the waiting screen.
+
+Sign-in and step 1 (consent) are the same as for students. First complete sign-in and step 1 in [Sign up and complete your profile](/oss-hub/en/student/sign-up/).
+
+## Request the staff role
+
+<Steps>
+1. In step 2, `어떤 역할로 쓰시나요` (which role will you use?), select ① the `교직원` card. It says `관리자 승인이 필요합니다` (administrator approval required).
+2. Click `선택 완료` (confirm selection).
+3. In step 3, enter your `이름` (name), select a `소속 유형` (affiliation type), either `학과` (department) or `사업단` (project organization), and choose your affiliation. Staff do not enter a student number or phone number at this step.
+4. Click `가입 마치기` (finish signing up).
+</Steps>
+<Shot src="staff/role-staff-card.webp" alt="Sign-up step 2. Marker ① points to the selected staff card." caption="① `교직원` (staff) card" />
+
+## Wait for approval
+
+After sign-up, you see `교직원 승인을 기다리고 있습니다` (waiting for staff approval) and the `승인 대기` (pending approval) badge. Approval results are not sent by email or notification. Check this screen yourself.
+
+<Steps>
+1. Ask an administrator to approve your request. Administrators use [Handle staff role requests](/oss-hub/en/admin/applicants/).
+2. After a while, click ① `상태 새로고침` (refresh status) to check for approval.
+3. If your name or affiliation is wrong, click `이름·학과 고치기` (edit name and department) to open settings.
+</Steps>
+<Shot src="staff/pending-waiting.webp" alt="Staff approval waiting screen with a pending badge. Marker ① points to refresh status; the edit name and department button is below." caption="① `상태 새로고침` (refresh status)" />
+
+While you wait, the header may show `가입 이어하기` (continue sign-up). It returns to this waiting screen; you do not need to do anything else.
+
+<Success>
+Once approval takes effect, the waiting screen disappears and `운영 대시보드` (operations dashboard) opens.
+</Success>
+
+## If your request is rejected
+
+The role selection screen reopens with `교직원 요청이 반려되었습니다` (your staff request was rejected) and the reason. Read it, make any necessary corrections, then select ① `교직원` again and click `선택 완료`. This submits a new approval request.
+
+<Shot src="staff/role-rejected.webp" alt="Role selection screen with the rejection notice and reason at the top. Marker ① points to the staff card." caption="① Select `교직원` (staff) to request approval again" />
+
+<Recover title="If you get stuck">
+- `접근 권한이 없습니다` (access denied): you opened an operations screen without staff access. Click `내 화면으로 돌아가기` (return to my screen) and check your approval status.
+- `로그인 요청을 완료하지 못했습니다. 다시 시도해 주세요.` means sign-in could not be completed. Start the sign-in process again.
+- If `승인 대기` remains for a long time, ask an administrator to check whether your request arrived.
+- Only an administrator can restore a deactivated account. See [Deactivate and reactivate accounts](/oss-hub/en/admin/deactivate/).
+</Recover>

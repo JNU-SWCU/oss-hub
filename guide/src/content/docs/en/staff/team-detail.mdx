@@ -1,0 +1,80 @@
+---
+title: View team members, repositories, and activity
+description: Check team membership, repositories, activity, and review history, and manage repository visibility or team deletion.
+sidebar:
+  order: 6
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+`팀 상세` (team details) brings together one team's members, repository, activity, and review history. Open it by clicking a team name in the [team management list](/oss-hub/en/staff/decide-application/). Click `← 참여 팀으로` (back to participating teams) to return.
+
+## Check team information
+
+<Steps>
+1. Read the sections from top to bottom: `팀원` (members), `구성원 관리` (membership management), `프로젝트 저장소` (project repository), `팀 활동` (team activity), and `검토 이력` (review history). Click the collapsed review history to expand it.
+2. Use the pencil beside the heading to rename the team. You can also decide its application with ① `신청 상태` (application status) at the top right.
+3. Use `구성원 관리` to remove members, change the leader, invite members, or cancel invitations.
+4. To change the repository address, click ② the pencil in `프로젝트 저장소`. Enter `새 저장소 URL` (new repository URL), then click `저장소 변경 저장` (save repository change). `저장소 변경을 저장했습니다.` confirms the save, and the change appears in `저장소 URL 변경 이력` (repository URL change history).
+</Steps>
+<Shot src="staff/team-detail.webp" alt="Full team detail screen with members, repository, activity, and review history. Marker ① points to status, ② to the repository pencil, and ③ to delete team." caption="① Status ② Edit repository ③ Delete team" />
+
+Only approved teams can change repository URLs, and only before the program ends. Otherwise, `승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다.` explains this restriction.
+
+Replacing the address removes the previous repository's OSS Hub registration and collected records, then connects the new repository. The system history records the old URL and deletion counts. The original GitHub repository remains intact.
+
+## Read the activity graph
+
+`팀 활동` shows records collected from the linked repository. These messages describe states, not necessarily errors in your actions.
+
+- `아직 연결한 저장소가 없습니다` (no repository connected): connect one in `프로젝트 저장소`.
+- ① `첫 수집을 기다리는 중입니다` (waiting for the first collection): the graph appears when collection finishes. Wait for it.
+- ① `최근 수집에 실패했습니다` (the latest collection failed): only activity through the last collection date is shown. Check again later.
+- `아직 모은 활동이 없습니다. 잠시 후 다시 확인해 주세요.` (no activity collected yet): collection ran, but found no records.
+
+<Shot src="staff/team-detail-pending.webp" alt="Team detail screen. Marker ① points to the waiting-for-first-collection message, with a repository visibility card above." caption="① Waiting for the first collection" />
+<Shot src="staff/team-detail-failed.webp" alt="Team detail screen. Marker ① points to the latest-collection-failed message." caption="① Latest collection failed" />
+
+Collection starts on the hour for repositories registered to teams. After collection completes, `마지막 수집 {날짜}` (last collected) appears. This is the completion time, so it need not be exactly on the hour. You cannot set a separate interval for each repository.
+
+## Make a repository public
+
+The `저장소 공개` (repository visibility) card lets you make an approved team's repository public on GitHub. It appears only for program-provisioned repositories, not repositories registered by teams themselves. This is separate from reviewing student documents. A public repository is visible to anyone, so check that publication is appropriate before proceeding.
+
+<Steps>
+1. Check the `PRIVATE` or `PUBLIC` badge in `저장소 공개`.
+2. If `공개 조건을 모두 충족해 공개할 수 있습니다.` says all conditions are met, click `GitHub 저장소 공개 전환` (make GitHub repository public).
+3. Once public, `공개 저장소 열기` (open public repository) appears.
+</Steps>
+
+A disabled button means conditions are not yet met. The card explains why.
+
+- `저장소 생성이 아직 끝나지 않았습니다. 생성이 끝난 뒤 이 화면을 새로고침해 주세요.` Repository creation is unfinished; refresh after it completes.
+- `이 신청은 저장소 공개 예정이 "아니요"입니다. 제출 이후에는 바꿀 수 없어 이 저장소는 공개 대상이 아닙니다.` The application selected no planned publication. This cannot be changed after submission, so the repository is not eligible.
+- `프로그램이 아직 종료되지 않아 공개할 수 없습니다. 프로그램 설정에서 종료일을 확인해 주세요 — 종료일이 비어 있으면 종료되지 않은 것으로 봅니다.` The program has not ended. Check its end date; an empty date counts as not ended.
+- `모든 필수 마일스톤의 승인이 필요합니다.` All required milestones must be approved.
+
+Several reasons may appear together. After resolving one, check the remaining reasons.
+
+<Shot src="staff/review-publish-blocked.webp" alt="Repository visibility card in team details. Marker ① points to the requirement for approval of all required milestones." caption="① Publication conditions not yet met" />
+
+OSS Hub has no feature to change a public repository back to private.
+
+## Delete a team
+
+Use `팀 삭제` (delete team) in `위험 영역` (danger zone) at the bottom. In `팀을 삭제할까요?` (delete this team?), review ① `삭제될 데이터` (data to be deleted), including applications, members, and submissions. If a repository is linked, ② explains that its OSS Hub registration and collected records are also deleted, but the original GitHub repository remains. Optionally fill in `팀원에게 보낼 안내 (선택)` (message to team members), then click ③ `삭제`. Deleted teams and collected records cannot be restored.
+
+<Shot src="staff/team-delete-confirmation.webp" alt="Delete team confirmation. Marker ① points to deletion counts, ② to removal of OSS Hub repository records while preserving GitHub, and ③ to delete." caption="① Data to delete ② Repository notice ③ `삭제` (delete)" />
+
+<Success>
+Your changes appear on screen. After changing members or repositories, check `검토 이력` (review history) and `팀원` (members).
+</Success>
+
+<Recover title="If you cannot make a change">
+- If membership or repository changes fail, check that the team is approved and the program has not ended.
+- `GitHub 저장소 공개 전환에 실패했습니다.` or `저장소를 공개 전환하지 못했습니다.` means publication failed. Try again later. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
+- If the graph stays empty, identify its state under “Read the activity graph” above.
+</Recover>

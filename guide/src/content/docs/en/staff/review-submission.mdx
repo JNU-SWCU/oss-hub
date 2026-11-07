@@ -1,0 +1,89 @@
+---
+title: Review submitted documents
+description: Approve documents, request revisions, reject submissions, and download milestone materials.
+sidebar:
+  order: 8
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+`서류 수합` (document collection) lets you review each document submitted by teams for one milestone. In the milestone list under `프로그램 개요` (program overview), click `서류 수합` beneath the milestone. The screen title is `서류 수합 — {마일스톤 이름}`. This link appears only for milestones with registered submission items.
+
+`서류 현황` (document status) in the left menu is a different screen. Clicking a milestone beneath it does not open document collection. For team submission status, see [Track and download team documents](/oss-hub/en/staff/documents/).
+
+## Review a document
+
+<Steps>
+1. In the table cell for the team and document, click ① the status button (`검토 대기`, awaiting review). A review panel opens beneath the row.
+2. Check the submitted text and files. Use `내려받기` (download) for files. Earlier submissions and reviews are available in `제출·검토 이력` (submission and review history).
+3. Choose ① `승인` (approve), `보완 요청` (request revisions), or `반려` (reject).
+4. Optionally enter a `사유 (선택)` (reason), up to 2,000 characters. Students see it exactly as written.
+5. Click `저장` (save).
+</Steps>
+<Shot src="staff/collect-full.webp" alt="Document collection screen with per-document summaries and a team-by-document table. Marker ① points to the first awaiting-review cell." caption="① `검토 대기` (awaiting review) cell" />
+<Shot src="staff/requirement-review.webp" alt="Review panel below the table, with submitted text and review history. Marker ③ points to request revisions and ⑤ to save. There is no separate deadline field." caption="③ Select result ⑤ Save. The reason is optional." />
+
+You can save `승인`, `보완 요청`, or `반려` without a reason. Such records show `사유 없이 저장되었습니다.` (saved without a reason).
+
+## Request revisions
+
+`보완 요청` allows students to submit again. There is no separate resubmission expiry date.
+
+<Steps>
+1. Select ① `보완 요청` in the review panel.
+2. If needed, explain the required changes in `사유 (선택)`.
+3. Click `저장`.
+</Steps>
+<Shot src="staff/requirement-review-no-reason.webp" alt="Submission and review history in the review panel. Marker ① points to a revision request recorded without a reason." caption="① A default notice appears when no reason is provided." />
+
+Milestone deadline and grace-period rules still apply. After the deadline, each revision request permits one resubmission. If further changes are needed after that resubmission, send a new revision request.
+
+<Success>
+The cell's status changes. Students see the result and reason on their own screen.
+</Success>
+
+## Download milestone materials
+
+- `마일스톤 전체 내려받기(ZIP)` (download entire milestone): downloads materials for all teams in this milestone. Enable `서류 종류별로 묶기` (group by document type) for document-specific folders.
+- `{서류} 서류별 내려받기(ZIP)` (download this document): downloads just one document type.
+
+Both ZIP options include all teams in the milestone, regardless of quick filters or pagination.
+
+## Final submission review screen
+
+`최종 제출 검토` (final submission review) opens one submission separately and also shows the conditions for making the team's repository public. For a milestone with one required submission item, use `열어 보기` (open) in the `서류 현황` table. For multiple items, review each in `서류 수합`.
+
+Result names differ slightly here: `반려` in document collection is called `최종 반려` (final rejection) on this screen.
+
+Older reviews whose submission version cannot be identified are labeled `제출 버전 미상 심사` (review with unknown submission version). Their original result, reason, and time are preserved, without arbitrarily linking them to the current submission. A current submission with no linked review shows `제출본 연결 미상` (submission linkage unknown). Reviewing it again adds a new review without changing the historical record.
+
+- `승인`: completes review using the current submission.
+- `보완 요청`: lets students incorporate your comments and submit again.
+- `최종 반려`: rejects the submission. Students cannot resubmit, so choose carefully.
+
+<Steps>
+1. In ① the result selector, choose `승인`, `보완 요청`, or `최종 반려`.
+2. Optionally fill in `코멘트 (선택)` (comment). It can be blank for any result.
+3. Click ③ `저장`.
+</Steps>
+<Shot src="staff/requirement-legacy-review-page.webp" alt="Top of final submission review, showing the team and milestone, latest submission content, and an unreviewed result." caption="Final submission review opened with `열어 보기` (open)" />
+<Shot src="staff/requirement-legacy-review.webp" alt="Result selector and optional comment field. Marker ① points to request revisions and ③ to save." caption="① Select result ③ Save. You may leave the comment blank." />
+
+You can save a new decision for an already reviewed submission. A revision request is not required before rejection. Earlier decisions remain in the history.
+
+Find earlier submissions and reviews in ① `이전 제출본과 검토 이력` (previous submissions and review history). `제출본 N번 (최신)` identifies the latest version, while `미검토` means a submission has not been reviewed.
+
+<Shot src="staff/review-history.webp" alt="Submission version list. Marker ① points to previous submissions and review history." caption="① `이전 제출본과 검토 이력` (previous submissions and reviews)" />
+
+If a submission or another staff member's decision changes while you are reviewing, check the latest state and select your result again.
+
+<Recover title="If review cannot be completed">
+- The reason is optional, and there is no separate deadline field. Check that you selected a result and that your reason is no more than 2,000 characters.
+- `아직 승인된 신청이 없습니다` means there are no approved teams. Click `신청 확인하기` (check applications) to [approve or reject team applications](/oss-hub/en/staff/decide-application/).
+- `이 마일스톤에는 등록된 제출 항목이 없습니다` means the milestone has no submission items. Click `제출 항목 추가` (add submission item) and follow [Edit program dates and submission items](/oss-hub/en/staff/edit-program/).
+- `제출 검토 정보를 불러오지 못했습니다` means review information could not be loaded. Refresh the screen. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
+</Recover>

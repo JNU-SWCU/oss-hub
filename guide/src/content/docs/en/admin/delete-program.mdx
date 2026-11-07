@@ -1,0 +1,51 @@
+---
+title: Delete a program
+description: Hide a program from listings and clean up uploaded files.
+sidebar:
+  order: 9
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+Use this to clean up a program created by mistake. Only approved staff can delete programs. Administrator access alone does not allow deletion.
+
+<Shot src="admin/program-status-delete-danger.webp" alt="Danger zone on the program editing screen, explaining that the program will be hidden from listings and uploaded files deleted, with a Delete program button." caption="Delete program" />
+
+## Before deleting
+
+Deletion changes the program's status to deleted and removes it from public and staff listings. The program, applications, teams, posts, submissions, and history are retained as records. There is no restore screen.
+
+You can mark a program as deleted even if it has applicants or submissions, or is still in progress. Review the counts of linked records before proceeding.
+
+User accounts and audit records are also retained. The [audit log](/oss-hub/en/admin/audit-log/) keeps a `프로그램 삭제` (Program deletion) entry, where you can identify the program afterward.
+
+The program's linked GitHub repositories and their connection records within the service are not deleted. Actual submission files, templates, and custom cover images scheduled for cleanup are deleted by a later cleanup job. Even if file metadata remains, the contents of deleted files cannot be downloaded again.
+
+To keep an ended program available as a record, leave it in place rather than deleting it.
+
+## Delete the program
+
+<Steps>
+1. Open the program from `프로그램` (Programs) at the top and click `편집` (Edit) at the top right. Ended programs do not appear under `전체` (All); find them in the left-hand `종료` (Ended) tab.
+2. In `위험 영역` (Danger zone) at the bottom, click `프로그램 삭제` (Delete program).
+3. Wait for `삭제 범위 확인 중…` (Checking deletion scope…), then read the application, team, post, submission, and history counts in `연결된 기록` (Linked records).
+</Steps>
+
+If these counts differ from what you expect, click `취소` (Cancel) here. Clicking `삭제` (Delete) cannot be undone.
+
+<Steps>
+4. In `프로그램을 삭제할까요?` (Delete this program?), click `삭제` (Delete). Wait until `삭제 중…` (Deleting…) finishes.
+</Steps>
+<Shot src="admin/program-status-delete-dialog.webp" alt="Deletion confirmation dialog explaining that the program will be hidden and files cleaned up. It shows counts of linked records and Cancel and Delete buttons." caption="Review linked records before deleting" />
+
+<Success>
+You return to the program list, with `프로그램을 목록에서 숨겼습니다` (The program has been hidden from the list) above it. Below that, `파일 삭제 대기 N건` (N files awaiting deletion) shows the number of uploaded files scheduled for cleanup. If there are no files to clean up, you see `정리할 업로드 파일이 없습니다.` (There are no uploaded files to clean up). This does not mean there are no records.
+</Success>
+
+<Recover title="If deletion does not finish">
+- `삭제 범위를 확인하지 못했습니다. 다시 시도해 주세요.` (The deletion scope could not be checked. Please try again.) Close the dialog and click `프로그램 삭제` (Delete program) again.
+- `삭제 범위가 변경되었습니다. 내용을 확인한 뒤 삭제를 다시 눌러 주세요.` (The deletion scope has changed. Review it and click Delete again.) Data has been added or removed in the meantime. Review the updated counts before deciding.
+- `프로그램 삭제 실패` (Program deletion failed): The reason appears below the heading. A server failure shows `요청을 처리하지 못했습니다. 잠시 후 다시 시도해 주세요.` (The request could not be processed. Try again shortly); a connection failure shows `프로그램 전체를 삭제하지 못했습니다. 잠시 후 다시 시도해 주세요.` (The entire program could not be deleted. Try again shortly). The status change and file-cleanup scheduling happen in one transaction. Check whether the program remains in the list, then retry.
+</Recover>

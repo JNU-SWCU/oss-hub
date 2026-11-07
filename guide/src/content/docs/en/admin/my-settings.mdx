@@ -1,0 +1,46 @@
+---
+title: My settings and notifications
+description: Set notification preferences and avoid deactivating the last administrator account.
+sidebar:
+  order: 10
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+These are settings for your own administrator account, including notification preferences and account deactivation.
+
+## Choose whether to receive notifications
+
+Choose whether to receive deadline-reminder summary emails. Recipients are active staff and administrators who have registered an email address and enabled notifications. The interface does not establish whether recipients are separated by program. <Verified status="policy" />
+
+<Steps>
+1. Open your account menu at the top and click `설정` (Settings).
+2. Under `알림 수신` (Notifications), enter a destination in `수신 이메일` (Recipient email).
+3. Enable `마감 임박 알림 받기` (Receive deadline reminders).
+4. Click `저장` (Save) at the bottom of the screen.
+</Steps>
+<Shot src="admin/settings-notifications.webp" alt="Notifications section in Settings, with account management below. It has a recipient email field, a Receive deadline reminders option, and a Save button at the bottom." caption="Notifications and the Save button" />
+
+<Success>
+`저장되었습니다.` (Saved) appears near the top and stays until you edit a field again. Profile fields on the same screen are saved together with these settings.
+</Success>
+
+## Deactivate your own account
+
+You can deactivate yourself under `계정 관리` (Account management) at the bottom of Settings. This signs you out immediately. Another administrator must [reactivate your account](/oss-hub/en/admin/deactivate/) before you can use it again. You cannot restore it yourself, so first make sure there is another active administrator who can do so.
+
+<Steps>
+1. Under `계정 관리` (Account management), click ① `계정 비활성화` (Deactivate account).
+2. In `계정을 비활성화하시겠습니까?` (Deactivate your account?), click `비활성화하고 로그아웃` (Deactivate and sign out).
+3. When `계정이 비활성화되었습니다` (Account deactivated) appears, click `홈으로 돌아가기` (Return home) to leave.
+</Steps>
+<Shot src="admin/settings-account.webp" alt="Account management section in Settings. A notice says the last active administrator cannot deactivate their account; ① marks Deactivate account." caption="① Deactivate account" />
+
+If only one active administrator remains, the dialog displays `계정을 비활성화하지 못했습니다` (The account could not be deactivated) with `마지막 활성 관리자는 계정을 비활성화할 수 없습니다. 다른 관리자를 먼저 지정해 주세요.` (The last active administrator cannot deactivate their account. Designate another administrator first). The account stays active so the service is not left without an administrator. First choose someone to [grant administrator access](/oss-hub/en/admin/change-role/).
+
+<Recover title="If settings do not save">
+If you see `저장 결과를 확인해 주세요` (Check the save result), follow the accompanying message. If it says the profile was saved but notification settings were not, your entered values remain on screen. Click `저장` (Save) again. If it keeps failing, wait a while before retrying.
+</Recover>

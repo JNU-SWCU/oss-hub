@@ -45,8 +45,15 @@ const VIEWPORTS = [
 const xml = await (await fetch(`${ORIGIN}${SITE_BASE}/sitemap-0.xml`)).text();
 const urls = [
   ...new Set(
-    [...xml.matchAll(/<loc>([^<]*)/g)].map((m) =>
-      m[1].replace(new RegExp(`${SITE_BASE}$`), `${SITE_BASE}/`),
+    [...xml.matchAll(/<loc>([^<]*)/g)].map(
+      (m) =>
+        new URL(
+          new URL(m[1]).pathname.replace(
+            new RegExp(`${SITE_BASE}$`),
+            `${SITE_BASE}/`,
+          ),
+          ORIGIN,
+        ).href,
     ),
   ),
 ];

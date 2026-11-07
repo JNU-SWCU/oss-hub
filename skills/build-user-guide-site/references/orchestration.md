@@ -41,7 +41,7 @@
 - 집필: `writer-brief.md` 전체. 화면 > 사실표 > 코드 > 추측.
 - 사실 확인: 본문의 모든 주장(라벨, 순서, 조건, 성공 신호)을 화면과 코드에 대조하고, 고치지 말고 불일치만 `Area / Observed / Expected / Evidence`로 보고. 독자가 틀리게 따라 할 만한 것만 올리고 문체와 취향은 뺍니다. 문제를 찾으라고 하면 검토자는 언제나 뭔가를 찾아 오기 때문입니다. 본문 수정은 집필 담당에게 돌려줍니다.
 - 시각 검수: `skills/build-user-guide-site/scripts/visual-audit.mjs`를 씁니다. 조합과 항목은 `audit-and-polish.md`에 있습니다.
-- 윤문: `humanize-korean` 스킬 사용, MDX 안전 규칙 지키기. `audit-and-polish.md` 참고.
+- 윤문: 한국어는 `humanize-korean`, 영어는 영어 교정. `localization.md`와 `audit-and-polish.md`의 MDX 안전 규칙 지키기.
 - 독자 시험: 막힌 곳과 본 화면을 그대로 적게 하고, 고칠 방법은 제안으로만 받습니다. 원인은 오케스트레이터가 코드에서 확인합니다.
 
 ## 오케스트레이터가 직접 하는 검수
