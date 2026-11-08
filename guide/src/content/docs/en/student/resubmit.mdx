@@ -1,0 +1,40 @@
+---
+title: Resubmit after a revision request
+description: Read the revision request and submit a new version for each requested item.
+sidebar:
+  order: 8
+---
+
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+When you receive `보완 요청` (Revision requested), you can resubmit that item. If no reason was provided, `사유 없이 저장되었습니다.` (Saved without a reason) appears. Ask the responsible staff member if you do not know what to change.
+
+<Steps>
+
+1. Open the milestone from dashboard feedback or the program's `내 제출물` (My submissions).
+2. Read the item's review result and `제출·검토 이력` (Submission and review history), then click `수정` (Edit).
+3. Provide the text or file the item requires. A submission comment is optional. To keep an existing attachment, you must select the same file again.
+4. Click `다시 제출` (Resubmit).
+5. After the deadline, click `제출 확정` (Confirm submission) in the `제출하면 더 이상 바꿀 수 없습니다` (You cannot change this after submitting) dialog.
+
+</Steps>
+<Shot src="student/requirement-resubmit.webp" alt="An item with a revision request. ② points to the request in submission and review history; ③ points to the text field; ④ points to Resubmit." caption="② Check the review result, ③ Enter new content, ④ Resubmit" />
+<Shot src="student/requirement-confirm.webp" alt="You cannot change this after submitting confirmation dialog. ⑤ points to Confirm submission." caption="⑤ After the deadline, confirm once more with Confirm submission." />
+
+There is no separate resubmission expiry date. Milestone deadlines and grace rules still apply. After the deadline, you may resubmit only once per revision request. Further changes require a new revision request from staff.
+
+<Success>
+  The new version awaits review, and earlier submission and review records remain in the history.
+</Success>
+
+<Recover title="When you cannot resubmit">
+
+- Approved or rejected items cannot be resubmitted. Contact the responsible staff member.
+- If you have already responded to a revision request after the deadline, you cannot submit again for the same request.
+- If another teammate or staff member changes the status while you are submitting, saving stops and the latest status loads. Check it before continuing.
+- See [Submit documents](/oss-hub/en/student/submit/) for input formats and file limits.
+
+</Recover>

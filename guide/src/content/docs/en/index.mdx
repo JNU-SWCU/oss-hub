@@ -1,0 +1,46 @@
+---
+title: OSS Hub User Guide
+description: Learn how to explore, apply to, and run Chonnam National University's open-source programs with OSS Hub.
+template: splash
+hero:
+  title: From application to review, in one place.
+  tagline: A step-by-step guide to OSS Hub for administrators, students, and staff at Chonnam National University.
+  actions:
+    - text: Get started
+      link: /oss-hub/en/start/
+      icon: right-arrow
+    - text: Open OSS Hub
+      link: https://jnu-oss-hub.com
+      variant: secondary
+    - text: 한국어 가이드
+      link: /oss-hub/
+      variant: minimal
+      attrs:
+        lang: ko
+        hreflang: ko
+---
+import { CardGrid, LinkCard } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+
+**English documentation, Korean product interface.** The product screens and screenshots remain in Korean. This guide keeps the exact Korean labels and explains them in English so you can follow along. It does not claim that the product itself is available in English.
+
+## Choose your role
+
+<CardGrid>
+  <LinkCard title="Administrators" href="/oss-hub/en/admin/" description="Process staff access requests, manage accounts, and check audit logs and system health." />
+  <LinkCard title="Students" href="/oss-hub/en/student/" description="Find a program, apply with your team, work in a repository, and submit documents." />
+  <LinkCard title="Staff" href="/oss-hub/en/staff/" description="Create and run programs, decide applications, and review submissions." />
+</CardGrid>
+
+## How a program works
+
+1. **Explore.** Check application dates, program dates, and required submissions.
+2. **Form a team and apply.** Choose a team name, invite teammates, and submit your application.
+3. **Receive a decision.** Staff approve or reject the application.
+4. **Work, submit, and review.** Approved teams submit documents for review and revise them when changes are requested.
+
+<Shot src="landing/hero.webp" alt="Staff dashboard showing counts of programs accepting applications, in progress, and ended. The product interface is in Korean." caption="The staff dashboard brings program operations together." />
+
+Application approval and document review are separate. Staff and administrators cannot decide applications or review submissions for their own team.
+
+Read the [Introduction](/oss-hub/en/intro/) for roles and public screens, or check [Frequently asked questions](/oss-hub/en/faq/).

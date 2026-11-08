@@ -1,0 +1,51 @@
+---
+title: Deactivate and reactivate accounts
+description: Prevent an account from signing in and restore an inactive account.
+sidebar:
+  order: 5
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+
+An inactive account cannot sign in. Deactivation blocks sign-in rather than deleting the account. Reactivating it restores access.
+
+## Deactivate an account
+
+Use this when you need to cut off account access immediately. You cannot use it on your own account.
+
+<Steps>
+1. Open the target account's details from `사용자 목록` (User list).
+2. Under `접근 변경` (Change access), set `계정 상태` (Account status) to `비활성` (Inactive).
+3. In `계정 비활성화` (Deactivate account), click ① `비활성화 확정` (Confirm deactivation).
+</Steps>
+<Shot src="admin/dialog-deactivate.webp" alt="Deactivate account confirmation dialog. ① marks Confirm deactivation." caption="① Confirm deactivation" />
+
+## Reactivate an account
+
+Restore an inactive account using the steps below. The same steps apply when someone who deactivated their own account in Settings asks to use it again. Self-deactivation signs the user out immediately and shows `계정이 비활성화되었습니다` (Account deactivated), with instructions to request reactivation.
+
+Accounts deactivated by an administrator do not see that screen. Reopening their previous screen shows `로그인이 필요합니다` (Sign-in required), and trying to sign in again shows `로그인 요청을 완료하지 못했습니다. 다시 시도해 주세요.` (The sign-in request could not be completed. Please try again). If someone reports this, check their account status first.
+
+<Shot src="admin/account-deactivated.webp" alt="Screen shown after a user is signed out following self-deactivation. It asks them to contact an administrator for reactivation; ① marks Return home." caption="Screen shown to a deactivated user. ① Return home" />
+
+<Steps>
+1. Open `사용자 목록` (User list) in the left-hand `관리자` (Administrator) section and choose `비활성` (Inactive) from `전체 상태` (All statuses). The list updates immediately.
+2. Open the target account's details and set `계정 상태` (Account status) to `활성` (Active).
+3. In `계정 재활성화` (Reactivate account), click ① `재활성화 확정` (Confirm reactivation).
+</Steps>
+<Shot src="admin/dialog-reactivate.webp" alt="Reactivate account confirmation dialog. ① marks Confirm reactivation." caption="① Confirm reactivation" />
+
+Deactivation changes only `계정 상태` (Account status). It leaves `회원 유형` (Membership type) and `관리자 접근` (Administrator access) unchanged. Reactivation therefore restores the permissions the account had before deactivation. Review both values before confirming to make sure they are still appropriate.
+
+The list does not distinguish self-deactivation from deactivation by an administrator. Both are handled the same way. To check which occurred, find `계정 상태 변경` (Account status change) in the [audit log](/oss-hub/en/admin/audit-log/). If the actor and target are the same person, it was self-deactivation.
+
+<Success>
+You see `…님에 대한 계정 비활성화 처리를 완료했습니다.` (The account for … has been deactivated) or `계정 재활성화 처리를 완료했습니다.` (The account has been reactivated), and `계정 상태` (Account status) changes.
+</Success>
+
+<Recover title="If the change is rejected">
+- The deactivation option is locked for your own account. Hovering shows `자기 계정은 비활성화할 수 없습니다.` (You cannot deactivate your own account). Use [My settings](/oss-hub/en/admin/my-settings/) instead of this screen to deactivate yourself.
+- `접근 상태가 변경되었습니다` (Access status has changed) and `다른 처리자가 먼저 변경했습니다. 최신 정보로 갱신했으니 다시 확인한 뒤 진행해 주세요.` (Someone else changed this first. The information has been refreshed; review it before continuing.) Another administrator made a change first. Review the updated values before deciding what to do.
+</Recover>

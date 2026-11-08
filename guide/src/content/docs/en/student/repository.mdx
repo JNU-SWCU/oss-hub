@@ -1,0 +1,54 @@
+---
+title: Check and register repositories
+description: Check a provisioned repository or register your own public repository for your team.
+sidebar:
+  order: 6
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Team repositories come from two sources. If a program provisions repositories, one is created automatically on approval. Teams using their own public repository register its URL in `우리 팀` (Our team).
+
+## Check a provisioned repository
+
+<Steps>
+1. Open `내 저장소` (My repositories) in the left menu.
+2. Check the repository card's status. If it says `저장소 생성 중` (Creating repository), wait a moment.
+3. If it says `초대 수락 대기` (Awaiting invitation acceptance), accept the repository invitation on GitHub yourself. OSS Hub does not accept it for you.
+4. Click `GitHub에서 열기` (Open on GitHub) to open the repository.
+</Steps>
+<Shot src="student/my-repos.webp" alt="My repositories screen. A repository card shows creation complete, invitation complete, and an Open on GitHub button." caption="Repository card after accepting the invitation" />
+<Shot src="student/my-repos-status.webp" alt="Repository status in My repositories. The card shows Creation complete, PUBLIC, Awaiting invitation acceptance, and Open on GitHub." caption="Repository card labeled Creation complete, PUBLIC, and Awaiting invitation acceptance" />
+
+Repository creation and invitation delivery are automatic. Accepting the invitation is the only step you do yourself.
+
+## Register your own repository
+
+Only the team leader can register a repository, and only after application approval and before the program ends. The repository must be public on GitHub.
+
+<Steps>
+1. Open `우리 팀` (Our team) from the dashboard card and find `프로젝트 저장소` (Project repository).
+2. Click ① the pencil icon.
+3. Enter the GitHub repository address in `새 저장소 URL` (New repository URL).
+4. Save with the checkmark icon. The X icon cancels the edit.
+</Steps>
+<Shot src="student/team-repo.webp" alt="Project repository area. ① points to the pencil icon." caption="① Start editing" />
+<Shot src="student/team-repo-edit.webp" alt="Repository editing state. ① points to the New repository URL field; ② points to the checkmark save button, with the X cancel button to its left." caption="① New repository URL  ② Save" />
+
+<Success>
+`저장소 변경을 저장했습니다.` (Repository changes saved) appears, and activity collection starts automatically. View the collected activity in [Activity](/oss-hub/en/student/activity/).
+</Success>
+
+<Recover title="When you cannot register a repository">
+- `승인된 신청만 프로그램 종료 전에 저장소를 변경할 수 있습니다.` (Only approved applications can change repositories before the program ends): this appears before approval or after the program ends. Only the team leader can make changes.
+- `연결하려는 저장소를 찾을 수 없거나 비공개 저장소입니다. GitHub에 공개된 저장소만 연결할 수 있습니다.` (The repository was not found or is private. Only public GitHub repositories can be linked): check for a mistyped URL and confirm that the repository is public.
+- `다른 신청에 연결된 저장소입니다.` (This repository is linked to another application): another team is using it.
+- `저장소를 처리 중입니다…` (Processing the repository…): check again shortly.
+- `GitHub 저장소를 확인할 수 없습니다…` (Cannot check the GitHub repository…): GitHub may be having a problem. Wait and try again.
+- Linking an external repository also requires up-to-date consent. Check [signup consent](/oss-hub/en/student/sign-up/).
+- The screen does not explain the ownership verification rules for registering someone else's repository. <Verified status="policy" />
+</Recover>
+<Shot src="student/my-repos-empty.webp" alt="My repositories when no repositories are available yet." caption="When there are no repositories" />

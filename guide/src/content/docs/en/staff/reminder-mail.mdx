@@ -1,0 +1,76 @@
+---
+title: Send submission deadline reminders
+description: Understand automatic deadline reminders, preview recipients, and send additional email guidance when needed.
+sidebar:
+  order: 10
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+The system automatically emails students who have not submitted documents when a deadline is approaching. Staff can also send an additional message when they need to add guidance.
+
+## Automatic email
+
+When a program's `제출 마감 알림` (submission deadline reminders) is enabled, the system sends email every day at 9 a.m. Korea Standard Time under these rules.
+
+- A milestone has required documents due within 24 hours.
+- Only students who have not submitted those documents receive the email.
+- Staff summaries are not sent automatically.
+- A person does not receive two messages for the same program on the same day. Manual sending also skips students who have already received that day's automatic email.
+
+If the automatic email is sufficient, no action is needed. To disable reminders entirely, turn off `제출 마감 알림` in the operating settings during [program creation](/oss-hub/en/staff/create-program/) or in the editor.
+
+## What recipients see
+
+All subjects begin with `[oss-hub]`. For one milestone, the subject includes its name and remaining time, such as `[oss-hub] 제출 마감 24시간 전 · 마일스톤 이름` (24 hours until submission deadline · milestone name).
+
+### Student email
+
+- **Subject for multiple items:** `마감 임박 제출 N건` (N submissions due soon).
+- **Body:** program, milestone, and deadline.
+- **Button:** `제출하러 가기` (go to submission).
+
+### Staff summary
+
+- **Subject for multiple items:** `마감 임박 마일스톤 N건` (N milestones due soon).
+- **Body:** program, milestone, deadline, and students missing submissions.
+- **Button:** `대시보드 열기` (open dashboard).
+
+Staff email begins with `안녕하세요, 운영진님.` (hello, program team) and is sent only when you send manually. Additional guidance entered for manual sending appears beneath the opening sentence.
+
+## Send manually
+
+Use this when you have extra guidance for students or want to send a staff summary. Open `제출 마감 알림` in the program editor.
+
+<Steps>
+1. Check that ① `제출 마감 알림` is enabled, then click `프로그램 정보 저장` (save program information). Until saved, `설정을 저장한 뒤 발송 대상을 미리볼 수 있습니다.` says you must save before previewing recipients.
+2. Add text in `학생용 추가 안내` (additional guidance for students) or `교직원용 추가 안내` (additional guidance for staff). Each allows up to 4,000 characters.
+3. Click ② `발송 대상 미리보기` (preview recipients).
+4. Read the recipient counts and email body in ① the `발송 대상 확인` (check recipients) card. This text is a card heading, not a button.
+5. When ready, click `안내 보내기` (send guidance). Email is sent immediately without a confirmation dialog.
+</Steps>
+<Shot src="staff/mail-section.webp" alt="Submission deadline reminder section in the program editor. Marker ① points to the reminder checkbox and ② to preview recipients." caption="① `제출 마감 알림` (deadline reminders) ② `발송 대상 미리보기` (preview recipients)" />
+<Shot src="staff/mail-preview.webp" alt="Recipient check card with eligible student counts, opt-outs, inactive accounts, missing emails, and staff summary recipients. Marker ① points to the card heading." caption="① `발송 대상 확인` (check recipients)" />
+
+Check these details in the preview.
+
+- `학생 발송 가능 N명` (N eligible students) and excluded counts: `수신 거부` (opted out), `비활성` (inactive), and `이메일 없음` (no email). These exclusion counts refer to students.
+- `교직원 요약 수신 N명` (N staff summary recipients): staff and administrators with notification receipt enabled and an email address.
+- `학생용 메일` (student email) and `교직원용 메일` (staff email) appear side by side. In a narrow window, they become `학생용` and `교직원용` tabs. Changing `미리 볼 학생` (student to preview) changes only the body preview, not the recipient list.
+
+A preview is valid for 10 minutes. Sent email cannot be recalled, so check the counts before sending.
+
+<Success>
+`학생 {n}명에게 보냈습니다.` reports the students emailed, alongside counts skipped as duplicates and failed student deliveries. Staff delivery results are not included in these figures. Sending again that day skips students already emailed, producing messages such as `학생 0명에게 보냈습니다.` (sent to 0 students) and `학생 중복 생략 4명 · 학생 발송 실패 0명.` (4 student duplicates skipped; 0 failed).
+</Success>
+
+<Recover title="If email cannot be sent">
+- `발송 대상이 없어 {라벨} 메일 본문이 없습니다.` means there are no recipients: either no required documents are due within 24 hours or everyone has submitted. This is normal.
+- `미리보기가 만료되었습니다. 다시 미리보세요.` or `발송 대상이 바뀌었거나 미리보기가 만료되었습니다. 다시 미리보세요.` means the preview expired or recipients changed. Click `발송 대상 미리보기` again.
+- `마감 알림을 처리하지 못했습니다` means reminder processing failed. Try later. If it persists, ask an administrator to check [System status](/oss-hub/en/admin/system-status/).
+</Recover>
+
+You cannot notify students excluded as `수신 거부` (opted out) from this screen. A procedure for contacting them another way has not yet been established. <Verified status="policy" />

@@ -1,0 +1,56 @@
+---
+title: Introduction
+description: What OSS Hub does, who uses it, and how a program moves from application to review.
+sidebar:
+  order: 1
+---
+import Shot from '~/components/Shot.astro';
+
+OSS Hub is a web service for running open-source programs at Chonnam National University's SW-Centered University project office. Students find a program and apply as a team. Once approved, they work in GitHub repositories and submit documents. Staff use the same service to create programs, decide applications, and review submissions. In this guide, “Staff” translates `교직원` and includes both faculty and administrative staff.
+
+Announcements, applications, documents, and repository activity are in one place, so you do not need to move between messages, email, and spreadsheets to check them. Sign in with GitHub; there is no separate OSS Hub username or password.
+
+**This guide is in English, but the product interface and screenshots remain in Korean.** Exact Korean labels are followed by English explanations so you can find the right control. This does not indicate an English-language product interface. The people and programs shown in this guide are examples created for explanation.
+
+<Shot src="intro/home.webp" alt="Home page before signing in. A title and description appear on the left, with marker ① pointing to 시작하기 (Get started). A diagram on the right connects programs, students, and repositories." caption="Before signing in: ① 시작하기 (Get started)" />
+
+## What each role does
+
+OSS Hub has three roles: `관리자` (Administrator), `학생` (Student), and `교직원` (Staff). After signing in, you see the menus available to your role.
+
+| Role | Responsibilities | Guide |
+| --- | --- | --- |
+| `관리자` (Administrator) | Process staff access requests, manage administrator access and account status, and check audit logs and system health. | [Administrator guide](/oss-hub/en/admin/) |
+| `학생` (Student) | Find programs and apply as a team. After approval, work in a repository and submit documents. Revise and resubmit when changes are requested. | [Student guide](/oss-hub/en/student/) |
+| `교직원` (Staff) | Create and run programs, approve or reject applications, and review submissions. | [Staff guide](/oss-hub/en/staff/) |
+
+Membership type and administrator access are managed separately, so one account can be both `교직원` (Staff) and `관리자` (Administrator).
+
+## The program lifecycle
+
+A program follows four stages.
+
+1. **Explore.** Students check the application period, program dates, and submission schedule.
+2. **Form a team and apply.** Students choose a team name, invite teammates, and submit an application. The team is created on the application screen and registered when the application is submitted.
+3. **Application decision.** Staff choose `승인` (Approve) or `반려` (Reject). Approved teams can submit documents. Depending on the program, a team repository is also created.
+4. **Activity, submission, and review.** Teams submit documents by their deadlines. Staff review each submission with `승인` (Approve), `보완 요청` (Request changes), or `반려` (Reject). Teams asked for changes revise and resubmit.
+
+Application approval and document review are separate. Each document needs its own review even after the application has been approved.
+
+Neither staff nor administrators can decide applications or review submissions for a team they belong to.
+
+## What you can view before signing in
+
+These screens are public. You must sign in to apply or submit documents.
+
+- **Program list.** Open `프로그램` (Programs) at the top to view `모집중` (Accepting applications), `진행중` (In progress), `예정` (Upcoming), and `종료` (Ended) programs.
+- **Program details.** View the application period, program dates, and milestones. The `신청하기` (Apply) button is visible too; selecting it before signing in takes you to GitHub sign-in.
+- **Rankings.** Open `랭킹` (Rankings) at the top to view rankings based on GitHub activity.
+
+<Shot src="intro/programs.webp" alt="Program list with 전체 (All), 모집중 (Accepting applications), 진행중 (In progress), 예정 (Upcoming), and 종료 (Ended) filters on the left and program cards on the right." caption="Use the status filters to browse programs." />
+<Shot src="intro/program-detail.webp" alt="Program details. Marker ① points to the 모집중 (Accepting applications) badge beside the title; ② points to 신청하기 (Apply) in the top right. Milestones appear below the application and program dates." caption="① 모집중 (Accepting applications) badge; ② 신청하기 (Apply)" />
+<Shot src="intro/ranking.webp" alt="Rankings screen with an annual list next to a monthly rank-change chart. Profile pictures appear at the ends of the top ten lines." caption="랭킹 (Rankings)" />
+
+## Where to go next
+
+Start with [Getting started](/oss-hub/en/start/) for sign-in and registration. For common questions, see [Frequently asked questions](/oss-hub/en/faq/).

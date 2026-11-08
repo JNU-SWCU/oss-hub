@@ -1,0 +1,92 @@
+---
+title: Check system status
+description: Check whether GitHub activity collection is running correctly and restart collection when needed.
+sidebar:
+  order: 7
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+`시스템 상태` (System status) shows repository activity collection status and data timestamps. Start here if student activity counts have stopped changing or look unusual. Only administrators can open this screen.
+
+Collection runs automatically. You normally do not need to check this screen unless someone reports unusual numbers.
+
+## Read collection status
+
+<Steps>
+1. Open `시스템 상태` (System status) in the left-hand `관리자` (Administrator) section.
+2. Check the badge in the top `수집 상태` (Collection status) card. It is marked ① in the card close-up below.
+3. If the badge is not `정상` (Healthy), read the explanation below it.
+</Steps>
+<Shot src="admin/status-full.webp" alt="Full System status screen with a collection status card at the top, a Run collection now button at the top right, and several cards below. ① marks Run collection now." caption="Full screen. ① marks `지금 수집 실행` (Run collection now), explained below" />
+<Shot src="admin/status-collection-state.webp" alt="Collection status card. ① marks the Failed badge, with an explanation that some items are awaiting a retry." caption="① Failed badge and explanation" />
+
+The badge is one of `정상` (Healthy), `지연` (Delayed), `부분 진행` (Partially complete), `실패` (Failed), or `추적 대상 없음` (No tracking targets). The card also shows `이번 전체 순회 시작` (Current full sweep started), `최근 전체 순회 완료` (Last full sweep completed), and `다음 주기 예상` (Next cycle expected).
+
+### Who should act on the message to contact the program office administrator?
+
+When collection status is `실패` (Failed), the screen displays this explanation:
+
+> Some collection items are awaiting a retry. Once the GitHub rate limit is lifted, they will be retried automatically in the next cycle. If the “Oldest pending retry” timestamp below stays unchanged for more than a day, contact the program office administrator.
+
+This is the message ending `사업단 관리자에게 알려 주세요` (Contact the program office administrator). Administrators see the same text, but there is no separate contact destination shown, so check it yourself in this order.
+
+<Steps>
+1. In `데이터 최신성` (Data freshness), check `가장 오래된 재시도 대기` (Oldest pending retry). If the timestamp keeps changing, collection is progressing. If it stays unchanged for more than a day, collection has stalled.
+2. In `수집 대상 상세` (Collection target details), find repositories marked `재시도 대기` (Awaiting retry) or `부분` (Partial).
+3. Try restarting collection with [Run collection now](#run-collection-now) below.
+4. If that does not resolve it, follow the `수집 앱 설치·권한 확인` (Check collection app installation and permissions) guidance in the `추적 대상 없음` (No tracking targets) and `지연` (Delayed) rows of the table below.
+</Steps>
+<Shot src="admin/status-freshness.webp" alt="Data freshness card showing the data reference time, oldest execution time among completed items, and oldest pending retry time." caption="Data freshness card" />
+
+The interface does not provide a procedure for escalating a persistent stall to the service operator or developer. <Verified status="policy" />
+
+Badges are evaluated in the order below, from top to bottom. Only the first matching badge is displayed.
+
+| Badge | Meaning | On-screen explanation |
+| --- | --- | --- |
+| `추적 대상 없음` (No tracking targets) | There are no repositories to collect yet. | Check that the collection app is installed in the program office's GitHub organization and that repositories are registered. |
+| `실패` (Failed) | Some collection items are awaiting a retry. | The rate-limit explanation above. |
+| `부분 진행` (Partially complete) | Some repositories are not fully collected yet, or historical activity is still being collected. | Check the `부분·대기` (Partial/pending) count in `활동 종류별 수집` (Collection by activity type), and report it if it does not decrease after the next cycle. |
+| `지연` (Delayed) | `데이터 기준 시각` (Data reference time) is more than 90 minutes old. | Check the data reference time and, if the delay continues, check collection app installation and permissions. |
+| `정상` (Healthy) | None of the conditions above apply. | None. |
+
+The `실패` (Failed) explanation always mentions GitHub rate limits, but they are not the only possible cause. Any pending retry produces this badge. Check the labels on cells in `수집 대상 상세` (Collection target details) for the cause.
+
+## What each card shows
+
+- `활동 종류별 수집` (Collection by activity type): Shows completion, such as `완료 11 / 21개 (52%)` (11 of 21 complete, 52%). The legend is `완료` (Complete), `과거 활동 수집 중` (Collecting historical activity), `부분·대기` (Partial/pending), and `재시도 대기` (Awaiting retry).
+- `데이터 최신성` (Data freshness): `데이터 기준 시각` (Data reference time) is the most recent execution time across all collection items. `완료 항목 중 가장 오래된 실행 시각` (Oldest execution time among completed items), directly below it, is a separate value. `가장 오래된 재시도 대기` (Oldest pending retry) appears only when there are items awaiting retry.
+- `수집 대상 상세` (Collection target details): For each repository registered to a team, shows Commit, PR, Release, and Issue collection as `완료` (Complete), `과거 활동 수집 중` (Collecting historical activity), `부분` (Partial), or `재시도 대기` (Awaiting retry). A count at the top such as `문제 3 / 전체 5` (3 with issues / 5 total) shows affected and total targets. Repositories are not registered or collected automatically just because they belong to the organization.
+- `최근 수집 활동` (Recent collection activity): Execution records separated into organization and external scopes. Status is one of `전체 순회 완료` (Full sweep complete), `수집 한도에 도달` (Collection limit reached), `진행 중` (In progress), `연결 즉시 수집` (Collection on connection), or `연결 즉시 수집 실패` (Collection on connection failed). Each row shows newly saved counts, such as `Commit 3 · PR 1 · Release 0 · Issue 0`. In `저장소 3/3` (Repositories 3/3), the first number is repositories processed and the second is repositories attempted.
+  - `신규 데이터 없음` (No new data): Replaces the counts when no new activity was saved. This means there was no new activity to save at that time and is common in normal operation.
+  - `아직 기록된 수집 활동이 없습니다` (No collection activity recorded yet) and `다음 수집 주기부터 쌓입니다.` (Records will accumulate from the next collection cycle): No records exist yet.
+- `외부 저장소 수집` (External repository collection): Collection from students' personal repositories. With no targets, it shows `수집 대상 학생 개인 저장소가 없습니다` (There are no student personal repositories to collect). External collection is configured to run on the hour alongside organization collection.
+
+<Shot src="admin/status-activity-types.webp" alt="Collection by activity type card showing the completion percentage and a color-coded legend." caption="Collection by activity type" />
+<Shot src="admin/status-targets.webp" alt="Collection target details table with repository, program, Commit, PR, Release, and Issue columns and a status badge in each cell." caption="Collection target details" />
+
+On narrow screens, the right-hand columns in `수집 대상 상세` (Collection target details) are clipped. Scroll the table horizontally or widen the window.
+
+Cells with problems display cause labels: `GitHub 연결 실패` (GitHub connection failed), `응답 형식 오류` (Response format error), `페이지네이션 오류` (Pagination error), `요청 시간 초과` (Request timed out), `GitHub 호출 한도 초과` (GitHub rate limit exceeded), `수집 연동 앱 인증 실패` (Collection integration app authentication failed), `저장소 접근 권한 없음` (No repository access), `저장소를 찾을 수 없음` (Repository not found), `GraphQL 응답 오류` (GraphQL response error), or `수집 실패` (Collection failed).
+
+## Run collection now
+
+Collection runs automatically on a schedule, but you can start it immediately when needed. Click `지금 수집 실행` (Run collection now) at the top right to receive a notification that the request was accepted. Collection takes time; wait for `최근 수집 활동` (Recent collection activity) to change. You do not need to click repeatedly.
+
+A gray button with a `수집 중` (Collecting) badge means collection is already running. Wait until it finishes before trying again. While the request is being sent, `실행 요청 중…` (Requesting execution…) appears briefly.
+
+<Success>
+You see `수집 요청을 보냈습니다` (Collection request sent) and `수집 요청을 접수했습니다.` (Collection request accepted), and the [audit log](/oss-hub/en/admin/audit-log/) records `수집 실행` (Run collection). Because collection runs in the background, the new run may not appear immediately in `최근 수집 활동` (Recent collection activity). Allow some time, then refresh to check.
+</Success>
+
+<Recover title="If collection does not start or the screen will not open">
+- `수집을 시작하지 못했습니다` (Collection could not be started) and `수집을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.` (Collection could not be started. Try again shortly.) Wait and click again.
+- `저장소 전환 작업이 진행 중이라 지금은 수집을 시작할 수 없습니다. 전환이 끝난 뒤 다시 시도해 주세요.` (Collection cannot start while a repository transition is in progress. Try again after it finishes.) Wait for the transition to complete.
+- `시스템 상태를 불러오지 못했습니다` (System status could not be loaded): Refresh the page.
+- `최신 상태를 불러오지 못했습니다` (The latest status could not be loaded): Click `상태 다시 불러오기` (Reload status).
+- If the badge is not `정상` (Healthy), follow `수집 앱 설치·권한 확인` (Check collection app installation and permissions). In the program office's GitHub organization, go to Settings, then GitHub Apps, and check that the collection app is installed and has permission.
+</Recover>

@@ -1,0 +1,59 @@
+---
+title: Staff guide
+description: Create programs, review team applications and documents, and publish announcements.
+sidebar:
+  label: Overview
+  order: 0
+---
+import { Steps } from '@astrojs/starlight/components';
+import Verified from '~/components/Verified.astro';
+
+The `교직원` (staff) role creates programs, decides student team applications, and reviews submitted documents in OSS Hub. After signing up, you must wait for an administrator to approve your role.
+
+## What staff do
+
+| Task | Where to go |
+| --- | --- |
+| Request the role and wait for approval | Sign-up step 2 and the approval waiting screen |
+| Check operations | `운영 대시보드` (operations dashboard) |
+| Create and edit programs | `프로그램 만들기` (create program) and the program editor |
+| Decide team applications | The program's `팀 관리` (team management) |
+| Track and review documents | `서류 현황` (document status) and `서류 수합` (document collection) in `프로그램 개요` (program overview) |
+| Publish announcements | The program's `게시판` (board) |
+| Compare student engagement | `학생 활성` (student engagement) |
+| Send deadline reminders | `제출 마감 알림` (submission deadline reminders) in the program editor |
+
+## Get started in five minutes
+
+<Steps>
+1. Sign in with GitHub and select `교직원` in sign-up step 2. See [Sign up as staff and wait for approval](/oss-hub/en/staff/first-entry/).
+2. Once an administrator approves you, `운영 대시보드` opens. Get familiar with it in [See your programs at a glance](/oss-hub/en/staff/dashboard/).
+3. Use `프로그램 만들기` to [create a program](/oss-hub/en/staff/create-program/), then [add submission items](/oss-hub/en/staff/edit-program/) in the editor.
+4. When students apply, [approve or reject their applications](/oss-hub/en/staff/decide-application/) in `팀 관리`.
+5. When documents arrive, [review them](/oss-hub/en/staff/review-submission/) in `서류 수합`.
+</Steps>
+
+## Guides by task
+
+- [Sign up as staff and wait for approval](/oss-hub/en/staff/first-entry/): role requests, the waiting screen, and rejected requests.
+- [See your programs at a glance](/oss-hub/en/staff/dashboard/): applications, activity, submissions, and finding programs.
+- [Create a program](/oss-hub/en/staff/create-program/): the five-step creation process.
+- [Edit program dates and submission items](/oss-hub/en/staff/edit-program/): dates, milestones, submission items, and deletion.
+- [Approve or reject team applications](/oss-hub/en/staff/decide-application/)
+- [View team members, repositories, and activity](/oss-hub/en/staff/team-detail/): includes making repositories public and deleting teams.
+- [Track and download team documents](/oss-hub/en/staff/documents/): ZIP downloads and bulk revision requests.
+- [Review submitted documents](/oss-hub/en/staff/review-submission/)
+- [Accept submissions after the deadline](/oss-hub/en/staff/grace-period/)
+- [Send submission deadline reminders](/oss-hub/en/staff/reminder-mail/)
+- [Compare student engagement](/oss-hub/en/staff/insights/)
+- [Publish program announcements](/oss-hub/en/staff/board/)
+- [Change your profile and notifications](/oss-hub/en/staff/settings/)
+
+## Common points of confusion
+
+- `가입 신청` in the left menu is the queue for staff role requests. Decide student program applications in the program's `팀 관리`. See [Handle staff role requests](/oss-hub/en/admin/applicants/) for the role-request queue.
+- Decide applications using the status selector in the list. Changing `검토 대기` (awaiting review) to `승인` (approved) takes effect without a confirmation dialog.
+- You cannot decide an application for a team you belong to. You can select a result, but saving it is refused.
+- Once a repository has been created, you cannot change approval to rejection.
+- Students receive decisions as notices at the top of their dashboard, not by email.
+- Only an `관리자` (administrator) can reactivate an account. See [Deactivate and reactivate accounts](/oss-hub/en/admin/deactivate/).

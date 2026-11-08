@@ -1,0 +1,72 @@
+---
+title: Create a team and apply
+description: Name your team, select fellow students, apply, and check their invitation responses.
+sidebar:
+  order: 3
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Applications are made as a team. On the application screen, name your team and search for active students who have completed signup. **The total of you and the students you select must be at least the program minimum and no more than its maximum.** Submitting creates the team and application and sends invitations to the selected students. Selecting someone does not make them a member: they must accept to join. You can apply alone only when the program minimum is one person.
+
+To apply, you must be a `학생` (student) who has completed signup, and the program must be accepting applications. Prospective teammates must also be active students who have completed signup.
+
+## Complete the application
+
+<Steps>
+1. Click `신청하기` (Apply) in [program details](/oss-hub/en/student/find-program/). The screen is titled `{프로그램 이름} 신청` (Apply for the program).
+2. Enter a `팀 이름` (Team name). The prefilled-looking `오픈소스팀` (Open source team) is placeholder text; you must enter a name yourself. Your details appear automatically under `신청자` (Applicant).
+3. Open `팀원 지정` (Select teammates), search by name or GitHub username, and click `지정` (Select).
+4. Check that the total, including you, meets the minimum and does not exceed the maximum.
+5. Check `[필수] 개인정보 수집·이용 동의` ([Required] Consent to personal data collection and use).
+6. Click `신청 제출` (Submit application), then `신청서 제출` (Submit application form) in the confirmation dialog.
+7. Open `우리 팀 보기` (View our team) to [check invitation acceptance or send more invitations](/oss-hub/en/student/invite/).
+</Steps>
+<Shot src="student/apply-form.webp" alt="The teammate selection area shows one person including the applicant, a minimum of two, and a maximum of three." caption="Select enough teammates to meet the minimum." />
+<Shot src="student/apply-members.webp" alt="Application with selected students meeting the minimum including the applicant. Selected students can be removed, or the application submitted." caption="Invitations are sent when you submit the application." />
+
+Programs that provision repositories also show `선정 시 저장소를 공개할 예정입니다` (I plan to make the repository public if selected). It is checked by default.
+
+### If you do not have enough people
+
+You cannot apply alone to a program requiring two or more people. Select students, submit the application, and wait for them to accept. For staff to approve the application, **the number of members who have actually accepted** must meet the minimum. If someone declines, invite another student from `우리 팀` (Our team). For a program with a minimum of one, you can submit alone and invite others later, within the team capacity.
+
+People marked `초대 대기` (Invitation pending) do not count toward approval. They count only after accepting.
+
+### Before submitting
+
+After submission, the status changes to `검토 대기` (Awaiting review). During the application period, you can edit or cancel applications in this status or `반려` (Rejected). Neither is possible after approval. Check the team name and membership before submitting.
+
+<Shot src="student/apply-confirm.webp" alt="Application submission confirmation dialog. ① points to Submit application form." caption="① Submit application form" />
+
+<Success>
+The `신청이 접수되었습니다` (Application received) screen appears. Open `우리 팀 보기` (View our team) and check that the status is `검토 대기` (Awaiting review) and the selected students are marked `초대 대기` (Invitation pending). See [Check your application and team](/oss-hub/en/student/my-team/) for results.
+</Success>
+<Shot src="student/apply-submitted.webp" alt="After submission, a message asks you to wait for the selected students to accept. View our team and Go to my dashboard buttons are visible." caption="Check invitation acceptance in View our team." />
+
+## Cancel a submitted application
+
+During the application period, the current team leader can cancel an application awaiting review or rejected. Click `신청 취소` (Cancel application) to open a confirmation dialog. Confirming deletes both the team and the application, removes memberships, and clears sent invitations. You cannot cancel if there are submission records or a linked repository. After cancellation, you return to the dashboard and can create a new team and apply again within the application period.
+
+## Check a rejected application
+
+If a reason for rejection was provided, it appears at the top of the application screen. During the application period, the current team leader can edit and resubmit a rejected application while keeping the same team and members. See [Apply again after rejection](/oss-hub/en/student/my-team/#apply-again-after-rejection) for the steps.
+
+<Shot src="student/apply-rejected.webp" alt="Rejected application screen. ① points to the staff member's reason for rejection. Below are team members, the application form, Resubmit application, and Cancel application." caption="① Reason for rejection" />
+
+<Recover title="When you cannot submit">
+- If the team name is empty, `팀 이름을 입력해 주세요.` (Enter a team name) appears below the field.
+- If there are not enough people, select more students until you reach the minimum. You cannot select yourself or select the same student twice.
+- If a selected student joins another team or their account eligibility changes before submission, the submission is rejected. Remove that student and select another.
+- `개인정보 수집·이용에 동의해야 지원할 수 있습니다.` (You must consent to personal data collection and use to apply): check the consent box.
+- `이미 제출한 신청이 있습니다.` (You have already submitted an application): you have already applied to this program. Open `신청 상세` (Application details) on the dashboard.
+- `신청 기간이 아닙니다` (Outside the application period): you can submit only during the application period.
+- `신청 양식이 갱신되었습니다. 페이지를 새로고침해 주세요.` (The application form has been updated. Refresh the page): refresh and submit again. You may need to check your entered information again.
+- If `개인정보·활동 동의` (Personal data and activity consent) appears instead of the application, the consent policy has changed. Review the items and click `동의하고 계속` (Agree and continue) to proceed.
+- `승인된 학생 계정만 신청할 수 있습니다.` (Only approved student accounts can apply): check that you have completed [signup](/oss-hub/en/student/sign-up/).
+</Recover>
+<Shot src="student/apply-errors.webp" alt="Application submitted with an empty team name. ① points to the team name field, with an error below it." caption="① Team name error" />
+<Shot src="student/apply-consent-error.webp" alt="Required consent item and its error message. ① outlines the checkbox and the error below it." caption="① Message shown when required consent is missing" />

@@ -1,0 +1,78 @@
+---
+title: Sign up and complete your profile
+description: Complete signup with consent, role selection, and basic information after your first login.
+sidebar:
+  order: 1
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+OSS Hub has no separate registration form. Your first GitHub login leads to a three-step signup flow. Student signup does not require approval, so you can use the service as soon as you finish all three steps.
+
+## Log in
+
+<Steps>
+1. Click ① `로그인` (Log in) at the top right of the home page.
+2. Sign in on GitHub and grant the requested permissions.
+</Steps>
+
+If you are already signed in but have not finished signup, `가입 이어하기` (Continue signup) appears instead of `로그인` (Log in). Click it to resume where you stopped.
+
+<Shot src="intro/login-header.webp" alt="Top of the home page. ① points to the login link at the top right." caption="① Log in" />
+
+When you log in again after logging out, GitHub first shows an account selection screen. If the account next to `Signed in as` is correct, click `Continue`.
+
+## Step 1. Consent to personal data and activity collection
+
+<Steps>
+1. Read `개인정보 수집·이용` (Personal data collection and use), `GitHub 활동 수집·공개 범위` (Scope of GitHub activity collection and disclosure), and `Org 저장소 운영 약관` (Organization repository terms). Click `전문 보기` (View full text) to the right of each item to read it in full.
+2. Check all three items.
+3. Click `동의하고 계속` (Agree and continue).
+</Steps>
+<Shot src="student/signup-consent.webp" alt="Signup step 1, consent to personal data and activity collection, with three consent items and an Agree and continue button." caption="Step 1. Agree to all three items, then click Agree and continue." />
+
+The screen always displays `비동의시 서비스 이용이 어렵습니다.` (You cannot use the service without consenting). `동의하고 계속` (Agree and continue) is disabled until all three items are checked. If the consent policy changes, the consent screen appears again.
+
+## Step 2. Choose a role
+
+<Steps>
+1. Select the `학생` (Student) card. It says `학생 가입에는 승인이 필요하지 않습니다` (Student signup does not require approval).
+2. Click `선택 완료` (Confirm selection).
+</Steps>
+<Shot src="student/signup-role.webp" alt="Signup step 2, with Student and Staff cards and a Confirm selection button below." caption="Step 2. Select Student, then click Confirm selection." />
+
+The `교직원` (staff) role requires administrator approval. If you chose the wrong role, use `역할을 다시 고르기` (Choose a role again) at the bottom of step 3 to go back.
+
+## Step 3. Enter your basic information
+
+<Steps>
+1. Enter your name in `이름` (Name).
+2. Enter six digits in `학번` (Student number).
+3. Enter 10–11 digits in `전화번호` (Phone number). Organizers use this number to contact you about selection results and team operations.
+4. Choose your `학과` (Department).
+5. Click ① `가입 마치기` (Finish signup).
+</Steps>
+<Shot src="student/signup-profile.webp" alt="Signup step 3, with name, student number, phone number, and department fields. ① points to Finish signup." caption="Step 3. ① Finish signup" />
+
+You can enter your student number only once. Students cannot change it after signup, so double-check it before submitting.
+
+<Success>
+The dashboard opens with the heading `가입이 완료되었습니다` (Signup complete) and the message `이제 프로그램을 신청하고 저장소를 연결할 수 있습니다.` (You can now apply for programs and link repositories).
+</Success>
+<Shot src="student/signup-done.webp" alt="Dashboard immediately after signup, with a signup completion notice at the top." caption="The dashboard immediately after signup" />
+
+<Recover title="When an error message appears">
+An error appears below an incorrectly completed field. Correct it and click ① `가입 마치기` (Finish signup) again.
+- `이름을 입력해 주세요.`: Enter your name.
+- `학번은 숫자 6자리로 입력해 주세요.`: Enter a six-digit student number.
+- `이미 다른 계정이 사용 중인 학번입니다. 학번을 다시 확인해 주세요.`: Another account already uses this student number. Check it again. If it is correct, contact an [administrator](/oss-hub/en/admin/).
+- `전화번호는 숫자 10~11자리로 입력해 주세요.`: Enter a phone number with 10–11 digits.
+- `학과를 선택하거나 입력해 주세요.`: Select or enter your department.
+- `프로필을 저장하지 못했습니다`: Your profile could not be saved. Try again later.
+
+If you stopped partway through signup, click `가입 이어하기` (Continue signup) at the top to resume.
+</Recover>
+<Shot src="student/signup-profile-errors.webp" alt="Step 3 showing errors below empty fields. ① points to Finish signup." caption="Correct the fields with errors, then click ① Finish signup." />

@@ -1,0 +1,84 @@
+---
+title: Edit program dates and submission items
+description: Change program dates, manage milestones and submission items, and delete a program.
+sidebar:
+  order: 4
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+Open `프로그램 편집` (program editor) by clicking a program name on the operations dashboard. Program information, milestones, and submission items save separately. Saving one section does not save the others; use each section's save button.
+
+Submission items cannot be added during [program creation](/oss-hub/en/staff/create-program/). Add them here so students know which documents to submit.
+
+## Change application and program dates
+
+<Steps>
+1. Click ① the pencil icon (`신청 기간 수정`, edit application period) on the `신청 기간` (application period) or `운영 기간` (program period) card.
+2. Change the dates and times, then apply them.
+3. Click ② `프로그램 정보 저장` (save program information) in the upper information section.
+</Steps>
+<Shot src="staff/edit-schedule.webp" alt="Program editor date section. Marker ① points to the application period pencil and ② to save program information." caption="① Edit application period ② `프로그램 정보 저장` (save program information)" />
+
+Applying dates alone does not save them. `날짜를 적용한 뒤 프로그램 정보 저장을 눌러야 저장됩니다.` tells you to save the program information after applying dates.
+
+To accept only individual applications, set both minimum and maximum team size to 1.
+
+<Success>
+`저장되었습니다.` (saved) appears briefly.
+</Success>
+
+## Add and edit milestones
+
+<Steps>
+1. In `마일스톤` (milestones), click ① `추가` (add) to open the name and date dialog.
+2. To edit an existing milestone, click ② its pencil icon (`{이름} 수정`, edit this milestone).
+3. Edit the name, dates, and `운영자 공지` (organizer notice).
+4. Click `마일스톤 저장` (save milestone) at the bottom of the dialog.
+</Steps>
+<Shot src="staff/edit-milestones.webp" alt="Milestone section in the program editor. Marker ① points to add and ② to the pencil on the first proposal submission card. Cards show dates and submission summaries." caption="① Add milestone ② Edit milestone" />
+
+Milestones require at least one submission item, so a milestone created here automatically includes one. If you try to remove every item, `마일스톤에는 제출 항목이 하나 이상 필요합니다. 새 항목을 만든 뒤 기존 항목을 삭제해 주세요.` asks you to create a replacement first. Add the new item before deleting the old one.
+
+## Create and edit submission items
+
+Manage items under `제출 항목` (submission items) in the milestone editor. Each milestone allows up to 20 items, and a program allows up to 100 in total.
+
+<Steps>
+1. Click ① `제출 항목 추가` (add submission item) to create an empty item card.
+2. Click the pencil (`제출물 이름 수정`, edit submission name), enter a name, then confirm with the checkmark (`제출물 이름 적용`, apply submission name). Names can contain up to 200 characters.
+3. Use ① `필수 제출` (required submission) to make the item required. Unchecking it changes the label to `선택 제출` (optional submission).
+4. To provide a template, upload it using ② the refresh-shaped icon (`첨부파일 업로드`, upload attachment). After upload, the icon becomes `첨부파일 재업로드` (re-upload attachment). Accepted formats are PDF, HWP, JPG, PNG, and ZIP, up to 5 MB.
+5. Drag the handle on the left to reorder items. Use the trash icon to remove one. Until you save, removed items show `저장 시 삭제: {이름}` (will be deleted on save).
+6. Click ② `마일스톤 저장`.
+</Steps>
+<Shot src="staff/milestone-edit.webp" alt="Milestone editor with two submission item cards. Marker ① points to add submission item and ② to save milestone." caption="① `제출 항목 추가` (add item) ② `마일스톤 저장` (save milestone)" />
+<Shot src="staff/item-editor.webp" alt="Submission item cards. Marker ① points to required submission and ② to upload attachment. The new card below has a red prompt for its missing name." caption="① `필수 제출` (required) ② `첨부파일 업로드` (upload attachment). The new item below has no name yet." />
+
+A new item immediately shows `제출 항목 이름을 입력해 주세요.` (enter a submission item name), even before you start typing. It disappears when you enter the name.
+
+<Success>
+The milestone card shows the item name and whether it is required, such as `프로젝트 기획서 · 필수` (project proposal · required). The same item appears on the student's submission screen.
+</Success>
+
+## Delete a milestone
+
+Clicking a milestone's trash icon opens `마일스톤을 되돌릴 수 없이 삭제할까요?` (permanently delete this milestone?). Check the name before clicking `삭제 확정` (confirm deletion); this cannot be undone.
+
+## Delete a program
+
+At the bottom, `프로그램 삭제` (delete program) in `위험 영역` (danger zone) marks the program as deleted, hides it from lists, and schedules uploaded files for cleanup. Program, application, team, submission, and audit records, as well as user accounts, are retained. There is no restore screen, and deleted file contents cannot be recovered. Clicking the button asks again with `프로그램을 삭제할까요?` (delete this program?).
+
+<Shot src="admin/program-status-delete-danger.webp" alt="Danger zone in the program editor, explaining that deletion hides the program and deletes uploaded files, with a delete program button." caption="`프로그램 삭제` (delete program)" />
+
+See [Delete a program](/oss-hub/en/admin/delete-program/). OSS Hub currently does not distinguish program owners, so staff can edit or delete another staff member's program. The policy on whether they should do so has not been settled. Consult the staff member responsible before making changes. <Verified status="policy" />
+
+<Recover title="If changes will not save">
+- `제출물이 있는 마일스톤은 삭제할 수 없습니다.` means students have already submitted documents, so the milestone cannot be deleted. Edit only its name and dates.
+- When automatic repository provisioning is enabled, you cannot delete the last milestone. Disable provisioning or create another milestone first.
+- For `제출 항목 이름을 입력해 주세요.`, name the empty item or remove it. If a template upload shows `파일 재선택 필요` (select the file again), upload it again.
+- If milestone dates will not save, check that the start is on or after the program start and the end is no later than the program end.
+</Recover>

@@ -1,0 +1,44 @@
+---
+title: Manage settings and deactivate your account
+description: Update your profile and notifications, or deactivate your account.
+sidebar:
+  order: 11
+---
+import { Steps } from '@astrojs/starlight/components';
+import Shot from '~/components/Shot.astro';
+import Success from '~/components/Success.astro';
+import Recover from '~/components/Recover.astro';
+import Verified from '~/components/Verified.astro';
+
+## Update your profile and notifications
+
+<Steps>
+1. Open `설정` (Settings) from the account menu at the top right.
+2. Update your name, phone number, and affiliation in your profile. Students cannot change their student number. The screen also says `학번은 변경할 수 없습니다.` (Your student number cannot be changed).
+3. Under `알림 수신` (Notifications), check `수신 이메일` (Recipient email) and turn on `마감 임박 알림 받기` (Receive approaching-deadline reminders) if you want them. It is off by default.
+4. Click `저장` (Save) at the bottom. `저장되었습니다.` (Saved) appears.
+</Steps>
+<Shot src="student/settings.webp" alt="Settings screen with profile, notifications, and account management sections." caption="Settings" />
+<Shot src="student/settings-notify.webp" alt="Notifications section with the recipient email and the Receive approaching-deadline reminders checkbox." caption="Notifications" />
+
+OSS Hub emails only reminders about approaching deadlines, and only to people who enable `마감 임박 알림 받기` (Receive approaching-deadline reminders). If you entered the wrong student number, contact an `관리자` (administrator). The correction process is not explained on screen. <Verified status="policy" />
+
+## Deactivate your account
+
+Deactivation logs you out immediately. You cannot use the service even if you sign in again. Only an `관리자` (administrator) can reactivate your account. Submission records and consent history are not deleted.
+
+<Steps>
+1. In `설정` (Settings), find `계정 관리` (Account management) and click `계정 비활성화` (Deactivate account).
+2. Read the notice in the `계정을 비활성화하시겠습니까?` (Deactivate your account?) dialog.
+3. Click ① `비활성화하고 로그아웃` (Deactivate and log out).
+</Steps>
+<Shot src="student/settings-account.webp" alt="Account management section with a Deactivate account button and a notice that deactivation logs you out immediately without deleting submissions or history." caption="Account management" />
+<Shot src="student/settings-deactivate-dialog.webp" alt="Deactivate your account confirmation dialog with Cancel and Deactivate and log out buttons. ① points to Deactivate and log out." caption="① Deactivate and log out" />
+
+<Success>
+The `계정이 비활성화되었습니다` (Account deactivated) screen appears. Use `홈으로 돌아가기` (Return home) to leave it.
+</Success>
+
+<Recover title="If you want to use your account again">
+Ask an `관리자` (administrator) to reactivate it. See the [Administrator guide](/oss-hub/en/admin/deactivate/) for the process.
+</Recover>

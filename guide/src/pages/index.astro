@@ -134,6 +134,7 @@ const nav = [
         <nav aria-label="주요 메뉴" class="menu">
           {nav.map(([label, href]) => <a href={href}>{label}</a>)}
         </nav>
+        <a href={`${base}/en/`} lang="en" hreflang="en" aria-label="English guide">English</a>
         <ThemeToggle />
         <details class="menu-m">
           <summary aria-label="메뉴">

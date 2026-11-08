@@ -11,7 +11,7 @@
 ## 설정 (`guide/astro.config.ts`)
 
 - `site: 'https://jnu-swcu.github.io'`, `base: '/oss-hub'`.
-- Starlight 제목 `OSS Hub 사용 가이드`, 기본 로케일 `ko`(root), GitHub 링크 `https://github.com/JNU-SWCU/oss-hub`.
+- 한국어 root와 영어 `en` 로케일, 언어별 제목·사이드바·링크는 [localization.md](localization.md)를 따른다. GitHub 링크는 `https://github.com/JNU-SWCU/oss-hub`.
 - 글꼴: Pretendard Variable 동적 서브셋을 jsDelivr `<link>`(preconnect `cdn.jsdelivr.net`, `orioncactus/pretendard@v1.3.9`)로 불러옵니다. 대체 글꼴에 Noto Sans KR을 둡니다.
 - `customCss`: `~/styles/tokens.css`, `~/styles/docs.css`. Footer는 `./src/components/Footer.astro`, ThemeSelect는 `./src/components/ThemeToggle.astro`로 덮어씁니다.
 - 사이드바 순서: 서비스 소개(`intro`), 시작하기(`start`), 관리자(`admin` 자동 생성), 학생(`student`), 교직원(`staff`), 자주 묻는 질문(`faq`).
@@ -26,6 +26,8 @@ guide/
   src/content/i18n/ko.json
   src/content/docs/{intro,start,faq}.mdx
   src/content/docs/{admin,student,staff}/index.mdx 와 작업별 mdx
+  src/content/docs/en/{index,intro,start,faq}.mdx
+  src/content/docs/en/{admin,student,staff}/index.mdx 와 대응 번역
   src/pages/index.astro       랜딩(src/assets/shots/landing/*.webp 사용)
   src/components/{Shot,Success,Recover,Verified,Footer,SiteNote}.astro
   src/styles/{tokens,docs}.css

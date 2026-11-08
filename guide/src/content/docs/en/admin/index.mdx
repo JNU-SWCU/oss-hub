@@ -1,0 +1,51 @@
+---
+title: Administrator guide
+description: What administrators do and where to find instructions for each task.
+sidebar:
+  label: Overview
+  order: 0
+---
+import { Steps } from '@astrojs/starlight/components';
+import Verified from '~/components/Verified.astro';
+
+An `관리자` (administrator) manages OSS Hub account access and status, checks service health, and handles staff access requests. Program management screens require approved `교직원` (staff) access. Administrator access alone does not open them.
+
+## What administrators do
+
+| Task | Why it matters |
+| --- | --- |
+| Approve or reject staff access requests | Only approved accounts can use staff screens. |
+| Reset registration, change administrator access, and change account status | Correct a mistaken registration or deactivate an account when needed. |
+| Review the audit log | Check who changed what and when. |
+| Check system status | See whether GitHub activity collection has stopped. |
+
+## Get started in five minutes
+
+<Steps>
+1. Sign in with GitHub. An account with administrator access displays `관리자` (Administrator) at the top.
+2. Click `대시보드` (Dashboard) at the top. Administrator-only accounts open `사용자 목록` (User list). See [Your first visit](/oss-hub/en/admin/first-entry/) for the differences.
+3. Open `가입 신청` (Registration requests) in the left-hand `관리자` (Administrator) section and check for pending requests.
+4. In `사용자 목록` (User list), check each account's membership type, administrator access, and account status.
+5. Check whether the collection status in `시스템 상태` (System status) is `정상` (Healthy). If not, follow [Check system status](/oss-hub/en/admin/system-status/) to investigate.
+</Steps>
+
+The first administrator account cannot be created through the interface. The operator who installs the server specifies that account in the server configuration; it receives the administrator role on its first sign-in. This does not apply to an account that already has permissions. If there is no first administrator, ask the operator to designate one. After that, use [Reset registration and change administrator access](/oss-hub/en/admin/change-role/) to appoint other administrators.
+
+## Find a task
+
+- [Your first visit](/oss-hub/en/admin/first-entry/): Where to start after signing in and how to enter program management.
+- [Handle staff access requests](/oss-hub/en/admin/applicants/): Approve or reject requests in `가입 신청` (Registration requests).
+- [Find users](/oss-hub/en/admin/find-users/): Search, filter, and read the user table.
+- [Reset registration and change administrator access](/oss-hub/en/admin/change-role/): Reset registration, change administrator access, and resolve blocked changes.
+- [Deactivate and reactivate accounts](/oss-hub/en/admin/deactivate/): Disable an account and restore it.
+- [View the audit log](/oss-hub/en/admin/audit-log/): Find administrative action history.
+- [Check system status](/oss-hub/en/admin/system-status/): Read collection status and use `지금 수집 실행` (Run collection now).
+- [View student engagement](/oss-hub/en/admin/insights/): Approved staff can review activity and participation by major.
+- [Delete a program](/oss-hub/en/admin/delete-program/): Hide a program from listings and clean up its files.
+- [My settings and notifications](/oss-hub/en/admin/my-settings/): Set notification preferences and deactivate your own account.
+
+## Common distinctions
+
+`가입 신청` (Registration requests) handles requests for the `교직원` (Staff) role. It is not where you review students applying to programs. Review program applicants in the program's `팀 관리` (Team management) screen.
+
+Staff permissions are not assigned per program. Approved staff can open management screens for every program. Accounts with administrator access alone cannot. <Verified status="policy" />
