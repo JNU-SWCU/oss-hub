@@ -1,6 +1,3 @@
-<!-- 이 형식의 원본은 skills/submit-pr-evidence/SKILL.md다 — PR을 열기 전에 그 스킬 절차를 먼저 수행한다. -->
-<!-- 공통 글쓰기 원칙: [readability.md](../skills/submit-pr-evidence/references/readability.md). -->
-
 Closes #<번호>
 <!-- 이슈 완료 조건을 이번 PR이 모두 채웠으면 `Closes #<번호>`.
      증거 있는 PR 범위는 병합 가능하지만 이슈 의무가 남으면 `Refs #<번호>`.
@@ -27,7 +24,6 @@ https://jnu-oss-hub.com/<path> · <페르소나> · <확인 시각>
 ## Before / After
 
 <!-- UI·browser 동작이나 API 응답을 소비하는 화면에 증거가 적용되면 채운다.
-     적용 범위는 submit-pr-evidence의 증거 계약을 따른다.
      시각 변경은 요소 행이 먼저고 필수다 — 바뀐 컴포넌트마다 한 행.
      Before/After는 같은 selector로 찍는다. 티켓에 `현재 화면` selector가 있으면 그대로 재사용한다.
      전체 화면 두 장은 표 안이 아니라 표 아래에 링크로 둔다.
@@ -59,25 +55,10 @@ After 전체 화면: [desktop 1440x900](<url>) · [390x844](<url>)
 | 이상했던 점 | 왜 문제인가 | 어떻게 고쳤나 |
 | --- | --- | --- |
 
-## UX 안티패턴 점검
-
-<!-- skills/submit-pr-evidence/references/ux-antipatterns.md의 스물네 줄 판정 표 형식 그대로 채운다. AP-21~24를 포함한다.
-     표는 <details> 안에 둔다. summary와 표 사이 빈 줄은 없어도 된다.
-     해당 없으면 이 절 본문을 `UX 안티패턴 해당 없음 — <이유>`로 바꾼다. 그 줄은 <details> 밖에 둔다. -->
-
-<details><summary>스물네 줄 판정 표</summary>
-
-<판정 표>
-
-</details>
-
-이 화면에서 특히 지켜야 하는 항목: <번호와 이유 한 문장>
-
 ## 흐름 다이어그램
 
 <!-- backend 로직(분기·상태 전이·인가 경로·재시도 처리·호출 순서·계층 경계)을 바꿨을 때만 채운다.
      첫 다이어그램은 high level(입구 → 판단 → 결과, 노드 8개 이하)로, 상세는 <details> 안에 둔다.
-     기준은 skills/submit-pr-evidence/references/backend-diagram.md가 원본이다.
      해당 없으면 이 절 본문을 `흐름 다이어그램 없음 — <이유>`로 바꾼다. -->
 
 ```mermaid
@@ -115,4 +96,3 @@ flowchart LR
 - 디자인 규격: <쓴 공용 컴포넌트·토큰과 그 규격 출처(공용 컴포넌트 경로, docs/design-tokens/tokens.json 또는 Figma 컴포넌트 링크) / 화면 변경 없음 — 이유>
 - [ ] 로컬 커밋을 전부 push했다
 - [ ] `bash .github/check-public-safe.sh`를 통과했고 본문·캡처에 실명·비밀값·내부 호스트·로컬 경로가 없다
-- [ ] submit-pr-evidence 절차를 수행했다
