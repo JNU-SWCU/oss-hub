@@ -35,6 +35,10 @@ function fixture(t) {
   );
   mkdirSync(previous);
   writeFileSync(join(previous, 'migration.sql'), sql);
+  const laterId = '20261111170200_later';
+  const later = join(root, 'apps/backend/prisma/migrations', laterId);
+  mkdirSync(later);
+  writeFileSync(join(later, 'migration.sql'), sql);
   const manifest = {
     version: 1,
     migrationId,
@@ -87,7 +91,7 @@ function fixture(t) {
         },
       },
     );
-  return { root, artifacts, manifest, run, detect };
+  return { root, artifacts, manifest, laterId, run, detect };
 }
 
 test('release artifacts reject changed rollback bytes before any receipt exists', (t) => {
@@ -130,8 +134,11 @@ for (const scenario of [
   'unfinished',
   'changed',
   'duplicate',
+  'later-rolled-back',
+  'later-retried',
+  'later-hole',
 ]) {
-  test(`migration dispatch is fail closed for the ${scenario} ledger`, (t) => {
+  test(`migration dispatch classifies the ${scenario} ledger`, (t) => {
     const f = fixture(t);
     const row = {
       migration_name: f.manifest.previousMigrationId,
@@ -188,20 +195,57 @@ for (const scenario of [
       case 'duplicate':
         rows.push({ ...row });
         break;
+      case 'later-rolled-back':
+        rows.push({ ...row, migration_name: f.manifest.migrationId });
+        rows.push({
+          ...row,
+          migration_name: f.laterId,
+          finished_at: null,
+          rolled_back_at: 'resolved',
+        });
+        break;
+      case 'later-retried':
+        rows.push({ ...row, migration_name: f.manifest.migrationId });
+        rows.push({
+          ...row,
+          migration_name: f.laterId,
+          finished_at: null,
+          rolled_back_at: 'resolved',
+        });
+        rows.push({ ...row, migration_name: f.laterId });
+        break;
+      case 'later-hole':
+        rows.push({
+          ...row,
+          migration_name: f.manifest.migrationId,
+          finished_at: null,
+          rolled_back_at: 'resolved',
+        });
+        rows.push({ ...row, migration_name: f.laterId });
+        break;
       default:
         assert.fail('unknown fixture');
     }
     const result = f.detect(rows);
     if (
-      ['pending', 'applied', 'resolved-pending', 'resolved-applied'].includes(
-        scenario,
-      )
+      [
+        'applied',
+        'resolved-applied',
+        'later-rolled-back',
+        'later-retried',
+      ].includes(scenario)
     ) {
       assert.equal(result.status, 0, result.stderr);
-      assert.equal(
-        result.stdout.trim(),
-        scenario.endsWith('pending') ? 'required' : 'ordinary',
-      );
+      assert.equal(result.stdout.trim(), 'ordinary');
+    } else if (['pending', 'resolved-pending'].includes(scenario)) {
+      assert.equal(result.status, 0, result.stderr);
+      assert.equal(result.stdout.trim(), 'required');
+    } else if (scenario === 'later-hole') {
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /noncontiguous-migration-ledger/);
+    } else if (scenario === 'resolved-unrelated') {
+      assert.equal(result.status, 1, result.stderr);
+      assert.match(result.stderr, /unexpected-old-schema/);
     } else {
       assert.equal(result.status, 1, result.stderr);
       assert.match(result.stderr, /unknown-migration-ledger/);

@@ -1,8 +1,7 @@
-BEGIN;
 SET LOCAL TIME ZONE 'UTC';
 -- New tables only. No statement here locks "Team", "User", or "Program".
--- The Team foreign key and "Team"."archivedAt" are later migrations, each one
--- statement, so a lock timeout is the error Prisma prints.
+-- Prisma wraps this file in one transaction. An inner COMMIT would hide a
+-- failed statement behind "current transaction is aborted".
 
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
@@ -56,5 +55,3 @@ CREATE TABLE "github_user_activity_history" (
   "observed_at" TIMESTAMPTZ(3) NOT NULL,
   CONSTRAINT "github_user_activity_history_pkey" PRIMARY KEY ("github_id", "year", "visibility", "observed_at")
 );
-
-COMMIT;

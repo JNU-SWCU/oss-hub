@@ -162,12 +162,8 @@ function main() {
             hash(join(migrations, row.migration_name, 'migration.sql'))
         )
           fail('unknown-migration-ledger');
-        if (
-          row.migration_name === expected.migrationId &&
-          row.finished_at === null &&
-          row.rolled_back_at !== null
-        )
-          continue;
+        // Prisma keeps a rolled-back attempt. The finished row, or its absence, is the position.
+        if (row.finished_at === null && row.rolled_back_at !== null) continue;
         if (
           applied.has(row.migration_name) ||
           row.finished_at === null ||

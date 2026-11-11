@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Inspect failed Prisma migrations. The default is read-only.
-# --apply marks a lock-timeout failure rolled back and checks the schema
-# fingerprint when SCHEMA_FINGERPRINT_BEFORE is set. Other failures are never
-# resolved here.
+# --apply marks a lock-timeout failure rolled back. SCHEMA_FINGERPRINT_BEFORE
+# is the schema after the failed deploy and before resolve. Other failures
+# are never resolved here.
 set -euo pipefail
 
 common="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/prisma-migrate-common.sh"
@@ -86,4 +86,4 @@ if [[ "$(printf '%s\n' "$confirmed" | sed -n '1p')" != "none" ]]; then
   printf 'migration %s is still failed after resolve\n' "$name" >&2
   exit 1
 fi
-printf 'resolved %s. schema fingerprint unchanged.\n' "$name"
+printf 'resolved %s. resolve left the schema unchanged. migrations that committed before this failure stay applied.\n' "$name"

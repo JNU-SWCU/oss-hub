@@ -35,7 +35,6 @@ node_helper() {
   fi
 }
 
-before="$(node_helper fingerprint | tr -d '[:space:]')"
 set +e
 log="$(run npx prisma migrate deploy 2>&1)"
 status=$?
@@ -53,7 +52,9 @@ if [[ "$kind" != "lock_timeout" ]]; then
   exit 1
 fi
 
-export SCHEMA_FINGERPRINT_BEFORE="$before"
+# Earlier migrations in this deploy may already be committed. Compare resolve
+# with the schema after that failure, not with the schema before the deploy.
+export SCHEMA_FINGERPRINT_BEFORE="$(node_helper fingerprint | tr -d '[:space:]')"
 recover="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/prisma-migrate-recover.sh"
 if [[ ${#prefix[@]} -gt 0 ]]; then
   bash "$recover" --apply -- "${prefix[@]}"
