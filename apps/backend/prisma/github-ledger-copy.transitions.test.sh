@@ -260,6 +260,33 @@ run_copy() {
   return 1
 }
 
+run_copy_with_setup() {
+  local engine_name="$1"
+  local setup="$2"
+  local err_file combined split_sql
+  err_file="$(mktemp)"
+  combined="$(mktemp)"
+  {
+    printf '%s\n' 'BEGIN;'
+    printf '%s\n' "$setup"
+    if [ "$engine_name" = "file" ]; then
+      cat "$copy_sql"
+    else
+      split_sql="$(mktemp)"
+      node "$split_runner" "$copy_sql" >"$split_sql"
+      tail -n +2 "$split_sql"
+      rm -f "$split_sql"
+    fi
+  } >"$combined"
+  if psql_file "$combined" >"$err_file" 2>&1; then
+    rm -f "$err_file" "$combined"
+    return 0
+  fi
+  tr '\n' ' ' <"$err_file"
+  rm -f "$err_file" "$combined"
+  return 1
+}
+
 copy_or_die() {
   local engine_name="$1"
   local label="$2"
@@ -551,6 +578,52 @@ SQL
     exit 1
   fi
   echo "PASS ${engine_name} archived_future_period"
+
+  reset_db
+  rounded_ok=0
+  for _attempt in $(seq 1 40); do
+    if rounded="$(run_copy_with_setup "$engine_name" "
+DO \$\$
+BEGIN
+  IF (EXTRACT(MICROSECONDS FROM transaction_timestamp())::bigint % 1000) NOT BETWEEN 1 AND 499 THEN
+    RAISE EXCEPTION 'retry_window';
+  END IF;
+END \$\$;
+INSERT INTO \"Team\" (id, \"archivedAt\") VALUES ('team-x', '2000-01-01 00:00:00+00');
+INSERT INTO \"GithubRepository\" (\"id\", \"githubRepositoryId\", \"nameWithOwner\", \"source\", \"presence\", \"teamId\", \"createdAt\", \"updatedAt\")
+VALUES ('r', 501, 'synthetic/501', 'ORG_PROVISIONED', 'PRESENT', 'team-x', '2020-01-01 00:00:00+00', '2020-01-01 00:00:00+00');
+INSERT INTO repo (github_repo_id, owner_name, source)
+VALUES (501, 'synthetic/501', 'ORG_PROVISIONED');
+INSERT INTO team_repo (team_id, repo_id, valid_from)
+VALUES ('team-x', 501, date_trunc('milliseconds', transaction_timestamp()));
+")"; then
+      rounded_ok=1
+      break
+    fi
+    case "$rounded" in
+      *retry_window*) ;;
+      *)
+        echo "FAIL ${engine_name} archived_same_millisecond: ${rounded}" >&2
+        exit 1
+        ;;
+    esac
+  done
+  if [ "$rounded_ok" -ne 1 ]; then
+    echo "FAIL ${engine_name} archived_same_millisecond: did not enter the rounding window" >&2
+    exit 1
+  fi
+  rounded="$(psql_db -At -c "SELECT (count(*) FILTER (WHERE valid_to IS NULL) = 0 AND bool_and(valid_to = valid_from + interval '1 millisecond'))::text FROM team_repo;")"
+  if [ "$rounded" != "true" ]; then
+    echo "FAIL ${engine_name} archived_same_millisecond: $(periods)" >&2
+    exit 1
+  fi
+  before="$(digest)"
+  copy_or_die "$engine_name" archived_same_millisecond
+  if [ "$before" != "$(digest)" ]; then
+    echo "FAIL ${engine_name} archived_same_millisecond: second copy changed the ledger" >&2
+    exit 1
+  fi
+  echo "PASS ${engine_name} archived_same_millisecond"
 
   reset_db
   psql_db >/dev/null <<SQL

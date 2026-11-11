@@ -28,8 +28,8 @@ BEGIN
             THEN COALESCE(prior."valid_to", repository."createdAt")
             WHEN repository."updatedAt" > predecessor."valid_from"
             THEN repository."updatedAt"
-            WHEN transaction_timestamp() > predecessor."valid_from"
-            THEN transaction_timestamp()
+            WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
+            THEN transaction_timestamp()::timestamptz(3)
             ELSE predecessor."valid_from" + interval '1 millisecond'
           END,
           (
@@ -39,14 +39,14 @@ BEGIN
                   AND old_team."archivedAt" > open_own."valid_from"
                 THEN old_team."archivedAt"
                 WHEN old_team."archivedAt" IS NOT NULL
-                  AND transaction_timestamp() > open_own."valid_from"
-                THEN transaction_timestamp()
+                  AND transaction_timestamp()::timestamptz(3) > open_own."valid_from"
+                THEN transaction_timestamp()::timestamptz(3)
                 WHEN old_team."archivedAt" IS NOT NULL
                 THEN open_own."valid_from" + interval '1 millisecond'
                 WHEN repository."updatedAt" > open_own."valid_from"
                 THEN repository."updatedAt"
                 ELSE GREATEST(
-                  transaction_timestamp(),
+                  transaction_timestamp()::timestamptz(3),
                   open_own."valid_from" + interval '1 millisecond'
                 )
               END
@@ -97,8 +97,8 @@ BEGIN
             AND link_team."archivedAt" > link."valid_from"
           THEN link_team."archivedAt"
           WHEN link_team."archivedAt" IS NOT NULL
-            AND transaction_timestamp() > link."valid_from"
-          THEN transaction_timestamp()
+            AND transaction_timestamp()::timestamptz(3) > link."valid_from"
+          THEN transaction_timestamp()::timestamptz(3)
           WHEN link_team."archivedAt" IS NOT NULL
           THEN link."valid_from" + interval '1 millisecond'
           WHEN repository."githubRepositoryId" IS NOT NULL
@@ -127,7 +127,7 @@ BEGIN
                 AND opened."valid_from" > link."valid_from"
             ),
             GREATEST(
-              transaction_timestamp(),
+              transaction_timestamp()::timestamptz(3),
               link."valid_from" + interval '1 millisecond'
             )
           )
@@ -229,8 +229,8 @@ SELECT
       THEN COALESCE(prior."valid_to", repository."createdAt")
       WHEN repository."updatedAt" > predecessor."valid_from"
       THEN repository."updatedAt"
-      WHEN transaction_timestamp() > predecessor."valid_from"
-      THEN transaction_timestamp()
+      WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
+      THEN transaction_timestamp()::timestamptz(3)
       ELSE predecessor."valid_from" + interval '1 millisecond'
     END,
     (
@@ -240,14 +240,14 @@ SELECT
             AND old_team."archivedAt" > open_own."valid_from"
           THEN old_team."archivedAt"
           WHEN old_team."archivedAt" IS NOT NULL
-            AND transaction_timestamp() > open_own."valid_from"
-          THEN transaction_timestamp()
+            AND transaction_timestamp()::timestamptz(3) > open_own."valid_from"
+          THEN transaction_timestamp()::timestamptz(3)
           WHEN old_team."archivedAt" IS NOT NULL
           THEN open_own."valid_from" + interval '1 millisecond'
           WHEN repository."updatedAt" > open_own."valid_from"
           THEN repository."updatedAt"
           ELSE GREATEST(
-            transaction_timestamp(),
+            transaction_timestamp()::timestamptz(3),
             open_own."valid_from" + interval '1 millisecond'
           )
         END
@@ -291,8 +291,8 @@ FROM (
         AND link_team."archivedAt" > open_link."valid_from"
       THEN link_team."archivedAt"
       WHEN link_team."archivedAt" IS NOT NULL
-        AND transaction_timestamp() > open_link."valid_from"
-      THEN transaction_timestamp()
+        AND transaction_timestamp()::timestamptz(3) > open_link."valid_from"
+      THEN transaction_timestamp()::timestamptz(3)
       WHEN link_team."archivedAt" IS NOT NULL
       THEN open_link."valid_from" + interval '1 millisecond'
       WHEN repository."githubRepositoryId" IS NOT NULL
@@ -323,7 +323,7 @@ FROM (
             AND attachment.attached_at > open_link."valid_from"
         ),
         GREATEST(
-          transaction_timestamp(),
+          transaction_timestamp()::timestamptz(3),
           open_link."valid_from" + interval '1 millisecond'
         )
       )
