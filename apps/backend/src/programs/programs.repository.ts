@@ -505,7 +505,7 @@ export class ProgramsRepository {
     if (programIds.length === 0) return new Map();
     const rows = await this.prisma.team.groupBy({
       by: ['programId', 'status'],
-      where: { programId: { in: [...programIds] } },
+      where: { programId: { in: [...programIds] }, archivedAt: null },
       _count: { _all: true },
     });
     const counts = new Map<

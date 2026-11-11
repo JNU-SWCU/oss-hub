@@ -407,6 +407,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
           where: {
             programId: programFilter,
             status: ApplicationStatus.APPROVED,
+            archivedAt: null,
           },
           select: dashboardApplicationSelect,
         }),
@@ -427,6 +428,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
               is: {
                 programId: programFilter,
                 status: ApplicationStatus.APPROVED,
+                archivedAt: null,
               },
             },
             requirement: {

@@ -318,7 +318,7 @@ export class RequirementCollectionReadStoreRepository {
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
     const applications = await this.transaction.team.findMany({
-      where: { programId, status: 'APPROVED' },
+      where: { programId, status: 'APPROVED', archivedAt: null },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
@@ -1807,6 +1807,7 @@ export class RequirementsRepository {
         SELECT "id", "status"
         FROM "Team"
         WHERE "programId" = ${programId}
+          AND "archivedAt" IS NULL
         ORDER BY "id"
         FOR SHARE
       `);

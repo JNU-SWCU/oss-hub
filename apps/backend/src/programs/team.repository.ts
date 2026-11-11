@@ -970,7 +970,10 @@ export class ApplicationsRepository {
 
     const counts = await this.prisma.team.groupBy({
       by: ['programId', 'status'],
-      where: { programId: { in: programs.map((program) => program.id) } },
+      where: {
+        programId: { in: programs.map((program) => program.id) },
+        archivedAt: null,
+      },
       _count: { _all: true },
     });
 
