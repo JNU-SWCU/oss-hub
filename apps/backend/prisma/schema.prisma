@@ -1181,7 +1181,7 @@ model Repo {
   @@map("repo")
 }
 
-/// One repository belongs to one team at a time. The exclusion constraint is SQL-only.
+/// One team and one repository in any overlapping period. Both exclusion constraints are SQL-only.
 model TeamRepo {
   teamId    String                   @map("team_id")
   team      Team                     @relation(fields: [teamId], references: [id])

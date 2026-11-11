@@ -1,6 +1,117 @@
 BEGIN;
 SET LOCAL TIME ZONE 'UTC';
 
+DO $guard$
+DECLARE
+  overlapping_teams bigint;
+  overlapping_team_rows bigint;
+  overlapping_repos bigint;
+  overlapping_repo_rows bigint;
+BEGIN
+  SELECT teams, team_rows, repos, repo_rows
+  INTO overlapping_teams, overlapping_team_rows, overlapping_repos, overlapping_repo_rows
+  FROM (
+    -- begin-overlap
+    WITH closed_link AS (
+      SELECT
+        link."team_id",
+        link."repo_id",
+        link."valid_from",
+        CASE
+          WHEN link."valid_to" IS NULL
+            AND repository."githubRepositoryId" IS NOT NULL
+            AND repository."updatedAt" > link."valid_from"
+            AND (
+              repository."teamId" IS NULL
+              OR repository."teamId" IS DISTINCT FROM link."team_id"
+            )
+          THEN repository."updatedAt"
+          ELSE link."valid_to"
+        END AS "valid_to"
+      FROM "team_repo" AS link
+      LEFT JOIN "GithubRepository" AS repository
+        ON repository."githubRepositoryId" = link."repo_id"
+    ),
+    new_link AS (
+      SELECT
+        repository."teamId" AS "team_id",
+        repository."githubRepositoryId" AS "repo_id",
+        COALESCE(
+          (
+            SELECT MAX(closed."valid_to")
+            FROM closed_link AS closed
+            WHERE closed."repo_id" = repository."githubRepositoryId"
+          ),
+          repository."createdAt"
+        ) AS "valid_from",
+        NULL::timestamptz AS "valid_to"
+      FROM "GithubRepository" AS repository
+      WHERE repository."teamId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM closed_link AS closed
+          WHERE closed."repo_id" = repository."githubRepositoryId"
+            AND closed."valid_to" IS NULL
+        )
+    ),
+    prospective AS (
+      SELECT
+        closed."team_id",
+        closed."repo_id",
+        tstzrange(closed."valid_from", closed."valid_to", '[)') AS period
+      FROM closed_link AS closed
+      UNION ALL
+      SELECT
+        opened."team_id",
+        opened."repo_id",
+        tstzrange(opened."valid_from", opened."valid_to", '[)') AS period
+      FROM new_link AS opened
+    ),
+    team_hit AS (
+      SELECT link."team_id", link."repo_id"
+      FROM prospective AS link
+      JOIN prospective AS other
+        ON other."team_id" = link."team_id"
+       AND other."repo_id" <> link."repo_id"
+       AND other.period && link.period
+    ),
+    repo_hit AS (
+      SELECT link."repo_id", link."team_id"
+      FROM prospective AS link
+      JOIN prospective AS other
+        ON other."repo_id" = link."repo_id"
+       AND other."team_id" <> link."team_id"
+       AND other.period && link.period
+    )
+    SELECT
+      (SELECT COUNT(DISTINCT hit."team_id") FROM team_hit AS hit) AS teams,
+      (
+        SELECT COUNT(*)
+        FROM (SELECT DISTINCT hit."team_id", hit."repo_id" FROM team_hit AS hit) AS distinct_hit
+      ) AS team_rows,
+      (SELECT COUNT(DISTINCT hit."repo_id") FROM repo_hit AS hit) AS repos,
+      (
+        SELECT COUNT(*)
+        FROM (SELECT DISTINCT hit."repo_id", hit."team_id" FROM repo_hit AS hit) AS distinct_hit
+      ) AS repo_rows
+    -- end-overlap
+  ) AS overlap;
+
+  IF overlapping_teams > 0
+    OR overlapping_team_rows > 0
+    OR overlapping_repos > 0
+    OR overlapping_repo_rows > 0
+  THEN
+    RAISE EXCEPTION
+      'ledger copy refused overlapping_teams=% overlapping_team_rows=% overlapping_repos=% overlapping_repo_rows=%',
+      overlapping_teams,
+      overlapping_team_rows,
+      overlapping_repos,
+      overlapping_repo_rows;
+  END IF;
+END
+$guard$;
+
 INSERT INTO "repo" ("github_repo_id", "owner_name", "source", "gone_at")
 SELECT
   repository."githubRepositoryId",

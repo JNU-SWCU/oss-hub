@@ -23,7 +23,8 @@ CREATE TABLE "team_repo" (
   CONSTRAINT "team_repo_valid_order" CHECK ("valid_to" IS NULL OR "valid_from" < "valid_to"),
   CONSTRAINT "team_repo_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "team_repo_repo_id_fkey" FOREIGN KEY ("repo_id") REFERENCES "repo"("github_repo_id") ON DELETE RESTRICT ON UPDATE CASCADE,
-  CONSTRAINT "team_repo_repo_id_period_excl" EXCLUDE USING gist ("repo_id" WITH =, "period" WITH &&)
+  CONSTRAINT "team_repo_repo_id_period_excl" EXCLUDE USING gist ("repo_id" WITH =, "period" WITH &&),
+  CONSTRAINT "team_repo_team_id_period_excl" EXCLUDE USING gist ("team_id" WITH =, "period" WITH &&)
 );
 
 CREATE TYPE "contribution_kind" AS ENUM ('commit', 'pull_request', 'issue', 'release');

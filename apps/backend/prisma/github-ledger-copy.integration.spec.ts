@@ -12,6 +12,14 @@ const PREFIX = 'ledger-copy-';
 const GITHUB_ID = 9_811_000_001n;
 const REPO_GITHUB_ID = 9_811_100_001n;
 const ABSENT_REPO_GITHUB_ID = 9_811_100_002n;
+const MOVE_REPO_GITHUB_ID = 9_811_100_003n;
+const VIOLATION_REPO_GITHUB_ID = 9_811_100_004n;
+const LEDGER_REPO_IDS = [
+  REPO_GITHUB_ID,
+  ABSENT_REPO_GITHUB_ID,
+  MOVE_REPO_GITHUB_ID,
+  VIOLATION_REPO_GITHUB_ID,
+];
 const COPY_SQL = readFileSync(
   resolve(__dirname, 'github-ledger-copy.sql'),
   'utf8',
@@ -29,20 +37,100 @@ type ReportRow = {
   readonly actual: bigint;
 };
 
-const statements = (sql: string): string[] =>
-  sql
-    .split(/;\s*(?:\n|$)/)
-    .map((statement) =>
-      statement
-        .split('\n')
-        .filter((line) => !line.trim().startsWith('--'))
-        .join('\n')
-        .trim(),
-    )
-    .filter(
-      (statement) =>
-        statement !== '' && statement !== 'BEGIN' && statement !== 'COMMIT',
-    );
+const statements = (sql: string): string[] => {
+  const stripped = sql
+    .split('\n')
+    .filter((line) => !line.trim().startsWith('--'))
+    .join('\n');
+  const parts: string[] = [];
+  let current = '';
+  let fence: string | null = null;
+  let inString = false;
+  for (let index = 0; index < stripped.length; index += 1) {
+    const rest = stripped.slice(index);
+    if (fence) {
+      if (rest.startsWith(fence)) {
+        current += fence;
+        index += fence.length - 1;
+        fence = null;
+        continue;
+      }
+      current += stripped[index];
+      continue;
+    }
+    if (inString) {
+      current += stripped[index];
+      if (stripped[index] === "'" && stripped[index + 1] === "'") {
+        current += "'";
+        index += 1;
+        continue;
+      }
+      if (stripped[index] === "'") inString = false;
+      continue;
+    }
+    const marker = /^\$[A-Za-z0-9_]*\$/.exec(rest);
+    if (marker) {
+      fence = marker[0];
+      current += fence;
+      index += fence.length - 1;
+      continue;
+    }
+    if (stripped[index] === "'") {
+      inString = true;
+      current += "'";
+      continue;
+    }
+    if (stripped[index] === ';') {
+      const statement = current.trim();
+      if (statement !== '' && statement !== 'BEGIN' && statement !== 'COMMIT') {
+        parts.push(statement);
+      }
+      current = '';
+      continue;
+    }
+    current += stripped[index];
+  }
+  const tail = current.trim();
+  if (tail !== '' && tail !== 'BEGIN' && tail !== 'COMMIT') parts.push(tail);
+  return parts;
+};
+
+type OverlapCounts = {
+  readonly teams: bigint;
+  readonly team_rows: bigint;
+  readonly repos: bigint;
+  readonly repo_rows: bigint;
+};
+
+const overlapCounts = async (): Promise<OverlapCounts> => {
+  const query = COPY_SQL.match(
+    /-- begin-overlap\n([\s\S]*?)\n\s*-- end-overlap/,
+  );
+  const sql = query?.[1]?.trim();
+  if (!sql) throw new Error('overlap query markers missing');
+  const rows = await prisma.$queryRawUnsafe<OverlapCounts[]>(sql);
+  const row = rows[0];
+  if (!row) throw new Error('overlap query returned no row');
+  return row;
+};
+
+const shadowTotals = async (): Promise<{
+  readonly repo: bigint;
+  readonly team_repo: bigint;
+  readonly contribution: bigint;
+}> => {
+  const rows = await prisma.$queryRaw<
+    Array<{ repo: bigint; team_repo: bigint; contribution: bigint }>
+  >`
+    SELECT
+      (SELECT COUNT(*) FROM "repo") AS repo,
+      (SELECT COUNT(*) FROM "team_repo") AS team_repo,
+      (SELECT COUNT(*) FROM "contribution") AS contribution
+  `;
+  const row = rows[0];
+  if (!row) throw new Error('shadow totals returned no row');
+  return row;
+};
 
 const copyLedger = async (): Promise<void> => {
   await prisma.$transaction(async (tx) => {
@@ -73,6 +161,18 @@ describe('github ledger shadow copy', () => {
 
     await clean();
     await seed();
+    if (
+      (await prisma.githubRepository.count({
+        where: { githubRepositoryId: { notIn: [...LEDGER_REPO_IDS] } },
+      })) === 0
+    ) {
+      expect(await overlapCounts()).toEqual({
+        teams: 0n,
+        team_rows: 0n,
+        repos: 0n,
+        repo_rows: 0n,
+      });
+    }
 
     const derivedBefore = await prisma.contribution.count({
       where: { repository: { githubRepositoryId: REPO_GITHUB_ID } },
@@ -169,6 +269,108 @@ describe('github ledger shadow copy', () => {
       code: 'P2010',
       meta: { code: '23P01' },
     });
+  });
+
+  it('rejects two open repositories for one team and allows a move onto the next period', async () => {
+    await clean();
+    await seed();
+    const teamId = `${PREFIX}team`;
+    await prisma.$executeRaw`
+      INSERT INTO "repo" ("github_repo_id", "owner_name", "source")
+      VALUES
+        (${REPO_GITHUB_ID}, 'synthetic/ledger', 'ORG_PROVISIONED'::"RepositorySource"),
+        (${MOVE_REPO_GITHUB_ID}, 'synthetic/move', 'ORG_PROVISIONED'::"RepositorySource")
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
+      VALUES (${teamId}, ${REPO_GITHUB_ID}, ${new Date('2026-10-01T00:00:00.000Z')})
+    `;
+    await expect(
+      prisma.$executeRaw`
+        INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
+        VALUES (${teamId}, ${MOVE_REPO_GITHUB_ID}, ${new Date('2026-10-15T00:00:00.000Z')})
+      `,
+    ).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { code: '23P01' },
+    });
+
+    await prisma.$executeRaw`
+      UPDATE "team_repo"
+      SET "valid_to" = ${new Date('2026-11-01T00:00:00.000Z')}
+      WHERE "team_id" = ${teamId}
+        AND "repo_id" = ${REPO_GITHUB_ID}
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
+      VALUES (${teamId}, ${MOVE_REPO_GITHUB_ID}, ${new Date('2026-11-01T00:00:00.000Z')})
+    `;
+    const links = await prisma.$queryRaw<Array<{ repo_id: bigint }>>`
+      SELECT "repo_id"
+      FROM "team_repo"
+      WHERE "team_id" = ${teamId}
+      ORDER BY "valid_from"
+    `;
+    expect(links.map((link) => link.repo_id)).toEqual([
+      REPO_GITHUB_ID,
+      MOVE_REPO_GITHUB_ID,
+    ]);
+  });
+
+  it('stops the copy and writes nothing when a team period would overlap', async () => {
+    await clean();
+    await seed();
+    const teamId = `${PREFIX}team`;
+    await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId: VIOLATION_REPO_GITHUB_ID,
+        nameWithOwner: 'synthetic/previous',
+        source: 'ORG_PROVISIONED',
+        createdAt: new Date('2026-09-01T00:00:00.000Z'),
+      },
+    });
+    await prisma.$executeRaw`
+      UPDATE "GithubRepository"
+      SET "updatedAt" = ${new Date('2026-11-01T00:00:00.000Z')}
+      WHERE "githubRepositoryId" = ${VIOLATION_REPO_GITHUB_ID}
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO "repo" ("github_repo_id", "owner_name", "source")
+      VALUES (
+        ${VIOLATION_REPO_GITHUB_ID},
+        'synthetic/previous',
+        'ORG_PROVISIONED'::"RepositorySource"
+      )
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
+      VALUES (${teamId}, ${VIOLATION_REPO_GITHUB_ID}, ${new Date('2026-09-01T00:00:00.000Z')})
+    `;
+    const counts = await overlapCounts();
+    if (
+      (await prisma.githubRepository.count({
+        where: { githubRepositoryId: { notIn: [...LEDGER_REPO_IDS] } },
+      })) === 0
+    ) {
+      expect(counts).toEqual({
+        teams: 1n,
+        team_rows: 2n,
+        repos: 0n,
+        repo_rows: 0n,
+      });
+    }
+    const before = await shadowTotals();
+    let detail = '';
+    try {
+      await copyLedger();
+    } catch (error) {
+      detail = `${error instanceof Error ? error.message : ''} ${JSON.stringify(error)}`;
+    }
+    expect(detail).toContain(`overlapping_teams=${counts.teams}`);
+    expect(detail).toContain(`overlapping_team_rows=${counts.team_rows}`);
+    expect(detail).toContain(`overlapping_repos=${counts.repos}`);
+    expect(detail).toContain(`overlapping_repo_rows=${counts.repo_rows}`);
+    expect(await shadowTotals()).toEqual(before);
   });
 });
 
@@ -328,15 +530,15 @@ async function clean(): Promise<void> {
   if (ledger[0]?.ready) {
     await prisma.$executeRaw`
       DELETE FROM "contribution"
-      WHERE "repo_id" IN (${REPO_GITHUB_ID}, ${ABSENT_REPO_GITHUB_ID})
+      WHERE "repo_id" IN (${REPO_GITHUB_ID}, ${ABSENT_REPO_GITHUB_ID}, ${MOVE_REPO_GITHUB_ID}, ${VIOLATION_REPO_GITHUB_ID})
     `;
     await prisma.$executeRaw`
       DELETE FROM "team_repo"
-      WHERE "repo_id" IN (${REPO_GITHUB_ID}, ${ABSENT_REPO_GITHUB_ID})
+      WHERE "repo_id" IN (${REPO_GITHUB_ID}, ${ABSENT_REPO_GITHUB_ID}, ${MOVE_REPO_GITHUB_ID}, ${VIOLATION_REPO_GITHUB_ID})
     `;
     await prisma.$executeRaw`
       DELETE FROM "repo"
-      WHERE "github_repo_id" IN (${REPO_GITHUB_ID}, ${ABSENT_REPO_GITHUB_ID})
+      WHERE "github_repo_id" IN (${REPO_GITHUB_ID}, ${ABSENT_REPO_GITHUB_ID}, ${MOVE_REPO_GITHUB_ID}, ${VIOLATION_REPO_GITHUB_ID})
     `;
     await prisma.$executeRaw`
       DELETE FROM "github_user_activity_history" WHERE "github_id" = ${GITHUB_ID}
@@ -345,42 +547,42 @@ async function clean(): Promise<void> {
   await prisma.collectionCommitFact.deleteMany({
     where: {
       repository: {
-        githubRepositoryId: { in: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
       },
     },
   });
   await prisma.collectionPullRequestFact.deleteMany({
     where: {
       repository: {
-        githubRepositoryId: { in: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
       },
     },
   });
   await prisma.collectionReleaseFact.deleteMany({
     where: {
       repository: {
-        githubRepositoryId: { in: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
       },
     },
   });
   await prisma.githubIssueHistory.deleteMany({
     where: {
       repository: {
-        githubRepositoryId: { in: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
       },
     },
   });
   await prisma.contribution.deleteMany({
     where: {
       repository: {
-        githubRepositoryId: { in: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
       },
     },
   });
   await prisma.collectionRepositoryStream.deleteMany({
     where: {
       repository: {
-        githubRepositoryId: { in: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
       },
     },
   });
@@ -395,7 +597,7 @@ async function clean(): Promise<void> {
   });
   await prisma.githubRepository.deleteMany({
     where: {
-      githubRepositoryId: { in: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+      githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
     },
   });
   await prisma.team.deleteMany({ where: { id: { startsWith: PREFIX } } });
