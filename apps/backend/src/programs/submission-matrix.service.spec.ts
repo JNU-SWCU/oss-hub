@@ -308,13 +308,18 @@ describe('submissionMatrixApplicationWhere', () => {
         q: '',
         applicationMode: null,
       }),
-    ).toEqual({ programId: PROGRAM_ID, status: ApplicationStatus.APPROVED });
+    ).toEqual({
+      programId: PROGRAM_ID,
+      status: ApplicationStatus.APPROVED,
+      archivedAt: null,
+    });
   });
 
   it('형태 필터(applicationMode)는 D5 이후 teamId 분기를 하지 않는다', () => {
     const base = {
       programId: PROGRAM_ID,
       status: ApplicationStatus.APPROVED,
+      archivedAt: null,
     };
     expect(
       new SubmissionMatrixRepository(
@@ -359,6 +364,7 @@ describe('submissionMatrixApplicationWhere', () => {
     ).toEqual({
       programId: PROGRAM_ID,
       status: ApplicationStatus.APPROVED,
+      archivedAt: null,
       OR: [
         {
           applicant: { name: contains },

@@ -99,6 +99,11 @@ const PURGE_RELATIONS = [
     covers: ['Team->TeamMember'],
   },
   {
+    id: 'team-repos',
+    operation: 'PRESERVE',
+    covers: ['Team->TeamRepo'],
+  },
+  {
     id: 'teams',
     operation: 'DELETE',
     covers: ['Program->Team'],

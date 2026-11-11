@@ -100,6 +100,7 @@ export class RequirementArchiveRepository implements ProgramArchiveReader {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
+        archivedAt: null,
         ...(teamId === undefined ? {} : { id: teamId }),
       },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
@@ -317,7 +318,7 @@ export class RequirementCollectionReadStoreRepository {
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
     const applications = await this.transaction.team.findMany({
-      where: { programId, status: 'APPROVED' },
+      where: { programId, status: 'APPROVED', archivedAt: null },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: {
         id: true,
@@ -1055,7 +1056,11 @@ export class RequirementsRepository {
   }
   async countApprovedApplications(programId: string): Promise<number> {
     return this.prisma.team.count({
-      where: { programId, status: ApplicationStatus.APPROVED },
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
     });
   }
   async countSubmissionsByDocument(
@@ -1067,7 +1072,11 @@ export class RequirementsRepository {
       by: ['requirementId'],
       where: {
         requirementId: { in: [...documentIds] },
-        team: { programId, status: ApplicationStatus.APPROVED },
+        team: {
+          programId,
+          status: ApplicationStatus.APPROVED,
+          archivedAt: null,
+        },
       },
       _count: { _all: true },
     });
@@ -1077,7 +1086,11 @@ export class RequirementsRepository {
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
     const applications = await this.prisma.team.findMany({
-      where: { programId, status: ApplicationStatus.APPROVED },
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: collectionApplicationSelect,
     });
@@ -1794,6 +1807,7 @@ export class RequirementsRepository {
         SELECT "id", "status"
         FROM "Team"
         WHERE "programId" = ${programId}
+          AND "archivedAt" IS NULL
         ORDER BY "id"
         FOR SHARE
       `);
@@ -1873,7 +1887,11 @@ export class RequirementsRepository {
     programId: string,
   ): Promise<readonly RequirementCollectionApplication[]> {
     const applications = await transaction.team.findMany({
-      where: { programId, status: ApplicationStatus.APPROVED },
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
       orderBy: [{ name: 'asc' }, { id: 'asc' }],
       select: collectionApplicationSelect,
     });

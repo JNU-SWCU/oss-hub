@@ -407,6 +407,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
           where: {
             programId: programFilter,
             status: ApplicationStatus.APPROVED,
+            archivedAt: null,
           },
           select: dashboardApplicationSelect,
         }),
@@ -427,6 +428,7 @@ export class SubmissionDashboardSummaryRepository implements SubmissionDashboard
               is: {
                 programId: programFilter,
                 status: ApplicationStatus.APPROVED,
+                archivedAt: null,
               },
             },
             requirement: {
@@ -716,6 +718,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     const where: Prisma.TeamWhereInput = {
       programId,
       status: ApplicationStatus.APPROVED,
+      archivedAt: null,
     };
     if (filter.q.length > 0) {
       const contains = { contains: filter.q, mode: 'insensitive' as const };

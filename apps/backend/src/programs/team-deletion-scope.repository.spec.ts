@@ -1,5 +1,10 @@
 import type { PrismaService } from '../platform/prisma.service';
-import { TeamDeletionScopeRepository } from './team.repository';
+import {
+  ProgramTeamDeletionRepository,
+  TeamDeletionScopeRepository,
+} from './team.repository';
+import { TeamHistoryRepository } from './team-history.repository';
+import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import { type TeamDeletionScopeCounts } from './team-deletion-scope.config';
 import { TEAM_PURGE_DELETION_ORDER } from './program-lifecycle.config';
 
@@ -32,6 +37,31 @@ function capturedSql(queryRaw: ReturnType<typeof queryRawStub>): string {
     { readonly strings?: readonly string[] } | undefined;
   return query?.strings?.join('?') ?? '';
 }
+
+describe('readScopeCounts', () => {
+  it('팀 상세의 삭제 범위는 트랜잭션 없이 한 조회의 건수를 돌려준다', async () => {
+    const queryRaw = queryRawStub();
+    const startTransaction = jest.fn(() => {
+      throw new Error('transaction wait');
+    });
+    const prisma = {
+      $queryRaw: queryRaw,
+      $transaction: startTransaction,
+    } as unknown as PrismaService;
+    const repository = new ProgramTeamDeletionRepository(
+      new TeamHistoryRepository(),
+      prisma,
+      new TeamDeletionScopeRepository(),
+      new PrismaSerializationRetryRepository(),
+    );
+
+    await expect(repository.readScopeCounts('synthetic-team')).resolves.toEqual(
+      SCOPE,
+    );
+    expect(startTransaction).not.toHaveBeenCalled();
+    expect(queryRaw).toHaveBeenCalledTimes(1);
+  });
+});
 
 describe('readTeamDeletionScopeCounts', () => {
   it('팀 하나의 범위만 한 스냅샷에서 세고 bigint 를 number 로 좁힌다', async () => {

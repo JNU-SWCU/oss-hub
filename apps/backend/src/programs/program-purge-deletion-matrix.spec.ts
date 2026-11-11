@@ -215,7 +215,13 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     );
     expect(
       TEAM_PURGE_DELETION_ORDER.filter((step) => step.operation === 'PRESERVE'),
-    ).toEqual([]);
+    ).toEqual([
+      {
+        id: 'team-repos',
+        operation: 'PRESERVE',
+        covers: ['Team->TeamRepo'],
+      },
+    ]);
   });
 
   it('submission → teamInvitation → teamMember → team 순서를 고정한다', () => {

@@ -123,7 +123,7 @@ describe('program storage invariants', () => {
         ).toBe(0);
       } else {
         expect(result).toBe('removed');
-        expect(await prisma.team.count({ where: { id: prefix } })).toBe(0);
+        expect(await prisma.team.count({ where: { id: prefix } })).toBe(1);
         expect(
           await prisma.teamMember.count({ where: { programId: prefix } }),
         ).toBe(0);

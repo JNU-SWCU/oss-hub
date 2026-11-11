@@ -19,6 +19,7 @@ const context: StudentRepositoryUrlContext = {
   programId: 'program',
   teamId: 'team',
   status: ApplicationStatus.APPROVED,
+  archivedAt: null,
   applicantId: 'student',
   applicant: { githubId: 1n },
   leaderId: 'leader',

@@ -134,6 +134,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
       where: {
         programId: { in: ['program-a', 'program-b'] },
         status: ApplicationStatus.APPROVED,
+        archivedAt: null,
       },
       select: { id: true, programId: true },
     });
@@ -158,6 +159,7 @@ describe('SubmissionDashboardSummaryRepository', () => {
           is: {
             programId: { in: ['program-a', 'program-b'] },
             status: ApplicationStatus.APPROVED,
+            archivedAt: null,
           },
         },
         requirement: {

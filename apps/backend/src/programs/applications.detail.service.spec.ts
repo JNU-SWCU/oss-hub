@@ -97,7 +97,7 @@ function detailTransaction(
   } | null = null,
 ) {
   return {
-    team: { findUnique: jest.fn().mockResolvedValue(row) },
+    team: { findFirst: jest.fn().mockResolvedValue(row) },
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(outbox) },
     repositoryProvisionJob: {
       findUnique: jest.fn().mockResolvedValue(job),
@@ -217,7 +217,7 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
     const { repository: listRepository } = buildRepository(list);
     await listRepository.listApplicationsForProgram('program', LIST_QUERY);
 
-    expect(readSelect(detail.team.findUnique)).toEqual(
+    expect(readSelect(detail.team.findFirst)).toEqual(
       readSelect(list.team.findMany),
     );
   });

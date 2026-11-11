@@ -387,7 +387,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
     expect(result).toBeNull();
     expect(teamFindFirst).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { id: TEAM_ID, programId: PROGRAM_ID },
+        where: { id: TEAM_ID, programId: PROGRAM_ID, archivedAt: null },
       }),
     );
   });

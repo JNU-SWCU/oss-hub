@@ -1653,6 +1653,7 @@ export class StudentRepositoryUrlService {
       throw new DomainException(
         APPLICATIONS_ERROR_CODES[ApplicationsErrorCode.APPLICATION_NOT_FOUND],
       );
+    if (context.archivedAt != null) throw repositoryUrlError('closed');
     if (
       !this.canEditStudentRepositoryUrl(
         { status: context.status, endAt: context.program.endAt, isManager },

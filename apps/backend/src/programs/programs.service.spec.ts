@@ -234,6 +234,7 @@ describe('ProgramsService detail', () => {
       where: {
         programId: 'program-1',
         status: ApplicationStatus.APPROVED,
+        archivedAt: null,
       },
       select: {
         submissions: {

@@ -465,7 +465,11 @@ export class ProgramsRepository {
   }
   async findApprovedApplications(programId: string) {
     return this.prisma.team.findMany({
-      where: { programId, status: ApplicationStatus.APPROVED },
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
       select: {
         submissions: {
           select: {
@@ -501,7 +505,7 @@ export class ProgramsRepository {
     if (programIds.length === 0) return new Map();
     const rows = await this.prisma.team.groupBy({
       by: ['programId', 'status'],
-      where: { programId: { in: [...programIds] } },
+      where: { programId: { in: [...programIds] }, archivedAt: null },
       _count: { _all: true },
     });
     const counts = new Map<
@@ -579,6 +583,7 @@ export class ProgramsRepository {
     return this.prisma.team.findMany({
       where: {
         status: ApplicationStatus.APPROVED,
+        archivedAt: null,
         ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: {
@@ -1288,6 +1293,7 @@ export class ProgramOverviewRepository {
       where: {
         programId,
         status: ApplicationStatus.APPROVED,
+        archivedAt: null,
         ...this.platformRepository.programApplicationParticipantWhere(userId),
       },
       select: { id: true },
@@ -1299,7 +1305,7 @@ export class ProgramOverviewRepository {
     userId: string,
   ): Promise<string | null> {
     const direct = await this.prisma.team.findFirst({
-      where: { programId, applicantId: userId },
+      where: { programId, applicantId: userId, archivedAt: null },
       select: { id: true },
       orderBy: { submittedAt: 'desc' },
     });
@@ -1315,7 +1321,7 @@ export class ProgramOverviewRepository {
     }
 
     const teamApplication = await this.prisma.team.findFirst({
-      where: { programId, id: membership.teamId },
+      where: { programId, id: membership.teamId, archivedAt: null },
       select: { id: true },
       orderBy: { submittedAt: 'desc' },
     });
@@ -1349,7 +1355,7 @@ export class ProgramOverviewRepository {
     programId: string,
   ): Promise<readonly ProgramApplicationTeamRow[]> {
     return this.prisma.team.findMany({
-      where: { programId },
+      where: { programId, archivedAt: null },
       select: { id: true },
     });
   }
@@ -1388,7 +1394,7 @@ export class ProgramOverviewRepository {
   }
   async listPublicTeams(programId: string): Promise<PublicTeamRow[]> {
     const teams = await this.prisma.team.findMany({
-      where: { programId },
+      where: { programId, archivedAt: null },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,

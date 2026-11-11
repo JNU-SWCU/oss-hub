@@ -55,7 +55,7 @@ export class StaffInsightsRepository {
     readonly StaffInsightsParticipationRecord[]
   > {
     const rows = await this.prisma.team.findMany({
-      where: { status: 'APPROVED' },
+      where: { status: 'APPROVED', archivedAt: null },
       select: {
         programId: true,
         applicantId: true,

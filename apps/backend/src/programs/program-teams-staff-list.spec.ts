@@ -291,7 +291,7 @@ describe('TeamRepository.listStaffTeams', () => {
     ]);
     expect(findMany).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: { programId: PROGRAM_ID },
+        where: { programId: PROGRAM_ID, archivedAt: null },
         orderBy: { createdAt: 'asc' },
       }),
     );

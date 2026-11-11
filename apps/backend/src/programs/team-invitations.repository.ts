@@ -163,7 +163,9 @@ function lockTeamRow(
     Prisma.sql`
       SELECT t."id" FROM "Team" t
       JOIN "Program" p ON p."id" = t."programId"
-      WHERE t."id" = ${teamId} AND p."lifecycle" <> 'DELETED'
+      WHERE t."id" = ${teamId}
+        AND t."archivedAt" IS NULL
+        AND p."lifecycle" <> 'DELETED'
       FOR UPDATE OF t
     `,
   );
