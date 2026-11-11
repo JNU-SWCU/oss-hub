@@ -385,7 +385,11 @@ describe('RequirementsRepository.countApprovedApplications / countSubmissionsByD
     const result = await repository.countApprovedApplications('cuid-program');
 
     expect(count).toHaveBeenCalledWith({
-      where: { programId: 'cuid-program', status: ApplicationStatus.APPROVED, archivedAt: null },
+      where: {
+        programId: 'cuid-program',
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
     });
     expect(result).toBe(8);
   });

@@ -465,7 +465,11 @@ export class ProgramsRepository {
   }
   async findApprovedApplications(programId: string) {
     return this.prisma.team.findMany({
-      where: { programId, status: ApplicationStatus.APPROVED, archivedAt: null },
+      where: {
+        programId,
+        status: ApplicationStatus.APPROVED,
+        archivedAt: null,
+      },
       select: {
         submissions: {
           select: {

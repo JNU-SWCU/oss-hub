@@ -396,7 +396,11 @@ describe('github ledger shadow copy', () => {
       new TeamArchiveRepository().run(tx, teamId, archivedAt),
     );
     await prisma.$transaction((tx) =>
-      new TeamArchiveRepository().run(tx, teamId, new Date('2026-12-01T00:00:00.000Z')),
+      new TeamArchiveRepository().run(
+        tx,
+        teamId,
+        new Date('2026-12-01T00:00:00.000Z'),
+      ),
     );
 
     const team = await prisma.team.findUnique({ where: { id: teamId } });
