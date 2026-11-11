@@ -111,7 +111,7 @@ export class DeadlineDigestRepository implements DeadlineDigestRepositoryPort {
           orderBy: [{ dueAt: 'asc' }, { id: 'asc' }],
         },
         teams: {
-          where: { status: ApplicationStatus.APPROVED },
+          where: { status: ApplicationStatus.APPROVED, archivedAt: null },
           select: {
             id: true,
             applicant: { select: deadlineRecipientSelect },

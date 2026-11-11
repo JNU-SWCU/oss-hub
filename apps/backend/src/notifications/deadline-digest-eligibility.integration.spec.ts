@@ -1,5 +1,6 @@
-import { AccountStatus } from '@prisma/client';
+import { AccountStatus, ApplicationStatus } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
 import {
   createDeadlineDigestIntegrationHarness,
   DIGEST_FIXTURE,
@@ -102,6 +103,49 @@ it('미제출 신청과 제외 사유를 식별자 없이 집계한다', async (
   ]);
   expect(JSON.stringify(preview)).not.toContain('student-missing@example.com');
   expect(JSON.stringify(preview)).not.toContain(DIGEST_FIXTURE.staffOn);
+});
+
+it('아카이브된 팀 신청자는 다이제스트에서 빠지고 활성 팀 신청자는 남는다', async () => {
+  const archivedUserId = 'test:notifications:student-archived';
+  const archivedTeamId = 'test:notifications:application:archived';
+  const archivedEmail = 'student-archived@example.com';
+  await harness.prisma.user.create({
+    data: {
+      ...canonicalUserCreateFromLabel('STUDENT', {
+        id: archivedUserId,
+        githubId: 9_600_000_000_127_090n,
+        nickname: 'synthetic-archived',
+      }),
+      notifyEnabled: true,
+      notificationEmail: archivedEmail,
+    },
+  });
+  await harness.prisma.team.create({
+    data: {
+      id: archivedTeamId,
+      programId: DIGEST_FIXTURE.notifyProgram,
+      name: 'archived-team',
+      leaderId: archivedUserId,
+      applicantId: archivedUserId,
+      answers: {},
+      applicationTemplateVersion: 1,
+      status: ApplicationStatus.APPROVED,
+      archivedAt: DIGEST_FIXTURE.now,
+    },
+  });
+  try {
+    const mailSender = new RecordingMailSender();
+    await harness.service(mailSender).sendDeadlineDigests(DIGEST_FIXTURE.now);
+    const recipients = mailSender.sent.map((mail) => mail.to);
+    expect(recipients).toContain('student-missing@example.com');
+    expect(recipients).not.toContain(archivedEmail);
+  } finally {
+    await harness.prisma.notification.deleteMany({
+      where: { userId: archivedUserId },
+    });
+    await harness.prisma.team.deleteMany({ where: { id: archivedTeamId } });
+    await harness.prisma.user.deleteMany({ where: { id: archivedUserId } });
+  }
 });
 
 it('교직원 요약 수신자는 수신 동의한 활성 승인 STAFF만이다', async () => {
