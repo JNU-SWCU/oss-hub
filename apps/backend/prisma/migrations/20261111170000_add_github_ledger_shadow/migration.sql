@@ -1,6 +1,8 @@
 BEGIN;
 SET LOCAL TIME ZONE 'UTC';
-SET LOCAL lock_timeout = '5s';
+-- New tables only. No statement here locks "Team", "User", or "Program".
+-- The Team foreign key and "Team"."archivedAt" are later migrations, each one
+-- statement, so a lock timeout is the error Prisma prints.
 
 CREATE EXTENSION IF NOT EXISTS btree_gist;
 
@@ -21,7 +23,6 @@ CREATE TABLE "team_repo" (
   "period" tstzrange GENERATED ALWAYS AS (tstzrange("valid_from", "valid_to", '[)')) STORED NOT NULL,
   CONSTRAINT "team_repo_pkey" PRIMARY KEY ("team_id", "repo_id", "valid_from"),
   CONSTRAINT "team_repo_valid_order" CHECK ("valid_to" IS NULL OR "valid_from" < "valid_to"),
-  CONSTRAINT "team_repo_team_id_fkey" FOREIGN KEY ("team_id") REFERENCES "Team"("id") ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "team_repo_repo_id_fkey" FOREIGN KEY ("repo_id") REFERENCES "repo"("github_repo_id") ON DELETE RESTRICT ON UPDATE CASCADE,
   CONSTRAINT "team_repo_repo_id_period_excl" EXCLUDE USING gist ("repo_id" WITH =, "period" WITH &&),
   CONSTRAINT "team_repo_team_id_period_excl" EXCLUDE USING gist ("team_id" WITH =, "period" WITH &&)
@@ -55,9 +56,5 @@ CREATE TABLE "github_user_activity_history" (
   "observed_at" TIMESTAMPTZ(3) NOT NULL,
   CONSTRAINT "github_user_activity_history_pkey" PRIMARY KEY ("github_id", "year", "visibility", "observed_at")
 );
-
--- Nullable column add is catalog-only on Postgres 11+. Placed last so the
--- ACCESS EXCLUSIVE lock on "Team" is only held until this transaction commits.
-ALTER TABLE "Team" ADD COLUMN "archivedAt" TIMESTAMP(3);
 
 COMMIT;
