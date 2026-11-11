@@ -1082,6 +1082,7 @@ export class ApplicationsRepository {
     const application = await transaction.team.findUnique({
       where: {
         id: teamId,
+        archivedAt: null,
         program: { lifecycle: { not: 'DELETED' } },
       },
       include: {
