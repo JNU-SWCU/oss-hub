@@ -124,10 +124,10 @@ export class TeamDeletionScopeRepository {
   }
 
   async readTeamDeletionScopeCounts(
-    transaction: PrismaTypes.TransactionClient,
+    queryClient: Pick<PrismaService, '$queryRaw'>,
     teamId: string,
   ): Promise<TeamDeletionScopeCounts> {
-    const [row] = await transaction.$queryRaw<
+    const [row] = await queryClient.$queryRaw<
       readonly DeletionScopeCountsRow[]
     >(
       Prisma.sql`
@@ -2975,8 +2975,9 @@ export class ProgramTeamDeletionRepository {
   ) {}
 
   readScopeCounts(teamId: string): Promise<TeamDeletionScopeCounts> {
-    return this.prisma.$transaction((transaction) =>
-      this.teamDeletionScope.readTeamDeletionScopeCounts(transaction, teamId),
+    return this.teamDeletionScope.readTeamDeletionScopeCounts(
+      this.prisma,
+      teamId,
     );
   }
 
