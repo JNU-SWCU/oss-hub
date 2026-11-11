@@ -218,11 +218,8 @@ describe('StudentApplicationManagementService integration races', () => {
       service.cancelMine(GITHUB_ID, PROGRAM_ID, NOW),
     ).resolves.toEqual({ cancelled: true });
 
-    await expect(
-      prisma.team.findUnique({ where: { id: TEAM_ID } }),
-    ).resolves.toEqual(
-      expect.objectContaining({ archivedAt: expect.any(Date) }),
-    );
+    const archived = await prisma.team.findUnique({ where: { id: TEAM_ID } });
+    expect(archived?.archivedAt).toBeInstanceOf(Date);
   });
 
   it.each(['update', 'cancel'] as const)(

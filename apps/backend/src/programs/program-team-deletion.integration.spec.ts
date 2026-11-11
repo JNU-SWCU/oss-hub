@@ -491,9 +491,10 @@ it('3b staff deletion records every pending cancellation and preserves archived 
   expect(
     events.find((event) => event.sourceId === `${fixture.teamId}:expired`),
   ).toEqual(archived);
-  await expect(
-    prisma.team.findUnique({ where: { id: fixture.teamId } }),
-  ).resolves.toEqual(expect.objectContaining({ archivedAt: expect.any(Date) }));
+  const archivedTeam = await prisma.team.findUnique({
+    where: { id: fixture.teamId },
+  });
+  expect(archivedTeam?.archivedAt).toBeInstanceOf(Date);
 });
 
 it('3a history failure rolls back staff deletion and its notifications', async () => {
@@ -960,11 +961,10 @@ it.each([null, '   '])(
       message: null,
     });
 
-    await expect(
-      prisma.team.findUnique({ where: { id: fixture.teamId } }),
-    ).resolves.toEqual(
-      expect.objectContaining({ archivedAt: expect.any(Date) }),
-    );
+    const archivedTeam = await prisma.team.findUnique({
+      where: { id: fixture.teamId },
+    });
+    expect(archivedTeam?.archivedAt).toBeInstanceOf(Date);
   },
 );
 

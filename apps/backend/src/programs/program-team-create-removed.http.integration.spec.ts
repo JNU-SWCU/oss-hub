@@ -381,9 +381,10 @@ it('취소는 팀을 지우고 이력을 남기며 다시 지원하면 새 Team 
     },
   );
   expect(cancel.status).toBe(200);
-  expect(
-    await prisma.team.findUnique({ where: { id: first.team.id } }),
-  ).toEqual(expect.objectContaining({ archivedAt: expect.any(Date) }));
+  const archived = await prisma.team.findUnique({
+    where: { id: first.team.id },
+  });
+  expect(archived?.archivedAt).toBeInstanceOf(Date);
   expect(
     await prisma.teamHistory.findFirstOrThrow({
       where: { teamId: first.team.id, event: 'DELETED' },
