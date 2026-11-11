@@ -328,7 +328,8 @@ model Team {
   updatedAt DateTime @updatedAt
 
   members      TeamMember[]
-  repository GithubRepository?
+  repository   GithubRepository?
+  teamRepos    TeamRepo[]
   provisionJob RepositoryProvisionJob?
   submissions  Submission[]
   invitations  TeamInvitation[]
@@ -1158,3 +1159,70 @@ model CollectionSweepHistory {
 
   @@index([sweepFinishedAt])
 }
+
+enum ContributionKind {
+  COMMIT       @map("commit")
+  PULL_REQUEST @map("pull_request")
+  ISSUE        @map("issue")
+  RELEASE      @map("release")
+
+  @@map("contribution_kind")
+}
+
+model Repo {
+  githubRepoId BigInt           @id @map("github_repo_id")
+  ownerName    String           @map("owner_name")
+  source       RepositorySource
+  goneAt       DateTime?        @map("gone_at") @db.Timestamptz(3)
+
+  teamRepos     TeamRepo[]
+  contributions ContributionEvent[]
+
+  @@map("repo")
+}
+
+/// One repository belongs to one team at a time. The exclusion constraint is SQL-only.
+model TeamRepo {
+  teamId    String                   @map("team_id")
+  team      Team                     @relation(fields: [teamId], references: [id])
+  repoId    BigInt                   @map("repo_id")
+  repo      Repo                     @relation(fields: [repoId], references: [githubRepoId])
+  validFrom DateTime                 @map("valid_from") @db.Timestamptz(3)
+  validTo   DateTime?                @map("valid_to") @db.Timestamptz(3)
+  period    Unsupported("tstzrange") @default(dbgenerated("tstzrange(valid_from, valid_to, '[)'::text)")) @map("period")
+
+  @@id([teamId, repoId, validFrom])
+  @@map("team_repo")
+}
+
+/// Quoted "Contribution" is the old daily rollup and is a different table.
+model ContributionEvent {
+  repoId         BigInt           @map("repo_id")
+  repo           Repo             @relation(fields: [repoId], references: [githubRepoId])
+  kind           ContributionKind
+  githubKey      String           @map("github_key")
+  authorGithubId BigInt?          @map("author_github_id")
+  occurredAt     DateTime         @map("occurred_at") @db.Timestamptz(3)
+  firstSeenAt    DateTime         @map("first_seen_at") @db.Timestamptz(3)
+
+  @@id([repoId, kind, githubKey])
+  @@index([authorGithubId, occurredAt])
+  @@index([repoId, occurredAt])
+  @@map("contribution")
+}
+
+model GithubUserActivityObservation {
+  githubId         BigInt             @map("github_id")
+  year             Int
+  visibility       ActivityVisibility
+  commitCount      Int                @default(0) @map("commit_count")
+  pullRequestCount Int                @default(0) @map("pull_request_count")
+  issueCount       Int                @default(0) @map("issue_count")
+  repositoryCount  Int                @default(0) @map("repository_count")
+  starCount        Int                @default(0) @map("star_count")
+  observedAt       DateTime           @map("observed_at") @db.Timestamptz(3)
+
+  @@id([githubId, year, visibility, observedAt])
+  @@map("github_user_activity_history")
+}
+
