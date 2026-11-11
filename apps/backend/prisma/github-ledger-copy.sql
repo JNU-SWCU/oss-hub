@@ -12,7 +12,50 @@ BEGIN
   INTO overlapping_teams, overlapping_team_rows, overlapping_repos, overlapping_repo_rows
   FROM (
     -- begin-overlap
-    WITH closed_link AS (
+    -- A period starts when the row is bound to the team. createdAt is that
+    -- instant only when it is later than the team's open period. A reused row
+    -- keeps its old createdAt, so the claim's updatedAt, then this transaction,
+    -- is the later floor. The close uses that same instant.
+    WITH new_link AS (
+      SELECT
+        repository."teamId" AS "team_id",
+        repository."githubRepositoryId" AS "repo_id",
+        CASE
+          WHEN predecessor."valid_from" IS NULL
+            OR COALESCE(prior."valid_to", repository."createdAt")
+              > predecessor."valid_from"
+          THEN COALESCE(prior."valid_to", repository."createdAt")
+          WHEN repository."updatedAt" > predecessor."valid_from"
+          THEN repository."updatedAt"
+          WHEN transaction_timestamp() > predecessor."valid_from"
+          THEN transaction_timestamp()
+          ELSE predecessor."valid_from" + interval '1 millisecond'
+        END AS "valid_from",
+        NULL::timestamptz AS "valid_to"
+      FROM "GithubRepository" AS repository
+      LEFT JOIN LATERAL (
+        SELECT MAX(closed_period."valid_to") AS "valid_to"
+        FROM "team_repo" AS closed_period
+        WHERE closed_period."repo_id" = repository."githubRepositoryId"
+      ) AS prior ON TRUE
+      LEFT JOIN LATERAL (
+        SELECT open_period."valid_from"
+        FROM "team_repo" AS open_period
+        WHERE open_period."team_id" = repository."teamId"
+          AND open_period."valid_to" IS NULL
+          AND open_period."repo_id" <> repository."githubRepositoryId"
+        ORDER BY open_period."valid_from" DESC
+        LIMIT 1
+      ) AS predecessor ON TRUE
+      WHERE repository."teamId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "team_repo" AS open_period
+          WHERE open_period."repo_id" = repository."githubRepositoryId"
+            AND open_period."valid_to" IS NULL
+        )
+    ),
+    closed_link AS (
       SELECT
         link."team_id",
         link."repo_id",
@@ -20,73 +63,27 @@ BEGIN
         CASE
           WHEN link."valid_to" IS NOT NULL THEN link."valid_to"
           WHEN repository."githubRepositoryId" IS NOT NULL
+            AND repository."teamId" IS NOT DISTINCT FROM link."team_id"
+          THEN NULL
+          WHEN repository."githubRepositoryId" IS NOT NULL
             AND repository."updatedAt" > link."valid_from"
-            AND (
-              repository."teamId" IS NULL
-              OR repository."teamId" IS DISTINCT FROM link."team_id"
-            )
           THEN repository."updatedAt"
-          WHEN repository."githubRepositoryId" IS NULL THEN (
-            -- The source row is gone. Close at the next period's start.
-            -- No next repository closes at this transaction's start time.
-            -- A start that is not later stays open for the overlap guard.
-            SELECT candidate."close_at"
-            FROM (
-              SELECT
-                CASE
-                  WHEN successor."githubRepositoryId" IS NULL
-                    THEN transaction_timestamp()
-                  ELSE COALESCE(
-                    open_successor."valid_from",
-                    (
-                      SELECT MAX(closed_successor."valid_to")
-                      FROM "team_repo" AS closed_successor
-                      WHERE closed_successor."repo_id" = successor."githubRepositoryId"
-                    ),
-                    successor."createdAt"
-                  )
-                END AS "close_at"
-              FROM (SELECT 1) AS anchor
-              LEFT JOIN "GithubRepository" AS successor
-                ON successor."teamId" = link."team_id"
-              LEFT JOIN LATERAL (
-                SELECT open_link."valid_from"
-                FROM "team_repo" AS open_link
-                WHERE successor."githubRepositoryId" IS NOT NULL
-                  AND open_link."repo_id" = successor."githubRepositoryId"
-                  AND open_link."valid_to" IS NULL
-                LIMIT 1
-              ) AS open_successor ON TRUE
-            ) AS candidate
-            WHERE candidate."close_at" > link."valid_from"
+          ELSE COALESCE(
+            (
+              SELECT opened."valid_from"
+              FROM new_link AS opened
+              WHERE opened."team_id" = link."team_id"
+                AND opened."valid_from" > link."valid_from"
+            ),
+            GREATEST(
+              transaction_timestamp(),
+              link."valid_from" + interval '1 millisecond'
+            )
           )
-          ELSE link."valid_to"
         END AS "valid_to"
       FROM "team_repo" AS link
       LEFT JOIN "GithubRepository" AS repository
         ON repository."githubRepositoryId" = link."repo_id"
-    ),
-    new_link AS (
-      SELECT
-        repository."teamId" AS "team_id",
-        repository."githubRepositoryId" AS "repo_id",
-        COALESCE(
-          (
-            SELECT MAX(closed."valid_to")
-            FROM closed_link AS closed
-            WHERE closed."repo_id" = repository."githubRepositoryId"
-          ),
-          repository."createdAt"
-        ) AS "valid_from",
-        NULL::timestamptz AS "valid_to"
-      FROM "GithubRepository" AS repository
-      WHERE repository."teamId" IS NOT NULL
-        AND NOT EXISTS (
-          SELECT 1
-          FROM closed_link AS closed
-          WHERE closed."repo_id" = repository."githubRepositoryId"
-            AND closed."valid_to" IS NULL
-        )
     ),
     prospective AS (
       SELECT
@@ -162,6 +159,40 @@ SET
   "source" = EXCLUDED."source",
   "gone_at" = EXCLUDED."gone_at";
 
+-- Snapshot the same attachment rule before any period is closed. The insert
+-- runs after that close, so it can no longer see the predecessor it replaced.
+CREATE TEMP TABLE ledger_attachment ON COMMIT DROP AS
+SELECT
+  repository."teamId" AS team_id,
+  repository."githubRepositoryId" AS repo_id,
+  CASE
+    WHEN predecessor."valid_from" IS NULL
+      OR COALESCE(prior."valid_to", repository."createdAt")
+        > predecessor."valid_from"
+    THEN COALESCE(prior."valid_to", repository."createdAt")
+    WHEN repository."updatedAt" > predecessor."valid_from"
+    THEN repository."updatedAt"
+    WHEN transaction_timestamp() > predecessor."valid_from"
+    THEN transaction_timestamp()
+    ELSE predecessor."valid_from" + interval '1 millisecond'
+  END AS attached_at
+FROM "GithubRepository" AS repository
+LEFT JOIN LATERAL (
+  SELECT MAX(closed_period."valid_to") AS "valid_to"
+  FROM "team_repo" AS closed_period
+  WHERE closed_period."repo_id" = repository."githubRepositoryId"
+) AS prior ON TRUE
+LEFT JOIN LATERAL (
+  SELECT open_period."valid_from"
+  FROM "team_repo" AS open_period
+  WHERE open_period."team_id" = repository."teamId"
+    AND open_period."valid_to" IS NULL
+    AND open_period."repo_id" <> repository."githubRepositoryId"
+  ORDER BY open_period."valid_from" DESC
+  LIMIT 1
+) AS predecessor ON TRUE
+WHERE repository."teamId" IS NOT NULL;
+
 UPDATE "team_repo" AS link
 SET "valid_to" = closed."valid_to"
 FROM (
@@ -171,44 +202,23 @@ FROM (
     open_link."valid_from",
     CASE
       WHEN repository."githubRepositoryId" IS NOT NULL
+        AND repository."teamId" IS NOT DISTINCT FROM open_link."team_id"
+      THEN NULL
+      WHEN repository."githubRepositoryId" IS NOT NULL
         AND repository."updatedAt" > open_link."valid_from"
-        AND (
-          repository."teamId" IS NULL
-          OR repository."teamId" IS DISTINCT FROM open_link."team_id"
-        )
       THEN repository."updatedAt"
-      WHEN repository."githubRepositoryId" IS NULL THEN (
-        SELECT candidate."close_at"
-        FROM (
-          SELECT
-            CASE
-              WHEN successor."githubRepositoryId" IS NULL
-                THEN transaction_timestamp()
-              ELSE COALESCE(
-                open_successor."valid_from",
-                (
-                  SELECT MAX(closed_successor."valid_to")
-                  FROM "team_repo" AS closed_successor
-                  WHERE closed_successor."repo_id" = successor."githubRepositoryId"
-                ),
-                successor."createdAt"
-              )
-            END AS "close_at"
-          FROM (SELECT 1) AS anchor
-          LEFT JOIN "GithubRepository" AS successor
-            ON successor."teamId" = open_link."team_id"
-          LEFT JOIN LATERAL (
-            SELECT successor_link."valid_from"
-            FROM "team_repo" AS successor_link
-            WHERE successor."githubRepositoryId" IS NOT NULL
-              AND successor_link."repo_id" = successor."githubRepositoryId"
-              AND successor_link."valid_to" IS NULL
-            LIMIT 1
-          ) AS open_successor ON TRUE
-        ) AS candidate
-        WHERE candidate."close_at" > open_link."valid_from"
+      ELSE COALESCE(
+        (
+          SELECT attachment.attached_at
+          FROM ledger_attachment AS attachment
+          WHERE attachment.team_id = open_link."team_id"
+            AND attachment.attached_at > open_link."valid_from"
+        ),
+        GREATEST(
+          transaction_timestamp(),
+          open_link."valid_from" + interval '1 millisecond'
+        )
       )
-      ELSE NULL
     END AS "valid_to"
   FROM "team_repo" AS open_link
   LEFT JOIN "GithubRepository" AS repository
@@ -222,23 +232,14 @@ WHERE link."team_id" = closed."team_id"
   AND closed."valid_to" IS NOT NULL;
 
 INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
-SELECT
-  repository."teamId",
-  repository."githubRepositoryId",
-  COALESCE(closed."valid_to", repository."createdAt")
-FROM "GithubRepository" AS repository
-LEFT JOIN LATERAL (
-  SELECT MAX(link."valid_to") AS "valid_to"
-  FROM "team_repo" AS link
-  WHERE link."repo_id" = repository."githubRepositoryId"
-) AS closed ON TRUE
-WHERE repository."teamId" IS NOT NULL
-  AND NOT EXISTS (
-    SELECT 1
-    FROM "team_repo" AS link
-    WHERE link."repo_id" = repository."githubRepositoryId"
-      AND link."valid_to" IS NULL
-  );
+SELECT attachment.team_id, attachment.repo_id, attachment.attached_at
+FROM ledger_attachment AS attachment
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM "team_repo" AS open_period
+  WHERE open_period."repo_id" = attachment.repo_id
+    AND open_period."valid_to" IS NULL
+);
 
 INSERT INTO "contribution" (
   "repo_id", "kind", "github_key", "author_github_id", "occurred_at", "first_seen_at"

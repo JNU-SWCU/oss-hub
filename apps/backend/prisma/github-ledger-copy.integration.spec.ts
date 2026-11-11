@@ -528,6 +528,122 @@ describe('github ledger shadow copy', () => {
     expect(await links()).toEqual(first);
     expect(await repos()).toEqual(kept);
   });
+
+  it('reuses an older unlinked repository and keeps one open period', async () => {
+    await clean();
+    await seed();
+    await copyLedger();
+    const teamId = `${PREFIX}team`;
+    const openedAt = new Date('2026-10-01T00:00:00.000Z');
+    const claimAt = new Date('2026-11-05T04:06:07.000Z');
+    const linked = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: REPO_GITHUB_ID },
+      select: { id: true },
+    });
+    await prisma.$transaction((tx) =>
+      new RepositoryDeletionRepository().deleteRepositoryWithFacts(
+        tx,
+        linked.id,
+      ),
+    );
+    await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId: MOVE_REPO_GITHUB_ID,
+        nameWithOwner: 'synthetic/unlinked',
+        source: 'ORG_PROVISIONED',
+        createdAt: new Date('2020-01-01T00:00:00.000Z'),
+      },
+    });
+    await prisma.$executeRaw`
+      UPDATE "GithubRepository"
+      SET "teamId" = ${teamId}, "updatedAt" = ${claimAt}
+      WHERE "githubRepositoryId" = ${MOVE_REPO_GITHUB_ID}
+        AND "teamId" IS NULL
+    `;
+
+    await copyLedger();
+    const links = async () =>
+      prisma.$queryRaw<
+        Array<{ repo_id: bigint; valid_from: Date; valid_to: Date | null }>
+      >`
+        SELECT "repo_id", "valid_from", "valid_to"
+        FROM "team_repo"
+        WHERE "team_id" = ${teamId}
+        ORDER BY "valid_from", "repo_id"
+      `;
+    const first = await links();
+    expect(first).toEqual([
+      {
+        repo_id: REPO_GITHUB_ID,
+        valid_from: openedAt,
+        valid_to: claimAt,
+      },
+      {
+        repo_id: MOVE_REPO_GITHUB_ID,
+        valid_from: claimAt,
+        valid_to: null,
+      },
+    ]);
+    expect(first.filter((link) => link.valid_to === null)).toHaveLength(1);
+    await copyLedger();
+    expect(await links()).toEqual(first);
+  });
+
+  it('closes a detached repository whose updatedAt is older than the open period', async () => {
+    await clean();
+    await seed();
+    await copyLedger();
+    const teamId = `${PREFIX}team`;
+    const openedAt = new Date('2026-10-01T00:00:00.000Z');
+    const claimAt = new Date('2026-11-05T04:06:07.000Z');
+    await prisma.$executeRaw`
+      UPDATE "GithubRepository"
+      SET "teamId" = NULL, "updatedAt" = ${new Date('2020-01-01T00:00:00.000Z')}
+      WHERE "githubRepositoryId" = ${REPO_GITHUB_ID}
+    `;
+    await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId: VIOLATION_REPO_GITHUB_ID,
+        nameWithOwner: 'synthetic/replacement',
+        source: 'ORG_PROVISIONED',
+        teamId,
+        createdAt: claimAt,
+      },
+    });
+
+    await copyLedger();
+    const links = await prisma.$queryRaw<
+      Array<{ repo_id: bigint; valid_from: Date; valid_to: Date | null }>
+    >`
+      SELECT "repo_id", "valid_from", "valid_to"
+      FROM "team_repo"
+      WHERE "team_id" = ${teamId}
+      ORDER BY "valid_from", "repo_id"
+    `;
+    expect(links).toEqual([
+      {
+        repo_id: REPO_GITHUB_ID,
+        valid_from: openedAt,
+        valid_to: claimAt,
+      },
+      {
+        repo_id: VIOLATION_REPO_GITHUB_ID,
+        valid_from: claimAt,
+        valid_to: null,
+      },
+    ]);
+    await copyLedger();
+    expect(
+      await prisma.$queryRaw<
+        Array<{ repo_id: bigint; valid_from: Date; valid_to: Date | null }>
+      >`
+        SELECT "repo_id", "valid_from", "valid_to"
+        FROM "team_repo"
+        WHERE "team_id" = ${teamId}
+        ORDER BY "valid_from", "repo_id"
+      `,
+    ).toEqual(links);
+  });
 });
 
 async function seed(): Promise<void> {
