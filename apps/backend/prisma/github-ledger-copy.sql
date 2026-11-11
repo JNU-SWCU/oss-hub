@@ -20,19 +20,49 @@ BEGIN
       SELECT
         repository."teamId" AS "team_id",
         repository."githubRepositoryId" AS "repo_id",
-        CASE
-          WHEN predecessor."valid_from" IS NULL
-            OR COALESCE(prior."valid_to", repository."createdAt")
-              > predecessor."valid_from"
-          THEN COALESCE(prior."valid_to", repository."createdAt")
-          WHEN repository."updatedAt" > predecessor."valid_from"
-          THEN repository."updatedAt"
-          WHEN transaction_timestamp() > predecessor."valid_from"
-          THEN transaction_timestamp()
-          ELSE predecessor."valid_from" + interval '1 millisecond'
-        END AS "valid_from",
+        GREATEST(
+          CASE
+            WHEN predecessor."valid_from" IS NULL
+              OR COALESCE(prior."valid_to", repository."createdAt")
+                > predecessor."valid_from"
+            THEN COALESCE(prior."valid_to", repository."createdAt")
+            WHEN repository."updatedAt" > predecessor."valid_from"
+            THEN repository."updatedAt"
+            WHEN transaction_timestamp() > predecessor."valid_from"
+            THEN transaction_timestamp()
+            ELSE predecessor."valid_from" + interval '1 millisecond'
+          END,
+          (
+            SELECT
+              CASE
+                WHEN old_team."archivedAt" IS NOT NULL
+                  AND old_team."archivedAt" > open_own."valid_from"
+                THEN old_team."archivedAt"
+                WHEN old_team."archivedAt" IS NOT NULL
+                  AND transaction_timestamp() > open_own."valid_from"
+                THEN transaction_timestamp()
+                WHEN old_team."archivedAt" IS NOT NULL
+                THEN open_own."valid_from" + interval '1 millisecond'
+                WHEN repository."updatedAt" > open_own."valid_from"
+                THEN repository."updatedAt"
+                ELSE GREATEST(
+                  transaction_timestamp(),
+                  open_own."valid_from" + interval '1 millisecond'
+                )
+              END
+            FROM "team_repo" AS open_own
+            JOIN "Team" AS old_team
+              ON old_team."id" = open_own."team_id"
+            WHERE open_own."repo_id" = repository."githubRepositoryId"
+              AND open_own."valid_to" IS NULL
+              AND open_own."team_id" IS DISTINCT FROM repository."teamId"
+          )
+        ) AS "valid_from",
         NULL::timestamptz AS "valid_to"
       FROM "GithubRepository" AS repository
+      JOIN "Team" AS team
+        ON team."id" = repository."teamId"
+       AND team."archivedAt" IS NULL
       LEFT JOIN LATERAL (
         SELECT MAX(closed_period."valid_to") AS "valid_to"
         FROM "team_repo" AS closed_period
@@ -53,6 +83,7 @@ BEGIN
           FROM "team_repo" AS open_period
           WHERE open_period."repo_id" = repository."githubRepositoryId"
             AND open_period."valid_to" IS NULL
+            AND open_period."team_id" IS NOT DISTINCT FROM repository."teamId"
         )
     ),
     closed_link AS (
@@ -62,9 +93,29 @@ BEGIN
         link."valid_from",
         CASE
           WHEN link."valid_to" IS NOT NULL THEN link."valid_to"
+          WHEN link_team."archivedAt" IS NOT NULL
+            AND link_team."archivedAt" > link."valid_from"
+          THEN link_team."archivedAt"
+          WHEN link_team."archivedAt" IS NOT NULL
+            AND transaction_timestamp() > link."valid_from"
+          THEN transaction_timestamp()
+          WHEN link_team."archivedAt" IS NOT NULL
+          THEN link."valid_from" + interval '1 millisecond'
           WHEN repository."githubRepositoryId" IS NOT NULL
             AND repository."teamId" IS NOT DISTINCT FROM link."team_id"
           THEN NULL
+          WHEN (
+            SELECT opened."valid_from"
+            FROM new_link AS opened
+            WHERE opened."repo_id" = link."repo_id"
+              AND opened."valid_from" > link."valid_from"
+          ) IS NOT NULL
+          THEN (
+            SELECT opened."valid_from"
+            FROM new_link AS opened
+            WHERE opened."repo_id" = link."repo_id"
+              AND opened."valid_from" > link."valid_from"
+          )
           WHEN repository."githubRepositoryId" IS NOT NULL
             AND repository."updatedAt" > link."valid_from"
           THEN repository."updatedAt"
@@ -82,6 +133,8 @@ BEGIN
           )
         END AS "valid_to"
       FROM "team_repo" AS link
+      JOIN "Team" AS link_team
+        ON link_team."id" = link."team_id"
       LEFT JOIN "GithubRepository" AS repository
         ON repository."githubRepositoryId" = link."repo_id"
     ),
@@ -159,24 +212,57 @@ SET
   "source" = EXCLUDED."source",
   "gone_at" = EXCLUDED."gone_at";
 
--- Snapshot the same attachment rule before any period is closed. The insert
--- runs after that close, so it can no longer see the predecessor it replaced.
+-- Snapshot the attachment before any period is closed. The insert runs after
+-- that close, so it can no longer see the predecessor it replaced. A direct
+-- team change still has this repo's own period open at snapshot time. The new
+-- start has to clear the instant that period will close, or the two ranges
+-- overlap. An archived team keeps the period the archive already closed.
 CREATE TEMP TABLE ledger_attachment ON COMMIT DROP AS
 SELECT
   repository."teamId" AS team_id,
   repository."githubRepositoryId" AS repo_id,
-  CASE
-    WHEN predecessor."valid_from" IS NULL
-      OR COALESCE(prior."valid_to", repository."createdAt")
-        > predecessor."valid_from"
-    THEN COALESCE(prior."valid_to", repository."createdAt")
-    WHEN repository."updatedAt" > predecessor."valid_from"
-    THEN repository."updatedAt"
-    WHEN transaction_timestamp() > predecessor."valid_from"
-    THEN transaction_timestamp()
-    ELSE predecessor."valid_from" + interval '1 millisecond'
-  END AS attached_at
+  GREATEST(
+    CASE
+      WHEN predecessor."valid_from" IS NULL
+        OR COALESCE(prior."valid_to", repository."createdAt")
+          > predecessor."valid_from"
+      THEN COALESCE(prior."valid_to", repository."createdAt")
+      WHEN repository."updatedAt" > predecessor."valid_from"
+      THEN repository."updatedAt"
+      WHEN transaction_timestamp() > predecessor."valid_from"
+      THEN transaction_timestamp()
+      ELSE predecessor."valid_from" + interval '1 millisecond'
+    END,
+    (
+      SELECT
+        CASE
+          WHEN old_team."archivedAt" IS NOT NULL
+            AND old_team."archivedAt" > open_own."valid_from"
+          THEN old_team."archivedAt"
+          WHEN old_team."archivedAt" IS NOT NULL
+            AND transaction_timestamp() > open_own."valid_from"
+          THEN transaction_timestamp()
+          WHEN old_team."archivedAt" IS NOT NULL
+          THEN open_own."valid_from" + interval '1 millisecond'
+          WHEN repository."updatedAt" > open_own."valid_from"
+          THEN repository."updatedAt"
+          ELSE GREATEST(
+            transaction_timestamp(),
+            open_own."valid_from" + interval '1 millisecond'
+          )
+        END
+      FROM "team_repo" AS open_own
+      JOIN "Team" AS old_team
+        ON old_team."id" = open_own."team_id"
+      WHERE open_own."repo_id" = repository."githubRepositoryId"
+        AND open_own."valid_to" IS NULL
+        AND open_own."team_id" IS DISTINCT FROM repository."teamId"
+    )
+  ) AS attached_at
 FROM "GithubRepository" AS repository
+JOIN "Team" AS team
+  ON team."id" = repository."teamId"
+ AND team."archivedAt" IS NULL
 LEFT JOIN LATERAL (
   SELECT MAX(closed_period."valid_to") AS "valid_to"
   FROM "team_repo" AS closed_period
@@ -201,9 +287,31 @@ FROM (
     open_link."repo_id",
     open_link."valid_from",
     CASE
+      WHEN link_team."archivedAt" IS NOT NULL
+        AND link_team."archivedAt" > open_link."valid_from"
+      THEN link_team."archivedAt"
+      WHEN link_team."archivedAt" IS NOT NULL
+        AND transaction_timestamp() > open_link."valid_from"
+      THEN transaction_timestamp()
+      WHEN link_team."archivedAt" IS NOT NULL
+      THEN open_link."valid_from" + interval '1 millisecond'
       WHEN repository."githubRepositoryId" IS NOT NULL
         AND repository."teamId" IS NOT DISTINCT FROM open_link."team_id"
       THEN NULL
+      WHEN repository."githubRepositoryId" IS NOT NULL
+        AND repository."teamId" IS DISTINCT FROM open_link."team_id"
+        AND (
+          SELECT attachment.attached_at
+          FROM ledger_attachment AS attachment
+          WHERE attachment.repo_id = open_link."repo_id"
+            AND attachment.attached_at > open_link."valid_from"
+        ) IS NOT NULL
+      THEN (
+        SELECT attachment.attached_at
+        FROM ledger_attachment AS attachment
+        WHERE attachment.repo_id = open_link."repo_id"
+          AND attachment.attached_at > open_link."valid_from"
+      )
       WHEN repository."githubRepositoryId" IS NOT NULL
         AND repository."updatedAt" > open_link."valid_from"
       THEN repository."updatedAt"
@@ -221,6 +329,8 @@ FROM (
       )
     END AS "valid_to"
   FROM "team_repo" AS open_link
+  JOIN "Team" AS link_team
+    ON link_team."id" = open_link."team_id"
   LEFT JOIN "GithubRepository" AS repository
     ON repository."githubRepositoryId" = open_link."repo_id"
   WHERE open_link."valid_to" IS NULL
