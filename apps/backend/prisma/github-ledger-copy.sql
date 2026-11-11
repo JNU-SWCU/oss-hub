@@ -18,14 +18,48 @@ BEGIN
         link."repo_id",
         link."valid_from",
         CASE
-          WHEN link."valid_to" IS NULL
-            AND repository."githubRepositoryId" IS NOT NULL
+          WHEN link."valid_to" IS NOT NULL THEN link."valid_to"
+          WHEN repository."githubRepositoryId" IS NOT NULL
             AND repository."updatedAt" > link."valid_from"
             AND (
               repository."teamId" IS NULL
               OR repository."teamId" IS DISTINCT FROM link."team_id"
             )
           THEN repository."updatedAt"
+          WHEN repository."githubRepositoryId" IS NULL THEN (
+            -- The source row is gone. Close at the next period's start.
+            -- No next repository closes at this transaction's start time.
+            -- A start that is not later stays open for the overlap guard.
+            SELECT candidate."close_at"
+            FROM (
+              SELECT
+                CASE
+                  WHEN successor."githubRepositoryId" IS NULL
+                    THEN transaction_timestamp()
+                  ELSE COALESCE(
+                    open_successor."valid_from",
+                    (
+                      SELECT MAX(closed_successor."valid_to")
+                      FROM "team_repo" AS closed_successor
+                      WHERE closed_successor."repo_id" = successor."githubRepositoryId"
+                    ),
+                    successor."createdAt"
+                  )
+                END AS "close_at"
+              FROM (SELECT 1) AS anchor
+              LEFT JOIN "GithubRepository" AS successor
+                ON successor."teamId" = link."team_id"
+              LEFT JOIN LATERAL (
+                SELECT open_link."valid_from"
+                FROM "team_repo" AS open_link
+                WHERE successor."githubRepositoryId" IS NOT NULL
+                  AND open_link."repo_id" = successor."githubRepositoryId"
+                  AND open_link."valid_to" IS NULL
+                LIMIT 1
+              ) AS open_successor ON TRUE
+            ) AS candidate
+            WHERE candidate."close_at" > link."valid_from"
+          )
           ELSE link."valid_to"
         END AS "valid_to"
       FROM "team_repo" AS link
@@ -129,15 +163,63 @@ SET
   "gone_at" = EXCLUDED."gone_at";
 
 UPDATE "team_repo" AS link
-SET "valid_to" = repository."updatedAt"
-FROM "GithubRepository" AS repository
-WHERE link."repo_id" = repository."githubRepositoryId"
+SET "valid_to" = closed."valid_to"
+FROM (
+  SELECT
+    open_link."team_id",
+    open_link."repo_id",
+    open_link."valid_from",
+    CASE
+      WHEN repository."githubRepositoryId" IS NOT NULL
+        AND repository."updatedAt" > open_link."valid_from"
+        AND (
+          repository."teamId" IS NULL
+          OR repository."teamId" IS DISTINCT FROM open_link."team_id"
+        )
+      THEN repository."updatedAt"
+      WHEN repository."githubRepositoryId" IS NULL THEN (
+        SELECT candidate."close_at"
+        FROM (
+          SELECT
+            CASE
+              WHEN successor."githubRepositoryId" IS NULL
+                THEN transaction_timestamp()
+              ELSE COALESCE(
+                open_successor."valid_from",
+                (
+                  SELECT MAX(closed_successor."valid_to")
+                  FROM "team_repo" AS closed_successor
+                  WHERE closed_successor."repo_id" = successor."githubRepositoryId"
+                ),
+                successor."createdAt"
+              )
+            END AS "close_at"
+          FROM (SELECT 1) AS anchor
+          LEFT JOIN "GithubRepository" AS successor
+            ON successor."teamId" = open_link."team_id"
+          LEFT JOIN LATERAL (
+            SELECT successor_link."valid_from"
+            FROM "team_repo" AS successor_link
+            WHERE successor."githubRepositoryId" IS NOT NULL
+              AND successor_link."repo_id" = successor."githubRepositoryId"
+              AND successor_link."valid_to" IS NULL
+            LIMIT 1
+          ) AS open_successor ON TRUE
+        ) AS candidate
+        WHERE candidate."close_at" > open_link."valid_from"
+      )
+      ELSE NULL
+    END AS "valid_to"
+  FROM "team_repo" AS open_link
+  LEFT JOIN "GithubRepository" AS repository
+    ON repository."githubRepositoryId" = open_link."repo_id"
+  WHERE open_link."valid_to" IS NULL
+) AS closed
+WHERE link."team_id" = closed."team_id"
+  AND link."repo_id" = closed."repo_id"
+  AND link."valid_from" = closed."valid_from"
   AND link."valid_to" IS NULL
-  AND repository."updatedAt" > link."valid_from"
-  AND (
-    repository."teamId" IS NULL
-    OR repository."teamId" IS DISTINCT FROM link."team_id"
-  );
+  AND closed."valid_to" IS NOT NULL;
 
 INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
 SELECT

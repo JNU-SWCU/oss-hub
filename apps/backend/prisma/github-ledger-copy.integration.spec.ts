@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { RepositoryDeletionRepository } from '../src/platform/repository-deletion.repository';
 import { TeamArchiveRepository } from '../src/programs/team.repository';
 
 assertIsolatedIntegrationDatabase({
@@ -453,6 +454,79 @@ describe('github ledger shadow copy', () => {
       WHERE "team_id" = ${nextTeamId} AND "repo_id" = ${REPO_GITHUB_ID}
     `;
     expect(successor[0]?.open).toBe(1n);
+  });
+
+  it('closes a deleted source period, opens the replacement, and repeats the same ledger', async () => {
+    await clean();
+    await seed();
+    await copyLedger();
+    const teamId = `${PREFIX}team`;
+    const openedAt = new Date('2026-10-01T00:00:00.000Z');
+    const replacementAt = new Date('2026-11-02T03:04:05.000Z');
+    const linked = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: REPO_GITHUB_ID },
+      select: { id: true },
+    });
+    await prisma.$transaction((tx) =>
+      new RepositoryDeletionRepository().deleteRepositoryWithFacts(
+        tx,
+        linked.id,
+      ),
+    );
+    await prisma.githubRepository.create({
+      data: {
+        githubRepositoryId: MOVE_REPO_GITHUB_ID,
+        nameWithOwner: 'synthetic/move',
+        source: 'ORG_PROVISIONED',
+        teamId,
+        createdAt: replacementAt,
+      },
+    });
+
+    await copyLedger();
+    const links = async () =>
+      prisma.$queryRaw<
+        Array<{ repo_id: bigint; valid_from: Date; valid_to: Date | null }>
+      >`
+        SELECT "repo_id", "valid_from", "valid_to"
+        FROM "team_repo"
+        WHERE "team_id" = ${teamId}
+        ORDER BY "valid_from", "repo_id"
+      `;
+    const repos = async () =>
+      prisma.$queryRaw<Array<{ github_repo_id: bigint }>>`
+        SELECT "github_repo_id"
+        FROM "repo"
+        WHERE "github_repo_id" IN (${REPO_GITHUB_ID}, ${MOVE_REPO_GITHUB_ID})
+        ORDER BY "github_repo_id"
+      `;
+    const first = await links();
+    const kept = await repos();
+    expect(first).toEqual([
+      {
+        repo_id: REPO_GITHUB_ID,
+        valid_from: openedAt,
+        valid_to: replacementAt,
+      },
+      {
+        repo_id: MOVE_REPO_GITHUB_ID,
+        valid_from: replacementAt,
+        valid_to: null,
+      },
+    ]);
+    expect(kept).toEqual([
+      { github_repo_id: REPO_GITHUB_ID },
+      { github_repo_id: MOVE_REPO_GITHUB_ID },
+    ]);
+    expect(
+      await prisma.githubRepository.findUnique({
+        where: { githubRepositoryId: REPO_GITHUB_ID },
+      }),
+    ).toBeNull();
+
+    await copyLedger();
+    expect(await links()).toEqual(first);
+    expect(await repos()).toEqual(kept);
   });
 });
 

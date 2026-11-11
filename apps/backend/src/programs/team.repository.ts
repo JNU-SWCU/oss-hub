@@ -3223,6 +3223,7 @@ export type StudentRepositoryUrlContext = {
   readonly programId: string;
   readonly teamId: string;
   readonly status: ApplicationStatus;
+  readonly archivedAt: Date | null;
   readonly applicantId: string;
   readonly applicant: { readonly githubId: bigint };
   readonly leaderId: string;
@@ -3300,6 +3301,7 @@ export class StudentRepositoryUrlContextRepository {
     id: true,
     programId: true,
     status: true,
+    archivedAt: true,
     applicantId: true,
     applicant: { select: { githubId: true } },
     leaderId: true,

@@ -155,6 +155,46 @@ it('saves a staff link on a provisioning-off program and shows it in the staff h
   ]);
 });
 
+it('rejects an archived team repository change and still saves one for an active team', async () => {
+  await expect(
+    service.updateForTeam(staffGithubId, programId, teamId, input),
+  ).resolves.toEqual({
+    repositoryUrl: input.repositoryUrl,
+    canEditRepositoryUrl: true,
+  });
+  await prisma.team.update({
+    where: { id: teamId },
+    data: { archivedAt: new Date('2026-11-11T12:15:00.000Z') },
+  });
+  const nextUrl = 'https://github.com/synthetic/next';
+  resolver.resolve.mockResolvedValue({
+    kind: 'EXTERNAL',
+    repository: {
+      githubRepositoryId: targetGithubId + 50n,
+      name: 'next',
+      nameWithOwner: 'synthetic/next',
+      url: nextUrl,
+      visibility: 'PUBLIC',
+      description: null,
+      defaultBranch: 'main',
+      archived: false,
+    },
+  });
+  await expect(
+    service.updateForTeam(staffGithubId, programId, teamId, {
+      repositoryUrl: nextUrl,
+    }),
+  ).rejects.toMatchObject({ errorCode: { code: 'APP_028', status: 409 } });
+  expect(
+    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
+  ).toMatchObject({ teamId, nameWithOwner: 'synthetic/target' });
+  expect(
+    await prisma.githubRepository.findUnique({
+      where: { githubRepositoryId: targetGithubId + 50n },
+    }),
+  ).toBeNull();
+});
+
 it('lets the current leader use the same team route', async () => {
   await service.updateForTeam(githubId, programId, teamId, input);
   expect(
