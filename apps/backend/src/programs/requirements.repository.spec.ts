@@ -385,7 +385,7 @@ describe('RequirementsRepository.countApprovedApplications / countSubmissionsByD
     const result = await repository.countApprovedApplications('cuid-program');
 
     expect(count).toHaveBeenCalledWith({
-      where: { programId: 'cuid-program', status: ApplicationStatus.APPROVED },
+      where: { programId: 'cuid-program', status: ApplicationStatus.APPROVED, archivedAt: null },
     });
     expect(result).toBe(8);
   });
@@ -481,6 +481,7 @@ describe('RequirementsRepository.countApprovedApplications / countSubmissionsByD
         team: {
           programId: 'cuid-program',
           status: ApplicationStatus.APPROVED,
+          archivedAt: null,
         },
       },
       _count: { _all: true },
@@ -2138,6 +2139,7 @@ describe('RequirementsRepository.withTransaction', () => {
         where: {
           programId: 'cuid-program',
           status: ApplicationStatus.APPROVED,
+          archivedAt: null,
         },
         orderBy: [{ name: 'asc' }, { id: 'asc' }],
       }),

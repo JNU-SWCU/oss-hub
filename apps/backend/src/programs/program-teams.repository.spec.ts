@@ -134,6 +134,8 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
   const teamMemberDelete = jest.fn().mockResolvedValue({});
   const teamInvitationDeleteMany = jest.fn().mockResolvedValue({ count: 1 });
   const teamDelete = jest.fn().mockResolvedValue({});
+  const teamUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+  const executeRaw = jest.fn().mockResolvedValue(0);
   const teamUpdate = jest.fn().mockResolvedValue({});
   const recordAudit = options.recordAudit ?? createRecordAuditMock();
 
@@ -151,6 +153,7 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
     },
     team: {
       update: teamUpdate,
+      updateMany: teamUpdateMany,
       delete: teamDelete,
       findUniqueOrThrow: teamFindUniqueOrThrow,
       findMany: teamFindMany,
@@ -169,6 +172,7 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
       deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
     },
     $queryRaw: queryRaw,
+    $executeRaw: executeRaw,
   };
 
   return {
@@ -183,6 +187,7 @@ function buildTx(actorUserId: string, options: TxOptions = {}) {
     teamMemberDelete,
     teamInvitationDeleteMany,
     teamDelete,
+    teamUpdateMany,
     teamUpdate,
     recordAudit,
   };
@@ -319,7 +324,7 @@ describe('TeamRepository.leave', () => {
       tx,
       teamMemberDelete,
       teamInvitationDeleteMany,
-      teamDelete,
+      teamUpdateMany,
       recordAudit,
     } = buildTx(syntheticLeaderId, {
       memberCount: 1,
@@ -350,8 +355,8 @@ describe('TeamRepository.leave', () => {
     expect(teamInvitationDeleteMany).toHaveBeenCalledWith({
       where: { teamId: syntheticTeamId },
     });
-    expect(order(teamInvitationDeleteMany)).toBeLessThan(order(teamDelete));
-    expect(order(teamMemberDelete)).toBeLessThan(order(teamDelete));
+    expect(order(teamInvitationDeleteMany)).toBeLessThan(order(teamUpdateMany));
+    expect(order(teamMemberDelete)).toBeLessThan(order(teamUpdateMany));
     expect(tx.teamHistory.create).toHaveBeenCalledWith({
       data: expect.objectContaining({
         teamId: syntheticTeamId,
@@ -845,8 +850,8 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     },
   );
 
-  it('신청 없는 1인 팀이 통째로 사라질 때는 조회도 예약도 하지 않는다', async () => {
-    const { tx, teamFindMany, outboxCreateMany, teamDelete, recordAudit } =
+  it('신청 없는 1인 팀은 행을 남기고 아카이브하며 조회와 예약을 하지 않는다', async () => {
+    const { tx, teamFindMany, outboxCreateMany, teamUpdateMany, recordAudit } =
       buildTx(syntheticLeaderId, {
         memberCount: 1,
         status: ApplicationStatus.SUBMITTED,
@@ -859,7 +864,7 @@ describe('TeamRepository 권한 동기화 이벤트 예약', () => {
     );
 
     expect(result).toBe('removed');
-    expect(teamDelete).toHaveBeenCalled();
+    expect(teamUpdateMany).toHaveBeenCalledTimes(1);
     expect(teamFindMany).not.toHaveBeenCalled();
     expect(outboxCreateMany).not.toHaveBeenCalled();
   });

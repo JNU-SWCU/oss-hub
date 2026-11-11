@@ -559,6 +559,7 @@ function createTransaction(input?: {
 }) {
   return {
     $queryRaw: jest.fn().mockResolvedValue([{ id: 'locked' }]),
+    $executeRaw: jest.fn().mockResolvedValue(0),
     program: { findUnique: jest.fn().mockResolvedValue(POLICY) },
     teamHistory: { create: jest.fn().mockResolvedValue({}) },
     teamInvitation: {
@@ -593,6 +594,7 @@ function createTransaction(input?: {
       }),
       findFirst: input?.team?.findFirst ?? jest.fn(),
       update: input?.team?.update ?? jest.fn(),
+      updateMany: jest.fn().mockResolvedValue({ count: 1 }),
       delete: input?.team?.delete ?? jest.fn(),
     },
   };

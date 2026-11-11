@@ -367,6 +367,7 @@ export GITHUB_COLLECTION_APP_PRIVATE_KEY_SOURCE="$STAGED_KEY_GENERATION/collecti
 export GITHUB_OPERATIONS_APP_PRIVATE_KEY_SOURCE="$STAGED_KEY_GENERATION/operations.pem"
 compose=(docker compose -p oss-hub -f "$CANDIDATE_COMPOSE" --env-file "$OSS_HUB_ENV_FILE")
 "${compose[@]}" run --rm --no-deps backend npx prisma migrate deploy
+"${compose[@]}" run --rm --no-deps backend npx prisma db execute --file prisma/github-ledger-copy.sql --schema prisma/schema.prisma
 "${compose[@]}" pull --quiet postgres nginx
 "${compose[@]}" run --rm --no-deps nginx nginx -t
 '''

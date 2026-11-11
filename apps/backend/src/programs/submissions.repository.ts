@@ -716,6 +716,7 @@ export class SubmissionMatrixRepository implements SubmissionMatrixRepositoryPor
     const where: Prisma.TeamWhereInput = {
       programId,
       status: ApplicationStatus.APPROVED,
+      archivedAt: null,
     };
     if (filter.q.length > 0) {
       const contains = { contains: filter.q, mode: 'insensitive' as const };

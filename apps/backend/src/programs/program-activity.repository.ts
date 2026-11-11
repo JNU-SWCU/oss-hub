@@ -88,6 +88,7 @@ export class ProgramActivityRepository {
     return this.prisma.team.findMany({
       where: {
         programId,
+        archivedAt: null,
         AND: [
           {
             OR: [

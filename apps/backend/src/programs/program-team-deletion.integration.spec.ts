@@ -493,7 +493,7 @@ it('3b staff deletion records every pending cancellation and preserves archived 
   ).toEqual(archived);
   await expect(
     prisma.team.findUnique({ where: { id: fixture.teamId } }),
-  ).resolves.toBeNull();
+  ).resolves.toEqual(expect.objectContaining({ archivedAt: expect.any(Date) }));
 });
 
 it('3a history failure rolls back staff deletion and its notifications', async () => {
@@ -588,7 +588,7 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
 
   await expect(
     prisma.team.count({ where: { id: fixture.teamId } }),
-  ).resolves.toBe(0);
+  ).resolves.toBe(1);
   await expect(
     prisma.teamMember.count({ where: { teamId: fixture.teamId } }),
   ).resolves.toBe(0);
@@ -597,7 +597,7 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
   ).resolves.toBe(0);
   await expect(
     prisma.team.count({ where: { id: fixture.teamId } }),
-  ).resolves.toBe(0);
+  ).resolves.toBe(1);
   await expect(
     prisma.submission.count({
       where: { id: fixture.submissionId },
@@ -877,10 +877,10 @@ it('팀을 지워도 발급 이력은 남고 삭제를 막지도 않는다', asy
 
     await expect(
       prisma.team.count({ where: { id: fixture.teamId } }),
-    ).resolves.toBe(0);
+    ).resolves.toBe(1);
     await expect(
       prisma.team.count({ where: { id: fixture.teamId } }),
-    ).resolves.toBe(0);
+    ).resolves.toBe(1);
 
     const retained = await prisma.repositoryIssuanceHistory.findUnique({
       where: { requestId },
@@ -962,7 +962,9 @@ it.each([null, '   '])(
 
     await expect(
       prisma.team.findUnique({ where: { id: fixture.teamId } }),
-    ).resolves.toBeNull();
+    ).resolves.toEqual(
+      expect.objectContaining({ archivedAt: expect.any(Date) }),
+    );
   },
 );
 

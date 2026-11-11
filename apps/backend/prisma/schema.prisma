@@ -326,6 +326,7 @@ model Team {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  archivedAt DateTime?
 
   members      TeamMember[]
   repository   GithubRepository?
@@ -1184,7 +1185,7 @@ model Repo {
 /// One team and one repository in any overlapping period. Both exclusion constraints are SQL-only.
 model TeamRepo {
   teamId    String                   @map("team_id")
-  team      Team                     @relation(fields: [teamId], references: [id])
+  team      Team                     @relation(fields: [teamId], references: [id], onDelete: Restrict)
   repoId    BigInt                   @map("repo_id")
   repo      Repo                     @relation(fields: [repoId], references: [githubRepoId])
   validFrom DateTime                 @map("valid_from") @db.Timestamptz(3)

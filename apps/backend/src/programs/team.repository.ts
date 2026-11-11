@@ -33,6 +33,28 @@ import {
   type AppendedReviewHistory,
   TeamHistoryRepository,
 } from './team-history.repository';
+
+@Injectable()
+export class TeamArchiveRepository {
+  async run(
+    tx: Prisma.TransactionClient,
+    teamId: string,
+    archivedAt: Date,
+  ): Promise<void> {
+    await tx.$executeRaw`
+      UPDATE "team_repo"
+      SET "valid_to" = ${archivedAt}
+      WHERE "team_id" = ${teamId}
+        AND "valid_to" IS NULL
+        AND "valid_from" < ${archivedAt}
+    `;
+    await tx.team.updateMany({
+      where: { id: teamId, archivedAt: null },
+      data: { archivedAt },
+    });
+  }
+}
+
 import {
   RepositoryEventAlreadyExistsError,
   ApplicationTeamMembershipConflictError,
@@ -820,8 +842,8 @@ export class ApplicationsRepository {
   ): Promise<ApplicationListSource | null> {
     const [row, outbox, job] = await this.prisma.$transaction(
       async (transaction) => {
-        const applicationRow = await transaction.team.findUnique({
-          where: { id: teamId },
+        const applicationRow = await transaction.team.findFirst({
+          where: { id: teamId, archivedAt: null },
           select: APPLICATION_LIST_SELECT,
         });
         if (applicationRow === null) {
@@ -1462,6 +1484,7 @@ function buildApplicationListWhere(
 
   return {
     programId,
+    archivedAt: null,
     ...statusWhere,
     ...searchWhere,
   };
@@ -1831,7 +1854,7 @@ export class StudentApplicationManagementRepository {
       });
       await transaction.teamInvitation.deleteMany({ where: { teamId } });
       await transaction.teamMember.deleteMany({ where: { teamId } });
-      await transaction.team.delete({ where: { id: teamId } });
+      await new TeamArchiveRepository().run(transaction, teamId, now);
       return { kind: 'cancelled' };
     });
   }
@@ -1878,19 +1901,23 @@ export class StudentApplicationManagementRepository {
     const candidate = await transaction.team.findFirst({
       where: {
         programId,
+        archivedAt: null,
         ...this.platformRepository.programApplicationManagerWhere(studentId),
       },
       select: { id: true },
     });
     if (!candidate) return null;
     const locked = await transaction.$queryRaw<readonly { id: string }[]>`
-      SELECT "id" FROM "Team" WHERE "id" = ${candidate.id} FOR UPDATE
+      SELECT "id" FROM "Team"
+      WHERE "id" = ${candidate.id} AND "archivedAt" IS NULL
+      FOR UPDATE
     `;
     if (locked.length === 0) return null;
     const row = await transaction.team.findFirst({
       where: {
         id: candidate.id,
         programId,
+        archivedAt: null,
         ...this.platformRepository.programApplicationManagerWhere(studentId),
       },
       select: APPLICATION_SELECT,
@@ -2272,7 +2299,7 @@ export class TeamRepository {
   }
   async listStaffTeams(programId: string): Promise<StaffTeamRecord[]> {
     const teams = await this.prisma.team.findMany({
-      where: { programId },
+      where: { programId, archivedAt: null },
       orderBy: { createdAt: 'asc' },
       select: {
         id: true,
@@ -2308,7 +2335,7 @@ export class TeamRepository {
     teamId: string,
   ): Promise<StaffTeamDetailRecord | null> {
     const team = await this.prisma.team.findFirst({
-      where: { id: teamId, programId },
+      where: { id: teamId, programId, archivedAt: null },
       select: {
         id: true,
         name: true,
@@ -2407,7 +2434,7 @@ export class TeamRepository {
     cursor?: RepositoryUrlHistoryCursor,
   ): Promise<RepositoryUrlHistoryScopedRows | null> {
     const team = await this.prisma.team.findFirst({
-      where: { id: teamId, programId },
+      where: { id: teamId, programId, archivedAt: null },
       select: { id: true },
     });
     if (!team) return null;
@@ -2426,7 +2453,7 @@ export class TeamRepository {
     teamId: string,
   ): Promise<TeamActivityScope | null> {
     const team = await this.prisma.team.findFirst({
-      where: { id: teamId, programId },
+      where: { id: teamId, programId, archivedAt: null },
       select: {
         leaderId: true,
         program: { select: { startAt: true, endAt: true } },
@@ -2524,7 +2551,7 @@ export class TeamRepository {
         await tx.teamMember.delete({
           where: { teamId_userId: { teamId, userId } },
         });
-        await tx.team.delete({ where: { id: teamId } });
+        await new TeamArchiveRepository().run(tx, teamId, now);
         return 'removed';
       }
       if (previousLeaderId === userId) return 'leader-transfer-required';
@@ -2673,7 +2700,7 @@ export class TeamRepository {
           where: { aggregateType: 'Team', aggregateId: teamId },
         });
         await tx.teamInvitation.deleteMany({ where: { teamId, programId } });
-        await tx.team.delete({ where: { id: teamId } });
+        await new TeamArchiveRepository().run(tx, teamId, now);
         await recordAudit(
           { historyWriter: tx, programId },
           membershipAuditEvent(target, {
@@ -2874,7 +2901,9 @@ function lockTeamRow(
     Prisma.sql`
       SELECT t."id" FROM "Team" t
       JOIN "Program" p ON p."id" = t."programId"
-      WHERE t."id" = ${teamId} AND p."lifecycle" <> 'DELETED'
+      WHERE t."id" = ${teamId}
+        AND t."archivedAt" IS NULL
+        AND p."lifecycle" <> 'DELETED'
       FOR UPDATE OF t
     `,
   );
@@ -3046,7 +3075,7 @@ export class ProgramTeamDeletionRepository {
           ) {
             throw new TeamDeletedScopeMismatchError();
           }
-          await tx.team.delete({ where: { id: teamId } });
+          await new TeamArchiveRepository().run(tx, teamId, deletedAt);
 
           return { outcome: 'deleted' as const, deletedCounts };
         },

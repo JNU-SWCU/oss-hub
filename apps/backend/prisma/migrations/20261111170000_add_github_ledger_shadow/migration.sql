@@ -56,4 +56,8 @@ CREATE TABLE "github_user_activity_history" (
   CONSTRAINT "github_user_activity_history_pkey" PRIMARY KEY ("github_id", "year", "visibility", "observed_at")
 );
 
+-- Nullable column add is catalog-only on Postgres 11+. Placed last so the
+-- ACCESS EXCLUSIVE lock on "Team" is only held until this transaction commits.
+ALTER TABLE "Team" ADD COLUMN "archivedAt" TIMESTAMP(3);
+
 COMMIT;

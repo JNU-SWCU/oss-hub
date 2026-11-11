@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { PrismaClient } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { TeamArchiveRepository } from '../src/programs/team.repository';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -371,6 +372,83 @@ describe('github ledger shadow copy', () => {
     expect(detail).toContain(`overlapping_repos=${counts.repos}`);
     expect(detail).toContain(`overlapping_repo_rows=${counts.repo_rows}`);
     expect(await shadowTotals()).toEqual(before);
+  });
+
+  it('archives the team, closes open periods, and still rejects deleting the team row', async () => {
+    await clean();
+    await seed();
+    const teamId = `${PREFIX}team`;
+    const nextTeamId = `${PREFIX}team-next`;
+    const archivedAt = new Date('2026-11-11T08:29:00.000Z');
+    await prisma.$executeRaw`
+      INSERT INTO "repo" ("github_repo_id", "owner_name", "source")
+      VALUES (${REPO_GITHUB_ID}, 'synthetic/ledger', 'ORG_PROVISIONED'::"RepositorySource")
+    `;
+    await prisma.$executeRaw`
+      INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
+      VALUES (${teamId}, ${REPO_GITHUB_ID}, ${new Date('2026-10-01T00:00:00.000Z')})
+    `;
+    const before = await prisma.$queryRaw<Array<{ count: bigint }>>`
+      SELECT COUNT(*) AS count FROM "team_repo" WHERE "team_id" = ${teamId}
+    `;
+
+    await prisma.$transaction((tx) =>
+      new TeamArchiveRepository().run(tx, teamId, archivedAt),
+    );
+    await prisma.$transaction((tx) =>
+      new TeamArchiveRepository().run(tx, teamId, new Date('2026-12-01T00:00:00.000Z')),
+    );
+
+    const team = await prisma.team.findUnique({ where: { id: teamId } });
+    expect(team?.archivedAt).toEqual(archivedAt);
+    const after = await prisma.$queryRaw<
+      Array<{ count: bigint; open: bigint; valid_to: Date | null }>
+    >`
+      SELECT
+        COUNT(*) AS count,
+        COUNT(*) FILTER (WHERE "valid_to" IS NULL) AS open,
+        MAX("valid_to") AS valid_to
+      FROM "team_repo"
+      WHERE "team_id" = ${teamId}
+    `;
+    expect(after[0]?.count).toBe(before[0]?.count);
+    expect(after[0]?.open).toBe(0n);
+    expect(after[0]?.valid_to).toEqual(archivedAt);
+
+    const rule = await prisma.$queryRaw<Array<{ confdeltype: string }>>`
+      SELECT "confdeltype"
+      FROM "pg_constraint"
+      WHERE "conname" = 'team_repo_team_id_fkey'
+    `;
+    expect(rule[0]?.confdeltype).toBe('r');
+    await expect(
+      prisma.$executeRaw`DELETE FROM "Team" WHERE "id" = ${teamId}`,
+    ).rejects.toMatchObject({
+      code: 'P2010',
+      meta: { code: '23503' },
+    });
+
+    await prisma.team.create({
+      data: {
+        id: nextTeamId,
+        programId: `${PREFIX}program`,
+        name: nextTeamId,
+        leaderId: `${PREFIX}user`,
+        applicantId: `${PREFIX}user`,
+        answers: { title: nextTeamId },
+        applicationTemplateVersion: 1,
+      },
+    });
+    await prisma.$executeRaw`
+      INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from")
+      VALUES (${nextTeamId}, ${REPO_GITHUB_ID}, ${archivedAt})
+    `;
+    const successor = await prisma.$queryRaw<Array<{ open: bigint }>>`
+      SELECT COUNT(*) FILTER (WHERE "valid_to" IS NULL) AS open
+      FROM "team_repo"
+      WHERE "team_id" = ${nextTeamId} AND "repo_id" = ${REPO_GITHUB_ID}
+    `;
+    expect(successor[0]?.open).toBe(1n);
   });
 });
 
