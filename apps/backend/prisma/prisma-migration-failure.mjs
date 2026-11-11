@@ -23,15 +23,17 @@ function classify(text) {
     }
     return true;
   });
-  const cause = databaseError ?? lines.find((line) => {
-    const trimmed = line.trim();
-    if (trimmed === '') return false;
-    if (trimmed.includes('25P02')) return false;
-    if (trimmed.toLowerCase().includes('current transaction is aborted')) {
-      return false;
-    }
-    return trimmed.includes('P3009') || trimmed.includes('Error:');
-  });
+  const cause =
+    databaseError ??
+    lines.find((line) => {
+      const trimmed = line.trim();
+      if (trimmed === '') return false;
+      if (trimmed.includes('25P02')) return false;
+      if (trimmed.toLowerCase().includes('current transaction is aborted')) {
+        return false;
+      }
+      return trimmed.includes('P3009') || trimmed.includes('Error:');
+    });
   return {
     kind: 'other',
     cause: (cause ?? 'unknown failure').trim(),
