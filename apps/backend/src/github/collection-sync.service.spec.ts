@@ -540,7 +540,9 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       const sql = Array.isArray(strings) ? strings.join('') : '';
       if (!sql.includes('INSERT INTO "contribution"')) {
         if (sql.includes('COUNT(*)')) return Promise.resolve([{ count: 0 }]);
-        return Promise.resolve([{ missing_repo: 0, inserted: 0 }]);
+        return Promise.resolve([
+          { candidates: 1000000, missing_repo: 0, inserted: 0 },
+        ]);
       }
       const kind = values[2];
       const repositoryId = values[1];
@@ -585,7 +587,9 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         if (stored) inserted += 1;
       }
       box.store.recomputeCalls += 1;
-      return Promise.resolve([{ missing_repo: 0, inserted }]);
+      return Promise.resolve([
+        { candidates: 1000000, missing_repo: 0, inserted },
+      ]);
     },
     collectionSyncCursor: {
       upsert: ({

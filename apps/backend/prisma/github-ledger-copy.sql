@@ -565,4 +565,37 @@ WHERE NOT EXISTS (
 )
 ON CONFLICT ("github_id", "year", "visibility", "observed_at") DO NOTHING;
 
+UPDATE "github_user_activity_history" AS observation
+SET
+  "clock_at" = GREATEST(
+    COALESCE(observation."clock_at", observation."observed_at"),
+    observation."observed_at"
+  ),
+  "observed_at" = snapshot."observedAt" AT TIME ZONE 'UTC'
+FROM "GithubUserActivityCycleSnapshot" AS snapshot
+WHERE observation."github_id" = snapshot."githubId"
+  AND observation."year" = snapshot."year"
+  AND observation."visibility" = snapshot."visibility"
+  AND observation."commit_count" = snapshot."commitCount"
+  AND observation."pull_request_count" = snapshot."pullRequestCount"
+  AND observation."issue_count" = snapshot."issueCount"
+  AND observation."repository_count" = snapshot."repositoryCount"
+  AND observation."star_count" = snapshot."starCount"
+  AND snapshot."observedAt" AT TIME ZONE 'UTC' < observation."observed_at"
+  AND observation."observed_at" = (
+    SELECT MAX(latest."observed_at")
+    FROM "github_user_activity_history" AS latest
+    WHERE latest."github_id" = observation."github_id"
+      AND latest."year" = observation."year"
+      AND latest."visibility" = observation."visibility"
+  )
+  AND NOT EXISTS (
+    SELECT 1
+    FROM "github_user_activity_history" AS existing
+    WHERE existing."github_id" = observation."github_id"
+      AND existing."year" = observation."year"
+      AND existing."visibility" = observation."visibility"
+      AND existing."observed_at" = snapshot."observedAt" AT TIME ZONE 'UTC'
+  );
+
 COMMIT;

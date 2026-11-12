@@ -94,7 +94,11 @@ const createDb = (): MockDb => {
 
     contribution: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $executeRaw: jest.fn().mockResolvedValue(1),
-    $queryRaw: jest.fn().mockResolvedValue([{ missing_repo: 0, inserted: 0 }]),
+    $queryRaw: jest
+      .fn()
+      .mockResolvedValue([
+        { candidates: 1000000, missing_repo: 0, inserted: 0 },
+      ]),
 
     user: {
       findMany: jest.fn(
@@ -147,7 +151,8 @@ const expectLedgerInsert = (db: MockDb): void => {
     ledger.filter(
       (sql) =>
         sql.includes('INSERT INTO "contribution"') &&
-        sql.includes('JOIN "repo"') &&
+        sql.includes('INSERT INTO "repo"') &&
+        sql.includes('ON CONFLICT ("github_repo_id") DO NOTHING') &&
         sql.includes('CURRENT_TIMESTAMP AS first_seen_at') &&
         sql.includes('ON CONFLICT ("repo_id", "kind", "github_key")') &&
         !sql.includes('CollectionCommitFact') &&
@@ -300,7 +305,9 @@ describe('CollectionIncrementalRepository — repository identity', () => {
 describe('CollectionIncrementalRepository — commit facts (deterministic rebuild)', () => {
   it('contribution에 넣고 실제 삽입 개수를 반환한다', async () => {
     const db = createDb();
-    db.$queryRaw.mockResolvedValue([{ missing_repo: 0, inserted: 1 }]);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
 
     const result = await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -439,7 +446,7 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     expectLedgerInsert(db);
   });
 
-  it('같은 커밋을 다시 적어도 contribution SQL은 ON CONFLICT이며 repo는 쓰지 않는다', async () => {
+  it('같은 커밋을 다시 적어도 contribution은 ON CONFLICT이고 repo 행은 만든다', async () => {
     const db = createDb();
     const facts = [
       {
@@ -466,19 +473,21 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     ).filter((sql) => sql.includes('INSERT INTO "contribution"'));
     expect(ledger).toHaveLength(2);
     for (const sql of ledger) {
-      expect(sql).toContain('JOIN "repo"');
+      expect(sql).toContain('INSERT INTO "repo"');
+      expect(sql).toContain('ON CONFLICT ("github_repo_id") DO NOTHING');
       expect(sql).toContain('ON CONFLICT ("repo_id", "kind", "github_key")');
       expect(sql).toContain('CURRENT_TIMESTAMP AS first_seen_at');
       expect(sql).not.toContain('"CollectionCommitFact"');
-      expect(sql).not.toContain('INSERT INTO "repo"');
       expect(sql).not.toContain('team_repo');
     }
   });
 
-  it('repo 행이 없으면 contribution을 넣지 않고 오류 없이 빠뜨린 개수를 남긴다', async () => {
+  it('저장소 행을 만들 수 없으면 contribution 트랜잭션을 되돌린다', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
-    db.$queryRaw.mockResolvedValue([{ missing_repo: 1, inserted: 0 }]);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 0, missing_repo: 1, inserted: 0 },
+    ]);
     const debugLines: string[] = [];
     const debug = jest
       .spyOn(process.stderr, 'write')
@@ -487,34 +496,34 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
         return true;
       });
 
-    const result = await repositoryFor(db).recordCommitFacts(
-      'repo-1',
-      [
-        {
-          sha: 'missing-repo',
-          committedAt: new Date('2026-03-01T00:00:00.000Z'),
-          authorGithubId: 99n,
-          authorGithubLogin: 'octocat',
-        },
-      ],
-      DEFAULT_REGISTERED_GITHUB_IDS,
-    );
-
-    expect(result).toEqual({ acceptedCount: 1, insertedCount: 0 });
+    await expect(
+      repositoryFor(db).recordCommitFacts(
+        'repo-1',
+        [
+          {
+            sha: 'missing-repo',
+            committedAt: new Date('2026-03-01T00:00:00.000Z'),
+            authorGithubId: 99n,
+            authorGithubLogin: 'octocat',
+          },
+        ],
+        DEFAULT_REGISTERED_GITHUB_IDS,
+      ),
+    ).rejects.toThrow('contribution repository row is missing');
     const ledger = queryTexts(
       db.$queryRaw.mock.calls as (readonly unknown[])[],
     ).filter((sql) => sql.includes('INSERT INTO "contribution"'));
     expect(ledger).toHaveLength(1);
-    expect(ledger[0]).toContain('JOIN "repo"');
+    expect(ledger[0]).toContain('INSERT INTO "repo"');
     expect(ledger[0]).toContain('CURRENT_TIMESTAMP AS first_seen_at');
     expect(ledger[0]).not.toContain('"CollectionCommitFact"');
-    expect(ledger[0]).not.toContain('INSERT INTO "repo"');
     expect(debugLines).toContain(
       `${JSON.stringify({
         level: 'debug',
         event: 'collection.ledger.contribution_skipped_missing_repo',
         kind: 'commit',
         missingRepoCount: 1,
+        candidateCount: 0,
       })}\n`,
     );
     debug.mockRestore();
@@ -544,7 +553,9 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 describe('CollectionIncrementalRepository — pull request facts (parity)', () => {
   it('pull request는 contribution에만 넣고 옛 사실 테이블은 쓰지 않는다', async () => {
     const db = createDb();
-    db.$queryRaw.mockResolvedValue([{ missing_repo: 0, inserted: 1 }]);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
 
     const result = await repositoryFor(db).recordPullRequestFacts(
       'repo-1',
@@ -583,7 +594,9 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
 describe('CollectionIncrementalRepository — release facts (parity)', () => {
   it('release는 contribution에만 넣고 옛 사실 테이블은 쓰지 않는다', async () => {
     const db = createDb();
-    db.$queryRaw.mockResolvedValue([{ missing_repo: 0, inserted: 1 }]);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
 
     const result = await repositoryFor(db).recordReleaseFacts(
       'repo-1',
@@ -621,7 +634,9 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
 describe('CollectionIncrementalRepository — issue facts (parity)', () => {
   it('가입자 issue만 contribution에 넣고 옛 이력은 쓰지 않는다', async () => {
     const db = createDb();
-    db.$queryRaw.mockResolvedValue([{ missing_repo: 0, inserted: 1 }]);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
     const createdAt = new Date('2026-05-01T00:00:00.000Z');
 
     const result = await repositoryFor(db).recordIssueFacts(

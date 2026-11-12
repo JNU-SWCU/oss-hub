@@ -60,45 +60,89 @@ FROM (
     )
   ) AS uncovered
   UNION ALL
-  SELECT 'latest_commit_sum', sums.commit_sum, sums.commit_sum
-  FROM (
-    SELECT COALESCE(SUM(latest.commit_count), 0) AS commit_sum
-    FROM (
-      SELECT DISTINCT ON (github_id, year, visibility) commit_count
-      FROM github_user_activity_history
-      ORDER BY github_id, year, visibility, observed_at DESC
-    ) AS latest
-  ) AS sums
+  SELECT 'latest_commit_sum',
+    COALESCE((
+      SELECT SUM(standing.commit_count)
+      FROM contributor_standing AS standing
+      WHERE EXISTS (
+        SELECT 1
+        FROM github_user_activity_history AS observation
+        WHERE observation.github_id = standing.github_id
+          AND observation.year = standing.year
+          AND observation.visibility = standing.visibility
+      )
+    ), 0),
+    COALESCE((
+      SELECT SUM(latest.commit_count)
+      FROM (
+        SELECT DISTINCT ON (github_id, year, visibility) commit_count
+        FROM github_user_activity_history
+        ORDER BY github_id, year, visibility, observed_at DESC
+      ) AS latest
+    ), 0)
   UNION ALL
-  SELECT 'latest_pull_request_sum', sums.pull_request_sum, sums.pull_request_sum
-  FROM (
-    SELECT COALESCE(SUM(latest.pull_request_count), 0) AS pull_request_sum
-    FROM (
-      SELECT DISTINCT ON (github_id, year, visibility) pull_request_count
-      FROM github_user_activity_history
-      ORDER BY github_id, year, visibility, observed_at DESC
-    ) AS latest
-  ) AS sums
+  SELECT 'latest_pull_request_sum',
+    COALESCE((
+      SELECT SUM(standing.pull_request_count)
+      FROM contributor_standing AS standing
+      WHERE EXISTS (
+        SELECT 1
+        FROM github_user_activity_history AS observation
+        WHERE observation.github_id = standing.github_id
+          AND observation.year = standing.year
+          AND observation.visibility = standing.visibility
+      )
+    ), 0),
+    COALESCE((
+      SELECT SUM(latest.pull_request_count)
+      FROM (
+        SELECT DISTINCT ON (github_id, year, visibility) pull_request_count
+        FROM github_user_activity_history
+        ORDER BY github_id, year, visibility, observed_at DESC
+      ) AS latest
+    ), 0)
   UNION ALL
-  SELECT 'latest_issue_sum', sums.issue_sum, sums.issue_sum
-  FROM (
-    SELECT COALESCE(SUM(latest.issue_count), 0) AS issue_sum
-    FROM (
-      SELECT DISTINCT ON (github_id, year, visibility) issue_count
-      FROM github_user_activity_history
-      ORDER BY github_id, year, visibility, observed_at DESC
-    ) AS latest
-  ) AS sums
+  SELECT 'latest_issue_sum',
+    COALESCE((
+      SELECT SUM(standing.issue_count)
+      FROM contributor_standing AS standing
+      WHERE EXISTS (
+        SELECT 1
+        FROM github_user_activity_history AS observation
+        WHERE observation.github_id = standing.github_id
+          AND observation.year = standing.year
+          AND observation.visibility = standing.visibility
+      )
+    ), 0),
+    COALESCE((
+      SELECT SUM(latest.issue_count)
+      FROM (
+        SELECT DISTINCT ON (github_id, year, visibility) issue_count
+        FROM github_user_activity_history
+        ORDER BY github_id, year, visibility, observed_at DESC
+      ) AS latest
+    ), 0)
   UNION ALL
-  SELECT 'latest_star_sum', sums.star_sum, sums.star_sum
-  FROM (
-    SELECT COALESCE(SUM(latest.star_count), 0) AS star_sum
-    FROM (
-      SELECT DISTINCT ON (github_id, year, visibility) star_count
-      FROM github_user_activity_history
-      ORDER BY github_id, year, visibility, observed_at DESC
-    ) AS latest
-  ) AS sums
+  SELECT 'latest_star_sum',
+    COALESCE((
+      SELECT SUM(standing.star_count)
+      FROM contributor_standing AS standing
+      WHERE EXISTS (
+        SELECT 1
+        FROM github_user_activity_history AS observation
+        WHERE observation.github_id = standing.github_id
+          AND observation.year = standing.year
+          AND observation.visibility = standing.visibility
+      )
+    ), 0),
+    COALESCE((
+      SELECT SUM(latest.star_count)
+      FROM (
+        SELECT DISTINCT ON (github_id, year, visibility) star_count
+        FROM github_user_activity_history
+        ORDER BY github_id, year, visibility, observed_at DESC
+      ) AS latest
+    ), 0)
   UNION ALL
   SELECT 'legacy_history_uncovered', uncovered.rows, 0
   FROM (

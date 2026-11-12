@@ -5,18 +5,15 @@ import {
   type ActivityVisibility,
   type UserType,
 } from '@prisma/client';
-import { CollectionIncrementalRepository } from './collection-incremental.repository';
-import { CollectionScheduleService } from './collection-schedule.service';
-import { PlatformRepository } from '../platform/platform.repository';
-import type { PrismaService } from '../platform/prisma.service';
-import { ProgramActivityRepository } from '../programs/program-activity.repository';
-import { RankingRepository } from '../ranking/ranking.repository';
-import { RankingService } from '../ranking/ranking.service';
-import {
-  RankingYearService,
-  type RankingYear,
-} from '../ranking/ranking-year.service';
-import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { CollectionIncrementalRepository } from '../src/github/collection-incremental.repository';
+import { CollectionScheduleService } from '../src/github/collection-schedule.service';
+import { PlatformRepository } from '../src/platform/platform.repository';
+import type { PrismaService } from '../src/platform/prisma.service';
+import { ProgramActivityRepository } from '../src/programs/program-activity.repository';
+import { RankingRepository } from '../src/ranking/ranking.repository';
+import { RankingService } from '../src/ranking/ranking.service';
+import { RankingYearService } from '../src/ranking/ranking-year.service';
+import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -34,15 +31,15 @@ const COLLECTION_REPO_ID = 9_812_100_002n;
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const COPY_SQL = readFileSync(
-  resolve(__dirname, '../../prisma/github-ledger-copy.sql'),
+  resolve(__dirname, 'github-ledger-copy.sql'),
   'utf8',
 );
 const REVERSE_SQL = readFileSync(
-  resolve(__dirname, '../../prisma/github-ledger-reverse.sql'),
+  resolve(__dirname, 'github-ledger-reverse.sql'),
   'utf8',
 );
 const VERIFY_SQL = readFileSync(
-  resolve(__dirname, '../../prisma/github-ledger-verify.sql'),
+  resolve(__dirname, 'github-ledger-verify.sql'),
   'utf8',
 );
 
@@ -361,7 +358,9 @@ describe('github fact round 1', () => {
     const cut = seoulDayStart(new Date());
     const previousAt = new Date(cut.getTime() - 60_000);
     const currentAt = new Date(cut.getTime() + 60_000);
-    await prisma.githubUserActivityHistory.deleteMany({ where: { year: YEAR } });
+    await prisma.githubUserActivityHistory.deleteMany({
+      where: { year: YEAR },
+    });
     await prisma.githubUserActivityCycleSnapshot.deleteMany({
       where: { year: YEAR },
     });
@@ -417,7 +416,7 @@ describe('github fact round 1', () => {
     expect(byLogin.get(`${PREFIX}beta`)?.commitCount).toBe(1);
     expect(byLogin.has(`${PREFIX}staff`)).toBe(false);
 
-    const page = await rankingPage.findPage(YEAR as RankingYear, 1, 20, null);
+    const page = await rankingPage.findPage(YEAR, 1, 20, null);
     const gamma = page.items.find(
       (item) => item.githubLogin === `${PREFIX}gamma`,
     );
@@ -636,10 +635,10 @@ describe('github fact round 1', () => {
       });
     }
 
-    const before = await rankingPage.findPage(YEAR as RankingYear, 1, 20, null);
+    const before = await rankingPage.findPage(YEAR, 1, 20, null);
     await runScript(REVERSE_SQL);
     await runScript(REVERSE_SQL);
-    const after = await rankingPage.findPage(YEAR as RankingYear, 1, 20, null);
+    const after = await rankingPage.findPage(YEAR, 1, 20, null);
     const restored = await previousRanksFromCycleSnapshot(YEAR);
     for (const login of [`${PREFIX}gamma`, `${PREFIX}alpha`, `${PREFIX}beta`]) {
       const head = after.items.find((item) => item.githubLogin === login);
@@ -707,9 +706,10 @@ describe('github fact round 1', () => {
             CURRENT_TIMESTAMP AS observed_at
           WHERE false
         `);
-        const rows = await tx.$queryRawUnsafe<
-          Array<{ check: string; expected: bigint; actual: bigint }>
-        >(verifySql);
+        const rows =
+          await tx.$queryRawUnsafe<
+            Array<{ check: string; expected: bigint; actual: bigint }>
+          >(verifySql);
         const commitSum = rows.find((row) => row.check === 'latest_commit_sum');
         expect(commitSum?.expected).not.toEqual(commitSum?.actual);
         throw new Error('rollback-view');

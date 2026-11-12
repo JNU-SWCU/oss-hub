@@ -249,6 +249,7 @@ interface AcceptedContributionFact {
 }
 
 interface ContributionInsertSummary {
+  readonly candidates: number;
   readonly missing_repo: number;
   readonly inserted: number;
 }
@@ -257,9 +258,15 @@ const isContributionInsertSummary = (
   value: unknown,
 ): value is ContributionInsertSummary => {
   if (value === null || typeof value !== 'object') return false;
-  const record = value as { missing_repo?: unknown; inserted?: unknown };
+  const record = value as {
+    candidates?: unknown;
+    missing_repo?: unknown;
+    inserted?: unknown;
+  };
   return (
-    Number.isInteger(record.missing_repo) && Number.isInteger(record.inserted)
+    Number.isInteger(record.candidates) &&
+    Number.isInteger(record.missing_repo) &&
+    Number.isInteger(record.inserted)
   );
 };
 
@@ -404,6 +411,36 @@ export class CollectionIncrementalStoreRepository {
       WITH incoming(github_key, author_github_id, occurred_at) AS (
         VALUES ${incoming}
       ),
+      repository_row AS (
+        SELECT ${repositoryId}::text AS repository_id
+      ),
+      ensured_repo AS (
+        INSERT INTO "repo" ("github_repo_id", "owner_name", "source", "gone_at")
+        SELECT
+          repository."githubRepositoryId",
+          repository."nameWithOwner",
+          repository."source",
+          CASE
+            WHEN repository."presence" = 'ABSENT' THEN repository."updatedAt"
+            ELSE NULL
+          END
+        FROM "GithubRepository" AS repository
+        JOIN repository_row AS row
+          ON repository."id" = row.repository_id
+        ON CONFLICT ("github_repo_id") DO NOTHING
+        RETURNING "github_repo_id"
+      ),
+      present_repo AS (
+        SELECT ensured."github_repo_id"
+        FROM ensured_repo AS ensured
+        UNION
+        SELECT existing."github_repo_id"
+        FROM "repo" AS existing
+        JOIN "GithubRepository" AS repository
+          ON repository."githubRepositoryId" = existing."github_repo_id"
+        JOIN repository_row AS row
+          ON repository."id" = row.repository_id
+      ),
       candidates AS (
         SELECT
           repository."githubRepositoryId" AS repo_id,
@@ -412,8 +449,9 @@ export class CollectionIncrementalStoreRepository {
           incoming.occurred_at,
           CURRENT_TIMESTAMP AS first_seen_at
         FROM incoming
+        CROSS JOIN repository_row AS row
         JOIN "GithubRepository" AS repository
-          ON repository."id" = ${repositoryId}
+          ON repository."id" = row.repository_id
       ),
       inserted AS (
         INSERT INTO "contribution" (
@@ -427,15 +465,17 @@ export class CollectionIncrementalStoreRepository {
           candidate.occurred_at,
           candidate.first_seen_at
         FROM candidates AS candidate
-        JOIN "repo" ON "repo"."github_repo_id" = candidate.repo_id
+        JOIN present_repo AS present
+          ON present."github_repo_id" = candidate.repo_id
         ON CONFLICT ("repo_id", "kind", "github_key") DO NOTHING
         RETURNING 1
       )
       SELECT
+        (SELECT count(*)::int FROM candidates) AS candidates,
         (SELECT count(*)::int FROM candidates AS candidate
           WHERE NOT EXISTS (
-            SELECT 1 FROM "repo"
-            WHERE "repo"."github_repo_id" = candidate.repo_id
+            SELECT 1 FROM present_repo AS present
+            WHERE present."github_repo_id" = candidate.repo_id
           )) AS missing_repo,
         (SELECT count(*)::int FROM inserted) AS inserted
     `;
@@ -443,14 +483,18 @@ export class CollectionIncrementalStoreRepository {
     if (!isContributionInsertSummary(summary)) {
       throw new Error('contribution insert summary was not an integer');
     }
-    if (summary.missing_repo > 0) {
+    if (summary.missing_repo > 0 || summary.candidates < facts.length) {
       process.stderr.write(
         `${JSON.stringify({
           level: 'debug',
           event: 'collection.ledger.contribution_skipped_missing_repo',
           kind,
           missingRepoCount: summary.missing_repo,
+          candidateCount: summary.candidates,
         })}\n`,
+      );
+      throw new Error(
+        `contribution repository row is missing: missing_repo=${summary.missing_repo} candidates=${summary.candidates}`,
       );
     }
     return summary.inserted;
