@@ -209,6 +209,9 @@ describe('github ledger shadow copy', () => {
         { check: 'latest_pull_request_sum', expected: 4n, actual: 4n },
         { check: 'latest_issue_sum', expected: 1n, actual: 1n },
         { check: 'latest_star_sum', expected: 2n, actual: 2n },
+        { check: 'history_consecutive_same_value', expected: 0n, actual: 0n },
+        { check: 'open_link_repo_mismatch', expected: 0n, actual: 0n },
+        { check: 'open_period_created_at_floor', expected: 0n, actual: 0n },
       ]);
     }
 

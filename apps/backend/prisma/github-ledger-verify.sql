@@ -87,4 +87,87 @@ FROM (
         LIMIT 1
       ) AS observation ON TRUE
     )
+  UNION ALL
+  SELECT 'history_consecutive_same_value', same_value.rows, same_value.rows
+  FROM (
+    WITH ordered AS (
+      SELECT
+        "commit_count",
+        "pull_request_count",
+        "issue_count",
+        "repository_count",
+        "star_count",
+        lag("commit_count") OVER w AS prev_commit,
+        lag("pull_request_count") OVER w AS prev_pull_request,
+        lag("issue_count") OVER w AS prev_issue,
+        lag("repository_count") OVER w AS prev_repository,
+        lag("star_count") OVER w AS prev_star
+      FROM "github_user_activity_history"
+      WINDOW w AS (
+        PARTITION BY "github_id", "year", "visibility"
+        ORDER BY "observed_at"
+      )
+    )
+    SELECT count(*) FILTER (
+      WHERE prev_commit IS NOT NULL
+        AND "commit_count" = prev_commit
+        AND "pull_request_count" = prev_pull_request
+        AND "issue_count" = prev_issue
+        AND "repository_count" = prev_repository
+        AND "star_count" = prev_star
+    ) AS rows
+    FROM ordered
+  ) AS same_value
+  UNION ALL
+  SELECT 'open_link_repo_mismatch', identity.rows, identity.rows
+  FROM (
+    SELECT COUNT(*) AS rows
+    FROM (
+      SELECT repository."githubRepositoryId" AS repo_id
+      FROM "GithubRepository" AS repository
+      JOIN "Team" AS team
+        ON team."id" = repository."teamId"
+       AND team."archivedAt" IS NULL
+      WHERE repository."teamId" IS NOT NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "team_repo" AS link
+          WHERE link."repo_id" = repository."githubRepositoryId"
+            AND link."team_id" = repository."teamId"
+            AND link."valid_to" IS NULL
+        )
+      UNION ALL
+      SELECT link."repo_id"
+      FROM "team_repo" AS link
+      WHERE link."valid_to" IS NULL
+        AND NOT EXISTS (
+          SELECT 1
+          FROM "GithubRepository" AS repository
+          JOIN "Team" AS team
+            ON team."id" = repository."teamId"
+           AND team."archivedAt" IS NULL
+          WHERE repository."githubRepositoryId" = link."repo_id"
+            AND repository."teamId" = link."team_id"
+        )
+    ) AS mismatched
+  ) AS identity
+  UNION ALL
+  SELECT 'open_period_created_at_floor', floor_hit.rows, floor_hit.rows
+  FROM (
+    SELECT COUNT(*) AS rows
+    FROM "team_repo" AS link
+    JOIN "GithubRepository" AS repository
+      ON repository."githubRepositoryId" = link."repo_id"
+     AND repository."teamId" = link."team_id"
+    WHERE link."valid_to" IS NULL
+      AND repository."updatedAt" > repository."createdAt"
+      AND link."valid_from" = repository."createdAt"
+      AND EXISTS (
+        SELECT 1
+        FROM "team_repo" AS earlier
+        WHERE earlier."team_id" = link."team_id"
+          AND earlier."repo_id" <> link."repo_id"
+          AND earlier."valid_from" < repository."createdAt"
+      )
+  ) AS floor_hit
 ) AS report;

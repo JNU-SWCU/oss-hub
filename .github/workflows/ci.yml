@@ -240,6 +240,10 @@ jobs:
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: bash apps/backend/prisma/github-ledger-copy.transitions.test.sh
 
+      - name: ledger history change test
+        if: ${{ steps.scope.outputs.backend == 'true' }}
+        run: bash apps/backend/prisma/github-ledger-copy.history-change.test.sh
+
       - name: backend integration test
         if: ${{ steps.scope.outputs.backend == 'true' }}
         run: pnpm --filter backend test:integration
