@@ -40,9 +40,9 @@ Tests alone are not sufficient verification. A PR is verified only when its unit
   - [ ] B after A, and only after I's note names no open code defect. If the note names a defect, stop and extend this plan with a fix PR before B.
   - [ ] C after B. V after C. D after V. E after D.
   - [ ] P after E. Q after P. G1 after Q. G2 after G1. Open G1 and G2 only after the operator names the tables.
-  - [ ] F after E, only after the operator accepts or replaces the column placement in Appendix B. K after F. G3 after K, only if the operator names a new parent for the issuance foreign keys.
+  - [ ] F after Q, only after the operator accepts or replaces the column placement in Appendix B. K after F. G3 after K, only if the operator names a new parent for the issuance foreign keys. P, Q, and F all edit `repository-deletion.repository.ts`, so F stacks on Q.
   - [ ] Gm, Gs, and Go each branch from E. Open one only after the operator writes the matching approval. Do not combine their drops.
-- [ ] Hold the file boundaries. A touches the copy SQL, the verify shell, and the Jenkins copy call. B and E touch the collector repositories. C touches the stream migration. V touches only the verify shell's exit code. D touches ranking, staff insights, team evidence, and public project metrics. P and Q touch deletion counts. F does not edit `repository-deletion.repository.ts`. K touches the Jenkins copy call. Each drop PR touches only its own migration.
+- [ ] Hold the file boundaries. A touches the copy SQL, the verify shell, and the Jenkins copy call. B and E touch the collector repositories. C touches the stream migration. V touches only the verify shell's exit code. D touches ranking, staff insights, team evidence, public project metrics, and `hasObservation` in `repository-provision-job.repository.ts` after B and before E. P and Q touch deletion counts. F touches seeds, the `repo` delete beside the existing `GithubRepository` delete, and the repository readers. K touches the Jenkins copy call. Each drop PR touches only its own migration.
 - [ ] Hold the review gate. D, F, Gm, Gs, and Go change an interaction. They wait for the operator's review in chat with screenshots and a video before merge.
 
 ### PR mechanics, for every PR
@@ -84,7 +84,7 @@ Each live lane runs on its own cloud VM at the PR head. The named driver is `.cu
 
 - [ ] Put only `BEGIN READ ONLY` statements in the SQL file. Compare `max(observedAt)` on the four fact tables with `max(first_seen_at)` on `contribution`, `max(sweepFinishedAt)` and the sum of inserted counts on `CollectionSweepHistory`, `max(lastRunAt)` on `CollectionRepositoryStream`, and the count of unexpired `CollectionCutoverLease` rows.
 - [ ] Use `observedAt` for fact inserts. `committedAt` and issue `createdAt` are GitHub event times. `observedAt` is the insert clock.
-- [ ] Write the cause in the PR body only after those queries run. A sweep that inserts nothing while `lastRunAt` moves still needs those counts. Run `onlyRegisteredFacts` in `collection-incremental.repository.ts` and the quiesce check in `collection-trigger.service.ts` as part of that measurement.
+- [ ] Write the cause in the PR body after those queries run. A sweep that inserts nothing while `lastRunAt` moves still needs those counts. The collector schedule is `0 0 * * * *` in Asia/Seoul, so a day of sweeps can be the normal cadence. The `contribution.first_seen_at` clock moves on an ordinary deploy. The fact `observedAt` clock moves when the collector inserts. The cause names which clock stopped. Measure these return paths before naming a defect. `collection-trigger.service.ts` throws while a cutover lease is unexpired. `collection-sync.service.ts` returns when the sync lease is held, when the repository is missing a team or is not present, when `nextRunAt` is still ahead, when the deadline or the queue says stop, when a stream etag or frontier is unchanged, and when `onlyTeamAuthored` or `onlyRegisteredFacts` keeps nobody. `rebuildAffectedContributions` skips a null github id. The queries pick the path that matches the clocks.
 
 ```sql
 BEGIN READ ONLY;
@@ -154,6 +154,7 @@ SELECT 'cutover_lease_open', count(*)::text FROM "CollectionCutoverLease" WHERE 
 **Build.**
 
 - [ ] Add the five-count `NOT EXISTS` check from the snapshot INSERT to the history INSERT. Keep `ON CONFLICT DO NOTHING`. Do not change the snapshot INSERT.
+- [ ] Keep the integration spec's two observation timestamps. That seed stores commit count 180 at 2026-10-25 and commit count 120 at 2026-10-20. Different counts keep both rows. The new shell test covers five matching counts with a new `observed_at`.
 - [ ] The shell runs `github-ledger-verify.sql`, prints `verify_mismatch` when expected and actual differ, and exits 0. The SQL file itself has no RAISE.
 
 ```sql
@@ -397,6 +398,7 @@ FROM ordered;
 - [ ] Edit `apps/backend/src/staff/staff-insights.repository.ts`.
 - [ ] Edit `apps/backend/src/programs/program-team-repository-evidence.repository.ts`.
 - [ ] Edit `apps/backend/src/programs/public-project-metrics.repository.ts`.
+- [ ] Edit `apps/backend/src/github/repository-provision-job.repository.ts` for `hasObservation` only.
 - [ ] Create a migration for views `contributor_standing` and `repo_contribution`.
 - [ ] Edit the unit and integration specs that read those repositories.
 
@@ -405,6 +407,8 @@ FROM ordered;
 - [ ] `contributor_standing` is the latest `github_user_activity_history` row per github id, year, and visibility. Ranking and staff insights read that view. The query returns one latest row per key.
 - [ ] `repo_contribution` groups `contribution` by repository, author, and Seoul date. It keeps the same author set the old `Contribution` rebuild writes. A test on the verify database must match the old table before the reader switches.
 - [ ] Leave `findMonthlySnapshots` on `GithubUserActivityMonthly`. Do not recompute January through October 2026 from history.
+- [ ] `hasObservation` reads `github_user_activity_history` for that github id and year. A past year with a row is skipped. A past year with no row is collected. Move this read before E stops the old upsert.
+- [ ] `findRepositoryContributionRows` sums `contribution` for the repository. The `contributions` relation on `GithubRepository` is the same old daily table as `findContributorContributionRows`.
 
 **You see.**
 
@@ -518,7 +522,7 @@ FROM ordered;
 
 **Build.**
 
-- [ ] Remove the counts and config entries for `CollectionRepositoryYearAggregate` and `CollectionContributorYearAggregate`.
+- [ ] Remove the counts and config entries for `CollectionRepositoryYearAggregate` and `CollectionContributorYearAggregate`. The strings in `program-lifecycle.config.ts` are cover labels. Remove those labels with the counts.
 - [ ] Leave fact, issue, outsider, and stream counts in place for Q.
 
 **You see.**
@@ -575,6 +579,7 @@ FROM ordered;
 
 - [ ] Remove product queries of `CollectionCommitFact`, `CollectionPullRequestFact`, `CollectionReleaseFact`, `GithubIssueHistory`, `Contribution`, `GithubUserActivityHistory`, and `GithubUserActivityCycleSnapshot`.
 - [ ] Keep queries of `GithubUserActivityMonthly`, `GithubRepositoryOutsiderContribution`, `CollectionSweepHistory`, `CollectionRepositoryStream`, `CollectionSyncCursor`, and `GithubRepository`.
+- [ ] Leave `hasObservation` on `github_user_activity_history`. D moved that read.
 
 **You see.**
 
@@ -722,13 +727,15 @@ FROM ordered;
 
 ## GithubRepository 읽기와 쓰기를 repo로 옮긴다 (F)
 
-범위는 수집과 화면이 `GithubRepository` 대신 `repo`와 `team_repo`를 쓰는 변경이다. 발급 테이블의 FK는 `GithubRepository`에 둔다. 그래서 이 PR은 `GithubRepository`를 지우지 않는다. 컬럼 배치는 부록 B의 기본안이다. 운영자가 그 문장을 받아들이거나 바꾸기 전에는 브랜치를 만들지 않는다. 백필은 배포 복사가 이미 채운 행을 기준으로 하고, 없는 운영 컬럼만 채운다.
+범위는 수집과 화면이 `GithubRepository` 대신 `repo`와 `team_repo`를 쓰는 변경이다. 발급 테이블의 FK는 `GithubRepository`에 둔다. 그래서 이 PR은 `GithubRepository`를 지우지 않는다. 컬럼 배치는 부록 B의 기본안이다. 운영자가 그 문장을 받아들이거나 바꾸기 전에는 브랜치를 만들지 않는다. 백필은 배포 복사가 이미 채운 행을 기준으로 하고, 없는 운영 컬럼만 채운다. 삭제 저장소는 Q 다음에 고친다.
 
-**Depends on.** E.
+**Depends on.** Q.
 
 **Files.**
 
 - [ ] Edit the product files the owner lists by searching `githubRepository` and `GithubRepository`.
+- [ ] Edit `apps/backend/prisma/seeds/oss-hub.ts` and `apps/backend/prisma/seeds/repositories.ts` so each seeded `GithubRepository` has a `repo` row and an open `team_repo` period.
+- [ ] Edit `apps/backend/src/platform/repository-deletion.repository.ts` so the same transaction deletes the `repo` row for that github id. Keep the `GithubRepository` delete. Child fact rows cascade from that old row until G2.
 - [ ] Create a migration that adds only the columns the accepted placement names.
 - [ ] Edit `apps/backend/prisma/github-ledger-copy.sql` only if the accepted placement changes the copy's column list.
 
@@ -849,6 +856,7 @@ FROM ordered;
 **Build.**
 
 - [ ] Move the two foreign keys in an earlier commit of this same PR, then drop `GithubRepository` in the migration. Do not use CASCADE to hide remaining readers.
+- [ ] Search `apps/backend/src` and `apps/backend/prisma/seeds` for `GithubRepository` and remove every remaining query. Leave `deploy/jenkins/program-migration/team-application/count-repositories.sql`, `deploy/jenkins/program-migration/audit-log/check-before.sql`, and `deploy/jenkins/program-migration/audit-log/check-copy.sql`. Those files record a finished migration, and no running stage calls them.
 
 **You see.**
 
@@ -1098,7 +1106,9 @@ FROM ordered;
 
 PR 1789는 이 계획을 쓸 때 열려 있다. main에는 스킬 디렉터리가 없다. 헤드에 스킬이 없으면 레인은 그 커밋에서 디렉터리만 가져오고 커밋하지 않는다.
 
-V를 운영 합이 다른 상태에서 켜면 다음 일반 배포가 검증 단계에서 멈춘다. 복사는 `Jenkinsfile`의 일반 배포 단계, `USER_CONSOLIDATION`이 ordinary일 때만 돈다. 통합 배포 경로는 그 단계를 건너뛴다.
+V를 운영 합이 다른 상태에서 켜면 다음 일반 배포가 검증 단계에서 멈춘다. 복사는 `Jenkinsfile`의 일반 배포 단계, `USER_CONSOLIDATION`이 ordinary일 때만 돈다. 통합 배포 경로는 그 단계를 건너뛴다. Jenkins cron은 `H/10 * * * *`이고 파이프라인을 시작한다. 복사는 릴리스 프로브가 대상 버전을 실행 중인 이미지보다 새 버전이라고 할 때 돈다. noop 파이프라인은 새 이력 테이블을 다음 릴리스까지 그대로 둔다.
+
+끝난 마이그레이션 검사 세 파일이 `GithubRepository`를 읽는다. `deploy/jenkins/program-migration/team-application/count-repositories.sql`, `deploy/jenkins/program-migration/audit-log/check-before.sql`, `deploy/jenkins/program-migration/audit-log/check-copy.sql`이다. 실행 중인 단계는 이 파일을 호출하지 않는다. 이 프로그램은 파일을 고치지 않는다. G3 뒤에 다시 실행하면 테이블이 없어서 실패한다.
 
 E 이후 옛 사실 테이블은 새 행을 받지 않는다. 이미지를 되돌리기 전에 그 공백을 채우지 않으면 옛 테이블은 그 구간이 비다.
 
