@@ -1,6 +1,4 @@
 #!/usr/bin/env bash
-# Two sessions against the collector ledger write, plus a Seoul fact-timestamp pin.
-# Postgres 17.11. No production data.
 set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
