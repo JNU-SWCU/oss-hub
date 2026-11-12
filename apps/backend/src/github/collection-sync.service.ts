@@ -805,7 +805,13 @@ export class CollectionSyncService {
     try {
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
-        await repo.markStreamOutcome(repositoryId, streamType, outcome);
+        const current = await repo.getStreamFrontier(repositoryId, streamType);
+        await repo.markStreamOutcome(
+          repositoryId,
+          streamType,
+          outcome,
+          current?.syncEpoch ?? null,
+        );
       });
     } catch (error) {
       this.logger.warn({
@@ -869,6 +875,7 @@ export class CollectionSyncService {
         result.commits[0]?.sha ?? null,
         runtime.client.requestFingerprintKey(result.fingerprint),
         null,
+        existing?.syncEpoch ?? null,
       );
     }
 
@@ -904,6 +911,7 @@ export class CollectionSyncService {
       headSha,
       runtime.client.requestFingerprintKey(result.fingerprint),
       probe.etag,
+      existing.syncEpoch ?? null,
     );
   }
 
@@ -918,6 +926,10 @@ export class CollectionSyncService {
     registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
   ): Promise<number> {
+    const existing = await this.incrementalRepository.getStreamFrontier(
+      repository.id,
+      'COMMIT',
+    );
     const bySha = new Map<string, CollectionCommit>();
     for (const member of members) {
       const authorNodeId = await this.deadline.run(
@@ -953,6 +965,7 @@ export class CollectionSyncService {
       null,
       TEAM_SCOPED_COMMIT_FINGERPRINT,
       null,
+      existing?.syncEpoch ?? null,
     );
   }
 
@@ -1109,6 +1122,7 @@ export class CollectionSyncService {
       result.newFrontier,
       runtime.client.requestFingerprintKey(result.fingerprint),
       teamMembershipFrontier,
+      existing?.syncEpoch ?? null,
     );
   }
 
@@ -1158,6 +1172,7 @@ export class CollectionSyncService {
       probe.frontier ? probe.frontier.probe : null,
       runtime.client.requestFingerprintKey(probe.fingerprint),
       probe.etag,
+      existing?.syncEpoch ?? null,
     );
   }
 
@@ -1208,6 +1223,7 @@ export class CollectionSyncService {
       result.newFrontier,
       runtime.client.requestFingerprintKey(result.fingerprint),
       teamMembershipFrontier,
+      existing?.syncEpoch ?? null,
     );
   }
 

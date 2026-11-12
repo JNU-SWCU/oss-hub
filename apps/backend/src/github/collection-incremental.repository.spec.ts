@@ -1,4 +1,6 @@
+import { Prisma } from '@prisma/client';
 import { PlatformRepository } from '../platform/platform.repository';
+import { StaleSyncEpochError } from './collection-incremental.error';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type { PrismaService } from '../platform/prisma.service';
 
@@ -36,6 +38,8 @@ interface MockDb {
     findUnique: jest.Mock;
     groupBy: jest.Mock;
     updateMany: jest.Mock;
+    updateManyAndReturn: jest.Mock;
+    create: jest.Mock;
   };
   collectionSyncCursor: {
     upsert: jest.Mock;
@@ -93,6 +97,8 @@ const createDb = (): MockDb => {
       findUnique: jest.fn(),
       groupBy: jest.fn().mockResolvedValue([]),
       updateMany: jest.fn().mockResolvedValue({ count: 0 }),
+      updateManyAndReturn: jest.fn().mockResolvedValue([]),
+      create: jest.fn(),
     },
     collectionSyncCursor: {
       upsert: jest.fn(),
@@ -1156,44 +1162,260 @@ describe('CollectionIncrementalRepository — #511 실행 이력 프로젝션', 
   });
 });
 
-describe('CollectionIncrementalRepository — #546 stream 오류 표시', () => {
+interface StoredStream {
+  repositoryId: string;
+  streamType: string;
+  status: string;
+  frontierSha: string | null;
+  frontierCreatedAt: Date | null;
+  frontierEntityId: bigint | null;
+  requestFingerprint: string | null;
+  etag: string | null;
+  lastRunAt: Date | null;
+  lastErrorAt: Date | null;
+  lastErrorCode: string | null;
+  syncEpoch: bigint | null;
+}
+
+const streamKey = (repositoryId: string, streamType: string): string =>
+  `${repositoryId}:${streamType}`;
+
+const installStreams = (db: MockDb): Map<string, StoredStream> => {
+  const rows = new Map<string, StoredStream>();
+  db.collectionRepositoryStream.findUnique.mockImplementation(
+    (args: {
+      where: {
+        repositoryId_streamType: { repositoryId: string; streamType: string };
+      };
+    }) => {
+      const key = args.where.repositoryId_streamType;
+      return Promise.resolve(
+        rows.get(streamKey(key.repositoryId, key.streamType)) ?? null,
+      );
+    },
+  );
+  db.collectionRepositoryStream.updateManyAndReturn.mockImplementation(
+    (args: {
+      where: {
+        repositoryId: string;
+        streamType: string;
+        syncEpoch?: bigint | null;
+      };
+      data: Partial<StoredStream>;
+    }) => {
+      const current = rows.get(
+        streamKey(args.where.repositoryId, args.where.streamType),
+      );
+      if (current === undefined) return Promise.resolve([]);
+      if (
+        'syncEpoch' in args.where &&
+        current.syncEpoch !== (args.where.syncEpoch ?? null)
+      ) {
+        return Promise.resolve([]);
+      }
+      const next = { ...current, ...args.data };
+      rows.set(streamKey(args.where.repositoryId, args.where.streamType), next);
+      return Promise.resolve([next]);
+    },
+  );
+  db.collectionRepositoryStream.create.mockImplementation(
+    (args: { data: StoredStream }) => {
+      const key = streamKey(args.data.repositoryId, args.data.streamType);
+      if (rows.has(key)) {
+        return Promise.reject(
+          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+            code: 'P2002',
+            clientVersion: 'test',
+          }),
+        );
+      }
+      const row = { ...args.data };
+      rows.set(key, row);
+      return Promise.resolve(row);
+    },
+  );
+  return rows;
+};
+
+const seedStream = (
+  rows: Map<string, StoredStream>,
+  syncEpoch: bigint | null,
+  patch: Partial<StoredStream>,
+): StoredStream => {
+  const row: StoredStream = {
+    repositoryId: 'repo-1',
+    streamType: 'COMMIT',
+    status: 'READY',
+    frontierSha: 'kept-sha',
+    frontierCreatedAt: null,
+    frontierEntityId: null,
+    requestFingerprint: 'kept-fp',
+    etag: 'kept-etag',
+    lastRunAt: null,
+    lastErrorAt: null,
+    lastErrorCode: null,
+    syncEpoch,
+    ...patch,
+  };
+  rows.set(streamKey(row.repositoryId, row.streamType), row);
+  return row;
+};
+
+describe('CollectionIncrementalRepository — stream sync epoch', () => {
   const at = new Date('2026-08-04T01:00:00.000Z');
 
-  it('오류 기록은 upsert라 stream 행이 아직 없어도 남고, frontier/status는 건드리지 않는다', async () => {
+  it('오류 기록은 stream 행이 없어도 남고 frontier와 status는 비워 둔다', async () => {
     const db = createDb();
+    const rows = installStreams(db);
 
-    await repositoryFor(db).markStreamOutcome('repo-1', 'COMMIT', {
-      lastErrorAt: at,
-      lastErrorCode: 'PROVIDER_UPSTREAM',
-    });
+    await repositoryFor(db).markStreamOutcome(
+      'repo-1',
+      'COMMIT',
+      { lastErrorAt: at, lastErrorCode: 'PROVIDER_UPSTREAM' },
+      null,
+    );
 
-    expect(db.collectionRepositoryStream.updateMany).not.toHaveBeenCalled();
-    const [args] = db.collectionRepositoryStream.upsert.mock.calls.flat() as [
-      { create: Record<string, unknown>; update: Record<string, unknown> },
-    ];
-    expect(args.create).toMatchObject({
+    expect(rows.get('repo-1:COMMIT')).toEqual({
+      repositoryId: 'repo-1',
+      streamType: 'COMMIT',
       status: 'PENDING',
-      lastErrorCode: 'PROVIDER_UPSTREAM',
+      frontierSha: null,
+      frontierCreatedAt: null,
+      frontierEntityId: null,
+      requestFingerprint: null,
+      etag: null,
+      lastRunAt: null,
       lastErrorAt: at,
-    });
-    expect(args.update).toEqual({
-      lastErrorAt: at,
       lastErrorCode: 'PROVIDER_UPSTREAM',
+      syncEpoch: 1n,
     });
   });
 
-  it('성공은 확인한 시각을 남기고 오류 표시를 지우되, 새 행을 만들지 않는다', async () => {
+  it('있던 행의 오류 기록은 frontier와 status를 유지하고 epoch를 하나 올린다', async () => {
     const db = createDb();
+    const rows = installStreams(db);
+    seedStream(rows, 4n, { streamType: 'COMMIT' });
 
-    await repositoryFor(db).markStreamOutcome('repo-1', 'RELEASE', {
-      checkedAt: at,
+    await repositoryFor(db).markStreamOutcome(
+      'repo-1',
+      'COMMIT',
+      { lastErrorAt: at, lastErrorCode: 'PROVIDER_UPSTREAM' },
+      4n,
+    );
+
+    expect(rows.get('repo-1:COMMIT')).toMatchObject({
+      status: 'READY',
+      frontierSha: 'kept-sha',
+      requestFingerprint: 'kept-fp',
+      etag: 'kept-etag',
+      lastErrorAt: at,
+      lastErrorCode: 'PROVIDER_UPSTREAM',
+      syncEpoch: 5n,
+    });
+  });
+
+  it('성공은 확인한 시각을 남기고 오류 표시를 지우며 epoch를 하나 올린다', async () => {
+    const db = createDb();
+    const rows = installStreams(db);
+    seedStream(rows, null, {
+      streamType: 'RELEASE',
+      lastErrorAt: at,
+      lastErrorCode: 'PROVIDER_UPSTREAM',
     });
 
-    expect(db.collectionRepositoryStream.upsert).not.toHaveBeenCalled();
-    expect(db.collectionRepositoryStream.updateMany).toHaveBeenCalledWith({
-      where: { repositoryId: 'repo-1', streamType: 'RELEASE' },
-      data: { lastRunAt: at, lastErrorAt: null, lastErrorCode: null },
+    await repositoryFor(db).markStreamOutcome(
+      'repo-1',
+      'RELEASE',
+      { checkedAt: at },
+      null,
+    );
+
+    expect(rows.size).toBe(1);
+    expect(rows.get('repo-1:RELEASE')).toMatchObject({
+      lastRunAt: at,
+      lastErrorAt: null,
+      lastErrorCode: null,
+      frontierSha: 'kept-sha',
+      syncEpoch: 1n,
     });
+  });
+
+  it('성공은 행이 없으면 행을 만들지 않는다', async () => {
+    const db = createDb();
+    const rows = installStreams(db);
+
+    await repositoryFor(db).markStreamOutcome(
+      'repo-1',
+      'RELEASE',
+      { checkedAt: at },
+      null,
+    );
+
+    expect(rows.size).toBe(0);
+  });
+
+  it('현재 epoch는 하나 올라가고 같은 epoch로 다시 쓰면 행이 그대로다', async () => {
+    const db = createDb();
+    const rows = installStreams(db);
+    seedStream(rows, 4n, {});
+    const repository = repositoryFor(db);
+
+    const written = await repository.upsertStreamFrontier({
+      repositoryId: 'repo-1',
+      streamType: 'COMMIT',
+      frontierSha: 'next-sha',
+      expectedSyncEpoch: 4n,
+    });
+
+    expect(written.syncEpoch).toBe(5n);
+    expect(rows.get('repo-1:COMMIT')).toMatchObject({
+      frontierSha: 'next-sha',
+      status: 'READY',
+      syncEpoch: 5n,
+    });
+    const afterWrite = { ...rows.get('repo-1:COMMIT') };
+
+    await expect(
+      repository.upsertStreamFrontier({
+        repositoryId: 'repo-1',
+        streamType: 'COMMIT',
+        frontierSha: 'stale-sha',
+        expectedSyncEpoch: 4n,
+      }),
+    ).rejects.toBeInstanceOf(StaleSyncEpochError);
+    expect(rows.get('repo-1:COMMIT')).toEqual(afterWrite);
+  });
+
+  it('비어 있는 epoch는 1이 되고 다른 claim도 그 행에서는 1이 된다', async () => {
+    const db = createDb();
+    const rows = installStreams(db);
+    seedStream(rows, null, { streamType: 'ISSUE' });
+
+    const written = await repositoryFor(db).upsertStreamFrontier({
+      repositoryId: 'repo-1',
+      streamType: 'ISSUE',
+      frontierSha: 'from-null',
+      expectedSyncEpoch: 9n,
+    });
+
+    expect(written.syncEpoch).toBe(1n);
+    expect(rows.get('repo-1:ISSUE')?.syncEpoch).toBe(1n);
+    expect(rows.get('repo-1:ISSUE')?.frontierSha).toBe('from-null');
+  });
+
+  it('행이 없는데 claim이 있으면 아무것도 쓰지 않고 거절한다', async () => {
+    const db = createDb();
+    const rows = installStreams(db);
+
+    await expect(
+      repositoryFor(db).upsertStreamFrontier({
+        repositoryId: 'repo-1',
+        streamType: 'COMMIT',
+        frontierSha: 'nope',
+        expectedSyncEpoch: 2n,
+      }),
+    ).rejects.toBeInstanceOf(StaleSyncEpochError);
+    expect(rows.size).toBe(0);
   });
 });
 

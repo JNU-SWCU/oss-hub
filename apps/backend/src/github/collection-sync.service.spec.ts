@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Logger } from '@nestjs/common';
 import {
@@ -104,6 +105,35 @@ const cloneStore = (store: Store): Store => ({
   teamMembers: new Map(store.teamMembers),
   sweepHistory: new Map(store.sweepHistory),
 });
+
+const applyStreamUpdate = (
+  streams: Map<string, Row>,
+  where: Row & { repositoryId: string; streamType: string },
+  data: Row,
+): Row[] => {
+  const key = `${where.repositoryId}:${where.streamType}`;
+  const existing = streams.get(key);
+  if (!existing) return [];
+  if (
+    'syncEpoch' in where &&
+    (existing.syncEpoch ?? null) !== (where.syncEpoch ?? null)
+  ) {
+    return [];
+  }
+  const guard = where.lastErrorCode;
+  if (
+    guard !== undefined &&
+    typeof guard === 'object' &&
+    guard !== null &&
+    'not' in guard &&
+    (existing.lastErrorCode ?? null) === null
+  ) {
+    return [];
+  }
+  const row = applyUpdate(existing, data);
+  streams.set(key, row);
+  return [row];
+};
 
 const applyUpdate = (existing: Row, update: Row): Row => {
   const row: Row = { ...existing };
@@ -403,21 +433,27 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         where: Row & { repositoryId: string; streamType: string };
         data: Row;
       }): { count: number } => {
-        const key = `${where.repositoryId}:${where.streamType}`;
-        const existing = box.store.streams.get(key);
-        if (!existing) return { count: 0 };
-        const guard = where.lastErrorCode;
-        if (
-          guard !== undefined &&
-          typeof guard === 'object' &&
-          guard !== null &&
-          'not' in guard &&
-          (existing.lastErrorCode ?? null) === null
-        ) {
-          return { count: 0 };
+        const updated = applyStreamUpdate(box.store.streams, where, data);
+        return { count: updated.length };
+      },
+      updateManyAndReturn: ({
+        where,
+        data,
+      }: {
+        where: Row & { repositoryId: string; streamType: string };
+        data: Row;
+      }): Row[] => applyStreamUpdate(box.store.streams, where, data),
+      create: ({ data }: { data: Row }): Row => {
+        const key = `${String(data.repositoryId)}:${String(data.streamType)}`;
+        if (box.store.streams.has(key)) {
+          throw new Prisma.PrismaClientKnownRequestError(
+            'Unique constraint failed',
+            { code: 'P2002', clientVersion: 'test' },
+          );
         }
-        box.store.streams.set(key, applyUpdate(existing, data));
-        return { count: 1 };
+        const row = { ...data };
+        box.store.streams.set(key, row);
+        return row;
       },
     },
 
@@ -1640,7 +1676,11 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
 
     const stream = streamOf(box, 'COMMIT');
     expect(stream.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
-    expect(JSON.stringify(stream)).not.toContain('ghs_must_not_leak');
+    expect(
+      JSON.stringify(stream, (_key, value: unknown) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    ).not.toContain('ghs_must_not_leak');
   });
 
   it('다음 run이 성공하면 남아 있던 오류 표시를 지운다(변경 없는 READY stream 포함)', async () => {
