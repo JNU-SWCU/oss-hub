@@ -40,6 +40,7 @@
         "src/cli.ts",
         "test/e2e-program-authoring/main.ts",
         "prisma/seed.ts",
+        "prisma/github-ledger-collector-race.probe.ts",
         "{src,test,prisma}/**/*.spec.ts"
       ],
       "project": [
