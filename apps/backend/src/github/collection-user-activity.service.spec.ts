@@ -43,22 +43,11 @@ describe('CollectionUserActivityService', () => {
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
         githubUserActivityMonthly: { upsert: monthlyUpsert },
-        githubUserActivityObservation: {
-          findUnique: jest.fn().mockResolvedValue(null),
-          findFirst: jest.fn().mockResolvedValue(null),
-          update: jest.fn().mockResolvedValue({}),
-          create: jest.fn().mockResolvedValue({}),
-        },
         $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
           operation({
             githubUserActivityHistory: { findUnique, upsert },
             githubUserActivityMonthly: { upsert: monthlyUpsert },
-            githubUserActivityObservation: {
-              findUnique: jest.fn().mockResolvedValue(null),
-              findFirst: jest.fn().mockResolvedValue(null),
-              update: jest.fn().mockResolvedValue({}),
-              create: jest.fn().mockResolvedValue({}),
-            },
+            $executeRaw: jest.fn().mockResolvedValue(1),
           }),
       } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
@@ -345,7 +334,6 @@ describe('CollectionUserActivityService', () => {
 
 describe('CollectionUserActivityRepository ledger history', () => {
   const observedAt = new Date('2026-08-19T00:00:00.000Z');
-  const laterObservedAt = new Date('2026-08-20T00:00:00.000Z');
   const counts = {
     commitCount: 10,
     pullRequestCount: 2,
@@ -354,118 +342,102 @@ describe('CollectionUserActivityRepository ledger history', () => {
     starCount: 5,
   };
 
-  const buildRepository = (observation: {
-    findUnique: jest.Mock;
-    findFirst: jest.Mock;
-    update: jest.Mock;
-    create: jest.Mock;
-  }): CollectionUserActivityRepository => {
-    const db = {
+  const sqlOf = (call: readonly unknown[]): string => {
+    const strings = call[0];
+    if (!Array.isArray(strings)) {
+      throw new Error('ledger write was not a SQL template');
+    }
+    return strings.join('');
+  };
+
+  const expectOneLedgerStatement = (executeRaw: jest.Mock): void => {
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    const call = executeRaw.mock.calls[0] as readonly unknown[];
+    const sql = sqlOf(call);
+    expect(sql).toContain('INSERT INTO "github_user_activity_history"');
+    expect(sql).toContain('WHERE NOT EXISTS');
+    expect(sql).toContain('ORDER BY latest."observed_at" DESC');
+    expect(sql).toContain(
+      'ON CONFLICT ("github_id", "year", "visibility", "observed_at") DO UPDATE SET',
+    );
+    expect(sql).toContain('"commit_count" = EXCLUDED."commit_count"');
+    expect(sql).toContain(
+      '"pull_request_count" = EXCLUDED."pull_request_count"',
+    );
+    expect(sql).toContain('"issue_count" = EXCLUDED."issue_count"');
+    expect(sql).toContain('"repository_count" = EXCLUDED."repository_count"');
+    expect(sql).toContain('"star_count" = EXCLUDED."star_count"');
+    expect(sql).not.toContain('INSERT INTO "repo"');
+    expect(sql).not.toContain('team_repo');
+  };
+
+  const buildRepository = (): {
+    readonly repository: CollectionUserActivityRepository;
+    readonly historyUpsert: jest.Mock;
+    readonly executeRaw: jest.Mock;
+  } => {
+    const historyUpsert = jest.fn().mockResolvedValue({});
+    const executeRaw = jest.fn().mockResolvedValue(1);
+    const transaction = {
       githubUserActivityHistory: {
-        upsert: jest.fn().mockResolvedValue({}),
+        upsert: historyUpsert,
         findUnique: jest.fn().mockResolvedValue(null),
       },
       githubUserActivityMonthly: { upsert: jest.fn().mockResolvedValue({}) },
-      githubUserActivityObservation: observation,
-      $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
-        operation(db),
+      $executeRaw: executeRaw,
     };
-    return new CollectionUserActivityRepository(db as unknown as PrismaService);
+    const db = {
+      $transaction: (operation: (tx: typeof transaction) => Promise<void>) =>
+        operation(transaction),
+    };
+    return {
+      repository: new CollectionUserActivityRepository(
+        db as unknown as PrismaService,
+      ),
+      historyUpsert,
+      executeRaw,
+    };
   };
 
-  const publicObservation = {
-    githubId: 4242n,
-    year: 2026,
-    month: 8,
-    githubLogin: 'octocat',
-    ...counts,
-    observedAt,
-  };
+  it('공개 관측은 옛 이력 upsert와 같은 트랜잭션에서 원장 한 문장을 보낸다', async () => {
+    const { repository, historyUpsert, executeRaw } = buildRepository();
 
-  it('이전 원장 행이 없으면 다섯 수치로 한 행을 만든다', async () => {
-    const observation = {
-      findUnique: jest.fn().mockResolvedValue(null),
-      findFirst: jest.fn().mockResolvedValue(null),
-      update: jest.fn(),
-      create: jest.fn().mockResolvedValue({}),
-    };
-
-    await buildRepository(observation).upsertObservation(publicObservation);
-
-    expect(observation.update).not.toHaveBeenCalled();
-    expect(observation.create).toHaveBeenCalledTimes(1);
-    expect(observation.create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        githubId: 4242n,
-        year: 2026,
-        visibility: 'PUBLIC',
-        observedAt,
-        ...counts,
-      }) as unknown,
+    await repository.upsertObservation({
+      githubId: 4242n,
+      year: 2026,
+      month: 8,
+      githubLogin: 'octocat',
+      ...counts,
+      observedAt,
     });
+
+    expect(historyUpsert).toHaveBeenCalledTimes(1);
+    expectOneLedgerStatement(executeRaw);
+    const values = (executeRaw.mock.calls[0] as readonly unknown[]).slice(1);
+    expect(values).toEqual(
+      expect.arrayContaining([4242n, 2026, 'PUBLIC', 10, 5, observedAt]),
+    );
   });
 
-  it('최신 행의 다섯 수치가 같으면 observedAt이 달라도 행을 추가하지 않는다', async () => {
-    const observation = {
-      findUnique: jest.fn().mockResolvedValue(null),
-      findFirst: jest.fn().mockResolvedValue(counts),
-      update: jest.fn(),
-      create: jest.fn(),
-    };
+  it('비공개 관측도 같은 원장 문장을 보내고 starCount는 0이다', async () => {
+    const { repository, historyUpsert, executeRaw } = buildRepository();
 
-    await buildRepository(observation).upsertObservation({
-      ...publicObservation,
-      observedAt: laterObservedAt,
+    await repository.upsertPrivateObservation({
+      githubId: 4242n,
+      year: 2026,
+      githubLogin: 'octocat',
+      commitCount: counts.commitCount,
+      pullRequestCount: counts.pullRequestCount,
+      issueCount: counts.issueCount,
+      repositoryCount: counts.repositoryCount,
+      observedAt,
     });
 
-    expect(observation.update).not.toHaveBeenCalled();
-    expect(observation.create).not.toHaveBeenCalled();
-  });
-
-  it('같은 observedAt에서 수치가 바뀌면 그 행을 고치고 새 행은 만들지 않는다', async () => {
-    const observation = {
-      findUnique: jest.fn().mockResolvedValue({ ...counts, commitCount: 9 }),
-      findFirst: jest.fn().mockResolvedValue({ ...counts, commitCount: 9 }),
-      update: jest.fn().mockResolvedValue({}),
-      create: jest.fn(),
-    };
-
-    await buildRepository(observation).upsertObservation({
-      ...publicObservation,
-      commitCount: 11,
-    });
-
-    expect(observation.update).toHaveBeenCalledWith({
-      where: {
-        githubId_year_visibility_observedAt: {
-          githubId: 4242n,
-          year: 2026,
-          visibility: 'PUBLIC',
-          observedAt,
-        },
-      },
-      data: expect.objectContaining({
-        commitCount: 11,
-        starCount: 5,
-      }) as unknown,
-    });
-    expect(observation.create).not.toHaveBeenCalled();
-  });
-
-  it('같은 수치의 관측을 두 번 해도 원장 행을 만들지 않는다', async () => {
-    const observation = {
-      findUnique: jest.fn().mockResolvedValue(null),
-      findFirst: jest.fn().mockResolvedValue(counts),
-      update: jest.fn(),
-      create: jest.fn(),
-    };
-
-    const repository = buildRepository(observation);
-    const row = { ...publicObservation, observedAt: laterObservedAt };
-    await repository.upsertObservation(row);
-    await repository.upsertObservation(row);
-
-    expect(observation.create).not.toHaveBeenCalled();
-    expect(observation.update).not.toHaveBeenCalled();
+    expect(historyUpsert).toHaveBeenCalledTimes(1);
+    expectOneLedgerStatement(executeRaw);
+    const values = (executeRaw.mock.calls[0] as readonly unknown[]).slice(1);
+    expect(values).toEqual(
+      expect.arrayContaining([4242n, 'PRIVATE', 0, observedAt]),
+    );
   });
 });

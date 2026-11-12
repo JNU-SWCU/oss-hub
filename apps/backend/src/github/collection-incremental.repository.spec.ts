@@ -135,7 +135,8 @@ const expectLedgerAndRebuild = (db: MockDb): void => {
       (sql) =>
         sql.includes('INSERT INTO "contribution"') &&
         sql.includes('JOIN "repo"') &&
-        sql.includes('fact."observedAt"') &&
+        sql.includes(`AT TIME ZONE 'UTC' AS occurred_at`) &&
+        sql.includes(`fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at`) &&
         sql.includes('ON CONFLICT'),
     ),
   ).toHaveLength(1);
@@ -484,7 +485,10 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     for (const sql of ledger) {
       expect(sql).toContain('JOIN "repo"');
       expect(sql).toContain('ON CONFLICT ("repo_id", "kind", "github_key")');
-      expect(sql).toContain('fact."observedAt" AS first_seen_at');
+      expect(sql).toContain(
+        `fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at`,
+      );
+      expect(sql).toContain(`AT TIME ZONE 'UTC' AS occurred_at`);
       expect(sql).not.toContain('INSERT INTO "repo"');
       expect(sql).not.toContain('team_repo');
     }
@@ -521,7 +525,10 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     ).filter((sql) => sql.includes('INSERT INTO "contribution"'));
     expect(ledger).toHaveLength(1);
     expect(ledger[0]).toContain('JOIN "repo"');
-    expect(ledger[0]).toContain('fact."observedAt" AS first_seen_at');
+    expect(ledger[0]).toContain(
+      `fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at`,
+    );
+    expect(ledger[0]).toContain(`AT TIME ZONE 'UTC' AS occurred_at`);
     expect(ledger[0]).not.toContain('INSERT INTO "repo"');
     expect(debugLines).toContain(
       `${JSON.stringify({
