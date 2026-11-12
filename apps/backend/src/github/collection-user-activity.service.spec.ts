@@ -452,26 +452,20 @@ describe('CollectionUserActivityRepository ledger history', () => {
     expect(observation.create).not.toHaveBeenCalled();
   });
 
-  it('같은 수치를 두 번 관측해도 원장 행은 한 번만 만든다', async () => {
-    const stored = { ...counts };
+  it('같은 수치의 관측을 두 번 해도 원장 행을 만들지 않는다', async () => {
     const observation = {
-      findUnique: jest
-        .fn()
-        .mockResolvedValueOnce(null)
-        .mockResolvedValue(stored),
-      findFirst: jest
-        .fn()
-        .mockResolvedValueOnce(null)
-        .mockResolvedValue(stored),
+      findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(counts),
       update: jest.fn(),
-      create: jest.fn().mockResolvedValue({}),
+      create: jest.fn(),
     };
 
     const repository = buildRepository(observation);
-    await repository.upsertObservation(publicObservation);
-    await repository.upsertObservation(publicObservation);
+    const row = { ...publicObservation, observedAt: laterObservedAt };
+    await repository.upsertObservation(row);
+    await repository.upsertObservation(row);
 
-    expect(observation.create).toHaveBeenCalledTimes(1);
+    expect(observation.create).not.toHaveBeenCalled();
     expect(observation.update).not.toHaveBeenCalled();
   });
 });
