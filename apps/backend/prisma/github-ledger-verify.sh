@@ -1,6 +1,4 @@
 #!/bin/sh
-# Log github-ledger-verify.sql. A count mismatch prints verify_mismatch and
-# still exits 0. Report-only rows never count as a mismatch.
 set -eu
 
 script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
@@ -81,6 +79,7 @@ done <"$tmp"
 
 if [ "$mismatch" -eq 1 ]; then
   printf 'verify_mismatch\n'
+  exit 1
 fi
 
 exit 0
