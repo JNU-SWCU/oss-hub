@@ -1,6 +1,4 @@
 #!/bin/sh
-# Log github-ledger-verify.sql. A count mismatch prints verify_mismatch and
-# exits 1. Report-only rows never count as a mismatch.
 set -eu
 
 script_dir=$(CDPATH= cd "$(dirname "$0")" && pwd)
