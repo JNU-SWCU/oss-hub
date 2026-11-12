@@ -1,3 +1,5 @@
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import {
   PrismaClient,
   ProgramCategory,
@@ -28,6 +30,38 @@ const USER_ID = 'verify-ledger-user';
 const REPOSITORY_ID = 'verify-ledger-repository';
 const OWNER_ID = 'verify-ledger-owner';
 const REPO_NAME = 'verify-ledger-repo';
+const LEDGER_ACTIVITY_OBSERVED_AT = new Date('2026-08-02T00:00:00.000Z');
+
+interface LedgerActivityFixture {
+  readonly githubId: string;
+  readonly login: string;
+  readonly year: number;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+}
+
+function readLedgerActivity(): LedgerActivityFixture {
+  const fixture = JSON.parse(
+    readFileSync(join(__dirname, 'verification-fixtures.json'), 'utf8'),
+  ) as { readonly ledgerActivity: LedgerActivityFixture };
+  if (fixture.ledgerActivity.githubId !== MEMBER_GITHUB_ID.toString()) {
+    throw new Error(
+      'ledger activity fixture github id does not match the collector member',
+    );
+  }
+  if (
+    fixture.ledgerActivity.commitCount < 1 ||
+    fixture.ledgerActivity.pullRequestCount < 1 ||
+    fixture.ledgerActivity.issueCount < 1 ||
+    fixture.ledgerActivity.starCount < 1
+  ) {
+    throw new Error('ledger activity fixture counts must be non-zero');
+  }
+  return fixture.ledgerActivity;
+}
 
 function assertLocalVerificationDatabase(databaseUrl: string): void {
   const url = new URL(databaseUrl);
@@ -144,6 +178,12 @@ async function removePreviousRun(prisma: PrismaClient): Promise<void> {
   });
   await prisma.repo.deleteMany({
     where: { githubRepoId: GITHUB_REPOSITORY_ID },
+  });
+  await prisma.githubUserActivityObservation.deleteMany({
+    where: { githubId: MEMBER_GITHUB_ID },
+  });
+  await prisma.githubUserActivityHistory.deleteMany({
+    where: { githubId: MEMBER_GITHUB_ID },
   });
   await prisma.githubRepository.deleteMany({
     where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
@@ -284,6 +324,21 @@ async function main(): Promise<void> {
         `collector wrote commitFacts=${commitFacts} pullRequestFacts=${pullRequestFacts}`,
       );
     }
+    const activity = readLedgerActivity();
+    await prisma.githubUserActivityHistory.create({
+      data: {
+        githubId: MEMBER_GITHUB_ID,
+        githubLogin: activity.login,
+        year: activity.year,
+        visibility: 'PUBLIC',
+        commitCount: activity.commitCount,
+        pullRequestCount: activity.pullRequestCount,
+        issueCount: activity.issueCount,
+        repositoryCount: activity.repositoryCount,
+        starCount: activity.starCount,
+        observedAt: LEDGER_ACTIVITY_OBSERVED_AT,
+      },
+    });
     process.stdout.write(
       `${JSON.stringify({
         repositoryId: REPOSITORY_ID,
@@ -291,6 +346,10 @@ async function main(): Promise<void> {
         nameWithOwner: `${ORG_LOGIN}/${REPO_NAME}`,
         commitFacts,
         pullRequestFacts,
+        activityCommitCount: activity.commitCount,
+        activityPullRequestCount: activity.pullRequestCount,
+        activityIssueCount: activity.issueCount,
+        activityStarCount: activity.starCount,
       })}\n`,
     );
   } finally {

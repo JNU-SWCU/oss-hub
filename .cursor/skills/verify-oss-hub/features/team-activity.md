@@ -4,10 +4,9 @@ Team activity shows a weekly chart for each member of a team that has a reposito
 
 ## Sub-features
 
-- `activity-open` reaches the chart from the student's team page and from the staff team page.
-- `activity-metric` switches the visible metric with the `지표` chip group.
-- `activity-api` returns the same team from `GET /api/v1/programs/<program-id>/teams/<team-id>/activity`.
-- `activity-nonempty` shows a member in the list named `팀원`. The demo seed does not provide this.
+- `activity-open` reaches the chart from the student's team page.
+- `activity-metric` switches Commit, PR, and Issue and checks the scaffold sums.
+- `activity-api` returns status `COLLECTED` and the same totals from `GET /api/v1/programs/<program-id>/teams/<team-id>/activity`.
 
 ## How to get to it (user POV)
 
@@ -20,18 +19,17 @@ Team activity shows a weekly chart for each member of a team that has a reposito
 Preconditions:
 
 - Doctor reports the instance that this run started.
-- The signed-in user is `seed:demo:user:kim-doyoon` for the student page, or `seed:demo:user:staff-lead` for the staff page. Mint the cookie with `verify-oss-hub session`.
-- The team `seed:demo:team:summer-internship-alpha` has a repository row. The demo seed does not create one, so `activity-open` and `activity-nonempty` fail on a fresh demo database.
+- The verification scaffold has attached `verify:scaffold:repository:internship` to the internship team with `lastSuccessAt` set, and has written the contribution counts.
 
-- **Open the student team.** Open the student path with the student cookie. The page shows `현장실습 A팀`.
-- **Open the chart.** Wait for `[data-slot="team-activity-chart"]`. On the demo seed this element is absent because the repository panel has no repository. Record that failure. Do not pass the feature because the team name rendered.
-- **Switch metric.** Choose a chip in the group named `지표`. The chart region remains on the page. Save a screenshot of each chip you select.
-- **Confirm the API.** With the same cookie, `GET /api/v1/programs/seed%3Ademo%3Aprogram%3Asummer-internship/teams/seed%3Ademo%3Ateam%3Asummer-internship-alpha/activity` returns 200 and names the team. Save the body.
-- **Non-empty members.** The list named `팀원` contains at least one member. This fails when the activity payload has no members.
+- **Open the chart.** Run `.cursor/skills/verify-oss-hub/scripts/verify-oss-hub drive team-activity`. The command mints the student cookie and opens the student team path. `[data-slot="team-activity-chart"]` is visible. `team-activity/chart.png` shows that page.
+- **Check the sums.** The weekly numbers are in the screen-reader table whose caption contains `주별`. That table sits next to `[data-slot="team-activity-chart"]`. On the Commit chip, the column `@seed-demo-user-kim-doyoon` sums to 4. On PR it sums to 1. On Issue, `@seed-demo-user-lee-seojun` sums to 1.
+- **Check the API.** The activity response has status `COLLECTED` and those same totals. `team-activity/activity-api.json` is that body.
+- **Second view.** `team-activity/contribution-rows.txt` has `seed-demo-user-kim-doyoon` at `4 1 0` and `seed-demo-user-lee-seojun` at `2 0 1`.
 
 ## Gotchas
 
-- The demo profile does not create `GithubRepository` or activity facts. `activity-nonempty` stays failed until a repository and activity rows exist. `github-ledger.md` writes a different synthetic team, `verify-ledger-team`, not the internship team.
+- The demo profile does not create `GithubRepository` or activity facts. Without the verification scaffold the chart is absent. Do not pass the feature because the team name rendered. `github-ledger.md` writes a different synthetic team, `verify-ledger-team`, not the internship team.
 - The chart is mounted only after the repository request resolves to a repository. A skeleton labeled `저장소 불러오는 중` is not the chart. A repository whose `lastSuccessAt` is null stays on `첫 수집을 기다리는 중입니다` even when fact rows exist. Do not pass the chart on that copy.
-- Readers of team activity still use the old GitHub tables. A row in `contribution` alone does not change this chart.
+- This chart reads the daily rollup `Contribution`. The scaffold writes those rows, dated on the program's Seoul start day. The ledger shadow table `contribution` does not feed this chart.
+- The activity API is session-protected. The drive requests it on the frontend origin so the `oss_session_dev` cookie is sent. A request to the backend port does not carry that cookie.
 - Do not save a repository URL during this drive. That action can call GitHub.

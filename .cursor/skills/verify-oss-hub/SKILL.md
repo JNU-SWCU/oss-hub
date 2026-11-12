@@ -25,7 +25,7 @@ From the repository root, with Node.js 24 or newer, pnpm 11, and a running Docke
 
 Launch creates a private Compose project from `compose.dev.yml`. It does not use the default project name, so it does not attach to a developer's `pgdata_dev` volume. Postgres and the S3 mock bind on `127.0.0.1` at free ports. The database name is `oss_hub_verify`. The app ports are also free ports, not 3000 or 4000.
 
-The command then runs `prisma migrate deploy`, loads the demo seed with `SEED_PROFILE=demo`, and starts `nest start` and `next dev`. GitHub App variables are unset for this process. OAuth client values are the non-working placeholders from `.envrc.example`. `MAIL_MODE=dry-run`.
+The command then runs `prisma migrate deploy`, loads the demo seed with `SEED_PROFILE=demo`, and applies `scripts/seed-verification.ts`. That scaffold writes only when `DATABASE_URL` names `oss_hub_verify` on `127.0.0.1`. It is not a Prisma seed profile and it is not part of the demo seed that can run in production. It adds two ranking students with no profile columns set, one repository on the internship team, and daily contribution counts on the program's Seoul start day. It checks that `seed:demo:user:staff-lead` is already an approved staff profile. Then launch starts `nest start` and `next dev`. GitHub App variables are unset for this process. OAuth client values are the non-working placeholders from `.envrc.example`. `MAIL_MODE=dry-run`.
 
 Ready is this stderr line:
 
@@ -74,13 +74,16 @@ Mapped commands:
 
 ```bash
 .cursor/skills/verify-oss-hub/scripts/verify-oss-hub drive browse-programs
+.cursor/skills/verify-oss-hub/scripts/verify-oss-hub drive activity-ranking
+.cursor/skills/verify-oss-hub/scripts/verify-oss-hub drive team-management
+.cursor/skills/verify-oss-hub/scripts/verify-oss-hub drive team-activity
 .cursor/skills/verify-oss-hub/scripts/verify-oss-hub drive github-ledger
 .cursor/skills/verify-oss-hub/scripts/verify-oss-hub session seed:demo:user:kim-doyoon
 ```
 
 `drive` runs doctor first. `session` also runs doctor, then prints one line, `oss_session_dev=<token>`, and nothing else. Put that cookie on `127.0.0.1` for a signed-in browser. Do not print the token into a committed file.
 
-`github-ledger` runs `CollectionSyncService` against an in-memory GitHub client, the same boundary as `collection-sync.member-filter.integration.spec.ts`. The client never opens a socket to `api.github.com`. The collector writes the old fact tables. The command then runs `apps/backend/prisma/github-ledger-copy.sql` and `apps/backend/prisma/github-ledger-verify.sql` inside the verification database. Every verify row must have equal expected and actual counts.
+`github-ledger` runs `CollectionSyncService` against an in-memory GitHub client, the same boundary as `collection-sync.member-filter.integration.spec.ts`. The client never opens a socket to `api.github.com`. The collector writes the old fact tables. The command then runs `apps/backend/prisma/github-ledger-copy.sql` and `apps/backend/prisma/github-ledger-verify.sql` inside the verification database. Every verify row must have equal expected and actual counts. `latest_commit_sum`, `latest_pull_request_sum`, `latest_issue_sum`, and `latest_star_sum` must also be greater than zero.
 
 Selectors, URLs, and the pass condition for each feature are in `features/`.
 
@@ -90,7 +93,13 @@ Proof goes under `.cursor/skills/verify-oss-hub/evidence/<run-id>/`. That direct
 
 A passing `browse-programs` drive writes `browse-programs/list.png`, `search.png`, `detail.png`, `list.txt`, `detail.txt`, `search-api.json`, and `program-row.txt`. The screenshots show the list, the filtered list, and the detail page. `search-api.json` is the search response. `program-row.txt` is the `Program` row.
 
-A passing `github-ledger` drive writes `github-ledger/collector.json`, `old-tables.txt`, `copy.log`, and `verify.tsv`. `collector.json` records at least one commit fact and one pull request fact. `verify.tsv` has one tab-separated row per check, and the last two columns match.
+A passing `activity-ranking` drive writes `activity-ranking/ranking.png`, `ranking.txt`, `ranking-api.json`, `asserted.txt`, and `activity-rows.txt`. The first two public rows are `verify-rank-alpha` then `verify-rank-beta`, with totals 18 and 8.
+
+A passing `team-management` drive writes `team-management/student.png`, `staff.png`, `anonymous.png`, the matching text files, `staff-api.json`, and `team-row.txt`.
+
+A passing `team-activity` drive writes `team-activity/chart.png`, `chart.txt`, `activity-api.json`, `asserted.txt`, and `contribution-rows.txt`. The chart totals match the scaffold contribution counts.
+
+A passing `github-ledger` drive writes `github-ledger/collector.json`, `old-tables.txt`, `copy.log`, `verify.tsv`, and `activity-copy.txt`. `collector.json` records at least one commit fact and one pull request fact. `verify.tsv` has one tab-separated row per check, and the last two columns match. `activity-copy.txt` shows the old history row and the ledger row both at commit 11, pull request 2, issue 1, and star 3.
 
 Capture the action and the result. A final screenshot without the API body or the database row is not proof. For a read, the second view is the API response plus the SQL row. For the ledger, the second view is `verify.tsv` after the copy.
 
@@ -111,6 +120,9 @@ Run cleanup after a failed launch too. The launch command already does that when
 | `scripts/verify-oss-hub launch` | Starts the isolated stack from an empty database. |
 | `scripts/verify-oss-hub doctor` | Read-only check that this instance is the one to drive. |
 | `scripts/verify-oss-hub drive browse-programs` | Drives the seeded program list, search, and detail. |
+| `scripts/verify-oss-hub drive activity-ranking` | Drives the public ranking and checks the scaffold order. |
+| `scripts/verify-oss-hub drive team-management` | Drives the student directory, the staff list, and the anonymous gate. |
+| `scripts/verify-oss-hub drive team-activity` | Drives the weekly chart and checks the scaffold counts. |
 | `scripts/verify-oss-hub drive github-ledger` | Runs the synthetic collector, copy SQL, and verify SQL. |
 | `scripts/verify-oss-hub session <user-id>` | Prints an `oss_session_dev` cookie for a seeded user. |
 | `scripts/verify-oss-hub cleanup` | Stops the recorded instance and keeps evidence. |

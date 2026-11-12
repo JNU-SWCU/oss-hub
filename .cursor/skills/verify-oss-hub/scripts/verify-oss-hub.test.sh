@@ -25,6 +25,15 @@ assert_fail() {
 
 assert_fail 'Node.js 24' env PATH="/usr/bin:/bin" "$BIN" launch
 
+node -e '
+  const fixture = require(process.argv[1]);
+  const activity = fixture.ledgerActivity;
+  const counts = [activity.commitCount, activity.pullRequestCount, activity.issueCount, activity.starCount];
+  if (counts.some((count) => count < 1)) process.exit(1);
+  if (fixture.ranking[0].nickname !== "verify-rank-alpha") process.exit(1);
+  if (fixture.ranking[1].nickname !== "verify-rank-beta") process.exit(1);
+' "$SCRIPT_DIR/verification-fixtures.json"
+
 assert_fail 'usage:' "$BIN"
 assert_fail 'no instance state' "$BIN" doctor
 "$BIN" cleanup >/dev/null

@@ -296,6 +296,12 @@ cmd_launch() {
   (cd "$REPO_ROOT/apps/backend" && pnpm exec prisma migrate deploy)
   log 'seeding demo profile'
   (cd "$REPO_ROOT" && SEED_PROFILE=demo pnpm db:seed)
+  log 'seeding verification scaffold'
+  (
+    cd "$REPO_ROOT/apps/backend"
+    pnpm exec ts-node --transpile-only --compiler-options '{"module":"commonjs","moduleResolution":"node","esModuleInterop":true}' \
+      "$SCRIPT_DIR/seed-verification.ts"
+  )
 
   log 'starting backend'
   BACKEND_PID="$(
@@ -384,6 +390,13 @@ assert_verify_report() {
     if [ "$expected" != "$actual" ]; then
       fail "ledger verify mismatch on $check (expected $expected, actual $actual)"
     fi
+    case "$check" in
+      latest_commit_sum|latest_pull_request_sum|latest_issue_sum|latest_star_sum)
+        if [ "$actual" -le 0 ]; then
+          fail "ledger verify $check is zero, so the activity copy is not proven"
+        fi
+        ;;
+    esac
   done <"$report"
   [ "$rows" -ge 1 ] || fail 'github-ledger-verify.sql returned no checks'
 }
@@ -411,7 +424,77 @@ cmd_drive_ledger() {
   psql_file "$REPO_ROOT/apps/backend/prisma/github-ledger-verify.sql" -A -t -F $'\t' \
     >"$evidence/verify.tsv"
   assert_verify_report "$evidence/verify.tsv"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT 'old', \"commitCount\", \"pullRequestCount\", \"issueCount\", \"starCount\" FROM \"GithubUserActivityHistory\" WHERE \"githubId\" = 981200200001 UNION ALL SELECT 'ledger', commit_count, pull_request_count, issue_count, star_count FROM github_user_activity_history WHERE github_id = 981200200001 ORDER BY 1" \
+    >"$evidence/activity-copy.txt"
+  grep -qx $'ledger\t11\t2\t1\t3' "$evidence/activity-copy.txt" \
+    || fail 'ledger activity history row was not copied with the scaffold counts'
+  grep -qx $'old\t11\t2\t1\t3' "$evidence/activity-copy.txt" \
+    || fail 'old activity history row is missing the scaffold counts'
   log "github-ledger evidence=$evidence"
+}
+
+run_surface() {
+  local feature="$1"
+  local evidence="$2"
+  shift 2
+  VERIFY_FEATURE="$feature" \
+    VERIFY_FRONTEND_URL="$FRONTEND_URL" \
+    VERIFY_BACKEND_URL="$BACKEND_URL" \
+    VERIFY_EVIDENCE_DIR="$evidence" \
+    "$@" \
+    node "$SCRIPT_DIR/drive-surfaces.cjs"
+}
+
+cmd_drive_ranking() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/activity-ranking"
+  mkdir -p "$evidence"
+  run_surface activity-ranking "$evidence"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT \"githubLogin\", \"commitCount\", \"pullRequestCount\", \"issueCount\", \"repositoryCount\", \"starCount\" FROM \"GithubUserActivityHistory\" WHERE \"githubId\" IN (981300000001, 981300000002) ORDER BY \"commitCount\" DESC" \
+    >"$evidence/activity-rows.txt"
+  grep -qx $'verify-rank-alpha\t11\t2\t1\t1\t3' "$evidence/activity-rows.txt" \
+    || fail 'ranking scaffold row verify-rank-alpha is missing'
+  grep -qx $'verify-rank-beta\t5\t1\t0\t1\t1' "$evidence/activity-rows.txt" \
+    || fail 'ranking scaffold row verify-rank-beta is missing'
+  log "activity-ranking evidence=$evidence"
+}
+
+cmd_drive_teams() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/team-management"
+  local student_cookie staff_cookie
+  mkdir -p "$evidence"
+  student_cookie="$("$0" session 'seed:demo:user:kim-doyoon')"
+  staff_cookie="$("$0" session 'seed:demo:user:staff-lead')"
+  VERIFY_STUDENT_COOKIE="$student_cookie" \
+    VERIFY_STAFF_COOKIE="$staff_cookie" \
+    run_surface team-management "$evidence"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT id, name FROM \"Team\" WHERE id = 'seed:demo:team:summer-internship-alpha'" \
+    >"$evidence/team-row.txt"
+  grep -qx $'seed:demo:team:summer-internship-alpha\t현장실습 A팀' "$evidence/team-row.txt" \
+    || fail 'the internship team row is missing'
+  log "team-management evidence=$evidence"
+}
+
+cmd_drive_activity() {
+  cmd_doctor
+  local evidence="$EVIDENCE_DIR/team-activity"
+  local student_cookie
+  mkdir -p "$evidence"
+  student_cookie="$("$0" session 'seed:demo:user:kim-doyoon')"
+  VERIFY_STUDENT_COOKIE="$student_cookie" \
+    run_surface team-activity "$evidence"
+  compose exec -T postgres psql -U oss -d "$POSTGRES_DB" -v ON_ERROR_STOP=1 -A -t -F $'\t' -c \
+    "SELECT u.login, c.\"commitCount\", c.\"pullRequestCount\", c.\"issueCount\" FROM \"Contribution\" c JOIN \"User\" u ON u.\"githubId\" = c.\"githubId\" WHERE c.\"repositoryId\" = 'verify:scaffold:repository:internship' ORDER BY u.login" \
+    >"$evidence/contribution-rows.txt"
+  grep -qx $'seed-demo-user-kim-doyoon\t4\t1\t0' "$evidence/contribution-rows.txt" \
+    || fail 'kim-doyoon contribution row does not match the scaffold'
+  grep -qx $'seed-demo-user-lee-seojun\t2\t0\t1' "$evidence/contribution-rows.txt" \
+    || fail 'lee-seojun contribution row does not match the scaffold'
+  log "team-activity evidence=$evidence"
 }
 
 cmd_session() {
@@ -439,6 +522,9 @@ usage() {
 usage: verify-oss-hub launch
        verify-oss-hub doctor
        verify-oss-hub drive browse-programs
+       verify-oss-hub drive activity-ranking
+       verify-oss-hub drive team-management
+       verify-oss-hub drive team-activity
        verify-oss-hub drive github-ledger
        verify-oss-hub session <user-id>
        verify-oss-hub cleanup
@@ -454,6 +540,9 @@ main() {
     drive)
       case "${2:-}" in
         browse-programs) cmd_drive_browse ;;
+        activity-ranking) cmd_drive_ranking ;;
+        team-management) cmd_drive_teams ;;
+        team-activity) cmd_drive_activity ;;
         github-ledger) cmd_drive_ledger ;;
         *) usage ;;
       esac
