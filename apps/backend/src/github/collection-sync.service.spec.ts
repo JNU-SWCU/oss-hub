@@ -426,6 +426,8 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       box.store.recomputeCalls += 1;
       return 1;
     },
+    $queryRaw: (): Promise<readonly unknown[]> =>
+      Promise.resolve([{ missing_repo: 0, inserted: 0 }]),
     collectionSyncCursor: {
       upsert: ({
         where,
