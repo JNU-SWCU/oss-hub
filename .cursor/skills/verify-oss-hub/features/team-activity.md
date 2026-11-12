@@ -32,6 +32,6 @@ Preconditions:
 ## Gotchas
 
 - The demo profile does not create `GithubRepository` or activity facts. `activity-nonempty` stays failed until a repository and activity rows exist. `github-ledger.md` writes a different synthetic team, `verify-ledger-team`, not the internship team.
-- The chart is mounted only after the repository request resolves to a repository. A skeleton labeled `저장소 불러오는 중` is not the chart.
+- The chart is mounted only after the repository request resolves to a repository. A skeleton labeled `저장소 불러오는 중` is not the chart. A repository whose `lastSuccessAt` is null stays on `첫 수집을 기다리는 중입니다` even when fact rows exist. Do not pass the chart on that copy.
 - Readers of team activity still use the old GitHub tables. A row in `contribution` alone does not change this chart.
 - Do not save a repository URL during this drive. That action can call GitHub.

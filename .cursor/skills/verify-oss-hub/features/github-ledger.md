@@ -1,6 +1,6 @@
 # GitHub ledger
 
-The GitHub ledger path collects one repository into the old GitHub tables, copies those rows into the shadow ledger, and checks the counts. The collector writes the old tables and does not write `repo`, `team_repo`, `contribution`, or `github_user_activity_history`. `apps/backend/prisma/github-ledger-copy.sql` does that copy, and `apps/backend/prisma/github-ledger-verify.sql` compares the counts. Jenkins runs the copy during deploy and does not run the verify SQL.
+The GitHub ledger path collects one repository into the old GitHub tables, copies those rows into the shadow ledger, and checks the counts. The collector writes the old fact tables and rebuilds the daily rollup `"Contribution"`. It does not write the shadow tables `"repo"`, `"team_repo"`, `"contribution"`, or `"github_user_activity_history"`. `apps/backend/prisma/github-ledger-copy.sql` does that copy, and `apps/backend/prisma/github-ledger-verify.sql` compares the counts. Jenkins runs the copy during deploy and does not run the verify SQL.
 
 ## Sub-features
 
@@ -32,6 +32,6 @@ Preconditions:
 - The collector does not write the shadow tables. If `verify.tsv` matches before the copy SQL, the run is not proof of the copy.
 - This drive does not run `CollectionUserActivityService`. `latest_commit_sum` and the other activity checks can pass as zero equals zero. Do not describe that as a non-empty activity copy.
 - `github-ledger-copy.sql` aborts when team or repository periods overlap. A second drive deletes the `verify-ledger-*` rows first and collects again.
-- The verify SQL is not wired into Jenkins or `ci.yml`. Running it here is the local check, not a deploy check.
+- Jenkins runs the copy file and does not run the verify file. `github-ledger-copy.integration.spec.ts` executes the verify file when backend integration tests run, on database `oss_hub_test`. This drive checks `oss_hub_verify` instead.
 - `repo_stream` is not a table in this checkout. `CollectionRepositoryStream` is still the stream table. A drive that looks for `repo_stream` is the wrong check.
 - `user_consolidation_backup` and production databases are out of scope. The script rejects any database name other than `oss_hub_verify`.
