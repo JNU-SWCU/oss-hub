@@ -1812,6 +1812,46 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
     expect(stream?.etag).toBeNull();
   });
 
+  it('오래된 epoch로 진 팀 수집은 이긴 행에 오류를 덮어쓰지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    box.store.streams.set('repo-1:COMMIT', {
+      repositoryId: 'repo-1',
+      streamType: 'COMMIT',
+      status: 'READY',
+      frontierSha: 'old-sha',
+      etag: 'old-etag',
+      lastErrorCode: 'OLD_ERROR',
+      syncEpoch: 4n,
+    });
+    const winner = {
+      repositoryId: 'repo-1',
+      streamType: 'COMMIT',
+      status: 'READY',
+      frontierSha: 'winner-sha',
+      etag: 'winner-etag',
+      lastErrorCode: null,
+      lastErrorAt: null,
+      syncEpoch: 6n,
+    };
+    const client = createClient([repository]);
+    client.listDefaultBranchCommitsByAuthor.mockImplementation(() => {
+      box.store.streams.set('repo-1:COMMIT', { ...winner });
+      return Promise.resolve([authoredCommit('sha-loser', 'alice', '11')]);
+    });
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    expect(box.store.streams.get('repo-1:COMMIT')).toMatchObject(winner);
+    expect(
+      [...box.store.commitFacts.values()].map((fact) => fact.sha),
+    ).not.toContain('sha-loser');
+  });
+
   it('팀이 없는 저장소는 수집하지 않는다', async () => {
     const { db, box } = createFakeDb();
     const repository = providerRepository();

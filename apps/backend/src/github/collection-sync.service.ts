@@ -23,6 +23,7 @@ import type {
   SyncLeaseToken,
 } from './collection-incremental.repository';
 import { CollectionAppClientError } from './collection-app.error';
+import { StaleSyncEpochError } from './collection-incremental.error';
 import { RunDeadlineError } from './collection-inventory.error';
 import { CollectionSyncDeadlineService } from './collection-sync-deadline.service';
 import { RepositoryUrlService } from './repository-url.service';
@@ -780,7 +781,10 @@ export class CollectionSyncService {
     try {
       outcome = await operation();
     } catch (error) {
-      if (!(error instanceof RunDeadlineError)) {
+      if (
+        !(error instanceof RunDeadlineError) &&
+        !(error instanceof StaleSyncEpochError)
+      ) {
         await this.writeStreamOutcome(lease, repositoryId, streamType, {
           lastErrorAt: this.now(),
           lastErrorCode: streamErrorCode(error),
