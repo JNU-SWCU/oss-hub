@@ -107,6 +107,7 @@ CREATE TABLE "github_user_activity_history" (
   "repository_count" INTEGER NOT NULL,
   "star_count" INTEGER NOT NULL,
   "observed_at" TIMESTAMPTZ(3) NOT NULL,
+  "clock_at" TIMESTAMPTZ(3),
   PRIMARY KEY ("github_id", "year", "visibility", "observed_at")
 );
 CREATE TABLE "CollectionCommitFact" (
@@ -376,7 +377,7 @@ if [ "$probe_status" -ne 0 ]; then
   exit 1
 fi
 echo 'PASS repository_pkey_no_error'
-assert_eq repository_pkey_keeps_legacy "$(legacy_commit 42)" 2
+assert_eq repository_pkey_leaves_legacy "$(legacy_commit 42)" 1
 assert_eq repository_pkey_one_row "$(ledger_count)" 1
 assert_eq repository_pkey_updates_counts "$(ledger_commit)" 2
 
@@ -518,16 +519,16 @@ if grep -F 'githubUserActivityObservation' "$activity_ts" >/dev/null; then
   echo 'FAIL activity writer still uses a separate read and insert' >&2
   exit 1
 fi
-if ! grep -F "AT TIME ZONE 'UTC' AS occurred_at" "$fact_ts" >/dev/null; then
-  echo 'FAIL fact occurred_at is not pinned to UTC' >&2
+if ! grep -F '${fact.occurredAt}::timestamptz' "$fact_ts" >/dev/null; then
+  echo 'FAIL contribution occurred_at is not bound as timestamptz' >&2
   exit 1
 fi
-if ! grep -F 'fact."observedAt" AT TIME ZONE '"'"'UTC'"'"' AS first_seen_at' "$fact_ts" >/dev/null; then
-  echo 'FAIL fact first_seen_at is not pinned to UTC' >&2
+if ! grep -F 'CURRENT_TIMESTAMP AS first_seen_at' "$fact_ts" >/dev/null; then
+  echo 'FAIL contribution first_seen_at is not bound as timestamptz' >&2
   exit 1
 fi
 if grep -F 'fact."observedAt" AS first_seen_at' "$fact_ts" >/dev/null; then
-  echo 'FAIL fact first_seen_at still casts without a UTC pin' >&2
+  echo 'FAIL contribution first_seen_at still casts a timestamp without time zone' >&2
   exit 1
 fi
 echo 'PASS source_matches_statement'

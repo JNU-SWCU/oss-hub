@@ -179,7 +179,7 @@ const writeActivityLedgerRow = async (
   `;
   await transaction.$executeRaw`
     UPDATE "github_user_activity_history" AS existing
-    SET "observed_at" = ${observation.observedAt}::timestamptz(3)
+    SET "clock_at" = ${observation.observedAt}::timestamptz(3)
     WHERE existing."github_id" = ${observation.githubId}::bigint
       AND existing."year" = ${observation.year}::int
       AND existing."visibility" = ${observation.visibility}::"ActivityVisibility"
@@ -189,6 +189,10 @@ const writeActivityLedgerRow = async (
       AND existing."repository_count" = ${observation.repositoryCount}::int
       AND existing."star_count" = ${observation.starCount}::int
       AND existing."observed_at" < ${observation.observedAt}::timestamptz(3)
+      AND (
+        existing."clock_at" IS NULL
+        OR existing."clock_at" < ${observation.observedAt}::timestamptz(3)
+      )
       AND existing."observed_at" = (
         SELECT latest."observed_at"
         FROM "github_user_activity_history" AS latest

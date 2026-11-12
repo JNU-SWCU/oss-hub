@@ -1224,6 +1224,7 @@ model GithubUserActivityObservation {
   repositoryCount  Int                @default(0) @map("repository_count")
   starCount        Int                @default(0) @map("star_count")
   observedAt       DateTime           @map("observed_at") @db.Timestamptz(3)
+  clockAt          DateTime?          @map("clock_at") @db.Timestamptz(3)
 
   @@id([githubId, year, visibility, observedAt])
   @@map("github_user_activity_history")
