@@ -54,7 +54,52 @@ const findUnique = jest.fn(
 );
 const findFirst = jest.fn();
 const findMany = jest.fn();
-const auditFindMany = jest.fn();
+const auditFindMany = jest.fn<
+  Promise<unknown[]>,
+  [TemplateStringsArray, ...unknown[]]
+>();
+
+function sqlOf(query: TemplateStringsArray): string {
+  return Array.from(query).join('');
+}
+
+const ACTIVITY_POINTS = [
+  {
+    githubId: ACTORS.leader.githubId,
+    date: new Date('2026-08-01T00:00:00.000Z'),
+    commitCount: 2,
+    pullRequestCount: 1,
+    issueCount: 0,
+  },
+  {
+    githubId: ACTORS.leader.githubId,
+    date: new Date('2026-08-03T00:00:00.000Z'),
+    commitCount: 1,
+    pullRequestCount: 0,
+    issueCount: 3,
+  },
+] as const;
+
+const REPOSITORY_URL_HISTORY = [
+  {
+    id: 'change-1',
+    action: 'APPLICATION_REPOSITORY_URL_CHANGED',
+    occurredAt: new Date('2026-08-15T00:00:00Z'),
+    actor: { nickname: 'lead' },
+    metadata: {
+      schemaVersion: 2,
+      programId: PROGRAM_ID,
+      teamId: TEAM_ID,
+      programName: 'Synthetic program',
+      actorGithubLogin: 'lead',
+      before: { repositoryId: null, repositoryUrl: null },
+      after: {
+        repositoryId: 'synthetic-repository',
+        repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
+      },
+    },
+  },
+] as const;
 
 let application: INestApplication | undefined;
 let baseUrl = '';
@@ -168,26 +213,13 @@ beforeEach(() => {
   findFirst.mockReset();
   findMany.mockReset();
   auditFindMany.mockReset();
-  auditFindMany.mockResolvedValue([
-    {
-      id: 'change-1',
-      action: 'APPLICATION_REPOSITORY_URL_CHANGED',
-      occurredAt: new Date('2026-08-15T00:00:00Z'),
-      actor: { nickname: 'lead' },
-      metadata: {
-        schemaVersion: 2,
-        programId: PROGRAM_ID,
-        teamId: TEAM_ID,
-        programName: 'Synthetic program',
-        actorGithubLogin: 'lead',
-        before: { repositoryId: null, repositoryUrl: null },
-        after: {
-          repositoryId: 'synthetic-repository',
-          repositoryUrl: 'https://github.com/synthetic-org/synthetic-repo',
-        },
-      },
-    },
-  ]);
+  auditFindMany.mockImplementation((query) =>
+    Promise.resolve(
+      sqlOf(query).includes('repo_contribution')
+        ? [...ACTIVITY_POINTS]
+        : [...REPOSITORY_URL_HISTORY],
+    ),
+  );
   findFirst.mockImplementation(
     ({ where }: { readonly where: { readonly id: string } }) =>
       Promise.resolve(
@@ -220,22 +252,6 @@ beforeEach(() => {
           : null,
       ),
   );
-  findMany.mockResolvedValue([
-    {
-      githubId: ACTORS.leader.githubId,
-      date: new Date('2026-08-01T00:00:00Z'),
-      commitCount: 2,
-      pullRequestCount: 1,
-      issueCount: 0,
-    },
-    {
-      githubId: ACTORS.leader.githubId,
-      date: new Date('2026-08-03T00:00:00Z'),
-      commitCount: 1,
-      pullRequestCount: 0,
-      issueCount: 3,
-    },
-  ]);
 });
 
 afterAll(async () => {
@@ -315,6 +331,11 @@ it.each([
       code: 'TEAM_010',
     });
     expect(findMany).not.toHaveBeenCalled();
+    expect(
+      auditFindMany.mock.calls.filter(([query]) =>
+        sqlOf(query).includes('repo_contribution'),
+      ),
+    ).toEqual([]);
   },
 );
 

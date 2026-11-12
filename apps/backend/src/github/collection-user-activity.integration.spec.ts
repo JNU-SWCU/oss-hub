@@ -33,12 +33,14 @@ const BRAVO_GITHUB_ID = 9_940_000_002n;
 const CHARLIE_GITHUB_ID = 9_940_000_003n;
 const DEACTIVATED_GITHUB_ID = 9_940_000_004n;
 const OUTSIDER_GITHUB_ID = 9_940_000_005n;
+const DELTA_GITHUB_ID = 9_940_000_006n;
 const SEEDED_GITHUB_IDS = [
   ALPHA_GITHUB_ID,
   BRAVO_GITHUB_ID,
   CHARLIE_GITHUB_ID,
   DEACTIVATED_GITHUB_ID,
   OUTSIDER_GITHUB_ID,
+  DELTA_GITHUB_ID,
 ];
 const LOGIN = new Map<bigint, string>([
   [ALPHA_GITHUB_ID, `${SEED_PREFIX}-alpha`],
@@ -46,6 +48,7 @@ const LOGIN = new Map<bigint, string>([
   [CHARLIE_GITHUB_ID, `${SEED_PREFIX}-charlie`],
   [DEACTIVATED_GITHUB_ID, `${SEED_PREFIX}-deactivated`],
   [OUTSIDER_GITHUB_ID, `${SEED_PREFIX}-outsider`],
+  [DELTA_GITHUB_ID, `${SEED_PREFIX}-delta`],
 ]);
 
 const NOW = new Date('2026-08-19T00:00:00.000Z');
@@ -97,6 +100,9 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
   };
 
   const cleanup = async (): Promise<void> => {
+    await prisma.githubUserActivityObservation.deleteMany({
+      where: { githubId: { in: SEEDED_GITHUB_IDS } },
+    });
     await prisma.githubUserActivityCycleSnapshot.deleteMany({
       where: { githubId: { in: SEEDED_GITHUB_IDS } },
     });
@@ -468,22 +474,49 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     ).resolves.toBe(0);
   });
 
-  it('과거 연도 행이 이미 있으면 다시 조회하지 않고 값을 건드리지 않는다', async () => {
-    const pastObservedAt = new Date('2026-01-02T00:00:00.000Z');
+  it('과거 연도는 새 원장의 공개 행만 건너뛰고 나머지는 원장에 적재한다', async () => {
+    const oldObservedAt = new Date('2026-01-02T00:00:00.000Z');
+    const ledgerObservedAt = new Date('2026-02-02T00:00:00.000Z');
     await prisma.githubUserActivityHistory.create({
       data: {
         githubId: ALPHA_GITHUB_ID,
         githubLogin: `${SEED_PREFIX}-alpha`,
         year: PAST_YEAR,
         commitCount: 1234,
-        observedAt: pastObservedAt,
+        observedAt: oldObservedAt,
       },
     });
+    await prisma.githubUserActivityObservation.create({
+      data: {
+        githubId: BRAVO_GITHUB_ID,
+        year: PAST_YEAR,
+        visibility: 'PUBLIC',
+        commitCount: 77,
+        observedAt: ledgerObservedAt,
+      },
+    });
+    await prisma.githubUserActivityObservation.create({
+      data: {
+        githubId: CHARLIE_GITHUB_ID,
+        year: PAST_YEAR,
+        visibility: 'PRIVATE',
+        commitCount: 11,
+        observedAt: ledgerObservedAt,
+      },
+    });
+    await seedUser(DELTA_GITHUB_ID, AccountStatus.ACTIVE);
 
-    const foreignPastYearGithubIds = new Set(
-      foreignActivitySnapshot
-        .filter((row) => row.year === PAST_YEAR)
-        .map((row) => row.githubId.toString()),
+    const foreignPublicLedgerIds = new Set(
+      (
+        await prisma.githubUserActivityObservation.findMany({
+          where: {
+            year: PAST_YEAR,
+            visibility: 'PUBLIC',
+            githubId: { notIn: SEEDED_GITHUB_IDS },
+          },
+          select: { githubId: true },
+        })
+      ).map((row) => row.githubId.toString()),
     );
     const foreignSkippedCount = (
       await prisma.user.findMany({
@@ -494,31 +527,95 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
         select: { githubId: true },
       })
     ).filter((user) =>
-      foreignPastYearGithubIds.has(user.githubId.toString()),
+      foreignPublicLedgerIds.has(user.githubId.toString()),
     ).length;
 
     const result = await buildService().run([PAST_YEAR]);
 
-    expect(result.skippedPastYearCount).toBe(foreignSkippedCount + 1);
-    expect(seededQueriedLogins()).not.toContain(`${SEED_PREFIX}-alpha`);
-    const alpha = await prisma.githubUserActivityHistory.findUnique({
+    expect(result).toEqual({
+      observedUserCount: foreignActiveUserCount + 4,
+      upsertedRowCount: foreignActiveUserCount - foreignSkippedCount + 3,
+      skippedPastYearCount: foreignSkippedCount + 1,
+      failedUserCount: 0,
+    });
+    expect(seededQueriedLogins().sort()).toEqual([
+      `${SEED_PREFIX}-alpha`,
+      `${SEED_PREFIX}-charlie`,
+      `${SEED_PREFIX}-delta`,
+    ]);
+
+    const alphaLedger = await prisma.githubUserActivityObservation.findMany({
       where: {
-        githubId_year_visibility: {
-          githubId: ALPHA_GITHUB_ID,
-          year: PAST_YEAR,
-          visibility: 'PUBLIC',
-        },
+        githubId: ALPHA_GITHUB_ID,
+        year: PAST_YEAR,
+        visibility: 'PUBLIC',
       },
     });
-    expect(alpha).toEqual(
+    expect(alphaLedger).toEqual([
       expect.objectContaining({
-        commitCount: 1234,
-        observedAt: pastObservedAt,
+        commitCount: `${SEED_PREFIX}-alpha`.length,
+        pullRequestCount: 2,
+        issueCount: 3,
+        repositoryCount: 4,
+        starCount: 5,
+        observedAt: NOW,
       }),
-    );
+    ]);
 
-    const rows = await seededRows();
-    expect(rows).toHaveLength(3);
+    const bravoLedger = await prisma.githubUserActivityObservation.findMany({
+      where: {
+        githubId: BRAVO_GITHUB_ID,
+        year: PAST_YEAR,
+        visibility: 'PUBLIC',
+      },
+    });
+    expect(bravoLedger).toEqual([
+      expect.objectContaining({
+        commitCount: 77,
+        observedAt: ledgerObservedAt,
+      }),
+    ]);
+
+    const charliePrivate = await prisma.githubUserActivityObservation.findMany({
+      where: {
+        githubId: CHARLIE_GITHUB_ID,
+        year: PAST_YEAR,
+        visibility: 'PRIVATE',
+      },
+    });
+    const charliePublic = await prisma.githubUserActivityObservation.findMany({
+      where: {
+        githubId: CHARLIE_GITHUB_ID,
+        year: PAST_YEAR,
+        visibility: 'PUBLIC',
+      },
+    });
+    expect(charliePrivate).toEqual([
+      expect.objectContaining({
+        commitCount: 11,
+        observedAt: ledgerObservedAt,
+      }),
+    ]);
+    expect(charliePublic).toEqual([
+      expect.objectContaining({
+        commitCount: `${SEED_PREFIX}-charlie`.length,
+        observedAt: NOW,
+      }),
+    ]);
+
+    const deltaLedger = await prisma.githubUserActivityObservation.findMany({
+      where: {
+        githubId: DELTA_GITHUB_ID,
+        year: PAST_YEAR,
+        visibility: 'PUBLIC',
+      },
+    });
+    expect(deltaLedger).toEqual([
+      expect.objectContaining({
+        commitCount: `${SEED_PREFIX}-delta`.length,
+        observedAt: NOW,
+      }),
+    ]);
   });
 
   it('cron tick 1회가 org·external·person 세 sweep을 모두 돌린다', async () => {

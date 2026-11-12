@@ -12,7 +12,10 @@ const applicationFindFirst = jest.fn<
   Promise<Record<string, unknown> | null>,
   [unknown]
 >();
-export const contributionGroupBy = jest.fn();
+export const contributionQuery = jest.fn<
+  Promise<unknown[]>,
+  [TemplateStringsArray, ...unknown[]]
+>();
 export const historyQuery = jest.fn<
   Promise<unknown[]>,
   [TemplateStringsArray, ...unknown[]]
@@ -29,8 +32,13 @@ jest.mock('../platform/prisma.service', () => ({
         return { ...(application ?? {}), ...team };
       },
     },
-    contribution: { groupBy: contributionGroupBy },
-    $queryRaw: historyQuery,
+    $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => {
+      const sql = Array.from(strings).join('');
+      if (sql.includes('repo_contribution')) {
+        return contributionQuery(strings, ...values);
+      }
+      return historyQuery(strings, ...values);
+    },
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(null) },
     repositoryProvisionJob: { findUnique: provisionFindUnique },
     githubRepositoryOutsiderContribution: { findUnique: outsiderFindUnique },
@@ -81,24 +89,20 @@ export function givenRepository(
   });
   historyQuery.mockResolvedValue([]);
   provisionFindUnique.mockResolvedValue(null);
-  contributionGroupBy.mockResolvedValue([
+  contributionQuery.mockResolvedValue([
     {
       githubId: 101n,
-      _sum: {
-        commitCount: 3,
-        pullRequestCount: 2,
-        releaseCount: 1,
-        issueCount: 0,
-      },
+      commitCount: 3,
+      pullRequestCount: 2,
+      releaseCount: 1,
+      issueCount: 0,
     },
     {
       githubId: 999n,
-      _sum: {
-        commitCount: 4,
-        pullRequestCount: 0,
-        releaseCount: 0,
-        issueCount: 2,
-      },
+      commitCount: 4,
+      pullRequestCount: 0,
+      releaseCount: 0,
+      issueCount: 2,
     },
   ]);
   outsiderFindUnique.mockResolvedValue(null);

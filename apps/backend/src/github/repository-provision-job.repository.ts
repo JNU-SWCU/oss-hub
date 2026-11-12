@@ -152,17 +152,20 @@ export class CollectionUserActivityRepository {
   }
 
   async hasObservation(githubId: bigint, year: number): Promise<boolean> {
-    const existing = await this.db.githubUserActivityHistory.findUnique({
-      where: {
-        githubId_year_visibility: {
-          githubId,
-          year,
-          visibility: ActivityVisibility.PUBLIC,
-        },
-      },
-      select: { githubId: true },
-    });
-    return existing !== null;
+    const rows = await this.db.$queryRaw<{ readonly present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM "github_user_activity_history"
+        WHERE "github_id" = ${githubId}
+          AND "year" = ${year}
+          AND "visibility" = 'PUBLIC'::"ActivityVisibility"
+      ) AS present
+    `;
+    const row = rows[0];
+    if (row === undefined) {
+      throw new Error('Activity ledger existence query did not return a row');
+    }
+    return row.present;
   }
 
   async upsertObservation(

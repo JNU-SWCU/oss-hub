@@ -49,9 +49,7 @@ function repositoryWith(rows: readonly ActivityRow[]): RankingRepository {
         },
       ]),
     },
-    githubUserActivityHistory: {
-      findMany: jest.fn().mockResolvedValue(rows),
-    },
+    $queryRaw: jest.fn().mockResolvedValue(rows),
   } as unknown as PrismaService;
   return new RankingRepository(prisma);
 }

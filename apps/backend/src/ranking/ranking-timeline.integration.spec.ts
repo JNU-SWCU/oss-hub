@@ -44,6 +44,9 @@ async function purge(): Promise<void> {
   await prisma.githubUserActivityHistory.deleteMany({
     where: { githubId: { in: githubIds } },
   });
+  await prisma.githubUserActivityObservation.deleteMany({
+    where: { githubId: { in: githubIds } },
+  });
   await prisma.user.deleteMany({ where: { githubId: { in: githubIds } } });
 }
 

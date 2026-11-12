@@ -21,14 +21,6 @@ export interface ContributorContributionRow extends ContributionCountsRow {
   readonly githubUserId: bigint;
 }
 
-function programLinkedRepositoryFilter(
-  platformRepository: PlatformRepository,
-): Prisma.GithubRepositoryWhereInput {
-  return {
-    AND: [platformRepository.linkedRepositoryFilter()],
-  };
-}
-
 @Injectable()
 export class PublicProjectMetricsRepository {
   constructor(
@@ -61,46 +53,28 @@ export class PublicProjectMetricsRepository {
       select: {
         githubRepositoryId: true,
         lastCompleteInventoryObservedAt: true,
-        contributions: {
-          select: {
-            commitCount: true,
-            pullRequestCount: true,
-            releaseCount: true,
-            updatedAt: true,
-          },
-        },
       },
     });
+    if (repositories.length === 0) return [];
+    const rows = await this.readRepoContribution(
+      repositories.map((repository) => repository.githubRepositoryId),
+    );
     return repositories.map((repository) => ({
       repositoryId: repository.githubRepositoryId,
       inventoryObservedAt: repository.lastCompleteInventoryObservedAt,
-      contributions: repository.contributions,
+      contributions: rows.filter(
+        (row) => row.githubRepositoryId === repository.githubRepositoryId,
+      ),
     }));
   }
 
   async findContributorContributionRows(
     repositoryIds: readonly bigint[],
   ): Promise<readonly ContributorContributionRow[]> {
-    const rows = await this.prisma.contribution.findMany({
-      where: {
-        repository: {
-          githubRepositoryId: { in: [...repositoryIds] },
-          visibility: 'PUBLIC',
-          presence: 'PRESENT',
-          ...programLinkedRepositoryFilter(this.platformRepository),
-        },
-      },
-      select: {
-        githubId: true,
-        commitCount: true,
-        pullRequestCount: true,
-        releaseCount: true,
-        updatedAt: true,
-        repository: { select: { githubRepositoryId: true } },
-      },
-    });
+    if (repositoryIds.length === 0) return [];
+    const rows = await this.readRepoContribution(repositoryIds);
     return rows.map((row) => ({
-      repositoryId: row.repository.githubRepositoryId,
+      repositoryId: row.githubRepositoryId,
       githubUserId: row.githubId,
       commitCount: row.commitCount,
       pullRequestCount: row.pullRequestCount,
@@ -108,4 +82,34 @@ export class PublicProjectMetricsRepository {
       updatedAt: row.updatedAt,
     }));
   }
+
+  private readRepoContribution(
+    repositoryIds: readonly bigint[],
+  ): Promise<readonly RepoContributionSqlRow[]> {
+    return this.prisma.$queryRaw<RepoContributionSqlRow[]>`
+      SELECT
+        daily.github_repository_id AS "githubRepositoryId",
+        daily.github_id AS "githubId",
+        daily.commit_count AS "commitCount",
+        daily.pull_request_count AS "pullRequestCount",
+        daily.release_count AS "releaseCount",
+        daily.updated_at AS "updatedAt"
+      FROM repo_contribution AS daily
+      JOIN "GithubRepository" AS repository
+        ON repository.id = daily.repository_id
+      WHERE daily.github_repository_id IN (${Prisma.join([...repositoryIds])})
+        AND repository.visibility = 'PUBLIC'::"RepositoryVisibility"
+        AND repository.presence = 'PRESENT'::"CollectionRepositoryPresence"
+        AND repository."teamId" IS NOT NULL
+        AND repository.source IN (
+          'ORG_PROVISIONED'::"RepositorySource",
+          'EXTERNAL_PUBLIC'::"RepositorySource"
+        )
+    `;
+  }
+}
+
+interface RepoContributionSqlRow extends ContributionCountsRow {
+  readonly githubRepositoryId: bigint;
+  readonly githubId: bigint;
 }

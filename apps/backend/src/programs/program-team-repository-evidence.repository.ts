@@ -1,7 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import type {
-  ApplicationStatus,
-  RepositoryProvisionJobStatus,
+import {
+  Prisma,
+  type ApplicationStatus,
+  type RepositoryProvisionJobStatus,
 } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import type { PublishBlockedReason } from '../github/repository-publish.config';
@@ -253,35 +254,34 @@ export class ProgramTeamRepositoryEvidenceRepository {
     const repository = application.repository;
     if (!repository) return null;
     const window = programWindow(application.program);
-    const rows = await this.prisma.contribution.groupBy({
-      by: ['githubId'],
-      where: { repositoryId: repository.id, date: windowDates(window) },
-      _sum: {
-        commitCount: true,
-        pullRequestCount: true,
-        releaseCount: true,
-        issueCount: true,
-      },
-
-      having: {
-        OR: [
-          { commitCount: { _sum: { gt: 0 } } },
-          { pullRequestCount: { _sum: { gt: 0 } } },
-          { releaseCount: { _sum: { gt: 0 } } },
-          { issueCount: { _sum: { gt: 0 } } },
-        ],
-      },
-      orderBy: { githubId: 'asc' },
-    });
+    const bounds = windowDates(window);
+    const rows = await this.prisma.$queryRaw<ContributionTotalRow[]>`
+      SELECT
+        github_id AS "githubId",
+        SUM(commit_count)::int AS "commitCount",
+        SUM(pull_request_count)::int AS "pullRequestCount",
+        SUM(release_count)::int AS "releaseCount",
+        SUM(issue_count)::int AS "issueCount"
+      FROM repo_contribution
+      WHERE repository_id = ${repository.id}
+        AND activity_date >= ${queryDate(bounds.gte)}::date
+        AND activity_date <= ${queryDate(bounds.lte)}::date
+      GROUP BY github_id
+      HAVING SUM(commit_count) > 0
+        OR SUM(pull_request_count) > 0
+        OR SUM(release_count) > 0
+        OR SUM(issue_count) > 0
+      ORDER BY github_id
+    `;
     const contributors = new Map(
       rows.map((row) => [
         row.githubId,
         {
           githubId: row.githubId.toString(),
-          commitCount: row._sum.commitCount ?? 0,
-          pullRequestCount: row._sum.pullRequestCount ?? 0,
-          releaseCount: row._sum.releaseCount ?? 0,
-          issueCount: row._sum.issueCount ?? 0,
+          commitCount: row.commitCount,
+          pullRequestCount: row.pullRequestCount,
+          releaseCount: row.releaseCount,
+          issueCount: row.issueCount,
         },
       ]),
     );
@@ -336,31 +336,30 @@ export class ProgramTeamRepositoryEvidenceRepository {
   async activity(team: TeamActivityScope): Promise<TeamActivityRow> {
     const repository = team.application?.repository ?? null;
     const window = programWindow(team.program);
-    const rows = repository?.lastSuccessAt
-      ? await this.prisma.contribution.findMany({
-          where: {
-            repositoryId: repository.id,
-            githubId: {
-              in: team.members.map((member) => member.user.githubId),
-            },
-            date: windowDates(window),
-
-            OR: [
-              { commitCount: { gt: 0 } },
-              { pullRequestCount: { gt: 0 } },
-              { issueCount: { gt: 0 } },
-            ],
-          },
-          select: {
-            githubId: true,
-            date: true,
-            commitCount: true,
-            pullRequestCount: true,
-            issueCount: true,
-          },
-          orderBy: { date: 'asc' },
-        })
-      : [];
+    const memberGithubIds = team.members.map((member) => member.user.githubId);
+    const bounds = windowDates(window);
+    const rows =
+      repository?.lastSuccessAt && memberGithubIds.length > 0
+        ? await this.prisma.$queryRaw<ActivityPointRow[]>`
+            SELECT
+              github_id AS "githubId",
+              activity_date AS date,
+              commit_count AS "commitCount",
+              pull_request_count AS "pullRequestCount",
+              issue_count AS "issueCount"
+            FROM repo_contribution
+            WHERE repository_id = ${repository.id}
+              AND github_id IN (${Prisma.join(memberGithubIds)})
+              AND activity_date >= ${queryDate(bounds.gte)}::date
+              AND activity_date <= ${queryDate(bounds.lte)}::date
+              AND (
+                commit_count > 0
+                OR pull_request_count > 0
+                OR issue_count > 0
+              )
+            ORDER BY activity_date ASC, github_id ASC
+          `
+        : [];
     return {
       teamId: team.application?.id ?? null,
       repository: repository && {
@@ -436,6 +435,26 @@ function windowDates(window: { readonly from: string; readonly to: string }) {
       Math.min(Date.parse(`${window.to}T00:00:00Z`), LAST_QUERYABLE_DAY),
     ),
   };
+}
+
+function queryDate(value: Date): string {
+  return value.toISOString().slice(0, 10);
+}
+
+interface ContributionTotalRow {
+  readonly githubId: bigint;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly releaseCount: number;
+  readonly issueCount: number;
+}
+
+interface ActivityPointRow {
+  readonly githubId: bigint;
+  readonly date: Date;
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
 }
 
 function collectionStatus(repository: {

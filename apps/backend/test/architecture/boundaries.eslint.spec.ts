@@ -511,6 +511,18 @@ edge(
   false,
 );
 edge(
+  'repository may read contributor views',
+  'src/ranking/standing.repository.ts',
+  'src/platform/contributor-read.repository.ts',
+  true,
+);
+edge(
+  'service cannot read contributor views',
+  'src/ranking/standing.service.ts',
+  'src/platform/contributor-read.repository.ts',
+  false,
+);
+edge(
   'repository may acquire tree lock',
   'src/programs/lock.repository.ts',
   'src/platform/lock-program-tree.repository.ts',
