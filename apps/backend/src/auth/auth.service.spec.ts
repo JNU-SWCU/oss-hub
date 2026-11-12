@@ -340,12 +340,7 @@ describe('AuthService', () => {
           githubUserActivityHistory: {
             upsert: databaseUpsert,
           },
-          githubUserActivityObservation: {
-            findUnique: jest.fn().mockResolvedValue(null),
-            findFirst: jest.fn().mockResolvedValue(null),
-            update: jest.fn().mockResolvedValue({}),
-            create: jest.fn().mockResolvedValue({}),
-          },
+          $executeRaw: jest.fn().mockResolvedValue(1),
         } as never);
       });
       jest

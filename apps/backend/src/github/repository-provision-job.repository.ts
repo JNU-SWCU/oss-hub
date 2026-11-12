@@ -58,75 +58,72 @@ interface ActivityLedgerRow extends ActivityCountSnapshot {
   readonly observedAt: Date;
 }
 
-const activityCountsMatch = (
-  left: ActivityCountSnapshot,
-  right: ActivityCountSnapshot,
-): boolean =>
-  left.commitCount === right.commitCount &&
-  left.pullRequestCount === right.pullRequestCount &&
-  left.issueCount === right.issueCount &&
-  left.repositoryCount === right.repositoryCount &&
-  left.starCount === right.starCount;
-
 const writeActivityLedgerRow = async (
   transaction: Prisma.TransactionClient,
   observation: ActivityLedgerRow,
 ): Promise<void> => {
-  const identity = {
-    githubId: observation.githubId,
-    year: observation.year,
-    visibility: observation.visibility,
-    observedAt: observation.observedAt,
-  };
-  const counts: ActivityCountSnapshot = {
-    commitCount: observation.commitCount,
-    pullRequestCount: observation.pullRequestCount,
-    issueCount: observation.issueCount,
-    repositoryCount: observation.repositoryCount,
-    starCount: observation.starCount,
-  };
-  const current = await transaction.githubUserActivityObservation.findUnique({
-    where: { githubId_year_visibility_observedAt: identity },
-    select: {
-      commitCount: true,
-      pullRequestCount: true,
-      issueCount: true,
-      repositoryCount: true,
-      starCount: true,
-    },
-  });
-  if (current !== null && !activityCountsMatch(current, counts)) {
-    await transaction.githubUserActivityObservation.update({
-      where: { githubId_year_visibility_observedAt: identity },
-      data: counts,
-    });
-  }
-  const latest = await transaction.githubUserActivityObservation.findFirst({
-    where: {
-      githubId: observation.githubId,
-      year: observation.year,
-      visibility: observation.visibility,
-    },
-    orderBy: { observedAt: 'desc' },
-    select: {
-      commitCount: true,
-      pullRequestCount: true,
-      issueCount: true,
-      repositoryCount: true,
-      starCount: true,
-    },
-  });
-  if (latest === null) {
-    await transaction.githubUserActivityObservation.create({
-      data: { ...identity, ...counts },
-    });
-    return;
-  }
-  if (activityCountsMatch(latest, counts)) return;
-  if (current !== null) return;
-  await transaction.githubUserActivityObservation.create({
-    data: { ...identity, ...counts },
-  });
+  await transaction.$executeRaw`
+    INSERT INTO "github_user_activity_history" (
+      "github_id",
+      "year",
+      "visibility",
+      "commit_count",
+      "pull_request_count",
+      "issue_count",
+      "repository_count",
+      "star_count",
+      "observed_at"
+    )
+    SELECT
+      incoming."github_id",
+      incoming."year",
+      incoming."visibility",
+      incoming."commit_count",
+      incoming."pull_request_count",
+      incoming."issue_count",
+      incoming."repository_count",
+      incoming."star_count",
+      incoming."observed_at"
+    FROM (
+      SELECT
+        ${observation.githubId}::bigint AS "github_id",
+        ${observation.year}::int AS "year",
+        ${observation.visibility}::"ActivityVisibility" AS "visibility",
+        ${observation.commitCount}::int AS "commit_count",
+        ${observation.pullRequestCount}::int AS "pull_request_count",
+        ${observation.issueCount}::int AS "issue_count",
+        ${observation.repositoryCount}::int AS "repository_count",
+        ${observation.starCount}::int AS "star_count",
+        ${observation.observedAt}::timestamptz(3) AS "observed_at"
+    ) AS incoming
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM "github_user_activity_history" AS existing
+      WHERE existing."github_id" = incoming."github_id"
+        AND existing."year" = incoming."year"
+        AND existing."visibility" = incoming."visibility"
+        AND existing."observed_at" = (
+          SELECT latest."observed_at"
+          FROM "github_user_activity_history" AS latest
+          WHERE latest."github_id" = incoming."github_id"
+            AND latest."year" = incoming."year"
+            AND latest."visibility" = incoming."visibility"
+          ORDER BY latest."observed_at" DESC
+          LIMIT 1
+        )
+        AND existing."commit_count" = incoming."commit_count"
+        AND existing."pull_request_count" = incoming."pull_request_count"
+        AND existing."issue_count" = incoming."issue_count"
+        AND existing."repository_count" = incoming."repository_count"
+        AND existing."star_count" = incoming."star_count"
+    )
+    ON CONFLICT ("github_id", "year", "visibility", "observed_at") DO UPDATE SET
+      "commit_count" = EXCLUDED."commit_count",
+      "pull_request_count" = EXCLUDED."pull_request_count",
+      "issue_count" = EXCLUDED."issue_count",
+      "repository_count" = EXCLUDED."repository_count",
+      "star_count" = EXCLUDED."star_count"
+  `;
 };
 
 @Injectable()

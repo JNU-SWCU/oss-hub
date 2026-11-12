@@ -393,8 +393,8 @@ export class CollectionIncrementalStoreRepository {
           repository."githubRepositoryId" AS repo_id,
           ${Prisma.raw(shape.githubKeySql)} AS github_key,
           fact."authorGithubId" AS author_github_id,
-          fact.${Prisma.raw(shape.occurredAtColumn)} AS occurred_at,
-          fact."observedAt" AS first_seen_at
+          fact.${Prisma.raw(shape.occurredAtColumn)} AT TIME ZONE 'UTC' AS occurred_at,
+          fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at
         FROM ${Prisma.raw(shape.table)} AS fact
         JOIN "GithubRepository" AS repository
           ON repository."id" = fact."repositoryId"
