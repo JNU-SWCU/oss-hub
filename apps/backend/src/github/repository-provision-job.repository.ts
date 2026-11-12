@@ -11,6 +11,7 @@ import {
   RepositoryProvisionLeaseLostError,
   RepositoryProvisionSupersededError,
 } from './repository-provision-state.error';
+import { ContributorReadRepository } from '../platform/contributor-read.repository';
 
 @Injectable()
 export class CollectionCutoverRepository {
@@ -152,17 +153,10 @@ export class CollectionUserActivityRepository {
   }
 
   async hasObservation(githubId: bigint, year: number): Promise<boolean> {
-    const existing = await this.db.githubUserActivityHistory.findUnique({
-      where: {
-        githubId_year_visibility: {
-          githubId,
-          year,
-          visibility: ActivityVisibility.PUBLIC,
-        },
-      },
-      select: { githubId: true },
-    });
-    return existing !== null;
+    return new ContributorReadRepository(this.db).hasPublicStanding(
+      githubId,
+      year,
+    );
   }
 
   async upsertObservation(

@@ -60,10 +60,13 @@ function serviceWith(rows: readonly ActivityRow[]): RankingService {
         },
       ]),
     },
-    githubUserActivityHistory: {
-      findMany: jest.fn().mockResolvedValue(rows),
-      aggregate: jest.fn().mockResolvedValue({ _max: { observedAt: null } }),
-    },
+    $queryRaw: jest.fn((strings: TemplateStringsArray) => {
+      const sql = Array.from(strings).join('');
+      if (sql.includes('MAX(observed_at)')) {
+        return Promise.resolve([{ observedAt: null }]);
+      }
+      return Promise.resolve(rows);
+    }),
     githubUserActivityCycleSnapshot: {
       findMany: jest.fn().mockResolvedValue([]),
     },

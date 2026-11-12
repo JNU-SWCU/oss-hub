@@ -6,6 +6,10 @@ import {
   UserType,
   type Prisma,
 } from '@prisma/client';
+import {
+  ContributorReadRepository,
+  type StandingRow,
+} from '../platform/contributor-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   USER_PROFILE_DEPARTMENT_SELECT,
@@ -43,25 +47,21 @@ const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
   type: UserType.STUDENT,
 };
 
-const ACTIVITY_SELECT = {
-  githubId: true,
-  year: true,
-  visibility: true,
-  commitCount: true,
-  pullRequestCount: true,
-  issueCount: true,
-  repositoryCount: true,
-  starCount: true,
-} as const;
-
-type ActivityRow = Prisma.GithubUserActivityHistoryGetPayload<{
-  select: typeof ACTIVITY_SELECT;
-}>;
+type ActivityRow = StandingRow;
 
 function activityArgs(query: RankingMetricsQuery) {
   return {
     where: query.currentYear === undefined ? {} : { year: query.currentYear },
-    select: ACTIVITY_SELECT,
+    select: {
+      githubId: true,
+      year: true,
+      visibility: true,
+      commitCount: true,
+      pullRequestCount: true,
+      issueCount: true,
+      repositoryCount: true,
+      starCount: true,
+    },
   };
 }
 
@@ -101,7 +101,10 @@ export class RankingRepository {
     query: RankingMetricsQuery,
   ): Promise<readonly RankingMetricRow[]> {
     return this.foldMetrics(
-      this.prisma.githubUserActivityHistory.findMany(activityArgs(query)),
+      new ContributorReadRepository(this.prisma).readStandingRows({
+        year: query.currentYear ?? null,
+        visibility: null,
+      }),
     );
   }
 
@@ -218,17 +221,16 @@ export class RankingRepository {
   }
 
   async listYears(): Promise<readonly number[]> {
-    const rows = await this.prisma.githubUserActivityHistory.findMany({
-      select: { year: true },
-      distinct: ['year'],
+    return new ContributorReadRepository(this.prisma).readStandingYears({
+      year: null,
+      visibility: null,
     });
-    return rows.map((row) => row.year).sort((left, right) => right - left);
   }
 
   async findDataAsOf(): Promise<Date | null> {
-    const latest = await this.prisma.githubUserActivityHistory.aggregate({
-      _max: { observedAt: true },
+    return new ContributorReadRepository(this.prisma).readStandingObservedAt({
+      year: null,
+      visibility: null,
     });
-    return latest._max.observedAt ?? null;
   }
 }

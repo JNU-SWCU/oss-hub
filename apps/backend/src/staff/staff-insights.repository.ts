@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { ActivityVisibility } from '@prisma/client';
+import { ContributorReadRepository } from '../platform/contributor-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
   STUDENT_MEMBER_WHERE,
@@ -76,20 +77,11 @@ export class StaffInsightsRepository {
   async listActivityTotals(
     query: StaffInsightsActivityQuery,
   ): Promise<readonly StaffInsightsActivityRecord[]> {
-    const activityRows = await this.prisma.githubUserActivityHistory.findMany({
-      where: {
-        visibility: ActivityVisibility.PUBLIC,
-        ...(query.currentYear === undefined ? {} : { year: query.currentYear }),
-      },
-      select: {
-        githubId: true,
-        year: true,
-        commitCount: true,
-        pullRequestCount: true,
-        issueCount: true,
-        repositoryCount: true,
-        starCount: true,
-      },
+    const activityRows = await new ContributorReadRepository(
+      this.prisma,
+    ).readStandingRows({
+      year: query.currentYear ?? null,
+      visibility: ActivityVisibility.PUBLIC,
     });
 
     const folded = new Map<
@@ -140,19 +132,16 @@ export class StaffInsightsRepository {
   }
 
   async listActivityYears(): Promise<readonly number[]> {
-    const rows = await this.prisma.githubUserActivityHistory.findMany({
-      where: { visibility: ActivityVisibility.PUBLIC },
-      select: { year: true },
-      distinct: ['year'],
+    return new ContributorReadRepository(this.prisma).readStandingYears({
+      year: null,
+      visibility: ActivityVisibility.PUBLIC,
     });
-    return rows.map((row) => row.year).sort((left, right) => right - left);
   }
 
   async findActivityDataAsOf(): Promise<Date | null> {
-    const latest = await this.prisma.githubUserActivityHistory.aggregate({
-      where: { visibility: ActivityVisibility.PUBLIC },
-      _max: { observedAt: true },
+    return new ContributorReadRepository(this.prisma).readStandingObservedAt({
+      year: null,
+      visibility: ActivityVisibility.PUBLIC,
     });
-    return latest._max.observedAt ?? null;
   }
 }

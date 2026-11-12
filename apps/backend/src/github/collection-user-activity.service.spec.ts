@@ -31,6 +31,7 @@ function deferred<T>(): {
 describe('CollectionUserActivityService', () => {
   const findMany = jest.fn();
   const findUnique = jest.fn();
+  const queryRaw = jest.fn();
   const upsert = jest.fn();
   const monthlyUpsert = jest.fn();
   const fetchUserActivityMetrics = jest.fn();
@@ -43,6 +44,7 @@ describe('CollectionUserActivityService', () => {
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
         githubUserActivityMonthly: { upsert: monthlyUpsert },
+        $queryRaw: queryRaw,
         $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
           operation({
             githubUserActivityHistory: { findUnique, upsert },
@@ -66,6 +68,8 @@ describe('CollectionUserActivityService', () => {
     findMany.mockReset();
     findUnique.mockReset();
     findUnique.mockResolvedValue(null);
+    queryRaw.mockReset();
+    queryRaw.mockResolvedValue([{ present: false }]);
     upsert.mockReset();
     upsert.mockResolvedValue(undefined);
     monthlyUpsert.mockReset();
@@ -157,23 +161,21 @@ describe('CollectionUserActivityService', () => {
 
   it('과거 연도는 행이 이미 있으면 GraphQL을 부르지 않는다', async () => {
     findMany.mockResolvedValue([{ githubId: 4242n, nickname: 'octocat' }]);
-    findUnique.mockResolvedValue({ githubId: 4242n });
+    queryRaw.mockResolvedValue([{ present: true }]);
 
     const result = await buildService().run([2025]);
 
     expect(fetchUserActivityMetrics).not.toHaveBeenCalled();
     expect(upsert).not.toHaveBeenCalled();
     expect(result.skippedPastYearCount).toBe(1);
-    expect(findUnique).toHaveBeenCalledWith({
-      where: {
-        githubId_year_visibility: {
-          githubId: 4242n,
-          year: 2025,
-          visibility: 'PUBLIC',
-        },
-      },
-      select: { githubId: true },
-    });
+    const call =
+      (queryRaw.mock.calls as readonly (readonly unknown[])[])[0] ?? [];
+    const strings = call[0];
+    if (!Array.isArray(strings)) {
+      throw new Error('Standing query was not recorded');
+    }
+    expect(strings.join('')).toContain("'PUBLIC'");
+    expect(call.slice(1)).toEqual([4242n, 2025]);
   });
 
   it('과거 연도 행이 없으면 그 해 경계로 잘라 관측한다', async () => {

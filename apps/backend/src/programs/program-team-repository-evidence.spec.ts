@@ -2,7 +2,7 @@ import { StudentRepositoryUrlService } from './team-application.service';
 import {
   outsiderFindUnique,
   teamFindFirst,
-  contributionGroupBy,
+  contributionQuery,
   historyQuery,
   provisionFindUnique,
   givenRepository,
@@ -71,17 +71,11 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
     to: '+010000-01-01',
     timeZone: 'Asia/Seoul',
   });
-  expect(contributionGroupBy).toHaveBeenCalledWith(
-    expect.objectContaining({
-      where: {
-        repositoryId: 'current-repo',
-        date: {
-          gte: new Date('0001-01-01T00:00:00.000Z'),
-          lte: new Date('9999-12-31T00:00:00.000Z'),
-        },
-      },
-    }),
-  );
+  expect(contributionQuery.mock.calls[0]?.slice(1)).toEqual([
+    'current-repo',
+    '0001-01-01',
+    '9999-12-31',
+  ]);
 });
 
 it('reports an explicit repository relink as succeeded without inventing a provisioning outbox', async () => {
@@ -158,7 +152,7 @@ it('reads the application state from the same Team row', async () => {
     },
     repositoryUrlHistory: { rows: [], hasMore: false },
   });
-  expect(contributionGroupBy).toHaveBeenCalledTimes(1);
+  expect(contributionQuery).toHaveBeenCalledTimes(1);
   expect(historyQuery).toHaveBeenCalledTimes(1);
 });
 
@@ -287,14 +281,11 @@ it('matches numeric GitHub identities and preserves members without observations
       outsiderContributions: null,
     },
   });
-  expect(contributionGroupBy).toHaveBeenCalledWith(
-    expect.objectContaining({
-      where: {
-        repositoryId: 'current-repo',
-        date: { gte: new Date('2026-08-01Z'), lte: new Date('2026-08-31Z') },
-      },
-    }),
-  );
+  expect(contributionQuery.mock.calls[0]?.slice(1)).toEqual([
+    'current-repo',
+    '2026-08-01',
+    '2026-08-31',
+  ]);
 });
 
 it.each([
@@ -305,7 +296,7 @@ it.each([
   'distinguishes collection state when last success is %s and failures are %s',
   async (lastSuccessAt, failureCount, collectionStatus) => {
     const repository = givenRepository(lastSuccessAt, failureCount);
-    contributionGroupBy.mockResolvedValue([]);
+    contributionQuery.mockResolvedValue([]);
 
     const detail = await repository.findStaffTeamDetail('program', 'team');
 
@@ -322,7 +313,7 @@ it('does not query contributions or history for an absent or differently scoped 
   const detail = await repository.findStaffTeamDetail('other-program', 'team');
 
   expect(detail).toBeNull();
-  expect(contributionGroupBy).not.toHaveBeenCalled();
+  expect(contributionQuery).not.toHaveBeenCalled();
   expect(historyQuery).not.toHaveBeenCalled();
 });
 

@@ -12,29 +12,29 @@ import {
 describe('PublicProjectsService.findDetail contributor 합산 (실제 metrics repository)', () => {
   it('drops a contributor who only opened issues and keeps everyone else with their sums', async () => {
     const updatedAt = new Date('2026-09-01T00:00:00.000Z');
-    const row = (
+    const contribution = (
       githubId: bigint,
-      [commitCount, pullRequestCount, releaseCount]: readonly number[],
+      commitCount: number,
+      pullRequestCount: number,
+      releaseCount: number,
     ) => ({
+      githubRepositoryId: 101n,
       githubId,
       commitCount,
       pullRequestCount,
       releaseCount,
       updatedAt,
-      repository: { githubRepositoryId: 101n },
     });
     const prisma = {
       githubRepository: { findMany: jest.fn().mockResolvedValue([]) },
-      contribution: {
-        findMany: jest
-          .fn()
-          .mockResolvedValue([
-            row(1n, [2, 0, 0]),
-            row(1n, [0, 0, 0]),
-            row(2n, [0, 0, 0]),
-            row(3n, [0, 0, 1]),
-          ]),
-      },
+      $queryRaw: jest
+        .fn()
+        .mockResolvedValue([
+          contribution(1n, 2, 0, 0),
+          contribution(1n, 0, 0, 0),
+          contribution(2n, 0, 0, 0),
+          contribution(3n, 0, 0, 1),
+        ]),
       user: {
         findMany: jest.fn().mockResolvedValue([
           { githubId: 1n, nickname: 'synthetic-committer' },
