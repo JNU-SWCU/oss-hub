@@ -43,6 +43,89 @@ export interface CollectionUserActivityObservationInput {
   readonly observedAt: Date;
 }
 
+interface ActivityCountSnapshot {
+  readonly commitCount: number;
+  readonly pullRequestCount: number;
+  readonly issueCount: number;
+  readonly repositoryCount: number;
+  readonly starCount: number;
+}
+
+interface ActivityLedgerRow extends ActivityCountSnapshot {
+  readonly githubId: bigint;
+  readonly year: number;
+  readonly visibility: ActivityVisibility;
+  readonly observedAt: Date;
+}
+
+const writeActivityLedgerRow = async (
+  transaction: Prisma.TransactionClient,
+  observation: ActivityLedgerRow,
+): Promise<void> => {
+  await transaction.$executeRaw`
+    INSERT INTO "github_user_activity_history" (
+      "github_id",
+      "year",
+      "visibility",
+      "commit_count",
+      "pull_request_count",
+      "issue_count",
+      "repository_count",
+      "star_count",
+      "observed_at"
+    )
+    SELECT
+      incoming."github_id",
+      incoming."year",
+      incoming."visibility",
+      incoming."commit_count",
+      incoming."pull_request_count",
+      incoming."issue_count",
+      incoming."repository_count",
+      incoming."star_count",
+      incoming."observed_at"
+    FROM (
+      SELECT
+        ${observation.githubId}::bigint AS "github_id",
+        ${observation.year}::int AS "year",
+        ${observation.visibility}::"ActivityVisibility" AS "visibility",
+        ${observation.commitCount}::int AS "commit_count",
+        ${observation.pullRequestCount}::int AS "pull_request_count",
+        ${observation.issueCount}::int AS "issue_count",
+        ${observation.repositoryCount}::int AS "repository_count",
+        ${observation.starCount}::int AS "star_count",
+        ${observation.observedAt}::timestamptz(3) AS "observed_at"
+    ) AS incoming
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM "github_user_activity_history" AS existing
+      WHERE existing."github_id" = incoming."github_id"
+        AND existing."year" = incoming."year"
+        AND existing."visibility" = incoming."visibility"
+        AND existing."observed_at" = (
+          SELECT latest."observed_at"
+          FROM "github_user_activity_history" AS latest
+          WHERE latest."github_id" = incoming."github_id"
+            AND latest."year" = incoming."year"
+            AND latest."visibility" = incoming."visibility"
+          ORDER BY latest."observed_at" DESC
+          LIMIT 1
+        )
+        AND existing."commit_count" = incoming."commit_count"
+        AND existing."pull_request_count" = incoming."pull_request_count"
+        AND existing."issue_count" = incoming."issue_count"
+        AND existing."repository_count" = incoming."repository_count"
+        AND existing."star_count" = incoming."star_count"
+    )
+    ON CONFLICT ("github_id", "year", "visibility", "observed_at") DO UPDATE SET
+      "commit_count" = EXCLUDED."commit_count",
+      "pull_request_count" = EXCLUDED."pull_request_count",
+      "issue_count" = EXCLUDED."issue_count",
+      "repository_count" = EXCLUDED."repository_count",
+      "star_count" = EXCLUDED."star_count"
+  `;
+};
+
 @Injectable()
 export class CollectionUserActivityRepository {
   constructor(private readonly db: PrismaService) {}
@@ -94,6 +177,17 @@ export class CollectionUserActivityRepository {
         create: { githubId, year, ...row, visibility },
         update: { ...row, visibility },
       });
+      await writeActivityLedgerRow(transaction, {
+        githubId,
+        year,
+        visibility,
+        commitCount: counts.commitCount,
+        pullRequestCount: counts.pullRequestCount,
+        issueCount: counts.issueCount,
+        repositoryCount: counts.repositoryCount,
+        starCount: counts.starCount,
+        observedAt: counts.observedAt,
+      });
       const privateCounts =
         await transaction.githubUserActivityHistory.findUnique({
           where: {
@@ -135,10 +229,23 @@ export class CollectionUserActivityRepository {
   ): Promise<void> {
     const { githubId, year, ...row } = observation;
     const visibility = ActivityVisibility.PRIVATE;
-    await this.db.githubUserActivityHistory.upsert({
-      where: { githubId_year_visibility: { githubId, year, visibility } },
-      create: { githubId, year, ...row, visibility, starCount: 0 },
-      update: { ...row, visibility, starCount: 0 },
+    await this.db.$transaction(async (transaction) => {
+      await transaction.githubUserActivityHistory.upsert({
+        where: { githubId_year_visibility: { githubId, year, visibility } },
+        create: { githubId, year, ...row, visibility, starCount: 0 },
+        update: { ...row, visibility, starCount: 0 },
+      });
+      await writeActivityLedgerRow(transaction, {
+        githubId,
+        year,
+        visibility,
+        commitCount: row.commitCount,
+        pullRequestCount: row.pullRequestCount,
+        issueCount: row.issueCount,
+        repositoryCount: row.repositoryCount,
+        starCount: 0,
+        observedAt: row.observedAt,
+      });
     });
   }
 }

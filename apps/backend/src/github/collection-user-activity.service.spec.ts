@@ -47,6 +47,7 @@ describe('CollectionUserActivityService', () => {
           operation({
             githubUserActivityHistory: { findUnique, upsert },
             githubUserActivityMonthly: { upsert: monthlyUpsert },
+            $executeRaw: jest.fn().mockResolvedValue(1),
           }),
       } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
@@ -328,5 +329,115 @@ describe('CollectionUserActivityService', () => {
 
     expect(contribution.create).not.toHaveBeenCalled();
     expect(contribution.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('CollectionUserActivityRepository ledger history', () => {
+  const observedAt = new Date('2026-08-19T00:00:00.000Z');
+  const counts = {
+    commitCount: 10,
+    pullRequestCount: 2,
+    issueCount: 3,
+    repositoryCount: 4,
+    starCount: 5,
+  };
+
+  const sqlOf = (call: readonly unknown[]): string => {
+    const strings = call[0];
+    if (!Array.isArray(strings)) {
+      throw new Error('ledger write was not a SQL template');
+    }
+    return strings.join('');
+  };
+
+  const expectOneLedgerStatement = (executeRaw: jest.Mock): void => {
+    expect(executeRaw).toHaveBeenCalledTimes(1);
+    const call = executeRaw.mock.calls[0] as readonly unknown[];
+    const sql = sqlOf(call);
+    expect(sql).toContain('INSERT INTO "github_user_activity_history"');
+    expect(sql).toContain('WHERE NOT EXISTS');
+    expect(sql).toContain('ORDER BY latest."observed_at" DESC');
+    expect(sql).toContain(
+      'ON CONFLICT ("github_id", "year", "visibility", "observed_at") DO UPDATE SET',
+    );
+    expect(sql).toContain('"commit_count" = EXCLUDED."commit_count"');
+    expect(sql).toContain(
+      '"pull_request_count" = EXCLUDED."pull_request_count"',
+    );
+    expect(sql).toContain('"issue_count" = EXCLUDED."issue_count"');
+    expect(sql).toContain('"repository_count" = EXCLUDED."repository_count"');
+    expect(sql).toContain('"star_count" = EXCLUDED."star_count"');
+    expect(sql).not.toContain('INSERT INTO "repo"');
+    expect(sql).not.toContain('team_repo');
+  };
+
+  const buildRepository = (): {
+    readonly repository: CollectionUserActivityRepository;
+    readonly historyUpsert: jest.Mock;
+    readonly executeRaw: jest.Mock;
+  } => {
+    const historyUpsert = jest.fn().mockResolvedValue({});
+    const executeRaw = jest.fn().mockResolvedValue(1);
+    const transaction = {
+      githubUserActivityHistory: {
+        upsert: historyUpsert,
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      githubUserActivityMonthly: { upsert: jest.fn().mockResolvedValue({}) },
+      $executeRaw: executeRaw,
+    };
+    const db = {
+      $transaction: (operation: (tx: typeof transaction) => Promise<void>) =>
+        operation(transaction),
+    };
+    return {
+      repository: new CollectionUserActivityRepository(
+        db as unknown as PrismaService,
+      ),
+      historyUpsert,
+      executeRaw,
+    };
+  };
+
+  it('공개 관측은 옛 이력 upsert와 같은 트랜잭션에서 원장 한 문장을 보낸다', async () => {
+    const { repository, historyUpsert, executeRaw } = buildRepository();
+
+    await repository.upsertObservation({
+      githubId: 4242n,
+      year: 2026,
+      month: 8,
+      githubLogin: 'octocat',
+      ...counts,
+      observedAt,
+    });
+
+    expect(historyUpsert).toHaveBeenCalledTimes(1);
+    expectOneLedgerStatement(executeRaw);
+    const values = (executeRaw.mock.calls[0] as readonly unknown[]).slice(1);
+    expect(values).toEqual(
+      expect.arrayContaining([4242n, 2026, 'PUBLIC', 10, 5, observedAt]),
+    );
+  });
+
+  it('비공개 관측도 같은 원장 문장을 보내고 starCount는 0이다', async () => {
+    const { repository, historyUpsert, executeRaw } = buildRepository();
+
+    await repository.upsertPrivateObservation({
+      githubId: 4242n,
+      year: 2026,
+      githubLogin: 'octocat',
+      commitCount: counts.commitCount,
+      pullRequestCount: counts.pullRequestCount,
+      issueCount: counts.issueCount,
+      repositoryCount: counts.repositoryCount,
+      observedAt,
+    });
+
+    expect(historyUpsert).toHaveBeenCalledTimes(1);
+    expectOneLedgerStatement(executeRaw);
+    const values = (executeRaw.mock.calls[0] as readonly unknown[]).slice(1);
+    expect(values).toEqual(
+      expect.arrayContaining([4242n, 'PRIVATE', 0, observedAt]),
+    );
   });
 });

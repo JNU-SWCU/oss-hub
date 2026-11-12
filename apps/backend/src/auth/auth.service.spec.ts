@@ -332,6 +332,17 @@ describe('AuthService', () => {
           starCount: 0,
           observedAt,
         });
+      jest.spyOn(activityDb, '$transaction').mockImplementation((operation) => {
+        if (typeof operation !== 'function') {
+          return Promise.reject(new Error('expected a transaction callback'));
+        }
+        return operation({
+          githubUserActivityHistory: {
+            upsert: databaseUpsert,
+          },
+          $executeRaw: jest.fn().mockResolvedValue(1),
+        } as never);
+      });
       jest
         .spyOn(CollectionPublicTokenService.prototype, 'getToken')
         .mockResolvedValue('synthetic-service-token');

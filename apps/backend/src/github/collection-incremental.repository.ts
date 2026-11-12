@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import type {
   CollectionAppClientTokenProvider,
@@ -242,6 +242,7 @@ type CollectionStoreClient = Pick<
   Prisma.TransactionClient,
   | '$executeRaw'
   | '$executeRawUnsafe'
+  | '$queryRaw'
   | '$queryRawUnsafe'
   | 'collectionCommitFact'
   | 'collectionPullRequestFact'
@@ -258,12 +259,84 @@ type CollectionStoreClient = Pick<
   | 'user'
 >;
 
+type ContributionFactKind = 'commit' | 'pull_request' | 'issue' | 'release';
+
+interface ContributionFactShape {
+  readonly table: string;
+  readonly keyColumn: string;
+  readonly kind: ContributionFactKind;
+  readonly occurredAtColumn: string;
+  readonly githubKeySql: string;
+}
+
+const CONTRIBUTION_FACT_SHAPES = {
+  commit: {
+    table: '"CollectionCommitFact"',
+    keyColumn: '"sha"',
+    kind: 'commit',
+    occurredAtColumn: '"committedAt"',
+    githubKeySql: 'fact."sha"',
+  },
+  pull_request: {
+    table: '"CollectionPullRequestFact"',
+    keyColumn: '"githubPullRequestId"',
+    kind: 'pull_request',
+    occurredAtColumn: '"createdAt"',
+    githubKeySql: 'fact."githubPullRequestId"::text',
+  },
+  issue: {
+    table: '"GithubIssueHistory"',
+    keyColumn: '"githubIssueId"',
+    kind: 'issue',
+    occurredAtColumn: '"createdAt"',
+    githubKeySql: 'fact."githubIssueId"::text',
+  },
+  release: {
+    table: '"CollectionReleaseFact"',
+    keyColumn: '"githubReleaseId"',
+    kind: 'release',
+    occurredAtColumn: '"publishedAt"',
+    githubKeySql: 'fact."githubReleaseId"::text',
+  },
+} as const satisfies Record<ContributionFactKind, ContributionFactShape>;
+
+const contributionFactShape = (
+  kind: ContributionFactKind,
+): ContributionFactShape => CONTRIBUTION_FACT_SHAPES[kind];
+
+interface ContributionInsertSummary {
+  readonly missing_repo: number;
+  readonly inserted: number;
+}
+
+const isContributionInsertSummary = (
+  value: unknown,
+): value is ContributionInsertSummary => {
+  if (value === null || typeof value !== 'object') return false;
+  const record = value as { missing_repo?: unknown; inserted?: unknown };
+  return (
+    Number.isInteger(record.missing_repo) && Number.isInteger(record.inserted)
+  );
+};
+
 @Injectable()
 export class CollectionIncrementalStoreRepository {
   constructor(
     private readonly db: CollectionStoreClient,
     protected readonly platform: PlatformRepository,
   ) {}
+
+  private async inSameTransaction<T>(
+    write: (store: CollectionStoreClient) => Promise<T>,
+  ): Promise<T> {
+    const client = this.db as CollectionStoreClient & {
+      $transaction?: (
+        operation: (tx: CollectionStoreClient) => Promise<T>,
+      ) => Promise<T>;
+    };
+    if (typeof client.$transaction !== 'function') return write(this.db);
+    return client.$transaction((tx) => write(tx));
+  }
 
   async findRepositoryByLogicalKey(
     githubRepositoryId: bigint,
@@ -304,6 +377,70 @@ export class CollectionIncrementalStoreRepository {
     }));
   }
 
+  private async insertAcceptedContributions(
+    store: CollectionStoreClient,
+    repositoryId: string,
+    kind: ContributionFactKind,
+    keys: readonly string[] | readonly bigint[],
+  ): Promise<void> {
+    if (keys.length === 0) {
+      throw new Error('contribution insert requires at least one github key');
+    }
+    const shape = contributionFactShape(kind);
+    const rows = await store.$queryRaw<readonly unknown[]>`
+      WITH candidates AS (
+        SELECT
+          repository."githubRepositoryId" AS repo_id,
+          ${Prisma.raw(shape.githubKeySql)} AS github_key,
+          fact."authorGithubId" AS author_github_id,
+          fact.${Prisma.raw(shape.occurredAtColumn)} AT TIME ZONE 'UTC' AS occurred_at,
+          fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at
+        FROM ${Prisma.raw(shape.table)} AS fact
+        JOIN "GithubRepository" AS repository
+          ON repository."id" = fact."repositoryId"
+        WHERE fact."repositoryId" = ${repositoryId}
+          AND fact.${Prisma.raw(shape.keyColumn)} = ANY(${keys})
+      ),
+      inserted AS (
+        INSERT INTO "contribution" (
+          "repo_id", "kind", "github_key", "author_github_id", "occurred_at", "first_seen_at"
+        )
+        SELECT
+          candidate.repo_id,
+          ${Prisma.raw(`'${shape.kind}'::"contribution_kind"`)},
+          candidate.github_key,
+          candidate.author_github_id,
+          candidate.occurred_at,
+          candidate.first_seen_at
+        FROM candidates AS candidate
+        JOIN "repo" ON "repo"."github_repo_id" = candidate.repo_id
+        ON CONFLICT ("repo_id", "kind", "github_key") DO NOTHING
+        RETURNING 1
+      )
+      SELECT
+        (SELECT count(*)::int FROM candidates AS candidate
+          WHERE NOT EXISTS (
+            SELECT 1 FROM "repo"
+            WHERE "repo"."github_repo_id" = candidate.repo_id
+          )) AS missing_repo,
+        (SELECT count(*)::int FROM inserted) AS inserted
+    `;
+    const summary: unknown = rows[0];
+    if (!isContributionInsertSummary(summary)) {
+      throw new Error('contribution insert summary was not an integer');
+    }
+    if (summary.missing_repo > 0) {
+      process.stderr.write(
+        `${JSON.stringify({
+          level: 'debug',
+          event: 'collection.ledger.contribution_skipped_missing_repo',
+          kind,
+          missingRepoCount: summary.missing_repo,
+        })}\n`,
+      );
+    }
+  }
+
   async recordCommitFacts(
     repositoryId: string,
     facts: readonly CommitFactInput[],
@@ -314,8 +451,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.collectionCommitFact.createMany({
+    const { insertedCount } = await this.inSameTransaction(async (store) => {
+      const created = await store.collectionCommitFact.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           sha: fact.sha,
@@ -325,6 +462,14 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.insertAcceptedContributions(
+        store,
+        repositoryId,
+        'commit',
+        acceptedFacts.map((fact) => fact.sha),
+      );
+      return { insertedCount: created.count };
+    });
 
     await this.rebuildAffectedContributions(
       repositoryId,
@@ -346,8 +491,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.collectionPullRequestFact.createMany({
+    const { insertedCount } = await this.inSameTransaction(async (store) => {
+      const created = await store.collectionPullRequestFact.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubPullRequestId: fact.githubPullRequestId,
@@ -358,6 +503,14 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.insertAcceptedContributions(
+        store,
+        repositoryId,
+        'pull_request',
+        acceptedFacts.map((fact) => fact.githubPullRequestId),
+      );
+      return { insertedCount: created.count };
+    });
 
     await this.rebuildAffectedContributions(
       repositoryId,
@@ -379,8 +532,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.collectionReleaseFact.createMany({
+    const { insertedCount } = await this.inSameTransaction(async (store) => {
+      const created = await store.collectionReleaseFact.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubReleaseId: fact.githubReleaseId,
@@ -390,6 +543,14 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.insertAcceptedContributions(
+        store,
+        repositoryId,
+        'release',
+        acceptedFacts.map((fact) => fact.githubReleaseId),
+      );
+      return { insertedCount: created.count };
+    });
 
     await this.rebuildAffectedContributions(
       repositoryId,
@@ -411,8 +572,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.githubIssueHistory.createMany({
+    const { insertedCount } = await this.inSameTransaction(async (store) => {
+      const created = await store.githubIssueHistory.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubIssueId: fact.githubIssueId,
@@ -423,6 +584,14 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.insertAcceptedContributions(
+        store,
+        repositoryId,
+        'issue',
+        acceptedFacts.map((fact) => fact.githubIssueId),
+      );
+      return { insertedCount: created.count };
+    });
     await this.rebuildAffectedContributions(
       repositoryId,
       acceptedFacts.map((fact) => ({
