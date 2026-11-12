@@ -1,4 +1,4 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
@@ -321,10 +321,6 @@ const isContributionInsertSummary = (
 
 @Injectable()
 export class CollectionIncrementalStoreRepository {
-  private readonly logger = new Logger(
-    CollectionIncrementalStoreRepository.name,
-  );
-
   constructor(
     private readonly db: CollectionStoreClient,
     protected readonly platform: PlatformRepository,
@@ -434,11 +430,14 @@ export class CollectionIncrementalStoreRepository {
       throw new Error('contribution insert summary was not an integer');
     }
     if (summary.missing_repo > 0) {
-      this.logger.debug({
-        event: 'collection.ledger.contribution_skipped_missing_repo',
-        kind,
-        missingRepoCount: summary.missing_repo,
-      });
+      process.stderr.write(
+        `${JSON.stringify({
+          level: 'debug',
+          event: 'collection.ledger.contribution_skipped_missing_repo',
+          kind,
+          missingRepoCount: summary.missing_repo,
+        })}\n`,
+      );
     }
   }
 
@@ -533,8 +532,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.collectionReleaseFact.createMany({
+    const { insertedCount } = await this.inSameTransaction(async (store) => {
+      const created = await store.collectionReleaseFact.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubReleaseId: fact.githubReleaseId,
@@ -544,11 +543,14 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
-    await this.insertAcceptedContributions(
-      repositoryId,
-      'release',
-      acceptedFacts.map((fact) => fact.githubReleaseId),
-    );
+      await this.insertAcceptedContributions(
+        store,
+        repositoryId,
+        'release',
+        acceptedFacts.map((fact) => fact.githubReleaseId),
+      );
+      return { insertedCount: created.count };
+    });
 
     await this.rebuildAffectedContributions(
       repositoryId,
@@ -570,8 +572,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.githubIssueHistory.createMany({
+    const { insertedCount } = await this.inSameTransaction(async (store) => {
+      const created = await store.githubIssueHistory.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubIssueId: fact.githubIssueId,
@@ -582,11 +584,14 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
-    await this.insertAcceptedContributions(
-      repositoryId,
-      'issue',
-      acceptedFacts.map((fact) => fact.githubIssueId),
-    );
+      await this.insertAcceptedContributions(
+        store,
+        repositoryId,
+        'issue',
+        acceptedFacts.map((fact) => fact.githubIssueId),
+      );
+      return { insertedCount: created.count };
+    });
     await this.rebuildAffectedContributions(
       repositoryId,
       acceptedFacts.map((fact) => ({
