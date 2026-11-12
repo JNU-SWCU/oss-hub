@@ -205,17 +205,6 @@ export interface CollectionSyncRunRow {
   errorCodes: readonly string[];
 }
 
-const asiaSeoulDate = (at: Date): Date => {
-  const shifted = new Date(at.getTime() + 9 * 60 * 60 * 1000);
-  return new Date(
-    Date.UTC(
-      shifted.getUTCFullYear(),
-      shifted.getUTCMonth(),
-      shifted.getUTCDate(),
-    ),
-  );
-};
-
 const EXTERNAL_SCOPE = 'external';
 
 const sourceForScope = (scope: string): RepositorySource =>
@@ -236,26 +225,15 @@ const emptyStreamSummary = (): CollectionSyncStreamSummary => ({
   failedCount: 0,
 });
 
-interface AffectedDay {
-  date: Date;
-  githubId: bigint | null;
-}
-
 type CollectionStoreClient = Pick<
   Prisma.TransactionClient,
-  | '$executeRaw'
   | '$executeRawUnsafe'
   | '$queryRaw'
   | '$queryRawUnsafe'
-  | 'collectionCommitFact'
-  | 'collectionPullRequestFact'
-  | 'collectionReleaseFact'
   | 'collectionRepositoryStream'
   | 'collectionSweepHistory'
   | 'collectionSyncCursor'
   | 'collectionSyncLease'
-  | 'contribution'
-  | 'githubIssueHistory'
   | 'githubRepository'
   | 'githubRepositoryOutsiderContribution'
   | 'teamMember'
@@ -264,48 +242,11 @@ type CollectionStoreClient = Pick<
 
 type ContributionFactKind = 'commit' | 'pull_request' | 'issue' | 'release';
 
-interface ContributionFactShape {
-  readonly table: string;
-  readonly keyColumn: string;
-  readonly kind: ContributionFactKind;
-  readonly occurredAtColumn: string;
-  readonly githubKeySql: string;
+interface AcceptedContributionFact {
+  readonly githubKey: string;
+  readonly authorGithubId: bigint | null;
+  readonly occurredAt: Date;
 }
-
-const CONTRIBUTION_FACT_SHAPES = {
-  commit: {
-    table: '"CollectionCommitFact"',
-    keyColumn: '"sha"',
-    kind: 'commit',
-    occurredAtColumn: '"committedAt"',
-    githubKeySql: 'fact."sha"',
-  },
-  pull_request: {
-    table: '"CollectionPullRequestFact"',
-    keyColumn: '"githubPullRequestId"',
-    kind: 'pull_request',
-    occurredAtColumn: '"createdAt"',
-    githubKeySql: 'fact."githubPullRequestId"::text',
-  },
-  issue: {
-    table: '"GithubIssueHistory"',
-    keyColumn: '"githubIssueId"',
-    kind: 'issue',
-    occurredAtColumn: '"createdAt"',
-    githubKeySql: 'fact."githubIssueId"::text',
-  },
-  release: {
-    table: '"CollectionReleaseFact"',
-    keyColumn: '"githubReleaseId"',
-    kind: 'release',
-    occurredAtColumn: '"publishedAt"',
-    githubKeySql: 'fact."githubReleaseId"::text',
-  },
-} as const satisfies Record<ContributionFactKind, ContributionFactShape>;
-
-const contributionFactShape = (
-  kind: ContributionFactKind,
-): ContributionFactShape => CONTRIBUTION_FACT_SHAPES[kind];
 
 interface ContributionInsertSummary {
   readonly missing_repo: number;
@@ -448,25 +389,31 @@ export class CollectionIncrementalStoreRepository {
     store: CollectionStoreClient,
     repositoryId: string,
     kind: ContributionFactKind,
-    keys: readonly string[] | readonly bigint[],
-  ): Promise<void> {
-    if (keys.length === 0) {
+    facts: readonly AcceptedContributionFact[],
+  ): Promise<number> {
+    if (facts.length === 0) {
       throw new Error('contribution insert requires at least one github key');
     }
-    const shape = contributionFactShape(kind);
+    const incoming = Prisma.join(
+      facts.map(
+        (fact) =>
+          Prisma.sql`(${fact.githubKey}::text, ${fact.authorGithubId}::bigint, ${fact.occurredAt}::timestamptz)`,
+      ),
+    );
     const rows = await store.$queryRaw<readonly unknown[]>`
-      WITH candidates AS (
+      WITH incoming(github_key, author_github_id, occurred_at) AS (
+        VALUES ${incoming}
+      ),
+      candidates AS (
         SELECT
           repository."githubRepositoryId" AS repo_id,
-          ${Prisma.raw(shape.githubKeySql)} AS github_key,
-          fact."authorGithubId" AS author_github_id,
-          fact.${Prisma.raw(shape.occurredAtColumn)} AT TIME ZONE 'UTC' AS occurred_at,
-          fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at
-        FROM ${Prisma.raw(shape.table)} AS fact
+          incoming.github_key,
+          incoming.author_github_id,
+          incoming.occurred_at,
+          CURRENT_TIMESTAMP AS first_seen_at
+        FROM incoming
         JOIN "GithubRepository" AS repository
-          ON repository."id" = fact."repositoryId"
-        WHERE fact."repositoryId" = ${repositoryId}
-          AND fact.${Prisma.raw(shape.keyColumn)} = ANY(${keys})
+          ON repository."id" = ${repositoryId}
       ),
       inserted AS (
         INSERT INTO "contribution" (
@@ -474,7 +421,7 @@ export class CollectionIncrementalStoreRepository {
         )
         SELECT
           candidate.repo_id,
-          ${Prisma.raw(`'${shape.kind}'::"contribution_kind"`)},
+          ${kind}::"contribution_kind",
           candidate.github_key,
           candidate.author_github_id,
           candidate.occurred_at,
@@ -506,6 +453,7 @@ export class CollectionIncrementalStoreRepository {
         })}\n`,
       );
     }
+    return summary.inserted;
   }
 
   async recordCommitFacts(
@@ -518,32 +466,17 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { insertedCount } = await this.inSameTransaction(async (store) => {
-      const created = await store.collectionCommitFact.createMany({
-        data: acceptedFacts.map((fact) => ({
-          repositoryId,
-          sha: fact.sha,
-          committedAt: fact.committedAt,
-          authorGithubId: fact.authorGithubId ?? null,
-          authorGithubLogin: fact.authorGithubLogin ?? null,
-        })),
-        skipDuplicates: true,
-      });
-      await this.insertAcceptedContributions(
+    const insertedCount = await this.inSameTransaction((store) =>
+      this.insertAcceptedContributions(
         store,
         repositoryId,
         'commit',
-        acceptedFacts.map((fact) => fact.sha),
-      );
-      return { insertedCount: created.count };
-    });
-
-    await this.rebuildAffectedContributions(
-      repositoryId,
-      acceptedFacts.map((fact) => ({
-        date: asiaSeoulDate(fact.committedAt),
-        githubId: fact.authorGithubId ?? null,
-      })),
+        acceptedFacts.map((fact) => ({
+          githubKey: fact.sha,
+          authorGithubId: fact.authorGithubId ?? null,
+          occurredAt: fact.committedAt,
+        })),
+      ),
     );
     return { acceptedCount: acceptedFacts.length, insertedCount };
   }
@@ -558,33 +491,17 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { insertedCount } = await this.inSameTransaction(async (store) => {
-      const created = await store.collectionPullRequestFact.createMany({
-        data: acceptedFacts.map((fact) => ({
-          repositoryId,
-          githubPullRequestId: fact.githubPullRequestId,
-          state: fact.state,
-          createdAt: fact.createdAt,
-          authorGithubId: fact.authorGithubId ?? null,
-          authorGithubLogin: fact.authorGithubLogin ?? null,
-        })),
-        skipDuplicates: true,
-      });
-      await this.insertAcceptedContributions(
+    const insertedCount = await this.inSameTransaction((store) =>
+      this.insertAcceptedContributions(
         store,
         repositoryId,
         'pull_request',
-        acceptedFacts.map((fact) => fact.githubPullRequestId),
-      );
-      return { insertedCount: created.count };
-    });
-
-    await this.rebuildAffectedContributions(
-      repositoryId,
-      acceptedFacts.map((fact) => ({
-        date: asiaSeoulDate(fact.createdAt),
-        githubId: fact.authorGithubId ?? null,
-      })),
+        acceptedFacts.map((fact) => ({
+          githubKey: fact.githubPullRequestId.toString(),
+          authorGithubId: fact.authorGithubId ?? null,
+          occurredAt: fact.createdAt,
+        })),
+      ),
     );
     return { acceptedCount: acceptedFacts.length, insertedCount };
   }
@@ -599,32 +516,17 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { insertedCount } = await this.inSameTransaction(async (store) => {
-      const created = await store.collectionReleaseFact.createMany({
-        data: acceptedFacts.map((fact) => ({
-          repositoryId,
-          githubReleaseId: fact.githubReleaseId,
-          publishedAt: fact.publishedAt,
-          authorGithubId: fact.authorGithubId ?? null,
-          authorGithubLogin: fact.authorGithubLogin ?? null,
-        })),
-        skipDuplicates: true,
-      });
-      await this.insertAcceptedContributions(
+    const insertedCount = await this.inSameTransaction((store) =>
+      this.insertAcceptedContributions(
         store,
         repositoryId,
         'release',
-        acceptedFacts.map((fact) => fact.githubReleaseId),
-      );
-      return { insertedCount: created.count };
-    });
-
-    await this.rebuildAffectedContributions(
-      repositoryId,
-      acceptedFacts.map((fact) => ({
-        date: asiaSeoulDate(fact.publishedAt),
-        githubId: fact.authorGithubId ?? null,
-      })),
+        acceptedFacts.map((fact) => ({
+          githubKey: fact.githubReleaseId.toString(),
+          authorGithubId: fact.authorGithubId ?? null,
+          occurredAt: fact.publishedAt,
+        })),
+      ),
     );
     return { acceptedCount: acceptedFacts.length, insertedCount };
   }
@@ -639,32 +541,17 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { insertedCount } = await this.inSameTransaction(async (store) => {
-      const created = await store.githubIssueHistory.createMany({
-        data: acceptedFacts.map((fact) => ({
-          repositoryId,
-          githubIssueId: fact.githubIssueId,
-          state: fact.state,
-          createdAt: fact.createdAt,
-          authorGithubId: fact.authorGithubId ?? null,
-          authorGithubLogin: fact.authorGithubLogin ?? null,
-        })),
-        skipDuplicates: true,
-      });
-      await this.insertAcceptedContributions(
+    const insertedCount = await this.inSameTransaction((store) =>
+      this.insertAcceptedContributions(
         store,
         repositoryId,
         'issue',
-        acceptedFacts.map((fact) => fact.githubIssueId),
-      );
-      return { insertedCount: created.count };
-    });
-    await this.rebuildAffectedContributions(
-      repositoryId,
-      acceptedFacts.map((fact) => ({
-        date: asiaSeoulDate(fact.createdAt),
-        githubId: fact.authorGithubId ?? null,
-      })),
+        acceptedFacts.map((fact) => ({
+          githubKey: fact.githubIssueId.toString(),
+          authorGithubId: fact.authorGithubId ?? null,
+          occurredAt: fact.createdAt,
+        })),
+      ),
     );
     return { acceptedCount: acceptedFacts.length, insertedCount };
   }
@@ -790,140 +677,6 @@ export class CollectionIncrementalStoreRepository {
       where: { githubRepositoryId },
       data: { failureCount: 0, lastSuccessAt: now, nextRunAt: now },
     });
-  }
-
-  private async rebuildAffectedContributions(
-    repositoryId: string,
-    affected: readonly AffectedDay[],
-  ): Promise<void> {
-    const targets = new Map<string, { githubId: bigint; date: Date }>();
-    for (const entry of affected) {
-      if (entry.githubId === null) continue;
-      targets.set(`${entry.githubId}:${entry.date.getTime()}`, {
-        githubId: entry.githubId,
-        date: entry.date,
-      });
-    }
-    if (targets.size === 0) return;
-
-    const rows = [...targets.values()];
-    const githubIds = [...new Set(rows.map((row) => row.githubId))];
-    const dates = [...new Set(rows.map((row) => row.date.getTime()))].map(
-      (time) => new Date(time),
-    );
-
-    await this.db.contribution.deleteMany({
-      where: { repositoryId, githubId: { in: githubIds }, date: { in: dates } },
-    });
-
-    await this.db.$executeRaw`
-      INSERT INTO "Contribution" (
-        "repositoryId", "githubId", "date",
-        "commitCount", "pullRequestCount", "releaseCount", "issueCount", "updatedAt"
-      )
-      SELECT
-        f."repositoryId",
-        f."githubId",
-        f."day",
-        SUM(f."commit")::int,
-        SUM(f."pr")::int,
-        SUM(f."release")::int,
-        SUM(f."issue")::int,
-        NOW()
-      FROM (
-        SELECT "repositoryId", "authorGithubId" AS "githubId",
-               ((("committedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date) AS "day",
-               1 AS "commit", 0 AS "pr", 0 AS "release", 0 AS "issue"
-          FROM "CollectionCommitFact"
-         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
-        UNION ALL
-        SELECT "repositoryId", "authorGithubId",
-               ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
-               0, 1, 0, 0
-          FROM "CollectionPullRequestFact"
-         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
-        UNION ALL
-        SELECT "repositoryId", "authorGithubId",
-               ((("publishedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
-               0, 0, 1, 0
-          FROM "CollectionReleaseFact"
-         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
-        UNION ALL
-        SELECT "repositoryId", "authorGithubId",
-               ((("createdAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Asia/Seoul')::date),
-               0, 0, 0, 1
-          FROM "GithubIssueHistory"
-         WHERE "repositoryId" = ${repositoryId} AND "authorGithubId" IS NOT NULL
-      ) AS f
-      WHERE f."githubId" = ANY(${githubIds})
-        AND f."day" = ANY(${dates.map((date) => date.toISOString().slice(0, 10))}::date[])
-      GROUP BY f."repositoryId", f."githubId", f."day"
-      ON CONFLICT ("repositoryId", "githubId", "date") DO UPDATE SET
-        "commitCount" = EXCLUDED."commitCount",
-        "pullRequestCount" = EXCLUDED."pullRequestCount",
-        "releaseCount" = EXCLUDED."releaseCount",
-        "issueCount" = EXCLUDED."issueCount",
-        "updatedAt" = NOW()
-    `;
-  }
-
-  private async findLatestGithubLogin(
-    repositoryId: string,
-    githubUserId: bigint,
-    start: Date,
-    end: Date,
-  ): Promise<string | null> {
-    const [commit, pullRequest, release] = await Promise.all([
-      this.db.collectionCommitFact.findFirst({
-        where: {
-          repositoryId,
-          authorGithubId: githubUserId,
-          committedAt: { gte: start, lt: end },
-        },
-        orderBy: { committedAt: 'desc' },
-        select: { authorGithubLogin: true, committedAt: true },
-      }),
-      this.db.collectionPullRequestFact.findFirst({
-        where: {
-          repositoryId,
-          authorGithubId: githubUserId,
-          createdAt: { gte: start, lt: end },
-        },
-        orderBy: { createdAt: 'desc' },
-        select: { authorGithubLogin: true, createdAt: true },
-      }),
-      this.db.collectionReleaseFact.findFirst({
-        where: {
-          repositoryId,
-          authorGithubId: githubUserId,
-          publishedAt: { gte: start, lt: end },
-        },
-        orderBy: { publishedAt: 'desc' },
-        select: { authorGithubLogin: true, publishedAt: true },
-      }),
-    ]);
-    const candidates: Array<{ at: Date; login: string | null }> = [];
-    if (commit)
-      candidates.push({
-        at: commit.committedAt,
-        login: commit.authorGithubLogin,
-      });
-    if (pullRequest) {
-      candidates.push({
-        at: pullRequest.createdAt,
-        login: pullRequest.authorGithubLogin,
-      });
-    }
-    if (release) {
-      candidates.push({
-        at: release.publishedAt,
-        login: release.authorGithubLogin,
-      });
-    }
-    if (candidates.length === 0) return null;
-    candidates.sort((left, right) => right.at.getTime() - left.at.getTime());
-    const [latest] = candidates;
-    return latest ? latest.login : null;
   }
 
   async upsertStreamFrontier(
@@ -1300,13 +1053,22 @@ export class CollectionIncrementalStoreRepository {
     until: Date,
   ): Promise<number> {
     if (memberGithubIds.length === 0) return 0;
-    return this.db.collectionCommitFact.count({
-      where: {
-        repositoryId,
-        authorGithubId: { in: [...memberGithubIds] },
-        committedAt: { gte: since, lte: until },
-      },
-    });
+    const rows = await this.db.$queryRaw<readonly { readonly count: number }[]>`
+      SELECT COUNT(*)::int AS count
+      FROM "contribution" AS event
+      JOIN "GithubRepository" AS repository
+        ON repository."githubRepositoryId" = event."repo_id"
+      WHERE repository."id" = ${repositoryId}
+        AND event."kind" = 'commit'::"contribution_kind"
+        AND event."author_github_id" = ANY(${[...memberGithubIds]})
+        AND event."occurred_at" >= ${since}
+        AND event."occurred_at" <= ${until}
+    `;
+    const row = rows[0];
+    if (row === undefined || !Number.isInteger(row.count)) {
+      throw new Error('team commit count was not an integer');
+    }
+    return row.count;
   }
 
   async saveOutsiderContribution(input: {

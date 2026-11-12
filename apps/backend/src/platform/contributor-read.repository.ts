@@ -102,6 +102,70 @@ async function queryStandingRows(
   `;
 }
 
+async function selectStandingRowsBefore(
+  prisma: PrismaService,
+  filter: StandingFilter,
+  before: Date,
+): Promise<readonly StandingRow[]> {
+  const rows = await queryStandingRowsBefore(prisma, filter, before);
+  return rows.map(standingRow);
+}
+
+async function queryStandingRowsBefore(
+  prisma: PrismaService,
+  filter: StandingFilter,
+  before: Date,
+): Promise<readonly StandingSqlRow[]> {
+  if (filter.visibility !== null) {
+    throw new Error('Previous standing does not take a visibility filter');
+  }
+  if (filter.year !== null) {
+    return prisma.$queryRaw<StandingSqlRow[]>`
+      SELECT ${STANDING_COLUMNS}
+      FROM (
+        SELECT DISTINCT ON (observation.github_id, observation.year, observation.visibility)
+          observation.github_id,
+          observation.year,
+          observation.visibility,
+          observation.commit_count,
+          observation.pull_request_count,
+          observation.issue_count,
+          observation.repository_count,
+          observation.star_count
+        FROM github_user_activity_history AS observation
+        WHERE observation.observed_at < ${before}
+        ORDER BY
+          observation.github_id,
+          observation.year,
+          observation.visibility,
+          observation.observed_at DESC
+      ) AS previous
+      WHERE previous.year = ${filter.year}
+    `;
+  }
+  return prisma.$queryRaw<StandingSqlRow[]>`
+    SELECT ${STANDING_COLUMNS}
+    FROM (
+      SELECT DISTINCT ON (observation.github_id, observation.year, observation.visibility)
+        observation.github_id,
+        observation.year,
+        observation.visibility,
+        observation.commit_count,
+        observation.pull_request_count,
+        observation.issue_count,
+        observation.repository_count,
+        observation.star_count
+      FROM github_user_activity_history AS observation
+      WHERE observation.observed_at < ${before}
+      ORDER BY
+        observation.github_id,
+        observation.year,
+        observation.visibility,
+        observation.observed_at DESC
+    ) AS previous
+  `;
+}
+
 async function selectStandingYears(
   prisma: PrismaService,
   filter: StandingFilter,
@@ -166,6 +230,13 @@ export class ContributorReadRepository {
 
   readStandingRows(filter: StandingFilter): Promise<readonly StandingRow[]> {
     return selectStandingRows(this.prisma, filter);
+  }
+
+  readRowsBefore(
+    filter: StandingFilter,
+    before: Date,
+  ): Promise<readonly StandingRow[]> {
+    return selectStandingRowsBefore(this.prisma, filter, before);
   }
 
   readStandingYears(filter: StandingFilter): Promise<readonly number[]> {

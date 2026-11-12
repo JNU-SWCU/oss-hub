@@ -17,6 +17,25 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     new PlatformRepository(),
   );
 
+  interface ContributionDay {
+    readonly githubId: bigint;
+    readonly activityDate: Date;
+    readonly commitCount: number;
+    readonly issueCount: number;
+  }
+
+  const readDays = (): Promise<ContributionDay[]> =>
+    prisma.$queryRaw<ContributionDay[]>`
+      SELECT
+        github_id AS "githubId",
+        activity_date AS "activityDate",
+        commit_count AS "commitCount",
+        issue_count AS "issueCount"
+      FROM repo_contribution
+      WHERE repository_id = ${REPO_ID}
+      ORDER BY activity_date ASC, github_id ASC
+    `;
+
   const PREFIX = 'contrib-recompute';
   const REPO_ID = `${PREFIX}-repo`;
   const GITHUB_REPO_ID = 9_910_000_001n;
@@ -32,6 +51,10 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   });
 
   beforeEach(async () => {
+    await prisma.contributionEvent.deleteMany({
+      where: { repoId: GITHUB_REPO_ID },
+    });
+    await prisma.repo.deleteMany({ where: { githubRepoId: GITHUB_REPO_ID } });
     await prisma.contribution.deleteMany({ where: { repositoryId: REPO_ID } });
     await prisma.collectionCommitFact.deleteMany({
       where: { repositoryId: REPO_ID },
@@ -49,6 +72,13 @@ describe('Contribution 재계산 (실 Postgres)', () => {
         source: 'ORG_PROVISIONED',
         visibility: 'PUBLIC',
         presence: 'PRESENT',
+      },
+    });
+    await prisma.repo.create({
+      data: {
+        githubRepoId: GITHUB_REPO_ID,
+        ownerName: PREFIX,
+        source: 'ORG_PROVISIONED',
       },
     });
     await prisma.user.create({
@@ -78,16 +108,18 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       await repository.listRegisteredGithubIds(),
     );
 
-    const rows = await prisma.contribution.findMany({
-      where: { repositoryId: REPO_ID },
-      orderBy: { date: 'asc' },
-      select: { date: true, commitCount: true },
-    });
+    const rows = await readDays();
 
     expect(rows).toHaveLength(2);
-    expect(rows[0]?.date.toISOString().slice(0, 10)).toBe('2026-03-15');
-    expect(rows[1]?.date.toISOString().slice(0, 10)).toBe('2026-03-16');
+    expect(rows[0]?.activityDate.toISOString().slice(0, 10)).toBe('2026-03-15');
+    expect(rows[1]?.activityDate.toISOString().slice(0, 10)).toBe('2026-03-16');
     expect(rows.every((row) => row.commitCount === 1)).toBe(true);
+    await expect(
+      prisma.collectionCommitFact.count({ where: { repositoryId: REPO_ID } }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.contribution.count({ where: { repositoryId: REPO_ID } }),
+    ).resolves.toBe(0);
   });
 
   it('Issue도 KST 자정에서 날짜가 갈린다 — 14:59:59Z 는 그날, 15:00:00Z 는 다음 날이다', async () => {
@@ -110,15 +142,11 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       await repository.listRegisteredGithubIds(),
     );
 
-    const rows = await prisma.contribution.findMany({
-      where: { repositoryId: REPO_ID },
-      orderBy: { date: 'asc' },
-      select: { date: true, commitCount: true, issueCount: true },
-    });
+    const rows = await readDays();
 
     expect(
       rows.map((row) => [
-        row.date.toISOString().slice(0, 10),
+        row.activityDate.toISOString().slice(0, 10),
         row.commitCount,
         row.issueCount,
       ]),
@@ -155,11 +183,10 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       registeredGithubIds,
     );
 
-    const rows = await prisma.contribution.findMany({
-      where: { repositoryId: REPO_ID },
-      select: { commitCount: true, issueCount: true },
-    });
-    expect(rows).toEqual([{ commitCount: 1, issueCount: 1 }]);
+    const rows = await readDays();
+    expect(rows).toEqual([
+      expect.objectContaining({ commitCount: 1, issueCount: 1 }),
+    ]);
   });
 
   it('미가입자 기여는 행이 만들어지지 않는다', async () => {
@@ -180,10 +207,7 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       await repository.listRegisteredGithubIds(),
     );
 
-    const rows = await prisma.contribution.findMany({
-      where: { repositoryId: REPO_ID },
-      select: { githubId: true },
-    });
+    const rows = await readDays();
 
     expect(rows).toHaveLength(1);
     expect(rows[0]?.githubId).toBe(MEMBER);
@@ -205,61 +229,33 @@ describe('Contribution 재계산 (실 Postgres)', () => {
 
     const registeredGithubIds = await repository.listRegisteredGithubIds();
     await repository.recordCommitFacts(REPO_ID, batch, registeredGithubIds);
-    const first = await prisma.contribution.findMany({
-      where: { repositoryId: REPO_ID },
-      select: { githubId: true, date: true, commitCount: true },
-    });
+    const first = await readDays();
 
     await repository.recordCommitFacts(REPO_ID, batch, registeredGithubIds);
-    const second = await prisma.contribution.findMany({
-      where: { repositoryId: REPO_ID },
-      select: { githubId: true, date: true, commitCount: true },
-    });
+    const second = await readDays();
 
     expect(second).toEqual(first);
     expect(second[0]?.commitCount).toBe(2);
   });
 
-  it('상류에서 fact 가 사라지면 그 칸도 사라진다 — 0 인 행을 남기지 않는다', async () => {
+  it('같은 날의 다른 커밋은 이전 이벤트를 지우지 않는다', async () => {
     const registeredGithubIds = await repository.listRegisteredGithubIds();
     await repository.recordCommitFacts(
       REPO_ID,
       [
         {
-          sha: 'will-disappear',
+          sha: 'stays',
           committedAt: new Date('2026-03-15T01:00:00.000Z'),
           authorGithubId: MEMBER,
         },
       ],
       registeredGithubIds,
     );
-    expect(
-      await prisma.contribution.count({ where: { repositoryId: REPO_ID } }),
-    ).toBe(1);
-
-    await prisma.collectionCommitFact.deleteMany({
-      where: { repositoryId: REPO_ID },
-    });
-
     await repository.recordCommitFacts(
       REPO_ID,
       [
         {
-          sha: 'will-disappear',
-          committedAt: new Date('2026-03-15T01:00:00.000Z'),
-          authorGithubId: MEMBER,
-        },
-      ],
-      registeredGithubIds,
-    );
-    await prisma.collectionCommitFact.deleteMany({
-      where: { repositoryId: REPO_ID },
-    });
-    await repository.recordCommitFacts(
-      REPO_ID,
-      [
-        {
-          sha: 'unrelated-same-day',
+          sha: 'also-stays',
           committedAt: new Date('2026-03-15T03:00:00.000Z'),
           authorGithubId: MEMBER,
         },
@@ -267,13 +263,12 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       registeredGithubIds,
     );
 
-    const rows = await prisma.contribution.findMany({
-      where: { repositoryId: REPO_ID },
-      select: { commitCount: true },
-    });
-
+    const rows = await readDays();
     expect(rows).toHaveLength(1);
-    expect(rows[0]?.commitCount).toBe(1);
+    expect(rows[0]?.commitCount).toBe(2);
+    await expect(
+      prisma.collectionCommitFact.count({ where: { repositoryId: REPO_ID } }),
+    ).resolves.toBe(0);
   });
 
   it('칸이 늘어도 질의 수가 늘지 않는다 — 트랜잭션 안 N+1 을 만들지 않는다', async () => {
@@ -303,10 +298,14 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     );
     await logged.$disconnect();
 
-    const rows = await prisma.contribution.count({
-      where: { repositoryId: REPO_ID },
-    });
-    expect(rows).toBe(60);
+    expect(
+      await prisma.contributionEvent.count({
+        where: { repoId: GITHUB_REPO_ID },
+      }),
+    ).toBe(60);
+    await expect(
+      prisma.contribution.count({ where: { repositoryId: REPO_ID } }),
+    ).resolves.toBe(0);
 
     const dataQueries = queries.filter(
       (query) => !/^(BEGIN|COMMIT|ROLLBACK|DEALLOCATE)/u.test(query.trim()),

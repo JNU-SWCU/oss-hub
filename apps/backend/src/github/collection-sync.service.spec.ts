@@ -135,6 +135,77 @@ const applyStreamUpdate = (
   return [row];
 };
 
+const joinedParameterValues = (value: unknown): readonly unknown[] => {
+  if (typeof value !== 'object' || value === null || !('values' in value)) {
+    return [];
+  }
+  const nested: unknown = Reflect.get(value, 'values');
+  return Array.isArray(nested) ? nested : [];
+};
+
+const rememberContribution = ({
+  store,
+  kind,
+  repositoryId,
+  githubKey,
+  authorGithubId,
+  occurredAt,
+}: {
+  store: Store;
+  kind: 'commit' | 'pull_request' | 'issue' | 'release';
+  repositoryId: string;
+  githubKey: string;
+  authorGithubId: unknown;
+  occurredAt: Date;
+}): boolean => {
+  if (kind === 'commit') {
+    const key = `${repositoryId}:${githubKey}`;
+    if (store.commitFacts.has(key)) return false;
+    store.commitFacts.set(key, {
+      id: `commit-${store.commitFacts.size + 1}`,
+      repositoryId,
+      sha: githubKey,
+      authorGithubId,
+      committedAt: occurredAt,
+    });
+    return true;
+  }
+  if (kind === 'pull_request') {
+    const key = `${repositoryId}:${githubKey}`;
+    if (store.pullRequestFacts.has(key)) return false;
+    store.pullRequestFacts.set(key, {
+      id: `pr-${store.pullRequestFacts.size + 1}`,
+      repositoryId,
+      githubPullRequestId: BigInt(githubKey),
+      authorGithubId,
+      createdAt: occurredAt,
+    });
+    return true;
+  }
+  if (kind === 'release') {
+    const key = `${repositoryId}:${githubKey}`;
+    if (store.releaseFacts.has(key)) return false;
+    store.releaseFacts.set(key, {
+      id: `release-${store.releaseFacts.size + 1}`,
+      repositoryId,
+      githubReleaseId: BigInt(githubKey),
+      authorGithubId,
+      publishedAt: occurredAt,
+    });
+    return true;
+  }
+  const key = `${repositoryId}:${githubKey}`;
+  if (store.issueFacts.has(key)) return false;
+  store.issueFacts.set(key, {
+    id: `issue-${store.issueFacts.size + 1}`,
+    repositoryId,
+    githubIssueId: BigInt(githubKey),
+    authorGithubId,
+    createdAt: occurredAt,
+  });
+  return true;
+};
+
 const applyUpdate = (existing: Row, update: Row): Row => {
   const row: Row = { ...existing };
   for (const [key, value] of Object.entries(update)) {
@@ -462,8 +533,60 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       box.store.recomputeCalls += 1;
       return 1;
     },
-    $queryRaw: (): Promise<readonly unknown[]> =>
-      Promise.resolve([{ missing_repo: 0, inserted: 0 }]),
+    $queryRaw: (
+      strings: TemplateStringsArray,
+      ...values: readonly unknown[]
+    ): Promise<readonly unknown[]> => {
+      const sql = Array.isArray(strings) ? strings.join('') : '';
+      if (!sql.includes('INSERT INTO "contribution"')) {
+        if (sql.includes('COUNT(*)')) return Promise.resolve([{ count: 0 }]);
+        return Promise.resolve([{ missing_repo: 0, inserted: 0 }]);
+      }
+      const kind = values[2];
+      const repositoryId = values[1];
+      const flat = joinedParameterValues(values[0]);
+      if (
+        kind !== 'commit' &&
+        kind !== 'pull_request' &&
+        kind !== 'issue' &&
+        kind !== 'release'
+      ) {
+        throw new Error('contribution insert kind was missing');
+      }
+      if (typeof repositoryId !== 'string') {
+        throw new Error('contribution insert repository was missing');
+      }
+      let inserted = 0;
+      for (let index = 0; index < flat.length; index += 3) {
+        const githubKey = flat[index];
+        const authorGithubId = flat[index + 1];
+        const occurredAt = flat[index + 2];
+        if (typeof githubKey !== 'string' || !(occurredAt instanceof Date)) {
+          throw new Error('contribution insert row was incomplete');
+        }
+        if (kind === 'commit' && control.failCommitShas.has(githubKey)) {
+          throw new Error(`synthetic commit fact failure: ${githubKey}`);
+        }
+        if (
+          kind === 'pull_request' &&
+          typeof authorGithubId !== 'undefined' &&
+          control.failPullRequestIds.has(BigInt(githubKey))
+        ) {
+          throw new Error(`synthetic pull request fact failure: ${githubKey}`);
+        }
+        const stored = rememberContribution({
+          store: box.store,
+          kind,
+          repositoryId,
+          githubKey,
+          authorGithubId,
+          occurredAt,
+        });
+        if (stored) inserted += 1;
+      }
+      box.store.recomputeCalls += 1;
+      return Promise.resolve([{ missing_repo: 0, inserted }]);
+    },
     collectionSyncCursor: {
       upsert: ({
         where,
@@ -2302,12 +2425,10 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
       });
     };
 
-  const storedPullRequestLogins = (box: { store: Store }): unknown[] =>
-    [...box.store.pullRequestFacts.values()].map(
-      (fact) => fact.authorGithubLogin,
-    );
-  const storedReleaseLogins = (box: { store: Store }): unknown[] =>
-    [...box.store.releaseFacts.values()].map((fact) => fact.authorGithubLogin);
+  const storedPullRequestAuthors = (box: { store: Store }): unknown[] =>
+    [...box.store.pullRequestFacts.values()].map((fact) => fact.authorGithubId);
+  const storedReleaseAuthors = (box: { store: Store }): unknown[] =>
+    [...box.store.releaseFacts.values()].map((fact) => fact.authorGithubId);
 
   it('팀원이 만든 PR·릴리스만 적재하고 비팀원 것은 fact에도 집계에도 남기지 않는다', async () => {
     const { db, box } = createFakeDb();
@@ -2348,8 +2469,8 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
 
     await createService(db, client).run('owner-1');
 
-    expect(storedPullRequestLogins(box)).toEqual(['alice']);
-    expect(storedReleaseLogins(box)).toEqual(['alice']);
+    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
+    expect(storedReleaseAuthors(box)).toEqual([MEMBER_ID]);
     expect([...box.store.pullRequestFacts.values()][0]?.authorGithubId).toBe(
       MEMBER_ID,
     );
@@ -2426,7 +2547,7 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
     const service = createService(db, client);
     await service.run('owner-1');
 
-    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
     const afterFirst = box.store.streams.get('repo-1:PULL_REQUEST');
 
     expect(afterFirst?.frontierEntityId).toBe(401n);
@@ -2491,7 +2612,7 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
     );
     await service.run('owner-1');
 
-    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
     expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierEntityId).toBe(
       402n,
     );
@@ -2639,9 +2760,9 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
     await service.run('owner-1');
 
     expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
-    expect(storedPullRequestLogins(box)).toEqual(['carol']);
+    expect(storedPullRequestAuthors(box)).toEqual([33n]);
 
-    expect(storedReleaseLogins(box)).toEqual(['carol']);
+    expect(storedReleaseAuthors(box)).toEqual([33n]);
 
     await service.run('owner-1');
 
@@ -2680,13 +2801,13 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
 
     const service = createService(db, client);
     await service.run('owner-1');
-    expect(storedPullRequestLogins(box)).toEqual([]);
+    expect(storedPullRequestAuthors(box)).toEqual([]);
 
     control.registeredGithubIds.add(44n);
     await service.run('owner-1');
 
     expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
-    expect(storedPullRequestLogins(box)).toEqual(['dave']);
+    expect(storedPullRequestAuthors(box)).toEqual([44n]);
   });
 
   it('기존 READY PR stream의 null 팀원 표식을 한 번 repair하고 다음 sweep은 증분으로 돌아간다', async () => {
@@ -2719,7 +2840,7 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
 
     await service.run('owner-1');
     expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
-    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
     expect(box.store.streams.get(streamKey)?.frontierSha).toMatch(
       /^team-members:v1:[0-9a-f]{64}$/,
     );
@@ -2816,13 +2937,13 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
     expect(box.store.streams.get(streamKey)?.frontierEntityId).toBe(
       before?.frontierEntityId,
     );
-    expect(storedPullRequestLogins(box)).toEqual(['alice']);
+    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
 
     control.failPullRequestIds.delete(410n);
     clock = new Date('2026-08-04T09:00:00.000Z');
     await service.run('owner-1');
     expect(client.listNewPullRequests.mock.calls[2]?.[2]).toBeNull();
-    expect(storedPullRequestLogins(box).sort()).toEqual(['alice', 'carol']);
+    expect(storedPullRequestAuthors(box).sort()).toEqual([11n, 33n]);
     expect(box.store.streams.get(streamKey)?.frontierSha).not.toBe(
       before?.frontierSha,
     );
@@ -2873,8 +2994,8 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
 
     await createService(db, client).run('owner-1');
 
-    expect(storedPullRequestLogins(box)).toEqual(['outsider']);
-    expect(storedReleaseLogins(box)).toEqual(['outsider']);
+    expect(storedPullRequestAuthors(box)).toEqual([99n]);
+    expect(storedReleaseAuthors(box)).toEqual([99n]);
   });
 });
 
@@ -2943,7 +3064,6 @@ describe('CollectionSyncService — Issue stream(#1133)', () => {
     expect(storedIssueIds(box)).toEqual(['800']);
     expect([...box.store.issueFacts.values()][0]).toMatchObject({
       authorGithubId: 11n,
-      state: 'open',
       createdAt: new Date('2026-08-01T00:00:00.000Z'),
     });
 

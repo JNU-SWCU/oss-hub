@@ -16,12 +16,39 @@ export class RepositoryDeletionRepository {
     >`
     SELECT json_build_object(
       'repositories', (SELECT count(*) FROM "GithubRepository" WHERE id = ${repositoryId}),
-      'commits', (SELECT count(*) FROM "CollectionCommitFact" WHERE "repositoryId" = ${repositoryId}),
-      'contributions', (SELECT count(*) FROM "Contribution" WHERE "repositoryId" = ${repositoryId}),
+      'commits', (
+        SELECT count(*) FROM "contribution" AS event
+        JOIN "GithubRepository" AS repository
+          ON repository."githubRepositoryId" = event.repo_id
+        WHERE repository.id = ${repositoryId}
+          AND event.kind = 'commit'::"contribution_kind"
+      ),
+      'contributions', (
+        SELECT count(*) FROM repo_contribution
+        WHERE repository_id = ${repositoryId}
+      ),
       'streams', (SELECT count(*) FROM "CollectionRepositoryStream" WHERE "repositoryId" = ${repositoryId}),
-      'pullRequests', (SELECT count(*) FROM "CollectionPullRequestFact" WHERE "repositoryId" = ${repositoryId}),
-      'releases', (SELECT count(*) FROM "CollectionReleaseFact" WHERE "repositoryId" = ${repositoryId}),
-      'issues', (SELECT count(*) FROM "GithubIssueHistory" WHERE "repositoryId" = ${repositoryId}),
+      'pullRequests', (
+        SELECT count(*) FROM "contribution" AS event
+        JOIN "GithubRepository" AS repository
+          ON repository."githubRepositoryId" = event.repo_id
+        WHERE repository.id = ${repositoryId}
+          AND event.kind = 'pull_request'::"contribution_kind"
+      ),
+      'releases', (
+        SELECT count(*) FROM "contribution" AS event
+        JOIN "GithubRepository" AS repository
+          ON repository."githubRepositoryId" = event.repo_id
+        WHERE repository.id = ${repositoryId}
+          AND event.kind = 'release'::"contribution_kind"
+      ),
+      'issues', (
+        SELECT count(*) FROM "contribution" AS event
+        JOIN "GithubRepository" AS repository
+          ON repository."githubRepositoryId" = event.repo_id
+        WHERE repository.id = ${repositoryId}
+          AND event.kind = 'issue'::"contribution_kind"
+      ),
       'outsiders', (SELECT count(*) FROM "GithubRepositoryOutsiderContribution" WHERE "repositoryId" = ${repositoryId}),
       'invitations', (SELECT count(*) FROM "RepositoryInvitation" WHERE "repositoryId" = ${repositoryId}),
       'repositoryYearAggregates', (SELECT count(*) FROM "CollectionRepositoryYearAggregate" WHERE "repositoryId" = ${repositoryId}),

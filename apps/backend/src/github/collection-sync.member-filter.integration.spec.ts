@@ -243,11 +243,24 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         source: RepositorySource.ORG_PROVISIONED,
       },
     });
+    await prisma.repo.create({
+      data: {
+        githubRepoId: GITHUB_REPOSITORY_ID,
+        ownerName: ORG_LOGIN,
+        source: RepositorySource.ORG_PROVISIONED,
+      },
+    });
   };
 
   beforeAll(() => prisma.$connect(), 60_000);
 
   afterEach(async () => {
+    await prisma.contributionEvent.deleteMany({
+      where: { repoId: GITHUB_REPOSITORY_ID },
+    });
+    await prisma.repo.deleteMany({
+      where: { githubRepoId: GITHUB_REPOSITORY_ID },
+    });
     await prisma.githubRepository.deleteMany({
       where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
     });
@@ -290,10 +303,15 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         }),
       ).resolves.toBe(0);
       await expect(
+        prisma.contributionEvent.count({
+          where: { repoId: GITHUB_REPOSITORY_ID, kind: 'PULL_REQUEST' },
+        }),
+      ).resolves.toBe(1);
+      await expect(
         prisma.collectionPullRequestFact.count({
           where: { repositoryId: REPOSITORY_ID },
         }),
-      ).resolves.toBe(1);
+      ).resolves.toBe(0);
     } finally {
       await prisma.githubRepository.deleteMany({
         where: { githubRepositoryId: unregisteredId },
@@ -354,56 +372,52 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       select: { id: true },
     });
 
-    const pullRequestFacts = await prisma.collectionPullRequestFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { githubPullRequestId: true, authorGithubId: true },
+    const memberEvents = await prisma.contributionEvent.findMany({
+      where: {
+        repoId: GITHUB_REPOSITORY_ID,
+        authorGithubId: MEMBER_GITHUB_ID,
+      },
     });
-    expect(pullRequestFacts).toHaveLength(1);
-    expect(pullRequestFacts[0]?.githubPullRequestId).toBe(9_000_000_680_201n);
-    expect(pullRequestFacts[0]?.authorGithubId).toBe(MEMBER_GITHUB_ID);
-
-    const releaseFacts = await prisma.collectionReleaseFact.findMany({
-      where: { repositoryId: collected.id },
-      select: { githubReleaseId: true, authorGithubId: true },
-    });
-    expect(releaseFacts).toHaveLength(1);
-    expect(releaseFacts[0]?.githubReleaseId).toBe(9_000_000_680_301n);
-    expect(releaseFacts[0]?.authorGithubId).toBe(MEMBER_GITHUB_ID);
-
-    await expect(
-      prisma.githubIssueHistory.findMany({
-        where: { repositoryId: collected.id },
-        select: { githubIssueId: true, authorGithubId: true },
+    expect(
+      memberEvents.filter((event) => event.kind === 'PULL_REQUEST'),
+    ).toEqual([
+      expect.objectContaining({
+        githubKey: '9000000680201',
+        authorGithubId: MEMBER_GITHUB_ID,
       }),
-    ).resolves.toEqual([
-      { githubIssueId: 9_000_000_680_401n, authorGithubId: MEMBER_GITHUB_ID },
     ]);
-
+    expect(memberEvents.filter((event) => event.kind === 'RELEASE')).toEqual([
+      expect.objectContaining({
+        githubKey: '9000000680301',
+        authorGithubId: MEMBER_GITHUB_ID,
+      }),
+    ]);
+    expect(memberEvents.filter((event) => event.kind === 'ISSUE')).toEqual([
+      expect.objectContaining({
+        githubKey: '9000000680401',
+        authorGithubId: MEMBER_GITHUB_ID,
+      }),
+    ]);
+    await expect(
+      prisma.contributionEvent.count({
+        where: { authorGithubId: BigInt(OUTSIDER_GITHUB_ID) },
+      }),
+    ).resolves.toBe(0);
     await expect(
       prisma.collectionPullRequestFact.count({
-        where: { authorGithubId: BigInt(OUTSIDER_GITHUB_ID) },
+        where: { repositoryId: collected.id },
       }),
     ).resolves.toBe(0);
     await expect(
       prisma.collectionReleaseFact.count({
-        where: { authorGithubId: BigInt(OUTSIDER_GITHUB_ID) },
+        where: { repositoryId: collected.id },
       }),
     ).resolves.toBe(0);
-
-    const aggregates = await prisma.contribution.findMany({
-      where: { repositoryId: collected.id },
-      select: {
-        githubId: true,
-        pullRequestCount: true,
-        releaseCount: true,
-        issueCount: true,
-      },
-    });
-    expect(aggregates).toHaveLength(1);
-    expect(aggregates[0]?.githubId).toBe(MEMBER_GITHUB_ID);
-    expect(aggregates[0]?.pullRequestCount).toBe(1);
-    expect(aggregates[0]?.releaseCount).toBe(1);
-    expect(aggregates[0]?.issueCount).toBe(1);
+    await expect(
+      prisma.githubIssueHistory.count({
+        where: { repositoryId: collected.id },
+      }),
+    ).resolves.toBe(0);
 
     const stream = await prisma.collectionRepositoryStream.findUniqueOrThrow({
       where: {
@@ -523,8 +537,12 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     await service.run(OWNER_ID);
     expect(listNewPullRequests.mock.calls[0]?.[2]).toBeNull();
     await expect(
-      prisma.collectionPullRequestFact.count({
-        where: { authorGithubId: LATE_MEMBER_GITHUB_ID },
+      prisma.contributionEvent.count({
+        where: {
+          repoId: GITHUB_REPOSITORY_ID,
+          kind: 'PULL_REQUEST',
+          authorGithubId: LATE_MEMBER_GITHUB_ID,
+        },
       }),
     ).resolves.toBe(0);
 
@@ -546,8 +564,12 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
     await service.run(OWNER_ID);
     expect(listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
     await expect(
-      prisma.collectionPullRequestFact.count({
-        where: { authorGithubId: LATE_MEMBER_GITHUB_ID },
+      prisma.contributionEvent.count({
+        where: {
+          repoId: GITHUB_REPOSITORY_ID,
+          kind: 'PULL_REQUEST',
+          authorGithubId: LATE_MEMBER_GITHUB_ID,
+        },
       }),
     ).resolves.toBe(1);
 
@@ -557,8 +579,12 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
       id: '9000000680205',
     });
     await expect(
-      prisma.collectionPullRequestFact.count({
-        where: { authorGithubId: LATE_MEMBER_GITHUB_ID },
+      prisma.contributionEvent.count({
+        where: {
+          repoId: GITHUB_REPOSITORY_ID,
+          kind: 'PULL_REQUEST',
+          authorGithubId: LATE_MEMBER_GITHUB_ID,
+        },
       }),
     ).resolves.toBe(1);
 

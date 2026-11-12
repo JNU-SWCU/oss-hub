@@ -171,7 +171,7 @@ export class RankingService {
     const query = year === RANKING_YEAR_ALL ? {} : { currentYear: year };
     const [activity, previousActivity] = await Promise.all([
       this.ranking.findMetrics(query),
-      this.ranking.findPreviousCycleMetrics(query),
+      this.ranking.findPreviousCycleMetrics(query, new Date()),
     ]);
     const previousRanks = new Map(
       this.rankRows(previousActivity).map((row, index) => [

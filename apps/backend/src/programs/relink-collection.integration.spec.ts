@@ -54,6 +54,15 @@ const fingerprint = {
 };
 
 it('collects new facts only on the replacement when an external application repository is relinked', async () => {
+  await prisma.repo.upsert({
+    where: { githubRepoId: targetGithubId },
+    create: {
+      githubRepoId: targetGithubId,
+      ownerName: 'synthetic',
+      source: 'EXTERNAL_PUBLIC',
+    },
+    update: {},
+  });
   await prisma.githubRepository.update({
     where: { id: oldId },
     data: { source: 'EXTERNAL_PUBLIC' },
@@ -146,10 +155,15 @@ it('collects new facts only on the replacement when an external application repo
     }),
   ).toEqual([]);
   expect(
-    await prisma.collectionCommitFact.findMany({
+    await prisma.contributionEvent.findMany({
+      where: { repoId: targetGithubId, kind: 'COMMIT' },
+    }),
+  ).toEqual([expect.objectContaining({ githubKey: 'new-after-relink' })]);
+  expect(
+    await prisma.collectionCommitFact.count({
       where: { repositoryId: targetId },
     }),
-  ).toEqual([expect.objectContaining({ sha: 'new-after-relink' })]);
+  ).toBe(0);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toBeNull();
@@ -459,6 +473,15 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
 );
 
 it('collects a repository linked into an empty slot right after the team route saves it', async () => {
+  await prisma.repo.upsert({
+    where: { githubRepoId: targetGithubId },
+    create: {
+      githubRepoId: targetGithubId,
+      ownerName: 'synthetic',
+      source: 'EXTERNAL_PUBLIC',
+    },
+    update: {},
+  });
   await prisma.githubRepository.delete({ where: { id: oldId } });
   const provider = syntheticProvider();
   jest
@@ -499,13 +522,25 @@ it('collects a repository linked into an empty slot right after the team route s
   ]);
   expect(provider.getRepository).not.toHaveBeenCalled();
   expect(
-    await prisma.collectionCommitFact.findMany({
+    await prisma.contributionEvent.findMany({
+      where: { repoId: targetGithubId, kind: 'COMMIT' },
+    }),
+  ).toEqual([
+    expect.objectContaining({ githubKey: 'collected-right-after-link' }),
+  ]);
+  expect(
+    await prisma.collectionCommitFact.count({
       where: { repositoryId: targetId },
     }),
-  ).toEqual([expect.objectContaining({ sha: 'collected-right-after-link' })]);
+  ).toBe(0);
   expect(
-    await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
-  ).toEqual([expect.objectContaining({ githubId, commitCount: 1 })]);
+    await prisma.$queryRaw<{ commitCount: number }[]>`
+      SELECT commit_count AS "commitCount"
+      FROM repo_contribution
+      WHERE repository_id = ${targetId}
+        AND github_id = ${githubId}
+    `,
+  ).toEqual([{ commitCount: 1 }]);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({ lastSuccessAt: observedAt, failureCount: 0 });

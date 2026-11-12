@@ -288,10 +288,12 @@ fi
 echo 'PASS duplicate_verify_matches'
 
 psql_db >/dev/null <<'SQL'
-UPDATE "github_user_activity_history"
-SET "commit_count" = "commit_count" + 1
-WHERE "observed_at" = (
-  SELECT max("observed_at") FROM "github_user_activity_history"
+INSERT INTO "GithubUserActivityHistory" (
+  "githubId", "year", "visibility",
+  "commitCount", "pullRequestCount", "issueCount", "repositoryCount", "starCount",
+  "observedAt"
+) VALUES (
+  99, 2026, 'PUBLIC', 1, 0, 0, 0, 0, '2026-05-01 00:00:00+00'
 );
 SQL
 set +e

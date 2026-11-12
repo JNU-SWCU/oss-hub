@@ -151,11 +151,22 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     );
   });
 
-  const seededRows = () =>
-    prisma.githubUserActivityHistory.findMany({
-      where: { githubId: { in: SEEDED_GITHUB_IDS } },
-      orderBy: [{ githubId: 'asc' }, { year: 'asc' }],
+  const seededRows = async () => {
+    const rows = await prisma.githubUserActivityObservation.findMany({
+      where: {
+        githubId: { in: SEEDED_GITHUB_IDS },
+        visibility: 'PUBLIC',
+      },
+      orderBy: [{ githubId: 'asc' }, { year: 'asc' }, { observedAt: 'desc' }],
     });
+    const seen = new Set<string>();
+    return rows.filter((row) => {
+      const key = `${row.githubId.toString()}:${row.year}`;
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  };
 
   const seededQueriedLogins = (): string[] =>
     fetchUserActivityMetrics.mock.calls
@@ -179,12 +190,10 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
 
     const rows = await seededRows();
     expect(rows).toHaveLength(3);
-    expect(
-      rows.map((row) => [row.githubId, row.year, row.githubLogin]),
-    ).toEqual([
-      [ALPHA_GITHUB_ID, CURRENT_YEAR, `${SEED_PREFIX}-alpha`],
-      [BRAVO_GITHUB_ID, CURRENT_YEAR, `${SEED_PREFIX}-bravo`],
-      [CHARLIE_GITHUB_ID, CURRENT_YEAR, `${SEED_PREFIX}-charlie`],
+    expect(rows.map((row) => [row.githubId, row.year])).toEqual([
+      [ALPHA_GITHUB_ID, CURRENT_YEAR],
+      [BRAVO_GITHUB_ID, CURRENT_YEAR],
+      [CHARLIE_GITHUB_ID, CURRENT_YEAR],
     ]);
     expect(rows[0]).toEqual(
       expect.objectContaining({
@@ -202,27 +211,25 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     );
   });
 
-  it('순위 비교 스냅샷은 하루에 한 번만 찍고 다음 날 첫 sweep에서 갱신한다', async () => {
-    const repository = new CollectionUserActivityRepository(prisma);
-    const alphaSnapshot = () =>
-      prisma.githubUserActivityCycleSnapshot.findFirstOrThrow({
-        where: { githubId: ALPHA_GITHUB_ID },
-      });
+  it('sweep는 옛 이력과 사이클 스냅샷을 쓰지 않고 원장과 월별 행을 남긴다', async () => {
     await buildService().run();
-    const today = new Date(Date.now() - 60 * 60 * 1000);
-    await prisma.githubUserActivityCycleSnapshot.deleteMany();
-    await repository.snapshotCycle(today);
-    const first = await alphaSnapshot();
-
-    await prisma.githubUserActivityHistory.updateMany({
-      where: { githubId: ALPHA_GITHUB_ID },
-      data: { commitCount: 999 },
-    });
-    await repository.snapshotCycle(today);
-    expect((await alphaSnapshot()).commitCount).toBe(first.commitCount);
-
-    await repository.snapshotCycle(new Date(Date.now() + 60 * 60 * 1000));
-    expect((await alphaSnapshot()).commitCount).toBe(999);
+    const activeIds = [ALPHA_GITHUB_ID, BRAVO_GITHUB_ID, CHARLIE_GITHUB_ID];
+    await expect(
+      prisma.githubUserActivityHistory.count({
+        where: { githubId: { in: activeIds } },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.githubUserActivityCycleSnapshot.count({
+        where: { githubId: { in: activeIds } },
+      }),
+    ).resolves.toBe(0);
+    await expect(
+      prisma.githubUserActivityMonthly.count({
+        where: { githubId: { in: activeIds }, year: CURRENT_YEAR },
+      }),
+    ).resolves.toBe(3);
+    expect(await seededRows()).toHaveLength(3);
   });
 
   it('마이그레이션은 기존 활동 행과 수치를 PUBLIC으로 보존한다 (stale_state)', async () => {
@@ -303,7 +310,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
 
     await repository.upsertPrivateObservation(privateObservation);
 
-    const rows = await prisma.githubUserActivityHistory.findMany({
+    const rows = await prisma.githubUserActivityObservation.findMany({
       where: { githubId: ALPHA_GITHUB_ID, year: CURRENT_YEAR },
     });
     expect(rows).toHaveLength(2);
@@ -314,12 +321,23 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
           ...metricsFor(`${SEED_PREFIX}-alpha`),
         }),
         expect.objectContaining({
-          ...privateObservation,
+          githubId: privateObservation.githubId,
+          year: privateObservation.year,
+          commitCount: privateObservation.commitCount,
+          pullRequestCount: privateObservation.pullRequestCount,
+          issueCount: privateObservation.issueCount,
+          repositoryCount: privateObservation.repositoryCount,
+          observedAt: privateObservation.observedAt,
           visibility: 'PRIVATE',
           starCount: 0,
         }),
       ]),
     );
+    await expect(
+      prisma.githubUserActivityHistory.count({
+        where: { githubId: ALPHA_GITHUB_ID },
+      }),
+    ).resolves.toBe(0);
   });
 
   it('PUBLIC 재수집은 PRIVATE 행의 수치와 관측 시각을 바꾸지 않는다', async () => {
@@ -335,13 +353,13 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       observedAt: new Date('2026-08-18T00:00:00.000Z'),
     });
     const privateBefore =
-      await prisma.githubUserActivityHistory.findFirstOrThrow({
-        where: { githubId: ALPHA_GITHUB_ID },
+      await prisma.githubUserActivityObservation.findFirstOrThrow({
+        where: { githubId: ALPHA_GITHUB_ID, visibility: 'PRIVATE' },
       });
 
     await buildService().run();
 
-    const rows = await prisma.githubUserActivityHistory.findMany({
+    const rows = await prisma.githubUserActivityObservation.findMany({
       where: { githubId: ALPHA_GITHUB_ID, year: CURRENT_YEAR },
     });
     expect(rows).toHaveLength(2);
@@ -375,11 +393,12 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       observedAt: new Date('2026-08-19T01:00:00.000Z'),
     });
 
-    const rows = await prisma.githubUserActivityHistory.findMany({
-      where: { githubId: ALPHA_GITHUB_ID },
+    const rows = await prisma.githubUserActivityObservation.findMany({
+      where: { githubId: ALPHA_GITHUB_ID, visibility: 'PRIVATE' },
+      orderBy: { observedAt: 'asc' },
     });
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toEqual(
+    expect(rows).toHaveLength(2);
+    expect(rows[1]).toEqual(
       expect.objectContaining({
         visibility: 'PRIVATE',
         commitCount: 43,
@@ -468,7 +487,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
       `${SEED_PREFIX}-charlie`,
     ]);
     await expect(
-      prisma.githubUserActivityHistory.count({
+      prisma.githubUserActivityObservation.count({
         where: { githubId: OUTSIDER_GITHUB_ID },
       }),
     ).resolves.toBe(0);
@@ -669,10 +688,18 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     expect(runExternal).toHaveBeenCalledTimes(1);
 
     await expect(
+      prisma.githubUserActivityObservation.count({
+        where: {
+          githubId: { in: SEEDED_GITHUB_IDS },
+          visibility: 'PUBLIC',
+        },
+      }),
+    ).resolves.toBe(3);
+    await expect(
       prisma.githubUserActivityHistory.count({
         where: { githubId: { in: SEEDED_GITHUB_IDS } },
       }),
-    ).resolves.toBe(3);
+    ).resolves.toBe(0);
     await testingModule.close();
   });
 });

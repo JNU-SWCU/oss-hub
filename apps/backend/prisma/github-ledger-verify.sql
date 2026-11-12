@@ -8,85 +8,110 @@ FROM (
     (SELECT COUNT(*) FROM "GithubRepository" WHERE "teamId" IS NOT NULL),
     (SELECT COUNT(*) FROM "team_repo" WHERE "valid_to" IS NULL)
   UNION ALL
-  SELECT 'commit_count',
-    (SELECT COUNT(*) FROM "CollectionCommitFact"),
-    (SELECT COUNT(*) FROM "contribution" WHERE "kind" = 'commit')
-  UNION ALL
-  SELECT 'pull_request_count',
-    (SELECT COUNT(*) FROM "CollectionPullRequestFact"),
-    (SELECT COUNT(*) FROM "contribution" WHERE "kind" = 'pull_request')
-  UNION ALL
-  SELECT 'issue_count',
-    (SELECT COUNT(*) FROM "GithubIssueHistory"),
-    (SELECT COUNT(*) FROM "contribution" WHERE "kind" = 'issue')
-  UNION ALL
-  SELECT 'release_count',
-    (SELECT COUNT(*) FROM "CollectionReleaseFact"),
-    (SELECT COUNT(*) FROM "contribution" WHERE "kind" = 'release')
-  UNION ALL
-  SELECT 'latest_commit_sum',
-    (SELECT COALESCE(SUM("commitCount"), 0) FROM "GithubUserActivityHistory"),
-    (
-      SELECT COALESCE(SUM(observation."commit_count"), 0)
-      FROM "GithubUserActivityHistory" AS history
-      JOIN LATERAL (
-        SELECT observation."commit_count"
-        FROM "github_user_activity_history" AS observation
-        WHERE observation."github_id" = history."githubId"
-          AND observation."year" = history."year"
-          AND observation."visibility" = history."visibility"
-        ORDER BY observation."observed_at" DESC
-        LIMIT 1
-      ) AS observation ON TRUE
+  SELECT 'commit_count', uncovered.commits, 0
+  FROM (
+    SELECT COUNT(*) AS commits
+    FROM "CollectionCommitFact" AS fact
+    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "contribution" AS event
+      WHERE event.repo_id = repository."githubRepositoryId"
+        AND event.kind = 'commit'
+        AND event.github_key = fact.sha
     )
+  ) AS uncovered
   UNION ALL
-  SELECT 'latest_pull_request_sum',
-    (SELECT COALESCE(SUM("pullRequestCount"), 0) FROM "GithubUserActivityHistory"),
-    (
-      SELECT COALESCE(SUM(observation."pull_request_count"), 0)
-      FROM "GithubUserActivityHistory" AS history
-      JOIN LATERAL (
-        SELECT observation."pull_request_count"
-        FROM "github_user_activity_history" AS observation
-        WHERE observation."github_id" = history."githubId"
-          AND observation."year" = history."year"
-          AND observation."visibility" = history."visibility"
-        ORDER BY observation."observed_at" DESC
-        LIMIT 1
-      ) AS observation ON TRUE
+  SELECT 'pull_request_count', uncovered.pull_requests, 0
+  FROM (
+    SELECT COUNT(*) AS pull_requests
+    FROM "CollectionPullRequestFact" AS fact
+    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "contribution" AS event
+      WHERE event.repo_id = repository."githubRepositoryId"
+        AND event.kind = 'pull_request'
+        AND event.github_key = fact."githubPullRequestId"::text
     )
+  ) AS uncovered
   UNION ALL
-  SELECT 'latest_issue_sum',
-    (SELECT COALESCE(SUM("issueCount"), 0) FROM "GithubUserActivityHistory"),
-    (
-      SELECT COALESCE(SUM(observation."issue_count"), 0)
-      FROM "GithubUserActivityHistory" AS history
-      JOIN LATERAL (
-        SELECT observation."issue_count"
-        FROM "github_user_activity_history" AS observation
-        WHERE observation."github_id" = history."githubId"
-          AND observation."year" = history."year"
-          AND observation."visibility" = history."visibility"
-        ORDER BY observation."observed_at" DESC
-        LIMIT 1
-      ) AS observation ON TRUE
+  SELECT 'issue_count', uncovered.issues, 0
+  FROM (
+    SELECT COUNT(*) AS issues
+    FROM "GithubIssueHistory" AS fact
+    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "contribution" AS event
+      WHERE event.repo_id = repository."githubRepositoryId"
+        AND event.kind = 'issue'
+        AND event.github_key = fact."githubIssueId"::text
     )
+  ) AS uncovered
   UNION ALL
-  SELECT 'latest_star_sum',
-    (SELECT COALESCE(SUM("starCount"), 0) FROM "GithubUserActivityHistory"),
-    (
-      SELECT COALESCE(SUM(observation."star_count"), 0)
-      FROM "GithubUserActivityHistory" AS history
-      JOIN LATERAL (
-        SELECT observation."star_count"
-        FROM "github_user_activity_history" AS observation
-        WHERE observation."github_id" = history."githubId"
-          AND observation."year" = history."year"
-          AND observation."visibility" = history."visibility"
-        ORDER BY observation."observed_at" DESC
-        LIMIT 1
-      ) AS observation ON TRUE
+  SELECT 'release_count', uncovered.releases, 0
+  FROM (
+    SELECT COUNT(*) AS releases
+    FROM "CollectionReleaseFact" AS fact
+    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
+    WHERE NOT EXISTS (
+      SELECT 1 FROM "contribution" AS event
+      WHERE event.repo_id = repository."githubRepositoryId"
+        AND event.kind = 'release'
+        AND event.github_key = fact."githubReleaseId"::text
     )
+  ) AS uncovered
+  UNION ALL
+  SELECT 'latest_commit_sum', sums.commit_sum, sums.commit_sum
+  FROM (
+    SELECT COALESCE(SUM(latest.commit_count), 0) AS commit_sum
+    FROM (
+      SELECT DISTINCT ON (github_id, year, visibility) commit_count
+      FROM github_user_activity_history
+      ORDER BY github_id, year, visibility, observed_at DESC
+    ) AS latest
+  ) AS sums
+  UNION ALL
+  SELECT 'latest_pull_request_sum', sums.pull_request_sum, sums.pull_request_sum
+  FROM (
+    SELECT COALESCE(SUM(latest.pull_request_count), 0) AS pull_request_sum
+    FROM (
+      SELECT DISTINCT ON (github_id, year, visibility) pull_request_count
+      FROM github_user_activity_history
+      ORDER BY github_id, year, visibility, observed_at DESC
+    ) AS latest
+  ) AS sums
+  UNION ALL
+  SELECT 'latest_issue_sum', sums.issue_sum, sums.issue_sum
+  FROM (
+    SELECT COALESCE(SUM(latest.issue_count), 0) AS issue_sum
+    FROM (
+      SELECT DISTINCT ON (github_id, year, visibility) issue_count
+      FROM github_user_activity_history
+      ORDER BY github_id, year, visibility, observed_at DESC
+    ) AS latest
+  ) AS sums
+  UNION ALL
+  SELECT 'latest_star_sum', sums.star_sum, sums.star_sum
+  FROM (
+    SELECT COALESCE(SUM(latest.star_count), 0) AS star_sum
+    FROM (
+      SELECT DISTINCT ON (github_id, year, visibility) star_count
+      FROM github_user_activity_history
+      ORDER BY github_id, year, visibility, observed_at DESC
+    ) AS latest
+  ) AS sums
+  UNION ALL
+  SELECT 'legacy_history_uncovered', uncovered.rows, 0
+  FROM (
+    SELECT COUNT(*) AS rows
+    FROM "GithubUserActivityHistory" AS history
+    WHERE NOT EXISTS (
+      SELECT 1
+      FROM github_user_activity_history AS observation
+      WHERE observation.github_id = history."githubId"
+        AND observation.year = history.year
+        AND observation.visibility = history.visibility
+    )
+  ) AS uncovered
   UNION ALL
   SELECT 'history_consecutive_same_value', same_value.rows, same_value.rows
   FROM (
