@@ -11,7 +11,7 @@ SET LOCAL TIME ZONE 'UTC';
 -- and the ledger then skips the insert. The clock follows the later
 -- of those two times. The counts stay on the history row.
 
-CREATE VIEW contributor_standing AS
+CREATE OR REPLACE VIEW contributor_standing AS
 SELECT
   latest.github_id,
   latest.year,
@@ -75,7 +75,7 @@ WHERE NOT EXISTS (
 -- calendar date. Null authors are left out, matching the daily rebuild.
 -- A daily row is used only when that key has no event.
 
-CREATE VIEW repo_contribution AS
+CREATE OR REPLACE VIEW repo_contribution AS
 SELECT
   repository.id AS repository_id,
   repository."githubRepositoryId" AS github_repository_id,

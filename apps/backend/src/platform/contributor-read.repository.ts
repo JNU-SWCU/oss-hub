@@ -160,27 +160,6 @@ async function queryStandingObservedAt(
   `;
 }
 
-async function selectPublicStanding(
-  prisma: PrismaService,
-  githubId: bigint,
-  year: number,
-): Promise<boolean> {
-  const rows = await prisma.$queryRaw<{ present: boolean }[]>`
-    SELECT EXISTS (
-      SELECT 1
-      FROM contributor_standing
-      WHERE github_id = ${githubId}
-        AND year = ${year}
-        AND visibility = 'PUBLIC'::"ActivityVisibility"
-    ) AS present
-  `;
-  const row = rows[0];
-  if (row === undefined) {
-    throw new Error('Standing existence query did not return a row');
-  }
-  return row.present;
-}
-
 @Injectable()
 export class ContributorReadRepository {
   constructor(private readonly prisma: PrismaService) {}
@@ -195,9 +174,5 @@ export class ContributorReadRepository {
 
   readStandingObservedAt(filter: StandingFilter): Promise<Date | null> {
     return selectStandingObservedAt(this.prisma, filter);
-  }
-
-  hasPublicStanding(githubId: bigint, year: number): Promise<boolean> {
-    return selectPublicStanding(this.prisma, githubId, year);
   }
 }

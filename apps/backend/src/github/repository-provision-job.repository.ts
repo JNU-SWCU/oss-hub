@@ -11,7 +11,6 @@ import {
   RepositoryProvisionLeaseLostError,
   RepositoryProvisionSupersededError,
 } from './repository-provision-state.error';
-import { ContributorReadRepository } from '../platform/contributor-read.repository';
 
 @Injectable()
 export class CollectionCutoverRepository {
@@ -153,10 +152,20 @@ export class CollectionUserActivityRepository {
   }
 
   async hasObservation(githubId: bigint, year: number): Promise<boolean> {
-    return new ContributorReadRepository(this.db).hasPublicStanding(
-      githubId,
-      year,
-    );
+    const rows = await this.db.$queryRaw<{ readonly present: boolean }[]>`
+      SELECT EXISTS (
+        SELECT 1
+        FROM "github_user_activity_history"
+        WHERE "github_id" = ${githubId}
+          AND "year" = ${year}
+          AND "visibility" = 'PUBLIC'::"ActivityVisibility"
+      ) AS present
+    `;
+    const row = rows[0];
+    if (row === undefined) {
+      throw new Error('Activity ledger existence query did not return a row');
+    }
+    return row.present;
   }
 
   async upsertObservation(
