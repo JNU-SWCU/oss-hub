@@ -308,6 +308,7 @@ cmd_launch() {
     PORT="$BACKEND_PORT" start_detached "$RUN_DIR/backend.pid" "$RUN_DIR/backend.log" "$REPO_ROOT/apps/backend" \
       pnpm exec nest start
   )" || fail 'backend process did not record a pid'
+  write_state
   log 'starting frontend'
   FRONTEND_PID="$(
     PORT="$FRONTEND_PORT" start_detached "$RUN_DIR/frontend.pid" "$RUN_DIR/frontend.log" "$REPO_ROOT/apps/frontend" \
