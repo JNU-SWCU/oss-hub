@@ -1403,6 +1403,59 @@ describe('CollectionIncrementalRepository — stream sync epoch', () => {
     expect(rows.get('repo-1:ISSUE')?.frontierSha).toBe('from-null');
   });
 
+  it('먼저 들어간 null epoch 행은 빈 claim이 이어 받고 이미 1이면 거절한다', async () => {
+    const db = createDb();
+    const rows = installStreams(db);
+    db.collectionRepositoryStream.create.mockImplementation(() => {
+      if (!rows.has('repo-1:COMMIT')) {
+        rows.set(
+          'repo-1:COMMIT',
+          seedStream(rows, null, { frontierSha: 'racer-sha' }),
+        );
+      }
+      return Promise.reject(
+        new Prisma.PrismaClientKnownRequestError('Unique constraint failed', {
+          code: 'P2002',
+          clientVersion: 'test',
+        }),
+      );
+    });
+
+    const written = await repositoryFor(db).upsertStreamFrontier({
+      repositoryId: 'repo-1',
+      streamType: 'COMMIT',
+      frontierSha: 'loser-sha',
+      lastRunAt: new Date('2026-11-12T04:00:00.000Z'),
+      expectedSyncEpoch: null,
+    });
+
+    expect(written).toMatchObject({
+      frontierSha: 'loser-sha',
+      syncEpoch: 1n,
+    });
+    expect(rows.get('repo-1:COMMIT')?.lastRunAt).toEqual(
+      new Date('2026-11-12T04:00:00.000Z'),
+    );
+
+    rows.set(
+      'repo-1:COMMIT',
+      seedStream(rows, 1n, { frontierSha: 'racer-sha', lastRunAt: null }),
+    );
+    await expect(
+      repositoryFor(db).upsertStreamFrontier({
+        repositoryId: 'repo-1',
+        streamType: 'COMMIT',
+        frontierSha: 'later-sha',
+        expectedSyncEpoch: null,
+      }),
+    ).rejects.toBeInstanceOf(StaleSyncEpochError);
+    expect(rows.get('repo-1:COMMIT')).toMatchObject({
+      frontierSha: 'racer-sha',
+      syncEpoch: 1n,
+      lastRunAt: null,
+    });
+  });
+
   it('행이 없는데 claim이 있으면 아무것도 쓰지 않고 거절한다', async () => {
     const db = createDb();
     const rows = installStreams(db);

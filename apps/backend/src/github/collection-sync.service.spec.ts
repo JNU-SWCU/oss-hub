@@ -555,6 +555,11 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       throw new Error(`unexpected $queryRawUnsafe: ${sql}`);
     },
     $executeRawUnsafe: (sql: string, ...args: unknown[]): Promise<number> => {
+      if (
+        /^\s*(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)\b/i.test(sql)
+      ) {
+        return Promise.resolve(0);
+      }
       const key = cursorKey(args[0] as bigint, args[1] as string);
       const existing = box.store.leases.get(key);
       if (sql.includes('"expiresAt" > $5')) {

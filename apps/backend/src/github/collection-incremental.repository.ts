@@ -368,9 +368,23 @@ const streamFrontierUpdate = (
   syncEpoch,
 });
 
+const streamInsertSavepoint = 'oss_hub_stream_insert';
+
 const isUniqueConflict = (error: unknown): boolean =>
   error instanceof Prisma.PrismaClientKnownRequestError &&
   error.code === 'P2002';
+
+const isNoActiveTransaction = (error: unknown): boolean => {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  const metaCode =
+    typeof error.meta === 'object' &&
+    error.meta !== null &&
+    'code' in error.meta &&
+    typeof error.meta.code === 'string'
+      ? error.meta.code
+      : '';
+  return metaCode === '25P01' || error.message.includes('25P01');
+};
 
 @Injectable()
 export class CollectionIncrementalStoreRepository {
@@ -1013,11 +1027,34 @@ export class CollectionIncrementalStoreRepository {
     return row ?? null;
   }
 
+  private async openStreamInsertSavepoint(): Promise<boolean> {
+    try {
+      await this.db.$executeRawUnsafe(`SAVEPOINT ${streamInsertSavepoint}`);
+      return true;
+    } catch (error) {
+      if (isNoActiveTransaction(error)) return false;
+      throw error;
+    }
+  }
+
+  private async rollbackStreamInsertSavepoint(): Promise<void> {
+    await this.db.$executeRawUnsafe(
+      `ROLLBACK TO SAVEPOINT ${streamInsertSavepoint}`,
+    );
+  }
+
+  private async releaseStreamInsertSavepoint(): Promise<void> {
+    await this.db.$executeRawUnsafe(
+      `RELEASE SAVEPOINT ${streamInsertSavepoint}`,
+    );
+  }
+
   private async insertStreamFrontier(
     input: StreamFrontierInput,
   ): Promise<StreamFrontierRow> {
+    const savepoint = await this.openStreamInsertSavepoint();
     try {
-      return await this.db.collectionRepositoryStream.create({
+      const created = await this.db.collectionRepositoryStream.create({
         data: {
           repositoryId: input.repositoryId,
           streamType: input.streamType,
@@ -1033,7 +1070,10 @@ export class CollectionIncrementalStoreRepository {
           syncEpoch: nextSyncEpoch(null),
         },
       });
+      if (savepoint) await this.releaseStreamInsertSavepoint();
+      return created;
     } catch (error) {
+      if (savepoint) await this.rollbackStreamInsertSavepoint();
       if (!isUniqueConflict(error)) throw error;
       const raced = await this.advanceStreamEpoch(input);
       if (raced === null) {
