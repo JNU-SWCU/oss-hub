@@ -13,9 +13,12 @@ BEGIN
   FROM (
     -- begin-overlap
     -- A period starts when the row is bound to the team. createdAt is that
-    -- instant only when it is later than the team's open period. A reused row
-    -- keeps its old createdAt, so the claim's updatedAt, then this transaction,
-    -- is the later floor. The close uses that same instant.
+    -- instant when the team has no open period, or when the row was not
+    -- updated after insert. A reused row keeps its old createdAt, so the
+    -- claim's updatedAt is the floor once another period on the team is open,
+    -- and also when that createdAt falls inside a period that is already
+    -- closed. A previous close of this repo is a minimum, not the start, once
+    -- the team already has an open period. The close uses that same instant.
     WITH new_link AS (
       SELECT
         repository."teamId" AS "team_id",
@@ -23,14 +26,41 @@ BEGIN
         GREATEST(
           CASE
             WHEN predecessor."valid_from" IS NULL
-              OR COALESCE(prior."valid_to", repository."createdAt")
-                > predecessor."valid_from"
-            THEN COALESCE(prior."valid_to", repository."createdAt")
-            WHEN repository."updatedAt" > predecessor."valid_from"
-            THEN repository."updatedAt"
-            WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
-            THEN transaction_timestamp()::timestamptz(3)
-            ELSE predecessor."valid_from" + interval '1 millisecond'
+              THEN GREATEST(
+                COALESCE(prior."valid_to", repository."createdAt"),
+                (
+                  SELECT MAX(other_period."valid_to")
+                  FROM "team_repo" AS other_period
+                  WHERE other_period."team_id" = repository."teamId"
+                    AND other_period."repo_id" <> repository."githubRepositoryId"
+                ),
+                CASE
+                  WHEN repository."updatedAt" > repository."createdAt"
+                    AND repository."createdAt" < (
+                      SELECT MAX(other_period."valid_to")
+                      FROM "team_repo" AS other_period
+                      WHERE other_period."team_id" = repository."teamId"
+                        AND other_period."repo_id" <> repository."githubRepositoryId"
+                    )
+                  THEN repository."updatedAt"
+                  ELSE NULL
+                END
+              )
+            ELSE GREATEST(
+              CASE
+                WHEN repository."updatedAt" > repository."createdAt"
+                  AND repository."updatedAt" > predecessor."valid_from"
+                THEN repository."updatedAt"
+                WHEN repository."createdAt" > predecessor."valid_from"
+                THEN repository."createdAt"
+                WHEN repository."updatedAt" > predecessor."valid_from"
+                THEN repository."updatedAt"
+                WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
+                THEN transaction_timestamp()::timestamptz(3)
+                ELSE predecessor."valid_from" + interval '1 millisecond'
+              END,
+              prior."valid_to"
+            )
           END,
           (
             SELECT
@@ -224,14 +254,41 @@ SELECT
   GREATEST(
     CASE
       WHEN predecessor."valid_from" IS NULL
-        OR COALESCE(prior."valid_to", repository."createdAt")
-          > predecessor."valid_from"
-      THEN COALESCE(prior."valid_to", repository."createdAt")
-      WHEN repository."updatedAt" > predecessor."valid_from"
-      THEN repository."updatedAt"
-      WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
-      THEN transaction_timestamp()::timestamptz(3)
-      ELSE predecessor."valid_from" + interval '1 millisecond'
+        THEN GREATEST(
+          COALESCE(prior."valid_to", repository."createdAt"),
+          (
+            SELECT MAX(other_period."valid_to")
+            FROM "team_repo" AS other_period
+            WHERE other_period."team_id" = repository."teamId"
+              AND other_period."repo_id" <> repository."githubRepositoryId"
+          ),
+          CASE
+            WHEN repository."updatedAt" > repository."createdAt"
+              AND repository."createdAt" < (
+                SELECT MAX(other_period."valid_to")
+                FROM "team_repo" AS other_period
+                WHERE other_period."team_id" = repository."teamId"
+                  AND other_period."repo_id" <> repository."githubRepositoryId"
+              )
+            THEN repository."updatedAt"
+            ELSE NULL
+          END
+        )
+      ELSE GREATEST(
+        CASE
+          WHEN repository."updatedAt" > repository."createdAt"
+            AND repository."updatedAt" > predecessor."valid_from"
+          THEN repository."updatedAt"
+          WHEN repository."createdAt" > predecessor."valid_from"
+          THEN repository."createdAt"
+          WHEN repository."updatedAt" > predecessor."valid_from"
+          THEN repository."updatedAt"
+          WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
+          THEN transaction_timestamp()::timestamptz(3)
+          ELSE predecessor."valid_from" + interval '1 millisecond'
+        END,
+        prior."valid_to"
+      )
     END,
     (
       SELECT
@@ -407,6 +464,26 @@ FROM "CollectionReleaseFact" AS fact
 JOIN "GithubRepository" AS repository ON repository."id" = fact."repositoryId"
 ON CONFLICT ("repo_id", "kind", "github_key") DO NOTHING;
 
+UPDATE "github_user_activity_history" AS observation
+SET
+  "commit_count" = history."commitCount",
+  "pull_request_count" = history."pullRequestCount",
+  "issue_count" = history."issueCount",
+  "repository_count" = history."repositoryCount",
+  "star_count" = history."starCount"
+FROM "GithubUserActivityHistory" AS history
+WHERE observation."github_id" = history."githubId"
+  AND observation."year" = history."year"
+  AND observation."visibility" = history."visibility"
+  AND observation."observed_at" = history."observedAt"
+  AND (
+    observation."commit_count" IS DISTINCT FROM history."commitCount"
+    OR observation."pull_request_count" IS DISTINCT FROM history."pullRequestCount"
+    OR observation."issue_count" IS DISTINCT FROM history."issueCount"
+    OR observation."repository_count" IS DISTINCT FROM history."repositoryCount"
+    OR observation."star_count" IS DISTINCT FROM history."starCount"
+  );
+
 INSERT INTO "github_user_activity_history" (
   "github_id",
   "year",
@@ -429,6 +506,27 @@ SELECT
   history."starCount",
   history."observedAt"
 FROM "GithubUserActivityHistory" AS history
+WHERE NOT EXISTS (
+  SELECT 1
+  FROM "github_user_activity_history" AS observation
+  WHERE observation."github_id" = history."githubId"
+    AND observation."year" = history."year"
+    AND observation."visibility" = history."visibility"
+    AND observation."observed_at" = (
+      SELECT latest."observed_at"
+      FROM "github_user_activity_history" AS latest
+      WHERE latest."github_id" = history."githubId"
+        AND latest."year" = history."year"
+        AND latest."visibility" = history."visibility"
+      ORDER BY latest."observed_at" DESC
+      LIMIT 1
+    )
+    AND observation."commit_count" = history."commitCount"
+    AND observation."pull_request_count" = history."pullRequestCount"
+    AND observation."issue_count" = history."issueCount"
+    AND observation."repository_count" = history."repositoryCount"
+    AND observation."star_count" = history."starCount"
+)
 ON CONFLICT ("github_id", "year", "visibility", "observed_at") DO NOTHING;
 
 INSERT INTO "github_user_activity_history" (

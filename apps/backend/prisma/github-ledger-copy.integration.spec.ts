@@ -209,6 +209,9 @@ describe('github ledger shadow copy', () => {
         { check: 'latest_pull_request_sum', expected: 4n, actual: 4n },
         { check: 'latest_issue_sum', expected: 1n, actual: 1n },
         { check: 'latest_star_sum', expected: 2n, actual: 2n },
+        { check: 'history_consecutive_same_value', expected: 0n, actual: 0n },
+        { check: 'open_link_repo_mismatch', expected: 0n, actual: 0n },
+        { check: 'open_period_created_at_floor', expected: 0n, actual: 0n },
       ]);
     }
 
@@ -482,6 +485,11 @@ describe('github ledger shadow copy', () => {
         createdAt: replacementAt,
       },
     });
+    await prisma.$executeRaw`
+      UPDATE "GithubRepository"
+      SET "updatedAt" = ${replacementAt}
+      WHERE "githubRepositoryId" = ${MOVE_REPO_GITHUB_ID}
+    `;
 
     await copyLedger();
     const links = async () =>
@@ -610,6 +618,11 @@ describe('github ledger shadow copy', () => {
         createdAt: claimAt,
       },
     });
+    await prisma.$executeRaw`
+      UPDATE "GithubRepository"
+      SET "updatedAt" = ${claimAt}
+      WHERE "githubRepositoryId" = ${VIOLATION_REPO_GITHUB_ID}
+    `;
 
     await copyLedger();
     const links = await prisma.$queryRaw<
@@ -689,6 +702,11 @@ async function seed(): Promise<void> {
       createdAt: new Date('2026-10-01T00:00:00.000Z'),
     },
   });
+  await prisma.$executeRaw`
+    UPDATE "GithubRepository"
+    SET "updatedAt" = "createdAt"
+    WHERE "githubRepositoryId" = ${REPO_GITHUB_ID}
+  `;
   await prisma.githubRepository.create({
     data: {
       githubRepositoryId: ABSENT_REPO_GITHUB_ID,
