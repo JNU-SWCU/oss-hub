@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
+import { StaleSyncEpochError } from './collection-incremental.error';
 import type {
   CollectionAppClientTokenProvider,
   CollectionAppClient,
@@ -126,6 +127,7 @@ export interface StreamFrontierInput {
   lastRunAt?: Date;
   lastErrorAt?: Date | null;
   lastErrorCode?: string | null;
+  expectedSyncEpoch: bigint | null;
 }
 
 export interface StreamFrontierRow {
@@ -140,6 +142,7 @@ export interface StreamFrontierRow {
   lastRunAt: Date | null;
   lastErrorAt: Date | null;
   lastErrorCode: string | null;
+  syncEpoch: bigint | null;
 }
 
 export interface SyncCursorInput {
@@ -317,6 +320,70 @@ const isContributionInsertSummary = (
   return (
     Number.isInteger(record.missing_repo) && Number.isInteger(record.inserted)
   );
+};
+
+const syncEpochMatches = (
+  stored: bigint | null,
+  claimed: bigint | null,
+): boolean => stored === null || stored === claimed;
+
+const nextSyncEpoch = (stored: bigint | null): bigint => (stored ?? 0n) + 1n;
+
+const streamFrontierUpdate = (
+  input: StreamFrontierInput,
+  syncEpoch: bigint,
+): {
+  status?: CollectionStreamStatus;
+  frontierSha?: string | null;
+  frontierCreatedAt?: Date | null;
+  frontierEntityId?: bigint | null;
+  requestFingerprint?: string | null;
+  etag?: string | null;
+  lastRunAt?: Date | null;
+  lastErrorAt?: Date | null;
+  lastErrorCode?: string | null;
+  syncEpoch: bigint;
+} => ({
+  ...(input.status !== undefined ? { status: input.status } : {}),
+  ...(input.frontierSha !== undefined
+    ? { frontierSha: input.frontierSha }
+    : {}),
+  ...(input.frontierCreatedAt !== undefined
+    ? { frontierCreatedAt: input.frontierCreatedAt }
+    : {}),
+  ...(input.frontierEntityId !== undefined
+    ? { frontierEntityId: input.frontierEntityId }
+    : {}),
+  ...(input.requestFingerprint !== undefined
+    ? { requestFingerprint: input.requestFingerprint }
+    : {}),
+  ...(input.etag !== undefined ? { etag: input.etag } : {}),
+  ...(input.lastRunAt !== undefined ? { lastRunAt: input.lastRunAt } : {}),
+  ...(input.lastErrorAt !== undefined
+    ? { lastErrorAt: input.lastErrorAt }
+    : {}),
+  ...(input.lastErrorCode !== undefined
+    ? { lastErrorCode: input.lastErrorCode }
+    : {}),
+  syncEpoch,
+});
+
+const streamInsertSavepoint = 'oss_hub_stream_insert';
+
+const isUniqueConflict = (error: unknown): boolean =>
+  error instanceof Prisma.PrismaClientKnownRequestError &&
+  error.code === 'P2002';
+
+const isNoActiveTransaction = (error: unknown): boolean => {
+  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
+  const metaCode =
+    typeof error.meta === 'object' &&
+    error.meta !== null &&
+    'code' in error.meta &&
+    typeof error.meta.code === 'string'
+      ? error.meta.code
+      : '';
+  return metaCode === '25P01' || error.message.includes('25P01');
 };
 
 @Injectable()
@@ -862,52 +929,31 @@ export class CollectionIncrementalStoreRepository {
   async upsertStreamFrontier(
     input: StreamFrontierInput,
   ): Promise<StreamFrontierRow> {
-    return this.db.collectionRepositoryStream.upsert({
+    const advanced = await this.advanceStreamEpoch(input);
+    if (advanced !== null) return advanced;
+    const current = await this.db.collectionRepositoryStream.findUnique({
       where: {
         repositoryId_streamType: {
           repositoryId: input.repositoryId,
           streamType: input.streamType,
         },
       },
-      create: {
-        repositoryId: input.repositoryId,
-        streamType: input.streamType,
-        status: input.status ?? 'PENDING',
-        frontierSha: input.frontierSha ?? null,
-        frontierCreatedAt: input.frontierCreatedAt ?? null,
-        frontierEntityId: input.frontierEntityId ?? null,
-        requestFingerprint: input.requestFingerprint ?? null,
-        etag: input.etag ?? null,
-        lastRunAt: input.lastRunAt ?? null,
-        lastErrorAt: input.lastErrorAt ?? null,
-        lastErrorCode: input.lastErrorCode ?? null,
-      },
-      update: {
-        ...(input.status !== undefined ? { status: input.status } : {}),
-        ...(input.frontierSha !== undefined
-          ? { frontierSha: input.frontierSha }
-          : {}),
-        ...(input.frontierCreatedAt !== undefined
-          ? { frontierCreatedAt: input.frontierCreatedAt }
-          : {}),
-        ...(input.frontierEntityId !== undefined
-          ? { frontierEntityId: input.frontierEntityId }
-          : {}),
-        ...(input.requestFingerprint !== undefined
-          ? { requestFingerprint: input.requestFingerprint }
-          : {}),
-        ...(input.etag !== undefined ? { etag: input.etag } : {}),
-        ...(input.lastRunAt !== undefined
-          ? { lastRunAt: input.lastRunAt }
-          : {}),
-        ...(input.lastErrorAt !== undefined
-          ? { lastErrorAt: input.lastErrorAt }
-          : {}),
-        ...(input.lastErrorCode !== undefined
-          ? { lastErrorCode: input.lastErrorCode }
-          : {}),
-      },
     });
+    if (
+      current !== null &&
+      syncEpochMatches(current.syncEpoch ?? null, input.expectedSyncEpoch)
+    ) {
+      const retried = await this.advanceStreamEpoch(input);
+      if (retried !== null) return retried;
+    }
+    if (current !== null || input.expectedSyncEpoch !== null) {
+      throw new StaleSyncEpochError(
+        input.repositoryId,
+        input.streamType,
+        input.expectedSyncEpoch,
+      );
+    }
+    return this.insertStreamFrontier(input);
   }
 
   async getStreamFrontier(
@@ -925,6 +971,7 @@ export class CollectionIncrementalStoreRepository {
     outcome:
       | { readonly checkedAt: Date }
       | { readonly lastErrorAt: Date; readonly lastErrorCode: string },
+    expectedSyncEpoch: bigint | null,
   ): Promise<void> {
     if ('lastErrorCode' in outcome) {
       await this.upsertStreamFrontier({
@@ -932,17 +979,112 @@ export class CollectionIncrementalStoreRepository {
         streamType,
         lastErrorAt: outcome.lastErrorAt,
         lastErrorCode: outcome.lastErrorCode,
+        expectedSyncEpoch,
       });
       return;
     }
-    await this.db.collectionRepositoryStream.updateMany({
-      where: { repositoryId, streamType },
-      data: {
-        lastRunAt: outcome.checkedAt,
-        lastErrorAt: null,
-        lastErrorCode: null,
-      },
+    const advanced = await this.advanceStreamEpoch({
+      repositoryId,
+      streamType,
+      lastRunAt: outcome.checkedAt,
+      lastErrorAt: null,
+      lastErrorCode: null,
+      expectedSyncEpoch,
     });
+    if (advanced !== null) return;
+    const current = await this.getStreamFrontier(repositoryId, streamType);
+    if (current === null) return;
+    throw new StaleSyncEpochError(repositoryId, streamType, expectedSyncEpoch);
+  }
+
+  private async advanceStreamEpoch(
+    input: StreamFrontierInput,
+  ): Promise<StreamFrontierRow | null> {
+    const claimed = input.expectedSyncEpoch;
+    const matchedClaim = await this.writeStreamWhere(
+      input,
+      claimed,
+      nextSyncEpoch(claimed),
+    );
+    if (matchedClaim !== null) return matchedClaim;
+    if (claimed === null) return null;
+    return this.writeStreamWhere(input, null, nextSyncEpoch(null));
+  }
+
+  private async writeStreamWhere(
+    input: StreamFrontierInput,
+    storedEpoch: bigint | null,
+    syncEpoch: bigint,
+  ): Promise<StreamFrontierRow | null> {
+    const [row] = await this.db.collectionRepositoryStream.updateManyAndReturn({
+      where: {
+        repositoryId: input.repositoryId,
+        streamType: input.streamType,
+        syncEpoch: storedEpoch,
+      },
+      data: streamFrontierUpdate(input, syncEpoch),
+    });
+    return row ?? null;
+  }
+
+  private async openStreamInsertSavepoint(): Promise<boolean> {
+    try {
+      await this.db.$executeRawUnsafe(`SAVEPOINT ${streamInsertSavepoint}`);
+      return true;
+    } catch (error) {
+      if (isNoActiveTransaction(error)) return false;
+      throw error;
+    }
+  }
+
+  private async rollbackStreamInsertSavepoint(): Promise<void> {
+    await this.db.$executeRawUnsafe(
+      `ROLLBACK TO SAVEPOINT ${streamInsertSavepoint}`,
+    );
+  }
+
+  private async releaseStreamInsertSavepoint(): Promise<void> {
+    await this.db.$executeRawUnsafe(
+      `RELEASE SAVEPOINT ${streamInsertSavepoint}`,
+    );
+  }
+
+  private async insertStreamFrontier(
+    input: StreamFrontierInput,
+  ): Promise<StreamFrontierRow> {
+    const savepoint = await this.openStreamInsertSavepoint();
+    try {
+      const created = await this.db.collectionRepositoryStream.create({
+        data: {
+          repositoryId: input.repositoryId,
+          streamType: input.streamType,
+          status: input.status ?? 'PENDING',
+          frontierSha: input.frontierSha ?? null,
+          frontierCreatedAt: input.frontierCreatedAt ?? null,
+          frontierEntityId: input.frontierEntityId ?? null,
+          requestFingerprint: input.requestFingerprint ?? null,
+          etag: input.etag ?? null,
+          lastRunAt: input.lastRunAt ?? null,
+          lastErrorAt: input.lastErrorAt ?? null,
+          lastErrorCode: input.lastErrorCode ?? null,
+          syncEpoch: nextSyncEpoch(null),
+        },
+      });
+      if (savepoint) await this.releaseStreamInsertSavepoint();
+      return created;
+    } catch (error) {
+      if (savepoint) await this.rollbackStreamInsertSavepoint();
+      if (!isUniqueConflict(error)) throw error;
+      const raced = await this.advanceStreamEpoch(input);
+      if (raced === null) {
+        throw new StaleSyncEpochError(
+          input.repositoryId,
+          input.streamType,
+          input.expectedSyncEpoch,
+        );
+      }
+      return raced;
+    }
   }
 
   async upsertSyncCursor(input: SyncCursorInput): Promise<SyncCursorRow> {

@@ -957,6 +957,8 @@ model CollectionRepositoryStream {
   lastErrorAt   DateTime?
   lastErrorCode String?
 
+  syncEpoch BigInt? @map("sync_epoch")
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

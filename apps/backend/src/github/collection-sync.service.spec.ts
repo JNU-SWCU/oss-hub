@@ -1,3 +1,4 @@
+import { Prisma } from '@prisma/client';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Logger } from '@nestjs/common';
 import {
@@ -104,6 +105,35 @@ const cloneStore = (store: Store): Store => ({
   teamMembers: new Map(store.teamMembers),
   sweepHistory: new Map(store.sweepHistory),
 });
+
+const applyStreamUpdate = (
+  streams: Map<string, Row>,
+  where: Row & { repositoryId: string; streamType: string },
+  data: Row,
+): Row[] => {
+  const key = `${where.repositoryId}:${where.streamType}`;
+  const existing = streams.get(key);
+  if (!existing) return [];
+  if (
+    'syncEpoch' in where &&
+    (existing.syncEpoch ?? null) !== (where.syncEpoch ?? null)
+  ) {
+    return [];
+  }
+  const guard = where.lastErrorCode;
+  if (
+    guard !== undefined &&
+    typeof guard === 'object' &&
+    guard !== null &&
+    'not' in guard &&
+    (existing.lastErrorCode ?? null) === null
+  ) {
+    return [];
+  }
+  const row = applyUpdate(existing, data);
+  streams.set(key, row);
+  return [row];
+};
 
 const applyUpdate = (existing: Row, update: Row): Row => {
   const row: Row = { ...existing };
@@ -403,21 +433,27 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
         where: Row & { repositoryId: string; streamType: string };
         data: Row;
       }): { count: number } => {
-        const key = `${where.repositoryId}:${where.streamType}`;
-        const existing = box.store.streams.get(key);
-        if (!existing) return { count: 0 };
-        const guard = where.lastErrorCode;
-        if (
-          guard !== undefined &&
-          typeof guard === 'object' &&
-          guard !== null &&
-          'not' in guard &&
-          (existing.lastErrorCode ?? null) === null
-        ) {
-          return { count: 0 };
+        const updated = applyStreamUpdate(box.store.streams, where, data);
+        return { count: updated.length };
+      },
+      updateManyAndReturn: ({
+        where,
+        data,
+      }: {
+        where: Row & { repositoryId: string; streamType: string };
+        data: Row;
+      }): Row[] => applyStreamUpdate(box.store.streams, where, data),
+      create: ({ data }: { data: Row }): Row => {
+        const key = `${String(data.repositoryId)}:${String(data.streamType)}`;
+        if (box.store.streams.has(key)) {
+          throw new Prisma.PrismaClientKnownRequestError(
+            'Unique constraint failed',
+            { code: 'P2002', clientVersion: 'test' },
+          );
         }
-        box.store.streams.set(key, applyUpdate(existing, data));
-        return { count: 1 };
+        const row = { ...data };
+        box.store.streams.set(key, row);
+        return row;
       },
     },
 
@@ -519,6 +555,11 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       throw new Error(`unexpected $queryRawUnsafe: ${sql}`);
     },
     $executeRawUnsafe: (sql: string, ...args: unknown[]): Promise<number> => {
+      if (
+        /^\s*(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)\b/i.test(sql)
+      ) {
+        return Promise.resolve(0);
+      }
       const key = cursorKey(args[0] as bigint, args[1] as string);
       const existing = box.store.leases.get(key);
       if (sql.includes('"expiresAt" > $5')) {
@@ -1640,7 +1681,11 @@ describe('CollectionSyncService — #546 트리거 결과 추적', () => {
 
     const stream = streamOf(box, 'COMMIT');
     expect(stream.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
-    expect(JSON.stringify(stream)).not.toContain('ghs_must_not_leak');
+    expect(
+      JSON.stringify(stream, (_key, value: unknown) =>
+        typeof value === 'bigint' ? value.toString() : value,
+      ),
+    ).not.toContain('ghs_must_not_leak');
   });
 
   it('다음 run이 성공하면 남아 있던 오류 표시를 지운다(변경 없는 READY stream 포함)', async () => {
@@ -1770,6 +1815,46 @@ describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', 
     expect(stream?.status).toBe('READY');
     expect(stream?.frontierSha).toBeNull();
     expect(stream?.etag).toBeNull();
+  });
+
+  it('오래된 epoch로 진 팀 수집은 이긴 행에 오류를 덮어쓰지 않는다', async () => {
+    const { db, box } = createFakeDb();
+    const repository = providerRepository();
+    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
+      { githubId: 11n, nickname: 'alice' },
+    ]);
+    box.store.streams.set('repo-1:COMMIT', {
+      repositoryId: 'repo-1',
+      streamType: 'COMMIT',
+      status: 'READY',
+      frontierSha: 'old-sha',
+      etag: 'old-etag',
+      lastErrorCode: 'OLD_ERROR',
+      syncEpoch: 4n,
+    });
+    const winner = {
+      repositoryId: 'repo-1',
+      streamType: 'COMMIT',
+      status: 'READY',
+      frontierSha: 'winner-sha',
+      etag: 'winner-etag',
+      lastErrorCode: null,
+      lastErrorAt: null,
+      syncEpoch: 6n,
+    };
+    const client = createClient([repository]);
+    client.listDefaultBranchCommitsByAuthor.mockImplementation(() => {
+      box.store.streams.set('repo-1:COMMIT', { ...winner });
+      return Promise.resolve([authoredCommit('sha-loser', 'alice', '11')]);
+    });
+
+    const service = createService(db, client);
+    await service.run('owner-1');
+
+    expect(box.store.streams.get('repo-1:COMMIT')).toMatchObject(winner);
+    expect(
+      [...box.store.commitFacts.values()].map((fact) => fact.sha),
+    ).not.toContain('sha-loser');
   });
 
   it('팀이 없는 저장소는 수집하지 않는다', async () => {

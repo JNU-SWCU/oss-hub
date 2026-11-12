@@ -33,6 +33,7 @@ export class CollectionStreamCheckpointService {
     headSha: string | null,
     requestFingerprint: string,
     etag: string | null,
+    expectedSyncEpoch: bigint | null,
   ): Promise<number> {
     return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
@@ -54,6 +55,7 @@ export class CollectionStreamCheckpointService {
         requestFingerprint,
         etag,
         lastRunAt: this.now(),
+        expectedSyncEpoch,
       });
       return recorded.insertedCount;
     });
@@ -67,6 +69,7 @@ export class CollectionStreamCheckpointService {
     newFrontier: { createdAt: string; id: string } | null,
     requestFingerprint: string,
     teamMembershipFrontier: string | null,
+    expectedSyncEpoch: bigint | null,
   ): Promise<number> {
     return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
@@ -90,6 +93,7 @@ export class CollectionStreamCheckpointService {
         frontierEntityId: newFrontier ? BigInt(newFrontier.id) : null,
         requestFingerprint,
         lastRunAt: this.now(),
+        expectedSyncEpoch,
       });
       return recorded.insertedCount;
     });
@@ -103,6 +107,7 @@ export class CollectionStreamCheckpointService {
     frontierProbe: string | null,
     requestFingerprint: string,
     etag: string | null,
+    expectedSyncEpoch: bigint | null,
   ): Promise<number> {
     return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
@@ -124,6 +129,7 @@ export class CollectionStreamCheckpointService {
         requestFingerprint,
         etag,
         lastRunAt: this.now(),
+        expectedSyncEpoch,
       });
       return recorded.insertedCount;
     });
@@ -137,6 +143,7 @@ export class CollectionStreamCheckpointService {
     newFrontier: { createdAt: string; id: string } | null,
     requestFingerprint: string,
     teamMembershipFrontier: string | null,
+    expectedSyncEpoch: bigint | null,
   ): Promise<number> {
     return this.incrementalRepository.runInTransaction(async (repo) => {
       await repo.assertSyncLeaseValid(lease, this.now());
@@ -160,6 +167,7 @@ export class CollectionStreamCheckpointService {
         frontierEntityId: newFrontier ? BigInt(newFrontier.id) : null,
         requestFingerprint,
         lastRunAt: this.now(),
+        expectedSyncEpoch,
       });
       return recorded.insertedCount;
     });
