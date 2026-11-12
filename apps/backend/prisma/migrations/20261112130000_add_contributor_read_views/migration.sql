@@ -3,10 +3,13 @@ SET LOCAL TIME ZONE 'UTC';
 -- which does not block reads or writes. No statement here locks "Team",
 -- "User", or "Program".
 --
--- A key that already has history contributes its latest observation once.
+-- A key that already has history contributes its latest counts once.
 -- The old table fills that key only when history has no row, so the
 -- verification scaffold and rows written before the copy stay visible.
 -- The two sources are not added together.
+-- The old upsert still moves observedAt when the counts do not change
+-- and the ledger then skips the insert. The clock follows the later
+-- of those two times. The counts stay on the history row.
 
 CREATE VIEW contributor_standing AS
 SELECT
@@ -18,7 +21,10 @@ SELECT
   latest.issue_count,
   latest.repository_count,
   latest.star_count,
-  latest.observed_at
+  GREATEST(
+    latest.observed_at,
+    COALESCE(legacy."observedAt" AT TIME ZONE 'UTC', latest.observed_at)
+  ) AS observed_at
 FROM (
   SELECT DISTINCT ON (
     observation.github_id,
@@ -41,6 +47,10 @@ FROM (
     observation.visibility,
     observation.observed_at DESC
 ) AS latest
+LEFT JOIN "GithubUserActivityHistory" AS legacy
+  ON legacy."githubId" = latest.github_id
+ AND legacy.year = latest.year
+ AND legacy.visibility = latest.visibility
 UNION ALL
 SELECT
   history."githubId",

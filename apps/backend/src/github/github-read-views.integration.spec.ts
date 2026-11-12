@@ -1,4 +1,5 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
 
@@ -9,6 +10,7 @@ assertIsolatedIntegrationDatabase({
 
 const prisma = new PrismaService();
 const GITHUB_ID = 8_970_000_000_001n;
+const CLOCK_ID = 8_970_000_000_021n;
 const AUTHOR_MATCH = 8_970_000_000_011n;
 const AUTHOR_DAILY = 8_970_000_000_012n;
 const AUTHOR_EVENTS = 8_970_000_000_013n;
@@ -110,6 +112,47 @@ describe('contributor standing and repo contribution views', () => {
       commitCount: 1,
     });
     expect(rows.some((row) => row.githubId === null)).toBe(false);
+  });
+
+  it('moves the standing clock when the same counts are observed again', async () => {
+    const first = new Date('2122-04-01T00:00:00.000Z');
+    const second = new Date('2122-05-01T00:00:00.000Z');
+    const counts = {
+      commitCount: 8,
+      pullRequestCount: 0,
+      issueCount: 0,
+      repositoryCount: 0,
+      starCount: 0,
+    };
+    const repository = new CollectionUserActivityRepository(prisma);
+    await repository.upsertObservation({
+      githubId: CLOCK_ID,
+      githubLogin: 'synthetic-read-views-clock',
+      year: 2122,
+      month: 4,
+      ...counts,
+      observedAt: first,
+    });
+    await repository.upsertObservation({
+      githubId: CLOCK_ID,
+      githubLogin: 'synthetic-read-views-clock',
+      year: 2122,
+      month: 4,
+      ...counts,
+      observedAt: second,
+    });
+
+    const rows = await prisma.$queryRaw<
+      { observedAt: Date; commitCount: number }[]
+    >`
+      SELECT observed_at AS "observedAt", commit_count AS "commitCount"
+      FROM contributor_standing
+      WHERE github_id = ${CLOCK_ID}
+        AND year = 2122
+        AND visibility = 'PUBLIC'::"ActivityVisibility"
+    `;
+
+    expect(rows).toEqual([{ observedAt: second, commitCount: 8 }]);
   });
 
   it('splits the Asia/Seoul year boundary at midnight', async () => {
@@ -272,11 +315,14 @@ async function purge(): Promise<void> {
   await prisma.contribution.deleteMany({
     where: { repositoryId: REPOSITORY_ID },
   });
+  await prisma.githubUserActivityMonthly.deleteMany({
+    where: { githubId: CLOCK_ID },
+  });
   await prisma.githubUserActivityObservation.deleteMany({
-    where: { githubId: GITHUB_ID },
+    where: { githubId: { in: [GITHUB_ID, CLOCK_ID] } },
   });
   await prisma.githubUserActivityHistory.deleteMany({
-    where: { githubId: GITHUB_ID },
+    where: { githubId: { in: [GITHUB_ID, CLOCK_ID] } },
   });
   await prisma.repo.deleteMany({
     where: { githubRepoId: GITHUB_REPOSITORY_ID },
