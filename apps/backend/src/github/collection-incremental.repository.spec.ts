@@ -1,3 +1,4 @@
+import { Logger } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type { PrismaService } from '../platform/prisma.service';
@@ -29,6 +30,7 @@ interface MockDb {
   githubIssueHistory: { createMany: jest.Mock };
   contribution: { deleteMany: jest.Mock };
   $executeRaw: jest.Mock;
+  $queryRaw: jest.Mock;
   user: { findMany: jest.Mock };
   collectionRepositoryStream: {
     upsert: jest.Mock;
@@ -79,6 +81,7 @@ const createDb = (): MockDb => {
 
     contribution: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $executeRaw: jest.fn().mockResolvedValue(1),
+    $queryRaw: jest.fn().mockResolvedValue([{ missing_repo: 0, inserted: 0 }]),
 
     user: {
       findMany: jest.fn(
@@ -113,6 +116,14 @@ const repositoryFor = (db: MockDb): CollectionIncrementalRepository =>
     db as unknown as PrismaService,
     new PlatformRepository(),
   );
+
+const shadowSqlText = (query: unknown): string => {
+  if (typeof query !== 'object' || query === null || !('text' in query)) {
+    return '';
+  }
+  const text = query.text;
+  return typeof text === 'string' ? text : '';
+};
 const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
 interface FakeRepoRow {
@@ -423,6 +434,100 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
     expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+  });
+
+  it('같은 커밋을 다시 적어도 contribution SQL은 ON CONFLICT이며 repo는 쓰지 않는다', async () => {
+    const db = createDb();
+    const facts = [
+      {
+        sha: 'abc',
+        committedAt: new Date('2026-03-01T00:00:00.000Z'),
+        authorGithubId: 99n,
+        authorGithubLogin: 'octocat',
+      },
+    ];
+
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      facts,
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
+    await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      facts,
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
+
+    expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+    const calls = db.$queryRaw.mock.calls as readonly unknown[][];
+    for (const call of calls) {
+      const text = shadowSqlText(call[0]);
+      expect(text).toContain('JOIN "repo"');
+      expect(text).toContain(
+        'ON CONFLICT ("repo_id", "kind", "github_key") DO NOTHING',
+      );
+      expect(text).toContain('fact."observedAt"');
+      expect(text).not.toContain('INSERT INTO "repo"');
+      expect(text).not.toContain('team_repo');
+    }
+  });
+
+  it('repo 행이 없으면 contribution을 넣지 않고 오류 없이 빠지며 다음 복사가 빈 칸을 채운다', async () => {
+    const db = createDb();
+    const debug = jest
+      .spyOn(Logger.prototype, 'debug')
+      .mockImplementation(() => undefined);
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
+    db.$queryRaw.mockResolvedValue([{ missing_repo: 1, inserted: 0 }]);
+
+    const result = await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'missing-repo',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 99n,
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
+
+    expect(result).toEqual({ acceptedCount: 1, insertedCount: 1 });
+    expect(debug).toHaveBeenCalledWith({
+      event: 'collection.ledger.contribution_skipped_missing_repo',
+      kind: 'commit',
+      missingRepoCount: 1,
+    });
+    const calls = db.$queryRaw.mock.calls as readonly unknown[][];
+    const text = shadowSqlText(calls[0]?.[0]);
+    expect(text).toContain('JOIN "repo"');
+    expect(text).toContain('fact."observedAt" AS first_seen_at');
+    expect(text).toContain(
+      'ON CONFLICT ("repo_id", "kind", "github_key") DO NOTHING',
+    );
+    debug.mockRestore();
+  });
+
+  it('이미 열린 트랜잭션 안에서는 중첩 트랜잭션을 열지 않는다', async () => {
+    const db = createDb();
+    db.$transaction = undefined as unknown as jest.Mock;
+    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
+
+    const result = await repositoryFor(db).recordCommitFacts(
+      'repo-1',
+      [
+        {
+          sha: 'inside',
+          committedAt: new Date('2026-03-01T00:00:00.000Z'),
+          authorGithubId: 99n,
+        },
+      ],
+      DEFAULT_REGISTERED_GITHUB_IDS,
+    );
+
+    expect(result.insertedCount).toBe(1);
+    expect(db.collectionCommitFact.createMany).toHaveBeenCalledTimes(1);
+    expect(db.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });
 

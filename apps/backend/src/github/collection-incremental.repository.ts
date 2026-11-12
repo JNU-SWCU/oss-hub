@@ -1,6 +1,6 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
-import type { Prisma } from '@prisma/client';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import type {
   CollectionAppClientTokenProvider,
@@ -242,6 +242,7 @@ type CollectionStoreClient = Pick<
   Prisma.TransactionClient,
   | '$executeRaw'
   | '$executeRawUnsafe'
+  | '$queryRaw'
   | '$queryRawUnsafe'
   | 'collectionCommitFact'
   | 'collectionPullRequestFact'
@@ -258,8 +259,99 @@ type CollectionStoreClient = Pick<
   | 'user'
 >;
 
+type ShadowContributionKind = 'commit' | 'pull_request' | 'issue' | 'release';
+
+interface ShadowContributionInsert {
+  readonly repositoryId: string;
+  readonly kind: ShadowContributionKind;
+  readonly factTable:
+    | '"CollectionCommitFact"'
+    | '"CollectionPullRequestFact"'
+    | '"CollectionReleaseFact"'
+    | '"GithubIssueHistory"';
+  readonly keyColumn:
+    '"sha"' | '"githubPullRequestId"' | '"githubReleaseId"' | '"githubIssueId"';
+  readonly keyExpression:
+    | 'fact."sha"'
+    | 'fact."githubPullRequestId"::text'
+    | 'fact."githubReleaseId"::text'
+    | 'fact."githubIssueId"::text';
+  readonly occurredAtExpression:
+    'fact."committedAt"' | 'fact."createdAt"' | 'fact."publishedAt"';
+  readonly keys: readonly string[] | readonly bigint[];
+}
+
+interface ShadowContributionSummary {
+  readonly missing_repo: number;
+  readonly inserted: number;
+}
+
+const contributionKindSql = (kind: ShadowContributionKind): string => {
+  switch (kind) {
+    case 'commit':
+      return `'commit'::"contribution_kind"`;
+    case 'pull_request':
+      return `'pull_request'::"contribution_kind"`;
+    case 'issue':
+      return `'issue'::"contribution_kind"`;
+    case 'release':
+      return `'release'::"contribution_kind"`;
+    default: {
+      const unexpected: never = kind;
+      throw new Error(`Unknown contribution kind: ${String(unexpected)}`);
+    }
+  }
+};
+
+const shadowContributionQuery = (
+  input: ShadowContributionInsert,
+): Prisma.Sql => Prisma.sql`
+  WITH candidates AS (
+    SELECT
+      repository."githubRepositoryId" AS repo_id,
+      ${Prisma.raw(input.keyExpression)} AS github_key,
+      fact."authorGithubId" AS author_github_id,
+      ${Prisma.raw(input.occurredAtExpression)} AS occurred_at,
+      fact."observedAt" AS first_seen_at
+    FROM ${Prisma.raw(input.factTable)} AS fact
+    JOIN "GithubRepository" AS repository
+      ON repository."id" = fact."repositoryId"
+    WHERE fact."repositoryId" = ${input.repositoryId}
+      AND fact.${Prisma.raw(input.keyColumn)} = ANY(${input.keys})
+  ),
+  inserted AS (
+    INSERT INTO "contribution" (
+      "repo_id", "kind", "github_key", "author_github_id", "occurred_at", "first_seen_at"
+    )
+    SELECT
+      candidate.repo_id,
+      ${Prisma.raw(contributionKindSql(input.kind))},
+      candidate.github_key,
+      candidate.author_github_id,
+      candidate.occurred_at,
+      candidate.first_seen_at
+    FROM candidates AS candidate
+    JOIN "repo" ON "repo"."github_repo_id" = candidate.repo_id
+    ON CONFLICT ("repo_id", "kind", "github_key") DO NOTHING
+    RETURNING 1
+  )
+  SELECT
+    (
+      SELECT count(*)::int
+      FROM candidates AS candidate
+      WHERE NOT EXISTS (
+        SELECT 1 FROM "repo"
+        WHERE "repo"."github_repo_id" = candidate.repo_id
+      )
+    ) AS missing_repo,
+    (SELECT count(*)::int FROM inserted) AS inserted
+`;
+
 @Injectable()
 export class CollectionIncrementalStoreRepository {
+  private readonly logger = new Logger(
+    CollectionIncrementalStoreRepository.name,
+  );
   constructor(
     private readonly db: CollectionStoreClient,
     protected readonly platform: PlatformRepository,
@@ -304,6 +396,52 @@ export class CollectionIncrementalStoreRepository {
     }));
   }
 
+  private async inSameTransaction<T>(
+    write: (client: CollectionStoreClient) => Promise<T>,
+  ): Promise<T> {
+    const root = this.db as CollectionStoreClient & {
+      readonly $transaction?: (
+        fn: (client: CollectionStoreClient) => Promise<T>,
+      ) => Promise<T>;
+    };
+    if (typeof root.$transaction !== 'function') {
+      return write(this.db);
+    }
+    return root.$transaction((client) => write(client));
+  }
+
+  private async recordShadowContributions(
+    client: CollectionStoreClient,
+    input: ShadowContributionInsert,
+  ): Promise<void> {
+    if (input.keys.length === 0) {
+      throw new Error('shadow contribution insert requires at least one key');
+    }
+    const rows = await client.$queryRaw<readonly ShadowContributionSummary[]>(
+      shadowContributionQuery(input),
+    );
+    const summary = rows[0];
+    if (summary === undefined) {
+      throw new Error('ledger contribution insert returned no summary row');
+    }
+    const missingRepoCount = Number(summary.missing_repo);
+    const insertedCount = Number(summary.inserted);
+    if (
+      !Number.isInteger(missingRepoCount) ||
+      !Number.isInteger(insertedCount)
+    ) {
+      throw new Error(
+        'ledger contribution insert returned a non-integer summary',
+      );
+    }
+    if (missingRepoCount === 0) return;
+    this.logger.debug({
+      event: 'collection.ledger.contribution_skipped_missing_repo',
+      kind: input.kind,
+      missingRepoCount,
+    });
+  }
+
   async recordCommitFacts(
     repositoryId: string,
     facts: readonly CommitFactInput[],
@@ -314,8 +452,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.collectionCommitFact.createMany({
+    const insertedCount = await this.inSameTransaction(async (client) => {
+      const created = await client.collectionCommitFact.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           sha: fact.sha,
@@ -325,6 +463,17 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.recordShadowContributions(client, {
+        repositoryId,
+        kind: 'commit',
+        factTable: '"CollectionCommitFact"',
+        keyColumn: '"sha"',
+        keyExpression: 'fact."sha"',
+        occurredAtExpression: 'fact."committedAt"',
+        keys: acceptedFacts.map((fact) => fact.sha),
+      });
+      return created.count;
+    });
 
     await this.rebuildAffectedContributions(
       repositoryId,
@@ -346,8 +495,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.collectionPullRequestFact.createMany({
+    const insertedCount = await this.inSameTransaction(async (client) => {
+      const created = await client.collectionPullRequestFact.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubPullRequestId: fact.githubPullRequestId,
@@ -358,6 +507,17 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.recordShadowContributions(client, {
+        repositoryId,
+        kind: 'pull_request',
+        factTable: '"CollectionPullRequestFact"',
+        keyColumn: '"githubPullRequestId"',
+        keyExpression: 'fact."githubPullRequestId"::text',
+        occurredAtExpression: 'fact."createdAt"',
+        keys: acceptedFacts.map((fact) => fact.githubPullRequestId),
+      });
+      return created.count;
+    });
 
     await this.rebuildAffectedContributions(
       repositoryId,
@@ -379,8 +539,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.collectionReleaseFact.createMany({
+    const insertedCount = await this.inSameTransaction(async (client) => {
+      const created = await client.collectionReleaseFact.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubReleaseId: fact.githubReleaseId,
@@ -390,6 +550,17 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.recordShadowContributions(client, {
+        repositoryId,
+        kind: 'release',
+        factTable: '"CollectionReleaseFact"',
+        keyColumn: '"githubReleaseId"',
+        keyExpression: 'fact."githubReleaseId"::text',
+        occurredAtExpression: 'fact."publishedAt"',
+        keys: acceptedFacts.map((fact) => fact.githubReleaseId),
+      });
+      return created.count;
+    });
 
     await this.rebuildAffectedContributions(
       repositoryId,
@@ -411,8 +582,8 @@ export class CollectionIncrementalStoreRepository {
     if (acceptedFacts.length === 0) {
       return { acceptedCount: 0, insertedCount: 0 };
     }
-    const { count: insertedCount } =
-      await this.db.githubIssueHistory.createMany({
+    const insertedCount = await this.inSameTransaction(async (client) => {
+      const created = await client.githubIssueHistory.createMany({
         data: acceptedFacts.map((fact) => ({
           repositoryId,
           githubIssueId: fact.githubIssueId,
@@ -423,6 +594,17 @@ export class CollectionIncrementalStoreRepository {
         })),
         skipDuplicates: true,
       });
+      await this.recordShadowContributions(client, {
+        repositoryId,
+        kind: 'issue',
+        factTable: '"GithubIssueHistory"',
+        keyColumn: '"githubIssueId"',
+        keyExpression: 'fact."githubIssueId"::text',
+        occurredAtExpression: 'fact."createdAt"',
+        keys: acceptedFacts.map((fact) => fact.githubIssueId),
+      });
+      return created.count;
+    });
     await this.rebuildAffectedContributions(
       repositoryId,
       acceptedFacts.map((fact) => ({

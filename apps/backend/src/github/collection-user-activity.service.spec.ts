@@ -43,10 +43,22 @@ describe('CollectionUserActivityService', () => {
         user: { findMany },
         githubUserActivityHistory: { findUnique, upsert },
         githubUserActivityMonthly: { upsert: monthlyUpsert },
+        githubUserActivityObservation: {
+          findUnique: jest.fn().mockResolvedValue(null),
+          findFirst: jest.fn().mockResolvedValue(null),
+          update: jest.fn().mockResolvedValue({}),
+          create: jest.fn().mockResolvedValue({}),
+        },
         $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
           operation({
             githubUserActivityHistory: { findUnique, upsert },
             githubUserActivityMonthly: { upsert: monthlyUpsert },
+            githubUserActivityObservation: {
+              findUnique: jest.fn().mockResolvedValue(null),
+              findFirst: jest.fn().mockResolvedValue(null),
+              update: jest.fn().mockResolvedValue({}),
+              create: jest.fn().mockResolvedValue({}),
+            },
           }),
       } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
@@ -328,5 +340,138 @@ describe('CollectionUserActivityService', () => {
 
     expect(contribution.create).not.toHaveBeenCalled();
     expect(contribution.upsert).not.toHaveBeenCalled();
+  });
+});
+
+describe('CollectionUserActivityRepository ledger history', () => {
+  const observedAt = new Date('2026-08-19T00:00:00.000Z');
+  const laterObservedAt = new Date('2026-08-20T00:00:00.000Z');
+  const counts = {
+    commitCount: 10,
+    pullRequestCount: 2,
+    issueCount: 3,
+    repositoryCount: 4,
+    starCount: 5,
+  };
+
+  const buildRepository = (observation: {
+    findUnique: jest.Mock;
+    findFirst: jest.Mock;
+    update: jest.Mock;
+    create: jest.Mock;
+  }): CollectionUserActivityRepository => {
+    const db = {
+      githubUserActivityHistory: {
+        upsert: jest.fn().mockResolvedValue({}),
+        findUnique: jest.fn().mockResolvedValue(null),
+      },
+      githubUserActivityMonthly: { upsert: jest.fn().mockResolvedValue({}) },
+      githubUserActivityObservation: observation,
+      $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
+        operation(db),
+    };
+    return new CollectionUserActivityRepository(db as unknown as PrismaService);
+  };
+
+  const publicObservation = {
+    githubId: 4242n,
+    year: 2026,
+    month: 8,
+    githubLogin: 'octocat',
+    ...counts,
+    observedAt,
+  };
+
+  it('이전 원장 행이 없으면 다섯 수치로 한 행을 만든다', async () => {
+    const observation = {
+      findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(null),
+      update: jest.fn(),
+      create: jest.fn().mockResolvedValue({}),
+    };
+
+    await buildRepository(observation).upsertObservation(publicObservation);
+
+    expect(observation.update).not.toHaveBeenCalled();
+    expect(observation.create).toHaveBeenCalledTimes(1);
+    expect(observation.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        githubId: 4242n,
+        year: 2026,
+        visibility: 'PUBLIC',
+        observedAt,
+        ...counts,
+      }) as unknown,
+    });
+  });
+
+  it('최신 행의 다섯 수치가 같으면 observedAt이 달라도 행을 추가하지 않는다', async () => {
+    const observation = {
+      findUnique: jest.fn().mockResolvedValue(null),
+      findFirst: jest.fn().mockResolvedValue(counts),
+      update: jest.fn(),
+      create: jest.fn(),
+    };
+
+    await buildRepository(observation).upsertObservation({
+      ...publicObservation,
+      observedAt: laterObservedAt,
+    });
+
+    expect(observation.update).not.toHaveBeenCalled();
+    expect(observation.create).not.toHaveBeenCalled();
+  });
+
+  it('같은 observedAt에서 수치가 바뀌면 그 행을 고치고 새 행은 만들지 않는다', async () => {
+    const observation = {
+      findUnique: jest.fn().mockResolvedValue({ ...counts, commitCount: 9 }),
+      findFirst: jest.fn().mockResolvedValue({ ...counts, commitCount: 9 }),
+      update: jest.fn().mockResolvedValue({}),
+      create: jest.fn(),
+    };
+
+    await buildRepository(observation).upsertObservation({
+      ...publicObservation,
+      commitCount: 11,
+    });
+
+    expect(observation.update).toHaveBeenCalledWith({
+      where: {
+        githubId_year_visibility_observedAt: {
+          githubId: 4242n,
+          year: 2026,
+          visibility: 'PUBLIC',
+          observedAt,
+        },
+      },
+      data: expect.objectContaining({
+        commitCount: 11,
+        starCount: 5,
+      }) as unknown,
+    });
+    expect(observation.create).not.toHaveBeenCalled();
+  });
+
+  it('같은 수치를 두 번 관측해도 원장 행은 한 번만 만든다', async () => {
+    const stored = { ...counts };
+    const observation = {
+      findUnique: jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(stored),
+      findFirst: jest
+        .fn()
+        .mockResolvedValueOnce(null)
+        .mockResolvedValue(stored),
+      update: jest.fn(),
+      create: jest.fn().mockResolvedValue({}),
+    };
+
+    const repository = buildRepository(observation);
+    await repository.upsertObservation(publicObservation);
+    await repository.upsertObservation(publicObservation);
+
+    expect(observation.create).toHaveBeenCalledTimes(1);
+    expect(observation.update).not.toHaveBeenCalled();
   });
 });
