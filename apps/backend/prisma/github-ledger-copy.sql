@@ -15,8 +15,9 @@ BEGIN
     -- A period starts when the row is bound to the team. createdAt is that
     -- instant when the team has no open period, or when the row was not
     -- updated after insert. A reused row keeps its old createdAt, so the
-    -- claim's updatedAt, then this transaction, is the later floor. The close
-    -- uses that same instant.
+    -- claim's updatedAt, then this transaction, is the later floor. A previous
+    -- close is only a minimum once the team already has an open period. The
+    -- close uses that same instant.
     WITH new_link AS (
       SELECT
         repository."teamId" AS "team_id",
@@ -25,19 +26,21 @@ BEGIN
           CASE
             WHEN predecessor."valid_from" IS NULL
               THEN COALESCE(prior."valid_to", repository."createdAt")
-            WHEN prior."valid_to" IS NOT NULL
-              AND prior."valid_to" > predecessor."valid_from"
-              THEN prior."valid_to"
-            WHEN repository."updatedAt" > repository."createdAt"
-              AND repository."updatedAt" > predecessor."valid_from"
-              THEN repository."updatedAt"
-            WHEN repository."createdAt" > predecessor."valid_from"
-              THEN repository."createdAt"
-            WHEN repository."updatedAt" > predecessor."valid_from"
-              THEN repository."updatedAt"
-            WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
-              THEN transaction_timestamp()::timestamptz(3)
-            ELSE predecessor."valid_from" + interval '1 millisecond'
+            ELSE GREATEST(
+              CASE
+                WHEN repository."updatedAt" > repository."createdAt"
+                  AND repository."updatedAt" > predecessor."valid_from"
+                THEN repository."updatedAt"
+                WHEN repository."createdAt" > predecessor."valid_from"
+                THEN repository."createdAt"
+                WHEN repository."updatedAt" > predecessor."valid_from"
+                THEN repository."updatedAt"
+                WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
+                THEN transaction_timestamp()::timestamptz(3)
+                ELSE predecessor."valid_from" + interval '1 millisecond'
+              END,
+              prior."valid_to"
+            )
           END,
           (
             SELECT
@@ -232,19 +235,21 @@ SELECT
     CASE
       WHEN predecessor."valid_from" IS NULL
         THEN COALESCE(prior."valid_to", repository."createdAt")
-      WHEN prior."valid_to" IS NOT NULL
-        AND prior."valid_to" > predecessor."valid_from"
-        THEN prior."valid_to"
-      WHEN repository."updatedAt" > repository."createdAt"
-        AND repository."updatedAt" > predecessor."valid_from"
-        THEN repository."updatedAt"
-      WHEN repository."createdAt" > predecessor."valid_from"
-        THEN repository."createdAt"
-      WHEN repository."updatedAt" > predecessor."valid_from"
-        THEN repository."updatedAt"
-      WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
-      THEN transaction_timestamp()::timestamptz(3)
-      ELSE predecessor."valid_from" + interval '1 millisecond'
+      ELSE GREATEST(
+        CASE
+          WHEN repository."updatedAt" > repository."createdAt"
+            AND repository."updatedAt" > predecessor."valid_from"
+          THEN repository."updatedAt"
+          WHEN repository."createdAt" > predecessor."valid_from"
+          THEN repository."createdAt"
+          WHEN repository."updatedAt" > predecessor."valid_from"
+          THEN repository."updatedAt"
+          WHEN transaction_timestamp()::timestamptz(3) > predecessor."valid_from"
+          THEN transaction_timestamp()::timestamptz(3)
+          ELSE predecessor."valid_from" + interval '1 millisecond'
+        END,
+        prior."valid_to"
+      )
     END,
     (
       SELECT

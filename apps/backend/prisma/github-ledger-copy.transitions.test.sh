@@ -747,6 +747,24 @@ SQL
     echo "FAIL ${engine_name} detached_same_updated_at: open repo ${open_repo}" >&2
     exit 1
   fi
+
+  reset_db
+  psql_db >/dev/null <<SQL
+${teams_sql}
+$(repo_sql s 1002 team-t '2026-01-01 00:00:00+00' '2026-01-01 00:00:00+00')
+$(repo_sql r 1001 team-x '2026-03-01 00:00:00+00' '2026-03-01 00:00:00+00')
+SQL
+  copy_or_die "$engine_name" setup
+  psql_db >/dev/null <<SQL
+$(move_sql r null '2026-06-01 00:00:00+00')
+SQL
+  copy_or_die "$engine_name" setup
+  psql_db >/dev/null <<SQL
+DELETE FROM "GithubRepository" WHERE "id" = 's';
+$(move_sql r team-t '2026-12-01 00:00:00+00')
+SQL
+  copy_or_die "$engine_name" setup
+  expect_periods prior_close_before_claim "$engine_name" 'team-x:1001[2026-03-01 00:00:00.000,2026-06-01 00:00:00.000] team-t:1001[2026-12-01 00:00:00.000,open] team-t:1002[2026-01-01 00:00:00.000,2026-12-01 00:00:00.000]'
 }
 
 case "$engine" in
