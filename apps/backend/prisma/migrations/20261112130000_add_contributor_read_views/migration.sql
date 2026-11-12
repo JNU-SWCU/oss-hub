@@ -1,15 +1,4 @@
 SET LOCAL TIME ZONE 'UTC';
--- Views only. CREATE VIEW takes AccessShareLock on the source tables,
--- which does not block reads or writes. No statement here locks "Team",
--- "User", or "Program".
---
--- A key that already has history contributes its latest counts once.
--- The old table fills that key only when history has no row, so the
--- verification scaffold and rows written before the copy stay visible.
--- The two sources are not added together.
--- The old upsert still moves observedAt when the counts do not change
--- and the ledger then skips the insert. The clock follows the later
--- of those two times. The counts stay on the history row.
 
 CREATE OR REPLACE VIEW contributor_standing AS
 SELECT
@@ -70,10 +59,6 @@ WHERE NOT EXISTS (
     AND observation.year = history.year
     AND observation.visibility = history.visibility
 );
-
--- Group contribution events by repository, author, and the Asia/Seoul
--- calendar date. Null authors are left out, matching the daily rebuild.
--- A daily row is used only when that key has no event.
 
 CREATE OR REPLACE VIEW repo_contribution AS
 SELECT
