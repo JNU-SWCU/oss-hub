@@ -302,10 +302,10 @@ docker exec -e PGUSER=postgres -e PGDATABASE="$db" -e LEDGER_VERIFY_SQL=/tmp/git
   "$container" sh -c 'set -eu; sh /tmp/github-ledger-verify.sh' >/tmp/ledger-verify-pipeline.out
 pipeline_status=$?
 set -e
-assert_eq mismatch_exit "$mismatch_status" 0
+assert_eq mismatch_exit "$mismatch_status" 1
 printf '%s\n' "$mismatch_out" | grep -qx 'verify_mismatch'
 echo 'PASS mismatch_logs_verify_mismatch'
-assert_eq pipeline_exit "$pipeline_status" 0
+assert_eq pipeline_exit "$pipeline_status" 1
 echo "same_count_second_copy_ns=${same_count_ns}"
 
 reset_activity
