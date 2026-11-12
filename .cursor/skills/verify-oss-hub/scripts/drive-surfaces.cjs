@@ -78,10 +78,26 @@ function rankingTotal(row) {
   );
 }
 
+function rankingFixtureYear(rows) {
+  const year = rows[0] === undefined ? undefined : rows[0].year;
+  if (!Number.isInteger(year)) {
+    throw new Error('ranking fixture year is missing');
+  }
+  for (const row of rows) {
+    if (row.year !== year) {
+      throw new Error(
+        `ranking fixtures must share one year, saw ${year} and ${row.year}`,
+      );
+    }
+  }
+  return year;
+}
+
 async function driveRanking(browser, frontendUrl, backendUrl, evidenceDir) {
+  const year = rankingFixtureYear(fixture.ranking);
   const { context, page } = await openPage(browser, frontendUrl, '');
   try {
-    await page.goto(`${frontendUrl}/ranking`, {
+    await page.goto(`${frontendUrl}/ranking?year=${year}`, {
       waitUntil: 'domcontentloaded',
     });
     await page.getByRole('heading', { name: '랭킹', exact: true }).waitFor();
@@ -115,6 +131,7 @@ async function driveRanking(browser, frontendUrl, backendUrl, evidenceDir) {
     await saveMain(page, evidenceDir, 'ranking.txt');
 
     const apiUrl = new URL('/api/v1/ranking', backendUrl);
+    apiUrl.searchParams.set('year', String(year));
     apiUrl.searchParams.set('page', '1');
     apiUrl.searchParams.set('pageSize', '20');
     const response = await page.request.get(apiUrl.toString());
