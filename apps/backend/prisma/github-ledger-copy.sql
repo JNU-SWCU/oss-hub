@@ -15,9 +15,10 @@ BEGIN
     -- A period starts when the row is bound to the team. createdAt is that
     -- instant when the team has no open period, or when the row was not
     -- updated after insert. A reused row keeps its old createdAt, so the
-    -- claim's updatedAt, then this transaction, is the later floor. A previous
-    -- close is only a minimum once the team already has an open period. The
-    -- close uses that same instant.
+    -- claim's updatedAt is the floor once another period on the team is open,
+    -- and also when that createdAt falls inside a period that is already
+    -- closed. A previous close of this repo is a minimum, not the start, once
+    -- the team already has an open period. The close uses that same instant.
     WITH new_link AS (
       SELECT
         repository."teamId" AS "team_id",
@@ -25,7 +26,26 @@ BEGIN
         GREATEST(
           CASE
             WHEN predecessor."valid_from" IS NULL
-              THEN COALESCE(prior."valid_to", repository."createdAt")
+              THEN GREATEST(
+                COALESCE(prior."valid_to", repository."createdAt"),
+                (
+                  SELECT MAX(other_period."valid_to")
+                  FROM "team_repo" AS other_period
+                  WHERE other_period."team_id" = repository."teamId"
+                    AND other_period."repo_id" <> repository."githubRepositoryId"
+                ),
+                CASE
+                  WHEN repository."updatedAt" > repository."createdAt"
+                    AND repository."createdAt" < (
+                      SELECT MAX(other_period."valid_to")
+                      FROM "team_repo" AS other_period
+                      WHERE other_period."team_id" = repository."teamId"
+                        AND other_period."repo_id" <> repository."githubRepositoryId"
+                    )
+                  THEN repository."updatedAt"
+                  ELSE NULL
+                END
+              )
             ELSE GREATEST(
               CASE
                 WHEN repository."updatedAt" > repository."createdAt"
@@ -234,7 +254,26 @@ SELECT
   GREATEST(
     CASE
       WHEN predecessor."valid_from" IS NULL
-        THEN COALESCE(prior."valid_to", repository."createdAt")
+        THEN GREATEST(
+          COALESCE(prior."valid_to", repository."createdAt"),
+          (
+            SELECT MAX(other_period."valid_to")
+            FROM "team_repo" AS other_period
+            WHERE other_period."team_id" = repository."teamId"
+              AND other_period."repo_id" <> repository."githubRepositoryId"
+          ),
+          CASE
+            WHEN repository."updatedAt" > repository."createdAt"
+              AND repository."createdAt" < (
+                SELECT MAX(other_period."valid_to")
+                FROM "team_repo" AS other_period
+                WHERE other_period."team_id" = repository."teamId"
+                  AND other_period."repo_id" <> repository."githubRepositoryId"
+              )
+            THEN repository."updatedAt"
+            ELSE NULL
+          END
+        )
       ELSE GREATEST(
         CASE
           WHEN repository."updatedAt" > repository."createdAt"

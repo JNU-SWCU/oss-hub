@@ -161,13 +161,15 @@ FROM (
      AND repository."teamId" = link."team_id"
     WHERE link."valid_to" IS NULL
       AND repository."updatedAt" > repository."createdAt"
-      AND link."valid_from" = repository."createdAt"
+      -- createdAt is timestamp without time zone. Compare its UTC wall clock
+      -- so the session TimeZone cannot drop the hit.
+      AND (link."valid_from" AT TIME ZONE 'UTC') = repository."createdAt"
       AND EXISTS (
         SELECT 1
         FROM "team_repo" AS earlier
         WHERE earlier."team_id" = link."team_id"
           AND earlier."repo_id" <> link."repo_id"
-          AND earlier."valid_from" < repository."createdAt"
+          AND (earlier."valid_from" AT TIME ZONE 'UTC') < repository."createdAt"
       )
   ) AS floor_hit
 ) AS report;

@@ -346,4 +346,37 @@ wait "$copy_one"
 wait "$copy_two"
 assert_eq concurrent_copy "$(history_count)" 1
 
+psql_db >/dev/null <<'SQL'
+ALTER TABLE "GithubRepository"
+  ALTER COLUMN "createdAt" TYPE timestamp(3) USING ("createdAt" AT TIME ZONE 'UTC'),
+  ALTER COLUMN "updatedAt" TYPE timestamp(3) USING ("updatedAt" AT TIME ZONE 'UTC');
+INSERT INTO "Team" ("id") VALUES ('team-t');
+INSERT INTO "GithubRepository" (
+  "id", "githubRepositoryId", "nameWithOwner", "source", "presence", "teamId",
+  "createdAt", "updatedAt"
+) VALUES
+  ('r', 1001, 'org/r', 'ORG_PROVISIONED', 'PRESENT', 'team-t',
+    TIMESTAMP '2026-08-01 00:00:00', TIMESTAMP '2026-12-01 00:00:00'),
+  ('s', 1002, 'org/s', 'ORG_PROVISIONED', 'PRESENT', NULL,
+    TIMESTAMP '2026-01-01 00:00:00', TIMESTAMP '2026-06-01 00:00:00');
+INSERT INTO "repo" ("github_repo_id", "owner_name", "source") VALUES
+  (1001, 'org/r', 'ORG_PROVISIONED'),
+  (1002, 'org/s', 'ORG_PROVISIONED');
+INSERT INTO "team_repo" ("team_id", "repo_id", "valid_from", "valid_to") VALUES
+  ('team-t', 1002, '2026-01-01 00:00:00+00', '2026-06-01 00:00:00+00'),
+  ('team-t', 1001, '2026-08-01 00:00:00+00', NULL);
+SQL
+seoul_out="$(docker exec -e PGUSER=postgres -e PGDATABASE="$db" \
+  -e PGOPTIONS='-c TimeZone=Asia/Seoul' -e LEDGER_VERIFY_SQL=/tmp/github-ledger-verify.sql \
+  "$container" sh /tmp/github-ledger-verify.sh)"
+seoul_status=$?
+assert_eq seoul_floor_exit "$seoul_status" 0
+printf '%s\n' "$seoul_out" | grep -qx 'open_period_created_at_floor=1'
+echo 'PASS seoul_floor_still_counts'
+if printf '%s\n' "$seoul_out" | grep -qx 'verify_mismatch'; then
+  echo 'FAIL seoul_floor_should_stay_report_only' >&2
+  exit 1
+fi
+echo 'PASS seoul_floor_report_only'
+
 echo "ledger history change: passed on Postgres ${version}"
