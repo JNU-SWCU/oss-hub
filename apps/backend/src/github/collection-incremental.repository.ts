@@ -46,8 +46,6 @@ export type RepositorySource = 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
 export type CollectionStreamType =
   'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
 
-type CollectionRunKind = 'SWEEP' | 'REPOSITORY_LINK';
-
 type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
 
 type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
@@ -162,23 +160,6 @@ export interface SyncCursorRow {
   cycleCompletedAt: Date | null;
 }
 
-export interface RecordSweepHistoryInput {
-  appId: bigint;
-  scope: string;
-  kind: CollectionRunKind;
-  sweepFinishedAt: Date;
-  cycleStartedAt: Date | null;
-  insertedCommitCount: number;
-  insertedPullRequestCount: number;
-  insertedReleaseCount: number;
-  insertedIssueCount: number;
-  attemptedRepositoryCount: number;
-  processedRepositoryCount: number;
-  failedRepositoryCount: number;
-  cycleCompleted: boolean;
-  stoppedForBudget: boolean;
-}
-
 type CollectionSyncRunTrigger = 'CRON' | 'MANUAL' | 'CLI' | 'UNKNOWN';
 
 type CollectionSyncRunStatusProjection = 'RUNNING' | 'FAILED' | 'COMPLETED';
@@ -233,7 +214,6 @@ type CollectionStoreClient = Pick<
   | '$queryRaw'
   | '$queryRawUnsafe'
   | 'collectionRepositoryStream'
-  | 'collectionSweepHistory'
   | 'collectionSyncCursor'
   | 'collectionSyncLease'
   | 'githubRepository'
@@ -936,27 +916,6 @@ export class CollectionIncrementalStoreRepository {
   ): Promise<SyncCursorRow | null> {
     return this.db.collectionSyncCursor.findUnique({
       where: { appId_scope: { appId, scope } },
-    });
-  }
-
-  async recordSweepHistory(input: RecordSweepHistoryInput): Promise<void> {
-    await this.db.collectionSweepHistory.create({
-      data: {
-        appId: input.appId,
-        scope: input.scope,
-        kind: input.kind,
-        sweepFinishedAt: input.sweepFinishedAt,
-        cycleStartedAt: input.cycleStartedAt,
-        insertedCommitCount: input.insertedCommitCount,
-        insertedPullRequestCount: input.insertedPullRequestCount,
-        insertedReleaseCount: input.insertedReleaseCount,
-        insertedIssueCount: input.insertedIssueCount,
-        attemptedRepositoryCount: input.attemptedRepositoryCount,
-        processedRepositoryCount: input.processedRepositoryCount,
-        failedRepositoryCount: input.failedRepositoryCount,
-        cycleCompleted: input.cycleCompleted,
-        stoppedForBudget: input.stoppedForBudget,
-      },
     });
   }
 

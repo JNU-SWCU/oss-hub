@@ -16,7 +16,6 @@ import type {
   CollectionStreamType,
   CollectionSyncRuntime,
   CollectionSyncRuntimeFactory,
-  RecordSweepHistoryInput,
   RegisteredGithubIdSet,
   RepositorySource,
   RepositoryTeamMemberAccount,
@@ -68,27 +67,6 @@ const idleRunResult = (
   insertedFactCount: 0,
 });
 
-function insertedCounter() {
-  const counts = { commit: 0, pullRequest: 0, release: 0, issue: 0 };
-  const add = (streamType: CollectionStreamType, insertedCount: number) => {
-    switch (streamType) {
-      case 'COMMIT':
-        counts.commit += insertedCount;
-        break;
-      case 'PULL_REQUEST':
-        counts.pullRequest += insertedCount;
-        break;
-      case 'RELEASE':
-        counts.release += insertedCount;
-        break;
-      case 'ISSUE':
-        counts.issue += insertedCount;
-        break;
-    }
-  };
-  return { counts, add };
-}
-
 type RepositorySyncOutcome =
   | { readonly kind: 'PROCESSED' }
   | { readonly kind: 'FAILED'; readonly errorName: string }
@@ -118,7 +96,6 @@ type SyncRepository = Pick<
   | 'saveOutsiderContribution'
   | 'getSyncCursor'
   | 'upsertSyncCursor'
-  | 'recordSweepHistory'
   | 'findCollectionTargetByLogicalKey'
   | 'acquireSyncLease'
   | 'heartbeatSyncLease'
@@ -273,7 +250,6 @@ export class CollectionSyncService {
       const identitySnapshot =
         await this.incrementalRepository.listRegisteredGithubIds();
       let insertedFactCount = 0;
-      const inserted = insertedCounter();
 
       const attempted = !runtime.queue.shouldStop();
       const outcome: RepositorySyncOutcome = attempted
@@ -284,31 +260,13 @@ export class CollectionSyncService {
             identitySnapshot,
             deadline,
             runId,
-            (streamType, insertedCount) => {
+            (insertedCount) => {
               insertedFactCount += insertedCount;
-              inserted.add(streamType, insertedCount);
             },
           )
         : { kind: 'STOPPED_FOR_BUDGET' };
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
 
-      if (outcome.kind !== 'SKIPPED')
-        await this.recordSweepHistoryBestEffort({
-          appId: key.appId,
-          scope: key.scope,
-          kind: 'REPOSITORY_LINK',
-          sweepFinishedAt: this.now(),
-          cycleStartedAt: null,
-          insertedCommitCount: inserted.counts.commit,
-          insertedPullRequestCount: inserted.counts.pullRequest,
-          insertedReleaseCount: inserted.counts.release,
-          insertedIssueCount: inserted.counts.issue,
-          attemptedRepositoryCount: attempted ? 1 : 0,
-          processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
-          failedRepositoryCount: outcome.kind === 'FAILED' ? 1 : 0,
-          cycleCompleted: false,
-          stoppedForBudget: outcome.kind === 'STOPPED_FOR_BUDGET',
-        });
       return {
         ...idleRunResult(runId, 'COMPLETED'),
         processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
@@ -423,16 +381,14 @@ export class CollectionSyncService {
         ? cursor.lastGithubRepositoryId
         : null;
 
-    let cycleStartedAt = cursor?.cycleStartedAt ?? null;
     if (startAfter === null) {
-      cycleStartedAt = this.now();
-      const freshCycleStartedAt = cycleStartedAt;
+      const cycleStartedAt = this.now();
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
         await repo.upsertSyncCursor({
           appId: key.appId,
           scope: key.scope,
-          cycleStartedAt: freshCycleStartedAt,
+          cycleStartedAt,
           cycleCompletedAt: null,
         });
       });
@@ -460,7 +416,6 @@ export class CollectionSyncService {
 
     let processedRepositoryCount = 0;
     let insertedFactCount = 0;
-    const inserted = insertedCounter();
     let stoppedForBudget = false;
     let lastError: string | null = null;
     let failedRepositoryCount = 0;
@@ -483,9 +438,8 @@ export class CollectionSyncService {
         identitySnapshot,
         deadline,
         runId,
-        (streamType, insertedCount) => {
+        (insertedCount) => {
           insertedFactCount += insertedCount;
-          inserted.add(streamType, insertedCount);
         },
       );
       if (outcome.kind === 'STOPPED_FOR_BUDGET') {
@@ -536,23 +490,6 @@ export class CollectionSyncService {
 
     await this.incrementalRepository.releaseSyncLease(lease, this.now());
 
-    await this.recordSweepHistoryBestEffort({
-      appId: key.appId,
-      scope: key.scope,
-      kind: 'SWEEP',
-      sweepFinishedAt: this.now(),
-      cycleStartedAt,
-      insertedCommitCount: inserted.counts.commit,
-      insertedPullRequestCount: inserted.counts.pullRequest,
-      insertedReleaseCount: inserted.counts.release,
-      insertedIssueCount: inserted.counts.issue,
-      attemptedRepositoryCount,
-      processedRepositoryCount,
-      failedRepositoryCount,
-      cycleCompleted,
-      stoppedForBudget,
-    });
-
     return {
       runId,
       status: 'COMPLETED',
@@ -564,20 +501,6 @@ export class CollectionSyncService {
     };
   }
 
-  private async recordSweepHistoryBestEffort(
-    input: RecordSweepHistoryInput,
-  ): Promise<void> {
-    try {
-      await this.incrementalRepository.recordSweepHistory(input);
-    } catch (error) {
-      this.logger.warn({
-        event: 'collection.sync.sweep_history_write_failed',
-        scope: input.scope,
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    }
-  }
-
   private async syncOne(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
@@ -585,10 +508,7 @@ export class CollectionSyncService {
     registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
     runId: string,
-    onStreamInserted: (
-      streamType: CollectionStreamType,
-      insertedCount: number,
-    ) => void,
+    onStreamInserted: (insertedCount: number) => void,
   ): Promise<RepositorySyncOutcome> {
     const current =
       await this.incrementalRepository.findCollectionTargetByLogicalKey(
@@ -656,10 +576,7 @@ export class CollectionSyncService {
     repository: CollectionRepositoryRow,
     registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
-    onStreamInserted: (
-      streamType: CollectionStreamType,
-      insertedCount: number,
-    ) => void,
+    onStreamInserted: (insertedCount: number) => void,
   ): Promise<void> {
     const [owner, name] = this.repositoryUrlService.splitNameWithOwner(
       repository.nameWithOwner,
@@ -697,7 +614,7 @@ export class CollectionSyncService {
           };
         },
       );
-    onStreamInserted('COMMIT', commitCount);
+    onStreamInserted(commitCount);
     const pullRequestCount = await this.trackStreamOutcome(
       lease,
       repository.id,
@@ -714,7 +631,7 @@ export class CollectionSyncService {
           deadline,
         ),
     );
-    onStreamInserted('PULL_REQUEST', pullRequestCount);
+    onStreamInserted(pullRequestCount);
     const releaseCount = await this.trackStreamOutcome(
       lease,
       repository.id,
@@ -731,7 +648,7 @@ export class CollectionSyncService {
           deadline,
         ),
     );
-    onStreamInserted('RELEASE', releaseCount);
+    onStreamInserted(releaseCount);
 
     let issueCount = 0;
     try {
@@ -758,7 +675,7 @@ export class CollectionSyncService {
         throw error;
       }
     }
-    onStreamInserted('ISSUE', issueCount);
+    onStreamInserted(issueCount);
     if (teamMembers !== null) {
       await this.observeOutsiderContributions(
         runtime,
