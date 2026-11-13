@@ -21,6 +21,7 @@ export interface SystemStatus {
   readonly oldestRetryPendingAt: string | null;
   readonly lastCycleStartedAt: string | null;
   readonly lastCycleCompletedAt: string | null;
+  readonly lastSuccessAt: string | null;
 
   readonly nextCycleAt: string | null;
   readonly currentRunStatus: CurrentRunStatus;
@@ -48,59 +49,21 @@ export interface CollectionStreamRepository {
   readonly streams: readonly CollectionStreamDetail[];
 }
 
-export interface CollectionActivityEntry {
-  readonly sweepFinishedAt: string;
-  readonly cycleStartedAt: string | null;
-  readonly scope: string;
-
-  readonly kind: 'SWEEP' | 'REPOSITORY_LINK';
-  readonly insertedCommitCount: number;
-  readonly insertedPullRequestCount: number;
-  readonly insertedReleaseCount: number;
-  readonly insertedIssueCount: number;
-  readonly attemptedRepositoryCount: number;
-  readonly processedRepositoryCount: number;
-  readonly failedRepositoryCount: number;
-  readonly cycleCompleted: boolean;
-  readonly stoppedForBudget: boolean;
-}
-
 export interface ExternalCollectionStatus {
   readonly trackedRepositoryCount: number;
-  readonly lastSweep: CollectionActivityEntry | null;
-  readonly cumulativeCommitCount: number;
-  readonly cumulativePullRequestCount: number;
-  readonly cumulativeReleaseCount: number;
-  readonly cumulativeIssueCount: number;
+  readonly lastSuccessAt: string | null;
 }
-
-export type CollectionActivityWire = Omit<
-  CollectionActivityEntry,
-  'kind' | 'insertedIssueCount'
-> &
-  Partial<Pick<CollectionActivityEntry, 'kind' | 'insertedIssueCount'>>;
-
-type ExternalCollectionStatusWire = Omit<
-  ExternalCollectionStatus,
-  'lastSweep' | 'cumulativeIssueCount'
-> & {
-  readonly lastSweep: CollectionActivityWire | null;
-  readonly cumulativeIssueCount?: number;
-};
 
 export interface SystemStatusResponse {
   readonly collection: SystemStatus;
   readonly collectionStreams: readonly CollectionStreamRepository[];
 
-  readonly collectionActivity?: readonly CollectionActivityWire[];
-
-  readonly externalCollection?: ExternalCollectionStatusWire;
+  readonly externalCollection?: ExternalCollectionStatus;
 }
 
 export interface SystemStatusData {
   readonly status: SystemStatus;
   readonly collectionStreams: readonly CollectionStreamRepository[];
-  readonly collectionActivity: readonly CollectionActivityEntry[];
   readonly externalCollection: ExternalCollectionStatus;
 }
 
@@ -112,7 +75,6 @@ export type SystemStatusViewState =
       readonly freshness: 'current' | 'refreshing' | 'stale';
       readonly status: SystemStatus;
       readonly collectionStreams: readonly CollectionStreamRepository[];
-      readonly collectionActivity: readonly CollectionActivityEntry[];
       readonly externalCollection: ExternalCollectionStatus;
     };
 

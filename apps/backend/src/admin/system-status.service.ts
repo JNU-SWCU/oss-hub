@@ -30,6 +30,7 @@ interface CollectionSystemStatusResult {
   readonly oldestRetryPendingAt: Date | null;
   readonly lastCycleStartedAt: Date | null;
   readonly lastCycleCompletedAt: Date | null;
+  readonly lastSuccessAt: Date | null;
   readonly nextCycleAt: Date | null;
   readonly currentRunStatus: CurrentRunStatusResult;
   readonly safeReason: SystemStatusSafeReasonResult | null;
@@ -59,40 +60,18 @@ interface SystemStatusCollectionStreamsResult {
   readonly streams: readonly CollectionRepositoryStreamResult[];
 }
 
-export interface SystemStatusCollectionActivityResult {
-  readonly sweepFinishedAt: Date;
-  readonly cycleStartedAt: Date | null;
-  readonly scope: string;
-  readonly kind: 'SWEEP' | 'REPOSITORY_LINK';
-  readonly insertedCommitCount: number;
-  readonly insertedPullRequestCount: number;
-  readonly insertedReleaseCount: number;
-  readonly insertedIssueCount: number;
-  readonly attemptedRepositoryCount: number;
-  readonly processedRepositoryCount: number;
-  readonly failedRepositoryCount: number;
-  readonly cycleCompleted: boolean;
-  readonly stoppedForBudget: boolean;
-}
-
 interface SystemStatusExternalCollectionResult {
   readonly trackedRepositoryCount: number;
-  readonly lastSweep: SystemStatusCollectionActivityResult | null;
-  readonly cumulativeCommitCount: number;
-  readonly cumulativePullRequestCount: number;
-  readonly cumulativeReleaseCount: number;
-  readonly cumulativeIssueCount: number;
+  readonly lastSuccessAt: Date | null;
 }
 
 export interface SystemStatusResult {
   readonly collection: CollectionSystemStatusResult;
   readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResult;
   readonly collectionStreams: readonly SystemStatusCollectionStreamsResult[];
-  readonly collectionActivity: readonly SystemStatusCollectionActivityResult[];
   readonly externalCollection: SystemStatusExternalCollectionResult;
 }
 
-const RECENT_SWEEP_ACTIVITY_LIMIT = 20;
 const STALE_AFTER_MS = 90 * 60 * 1000;
 export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
 export type SystemStatusClock = () => Date;
@@ -118,12 +97,11 @@ export class SystemStatusService {
     const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
       this.clock(),
     );
-    const [rows, finalFailureCount, streamRows, activity, externalStatus] =
+    const [rows, finalFailureCount, streamRows, externalStatus] =
       await Promise.all([
         this.repository.getIncrementalStatusSnapshot(),
         this.repository.countFinalProvisionFailures(),
         this.repository.getIncrementalStatusStreams(),
-        this.repository.getRecentSweepActivity(RECENT_SWEEP_ACTIVITY_LIMIT),
         this.repository.getExternalCollectionStatus(),
       ]);
     const snapshot = this.toCollectionStatusSnapshot(rows);
@@ -144,13 +122,13 @@ export class SystemStatusService {
         oldestRetryPendingAt: snapshot.oldestRetryPendingAt,
         lastCycleStartedAt: snapshot.lastCycleStartedAt,
         lastCycleCompletedAt: snapshot.lastCycleCompletedAt,
+        lastSuccessAt: snapshot.lastRepositorySuccessAt,
         nextCycleAt,
         currentRunStatus: this.currentRunStatus(snapshot),
         safeReason: decision.reason,
       },
       repositoryProvisioning: { finalFailureCount },
       collectionStreams: streams,
-      collectionActivity: activity,
       externalCollection: externalStatus,
     };
   }

@@ -495,15 +495,10 @@ describe('Audience authorization HTTP characterization', () => {
               }),
             countFinalProvisionFailures: () => Promise.resolve(0),
             getIncrementalStatusStreams: () => Promise.resolve([]),
-            getRecentSweepActivity: () => Promise.resolve([]),
             getExternalCollectionStatus: () =>
               Promise.resolve({
                 trackedRepositoryCount: 0,
-                lastSweep: null,
-                cumulativeCommitCount: 0,
-                cumulativePullRequestCount: 0,
-                cumulativeReleaseCount: 0,
-                cumulativeIssueCount: 0,
+                lastSuccessAt: null,
               }),
           },
         },

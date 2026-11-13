@@ -69,8 +69,6 @@ interface Store {
   owningRepositories: Map<string, Row>;
 
   teamMembers: Map<string, Row>;
-
-  sweepHistory: Map<string, Row>;
 }
 
 const emptyStore = (): Store => ({
@@ -85,7 +83,6 @@ const emptyStore = (): Store => ({
   leases: new Map(),
   owningRepositories: new Map(),
   teamMembers: new Map(),
-  sweepHistory: new Map(),
 });
 
 const cloneStore = (store: Store): Store => ({
@@ -100,7 +97,6 @@ const cloneStore = (store: Store): Store => ({
   leases: new Map(store.leases),
   owningRepositories: new Map(store.owningRepositories),
   teamMembers: new Map(store.teamMembers),
-  sweepHistory: new Map(store.sweepHistory),
 });
 
 const applyStreamUpdate = (
@@ -220,7 +216,6 @@ interface FailureControl {
   failCommitShas: Set<string>;
   failPullRequestIds: Set<bigint>;
 
-  failSweepHistoryWrite: boolean;
   failRegisteredGithubIdsLookup: boolean;
   registeredGithubIds: Set<bigint>;
   registeredGithubIdsLookupCount: number;
@@ -453,20 +448,6 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       },
     },
 
-    collectionSweepHistory: {
-      create: ({ data }: { data: Row }): Row => {
-        if (control.failSweepHistoryWrite) {
-          throw new Error('synthetic sweep history write failure');
-        }
-        const row = {
-          id: `sweep-history-${box.store.sweepHistory.size + 1}`,
-          ...data,
-        };
-        box.store.sweepHistory.set(row.id, row);
-        return row;
-      },
-    },
-
     $queryRawUnsafe: <T>(sql: string, ...args: unknown[]): Promise<T> => {
       const key = cursorKey(args[0] as bigint, args[1] as string);
       if (sql.includes('INSERT INTO "CollectionSyncLease"')) {
@@ -578,7 +559,6 @@ function createFakeDb(): {
   const control: FailureControl = {
     failCommitShas: new Set(),
     failPullRequestIds: new Set(),
-    failSweepHistoryWrite: false,
     failRegisteredGithubIdsLookup: false,
     registeredGithubIds: new Set([1n, 11n, 22n, 33n, 98n, 99n]),
     registeredGithubIdsLookupCount: 0,
@@ -3126,207 +3106,6 @@ describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
   });
 });
 
-describe('CollectionSyncService — 시스템 상태 관측성 2단계: sweep-history 기록', () => {
-  const historyPullRequest = (
-    overrides: Partial<CollectionPullRequest> = {},
-  ): CollectionPullRequest => ({
-    id: '400',
-    number: 4,
-    state: 'open',
-    draft: false,
-    mergedAt: null,
-    createdAt: '2026-08-01T00:00:00.000Z',
-    updatedAt: '2026-08-01T00:00:00.000Z',
-    authorLogin: 'alice',
-    authorGithubId: '11',
-    htmlUrl: 'https://example.invalid/pull/4',
-    ...overrides,
-  });
-
-  const historyRelease = (
-    overrides: Partial<CollectionRelease> = {},
-  ): CollectionRelease => ({
-    id: '600',
-    tagName: 'v1.0.0',
-    name: 'v1.0.0',
-    publishedAt: '2026-08-01T00:00:00.000Z',
-    authorLogin: 'alice',
-    authorGithubId: '11',
-    htmlUrl: 'https://example.invalid/releases/v1.0.0',
-    ...overrides,
-  });
-
-  function seedRepositoryWithOneOfEachStream(): {
-    db: PrismaService;
-    box: { store: Store };
-    control: FailureControl;
-    client: ClientMock;
-  } {
-    const { db, box, control } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
-      commit({ sha: 'sha-1', authorLogin: 'alice', authorGithubId: '11' }),
-    ]);
-    client.listNewPullRequests.mockResolvedValue({
-      pullRequests: [historyPullRequest()],
-      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '400' },
-      fingerprint: fingerprint('/repos/o/r/pulls'),
-    });
-    client.probeLatestRelease.mockResolvedValue({
-      changed: true,
-      frontier: { probe: '600:false:2026-08-01T00:00:00.000Z' },
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: 'etag-release-1',
-    });
-    client.listChangedPublishedReleases.mockResolvedValue({
-      releases: [historyRelease()],
-      fingerprint: fingerprint('/repos/o/r/releases'),
-    });
-    return { db, box, control, client };
-  }
-
-  it('사이클 완료 sweep 하나가 CollectionSweepHistory에 stream별 건수·부울 결과를 정확히 남긴다', async () => {
-    const { db, box, client } = seedRepositoryWithOneOfEachStream();
-    const now = new Date('2026-08-01T12:00:00.000Z');
-    const service = createService(db, client, { now: () => now });
-
-    const result = await service.run('owner-1');
-
-    expect(result.insertedFactCount).toBe(3);
-    expect(result.cycleCompleted).toBe(true);
-    expect(result.stoppedForBudget).toBe(false);
-
-    const rows = [...box.store.sweepHistory.values()];
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      appId: 1n,
-      scope: 'org:synthetic-org',
-      kind: 'SWEEP',
-      sweepFinishedAt: now,
-      cycleStartedAt: now,
-      insertedCommitCount: 1,
-      insertedPullRequestCount: 1,
-      insertedReleaseCount: 1,
-      insertedIssueCount: 0,
-      attemptedRepositoryCount: 1,
-      processedRepositoryCount: 1,
-      failedRepositoryCount: 0,
-      cycleCompleted: true,
-      stoppedForBudget: false,
-    });
-  });
-
-  it('앞 stream 적재 뒤 다음 stream이 실패해도 이미 커밋된 건수를 이력에 남긴다', async () => {
-    const { db, box, client } = seedRepositoryWithOneOfEachStream();
-    client.listNewPullRequests.mockRejectedValue(
-      new Error('synthetic pull request failure'),
-    );
-    const now = new Date('2026-08-01T12:00:00.000Z');
-    const service = createService(db, client, { now: () => now });
-
-    const result = await service.run('owner-1');
-
-    expect(result.insertedFactCount).toBe(1);
-    const rows = [...box.store.sweepHistory.values()];
-    expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      insertedCommitCount: 1,
-      insertedPullRequestCount: 0,
-      insertedReleaseCount: 0,
-      attemptedRepositoryCount: 1,
-      processedRepositoryCount: 0,
-      failedRepositoryCount: 1,
-      cycleCompleted: true,
-    });
-  });
-
-  it('순회가 넣은 Issue 수도 이력에 남긴다(#1133)', async () => {
-    const { db, box, client } = seedRepositoryWithOneOfEachStream();
-    client.listNewIssues.mockResolvedValue({
-      issues: [
-        {
-          id: '700',
-          state: 'open',
-          createdAt: '2026-08-01T00:00:00.000Z',
-          authorLogin: 'alice',
-          authorGithubId: '11',
-        },
-      ],
-      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '700' },
-      fingerprint: fingerprint('/repos/o/r/issues'),
-    });
-    const service = createService(db, client, {
-      now: () => new Date('2026-08-01T12:00:00.000Z'),
-    });
-
-    const result = await service.run('owner-1');
-
-    expect(result.insertedFactCount).toBe(4);
-    expect([...box.store.sweepHistory.values()]).toEqual([
-      expect.objectContaining({
-        kind: 'SWEEP',
-        insertedCommitCount: 1,
-        insertedPullRequestCount: 1,
-        insertedReleaseCount: 1,
-        insertedIssueCount: 1,
-      }),
-    ]);
-  });
-
-  it('진행 중이던 사이클(커서가 이미 어느 저장소까지 진행함)에서는 그 cycleStartedAt을 그대로 이어 기록한다', async () => {
-    const { db, box, client } = seedRepositoryWithOneOfEachStream();
-
-    const priorCycleStartedAt = new Date('2026-07-31T09:00:00.000Z');
-    box.store.cursors.set(cursorKey(1n, 'org:synthetic-org'), {
-      appId: 1n,
-      scope: 'org:synthetic-org',
-      lastGithubRepositoryId: 50n,
-      cycleStartedAt: priorCycleStartedAt,
-      cycleCompletedAt: null,
-    });
-    const now = new Date('2026-08-01T12:00:00.000Z');
-    const service = createService(db, client, { now: () => now });
-
-    await service.run('owner-1');
-
-    const rows = [...box.store.sweepHistory.values()];
-    expect(rows[0]).toMatchObject({
-      sweepFinishedAt: now,
-      cycleStartedAt: priorCycleStartedAt,
-    });
-  });
-
-  it('sweep-history 기록이 실패해도 sweep 자체의 결과(반환값·커서 전진)는 막지 않는다', async () => {
-    const { db, box, control, client } = seedRepositoryWithOneOfEachStream();
-    control.failSweepHistoryWrite = true;
-    const warned = jest
-      .spyOn(Logger.prototype, 'warn')
-      .mockImplementation(() => undefined);
-    const service = createService(db, client);
-
-    const result = await service.run('owner-1');
-
-    expect(result.cycleCompleted).toBe(true);
-    expect(result.processedRepositoryCount).toBe(1);
-    expect(result.insertedFactCount).toBe(3);
-
-    expect(box.store.sweepHistory.size).toBe(0);
-
-    const observed = warned.mock.calls
-      .map(([payload]) => payload as Record<string, unknown>)
-      .find(
-        (payload) =>
-          payload?.event === 'collection.sync.sweep_history_write_failed',
-      );
-    expect(observed).toMatchObject({ scope: 'org:synthetic-org' });
-    warned.mockRestore();
-  });
-});
-
 describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepository)', () => {
   const NOW = new Date('2026-08-01T00:00:00.000Z');
   const ORG_LEASE = cursorKey(1n, 'org:synthetic-org');
@@ -3350,7 +3129,7 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       0,
     );
 
-  it('연결된 조직 저장소를 sweep cursor 없이 바로 수집하고, 이력에는 연결 즉시 수집 한 줄을 남긴다', async () => {
+  it('연결된 조직 저장소를 sweep cursor 없이 바로 수집한다', async () => {
     const { db, box } = createFakeDb();
     box.store.repositories.set(repoKey(100n), linkedRow());
     seedOwningRepository(box, 100n, 'team-1', [
@@ -3384,24 +3163,6 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     });
     expect(box.store.cursors.size).toBe(0);
 
-    expect([...box.store.sweepHistory.values()]).toEqual([
-      expect.objectContaining({
-        appId: 1n,
-        scope: 'org:synthetic-org',
-        kind: 'REPOSITORY_LINK',
-        cycleStartedAt: null,
-        insertedCommitCount: 1,
-        insertedPullRequestCount: 0,
-        insertedReleaseCount: 0,
-        insertedIssueCount: 0,
-        attemptedRepositoryCount: 1,
-        processedRepositoryCount: 1,
-        failedRepositoryCount: 0,
-        cycleCompleted: false,
-        stoppedForBudget: false,
-      }),
-    ]);
-
     expect(box.store.leases.get(ORG_LEASE)).toMatchObject({ expiresAt: NOW });
   });
 
@@ -3425,7 +3186,6 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
 
     expect(result.status).toBe('SKIPPED_LEASE_HELD');
     expect(providerCallCount(client)).toBe(0);
-    expect(box.store.sweepHistory.size).toBe(0);
     expect(box.store.leases.get(ORG_LEASE)).toMatchObject({
       runId: 'sweep-run',
     });
@@ -3468,7 +3228,6 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
       expect(result.status).toBe('SKIPPED');
       expect(providerCallCount(client)).toBe(0);
       expect(box.store.leases.size).toBe(0);
-      expect(box.store.sweepHistory.size).toBe(0);
     },
   );
 
@@ -3497,17 +3256,9 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     expect(box.store.repositories.get(repoKey(100n))?.lastSuccessAt).toBe(
       undefined,
     );
-    expect([...box.store.sweepHistory.values()]).toEqual([
-      expect.objectContaining({
-        kind: 'REPOSITORY_LINK',
-        attemptedRepositoryCount: 0,
-        processedRepositoryCount: 0,
-        stoppedForBudget: true,
-      }),
-    ]);
   });
 
-  it('수집 직전에 다시 읽어 보니 연결이 풀려 있으면 수집도 이력도 남기지 않는다', async () => {
+  it('수집 직전에 다시 읽어 보니 연결이 풀려 있으면 수집하지 않는다', async () => {
     const { db, box } = createFakeDb();
     box.store.repositories.set(repoKey(100n), linkedRow());
     const client = createClient([]);
@@ -3528,7 +3279,6 @@ describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepo
     expect(read).toHaveBeenCalledTimes(2);
     expect(result.processedRepositoryCount).toBe(0);
     expect(providerCallCount(client)).toBe(0);
-    expect(box.store.sweepHistory.size).toBe(0);
     read.mockRestore();
   });
 

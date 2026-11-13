@@ -61,27 +61,22 @@ const baseStatus: SystemStatus = {
   oldestRetryPendingAt: null,
   lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
   lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+  lastSuccessAt: '2026-07-25T11:00:00.000Z',
   nextCycleAt: null,
   currentRunStatus: 'IDLE',
   safeReason: null,
 };
 
 const baseCollectionStreams: SystemStatusData['collectionStreams'] = [];
-const baseCollectionActivity: SystemStatusData['collectionActivity'] = [];
 const baseExternalCollection: SystemStatusData['externalCollection'] = {
   trackedRepositoryCount: 0,
-  lastSweep: null,
-  cumulativeCommitCount: 0,
-  cumulativePullRequestCount: 0,
-  cumulativeReleaseCount: 0,
-  cumulativeIssueCount: 0,
+  lastSuccessAt: null,
 };
 
 function statusData(status: SystemStatus): SystemStatusData {
   return {
     status,
     collectionStreams: baseCollectionStreams,
-    collectionActivity: baseCollectionActivity,
     externalCollection: baseExternalCollection,
   };
 }

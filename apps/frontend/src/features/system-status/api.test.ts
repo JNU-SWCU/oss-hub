@@ -5,55 +5,6 @@ import { fetchSystemStatus, triggerCollection } from './api';
 afterEach(() => vi.unstubAllGlobals());
 
 describe('system status api', () => {
-  it('구버전 백엔드가 종류·Issue 칸을 안 주면 순회·0으로 채운다(배포 사이)', async () => {
-    const oldActivity = {
-      sweepFinishedAt: '2026-07-25T10:00:00.000Z',
-      cycleStartedAt: null,
-      scope: 'external',
-      insertedCommitCount: 4,
-      insertedPullRequestCount: 1,
-      insertedReleaseCount: 0,
-      attemptedRepositoryCount: 3,
-      processedRepositoryCount: 3,
-      failedRepositoryCount: 0,
-      cycleCompleted: true,
-      stoppedForBudget: false,
-    };
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue(
-        new Response(
-          JSON.stringify({
-            collection: {},
-            collectionStreams: [],
-            collectionActivity: [oldActivity],
-            externalCollection: {
-              trackedRepositoryCount: 3,
-              lastSweep: oldActivity,
-              cumulativeCommitCount: 40,
-              cumulativePullRequestCount: 6,
-              cumulativeReleaseCount: 2,
-            },
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        ),
-      ),
-    );
-
-    const result = await fetchSystemStatus();
-
-    const filled = { ...oldActivity, kind: 'SWEEP', insertedIssueCount: 0 };
-    expect(result.collectionActivity).toEqual([filled]);
-    expect(result.externalCollection).toEqual({
-      trackedRepositoryCount: 3,
-      lastSweep: filled,
-      cumulativeCommitCount: 40,
-      cumulativePullRequestCount: 6,
-      cumulativeReleaseCount: 2,
-      cumulativeIssueCount: 0,
-    });
-  });
-
   it('GET system-status의 정확한 DTO를 반환한다', async () => {
     const dto = {
       health: 'DELAYED',
@@ -67,6 +18,7 @@ describe('system status api', () => {
       oldestRetryPendingAt: null,
       lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
       lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
+      lastSuccessAt: '2026-07-25T10:00:00.000Z',
       nextCycleAt: '2026-07-25T11:00:00.000Z',
       currentRunStatus: 'PROCESSING',
       safeReason: 'STALE_DATA',
@@ -100,51 +52,15 @@ describe('system status api', () => {
         ],
       },
     ];
-    const collectionActivity = [
-      {
-        sweepFinishedAt: '2026-07-25T10:00:00.000Z',
-        cycleStartedAt: '2026-07-25T09:55:00.000Z',
-        scope: 'org:jnu-swcu',
-        kind: 'SWEEP',
-        insertedCommitCount: 12,
-        insertedPullRequestCount: 3,
-        insertedReleaseCount: 1,
-        insertedIssueCount: 0,
-        attemptedRepositoryCount: 8,
-        processedRepositoryCount: 8,
-        failedRepositoryCount: 0,
-        cycleCompleted: true,
-        stoppedForBudget: false,
-      },
-    ];
     const externalCollection = {
       trackedRepositoryCount: 3,
-      lastSweep: {
-        sweepFinishedAt: '2026-07-25T10:00:00.000Z',
-        cycleStartedAt: '2026-07-25T09:55:00.000Z',
-        scope: 'external',
-        kind: 'SWEEP',
-        insertedCommitCount: 4,
-        insertedPullRequestCount: 1,
-        insertedReleaseCount: 0,
-        insertedIssueCount: 0,
-        attemptedRepositoryCount: 3,
-        processedRepositoryCount: 3,
-        failedRepositoryCount: 0,
-        cycleCompleted: true,
-        stoppedForBudget: false,
-      },
-      cumulativeCommitCount: 40,
-      cumulativePullRequestCount: 6,
-      cumulativeReleaseCount: 2,
-      cumulativeIssueCount: 0,
+      lastSuccessAt: '2026-07-25T10:00:00.000Z',
     };
     const request = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
           collection: dto,
           collectionStreams,
-          collectionActivity,
           externalCollection,
         }),
         {
@@ -158,7 +74,6 @@ describe('system status api', () => {
     await expect(fetchSystemStatus()).resolves.toEqual({
       status: dto,
       collectionStreams,
-      collectionActivity,
       externalCollection,
     });
     expect(request).toHaveBeenCalledWith(apiPath('system-status'), undefined);
@@ -177,6 +92,7 @@ describe('system status api', () => {
       oldestRetryPendingAt: null,
       lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
       lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
+      lastSuccessAt: '2026-07-25T10:00:00.000Z',
       nextCycleAt: null,
       currentRunStatus: 'IDLE',
       safeReason: null,
@@ -192,61 +108,9 @@ describe('system status api', () => {
     await expect(fetchSystemStatus()).resolves.toEqual({
       status: dto,
       collectionStreams: [],
-      collectionActivity: [],
       externalCollection: {
         trackedRepositoryCount: 0,
-        lastSweep: null,
-        cumulativeCommitCount: 0,
-        cumulativePullRequestCount: 0,
-        cumulativeReleaseCount: 0,
-        cumulativeIssueCount: 0,
-      },
-    });
-  });
-
-  it('collectionActivity가 없는 구계약 응답도 빈 배열로 정규화한다(2단계 배포 window 혼재 대비)', async () => {
-    const dto = {
-      health: 'NORMAL',
-      dataAsOf: '2026-07-25T10:01:00.000Z',
-      trackedRepositoryCount: 2,
-      readyStreamCount: 6,
-      backfillingStreamCount: 0,
-      partialStreamCount: 0,
-      retryPendingStreamCount: 0,
-      oldestReadyCheckpointAt: '2026-07-25T09:00:00.000Z',
-      oldestRetryPendingAt: null,
-      lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
-      lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
-      nextCycleAt: null,
-      currentRunStatus: 'IDLE',
-      safeReason: null,
-    };
-    const collectionStreams = [
-      {
-        repositoryName: 'jnu-oss/repo-a',
-        programName: null,
-        streams: [],
-      },
-    ];
-    const request = vi.fn().mockResolvedValue(
-      new Response(JSON.stringify({ collection: dto, collectionStreams }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-    vi.stubGlobal('fetch', request);
-
-    await expect(fetchSystemStatus()).resolves.toEqual({
-      status: dto,
-      collectionStreams,
-      collectionActivity: [],
-      externalCollection: {
-        trackedRepositoryCount: 0,
-        lastSweep: null,
-        cumulativeCommitCount: 0,
-        cumulativePullRequestCount: 0,
-        cumulativeReleaseCount: 0,
-        cumulativeIssueCount: 0,
+        lastSuccessAt: null,
       },
     });
   });
@@ -264,18 +128,17 @@ describe('system status api', () => {
       oldestRetryPendingAt: null,
       lastCycleStartedAt: '2026-07-25T09:55:00.000Z',
       lastCycleCompletedAt: '2026-07-25T10:01:00.000Z',
+      lastSuccessAt: '2026-07-25T10:00:00.000Z',
       nextCycleAt: null,
       currentRunStatus: 'IDLE',
       safeReason: null,
     };
     const collectionStreams: unknown[] = [];
-    const collectionActivity: unknown[] = [];
     const request = vi.fn().mockResolvedValue(
       new Response(
         JSON.stringify({
           collection: dto,
           collectionStreams,
-          collectionActivity,
         }),
         {
           status: 200,
@@ -288,14 +151,9 @@ describe('system status api', () => {
     await expect(fetchSystemStatus()).resolves.toEqual({
       status: dto,
       collectionStreams: [],
-      collectionActivity: [],
       externalCollection: {
         trackedRepositoryCount: 0,
-        lastSweep: null,
-        cumulativeCommitCount: 0,
-        cumulativePullRequestCount: 0,
-        cumulativeReleaseCount: 0,
-        cumulativeIssueCount: 0,
+        lastSuccessAt: null,
       },
     });
   });

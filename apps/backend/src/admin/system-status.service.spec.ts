@@ -4,7 +4,6 @@ import {
   type CollectionExternalCollectionStatusDto,
   type CollectionIncrementalStatusSnapshotDto,
   type CollectionRepositoryStreamsDto,
-  type CollectionSweepActivityDto,
 } from './system-status.repository';
 import { SystemStatusService } from './system-status.service';
 
@@ -49,11 +48,7 @@ function externalStatus(
 ): CollectionExternalCollectionStatusDto {
   return {
     trackedRepositoryCount: 0,
-    lastSweep: null,
-    cumulativeCommitCount: 0,
-    cumulativePullRequestCount: 0,
-    cumulativeReleaseCount: 0,
-    cumulativeIssueCount: 0,
+    lastSuccessAt: null,
     ...overrides,
   };
 }
@@ -61,7 +56,6 @@ function externalStatus(
 describe('SystemStatusService', () => {
   const getIncrementalStatusSnapshot = jest.fn();
   const getIncrementalStatusStreams = jest.fn();
-  const getRecentSweepActivity = jest.fn();
   const getExternalCollectionStatus = jest.fn();
   const countFinalProvisionFailures = jest.fn();
   const service = new SystemStatusService(
@@ -69,7 +63,6 @@ describe('SystemStatusService', () => {
       countFinalProvisionFailures,
       getIncrementalStatusSnapshot,
       getIncrementalStatusStreams,
-      getRecentSweepActivity,
       getExternalCollectionStatus,
     } as unknown as SystemStatusRepository,
     () => NOW,
@@ -82,7 +75,6 @@ describe('SystemStatusService', () => {
     nextScheduledAt
       .mockReset()
       .mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
-    getRecentSweepActivity.mockReset().mockResolvedValue([]);
     getExternalCollectionStatus.mockReset().mockResolvedValue(externalStatus());
     countFinalProvisionFailures.mockReset().mockResolvedValue(2);
   });
@@ -101,6 +93,7 @@ describe('SystemStatusService', () => {
         oldestRetryPendingAt: null,
         lastCycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
         lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
+        lastSuccessAt: new Date('2026-07-25T11:00:00.000Z'),
         nextCycleAt: new Date('2026-07-25T20:30:00.000Z'),
         currentRunStatus: 'IDLE',
         safeReason: null,
@@ -109,20 +102,14 @@ describe('SystemStatusService', () => {
         finalFailureCount: 2,
       },
       collectionStreams: [],
-      collectionActivity: [],
       externalCollection: {
         trackedRepositoryCount: 0,
-        lastSweep: null,
-        cumulativeCommitCount: 0,
-        cumulativePullRequestCount: 0,
-        cumulativeReleaseCount: 0,
-        cumulativeIssueCount: 0,
+        lastSuccessAt: null,
       },
     });
     expect(getIncrementalStatusSnapshot).toHaveBeenCalledTimes(1);
     expect(getIncrementalStatusStreams).toHaveBeenCalledTimes(1);
     expect(nextScheduledAt).toHaveBeenCalledWith(NOW);
-    expect(getRecentSweepActivity).toHaveBeenCalledWith(20);
     expect(getExternalCollectionStatus).toHaveBeenCalledTimes(1);
     expect(countFinalProvisionFailures).toHaveBeenCalledTimes(1);
   });
@@ -284,77 +271,6 @@ describe('SystemStatusService', () => {
     ]);
   });
 
-  it('최근 수집 활동 이력(순회·연결 즉시 수집, Issue 수 포함)을 Date -> ISO 변환해 collectionActivity로 옮긴다', async () => {
-    const activity: readonly CollectionSweepActivityDto[] = [
-      {
-        sweepFinishedAt: new Date('2026-07-25T11:00:00.000Z'),
-        cycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
-        scope: 'org:JNU-SWCU',
-        kind: 'SWEEP',
-        insertedCommitCount: 3,
-        insertedPullRequestCount: 1,
-        insertedReleaseCount: 0,
-        insertedIssueCount: 0,
-        attemptedRepositoryCount: 2,
-        processedRepositoryCount: 2,
-        failedRepositoryCount: 0,
-        cycleCompleted: true,
-        stoppedForBudget: false,
-      },
-      {
-        sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
-        cycleStartedAt: null,
-        scope: 'external',
-        kind: 'REPOSITORY_LINK',
-        insertedCommitCount: 0,
-        insertedPullRequestCount: 0,
-        insertedReleaseCount: 0,
-        insertedIssueCount: 4,
-        attemptedRepositoryCount: 1,
-        processedRepositoryCount: 0,
-        failedRepositoryCount: 1,
-        cycleCompleted: false,
-        stoppedForBudget: true,
-      },
-    ];
-    getRecentSweepActivity.mockResolvedValue(activity);
-
-    const result = await service.getStatus();
-
-    expect(result.collectionActivity).toEqual([
-      {
-        sweepFinishedAt: new Date('2026-07-25T11:00:00.000Z'),
-        cycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
-        scope: 'org:JNU-SWCU',
-        kind: 'SWEEP',
-        insertedCommitCount: 3,
-        insertedPullRequestCount: 1,
-        insertedReleaseCount: 0,
-        insertedIssueCount: 0,
-        attemptedRepositoryCount: 2,
-        processedRepositoryCount: 2,
-        failedRepositoryCount: 0,
-        cycleCompleted: true,
-        stoppedForBudget: false,
-      },
-      {
-        sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
-        cycleStartedAt: null,
-        scope: 'external',
-        kind: 'REPOSITORY_LINK',
-        insertedCommitCount: 0,
-        insertedPullRequestCount: 0,
-        insertedReleaseCount: 0,
-        insertedIssueCount: 4,
-        attemptedRepositoryCount: 1,
-        processedRepositoryCount: 0,
-        failedRepositoryCount: 1,
-        cycleCompleted: false,
-        stoppedForBudget: true,
-      },
-    ]);
-  });
-
   describe('nextCycleAt', () => {
     it('수집 스케줄이 반환한 Date를 clock 시각으로 조회해 ISO 문자열로 옮긴다', async () => {
       nextScheduledAt.mockReturnValue(new Date('2026-07-25T20:30:00.000Z'));
@@ -391,44 +307,11 @@ describe('SystemStatusService', () => {
   });
 
   describe('externalCollection', () => {
-    it('탐색된 external 저장소가 없으면 lastSweep은 null이고 나머지 값도 0이다', async () => {
-      getExternalCollectionStatus.mockResolvedValue(externalStatus());
-
-      const result = await service.getStatus();
-
-      expect(result.externalCollection).toEqual({
-        trackedRepositoryCount: 0,
-        lastSweep: null,
-        cumulativeCommitCount: 0,
-        cumulativePullRequestCount: 0,
-        cumulativeReleaseCount: 0,
-        cumulativeIssueCount: 0,
-      });
-    });
-
-    it('port 값을 Date -> ISO 변환해 externalCollection으로 옮긴다(org 지표와 별개 필드)', async () => {
+    it('외부 저장소의 마지막 수집 성공 시각을 org 지표와 별개로 옮긴다', async () => {
       getExternalCollectionStatus.mockResolvedValue(
         externalStatus({
           trackedRepositoryCount: 3,
-          lastSweep: {
-            sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
-            cycleStartedAt: new Date('2026-07-25T09:55:00.000Z'),
-            scope: 'external',
-            kind: 'SWEEP',
-            insertedCommitCount: 5,
-            insertedPullRequestCount: 2,
-            insertedReleaseCount: 0,
-            insertedIssueCount: 0,
-            attemptedRepositoryCount: 3,
-            processedRepositoryCount: 3,
-            failedRepositoryCount: 0,
-            cycleCompleted: true,
-            stoppedForBudget: false,
-          },
-          cumulativeCommitCount: 42,
-          cumulativePullRequestCount: 7,
-          cumulativeReleaseCount: 1,
-          cumulativeIssueCount: 9,
+          lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
         }),
       );
 
@@ -436,28 +319,12 @@ describe('SystemStatusService', () => {
 
       expect(result.externalCollection).toEqual({
         trackedRepositoryCount: 3,
-        lastSweep: {
-          sweepFinishedAt: new Date('2026-07-25T10:00:00.000Z'),
-          cycleStartedAt: new Date('2026-07-25T09:55:00.000Z'),
-          scope: 'external',
-          kind: 'SWEEP',
-          insertedCommitCount: 5,
-          insertedPullRequestCount: 2,
-          insertedReleaseCount: 0,
-          insertedIssueCount: 0,
-          attemptedRepositoryCount: 3,
-          processedRepositoryCount: 3,
-          failedRepositoryCount: 0,
-          cycleCompleted: true,
-          stoppedForBudget: false,
-        },
-        cumulativeCommitCount: 42,
-        cumulativePullRequestCount: 7,
-        cumulativeReleaseCount: 1,
-        cumulativeIssueCount: 9,
+        lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
       });
-
       expect(result.collection.trackedRepositoryCount).toBe(2);
+      expect(result.collection.lastSuccessAt).toEqual(
+        new Date('2026-07-25T11:00:00.000Z'),
+      );
     });
   });
 });

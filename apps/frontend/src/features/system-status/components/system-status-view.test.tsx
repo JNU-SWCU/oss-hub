@@ -2,7 +2,6 @@ import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type {
-  CollectionActivityEntry,
   CollectionStreamRepository,
   ExternalCollectionStatus,
   SystemStatus,
@@ -22,6 +21,7 @@ const normal: SystemStatus = {
   oldestRetryPendingAt: null,
   lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
   lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+  lastSuccessAt: '2026-07-25T11:00:00.000Z',
   nextCycleAt: null,
   currentRunStatus: 'IDLE',
   safeReason: null,
@@ -29,11 +29,7 @@ const normal: SystemStatus = {
 
 const emptyExternalCollection: ExternalCollectionStatus = {
   trackedRepositoryCount: 0,
-  lastSweep: null,
-  cumulativeCommitCount: 0,
-  cumulativePullRequestCount: 0,
-  cumulativeReleaseCount: 0,
-  cumulativeIssueCount: 0,
+  lastSuccessAt: null,
 };
 
 type LooseViewState =
@@ -43,7 +39,6 @@ type LooseViewState =
       readonly kind: 'success';
       readonly status: SystemStatus;
       readonly collectionStreams?: readonly CollectionStreamRepository[];
-      readonly collectionActivity?: readonly CollectionActivityEntry[];
       readonly externalCollection?: ExternalCollectionStatus;
     };
 
@@ -60,7 +55,6 @@ function render(
           ...state,
           freshness: 'current' as const,
           collectionStreams: state.collectionStreams ?? [],
-          collectionActivity: state.collectionActivity ?? [],
           externalCollection:
             state.externalCollection ?? emptyExternalCollection,
         }
@@ -286,33 +280,17 @@ describe('SystemStatusView', () => {
     expect(html).toContain('jnu-oss/example');
   });
 
-  it('「수집 대상 상세」 표 아래에 「최근 수집 활동」 피드 section을 렌더링한다', () => {
-    const html = render({
+  it('마지막 수집 성공 시각을 상대 나이와 함께 표시하고, 없으면 아직 없다고 표시한다', () => {
+    const succeeded = render({ kind: 'success', status: normal });
+    expect(succeeded).toContain('마지막 수집 성공');
+    expect(succeeded).toContain('2026');
+    expect(succeeded).not.toContain('최근 수집 활동');
+
+    const never = render({
       kind: 'success',
-      status: normal,
-      collectionActivity: [
-        {
-          sweepFinishedAt: '2026-08-10T09:00:00.000Z',
-          cycleStartedAt: '2026-08-10T08:55:00.000Z',
-          scope: 'org:jnu-swcu',
-          kind: 'SWEEP',
-          insertedCommitCount: 12,
-          insertedPullRequestCount: 3,
-          insertedReleaseCount: 1,
-          insertedIssueCount: 0,
-          attemptedRepositoryCount: 8,
-          processedRepositoryCount: 8,
-          failedRepositoryCount: 0,
-          cycleCompleted: true,
-          stoppedForBudget: false,
-        },
-      ],
+      status: { ...normal, lastSuccessAt: null },
     });
-    const streamsIndex = html.indexOf('aria-label="수집 대상 상세"');
-    const activityIndex = html.indexOf('aria-label="최근 수집 활동"');
-    expect(streamsIndex).toBeGreaterThan(-1);
-    expect(activityIndex).toBeGreaterThan(streamsIndex);
-    expect(html).toContain('Commit 12');
+    expect(never).toContain('아직 성공한 수집 없음');
   });
 
   describe('외부 저장소 수집 section', () => {
@@ -322,7 +300,7 @@ describe('SystemStatusView', () => {
       expect(html).toContain('수집 대상 학생 개인 저장소가 없습니다');
 
       expect(html).not.toContain('매시 정각 자동으로 실행되고 있습니다');
-      expect(html).toContain('완료된 수집 기록도 없습니다');
+      expect(html).toContain('저장소를 연결하면 바로 수집을 시작합니다');
 
       expect(html).toContain(
         '팀장이나 교직원이 프로그램 팀 화면에서 조직 밖 공개 저장소 주소를',
@@ -346,39 +324,19 @@ describe('SystemStatusView', () => {
       expect(html).toContain('aria-label="외부 저장소 수집"');
     });
 
-    it('연결된 external 저장소가 있으면 추적 수·누적 활동·최근 실행 처리 결과를 표시한다', () => {
+    it('연결된 external 저장소가 있으면 추적 수와 마지막 수집 성공 시각을 표시한다', () => {
       const html = render({
         kind: 'success',
         status: normal,
         externalCollection: {
           trackedRepositoryCount: 5,
-          lastSweep: {
-            sweepFinishedAt: '2026-08-10T09:00:00.000Z',
-            cycleStartedAt: '2026-08-10T08:55:00.000Z',
-            scope: 'external',
-            kind: 'SWEEP',
-            insertedCommitCount: 4,
-            insertedPullRequestCount: 1,
-            insertedReleaseCount: 0,
-            insertedIssueCount: 0,
-            attemptedRepositoryCount: 5,
-            processedRepositoryCount: 5,
-            failedRepositoryCount: 0,
-            cycleCompleted: true,
-            stoppedForBudget: false,
-          },
-          cumulativeCommitCount: 40,
-          cumulativePullRequestCount: 6,
-          cumulativeReleaseCount: 2,
-          cumulativeIssueCount: 0,
+          lastSuccessAt: '2026-08-10T09:00:00.000Z',
         },
       });
       expect(html).toContain('5개 추적 중');
       expect(html).toContain('5개');
-      expect(html).toContain('Commit 40');
-      expect(html).toContain('PR 6');
-      expect(html).toContain('Release 2');
-      expect(html).toContain('저장소 5/5');
+      expect(html).toContain('마지막 수집 성공');
+      expect(html).not.toContain('Commit 40');
       expect(html).not.toContain('수집 대상 학생 개인 저장소가 없습니다');
     });
 
@@ -388,11 +346,7 @@ describe('SystemStatusView', () => {
         status: { ...normal, trackedRepositoryCount: 2 },
         externalCollection: {
           trackedRepositoryCount: 5,
-          lastSweep: null,
-          cumulativeCommitCount: 0,
-          cumulativePullRequestCount: 0,
-          cumulativeReleaseCount: 0,
-          cumulativeIssueCount: 0,
+          lastSuccessAt: null,
         },
       });
 
