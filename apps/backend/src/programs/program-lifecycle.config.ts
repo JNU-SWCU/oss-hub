@@ -52,7 +52,6 @@ const PURGE_RELATIONS = [
     covers: [
       'GithubRepository->RepositoryInvitation',
       'GithubRepository->CollectionRepositoryStream',
-      'GithubRepository->GithubRepositoryOutsiderContribution',
     ],
   },
   {
