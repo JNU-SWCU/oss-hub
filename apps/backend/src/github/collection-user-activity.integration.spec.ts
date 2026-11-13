@@ -208,17 +208,6 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     );
   });
 
-  it('sweep는 원장과 월별 행을 남긴다', async () => {
-    await buildService().run();
-    const activeIds = [ALPHA_GITHUB_ID, BRAVO_GITHUB_ID, CHARLIE_GITHUB_ID];
-    await expect(
-      prisma.githubUserActivityMonthly.count({
-        where: { githubId: { in: activeIds }, year: CURRENT_YEAR },
-      }),
-    ).resolves.toBe(3);
-    expect(await seededRows()).toHaveLength(3);
-  });
-
   it('마이그레이션은 기존 활동 행과 수치를 PUBLIC으로 보존한다 (stale_state)', async () => {
     await prisma.$transaction(async (tx) => {
       await tx.$executeRawUnsafe('CREATE SCHEMA activity_visibility_migration');

@@ -35,7 +35,6 @@
     "apps/backend": {
       "ignoreBinaries": ["psql"],
       "entry": [
-        "scripts/seed-ranking-monthly.mjs",
         "src/main.ts",
         "src/cli.ts",
         "test/e2e-program-authoring/main.ts",

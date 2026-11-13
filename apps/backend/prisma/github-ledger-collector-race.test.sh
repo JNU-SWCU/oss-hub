@@ -72,18 +72,6 @@ psql -h 127.0.0.1 -p "$port" -U postgres -d postgres -v ON_ERROR_STOP=1 \
 
 psql_db >/dev/null <<'SQL'
 CREATE TYPE "ActivityVisibility" AS ENUM ('PUBLIC', 'PRIVATE');
-CREATE TABLE "GithubUserActivityMonthly" (
-  "githubId" BIGINT NOT NULL,
-  "year" INTEGER NOT NULL,
-  "month" INTEGER NOT NULL,
-  "commitCount" INTEGER NOT NULL DEFAULT 0,
-  "pullRequestCount" INTEGER NOT NULL DEFAULT 0,
-  "issueCount" INTEGER NOT NULL DEFAULT 0,
-  "repositoryCount" INTEGER NOT NULL DEFAULT 0,
-  "starCount" INTEGER NOT NULL DEFAULT 0,
-  "observedAt" TIMESTAMP(3) NOT NULL,
-  PRIMARY KEY ("githubId", "year", "month")
-);
 CREATE TABLE "github_user_activity_history" (
   "github_id" BIGINT NOT NULL,
   "year" INTEGER NOT NULL,
@@ -120,7 +108,7 @@ assert_eq() {
 
 reset_activity() {
   psql_db >/dev/null <<'SQL'
-TRUNCATE "github_user_activity_history", "GithubUserActivityMonthly";
+TRUNCATE "github_user_activity_history";
 SQL
 }
 

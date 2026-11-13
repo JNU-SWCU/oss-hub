@@ -50,6 +50,5 @@ describe('RankingRepository standing read', () => {
     const call = standingCall(queryRaw);
     expect(call.values).toContain(2026);
     expect(call.sql).toContain('github_user_activity_history');
-    expect(call.sql).not.toContain('GithubUserActivityMonthly');
   });
 });
