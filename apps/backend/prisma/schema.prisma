@@ -91,29 +91,29 @@ model User {
   createdAt           DateTime        @default(now())
   updatedAt           DateTime        @updatedAt
 
-  approvalDecidedBy                      User?                                @relation("UserApprovalDecider", fields: [approvalDecidedById], references: [id], onDelete: Restrict)
-  approvalDecisions                      User[]                               @relation("UserApprovalDecider")
-  admin                                  Admin?                               @relation("AdminUser")
-  adminGrants                            Admin[]                              @relation("AdminGrantor")
-  userHistories                          UserHistory[]                        @relation("UserHistorySubject")
-  actedUserHistories                     UserHistory[]                        @relation("UserHistoryActor")
-  adminHistories                         AdminHistory[]                       @relation("AdminHistorySubject")
-  actedAdminHistories                    AdminHistory[]                       @relation("AdminHistoryActor")
-  policies                               UserPolicy[]
-  submittedTeams                         Team[]                               @relation("TeamApplicant")
-  processedTeams                         Team[]                               @relation("TeamProcessedBy")
-  ledTeams                               Team[]                               @relation("TeamLeader")
-  teamMemberships                        TeamMember[]
-  sentTeamInvitations                    TeamInvitation[]                     @relation("TeamInvitationInvitedBy")
-  receivedTeamInvitations                TeamInvitation[]                     @relation("TeamInvitationInvitee")
-  uploadedFiles                          File[]
-  createdPrograms                        Program[]
-  submissions                            Submission[]
-  submissionHistories                    SubmissionHistory[]
-  boardPosts                             BoardPost[]
-  boardComments                          BoardComment[]
-  notifications                          Notification[]
-  loginHistories                         LoginHistory[]
+  approvalDecidedBy       User?               @relation("UserApprovalDecider", fields: [approvalDecidedById], references: [id], onDelete: Restrict)
+  approvalDecisions       User[]              @relation("UserApprovalDecider")
+  admin                   Admin?              @relation("AdminUser")
+  adminGrants             Admin[]             @relation("AdminGrantor")
+  userHistories           UserHistory[]       @relation("UserHistorySubject")
+  actedUserHistories      UserHistory[]       @relation("UserHistoryActor")
+  adminHistories          AdminHistory[]      @relation("AdminHistorySubject")
+  actedAdminHistories     AdminHistory[]      @relation("AdminHistoryActor")
+  policies                UserPolicy[]
+  submittedTeams          Team[]              @relation("TeamApplicant")
+  processedTeams          Team[]              @relation("TeamProcessedBy")
+  ledTeams                Team[]              @relation("TeamLeader")
+  teamMemberships         TeamMember[]
+  sentTeamInvitations     TeamInvitation[]    @relation("TeamInvitationInvitedBy")
+  receivedTeamInvitations TeamInvitation[]    @relation("TeamInvitationInvitee")
+  uploadedFiles           File[]
+  createdPrograms         Program[]
+  submissions             Submission[]
+  submissionHistories     SubmissionHistory[]
+  boardPosts              BoardPost[]
+  boardComments           BoardComment[]
+  notifications           Notification[]
+  loginHistories          LoginHistory[]
 }
 
 model Admin {
@@ -222,17 +222,17 @@ enum ProgramCreatedBy {
 }
 
 model Program {
-  coverFileId String? @unique
-  coverFile File? @relation("ProgramCoverFile", fields: [coverFileId], references: [id], onDelete: Restrict)
-  coverSourceUrl String? @db.VarChar(2048)
-  coverImageUrl String? @db.VarChar(2048)
-  files File[] @relation("ProgramFiles")
-  id        String            @id @default(cuid())
-  name      String
-  organizer String
-  category  ProgramCategory
-  trackType ProgramTrackType?
-  lifecycle ProgramLifecycle  @default(PUBLISHED)
+  coverFileId    String?           @unique
+  coverFile      File?             @relation("ProgramCoverFile", fields: [coverFileId], references: [id], onDelete: Restrict)
+  coverSourceUrl String?           @db.VarChar(2048)
+  coverImageUrl  String?           @db.VarChar(2048)
+  files          File[]            @relation("ProgramFiles")
+  id             String            @id @default(cuid())
+  name           String
+  organizer      String
+  category       ProgramCategory
+  trackType      ProgramTrackType?
+  lifecycle      ProgramLifecycle  @default(PUBLISHED)
 
   createdBy      ProgramCreatedBy @default(LEGACY_UNKNOWN)
   createdById    String?
@@ -258,35 +258,31 @@ model Program {
   createdAt                     DateTime @default(now())
   updatedAt                     DateTime @updatedAt
 
-  milestones       Milestone[]
-  teams            Team[]
-  boardPosts       BoardPost[]
+  milestones Milestone[]
+  teams      Team[]
+  boardPosts BoardPost[]
 
   @@unique([createdById, idempotencyKey])
   @@unique([createdById, id])
 }
-
-
 
 model Milestone {
   id        String  @id @default(cuid())
   programId String
   program   Program @relation(fields: [programId], references: [id])
 
-  name           String
-  startAt        DateTime
-  dueAt          DateTime
-  instructions   String?
+  name         String
+  startAt      DateTime
+  dueAt        DateTime
+  instructions String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  requirements    Requirement[]
+  requirements Requirement[]
 
   @@index([programId])
 }
-
-
 
 enum ApplicationStatus {
   SUBMITTED
@@ -300,7 +296,7 @@ enum RepositoryConnectionMode {
 }
 
 model Team {
-  files File[]
+  files     File[]
   id        String  @id @default(cuid())
   programId String
   program   Program @relation(fields: [programId], references: [id])
@@ -310,22 +306,22 @@ model Team {
   leaderId String
   leader   User   @relation("TeamLeader", fields: [leaderId], references: [id])
 
-  applicantId String
-  applicant User @relation("TeamApplicant", fields: [applicantId], references: [id])
-  answers Json
-  applicationTemplateVersion Int
-  status ApplicationStatus @default(SUBMITTED)
-  revision Int @default(1)
-  submittedAt DateTime @default(now())
-  processedById String?
-  processedBy User? @relation("TeamProcessedBy", fields: [processedById], references: [id])
-  processedAt DateTime?
-  rejectionReason String?
-  isRepositoryPublicationPlanned Boolean @default(true)
-  repositoryConnectionMode RepositoryConnectionMode @default(NEW)
+  applicantId                    String
+  applicant                      User                     @relation("TeamApplicant", fields: [applicantId], references: [id])
+  answers                        Json
+  applicationTemplateVersion     Int
+  status                         ApplicationStatus        @default(SUBMITTED)
+  revision                       Int                      @default(1)
+  submittedAt                    DateTime                 @default(now())
+  processedById                  String?
+  processedBy                    User?                    @relation("TeamProcessedBy", fields: [processedById], references: [id])
+  processedAt                    DateTime?
+  rejectionReason                String?
+  isRepositoryPublicationPlanned Boolean                  @default(true)
+  repositoryConnectionMode       RepositoryConnectionMode @default(NEW)
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
   archivedAt DateTime?
 
   members      TeamMember[]
@@ -377,13 +373,13 @@ enum TeamHistoryEvent {
 }
 
 model TeamHistory {
-  id          String @id @default(cuid())
+  id          String           @id @default(cuid())
   teamId      String
   programId   String
   actorId     String?
   event       TeamHistoryEvent
-  occurredAt  DateTime @default(now())
-  recordedAt  DateTime @default(now())
+  occurredAt  DateTime         @default(now())
+  recordedAt  DateTime         @default(now())
   source      HistorySource
   sourceTable String?
   sourceId    String?
@@ -433,10 +429,10 @@ model TeamInvitation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@unique([teamId, inviteeId])
   @@index([teamId])
   @@index([programId, inviteeId])
   @@index([inviteeId])
-  @@unique([teamId, inviteeId])
 }
 
 enum BoardPostCategory {
@@ -488,7 +484,6 @@ enum SubmissionStatus {
   REJECTED
 }
 
-
 enum RequirementSubmissionType {
   FILE
   TEXT
@@ -496,33 +491,32 @@ enum RequirementSubmissionType {
 }
 
 model Requirement {
-  files File[]
+  files       File[]
   graceDueAt  DateTime?
   id          String    @id @default(cuid())
   milestoneId String
   milestone   Milestone @relation(fields: [milestoneId], references: [id])
 
-  name      String
-  required  Boolean
-  sortOrder Int
+  name           String
+  required       Boolean
+  sortOrder      Int
   submissionType RequirementSubmissionType @default(FILE_OR_TEXT)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  submissions  Submission[]
+  submissions Submission[]
 
   @@index([milestoneId, sortOrder])
 }
-
 
 model Submission {
   id String @id @default(cuid())
 
   requirementId String
   requirement   Requirement @relation(fields: [requirementId], references: [id])
-  teamId String
-  team Team @relation(fields: [teamId], references: [id])
+  teamId        String
+  team          Team        @relation(fields: [teamId], references: [id])
 
   status  SubmissionStatus @default(SUBMITTED)
   content Json?
@@ -536,8 +530,9 @@ model Submission {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  files           File[]
-  histories       SubmissionHistory[]
+  files     File[]
+  histories SubmissionHistory[]
+
   @@unique([requirementId, teamId])
   @@index([teamId])
   @@index([submittedById])
@@ -588,39 +583,39 @@ enum FileLifecycle {
 }
 
 model File {
-  id String @id @default(cuid())
-  kind FileKind
-  lifecycle FileLifecycle
-  storageKey String @unique
-  originalFileName String?
-  mimeType String?
-  sizeBytes Int?
-  sha256 String? @db.VarChar(64)
-  uploaderId String?
-  uploader User? @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
-  programId String?
-  program Program? @relation("ProgramFiles", fields: [programId], references: [id], onDelete: Restrict)
-  coverForProgram Program? @relation("ProgramCoverFile")
-  requirementId String?
-  requirement Requirement? @relation(fields: [requirementId], references: [id], onDelete: Restrict)
-  teamId String?
-  team Team? @relation(fields: [teamId], references: [id], onDelete: Restrict)
-  submissionId String?
-  submission Submission? @relation(fields: [submissionId], references: [id], onDelete: Restrict)
-  submissionHistoryId String?
-  submissionHistory SubmissionHistory? @relation(fields: [submissionHistoryId], references: [id], onDelete: Restrict)
-  pendingExpiresAt DateTime?
-  expiresAt DateTime?
-  attachedAt DateTime?
-  deleteClaimedAt DateTime?
+  id                   String             @id @default(cuid())
+  kind                 FileKind
+  lifecycle            FileLifecycle
+  storageKey           String             @unique
+  originalFileName     String?
+  mimeType             String?
+  sizeBytes            Int?
+  sha256               String?            @db.VarChar(64)
+  uploaderId           String?
+  uploader             User?              @relation(fields: [uploaderId], references: [id], onDelete: Restrict)
+  programId            String?
+  program              Program?           @relation("ProgramFiles", fields: [programId], references: [id], onDelete: Restrict)
+  coverForProgram      Program?           @relation("ProgramCoverFile")
+  requirementId        String?
+  requirement          Requirement?       @relation(fields: [requirementId], references: [id], onDelete: Restrict)
+  teamId               String?
+  team                 Team?              @relation(fields: [teamId], references: [id], onDelete: Restrict)
+  submissionId         String?
+  submission           Submission?        @relation(fields: [submissionId], references: [id], onDelete: Restrict)
+  submissionHistoryId  String?
+  submissionHistory    SubmissionHistory? @relation(fields: [submissionHistoryId], references: [id], onDelete: Restrict)
+  pendingExpiresAt     DateTime?
+  expiresAt            DateTime?
+  attachedAt           DateTime?
+  deleteClaimedAt      DateTime?
   deleteClaimExpiresAt DateTime?
-  deleteClaimOwner String?
-  deleteAttemptCount Int @default(0)
-  nextDeleteAttemptAt DateTime?
-  lastDeleteError String?
-  deletedAt DateTime?
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  deleteClaimOwner     String?
+  deleteAttemptCount   Int                @default(0)
+  nextDeleteAttemptAt  DateTime?
+  lastDeleteError      String?
+  deletedAt            DateTime?
+  createdAt            DateTime           @default(now())
+  updatedAt            DateTime           @default(now()) @updatedAt
 
   @@index([uploaderId])
   @@index([teamId, requirementId, lifecycle])
@@ -712,9 +707,9 @@ enum RepositoryProvisionJobStatus {
 }
 
 model RepositoryProvisionJob {
-  id String @id @default(cuid())
+  id     String @id @default(cuid())
   teamId String @unique
-  team Team @relation(fields: [teamId], references: [id])
+  team   Team   @relation(fields: [teamId], references: [id])
 
   repositoryId String?
   repository   GithubRepository? @relation(fields: [repositoryId], references: [id])
@@ -743,9 +738,9 @@ model RepositoryProvisionJob {
 model RepositoryIssuanceHistory {
   id String @id @default(cuid())
 
-  requestId String @unique
-  teamId String
-  repositoryId  String?
+  requestId    String  @unique
+  teamId       String
+  repositoryId String?
 
   connectionMode RepositoryConnectionMode
   source         RepositorySource?
@@ -756,6 +751,7 @@ model RepositoryIssuanceHistory {
   requestedAt DateTime
   closedAt    DateTime
   createdAt   DateTime @default(now())
+
   @@index([teamId])
 }
 
@@ -814,7 +810,6 @@ model GithubRepository {
   nextRunAt     DateTime  @default(now())
   lastSuccessAt DateTime?
   failureCount  Int       @default(0)
-
 
   teamId String? @unique
   team   Team?   @relation(fields: [teamId], references: [id])
@@ -902,9 +897,9 @@ model CollectionRepositoryStream {
 }
 
 model GithubRepositoryOutsiderContribution {
-  repositoryId String           @id
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  teamId String
+  repositoryId  String           @id
+  repository    GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
+  teamId        String
   programId     String
   windowStartAt DateTime
   windowEndAt   DateTime
@@ -951,37 +946,6 @@ model CollectionCutoverLease {
   updatedAt DateTime @updatedAt
 
   @@id([appId, scope])
-}
-
-enum CollectionRunKind {
-  SWEEP
-  REPOSITORY_LINK
-}
-
-model CollectionSweepHistory {
-  id String @id @default(cuid())
-
-  appId BigInt
-  scope String
-
-  sweepFinishedAt DateTime
-  cycleStartedAt  DateTime?
-
-  insertedCommitCount      Int
-  insertedPullRequestCount Int
-  insertedReleaseCount     Int
-  insertedIssueCount       Int @default(0)
-
-  attemptedRepositoryCount Int
-  processedRepositoryCount Int
-  failedRepositoryCount    Int
-
-  cycleCompleted   Boolean
-  stoppedForBudget Boolean
-
-  kind CollectionRunKind @default(SWEEP)
-
-  @@index([sweepFinishedAt])
 }
 
 enum ContributionKind {
@@ -1056,4 +1020,3 @@ model GithubUserActivityObservation {
   @@id([githubId, year, visibility, observedAt])
   @@map("github_user_activity_history")
 }
-
