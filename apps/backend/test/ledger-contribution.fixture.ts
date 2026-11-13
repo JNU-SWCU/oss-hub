@@ -55,6 +55,24 @@ export async function seedDailyContributions(
   });
 }
 
+export async function setRepoLastSuccessAt(
+  prisma: Pick<PrismaClient, 'repo'>,
+  githubRepositoryId: bigint,
+  lastSuccessAt: Date | null,
+  source: RepositorySource = 'ORG_PROVISIONED',
+): Promise<void> {
+  await prisma.repo.upsert({
+    where: { githubRepoId: githubRepositoryId },
+    create: {
+      githubRepoId: githubRepositoryId,
+      ownerName: 'synthetic',
+      source,
+      lastSuccessAt,
+    },
+    update: { lastSuccessAt },
+  });
+}
+
 export async function repositoryContributionTotals(
   prisma: Pick<PrismaClient, '$queryRaw'>,
   repositoryIds: readonly string[],

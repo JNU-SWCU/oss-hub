@@ -17,8 +17,18 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
-import { CollectionAppClient } from '../github/collection-app.client';
-import { CollectionIncrementalRepository } from '../github/collection-incremental.repository';
+import type {
+  CollectionAppClient,
+  CollectionContribution,
+  CollectionProbeResult,
+  CollectionProbeTarget,
+  CollectionRepositoryContributions,
+} from '../github/collection-app.client';
+import type { CollectionAppTokenClient } from '../github/collection-app-token.client';
+import {
+  CollectionIncrementalRepository,
+  type RepositorySource,
+} from '../github/collection-incremental.repository';
 import { CollectionSyncService } from '../github/collection-sync.service';
 import { ProviderRequestQueueClient } from '../github/provider-request-queue.client';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -35,27 +45,70 @@ const collection = new CollectionIncrementalRepository(
   new PlatformRepository(),
 );
 class FixtureCollectionRepository extends CollectionIncrementalRepository {
-  override async listOrganizationRepositories() {
-    return (await super.listOrganizationRepositories()).filter(
-      (row) => row.id === oldId || row.id === targetId,
-    );
-  }
-  override async listExternalRepositories() {
-    return (await super.listExternalRepositories()).filter(
+  override async listCollectionTargets(source: RepositorySource) {
+    return (await super.listCollectionTargets(source)).filter(
       (row) => row.id === oldId || row.id === targetId,
     );
   }
 }
 const observedAt = new Date('2099-01-02T00:00:00Z');
-const fingerprint = {
-  endpoint: '/synthetic',
-  ref: null,
-  query: '',
-  order: null,
-  pageSize: 100,
-  accept: 'application/vnd.github+json',
-  apiVersion: '2022-11-28',
-};
+
+const commit = (githubKey: string): CollectionContribution => ({
+  githubKey,
+  authorGithubId: githubId.toString(),
+  occurredAt: new Date('2098-12-30T00:00:00Z'),
+});
+
+const contributions = (
+  commits: readonly CollectionContribution[],
+): CollectionRepositoryContributions => ({
+  contributions: { commit: commits, pull_request: [], issue: [], release: [] },
+  requests: 1,
+  pointsUsed: 1,
+  rateLimit: null,
+});
+
+function syntheticProvider(commits: readonly CollectionContribution[] = []) {
+  const client = {
+    probeRepositories: jest.fn(
+      (
+        targets: readonly CollectionProbeTarget[],
+      ): Promise<CollectionProbeResult> =>
+        Promise.resolve({
+          repositories: targets.map((target) => ({
+            githubRepositoryId: (target.name === 'old'
+              ? targetGithubId + 1n
+              : targetGithubId
+            ).toString(),
+            nameWithOwner: `${target.owner}/${target.name}`,
+            defaultBranch: 'main',
+            archived: false,
+            private: false,
+            activityAt: [],
+          })),
+          rateLimit: null,
+        }),
+    ),
+    getRepositoryById: jest.fn(),
+    collectRepositoryContributions: jest.fn<
+      Promise<CollectionRepositoryContributions>,
+      [string, string, string | null, Date | null]
+    >(() => Promise.resolve(contributions(commits))),
+  };
+  const runtime = () => ({
+    appId: '8133',
+    organizationLogin: 'synthetic',
+    tokens: {} as CollectionAppTokenClient,
+    client: client as unknown as CollectionAppClient,
+    queue: new ProviderRequestQueueClient(),
+  });
+  return {
+    client,
+    runtime,
+    collectedNames: () =>
+      client.collectRepositoryContributions.mock.calls.map((call) => call[1]),
+  };
+}
 
 it('collects new facts only on the replacement when an external application repository is relinked', async () => {
   await prisma.repo.upsert({
@@ -72,84 +125,23 @@ it('collects new facts only on the replacement when an external application repo
     data: { source: 'EXTERNAL_PUBLIC' },
   });
   await service.updateMine(githubId, programId, input);
-  const tokens = {
-    getToken: () => Promise.resolve('synthetic-unused'),
-    clear: jest.fn(),
-  };
-  const client = new CollectionAppClient(
-    {
-      appId: '8133',
-      orgLogin: 'synthetic',
-      privateKey: 'synthetic-unused',
-      apiBaseUrl: 'https://example.invalid',
-      maxPages: 1,
-      deadlineMs: 1000,
-    },
-    tokens,
-    () => Promise.reject(new Error('Unexpected provider request')),
-  );
-  const metadata = jest
-    .spyOn(client, 'getRepository')
-    .mockImplementation((owner, name) =>
-      Promise.resolve({
-        id: (name === 'old' ? targetGithubId + 1n : targetGithubId).toString(),
-        name,
-        fullName: `${owner}/${name}`,
-        private: false,
-        archived: false,
-        defaultBranch: 'main',
-        ownerLogin: owner,
-        htmlUrl: `https://example.invalid/${owner}/${name}`,
-        updatedAt: observedAt.toISOString(),
-      }),
-    );
-  jest.spyOn(client, 'resolveUserNodeId').mockResolvedValue('synthetic-node');
-  jest.spyOn(client, 'listDefaultBranchCommitsByAuthor').mockResolvedValue([
-    {
-      sha: 'new-after-relink',
-      authorLogin: 'synthetic-relink-user',
-      authorGithubId: githubId.toString(),
-      committedAt: '2026-08-02T00:00:00Z',
-      htmlUrl: 'https://example.invalid/commit/new-after-relink',
-    },
-  ]);
-  jest.spyOn(client, 'listNewPullRequests').mockResolvedValue({
-    pullRequests: [],
-    newFrontier: null,
-    fingerprint,
-  });
-  jest.spyOn(client, 'probeLatestRelease').mockResolvedValue({
-    changed: true,
-    frontier: null,
-    fingerprint,
-    etag: null,
-  });
-  jest
-    .spyOn(client, 'listChangedPublishedReleases')
-    .mockResolvedValue({ releases: [], fingerprint });
-  jest
-    .spyOn(client, 'listNewIssues')
-    .mockResolvedValue({ issues: [], newFrontier: null, fingerprint });
-  const runtime = () => ({
-    appId: '8133',
-    organizationLogin: 'synthetic',
-    tokens,
-    client,
-    queue: new ProviderRequestQueueClient(),
-  });
+  const provider = syntheticProvider([commit('new-after-relink')]);
   const sync = new CollectionSyncService(
     new FixtureCollectionRepository(prisma, new PlatformRepository()),
-    runtime,
+    provider.runtime,
     new RepositoryUrlService(),
     () => observedAt,
     () => 'synthetic-relink-collection-run',
-    runtime,
+    provider.runtime,
   );
 
   const result = await sync.runExternal('synthetic-relink-collection');
 
   expect(result.status).toBe('COMPLETED');
-  expect(metadata.mock.calls).toEqual([['synthetic', 'target']]);
+  expect(provider.client.probeRepositories.mock.calls).toEqual([
+    [[{ owner: 'synthetic', name: 'target' }]],
+  ]);
+  expect(provider.collectedNames()).toEqual(['target']);
   expect(
     await prisma.contributionEvent.findMany({
       where: { repoId: targetGithubId, kind: 'COMMIT' },
@@ -163,18 +155,16 @@ it('collects new facts only on the replacement when an external application repo
   ).toBe(0);
 });
 
-it('keeps a linked private or absent external repository eligible for recovery', async () => {
+it('비공개이거나 사라진 외부 저장소는 연결이 남아 있어도 수집 대상에서 빠진다', async () => {
   await service.updateMine(githubId, programId, input);
   await prisma.githubRepository.update({
     where: { id: targetId },
     data: { visibility: 'PRIVATE', presence: 'ABSENT' },
   });
 
-  const selected = await collection.listExternalRepositories();
+  const selected = await collection.listCollectionTargets('EXTERNAL_PUBLIC');
 
-  expect(selected).toEqual(
-    expect.arrayContaining([expect.objectContaining({ id: targetId })]),
-  );
+  expect(selected.some((row) => row.id === targetId)).toBe(false);
 });
 
 it('stops selecting a linked external repository once deletion clears every link', async () => {
@@ -184,7 +174,7 @@ it('stops selecting a linked external repository once deletion clears every link
     data: { teamId: null },
   });
 
-  const selected = await collection.listExternalRepositories();
+  const selected = await collection.listCollectionTargets('EXTERNAL_PUBLIC');
 
   expect(selected.some((row) => row.id === targetId)).toBe(false);
 });
@@ -205,7 +195,7 @@ it('does not revive a detached external repository when it is enrolled again', a
   });
 
   expect(
-    (await collection.listExternalRepositories()).some(
+    (await collection.listCollectionTargets('EXTERNAL_PUBLIC')).some(
       (row) => row.id === oldId,
     ),
   ).toBe(false);
@@ -236,7 +226,7 @@ it('selects a historical external repository again when the application reattach
     repositoryUrl: 'https://github.com/synthetic/old',
   });
 
-  const selected = await collection.listExternalRepositories();
+  const selected = await collection.listCollectionTargets('EXTERNAL_PUBLIC');
   expect(selected).toEqual(
     expect.arrayContaining([
       expect.objectContaining({
@@ -250,81 +240,12 @@ it('selects a historical external repository again when the application reattach
 
 it('교체된 조직 저장소는 수집 목록에도 레포 테이블에도 남지 않는다', async () => {
   await service.updateMine(githubId, programId, input);
-  const selected = await collection.listOrganizationRepositories();
+  const selected = await collection.listCollectionTargets('ORG_PROVISIONED');
   expect(selected.some((row) => row.id === oldId)).toBe(false);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toBeNull();
 });
-
-function syntheticProvider() {
-  const tokens = {
-    getToken: () => Promise.resolve('synthetic-unused'),
-    clear: jest.fn(),
-  };
-  const client = new CollectionAppClient(
-    {
-      appId: '8133',
-      orgLogin: 'synthetic',
-      privateKey: 'synthetic-unused',
-      apiBaseUrl: 'https://example.invalid',
-      maxPages: 1,
-      deadlineMs: 1000,
-    },
-    tokens,
-    () => Promise.reject(new Error('Unexpected provider request')),
-  );
-  const repositoryCalls = [
-    jest.spyOn(client, 'probeDefaultBranchHead').mockResolvedValue({
-      changed: false,
-      fingerprint,
-      etag: 'synthetic-etag',
-    }),
-    jest.spyOn(client, 'listCommitsUntilKnownSha').mockResolvedValue({
-      commits: [],
-      disconnectedFullScan: true,
-      fingerprint,
-    }),
-    jest
-      .spyOn(client, 'listDefaultBranchCommitsByAuthor')
-      .mockResolvedValue([]),
-    jest.spyOn(client, 'listNewPullRequests').mockResolvedValue({
-      pullRequests: [],
-      newFrontier: null,
-      fingerprint,
-    }),
-    jest.spyOn(client, 'probeLatestRelease').mockResolvedValue({
-      changed: false,
-      fingerprint,
-      etag: 'synthetic-etag',
-    }),
-    jest
-      .spyOn(client, 'listNewIssues')
-      .mockResolvedValue({ issues: [], newFrontier: null, fingerprint }),
-  ];
-  const resolveUserNodeId = jest
-    .spyOn(client, 'resolveUserNodeId')
-    .mockResolvedValue('synthetic-node');
-  const getRepository = jest.spyOn(client, 'getRepository');
-  const runtime = () => ({
-    appId: '8133',
-    organizationLogin: 'synthetic',
-    tokens,
-    client,
-    queue: new ProviderRequestQueueClient(),
-  });
-  return {
-    client,
-    runtime,
-    resolveUserNodeId,
-    getRepository,
-
-    streamedNames: () =>
-      repositoryCalls.flatMap((spy) =>
-        spy.mock.calls.map((call: readonly unknown[]) => call[1]),
-      ),
-  };
-}
 
 it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
   'stops collecting and counting a deleted %s program repository while retaining facts and ranking',
@@ -379,17 +300,18 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
       () => `synthetic-deleted-${source}`,
       provider.runtime,
     );
-    const beforeStatus =
+    const trackedCount = async (): Promise<number> =>
       source === 'ORG_PROVISIONED'
-        ? await status.getIncrementalStatusSnapshot()
-        : await status.getExternalCollectionStatus();
-    expect(beforeStatus.trackedRepositoryCount).toBeGreaterThan(0);
+        ? (await status.getCollectionRepositories()).length
+        : (await status.getExternalCollectionStatus()).trackedRepositoryCount;
+    const beforeTracked = await trackedCount();
+    expect(beforeTracked).toBeGreaterThan(0);
     if (source === 'ORG_PROVISIONED') {
-      expect(await status.getIncrementalStatusStreams()).toEqual(
+      expect(await status.getCollectionRepositories()).toEqual(
         expect.arrayContaining([expect.objectContaining({ repositoryName })]),
       );
     } else {
-      expect(await collection.listExternalRepositories()).toEqual(
+      expect(await collection.listCollectionTargets('EXTERNAL_PUBLIC')).toEqual(
         expect.arrayContaining([expect.objectContaining({ id: oldId })]),
       );
     }
@@ -411,8 +333,8 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
     expect(
       await sync.runRepository('synthetic-deleted', targetGithubId + 1n),
     ).toMatchObject({ status: 'SKIPPED', processedRepositoryCount: 0 });
-    expect(provider.streamedNames()).toEqual([]);
-    expect(provider.getRepository).not.toHaveBeenCalled();
+    expect(provider.collectedNames()).toEqual([]);
+    expect(provider.client.getRepositoryById).not.toHaveBeenCalled();
     await expect(
       prisma.githubRepository.create({
         data: {
@@ -426,21 +348,15 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
       code: 'P2002',
       meta: { target: ['teamId'] },
     });
-    const afterStatus =
-      source === 'ORG_PROVISIONED'
-        ? await status.getIncrementalStatusSnapshot()
-        : await status.getExternalCollectionStatus();
-    expect(afterStatus.trackedRepositoryCount).toBe(
-      beforeStatus.trackedRepositoryCount - 1,
-    );
+    expect(await trackedCount()).toBe(beforeTracked - 1);
     if (source === 'ORG_PROVISIONED') {
-      const streams = await status.getIncrementalStatusStreams();
-      expect(streams.some((row) => row.repositoryName === repositoryName)).toBe(
-        false,
-      );
+      const repositories = await status.getCollectionRepositories();
+      expect(
+        repositories.some((row) => row.repositoryName === repositoryName),
+      ).toBe(false);
     } else {
       expect(
-        (await collection.listExternalRepositories()).some(
+        (await collection.listCollectionTargets('EXTERNAL_PUBLIC')).some(
           (row) => row.id === oldId,
         ),
       ).toBe(false);
@@ -465,18 +381,7 @@ it('collects a repository linked into an empty slot right after the team route s
     update: {},
   });
   await prisma.githubRepository.delete({ where: { id: oldId } });
-  const provider = syntheticProvider();
-  jest
-    .spyOn(provider.client, 'listDefaultBranchCommitsByAuthor')
-    .mockResolvedValue([
-      {
-        sha: 'collected-right-after-link',
-        authorLogin: 'synthetic-relink-user',
-        authorGithubId: githubId.toString(),
-        committedAt: '2026-08-02T00:00:00Z',
-        htmlUrl: 'https://example.invalid/commit/collected-right-after-link',
-      },
-    ]);
+  const provider = syntheticProvider([commit('collected-right-after-link')]);
   const sync = new CollectionSyncService(
     collection,
     provider.runtime,
@@ -502,7 +407,13 @@ it('collects a repository linked into an empty slot right after the team route s
       insertedFactCount: 1,
     }),
   ]);
-  expect(provider.getRepository).not.toHaveBeenCalled();
+  expect(provider.client.probeRepositories).not.toHaveBeenCalled();
+  expect(provider.client.collectRepositoryContributions).toHaveBeenCalledWith(
+    'synthetic',
+    'target',
+    'main',
+    new Date(observedAt.getTime() - 14 * 86_400_000),
+  );
   expect(
     await prisma.contributionEvent.findMany({
       where: { repoId: targetGithubId, kind: 'COMMIT' },
@@ -519,8 +430,11 @@ it('collects a repository linked into an empty slot right after the team route s
     `,
   ).toEqual([{ commitCount: 1 }]);
   expect(
-    await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ lastSuccessAt: observedAt, failureCount: 0 });
+    await prisma.repo.findUnique({
+      where: { githubRepoId: targetGithubId },
+      select: { lastSuccessAt: true },
+    }),
+  ).toEqual({ lastSuccessAt: new Date(observedAt.getTime() - 5 * 60_000) });
 });
 
 it('교체된 조직 저장소는 다음 조직 수집에서 되살아나지 않는다', async () => {
@@ -538,7 +452,7 @@ it('교체된 조직 저장소는 다음 조직 수집에서 되살아나지 않
     status: 'COMPLETED',
     processedRepositoryCount: 0,
   });
-  expect(provider.streamedNames()).toEqual([]);
+  expect(provider.collectedNames()).toEqual([]);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toBeNull();

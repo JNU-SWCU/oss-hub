@@ -28,7 +28,6 @@ export class RepositoryDeletionRepository {
         SELECT count(*) FROM repo_contribution
         WHERE repository_id = ${repositoryId}
       ),
-      'streams', (SELECT count(*) FROM "CollectionRepositoryStream" WHERE "repositoryId" = ${repositoryId}),
       'pullRequests', (
         SELECT count(*) FROM "contribution" AS event
         JOIN "GithubRepository" AS repository

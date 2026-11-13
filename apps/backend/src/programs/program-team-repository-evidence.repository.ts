@@ -1,3 +1,4 @@
+import { COLLECTION_STALE_AFTER_MS } from '../github/collection-app.config';
 import { Injectable } from '@nestjs/common';
 import {
   Prisma,
@@ -186,8 +187,7 @@ interface ApplicationRepositorySource {
   readonly repository: {
     readonly id: string;
     readonly nameWithOwner: string;
-    readonly lastSuccessAt: Date | null;
-    readonly failureCount: number;
+    readonly githubRepositoryId: bigint;
   } | null;
   readonly program: {
     readonly id: string;
@@ -245,6 +245,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
   ): Promise<TeamRepositoryContributionsRow | null> {
     const repository = application.repository;
     if (!repository) return null;
+    const lastSuccessAt = await this.lastSuccessAt(repository);
     const window = programWindow(application.program);
     const bounds = windowDates(window);
     const rows = await this.prisma.$queryRaw<ContributionTotalRow[]>`
@@ -281,8 +282,8 @@ export class ProgramTeamRepositoryEvidenceRepository {
       repositoryId: repository.id,
       nameWithOwner: repository.nameWithOwner,
       window,
-      collectionStatus: collectionStatus(repository),
-      lastSuccessAt: repository.lastSuccessAt?.toISOString() ?? null,
+      collectionStatus: collectionStatus(lastSuccessAt, new Date()),
+      lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
       members: members.map((member) => ({
         userId: member.userId,
         hasObservations: contributors.has(member.user.githubId),
@@ -297,13 +298,26 @@ export class ProgramTeamRepositoryEvidenceRepository {
     };
   }
 
-  async activity(team: TeamActivityScope): Promise<TeamActivityRow> {
+  private async lastSuccessAt(repository: {
+    readonly githubRepositoryId: bigint;
+  }): Promise<Date | null> {
+    const ledger = await this.prisma.repo.findUnique({
+      where: { githubRepoId: repository.githubRepositoryId },
+      select: { lastSuccessAt: true },
+    });
+    return ledger?.lastSuccessAt ?? null;
+  }
+
+  async activity(team: TeamActivityScope, now: Date): Promise<TeamActivityRow> {
     const repository = team.application?.repository ?? null;
+    const lastSuccessAt = repository
+      ? await this.lastSuccessAt(repository)
+      : null;
     const window = programWindow(team.program);
     const memberGithubIds = team.members.map((member) => member.user.githubId);
     const bounds = windowDates(window);
     const rows =
-      repository?.lastSuccessAt && memberGithubIds.length > 0
+      repository && lastSuccessAt && memberGithubIds.length > 0
         ? await this.prisma.$queryRaw<ActivityPointRow[]>`
             SELECT
               github_id AS "githubId",
@@ -330,8 +344,10 @@ export class ProgramTeamRepositoryEvidenceRepository {
         id: repository.id,
         nameWithOwner: repository.nameWithOwner,
       },
-      status: repository ? collectionStatus(repository) : 'NOT_CONNECTED',
-      lastSuccessAt: repository?.lastSuccessAt?.toISOString() ?? null,
+      status: repository
+        ? collectionStatus(lastSuccessAt, now)
+        : 'NOT_CONNECTED',
+      lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
       window,
       members: team.members.map((member) => {
         const points = rows
@@ -421,10 +437,12 @@ interface ActivityPointRow {
   readonly issueCount: number;
 }
 
-function collectionStatus(repository: {
-  readonly lastSuccessAt: Date | null;
-  readonly failureCount: number;
-}): 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR' {
-  if (repository.failureCount > 0) return 'ERROR';
-  return repository.lastSuccessAt ? 'COLLECTED' : 'NOT_COLLECTED';
+function collectionStatus(
+  lastSuccessAt: Date | null,
+  now: Date,
+): 'NOT_COLLECTED' | 'COLLECTED' | 'ERROR' {
+  if (lastSuccessAt === null) return 'NOT_COLLECTED';
+  return now.getTime() - lastSuccessAt.getTime() > COLLECTION_STALE_AFTER_MS
+    ? 'ERROR'
+    : 'COLLECTED';
 }

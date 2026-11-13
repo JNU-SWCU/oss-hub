@@ -21,6 +21,7 @@ export const historyQuery = jest.fn<
   [TemplateStringsArray, ...unknown[]]
 >();
 export const provisionFindUnique = jest.fn();
+export const repoFindUnique = jest.fn();
 jest.mock('../platform/prisma.service', () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
     team: {
@@ -40,12 +41,12 @@ jest.mock('../platform/prisma.service', () => ({
     },
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(null) },
     repositoryProvisionJob: { findUnique: provisionFindUnique },
+    repo: { findUnique: repoFindUnique },
   })),
 }));
 
 export function givenRepository(
   lastSuccessAt: Date | null = new Date('2026-08-31Z'),
-  failureCount = 0,
   repositoryConnectionMode: 'NEW' | 'OWN' = 'NEW',
 ) {
   teamFindFirst.mockResolvedValue({
@@ -73,8 +74,7 @@ export function givenRepository(
       id: 'current-repo',
       nameWithOwner: 'synthetic/current',
       visibility: 'PRIVATE',
-      lastSuccessAt,
-      failureCount,
+      githubRepositoryId: 7001n,
     },
     program: {
       id: 'program',
@@ -86,6 +86,9 @@ export function givenRepository(
     submissions: [],
   });
   historyQuery.mockResolvedValue([]);
+  repoFindUnique.mockResolvedValue(
+    lastSuccessAt === null ? null : { lastSuccessAt },
+  );
   provisionFindUnique.mockResolvedValue(null);
   contributionQuery.mockResolvedValue([
     {

@@ -1,35 +1,18 @@
 import { Inject, Injectable } from '@nestjs/common';
+import { COLLECTION_STALE_AFTER_MS } from '../github/collection-app.config';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
-import {
-  SystemStatusRepository,
-  type CollectionIncrementalStatusSnapshotDto,
-  type CollectionRepositoryStreamsDto,
-} from './system-status.repository';
-import { COLLECTION_STREAM_TYPES } from './system-status.config';
+import { SystemStatusRepository } from './system-status.repository';
 
-type CollectionHealthResult =
-  'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
+type CollectionHealthResult = 'EMPTY' | 'NORMAL' | 'DELAYED';
 
-export type CurrentRunStatusResult = 'IDLE' | 'PROCESSING';
+type CurrentRunStatusResult = 'IDLE' | 'PROCESSING';
 
-type SystemStatusSafeReasonResult =
-  | 'NO_TRACKED_REPOSITORIES'
-  | 'UPSTREAM_RATE_LIMITED'
-  | 'RUN_INCOMPLETE'
-  | 'STALE_DATA';
+type SystemStatusSafeReasonResult = 'NO_TRACKED_REPOSITORIES' | 'STALE_DATA';
 
 interface CollectionSystemStatusResult {
   readonly health: CollectionHealthResult;
-  readonly dataAsOf: Date | null;
   readonly trackedRepositoryCount: number;
-  readonly readyStreamCount: number;
-  readonly backfillingStreamCount: number;
-  readonly partialStreamCount: number;
-  readonly retryPendingStreamCount: number;
-  readonly oldestReadyCheckpointAt: Date | null;
-  readonly oldestRetryPendingAt: Date | null;
-  readonly lastCycleStartedAt: Date | null;
-  readonly lastCycleCompletedAt: Date | null;
+  readonly staleRepositoryCount: number;
   readonly lastSuccessAt: Date | null;
   readonly nextCycleAt: Date | null;
   readonly currentRunStatus: CurrentRunStatusResult;
@@ -40,24 +23,11 @@ interface RepositoryProvisioningSystemStatusResult {
   readonly finalFailureCount: number;
 }
 
-type CollectionStreamBucketResult =
-  'READY' | 'BACKFILLING' | 'PARTIAL' | 'RETRY_PENDING';
-
-type CollectionStreamTypeResult =
-  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
-
-interface CollectionRepositoryStreamResult {
-  readonly streamType: CollectionStreamTypeResult;
-  readonly bucket: CollectionStreamBucketResult;
-  readonly lastSuccessAt: Date | null;
-  readonly lastErrorCode: string | null;
-  readonly lastErrorAt: Date | null;
-}
-
-interface SystemStatusCollectionStreamsResult {
+interface SystemStatusCollectionRepositoryResult {
   readonly repositoryName: string;
   readonly programName: string | null;
-  readonly streams: readonly CollectionRepositoryStreamResult[];
+  readonly lastSuccessAt: Date | null;
+  readonly stale: boolean;
 }
 
 interface SystemStatusExternalCollectionResult {
@@ -68,22 +38,12 @@ interface SystemStatusExternalCollectionResult {
 export interface SystemStatusResult {
   readonly collection: CollectionSystemStatusResult;
   readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResult;
-  readonly collectionStreams: readonly SystemStatusCollectionStreamsResult[];
+  readonly collectionRepositories: readonly SystemStatusCollectionRepositoryResult[];
   readonly externalCollection: SystemStatusExternalCollectionResult;
 }
 
-const STALE_AFTER_MS = 90 * 60 * 1000;
 export const SYSTEM_STATUS_CLOCK = Symbol('SYSTEM_STATUS_CLOCK');
 export type SystemStatusClock = () => Date;
-
-type CollectionStatusSnapshot = CollectionIncrementalStatusSnapshotDto & {
-  readonly partialStreamCount: number;
-};
-
-interface StatusDecision {
-  health: CollectionHealthResult;
-  reason: SystemStatusSafeReasonResult | null;
-}
 
 @Injectable()
 export class SystemStatusService {
@@ -94,129 +54,57 @@ export class SystemStatusService {
   ) {}
 
   async getStatus(): Promise<SystemStatusResult> {
-    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(
-      this.clock(),
-    );
-    const [rows, finalFailureCount, streamRows, externalStatus] =
+    const now = this.clock();
+    const nextCycleAt = this.collectionSchedule.nextScheduledCollectionAt(now);
+    const [repositories, running, finalFailureCount, externalCollection] =
       await Promise.all([
-        this.repository.getIncrementalStatusSnapshot(),
+        this.repository.getCollectionRepositories(),
+        this.repository.hasActiveCollectionRun(now),
         this.repository.countFinalProvisionFailures(),
-        this.repository.getIncrementalStatusStreams(),
         this.repository.getExternalCollectionStatus(),
       ]);
-    const snapshot = this.toCollectionStatusSnapshot(rows);
-    const streams = streamRows.map((repository) =>
-      this.toCollectionStreams(repository),
+    const collectionRepositories = repositories.map((repository) => ({
+      ...repository,
+      stale:
+        repository.lastSuccessAt !== null &&
+        now.getTime() - repository.lastSuccessAt.getTime() >
+          COLLECTION_STALE_AFTER_MS,
+    }));
+    const staleRepositoryCount = collectionRepositories.filter(
+      (repository) => repository.stale,
+    ).length;
+    const lastSuccessAt = collectionRepositories.reduce<Date | null>(
+      (latest, repository) =>
+        repository.lastSuccessAt !== null &&
+        (latest === null || latest < repository.lastSuccessAt)
+          ? repository.lastSuccessAt
+          : latest,
+      null,
     );
-    const decision = this.decide(snapshot);
+    const health: CollectionHealthResult =
+      collectionRepositories.length === 0
+        ? 'EMPTY'
+        : staleRepositoryCount > 0
+          ? 'DELAYED'
+          : 'NORMAL';
     return {
       collection: {
-        health: decision.health,
-        dataAsOf: snapshot.latestCheckpointAt,
-        trackedRepositoryCount: snapshot.trackedRepositoryCount,
-        readyStreamCount: snapshot.readyStreamCount,
-        backfillingStreamCount: snapshot.backfillingStreamCount,
-        partialStreamCount: snapshot.partialStreamCount,
-        retryPendingStreamCount: snapshot.retryPendingStreamCount,
-        oldestReadyCheckpointAt: snapshot.oldestReadyCheckpointAt,
-        oldestRetryPendingAt: snapshot.oldestRetryPendingAt,
-        lastCycleStartedAt: snapshot.lastCycleStartedAt,
-        lastCycleCompletedAt: snapshot.lastCycleCompletedAt,
-        lastSuccessAt: snapshot.lastRepositorySuccessAt,
+        health,
+        trackedRepositoryCount: collectionRepositories.length,
+        staleRepositoryCount,
+        lastSuccessAt,
         nextCycleAt,
-        currentRunStatus: this.currentRunStatus(snapshot),
-        safeReason: decision.reason,
+        currentRunStatus: running ? 'PROCESSING' : 'IDLE',
+        safeReason:
+          health === 'EMPTY'
+            ? 'NO_TRACKED_REPOSITORIES'
+            : health === 'DELAYED'
+              ? 'STALE_DATA'
+              : null,
       },
       repositoryProvisioning: { finalFailureCount },
-      collectionStreams: streams,
-      externalCollection: externalStatus,
+      collectionRepositories,
+      externalCollection,
     };
-  }
-
-  private toCollectionStatusSnapshot(
-    rows: CollectionIncrementalStatusSnapshotDto,
-  ): CollectionStatusSnapshot {
-    const knownPartialStreamCount =
-      rows.pendingStreamCount + rows.verifyingStreamCount;
-    const expectedStreamCount =
-      rows.trackedRepositoryCount * COLLECTION_STREAM_TYPES.length;
-    const observedStreamCount =
-      rows.readyStreamCount +
-      rows.backfillingStreamCount +
-      knownPartialStreamCount;
-    return {
-      ...rows,
-      partialStreamCount:
-        knownPartialStreamCount +
-        Math.max(0, expectedStreamCount - observedStreamCount),
-    };
-  }
-
-  private toCollectionStreams(
-    repository: CollectionRepositoryStreamsDto,
-  ): SystemStatusCollectionStreamsResult {
-    const byType = new Map(
-      repository.streams.map((stream) => [stream.streamType, stream]),
-    );
-    return {
-      repositoryName: repository.repositoryName,
-      programName: repository.programName,
-      streams: COLLECTION_STREAM_TYPES.map((streamType) => {
-        const row = byType.get(streamType);
-        return {
-          streamType,
-          bucket: this.classifyStreamBucket(
-            row?.status ?? null,
-            row?.lastErrorCode ?? null,
-          ),
-          lastSuccessAt: row?.lastRunAt ?? null,
-          lastErrorCode: row?.lastErrorCode ?? null,
-          lastErrorAt: row?.lastErrorAt ?? null,
-        };
-      }),
-    };
-  }
-
-  private classifyStreamBucket(
-    status: string | null,
-    lastErrorCode: string | null,
-  ): CollectionStreamBucketResult {
-    if (lastErrorCode !== null) return 'RETRY_PENDING';
-    if (status === 'READY') return 'READY';
-    if (status === 'BACKFILLING') return 'BACKFILLING';
-    return 'PARTIAL';
-  }
-
-  private decide(snapshot: CollectionStatusSnapshot): StatusDecision {
-    if (snapshot.trackedRepositoryCount === 0) {
-      return { health: 'EMPTY', reason: 'NO_TRACKED_REPOSITORIES' };
-    }
-    if (snapshot.retryPendingStreamCount > 0) {
-      return { health: 'FAILED', reason: 'UPSTREAM_RATE_LIMITED' };
-    }
-    if (
-      snapshot.partialStreamCount > 0 ||
-      snapshot.backfillingStreamCount > 0
-    ) {
-      return { health: 'PARTIAL', reason: 'RUN_INCOMPLETE' };
-    }
-    if (
-      snapshot.latestCheckpointAt &&
-      this.clock().getTime() - snapshot.latestCheckpointAt.getTime() >
-        STALE_AFTER_MS
-    ) {
-      return { health: 'DELAYED', reason: 'STALE_DATA' };
-    }
-    return { health: 'NORMAL', reason: null };
-  }
-
-  private currentRunStatus(
-    snapshot: CollectionStatusSnapshot,
-  ): CurrentRunStatusResult {
-    const started = snapshot.lastCycleStartedAt;
-    const completed = snapshot.lastCycleCompletedAt;
-    const isProcessing =
-      started !== null && (completed === null || completed < started);
-    return isProcessing ? 'PROCESSING' : 'IDLE';
   }
 }

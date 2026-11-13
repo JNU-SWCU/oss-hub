@@ -2367,8 +2367,7 @@ export class TeamRepository {
             id: true,
             nameWithOwner: true,
             visibility: true,
-            lastSuccessAt: true,
-            failureCount: true,
+            githubRepositoryId: true,
           },
         },
         program: {
@@ -2475,8 +2474,7 @@ export class TeamRepository {
           select: {
             id: true,
             nameWithOwner: true,
-            lastSuccessAt: true,
-            failureCount: true,
+            githubRepositoryId: true,
           },
         },
       },
@@ -2485,8 +2483,11 @@ export class TeamRepository {
     const { id, status, repository, ...scope } = team;
     return { ...scope, application: { id, status, repository } };
   }
-  readTeamActivity(team: TeamActivityScope): Promise<TeamActivityRow> {
-    return this.evidence.activity(team);
+  readTeamActivity(
+    team: TeamActivityScope,
+    now: Date,
+  ): Promise<TeamActivityRow> {
+    return this.evidence.activity(team, now);
   }
   async leave(
     programId: string,
@@ -3384,8 +3385,6 @@ export class StudentRepositoryUrlTransactionRepository {
       nameWithOwner: metadata.nameWithOwner,
       visibility: metadata.visibility,
       presence: CollectionRepositoryPresence.PRESENT,
-      nextRunAt: new Date(),
-      failureCount: 0,
       source:
         resolution.kind === 'EXTERNAL'
           ? RepositorySource.EXTERNAL_PUBLIC

@@ -20,8 +20,7 @@ function application(): ApplicationActivity {
       { user: { githubId: 12n, nickname: 'student-b' } },
     ],
     repository: {
-      failureCount: 0,
-      streams: [{ lastRunAt: new Date('2026-07-24T00:00:00.000Z') }],
+      lastSuccessAt: new Date('2026-07-24T00:00:00.000Z'),
       _count: { commits: 2, pullRequests: 1, releases: 1 },
       commits: [{ committedAt: new Date('2026-07-21T00:00:00.000Z') }],
       pullRequests: [{ createdAt: new Date('2026-07-22T00:00:00.000Z') }],
@@ -58,6 +57,13 @@ function service(applications: ApplicationActivity[]) {
 }
 
 describe('ProgramActivityService', () => {
+  beforeEach(() => {
+    jest.useFakeTimers({ now: new Date('2026-07-24T01:00:00.000Z') });
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
   it('기존 fact의 커밋·PR·릴리스와 최근 활동·성공 시각을 반환한다', async () => {
     const { subject, findProgramActivityApplications } = service([
       application(),
@@ -138,7 +144,7 @@ describe('ProgramActivityService', () => {
     row.repository.pullRequests = [];
     row.repository.releases = [];
     row.repository.contributions = [];
-    row.repository.streams = [];
+    row.repository.lastSuccessAt = null;
     const result = await service([row]).subject.activity('program-1', staff);
     expect(result[0]).toMatchObject({
       collectionStatus: 'EMPTY',
@@ -151,50 +157,36 @@ describe('ProgramActivityService', () => {
     expect(result[0]?.members).toHaveLength(2);
   });
 
-  it('수집 실패를 0건으로 위장하지 않고 마지막 수치를 보존한다', async () => {
+  it('마지막 수집 성공이 2시간보다 오래되면 수치를 보존한 채 FAILED로 둔다', async () => {
     const row = application();
     if (!row.repository) throw new Error('Expected linked fixture');
-    row.repository.failureCount = 1;
-    const result = await service([row]).subject.activity('program-1', staff);
-    expect(result[0]).toMatchObject({
-      collectionStatus: 'FAILED',
-      commitCount: 2,
-    });
-  });
-
-  it('첫 수집에서 일부 stream만 커밋되면 그 시각을 dataAsOf로 두고 수치는 유지한다', async () => {
-    const row = application();
-    if (!row.repository) throw new Error('Expected linked fixture');
-    row.repository.failureCount = 1;
-    row.repository.streams = [
-      { lastRunAt: new Date('2026-07-25T00:00:00.000Z') },
-      { lastRunAt: null },
-    ];
+    row.repository.lastSuccessAt = new Date('2026-07-23T22:59:59.999Z');
     const result = await service([row]).subject.activity('program-1', staff);
     expect(result[0]).toMatchObject({
       collectionStatus: 'FAILED',
       commitCount: 2,
       pullRequestCount: 1,
       releaseCount: 1,
-      dataAsOf: new Date('2026-07-25T00:00:00.000Z'),
+      dataAsOf: new Date('2026-07-23T22:59:59.999Z'),
     });
   });
 
-  it('이전 전체 성공 이후 일부 stream만 새로 커밋되면 새 시각을 dataAsOf로 둔다', async () => {
+  it('마지막 수집 성공이 정확히 2시간 전이면 아직 READY다', async () => {
     const row = application();
     if (!row.repository) throw new Error('Expected linked fixture');
-    row.repository.failureCount = 1;
-    row.repository.streams = [
-      { lastRunAt: new Date('2026-07-24T00:00:00.000Z') },
-      { lastRunAt: new Date('2026-07-26T00:00:00.000Z') },
-    ];
+    row.repository.lastSuccessAt = new Date('2026-07-23T23:00:00.000Z');
+    const result = await service([row]).subject.activity('program-1', staff);
+    expect(result[0]?.collectionStatus).toBe('READY');
+  });
+
+  it('아직 수집되지 않은 저장소는 실패로 보지 않는다', async () => {
+    const row = application();
+    if (!row.repository) throw new Error('Expected linked fixture');
+    row.repository.lastSuccessAt = null;
     const result = await service([row]).subject.activity('program-1', staff);
     expect(result[0]).toMatchObject({
-      collectionStatus: 'FAILED',
-      commitCount: 2,
-      pullRequestCount: 1,
-      releaseCount: 1,
-      dataAsOf: new Date('2026-07-26T00:00:00.000Z'),
+      collectionStatus: 'READY',
+      dataAsOf: null,
     });
   });
 

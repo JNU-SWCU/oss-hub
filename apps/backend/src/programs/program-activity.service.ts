@@ -4,6 +4,7 @@ import {
   type ProgramViewer,
 } from './program-viewer.service';
 import { Inject, Injectable } from '@nestjs/common';
+import { COLLECTION_STALE_AFTER_MS } from '../github/collection-app.config';
 import { DomainException } from '../platform/error-code.error';
 import {
   PROGRAM_READ_ERROR_CODES,
@@ -81,18 +82,6 @@ function seoulPeriod(date: Date, granularity: ActivityGranularity): string {
   return granularity === 'MONTH' ? `${year}-${month}` : year;
 }
 
-function latestCommittedStreamAt(
-  streams: readonly { readonly lastRunAt: Date | null }[] | null | undefined,
-): Date | null {
-  let latest: Date | null = null;
-  for (const stream of streams ?? []) {
-    if (stream.lastRunAt && (!latest || latest < stream.lastRunAt)) {
-      latest = stream.lastRunAt;
-    }
-  }
-  return latest;
-}
-
 @Injectable()
 export class ProgramActivityService {
   constructor(
@@ -137,6 +126,7 @@ export class ProgramActivityService {
           programId,
           viewer.role === 'STUDENT' ? viewer.userId : null,
         );
+      const now = new Date();
       return applications.map((application): ProgramActivityResult => {
         const repository = application.repository;
         const totals = {
@@ -188,10 +178,12 @@ export class ProgramActivityService {
           label: application.name,
           ...totals,
           lastActivityAt,
-          dataAsOf: latestCommittedStreamAt(repository?.streams),
+          dataAsOf: repository?.lastSuccessAt ?? null,
           collectionStatus: !repository
             ? 'NOT_CONNECTED'
-            : repository.failureCount > 0
+            : repository.lastSuccessAt !== null &&
+                now.getTime() - repository.lastSuccessAt.getTime() >
+                  COLLECTION_STALE_AFTER_MS
               ? 'FAILED'
               : totals.commitCount +
                     totals.pullRequestCount +

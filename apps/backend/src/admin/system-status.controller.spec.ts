@@ -9,16 +9,8 @@ describe('SystemStatusController', () => {
     const result = {
       collection: {
         health: 'NORMAL' as const,
-        dataAsOf: new Date('2026-07-25T11:00:00.000Z'),
         trackedRepositoryCount: 2,
-        readyStreamCount: 6,
-        backfillingStreamCount: 0,
-        partialStreamCount: 0,
-        retryPendingStreamCount: 0,
-        oldestReadyCheckpointAt: new Date('2026-07-25T10:00:00.000Z'),
-        oldestRetryPendingAt: null,
-        lastCycleStartedAt: new Date('2026-07-25T10:55:00.000Z'),
-        lastCycleCompletedAt: new Date('2026-07-25T11:00:00.000Z'),
+        staleRepositoryCount: 0,
         lastSuccessAt: new Date('2026-07-25T11:00:00.000Z'),
         nextCycleAt: new Date('2026-07-25T20:30:00.000Z'),
         currentRunStatus: 'IDLE' as const,
@@ -27,19 +19,12 @@ describe('SystemStatusController', () => {
       repositoryProvisioning: {
         finalFailureCount: 0,
       },
-      collectionStreams: [
+      collectionRepositories: [
         {
           repositoryName: 'JNU-SWCU/alpha',
           programName: null,
-          streams: [
-            {
-              streamType: 'COMMIT' as const,
-              bucket: 'READY' as const,
-              lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
-              lastErrorCode: null,
-              lastErrorAt: null,
-            },
-          ],
+          lastSuccessAt: new Date('2026-07-25T10:00:00.000Z'),
+          stale: false,
         },
       ],
       externalCollection: {

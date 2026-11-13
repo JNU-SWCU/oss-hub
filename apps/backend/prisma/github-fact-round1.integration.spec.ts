@@ -137,9 +137,6 @@ const clean = async (): Promise<void> => {
   await prisma.repo.deleteMany({
     where: { githubRepoId: { in: repoIds } },
   });
-  await prisma.collectionRepositoryStream.deleteMany({
-    where: { repository: { githubRepositoryId: { in: repoIds } } },
-  });
   await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: { in: githubIds } },
   });
@@ -233,7 +230,7 @@ describe('github fact round 1', () => {
     ).toBe(false);
   });
 
-  it('stores an accepted pull request when the ledger repo row is missing', async () => {
+  it('stores a pull request when the ledger repo row is missing', async () => {
     await createProgram();
     const repository = await prisma.githubRepository.create({
       data: {
@@ -243,31 +240,20 @@ describe('github fact round 1', () => {
         teamId: `${PREFIX}team`,
       },
     });
-    const registered = new Set([GAMMA_ID]);
-    const createdAt = new Date('2026-11-01T00:00:00.000Z');
-    await collection.runInTransaction(async (store) => {
-      await store.recordPullRequestFacts(
-        repository.id,
-        [
-          {
-            githubPullRequestId: 77n,
-            state: 'open',
-            createdAt,
-            authorGithubId: GAMMA_ID,
-            authorGithubLogin: `${PREFIX}gamma`,
-          },
-        ],
-        registered,
-      );
-      await store.upsertStreamFrontier({
-        repositoryId: repository.id,
-        streamType: 'PULL_REQUEST',
-        frontierCreatedAt: createdAt,
-        frontierEntityId: 77n,
-        expectedSyncEpoch: null,
-      });
-    });
+    const fact = {
+      githubKey: '77',
+      authorGithubId: GAMMA_ID.toString(),
+      occurredAt: new Date('2026-11-01T00:00:00.000Z'),
+    };
 
+    await expect(
+      collection.runInTransaction((store) =>
+        store.recordContributions(repository.id, 'pull_request', [fact]),
+      ),
+    ).resolves.toEqual({ inserted: 1, authorFilled: 0 });
+    await expect(
+      collection.recordContributions(repository.id, 'pull_request', [fact]),
+    ).resolves.toEqual({ inserted: 0, authorFilled: 0 });
     expect(
       await prisma.contributionEvent.count({
         where: {
@@ -277,81 +263,38 @@ describe('github fact round 1', () => {
         },
       }),
     ).toBe(1);
-    await collection.recordPullRequestFacts(
-      repository.id,
-      [
-        {
-          githubPullRequestId: 77n,
-          state: 'open',
-          createdAt,
-          authorGithubId: GAMMA_ID,
-        },
-      ],
-      registered,
-    );
-    expect(
-      await prisma.contributionEvent.count({
-        where: { repoId: COLLECTION_REPO_ID, githubKey: '77' },
-      }),
-    ).toBe(1);
-    expect(
-      await prisma.collectionRepositoryStream.findUnique({
-        where: {
-          repositoryId_streamType: {
-            repositoryId: repository.id,
-            streamType: 'PULL_REQUEST',
-          },
-        },
-      }),
-    ).toMatchObject({ frontierEntityId: 77n });
   });
 
-  it('rolls back the stream frontier when the repository row is gone', async () => {
-    const repository = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: COLLECTION_REPO_ID },
+  it('rolls back the repo success time when the repository row is gone', async () => {
+    const before = await prisma.repo.findUniqueOrThrow({
+      where: { githubRepoId: COLLECTION_REPO_ID },
+      select: { lastSuccessAt: true },
     });
-    const stream = await prisma.collectionRepositoryStream.findUniqueOrThrow({
-      where: {
-        repositoryId_streamType: {
-          repositoryId: repository.id,
-          streamType: 'PULL_REQUEST',
-        },
-      },
-    });
-    const createdAt = new Date('2026-11-02T00:00:00.000Z');
     await expect(
       collection.runInTransaction(async (store) => {
-        await store.upsertStreamFrontier({
-          repositoryId: repository.id,
-          streamType: 'PULL_REQUEST',
-          frontierCreatedAt: createdAt,
-          frontierEntityId: 78n,
-          expectedSyncEpoch: stream.syncEpoch,
-        });
-        await store.recordPullRequestFacts(
+        await store.recordRepositorySuccess(
+          [COLLECTION_REPO_ID],
+          new Date('2026-11-02T00:00:00.000Z'),
+        );
+        await store.recordContributions(
           `${PREFIX}gone-repository`,
+          'pull_request',
           [
             {
-              githubPullRequestId: 78n,
-              state: 'open',
-              createdAt,
-              authorGithubId: GAMMA_ID,
+              githubKey: '78',
+              authorGithubId: GAMMA_ID.toString(),
+              occurredAt: new Date('2026-11-02T00:00:00.000Z'),
             },
           ],
-          new Set([GAMMA_ID]),
         );
       }),
     ).rejects.toThrow('contribution repository row is missing');
     expect(
-      await prisma.collectionRepositoryStream.findUnique({
-        where: {
-          repositoryId_streamType: {
-            repositoryId: repository.id,
-            streamType: 'PULL_REQUEST',
-          },
-        },
+      await prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: COLLECTION_REPO_ID },
+        select: { lastSuccessAt: true },
       }),
-    ).toMatchObject({ frontierEntityId: 77n, syncEpoch: stream.syncEpoch });
+    ).toEqual(before);
     expect(
       await prisma.contributionEvent.count({
         where: { repoId: COLLECTION_REPO_ID, githubKey: '78' },

@@ -1,28 +1,24 @@
-import {
-  COLLECTION_FAILURE_BACKOFF_BASE_MS,
-  COLLECTION_FAILURE_BACKOFF_MAX_MS,
-} from './collection-app.config';
-import {
-  CollectionInventoryService,
-  type SweepInventory,
-} from './collection-inventory.service';
-import { CollectionStreamCheckpointService } from './collection-stream-checkpoint.service';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { Injectable, Logger } from '@nestjs/common';
-import { CollectionCommit } from './collection-app.client';
+import {
+  COLLECTION_CLOCK_SKEW_MS,
+  COLLECTION_WINDOW_MS,
+} from './collection-app.config';
+import type {
+  CollectionContributionKind,
+  CollectionRateLimit,
+  CollectionRepositoryProbe,
+} from './collection-app.client';
 import type {
   CollectionIncrementalRepository,
   CollectionRepositoryRow,
-  CollectionStreamType,
   CollectionSyncRuntime,
   CollectionSyncRuntimeFactory,
-  RegisteredGithubIdSet,
+  CollectionTarget,
   RepositorySource,
-  RepositoryTeamMemberAccount,
   SyncLeaseToken,
 } from './collection-incremental.repository';
 import { CollectionAppClientError } from './collection-app.error';
-import { StaleSyncEpochError } from './collection-incremental.error';
 import { RunDeadlineError } from './collection-inventory.error';
 import { CollectionSyncDeadlineService } from './collection-sync-deadline.service';
 import { RepositoryUrlService } from './repository-url.service';
@@ -30,15 +26,16 @@ import { RepositoryUrlService } from './repository-url.service';
 const LEASE_MS = 10 * 60_000;
 const HEARTBEAT_MS = 2 * 60_000;
 const RUN_DEADLINE_MS = 45 * 60_000;
+const PROBE_BATCH_SIZE = 100;
 
-const TEAM_SCOPED_COMMIT_FINGERPRINT = 'graphql:history(author:)#first=100';
+const CONTRIBUTION_KINDS: readonly CollectionContributionKind[] = [
+  'commit',
+  'pull_request',
+  'issue',
+  'release',
+];
 
-export const DEFAULT_STREAM_ERROR_CODE = 'STREAM_SYNC_FAILED';
-
-const streamErrorCode = (error: unknown): string =>
-  error instanceof CollectionAppClientError
-    ? `PROVIDER_${error.kind}`
-    : DEFAULT_STREAM_ERROR_CODE;
+export type CollectionRunKind = 'hourly' | 'weekly' | 'full';
 
 type CollectionSyncRunStatus =
   'SKIPPED' | 'SKIPPED_LEASE_HELD' | 'COMPLETED' | 'FAILED';
@@ -46,11 +43,8 @@ type CollectionSyncRunStatus =
 export interface CollectionSyncRunResult {
   runId: string;
   status: CollectionSyncRunStatus;
-  inventoryComplete: boolean | null;
   processedRepositoryCount: number;
-  cycleCompleted: boolean;
   stoppedForBudget: boolean;
-
   insertedFactCount: number;
 }
 
@@ -60,39 +54,47 @@ const idleRunResult = (
 ): CollectionSyncRunResult => ({
   runId,
   status,
-  inventoryComplete: null,
   processedRepositoryCount: 0,
-  cycleCompleted: false,
   stoppedForBudget: false,
   insertedFactCount: 0,
 });
 
-type RepositorySyncOutcome =
-  | { readonly kind: 'PROCESSED' }
-  | { readonly kind: 'FAILED'; readonly errorName: string }
-  | { readonly kind: 'STOPPED_FOR_BUDGET' }
-  | { readonly kind: 'SKIPPED' };
+type RepositorySyncOutcome = 'PROCESSED' | 'FAILED' | 'STOPPED_FOR_BUDGET';
+
+interface CycleStats {
+  probeRequests: number;
+  requests: number;
+  pointsUsed: number;
+  rateLimitRemaining: number | null;
+  collectedRepos: number;
+  succeededRepos: number;
+  unavailableRepos: number;
+  truncatedRepos: number;
+  inserted: number;
+  authorFilled: number;
+}
+
+const emptyStats = (): CycleStats => ({
+  probeRequests: 0,
+  requests: 0,
+  pointsUsed: 0,
+  rateLimitRemaining: null,
+  collectedRepos: 0,
+  succeededRepos: 0,
+  unavailableRepos: 0,
+  truncatedRepos: 0,
+  inserted: 0,
+  authorFilled: 0,
+});
 
 type SyncRepository = Pick<
   CollectionIncrementalRepository,
   | 'runInTransaction'
-  | 'getStreamFrontier'
-  | 'upsertStreamFrontier'
-  | 'markStreamOutcome'
-  | 'recordCommitFacts'
-  | 'recordPullRequestFacts'
-  | 'recordReleaseFacts'
-  | 'recordIssueFacts'
-  | 'listRegisteredGithubIds'
-  | 'refreshRepositoryObservation'
-  | 'markRepositoryUnavailable'
-  | 'recordRepositoryFailure'
+  | 'recordContributions'
   | 'recordRepositorySuccess'
-  | 'listOrganizationRepositories'
-  | 'listExternalRepositories'
-  | 'listRepositoryTeamMembers'
-  | 'getSyncCursor'
-  | 'upsertSyncCursor'
+  | 'refreshRepositoryObservation'
+  | 'markRepositoryGone'
+  | 'listCollectionTargets'
   | 'findCollectionTargetByLogicalKey'
   | 'acquireSyncLease'
   | 'heartbeatSyncLease'
@@ -100,42 +102,32 @@ type SyncRepository = Pick<
   | 'assertSyncLeaseValid'
 >;
 
-const compareBigint = (a: bigint, b: bigint): number =>
-  a < b ? -1 : a > b ? 1 : 0;
-
-const pullRequestTeamMembershipFrontier = (
-  members: readonly RepositoryTeamMemberAccount[],
-): string => {
-  const memberIds = members
-    .map((member) => member.githubId)
-    .sort(compareBigint)
-    .map(String)
-    .join('\n');
-  const digest = createHash('sha256').update(memberIds).digest('hex');
-  return `team-members:v1:${digest}`;
-};
-
 const orgScope = (organizationLogin: string): string =>
   `org:${organizationLogin}`;
 const EXTERNAL_SCOPE = 'external';
 
-const teamMemberGithubIds = (
-  members: readonly RepositoryTeamMemberAccount[],
-): ReadonlySet<bigint> => new Set(members.map((member) => member.githubId));
-
-const isTeamMemberAuthor = (
-  authorGithubId: string | null,
-  memberIds: ReadonlySet<bigint>,
-): boolean => authorGithubId !== null && memberIds.has(BigInt(authorGithubId));
-
 const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
   repository.teamId != null;
+
+const hasActivitySince = (
+  lastSuccessAt: Date | null,
+  probe: CollectionRepositoryProbe,
+): boolean =>
+  lastSuccessAt === null ||
+  probe.activityAt.some((activityAt) => activityAt > lastSuccessAt);
+
+const observationChanged = (
+  repository: CollectionRepositoryRow,
+  probe: CollectionRepositoryProbe,
+): boolean =>
+  repository.nameWithOwner !== probe.nameWithOwner ||
+  repository.defaultBranch !== probe.defaultBranch ||
+  repository.archived !== probe.archived ||
+  repository.visibility !== (probe.private ? 'PRIVATE' : 'PUBLIC');
 
 @Injectable()
 export class CollectionSyncService {
   private readonly logger = new Logger(CollectionSyncService.name);
-  private readonly checkpoints: CollectionStreamCheckpointService;
-  private readonly inventory: CollectionInventoryService;
   private readonly deadline: CollectionSyncDeadlineService;
 
   constructor(
@@ -148,52 +140,39 @@ export class CollectionSyncService {
     private readonly externalRuntimeFactory?: CollectionSyncRuntimeFactory,
   ) {
     this.deadline = new CollectionSyncDeadlineService(now);
-    this.inventory = new CollectionInventoryService(
-      incrementalRepository,
-      this.deadline,
-      now,
-      repositoryUrlService,
-    );
-    this.checkpoints = new CollectionStreamCheckpointService(
-      incrementalRepository,
-      now,
-    );
   }
 
   async run(
     ownerId: string,
-    runId?: string,
-    registeredGithubIds?: RegisteredGithubIdSet,
+    runId: string = this.createRunId(),
+    kind: CollectionRunKind = 'hourly',
   ): Promise<CollectionSyncRunResult> {
     const runtime = await this.runtimeFactory();
-    return this.runSweep({
-      source: 'ORG_PROVISIONED',
-      scope: orgScope(runtime.organizationLogin),
-      appId: BigInt(runtime.appId),
+    return this.withSyncLease(
+      {
+        appId: BigInt(runtime.appId),
+        scope: orgScope(runtime.organizationLogin),
+      },
       ownerId,
       runId,
-      registeredGithubIds,
-      runtime,
-      discoverInventory: (lease, deadline) =>
-        this.inventory.org(runtime, lease, deadline),
-    });
+      (lease, scope) =>
+        this.sweep(runtime, lease, 'ORG_PROVISIONED', scope, runId, kind),
+    );
   }
 
   async runExternal(
     ownerId: string,
-    runId?: string,
+    runId: string = this.createRunId(),
+    kind: CollectionRunKind = 'hourly',
   ): Promise<CollectionSyncRunResult> {
     const runtime = await this.externalRuntime();
-    return this.runSweep({
-      source: 'EXTERNAL_PUBLIC',
-      scope: EXTERNAL_SCOPE,
-      appId: BigInt(runtime.appId),
+    return this.withSyncLease(
+      { appId: BigInt(runtime.appId), scope: EXTERNAL_SCOPE },
       ownerId,
       runId,
-      runtime,
-      discoverInventory: (lease, deadline) =>
-        this.inventory.external(runtime, lease, deadline),
-    });
+      (lease, scope) =>
+        this.sweep(runtime, lease, 'EXTERNAL_PUBLIC', scope, runId, kind),
+    );
   }
 
   async runRepository(
@@ -209,7 +188,6 @@ export class CollectionSyncService {
       repository === null ||
       !isCollectionTarget(repository) ||
       repository.presence !== 'PRESENT' ||
-      repository.defaultBranch === null ||
       (repository.source === 'EXTERNAL_PUBLIC' &&
         repository.visibility !== 'PUBLIC')
     ) {
@@ -224,32 +202,26 @@ export class CollectionSyncService {
       scope: external ? EXTERNAL_SCOPE : orgScope(runtime.organizationLogin),
     };
     return this.withSyncLease(key, ownerId, runId, async (lease) => {
-      const deadline = this.now().getTime() + RUN_DEADLINE_MS;
-      const identitySnapshot =
-        await this.incrementalRepository.listRegisteredGithubIds();
-      let insertedFactCount = 0;
-
-      const attempted = !runtime.queue.shouldStop();
-      const outcome: RepositorySyncOutcome = attempted
-        ? await this.syncOne(
+      const startedAt = this.now().getTime();
+      const stats = emptyStats();
+      const outcome = runtime.queue.shouldStop()
+        ? 'STOPPED_FOR_BUDGET'
+        : await this.collect(
             runtime,
             lease,
             repository,
-            identitySnapshot,
-            deadline,
+            new Date(startedAt - COLLECTION_WINDOW_MS),
+            new Date(startedAt - COLLECTION_CLOCK_SKEW_MS),
+            startedAt + RUN_DEADLINE_MS,
+            stats,
             runId,
-            (insertedCount) => {
-              insertedFactCount += insertedCount;
-            },
-          )
-        : { kind: 'STOPPED_FOR_BUDGET' };
+          );
       await this.incrementalRepository.releaseSyncLease(lease, this.now());
-
       return {
         ...idleRunResult(runId, 'COMPLETED'),
-        processedRepositoryCount: outcome.kind === 'PROCESSED' ? 1 : 0,
-        stoppedForBudget: outcome.kind === 'STOPPED_FOR_BUDGET',
-        insertedFactCount,
+        processedRepositoryCount: outcome === 'PROCESSED' ? 1 : 0,
+        stoppedForBudget: outcome === 'STOPPED_FOR_BUDGET',
+        insertedFactCount: stats.inserted,
       };
     });
   }
@@ -264,46 +236,14 @@ export class CollectionSyncService {
     return this.externalRuntimeFactory();
   }
 
-  private async runSweep(params: {
-    source: RepositorySource;
-    scope: string;
-    appId: bigint;
-    ownerId: string;
-    runId?: string;
-    registeredGithubIds?: RegisteredGithubIdSet;
-    runtime: CollectionSyncRuntime;
-    discoverInventory: (
-      lease: SyncLeaseToken,
-      deadline: number,
-    ) => Promise<SweepInventory>;
-  }): Promise<CollectionSyncRunResult> {
-    const {
-      scope,
-      appId,
-      ownerId,
-      runtime,
-      discoverInventory,
-      registeredGithubIds,
-    } = params;
-    const key = { appId, scope };
-    const runId = params.runId ?? this.createRunId();
-    return this.withSyncLease(key, ownerId, runId, (lease) =>
-      this.syncSweep(
-        runtime,
-        lease,
-        key,
-        runId,
-        discoverInventory,
-        registeredGithubIds,
-      ),
-    );
-  }
-
   private async withSyncLease(
     key: { appId: bigint; scope: string },
     ownerId: string,
     runId: string,
-    work: (lease: SyncLeaseToken) => Promise<CollectionSyncRunResult>,
+    work: (
+      lease: SyncLeaseToken,
+      scope: string,
+    ) => Promise<CollectionSyncRunResult>,
   ): Promise<CollectionSyncRunResult> {
     const acquiredAt = this.now();
     const lease = await this.incrementalRepository.acquireSyncLease({
@@ -316,7 +256,7 @@ export class CollectionSyncService {
     if (!lease) return idleRunResult(runId, 'SKIPPED_LEASE_HELD');
 
     try {
-      return await this.withHeartbeat(lease, () => work(lease));
+      return await this.withHeartbeat(lease, () => work(lease, key.scope));
     } catch (error) {
       this.logger.error({
         event: 'collection.sync.failed',
@@ -331,683 +271,374 @@ export class CollectionSyncService {
     }
   }
 
-  private async syncSweep(
+  private async sweep(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
-    key: { appId: bigint; scope: string },
+    source: RepositorySource,
+    scope: string,
     runId: string,
-    discoverInventory: (
-      lease: SyncLeaseToken,
-      deadline: number,
-    ) => Promise<SweepInventory>,
-    registeredGithubIds?: RegisteredGithubIdSet,
+    kind: CollectionRunKind,
   ): Promise<CollectionSyncRunResult> {
-    const deadline = this.now().getTime() + RUN_DEADLINE_MS;
-
-    const identitySnapshot =
-      registeredGithubIds ??
-      (await this.incrementalRepository.listRegisteredGithubIds());
-
-    const inventory = await discoverInventory(lease, deadline);
-
-    const cursor = await this.incrementalRepository.getSyncCursor(
-      key.appId,
-      key.scope,
-    );
-    const startAfter =
-      cursor && cursor.cycleCompletedAt === null
-        ? cursor.lastGithubRepositoryId
-        : null;
-
-    if (startAfter === null) {
-      const cycleStartedAt = this.now();
-      await this.incrementalRepository.runInTransaction(async (repo) => {
-        await repo.assertSyncLeaseValid(lease, this.now());
-        await repo.upsertSyncCursor({
-          appId: key.appId,
-          scope: key.scope,
-          cycleStartedAt,
-          cycleCompletedAt: null,
-        });
-      });
-    }
-
-    const sweepStartedAt = this.now();
-    const ordered = [...inventory.repositories]
-      .filter(isCollectionTarget)
-      .filter(
-        (repository) =>
-          startAfter === null ||
-          compareBigint(repository.githubRepositoryId, startAfter) > 0,
-      )
-
-      .filter(
-        (repository) =>
-          (repository.failureCount ?? 0) === 0 ||
-          repository.nextRunAt === null ||
-          repository.nextRunAt === undefined ||
-          repository.nextRunAt <= sweepStartedAt,
-      )
-      .sort((a, b) =>
-        compareBigint(a.githubRepositoryId, b.githubRepositoryId),
-      );
-
-    let processedRepositoryCount = 0;
-    let insertedFactCount = 0;
+    const startedAt = this.now().getTime();
+    const deadline = startedAt + RUN_DEADLINE_MS;
+    const succeededAt = new Date(startedAt - COLLECTION_CLOCK_SKEW_MS);
+    const since =
+      kind === 'hourly' ? new Date(startedAt - COLLECTION_WINDOW_MS) : null;
+    const stats = emptyStats();
+    const targets =
+      await this.incrementalRepository.listCollectionTargets(source);
     let stoppedForBudget = false;
-    let lastError: string | null = null;
-    let failedRepositoryCount = 0;
-    let attemptedRepositoryCount = 0;
+    let status: CollectionSyncRunStatus = 'FAILED';
 
-    for (const repository of ordered) {
-      if (this.now().getTime() >= deadline) {
-        stoppedForBudget = true;
-        break;
-      }
-      if (runtime.queue.shouldStop()) {
-        stoppedForBudget = true;
-        break;
-      }
-      attemptedRepositoryCount += 1;
-      const outcome = await this.syncOne(
-        runtime,
-        lease,
-        repository,
-        identitySnapshot,
-        deadline,
-        runId,
-        (insertedCount) => {
-          insertedFactCount += insertedCount;
-        },
-      );
-      if (outcome.kind === 'STOPPED_FOR_BUDGET') {
-        stoppedForBudget = true;
-        break;
-      }
-      if (outcome.kind === 'PROCESSED') {
-        processedRepositoryCount += 1;
-      } else if (outcome.kind === 'FAILED') {
-        lastError = outcome.errorName;
-        failedRepositoryCount += 1;
-      }
-
-      await this.incrementalRepository.runInTransaction(async (repo) => {
-        await repo.assertSyncLeaseValid(lease, this.now());
-        await repo.upsertSyncCursor({
-          appId: key.appId,
-          scope: key.scope,
-          lastGithubRepositoryId: repository.githubRepositoryId,
+    try {
+      const changed: CollectionRepositoryRow[] = [];
+      for (
+        let offset = 0;
+        offset < targets.length && !stoppedForBudget;
+        offset += PROBE_BATCH_SIZE
+      ) {
+        if (this.shouldStop(runtime, deadline)) {
+          stoppedForBudget = true;
+          break;
+        }
+        const batch = targets.slice(offset, offset + PROBE_BATCH_SIZE);
+        const unchanged = await this.probe(
+          runtime,
+          lease,
+          source,
+          batch,
+          kind,
+          deadline,
+          stats,
+          changed,
+          runId,
+        ).catch((error: unknown) => {
+          if (error instanceof RunDeadlineError) {
+            stoppedForBudget = true;
+            return [];
+          }
+          throw error;
         });
-      });
-    }
+        await this.recordSuccess(lease, unchanged, succeededAt);
+        stats.succeededRepos += unchanged.length;
+      }
 
-    if (failedRepositoryCount > 0) {
-      this.logger.warn({
-        event: 'collection.sync.repositories_failed',
+      for (const repository of changed) {
+        if (stoppedForBudget || this.shouldStop(runtime, deadline)) {
+          stoppedForBudget = true;
+          break;
+        }
+        const outcome = await this.collect(
+          runtime,
+          lease,
+          repository,
+          since,
+          succeededAt,
+          deadline,
+          stats,
+          runId,
+        );
+        if (outcome === 'STOPPED_FOR_BUDGET') stoppedForBudget = true;
+      }
+
+      await this.incrementalRepository.releaseSyncLease(lease, this.now());
+      status = 'COMPLETED';
+      return {
         runId,
-        failedRepositoryCount,
-        attemptedRepositoryCount,
-        totalRepositoryCount: ordered.length,
-        lastErrorName: lastError,
+        status,
+        processedRepositoryCount: stats.collectedRepos,
+        stoppedForBudget,
+        insertedFactCount: stats.inserted,
+      };
+    } finally {
+      this.logger.log({
+        event: 'collection.cycle.summary',
+        runId,
+        scope,
+        kind,
+        status,
+        repos: targets.length,
+        probeRequests: stats.probeRequests,
+        collectedRepos: stats.collectedRepos,
+        requests: stats.requests,
+        inserted: stats.inserted,
+        authorFilled: stats.authorFilled,
+        pointsUsed: stats.pointsUsed,
+        rateLimitRemaining: stats.rateLimitRemaining,
+        durationMs: this.now().getTime() - startedAt,
+        ...(kind === 'hourly'
+          ? {}
+          : {
+              fullScanFailedRepos:
+                targets.length - stats.succeededRepos - stats.unavailableRepos,
+              truncatedRepos: stats.truncatedRepos,
+            }),
       });
     }
-
-    const cycleCompleted =
-      !stoppedForBudget && attemptedRepositoryCount === ordered.length;
-    if (cycleCompleted) {
-      await this.incrementalRepository.runInTransaction(async (repo) => {
-        await repo.assertSyncLeaseValid(lease, this.now());
-        await repo.upsertSyncCursor({
-          appId: key.appId,
-          scope: key.scope,
-          lastGithubRepositoryId: null,
-          cycleCompletedAt: this.now(),
-        });
-      });
-    }
-
-    await this.incrementalRepository.releaseSyncLease(lease, this.now());
-
-    return {
-      runId,
-      status: 'COMPLETED',
-      inventoryComplete: inventory.complete,
-      processedRepositoryCount,
-      cycleCompleted,
-      stoppedForBudget,
-      insertedFactCount,
-    };
   }
 
-  private async syncOne(
+  private async probe(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
-    repository: CollectionRepositoryRow,
-    registeredGithubIds: RegisteredGithubIdSet,
+    source: RepositorySource,
+    batch: readonly CollectionTarget[],
+    kind: CollectionRunKind,
     deadline: number,
+    stats: CycleStats,
+    changed: CollectionRepositoryRow[],
     runId: string,
-    onStreamInserted: (insertedCount: number) => void,
-  ): Promise<RepositorySyncOutcome> {
-    const current =
-      await this.incrementalRepository.findCollectionTargetByLogicalKey(
-        repository.githubRepositoryId,
-      );
-    if (current === null || !isCollectionTarget(current)) {
-      return { kind: 'SKIPPED' };
-    }
-    try {
-      await this.syncRepository(
-        runtime,
-        lease,
-        repository,
-        registeredGithubIds,
-        deadline,
-        onStreamInserted,
-      );
+  ): Promise<bigint[]> {
+    const result = await this.deadline.run(
+      runtime.client.probeRepositories(
+        batch.map((target) => {
+          const [owner, name] = this.repositoryUrlService.splitNameWithOwner(
+            target.nameWithOwner,
+          );
+          return { owner, name };
+        }),
+      ),
+      deadline,
+    );
+    stats.probeRequests += 1;
+    stats.requests += 1;
+    this.observeRateLimit(stats, result.rateLimit);
 
-      await this.incrementalRepository.recordRepositorySuccess(
-        repository.githubRepositoryId,
-        this.now(),
-      );
-      return { kind: 'PROCESSED' };
-    } catch (error) {
-      if (error instanceof RunDeadlineError) {
-        return { kind: 'STOPPED_FOR_BUDGET' };
-      }
+    const unchanged: bigint[] = [];
+    for (const [index, target] of batch.entries()) {
+      const probed = result.repositories[index] ?? null;
       if (
-        repository.source === 'EXTERNAL_PUBLIC' &&
+        probed === null ||
+        BigInt(probed.githubRepositoryId) !== target.githubRepositoryId
+      ) {
+        const relocated = await this.relocate(
+          runtime,
+          lease,
+          source,
+          target,
+          deadline,
+          stats,
+          runId,
+        );
+        if (relocated !== null) changed.push(relocated);
+        continue;
+      }
+      const current = observationChanged(target, probed)
+        ? await this.refresh(lease, source, target.githubRepositoryId, {
+            nameWithOwner: probed.nameWithOwner,
+            defaultBranch: probed.defaultBranch,
+            archived: probed.archived,
+            private: probed.private,
+          })
+        : target;
+      if (current === null) {
+        stats.unavailableRepos += 1;
+        continue;
+      }
+      if (kind !== 'hourly' || hasActivitySince(target.lastSuccessAt, probed)) {
+        changed.push(current);
+      } else {
+        unchanged.push(target.githubRepositoryId);
+      }
+    }
+    return unchanged;
+  }
+
+  private async relocate(
+    runtime: CollectionSyncRuntime,
+    lease: SyncLeaseToken,
+    source: RepositorySource,
+    target: CollectionTarget,
+    deadline: number,
+    stats: CycleStats,
+    runId: string,
+  ): Promise<CollectionRepositoryRow | null> {
+    stats.requests += 1;
+    try {
+      const located = await this.deadline.run(
+        runtime.client.getRepositoryById(target.githubRepositoryId),
+        deadline,
+      );
+      if (BigInt(located.id) !== target.githubRepositoryId) {
+        this.logRepositoryFailure(runId, target, 'RepositoryIdMismatch');
+        return null;
+      }
+      const current = await this.refresh(
+        lease,
+        source,
+        target.githubRepositoryId,
+        {
+          nameWithOwner: located.fullName,
+          defaultBranch: located.defaultBranch,
+          archived: located.archived,
+          private: located.private,
+        },
+      );
+      if (current === null) stats.unavailableRepos += 1;
+      return current;
+    } catch (error) {
+      if (error instanceof RunDeadlineError) throw error;
+      if (
         error instanceof CollectionAppClientError &&
         (error.kind === 'NOT_FOUND' || error.kind === 'PERMISSION')
       ) {
         const observedAt = this.now();
         await this.incrementalRepository.runInTransaction(async (repo) => {
           await repo.assertSyncLeaseValid(lease, observedAt);
-          await repo.markRepositoryUnavailable(
-            repository.githubRepositoryId,
-            error.kind === 'NOT_FOUND' ? 'ABSENT' : 'PRIVATE',
+          await repo.markRepositoryGone(
+            target.githubRepositoryId,
             observedAt,
-            repository.source,
+            source,
           );
         });
+        stats.unavailableRepos += 1;
+        return null;
       }
-      const errorName = error instanceof Error ? error.name : 'UnknownError';
-      this.logger.warn({
-        event: 'collection.sync.repository_failed',
-        runId,
-        githubRepositoryId: repository.githubRepositoryId.toString(),
-        errorName,
-      });
-
-      const failedAt = this.now();
-      await this.incrementalRepository.recordRepositoryFailure(
-        repository.githubRepositoryId,
-        (failureCount) =>
-          new Date(failedAt.getTime() + this.failureBackoffMs(failureCount)),
-      );
-      return { kind: 'FAILED', errorName };
+      if (this.failsRun(error)) throw error;
+      this.logRepositoryFailure(runId, target, this.errorName(error));
+      return null;
     }
   }
 
-  private async syncRepository(
+  private async refresh(
+    lease: SyncLeaseToken,
+    source: RepositorySource,
+    githubRepositoryId: bigint,
+    observed: {
+      readonly nameWithOwner: string;
+      readonly defaultBranch: string | null;
+      readonly archived: boolean;
+      readonly private: boolean;
+    },
+  ): Promise<CollectionRepositoryRow | null> {
+    const observedAt = this.now();
+    const refreshed = await this.incrementalRepository.runInTransaction(
+      async (repo) => {
+        await repo.assertSyncLeaseValid(lease, observedAt);
+        return repo.refreshRepositoryObservation({
+          source,
+          githubRepositoryId,
+          nameWithOwner: observed.nameWithOwner,
+          defaultBranch: observed.defaultBranch,
+          archived: observed.archived,
+          visibility: observed.private ? 'PRIVATE' : 'PUBLIC',
+          observedAt,
+        });
+      },
+    );
+    return refreshed !== null &&
+      (source === 'ORG_PROVISIONED' || refreshed.visibility === 'PUBLIC')
+      ? refreshed
+      : null;
+  }
+
+  private async collect(
     runtime: CollectionSyncRuntime,
     lease: SyncLeaseToken,
     repository: CollectionRepositoryRow,
-    registeredGithubIds: RegisteredGithubIdSet,
+    since: Date | null,
+    succeededAt: Date,
     deadline: number,
-    onStreamInserted: (insertedCount: number) => void,
-  ): Promise<void> {
+    stats: CycleStats,
+    runId: string,
+  ): Promise<RepositorySyncOutcome> {
     const [owner, name] = this.repositoryUrlService.splitNameWithOwner(
       repository.nameWithOwner,
     );
-
-    const { teamMembers, insertedCount: commitCount } =
-      await this.trackStreamOutcome(
-        lease,
-        repository.id,
-        'COMMIT',
-        async () => {
-          const members =
-            await this.incrementalRepository.listRepositoryTeamMembers(
-              repository.githubRepositoryId,
-            );
-
-          const registeredMembers =
-            members === null
-              ? null
-              : members.filter((member) =>
-                  registeredGithubIds.has(member.githubId),
-                );
-          return {
-            teamMembers: registeredMembers,
-            insertedCount: await this.syncCommitStream(
-              runtime,
-              lease,
-              repository,
-              owner,
-              name,
-              registeredMembers,
-              registeredGithubIds,
-              deadline,
-            ),
-          };
-        },
-      );
-    onStreamInserted(commitCount);
-    const pullRequestCount = await this.trackStreamOutcome(
-      lease,
-      repository.id,
-      'PULL_REQUEST',
-      () =>
-        this.syncPullRequestStream(
-          runtime,
-          lease,
-          repository,
+    stats.collectedRepos += 1;
+    try {
+      const result = await this.deadline.run(
+        runtime.client.collectRepositoryContributions(
           owner,
           name,
-          teamMembers,
-          registeredGithubIds,
-          deadline,
+          repository.defaultBranch,
+          since,
         ),
-    );
-    onStreamInserted(pullRequestCount);
-    const releaseCount = await this.trackStreamOutcome(
-      lease,
-      repository.id,
-      'RELEASE',
-      () =>
-        this.syncReleaseStream(
-          runtime,
-          lease,
-          repository,
-          owner,
-          name,
-          teamMembers,
-          registeredGithubIds,
-          deadline,
-        ),
-    );
-    onStreamInserted(releaseCount);
-
-    let issueCount = 0;
-    try {
-      issueCount = await this.trackStreamOutcome(
-        lease,
-        repository.id,
-        'ISSUE',
-        () =>
-          this.syncIssueStream(
-            runtime,
-            lease,
-            repository,
-            owner,
-            name,
-            teamMembers,
-            registeredGithubIds,
-            deadline,
-          ),
+        deadline,
       );
-    } catch (error) {
-      if (!(
-        error instanceof CollectionAppClientError && error.kind === 'PERMISSION'
-      )) {
-        throw error;
-      }
-    }
-    onStreamInserted(issueCount);
-  }
-
-  private async trackStreamOutcome<T>(
-    lease: SyncLeaseToken,
-    repositoryId: string,
-    streamType: CollectionStreamType,
-    operation: () => Promise<T>,
-  ): Promise<T> {
-    let outcome: T;
-    try {
-      outcome = await operation();
-    } catch (error) {
-      if (
-        !(error instanceof RunDeadlineError) &&
-        !(error instanceof StaleSyncEpochError)
-      ) {
-        await this.writeStreamOutcome(lease, repositoryId, streamType, {
-          lastErrorAt: this.now(),
-          lastErrorCode: streamErrorCode(error),
-        });
-      }
-      throw error;
-    }
-    await this.writeStreamOutcome(lease, repositoryId, streamType, {
-      checkedAt: this.now(),
-    });
-    return outcome;
-  }
-
-  private async writeStreamOutcome(
-    lease: SyncLeaseToken,
-    repositoryId: string,
-    streamType: CollectionStreamType,
-    outcome: Parameters<
-      CollectionIncrementalRepository['markStreamOutcome']
-    >[2],
-  ): Promise<void> {
-    try {
+      stats.requests += result.requests;
+      stats.pointsUsed += result.pointsUsed;
+      this.observeRateLimit(stats, result.rateLimit);
       await this.incrementalRepository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(lease, this.now());
-        const current = await repo.getStreamFrontier(repositoryId, streamType);
-        await repo.markStreamOutcome(
-          repositoryId,
-          streamType,
-          outcome,
-          current?.syncEpoch ?? null,
+        for (const kind of CONTRIBUTION_KINDS) {
+          const recorded = await repo.recordContributions(
+            repository.id,
+            kind,
+            result.contributions[kind],
+          );
+          stats.inserted += recorded.inserted;
+          stats.authorFilled += recorded.authorFilled;
+        }
+        await repo.recordRepositorySuccess(
+          [repository.githubRepositoryId],
+          succeededAt,
         );
       });
+      stats.succeededRepos += 1;
+      return 'PROCESSED';
     } catch (error) {
-      this.logger.warn({
-        event: 'collection.sync.stream_state_write_failed',
-        streamType,
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    }
-  }
-
-  private async syncCommitStream(
-    runtime: CollectionSyncRuntime,
-    lease: SyncLeaseToken,
-    repository: CollectionRepositoryRow,
-    owner: string,
-    name: string,
-    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
-    registeredGithubIds: RegisteredGithubIdSet,
-    deadline: number,
-  ): Promise<number> {
-    const defaultBranch = repository.defaultBranch;
-    if (defaultBranch === null) {
-      return 0;
-    }
-
-    if (teamMembers !== null) {
-      return this.syncTeamScopedCommitStream(
-        runtime,
-        lease,
-        repository,
-        owner,
-        name,
-        defaultBranch,
-        teamMembers,
-        registeredGithubIds,
-        deadline,
-      );
-    }
-
-    const existing = await this.incrementalRepository.getStreamFrontier(
-      repository.id,
-      'COMMIT',
-    );
-    const needsBackfill = !existing || existing.status !== 'READY';
-
-    if (needsBackfill) {
-      const result = await this.deadline.run(
-        runtime.client.listCommitsUntilKnownSha(
-          owner,
-          name,
-          defaultBranch,
-          new Set(),
-        ),
-        deadline,
-      );
-      return this.checkpoints.commitCheckpoint(
-        lease,
-        repository.id,
-        result.commits,
-        registeredGithubIds,
-        result.commits[0]?.sha ?? null,
-        runtime.client.requestFingerprintKey(result.fingerprint),
-        null,
-        existing?.syncEpoch ?? null,
-      );
-    }
-
-    const probe = await this.deadline.run(
-      runtime.client.probeDefaultBranchHead(
-        owner,
-        name,
-        defaultBranch,
-        existing.etag,
-      ),
-      deadline,
-    );
-    if (!probe.changed) return 0;
-
-    const known = existing.frontierSha
-      ? new Set([existing.frontierSha])
-      : new Set<string>();
-    const result = await this.deadline.run(
-      runtime.client.listCommitsUntilKnownSha(
-        owner,
-        name,
-        defaultBranch,
-        known,
-      ),
-      deadline,
-    );
-    const headSha = probe.headSha ?? result.commits[0]?.sha ?? null;
-    return this.checkpoints.commitCheckpoint(
-      lease,
-      repository.id,
-      result.commits,
-      registeredGithubIds,
-      headSha,
-      runtime.client.requestFingerprintKey(result.fingerprint),
-      probe.etag,
-      existing.syncEpoch ?? null,
-    );
-  }
-
-  private async syncTeamScopedCommitStream(
-    runtime: CollectionSyncRuntime,
-    lease: SyncLeaseToken,
-    repository: CollectionRepositoryRow,
-    owner: string,
-    name: string,
-    defaultBranch: string,
-    members: readonly RepositoryTeamMemberAccount[],
-    registeredGithubIds: RegisteredGithubIdSet,
-    deadline: number,
-  ): Promise<number> {
-    const existing = await this.incrementalRepository.getStreamFrontier(
-      repository.id,
-      'COMMIT',
-    );
-    const bySha = new Map<string, CollectionCommit>();
-    for (const member of members) {
-      const authorNodeId = await this.deadline.run(
-        runtime.client.resolveUserNodeId(member.nickname),
-        deadline,
-      );
-      if (authorNodeId === null) {
-        this.logger.warn({
-          event: 'collection.sync.team_member_node_id_unresolved',
-          githubRepositoryId: repository.githubRepositoryId.toString(),
-          githubUserId: member.githubId.toString(),
-        });
-        continue;
+      if (error instanceof RunDeadlineError) return 'STOPPED_FOR_BUDGET';
+      if (this.failsRun(error)) throw error;
+      if (
+        error instanceof CollectionAppClientError &&
+        (error.kind === 'PAGINATION' || error.kind === 'DEADLINE')
+      ) {
+        stats.truncatedRepos += 1;
       }
-      const authored = await this.deadline.run(
-        runtime.client.listDefaultBranchCommitsByAuthor(
-          owner,
-          name,
-          defaultBranch,
-          authorNodeId,
-        ),
-        deadline,
-      );
-      for (const commit of authored) bySha.set(commit.sha, commit);
+      this.logRepositoryFailure(runId, repository, this.errorName(error));
+      return 'FAILED';
     }
-
-    const teamCommits = [...bySha.values()];
-    return this.checkpoints.commitCheckpoint(
-      lease,
-      repository.id,
-      teamCommits,
-      registeredGithubIds,
-      null,
-      TEAM_SCOPED_COMMIT_FINGERPRINT,
-      null,
-      existing?.syncEpoch ?? null,
-    );
   }
 
-  private async syncPullRequestStream(
-    runtime: CollectionSyncRuntime,
+  private async recordSuccess(
     lease: SyncLeaseToken,
-    repository: CollectionRepositoryRow,
-    owner: string,
-    name: string,
-    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
-    registeredGithubIds: RegisteredGithubIdSet,
-    deadline: number,
-  ): Promise<number> {
-    const existing = await this.incrementalRepository.getStreamFrontier(
-      repository.id,
-      'PULL_REQUEST',
-    );
-    const teamMembershipFrontier =
-      teamMembers === null
-        ? null
-        : pullRequestTeamMembershipFrontier(teamMembers);
-    const membershipUnchanged =
-      teamMembershipFrontier === null ||
-      existing?.frontierSha === teamMembershipFrontier;
-    const tieFrontier =
-      existing &&
-      existing.status === 'READY' &&
-      membershipUnchanged &&
-      existing.frontierCreatedAt &&
-      existing.frontierEntityId !== null
-        ? {
-            createdAt: existing.frontierCreatedAt.toISOString(),
-            id: existing.frontierEntityId.toString(),
-          }
-        : null;
-
-    const result = await this.deadline.run(
-      runtime.client.listNewPullRequests(owner, name, tieFrontier),
-      deadline,
-    );
-    if (tieFrontier !== null && result.pullRequests.length === 0) return 0;
-
-    return this.checkpoints.pullRequestCheckpoint(
-      lease,
-      repository.id,
-      this.onlyTeamAuthored(result.pullRequests, teamMembers),
-      registeredGithubIds,
-      result.newFrontier,
-      runtime.client.requestFingerprintKey(result.fingerprint),
-      teamMembershipFrontier,
-      existing?.syncEpoch ?? null,
-    );
+    githubRepositoryIds: readonly bigint[],
+    succeededAt: Date,
+  ): Promise<void> {
+    if (githubRepositoryIds.length === 0) return;
+    await this.incrementalRepository.runInTransaction(async (repo) => {
+      await repo.assertSyncLeaseValid(lease, this.now());
+      await repo.recordRepositorySuccess(githubRepositoryIds, succeededAt);
+    });
   }
 
-  private onlyTeamAuthored<T extends { authorGithubId: string | null }>(
-    items: readonly T[],
-    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
-  ): readonly T[] {
-    if (teamMembers === null) return items;
-    const memberIds = teamMemberGithubIds(teamMembers);
-    return items.filter((item) =>
-      isTeamMemberAuthor(item.authorGithubId, memberIds),
-    );
-  }
-
-  private async syncReleaseStream(
+  private shouldStop(
     runtime: CollectionSyncRuntime,
-    lease: SyncLeaseToken,
-    repository: CollectionRepositoryRow,
-    owner: string,
-    name: string,
-    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
-    registeredGithubIds: RegisteredGithubIdSet,
     deadline: number,
-  ): Promise<number> {
-    const existing = await this.incrementalRepository.getStreamFrontier(
-      repository.id,
-      'RELEASE',
-    );
-    const previousEtag =
-      existing && existing.status === 'READY' ? existing.etag : null;
+  ): boolean {
+    return this.now().getTime() >= deadline || runtime.queue.shouldStop();
+  }
 
-    const probe = await this.deadline.run(
-      runtime.client.probeLatestRelease(owner, name, previousEtag),
-      deadline,
-    );
-    if (!probe.changed) return 0;
-
-    const listing = await this.deadline.run(
-      runtime.client.listChangedPublishedReleases(owner, name),
-      deadline,
-    );
-    return this.checkpoints.releaseCheckpoint(
-      lease,
-      repository.id,
-      this.onlyTeamAuthored(listing.releases, teamMembers),
-      registeredGithubIds,
-      probe.frontier ? probe.frontier.probe : null,
-      runtime.client.requestFingerprintKey(probe.fingerprint),
-      probe.etag,
-      existing?.syncEpoch ?? null,
+  private failsRun(error: unknown): boolean {
+    return (
+      error instanceof CollectionAppClientError && error.kind === 'RATE_LIMITED'
     );
   }
 
-  private async syncIssueStream(
-    runtime: CollectionSyncRuntime,
-    lease: SyncLeaseToken,
+  private observeRateLimit(
+    stats: CycleStats,
+    rateLimit: CollectionRateLimit | null,
+  ): void {
+    if (rateLimit !== null) stats.rateLimitRemaining = rateLimit.remaining;
+  }
+
+  private errorName(error: unknown): string {
+    if (error instanceof CollectionAppClientError)
+      return `PROVIDER_${error.kind}`;
+    return error instanceof Error ? error.name : 'UnknownError';
+  }
+
+  private logRepositoryFailure(
+    runId: string,
     repository: CollectionRepositoryRow,
-    owner: string,
-    name: string,
-    teamMembers: readonly RepositoryTeamMemberAccount[] | null,
-    registeredGithubIds: RegisteredGithubIdSet,
-    deadline: number,
-  ): Promise<number> {
-    const existing = await this.incrementalRepository.getStreamFrontier(
-      repository.id,
-      'ISSUE',
-    );
-    const teamMembershipFrontier =
-      teamMembers === null
-        ? null
-        : pullRequestTeamMembershipFrontier(teamMembers);
-    const tieFrontier =
-      existing?.status === 'READY' &&
-      (teamMembershipFrontier === null ||
-        existing.frontierSha === teamMembershipFrontier) &&
-      existing.frontierCreatedAt &&
-      existing.frontierEntityId !== null
-        ? {
-            createdAt: existing.frontierCreatedAt.toISOString(),
-            id: existing.frontierEntityId.toString(),
-          }
-        : null;
-
-    const result = await this.deadline.run(
-      runtime.client.listNewIssues(owner, name, tieFrontier),
-      deadline,
-    );
-    if (tieFrontier !== null && result.newFrontier?.id === tieFrontier.id) {
-      return 0;
-    }
-
-    const issues = this.onlyTeamAuthored(result.issues, teamMembers);
-    return this.checkpoints.issueCheckpoint(
-      lease,
-      repository.id,
-      issues,
-      registeredGithubIds,
-      result.newFrontier,
-      runtime.client.requestFingerprintKey(result.fingerprint),
-      teamMembershipFrontier,
-      existing?.syncEpoch ?? null,
-    );
+    errorName: string,
+  ): void {
+    this.logger.warn({
+      event: 'collection.sync.repository_failed',
+      runId,
+      githubRepositoryId: repository.githubRepositoryId.toString(),
+      errorName,
+    });
   }
 
   private async withHeartbeat<T>(
@@ -1046,13 +677,6 @@ export class CollectionSyncService {
       token,
       now,
       new Date(now.getTime() + LEASE_MS),
-    );
-  }
-
-  private failureBackoffMs(failureCount: number): number {
-    return Math.min(
-      COLLECTION_FAILURE_BACKOFF_BASE_MS * 2 ** Math.min(failureCount - 1, 6),
-      COLLECTION_FAILURE_BACKOFF_MAX_MS,
     );
   }
 }

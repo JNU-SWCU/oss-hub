@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Logger } from '@nestjs/common';
 import type {
+  CollectionRunKind,
   CollectionSyncService,
   CollectionSyncRunResult,
 } from './collection-sync.service';
@@ -18,14 +19,19 @@ export class CollectionSweepRunnerService {
     private readonly eventPrefix: 'collection.admin' | 'collection.scheduler',
   ) {}
 
-  start(ownerId: string, runId: string): void {
+  start(ownerId: string, runId: string, kind: CollectionRunKind): void {
     const startedAt = Date.now();
-    this.observeSweep('org', runId, startedAt, this.sync.run(ownerId, runId));
+    this.observeSweep(
+      'org',
+      runId,
+      startedAt,
+      this.sync.run(ownerId, runId, kind),
+    );
     this.observeSweep(
       'external',
       runId,
       startedAt,
-      this.sync.runExternal(ownerId, runId),
+      this.sync.runExternal(ownerId, runId, kind),
     );
     this.observePersonSweep(runId, startedAt, this.userActivity.run());
   }
@@ -54,8 +60,6 @@ export class CollectionSweepRunnerService {
           durationMs: Date.now() - startedAt,
           repositoryCount: result.processedRepositoryCount,
           insertedFactCount: result.insertedFactCount,
-          inventoryComplete: result.inventoryComplete,
-          cycleCompleted: result.cycleCompleted,
           stoppedForBudget: result.stoppedForBudget,
         });
       },

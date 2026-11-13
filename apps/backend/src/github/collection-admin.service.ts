@@ -32,14 +32,20 @@ export class CollectionAdminService {
     );
   }
 
-  async trigger(): Promise<{ runId: string; status: 'PENDING' }> {
+  async trigger(
+    fullScan: boolean | undefined,
+  ): Promise<{ runId: string; status: 'PENDING' }> {
     if (await this.cutover.isQuiesced(new Date())) {
       throw new DomainException(
         COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
       );
     }
     const runId = randomUUID();
-    this.sweeps.start(this.ownerId, runId);
+    this.sweeps.start(
+      this.ownerId,
+      runId,
+      fullScan === true ? 'full' : 'hourly',
+    );
     return { runId, status: 'PENDING' };
   }
 }

@@ -363,6 +363,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
       outboxEvent: { findUnique: outboxFindUnique },
       repositoryProvisionJob: { findUnique: jobFindUnique },
       contribution: { groupBy: jest.fn().mockResolvedValue([]) },
+      repo: { findUnique: jest.fn().mockResolvedValue(null) },
       $queryRaw: jest.fn().mockResolvedValue([]),
     };
     return {
@@ -438,8 +439,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
           id: 'repository-1',
           nameWithOwner: 'org/repo',
           visibility: 'PRIVATE',
-          lastSuccessAt: null,
-          failureCount: 0,
+          githubRepositoryId: 7001n,
         },
         program: {
           repositoryProvisioningEnabled: true,

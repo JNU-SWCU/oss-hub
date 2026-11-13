@@ -250,7 +250,7 @@ it('rolls back a staff link when the team history write fails', async () => {
   await expectCurrentLinkKept();
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
-  ).toMatchObject({ teamId: null, presence: 'ABSENT', failureCount: 4 });
+  ).toMatchObject({ teamId: null, presence: 'ABSENT', archived: true });
   expect(await prisma.team.findUnique({ where: { id: teamId } })).toMatchObject(
     {
       repositoryConnectionMode: RepositoryConnectionMode.NEW,

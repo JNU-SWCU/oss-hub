@@ -700,7 +700,7 @@ describe('github ledger shadow copy', () => {
       observedAt: new Date('2026-11-14T00:00:00.000Z'),
     });
     await collection.recordRepositorySuccess(
-      MOVE_REPO_GITHUB_ID,
+      [MOVE_REPO_GITHUB_ID],
       new Date('2026-11-14T01:00:00.000Z'),
     );
 
@@ -723,9 +723,8 @@ describe('github ledger shadow copy', () => {
       });
       await ledger.link(tx, VIOLATION_REPO_GITHUB_ID);
     });
-    await collection.markRepositoryUnavailable(
+    await collection.markRepositoryGone(
       ABSENT_REPO_GITHUB_ID,
-      'ABSENT',
       new Date('2026-11-14T02:00:00.000Z'),
       'EXTERNAL_PUBLIC',
     );

@@ -4,6 +4,7 @@ import {
   contributionQuery,
   historyQuery,
   provisionFindUnique,
+  repoFindUnique,
   givenRepository,
 } from './program-team-repository-evidence.fixture';
 import { PrismaService } from '../platform/prisma.service';
@@ -17,7 +18,13 @@ import { RepositoryPublishService } from '../github/repository-publish.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { MilestoneCompletionService } from './submissions.service';
 
-afterEach(() => jest.clearAllMocks());
+beforeEach(() => {
+  jest.useFakeTimers({ now: new Date('2026-08-31T01:00:00Z') });
+});
+afterEach(() => {
+  jest.useRealTimers();
+  jest.clearAllMocks();
+});
 
 function toPage(history: RepositoryUrlHistoryRows | undefined) {
   return new TeamMembershipService(
@@ -53,8 +60,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
       repository: {
         id: 'current-repo',
         nameWithOwner: 'synthetic/current',
-        lastSuccessAt: null,
-        failureCount: 0,
+        githubRepositoryId: 7001n,
       },
       program: {
         id: 'program',
@@ -78,7 +84,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
 });
 
 it('reports an explicit repository relink as succeeded without inventing a provisioning outbox', async () => {
-  const repository = givenRepository(new Date('2026-08-31Z'), 0, 'OWN');
+  const repository = givenRepository(new Date('2026-08-31Z'), 'OWN');
   provisionFindUnique.mockResolvedValue({
     status: 'SUCCEEDED',
     updatedAt: new Date('2026-08-31Z'),
@@ -287,19 +293,27 @@ it('matches numeric GitHub identities and preserves members without observations
 });
 
 it.each([
-  [null, 0, 'NOT_COLLECTED'],
-  [null, 2, 'ERROR'],
-  [new Date('2026-08-31Z'), 2, 'ERROR'],
+  [null, 'NOT_COLLECTED'],
+  [new Date('2026-08-31T10:00:00Z'), 'COLLECTED'],
+  [new Date('2026-08-31T09:59:59.999Z'), 'ERROR'],
 ] as const)(
-  'distinguishes collection state when last success is %s and failures are %s',
-  async (lastSuccessAt, failureCount, collectionStatus) => {
-    const repository = givenRepository(lastSuccessAt, failureCount);
+  'derives collection state from repo.last_success_at %s',
+  async (lastSuccessAt, collectionStatus) => {
+    jest.setSystemTime(new Date('2026-08-31T12:00:00Z'));
+    const repository = givenRepository(lastSuccessAt);
     contributionQuery.mockResolvedValue([]);
 
     const detail = await repository.findStaffTeamDetail('program', 'team');
 
     expect(detail).toMatchObject({
-      repositoryContributions: { collectionStatus },
+      repositoryContributions: {
+        collectionStatus,
+        lastSuccessAt: lastSuccessAt?.toISOString() ?? null,
+      },
+    });
+    expect(repoFindUnique).toHaveBeenCalledWith({
+      where: { githubRepoId: 7001n },
+      select: { lastSuccessAt: true },
     });
   },
 );

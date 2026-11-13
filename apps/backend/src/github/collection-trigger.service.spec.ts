@@ -3,12 +3,15 @@ import { Test, TestingModule } from '@nestjs/testing';
 import {
   COLLECTION_CRON_EXPRESSION,
   COLLECTION_CRON_JOB_NAME,
+  COLLECTION_WEEKLY_CRON_EXPRESSION,
+  COLLECTION_WEEKLY_CRON_JOB_NAME,
   CollectionTriggerService,
 } from './collection-trigger.service';
 import { Logger } from '@nestjs/common';
 import { CollectionCutoverRepository } from './repository-provision-job.repository';
 import {
   CollectionSyncService,
+  type CollectionRunKind,
   type CollectionSyncRunResult,
 } from './collection-sync.service';
 import {
@@ -20,7 +23,7 @@ describe('collection cron', () => {
   describe('CollectionTriggerService.handleCron', () => {
     let testingModule: TestingModule;
     let scheduler: CollectionTriggerService;
-    const runScheduled = jest.fn<Promise<void>, []>();
+    const runScheduled = jest.fn<Promise<void>, [CollectionRunKind]>();
 
     const registeredJob = () =>
       testingModule.get(SchedulerRegistry).getCronJob(COLLECTION_CRON_JOB_NAME);
@@ -56,15 +59,77 @@ describe('collection cron', () => {
     });
 
     it('등록된 cron tick 1회가 수집 진입 서비스의 예약 실행 1회로 위임된다', async () => {
-      await registeredJob().fireOnTick();
+      jest.useFakeTimers({
+        now: new Date('2026-11-14T01:00:00.000Z'),
+        doNotFake: [
+          'nextTick',
+          'setImmediate',
+          'setTimeout',
+          'clearTimeout',
+          'setInterval',
+          'clearInterval',
+          'queueMicrotask',
+        ],
+      });
+      try {
+        await registeredJob().fireOnTick();
+      } finally {
+        jest.useRealTimers();
+      }
 
       expect(runScheduled).toHaveBeenCalledTimes(1);
-      expect(runScheduled).toHaveBeenCalledWith();
+      expect(runScheduled).toHaveBeenCalledWith('hourly');
     });
 
+    it('주간 전체 재수집 cron을 일요일 03:00 서울 시간대로 등록하고 weekly로 위임한다', async () => {
+      const job = testingModule
+        .get(SchedulerRegistry)
+        .getCronJob(COLLECTION_WEEKLY_CRON_JOB_NAME);
+
+      expect(COLLECTION_WEEKLY_CRON_EXPRESSION).toBe('0 0 3 * * 0');
+      expect(job.cronTime.source).toBe(COLLECTION_WEEKLY_CRON_EXPRESSION);
+      expect(job.cronTime.timeZone).toBe('Asia/Seoul');
+      expect(job.waitForCompletion).toBe(true);
+
+      await job.fireOnTick();
+
+      expect(runScheduled).toHaveBeenCalledWith('weekly');
+    });
+
+    it.each([
+      ['2026-11-14T18:00:00.000Z', 0],
+      ['2026-11-14T17:00:00.000Z', 1],
+      ['2026-11-14T19:00:00.000Z', 1],
+      ['2026-11-15T18:00:00.000Z', 1],
+    ])(
+      '매시 cron은 일요일 03시(서울)에는 주간 실행에 자리를 내준다: %s',
+      async (at, calls) => {
+        jest.useFakeTimers({
+          now: new Date(at),
+          doNotFake: [
+            'nextTick',
+            'setImmediate',
+            'setTimeout',
+            'clearTimeout',
+            'setInterval',
+            'clearInterval',
+            'queueMicrotask',
+          ],
+        });
+        try {
+          await scheduler.handleCron();
+        } finally {
+          jest.useRealTimers();
+        }
+
+        expect(runScheduled).toHaveBeenCalledTimes(calls);
+        if (calls > 0) expect(runScheduled).toHaveBeenCalledWith('hourly');
+      },
+    );
+
     it('handleCron은 예약 실행 결과를 그대로 돌려주고 자체 상태를 두지 않는다', async () => {
-      await expect(scheduler.handleCron()).resolves.toBeUndefined();
-      await expect(scheduler.handleCron()).resolves.toBeUndefined();
+      await expect(scheduler.handleWeeklyCron()).resolves.toBeUndefined();
+      await expect(scheduler.handleWeeklyCron()).resolves.toBeUndefined();
 
       expect(runScheduled).toHaveBeenCalledTimes(2);
     });
@@ -72,7 +137,7 @@ describe('collection cron', () => {
     it('실패 분류는 서비스가 소유하므로 job은 실패를 감싸거나 삼키지 않는다', async () => {
       runScheduled.mockRejectedValue(new Error('scheduled sweep failed'));
 
-      await expect(scheduler.handleCron()).rejects.toThrow(
+      await expect(scheduler.handleWeeklyCron()).rejects.toThrow(
         'scheduled sweep failed',
       );
     });
@@ -104,9 +169,7 @@ const completedRun = (
 ): CollectionSyncRunResult => ({
   runId: 'synthetic-run-id',
   status: 'COMPLETED',
-  inventoryComplete: true,
   processedRepositoryCount: 1,
-  cycleCompleted: true,
   stoppedForBudget: false,
   insertedFactCount: 0,
   ...overrides,
@@ -115,8 +178,14 @@ const completedRun = (
 describe('CollectionTriggerService', () => {
   let testingModule: TestingModule;
   let service: CollectionTriggerService;
-  const run = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
-  const runExternal = jest.fn<Promise<CollectionSyncRunResult>, [string]>();
+  const run = jest.fn<
+    Promise<CollectionSyncRunResult>,
+    [string, string, CollectionRunKind]
+  >();
+  const runExternal = jest.fn<
+    Promise<CollectionSyncRunResult>,
+    [string, string, CollectionRunKind]
+  >();
   const runRepository = jest.fn<
     Promise<CollectionSyncRunResult>,
     [string, bigint, string]
@@ -138,9 +207,7 @@ describe('CollectionTriggerService', () => {
     });
     runExternal.mockReset();
     runRepository.mockReset();
-    runRepository.mockResolvedValue(
-      completedRun({ inventoryComplete: null, cycleCompleted: false }),
-    );
+    runRepository.mockResolvedValue(completedRun());
     runExternal.mockResolvedValue(
       completedRun({ runId: 'synthetic-external-run-id' }),
     );
@@ -172,12 +239,17 @@ describe('CollectionTriggerService', () => {
   it('수동 진입점과 cron이 동일한 sync use case를 즉시 PENDING으로 응답하며 시작한다', async () => {
     run.mockResolvedValue(completedRun());
 
-    const result = await service.trigger();
+    const result = await service.trigger('hourly');
     expect(result.status).toBe('PENDING');
     expect(typeof result.runId).toBe('string');
-    await expect(service.runScheduled()).resolves.toBeUndefined();
+    await expect(service.runScheduled('weekly')).resolves.toBeUndefined();
 
     expect(run).toHaveBeenCalledTimes(2);
+    expect(run.mock.calls.map((call) => call[2])).toEqual(['hourly', 'weekly']);
+    expect(runExternal.mock.calls.map((call) => call[2])).toEqual([
+      'hourly',
+      'weekly',
+    ]);
     expect(run.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
     expect(run.mock.calls[1]?.[0]).toBe(run.mock.calls[0]?.[0]);
   });
@@ -185,8 +257,8 @@ describe('CollectionTriggerService', () => {
   it('org sweep과 함께 E1 external sweep도 같은 quiesce guard 안에서 시작한다', async () => {
     run.mockResolvedValue(completedRun());
 
-    await service.trigger();
-    await expect(service.runScheduled()).resolves.toBeUndefined();
+    await service.trigger('hourly');
+    await expect(service.runScheduled('hourly')).resolves.toBeUndefined();
 
     expect(runExternal).toHaveBeenCalledTimes(2);
     expect(runExternal.mock.calls[0]?.[0]).toMatch(/^scheduler:/);
@@ -198,7 +270,7 @@ describe('CollectionTriggerService', () => {
   it('quiesce lease가 걸려 있으면 COL_008로 트리거를 거부하고 새 writer를 호출하지 않는다', async () => {
     isQuiesced.mockResolvedValue(true);
 
-    await expect(service.trigger()).rejects.toMatchObject({
+    await expect(service.trigger('hourly')).rejects.toMatchObject({
       errorCode: { code: 'COL_008', status: 409 },
     });
     expect(run).not.toHaveBeenCalled();
@@ -212,7 +284,7 @@ describe('CollectionTriggerService', () => {
       .mockImplementation(() => undefined);
     run.mockResolvedValue(completedRun());
 
-    await expect(service.runScheduled()).resolves.toBeUndefined();
+    await expect(service.runScheduled('hourly')).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(run).toHaveBeenCalledTimes(1);
@@ -236,7 +308,7 @@ describe('CollectionTriggerService', () => {
       failedUserCount: 1,
     });
 
-    await expect(service.runScheduled()).resolves.toBeUndefined();
+    await expect(service.runScheduled('hourly')).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(logger).toHaveBeenCalledWith(
@@ -262,7 +334,7 @@ describe('CollectionTriggerService', () => {
       }),
     );
 
-    await expect(service.trigger()).resolves.toEqual(
+    await expect(service.trigger('hourly')).resolves.toEqual(
       expect.objectContaining({ status: 'PENDING' }),
     );
     await new Promise((resolve) => setImmediate(resolve));
@@ -294,7 +366,7 @@ describe('CollectionTriggerService', () => {
       }),
     );
 
-    await expect(service.runScheduled()).resolves.toBeUndefined();
+    await expect(service.runScheduled('hourly')).resolves.toBeUndefined();
     expect(logger).toHaveBeenCalledWith({
       event: 'collection.scheduler.failed',
       errorName: 'Error',
@@ -308,9 +380,13 @@ describe('CollectionTriggerService', () => {
   it('트리거가 만든 runId를 그대로 내부 sync run에 넘긴다', async () => {
     run.mockResolvedValue(completedRun());
 
-    const result = await service.trigger();
+    const result = await service.trigger('hourly');
 
-    expect(run).toHaveBeenCalledWith(expect.any(String), result.runId);
+    expect(run).toHaveBeenCalledWith(
+      expect.any(String),
+      result.runId,
+      'hourly',
+    );
   });
 
   it('sync가 성공하면 소요 시간·대상 repo 수·신규 수집 건수를 담은 완료 로그를 남긴다', async () => {
@@ -321,7 +397,7 @@ describe('CollectionTriggerService', () => {
       completedRun({ processedRepositoryCount: 9, insertedFactCount: 12 }),
     );
 
-    await expect(service.runScheduled()).resolves.toBeUndefined();
+    await expect(service.runScheduled('hourly')).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     expect(logger).toHaveBeenCalledWith(
@@ -330,8 +406,6 @@ describe('CollectionTriggerService', () => {
         syncStatus: 'COMPLETED',
         repositoryCount: 9,
         insertedFactCount: 12,
-        inventoryComplete: true,
-        cycleCompleted: true,
         stoppedForBudget: false,
       }),
     );
@@ -351,7 +425,7 @@ describe('CollectionTriggerService', () => {
       nameWithOwner: 'JNU-SWCU/secret-repo',
     } as CollectionSyncRunResult);
 
-    await expect(service.runScheduled()).resolves.toBeUndefined();
+    await expect(service.runScheduled('hourly')).resolves.toBeUndefined();
     await new Promise((resolve) => setImmediate(resolve));
 
     const serialized = JSON.stringify(logger.mock.calls);
@@ -365,7 +439,7 @@ describe('CollectionTriggerService', () => {
       .mockImplementation(() => undefined);
     run.mockRejectedValue(new Error('provider unavailable'));
 
-    await expect(service.trigger()).resolves.toEqual(
+    await expect(service.trigger('hourly')).resolves.toEqual(
       expect.objectContaining({ status: 'PENDING' }),
     );
     await new Promise((resolve) => setImmediate(resolve));
@@ -382,7 +456,7 @@ describe('CollectionTriggerService', () => {
     run.mockResolvedValue(completedRun());
     runExternal.mockRejectedValue(new Error('external provider unavailable'));
 
-    await expect(service.trigger()).resolves.toEqual(
+    await expect(service.trigger('hourly')).resolves.toEqual(
       expect.objectContaining({ status: 'PENDING' }),
     );
     await new Promise((resolve) => setImmediate(resolve));

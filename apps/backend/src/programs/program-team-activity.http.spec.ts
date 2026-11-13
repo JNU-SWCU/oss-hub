@@ -26,6 +26,7 @@ const authSessionService = new AuthSessionService();
 const sessionSecret = new Uint8Array(32).fill(7);
 const PROGRAM_ID = 'synthetic-program';
 const TEAM_ID = 'synthetic-team';
+const LAST_SUCCESS_AT = new Date(Date.now() - 60_000);
 const ACTORS = {
   leader: { githubId: 7001n, id: 'user-leader', staff: false },
   member: { githubId: 7002n, id: 'user-member', staff: false },
@@ -184,6 +185,11 @@ beforeAll(async () => {
         useValue: {
           user: { findUnique },
           team: { findFirst },
+          repo: {
+            findUnique: jest
+              .fn()
+              .mockResolvedValue({ lastSuccessAt: LAST_SUCCESS_AT }),
+          },
           contribution: { findMany },
           application: {
             findFirst: jest
@@ -245,8 +251,7 @@ beforeEach(() => {
               repository: {
                 id: 'synthetic-repository',
                 nameWithOwner: 'synthetic-org/synthetic-repo',
-                lastSuccessAt: new Date('2026-08-10T00:00:00Z'),
-                failureCount: 0,
+                githubRepositoryId: 7001n,
               },
             }
           : null,
@@ -284,7 +289,7 @@ it('팀장·팀원·교직원이 canEditRepositoryUrl 말고는 같은 본문을
       url: 'https://github.com/synthetic-org/synthetic-repo',
     },
     status: 'COLLECTED',
-    lastSuccessAt: '2026-08-10T00:00:00.000Z',
+    lastSuccessAt: LAST_SUCCESS_AT.toISOString(),
     window: { from: '2026-08-01', to: '2999-12-31', timeZone: 'Asia/Seoul' },
     canEditRepositoryUrl: true,
     members: [

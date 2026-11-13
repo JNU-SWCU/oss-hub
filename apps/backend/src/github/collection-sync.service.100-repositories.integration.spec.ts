@@ -1,26 +1,19 @@
+import { Logger } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
   SyntheticGithubProvider,
-  syntheticPageCount,
   createSyntheticSyncRuntime,
   SYNTHETIC_APP_ID,
   SYNTHETIC_ORG_LOGIN,
-  type SyntheticCommitSeed,
-  type SyntheticIssueSeed,
-  type SyntheticPullRequestSeed,
-  type SyntheticReleaseSeed,
   type SyntheticRepositorySeed,
 } from '../../test/collection-app.synthetic-provider';
 import { PrismaService } from '../platform/prisma.service';
 import {
   CollectionIncrementalRepository,
-  CollectionIncrementalStoreRepository,
+  type RepositorySource,
 } from './collection-incremental.repository';
-import {
-  CollectionSyncService,
-  type CollectionSyncRunResult,
-} from './collection-sync.service';
+import { CollectionSyncService } from './collection-sync.service';
 import { ProviderRequestQueueClient } from './provider-request-queue.client';
 import { RepositoryUrlService } from './repository-url.service';
 
@@ -31,336 +24,161 @@ assertIsolatedIntegrationDatabase({
 
 const APP_ID = BigInt(SYNTHETIC_APP_ID);
 const ORG_LOGIN = SYNTHETIC_ORG_LOGIN;
-
 const SCOPE = `org:${ORG_LOGIN}`;
 const GITHUB_ORGANIZATION_ID = 9_000_000_300_002n;
 const OWNER_ID = 'synthetic-scale-suite-instance';
-const CONTRIBUTOR_IDS = Array.from({ length: 5 }, (_, index) =>
-  BigInt(9_000_000_400 + index),
-);
-
-const TEAM_MEMBER_COUNT = CONTRIBUTOR_IDS.length;
-const TEAM_COMMIT_REQUESTS_PER_RUN = 2 * TEAM_MEMBER_COUNT;
-const SCALE_PROGRAM_PREFIX = 'synthetic-scale-program-';
+const PROGRAM_PREFIX = 'synthetic-scale-program-';
+const CONTRIBUTOR_PREFIX = 'synthetic-scale-contributor-';
 const REPO_COUNT = 100;
-const ANCHOR = Date.parse('2026-01-01T00:00:00.000Z');
+const FIRST_REPO_ID = 9_000_000_100_000;
+const BUSY_INDEX = 7;
+const BUSY_PULL_REQUESTS = 150;
 const HOUR = 3_600_000;
+const SKEW_MS = 5 * 60_000;
 
-const DISCONNECTED_NAME = 'repo-disconnected';
-const RELEASE_CHANGED_NAME = 'repo-release-changed';
-const NO_ETAG_NAME = 'repo-no-etag';
-const PR_TIES_NAME = 'repo-pr-ties';
-const DUPLICATE_COMMIT_NAME = 'repo-duplicate-commit';
-const EMPTY_NAME = 'repo-empty';
-const STABLE_CONTRAST_NAME = 'repo-16';
+const RUN_1 = new Date('2026-01-10T00:00:00.000Z');
+const RUN_2 = new Date(RUN_1.getTime() + HOUR);
+const RUN_3 = new Date(RUN_2.getTime() + HOUR);
+const RUN_4 = new Date(RUN_3.getTime() + HOUR);
 
-function fakeClock(): {
-  now: () => number;
-  sleep: (ms: number) => Promise<void>;
-} {
-  let cursor = 2_000_000;
-  return {
-    now: () => cursor,
-    sleep: (ms: number) => {
-      cursor += ms;
-      return Promise.resolve();
-    },
-  };
-}
-
-function buildCommits(
-  repoIndex: number,
-  count: number,
-  tag = '',
-): SyntheticCommitSeed[] {
-  return Array.from({ length: count }, (_, n) => ({
-    sha: `synthetic-repo-${repoIndex}${tag}-commit-${n}`,
-    authorId: 9_000_000_400 + (n % 5),
-    authorLogin: `synthetic-contributor-${n % 5}`,
-    committedAt: new Date(ANCHOR - (repoIndex * 1000 + n) * HOUR).toISOString(),
-  }));
-}
-
-function buildPullRequests(
-  repoIndex: number,
-  count: number,
-): SyntheticPullRequestSeed[] {
-  return Array.from({ length: count }, (_, n) => ({
-    id: 9_000_000_500_000 + repoIndex * 100 + n,
-    createdAt: new Date(ANCHOR - (repoIndex * 1000 + n) * HOUR).toISOString(),
-    state: n % 2 === 0 ? 'open' : ('closed' as const),
-    authorId: 9_000_000_400 + (n % 5),
-    authorLogin: `synthetic-contributor-${n % 5}`,
-  }));
-}
-
-function buildIssues(repoIndex: number, count: number): SyntheticIssueSeed[] {
-  return Array.from({ length: count }, (_, n) => ({
-    id: 9_000_000_700_000 + repoIndex * 100 + n,
-    createdAt: new Date(
-      ANCHOR - (repoIndex * 1000 + n) * HOUR - HOUR / 2,
-    ).toISOString(),
-    state: n % 2 === 0 ? 'open' : ('closed' as const),
-    authorId: 9_000_000_400 + (n % 5),
-    authorLogin: `synthetic-contributor-${n % 5}`,
-  }));
-}
-
-function buildReleases(
-  repoIndex: number,
-  count: number,
-  tag = '',
-): SyntheticReleaseSeed[] {
-  return Array.from({ length: count }, (_, n) => ({
-    id: 9_000_000_600_000 + repoIndex * 100 + n + (tag ? 50 : 0),
-    publishedAt: new Date(ANCHOR - (repoIndex * 1000 + n) * HOUR).toISOString(),
-    authorId: 9_000_000_400 + (n % 5),
-    authorLogin: `synthetic-contributor-${n % 5}`,
-  }));
-}
-
-function uniqueCommitCount(seed: SyntheticRepositorySeed): number {
-  return new Set(seed.commits.map((c) => c.sha)).size;
-}
-function uniquePullRequestCount(seed: SyntheticRepositorySeed): number {
-  return new Set(seed.pullRequests.map((pr) => pr.id)).size;
-}
-function uniqueReleaseCount(seed: SyntheticRepositorySeed): number {
-  return new Set(seed.releases.map((r) => r.id)).size;
-}
-function issueCount(seed: SyntheticRepositorySeed): number {
-  return seed.issues?.length ?? 0;
-}
-
-function firstBackfillRequestCost(seed: SyntheticRepositorySeed): number {
-  return (
-    TEAM_COMMIT_REQUESTS_PER_RUN +
-    syntheticPageCount(seed.pullRequests.length) +
-    1 +
-    syntheticPageCount(seed.releases.length) +
-    syntheticPageCount(issueCount(seed) + seed.pullRequests.length)
-  );
-}
+const contributorId = (n: number): number => 9_000_000_400 + (n % 5);
+const at = (hoursBeforeRun1: number): string =>
+  new Date(RUN_1.getTime() - hoursBeforeRun1 * HOUR).toISOString();
 
 function buildSeeds(): SyntheticRepositorySeed[] {
-  const seeds: SyntheticRepositorySeed[] = [];
-  for (let index = 0; index < REPO_COUNT; index += 1) {
-    const id = 9_000_000_300 + index;
-    const owner = ORG_LOGIN;
-    const isPrivate = index >= 5 && index <= 14;
-
-    if (index === 0) {
-      seeds.push({
-        id,
-        name: DISCONNECTED_NAME,
-        owner,
-        private: false,
-        defaultBranch: 'main',
-        commits: buildCommits(index, 6),
-        pullRequests: buildPullRequests(index, 2),
-        releases: buildReleases(index, 1),
-      });
-      continue;
-    }
-    if (index === 1) {
-      seeds.push({
-        id,
-        name: RELEASE_CHANGED_NAME,
-        owner,
-        private: false,
-        defaultBranch: 'main',
-        commits: buildCommits(index, 3),
-        pullRequests: buildPullRequests(index, 1),
-        releases: buildReleases(index, 1),
-      });
-      continue;
-    }
-    if (index === 2) {
-      seeds.push({
-        id,
-        name: NO_ETAG_NAME,
-        owner,
-        private: false,
-        defaultBranch: 'main',
-        commits: buildCommits(index, 5),
-        pullRequests: buildPullRequests(index, 1),
-        releases: buildReleases(index, 1),
-        noEtag: true,
-      });
-      continue;
-    }
-    if (index === 3) {
-      const tiedCreatedAt = new Date(ANCHOR - 3_000 * HOUR).toISOString();
-      seeds.push({
-        id,
-        name: PR_TIES_NAME,
-        owner,
-        private: false,
-        defaultBranch: 'main',
-        commits: buildCommits(index, 2),
-        pullRequests: [
-          {
-            id: 9_000_000_500_900,
-            createdAt: tiedCreatedAt,
-            state: 'open',
-            authorId: 9_000_000_401,
-            authorLogin: 'synthetic-contributor-1',
-          },
-          {
-            id: 9_000_000_500_901,
-            createdAt: tiedCreatedAt,
-            state: 'closed',
-            authorId: 9_000_000_402,
-            authorLogin: 'synthetic-contributor-2',
-          },
-        ],
-        releases: [],
-      });
-      continue;
-    }
-    if (index === 4) {
-      const dup: SyntheticCommitSeed = {
-        sha: 'synthetic-repo-4-duplicate',
-        authorId: 9_000_000_403,
-        authorLogin: 'synthetic-contributor-3',
-        committedAt: new Date(ANCHOR - 4_003 * HOUR).toISOString(),
-      };
-      seeds.push({
-        id,
-        name: DUPLICATE_COMMIT_NAME,
-        owner,
-        private: false,
-        defaultBranch: 'main',
-
-        commits: [
-          ...buildCommits(index, 3),
-          dup,
-          dup,
-          {
-            sha: 'synthetic-repo-4-commit-5',
-            authorId: 9_000_000_404,
-            authorLogin: 'synthetic-contributor-4',
-            committedAt: new Date(ANCHOR - 4_005 * HOUR).toISOString(),
-          },
-        ],
-        pullRequests: buildPullRequests(index, 1),
-        releases: [],
-      });
-      continue;
-    }
-    if (index === 15) {
-      seeds.push({
-        id,
-        name: EMPTY_NAME,
-        owner,
-        private: false,
-        defaultBranch: 'main',
-        commits: [],
-        pullRequests: [],
-        releases: [],
-      });
-      continue;
-    }
-    seeds.push({
+  return Array.from({ length: REPO_COUNT }, (_, index) => {
+    const id = FIRST_REPO_ID + index;
+    const pullRequestCount = index === BUSY_INDEX ? BUSY_PULL_REQUESTS : 2;
+    return {
       id,
       name: `repo-${index}`,
-      owner,
-      private: isPrivate,
-      defaultBranch: 'main',
-      commits: buildCommits(index, 1 + (index % 5)),
-      pullRequests: buildPullRequests(index, index % 3),
-      releases: buildReleases(index, index % 2),
-      issues: buildIssues(index, index % 7),
-    });
-  }
-  return seeds;
+      owner: ORG_LOGIN,
+      private: true,
+      defaultBranch: index === 0 ? null : 'main',
+      commits:
+        index === 0
+          ? []
+          : [0, 1, 2].map((n) => ({
+              sha: `synthetic-${index}-commit-${n}`,
+              authorId: n === 2 ? null : contributorId(index + n),
+              committedAt: at(1 + n + (index % 24)),
+            })),
+      pullRequests: Array.from({ length: pullRequestCount }, (_, n) => ({
+        id: id * 1000 + n,
+        createdAt: at(2 + (n % 100) + (index % 24)),
+        authorId: contributorId(n),
+      })),
+      issues: [{ id: id * 1000 + 900, createdAt: at(30), authorId: null }],
+      releases:
+        index % 10 === 0
+          ? [{ id: id * 1000 + 950, publishedAt: at(40), authorId: 1 }]
+          : [],
+    };
+  });
 }
 
-function repoKindSnapshot(
-  provider: SyntheticGithubProvider,
-  repoKey: string,
-): Record<string, number> {
-  return { ...(provider.counters.byRepositoryKind.get(repoKey) ?? {}) };
-}
-function kindDelta(
-  before: Record<string, number>,
-  after: Record<string, number>,
-): Record<string, number> {
-  const out: Record<string, number> = {};
-  for (const key of Object.keys(after)) {
-    out[key] = (after[key] ?? 0) - (before[key] ?? 0);
-  }
-  return out;
-}
-function totalKindDelta(
-  before: Record<string, number>,
-  after: Record<string, number>,
-): number {
-  return Object.values(kindDelta(before, after)).reduce((a, b) => a + b, 0);
-}
-
-function originalImplementation<T, Y extends unknown[]>(
-  spy: jest.SpyInstance<T, Y>,
-  methodName: string,
-): (...args: Y) => T {
-  const original = spy.getMockImplementation();
-  if (!original) {
-    throw new Error(
-      `${methodName} spy did not capture its original implementation`,
-    );
-  }
-  return original;
-}
+const expectedContributionCount = (
+  seeds: readonly SyntheticRepositorySeed[],
+): number =>
+  seeds.reduce(
+    (sum, seed) =>
+      sum +
+      seed.commits.length +
+      seed.pullRequests.length +
+      seed.issues.length +
+      seed.releases.length,
+    0,
+  );
 
 class ScaleCollectionRepository extends CollectionIncrementalRepository {
-  override async listOrganizationRepositories() {
-    return (await super.listOrganizationRepositories()).filter(
-      (repository) =>
-        repository.githubOrganizationId === GITHUB_ORGANIZATION_ID,
+  override async listCollectionTargets(source: RepositorySource) {
+    return (await super.listCollectionTargets(source)).filter(
+      (row) => row.githubOrganizationId === GITHUB_ORGANIZATION_ID,
     );
   }
 }
 
-describe('CollectionSyncService — 100-repository scale/idempotency suite (public-admin-exposure todo 13)', () => {
+describe('CollectionSyncService — 저장소 100개 probe/collect (실 DB)', () => {
   const prisma = new PrismaService();
   const repository = new ScaleCollectionRepository(
     prisma,
     new PlatformRepository(),
   );
   const seeds = buildSeeds();
-  const clock = fakeClock();
-  const queue = new ProviderRequestQueueClient(clock.now, clock.sleep);
-  const provider = new SyntheticGithubProvider(seeds, { rateLimit: 100_000 });
-  const dispatchTimes: number[] = [];
-  const runtime = createSyntheticSyncRuntime(provider, queue, (input, init) => {
-    dispatchTimes.push(clock.now());
-    return provider.fetcher(input, init);
+  const repoIds = seeds.map((seed) => BigInt(seed.id));
+  let clock = 2_000_000;
+  const queue = new ProviderRequestQueueClient(
+    () => clock,
+    (ms) => {
+      clock += ms;
+      return Promise.resolve();
+    },
+  );
+  const provider = new SyntheticGithubProvider(seeds, {
+    rateRemaining: 1_000_000,
   });
+  const runtime = createSyntheticSyncRuntime(provider, queue);
+  let now = RUN_1;
   const service = new CollectionSyncService(
     repository,
     () => runtime,
     new RepositoryUrlService(),
+    () => new Date(now),
   );
+  let summaries: Record<string, unknown>[] = [];
 
-  const commitWrites: number[] = [];
-  const pullRequestWrites: number[] = [];
-  const releaseWrites: number[] = [];
-  const issueWrites: number[] = [];
+  const contributionCount = (): Promise<number> =>
+    prisma.contributionEvent.count({ where: { repoId: { in: repoIds } } });
+
+  const lastSuccessAts = async (): Promise<Map<bigint, Date | null>> =>
+    new Map(
+      (
+        await prisma.repo.findMany({
+          where: { githubRepoId: { in: repoIds } },
+          select: { githubRepoId: true, lastSuccessAt: true },
+        })
+      ).map((row) => [row.githubRepoId, row.lastSuccessAt]),
+    );
+
+  const runAt = async (
+    runNow: Date,
+    kind: 'hourly' | 'weekly' = 'hourly',
+  ): Promise<Record<string, unknown>> => {
+    now = runNow;
+    provider.resetCounters();
+    summaries = [];
+    await expect(
+      service.run(OWNER_ID, `run-${runNow.toISOString()}`, kind),
+    ).resolves.toMatchObject({ status: 'COMPLETED', stoppedForBudget: false });
+    const summary = summaries.at(-1);
+    if (!summary) throw new Error('cycle summary was not logged');
+    return summary;
+  };
 
   beforeAll(async () => {
+    jest.spyOn(Logger.prototype, 'log').mockImplementation((entry: unknown) => {
+      if (
+        typeof entry === 'object' &&
+        entry !== null &&
+        (entry as { event?: unknown }).event === 'collection.cycle.summary'
+      ) {
+        summaries.push(entry as Record<string, unknown>);
+      }
+    });
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
     await prisma.$connect();
     await prisma.user.createMany({
-      data: CONTRIBUTOR_IDS.map((githubId, index) => ({
-        id: `synthetic-scale-contributor-${index}`,
-        githubId,
+      data: Array.from({ length: 5 }, (_, index) => ({
+        id: `${CONTRIBUTOR_PREFIX}${index}`,
+        githubId: BigInt(contributorId(index)),
         nickname: `synthetic-contributor-${index}`,
       })),
       skipDuplicates: true,
     });
     await prisma.program.createMany({
       data: seeds.map((seed) => ({
-        id: `${SCALE_PROGRAM_PREFIX}${seed.id}`,
-        name: `Synthetic registered repository scale ${seed.id}`,
+        id: `${PROGRAM_PREFIX}${seed.id}`,
+        name: `Synthetic scale ${seed.id}`,
         organizer: 'Synthetic',
         category: 'BASIC',
         trackType: 'EXTRACURRICULAR',
@@ -370,28 +188,19 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         applicationStartAt: new Date('2025-01-01T00:00:00Z'),
         applicationEndAt: new Date('2025-12-01T00:00:00Z'),
         startAt: new Date('2025-12-01T00:00:00Z'),
-        endAt: new Date('2026-01-01T00:00:00Z'),
+        endAt: new Date('2026-03-01T00:00:00Z'),
       })),
     });
     await prisma.team.createMany({
       data: seeds.map((seed) => ({
         id: `synthetic-scale-${seed.id}`,
-        programId: `${SCALE_PROGRAM_PREFIX}${seed.id}`,
+        programId: `${PROGRAM_PREFIX}${seed.id}`,
         name: seed.name,
-        leaderId: 'synthetic-scale-contributor-0',
-        applicantId: 'synthetic-scale-contributor-0',
+        leaderId: `${CONTRIBUTOR_PREFIX}0`,
+        applicantId: `${CONTRIBUTOR_PREFIX}0`,
         answers: {},
         applicationTemplateVersion: 1,
       })),
-    });
-    await prisma.teamMember.createMany({
-      data: seeds.flatMap((seed) =>
-        CONTRIBUTOR_IDS.map((_, index) => ({
-          teamId: `synthetic-scale-${seed.id}`,
-          programId: `${SCALE_PROGRAM_PREFIX}${seed.id}`,
-          userId: `synthetic-scale-contributor-${index}`,
-        })),
-      ),
     });
     await prisma.githubRepository.createMany({
       data: seeds.map((seed) => ({
@@ -399,488 +208,206 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         githubOrganizationId: GITHUB_ORGANIZATION_ID,
         teamId: `synthetic-scale-${seed.id}`,
         nameWithOwner: `${seed.owner}/${seed.name}`,
+        defaultBranch: seed.defaultBranch,
+        visibility: 'PRIVATE',
         source: 'ORG_PROVISIONED',
       })),
     });
     await prisma.repo.createMany({
       data: seeds.map((seed) => ({
         githubRepoId: BigInt(seed.id),
-        ownerName: seed.owner,
+        ownerName: `${seed.owner}/${seed.name}`,
         source: 'ORG_PROVISIONED' as const,
       })),
-    });
-
-    const commitSpy = jest.spyOn(
-      CollectionIncrementalStoreRepository.prototype,
-      'recordCommitFacts',
-    );
-    const originalCommit = originalImplementation(
-      commitSpy,
-      'recordCommitFacts',
-    );
-    commitSpy.mockImplementation(async function (
-      this: CollectionIncrementalStoreRepository,
-      repositoryId,
-      facts,
-      registeredGithubIds,
-    ) {
-      const result = await originalCommit.call(
-        this,
-        repositoryId,
-        facts,
-        registeredGithubIds,
-      );
-      commitWrites.push(result.insertedCount);
-      return result;
-    });
-    const pullRequestSpy = jest.spyOn(
-      CollectionIncrementalStoreRepository.prototype,
-      'recordPullRequestFacts',
-    );
-    const originalPullRequest = originalImplementation(
-      pullRequestSpy,
-      'recordPullRequestFacts',
-    );
-    pullRequestSpy.mockImplementation(async function (
-      this: CollectionIncrementalStoreRepository,
-      repositoryId,
-      facts,
-      registeredGithubIds,
-    ) {
-      const result = await originalPullRequest.call(
-        this,
-        repositoryId,
-        facts,
-        registeredGithubIds,
-      );
-      pullRequestWrites.push(result.insertedCount);
-      return result;
-    });
-    const releaseSpy = jest.spyOn(
-      CollectionIncrementalStoreRepository.prototype,
-      'recordReleaseFacts',
-    );
-    const originalRelease = originalImplementation(
-      releaseSpy,
-      'recordReleaseFacts',
-    );
-    releaseSpy.mockImplementation(async function (
-      this: CollectionIncrementalStoreRepository,
-      repositoryId,
-      facts,
-      registeredGithubIds,
-    ) {
-      const result = await originalRelease.call(
-        this,
-        repositoryId,
-        facts,
-        registeredGithubIds,
-      );
-      releaseWrites.push(result.insertedCount);
-      return result;
-    });
-    const issueSpy = jest.spyOn(
-      CollectionIncrementalStoreRepository.prototype,
-      'recordIssueFacts',
-    );
-    const originalIssue = originalImplementation(issueSpy, 'recordIssueFacts');
-    issueSpy.mockImplementation(async function (
-      this: CollectionIncrementalStoreRepository,
-      repositoryId,
-      facts,
-      registeredGithubIds,
-    ) {
-      const result = await originalIssue.call(
-        this,
-        repositoryId,
-        facts,
-        registeredGithubIds,
-      );
-      issueWrites.push(result.insertedCount);
-      return result;
     });
   }, 60_000);
 
   afterAll(async () => {
     jest.restoreAllMocks();
-    await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionSyncLease" WHERE "appId" = $1',
-      APP_ID,
-    );
-    await prisma.$executeRawUnsafe(
-      'DELETE FROM "CollectionSyncCursor" WHERE "appId" = $1',
-      APP_ID,
-    );
-    const repoIds = seeds.map((seed) => BigInt(seed.id));
+    await prisma.collectionSyncLease.deleteMany({ where: { appId: APP_ID } });
     await prisma.contributionEvent.deleteMany({
       where: { repoId: { in: repoIds } },
     });
     await prisma.repo.deleteMany({ where: { githubRepoId: { in: repoIds } } });
-    await prisma.$executeRawUnsafe(
-      'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
-      GITHUB_ORGANIZATION_ID,
-    );
-    await prisma.teamMember.deleteMany({
-      where: { programId: { startsWith: SCALE_PROGRAM_PREFIX } },
+    await prisma.githubRepository.deleteMany({
+      where: { githubOrganizationId: GITHUB_ORGANIZATION_ID },
     });
     await prisma.team.deleteMany({
-      where: { programId: { startsWith: SCALE_PROGRAM_PREFIX } },
+      where: { programId: { startsWith: PROGRAM_PREFIX } },
     });
     await prisma.program.deleteMany({
-      where: { id: { startsWith: SCALE_PROGRAM_PREFIX } },
+      where: { id: { startsWith: PROGRAM_PREFIX } },
     });
     await prisma.user.deleteMany({
-      where: { id: { startsWith: 'synthetic-scale-contributor-' } },
+      where: { id: { startsWith: CONTRIBUTOR_PREFIX } },
     });
     await prisma.$disconnect();
   });
 
-  async function runWithBudget(
-    reposPerRun: number,
-  ): Promise<CollectionSyncRunResult> {
-    let considered = 0;
-    const original = repository.recordRepositorySuccess.bind(repository);
-    const progress = jest
-      .spyOn(repository, 'recordRepositorySuccess')
-      .mockImplementation(async (...args) => {
-        await original(...args);
-        considered += 1;
-      });
-    const spy = jest
-      .spyOn(queue, 'shouldStop')
-      .mockImplementation(() => considered >= reposPerRun);
-    try {
-      return await service.run(OWNER_ID);
-    } finally {
-      spy.mockRestore();
-      progress.mockRestore();
-    }
-  }
+  it('첫 실행은 probe 1번과 저장소당 수집 1번(100건 초과 저장소만 1번 더)으로 모든 기여를 한 번씩 넣는다', async () => {
+    const summary = await runAt(RUN_1);
 
-  let initialDrainRuns: CollectionSyncRunResult[] = [];
-
-  it('drains all 100 repositories exactly once across budget-limited runs, in fair ascending cursor order, with zero missing or duplicate facts and an exact deterministic request count', async () => {
-    const cursorAdvances: bigint[] = [];
-
-    const cursorSpy = jest.spyOn(
-      CollectionIncrementalStoreRepository.prototype,
-      'upsertSyncCursor',
-    );
-    const originalUpsertCursor = originalImplementation(
-      cursorSpy,
-      'upsertSyncCursor',
-    );
-    cursorSpy.mockImplementation(async function (
-      this: CollectionIncrementalStoreRepository,
-      input,
-    ) {
-      if (typeof input.lastGithubRepositoryId === 'bigint') {
-        cursorAdvances.push(input.lastGithubRepositoryId);
-      }
-      return originalUpsertCursor.call(this, input);
+    expect(provider.counters.byKind).toEqual({
+      probe: 1,
+      collect: REPO_COUNT + 1,
+      repository: 0,
     });
-
-    const reposPerRun = 15;
-    const runs: CollectionSyncRunResult[] = [];
-    for (let i = 0; i < 20; i += 1) {
-      const result = await runWithBudget(reposPerRun);
-      runs.push(result);
-      if (result.cycleCompleted) break;
-    }
-    initialDrainRuns = runs;
-
-    expect(runs[runs.length - 1]?.cycleCompleted).toBe(true);
-    const expectedRunCount = Math.ceil(REPO_COUNT / reposPerRun);
-    expect(runs).toHaveLength(expectedRunCount);
     expect(
-      runs.reduce((sum, run) => sum + run.processedRepositoryCount, 0),
-    ).toBe(REPO_COUNT);
-
-    expect(cursorAdvances).toHaveLength(REPO_COUNT);
-    const sortedIds = [...seeds]
-      .map((s) => BigInt(s.id))
-      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
-    expect(cursorAdvances).toEqual(sortedIds);
-
-    const repoIds = seeds.map((seed) => BigInt(seed.id));
-    const [commitCount, pullRequestCount, releaseCount] = await Promise.all([
-      prisma.contributionEvent.count({
-        where: { kind: 'COMMIT', repoId: { in: repoIds } },
-      }),
-      prisma.contributionEvent.count({
-        where: { kind: 'PULL_REQUEST', repoId: { in: repoIds } },
-      }),
-      prisma.contributionEvent.count({
-        where: { kind: 'RELEASE', repoId: { in: repoIds } },
-      }),
-    ]);
-    expect(commitCount).toBe(
-      seeds.reduce((sum, s) => sum + uniqueCommitCount(s), 0),
+      provider.counters.byRepository.get(`${ORG_LOGIN}/repo-${BUSY_INDEX}`),
+    ).toEqual({ collect: 2 });
+    await expect(contributionCount()).resolves.toBe(
+      expectedContributionCount(seeds),
     );
-    expect(pullRequestCount).toBe(
-      seeds.reduce((sum, s) => sum + uniquePullRequestCount(s), 0),
+    const successes = await lastSuccessAts();
+    expect([...successes.values()]).toEqual(
+      Array.from(
+        { length: REPO_COUNT },
+        () => new Date(RUN_1.getTime() - SKEW_MS),
+      ),
     );
-    expect(releaseCount).toBe(
-      seeds.reduce((sum, s) => sum + uniqueReleaseCount(s), 0),
-    );
-
-    await expect(
-      prisma.contributionEvent.count({
-        where: { kind: 'ISSUE', repoId: { in: repoIds } },
-      }),
-    ).resolves.toBe(seeds.reduce((sum, s) => sum + issueCount(s), 0));
-
-    const duplicateSeed = seeds.find((s) => s.name === DUPLICATE_COMMIT_NAME);
-    if (!duplicateSeed)
-      throw new Error('fixture missing duplicate-commit repo');
-    expect(duplicateSeed.commits).toHaveLength(6);
-    expect(uniqueCommitCount(duplicateSeed)).toBe(5);
-    const duplicateRepoRow = await repository.findRepositoryByLogicalKey(
-      BigInt(duplicateSeed.id),
-    );
-    if (!duplicateRepoRow) throw new Error('duplicate-commit repo not synced');
-    expect(
-      await prisma.contributionEvent.count({
-        where: { kind: 'COMMIT', repoId: duplicateRepoRow.githubRepositoryId },
-      }),
-    ).toBe(5);
-
-    const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
-    if (!tiesSeed) throw new Error('fixture missing PR-ties repo');
-    const tiesRepoRow = await repository.findRepositoryByLogicalKey(
-      BigInt(tiesSeed.id),
-    );
-    if (!tiesRepoRow) throw new Error('PR-ties repo not synced');
-    expect(
-      await prisma.contributionEvent.count({
-        where: {
-          kind: 'PULL_REQUEST',
-          repoId: tiesRepoRow.githubRepositoryId,
-        },
-      }),
-    ).toBe(2);
-
-    expect(dispatchTimes.length).toBeGreaterThan(0);
-    for (let i = 1; i < dispatchTimes.length; i += 1) {
-      expect(dispatchTimes[i]! - dispatchTimes[i - 1]!).toBeGreaterThanOrEqual(
-        250,
-      );
-    }
-
-    const expectedTotal =
-      runs.length * REPO_COUNT +
-      seeds.reduce((sum, s) => sum + firstBackfillRequestCost(s), 0);
-    expect(provider.counters.total).toBe(expectedTotal);
-
-    const naiveFullRefetchBaseline =
-      runs.length *
-      seeds.reduce((sum, s) => sum + firstBackfillRequestCost(s), 0);
-    expect(provider.counters.total).toBeLessThan(naiveFullRefetchBaseline);
-  }, 120_000);
-
-  it('a settled steady-state run performs zero fact writes, re-reads commits per team member, and sends only conditional-style requests otherwise, except the no-ETag repository which pays extra requests for the same correctness', async () => {
-    expect(initialDrainRuns.length).toBeGreaterThan(0);
-
-    const settleResult = await service.run(OWNER_ID);
-    expect(settleResult.cycleCompleted).toBe(true);
-
-    const commitWritesBefore = commitWrites.length;
-    const pullRequestWritesBefore = pullRequestWrites.length;
-    const releaseWritesBefore = releaseWrites.length;
-    const issueWritesBefore = issueWrites.length;
-    const noEtagKey = `${ORG_LOGIN}/${NO_ETAG_NAME}`;
-    const stableKey = `${ORG_LOGIN}/${STABLE_CONTRAST_NAME}`;
-    const tiesKey = `${ORG_LOGIN}/${PR_TIES_NAME}`;
-    const noEtagBefore = repoKindSnapshot(provider, noEtagKey);
-    const stableBefore = repoKindSnapshot(provider, stableKey);
-    const beforeByKind = { ...provider.counters.byKind };
-
-    const stableResult = await service.run(OWNER_ID);
-
-    expect(stableResult.cycleCompleted).toBe(true);
-    expect(stableResult.processedRepositoryCount).toBe(REPO_COUNT);
-
-    const commitWritesThisRun = commitWrites
-      .slice(commitWritesBefore)
-      .reduce((a, b) => a + b, 0);
-    const pullRequestWritesThisRun = pullRequestWrites
-      .slice(pullRequestWritesBefore)
-      .reduce((a, b) => a + b, 0);
-    const releaseWritesThisRun = releaseWrites
-      .slice(releaseWritesBefore)
-      .reduce((a, b) => a + b, 0);
-    const issueWritesThisRun = issueWrites
-      .slice(issueWritesBefore)
-      .reduce((a, b) => a + b, 0);
-    expect(commitWritesThisRun).toBe(0);
-    expect(pullRequestWritesThisRun).toBe(0);
-    expect(releaseWritesThisRun).toBe(0);
-    expect(issueWritesThisRun).toBe(0);
-
-    const afterByKind = { ...provider.counters.byKind };
-    const kindDeltaThisRun = kindDelta(beforeByKind, afterByKind);
-    expect(kindDeltaThisRun['installation']).toBe(0);
-    expect(kindDeltaThisRun['repository']).toBe(REPO_COUNT);
-    expect(kindDeltaThisRun['user-node']).toBe(TEAM_MEMBER_COUNT * REPO_COUNT);
-    expect(kindDeltaThisRun['commit-history']).toBe(
-      TEAM_MEMBER_COUNT * REPO_COUNT,
-    );
-    expect(kindDeltaThisRun['commit-probe']).toBe(0);
-    expect(kindDeltaThisRun['release-probe']).toBe(REPO_COUNT);
-    expect(kindDeltaThisRun['pull-list']).toBe(REPO_COUNT);
-
-    expect(kindDeltaThisRun['issue-list']).toBe(REPO_COUNT);
-
-    expect(kindDeltaThisRun['commit-list']).toBe(0);
-
-    expect(kindDeltaThisRun['release-list']).toBe(1);
-
-    const noEtagAfter = repoKindSnapshot(provider, noEtagKey);
-    const stableAfter = repoKindSnapshot(provider, stableKey);
-    const stableRequests = 4 + TEAM_MEMBER_COUNT;
-    expect(totalKindDelta(stableBefore, stableAfter)).toBe(stableRequests);
-    expect(totalKindDelta(noEtagBefore, noEtagAfter)).toBe(stableRequests + 1);
-
-    const tiesSeed = seeds.find((s) => s.name === PR_TIES_NAME);
-    if (!tiesSeed) throw new Error('fixture missing PR-ties repo');
-    const tiesRepoRow = await repository.findRepositoryByLogicalKey(
-      BigInt(tiesSeed.id),
-    );
-    if (!tiesRepoRow) throw new Error('PR-ties repo not synced');
-    expect(
-      await prisma.contributionEvent.count({
-        where: {
-          kind: 'PULL_REQUEST',
-          repoId: tiesRepoRow.githubRepositoryId,
-        },
-      }),
-    ).toBe(2);
-    expect(repoKindSnapshot(provider, tiesKey)['pull-list']).toBeGreaterThan(0);
-  }, 60_000);
-
-  it('a disconnected (rewritten) commit history is picked up by the per-member re-listing at no extra request cost, adding facts only to the affected repository', async () => {
-    const seed = seeds.find((s) => s.name === DISCONNECTED_NAME);
-    if (!seed) throw new Error('fixture missing disconnected repo');
-    const rewritten = buildCommits(0, 8, '-rewritten');
-    provider.mutate(ORG_LOGIN, DISCONNECTED_NAME, (repo) => {
-      repo.commits = rewritten;
+    expect(summary).toMatchObject({
+      kind: 'hourly',
+      repos: REPO_COUNT,
+      probeRequests: 1,
+      collectedRepos: REPO_COUNT,
+      requests: REPO_COUNT + 2,
+      inserted: expectedContributionCount(seeds),
     });
-    seed.commits = rewritten;
-
-    const commitWritesBefore = commitWrites.length;
-    const beforeByKind = { ...provider.counters.byKind };
-    const result = await service.run(OWNER_ID);
-    expect(result.cycleCompleted).toBe(true);
-    const afterByKind = { ...provider.counters.byKind };
-    const delta = kindDelta(beforeByKind, afterByKind);
-
-    expect(delta['commit-list']).toBe(0);
-    expect(delta['commit-history']).toBe(TEAM_MEMBER_COUNT * REPO_COUNT);
-    expect(
-      commitWrites.slice(commitWritesBefore).reduce((a, b) => a + b, 0),
-    ).toBe(rewritten.length);
-
-    const repoRow = await repository.findRepositoryByLogicalKey(
-      BigInt(seed.id),
-    );
-    if (!repoRow) throw new Error('disconnected repo not synced');
-
-    expect(
-      await prisma.contributionEvent.count({
-        where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
-      }),
-    ).toBe(6 + rewritten.length);
-  }, 60_000);
-
-  it('a changed release probe triggers a full re-listing limited to only the affected repository, deduped by release id', async () => {
-    const seed = seeds.find((s) => s.name === RELEASE_CHANGED_NAME);
-    if (!seed) throw new Error('fixture missing release-changed repo');
-    const additional = buildReleases(1, 1, '-added')[0];
-    if (!additional) throw new Error('failed to build additional release');
-    provider.mutate(ORG_LOGIN, RELEASE_CHANGED_NAME, (repo) => {
-      repo.releases = [...repo.releases, additional];
-    });
-    seed.releases = [...seed.releases, additional];
-
-    const beforeByKind = { ...provider.counters.byKind };
-    const result = await service.run(OWNER_ID);
-    expect(result.cycleCompleted).toBe(true);
-    const afterByKind = { ...provider.counters.byKind };
-    const delta = kindDelta(beforeByKind, afterByKind);
-
-    expect(delta['release-list']).toBe(
-      syntheticPageCount(seed.releases.length) + 1,
-    );
-
-    const repoRow = await repository.findRepositoryByLogicalKey(
-      BigInt(seed.id),
-    );
-    if (!repoRow) throw new Error('release-changed repo not synced');
-    expect(
-      await prisma.contributionEvent.count({
-        where: { kind: 'RELEASE', repoId: repoRow.githubRepositoryId },
-      }),
-    ).toBe(2);
-  }, 60_000);
-
-  it('replaying an identical commit-fact batch after a simulated crash before the cursor advances writes zero duplicate facts', async () => {
-    const seed = seeds.find((s) => s.name === STABLE_CONTRAST_NAME);
-    if (!seed) throw new Error('fixture missing stable contrast repo');
-    const repoRow = await repository.findRepositoryByLogicalKey(
-      BigInt(seed.id),
-    );
-    if (!repoRow) throw new Error('stable contrast repo not synced');
-    const before = await prisma.contributionEvent.count({
-      where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
-    });
-    expect(before).toBeGreaterThan(0);
-
-    const facts = seed.commits.map((commit) => ({
-      sha: commit.sha,
-      committedAt: new Date(commit.committedAt),
-      authorGithubId: commit.authorId === null ? null : BigInt(commit.authorId),
-      authorGithubLogin: commit.authorLogin,
-    }));
-
-    const registeredGithubIds = await repository.listRegisteredGithubIds();
-    const first = await repository.recordCommitFacts(
-      repoRow.id,
-      facts,
-      registeredGithubIds,
-    );
-    const second = await repository.recordCommitFacts(
-      repoRow.id,
-      facts,
-      registeredGithubIds,
-    );
-
-    expect(first.insertedCount).toBe(0);
-    expect(second.insertedCount).toBe(0);
-    expect(
-      await prisma.contributionEvent.count({
-        where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
-      }),
-    ).toBe(before);
   });
 
-  it('a stale (stolen) lease aborts a fenced transaction with zero partial writes', async () => {
+  it('활동이 없는 다음 실행은 probe 1번만 보내고 원장에 쓰지 않으며 last_success_at만 올린다', async () => {
+    const before = await contributionCount();
+
+    const summary = await runAt(RUN_2);
+
+    expect(provider.counters.byKind).toEqual({
+      probe: 1,
+      collect: 0,
+      repository: 0,
+    });
+    await expect(contributionCount()).resolves.toBe(before);
+    expect(
+      new Set([...(await lastSuccessAts()).values()].map((d) => d?.getTime())),
+    ).toEqual(new Set([RUN_2.getTime() - SKEW_MS]));
+    expect(summary).toMatchObject({
+      probeRequests: 1,
+      collectedRepos: 0,
+      requests: 1,
+      inserted: 0,
+    });
+  });
+
+  it('새 활동이 생긴 저장소 3개만 다시 수집하고 새 기여 3건만 넣는다', async () => {
+    const before = await contributionCount();
+    const changed = [3, 42, 99];
+    for (const index of changed) {
+      provider.mutate(ORG_LOGIN, `repo-${index}`, (repo) => {
+        repo.commits.push({
+          sha: `synthetic-${index}-commit-new`,
+          authorId: contributorId(index),
+          committedAt: new Date(RUN_2.getTime() + 10 * 60_000).toISOString(),
+        });
+      });
+    }
+
+    await runAt(RUN_3);
+
+    expect(provider.counters.byKind).toEqual({
+      probe: 1,
+      collect: changed.length,
+      repository: 0,
+    });
+    expect([...provider.counters.byRepository.keys()].sort()).toEqual(
+      changed.map((index) => `${ORG_LOGIN}/repo-${index}`).sort(),
+    );
+    await expect(contributionCount()).resolves.toBe(before + changed.length);
+  });
+
+  it('주간 전체 재수집은 활동과 무관하게 모두 다시 읽고 중복 없이 0건을 넣는다', async () => {
+    const before = await contributionCount();
+
+    const summary = await runAt(RUN_4, 'weekly');
+
+    expect(provider.counters.byKind).toEqual({
+      probe: 1,
+      collect: REPO_COUNT + 1,
+      repository: 0,
+    });
+    await expect(contributionCount()).resolves.toBe(before);
+    expect(summary).toMatchObject({
+      kind: 'weekly',
+      collectedRepos: REPO_COUNT,
+      inserted: 0,
+      fullScanFailedRepos: 0,
+      truncatedRepos: 0,
+    });
+  });
+
+  it('이름이 바뀐 저장소는 id로 다시 찾아 수집하고, 사라진 저장소는 gone 처리하고 나머지는 그대로 진행한다', async () => {
+    provider.mutate(ORG_LOGIN, 'repo-10', (repo) => {
+      repo.name = 'repo-10-renamed';
+      repo.commits.push({
+        sha: 'synthetic-10-commit-after-rename',
+        authorId: contributorId(10),
+        committedAt: new Date(RUN_4.getTime() + 10 * 60_000).toISOString(),
+      });
+    });
+    provider.remove(ORG_LOGIN, 'repo-11');
+    const runAfter = new Date(RUN_4.getTime() + HOUR);
+
+    const summary = await runAt(runAfter);
+
+    expect(provider.counters.byKind).toEqual({
+      probe: 1,
+      collect: 1,
+      repository: 2,
+    });
+    await expect(
+      prisma.githubRepository.findUniqueOrThrow({
+        where: { githubRepositoryId: BigInt(FIRST_REPO_ID + 10) },
+        select: { nameWithOwner: true },
+      }),
+    ).resolves.toEqual({ nameWithOwner: `${ORG_LOGIN}/repo-10-renamed` });
+    const gone = await prisma.repo.findUniqueOrThrow({
+      where: { githubRepoId: BigInt(FIRST_REPO_ID + 11) },
+      select: { goneAt: true, lastSuccessAt: true, ownerName: true },
+    });
+    expect(gone.goneAt).not.toBeNull();
+    expect(gone.lastSuccessAt).toEqual(new Date(RUN_4.getTime() - SKEW_MS));
+    const successes = await lastSuccessAts();
+    expect(successes.get(BigInt(FIRST_REPO_ID + 10))).toEqual(
+      new Date(runAfter.getTime() - SKEW_MS),
+    );
+    expect(successes.get(BigInt(FIRST_REPO_ID + 12))).toEqual(
+      new Date(runAfter.getTime() - SKEW_MS),
+    );
+    expect(summary).toMatchObject({ collectedRepos: 1 });
+
+    provider.resetCounters();
+    now = new Date(runAfter.getTime() + HOUR);
+    await service.run(OWNER_ID);
+    expect(provider.counters.byKind).toEqual({
+      probe: 1,
+      collect: 0,
+      repository: 0,
+    });
+  });
+
+  it('빼앗긴 lease로 연 트랜잭션은 기여를 한 줄도 남기지 않는다', async () => {
     await prisma.collectionSyncLease.deleteMany({
       where: { appId: APP_ID, scope: SCOPE },
     });
-
-    const now = new Date('2026-01-01T00:00:00.000Z');
+    const leaseAt = new Date('2026-01-01T00:00:00.000Z');
     const stale = await repository.acquireSyncLease({
       appId: APP_ID,
       scope: SCOPE,
       ownerId: 'stale-owner',
       runId: 'stale-run',
-      now,
-      expiresAt: new Date(now.getTime() + 1_000),
+      now: leaseAt,
+      expiresAt: new Date(leaseAt.getTime() + 1_000),
     });
-    expect(stale).not.toBeNull();
     if (!stale) throw new Error('expected to acquire the initial lease');
-
-    const takeoverAt = new Date(now.getTime() + 2_000);
+    const takeoverAt = new Date(leaseAt.getTime() + 2_000);
     const winner = await repository.acquireSyncLease({
       appId: APP_ID,
       scope: SCOPE,
@@ -889,46 +416,32 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       now: takeoverAt,
       expiresAt: new Date(takeoverAt.getTime() + 60_000),
     });
-    expect(winner).not.toBeNull();
     expect(winner?.epoch).toBe(stale.epoch + 1n);
-
-    const seed = seeds.find((s) => s.name === STABLE_CONTRAST_NAME);
-    if (!seed) throw new Error('fixture missing stable contrast repo');
-    const repoRow = await repository.findRepositoryByLogicalKey(
-      BigInt(seed.id),
+    const row = await repository.findRepositoryByLogicalKey(
+      BigInt(FIRST_REPO_ID + 20),
     );
-    if (!repoRow) throw new Error('stable contrast repo not synced');
-    const before = await prisma.contributionEvent.count({
-      where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
-    });
+    if (!row) throw new Error('fixture repository missing');
+    const before = await contributionCount();
 
     await expect(
       repository.runInTransaction(async (repo) => {
         await repo.assertSyncLeaseValid(stale, takeoverAt);
-        await repo.recordCommitFacts(
-          repoRow.id,
-          [
-            {
-              sha: 'synthetic-stale-lease-write-attempt',
-              committedAt: takeoverAt,
-              authorGithubId: null,
-              authorGithubLogin: null,
-            },
-          ],
-          new Set(),
-        );
+        await repo.recordContributions(row.id, 'commit', [
+          {
+            githubKey: 'synthetic-stale-lease-write-attempt',
+            authorGithubId: null,
+            occurredAt: takeoverAt,
+          },
+        ]);
       }),
     ).rejects.toThrow('lease is stale');
 
-    expect(
-      await prisma.contributionEvent.count({
-        where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
-      }),
-    ).toBe(before);
-
-    await repository.releaseSyncLease(
-      winner!,
-      new Date(takeoverAt.getTime() + 1),
-    );
+    await expect(contributionCount()).resolves.toBe(before);
+    if (winner) {
+      await repository.releaseSyncLease(
+        winner,
+        new Date(takeoverAt.getTime() + 1),
+      );
+    }
   });
 });

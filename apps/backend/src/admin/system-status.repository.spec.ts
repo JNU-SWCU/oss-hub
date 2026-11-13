@@ -1,108 +1,60 @@
 import { PlatformRepository } from '../platform/platform.repository';
-import { CollectionScheduleService } from '../github/collection-schedule.service';
 import type { PrismaService } from '../platform/prisma.service';
 import { SystemStatusRepository } from './system-status.repository';
-import { SystemStatusService } from './system-status.service';
 
-const repositoryWith = (
-  streams: ReadonlyArray<{ streamType: string; status: string }>,
-): SystemStatusRepository => {
-  const statusGroups = [...new Set(streams.map((stream) => stream.status))].map(
-    (status) => ({
-      status,
-      _count: {
-        _all: streams.filter((stream) => stream.status === status).length,
-      },
-    }),
-  );
-  const prisma = {
-    githubRepository: {
-      count: jest.fn().mockResolvedValue(1),
-      findMany: jest.fn().mockResolvedValue([
-        {
-          githubRepositoryId: 1n,
-          nameWithOwner: 'synthetic/repo',
-          team: null,
-          streams: streams.map((stream) => ({
-            ...stream,
-            lastRunAt: null,
-            lastErrorCode: null,
-            lastErrorAt: null,
-          })),
-        },
-      ]),
-    },
-    repo: {
-      aggregate: jest.fn().mockResolvedValue({ _max: { lastSuccessAt: null } }),
-    },
-    collectionRepositoryStream: {
-      groupBy: jest.fn().mockResolvedValue(statusGroups),
-      count: jest.fn().mockResolvedValue(0),
-      aggregate: jest.fn().mockResolvedValue({
-        _min: { lastRunAt: null, lastErrorAt: null },
-        _max: { lastRunAt: null },
-      }),
-    },
-    collectionSyncCursor: { findFirst: jest.fn().mockResolvedValue(null) },
-    user: {
-      findUnique: jest.fn().mockResolvedValue({
-        hasStaffAccess: false,
-        hasAdminAccess: true,
-        accountStatus: 'ACTIVE',
-      }),
-    },
-    repositoryProvisionJob: { count: jest.fn().mockResolvedValue(0) },
-  };
-  return new SystemStatusRepository(
-    prisma as unknown as PrismaService,
+describe('SystemStatusRepository', () => {
+  const findMany = jest.fn();
+  const repoFindMany = jest.fn();
+  const leaseCount = jest.fn();
+  const repository = new SystemStatusRepository(
+    {
+      githubRepository: { findMany },
+      repo: { findMany: repoFindMany },
+      collectionSyncLease: { count: leaseCount },
+    } as unknown as PrismaService,
     new PlatformRepository(),
   );
-};
 
-const threeReadyStreams = [
-  { streamType: 'COMMIT', status: 'READY' },
-  { streamType: 'PULL_REQUEST', status: 'READY' },
-  { streamType: 'RELEASE', status: 'READY' },
-];
-
-const statusWith = (
-  streams: ReadonlyArray<{ streamType: string; status: string }>,
-) =>
-  new SystemStatusService(
-    repositoryWith(streams),
-    () => new Date(),
-    new CollectionScheduleService(),
-  ).getStatus();
-
-describe('SystemStatusService — stream 종류 (실제 repository)', () => {
-  it('ISSUE 행이 아직 없는 저장소는 그 stream을 부분(PARTIAL)으로 센다', async () => {
-    const { collection } = await statusWith(threeReadyStreams);
-
-    expect(collection.readyStreamCount).toBe(3);
-    expect(collection.partialStreamCount).toBe(1);
+  beforeEach(() => {
+    findMany.mockReset();
+    repoFindMany.mockReset();
+    leaseCount.mockReset();
   });
 
-  it('네 stream이 모두 READY면 부분으로 세는 stream이 없다', async () => {
-    const { collection } = await statusWith([
-      ...threeReadyStreams,
-      { streamType: 'ISSUE', status: 'READY' },
+  it('저장소마다 마지막 성공 시각을 repo 원장에서 github id로 찾는다', async () => {
+    findMany.mockResolvedValue([
+      {
+        githubRepositoryId: 1n,
+        nameWithOwner: 'org/alpha',
+        team: { program: { name: '2026 오픈소스' } },
+      },
+      { githubRepositoryId: 2n, nameWithOwner: 'org/beta', team: null },
+    ]);
+    repoFindMany.mockResolvedValue([
+      { githubRepoId: 1n, lastSuccessAt: new Date('2026-07-25T11:00:00Z') },
     ]);
 
-    expect(collection.readyStreamCount).toBe(4);
-    expect(collection.partialStreamCount).toBe(0);
+    await expect(repository.getCollectionRepositories()).resolves.toEqual([
+      {
+        repositoryName: 'org/alpha',
+        programName: '2026 오픈소스',
+        lastSuccessAt: new Date('2026-07-25T11:00:00Z'),
+      },
+      { repositoryName: 'org/beta', programName: null, lastSuccessAt: null },
+    ]);
+    expect(repoFindMany).toHaveBeenCalledWith({
+      where: { githubRepoId: { in: [1n, 2n] } },
+      select: { githubRepoId: true, lastSuccessAt: true },
+    });
   });
 
-  it('저장소별 상세에 ISSUE 칸을 함께 싣는다', async () => {
-    const {
-      collectionStreams: [repository],
-    } = await statusWith(threeReadyStreams);
+  it('만료 전인 수집 잠금만 실행 중으로 센다', async () => {
+    const now = new Date('2026-07-25T12:00:00Z');
+    leaseCount.mockResolvedValue(0);
 
-    expect(repository?.streams.map((stream) => stream.streamType)).toEqual([
-      'COMMIT',
-      'PULL_REQUEST',
-      'RELEASE',
-      'ISSUE',
-    ]);
-    expect(repository?.streams[3]?.bucket).toBe('PARTIAL');
+    await expect(repository.hasActiveCollectionRun(now)).resolves.toBe(false);
+    expect(leaseCount).toHaveBeenCalledWith({
+      where: { expiresAt: { gt: now } },
+    });
   });
 });

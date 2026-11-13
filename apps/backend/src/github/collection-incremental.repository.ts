@@ -3,10 +3,11 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
-import { StaleSyncEpochError } from './collection-incremental.error';
 import type {
   CollectionAppClientTokenProvider,
   CollectionAppClient,
+  CollectionContribution,
+  CollectionContributionKind,
 } from './collection-app.client';
 import type { ProviderRequestQueueClient } from './provider-request-queue.client';
 
@@ -43,11 +44,6 @@ export interface AcquireSyncLeaseInput extends SyncLeaseKey {
 
 export type RepositorySource = 'ORG_PROVISIONED' | 'EXTERNAL_PUBLIC';
 
-export type CollectionStreamType =
-  'COMMIT' | 'PULL_REQUEST' | 'RELEASE' | 'ISSUE';
-
-type CollectionStreamStatus = 'PENDING' | 'BACKFILLING' | 'READY' | 'VERIFYING';
-
 type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
 
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
@@ -64,148 +60,18 @@ export interface CollectionRepositoryRow {
   source: RepositorySource;
   lastCompleteInventoryObservedAt: Date | null;
 
-  nextRunAt?: Date | null;
-
-  failureCount?: number;
-
   teamId?: string | null;
   programId?: string | null;
 }
 
-export interface RepositoryTeamMemberAccount {
-  githubId: bigint;
-  nickname: string;
+export interface CollectionTarget extends CollectionRepositoryRow {
+  lastSuccessAt: Date | null;
 }
 
-export interface CommitFactInput {
-  sha: string;
-  committedAt: Date;
-  authorGithubId?: bigint | null;
-  authorGithubLogin?: string | null;
+export interface RecordContributionsResult {
+  readonly inserted: number;
+  readonly authorFilled: number;
 }
-
-export interface PullRequestFactInput {
-  githubPullRequestId: bigint;
-  state: string;
-  createdAt: Date;
-  authorGithubId?: bigint | null;
-  authorGithubLogin?: string | null;
-}
-
-export interface ReleaseFactInput {
-  githubReleaseId: bigint;
-  publishedAt: Date;
-  authorGithubId?: bigint | null;
-  authorGithubLogin?: string | null;
-}
-
-export interface IssueFactInput {
-  githubIssueId: bigint;
-  state: string;
-  createdAt: Date;
-  authorGithubId?: bigint | null;
-  authorGithubLogin?: string | null;
-}
-
-export type RegisteredGithubIdSet = ReadonlySet<bigint>;
-
-export interface RecordFactsResult {
-  readonly acceptedCount: number;
-  readonly insertedCount: number;
-}
-
-export interface StreamFrontierInput {
-  repositoryId: string;
-  streamType: CollectionStreamType;
-  status?: CollectionStreamStatus;
-  frontierSha?: string | null;
-  frontierCreatedAt?: Date | null;
-  frontierEntityId?: bigint | null;
-  requestFingerprint?: string | null;
-  etag?: string | null;
-  lastRunAt?: Date;
-  lastErrorAt?: Date | null;
-  lastErrorCode?: string | null;
-  expectedSyncEpoch: bigint | null;
-}
-
-export interface StreamFrontierRow {
-  repositoryId: string;
-  streamType: CollectionStreamType;
-  status: CollectionStreamStatus;
-  frontierSha: string | null;
-  frontierCreatedAt: Date | null;
-  frontierEntityId: bigint | null;
-  requestFingerprint: string | null;
-  etag: string | null;
-  lastRunAt: Date | null;
-  lastErrorAt: Date | null;
-  lastErrorCode: string | null;
-  syncEpoch: bigint | null;
-}
-
-export interface SyncCursorInput {
-  appId: bigint;
-  scope: string;
-  lastGithubRepositoryId?: bigint | null;
-  cycleStartedAt?: Date | null;
-  cycleCompletedAt?: Date | null;
-}
-
-export interface SyncCursorRow {
-  appId: bigint;
-  scope: string;
-  lastGithubRepositoryId: bigint | null;
-  cycleStartedAt: Date | null;
-  cycleCompletedAt: Date | null;
-}
-
-type CollectionSyncRunTrigger = 'CRON' | 'MANUAL' | 'CLI' | 'UNKNOWN';
-
-type CollectionSyncRunStatusProjection = 'RUNNING' | 'FAILED' | 'COMPLETED';
-
-export interface CollectionSyncStreamSummary {
-  readyCount: number;
-  backfillingCount: number;
-  pendingCount: number;
-  verifyingCount: number;
-  failedCount: number;
-}
-
-export interface CollectionSyncRunRow {
-  runId: string;
-  scope: string;
-  trigger: CollectionSyncRunTrigger;
-  status: CollectionSyncRunStatusProjection;
-
-  startedAt: Date | null;
-
-  lastObservedAt: Date;
-  cycleCompletedAt: Date | null;
-  streams: CollectionSyncStreamSummary;
-
-  errorCodes: readonly string[];
-}
-
-const EXTERNAL_SCOPE = 'external';
-
-const sourceForScope = (scope: string): RepositorySource =>
-  scope === EXTERNAL_SCOPE ? 'EXTERNAL_PUBLIC' : 'ORG_PROVISIONED';
-
-const triggerForOwnerId = (ownerId: string): CollectionSyncRunTrigger => {
-  if (ownerId.startsWith('scheduler:')) return 'CRON';
-  if (ownerId.startsWith('admin:')) return 'MANUAL';
-  if (ownerId.startsWith('cli:')) return 'CLI';
-  return 'UNKNOWN';
-};
-
-const emptyStreamSummary = (): CollectionSyncStreamSummary => ({
-  readyCount: 0,
-  backfillingCount: 0,
-  pendingCount: 0,
-  verifyingCount: 0,
-  failedCount: 0,
-});
 
 type CollectionStoreClient = Pick<
   Prisma.TransactionClient,
@@ -213,26 +79,16 @@ type CollectionStoreClient = Pick<
   | '$executeRawUnsafe'
   | '$queryRaw'
   | '$queryRawUnsafe'
-  | 'collectionRepositoryStream'
-  | 'collectionSyncCursor'
   | 'collectionSyncLease'
   | 'githubRepository'
-  | 'teamMember'
-  | 'user'
+  | 'repo'
 >;
-
-type ContributionFactKind = 'commit' | 'pull_request' | 'issue' | 'release';
-
-interface AcceptedContributionFact {
-  readonly githubKey: string;
-  readonly authorGithubId: bigint | null;
-  readonly occurredAt: Date;
-}
 
 interface ContributionInsertSummary {
   readonly candidates: number;
   readonly missing_repo: number;
   readonly inserted: number;
+  readonly author_filled: number;
 }
 
 const isContributionInsertSummary = (
@@ -243,76 +99,14 @@ const isContributionInsertSummary = (
     candidates?: unknown;
     missing_repo?: unknown;
     inserted?: unknown;
+    author_filled?: unknown;
   };
   return (
     Number.isInteger(record.candidates) &&
     Number.isInteger(record.missing_repo) &&
-    Number.isInteger(record.inserted)
+    Number.isInteger(record.inserted) &&
+    Number.isInteger(record.author_filled)
   );
-};
-
-const syncEpochMatches = (
-  stored: bigint | null,
-  claimed: bigint | null,
-): boolean => stored === null || stored === claimed;
-
-const nextSyncEpoch = (stored: bigint | null): bigint => (stored ?? 0n) + 1n;
-
-const streamFrontierUpdate = (
-  input: StreamFrontierInput,
-  syncEpoch: bigint,
-): {
-  status?: CollectionStreamStatus;
-  frontierSha?: string | null;
-  frontierCreatedAt?: Date | null;
-  frontierEntityId?: bigint | null;
-  requestFingerprint?: string | null;
-  etag?: string | null;
-  lastRunAt?: Date | null;
-  lastErrorAt?: Date | null;
-  lastErrorCode?: string | null;
-  syncEpoch: bigint;
-} => ({
-  ...(input.status !== undefined ? { status: input.status } : {}),
-  ...(input.frontierSha !== undefined
-    ? { frontierSha: input.frontierSha }
-    : {}),
-  ...(input.frontierCreatedAt !== undefined
-    ? { frontierCreatedAt: input.frontierCreatedAt }
-    : {}),
-  ...(input.frontierEntityId !== undefined
-    ? { frontierEntityId: input.frontierEntityId }
-    : {}),
-  ...(input.requestFingerprint !== undefined
-    ? { requestFingerprint: input.requestFingerprint }
-    : {}),
-  ...(input.etag !== undefined ? { etag: input.etag } : {}),
-  ...(input.lastRunAt !== undefined ? { lastRunAt: input.lastRunAt } : {}),
-  ...(input.lastErrorAt !== undefined
-    ? { lastErrorAt: input.lastErrorAt }
-    : {}),
-  ...(input.lastErrorCode !== undefined
-    ? { lastErrorCode: input.lastErrorCode }
-    : {}),
-  syncEpoch,
-});
-
-const streamInsertSavepoint = 'oss_hub_stream_insert';
-
-const isUniqueConflict = (error: unknown): boolean =>
-  error instanceof Prisma.PrismaClientKnownRequestError &&
-  error.code === 'P2002';
-
-const isNoActiveTransaction = (error: unknown): boolean => {
-  if (!(error instanceof Prisma.PrismaClientKnownRequestError)) return false;
-  const metaCode =
-    typeof error.meta === 'object' &&
-    error.meta !== null &&
-    'code' in error.meta &&
-    typeof error.meta.code === 'string'
-      ? error.meta.code
-      : '';
-  return metaCode === '25P01' || error.message.includes('25P01');
 };
 
 @Injectable()
@@ -353,35 +147,23 @@ export class CollectionIncrementalStoreRepository {
     });
   }
 
-  async listRepositoryTeamMembers(
-    githubRepositoryId: bigint,
-  ): Promise<RepositoryTeamMemberAccount[] | null> {
-    const owning = await this.db.githubRepository.findUnique({
-      where: { githubRepositoryId },
-      select: { teamId: true },
-    });
-    const teamId = owning?.teamId ?? null;
-    if (teamId === null) return null;
-    const members = await this.db.teamMember.findMany({
-      where: { teamId },
-      orderBy: { createdAt: 'asc' },
-      select: { user: { select: { githubId: true, nickname: true } } },
-    });
-    return members.map((member) => ({
-      githubId: member.user.githubId,
-      nickname: member.user.nickname,
-    }));
+  async recordContributions(
+    repositoryId: string,
+    kind: CollectionContributionKind,
+    facts: readonly CollectionContribution[],
+  ): Promise<RecordContributionsResult> {
+    if (facts.length === 0) return { inserted: 0, authorFilled: 0 };
+    return this.inSameTransaction((store) =>
+      this.insertContributions(store, repositoryId, kind, facts),
+    );
   }
 
-  private async insertAcceptedContributions(
+  private async insertContributions(
     store: CollectionStoreClient,
     repositoryId: string,
-    kind: ContributionFactKind,
-    facts: readonly AcceptedContributionFact[],
-  ): Promise<number> {
-    if (facts.length === 0) {
-      throw new Error('contribution insert requires at least one github key');
-    }
+    kind: CollectionContributionKind,
+    facts: readonly CollectionContribution[],
+  ): Promise<RecordContributionsResult> {
     const incoming = Prisma.join(
       facts.map(
         (fact) =>
@@ -448,8 +230,11 @@ export class CollectionIncrementalStoreRepository {
         FROM candidates AS candidate
         JOIN present_repo AS present
           ON present."github_repo_id" = candidate.repo_id
-        ON CONFLICT ("repo_id", "kind", "github_key") DO NOTHING
-        RETURNING 1
+        ON CONFLICT ("repo_id", "kind", "github_key") DO UPDATE
+          SET "author_github_id" = EXCLUDED."author_github_id"
+          WHERE "contribution"."author_github_id" IS NULL
+            AND EXCLUDED."author_github_id" IS NOT NULL
+        RETURNING ("xmax" = 0) AS fresh
       )
       SELECT
         (SELECT count(*)::int FROM candidates) AS candidates,
@@ -458,7 +243,8 @@ export class CollectionIncrementalStoreRepository {
             SELECT 1 FROM present_repo AS present
             WHERE present."github_repo_id" = candidate.repo_id
           )) AS missing_repo,
-        (SELECT count(*)::int FROM inserted) AS inserted
+        (SELECT count(*)::int FROM inserted WHERE fresh) AS inserted,
+        (SELECT count(*)::int FROM inserted WHERE NOT fresh) AS author_filled
     `;
     const summary: unknown = rows[0];
     if (!isContributionInsertSummary(summary)) {
@@ -478,125 +264,7 @@ export class CollectionIncrementalStoreRepository {
         `contribution repository row is missing: missing_repo=${summary.missing_repo} candidates=${summary.candidates}`,
       );
     }
-    return summary.inserted;
-  }
-
-  async recordCommitFacts(
-    repositoryId: string,
-    facts: readonly CommitFactInput[],
-    registeredGithubIds: RegisteredGithubIdSet,
-  ): Promise<RecordFactsResult> {
-    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
-    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
-    if (acceptedFacts.length === 0) {
-      return { acceptedCount: 0, insertedCount: 0 };
-    }
-    const insertedCount = await this.inSameTransaction((store) =>
-      this.insertAcceptedContributions(
-        store,
-        repositoryId,
-        'commit',
-        acceptedFacts.map((fact) => ({
-          githubKey: fact.sha,
-          authorGithubId: fact.authorGithubId ?? null,
-          occurredAt: fact.committedAt,
-        })),
-      ),
-    );
-    return { acceptedCount: acceptedFacts.length, insertedCount };
-  }
-
-  async recordPullRequestFacts(
-    repositoryId: string,
-    facts: readonly PullRequestFactInput[],
-    registeredGithubIds: RegisteredGithubIdSet,
-  ): Promise<RecordFactsResult> {
-    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
-    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
-    if (acceptedFacts.length === 0) {
-      return { acceptedCount: 0, insertedCount: 0 };
-    }
-    const insertedCount = await this.inSameTransaction((store) =>
-      this.insertAcceptedContributions(
-        store,
-        repositoryId,
-        'pull_request',
-        acceptedFacts.map((fact) => ({
-          githubKey: fact.githubPullRequestId.toString(),
-          authorGithubId: fact.authorGithubId ?? null,
-          occurredAt: fact.createdAt,
-        })),
-      ),
-    );
-    return { acceptedCount: acceptedFacts.length, insertedCount };
-  }
-
-  async recordReleaseFacts(
-    repositoryId: string,
-    facts: readonly ReleaseFactInput[],
-    registeredGithubIds: RegisteredGithubIdSet,
-  ): Promise<RecordFactsResult> {
-    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
-    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
-    if (acceptedFacts.length === 0) {
-      return { acceptedCount: 0, insertedCount: 0 };
-    }
-    const insertedCount = await this.inSameTransaction((store) =>
-      this.insertAcceptedContributions(
-        store,
-        repositoryId,
-        'release',
-        acceptedFacts.map((fact) => ({
-          githubKey: fact.githubReleaseId.toString(),
-          authorGithubId: fact.authorGithubId ?? null,
-          occurredAt: fact.publishedAt,
-        })),
-      ),
-    );
-    return { acceptedCount: acceptedFacts.length, insertedCount };
-  }
-
-  async recordIssueFacts(
-    repositoryId: string,
-    facts: readonly IssueFactInput[],
-    registeredGithubIds: RegisteredGithubIdSet,
-  ): Promise<RecordFactsResult> {
-    if (facts.length === 0) return { acceptedCount: 0, insertedCount: 0 };
-    const acceptedFacts = this.onlyRegisteredFacts(facts, registeredGithubIds);
-    if (acceptedFacts.length === 0) {
-      return { acceptedCount: 0, insertedCount: 0 };
-    }
-    const insertedCount = await this.inSameTransaction((store) =>
-      this.insertAcceptedContributions(
-        store,
-        repositoryId,
-        'issue',
-        acceptedFacts.map((fact) => ({
-          githubKey: fact.githubIssueId.toString(),
-          authorGithubId: fact.authorGithubId ?? null,
-          occurredAt: fact.createdAt,
-        })),
-      ),
-    );
-    return { acceptedCount: acceptedFacts.length, insertedCount };
-  }
-
-  async listRegisteredGithubIds(): Promise<RegisteredGithubIdSet> {
-    const users = await this.db.user.findMany({ select: { githubId: true } });
-    return new Set(users.map((user) => user.githubId));
-  }
-
-  private onlyRegisteredFacts<
-    T extends { readonly authorGithubId?: bigint | null },
-  >(
-    facts: readonly T[],
-    registeredGithubIds: RegisteredGithubIdSet,
-  ): readonly T[] {
-    return facts.filter(
-      (fact) =>
-        typeof fact.authorGithubId === 'bigint' &&
-        registeredGithubIds.has(fact.authorGithubId),
-    );
+    return { inserted: summary.inserted, authorFilled: summary.author_filled };
   }
 
   async enrollExternalRepository(input: {
@@ -621,11 +289,7 @@ export class CollectionIncrementalStoreRepository {
           githubRepositoryId: input.githubRepositoryId,
           source: 'EXTERNAL_PUBLIC',
         },
-        data: {
-          ...currentObservation,
-          nextRunAt: input.observedAt,
-          failureCount: 0,
-        },
+        data: currentObservation,
       });
       if (updated.count === 0) return false;
       await new RepoLedgerRepository().write(store, input.githubRepositoryId);
@@ -665,9 +329,8 @@ export class CollectionIncrementalStoreRepository {
     return current?.source === input.source ? current : null;
   }
 
-  async markRepositoryUnavailable(
+  async markRepositoryGone(
     githubRepositoryId: bigint,
-    unavailable: 'ABSENT' | 'PRIVATE',
     observedAt: Date,
     source: RepositorySource,
   ): Promise<void> {
@@ -675,9 +338,7 @@ export class CollectionIncrementalStoreRepository {
       await store.githubRepository.updateMany({
         where: { githubRepositoryId, source },
         data: {
-          ...(unavailable === 'ABSENT'
-            ? { presence: 'ABSENT' as const }
-            : { visibility: 'PRIVATE' as const }),
+          presence: 'ABSENT',
           lastCompleteInventoryObservedAt: observedAt,
         },
       });
@@ -685,366 +346,45 @@ export class CollectionIncrementalStoreRepository {
     });
   }
 
-  async recordRepositoryFailure(
-    githubRepositoryId: bigint,
-    nextRunAtAfter: (failureCount: number) => Date,
-  ): Promise<void> {
-    const current = await this.db.githubRepository.findUnique({
-      where: { githubRepositoryId },
-      select: { failureCount: true },
-    });
-    const failureCount = (current?.failureCount ?? 0) + 1;
-    await this.inSameTransaction(async (store) => {
-      await store.githubRepository.updateMany({
-        where: { githubRepositoryId },
-        data: {
-          failureCount,
-          nextRunAt: nextRunAtAfter(failureCount),
-        },
-      });
-      await new RepoLedgerRepository().write(store, githubRepositoryId);
-    });
-  }
-
   async recordRepositorySuccess(
-    githubRepositoryId: bigint,
-    now: Date,
+    githubRepositoryIds: readonly bigint[],
+    succeededAt: Date,
   ): Promise<void> {
-    await this.inSameTransaction(async (store) => {
-      await store.githubRepository.updateMany({
-        where: { githubRepositoryId },
-        data: { failureCount: 0, lastSuccessAt: now, nextRunAt: now },
-      });
-      await new RepoLedgerRepository().write(store, githubRepositoryId);
-    });
+    if (githubRepositoryIds.length === 0) return;
+    await this.db.$executeRaw`
+      UPDATE "repo"
+      SET "last_success_at" = ${succeededAt}
+      WHERE "github_repo_id" IN (${Prisma.join(githubRepositoryIds)})
+    `;
   }
 
-  async upsertStreamFrontier(
-    input: StreamFrontierInput,
-  ): Promise<StreamFrontierRow> {
-    const advanced = await this.advanceStreamEpoch(input);
-    if (advanced !== null) return advanced;
-    const current = await this.db.collectionRepositoryStream.findUnique({
-      where: {
-        repositoryId_streamType: {
-          repositoryId: input.repositoryId,
-          streamType: input.streamType,
-        },
-      },
-    });
-    if (
-      current !== null &&
-      syncEpochMatches(current.syncEpoch ?? null, input.expectedSyncEpoch)
-    ) {
-      const retried = await this.advanceStreamEpoch(input);
-      if (retried !== null) return retried;
-    }
-    if (current !== null || input.expectedSyncEpoch !== null) {
-      throw new StaleSyncEpochError(
-        input.repositoryId,
-        input.streamType,
-        input.expectedSyncEpoch,
-      );
-    }
-    return this.insertStreamFrontier(input);
-  }
-
-  async getStreamFrontier(
-    repositoryId: string,
-    streamType: StreamFrontierInput['streamType'],
-  ): Promise<StreamFrontierRow | null> {
-    return this.db.collectionRepositoryStream.findUnique({
-      where: { repositoryId_streamType: { repositoryId, streamType } },
-    });
-  }
-
-  async markStreamOutcome(
-    repositoryId: string,
-    streamType: StreamFrontierInput['streamType'],
-    outcome:
-      | { readonly checkedAt: Date }
-      | { readonly lastErrorAt: Date; readonly lastErrorCode: string },
-    expectedSyncEpoch: bigint | null,
-  ): Promise<void> {
-    if ('lastErrorCode' in outcome) {
-      await this.upsertStreamFrontier({
-        repositoryId,
-        streamType,
-        lastErrorAt: outcome.lastErrorAt,
-        lastErrorCode: outcome.lastErrorCode,
-        expectedSyncEpoch,
-      });
-      return;
-    }
-    const advanced = await this.advanceStreamEpoch({
-      repositoryId,
-      streamType,
-      lastRunAt: outcome.checkedAt,
-      lastErrorAt: null,
-      lastErrorCode: null,
-      expectedSyncEpoch,
-    });
-    if (advanced !== null) return;
-    const current = await this.getStreamFrontier(repositoryId, streamType);
-    if (current === null) return;
-    throw new StaleSyncEpochError(repositoryId, streamType, expectedSyncEpoch);
-  }
-
-  private async advanceStreamEpoch(
-    input: StreamFrontierInput,
-  ): Promise<StreamFrontierRow | null> {
-    const claimed = input.expectedSyncEpoch;
-    const matchedClaim = await this.writeStreamWhere(
-      input,
-      claimed,
-      nextSyncEpoch(claimed),
-    );
-    if (matchedClaim !== null) return matchedClaim;
-    if (claimed === null) return null;
-    return this.writeStreamWhere(input, null, nextSyncEpoch(null));
-  }
-
-  private async writeStreamWhere(
-    input: StreamFrontierInput,
-    storedEpoch: bigint | null,
-    syncEpoch: bigint,
-  ): Promise<StreamFrontierRow | null> {
-    const [row] = await this.db.collectionRepositoryStream.updateManyAndReturn({
-      where: {
-        repositoryId: input.repositoryId,
-        streamType: input.streamType,
-        syncEpoch: storedEpoch,
-      },
-      data: streamFrontierUpdate(input, syncEpoch),
-    });
-    return row ?? null;
-  }
-
-  private async openStreamInsertSavepoint(): Promise<boolean> {
-    try {
-      await this.db.$executeRawUnsafe(`SAVEPOINT ${streamInsertSavepoint}`);
-      return true;
-    } catch (error) {
-      if (isNoActiveTransaction(error)) return false;
-      throw error;
-    }
-  }
-
-  private async rollbackStreamInsertSavepoint(): Promise<void> {
-    await this.db.$executeRawUnsafe(
-      `ROLLBACK TO SAVEPOINT ${streamInsertSavepoint}`,
-    );
-  }
-
-  private async releaseStreamInsertSavepoint(): Promise<void> {
-    await this.db.$executeRawUnsafe(
-      `RELEASE SAVEPOINT ${streamInsertSavepoint}`,
-    );
-  }
-
-  private async insertStreamFrontier(
-    input: StreamFrontierInput,
-  ): Promise<StreamFrontierRow> {
-    const savepoint = await this.openStreamInsertSavepoint();
-    try {
-      const created = await this.db.collectionRepositoryStream.create({
-        data: {
-          repositoryId: input.repositoryId,
-          streamType: input.streamType,
-          status: input.status ?? 'PENDING',
-          frontierSha: input.frontierSha ?? null,
-          frontierCreatedAt: input.frontierCreatedAt ?? null,
-          frontierEntityId: input.frontierEntityId ?? null,
-          requestFingerprint: input.requestFingerprint ?? null,
-          etag: input.etag ?? null,
-          lastRunAt: input.lastRunAt ?? null,
-          lastErrorAt: input.lastErrorAt ?? null,
-          lastErrorCode: input.lastErrorCode ?? null,
-          syncEpoch: nextSyncEpoch(null),
-        },
-      });
-      if (savepoint) await this.releaseStreamInsertSavepoint();
-      return created;
-    } catch (error) {
-      if (savepoint) await this.rollbackStreamInsertSavepoint();
-      if (!isUniqueConflict(error)) throw error;
-      const raced = await this.advanceStreamEpoch(input);
-      if (raced === null) {
-        throw new StaleSyncEpochError(
-          input.repositoryId,
-          input.streamType,
-          input.expectedSyncEpoch,
-        );
-      }
-      return raced;
-    }
-  }
-
-  async upsertSyncCursor(input: SyncCursorInput): Promise<SyncCursorRow> {
-    return this.db.collectionSyncCursor.upsert({
-      where: {
-        appId_scope: {
-          appId: input.appId,
-          scope: input.scope,
-        },
-      },
-      create: {
-        appId: input.appId,
-        scope: input.scope,
-        lastGithubRepositoryId: input.lastGithubRepositoryId ?? null,
-        cycleStartedAt: input.cycleStartedAt ?? null,
-        cycleCompletedAt: input.cycleCompletedAt ?? null,
-      },
-      update: {
-        ...(input.lastGithubRepositoryId !== undefined
-          ? { lastGithubRepositoryId: input.lastGithubRepositoryId }
-          : {}),
-        ...(input.cycleStartedAt !== undefined
-          ? { cycleStartedAt: input.cycleStartedAt }
-          : {}),
-        ...(input.cycleCompletedAt !== undefined
-          ? { cycleCompletedAt: input.cycleCompletedAt }
-          : {}),
-      },
-    });
-  }
-
-  async getSyncCursor(
-    appId: bigint,
-    scope: string,
-  ): Promise<SyncCursorRow | null> {
-    return this.db.collectionSyncCursor.findUnique({
-      where: { appId_scope: { appId, scope } },
-    });
-  }
-
-  async listSyncRuns(
-    now: Date,
-    limit: number,
-  ): Promise<CollectionSyncRunRow[]> {
-    const leases = await this.db.collectionSyncLease.findMany({
-      orderBy: { updatedAt: 'desc' },
-      take: limit,
-      select: {
-        appId: true,
-        scope: true,
-        ownerId: true,
-        runId: true,
-        expiresAt: true,
-        updatedAt: true,
-      },
-    });
-    if (leases.length === 0) return [];
-
-    const cursors = await this.db.collectionSyncCursor.findMany({
-      where: {
-        OR: leases.map((lease) => ({
-          appId: lease.appId,
-          scope: lease.scope,
-        })),
-      },
-      select: {
-        appId: true,
-        scope: true,
-        cycleStartedAt: true,
-        cycleCompletedAt: true,
-      },
-    });
-    const cursorKey = (appId: bigint, scope: string): string =>
-      `${appId.toString()}:${scope}`;
-    const cursorByKey = new Map(
-      cursors.map((cursor) => [cursorKey(cursor.appId, cursor.scope), cursor]),
-    );
-
-    const summaries = new Map<
-      RepositorySource,
-      { streams: CollectionSyncStreamSummary; errorCodes: string[] }
-    >();
-    for (const source of new Set(
-      leases.map((lease) => sourceForScope(lease.scope)),
-    )) {
-      summaries.set(source, await this.summarizeStreams(source));
-    }
-
-    return leases.map((lease) => {
-      const source = sourceForScope(lease.scope);
-      const summary = summaries.get(source) ?? {
-        streams: emptyStreamSummary(),
-        errorCodes: [],
-      };
-      const cursor = cursorByKey.get(cursorKey(lease.appId, lease.scope));
-      const running = lease.expiresAt.getTime() > now.getTime();
-      return {
-        runId: lease.runId,
-        scope: lease.scope,
-        trigger: triggerForOwnerId(lease.ownerId),
-        status: running
-          ? 'RUNNING'
-          : summary.errorCodes.length > 0
-            ? 'FAILED'
-            : 'COMPLETED',
-        startedAt: cursor?.cycleStartedAt ?? null,
-        lastObservedAt: lease.updatedAt,
-        cycleCompletedAt: cursor?.cycleCompletedAt ?? null,
-        streams: summary.streams,
-        errorCodes: summary.errorCodes,
-      };
-    });
-  }
-
-  private async summarizeStreams(
+  async listCollectionTargets(
     source: RepositorySource,
-  ): Promise<{ streams: CollectionSyncStreamSummary; errorCodes: string[] }> {
-    const where = { repository: { source, presence: 'PRESENT' } } as const;
-    const [statusGroups, errorGroups] = await Promise.all([
-      this.db.collectionRepositoryStream.groupBy({
-        by: ['status'],
-        where,
-        _count: { _all: true },
-      }),
-      this.db.collectionRepositoryStream.groupBy({
-        by: ['lastErrorCode'],
-        where: { ...where, lastErrorCode: { not: null } },
-        _count: { _all: true },
-      }),
-    ]);
-    const countFor = (status: string): number =>
-      statusGroups.find((group) => group.status === status)?._count._all ?? 0;
-    const failedGroups = errorGroups.filter(
-      (group): group is typeof group & { lastErrorCode: string } =>
-        typeof group.lastErrorCode === 'string',
+  ): Promise<CollectionTarget[]> {
+    const repositories = await this.db.githubRepository.findMany({
+      where: {
+        source,
+        presence: 'PRESENT',
+        ...(source === 'EXTERNAL_PUBLIC' ? { visibility: 'PUBLIC' } : {}),
+        ...this.platform.collectionTargetWhere(),
+      },
+      orderBy: { githubRepositoryId: 'asc' },
+    });
+    const ledger = await this.db.repo.findMany({
+      where: {
+        githubRepoId: {
+          in: repositories.map((repository) => repository.githubRepositoryId),
+        },
+      },
+      select: { githubRepoId: true, lastSuccessAt: true },
+    });
+    const lastSuccessAt = new Map(
+      ledger.map((row) => [row.githubRepoId, row.lastSuccessAt]),
     );
-    return {
-      streams: {
-        readyCount: countFor('READY'),
-        backfillingCount: countFor('BACKFILLING'),
-        pendingCount: countFor('PENDING'),
-        verifyingCount: countFor('VERIFYING'),
-        failedCount: failedGroups.reduce(
-          (total, group) => total + group._count._all,
-          0,
-        ),
-      },
-      errorCodes: failedGroups.map((group) => group.lastErrorCode).sort(),
-    };
-  }
-
-  async listOrganizationRepositories(): Promise<CollectionRepositoryRow[]> {
-    return this.db.githubRepository.findMany({
-      where: {
-        source: 'ORG_PROVISIONED',
-        ...this.platform.collectionTargetWhere(),
-      },
-    });
-  }
-
-  async listExternalRepositories(): Promise<CollectionRepositoryRow[]> {
-    return this.db.githubRepository.findMany({
-      where: {
-        source: 'EXTERNAL_PUBLIC',
-        ...this.platform.collectionTargetWhere(),
-      },
-    });
+    return repositories.map((repository) => ({
+      ...repository,
+      lastSuccessAt: lastSuccessAt.get(repository.githubRepositoryId) ?? null,
+    }));
   }
 
   async acquireSyncLease(

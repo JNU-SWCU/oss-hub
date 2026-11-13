@@ -16,8 +16,7 @@ export class RepoLedgerRepository {
         "archived",
         "visibility",
         "presence",
-        "published_at",
-        "last_success_at"
+        "published_at"
       )
       SELECT
         repository."githubRepositoryId",
@@ -32,8 +31,7 @@ export class RepoLedgerRepository {
         repository."archived",
         repository."visibility",
         repository."presence",
-        repository."publishedAt" AT TIME ZONE 'UTC',
-        repository."lastSuccessAt" AT TIME ZONE 'UTC'
+        repository."publishedAt" AT TIME ZONE 'UTC'
       FROM "GithubRepository" AS repository
       WHERE repository."githubRepositoryId" = ${githubRepositoryId}
       ON CONFLICT ("github_repo_id") DO UPDATE
@@ -45,8 +43,7 @@ export class RepoLedgerRepository {
         "archived" = EXCLUDED."archived",
         "visibility" = EXCLUDED."visibility",
         "presence" = EXCLUDED."presence",
-        "published_at" = EXCLUDED."published_at",
-        "last_success_at" = EXCLUDED."last_success_at"
+        "published_at" = EXCLUDED."published_at"
     `;
   }
 

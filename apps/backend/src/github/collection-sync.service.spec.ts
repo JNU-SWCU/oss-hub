@@ -1,3036 +1,548 @@
-import { Prisma } from '@prisma/client';
-import { PlatformRepository } from '../platform/platform.repository';
-import {
-  CollectionIncrementalRepository,
-  CollectionIncrementalStoreRepository,
-  type CollectionSyncRuntime,
-} from './collection-incremental.repository';
-import {
-  CollectionSyncService,
-  DEFAULT_STREAM_ERROR_CODE,
-} from './collection-sync.service';
-import type { PrismaService } from '../platform/prisma.service';
-import { CollectionAppClient } from './collection-app.client';
-import type { CollectionAppConfigValues } from './collection-app.config';
+import { Logger } from '@nestjs/common';
 import type {
-  CollectionCommit,
-  CollectionIssue,
-  CollectionPullRequest,
-  CollectionRelease,
-  CollectionRepository as ProviderRepository,
-  CommitHeadProbeResult,
-  CommitTraversalResult,
-  IssueIncrementalResult,
-  PullRequestIncrementalResult,
-  ReleaseListingResult,
-  ReleaseProbeResult,
-  RequestFingerprint,
+  CollectionAppClient,
+  CollectionContribution,
+  CollectionContributionKind,
+  CollectionProbeResult,
+  CollectionProbeTarget,
+  CollectionRepository,
+  CollectionRepositoryContributions,
+  CollectionRepositoryProbe,
 } from './collection-app.client';
 import type { CollectionAppTokenClient } from './collection-app-token.client';
 import { CollectionAppClientError } from './collection-app.error';
-import { ProviderRequestQueueClient } from './provider-request-queue.client';
+import type {
+  CollectionRepositoryRow,
+  CollectionSyncRuntime,
+  CollectionTarget,
+  RecordContributionsResult,
+  RepositorySource,
+  SyncLeaseToken,
+} from './collection-incremental.repository';
+import {
+  CollectionSyncService,
+  type CollectionRunKind,
+} from './collection-sync.service';
+import type { ProviderRequestQueueClient } from './provider-request-queue.client';
 import { RepositoryUrlService } from './repository-url.service';
 
-type Row = Record<string, unknown>;
+type SyncRepository = ConstructorParameters<typeof CollectionSyncService>[0];
 
-function matchesWhere(row: Row, where: Row): boolean {
-  return Object.entries(where).every(([field, condition]) => {
-    if (
-      condition !== null &&
-      typeof condition === 'object' &&
-      !(condition instanceof Date)
-    ) {
-      if ('not' in condition) return (row[field] ?? null) !== condition.not;
-      if ('notIn' in condition) {
-        const notIn = (condition as { notIn: readonly unknown[] }).notIn;
-        return !notIn.includes(row[field]);
-      }
-      const range = condition as { gte?: Date; lt?: Date };
-      const value = row[field] as Date;
-      if (range.gte !== undefined && value < range.gte) return false;
-      if (range.lt !== undefined && value >= range.lt) return false;
-      return true;
-    }
-    return row[field] === condition;
-  });
-}
-interface Store {
-  repositories: Map<string, Row>;
-  commitFacts: Map<string, Row>;
-  pullRequestFacts: Map<string, Row>;
-  releaseFacts: Map<string, Row>;
-  issueFacts: Map<string, Row>;
-  recomputeCalls: number;
-  streams: Map<string, Row>;
-  cursors: Map<string, Row>;
-  leases: Map<string, Row>;
+const STARTED_AT = new Date('2026-11-14T10:00:00.000Z');
+const SUCCEEDED_AT = new Date('2026-11-14T09:55:00.000Z');
+const HOURLY_SINCE = new Date('2026-10-31T10:00:00.000Z');
+const LAST_SUCCESS_AT = new Date('2026-11-14T09:00:00.000Z');
 
-  owningRepositories: Map<string, Row>;
-
-  teamMembers: Map<string, Row>;
-}
-
-const emptyStore = (): Store => ({
-  repositories: new Map(),
-  commitFacts: new Map(),
-  pullRequestFacts: new Map(),
-  releaseFacts: new Map(),
-  issueFacts: new Map(),
-  recomputeCalls: 0,
-  streams: new Map(),
-  cursors: new Map(),
-  leases: new Map(),
-  owningRepositories: new Map(),
-  teamMembers: new Map(),
-});
-
-const cloneStore = (store: Store): Store => ({
-  repositories: new Map(store.repositories),
-  commitFacts: new Map(store.commitFacts),
-  pullRequestFacts: new Map(store.pullRequestFacts),
-  releaseFacts: new Map(store.releaseFacts),
-  issueFacts: new Map(store.issueFacts),
-  recomputeCalls: store.recomputeCalls,
-  streams: new Map(store.streams),
-  cursors: new Map(store.cursors),
-  leases: new Map(store.leases),
-  owningRepositories: new Map(store.owningRepositories),
-  teamMembers: new Map(store.teamMembers),
-});
-
-const applyStreamUpdate = (
-  streams: Map<string, Row>,
-  where: Row & { repositoryId: string; streamType: string },
-  data: Row,
-): Row[] => {
-  const key = `${where.repositoryId}:${where.streamType}`;
-  const existing = streams.get(key);
-  if (!existing) return [];
-  if (
-    'syncEpoch' in where &&
-    (existing.syncEpoch ?? null) !== (where.syncEpoch ?? null)
-  ) {
-    return [];
-  }
-  const guard = where.lastErrorCode;
-  if (
-    guard !== undefined &&
-    typeof guard === 'object' &&
-    guard !== null &&
-    'not' in guard &&
-    (existing.lastErrorCode ?? null) === null
-  ) {
-    return [];
-  }
-  const row = applyUpdate(existing, data);
-  streams.set(key, row);
-  return [row];
-};
-
-const joinedParameterValues = (value: unknown): readonly unknown[] => {
-  if (typeof value !== 'object' || value === null || !('values' in value)) {
-    return [];
-  }
-  const nested: unknown = Reflect.get(value, 'values');
-  return Array.isArray(nested) ? nested : [];
-};
-
-const rememberContribution = ({
-  store,
-  kind,
-  repositoryId,
-  githubKey,
-  authorGithubId,
-  occurredAt,
-}: {
-  store: Store;
-  kind: 'commit' | 'pull_request' | 'issue' | 'release';
-  repositoryId: string;
-  githubKey: string;
-  authorGithubId: unknown;
-  occurredAt: Date;
-}): boolean => {
-  if (kind === 'commit') {
-    const key = `${repositoryId}:${githubKey}`;
-    if (store.commitFacts.has(key)) return false;
-    store.commitFacts.set(key, {
-      id: `commit-${store.commitFacts.size + 1}`,
-      repositoryId,
-      sha: githubKey,
-      authorGithubId,
-      committedAt: occurredAt,
-    });
-    return true;
-  }
-  if (kind === 'pull_request') {
-    const key = `${repositoryId}:${githubKey}`;
-    if (store.pullRequestFacts.has(key)) return false;
-    store.pullRequestFacts.set(key, {
-      id: `pr-${store.pullRequestFacts.size + 1}`,
-      repositoryId,
-      githubPullRequestId: BigInt(githubKey),
-      authorGithubId,
-      createdAt: occurredAt,
-    });
-    return true;
-  }
-  if (kind === 'release') {
-    const key = `${repositoryId}:${githubKey}`;
-    if (store.releaseFacts.has(key)) return false;
-    store.releaseFacts.set(key, {
-      id: `release-${store.releaseFacts.size + 1}`,
-      repositoryId,
-      githubReleaseId: BigInt(githubKey),
-      authorGithubId,
-      publishedAt: occurredAt,
-    });
-    return true;
-  }
-  const key = `${repositoryId}:${githubKey}`;
-  if (store.issueFacts.has(key)) return false;
-  store.issueFacts.set(key, {
-    id: `issue-${store.issueFacts.size + 1}`,
-    repositoryId,
-    githubIssueId: BigInt(githubKey),
-    authorGithubId,
-    createdAt: occurredAt,
-  });
-  return true;
-};
-
-const applyUpdate = (existing: Row, update: Row): Row => {
-  const row: Row = { ...existing };
-  for (const [key, value] of Object.entries(update)) {
-    if (value && typeof value === 'object' && 'increment' in value) {
-      const currentValue = (row[key] as number | undefined) ?? 0;
-      row[key] = currentValue + (value as { increment: number }).increment;
-    } else if (value !== undefined) {
-      row[key] = value;
-    }
-  }
-  return row;
-};
-
-interface FailureControl {
-  failCommitShas: Set<string>;
-  failPullRequestIds: Set<bigint>;
-
-  failRegisteredGithubIdsLookup: boolean;
-  registeredGithubIds: Set<bigint>;
-  registeredGithubIdsLookupCount: number;
-}
-
-const repoKey = (repoId: bigint): string => String(repoId);
-const cursorKey = (appId: bigint, scope: string): string =>
-  `${String(appId)}:${scope}`;
-
-function makeFacade(box: { store: Store }, control: FailureControl): unknown {
-  return {
-    teamMember: {
-      findMany: ({ where }: { where: { teamId: string } }): Row[] =>
-        [...box.store.teamMembers.values()].filter(
-          (row) => row.teamId === where.teamId,
-        ),
-    },
-    githubRepository: {
-      upsert: ({
-        where,
-        create,
-        update,
-      }: {
-        where: { githubRepositoryId: bigint };
-        create: Row;
-        update: Row;
-      }): Row => {
-        const key = repoKey(where.githubRepositoryId);
-        const existing = box.store.repositories.get(key);
-        const row = existing
-          ? applyUpdate(existing, update)
-          : { id: `repo-${box.store.repositories.size + 1}`, ...create };
-        box.store.repositories.set(key, row);
-        return row;
-      },
-
-      findUnique: ({
-        where,
-        select,
-      }: {
-        where: { githubRepositoryId: bigint };
-        select?: { teamId?: boolean };
-      }): Row | null => {
-        const key = repoKey(where.githubRepositoryId);
-        const base = box.store.repositories.get(key);
-        const owning = box.store.owningRepositories.get(key);
-        if (select?.teamId) return owning ?? null;
-        if (base === undefined && owning === undefined) return null;
-        return { ...(base ?? {}), ...(owning ?? {}) };
-      },
-
-      updateMany: ({
-        where,
-        data,
-      }: {
-        where: Row;
-        data: Row;
-      }): { count: number } => {
-        let count = 0;
-        for (const [key, row] of box.store.repositories) {
-          if (matchesWhere(row, where)) {
-            box.store.repositories.set(key, { ...row, ...data });
-            count += 1;
-          }
-        }
-        return { count };
-      },
-      findMany: ({ where }: { where: Row }): Row[] =>
-        [...box.store.repositories.values()].filter((row) =>
-          matchesWhere(row, where),
-        ),
-    },
-    user: {
-      findMany: jest.fn(() => {
-        control.registeredGithubIdsLookupCount += 1;
-        if (control.failRegisteredGithubIdsLookup) {
-          throw new Error('synthetic registered github id lookup failure');
-        }
-        return [...control.registeredGithubIds].map((githubId) => ({
-          githubId,
-        }));
-      }),
-    },
-    collectionRepositoryStream: {
-      upsert: ({
-        where,
-        create,
-        update,
-      }: {
-        where: {
-          repositoryId_streamType: { repositoryId: string; streamType: string };
-        };
-        create: Row;
-        update: Row;
-      }): Row => {
-        const k = where.repositoryId_streamType;
-        const key = `${k.repositoryId}:${k.streamType}`;
-        const existing = box.store.streams.get(key);
-        const row = existing ? applyUpdate(existing, update) : { ...create };
-        box.store.streams.set(key, row);
-        return row;
-      },
-      findUnique: ({
-        where,
-      }: {
-        where: {
-          repositoryId_streamType: { repositoryId: string; streamType: string };
-        };
-      }): Row | null => {
-        const k = where.repositoryId_streamType;
-        return (
-          box.store.streams.get(`${k.repositoryId}:${k.streamType}`) ?? null
-        );
-      },
-
-      updateMany: ({
-        where,
-        data,
-      }: {
-        where: Row & { repositoryId: string; streamType: string };
-        data: Row;
-      }): { count: number } => {
-        const updated = applyStreamUpdate(box.store.streams, where, data);
-        return { count: updated.length };
-      },
-      updateManyAndReturn: ({
-        where,
-        data,
-      }: {
-        where: Row & { repositoryId: string; streamType: string };
-        data: Row;
-      }): Row[] => applyStreamUpdate(box.store.streams, where, data),
-      create: ({ data }: { data: Row }): Row => {
-        const key = `${String(data.repositoryId)}:${String(data.streamType)}`;
-        if (box.store.streams.has(key)) {
-          throw new Prisma.PrismaClientKnownRequestError(
-            'Unique constraint failed',
-            { code: 'P2002', clientVersion: 'test' },
-          );
-        }
-        const row = { ...data };
-        box.store.streams.set(key, row);
-        return row;
-      },
-    },
-
-    $executeRaw: (): number => 1,
-    $queryRaw: (
-      strings: TemplateStringsArray,
-      ...values: readonly unknown[]
-    ): Promise<readonly unknown[]> => {
-      const sql = Array.isArray(strings) ? strings.join('') : '';
-      if (!sql.includes('INSERT INTO "contribution"')) {
-        if (sql.includes('COUNT(*)')) return Promise.resolve([{ count: 0 }]);
-        return Promise.resolve([
-          { candidates: 1000000, missing_repo: 0, inserted: 0 },
-        ]);
-      }
-      const kind = values[2];
-      const repositoryId = values[1];
-      const flat = joinedParameterValues(values[0]);
-      if (
-        kind !== 'commit' &&
-        kind !== 'pull_request' &&
-        kind !== 'issue' &&
-        kind !== 'release'
-      ) {
-        throw new Error('contribution insert kind was missing');
-      }
-      if (typeof repositoryId !== 'string') {
-        throw new Error('contribution insert repository was missing');
-      }
-      let inserted = 0;
-      for (let index = 0; index < flat.length; index += 3) {
-        const githubKey = flat[index];
-        const authorGithubId = flat[index + 1];
-        const occurredAt = flat[index + 2];
-        if (typeof githubKey !== 'string' || !(occurredAt instanceof Date)) {
-          throw new Error('contribution insert row was incomplete');
-        }
-        if (kind === 'commit' && control.failCommitShas.has(githubKey)) {
-          throw new Error(`synthetic commit fact failure: ${githubKey}`);
-        }
-        if (
-          kind === 'pull_request' &&
-          typeof authorGithubId !== 'undefined' &&
-          control.failPullRequestIds.has(BigInt(githubKey))
-        ) {
-          throw new Error(`synthetic pull request fact failure: ${githubKey}`);
-        }
-        const stored = rememberContribution({
-          store: box.store,
-          kind,
-          repositoryId,
-          githubKey,
-          authorGithubId,
-          occurredAt,
-        });
-        if (stored) inserted += 1;
-      }
-      box.store.recomputeCalls += 1;
-      return Promise.resolve([
-        { candidates: 1000000, missing_repo: 0, inserted },
-      ]);
-    },
-    collectionSyncCursor: {
-      upsert: ({
-        where,
-        create,
-        update,
-      }: {
-        where: { appId_scope: { appId: bigint; scope: string } };
-        create: Row;
-        update: Row;
-      }): Row => {
-        const k = where.appId_scope;
-        const key = cursorKey(k.appId, k.scope);
-        const existing = box.store.cursors.get(key);
-        const row = existing ? applyUpdate(existing, update) : { ...create };
-        box.store.cursors.set(key, row);
-        return row;
-      },
-      findUnique: ({
-        where,
-      }: {
-        where: { appId_scope: { appId: bigint; scope: string } };
-      }): Row | null => {
-        const k = where.appId_scope;
-        return box.store.cursors.get(cursorKey(k.appId, k.scope)) ?? null;
-      },
-    },
-
-    $queryRawUnsafe: <T>(sql: string, ...args: unknown[]): Promise<T> => {
-      const key = cursorKey(args[0] as bigint, args[1] as string);
-      if (sql.includes('INSERT INTO "CollectionSyncLease"')) {
-        const [, , ownerId, expiresAt, runId, now] = args as [
-          bigint,
-          string,
-          string,
-          Date,
-          string,
-          Date,
-        ];
-        const existing = box.store.leases.get(key);
-        if (existing && (existing.expiresAt as Date) > now) {
-          return Promise.resolve([] as unknown as T);
-        }
-        const epoch = existing ? (existing.epoch as bigint) + 1n : 1n;
-        const row = {
-          appId: args[0],
-          scope: args[1],
-          ownerId,
-          epoch,
-          runId,
-          expiresAt,
-        };
-        box.store.leases.set(key, row);
-        return Promise.resolve([row] as unknown as T);
-      }
-      if (sql.includes('SELECT true')) {
-        const [, , ownerId, epoch, runId, now] = args as [
-          bigint,
-          string,
-          string,
-          bigint,
-          string,
-          Date,
-        ];
-        const existing = box.store.leases.get(key);
-        const owned =
-          !!existing &&
-          existing.ownerId === ownerId &&
-          existing.epoch === epoch &&
-          existing.runId === runId &&
-          (existing.expiresAt as Date) > now;
-        return Promise.resolve(
-          (owned ? [{ owned: true }] : []) as unknown as T,
-        );
-      }
-      throw new Error(`unexpected $queryRawUnsafe: ${sql}`);
-    },
-    $executeRawUnsafe: (sql: string, ...args: unknown[]): Promise<number> => {
-      if (
-        /^\s*(SAVEPOINT|RELEASE SAVEPOINT|ROLLBACK TO SAVEPOINT)\b/i.test(sql)
-      ) {
-        return Promise.resolve(0);
-      }
-      const key = cursorKey(args[0] as bigint, args[1] as string);
-      const existing = box.store.leases.get(key);
-      if (sql.includes('"expiresAt" > $5')) {
-        const [, , ownerId, epoch, now, expiresAt, runId] = args as [
-          bigint,
-          string,
-          string,
-          bigint,
-          Date,
-          Date,
-          string,
-        ];
-        const matches =
-          !!existing &&
-          existing.ownerId === ownerId &&
-          existing.epoch === epoch &&
-          existing.runId === runId &&
-          (existing.expiresAt as Date) > now;
-        if (!matches) return Promise.resolve(0);
-        box.store.leases.set(key, { ...existing, expiresAt });
-        return Promise.resolve(1);
-      }
-
-      const [, , ownerId, epoch, runId, now] = args as [
-        bigint,
-        string,
-        string,
-        bigint,
-        string,
-        Date,
-      ];
-      const matches =
-        !!existing &&
-        existing.ownerId === ownerId &&
-        existing.epoch === epoch &&
-        existing.runId === runId;
-      if (matches) box.store.leases.set(key, { ...existing, expiresAt: now });
-      return Promise.resolve(matches ? 1 : 0);
-    },
-    $transaction: async <T>(fn: (tx: unknown) => Promise<T>): Promise<T> => {
-      const working = { store: cloneStore(box.store) };
-      const result = await fn(makeFacade(working, control));
-      box.store = working.store;
-      return result;
-    },
-  };
-}
-
-function createFakeDb(): {
-  db: PrismaService;
-  box: { store: Store };
-  control: FailureControl;
-} {
-  const control: FailureControl = {
-    failCommitShas: new Set(),
-    failPullRequestIds: new Set(),
-    failRegisteredGithubIdsLookup: false,
-    registeredGithubIds: new Set([1n, 11n, 22n, 33n, 98n, 99n]),
-    registeredGithubIdsLookupCount: 0,
-  };
-  const box = { store: emptyStore() };
-  box.store.repositories.set('100', {
-    id: 'repo-1',
-    githubRepositoryId: 100n,
-    githubOrganizationId: 900n,
-    nameWithOwner: 'synthetic-org/repo',
-    defaultBranch: 'main',
-    archived: false,
-    visibility: 'PUBLIC',
-    presence: 'PRESENT',
-    source: 'ORG_PROVISIONED',
-    teamId: 'application-default',
-  });
-  const db = makeFacade(box, control) as PrismaService;
-  return { db, box, control };
-}
-
-const fingerprint = (endpoint: string): RequestFingerprint => ({
-  endpoint,
-  ref: null,
-  query: 'per_page=100',
-  order: null,
-  pageSize: 100,
-  accept: 'application/vnd.github+json',
-  apiVersion: '2022-11-28',
-});
-
-const providerRepository = (
-  overrides: Partial<ProviderRepository> = {},
-): ProviderRepository => ({
-  id: '100',
-  name: 'repo',
-  fullName: 'synthetic-org/repo',
-  private: false,
-  archived: false,
-  defaultBranch: 'main',
-  ownerLogin: 'synthetic-org',
-  htmlUrl: 'https://example.invalid/synthetic-org/repo',
-  updatedAt: '2026-08-01T00:00:00.000Z',
-  ...overrides,
-});
-
-const commit = (
-  overrides: Partial<CollectionCommit> = {},
-): CollectionCommit => ({
-  sha: 'sha-1',
-  authorLogin: 'alice',
-  authorGithubId: '1',
-  committedAt: '2026-08-01T00:00:00.000Z',
-  htmlUrl: 'https://example.invalid/commit',
-  ...overrides,
-});
-
-function seedRegisteredRepositories(
-  box: { store: Store },
-  repositories: readonly ProviderRepository[],
-): void {
-  box.store.repositories.clear();
-  repositories.forEach((repository, index) => {
-    box.store.repositories.set(repository.id, {
-      id: `repo-${index + 1}`,
-      githubRepositoryId: BigInt(repository.id),
-      githubOrganizationId: GITHUB_ORG_ID,
-      nameWithOwner: repository.fullName,
-      defaultBranch: repository.defaultBranch,
-      archived: repository.archived,
-      visibility: repository.private ? 'PRIVATE' : 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'ORG_PROVISIONED',
-      teamId: `application-${index + 1}`,
-    });
-  });
-}
-
-const fingerprintKeys = new CollectionAppClient(
-  {} as CollectionAppConfigValues,
-  {
-    getToken: () => Promise.resolve('synthetic-token'),
-    clear: () => undefined,
-  },
-);
-
-interface ClientMock {
-  requestFingerprintKey: jest.Mock<string, [RequestFingerprint]>;
-  listInstallationRepositories: jest.Mock<Promise<ProviderRepository[]>, []>;
-  getRepository: jest.Mock<Promise<ProviderRepository>, [string, string]>;
-  probeDefaultBranchHead: jest.Mock<
-    Promise<CommitHeadProbeResult>,
-    [string, string, string, string | null]
-  >;
-  listCommitsUntilKnownSha: jest.Mock<
-    Promise<CommitTraversalResult>,
-    [string, string, string, ReadonlySet<string>]
-  >;
-  listNewPullRequests: jest.Mock<
-    Promise<PullRequestIncrementalResult>,
-    unknown[]
-  >;
-  probeLatestRelease: jest.Mock<Promise<ReleaseProbeResult>, unknown[]>;
-  listChangedPublishedReleases: jest.Mock<
-    Promise<ReleaseListingResult>,
-    unknown[]
-  >;
-  listNewIssues: jest.Mock<Promise<IssueIncrementalResult>, unknown[]>;
-  resolveUserNodeId: jest.Mock<Promise<string | null>, [string]>;
-  listDefaultBranchCommitsByAuthor: jest.Mock<
-    Promise<CollectionCommit[]>,
-    [string, string, string, string, (string | undefined)?]
-  >;
-}
-
-function createClient(repositories: ProviderRepository[]): ClientMock {
-  return {
-    requestFingerprintKey: jest
-      .fn<string, [RequestFingerprint]>()
-      .mockImplementation((fingerprint) =>
-        fingerprintKeys.requestFingerprintKey(fingerprint),
-      ),
-    listInstallationRepositories: jest
-      .fn<Promise<ProviderRepository[]>, []>()
-      .mockResolvedValue(repositories),
-    getRepository: jest
-      .fn<Promise<ProviderRepository>, [string, string]>()
-      .mockImplementation((owner, name) =>
-        Promise.resolve(
-          repositories.find(
-            (repository) => repository.fullName === `${owner}/${name}`,
-          ) ??
-            providerRepository({
-              id: '555',
-              name,
-              fullName: `${owner}/${name}`,
-              ownerLogin: owner,
-            }),
-        ),
-      ),
-    probeDefaultBranchHead: jest.fn<
-      Promise<CommitHeadProbeResult>,
-      [string, string, string, string | null]
-    >(),
-    listCommitsUntilKnownSha: jest
-      .fn<
-        Promise<CommitTraversalResult>,
-        [string, string, string, ReadonlySet<string>]
-      >()
-      .mockResolvedValue({
-        commits: [],
-        disconnectedFullScan: true,
-        fingerprint: fingerprint('/repos/o/r/commits'),
-      } satisfies CommitTraversalResult),
-    listNewPullRequests: jest
-      .fn<Promise<PullRequestIncrementalResult>, unknown[]>()
-      .mockResolvedValue({
-        pullRequests: [],
-        newFrontier: null,
-        fingerprint: fingerprint('/repos/o/r/pulls'),
-      } satisfies PullRequestIncrementalResult),
-    probeLatestRelease: jest
-      .fn<Promise<ReleaseProbeResult>, unknown[]>()
-      .mockResolvedValue({
-        changed: false,
-        fingerprint: fingerprint('/repos/o/r/releases'),
-        etag: 'etag-release',
-      } satisfies ReleaseProbeResult),
-    listChangedPublishedReleases: jest
-      .fn<Promise<ReleaseListingResult>, unknown[]>()
-      .mockResolvedValue({
-        releases: [],
-        fingerprint: fingerprint('/repos/o/r/releases'),
-      } satisfies ReleaseListingResult),
-    listNewIssues: jest
-      .fn<Promise<IssueIncrementalResult>, unknown[]>()
-      .mockResolvedValue({
-        issues: [],
-        newFrontier: null,
-        fingerprint: fingerprint('/repos/o/r/issues'),
-      } satisfies IssueIncrementalResult),
-
-    resolveUserNodeId: jest
-      .fn<Promise<string | null>, [string]>()
-      .mockImplementation((login) => Promise.resolve(`node:${login}`)),
-    listDefaultBranchCommitsByAuthor: jest
-      .fn<
-        Promise<CollectionCommit[]>,
-        [string, string, string, string, (string | undefined)?]
-      >()
-      .mockResolvedValue([]),
-  };
-}
-
-const runtimeFor = (client: ClientMock): CollectionSyncRuntime => ({
-  appId: '1',
-  organizationLogin: 'synthetic-org',
-  tokens: {} as CollectionAppTokenClient,
-  client: client as unknown as CollectionAppClient,
-  queue: new ProviderRequestQueueClient(),
-});
-
-const GITHUB_ORG_ID = 900n;
-
-function createService(
-  db: PrismaService,
-  client: ClientMock,
-  overrides: { now?: () => Date; createRunId?: () => string } = {},
-): CollectionSyncService {
-  return new CollectionSyncService(
-    new CollectionIncrementalRepository(db, new PlatformRepository()),
-    () => runtimeFor(client),
-    new RepositoryUrlService(),
-    overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
-    overrides.createRunId ?? (() => 'run-1'),
-  );
-}
-
-function createServiceWithExternal(
-  db: PrismaService,
-  externalClient: ClientMock,
-  overrides: { now?: () => Date; createRunId?: () => string } = {},
-): CollectionSyncService {
-  return new CollectionSyncService(
-    new CollectionIncrementalRepository(db, new PlatformRepository()),
-    () => runtimeFor(externalClient),
-    new RepositoryUrlService(),
-    overrides.now ?? (() => new Date('2026-08-01T00:00:00.000Z')),
-    overrides.createRunId ?? (() => 'run-1'),
-    () => runtimeFor(externalClient),
-  );
-}
-
-function quietStreams(client: ClientMock): void {
-  client.probeDefaultBranchHead.mockResolvedValue({
-    changed: false,
-    fingerprint: fingerprint('/repos/o/r/commits'),
-    etag: 'etag-commit',
-  });
-}
-
-describe('CollectionSyncService — inventory complete vs partial (DEC-46)', () => {
-  it('수집 예산을 소진하면 조직 레포 메타데이터 요청도 시작하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    const budget = jest
-      .spyOn(ProviderRequestQueueClient.prototype, 'shouldStop')
-      .mockReturnValue(true);
-    try {
-      await createService(db, client).run('owner-1');
-      expect(client.getRepository).not.toHaveBeenCalled();
-      expect([...box.store.commitFacts.values()]).toEqual([]);
-    } finally {
-      budget.mockRestore();
-    }
-  });
-
-  it('설치 목록에만 있는 미등록 저장소는 등록하거나 수집하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.clear();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-
-    await createService(db, client).run('owner-1');
-
-    expect([...box.store.repositories.values()]).toEqual([]);
-    expect([...box.store.commitFacts.values()]).toEqual([]);
-  });
-
-  it('등록된 저장소의 404는 해당 저장소만 ABSENT로 바꾼다', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([]);
-    client.getRepository.mockRejectedValue(
-      new CollectionAppClientError('NOT_FOUND'),
-    );
-    await createService(db, client).run('owner-1');
-    expect(box.store.repositories.get('100')?.presence).toBe('ABSENT');
-    expect([...box.store.commitFacts.values()]).toEqual([]);
-  });
-
-  it('등록된 저장소 메타데이터 일시 실패는 기존 관찰을 유지한다', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([]);
-    client.getRepository.mockRejectedValue(new Error('rate limited'));
-    const result = await createService(db, client).run('owner-1');
-    expect(result.inventoryComplete).toBe(false);
-    expect(box.store.repositories.get('100')?.presence).toBe('PRESENT');
-    expect([...box.store.commitFacts.values()]).toEqual([]);
-  });
-});
-
-describe('CollectionSyncService — GR-6 external 저장소는 org sweep에서 살아남는다', () => {
-  it('service.run()의 완전한 org inventory 관찰이 EXTERNAL_PUBLIC 저장소를 ABSENT로 바꾸지 않는다', async () => {
-    const { db, box } = createFakeDb();
-
-    box.store.repositories.set(repoKey(555n), {
-      id: 'repo-external',
-      githubOrganizationId: GITHUB_ORG_ID,
-      githubRepositoryId: 555n,
-      nameWithOwner: 'student/external-repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'EXTERNAL_PUBLIC',
-      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
-
-      teamId: 'application-external',
-    });
-    const repoA = providerRepository({
-      id: '100',
-      fullName: 'synthetic-org/a',
-    });
-    const client = createClient([repoA]);
-    quietStreams(client);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createService(db, client);
-    const result = await service.run('owner-1');
-
-    expect(result.inventoryComplete).toBe(true);
-    const external = box.store.repositories.get(repoKey(555n));
-    expect(external?.presence).toBe('PRESENT');
-  });
-});
-
-describe('CollectionSyncService — E1 external sweep (runExternal)', () => {
-  it('listExternalRepositories()가 돌려준 EXTERNAL_PUBLIC 저장소를 처리해 commit fact를 적재하고 aggregate를 재계산한다', async () => {
-    const { db, box } = createFakeDb();
-
-    box.store.repositories.set(repoKey(555n), {
-      id: 'repo-external',
-      githubOrganizationId: GITHUB_ORG_ID,
-      githubRepositoryId: 555n,
-      nameWithOwner: 'student/external-repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'EXTERNAL_PUBLIC',
-      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
-
-      teamId: 'application-external',
-    });
-
-    const client = createClient([]);
-    quietStreams(client);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'external-head-sha' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createServiceWithExternal(db, client);
-    const result = await service.runExternal('owner-1');
-
-    expect(result.status).toBe('COMPLETED');
-    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
-
-    const stream = box.store.streams.get('repo-external:COMMIT');
-    expect(stream?.status).toBe('READY');
-    expect(stream?.frontierSha).toBe('external-head-sha');
-
-    expect(box.store.commitFacts.size).toBe(1);
-    const fact = [...box.store.commitFacts.values()][0];
-    expect(fact?.sha).toBe('external-head-sha');
-    expect(fact?.repositoryId).toBe('repo-external');
-
-    expect(box.store.recomputeCalls).toBeGreaterThan(0);
-  });
-
-  it('외부 저장소 404를 완전 관찰하면 기존 fact를 지우지 않고 ABSENT로 회수하며 stream을 실행하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(555n), {
-      id: 'repo-external-missing',
-      githubOrganizationId: null,
-      githubRepositoryId: 555n,
-      nameWithOwner: 'student/missing-repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'EXTERNAL_PUBLIC',
-      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
-
-      teamId: 'application-external',
-    });
-    const client = createClient([]);
-    client.getRepository.mockRejectedValue(
-      new CollectionAppClientError('NOT_FOUND'),
-    );
-    quietStreams(client);
-    const result = await createServiceWithExternal(db, client).runExternal(
-      'owner-1',
-    );
-
-    expect(result.inventoryComplete).toBe(true);
-    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
-      visibility: 'PUBLIC',
-      presence: 'ABSENT',
-    });
-    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
-    expect(client.listNewPullRequests).not.toHaveBeenCalled();
-    expect(client.probeLatestRelease).not.toHaveBeenCalled();
-  });
-
-  it('외부 저장소가 private이면 공개 상태를 즉시 회수하고 stream에서 제외한다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(555n), {
-      id: 'repo-external-private',
-      githubOrganizationId: null,
-      githubRepositoryId: 555n,
-      nameWithOwner: 'student/private-repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'EXTERNAL_PUBLIC',
-      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
-
-      teamId: 'application-external',
-    });
-    const client = createClient([]);
-    client.getRepository.mockResolvedValue(
-      providerRepository({
-        id: '555',
-        name: 'private-repo',
-        fullName: 'student/private-repo',
-        ownerLogin: 'student',
-        private: true,
-        defaultBranch: null,
-      }),
-    );
-    quietStreams(client);
-
-    const result = await createServiceWithExternal(db, client).runExternal(
-      'owner-1',
-    );
-
-    expect(result.inventoryComplete).toBe(true);
-    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
-      visibility: 'PRIVATE',
-      presence: 'PRESENT',
-    });
-    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
-  });
-
-  it('metadata 확인 뒤 stream이 권한 거부되면 외부 저장소를 즉시 PRIVATE로 회수한다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(555n), {
-      id: 'repo-external-stream-revoked',
-      githubOrganizationId: null,
-      githubRepositoryId: 555n,
-      nameWithOwner: 'student/revoked-repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'EXTERNAL_PUBLIC',
-      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
-
-      teamId: 'application-external',
-    });
-    const client = createClient([]);
-    quietStreams(client);
-    client.getRepository.mockResolvedValue(
-      providerRepository({
-        id: '555',
-        name: 'revoked-repo',
-        fullName: 'student/revoked-repo',
-        ownerLogin: 'student',
-        private: false,
-      }),
-    );
-    client.listCommitsUntilKnownSha.mockRejectedValue(
-      new CollectionAppClientError('PERMISSION'),
-    );
-
-    await createServiceWithExternal(db, client).runExternal('owner-1');
-
-    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
-      visibility: 'PRIVATE',
-      presence: 'PRESENT',
-    });
-    expect(client.listNewPullRequests).not.toHaveBeenCalled();
-    expect(client.probeLatestRelease).not.toHaveBeenCalled();
-  });
-
-  it('외부 metadata 일시 실패는 기존 PUBLIC/PRESENT 관찰을 회수하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(555n), {
-      id: 'repo-external-transient',
-      githubOrganizationId: null,
-      githubRepositoryId: 555n,
-      nameWithOwner: 'student/transient-repo',
-      defaultBranch: 'main',
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'EXTERNAL_PUBLIC',
-      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
-
-      teamId: 'application-external',
-    });
-    const client = createClient([]);
-    client.getRepository.mockRejectedValue(
-      new CollectionAppClientError('UPSTREAM'),
-    );
-    quietStreams(client);
-
-    const result = await createServiceWithExternal(db, client).runExternal(
-      'owner-1',
-    );
-
-    expect(result.inventoryComplete).toBe(false);
-    expect(box.store.repositories.get(repoKey(555n))).toMatchObject({
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      lastCompleteInventoryObservedAt: new Date('2026-01-01T00:00:00.000Z'),
-    });
-    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
-  });
-
-  it('externalRuntimeFactory가 배선되지 않으면 명시적으로 실패한다', async () => {
-    const { db } = createFakeDb();
-    const client = createClient([]);
-    const service = createService(db, client);
-
-    await expect(service.runExternal('owner-1')).rejects.toThrow(
-      /external runtime not configured/,
-    );
-  });
-});
-
-describe('CollectionSyncService — new/VERIFYING repository backfill', () => {
-  it('performs a full backfill and promotes a brand-new repository stream to READY', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'head-sha' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    const repoRow = [...box.store.repositories.values()][0];
-    const repoId = repoRow?.id as string;
-    const stream = box.store.streams.get(`${repoId}:COMMIT`);
-    expect(stream?.status).toBe('READY');
-    expect(stream?.frontierSha).toBe('head-sha');
-
-    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
-  });
-
-  it('treats a backfill-created VERIFYING stream with a null frontier the same as no stream at all', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    const client = createClient([repository]);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'head-sha' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    box.store.repositories.set(repoKey(BigInt(repository.id)), {
-      id: 'repo-1',
-      githubOrganizationId: GITHUB_ORG_ID,
-      githubRepositoryId: BigInt(repository.id),
-      nameWithOwner: repository.fullName,
-      defaultBranch: repository.defaultBranch,
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'ORG_PROVISIONED',
-      teamId: 'application-default',
-      lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
-    });
-    box.store.streams.set('repo-1:COMMIT', {
-      repositoryId: 'repo-1',
-      streamType: 'COMMIT',
-      status: 'VERIFYING',
-      frontierSha: null,
-      frontierCreatedAt: null,
-      frontierEntityId: null,
-      requestFingerprint: null,
-      etag: null,
-      lastRunAt: null,
-      lastErrorAt: null,
-      lastErrorCode: null,
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    const stream = box.store.streams.get('repo-1:COMMIT');
-    expect(stream?.status).toBe('READY');
-    expect(stream?.frontierSha).toBe('head-sha');
-    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
-  });
-});
-
-describe('CollectionSyncService — READY repository conditional polling', () => {
-  it('makes no full-history call when the READY repo is unchanged', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    const client = createClient([repository]);
-    box.store.repositories.set(repoKey(BigInt(repository.id)), {
-      id: 'repo-1',
-      githubOrganizationId: GITHUB_ORG_ID,
-      githubRepositoryId: BigInt(repository.id),
-      nameWithOwner: repository.fullName,
-      defaultBranch: repository.defaultBranch,
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'ORG_PROVISIONED',
-      teamId: 'application-default',
-      lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
-    });
-    box.store.streams.set('repo-1:COMMIT', {
-      repositoryId: 'repo-1',
-      streamType: 'COMMIT',
-      status: 'READY',
-      frontierSha: 'known-head',
-      frontierCreatedAt: null,
-      frontierEntityId: null,
-      requestFingerprint: 'fp',
-      etag: 'etag-known',
-      lastRunAt: new Date('2026-07-01T00:00:00.000Z'),
-      lastErrorAt: null,
-      lastErrorCode: null,
-    });
-    client.probeDefaultBranchHead.mockResolvedValue({
-      changed: false,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-      etag: 'etag-known',
-    });
-    client.probeLatestRelease.mockResolvedValue({
-      changed: false,
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: 'etag-release',
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
-    expect(client.listChangedPublishedReleases).not.toHaveBeenCalled();
-    const stream = box.store.streams.get('repo-1:COMMIT');
-    expect(stream?.status).toBe('READY');
-    expect(stream?.frontierSha).toBe('known-head');
-  });
-});
-
-describe('CollectionSyncService — 새것이 없는 확인도 확인 시각을 남긴다(#1133)', () => {
-  it('네 stream 모두 checkpoint 없이 조기 반환해도 lastRunAt은 이번 확인 시각이 된다', async () => {
-    const NOW = new Date('2026-08-01T00:00:00.000Z');
-    const PREVIOUS = new Date('2026-07-01T00:00:00.000Z');
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    const client = createClient([repository]);
-    box.store.repositories.set(repoKey(BigInt(repository.id)), {
-      id: 'repo-1',
-      githubOrganizationId: GITHUB_ORG_ID,
-      githubRepositoryId: BigInt(repository.id),
-      nameWithOwner: repository.fullName,
-      defaultBranch: repository.defaultBranch,
-      archived: false,
-      visibility: 'PUBLIC',
-      presence: 'PRESENT',
-      source: 'ORG_PROVISIONED',
-      teamId: 'application-default',
-      lastCompleteInventoryObservedAt: PREVIOUS,
-    });
-    const ready = (streamType: string, frontier: Row) =>
-      box.store.streams.set(`repo-1:${streamType}`, {
-        repositoryId: 'repo-1',
-        streamType,
-        status: 'READY',
-        frontierSha: null,
-        frontierCreatedAt: null,
-        frontierEntityId: null,
-        requestFingerprint: 'fp',
-        etag: null,
-        lastRunAt: PREVIOUS,
-        lastErrorAt: PREVIOUS,
-        lastErrorCode: DEFAULT_STREAM_ERROR_CODE,
-        ...frontier,
-      });
-    ready('COMMIT', { frontierSha: 'known-head', etag: 'etag-known' });
-    ready('PULL_REQUEST', {
-      frontierCreatedAt: new Date('2026-07-20T00:00:00.000Z'),
-      frontierEntityId: 7n,
-    });
-    ready('RELEASE', { etag: 'etag-release' });
-    ready('ISSUE', {
-      frontierCreatedAt: new Date('2026-07-21T00:00:00.000Z'),
-      frontierEntityId: 9n,
-    });
-    client.probeDefaultBranchHead.mockResolvedValue({
-      changed: false,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-      etag: 'etag-known',
-    });
-    client.probeLatestRelease.mockResolvedValue({
-      changed: false,
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: 'etag-release',
-    });
-    client.listNewPullRequests.mockResolvedValue({
-      pullRequests: [],
-      newFrontier: { createdAt: '2026-07-20T00:00:00.000Z', id: '7' },
-      fingerprint: fingerprint('/repos/o/r/pulls'),
-    });
-    client.listNewIssues.mockResolvedValue({
-      issues: [],
-      newFrontier: { createdAt: '2026-07-21T00:00:00.000Z', id: '9' },
-      fingerprint: fingerprint('/repos/o/r/issues'),
-    });
-
-    await createService(db, client, { now: () => NOW }).run('owner-1');
-
-    for (const streamType of ['COMMIT', 'PULL_REQUEST', 'RELEASE', 'ISSUE']) {
-      expect(box.store.streams.get(`repo-1:${streamType}`)).toMatchObject({
-        status: 'READY',
-        lastRunAt: NOW,
-        lastErrorAt: null,
-        lastErrorCode: null,
-      });
-    }
-
-    expect(box.store.streams.get('repo-1:COMMIT')?.frontierSha).toBe(
-      'known-head',
-    );
-    expect(box.store.streams.get('repo-1:PULL_REQUEST')).toMatchObject({
-      frontierCreatedAt: new Date('2026-07-20T00:00:00.000Z'),
-      frontierEntityId: 7n,
-    });
-    expect(box.store.pullRequestFacts.size).toBe(0);
-    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
-    expect(client.listChangedPublishedReleases).not.toHaveBeenCalled();
-  });
-});
-
-describe('CollectionSyncService — fenced transactions and lease safety', () => {
-  it('가입자 스냅샷 조회가 실패하면 inventory와 fact write 전에 run을 실패시킨다', async () => {
-    const { db, box, control } = createFakeDb();
-    control.failRegisteredGithubIdsLookup = true;
-    const client = createClient([providerRepository()]);
-
-    const result = await createService(db, client).run('owner-1');
-
-    expect(result.status).toBe('FAILED');
-    expect(control.registeredGithubIdsLookupCount).toBe(1);
-    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
-    expect(box.store.repositories.size).toBe(1);
-    expect(
-      box.store.repositories.get('100')?.lastCompleteInventoryObservedAt,
-    ).toBeUndefined();
-    expect(box.store.commitFacts.size).toBe(0);
-    expect(box.store.pullRequestFacts.size).toBe(0);
-    expect(box.store.releaseFacts.size).toBe(0);
-  });
-
-  it('중간 실패는 frontier 를 건드리지 않지만 스윕을 세우지도 않는다 — 실패는 백오프로 되돌아온다', async () => {
-    const { db, box, control } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    control.failCommitShas.add('sha-1');
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'sha-1' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createService(db, client);
-    const result = await service.run('owner-1');
-
-    expect(result.status).toBe('COMPLETED');
-
-    expect(result.cycleCompleted).toBe(true);
-
-    expect(result.processedRepositoryCount).toBe(0);
-
-    const failedStream = [...box.store.streams.values()][0];
-    expect(box.store.streams.size).toBe(1);
-    expect(failedStream?.status).toBe('PENDING');
-    expect(failedStream?.frontierSha ?? null).toBeNull();
-    expect(failedStream?.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
-    expect(box.store.commitFacts.size).toBe(0);
-    expect(box.store.cursors.size).toBe(1);
-
-    const cursor = [...box.store.cursors.values()][0];
-    expect(cursor?.lastGithubRepositoryId).toBeNull();
-  });
-
-  it('does not write anything once the lease has gone stale', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    const client = createClient([repository]);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'sha-1' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createService(db, client);
-    const originalRepository = new CollectionIncrementalRepository(
-      db,
-      new PlatformRepository(),
-    );
-    const originalAcquire =
-      originalRepository.acquireSyncLease.bind(originalRepository);
-    jest
-      .spyOn(CollectionIncrementalStoreRepository.prototype, 'acquireSyncLease')
-      .mockImplementationOnce(async (input) => {
-        const token = await originalAcquire(input);
-        if (token) {
-          box.store.leases.set(cursorKey(input.appId, input.scope), {
-            ...box.store.leases.get(cursorKey(input.appId, input.scope)),
-            ownerId: 'someone-else',
-            epoch: token.epoch + 1n,
-          });
-        }
-        return token;
-      });
-
-    const result = await service.run('owner-1');
-
-    expect(result.status).toBe('FAILED');
-    expect(box.store.repositories.size).toBe(1);
-    expect(
-      box.store.repositories.get('100')?.lastCompleteInventoryObservedAt,
-    ).toBeUndefined();
-    expect(box.store.streams.size).toBe(0);
-    jest.restoreAllMocks();
-  });
-
-  it('does not start a second run while a lease is already held', async () => {
-    const { db } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createService(db, client);
-    const [first, second] = await Promise.all([
-      service.run('owner-1'),
-      service.run('owner-2'),
-    ]);
-    const statuses = [first.status, second.status].sort();
-    expect(statuses).toEqual(['COMPLETED', 'SKIPPED_LEASE_HELD']);
-  });
-});
-
-describe('CollectionSyncService — no automatic publish', () => {
-  it('never touches any canonical generation/publish surface', async () => {
-    const { db } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createService(db, client);
-    const result = await service.run('owner-1');
-    expect(result.status).toBe('COMPLETED');
-  });
-});
-
-describe('CollectionSyncService — durable cursor draining a mixed fixture across budget-limited runs', () => {
-  it('drains a 100-repository fixture fairly across multiple runs via the durable continuation cursor, never restarting at repo 1', async () => {
-    const { db, box, control } = createFakeDb();
-    const repositories = Array.from({ length: 100 }, (_, i) =>
-      providerRepository({
-        id: String(1000 + i),
-        fullName: `synthetic-org/repo-${i}`,
-      }),
-    );
-
-    const processedOrder: string[] = [];
-    seedRegisteredRepositories(box, repositories);
-    let stopAfter = 10;
-    let processedThisRun = 0;
-
-    function budgetedClient(): ClientMock {
-      const client = createClient(repositories);
-      client.probeDefaultBranchHead.mockImplementation(() =>
-        Promise.resolve({
-          changed: false,
-          fingerprint: fingerprint('/repos/o/r/commits'),
-          etag: 'etag',
-        }),
-      );
-      client.listCommitsUntilKnownSha.mockImplementation((_owner, repoName) => {
-        processedOrder.push(repoName);
-        processedThisRun += 1;
-        return Promise.resolve({
-          commits: [commit({ sha: `sha-${repoName}` })],
-          disconnectedFullScan: true,
-          fingerprint: fingerprint('/repos/o/r/commits'),
-        });
-      });
-      return client;
-    }
-
-    let currentClient = budgetedClient();
-    const queue = new ProviderRequestQueueClient();
-    const originalShouldStop = queue.shouldStop.bind(queue);
-    jest.spyOn(queue, 'shouldStop').mockImplementation(() => {
-      if (processedThisRun >= stopAfter) return true;
-      return originalShouldStop();
-    });
-
-    const service = new CollectionSyncService(
-      new CollectionIncrementalRepository(db, new PlatformRepository()),
-      () => ({
-        appId: '1',
-        organizationLogin: 'synthetic-org',
-        tokens: {} as CollectionAppTokenClient,
-        client: currentClient as unknown as CollectionAppClient,
-        queue,
-      }),
-      new RepositoryUrlService(),
-      () => new Date('2026-08-01T00:00:00.000Z'),
-      () => `run-${processedOrder.length}`,
-    );
-
-    let runs = 0;
-    let lastResult = await service.run('owner-1');
-    runs += 1;
-    while (!lastResult.cycleCompleted && runs < 30) {
-      processedThisRun = 0;
-      currentClient = budgetedClient();
-      lastResult = await service.run('owner-1');
-      runs += 1;
-    }
-
-    expect(lastResult.cycleCompleted).toBe(true);
-    expect(processedOrder).toHaveLength(100);
-
-    expect(new Set(processedOrder).size).toBe(100);
-    expect(runs).toBeGreaterThan(1);
-
-    expect(control.registeredGithubIdsLookupCount).toBe(runs);
-    stopAfter = Number.MAX_SAFE_INTEGER;
-  });
-});
-
-describe('CollectionSyncService — #546 트리거 결과 추적', () => {
-  const streamOf = (box: { store: Store }, streamType: string): Row => {
-    const repoId = [...box.store.repositories.values()][0]?.id as string;
-    return box.store.streams.get(`${repoId}:${streamType}`) ?? {};
-  };
-
-  afterEach(() => {
-    jest.restoreAllMocks();
-  });
-
-  it('호출자가 넘긴 runId를 그대로 결과와 lease에 쓴다', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-    const service = createService(db, client, {
-      createRunId: () => 'internal-run-id',
-    });
-
-    const result = await service.run('admin:owner-1', 'trigger-run-id');
-
-    expect(result.runId).toBe('trigger-run-id');
-    const lease = [...box.store.leases.values()][0];
-    expect(lease?.runId).toBe('trigger-run-id');
-  });
-
-  it('runId를 넘기지 않으면 예전처럼 서비스가 만든 runId를 쓴다', async () => {
-    const { db } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-    const service = createService(db, client, {
-      createRunId: () => 'internal-run-id',
-    });
-
-    await expect(service.run('owner-1')).resolves.toMatchObject({
-      runId: 'internal-run-id',
-    });
-  });
-
-  it('repo 단위 stream 실패를 lastErrorCode로 기록한다(stream 행이 아직 없어도)', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-    client.listCommitsUntilKnownSha.mockRejectedValue(
-      new CollectionAppClientError('UPSTREAM'),
-    );
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    const stream = streamOf(box, 'COMMIT');
-    expect(stream.lastErrorCode).toBe('PROVIDER_UPSTREAM');
-    expect(stream.lastErrorAt).toBeInstanceOf(Date);
-
-    expect(stream.status).toBe('PENDING');
-  });
-
-  it('팀원 목록 조회가 실패해도 그 사실이 COMMIT stream의 lastErrorCode에 남는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    quietStreams(client);
-    jest
-      .spyOn(
-        CollectionIncrementalStoreRepository.prototype,
-        'listRepositoryTeamMembers',
-      )
-      .mockRejectedValue(new Error('synthetic team member lookup failure'));
-
-    const result = await createService(db, client).run('owner-1');
-
-    expect(result.status).toBe('COMPLETED');
-    const stream = streamOf(box, 'COMMIT');
-
-    expect(stream.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
-    expect(stream.lastErrorAt).toBeInstanceOf(Date);
-
-    expect(
-      box.store.cursors.get('1:org:synthetic-org')?.lastGithubRepositoryId ??
-        null,
-    ).toBeNull();
-  });
-
-  it('provider 오류 종류를 모르면 고정 코드만 남기고 원문 메시지는 담지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-    client.listCommitsUntilKnownSha.mockRejectedValue(
-      new Error('token ghs_must_not_leak leaked in message'),
-    );
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    const stream = streamOf(box, 'COMMIT');
-    expect(stream.lastErrorCode).toBe(DEFAULT_STREAM_ERROR_CODE);
-    expect(
-      JSON.stringify(stream, (_key, value: unknown) =>
-        typeof value === 'bigint' ? value.toString() : value,
-      ),
-    ).not.toContain('ghs_must_not_leak');
-  });
-
-  it('다음 run이 성공하면 남아 있던 오류 표시를 지운다(변경 없는 READY stream 포함)', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-    client.listCommitsUntilKnownSha.mockRejectedValueOnce(
-      new CollectionAppClientError('UPSTREAM'),
-    );
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'head-sha' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    let clock = new Date('2026-08-01T00:00:00.000Z');
-    const service = createService(db, client, { now: () => clock });
-    await service.run('owner-1');
-    expect(streamOf(box, 'COMMIT').lastErrorCode).toBe('PROVIDER_UPSTREAM');
-
-    clock = new Date('2026-08-01T09:00:00.000Z');
-    await service.run('owner-1');
-    expect(streamOf(box, 'COMMIT').lastErrorCode).toBeNull();
-    expect(streamOf(box, 'COMMIT').lastErrorAt).toBeNull();
-
-    await service.run('owner-1');
-    expect(streamOf(box, 'COMMIT').lastErrorCode).toBeNull();
-  });
-
-  it('run budget 소진(deadline)은 오류로 기록하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    quietStreams(client);
-
-    let clock = new Date('2026-08-01T00:00:00.000Z').getTime();
-    client.probeLatestRelease.mockImplementation(() => {
-      clock += 46 * 60_000;
-      return Promise.resolve({
-        changed: true,
-        frontier: null,
-        fingerprint: fingerprint('/repos/o/r/releases'),
-        etag: 'etag-release',
-      });
-    });
-
-    const service = createService(db, client, { now: () => new Date(clock) });
-    const result = await service.run('owner-1');
-
-    expect(result.stoppedForBudget).toBe(true);
-    expect(streamOf(box, 'RELEASE').lastErrorCode ?? null).toBeNull();
-    expect(client.listChangedPublishedReleases).not.toHaveBeenCalled();
-  });
-});
-
-interface SeedMember {
-  githubId: bigint;
-  nickname: string;
-}
-
-const seedOwningRepository = (
-  box: { store: Store },
+const target = (
   githubRepositoryId: bigint,
-  teamId: string | null,
-  members: readonly SeedMember[] = [],
-): void => {
-  box.store.owningRepositories.set(repoKey(githubRepositoryId), {
-    githubRepositoryId,
-    teamId,
-  });
-  members.forEach((member, index) => {
-    const id = `${String(githubRepositoryId)}:${index}`;
-    box.store.teamMembers.set(id, {
-      id,
-      teamId,
-      createdAt: new Date(Date.UTC(2026, 0, index + 1)),
-      user: { githubId: member.githubId, nickname: member.nickname },
-    });
-  });
+  overrides: Partial<CollectionTarget> = {},
+): CollectionTarget => ({
+  id: `repo-${githubRepositoryId}`,
+  githubOrganizationId: 1n,
+  githubRepositoryId,
+  nameWithOwner: `JNU-SWCU/repo-${githubRepositoryId}`,
+  defaultBranch: 'main',
+  archived: false,
+  visibility: 'PRIVATE',
+  presence: 'PRESENT',
+  source: 'ORG_PROVISIONED',
+  lastCompleteInventoryObservedAt: null,
+  teamId: 'team-1',
+  programId: 'program-1',
+  lastSuccessAt: LAST_SUCCESS_AT,
+  ...overrides,
+});
+
+const probeOf = (
+  row: CollectionTarget,
+  activityAt: readonly Date[],
+  overrides: Partial<CollectionRepositoryProbe> = {},
+): CollectionRepositoryProbe => ({
+  githubRepositoryId: row.githubRepositoryId.toString(),
+  nameWithOwner: row.nameWithOwner,
+  defaultBranch: row.defaultBranch,
+  archived: row.archived,
+  private: row.visibility === 'PRIVATE',
+  activityAt,
+  ...overrides,
+});
+
+const contribution = (githubKey: string): CollectionContribution => ({
+  githubKey,
+  authorGithubId: '7',
+  occurredAt: new Date('2026-11-14T08:00:00.000Z'),
+});
+
+const collected = (
+  commit: readonly CollectionContribution[] = [],
+): CollectionRepositoryContributions => ({
+  contributions: { commit, pull_request: [], issue: [], release: [] },
+  requests: 1,
+  pointsUsed: 1,
+  rateLimit: { cost: 1, remaining: 4000 },
+});
+
+const lease: SyncLeaseToken = {
+  appId: 1n,
+  scope: 'org:JNU-SWCU',
+  ownerId: 'owner',
+  epoch: 1n,
+  runId: 'run-1',
+  expiresAt: new Date('2026-11-14T10:10:00.000Z'),
 };
 
-describe('CollectionSyncService — 팀원 단위 author-scoped 커밋 수집', () => {
-  const authoredCommit = (sha: string, login: string, githubId: string) =>
-    commit({ sha, authorLogin: login, authorGithubId: githubId });
-
-  it('팀원 2명 각각에게 author-scoped 호출을 하고 결과를 합쳐 적재한다(저장소 전량 페이징 없음)', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-      { githubId: 22n, nickname: 'bob' },
-    ]);
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockImplementation(
-      (_owner, _repo, _branch, authorNodeId) =>
-        Promise.resolve(
-          authorNodeId === 'node:alice'
-            ? [authoredCommit('sha-alice', 'alice', '11')]
-            : [authoredCommit('sha-bob', 'bob', '22')],
-        ),
-    );
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    expect(client.resolveUserNodeId.mock.calls.map(([login]) => login)).toEqual(
-      ['alice', 'bob'],
-    );
-    expect(
-      client.listDefaultBranchCommitsByAuthor.mock.calls.map(
-        ([owner, name, branch, nodeId]) => [owner, name, branch, nodeId],
-      ),
-    ).toEqual([
-      ['synthetic-org', 'repo', 'main', 'node:alice'],
-      ['synthetic-org', 'repo', 'main', 'node:bob'],
-    ]);
-
-    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
-    expect(client.probeDefaultBranchHead).not.toHaveBeenCalled();
-
-    const facts = [...box.store.commitFacts.values()];
-    expect(facts.map((fact) => fact.sha).sort()).toEqual([
-      'sha-alice',
-      'sha-bob',
-    ]);
-
-    const stream = box.store.streams.get('repo-1:COMMIT');
-    expect(stream?.status).toBe('READY');
-    expect(stream?.frontierSha).toBeNull();
-    expect(stream?.etag).toBeNull();
-  });
-
-  it('오래된 epoch로 진 팀 수집은 이긴 행에 오류를 덮어쓰지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    box.store.streams.set('repo-1:COMMIT', {
-      repositoryId: 'repo-1',
-      streamType: 'COMMIT',
-      status: 'READY',
-      frontierSha: 'old-sha',
-      etag: 'old-etag',
-      lastErrorCode: 'OLD_ERROR',
-      syncEpoch: 4n,
-    });
-    const winner = {
-      repositoryId: 'repo-1',
-      streamType: 'COMMIT',
-      status: 'READY',
-      frontierSha: 'winner-sha',
-      etag: 'winner-etag',
-      lastErrorCode: null,
-      lastErrorAt: null,
-      syncEpoch: 6n,
-    };
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockImplementation(() => {
-      box.store.streams.set('repo-1:COMMIT', { ...winner });
-      return Promise.resolve([authoredCommit('sha-loser', 'alice', '11')]);
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    expect(box.store.streams.get('repo-1:COMMIT')).toMatchObject(winner);
-    expect(
-      [...box.store.commitFacts.values()].map((fact) => fact.sha),
-    ).not.toContain('sha-loser');
-  });
-
-  it('팀이 없는 저장소는 수집하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-
-    seedOwningRepository(box, BigInt(repository.id), null);
-    const client = createClient([repository]);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'head-sha' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    expect(client.listCommitsUntilKnownSha).not.toHaveBeenCalled();
-    expect(client.listDefaultBranchCommitsByAuthor).not.toHaveBeenCalled();
-    expect(client.resolveUserNodeId).not.toHaveBeenCalled();
-    expect(box.store.streams.get('repo-1:COMMIT')).toBeUndefined();
-    expect(box.store.commitFacts.size).toBe(0);
-  });
-
-  it('나중에 합류한 팀원의 과거 이력이 다음 run에 그대로 들어온다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listDefaultBranchCommitsByAuthor.mockImplementation(
-      (_owner, _repo, _branch, authorNodeId) =>
-        Promise.resolve(
-          authorNodeId === 'node:alice'
-            ? [authoredCommit('sha-alice', 'alice', '11')]
-            : [
-                authoredCommit('sha-carol-old', 'carol', '33'),
-                authoredCommit('sha-carol-new', 'carol', '33'),
-              ],
-        ),
-    );
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-    expect([...box.store.commitFacts.values()]).toHaveLength(1);
-
-    box.store.teamMembers.set('later', {
-      id: 'later',
-      teamId: 'team-1',
-      createdAt: new Date(Date.UTC(2026, 5, 1)),
-      user: { githubId: 33n, nickname: 'carol' },
-    });
-    await service.run('owner-1');
-
-    expect(
-      [...box.store.commitFacts.values()].map((fact) => fact.sha).sort(),
-    ).toEqual(['sha-alice', 'sha-carol-new', 'sha-carol-old']);
-
-    expect(box.store.commitFacts.size).toBe(3);
-  });
-
-  it('node id를 못 찾은 팀원만 건너뛰고 나머지 팀원 수집은 계속한다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'ghost' },
-      { githubId: 22n, nickname: 'bob' },
-    ]);
-    const client = createClient([repository]);
-    client.resolveUserNodeId.mockImplementation((login) =>
-      Promise.resolve(login === 'ghost' ? null : `node:${login}`),
-    );
-    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
-      authoredCommit('sha-bob', 'bob', '22'),
-    ]);
-
-    const service = createService(db, client);
-    const result = await service.run('owner-1');
-
-    expect(result.status).toBe('COMPLETED');
-    expect(client.listDefaultBranchCommitsByAuthor).toHaveBeenCalledTimes(1);
-    expect(client.listDefaultBranchCommitsByAuthor.mock.calls[0]?.[3]).toEqual(
-      'node:bob',
-    );
-    expect([...box.store.commitFacts.values()].map((f) => f.sha)).toEqual([
-      'sha-bob',
-    ]);
-
-    expect(
-      box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null,
-    ).toBeNull();
-  });
-});
-
-describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () => {
-  const MEMBER_ID = 11n;
-  const OUTSIDER_ID = '99';
-
-  const pullRequest = (
-    overrides: Partial<CollectionPullRequest> = {},
-  ): CollectionPullRequest => ({
-    id: '400',
-    number: 4,
-    state: 'open',
-    draft: false,
-    mergedAt: null,
-    createdAt: '2026-08-01T00:00:00.000Z',
-    updatedAt: '2026-08-01T00:00:00.000Z',
-    authorLogin: 'alice',
-    authorGithubId: '11',
-    htmlUrl: 'https://example.invalid/pull/4',
-    ...overrides,
-  });
-
-  const release = (
-    overrides: Partial<CollectionRelease> = {},
-  ): CollectionRelease => ({
-    id: '600',
-    tagName: 'v1.0.0',
-    name: 'v1.0.0',
-    publishedAt: '2026-08-01T00:00:00.000Z',
-    authorLogin: 'alice',
-    authorGithubId: '11',
-    htmlUrl: 'https://example.invalid/releases/v1.0.0',
-    ...overrides,
-  });
-
-  const servePullRequests =
-    (all: readonly CollectionPullRequest[]) =>
-    (...args: unknown[]): Promise<PullRequestIncrementalResult> => {
-      const tie = args[2] as { createdAt: string; id: string } | null;
-      const newestFirst = [...all].sort((a, b) => {
-        const byCreatedAt = Date.parse(b.createdAt) - Date.parse(a.createdAt);
-        return byCreatedAt !== 0
-          ? byCreatedAt
-          : Number(BigInt(b.id) - BigInt(a.id));
-      });
-      const fresh =
-        tie === null
-          ? newestFirst
-          : newestFirst.filter((item) =>
-              Date.parse(item.createdAt) === Date.parse(tie.createdAt)
-                ? BigInt(item.id) > BigInt(tie.id)
-                : Date.parse(item.createdAt) > Date.parse(tie.createdAt),
-            );
-      return Promise.resolve({
-        pullRequests: fresh,
-        newFrontier: fresh[0]
-          ? { createdAt: fresh[0].createdAt, id: fresh[0].id }
-          : tie,
-        fingerprint: fingerprint('/repos/o/r/pulls'),
-      });
-    };
-
-  const storedPullRequestAuthors = (box: { store: Store }): unknown[] =>
-    [...box.store.pullRequestFacts.values()].map((fact) => fact.authorGithubId);
-  const storedReleaseAuthors = (box: { store: Store }): unknown[] =>
-    [...box.store.releaseFacts.values()].map((fact) => fact.authorGithubId);
-
-  it('팀원이 만든 PR·릴리스만 적재하고 비팀원 것은 fact에도 집계에도 남기지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listNewPullRequests.mockResolvedValue({
-      pullRequests: [
-        pullRequest({
-          id: '401',
-          authorLogin: 'outsider',
-          authorGithubId: OUTSIDER_ID,
-        }),
-        pullRequest({ id: '400' }),
-      ],
-      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '401' },
-      fingerprint: fingerprint('/repos/o/r/pulls'),
-    });
-    client.probeLatestRelease.mockResolvedValue({
-      changed: true,
-      frontier: { probe: '601:false:2026-08-01T00:00:00.000Z' },
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: 'etag-release-1',
-    });
-    client.listChangedPublishedReleases.mockResolvedValue({
-      releases: [
-        release({
-          id: '601',
-          authorLogin: 'outsider',
-          authorGithubId: OUTSIDER_ID,
-        }),
-        release({ id: '600' }),
-      ],
-      fingerprint: fingerprint('/repos/o/r/releases'),
-    });
-
-    await createService(db, client).run('owner-1');
-
-    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
-    expect(storedReleaseAuthors(box)).toEqual([MEMBER_ID]);
-    expect([...box.store.pullRequestFacts.values()][0]?.authorGithubId).toBe(
-      MEMBER_ID,
-    );
-
-    const storedFacts = [
-      ...box.store.pullRequestFacts.values(),
-      ...box.store.releaseFacts.values(),
-    ]
-      .flatMap((fact) => Object.values(fact).map((value) => String(value)))
-      .join('|');
-    expect(storedFacts).not.toMatch(/outsider/);
-    expect(storedFacts).not.toMatch(/\b99\b/);
-
-    expect(box.store.recomputeCalls).toBe(2);
-  });
-
-  it('작성자를 특정할 수 없는(authorGithubId null) PR·릴리스는 적재하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listNewPullRequests.mockResolvedValue({
-      pullRequests: [
-        pullRequest({ id: '402', authorLogin: null, authorGithubId: null }),
-      ],
-      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '402' },
-      fingerprint: fingerprint('/repos/o/r/pulls'),
-    });
-    client.probeLatestRelease.mockResolvedValue({
-      changed: true,
-      frontier: { probe: '602:false:2026-08-01T00:00:00.000Z' },
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: 'etag-release-1',
-    });
-    client.listChangedPublishedReleases.mockResolvedValue({
-      releases: [
-        release({ id: '602', authorLogin: null, authorGithubId: null }),
-      ],
-      fingerprint: fingerprint('/repos/o/r/releases'),
-    });
-
-    await createService(db, client).run('owner-1');
-
-    expect(box.store.pullRequestFacts.size).toBe(0);
-    expect(box.store.releaseFacts.size).toBe(0);
-
-    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.status).toBe('READY');
-    expect(box.store.streams.get('repo-1:RELEASE')?.status).toBe('READY');
-  });
-
-  it('PR 커서는 거른 항목 위로 전진한다 — 다음 run이 같은 PR을 다시 받지 않고 새 PR만 받는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    const memberOld = pullRequest({
-      id: '400',
-      createdAt: '2026-08-01T00:00:00.000Z',
-    });
-
-    const outsiderNewest = pullRequest({
-      id: '401',
-      createdAt: '2026-08-02T00:00:00.000Z',
-      authorLogin: 'outsider',
-      authorGithubId: OUTSIDER_ID,
-    });
-    const served = [memberOld, outsiderNewest];
-    client.listNewPullRequests.mockImplementation(servePullRequests(served));
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-
-    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
-    const afterFirst = box.store.streams.get('repo-1:PULL_REQUEST');
-
-    expect(afterFirst?.frontierEntityId).toBe(401n);
-    expect(afterFirst?.frontierCreatedAt).toEqual(
-      new Date('2026-08-02T00:00:00.000Z'),
-    );
-
-    served.push(
-      pullRequest({ id: '402', createdAt: '2026-08-03T00:00:00.000Z' }),
-    );
-    await service.run('owner-1');
-
-    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toEqual({
-      createdAt: '2026-08-02T00:00:00.000Z',
-      id: '401',
-    });
-
-    expect(
-      [...box.store.pullRequestFacts.values()]
-        .map((fact) => String(fact.githubPullRequestId))
-        .sort(),
-    ).toEqual(['400', '402']);
-    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierEntityId).toBe(
-      402n,
-    );
-  });
-
-  it('READY stream이 받은 페이지가 전부 비팀원이어도 커서가 전진한다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    const memberSeed = pullRequest({
-      id: '400',
-      createdAt: '2026-08-01T00:00:00.000Z',
-    });
-    const served = [memberSeed];
-    client.listNewPullRequests.mockImplementation(servePullRequests(served));
-
-    const service = createService(db, client);
-
-    await service.run('owner-1');
-    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierEntityId).toBe(
-      400n,
-    );
-
-    served.push(
-      pullRequest({
-        id: '401',
-        createdAt: '2026-08-02T00:00:00.000Z',
-        authorLogin: 'outsider',
-        authorGithubId: OUTSIDER_ID,
-      }),
-      pullRequest({
-        id: '402',
-        createdAt: '2026-08-03T00:00:00.000Z',
-        authorLogin: 'outsider2',
-        authorGithubId: '98',
-      }),
-    );
-    await service.run('owner-1');
-
-    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
-    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierEntityId).toBe(
-      402n,
-    );
-
-    served.push(
-      pullRequest({ id: '403', createdAt: '2026-08-04T00:00:00.000Z' }),
-    );
-    await service.run('owner-1');
-
-    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toEqual({
-      createdAt: '2026-08-03T00:00:00.000Z',
-      id: '402',
-    });
-    expect(
-      [...box.store.pullRequestFacts.values()]
-        .map((fact) => String(fact.githubPullRequestId))
-        .sort(),
-    ).toEqual(['400', '403']);
-  });
-
-  it('릴리스 frontierSha는 목록이 아니라 probe가 준 값이다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.probeLatestRelease.mockResolvedValue({
-      changed: true,
-      frontier: { probe: '699:false:2026-08-09T00:00:00.000Z' },
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: 'etag-release-probe',
-    });
-
-    client.listChangedPublishedReleases.mockResolvedValue({
-      releases: [
-        release({
-          id: '601',
-          authorLogin: 'outsider',
-          authorGithubId: OUTSIDER_ID,
-        }),
-      ],
-      fingerprint: fingerprint('/repos/o/r/releases'),
-    });
-
-    await createService(db, client).run('owner-1');
-
-    const stream = box.store.streams.get('repo-1:RELEASE');
-
-    expect(stream?.frontierSha).toBe('699:false:2026-08-09T00:00:00.000Z');
-    expect(stream?.etag).toBe('etag-release-probe');
-    expect(box.store.releaseFacts.size).toBe(0);
-  });
-
-  it('릴리스를 전부 걸러도 ETag가 전진해 다음 run이 목록을 다시 받지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.probeLatestRelease
-      .mockResolvedValueOnce({
-        changed: true,
-        frontier: { probe: '601:false:2026-08-01T00:00:00.000Z' },
-        fingerprint: fingerprint('/repos/o/r/releases'),
-        etag: 'etag-release-1',
-      })
-
-      .mockResolvedValueOnce({
-        changed: false,
-        fingerprint: fingerprint('/repos/o/r/releases'),
-        etag: 'etag-release-1',
-      });
-    client.listChangedPublishedReleases.mockResolvedValue({
-      releases: [
-        release({
-          id: '601',
-          authorLogin: 'outsider',
-          authorGithubId: OUTSIDER_ID,
-        }),
-      ],
-      fingerprint: fingerprint('/repos/o/r/releases'),
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-    await service.run('owner-1');
-
-    expect(box.store.releaseFacts.size).toBe(0);
-    expect(box.store.streams.get('repo-1:RELEASE')?.etag).toBe(
-      'etag-release-1',
-    );
-
-    expect(client.probeLatestRelease.mock.calls[1]?.[2]).toBe('etag-release-1');
-    expect(client.listChangedPublishedReleases).toHaveBeenCalledTimes(1);
-  });
-
-  it('나중에 합류한 팀원의 과거 PR·릴리스를 다음 sweep에 한 번만 백필한다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    const carolPullRequest = pullRequest({
-      id: '410',
-      createdAt: '2026-07-01T00:00:00.000Z',
-      authorLogin: 'carol',
-      authorGithubId: '33',
-    });
-    client.listNewPullRequests.mockImplementation(
-      servePullRequests([carolPullRequest]),
-    );
-    client.probeLatestRelease.mockResolvedValue({
-      changed: true,
-      frontier: { probe: '610:false:2026-07-01T00:00:00.000Z' },
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: null,
-    });
-    client.listChangedPublishedReleases.mockResolvedValue({
-      releases: [
-        release({
-          id: '610',
-          publishedAt: '2026-07-01T00:00:00.000Z',
-          authorLogin: 'carol',
-          authorGithubId: '33',
-        }),
-      ],
-      fingerprint: fingerprint('/repos/o/r/releases'),
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-    expect(box.store.pullRequestFacts.size).toBe(0);
-    expect(box.store.releaseFacts.size).toBe(0);
-    expect(client.listNewPullRequests.mock.calls[0]?.[2]).toBeNull();
-
-    box.store.teamMembers.set('later', {
-      id: 'later',
-      teamId: 'team-1',
-      createdAt: new Date(Date.UTC(2026, 6, 15)),
-      user: { githubId: 33n, nickname: 'carol' },
-    });
-    await service.run('owner-1');
-
-    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
-    expect(storedPullRequestAuthors(box)).toEqual([33n]);
-
-    expect(storedReleaseAuthors(box)).toEqual([33n]);
-
-    await service.run('owner-1');
-
-    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toEqual({
-      createdAt: '2026-07-01T00:00:00.000Z',
-      id: '410',
-    });
-    expect(box.store.pullRequestFacts.size).toBe(1);
-  });
-
-  it('run snapshot 뒤 가입한 팀원은 처리 표식에서 빼 다음 run에 과거 PR을 백필한다', async () => {
-    const { db, box, control } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const davePullRequest = pullRequest({
-      id: '420',
-      createdAt: '2026-06-01T00:00:00.000Z',
-      authorLogin: 'dave',
-      authorGithubId: '44',
-    });
-    const client = createClient([repository]);
-    client.listNewPullRequests.mockImplementation(
-      servePullRequests([davePullRequest]),
-    );
-    client.getRepository.mockImplementationOnce(() => {
-      box.store.teamMembers.set('joined-after-snapshot', {
-        id: 'joined-after-snapshot',
-        teamId: 'team-1',
-        createdAt: new Date(Date.UTC(2026, 5, 1)),
-        user: { githubId: 44n, nickname: 'dave' },
-      });
-      return Promise.resolve(repository);
-    });
-
-    const service = createService(db, client);
-    await service.run('owner-1');
-    expect(storedPullRequestAuthors(box)).toEqual([]);
-
-    control.registeredGithubIds.add(44n);
-    await service.run('owner-1');
-
-    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
-    expect(storedPullRequestAuthors(box)).toEqual([44n]);
-  });
-
-  it('기존 READY PR stream의 null 팀원 표식을 한 번 repair하고 다음 sweep은 증분으로 돌아간다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    const served = [
-      pullRequest({ id: '400' }),
-      pullRequest({
-        id: '401',
-        createdAt: '2026-08-02T00:00:00.000Z',
-        authorLogin: 'outsider',
-        authorGithubId: OUTSIDER_ID,
-      }),
-    ];
-    client.listNewPullRequests.mockImplementation(servePullRequests(served));
-    const service = createService(db, client);
-
-    await service.run('owner-1');
-    const streamKey = 'repo-1:PULL_REQUEST';
-    const current = box.store.streams.get(streamKey);
-    expect(current?.frontierSha).toMatch(/^team-members:v1:[0-9a-f]{64}$/);
-
-    box.store.streams.set(streamKey, { ...current, frontierSha: null });
-    box.store.pullRequestFacts.clear();
-
-    await service.run('owner-1');
-    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
-    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
-    expect(box.store.streams.get(streamKey)?.frontierSha).toMatch(
-      /^team-members:v1:[0-9a-f]{64}$/,
-    );
-
-    await service.run('owner-1');
-    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toEqual({
-      createdAt: '2026-08-02T00:00:00.000Z',
-      id: '401',
-    });
-  });
-
-  it('팀원 fingerprint는 조회 순서에는 불변이고 같은 인원수의 계정 교체에는 변한다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-      { githubId: 22n, nickname: 'bob' },
-    ]);
-    const client = createClient([repository]);
-    client.listNewPullRequests.mockImplementation(
-      servePullRequests([pullRequest({ id: '400' })]),
-    );
-    const service = createService(db, client);
-
-    await service.run('owner-1');
-    const initialMarker = box.store.streams.get(
-      'repo-1:PULL_REQUEST',
-    )?.frontierSha;
-
-    const reversed = [...box.store.teamMembers.entries()].reverse();
-    box.store.teamMembers.clear();
-    for (const [id, member] of reversed) box.store.teamMembers.set(id, member);
-    await service.run('owner-1');
-    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toEqual({
-      createdAt: '2026-08-01T00:00:00.000Z',
-      id: '400',
-    });
-    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierSha).toBe(
-      initialMarker,
-    );
-
-    box.store.teamMembers.delete(`${String(repository.id)}:1`);
-    box.store.teamMembers.set('same-count-replacement', {
-      id: 'same-count-replacement',
-      teamId: 'team-1',
-      createdAt: new Date(Date.UTC(2026, 6, 15)),
-      user: { githubId: 33n, nickname: 'carol' },
-    });
-    await service.run('owner-1');
-    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toBeNull();
-    expect(box.store.streams.get('repo-1:PULL_REQUEST')?.frontierSha).not.toBe(
-      initialMarker,
-    );
-  });
-
-  it('팀원 변화 repair 중 PR fact 저장이 실패하면 marker와 tie를 함께 롤백하고 재시도한다', async () => {
-    const { db, box, control } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: MEMBER_ID, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    const served = [pullRequest({ id: '400' })];
-    client.listNewPullRequests.mockImplementation(servePullRequests(served));
-
-    let clock = new Date('2026-08-01T00:00:00.000Z');
-    const service = createService(db, client, { now: () => clock });
-
-    await service.run('owner-1');
-    const streamKey = 'repo-1:PULL_REQUEST';
-    const before = box.store.streams.get(streamKey);
-    box.store.teamMembers.set('later', {
-      id: 'later',
-      teamId: 'team-1',
-      createdAt: new Date(Date.UTC(2026, 6, 15)),
-      user: { githubId: 33n, nickname: 'carol' },
-    });
-    served.push(
-      pullRequest({
-        id: '410',
-        createdAt: '2026-07-01T00:00:00.000Z',
-        authorLogin: 'carol',
-        authorGithubId: '33',
-      }),
-    );
-    control.failPullRequestIds.add(410n);
-
-    clock = new Date('2026-08-03T09:00:00.000Z');
-    await service.run('owner-1');
-    expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();
-    expect(box.store.streams.get(streamKey)?.frontierSha).toBe(
-      before?.frontierSha,
-    );
-    expect(box.store.streams.get(streamKey)?.frontierEntityId).toBe(
-      before?.frontierEntityId,
-    );
-    expect(storedPullRequestAuthors(box)).toEqual([MEMBER_ID]);
-
-    control.failPullRequestIds.delete(410n);
-    clock = new Date('2026-08-04T09:00:00.000Z');
-    await service.run('owner-1');
-    expect(client.listNewPullRequests.mock.calls[2]?.[2]).toBeNull();
-    expect(storedPullRequestAuthors(box).sort()).toEqual([11n, 33n]);
-    expect(box.store.streams.get(streamKey)?.frontierSha).not.toBe(
-      before?.frontierSha,
-    );
-  });
-
-  it('팀을 특정할 수 없는 저장소는 provider 전량을 읽되 중앙 writer가 가입자만 적재한다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-
-    const client = createClient([repository]);
-    client.listNewPullRequests.mockResolvedValue({
-      pullRequests: [
-        pullRequest({
-          id: '401',
-          authorLogin: 'outsider',
-          authorGithubId: OUTSIDER_ID,
-        }),
-        pullRequest({
-          id: '402',
-          authorLogin: 'unregistered-outsider',
-          authorGithubId: '999',
-        }),
-      ],
-      newFrontier: { createdAt: '2026-08-01T00:00:00.000Z', id: '401' },
-      fingerprint: fingerprint('/repos/o/r/pulls'),
-    });
-    client.probeLatestRelease.mockResolvedValue({
-      changed: true,
-      frontier: { probe: '601:false:2026-08-01T00:00:00.000Z' },
-      fingerprint: fingerprint('/repos/o/r/releases'),
-      etag: 'etag-release-1',
-    });
-    client.listChangedPublishedReleases.mockResolvedValue({
-      releases: [
-        release({
-          id: '601',
-          authorLogin: 'outsider',
-          authorGithubId: OUTSIDER_ID,
-        }),
-        release({
-          id: '602',
-          authorLogin: 'unregistered-outsider',
-          authorGithubId: '999',
-        }),
-      ],
-      fingerprint: fingerprint('/repos/o/r/releases'),
-    });
-
-    await createService(db, client).run('owner-1');
-
-    expect(storedPullRequestAuthors(box)).toEqual([99n]);
-    expect(storedReleaseAuthors(box)).toEqual([99n]);
-  });
-});
-
-describe('CollectionSyncService — Issue stream(#1133)', () => {
-  type ListingItem = CollectionIssue & { pullRequest?: boolean };
-
-  const issue = (overrides: Partial<ListingItem> = {}): ListingItem => ({
-    id: '800',
-    state: 'open',
-    createdAt: '2026-08-01T00:00:00.000Z',
-    authorLogin: 'alice',
-    authorGithubId: '11',
-    ...overrides,
-  });
-
-  const serveIssueListing =
-    (listing: readonly ListingItem[]) =>
-    (...args: unknown[]): Promise<IssueIncrementalResult> => {
-      const tie = args[2] as { createdAt: string; id: string } | null;
-      const fresh = [...listing]
-        .sort((a, b) => {
-          const byCreatedAt = Date.parse(b.createdAt) - Date.parse(a.createdAt);
-          return byCreatedAt !== 0
-            ? byCreatedAt
-            : Number(BigInt(b.id) - BigInt(a.id));
-        })
-        .filter(
-          (item) =>
-            tie === null ||
-            (Date.parse(item.createdAt) === Date.parse(tie.createdAt)
-              ? BigInt(item.id) > BigInt(tie.id)
-              : Date.parse(item.createdAt) > Date.parse(tie.createdAt)),
+function setup(targets: CollectionTarget[]) {
+  const store = {
+    assertSyncLeaseValid: jest.fn<Promise<void>, [SyncLeaseToken, Date]>(),
+    recordContributions: jest.fn<
+      Promise<RecordContributionsResult>,
+      [string, CollectionContributionKind, readonly CollectionContribution[]]
+    >((_, __, facts) =>
+      Promise.resolve({ inserted: facts.length, authorFilled: 0 }),
+    ),
+    recordRepositorySuccess: jest.fn<
+      Promise<void>,
+      [readonly bigint[], Date]
+    >(),
+    refreshRepositoryObservation: jest.fn(
+      (input: {
+        source: RepositorySource;
+        githubRepositoryId: bigint;
+        nameWithOwner: string;
+        defaultBranch: string | null;
+        archived: boolean;
+        visibility: 'PRIVATE' | 'PUBLIC';
+        observedAt: Date;
+      }): Promise<CollectionRepositoryRow | null> => {
+        const row = targets.find(
+          (item) => item.githubRepositoryId === input.githubRepositoryId,
         );
-      return Promise.resolve({
-        issues: fresh.filter((item) => !item.pullRequest),
-        newFrontier: fresh[0]
-          ? { createdAt: fresh[0].createdAt, id: fresh[0].id }
-          : tie,
-        fingerprint: fingerprint('/repos/o/r/issues'),
-      });
-    };
-
-  const storedIssueIds = (box: { store: Store }): string[] =>
-    [...box.store.issueFacts.values()]
-      .map((fact) => String(fact.githubIssueId))
-      .sort();
-
-  it('팀원 issue만 적재하고 비팀원·작성자 불명 issue는 fact로 남기지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listNewIssues.mockImplementation(
-      serveIssueListing([
-        issue({ id: '800' }),
-
-        issue({ id: '801', authorLogin: 'outsider', authorGithubId: '99' }),
-        issue({ id: '802', authorLogin: null, authorGithubId: null }),
-      ]),
-    );
-
-    const result = await createService(db, client).run('owner-1');
-
-    expect(storedIssueIds(box)).toEqual(['800']);
-    expect([...box.store.issueFacts.values()][0]).toMatchObject({
-      authorGithubId: 11n,
-      createdAt: new Date('2026-08-01T00:00:00.000Z'),
-    });
-
-    expect(result.insertedFactCount).toBe(1);
-    const stream = box.store.streams.get('repo-1:ISSUE');
-    expect(stream?.status).toBe('READY');
-
-    expect(stream?.frontierEntityId).toBe(802n);
-  });
-
-  it('새로 읽힌 원본이 PR뿐이어도 Issue 커서가 전진해 다음 sweep이 같은 페이지를 다시 받지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    const listing = [issue({ id: '800' })];
-    client.listNewIssues.mockImplementation(serveIssueListing(listing));
-    const service = createService(db, client);
-
-    await service.run('owner-1');
-    expect(box.store.streams.get('repo-1:ISSUE')?.frontierEntityId).toBe(800n);
-
-    listing.push(
-      issue({
-        id: '801',
-        createdAt: '2026-08-02T00:00:00.000Z',
-        pullRequest: true,
-      }),
-      issue({
-        id: '802',
-        createdAt: '2026-08-03T00:00:00.000Z',
-        pullRequest: true,
-      }),
-    );
-    await service.run('owner-1');
-    const afterPullRequests = box.store.streams.get('repo-1:ISSUE');
-    expect(afterPullRequests?.frontierEntityId).toBe(802n);
-    expect(afterPullRequests?.frontierCreatedAt).toEqual(
-      new Date('2026-08-03T00:00:00.000Z'),
-    );
-    expect(storedIssueIds(box)).toEqual(['800']);
-
-    await service.run('owner-1');
-    expect(client.listNewIssues.mock.calls[2]?.[2]).toEqual({
-      createdAt: '2026-08-03T00:00:00.000Z',
-      id: '802',
-    });
-  });
-
-  it('팀원 구성이 바뀐 sweep은 Issue 커서를 버리고 한 번 전부 다시 읽은 뒤 증분으로 돌아간다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    seedOwningRepository(box, BigInt(repository.id), 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([repository]);
-    client.listNewIssues.mockImplementation(
-      serveIssueListing([
-        issue({ id: '800' }),
-        issue({
-          id: '790',
-          createdAt: '2026-07-01T00:00:00.000Z',
-          authorLogin: 'carol',
-          authorGithubId: '33',
+        return Promise.resolve(
+          row === undefined
+            ? null
+            : {
+                ...row,
+                nameWithOwner: input.nameWithOwner,
+                defaultBranch: input.defaultBranch,
+                archived: input.archived,
+                visibility: input.visibility,
+              },
+        );
+      },
+    ),
+    markRepositoryGone: jest.fn<
+      Promise<void>,
+      [bigint, Date, RepositorySource]
+    >(),
+  };
+  const repository = {
+    ...store,
+    runInTransaction: jest.fn(<T>(fn: (tx: typeof store) => Promise<T>) =>
+      fn(store),
+    ),
+    listCollectionTargets: jest.fn((source: RepositorySource) =>
+      Promise.resolve(targets.filter((item) => item.source === source)),
+    ),
+    findCollectionTargetByLogicalKey: jest.fn((id: bigint) =>
+      Promise.resolve(
+        targets.find((item) => item.githubRepositoryId === id) ?? null,
+      ),
+    ),
+    acquireSyncLease: jest.fn<Promise<SyncLeaseToken | null>, [unknown]>(() =>
+      Promise.resolve(lease),
+    ),
+    heartbeatSyncLease: jest.fn(() => Promise.resolve()),
+    releaseSyncLease: jest.fn(() => Promise.resolve()),
+  };
+  const client = {
+    probeRepositories: jest.fn(
+      (
+        probeTargets: readonly CollectionProbeTarget[],
+      ): Promise<CollectionProbeResult> =>
+        Promise.resolve({
+          repositories: probeTargets.map((probeTarget) => {
+            const row = targets.find(
+              (item) =>
+                item.nameWithOwner ===
+                `${probeTarget.owner}/${probeTarget.name}`,
+            );
+            return row === undefined ? null : probeOf(row, []);
+          }),
+          rateLimit: { cost: 1, remaining: 4999 },
         }),
-      ]),
-    );
-    const service = createService(db, client);
+    ),
+    getRepositoryById: jest.fn<Promise<CollectionRepository>, [bigint]>(),
+    collectRepositoryContributions: jest.fn<
+      Promise<CollectionRepositoryContributions>,
+      [string, string, string | null, Date | null]
+    >(() => Promise.resolve(collected([contribution('sha-1')]))),
+  };
+  const queue = { shouldStop: jest.fn(() => false) };
+  const runtime: CollectionSyncRuntime = {
+    appId: '1',
+    organizationLogin: 'JNU-SWCU',
+    tokens: {} as CollectionAppTokenClient,
+    client: client as unknown as CollectionAppClient,
+    queue: queue as unknown as ProviderRequestQueueClient,
+  };
+  const service = new CollectionSyncService(
+    repository as unknown as SyncRepository,
+    () => runtime,
+    new RepositoryUrlService(),
+    () => new Date(STARTED_AT),
+    () => 'run-1',
+    () => ({ ...runtime, organizationLogin: 'external' }),
+  );
+  return { service, store, repository, client, queue };
+}
 
-    await service.run('owner-1');
-    expect(client.listNewIssues.mock.calls[0]?.[2]).toBeNull();
-    expect(storedIssueIds(box)).toEqual(['800']);
+const summaryOf = (logger: jest.SpyInstance) =>
+  (logger.mock.calls as [Record<string, unknown>][])
+    .map(([entry]) => entry)
+    .find((entry) => entry.event === 'collection.cycle.summary');
 
-    box.store.teamMembers.set('later', {
-      id: 'later',
-      teamId: 'team-1',
-      createdAt: new Date(Date.UTC(2026, 6, 15)),
-      user: { githubId: 33n, nickname: 'carol' },
-    });
-    await service.run('owner-1');
+describe('CollectionSyncService probe/collect', () => {
+  let logger: jest.SpyInstance;
 
-    expect(client.listNewIssues.mock.calls[1]?.[2]).toBeNull();
-    expect(storedIssueIds(box)).toEqual(['790', '800']);
-    expect(box.store.streams.get('repo-1:ISSUE')?.frontierSha).toMatch(
-      /^team-members:v1:[0-9a-f]{64}$/,
-    );
-
-    await service.run('owner-1');
-    expect(client.listNewIssues.mock.calls[2]?.[2]).toEqual({
-      createdAt: '2026-08-01T00:00:00.000Z',
-      id: '800',
-    });
+  beforeEach(() => {
+    logger = jest
+      .spyOn(Logger.prototype, 'log')
+      .mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'warn').mockImplementation(() => undefined);
+    jest.spyOn(Logger.prototype, 'error').mockImplementation(() => undefined);
   });
 
-  it('Issue 권한이 없으면 오류는 ISSUE 행에만 남고 저장소는 실패로 세지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    const repository = providerRepository();
-    const client = createClient([repository]);
-    client.listCommitsUntilKnownSha.mockResolvedValue({
-      commits: [commit({ sha: 'sha-kept' })],
-      disconnectedFullScan: true,
-      fingerprint: fingerprint('/repos/o/r/commits'),
-    });
-
-    client.listNewIssues.mockRejectedValue(
-      new CollectionAppClientError('PERMISSION'),
-    );
-
-    const result = await createService(db, client).run('owner-1');
-
-    expect(result.status).toBe('COMPLETED');
-    expect(result.processedRepositoryCount).toBe(1);
-    expect([...box.store.commitFacts.values()].map((fact) => fact.sha)).toEqual(
-      ['sha-kept'],
-    );
-    expect(box.store.streams.get('repo-1:ISSUE')?.lastErrorCode).toBe(
-      'PROVIDER_PERMISSION',
-    );
-
-    expect(box.store.repositories.get(repoKey(100n))?.failureCount ?? 0).toBe(
-      0,
-    );
-    expect(box.store.streams.get('repo-1:COMMIT')?.lastErrorCode ?? null).toBe(
-      null,
-    );
-
-    expect(box.store.repositories.get(repoKey(100n))?.visibility).toBe(
-      'PUBLIC',
-    );
-  });
-
-  it('Issue 목록의 다른 오류는 다른 stream처럼 저장소 실패로 센다', async () => {
-    const { db, box } = createFakeDb();
-    const client = createClient([providerRepository()]);
-    client.listNewIssues.mockRejectedValue(
-      new CollectionAppClientError('UPSTREAM'),
-    );
-
-    const result = await createService(db, client).run('owner-1');
-
-    expect(result.processedRepositoryCount).toBe(0);
-    expect(box.store.streams.get('repo-1:ISSUE')?.lastErrorCode).toBe(
-      'PROVIDER_UPSTREAM',
-    );
-    expect(box.store.repositories.get(repoKey(100n))?.failureCount).toBe(1);
-  });
-});
-
-describe('CollectionSyncService — 실패 저장소 격리 (DD1)', () => {
-  function failingFirstClient(
-    repositories: ReturnType<typeof providerRepository>[],
-  ): ClientMock {
-    const client = createClient(repositories);
-    client.listCommitsUntilKnownSha.mockImplementation(
-      (_owner: string, repo: string) =>
-        repo === 'repo-broken'
-          ? Promise.reject(new Error('upstream is broken'))
-          : Promise.resolve({
-              commits: [],
-              disconnectedFullScan: false,
-              fingerprint: fingerprint('/repos/o/r/commits'),
-            }),
-    );
-    return client;
-  }
-
-  it('앞선 저장소가 실패해도 뒤의 저장소를 계속 처리한다', async () => {
-    const { db, box } = createFakeDb();
-    const repositories = [
-      providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
-      providerRepository({
-        id: '1002',
-        fullName: 'synthetic-org/repo-healthy',
-      }),
-    ];
-    seedRegisteredRepositories(box, repositories);
-    const service = createService(db, failingFirstClient(repositories));
-
-    const result = await service.run('synthetic-org');
-
-    expect(result.processedRepositoryCount).toBe(1);
-
-    expect(result.cycleCompleted).toBe(true);
-    const cursor = [...box.store.cursors.values()][0];
-    expect(cursor?.lastGithubRepositoryId).toBeNull();
-  });
-
-  it('실패 저장소는 failureCount 와 nextRunAt 백오프로 되돌아올 약속을 남긴다', async () => {
-    const { db, box } = createFakeDb();
-    const repositories = [
-      providerRepository({ id: '1001', fullName: 'synthetic-org/repo-broken' }),
-      providerRepository({
-        id: '1002',
-        fullName: 'synthetic-org/repo-healthy',
-      }),
-    ];
-    seedRegisteredRepositories(box, repositories);
-    const service = createService(db, failingFirstClient(repositories));
-
-    await service.run('synthetic-org');
-
-    const rows = [...box.store.repositories.values()];
-    const broken = rows.find(
-      (row) => row.nameWithOwner === 'synthetic-org/repo-broken',
-    );
-    const healthy = rows.find(
-      (row) => row.nameWithOwner === 'synthetic-org/repo-healthy',
-    );
-
-    expect(broken?.failureCount).toBe(1);
-    expect(broken?.nextRunAt).toBeInstanceOf(Date);
-
-    const healthyNext = healthy?.nextRunAt as Date;
-    expect((broken?.nextRunAt as Date).getTime()).toBeGreaterThan(
-      healthyNext.getTime(),
-    );
-
-    expect(healthy?.failureCount).toBe(0);
-    expect(healthy?.lastSuccessAt).toBeInstanceOf(Date);
-  });
-});
-
-describe('CollectionSyncService — 연결 직후 저장소 1건 수집 (runRepository)', () => {
-  const NOW = new Date('2026-08-01T00:00:00.000Z');
-  const ORG_LEASE = cursorKey(1n, 'org:synthetic-org');
-  const linkedRow = (overrides: Row = {}): Row => ({
-    id: 'repo-linked',
-    githubOrganizationId: GITHUB_ORG_ID,
-    githubRepositoryId: 100n,
-    nameWithOwner: 'synthetic-org/linked',
-    defaultBranch: 'main',
-    archived: false,
-    visibility: 'PRIVATE',
-    presence: 'PRESENT',
-    source: 'ORG_PROVISIONED',
-    lastCompleteInventoryObservedAt: new Date('2026-07-01T00:00:00.000Z'),
-    teamId: 'application-1',
-    ...overrides,
-  });
-  const providerCallCount = (client: ClientMock): number =>
-    (Object.values(client) as jest.Mock[]).reduce<number>(
-      (total, mock) => total + mock.mock.calls.length,
-      0,
-    );
-
-  it('연결된 조직 저장소를 sweep cursor 없이 바로 수집한다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(100n), linkedRow());
-    seedOwningRepository(box, 100n, 'team-1', [
-      { githubId: 11n, nickname: 'alice' },
-    ]);
-    const client = createClient([]);
-    client.listDefaultBranchCommitsByAuthor.mockResolvedValue([
-      commit({ sha: 'sha-linked', authorLogin: 'alice', authorGithubId: '11' }),
-    ]);
-
-    const result = await createService(db, client).runRepository(
-      'owner-link',
-      100n,
-    );
-
-    expect(result).toMatchObject({
-      status: 'COMPLETED',
-      processedRepositoryCount: 1,
-      insertedFactCount: 1,
-    });
-    expect(client.listInstallationRepositories).not.toHaveBeenCalled();
-    expect([...box.store.commitFacts.values()]).toEqual([
-      expect.objectContaining({
-        repositoryId: 'repo-linked',
-        sha: 'sha-linked',
-      }),
-    ]);
-    expect(box.store.repositories.get(repoKey(100n))).toMatchObject({
-      failureCount: 0,
-      lastSuccessAt: NOW,
-    });
-    expect(box.store.cursors.size).toBe(0);
-
-    expect(box.store.leases.get(ORG_LEASE)).toMatchObject({ expiresAt: NOW });
-  });
-
-  it('sweep이 scope lease를 쥐고 있으면 provider를 부르지 않고 SKIPPED_LEASE_HELD다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(100n), linkedRow());
-    box.store.leases.set(ORG_LEASE, {
-      appId: 1n,
-      scope: 'org:synthetic-org',
-      ownerId: 'scheduler:sweep',
-      epoch: 1n,
-      runId: 'sweep-run',
-      expiresAt: new Date(NOW.getTime() + 60_000),
-    });
-    const client = createClient([]);
-
-    const result = await createService(db, client).runRepository(
-      'owner-link',
-      100n,
-    );
-
-    expect(result.status).toBe('SKIPPED_LEASE_HELD');
-    expect(providerCallCount(client)).toBe(0);
-    expect(box.store.leases.get(ORG_LEASE)).toMatchObject({
-      runId: 'sweep-run',
-    });
-  });
+  afterEach(() => jest.restoreAllMocks());
 
   it.each([
     [
-      '조직 밖 비공개 저장소',
-      {
-        source: 'EXTERNAL_PUBLIC',
-        visibility: 'PRIVATE',
-        githubOrganizationId: null,
-      },
+      '활동이 last_success_at 이후',
+      [new Date('2026-11-14T09:00:00.001Z')],
+      true,
     ],
-    ['기본 브랜치를 아직 모르는 저장소', { defaultBranch: null }],
-    ['연결이 풀리고 팀 이력만 남은 저장소', { teamId: null }],
-    [
-      '프로그램 삭제로 연결이 모두 풀린 조직 밖 저장소',
-      {
-        source: 'EXTERNAL_PUBLIC',
-        visibility: 'PUBLIC',
-        githubOrganizationId: null,
-        teamId: null,
-        programId: null,
-      },
-    ],
-    ['사라진 저장소', { presence: 'ABSENT' }],
-  ])(
-    '%s는 lease도 provider도 건드리지 않고 SKIPPED다',
-    async (_label, overrides) => {
-      const { db, box } = createFakeDb();
-      box.store.repositories.set(repoKey(100n), linkedRow(overrides));
-      const client = createClient([]);
+    ['활동이 last_success_at과 같음', [LAST_SUCCESS_AT], false],
+    ['활동이 없음', [], false],
+  ])('%s이면 수집 여부가 %s', async (_label, activityAt, collect) => {
+    const row = target(1n);
+    const { service, client, store } = setup([row]);
+    client.probeRepositories.mockResolvedValue({
+      repositories: [probeOf(row, activityAt)],
+      rateLimit: null,
+    });
 
-      const result = await createServiceWithExternal(db, client).runRepository(
-        'owner-link',
-        100n,
+    await expect(service.run('owner')).resolves.toMatchObject({
+      status: 'COMPLETED',
+      processedRepositoryCount: collect ? 1 : 0,
+    });
+
+    expect(client.collectRepositoryContributions).toHaveBeenCalledTimes(
+      collect ? 1 : 0,
+    );
+    expect(store.recordRepositorySuccess).toHaveBeenCalledWith(
+      [1n],
+      SUCCEEDED_AT,
+    );
+  });
+
+  it('last_success_at이 비어 있으면 활동이 없어도 수집한다', async () => {
+    const row = target(1n, { lastSuccessAt: null });
+    const { service, client } = setup([row]);
+
+    await service.run('owner');
+
+    expect(client.collectRepositoryContributions).toHaveBeenCalledWith(
+      'JNU-SWCU',
+      'repo-1',
+      'main',
+      HOURLY_SINCE,
+    );
+  });
+
+  it('수집 성공은 네 종류 기여를 기록하고 같은 트랜잭션에서 last_success_at을 probe 시작 5분 전으로 올린다', async () => {
+    const row = target(1n, { lastSuccessAt: null });
+    const { service, store } = setup([row]);
+
+    await expect(service.run('owner')).resolves.toMatchObject({
+      insertedFactCount: 1,
+    });
+
+    expect(store.recordContributions.mock.calls.map((call) => call[1])).toEqual(
+      ['commit', 'pull_request', 'issue', 'release'],
+    );
+    expect(store.recordContributions).toHaveBeenCalledWith('repo-1', 'commit', [
+      contribution('sha-1'),
+    ]);
+    expect(store.recordRepositorySuccess).toHaveBeenCalledTimes(1);
+    expect(store.recordRepositorySuccess).toHaveBeenCalledWith(
+      [1n],
+      SUCCEEDED_AT,
+    );
+  });
+
+  it('저장소 100개마다 probe 요청을 하나씩 보낸다', async () => {
+    const rows = Array.from({ length: 150 }, (_, index) =>
+      target(BigInt(index + 1)),
+    );
+    const { service, client, store } = setup(rows);
+
+    await service.run('owner');
+
+    expect(
+      client.probeRepositories.mock.calls.map(([batch]) => batch.length),
+    ).toEqual([100, 50]);
+    expect(client.collectRepositoryContributions).not.toHaveBeenCalled();
+    expect(
+      store.recordRepositorySuccess.mock.calls.flatMap(([ids]) => ids),
+    ).toHaveLength(150);
+    expect(summaryOf(logger)).toMatchObject({
+      kind: 'hourly',
+      repos: 150,
+      probeRequests: 2,
+      collectedRepos: 0,
+      requests: 2,
+      rateLimitRemaining: 4999,
+    });
+    expect(summaryOf(logger)).not.toHaveProperty('fullScanFailedRepos');
+  });
+
+  it('alias가 비면 id로 다시 찾아 바뀐 이름을 저장하고 수집한다', async () => {
+    const row = target(1n);
+    const { service, client, store } = setup([row]);
+    client.probeRepositories.mockResolvedValue({
+      repositories: [null],
+      rateLimit: null,
+    });
+    client.getRepositoryById.mockResolvedValue({
+      id: '1',
+      fullName: 'JNU-SWCU/renamed',
+      private: true,
+      archived: false,
+      defaultBranch: 'main',
+    });
+
+    await service.run('owner');
+
+    expect(client.getRepositoryById).toHaveBeenCalledWith(1n);
+    expect(store.refreshRepositoryObservation).toHaveBeenCalledWith(
+      expect.objectContaining({
+        githubRepositoryId: 1n,
+        nameWithOwner: 'JNU-SWCU/renamed',
+      }),
+    );
+    expect(client.collectRepositoryContributions).toHaveBeenCalledWith(
+      'JNU-SWCU',
+      'renamed',
+      'main',
+      HOURLY_SINCE,
+    );
+  });
+
+  it('alias 응답의 id가 다르면 이름이 다른 저장소로 넘어간 것으로 보고 id로 다시 찾는다', async () => {
+    const row = target(1n);
+    const { service, client } = setup([row]);
+    client.probeRepositories.mockResolvedValue({
+      repositories: [probeOf(row, [], { githubRepositoryId: '999' })],
+      rateLimit: null,
+    });
+    client.getRepositoryById.mockRejectedValue(
+      new CollectionAppClientError('NOT_FOUND'),
+    );
+
+    await service.run('owner');
+
+    expect(client.getRepositoryById).toHaveBeenCalledWith(1n);
+    expect(client.collectRepositoryContributions).not.toHaveBeenCalled();
+  });
+
+  it.each(['NOT_FOUND', 'PERMISSION'] as const)(
+    'id 조회가 %s이면 저장소를 gone으로 표시하고 last_success_at은 건드리지 않는다',
+    async (kind) => {
+      const row = target(1n);
+      const { service, client, store } = setup([row]);
+      client.probeRepositories.mockResolvedValue({
+        repositories: [null],
+        rateLimit: null,
+      });
+      client.getRepositoryById.mockRejectedValue(
+        new CollectionAppClientError(kind),
       );
 
-      expect(result.status).toBe('SKIPPED');
-      expect(providerCallCount(client)).toBe(0);
-      expect(box.store.leases.size).toBe(0);
+      await expect(service.run('owner')).resolves.toMatchObject({
+        status: 'COMPLETED',
+      });
+
+      expect(store.markRepositoryGone).toHaveBeenCalledWith(
+        1n,
+        STARTED_AT,
+        'ORG_PROVISIONED',
+      );
+      expect(store.recordRepositorySuccess).not.toHaveBeenCalled();
     },
   );
 
-  it('rate budget이 바닥이면 sweep 루프처럼 provider를 부르지 않고 멈춘다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(100n), linkedRow());
-    const client = createClient([]);
-    const runtime = runtimeFor(client);
-    jest.spyOn(runtime.queue, 'shouldStop').mockReturnValue(true);
-    const service = new CollectionSyncService(
-      new CollectionIncrementalRepository(db, new PlatformRepository()),
-      () => runtime,
-      new RepositoryUrlService(),
-      () => NOW,
-      () => 'run-1',
+  it('probe가 RATE_LIMITED면 실행 전체가 실패하고 아무 저장소도 성공으로 기록하지 않는다', async () => {
+    const { service, client, store, repository } = setup([target(1n)]);
+    client.probeRepositories.mockRejectedValue(
+      new CollectionAppClientError('RATE_LIMITED'),
     );
 
-    const result = await service.runRepository('owner-link', 100n);
-
-    expect(result).toMatchObject({
-      status: 'COMPLETED',
-      processedRepositoryCount: 0,
-      stoppedForBudget: true,
+    await expect(service.run('owner')).resolves.toMatchObject({
+      status: 'FAILED',
     });
-    expect(providerCallCount(client)).toBe(0);
-    expect(box.store.repositories.get(repoKey(100n))?.lastSuccessAt).toBe(
-      undefined,
-    );
+
+    expect(store.recordRepositorySuccess).not.toHaveBeenCalled();
+    expect(repository.releaseSyncLease).toHaveBeenCalled();
+    expect(summaryOf(logger)).toMatchObject({ status: 'FAILED' });
   });
 
-  it('수집 직전에 다시 읽어 보니 연결이 풀려 있으면 수집하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(repoKey(100n), linkedRow());
-    const client = createClient([]);
-    const read = jest
-      .spyOn(
-        CollectionIncrementalStoreRepository.prototype,
-        'findCollectionTargetByLogicalKey',
-      )
-
-      .mockResolvedValueOnce(linkedRow() as never)
-      .mockResolvedValueOnce(null);
-
-    const result = await createService(db, client).runRepository(
-      'owner-link',
-      100n,
-    );
-
-    expect(read).toHaveBeenCalledTimes(2);
-    expect(result.processedRepositoryCount).toBe(0);
-    expect(providerCallCount(client)).toBe(0);
-    read.mockRestore();
-  });
-
-  it('sweep 도중 연결이 풀린 저장소는 시작할 때 읽은 목록에 있어도 수집하지 않는다', async () => {
-    const { db, box } = createFakeDb();
-    box.store.repositories.set(
-      repoKey(100n),
-      linkedRow({ id: 'repo-a', nameWithOwner: 'synthetic-org/repo-a' }),
-    );
-    box.store.repositories.set(
-      repoKey(200n),
-      linkedRow({
-        id: 'repo-b',
-        githubRepositoryId: 200n,
-        nameWithOwner: 'synthetic-org/repo-b',
-        teamId: 'application-b',
-      }),
-    );
-    const client = createClient([
-      providerRepository({ name: 'repo-a', fullName: 'synthetic-org/repo-a' }),
-      providerRepository({
-        id: '200',
-        name: 'repo-b',
-        fullName: 'synthetic-org/repo-b',
-      }),
+  it('수집 중 RATE_LIMITED도 실행 전체를 실패시킨다', async () => {
+    const { service, client, store } = setup([
+      target(1n, { lastSuccessAt: null }),
     ]);
-    client.listNewPullRequests.mockImplementation((_owner, repo) => {
-      if (repo === 'repo-a') {
-        box.store.repositories.set(repoKey(200n), {
-          ...box.store.repositories.get(repoKey(200n)),
-          teamId: null,
+    client.collectRepositoryContributions.mockRejectedValue(
+      new CollectionAppClientError('RATE_LIMITED'),
+    );
+
+    await expect(service.run('owner')).resolves.toMatchObject({
+      status: 'FAILED',
+    });
+    expect(store.recordRepositorySuccess).not.toHaveBeenCalled();
+  });
+
+  type Path = 'run' | 'runExternal' | 'runRepository';
+  const invoke = (service: CollectionSyncService, path: Path) =>
+    path === 'runRepository'
+      ? service.runRepository('owner', 1n)
+      : service[path]('owner', 'run-1', 'full');
+
+  it.each<[Path, 'PAGINATION' | 'DEADLINE']>([
+    ['run', 'PAGINATION'],
+    ['run', 'DEADLINE'],
+    ['runExternal', 'PAGINATION'],
+    ['runExternal', 'DEADLINE'],
+    ['runRepository', 'PAGINATION'],
+    ['runRepository', 'DEADLINE'],
+  ])(
+    '%s에서 %s로 잘리면 그 저장소의 last_success_at과 기여를 쓰지 않고 다른 저장소는 계속한다',
+    async (path, kind) => {
+      const source: RepositorySource =
+        path === 'runExternal' ? 'EXTERNAL_PUBLIC' : 'ORG_PROVISIONED';
+      const visibility = source === 'EXTERNAL_PUBLIC' ? 'PUBLIC' : 'PRIVATE';
+      const rows = [
+        target(1n, { source, visibility }),
+        target(2n, { source, visibility }),
+      ];
+      const { service, client, store } = setup(rows);
+      client.collectRepositoryContributions.mockImplementation((_, name) =>
+        name === 'repo-1'
+          ? Promise.reject(new CollectionAppClientError(kind))
+          : Promise.resolve(collected()),
+      );
+
+      await expect(invoke(service, path)).resolves.toMatchObject({
+        status: 'COMPLETED',
+      });
+
+      const succeeded = store.recordRepositorySuccess.mock.calls.flatMap(
+        ([ids]) => ids,
+      );
+      expect(succeeded).not.toContain(1n);
+      expect(
+        store.recordContributions.mock.calls.map(
+          ([repositoryId]) => repositoryId,
+        ),
+      ).not.toContain('repo-1');
+      if (path !== 'runRepository') {
+        expect(succeeded).toEqual([2n]);
+        expect(summaryOf(logger)).toMatchObject({
+          kind: 'full',
+          fullScanFailedRepos: 1,
+          truncatedRepos: 1,
         });
       }
-      return Promise.resolve({
-        pullRequests: [],
-        newFrontier: null,
-        fingerprint: fingerprint('/repos/o/r/pulls'),
+    },
+  );
+
+  it.each<[CollectionRunKind, Date | null]>([
+    ['weekly', null],
+    ['full', null],
+  ])(
+    '%s 실행은 활동이 없어도 모든 저장소를 since=%s로 다시 수집한다',
+    async (kind, since) => {
+      const rows = [target(1n), target(2n)];
+      const { service, client } = setup(rows);
+
+      await service.run('owner', 'run-1', kind);
+
+      expect(client.collectRepositoryContributions.mock.calls).toEqual([
+        ['JNU-SWCU', 'repo-1', 'main', since],
+        ['JNU-SWCU', 'repo-2', 'main', since],
+      ]);
+      expect(summaryOf(logger)).toMatchObject({
+        kind,
+        collectedRepos: 2,
+        fullScanFailedRepos: 0,
+        truncatedRepos: 0,
       });
+    },
+  );
+
+  it('lease를 다른 실행이 쥐고 있으면 provider를 부르지 않는다', async () => {
+    const { service, client, repository } = setup([target(1n)]);
+    repository.acquireSyncLease.mockResolvedValue(null);
+
+    await expect(service.run('owner')).resolves.toMatchObject({
+      status: 'SKIPPED_LEASE_HELD',
     });
+    expect(client.probeRepositories).not.toHaveBeenCalled();
+  });
 
-    const result = await createService(db, client).run('owner-1');
+  it('요청 예산이 바닥이면 probe 전에 멈추고 성공을 기록하지 않는다', async () => {
+    const { service, client, queue, store } = setup([target(1n)]);
+    queue.shouldStop.mockReturnValue(true);
 
-    expect(result).toMatchObject({
+    await expect(service.run('owner')).resolves.toMatchObject({
+      status: 'COMPLETED',
+      stoppedForBudget: true,
+    });
+    expect(client.probeRepositories).not.toHaveBeenCalled();
+    expect(store.recordRepositorySuccess).not.toHaveBeenCalled();
+  });
+
+  it('runRepository는 연결된 저장소 1건을 probe 없이 최근 14일로 수집한다', async () => {
+    const { service, client, store } = setup([target(1n)]);
+
+    await expect(service.runRepository('owner', 1n)).resolves.toMatchObject({
       status: 'COMPLETED',
       processedRepositoryCount: 1,
     });
-    expect(
-      client.listNewPullRequests.mock.calls.map(([, repo]) => repo),
-    ).toEqual(['repo-a']);
 
-    expect(box.store.repositories.get(repoKey(200n))?.failureCount ?? 0).toBe(
-      0,
+    expect(client.probeRepositories).not.toHaveBeenCalled();
+    expect(client.collectRepositoryContributions).toHaveBeenCalledWith(
+      'JNU-SWCU',
+      'repo-1',
+      'main',
+      HOURLY_SINCE,
     );
+    expect(store.recordRepositorySuccess).toHaveBeenCalledWith(
+      [1n],
+      SUCCEEDED_AT,
+    );
+  });
+
+  it.each([
+    ['팀 연결이 없는 저장소', { teamId: null }],
+    ['사라진 저장소', { presence: 'ABSENT' as const }],
+    [
+      '비공개로 바뀐 외부 저장소',
+      { source: 'EXTERNAL_PUBLIC' as const, visibility: 'PRIVATE' as const },
+    ],
+  ])('runRepository는 %s를 수집하지 않는다', async (_label, overrides) => {
+    const { service, client } = setup([target(1n, overrides)]);
+
+    await expect(service.runRepository('owner', 1n)).resolves.toMatchObject({
+      status: 'SKIPPED',
+    });
+    expect(client.collectRepositoryContributions).not.toHaveBeenCalled();
   });
 });

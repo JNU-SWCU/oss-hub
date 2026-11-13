@@ -7,7 +7,10 @@ import {
   E2E_STUDENT_ID,
   E2E_STUDENT_GITHUB_ID,
 } from './e2e-program-authoring-fixture';
-import { seedDailyContributions } from '../ledger-contribution.fixture';
+import {
+  seedDailyContributions,
+  setRepoLastSuccessAt,
+} from '../ledger-contribution.fixture';
 
 export interface E2eRepositoryEvidence {
   readonly currentRepositoryId: string;
@@ -69,10 +72,12 @@ export async function seedE2eRepositoryEvidence(
       ],
       'EXTERNAL_PUBLIC',
     );
-    await transaction.githubRepository.update({
-      where: { id: currentRepositoryId },
-      data: { lastSuccessAt: new Date(), failureCount: 0 },
-    });
+    await setRepoLastSuccessAt(
+      transaction,
+      application.repository.githubRepositoryId,
+      new Date(),
+      'EXTERNAL_PUBLIC',
+    );
     const repositories = await transaction.githubRepository.findMany({
       where: E2E_REPOSITORY_WHERE,
       select: { id: true },
