@@ -1,14 +1,11 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ApiError } from '@/lib/api-client';
 import { triggerCollection } from '../api';
 import { useSystemStatusQuery } from '../queries';
 import type { SystemStatusViewState, TriggerNotice } from '../types';
 import { SystemStatusView } from './system-status-view';
 
-const QUIESCE_TRIGGER_MESSAGE =
-  '저장소 전환 작업이 진행 중이라 지금은 수집을 시작할 수 없습니다. 전환이 끝난 뒤 다시 시도해 주세요.';
 const GENERIC_TRIGGER_ERROR_MESSAGE =
   '수집을 시작하지 못했습니다. 잠시 후 다시 시도해 주세요.';
 
@@ -56,13 +53,12 @@ export function SystemStatusScreen() {
         message: '수집 요청을 접수했습니다.',
       });
       await refetch();
-    } catch (error: unknown) {
+    } catch {
       if (!mounted.current) return;
-      const message =
-        error instanceof ApiError && error.problem.code === 'COL_008'
-          ? QUIESCE_TRIGGER_MESSAGE
-          : GENERIC_TRIGGER_ERROR_MESSAGE;
-      setTriggerNotice({ kind: 'error', message });
+      setTriggerNotice({
+        kind: 'error',
+        message: GENERIC_TRIGGER_ERROR_MESSAGE,
+      });
     } finally {
       triggerInFlight.current = false;
       if (mounted.current) setIsTriggering(false);

@@ -379,22 +379,6 @@ describe('SystemStatusView', () => {
     );
   });
 
-  it('전환(quiesce) 사유의 트리거 실패는 안내 문구를 사람이 읽을 수 있게 보여준다', () => {
-    const html = render(
-      { kind: 'success', status: normal },
-      {
-        triggerNotice: {
-          kind: 'error',
-          message:
-            '저장소 전환 작업이 진행 중이라 지금은 수집을 시작할 수 없습니다. 전환이 끝난 뒤 다시 시도해 주세요.',
-        },
-      },
-    );
-    expect(html).toContain('수집을 시작하지 못했습니다');
-    expect(html).toContain('저장소 전환 작업이 진행 중');
-    expect(html).not.toContain('COL_008');
-  });
-
   it('조직 밖 public 저장소 탐색 패널을 더 이상 렌더링하지 않는다', () => {
     const html = render({ kind: 'success', status: normal });
     expect(html).not.toContain('조직 밖 public 저장소 탐색');

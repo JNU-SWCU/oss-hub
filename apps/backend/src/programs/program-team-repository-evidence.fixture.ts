@@ -34,7 +34,7 @@ jest.mock('../platform/prisma.service', () => ({
     },
     $queryRaw: (strings: TemplateStringsArray, ...values: unknown[]) => {
       const sql = Array.from(strings).join('');
-      if (sql.includes('repo_contribution')) {
+      if (sql.includes('"contribution" AS event')) {
         return contributionQuery(strings, ...values);
       }
       return historyQuery(strings, ...values);

@@ -221,7 +221,7 @@ beforeEach(() => {
   auditFindMany.mockReset();
   auditFindMany.mockImplementation((query) =>
     Promise.resolve(
-      sqlOf(query).includes('repo_contribution')
+      sqlOf(query).includes('AS activity_date')
         ? [...ACTIVITY_POINTS]
         : [...REPOSITORY_URL_HISTORY],
     ),
@@ -338,7 +338,7 @@ it.each([
     expect(findMany).not.toHaveBeenCalled();
     expect(
       auditFindMany.mock.calls.filter(([query]) =>
-        sqlOf(query).includes('repo_contribution'),
+        sqlOf(query).includes('AS activity_date'),
       ),
     ).toEqual([]);
   },

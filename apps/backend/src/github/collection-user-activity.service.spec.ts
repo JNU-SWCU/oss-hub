@@ -3,16 +3,9 @@ import { AccountStatus } from '@prisma/client';
 
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import {
-  CollectionCutoverRepository,
-  CollectionUserActivityRepository,
-} from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
-
-const openCutover = {
-  isQuiesced: () => Promise.resolve(false),
-} as unknown as CollectionCutoverRepository;
 
 function deferred<T>(): {
   readonly promise: Promise<T>;
@@ -45,19 +38,14 @@ describe('CollectionUserActivityService', () => {
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
-      new CollectionUserActivityRepository(
-        {
-          user: { findMany },
-          $queryRaw: queryRaw,
-          $transaction: (
-            operation: (transaction: unknown) => Promise<unknown>,
-          ) =>
-            operation({
-              $executeRaw: executeRaw,
-            }),
-        } as unknown as PrismaService,
-        openCutover,
-      ),
+      new CollectionUserActivityRepository({
+        user: { findMany },
+        $queryRaw: queryRaw,
+        $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
+          operation({
+            $executeRaw: executeRaw,
+          }),
+      } as unknown as PrismaService),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
     );
@@ -334,7 +322,6 @@ describe('CollectionUserActivityRepository ledger history', () => {
     return {
       repository: new CollectionUserActivityRepository(
         db as unknown as PrismaService,
-        openCutover,
       ),
       executeRaw,
     };

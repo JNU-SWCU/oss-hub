@@ -112,14 +112,14 @@ describe('collection trigger api', () => {
     );
   });
 
-  it('409 COL_008(전환 중)을 ApiError로 전파한다', async () => {
+  it('409 COL_006(진행 중)을 ApiError로 전파한다', async () => {
     const problem = {
       type: 'about:blank',
       title: 'Conflict',
       status: 409,
-      detail: '저장소 전환 작업이 진행 중이라 수집을 시작할 수 없습니다.',
+      detail: '수집이 이미 진행 중입니다.',
       instance: apiPath('admin/collection/trigger'),
-      code: 'COL_008',
+      code: 'COL_006',
     };
     vi.stubGlobal(
       'fetch',
@@ -132,7 +132,7 @@ describe('collection trigger api', () => {
     );
 
     await expect(triggerCollection()).rejects.toMatchObject({
-      problem: { code: 'COL_008', status: 409 },
+      problem: { code: 'COL_006', status: 409 },
     });
     await expect(triggerCollection()).rejects.toBeInstanceOf(ApiError);
   });

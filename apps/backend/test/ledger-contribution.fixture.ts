@@ -93,12 +93,15 @@ export async function repositoryContributionTotals(
     ]
   >`
     SELECT
-      COALESCE(SUM(commit_count), 0)::int AS "commitCount",
-      COALESCE(SUM(pull_request_count), 0)::int AS "pullRequestCount",
-      COALESCE(SUM(release_count), 0)::int AS "releaseCount",
-      COALESCE(SUM(issue_count), 0)::int AS "issueCount"
-    FROM repo_contribution
-    WHERE repository_id = ANY(${repositoryIds})
+      COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
+      COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
+      COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount",
+      COUNT(*) FILTER (WHERE event.kind = 'issue')::int AS "issueCount"
+    FROM "contribution" AS event
+    JOIN "GithubRepository" AS repository
+      ON repository."githubRepositoryId" = event.repo_id
+    WHERE repository.id = ANY(${repositoryIds})
+      AND event.author_github_id IS NOT NULL
   `;
   return row;
 }

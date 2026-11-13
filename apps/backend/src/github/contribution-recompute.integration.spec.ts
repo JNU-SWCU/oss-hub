@@ -27,13 +27,17 @@ describe('Contribution 재계산 (실 Postgres)', () => {
   const readDays = (): Promise<ContributionDay[]> =>
     prisma.$queryRaw<ContributionDay[]>`
       SELECT
-        github_id AS "githubId",
-        activity_date AS "activityDate",
-        commit_count AS "commitCount",
-        issue_count AS "issueCount"
-      FROM repo_contribution
-      WHERE repository_id = ${REPO_ID}
-      ORDER BY activity_date ASC, github_id ASC
+        event.author_github_id AS "githubId",
+        (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date AS "activityDate",
+        COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
+        COUNT(*) FILTER (WHERE event.kind = 'issue')::int AS "issueCount"
+      FROM "contribution" AS event
+      JOIN "GithubRepository" AS repository
+        ON repository."githubRepositoryId" = event.repo_id
+      WHERE repository.id = ${REPO_ID}
+        AND event.author_github_id IS NOT NULL
+      GROUP BY 1, 2
+      ORDER BY 2 ASC, 1 ASC
     `;
 
   const PREFIX = 'contrib-recompute';

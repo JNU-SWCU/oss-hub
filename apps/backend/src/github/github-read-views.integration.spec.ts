@@ -1,8 +1,5 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import {
-  CollectionCutoverRepository,
-  CollectionUserActivityRepository,
-} from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './repository-provision-job.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
 
@@ -14,14 +11,9 @@ assertIsolatedIntegrationDatabase({
 const prisma = new PrismaService();
 const GITHUB_ID = 8_970_000_000_001n;
 const CLOCK_ID = 8_970_000_000_021n;
-const AUTHOR_MATCH = 8_970_000_000_011n;
-const AUTHOR_EVENTS = 8_970_000_000_013n;
-const AUTHOR_BOUNDARY = 8_970_000_000_014n;
-const REPOSITORY_ID = 'synthetic-read-views-repository';
-const GITHUB_REPOSITORY_ID = 8_970_000_100_001n;
 const YEAR = 2119;
 
-describe('contributor standing and repo contribution views', () => {
+describe('contributor standing reads', () => {
   beforeAll(async () => {
     await prisma.$connect();
     await purge();
@@ -71,30 +63,6 @@ describe('contributor standing and repo contribution views', () => {
     ]);
   });
 
-  it('counts events per author and Seoul day and skips a null author', async () => {
-    await seedRepository();
-    const day = new Date('2026-08-01T00:00:00.000Z');
-    await prisma.contributionEvent.createMany({
-      data: [
-        event('match-1', AUTHOR_MATCH, day),
-        event('match-2', AUTHOR_MATCH, day),
-        event('events-only', AUTHOR_EVENTS, day),
-        event('null-author', null, day),
-      ],
-    });
-
-    const rows = await readContribution();
-    expect(countFor(rows, AUTHOR_MATCH, '2026-08-01')).toEqual({
-      rows: 1,
-      commitCount: 2,
-    });
-    expect(countFor(rows, AUTHOR_EVENTS, '2026-08-01')).toEqual({
-      rows: 1,
-      commitCount: 1,
-    });
-    expect(rows.some((row) => row.githubId === null)).toBe(false);
-  });
-
   it('moves the standing clock when the same counts are observed again', async () => {
     const first = new Date('2122-04-01T00:00:00.000Z');
     const second = new Date('2122-05-01T00:00:00.000Z');
@@ -105,10 +73,7 @@ describe('contributor standing and repo contribution views', () => {
       repositoryCount: 0,
       starCount: 0,
     };
-    const repository = new CollectionUserActivityRepository(
-      prisma,
-      new CollectionCutoverRepository(prisma),
-    );
+    const repository = new CollectionUserActivityRepository(prisma);
     await repository.upsertObservation({
       githubId: CLOCK_ID,
       githubLogin: 'synthetic-read-views-clock',
@@ -124,163 +89,25 @@ describe('contributor standing and repo contribution views', () => {
       observedAt: second,
     });
 
-    const rows = await prisma.$queryRaw<
-      { observedAt: Date; commitCount: number }[]
-    >`
-      SELECT observed_at AS "observedAt", commit_count AS "commitCount"
-      FROM contributor_standing
-      WHERE github_id = ${CLOCK_ID}
-        AND year = 2122
-        AND visibility = 'PUBLIC'::"ActivityVisibility"
-    `;
-
-    expect(rows).toEqual([{ observedAt: second, commitCount: 8 }]);
-  });
-
-  it('splits the Asia/Seoul year boundary at midnight', async () => {
-    await seedRepository();
-    await prisma.contributionEvent.createMany({
-      data: [
-        event(
-          'before-midnight',
-          AUTHOR_BOUNDARY,
-          new Date('2025-12-31T14:59:59.999Z'),
-        ),
-        event(
-          'at-midnight',
-          AUTHOR_BOUNDARY,
-          new Date('2025-12-31T15:00:00.000Z'),
-        ),
-      ],
+    const reader = new ContributorReadRepository(prisma);
+    const rows = await reader.readStandingRows({
+      year: 2122,
+      visibility: 'PUBLIC',
     });
 
-    const rows = await readContribution();
-    const dates = rows
-      .filter((row) => row.githubId === AUTHOR_BOUNDARY)
-      .map((row) => row.activityDate.toISOString().slice(0, 10))
-      .sort();
-
-    expect(dates).toEqual(['2025-12-31', '2026-01-01']);
-  });
-
-  it('is a view and a read takes only access share locks', async () => {
-    const kinds = await prisma.$queryRaw<{ relkind: string }[]>`
-      SELECT c.relkind
-      FROM pg_class AS c
-      JOIN pg_namespace AS n ON n.oid = c.relnamespace
-      WHERE n.nspname = 'public'
-        AND c.relname IN ('contributor_standing', 'repo_contribution')
-      ORDER BY c.relname
-    `;
-    expect(kinds.map((kind) => kind.relkind)).toEqual(['v', 'v']);
-
-    const locks = await prisma.$transaction(async (tx) => {
-      await tx.$queryRaw`SELECT 1 FROM contributor_standing LIMIT 1`;
-      await tx.$queryRaw`SELECT 1 FROM repo_contribution LIMIT 1`;
-      return tx.$queryRaw<{ mode: string }[]>`
-        SELECT l.mode
-        FROM pg_locks AS l
-        JOIN pg_class AS c ON c.oid = l.relation
-        WHERE l.pid = pg_backend_pid()
-          AND c.relname IN (
-            'contributor_standing',
-            'repo_contribution',
-            'github_user_activity_history',
-            'contribution',
-            'GithubRepository'
-          )
-      `;
-    });
-
-    expect(locks.length).toBeGreaterThan(0);
-    expect(locks.every((lock) => lock.mode === 'AccessShareLock')).toBe(true);
+    expect(
+      rows
+        .filter((row) => row.githubId === CLOCK_ID)
+        .map((row) => row.commitCount),
+    ).toEqual([8]);
+    await expect(
+      reader.readStandingObservedAt({ year: null, visibility: 'PUBLIC' }),
+    ).resolves.toEqual(second);
   });
 });
 
-function event(
-  key: string,
-  authorGithubId: bigint | null,
-  occurredAt: Date,
-): {
-  repoId: bigint;
-  kind: 'COMMIT';
-  githubKey: string;
-  authorGithubId: bigint | null;
-  occurredAt: Date;
-  firstSeenAt: Date;
-} {
-  return {
-    repoId: GITHUB_REPOSITORY_ID,
-    kind: 'COMMIT',
-    githubKey: key,
-    authorGithubId,
-    occurredAt,
-    firstSeenAt: occurredAt,
-  };
-}
-
-async function seedRepository(): Promise<void> {
-  await prisma.githubRepository.create({
-    data: {
-      id: REPOSITORY_ID,
-      githubRepositoryId: GITHUB_REPOSITORY_ID,
-      nameWithOwner: 'synthetic/read-views',
-      source: 'ORG_PROVISIONED',
-    },
-  });
-  await prisma.repo.create({
-    data: {
-      githubRepoId: GITHUB_REPOSITORY_ID,
-      ownerName: 'synthetic',
-      source: 'ORG_PROVISIONED',
-    },
-  });
-}
-
-interface ContributionViewRow {
-  readonly githubId: bigint | null;
-  readonly activityDate: Date;
-  readonly commitCount: number;
-}
-
-async function readContribution(): Promise<readonly ContributionViewRow[]> {
-  return prisma.$queryRaw<ContributionViewRow[]>`
-    SELECT
-      github_id AS "githubId",
-      activity_date AS "activityDate",
-      commit_count AS "commitCount"
-    FROM repo_contribution
-    WHERE github_repository_id = ${GITHUB_REPOSITORY_ID}
-  `;
-}
-
-function countFor(
-  rows: readonly ContributionViewRow[],
-  githubId: bigint,
-  activityDate: string,
-): { readonly rows: number; readonly commitCount: number } {
-  const matched = rows.filter(
-    (row) =>
-      row.githubId === githubId &&
-      row.activityDate.toISOString().slice(0, 10) === activityDate,
-  );
-  return {
-    rows: matched.length,
-    commitCount: matched.reduce((sum, row) => sum + row.commitCount, 0),
-  };
-}
-
 async function purge(): Promise<void> {
-  await prisma.contributionEvent.deleteMany({
-    where: { repoId: GITHUB_REPOSITORY_ID },
-  });
   await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: { in: [GITHUB_ID, CLOCK_ID] } },
-  });
-  await prisma.repo.deleteMany({
-    where: { githubRepoId: GITHUB_REPOSITORY_ID },
-  });
-  await prisma.githubRepository.deleteMany({
-    where: { id: REPOSITORY_ID },
   });
 }

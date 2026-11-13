@@ -2,12 +2,6 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { randomUUID } from 'node:crypto';
 import { CollectionSweepRunnerService } from './collection-sweep-runner.service';
-import { DomainException } from '../platform/error-code.error';
-import { CollectionCutoverRepository } from './repository-provision-job.repository';
-import {
-  COLLECTION_ERROR_CODES,
-  CollectionErrorCode,
-} from './collection-error-code.error';
 import {
   CollectionSyncService,
   type CollectionRunKind,
@@ -39,7 +33,6 @@ export class CollectionTriggerService {
 
   constructor(
     private readonly sync: CollectionSyncService,
-    private readonly cutover: CollectionCutoverRepository,
     userActivity: CollectionUserActivityService,
   ) {
     this.sweeps = new CollectionSweepRunnerService(
@@ -80,17 +73,12 @@ export class CollectionTriggerService {
     }
   }
 
-  async trigger(
+  trigger(
     kind: CollectionRunKind,
   ): Promise<{ runId: string; status: 'PENDING' }> {
-    if (await this.cutover.isQuiesced(new Date())) {
-      throw new DomainException(
-        COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
-      );
-    }
     const runId = randomUUID();
     this.sweeps.start(this.ownerId, runId, kind);
-    return { runId, status: 'PENDING' };
+    return Promise.resolve({ runId, status: 'PENDING' });
   }
 
   collectRepository(githubRepositoryId: bigint): void {
@@ -99,14 +87,7 @@ export class CollectionTriggerService {
     this.sweeps.observeRepository(
       runId,
       startedAt,
-      this.cutover.isQuiesced(new Date()).then((quiesced) => {
-        if (quiesced) {
-          throw new DomainException(
-            COLLECTION_ERROR_CODES[CollectionErrorCode.COLLECTION_QUIESCED],
-          );
-        }
-        return this.sync.runRepository(this.ownerId, githubRepositoryId, runId);
-      }),
+      this.sync.runRepository(this.ownerId, githubRepositoryId, runId),
     );
   }
 }

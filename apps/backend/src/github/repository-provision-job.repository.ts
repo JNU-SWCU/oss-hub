@@ -12,19 +12,6 @@ import {
   RepositoryProvisionSupersededError,
 } from './repository-provision-state.error';
 
-@Injectable()
-export class CollectionCutoverRepository {
-  constructor(private readonly db: PrismaService) {}
-
-  async isQuiesced(now: Date): Promise<boolean> {
-    const rows = await this.db.$queryRawUnsafe<Array<{ quiesced: boolean }>>(
-      `SELECT EXISTS(SELECT 1 FROM "CollectionCutoverLease" WHERE "expiresAt" > $1) AS "quiesced"`,
-      now,
-    );
-    return rows[0]?.quiesced ?? false;
-  }
-}
-
 export interface CollectionActivityUserRow {
   readonly githubId: bigint;
   readonly nickname: string;
@@ -153,10 +140,7 @@ const writeActivityLedgerRow = async (
 
 @Injectable()
 export class CollectionUserActivityRepository {
-  constructor(
-    private readonly db: PrismaService,
-    private readonly cutover: CollectionCutoverRepository,
-  ) {}
+  constructor(private readonly db: PrismaService) {}
 
   async listActiveUsers(): Promise<CollectionActivityUserRow[]> {
     return this.db.user.findMany({
@@ -224,7 +208,6 @@ export class CollectionUserActivityRepository {
   private async record(
     write: (transaction: Prisma.TransactionClient) => Promise<void>,
   ): Promise<void> {
-    if (await this.cutover.isQuiesced(new Date())) return;
     await this.db.$transaction(write);
   }
 }

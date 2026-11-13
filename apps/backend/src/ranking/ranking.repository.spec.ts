@@ -1,4 +1,4 @@
-import { UserType } from '@prisma/client';
+import { Prisma, UserType } from '@prisma/client';
 import type { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 
@@ -13,7 +13,7 @@ function standingCall(queryRaw: jest.Mock): {
     throw new Error('Standing query was not recorded');
   }
   return {
-    sql: strings.join(''),
+    sql: Prisma.sql(strings, ...(call.slice(1) as Prisma.Sql[])).sql,
     values: call.slice(1),
   };
 }
@@ -36,7 +36,8 @@ describe('RankingRepository standing read', () => {
     );
     const call = standingCall(queryRaw);
     expect(call.values).toContain(2026);
-    expect(call.sql).toContain('contributor_standing');
+    expect(call.sql).toContain('DISTINCT ON');
+    expect(call.sql).toContain('github_user_activity_history');
   });
 
   it('reads the monthly chart from the activity history of the year', async () => {

@@ -156,11 +156,11 @@ describe('collection incremental migration — DB invariants', () => {
     });
 
     const rows = await prisma.$queryRaw<unknown[]>`
-      SELECT activity_date
-      FROM repo_contribution
-      WHERE repository_id = ${repository.id}
-        AND activity_date >= DATE '2099-01-01'
-        AND activity_date < DATE '2100-01-01'
+      SELECT event.occurred_at
+      FROM "contribution" AS event
+      WHERE event.repo_id = ${repository.githubRepositoryId}
+        AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date >= DATE '2099-01-01'
+        AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date < DATE '2100-01-01'
     `;
     expect(rows).toEqual([]);
   });

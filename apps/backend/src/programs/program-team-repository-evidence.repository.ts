@@ -250,21 +250,22 @@ export class ProgramTeamRepositoryEvidenceRepository {
     const bounds = windowDates(window);
     const rows = await this.prisma.$queryRaw<ContributionTotalRow[]>`
       SELECT
-        github_id AS "githubId",
-        SUM(commit_count)::int AS "commitCount",
-        SUM(pull_request_count)::int AS "pullRequestCount",
-        SUM(release_count)::int AS "releaseCount",
-        SUM(issue_count)::int AS "issueCount"
-      FROM repo_contribution
-      WHERE repository_id = ${repository.id}
-        AND activity_date >= ${queryDate(bounds.gte)}::date
-        AND activity_date <= ${queryDate(bounds.lte)}::date
-      GROUP BY github_id
-      HAVING SUM(commit_count) > 0
-        OR SUM(pull_request_count) > 0
-        OR SUM(release_count) > 0
-        OR SUM(issue_count) > 0
-      ORDER BY github_id
+        event.author_github_id AS "githubId",
+        COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
+        COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
+        COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount",
+        COUNT(*) FILTER (WHERE event.kind = 'issue')::int AS "issueCount"
+      FROM "contribution" AS event
+      JOIN "GithubRepository" AS repository
+        ON repository."githubRepositoryId" = event.repo_id
+      WHERE repository.id = ${repository.id}
+        AND event.author_github_id IS NOT NULL
+        AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
+          >= ${queryDate(bounds.gte)}::date
+        AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
+          <= ${queryDate(bounds.lte)}::date
+      GROUP BY event.author_github_id
+      ORDER BY event.author_github_id
     `;
     const contributors = new Map(
       rows.map((row) => [
@@ -320,22 +321,31 @@ export class ProgramTeamRepositoryEvidenceRepository {
       repository && lastSuccessAt && memberGithubIds.length > 0
         ? await this.prisma.$queryRaw<ActivityPointRow[]>`
             SELECT
-              github_id AS "githubId",
-              activity_date AS date,
-              commit_count AS "commitCount",
-              pull_request_count AS "pullRequestCount",
-              issue_count AS "issueCount"
-            FROM repo_contribution
-            WHERE repository_id = ${repository.id}
-              AND github_id IN (${Prisma.join(memberGithubIds)})
-              AND activity_date >= ${queryDate(bounds.gte)}::date
-              AND activity_date <= ${queryDate(bounds.lte)}::date
-              AND (
-                commit_count > 0
-                OR pull_request_count > 0
-                OR issue_count > 0
-              )
-            ORDER BY activity_date ASC, github_id ASC
+              daily.github_id AS "githubId",
+              daily.activity_date AS date,
+              COUNT(*) FILTER (WHERE daily.kind = 'commit')::int AS "commitCount",
+              COUNT(*) FILTER (WHERE daily.kind = 'pull_request')::int AS "pullRequestCount",
+              COUNT(*) FILTER (WHERE daily.kind = 'issue')::int AS "issueCount"
+            FROM (
+              SELECT
+                event.author_github_id AS github_id,
+                event.kind,
+                (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date AS activity_date
+              FROM "contribution" AS event
+              JOIN "GithubRepository" AS repository
+                ON repository."githubRepositoryId" = event.repo_id
+              WHERE repository.id = ${repository.id}
+                AND event.author_github_id IN (${Prisma.join(memberGithubIds)})
+                AND event.kind IN (
+                  'commit'::"contribution_kind",
+                  'pull_request'::"contribution_kind",
+                  'issue'::"contribution_kind"
+                )
+            ) AS daily
+            WHERE daily.activity_date >= ${queryDate(bounds.gte)}::date
+              AND daily.activity_date <= ${queryDate(bounds.lte)}::date
+            GROUP BY daily.github_id, daily.activity_date
+            ORDER BY daily.activity_date ASC, daily.github_id ASC
           `
         : [];
     return {
