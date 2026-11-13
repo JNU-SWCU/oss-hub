@@ -431,7 +431,7 @@ describe('github fact round 1', () => {
       null,
     );
     expect(applications).toHaveLength(1);
-    expect(applications[0]?.repository?._count.commits).toBe(4);
+    expect(applications[0]?.repository?._count.commits).toBe(3);
     const timeline = await activity.findRepositoryActivity({
       repositoryIds: [ACTIVITY_REPO_ID],
       authorGithubId: GAMMA_ID,

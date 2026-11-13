@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
 export interface ProgramRepositoryLink {
   readonly programId: string;
@@ -267,6 +268,7 @@ const readRepositorySummaries = async (
       SUM(daily.release_count)::int AS "releaseCount"
     FROM repo_contribution AS daily
     WHERE daily.repository_id IN (${Prisma.join(repositoryIds)})
+      AND daily.github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
     GROUP BY daily.repository_id, daily.github_id
   `;
   const latest = await prisma.$queryRaw<
@@ -287,6 +289,7 @@ const readRepositorySummaries = async (
         'pull_request'::"contribution_kind",
         'release'::"contribution_kind"
       )
+      AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
     GROUP BY repository.id
   `;
   const lastByRepository = new Map(
@@ -335,48 +338,6 @@ const readRepositorySummaries = async (
       lastActivityAt: occurredAt,
     });
   }
-  const anonymous = await prisma.$queryRaw<
-    readonly {
-      readonly repositoryId: string;
-      readonly commitCount: number;
-      readonly pullRequestCount: number;
-      readonly releaseCount: number;
-    }[]
-  >`
-    SELECT
-      repository.id AS "repositoryId",
-      COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
-      COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
-      COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount"
-    FROM "contribution" AS event
-    JOIN "GithubRepository" AS repository
-      ON repository."githubRepositoryId" = event.repo_id
-    WHERE repository.id IN (${Prisma.join(repositoryIds)})
-      AND event.author_github_id IS NULL
-    GROUP BY repository.id
-  `;
-  for (const row of anonymous) {
-    if (
-      !isCount(row.commitCount) ||
-      !isCount(row.pullRequestCount) ||
-      !isCount(row.releaseCount)
-    ) {
-      throw new Error('Anonymous contribution summary was not an integer');
-    }
-    const current = summaries.get(row.repositoryId) ?? {
-      commitCount: 0,
-      pullRequestCount: 0,
-      releaseCount: 0,
-      contributions: [],
-      lastActivityAt: lastByRepository.get(row.repositoryId) ?? null,
-    };
-    summaries.set(row.repositoryId, {
-      ...current,
-      commitCount: current.commitCount + row.commitCount,
-      pullRequestCount: current.pullRequestCount + row.pullRequestCount,
-      releaseCount: current.releaseCount + row.releaseCount,
-    });
-  }
   return summaries;
 };
 
@@ -397,6 +358,7 @@ const readContributionEvents = async (
       event.occurred_at AS "occurredAt"
     FROM "contribution" AS event
     WHERE event.repo_id IN (${Prisma.join(repositoryIds)})
+      AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
       ${authorSql}
   `;
   return rows.map((row) => {

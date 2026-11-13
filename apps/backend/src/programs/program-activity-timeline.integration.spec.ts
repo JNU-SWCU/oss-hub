@@ -33,7 +33,12 @@ afterAll(async () => {
 
 it('counts only current linked activity and never substitutes detached or unrelated repository facts', async () => {
   await prisma.user.create({
-    data: { id: studentId, githubId, nickname: 'synthetic-student' },
+    data: {
+      id: studentId,
+      githubId,
+      nickname: 'synthetic-student',
+      type: 'STUDENT',
+    },
   });
   await prisma.program.create({
     data: {

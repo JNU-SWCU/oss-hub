@@ -213,15 +213,13 @@ beforeEach(() => {
   findFirst.mockReset();
   findMany.mockReset();
   auditFindMany.mockReset();
-  auditFindMany.mockImplementation((query) => {
-    const sql = sqlOf(query);
-    if (sql.includes('author_github_id IS NULL')) return Promise.resolve([]);
-    return Promise.resolve(
-      sql.includes('repo_contribution')
+  auditFindMany.mockImplementation((query) =>
+    Promise.resolve(
+      sqlOf(query).includes('repo_contribution')
         ? [...ACTIVITY_POINTS]
         : [...REPOSITORY_URL_HISTORY],
-    );
-  });
+    ),
+  );
   findFirst.mockImplementation(
     ({ where }: { readonly where: { readonly id: string } }) =>
       Promise.resolve(

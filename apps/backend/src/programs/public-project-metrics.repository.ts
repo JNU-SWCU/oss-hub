@@ -2,6 +2,7 @@ import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../platform/prisma.service';
+import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
 interface ContributionCountsRow {
   readonly commitCount: number;
@@ -105,6 +106,7 @@ export class PublicProjectMetricsRepository {
           'ORG_PROVISIONED'::"RepositorySource",
           'EXTERNAL_PUBLIC'::"RepositorySource"
         )
+        AND daily.github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
     `;
   }
 }

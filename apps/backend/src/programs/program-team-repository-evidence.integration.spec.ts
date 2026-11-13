@@ -75,7 +75,12 @@ afterAll(async () => {
 
 it('projects current repository facts and URL audit history without reading or mutating unrelated repository facts', async () => {
   await prisma.user.create({
-    data: { id: memberId, githubId, nickname: 'synthetic-member' },
+    data: {
+      id: memberId,
+      githubId,
+      nickname: 'synthetic-member',
+      type: 'STUDENT',
+    },
   });
   await prisma.program.create({
     data: {
