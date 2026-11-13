@@ -648,6 +648,7 @@ model RepositoryInvitation {
 
   repositoryId String
   repository   GithubRepository @relation(fields: [repositoryId], references: [id])
+  repoId       BigInt?          @map("repo_id")
 
   githubLogin String
 
@@ -713,6 +714,7 @@ model RepositoryProvisionJob {
 
   repositoryId String?
   repository   GithubRepository? @relation(fields: [repositoryId], references: [id])
+  repoId       BigInt?           @map("repo_id")
 
   currentEventId String?
 
@@ -741,6 +743,7 @@ model RepositoryIssuanceHistory {
   requestId    String  @unique
   teamId       String
   repositoryId String?
+  repoId       BigInt? @map("repo_id")
 
   connectionMode RepositoryConnectionMode
   source         RepositorySource?
@@ -871,6 +874,7 @@ model Repo {
   teamRepos     TeamRepo[]
   contributions ContributionEvent[]
 
+  @@index([visibility, publishedAt, githubRepoId], map: "repo_visibility_published_at_github_repo_id_idx")
   @@map("repo")
 }
 
