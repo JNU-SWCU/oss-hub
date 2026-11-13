@@ -155,7 +155,7 @@ describe('github ledger shadow copy', () => {
     await prisma.$disconnect();
   });
 
-  it('copies the old rows once, keeps the old tables, and rejects an overlapping team period', async () => {
+  it('copies repositories once, leaves the activity ledger, and rejects an overlapping team period', async () => {
     const version = await prisma.$queryRaw<Array<{ server_version: string }>>`
       SHOW server_version
     `;
@@ -175,10 +175,6 @@ describe('github ledger shadow copy', () => {
         repo_rows: 0n,
       });
     }
-
-    const derivedBefore = await prisma.contribution.count({
-      where: { repository: { githubRepositoryId: REPO_GITHUB_ID } },
-    });
 
     await copyLedger();
     const first = await verifyLedger();
@@ -201,15 +197,10 @@ describe('github ledger shadow copy', () => {
       expect(second).toEqual([
         { check: 'repo_count', expected: 2n, actual: 2n },
         { check: 'open_team_link', expected: 1n, actual: 1n },
-        { check: 'commit_count', expected: 0n, actual: 0n },
-        { check: 'pull_request_count', expected: 0n, actual: 0n },
-        { check: 'issue_count', expected: 0n, actual: 0n },
-        { check: 'release_count', expected: 0n, actual: 0n },
         { check: 'latest_commit_sum', expected: 180n, actual: 180n },
         { check: 'latest_pull_request_sum', expected: 4n, actual: 4n },
         { check: 'latest_issue_sum', expected: 1n, actual: 1n },
         { check: 'latest_star_sum', expected: 2n, actual: 2n },
-        { check: 'legacy_history_uncovered', expected: 0n, actual: 0n },
         { check: 'history_consecutive_same_value', expected: 0n, actual: 0n },
         { check: 'open_link_repo_mismatch', expected: 0n, actual: 0n },
         { check: 'open_period_created_at_floor', expected: 0n, actual: 0n },
@@ -223,7 +214,6 @@ describe('github ledger shadow copy', () => {
       ORDER BY "observed_at"
     `;
     expect(observations.map((row) => row.observed_at.toISOString())).toEqual([
-      '2026-10-20T01:00:00.000Z',
       '2026-10-25T02:00:00.000Z',
     ]);
 
@@ -232,22 +222,6 @@ describe('github ledger shadow copy', () => {
     `;
     expect(gone[0]?.gone_at).not.toBeNull();
 
-    expect(
-      await prisma.contribution.count({
-        where: { repository: { githubRepositoryId: REPO_GITHUB_ID } },
-      }),
-    ).toBe(derivedBefore);
-
-    await expect(
-      prisma.$queryRaw<Array<{ name: string }>>`
-        SELECT to_regclass('public."Contribution"')::text AS name
-      `,
-    ).resolves.toEqual([{ name: '"Contribution"' }]);
-    await expect(
-      prisma.$queryRaw<Array<{ name: string }>>`
-        SELECT to_regclass('public."GithubUserActivityHistory"')::text AS name
-      `,
-    ).resolves.toEqual([{ name: '"GithubUserActivityHistory"' }]);
     await expect(
       prisma.$queryRaw<Array<{ name: string }>>`
         SELECT to_regclass('public."CollectionRepositoryStream"')::text AS name
@@ -716,90 +690,15 @@ async function seed(): Promise<void> {
       presence: 'ABSENT',
     },
   });
-  const occurredAt = new Date('2026-10-15T00:00:00.000Z');
-  const seenAt = new Date('2026-10-16T00:00:00.000Z');
-  await prisma.collectionCommitFact.create({
-    data: {
-      repositoryId: linked.id,
-      sha: 'abc123',
-      committedAt: occurredAt,
-      authorGithubId: GITHUB_ID,
-      observedAt: seenAt,
-    },
-  });
-  await prisma.collectionCommitFact.create({
-    data: {
-      repositoryId: linked.id,
-      sha: 'unauthored',
-      committedAt: occurredAt,
-      observedAt: seenAt,
-    },
-  });
-  await prisma.collectionPullRequestFact.create({
-    data: {
-      repositoryId: linked.id,
-      githubPullRequestId: 7n,
-      state: 'open',
-      createdAt: occurredAt,
-      authorGithubId: GITHUB_ID,
-      observedAt: seenAt,
-    },
-  });
-  await prisma.githubIssueHistory.create({
-    data: {
-      repositoryId: linked.id,
-      githubIssueId: 8n,
-      state: 'open',
-      createdAt: occurredAt,
-      authorGithubId: GITHUB_ID,
-      observedAt: seenAt,
-    },
-  });
-  await prisma.collectionReleaseFact.create({
-    data: {
-      repositoryId: linked.id,
-      githubReleaseId: 9n,
-      publishedAt: occurredAt,
-      authorGithubId: GITHUB_ID,
-      observedAt: seenAt,
-    },
-  });
-  await prisma.contribution.create({
-    data: {
-      repositoryId: linked.id,
-      githubId: GITHUB_ID,
-      date: new Date('2026-10-15T00:00:00.000Z'),
-      commitCount: 2,
-    },
-  });
-  await prisma.githubUserActivityHistory.create({
-    data: {
-      githubId: GITHUB_ID,
-      githubLogin: `${PREFIX}login`,
-      year: 2026,
-      visibility: 'PUBLIC',
-      commitCount: 180,
-      pullRequestCount: 4,
-      issueCount: 1,
-      repositoryCount: 3,
-      starCount: 2,
-      observedAt: new Date('2026-10-25T02:00:00.000Z'),
-    },
-  });
-  await prisma.githubUserActivityCycleSnapshot.create({
-    data: {
-      githubId: GITHUB_ID,
-      githubLogin: `${PREFIX}login`,
-      year: 2026,
-      visibility: 'PUBLIC',
-      commitCount: 120,
-      pullRequestCount: 4,
-      issueCount: 1,
-      repositoryCount: 3,
-      starCount: 2,
-      observedAt: new Date('2026-10-20T01:00:00.000Z'),
-    },
-  });
+  await prisma.$executeRaw`
+    INSERT INTO "github_user_activity_history" (
+      "github_id", "year", "visibility", "commit_count", "pull_request_count",
+      "issue_count", "repository_count", "star_count", "observed_at"
+    ) VALUES (
+      ${GITHUB_ID}, 2026, 'PUBLIC', 180, 4, 1, 3, 2,
+      ${new Date('2026-10-25T02:00:00.000Z')}
+    )
+  `;
   await prisma.githubUserActivityMonthly.create({
     data: {
       githubId: GITHUB_ID,
@@ -835,41 +734,6 @@ async function clean(): Promise<void> {
       DELETE FROM "github_user_activity_history" WHERE "github_id" = ${GITHUB_ID}
     `;
   }
-  await prisma.collectionCommitFact.deleteMany({
-    where: {
-      repository: {
-        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
-      },
-    },
-  });
-  await prisma.collectionPullRequestFact.deleteMany({
-    where: {
-      repository: {
-        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
-      },
-    },
-  });
-  await prisma.collectionReleaseFact.deleteMany({
-    where: {
-      repository: {
-        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
-      },
-    },
-  });
-  await prisma.githubIssueHistory.deleteMany({
-    where: {
-      repository: {
-        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
-      },
-    },
-  });
-  await prisma.contribution.deleteMany({
-    where: {
-      repository: {
-        githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
-      },
-    },
-  });
   await prisma.collectionRepositoryStream.deleteMany({
     where: {
       repository: {
@@ -878,12 +742,6 @@ async function clean(): Promise<void> {
     },
   });
   await prisma.githubUserActivityMonthly.deleteMany({
-    where: { githubId: GITHUB_ID },
-  });
-  await prisma.githubUserActivityCycleSnapshot.deleteMany({
-    where: { githubId: GITHUB_ID },
-  });
-  await prisma.githubUserActivityHistory.deleteMany({
     where: { githubId: GITHUB_ID },
   });
   await prisma.githubRepository.deleteMany({

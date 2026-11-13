@@ -131,32 +131,6 @@ CREATE TABLE "contribution" (
   "first_seen_at" TIMESTAMPTZ(3) NOT NULL,
   PRIMARY KEY ("repo_id", "kind", "github_key")
 );
-CREATE TABLE "CollectionCommitFact" (
-  "repositoryId" TEXT, "sha" TEXT, "authorGithubId" BIGINT,
-  "committedAt" TIMESTAMPTZ(3), "observedAt" TIMESTAMPTZ(3)
-);
-CREATE TABLE "CollectionPullRequestFact" (
-  "repositoryId" TEXT, "githubPullRequestId" BIGINT, "authorGithubId" BIGINT,
-  "createdAt" TIMESTAMPTZ(3), "observedAt" TIMESTAMPTZ(3)
-);
-CREATE TABLE "GithubIssueHistory" (
-  "repositoryId" TEXT, "githubIssueId" BIGINT, "authorGithubId" BIGINT,
-  "createdAt" TIMESTAMPTZ(3), "observedAt" TIMESTAMPTZ(3)
-);
-CREATE TABLE "CollectionReleaseFact" (
-  "repositoryId" TEXT, "githubReleaseId" BIGINT, "authorGithubId" BIGINT,
-  "publishedAt" TIMESTAMPTZ(3), "observedAt" TIMESTAMPTZ(3)
-);
-CREATE TABLE "GithubUserActivityHistory" (
-  "githubId" BIGINT, "year" INTEGER, "visibility" "ActivityVisibility",
-  "commitCount" INTEGER, "pullRequestCount" INTEGER, "issueCount" INTEGER,
-  "repositoryCount" INTEGER, "starCount" INTEGER, "observedAt" TIMESTAMPTZ(3)
-);
-CREATE TABLE "GithubUserActivityCycleSnapshot" (
-  "githubId" BIGINT, "year" INTEGER, "visibility" "ActivityVisibility",
-  "commitCount" INTEGER, "pullRequestCount" INTEGER, "issueCount" INTEGER,
-  "repositoryCount" INTEGER, "starCount" INTEGER, "observedAt" TIMESTAMPTZ(3)
-);
 CREATE TABLE "github_user_activity_history" (
   "github_id" BIGINT NOT NULL,
   "year" INTEGER NOT NULL,
@@ -700,23 +674,21 @@ SQL
   psql_db >/dev/null <<SQL
 ${teams_sql}
 $(repo_sql r 1001 team-t '2026-10-01 00:00:00+00' '2026-10-01 00:00:00+00')
-INSERT INTO "CollectionCommitFact" ("repositoryId", "sha", "authorGithubId", "committedAt", "observedAt")
-VALUES ('r', 'abc123', 42, '2026-10-15 00:00:00+00', '2026-10-16 00:00:00+00');
 $(repo_sql gone 1008 null '2026-10-01 00:00:00+00' '2026-10-02 00:00:00+00' ABSENT)
 SQL
   copy_or_die "$engine_name" setup
-  facts="$(psql_db -At -c "SELECT (SELECT count(*) FROM contribution) = 1 AND (SELECT gone_at IS NOT NULL FROM repo WHERE github_repo_id = 1008);")"
-  if [ "$facts" != "t" ]; then
-    echo "FAIL ${engine_name} facts_and_absence" >&2
+  absence="$(psql_db -At -c "SELECT gone_at IS NOT NULL FROM repo WHERE github_repo_id = 1008;")"
+  if [ "$absence" != "t" ]; then
+    echo "FAIL ${engine_name} absence" >&2
     exit 1
   fi
   before="$(digest)"
   copy_or_die "$engine_name" setup
   if [ "$before" != "$(digest)" ]; then
-    echo "FAIL ${engine_name} facts_and_absence: second copy changed the ledger" >&2
+    echo "FAIL ${engine_name} absence: second copy changed the ledger" >&2
     exit 1
   fi
-  echo "PASS ${engine_name} facts_and_absence"
+  echo "PASS ${engine_name} absence"
 
   reset_db
   psql_db >/dev/null <<SQL
@@ -778,20 +750,10 @@ $(move_sql s null '2026-06-01 00:00:00+00')
 SQL
   copy_or_die "$engine_name" setup
   psql_db >/dev/null <<SQL
-INSERT INTO "GithubUserActivityHistory" (
-  "githubId", "year", "visibility",
-  "commitCount", "pullRequestCount", "issueCount", "repositoryCount", "starCount",
-  "observedAt"
-) VALUES (42, 2026, 'PUBLIC', 4, 1, 1, 1, 1, '2026-07-01 00:00:00+00');
 $(repo_sql r 1001 team-t '2026-03-01 00:00:00+00' '2026-12-01 00:00:00+00')
 SQL
   copy_or_die "$engine_name" setup
   expect_periods closed_period_reused_claim "$engine_name" 'team-t:1001[2026-12-01 00:00:00.000,open] team-t:1002[2026-01-01 00:00:00.000,2026-06-01 00:00:00.000]'
-  history_rows="$(psql_db -At -c "SELECT count(*) FROM github_user_activity_history WHERE github_id = 42 AND commit_count = 4;")"
-  if [ "$history_rows" != "1" ]; then
-    echo "FAIL ${engine_name} closed_period_reused_claim: history rows ${history_rows}" >&2
-    exit 1
-  fi
 }
 
 case "$engine" in

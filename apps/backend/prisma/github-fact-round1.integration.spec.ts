@@ -30,10 +30,6 @@ const ACTIVITY_REPO_ID = 9_812_100_001n;
 const COLLECTION_REPO_ID = 9_812_100_002n;
 const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
 const DAY_MS = 24 * 60 * 60 * 1000;
-const COPY_SQL = readFileSync(
-  resolve(__dirname, 'github-ledger-copy.sql'),
-  'utf8',
-);
 const REVERSE_SQL = readFileSync(
   resolve(__dirname, 'github-ledger-reverse.sql'),
   'utf8',
@@ -233,32 +229,30 @@ const createUser = async (input: {
   });
 };
 
-const createLegacyStanding = async (input: {
+const createStanding = async (input: {
   readonly githubId: bigint;
-  readonly login: string;
   readonly currentCommits: number;
   readonly previousCommits: number;
   readonly currentAt: Date;
   readonly previousAt: Date;
 }): Promise<void> => {
-  await prisma.githubUserActivityHistory.create({
+  await prisma.githubUserActivityObservation.create({
     data: {
       githubId: input.githubId,
-      githubLogin: input.login,
-      year: YEAR,
-      visibility: 'PUBLIC',
-      commitCount: input.currentCommits,
-      observedAt: input.currentAt,
-    },
-  });
-  await prisma.githubUserActivityCycleSnapshot.create({
-    data: {
-      githubId: input.githubId,
-      githubLogin: input.login,
       year: YEAR,
       visibility: 'PUBLIC',
       commitCount: input.previousCommits,
       observedAt: input.previousAt,
+    },
+  });
+  if (input.currentCommits === input.previousCommits) return;
+  await prisma.githubUserActivityObservation.create({
+    data: {
+      githubId: input.githubId,
+      year: YEAR,
+      visibility: 'PUBLIC',
+      commitCount: input.currentCommits,
+      observedAt: input.currentAt,
     },
   });
 };
@@ -349,7 +343,7 @@ describe('github fact round 1', () => {
     await prisma.$disconnect();
   });
 
-  it('keeps an unchanged student previousRank equal to the cycle snapshot', async () => {
+  it('keeps an unchanged student previousRank from the ledger row before Seoul midnight', async () => {
     const version = await prisma.$queryRaw<Array<{ server_version: string }>>`
       SHOW server_version
     `;
@@ -371,40 +365,34 @@ describe('github fact round 1', () => {
     await createUser({ suffix: 'alpha', githubId: ALPHA_ID, type: 'STUDENT' });
     await createUser({ suffix: 'beta', githubId: BETA_ID, type: 'STUDENT' });
     await createUser({ suffix: 'staff', githubId: STAFF_ID, type: 'STAFF' });
-    await createLegacyStanding({
+    await createStanding({
       githubId: GAMMA_ID,
-      login: `${PREFIX}gamma`,
       currentCommits: 30,
       previousCommits: 30,
       currentAt,
       previousAt,
     });
-    await createLegacyStanding({
+    await createStanding({
       githubId: ALPHA_ID,
-      login: `${PREFIX}alpha`,
       currentCommits: 20,
       previousCommits: 5,
       currentAt,
       previousAt,
     });
-    await createLegacyStanding({
+    await createStanding({
       githubId: BETA_ID,
-      login: `${PREFIX}beta`,
       currentCommits: 10,
       previousCommits: 1,
       currentAt,
       previousAt,
     });
-    await createLegacyStanding({
+    await createStanding({
       githubId: STAFF_ID,
-      login: `${PREFIX}staff`,
       currentCommits: 1000,
       previousCommits: 1000,
       currentAt,
       previousAt,
     });
-
-    await runScript(COPY_SQL);
 
     const previous = await ranking.findPreviousCycleMetrics(
       { currentYear: YEAR },
