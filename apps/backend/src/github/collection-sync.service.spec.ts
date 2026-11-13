@@ -61,7 +61,6 @@ interface Store {
   pullRequestFacts: Map<string, Row>;
   releaseFacts: Map<string, Row>;
   issueFacts: Map<string, Row>;
-  contributions: Map<string, Row>;
   recomputeCalls: number;
   streams: Map<string, Row>;
   cursors: Map<string, Row>;
@@ -80,7 +79,6 @@ const emptyStore = (): Store => ({
   pullRequestFacts: new Map(),
   releaseFacts: new Map(),
   issueFacts: new Map(),
-  contributions: new Map(),
   recomputeCalls: 0,
   streams: new Map(),
   cursors: new Map(),
@@ -96,7 +94,6 @@ const cloneStore = (store: Store): Store => ({
   pullRequestFacts: new Map(store.pullRequestFacts),
   releaseFacts: new Map(store.releaseFacts),
   issueFacts: new Map(store.issueFacts),
-  contributions: new Map(store.contributions),
   recomputeCalls: store.recomputeCalls,
   streams: new Map(store.streams),
   cursors: new Map(store.cursors),
@@ -296,164 +293,6 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
           matchesWhere(row, where),
         ),
     },
-    collectionCommitFact: {
-      createMany: ({
-        data,
-      }: {
-        data: ReadonlyArray<Row & { repositoryId: string; sha: string }>;
-      }): { count: number } => {
-        const failing = data.find((item) =>
-          control.failCommitShas.has(item.sha),
-        );
-        if (failing) {
-          throw new Error(`synthetic commit fact failure: ${failing.sha}`);
-        }
-        let count = 0;
-        for (const item of data) {
-          const key = `${item.repositoryId}:${item.sha}`;
-          if (box.store.commitFacts.has(key)) continue;
-          box.store.commitFacts.set(key, {
-            id: `commit-${box.store.commitFacts.size + 1}`,
-            ...item,
-          });
-          count += 1;
-        }
-        return { count };
-      },
-      count: ({ where }: { where: Row }): number =>
-        [...box.store.commitFacts.values()].filter((row) =>
-          matchesWhere(row, where),
-        ).length,
-      findFirst: ({ where }: { where: Row }): Row | null => {
-        const rows = [...box.store.commitFacts.values()]
-          .filter((row) => matchesWhere(row, where))
-          .sort(
-            (a, b) =>
-              (b.committedAt as Date).getTime() -
-              (a.committedAt as Date).getTime(),
-          );
-        return rows[0] ?? null;
-      },
-    },
-    collectionPullRequestFact: {
-      createMany: ({
-        data,
-      }: {
-        data: ReadonlyArray<
-          Row & { repositoryId: string; githubPullRequestId: bigint }
-        >;
-      }): { count: number } => {
-        const failing = data.find((item) =>
-          control.failPullRequestIds.has(item.githubPullRequestId),
-        );
-        if (failing) {
-          throw new Error(
-            `synthetic pull request fact failure: ${String(failing.githubPullRequestId)}`,
-          );
-        }
-        let count = 0;
-        for (const item of data) {
-          const key = `${item.repositoryId}:${String(item.githubPullRequestId)}`;
-          if (box.store.pullRequestFacts.has(key)) continue;
-          box.store.pullRequestFacts.set(key, {
-            id: `pr-${box.store.pullRequestFacts.size + 1}`,
-            ...item,
-          });
-          count += 1;
-        }
-        return { count };
-      },
-      count: ({ where }: { where: Row }): number =>
-        [...box.store.pullRequestFacts.values()].filter((row) =>
-          matchesWhere(row, where),
-        ).length,
-      findFirst: ({ where }: { where: Row }): Row | null => {
-        const rows = [...box.store.pullRequestFacts.values()]
-          .filter((row) => matchesWhere(row, where))
-          .sort(
-            (a, b) =>
-              (b.createdAt as Date).getTime() - (a.createdAt as Date).getTime(),
-          );
-        return rows[0] ?? null;
-      },
-    },
-    collectionReleaseFact: {
-      createMany: ({
-        data,
-      }: {
-        data: ReadonlyArray<
-          Row & { repositoryId: string; githubReleaseId: bigint }
-        >;
-      }): { count: number } => {
-        let count = 0;
-        for (const item of data) {
-          const key = `${item.repositoryId}:${String(item.githubReleaseId)}`;
-          if (box.store.releaseFacts.has(key)) continue;
-          box.store.releaseFacts.set(key, {
-            id: `release-${box.store.releaseFacts.size + 1}`,
-            ...item,
-          });
-          count += 1;
-        }
-        return { count };
-      },
-      count: ({ where }: { where: Row }): number =>
-        [...box.store.releaseFacts.values()].filter((row) =>
-          matchesWhere(row, where),
-        ).length,
-      findFirst: ({ where }: { where: Row }): Row | null => {
-        const rows = [...box.store.releaseFacts.values()]
-          .filter((row) => matchesWhere(row, where))
-          .sort(
-            (a, b) =>
-              (b.publishedAt as Date).getTime() -
-              (a.publishedAt as Date).getTime(),
-          );
-        return rows[0] ?? null;
-      },
-    },
-    githubIssueHistory: {
-      createMany: ({
-        data,
-      }: {
-        data: ReadonlyArray<
-          Row & { repositoryId: string; githubIssueId: bigint }
-        >;
-      }): { count: number } => {
-        let count = 0;
-        for (const item of data) {
-          const key = `${item.repositoryId}:${String(item.githubIssueId)}`;
-          if (box.store.issueFacts.has(key)) continue;
-          box.store.issueFacts.set(key, {
-            id: `issue-${box.store.issueFacts.size + 1}`,
-            ...item,
-          });
-          count += 1;
-        }
-        return { count };
-      },
-    },
-    contribution: {
-      deleteMany: ({
-        where,
-      }: {
-        where: {
-          repositoryId: string;
-          githubId: { in: bigint[] };
-          date: { in: Date[] };
-        };
-      }): { count: number } => {
-        let n = 0;
-        for (const key of [...box.store.contributions.keys()]) {
-          if (key.startsWith(`${where.repositoryId}:`)) {
-            box.store.contributions.delete(key);
-            n += 1;
-          }
-        }
-        return { count: n };
-      },
-    },
-
     user: {
       findMany: jest.fn(() => {
         control.registeredGithubIdsLookupCount += 1;
@@ -2840,7 +2679,6 @@ describe('CollectionSyncService — PR·릴리스 적재의 팀원 필터', () =
 
     box.store.streams.set(streamKey, { ...current, frontierSha: null });
     box.store.pullRequestFacts.clear();
-    box.store.contributions.clear();
 
     await service.run('owner-1');
     expect(client.listNewPullRequests.mock.calls[1]?.[2]).toBeNull();

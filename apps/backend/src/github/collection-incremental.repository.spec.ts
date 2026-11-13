@@ -23,23 +23,6 @@ interface MockDb {
     updateMany: jest.Mock;
     findMany: jest.Mock;
   };
-  collectionCommitFact: {
-    createMany: jest.Mock;
-    count: jest.Mock;
-    findFirst: jest.Mock;
-  };
-  collectionPullRequestFact: {
-    createMany: jest.Mock;
-    count: jest.Mock;
-    findFirst: jest.Mock;
-  };
-  collectionReleaseFact: {
-    createMany: jest.Mock;
-    count: jest.Mock;
-    findFirst: jest.Mock;
-  };
-  githubIssueHistory: { createMany: jest.Mock };
-  contribution: { deleteMany: jest.Mock };
   $executeRaw: jest.Mock;
   $queryRaw: jest.Mock;
   user: { findMany: jest.Mock };
@@ -73,26 +56,6 @@ const createDb = (): MockDb => {
       updateMany: jest.fn(),
       findMany: jest.fn(),
     },
-    collectionCommitFact: {
-      createMany: jest.fn().mockResolvedValue({ count: 0 }),
-      count: jest.fn().mockResolvedValue(0),
-      findFirst: jest.fn().mockResolvedValue(null),
-    },
-    collectionPullRequestFact: {
-      createMany: jest.fn().mockResolvedValue({ count: 0 }),
-      count: jest.fn().mockResolvedValue(0),
-      findFirst: jest.fn().mockResolvedValue(null),
-    },
-    collectionReleaseFact: {
-      createMany: jest.fn().mockResolvedValue({ count: 0 }),
-      count: jest.fn().mockResolvedValue(0),
-      findFirst: jest.fn().mockResolvedValue(null),
-    },
-    githubIssueHistory: {
-      createMany: jest.fn().mockResolvedValue({ count: 0 }),
-    },
-
-    contribution: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $executeRaw: jest.fn().mockResolvedValue(1),
     $queryRaw: jest
       .fn()
@@ -161,11 +124,6 @@ const expectLedgerInsert = (db: MockDb): void => {
   ).toHaveLength(1);
   expect(db.$queryRaw).toHaveBeenCalledTimes(1);
   expect(db.$executeRaw).not.toHaveBeenCalled();
-  expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
-  expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
-  expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
-  expect(db.githubIssueHistory.createMany).not.toHaveBeenCalled();
-  expect(db.contribution.deleteMany).not.toHaveBeenCalled();
 };
 const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
@@ -360,7 +318,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     );
 
     expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
-    expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
     expect(db.$executeRaw).not.toHaveBeenCalled();
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });
@@ -417,7 +374,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    expect(db.contribution.deleteMany).not.toHaveBeenCalled();
     expect(db.$executeRaw).not.toHaveBeenCalled();
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });
@@ -484,7 +440,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 
   it('저장소 행을 만들 수 없으면 contribution 트랜잭션을 되돌린다', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
     db.$queryRaw.mockResolvedValue([
       { candidates: 0, missing_repo: 1, inserted: 0 },
     ]);
@@ -545,7 +500,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });
@@ -585,7 +539,6 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
     );
 
     expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
-    expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
     expect(db.$executeRaw).not.toHaveBeenCalled();
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });
@@ -625,7 +578,6 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
     );
 
     expect(result).toEqual({ acceptedCount: 0, insertedCount: 0 });
-    expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
     expect(db.$executeRaw).not.toHaveBeenCalled();
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });
@@ -1420,8 +1372,6 @@ describe('CollectionIncrementalRepository — stream sync epoch', () => {
 describe('CollectionIncrementalRepository — 가입자만 적재한다', () => {
   it('ORG 저장소도 가입하지 않았거나 작성자를 모르는 기여는 행을 만들지 않는다', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
-    db.collectionCommitFact.count.mockResolvedValue(1);
     const registeredGithubIds = new Set([1n]);
 
     await repositoryFor(db).recordCommitFacts(
@@ -1492,8 +1442,6 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       registeredGithubIds,
     );
 
-    expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
-    expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
     expect(db.$queryRaw).toHaveBeenCalledTimes(2);
     const serialized = stringifyWithBigint(db.$queryRaw.mock.calls);
     expect(serialized).toContain('pull_request');
@@ -1502,8 +1450,6 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
 
   it('미가입자만 있는 배치는 fact와 집계를 모두 건드리지 않는다', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
-    db.collectionCommitFact.count.mockResolvedValue(1);
     const registeredGithubIds = new Set<bigint>();
 
     await repositoryFor(db).recordCommitFacts(
@@ -1518,10 +1464,8 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       registeredGithubIds,
     );
 
-    expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
     expect(db.$executeRaw).not.toHaveBeenCalled();
     expect(db.$queryRaw).not.toHaveBeenCalled();
-    expect(db.contribution.deleteMany).not.toHaveBeenCalled();
   });
 
   it('일별 Contribution은 더 이상 지우고 다시 채우지 않는다', async () => {

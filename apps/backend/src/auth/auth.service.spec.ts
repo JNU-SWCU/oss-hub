@@ -334,9 +334,6 @@ describe('AuthService', () => {
           return Promise.reject(new Error('expected a transaction callback'));
         }
         return operation({
-          githubUserActivityHistory: {
-            upsert: jest.fn(),
-          },
           $executeRaw: databaseWrite,
         } as never);
       });

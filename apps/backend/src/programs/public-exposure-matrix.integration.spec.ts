@@ -16,6 +16,7 @@ import {
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -277,7 +278,7 @@ async function observeCollection(params: {
   });
 }
 async function seedContributors(
-  repositoryId: string,
+  githubRepositoryId: bigint,
   ownerGithubId: bigint,
   ownerLogin: string,
   otherGithubId: bigint,
@@ -300,26 +301,22 @@ async function seedContributors(
       },
     });
   }
-  await prisma.contribution.createMany({
-    data: [
-      {
-        repositoryId,
-        githubId: ownerGithubId,
-        date: new Date(Date.UTC(2026, 0, 2)),
-        commitCount: 5,
-        pullRequestCount: 2,
-        releaseCount: 1,
-      },
-      {
-        repositoryId,
-        githubId: otherGithubId,
-        date: new Date(Date.UTC(2026, 0, 2)),
-        commitCount: 3,
-        pullRequestCount: 1,
-        releaseCount: 0,
-      },
-    ],
-  });
+  await seedDailyContributions(prisma, githubRepositoryId, [
+    {
+      githubId: ownerGithubId,
+      date: '2026-01-02',
+      commitCount: 5,
+      pullRequestCount: 2,
+      releaseCount: 1,
+    },
+    {
+      githubId: otherGithubId,
+      date: '2026-01-02',
+      commitCount: 3,
+      pullRequestCount: 1,
+      releaseCount: 0,
+    },
+  ]);
 }
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 const BEFORE_PUBLISH = new Date('2026-05-01T00:00:00.000Z');
@@ -396,7 +393,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       observedAt: AFTER_PUBLISH,
     });
     await seedContributors(
-      outcome2.repositoryId,
+      outcome2.githubRepositoryId,
       GITHUB_ID_BASE + 900001n,
       `${PREFIX}-outcome-2-owner-login`,
       GITHUB_ID_BASE + 900002n,
@@ -430,7 +427,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       },
     });
     await seedContributors(
-      outcome4.repositoryId,
+      outcome4.githubRepositoryId,
       GITHUB_ID_BASE + 900005n,
       `${PREFIX}-outcome-4-applicant-login`,
       GITHUB_ID_BASE + 900006n,
@@ -450,7 +447,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       observedAt: AFTER_PUBLISH,
     });
     await seedContributors(
-      outcome5.repositoryId,
+      outcome5.githubRepositoryId,
       GITHUB_ID_BASE + 900007n,
       `${PREFIX}-outcome-5-applicant-login`,
       GITHUB_ID_BASE + 900008n,
@@ -464,7 +461,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       publishedAt: null,
     });
     await seedContributors(
-      outcome6.repositoryId,
+      outcome6.githubRepositoryId,
       GITHUB_ID_BASE + 900009n,
       `${PREFIX}-outcome-6-applicant-login`,
       GITHUB_ID_BASE + 900010n,
@@ -478,7 +475,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       publishedAt: null,
     });
     await seedContributors(
-      outcome7.repositoryId,
+      outcome7.githubRepositoryId,
       GITHUB_ID_BASE + 900011n,
       `${PREFIX}-outcome-7-applicant-login`,
       GITHUB_ID_BASE + 900012n,
@@ -492,7 +489,7 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       publishedAt: null,
     });
     await seedContributors(
-      outcome8.repositoryId,
+      outcome8.githubRepositoryId,
       GITHUB_ID_BASE + 900003n,
       `${PREFIX}-outcome-8-owner-login`,
       GITHUB_ID_BASE + 900004n,
@@ -501,9 +498,6 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
   });
   afterAll(async () => {
     try {
-      await prisma.contribution.deleteMany({
-        where: { repositoryId: { startsWith: `${PREFIX}-` } },
-      });
       await prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });

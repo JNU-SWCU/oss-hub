@@ -90,9 +90,6 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
     await prisma.githubUserActivityObservation.deleteMany({
       where: { githubId: { in: seededIds } },
     });
-    await prisma.githubUserActivityHistory.deleteMany({
-      where: { githubId: { in: seededIds } },
-    });
     await prisma.user.deleteMany({ where: { githubId: { in: seededIds } } });
   };
 
@@ -146,11 +143,6 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
       foreignActiveUserCount + ACTIVE_USER_COUNT,
     );
     expect(rows).toHaveLength(ACTIVE_USER_COUNT);
-    await expect(
-      prisma.githubUserActivityHistory.count({
-        where: { githubId: { in: seededIds } },
-      }),
-    ).resolves.toBe(0);
     expect(rows.every((row) => row.year === CURRENT_YEAR)).toBe(true);
 
     expect(seededQueriedLogins()).toHaveLength(ACTIVE_USER_COUNT);
@@ -180,9 +172,6 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
 
   it('한 학생에 429를 주입해도 나머지 50명이 그대로 적재된다', async () => {
     await prisma.githubUserActivityObservation.deleteMany({
-      where: { githubId: { in: seededIds } },
-    });
-    await prisma.githubUserActivityHistory.deleteMany({
       where: { githubId: { in: seededIds } },
     });
     rateLimitCost = 0;

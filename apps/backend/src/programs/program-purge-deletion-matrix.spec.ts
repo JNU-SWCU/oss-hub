@@ -89,11 +89,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
     expect(preserved).toEqual(
       expect.arrayContaining([
         'GithubRepository->RepositoryInvitation',
-        'GithubRepository->Contribution',
         'GithubRepository->CollectionRepositoryStream',
-        'GithubRepository->CollectionCommitFact',
-        'GithubRepository->CollectionPullRequestFact',
-        'GithubRepository->CollectionReleaseFact',
       ]),
     );
 
@@ -205,10 +201,6 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
     ).flatMap((step) => step.covers);
     expect(deleted).toEqual(
       expect.arrayContaining([
-        'GithubRepository->Contribution',
-        'GithubRepository->CollectionCommitFact',
-        'GithubRepository->CollectionPullRequestFact',
-        'GithubRepository->CollectionReleaseFact',
         'GithubRepository->CollectionRepositoryStream',
         'GithubRepository->RepositoryInvitation',
       ]),

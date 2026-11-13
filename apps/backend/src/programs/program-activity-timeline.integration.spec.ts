@@ -92,42 +92,6 @@ it('counts only current linked activity and never substitutes detached or unrela
       },
     ],
   });
-  await prisma.githubIssueHistory.createMany({
-    data: [
-      {
-        repositoryId: linkedRepositoryId,
-        githubIssueId: 1n,
-        createdAt: new Date('2026-07-31T14:59:59Z'),
-        authorGithubId: githubId,
-      },
-      {
-        repositoryId: linkedRepositoryId,
-        githubIssueId: 2n,
-        createdAt: new Date('2026-07-31T15:00:00Z'),
-        authorGithubId: githubId,
-      },
-      {
-        repositoryId: linkedRepositoryId,
-        githubIssueId: 3n,
-        createdAt: new Date('2026-08-02T00:00:00Z'),
-        authorGithubId: githubId + 99n,
-      },
-      {
-        repositoryId: unlinkedRepositoryId,
-        githubIssueId: 4n,
-        createdAt: new Date('2026-08-02T00:00:00Z'),
-        authorGithubId: githubId,
-      },
-    ].map((issue) => ({ ...issue, state: 'open' })),
-  });
-  await prisma.collectionCommitFact.create({
-    data: {
-      repositoryId: linkedRepositoryId,
-      sha: `${prefix}-commit`,
-      committedAt: new Date('2026-08-03T00:00:00Z'),
-      authorGithubId: githubId,
-    },
-  });
   await prisma.repo.create({
     data: {
       githubRepoId: githubId + 1n,
@@ -205,11 +169,6 @@ it('counts only current linked activity and never substitutes detached or unrela
       total: 1,
     },
   ]);
-  expect(
-    await prisma.githubIssueHistory.count({
-      where: { repositoryId: unlinkedRepositoryId },
-    }),
-  ).toBe(1);
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
     data: { teamId: null },
@@ -221,8 +180,8 @@ it('counts only current linked activity and never substitutes detached or unrela
   expect(detached.series.points).toEqual([]);
   expect(detached.dataAsOf).toBeNull();
   expect(
-    await prisma.collectionCommitFact.count({
-      where: { repositoryId: linkedRepositoryId },
+    await prisma.contributionEvent.count({
+      where: { repoId: githubId + 1n, kind: 'COMMIT' },
     }),
   ).toBe(1);
   await expect(
@@ -238,20 +197,9 @@ it('counts only current linked activity and never substitutes detached or unrela
   await prisma.contributionEvent.deleteMany({
     where: { repoId: githubId + 1n },
   });
-  await prisma.collectionCommitFact.deleteMany({
-    where: { repositoryId: linkedRepositoryId },
-  });
-  await prisma.githubIssueHistory.deleteMany({
-    where: { repositoryId: linkedRepositoryId },
-  });
   const empty = await service.activityTimeline(
     { githubId, userId: studentId },
     'MONTH',
   );
   expect(empty.series.points).toEqual([]);
-  expect(
-    await prisma.githubIssueHistory.count({
-      where: { repositoryId: unlinkedRepositoryId },
-    }),
-  ).toBe(1);
 });

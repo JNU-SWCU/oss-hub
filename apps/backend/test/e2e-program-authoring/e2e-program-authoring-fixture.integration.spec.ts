@@ -13,6 +13,10 @@ import { e2eProgramAuthoringExternalPorts } from './e2e-external-ports';
 import { PrismaService } from '../../src/platform/prisma.service';
 import { removeAdoptedGraph } from './e2e-program-authoring-graph-cleanup';
 import { seedE2eRepositoryEvidence } from './e2e-repository-evidence.fixture';
+import {
+  repositoryContributionTotals,
+  seedDailyContributions,
+} from '../ledger-contribution.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -164,6 +168,11 @@ describe('E2eProgramAuthoringFixture persistence', () => {
   });
 });
 
+const repositoryContributionCommits = async (
+  repositoryIds: readonly string[],
+): Promise<number> =>
+  (await repositoryContributionTotals(prisma, repositoryIds)).commitCount;
+
 it('removes detached fixture repository facts while preserving a neighboring program', async () => {
   await fixture.reset();
   await fixture.ensure();
@@ -214,31 +223,22 @@ it('removes detached fixture repository facts while preserving a neighboring pro
       },
     ],
   });
-  await prisma.contribution.createMany({
-    data: [detachedId, neighborRepositoryId].map((repositoryId) => ({
-      repositoryId,
-      githubId: 8_100_002n,
-      date: new Date('2026-08-01Z'),
-      commitCount: 7,
-    })),
-  });
+  for (const githubRepositoryId of [9910001n, 9910002n]) {
+    await seedDailyContributions(prisma, githubRepositoryId, [
+      { githubId: 8_100_002n, date: '2026-08-01', commitCount: 7 },
+    ]);
+  }
 
   await fixture.reset();
 
   expect(
     await prisma.githubRepository.findUnique({ where: { id: detachedId } }),
   ).toBeNull();
-  expect(
-    await prisma.contribution.count({ where: { repositoryId: detachedId } }),
-  ).toBe(0);
+  expect(await repositoryContributionCommits([detachedId])).toBe(0);
   expect(
     await prisma.program.findUnique({ where: { id: neighborId } }),
   ).not.toBeNull();
-  expect(
-    await prisma.contribution.findMany({
-      where: { repositoryId: neighborRepositoryId },
-    }),
-  ).toEqual([expect.objectContaining({ commitCount: 7 })]);
+  expect(await repositoryContributionCommits([neighborRepositoryId])).toBe(7);
 });
 
 it('seeds current observations idempotently without reassigning detached facts', async () => {
@@ -330,8 +330,13 @@ it('rejects adopted graphs and missing approved applications without seeding fac
     seedE2eRepositoryEvidence(prisma, fixture.graph()),
   ).rejects.toMatchObject({ status: 409 });
   expect(
-    await prisma.contribution.count({
-      where: { repository: { team: { programId: E2E_PROGRAM_ID } } },
-    }),
+    await repositoryContributionCommits(
+      (
+        await prisma.githubRepository.findMany({
+          where: { team: { programId: E2E_PROGRAM_ID } },
+          select: { id: true },
+        })
+      ).map(({ id }) => id),
+    ),
   ).toBe(0);
 });

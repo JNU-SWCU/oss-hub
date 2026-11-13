@@ -179,11 +179,20 @@ async function seed(): Promise<void> {
             nameWithOwner: `baseline/team-${team}`,
             source: 'ORG_PROVISIONED',
             teamId,
+          },
+        });
+        await tx.repo.create({
+          data: {
+            githubRepoId: 9_700_000_000_000_000n + BigInt(team),
+            ownerName: 'baseline',
+            source: 'ORG_PROVISIONED',
             contributions: {
               create: {
-                githubId: 9_700_000_000_000_000n + BigInt(team * 2),
-                date: now,
-                commitCount: 3,
+                kind: 'COMMIT',
+                githubKey: id(`commit-${team}`),
+                authorGithubId: 9_700_000_000_000_000n + BigInt(team * 2),
+                occurredAt: now,
+                firstSeenAt: now,
               },
             },
           },
@@ -333,8 +342,8 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     teamHistories: await prisma.teamHistory.count({
       where: { id: { startsWith: prefix } },
     }),
-    contributions: await prisma.contribution.count({
-      where: { repositoryId: { startsWith: prefix } },
+    contributions: await prisma.contributionEvent.count({
+      where: { githubKey: { startsWith: prefix } },
     }),
   };
   if (

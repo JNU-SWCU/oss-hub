@@ -117,11 +117,11 @@ async function seed(member: SyntheticMember): Promise<void> {
         : {}),
     },
   });
-  await prisma.githubUserActivityHistory.create({
+  await prisma.githubUserActivityObservation.create({
     data: {
       githubId: member.githubId,
-      githubLogin: login(member),
       year: YEAR,
+      visibility: ActivityVisibility.PUBLIC,
       commitCount: member.commitCount,
       pullRequestCount: 1,
       issueCount: 1,
@@ -134,7 +134,7 @@ async function seed(member: SyntheticMember): Promise<void> {
 
 async function purge(): Promise<void> {
   const githubIds = MEMBERS.map((member) => member.githubId);
-  await prisma.githubUserActivityHistory.deleteMany({
+  await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: { in: githubIds } },
   });
   await prisma.admin.deleteMany({
@@ -200,10 +200,9 @@ describe('RankingRepository.findMetrics — canonical STUDENT 경계', () => {
 
 describe('RankingRepository.findMetrics — PRIVATE 행 합산', () => {
   it('PRIVATE 행이 있는 학생만 필드별 합산되고 별은 PUBLIC 값이다', async () => {
-    await prisma.githubUserActivityHistory.create({
+    await prisma.githubUserActivityObservation.create({
       data: {
         githubId: 8_961_000_000_001n,
-        githubLogin: `${PREFIX}-student`,
         year: YEAR,
         visibility: ActivityVisibility.PRIVATE,
         commitCount: 3,
@@ -216,7 +215,7 @@ describe('RankingRepository.findMetrics — PRIVATE 행 합산', () => {
     });
 
     const rows = await repository.findMetrics({ currentYear: YEAR });
-    await prisma.githubUserActivityHistory.deleteMany({
+    await prisma.githubUserActivityObservation.deleteMany({
       where: { githubId: 8_961_000_000_001n, visibility: 'PRIVATE' },
     });
     const byLogin = (name: string) =>
@@ -253,10 +252,9 @@ describe('RankingService — PRIVATE 행이 total과 순위를 바꾼다', () =>
       }));
 
     const before = await summarize();
-    await prisma.githubUserActivityHistory.create({
+    await prisma.githubUserActivityObservation.create({
       data: {
         githubId: 8_961_000_000_002n,
-        githubLogin: `${PREFIX}-student-admin`,
         year: YEAR,
         visibility: ActivityVisibility.PRIVATE,
         commitCount: 10,
@@ -267,7 +265,7 @@ describe('RankingService — PRIVATE 행이 total과 순위를 바꾼다', () =>
     try {
       after = await summarize();
     } finally {
-      await prisma.githubUserActivityHistory.deleteMany({
+      await prisma.githubUserActivityObservation.deleteMany({
         where: {
           githubId: 8_961_000_000_002n,
           visibility: ActivityVisibility.PRIVATE,

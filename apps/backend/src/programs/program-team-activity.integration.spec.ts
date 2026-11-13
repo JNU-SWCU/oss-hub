@@ -10,6 +10,7 @@ import {
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
@@ -157,15 +158,14 @@ beforeAll(async () => {
       },
     ],
   });
-  await prisma.contribution.create({
-    data: {
-      repositoryId: repositoryA,
+  await seedDailyContributions(prisma, base + 100n, [
+    {
       githubId: people.leader.githubId,
-      date: new Date('2026-08-02Z'),
+      date: '2026-08-02',
       commitCount: 900,
       issueCount: 90,
     },
-  });
+  ]);
 });
 afterAll(async () => {
   await prisma.$disconnect();
@@ -196,48 +196,42 @@ describe('B가 수집된 뒤', () => {
       where: { id: repositoryB },
       data: { lastSuccessAt: new Date('2026-08-20T01:00:00Z') },
     });
-    await prisma.contribution.createMany({
-      data: [
-        {
-          githubId: people.leader.githubId,
-          date: '2026-07-31',
-          commitCount: 50,
-        },
-        {
-          githubId: people.leader.githubId,
-          date: '2026-08-01',
-          commitCount: 2,
-          pullRequestCount: 1,
-        },
-        {
-          githubId: people.leader.githubId,
-          date: '2026-08-31',
-          commitCount: 4,
-        },
-        {
-          githubId: people.leader.githubId,
-          date: '2026-09-01',
-          commitCount: 70,
-        },
+    await seedDailyContributions(prisma, base + 101n, [
+      {
+        githubId: people.leader.githubId,
+        date: '2026-07-31',
+        commitCount: 50,
+      },
+      {
+        githubId: people.leader.githubId,
+        date: '2026-08-01',
+        commitCount: 2,
+        pullRequestCount: 1,
+      },
+      {
+        githubId: people.leader.githubId,
+        date: '2026-08-31',
+        commitCount: 4,
+      },
+      {
+        githubId: people.leader.githubId,
+        date: '2026-09-01',
+        commitCount: 70,
+      },
 
-        {
-          githubId: people.leader.githubId,
-          date: '2026-08-10',
-          releaseCount: 1,
-        },
-        { githubId: people.issuer.githubId, date: '2026-08-05', issueCount: 3 },
+      {
+        githubId: people.leader.githubId,
+        date: '2026-08-10',
+        releaseCount: 1,
+      },
+      { githubId: people.issuer.githubId, date: '2026-08-05', issueCount: 3 },
 
-        {
-          githubId: people.outsider.githubId,
-          date: '2026-08-05',
-          commitCount: 7,
-        },
-      ].map(({ date, ...row }) => ({
-        ...row,
-        repositoryId: repositoryB,
-        date: new Date(`${date}T00:00:00Z`),
-      })),
-    });
+      {
+        githubId: people.outsider.githubId,
+        date: '2026-08-05',
+        commitCount: 7,
+      },
+    ]);
   });
 
   const leaderPoints = [

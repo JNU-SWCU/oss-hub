@@ -913,9 +913,9 @@ describe('seed profile=demo 계약 (integration)', () => {
       prisma.githubRepository.count({
         where: { id: { startsWith: seedDemoPrefix } },
       }),
-      prisma.contribution.count({
+      prisma.contributionEvent.count({
         where: {
-          githubId: {
+          authorGithubId: {
             in: await prisma.user
               .findMany({
                 where: { id: { startsWith: seedDemoPrefix } },

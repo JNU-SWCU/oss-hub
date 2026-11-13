@@ -825,11 +825,6 @@ model GithubRepository {
   updatedAt DateTime @updatedAt
 
   streams       CollectionRepositoryStream[]
-  commits       CollectionCommitFact[]
-  pullRequests  CollectionPullRequestFact[]
-  releases      CollectionReleaseFact[]
-  issues        GithubIssueHistory[]
-  contributions Contribution[]
   outsider      GithubRepositoryOutsiderContribution?
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
@@ -841,66 +836,9 @@ model GithubRepository {
   @@index([visibility, publishedAt, id])
 }
 
-model Contribution {
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  githubId BigInt
-
-  date DateTime @db.Date
-
-  commitCount      Int @default(0)
-  pullRequestCount Int @default(0)
-  releaseCount     Int @default(0)
-  issueCount       Int @default(0)
-
-  updatedAt DateTime @updatedAt
-
-  @@id([repositoryId, githubId, date])
-  @@index([githubId, date])
-  @@index([date])
-}
-
 enum ActivityVisibility {
   PUBLIC
   PRIVATE
-}
-
-model GithubUserActivityHistory {
-  githubId    BigInt
-  githubLogin String
-  year        Int
-  visibility  ActivityVisibility @default(PUBLIC)
-
-  commitCount      Int @default(0)
-  pullRequestCount Int @default(0)
-  issueCount       Int @default(0)
-  repositoryCount  Int @default(0)
-  starCount        Int @default(0)
-
-  observedAt DateTime
-
-  @@id([githubId, year, visibility])
-  @@index([year])
-}
-
-model GithubUserActivityCycleSnapshot {
-  githubId    BigInt
-  githubLogin String
-  year        Int
-  visibility  ActivityVisibility @default(PUBLIC)
-
-  commitCount      Int @default(0)
-  pullRequestCount Int @default(0)
-  issueCount       Int @default(0)
-  repositoryCount  Int @default(0)
-  starCount        Int @default(0)
-
-  observedAt DateTime
-  snapshotAt DateTime @default(now())
-
-  @@id([githubId, year, visibility])
-  @@index([year])
 }
 
 model GithubUserActivityMonthly {
@@ -961,84 +899,6 @@ model CollectionRepositoryStream {
 
   @@unique([repositoryId, streamType])
   @@index([status])
-}
-
-model CollectionCommitFact {
-  id String @id @default(cuid())
-
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  sha         String
-  committedAt DateTime
-
-  authorGithubId    BigInt?
-  authorGithubLogin String?
-
-  observedAt DateTime @default(now())
-
-  @@unique([repositoryId, sha])
-  @@index([repositoryId, committedAt])
-  @@index([authorGithubId])
-}
-
-model CollectionPullRequestFact {
-  id String @id @default(cuid())
-
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  githubPullRequestId BigInt
-  state               String
-  createdAt           DateTime
-
-  authorGithubId    BigInt?
-  authorGithubLogin String?
-
-  observedAt DateTime @default(now())
-
-  @@unique([repositoryId, githubPullRequestId])
-  @@index([repositoryId, createdAt])
-  @@index([authorGithubId])
-}
-
-model CollectionReleaseFact {
-  id String @id @default(cuid())
-
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  githubReleaseId BigInt
-  publishedAt     DateTime
-
-  authorGithubId    BigInt?
-  authorGithubLogin String?
-
-  observedAt DateTime @default(now())
-
-  @@unique([repositoryId, githubReleaseId])
-  @@index([repositoryId, publishedAt])
-  @@index([authorGithubId])
-}
-
-model GithubIssueHistory {
-  id String @id @default(cuid())
-
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  githubIssueId BigInt
-  state         String
-  createdAt     DateTime
-
-  authorGithubId    BigInt?
-  authorGithubLogin String?
-
-  observedAt DateTime @default(now())
-
-  @@unique([repositoryId, githubIssueId])
-  @@index([repositoryId, createdAt])
-  @@index([authorGithubId])
 }
 
 model GithubRepositoryOutsiderContribution {
@@ -1159,7 +1019,6 @@ model TeamRepo {
   @@map("team_repo")
 }
 
-/// Quoted "Contribution" is the old daily rollup and is a different table.
 model ContributionEvent {
   repoId         BigInt           @map("repo_id")
   repo           Repo             @relation(fields: [repoId], references: [githubRepoId])

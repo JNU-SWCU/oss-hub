@@ -25,6 +25,10 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import {
+  repositoryContributionTotals,
+  seedDailyContributions,
+} from '../../test/ledger-contribution.fixture';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -146,9 +150,6 @@ async function cleanupTeamScope(): Promise<void> {
   });
   await prisma.repositoryProvisionJob.deleteMany({
     where: { teamId: { startsWith: TEST_PREFIX } },
-  });
-  await prisma.contribution.deleteMany({
-    where: { repositoryId: { startsWith: TEST_PREFIX } },
   });
   await prisma.repositoryInvitation.deleteMany({
     where: { repositoryId: { startsWith: TEST_PREFIX } },
@@ -345,14 +346,9 @@ async function seedApprovedTeam(
     },
   });
 
-  await prisma.contribution.create({
-    data: {
-      repositoryId,
-      githubId: LEADER_GITHUB_ID,
-      date: new Date('2026-08-21T00:00:00.000Z'),
-      commitCount: 3,
-    },
-  });
+  await seedDailyContributions(prisma, BigInt(940000000 + teamSequence), [
+    { githubId: LEADER_GITHUB_ID, date: '2026-08-21', commitCount: 3 },
+  ]);
   await prisma.repositoryProvisionJob.create({
     data: {
       id: `${teamId}:provision-job`,
@@ -633,13 +629,6 @@ it('승인된 팀도 확인한 범위와 맞으면 팀과 그 아래가 함께 �
 
 it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지운다', async () => {
   const fixture = await seedApprovedTeam();
-  await prisma.collectionCommitFact.create({
-    data: {
-      repositoryId: fixture.repositoryId,
-      sha: 'team-deletion-commit',
-      committedAt: new Date('2026-08-21T00:00:00.000Z'),
-    },
-  });
   await prisma.repositoryInvitation.create({
     data: {
       repositoryId: fixture.repositoryId,
@@ -657,16 +646,10 @@ it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지
   await expect(
     prisma.githubRepository.findUnique({ where: { id: fixture.repositoryId } }),
   ).resolves.toBeNull();
-  await expect(
-    prisma.contribution.count({
-      where: { repositoryId: fixture.repositoryId },
-    }),
-  ).resolves.toBe(0);
-  await expect(
-    prisma.collectionCommitFact.count({
-      where: { repositoryId: fixture.repositoryId },
-    }),
-  ).resolves.toBe(0);
+  expect(
+    (await repositoryContributionTotals(prisma, [fixture.repositoryId]))
+      .commitCount,
+  ).toBe(0);
   await expect(
     prisma.repositoryInvitation.count({
       where: { repositoryId: fixture.repositoryId },

@@ -5,6 +5,10 @@ import { ConsentsService } from '../users/consents.service';
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { RepositoryOwnEnrollmentService } from './repositories.service';
+import {
+  repositoryContributionTotals,
+  seedDailyContributions,
+} from '../../test/ledger-contribution.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -35,6 +39,12 @@ describe('external repository enrollment integration', () => {
   });
 
   afterEach(async () => {
+    await prisma.contributionEvent.deleteMany({
+      where: { repoId: { in: [...REPOSITORY_IDS] } },
+    });
+    await prisma.repo.deleteMany({
+      where: { githubRepoId: { in: [...REPOSITORY_IDS] } },
+    });
     await prisma.githubRepository.deleteMany({
       where: { githubRepositoryId: { in: [...REPOSITORY_IDS] } },
     });
@@ -66,7 +76,7 @@ describe('external repository enrollment integration', () => {
     ).resolves.toBeNull();
   });
 
-  it('기존 external PRIVATE·ABSENT 행을 복구하되 기존 fact·Contribution은 보존한다', async () => {
+  it('기존 external PRIVATE·ABSENT 행을 복구하되 기존 원장 이벤트는 보존한다', async () => {
     await prisma.user.create({
       data: {
         id: MEMBER_USER_ID,
@@ -87,104 +97,27 @@ describe('external repository enrollment integration', () => {
         failureCount: 4,
       },
     });
-    await prisma.collectionCommitFact.createMany({
-      data: [
+    await seedDailyContributions(
+      prisma,
+      REPOSITORY_IDS[1],
+      [
         {
-          repositoryId: repository.id,
-          sha: 'synthetic-member-commit',
-          committedAt: OBSERVED_AT,
-          authorGithubId: MEMBER_GITHUB_ID,
-          authorGithubLogin: 'synthetic-external-enrollment-member',
-        },
-        {
-          repositoryId: repository.id,
-          sha: 'synthetic-outsider-commit',
-          committedAt: OBSERVED_AT,
-          authorGithubId: OUTSIDER_GITHUB_ID,
-          authorGithubLogin: 'synthetic-outsider',
-        },
-        {
-          repositoryId: repository.id,
-          sha: 'synthetic-unresolved-commit',
-          committedAt: OBSERVED_AT,
-          authorGithubId: null,
-          authorGithubLogin: 'synthetic-unresolved-outsider',
-        },
-      ],
-    });
-    await prisma.collectionPullRequestFact.createMany({
-      data: [
-        {
-          repositoryId: repository.id,
-          githubPullRequestId: 9_000_000_730_301n,
-          state: 'MERGED',
-          createdAt: OBSERVED_AT,
-          authorGithubId: MEMBER_GITHUB_ID,
-          authorGithubLogin: 'synthetic-external-enrollment-member',
-        },
-        {
-          repositoryId: repository.id,
-          githubPullRequestId: 9_000_000_730_302n,
-          state: 'MERGED',
-          createdAt: OBSERVED_AT,
-          authorGithubId: OUTSIDER_GITHUB_ID,
-          authorGithubLogin: 'synthetic-outsider',
-        },
-        {
-          repositoryId: repository.id,
-          githubPullRequestId: 9_000_000_730_303n,
-          state: 'MERGED',
-          createdAt: OBSERVED_AT,
-          authorGithubId: null,
-          authorGithubLogin: 'synthetic-unresolved-outsider',
-        },
-      ],
-    });
-    await prisma.collectionReleaseFact.createMany({
-      data: [
-        {
-          repositoryId: repository.id,
-          githubReleaseId: 9_000_000_730_401n,
-          publishedAt: OBSERVED_AT,
-          authorGithubId: MEMBER_GITHUB_ID,
-          authorGithubLogin: 'synthetic-external-enrollment-member',
-        },
-        {
-          repositoryId: repository.id,
-          githubReleaseId: 9_000_000_730_402n,
-          publishedAt: OBSERVED_AT,
-          authorGithubId: OUTSIDER_GITHUB_ID,
-          authorGithubLogin: 'synthetic-outsider',
-        },
-        {
-          repositoryId: repository.id,
-          githubReleaseId: 9_000_000_730_403n,
-          publishedAt: OBSERVED_AT,
-          authorGithubId: null,
-          authorGithubLogin: 'synthetic-unresolved-outsider',
-        },
-      ],
-    });
-    await prisma.contribution.createMany({
-      data: [
-        {
-          repositoryId: repository.id,
           githubId: MEMBER_GITHUB_ID,
-          date: OBSERVED_AT,
+          date: '2026-08-09',
           commitCount: 1,
           pullRequestCount: 1,
           releaseCount: 1,
         },
         {
-          repositoryId: repository.id,
           githubId: OUTSIDER_GITHUB_ID,
-          date: OBSERVED_AT,
+          date: '2026-08-09',
           commitCount: 1,
           pullRequestCount: 1,
           releaseCount: 1,
         },
       ],
-    });
+      'EXTERNAL_PUBLIC',
+    );
 
     await enrollment.enrollExternalRepository({
       githubRepositoryId: REPOSITORY_IDS[1],
@@ -209,56 +142,13 @@ describe('external repository enrollment integration', () => {
       failureCount: 0,
     });
     await expect(
-      prisma.collectionCommitFact.findMany({
-        where: { repositoryId: repository.id },
-        orderBy: { sha: 'asc' },
-        select: { authorGithubId: true, sha: true },
-      }),
-    ).resolves.toEqual([
-      {
-        authorGithubId: MEMBER_GITHUB_ID,
-        sha: 'synthetic-member-commit',
-      },
-      {
-        authorGithubId: OUTSIDER_GITHUB_ID,
-        sha: 'synthetic-outsider-commit',
-      },
-      {
-        authorGithubId: null,
-        sha: 'synthetic-unresolved-commit',
-      },
-    ]);
-    await expect(
-      Promise.all([
-        prisma.collectionPullRequestFact.findMany({
-          where: { repositoryId: repository.id },
-          orderBy: { githubPullRequestId: 'asc' },
-          select: { authorGithubId: true },
-        }),
-        prisma.collectionReleaseFact.findMany({
-          where: { repositoryId: repository.id },
-          orderBy: { githubReleaseId: 'asc' },
-          select: { authorGithubId: true },
-        }),
-        prisma.contribution.findMany({
-          where: { repositoryId: repository.id },
-          orderBy: { githubId: 'asc' },
-          select: { githubId: true },
-        }),
-      ]),
-    ).resolves.toEqual([
-      [
-        { authorGithubId: MEMBER_GITHUB_ID },
-        { authorGithubId: OUTSIDER_GITHUB_ID },
-        { authorGithubId: null },
-      ],
-      [
-        { authorGithubId: MEMBER_GITHUB_ID },
-        { authorGithubId: OUTSIDER_GITHUB_ID },
-        { authorGithubId: null },
-      ],
-      [{ githubId: MEMBER_GITHUB_ID }, { githubId: OUTSIDER_GITHUB_ID }],
-    ]);
+      repositoryContributionTotals(prisma, [repository.id]),
+    ).resolves.toEqual({
+      commitCount: 2,
+      pullRequestCount: 2,
+      releaseCount: 2,
+      issueCount: 0,
+    });
   });
 
   it('같은 id의 기존 org 관찰은 external로 강등하거나 덮어쓰지 않는다', async () => {
@@ -298,7 +188,7 @@ describe('external repository enrollment integration', () => {
     });
   });
 
-  it('external snapshot 뒤 org로 승격된 저장소의 기존 fact를 정리하지 않는다', async () => {
+  it('external snapshot 뒤 org로 승격된 저장소의 기존 원장 이벤트를 정리하지 않는다', async () => {
     const repository = await prisma.githubRepository.create({
       data: {
         githubRepositoryId: REPOSITORY_IDS[2],
@@ -310,44 +200,20 @@ describe('external repository enrollment integration', () => {
         presence: 'PRESENT',
       },
     });
-    await prisma.collectionCommitFact.create({
-      data: {
-        repositoryId: repository.id,
-        sha: 'synthetic-promoted-commit',
-        committedAt: OBSERVED_AT,
-        authorGithubId: OUTSIDER_GITHUB_ID,
-        authorGithubLogin: 'synthetic-outsider',
-      },
-    });
-    await prisma.collectionPullRequestFact.create({
-      data: {
-        repositoryId: repository.id,
-        githubPullRequestId: 9_000_000_730_501n,
-        state: 'MERGED',
-        createdAt: OBSERVED_AT,
-        authorGithubId: OUTSIDER_GITHUB_ID,
-        authorGithubLogin: 'synthetic-outsider',
-      },
-    });
-    await prisma.collectionReleaseFact.create({
-      data: {
-        repositoryId: repository.id,
-        githubReleaseId: 9_000_000_730_502n,
-        publishedAt: OBSERVED_AT,
-        authorGithubId: OUTSIDER_GITHUB_ID,
-        authorGithubLogin: 'synthetic-outsider',
-      },
-    });
-    await prisma.contribution.create({
-      data: {
-        repositoryId: repository.id,
-        githubId: OUTSIDER_GITHUB_ID,
-        date: OBSERVED_AT,
-        commitCount: 1,
-        pullRequestCount: 1,
-        releaseCount: 1,
-      },
-    });
+    await seedDailyContributions(
+      prisma,
+      REPOSITORY_IDS[2],
+      [
+        {
+          githubId: OUTSIDER_GITHUB_ID,
+          date: '2026-08-09',
+          commitCount: 1,
+          pullRequestCount: 1,
+          releaseCount: 1,
+        },
+      ],
+      'EXTERNAL_PUBLIC',
+    );
 
     await prisma.githubRepository.update({
       where: { id: repository.id },
@@ -366,43 +232,21 @@ describe('external repository enrollment integration', () => {
       }),
     ).resolves.toBe(false);
     await expect(
-      Promise.all([
-        prisma.collectionCommitFact.count({
-          where: { repositoryId: repository.id },
-        }),
-        prisma.collectionPullRequestFact.count({
-          where: { repositoryId: repository.id },
-        }),
-        prisma.collectionReleaseFact.count({
-          where: { repositoryId: repository.id },
-        }),
-        prisma.contribution.count({
-          where: { repositoryId: repository.id },
-        }),
-      ]),
-    ).resolves.toEqual([1, 1, 1, 1]);
+      repositoryContributionTotals(prisma, [repository.id]),
+    ).resolves.toEqual({
+      commitCount: 1,
+      pullRequestCount: 1,
+      releaseCount: 1,
+      issueCount: 0,
+    });
     await expect(
-      Promise.all([
-        prisma.collectionCommitFact.count({
-          where: {
-            repositoryId: repository.id,
-            authorGithubId: MEMBER_GITHUB_ID,
-          },
-        }),
-        prisma.collectionPullRequestFact.count({
-          where: {
-            repositoryId: repository.id,
-            authorGithubId: MEMBER_GITHUB_ID,
-          },
-        }),
-        prisma.collectionReleaseFact.count({
-          where: {
-            repositoryId: repository.id,
-            authorGithubId: MEMBER_GITHUB_ID,
-          },
-        }),
-      ]),
-    ).resolves.toEqual([0, 0, 0]);
+      prisma.contributionEvent.count({
+        where: {
+          repoId: REPOSITORY_IDS[2],
+          authorGithubId: MEMBER_GITHUB_ID,
+        },
+      }),
+    ).resolves.toBe(0);
   });
 
   it('이미 연결된 동일 id의 동시 후처리는 한 행을 유지한다', async () => {

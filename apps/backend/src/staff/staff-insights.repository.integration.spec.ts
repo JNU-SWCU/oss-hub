@@ -14,7 +14,6 @@ const GITHUB_ID = 8_962_000_000_001n;
 const YEAR = 2117;
 const PUBLIC_ROW = {
   githubId: GITHUB_ID,
-  githubLogin: 'synthetic-staff-insights-visibility',
   year: YEAR,
   visibility: ActivityVisibility.PUBLIC,
   commitCount: 10,
@@ -36,7 +35,7 @@ const PRIVATE_ROW = {
 };
 
 async function purge(): Promise<void> {
-  await prisma.githubUserActivityHistory.deleteMany({
+  await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: GITHUB_ID },
   });
 }
@@ -47,11 +46,10 @@ beforeAll(async () => {
 
 beforeEach(async () => {
   await purge();
-  await prisma.githubUserActivityHistory.create({ data: PUBLIC_ROW });
+  await prisma.githubUserActivityObservation.create({ data: PUBLIC_ROW });
 });
 
 afterEach(async () => {
-  jest.restoreAllMocks();
   await purge();
 });
 
@@ -60,23 +58,10 @@ afterAll(async () => {
 });
 
 describe('StaffInsightsRepository PUBLIC activity scope', () => {
-  it.each([
-    { order: 'asc', currentYear: YEAR },
-    { order: 'desc', currentYear: YEAR },
-    { order: 'asc', currentYear: undefined },
-    { order: 'desc', currentYear: undefined },
-  ] as const)(
-    'preserves public counts and nine stars with visibility $order, year $currentYear',
-    async ({ order, currentYear }) => {
-      await prisma.githubUserActivityHistory.create({ data: PRIVATE_ROW });
-      const findMany = prisma.githubUserActivityHistory.findMany.bind(
-        prisma.githubUserActivityHistory,
-      );
-      jest
-        .spyOn(prisma.githubUserActivityHistory, 'findMany')
-        .mockImplementation((args) =>
-          findMany({ ...args, orderBy: { visibility: order } }),
-        );
+  it.each([{ currentYear: YEAR }, { currentYear: undefined }] as const)(
+    'preserves public counts and nine stars with year $currentYear',
+    async ({ currentYear }) => {
+      await prisma.githubUserActivityObservation.create({ data: PRIVATE_ROW });
 
       const rows = await repository.listActivityTotals({ currentYear });
 
@@ -93,7 +78,7 @@ describe('StaffInsightsRepository PUBLIC activity scope', () => {
 
   it('does not expose a private-only year in staff filters', async () => {
     const before = await repository.listActivityYears();
-    await prisma.githubUserActivityHistory.create({
+    await prisma.githubUserActivityObservation.create({
       data: { ...PRIVATE_ROW, year: YEAR + 1 },
     });
 
@@ -106,7 +91,7 @@ describe('StaffInsightsRepository PUBLIC activity scope', () => {
 
   it('does not advance staff freshness on a private observation', async () => {
     const before = await repository.findActivityDataAsOf();
-    await prisma.githubUserActivityHistory.create({ data: PRIVATE_ROW });
+    await prisma.githubUserActivityObservation.create({ data: PRIVATE_ROW });
 
     const dataAsOf = await repository.findActivityDataAsOf();
 
