@@ -40,7 +40,7 @@ This is the message ending `사업단 관리자에게 알려 주세요` (Contact
 3. Try restarting collection with [Run collection now](#run-collection-now) below.
 4. If that does not resolve it, follow the `수집 앱 설치·권한 확인` (Check collection app installation and permissions) guidance in the `추적 대상 없음` (No tracking targets) and `지연` (Delayed) rows of the table below.
 </Steps>
-<Shot src="admin/status-freshness.webp" alt="Data freshness card showing the data reference time, oldest execution time among completed items, and oldest pending retry time." caption="Data freshness card" />
+<Shot src="admin/status-freshness.webp" alt="Data freshness card showing the data reference time, the last successful collection time with its age, oldest execution time among completed items, and oldest pending retry time." caption="Data freshness card" />
 
 The interface does not provide a procedure for escalating a persistent stall to the service operator or developer. <Verified status="policy" />
 
@@ -59,7 +59,7 @@ The `실패` (Failed) explanation always mentions GitHub rate limits, but they a
 ## What each card shows
 
 - `활동 종류별 수집` (Collection by activity type): Shows completion, such as `완료 11 / 21개 (52%)` (11 of 21 complete, 52%). The legend is `완료` (Complete), `과거 활동 수집 중` (Collecting historical activity), `부분·대기` (Partial/pending), and `재시도 대기` (Awaiting retry).
-- `데이터 최신성` (Data freshness): `데이터 기준 시각` (Data reference time) is the most recent execution time across all collection items. `마지막 수집 성공` (Last successful collection) is the most recent time collection succeeded for an organization repository, with its age (such as `3시간 전`, 3 hours ago). `완료 항목 중 가장 오래된 실행 시각` (Oldest execution time among completed items) is a separate value. `가장 오래된 재시도 대기` (Oldest pending retry) appears only when there are items awaiting retry.
+- `데이터 최신성` (Data freshness): `데이터 기준 시각` (Data reference time) is the most recent execution time across all collection items. `마지막 수집 성공` (Last successful collection) is the most recent time collection succeeded for an organization repository, with its age (such as `3시간 전`, 3 hours ago). If no collection has succeeded yet, it shows `아직 성공한 수집 없음` (No successful collection yet). `완료 항목 중 가장 오래된 실행 시각` (Oldest execution time among completed items) is a separate value. `가장 오래된 재시도 대기` (Oldest pending retry) appears only when there are items awaiting retry.
 - `수집 대상 상세` (Collection target details): For each repository registered to a team, shows Commit, PR, Release, and Issue collection as `완료` (Complete), `과거 활동 수집 중` (Collecting historical activity), `부분` (Partial), or `재시도 대기` (Awaiting retry). A count at the top such as `문제 3 / 전체 5` (3 with issues / 5 total) shows affected and total targets. Repositories are not registered or collected automatically just because they belong to the organization.
 - `외부 저장소 수집` (External repository collection): Collection from students' personal repositories. With targets, it shows the tracked count and `마지막 수집 성공` (Last successful collection). With no targets, it shows `수집 대상 학생 개인 저장소가 없습니다` (There are no student personal repositories to collect). External collection is configured to run on the hour alongside organization collection.
 
