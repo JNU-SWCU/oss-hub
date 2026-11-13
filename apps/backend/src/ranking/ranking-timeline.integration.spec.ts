@@ -1,7 +1,10 @@
 import { AccountStatus } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { CollectionUserActivityRepository } from '../github/repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from '../github/repository-provision-job.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';
@@ -24,7 +27,10 @@ const observe = (
   month: number,
   commitCount: number,
 ): Promise<void> =>
-  new CollectionUserActivityRepository(prisma).upsertObservation({
+  new CollectionUserActivityRepository(
+    prisma,
+    new CollectionCutoverRepository(prisma),
+  ).upsertObservation({
     ...member,
     year: YEAR,
     month,
@@ -110,7 +116,10 @@ it('수집이 달마다 남긴 값으로 순위 변화를 만들고, 같은 달 
 });
 
 it('월별 값은 공개 수집값에 그 시점의 비공개 건수를 더한다', async () => {
-  const repository = new CollectionUserActivityRepository(prisma);
+  const repository = new CollectionUserActivityRepository(
+    prisma,
+    new CollectionCutoverRepository(prisma),
+  );
   await repository.upsertPrivateObservation({
     ...CLIMBER,
     year: YEAR,

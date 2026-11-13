@@ -136,6 +136,16 @@ CREATE TABLE "contribution" (
 CREATE TABLE "contribution_copy" (
   LIKE "contribution" INCLUDING ALL
 );
+CREATE TABLE "CollectionCutoverLease" (
+  "appId" BIGINT NOT NULL,
+  "scope" TEXT NOT NULL,
+  "epoch" BIGINT NOT NULL DEFAULT 1,
+  "ownerId" TEXT NOT NULL,
+  "runId" TEXT NOT NULL,
+  "expiresAt" TIMESTAMP(3) NOT NULL,
+  "updatedAt" TIMESTAMP(3) NOT NULL,
+  PRIMARY KEY ("appId", "scope")
+);
 CREATE TABLE "contribution_unpinned" (
   LIKE "contribution" INCLUDING ALL
 );

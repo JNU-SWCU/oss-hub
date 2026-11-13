@@ -207,7 +207,10 @@ const writeActivityLedgerRow = async (
 
 @Injectable()
 export class CollectionUserActivityRepository {
-  constructor(private readonly db: PrismaService) {}
+  constructor(
+    private readonly db: PrismaService,
+    private readonly cutover: CollectionCutoverRepository,
+  ) {}
 
   async listActiveUsers(): Promise<CollectionActivityUserRow[]> {
     return this.db.user.findMany({
@@ -247,7 +250,7 @@ export class CollectionUserActivityRepository {
       starCount: observation.starCount,
       observedAt: observation.observedAt,
     };
-    await this.db.$transaction(async (transaction) => {
+    await this.record(async (transaction) => {
       await writeActivityLedgerRow(transaction, {
         githubId,
         year,
@@ -284,7 +287,7 @@ export class CollectionUserActivityRepository {
   ): Promise<void> {
     const { githubId, year, ...row } = observation;
     const visibility = ActivityVisibility.PRIVATE;
-    await this.db.$transaction(async (transaction) => {
+    await this.record(async (transaction) => {
       await writeActivityLedgerRow(transaction, {
         githubId,
         year,
@@ -297,6 +300,13 @@ export class CollectionUserActivityRepository {
         observedAt: row.observedAt,
       });
     });
+  }
+
+  private async record(
+    write: (transaction: Prisma.TransactionClient) => Promise<void>,
+  ): Promise<void> {
+    if (await this.cutover.isQuiesced(new Date())) return;
+    await this.db.$transaction(write);
   }
 }
 

@@ -78,7 +78,10 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
-      new CollectionUserActivityRepository(prisma),
+      new CollectionUserActivityRepository(
+        prisma,
+        new CollectionCutoverRepository(prisma),
+      ),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       () => NOW,
     );
@@ -296,7 +299,10 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
 
   it('같은 githubId와 연도에 PUBLIC과 PRIVATE 관측을 함께 보존한다', async () => {
     await buildService().run();
-    const repository = new CollectionUserActivityRepository(prisma);
+    const repository = new CollectionUserActivityRepository(
+      prisma,
+      new CollectionCutoverRepository(prisma),
+    );
     const privateObservation = {
       githubId: ALPHA_GITHUB_ID,
       githubLogin: `${SEED_PREFIX}-alpha`,
@@ -341,7 +347,10 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
   });
 
   it('PUBLIC 재수집은 PRIVATE 행의 수치와 관측 시각을 바꾸지 않는다', async () => {
-    const repository = new CollectionUserActivityRepository(prisma);
+    const repository = new CollectionUserActivityRepository(
+      prisma,
+      new CollectionCutoverRepository(prisma),
+    );
     await repository.upsertPrivateObservation({
       githubId: ALPHA_GITHUB_ID,
       githubLogin: `${SEED_PREFIX}-alpha`,
@@ -374,7 +383,10 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
   });
 
   it('PRIVATE 재관측은 같은 행을 갱신하고 별은 0으로 유지한다', async () => {
-    const repository = new CollectionUserActivityRepository(prisma);
+    const repository = new CollectionUserActivityRepository(
+      prisma,
+      new CollectionCutoverRepository(prisma),
+    );
     const observation = {
       githubId: ALPHA_GITHUB_ID,
       githubLogin: `${SEED_PREFIX}-alpha`,

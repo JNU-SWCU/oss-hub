@@ -13,7 +13,10 @@ import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
 import { Logger } from '@nestjs/common';
-import { CollectionUserActivityRepository } from '../github/repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from '../github/repository-provision-job.repository';
 import { CollectionPublicTokenService } from '../github/collection-public-token.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionDiscoveryClient } from '../github/collection-discovery.client';
@@ -127,7 +130,10 @@ describe('AuthService', () => {
       new UserProfileService(),
       new AuthSessionService(),
       new CollectionUserActivityService(
-        new CollectionUserActivityRepository(activityDb),
+        new CollectionUserActivityRepository(
+          activityDb,
+          new CollectionCutoverRepository(activityDb),
+        ),
         new CollectionDiscoveryClient({}, publicTokens),
       ),
     );
@@ -256,6 +262,7 @@ describe('AuthService', () => {
     const observedAt = new Date('2026-12-31T15:00:01.000Z');
     let privateUpsert: jest.SpyInstance;
     let databaseWrite: jest.Mock;
+    let leaseLookup: jest.SpyInstance;
     let warn: jest.SpyInstance;
     let otherLogs: jest.SpyInstance[];
     const flushPromises = () =>
@@ -319,6 +326,9 @@ describe('AuthService', () => {
         'upsertPrivateObservation',
       );
       databaseWrite = jest.fn().mockResolvedValue(1);
+      leaseLookup = jest
+        .spyOn(activityDb, '$queryRawUnsafe')
+        .mockResolvedValue([{ quiesced: false }]);
       jest.spyOn(activityDb, '$transaction').mockImplementation((operation) => {
         if (typeof operation !== 'function') {
           return Promise.reject(new Error('expected a transaction callback'));
@@ -436,6 +446,27 @@ describe('AuthService', () => {
         expect(warn).toHaveBeenCalledTimes(1);
         expect(warn).toHaveBeenCalledWith({ kind });
         expectNoTokenInRepositoriesOrLogs();
+      },
+    );
+    it.each([
+      [true, 0],
+      [false, 2],
+    ])(
+      '수집 중지 lease가 %s이면 로그인은 성공하고 원장 쓰기는 %i번이다',
+      async (quiesced, writes) => {
+        leaseLookup.mockResolvedValue([{ quiesced }]);
+        const input = prepareLogin();
+        fetchMock.mockResolvedValue(metricsResponse(true));
+        const login = await service.completeLogin(input);
+        await flushPromises();
+        expect(login).toEqual({ user: syntheticUser, isNew: true });
+        expect(privateUpsert).toHaveBeenCalledTimes(1);
+        expect(databaseWrite).toHaveBeenCalledTimes(writes);
+        expect(warn).not.toHaveBeenCalled();
+        expect(leaseLookup).toHaveBeenCalledWith(
+          expect.stringContaining('"CollectionCutoverLease"'),
+          observedAt,
+        );
       },
     );
     it('저장 실패도 로그인에 전파하지 않고 오류 내용을 로그에 남기지 않는다', async () => {

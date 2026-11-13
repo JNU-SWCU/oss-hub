@@ -3,9 +3,16 @@ import { AccountStatus } from '@prisma/client';
 
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
+
+const openCutover = {
+  isQuiesced: () => Promise.resolve(false),
+} as unknown as CollectionCutoverRepository;
 
 function deferred<T>(): {
   readonly promise: Promise<T>;
@@ -42,19 +49,24 @@ describe('CollectionUserActivityService', () => {
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
-      new CollectionUserActivityRepository({
-        user: { findMany },
-        githubUserActivityHistory: { findUnique, upsert },
-        githubUserActivityMonthly: { upsert: monthlyUpsert },
-        $queryRaw: queryRaw,
-        $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
-          operation({
-            githubUserActivityHistory: { findUnique, upsert },
-            githubUserActivityMonthly: { upsert: monthlyUpsert },
-            $executeRaw: executeRaw,
-            $queryRaw: transactionQueryRaw,
-          }),
-      } as unknown as PrismaService),
+      new CollectionUserActivityRepository(
+        {
+          user: { findMany },
+          githubUserActivityHistory: { findUnique, upsert },
+          githubUserActivityMonthly: { upsert: monthlyUpsert },
+          $queryRaw: queryRaw,
+          $transaction: (
+            operation: (transaction: unknown) => Promise<unknown>,
+          ) =>
+            operation({
+              githubUserActivityHistory: { findUnique, upsert },
+              githubUserActivityMonthly: { upsert: monthlyUpsert },
+              $executeRaw: executeRaw,
+              $queryRaw: transactionQueryRaw,
+            }),
+        } as unknown as PrismaService,
+        openCutover,
+      ),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
     );
@@ -306,11 +318,14 @@ describe('CollectionUserActivityService', () => {
   it('Contribution 저장소 축에는 아무것도 쓰지 않는다', async () => {
     const contribution = { create: jest.fn(), upsert: jest.fn() };
     const service = new CollectionUserActivityService(
-      new CollectionUserActivityRepository({
-        user: { findMany },
-        githubUserActivityHistory: { findUnique, upsert },
-        contribution,
-      } as unknown as PrismaService),
+      new CollectionUserActivityRepository(
+        {
+          user: { findMany },
+          githubUserActivityHistory: { findUnique, upsert },
+          contribution,
+        } as unknown as PrismaService,
+        openCutover,
+      ),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
     );
@@ -386,6 +401,7 @@ describe('CollectionUserActivityRepository ledger history', () => {
     return {
       repository: new CollectionUserActivityRepository(
         db as unknown as PrismaService,
+        openCutover,
       ),
       historyUpsert,
       executeRaw,
