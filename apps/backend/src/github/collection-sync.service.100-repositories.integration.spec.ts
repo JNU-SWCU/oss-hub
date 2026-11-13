@@ -41,7 +41,6 @@ const CONTRIBUTOR_IDS = Array.from({ length: 5 }, (_, index) =>
 
 const TEAM_MEMBER_COUNT = CONTRIBUTOR_IDS.length;
 const TEAM_COMMIT_REQUESTS_PER_RUN = 2 * TEAM_MEMBER_COUNT;
-const OUTSIDER_FIRST_OBSERVATION_REQUESTS = 3;
 const SCALE_PROGRAM_PREFIX = 'synthetic-scale-program-';
 const REPO_COUNT = 100;
 const ANCHOR = Date.parse('2026-01-01T00:00:00.000Z');
@@ -139,8 +138,7 @@ function firstBackfillRequestCost(seed: SyntheticRepositorySeed): number {
     syntheticPageCount(seed.pullRequests.length) +
     1 +
     syntheticPageCount(seed.releases.length) +
-    syntheticPageCount(issueCount(seed) + seed.pullRequests.length) +
-    OUTSIDER_FIRST_OBSERVATION_REQUESTS
+    syntheticPageCount(issueCount(seed) + seed.pullRequests.length)
   );
 }
 
@@ -727,7 +725,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(kindDeltaThisRun['commit-history']).toBe(
       TEAM_MEMBER_COUNT * REPO_COUNT,
     );
-    expect(kindDeltaThisRun['commit-count']).toBe(0);
     expect(kindDeltaThisRun['commit-probe']).toBe(0);
     expect(kindDeltaThisRun['release-probe']).toBe(REPO_COUNT);
     expect(kindDeltaThisRun['pull-list']).toBe(REPO_COUNT);

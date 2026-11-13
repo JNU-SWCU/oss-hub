@@ -91,9 +91,6 @@ type SyncRepository = Pick<
   | 'listOrganizationRepositories'
   | 'listExternalRepositories'
   | 'listRepositoryTeamMembers'
-  | 'findOutsiderCountingWindow'
-  | 'countTeamCommitsBetween'
-  | 'saveOutsiderContribution'
   | 'getSyncCursor'
   | 'upsertSyncCursor'
   | 'findCollectionTargetByLogicalKey'
@@ -130,25 +127,6 @@ const isTeamMemberAuthor = (
   authorGithubId: string | null,
   memberIds: ReadonlySet<bigint>,
 ): boolean => authorGithubId !== null && memberIds.has(BigInt(authorGithubId));
-
-const isBotLogin = (login: string | null): boolean =>
-  login !== null && login.toLowerCase().endsWith('[bot]');
-
-const isOutsiderAuthor = (
-  item: {
-    readonly authorGithubId: string | null;
-    readonly authorLogin: string | null;
-  },
-  memberIds: ReadonlySet<bigint>,
-): boolean =>
-  item.authorGithubId !== null &&
-  !isTeamMemberAuthor(item.authorGithubId, memberIds) &&
-  !isBotLogin(item.authorLogin);
-
-const GITHUB_EPOCH_MS = Date.UTC(2008, 0, 1);
-
-const githubTimestamp = (at: Date): string =>
-  at.toISOString().replace(/\.\d{3}Z$/, 'Z');
 
 const isCollectionTarget = (repository: CollectionRepositoryRow): boolean =>
   repository.teamId != null;
@@ -676,16 +654,6 @@ export class CollectionSyncService {
       }
     }
     onStreamInserted(issueCount);
-    if (teamMembers !== null) {
-      await this.observeOutsiderContributions(
-        runtime,
-        repository,
-        owner,
-        name,
-        teamMembers,
-        deadline,
-      );
-    }
   }
 
   private async trackStreamOutcome<T>(
@@ -888,112 +856,6 @@ export class CollectionSyncService {
       null,
       existing?.syncEpoch ?? null,
     );
-  }
-
-  private async observeOutsiderContributions(
-    runtime: CollectionSyncRuntime,
-    repository: CollectionRepositoryRow,
-    owner: string,
-    name: string,
-    teamMembers: readonly RepositoryTeamMemberAccount[],
-    deadline: number,
-  ): Promise<void> {
-    try {
-      const window =
-        await this.incrementalRepository.findOutsiderCountingWindow(
-          repository.id,
-        );
-      if (window === null) return;
-
-      if (
-        window.countedThrough !== null &&
-        window.countedThrough.getTime() >= window.endAt.getTime()
-      )
-        return;
-      const observedAt = this.now();
-      const since = Math.max(window.startAt.getTime(), GITHUB_EPOCH_MS);
-      const until = Math.min(window.endAt.getTime(), observedAt.getTime());
-      const memberIds = teamMemberGithubIds(teamMembers);
-      const counted = (
-        items: readonly {
-          readonly authorGithubId: string | null;
-          readonly authorLogin: string | null;
-          readonly createdAt: string;
-        }[],
-      ): number =>
-        items.filter(
-          (item) =>
-            Date.parse(item.createdAt) >= since &&
-            Date.parse(item.createdAt) <= until &&
-            isOutsiderAuthor(item, memberIds),
-        ).length;
-
-      let commitCount = 0;
-      let pullRequestCount = 0;
-      let issueCount = 0;
-      if (since < until) {
-        const windowStart = {
-          createdAt: new Date(since).toISOString(),
-          id: '0',
-        };
-
-        if (repository.defaultBranch !== null) {
-          const total = await this.deadline.run(
-            runtime.client.countDefaultBranchCommitsBetween(
-              owner,
-              name,
-              repository.defaultBranch,
-              githubTimestamp(new Date(since)),
-              githubTimestamp(new Date(until)),
-            ),
-            deadline,
-          );
-          const team = await this.incrementalRepository.countTeamCommitsBetween(
-            repository.id,
-            [...memberIds],
-            new Date(since),
-            new Date(until),
-          );
-
-          if (total !== null && total < team) return;
-          commitCount = total === null ? 0 : total - team;
-        }
-        pullRequestCount = counted(
-          (
-            await this.deadline.run(
-              runtime.client.listNewPullRequests(owner, name, windowStart),
-              deadline,
-            )
-          ).pullRequests,
-        );
-        issueCount = counted(
-          (
-            await this.deadline.run(
-              runtime.client.listNewIssues(owner, name, windowStart),
-              deadline,
-            )
-          ).issues,
-        );
-      }
-      await this.incrementalRepository.saveOutsiderContribution({
-        repositoryId: repository.id,
-        teamId: window.teamId,
-        programId: window.programId,
-        windowStartAt: window.startAt,
-        windowEndAt: window.endAt,
-        commitCount,
-        pullRequestCount,
-        issueCount,
-        observedAt,
-      });
-    } catch (error) {
-      if (error instanceof RunDeadlineError) throw error;
-      this.logger.warn({
-        event: 'collection.sync.outsider_contribution_failed',
-        githubRepositoryId: repository.githubRepositoryId.toString(),
-        errorName: error instanceof Error ? error.name : 'UnknownError',
-      });
-    }
   }
 
   private async syncPullRequestStream(

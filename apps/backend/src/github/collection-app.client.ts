@@ -57,19 +57,6 @@ const AUTHOR_COMMIT_HISTORY_QUERY = `
   }
 `;
 
-const DEFAULT_BRANCH_COMMIT_COUNT_QUERY = `
-  query CollectionDefaultBranchCommitCount($owner: String!, $name: String!, $branch: String!, $since: GitTimestamp!, $until: GitTimestamp!) {
-    repository(owner: $owner, name: $name) {
-      ref(qualifiedName: $branch) {
-        target {
-          ... on Commit {
-            history(since: $since, until: $until) { totalCount }
-          }
-        }
-      }
-    }
-  }
-`;
 type Fetcher = (input: string | URL, init?: RequestInit) => Promise<Response>;
 
 export interface CollectionAppClientTokenProvider {
@@ -284,27 +271,6 @@ export class CollectionAppClient {
       cursor = this.string(pageInfo.endCursor);
     }
     return dedupeByKey(commits, (commit) => commit.sha);
-  }
-
-  async countDefaultBranchCommitsBetween(
-    owner: string,
-    repo: string,
-    defaultBranch: string,
-    since: string,
-    until: string,
-  ): Promise<number | null> {
-    const body = await this.graphql({
-      query: DEFAULT_BRANCH_COMMIT_COUNT_QUERY,
-      variables: { owner, name: repo, branch: defaultBranch, since, until },
-    });
-    const repository = this.record(body.data).repository;
-    if (repository === null || repository === undefined) this.invalid();
-    const ref = this.record(repository).ref;
-    const target =
-      ref === null || ref === undefined ? null : this.record(ref).target;
-    if (target === null || target === undefined) return null;
-    const history = this.record(this.record(target).history);
-    return this.count(history.totalCount);
   }
 
   listPullRequests(
@@ -972,10 +938,6 @@ export class CollectionAppClient {
     return this.invalid();
   }
 
-  private count(v: unknown): number {
-    if (typeof v === 'number' && Number.isSafeInteger(v) && v >= 0) return v;
-    return this.invalid();
-  }
   private string(v: unknown): string {
     if (typeof v === 'string' && v.length > 0) return v;
     return this.invalid();

@@ -6,7 +6,6 @@ export type RepositoryDeletionCounts = {
   readonly pullRequests: number;
   readonly releases: number;
   readonly issues: number;
-  readonly outsiders: number;
   readonly invitations: number;
 };
 

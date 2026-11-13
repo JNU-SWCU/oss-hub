@@ -39,8 +39,6 @@ export interface TeamRepositoryPanelProps {
   readonly onSaved?: () => void;
 
   readonly children?: ReactNode;
-
-  readonly activityExtra?: ReactNode;
 }
 
 export function TeamRepositoryPanel(props: TeamRepositoryPanelProps) {
@@ -60,7 +58,6 @@ function TeamRepositoryPanelBody({
   lockedHint,
   onSaved,
   children,
-  activityExtra,
 }: TeamRepositoryPanelProps) {
   const queryClient = useQueryClient();
   const query = useTeamActivityQuery(programId, teamId);
@@ -147,9 +144,6 @@ function TeamRepositoryPanelBody({
               label={activityTitle}
             />
           )}
-          {graph.kind === 'ready' && graph.activity.lastSuccessAt !== null
-            ? activityExtra
-            : null}
           <Collapsible className="border-t border-border pt-2">
             <CollapsibleTrigger asChild>
               <Button

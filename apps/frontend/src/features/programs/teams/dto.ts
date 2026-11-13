@@ -81,16 +81,6 @@ export interface StaffTeamDetail {
   readonly application: StaffTeamDetailApplication | null;
 
   readonly deletionScope: TeamDeletionScope;
-
-  readonly repositoryContributions: {
-    readonly outsiderContributions: StaffOutsiderContributions | null;
-  } | null;
-}
-
-export interface StaffOutsiderContributions {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
 }
 
 export interface RenamedTeam {

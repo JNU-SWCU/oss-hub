@@ -363,9 +363,6 @@ describe('TeamRepository.findStaffTeamDetail', () => {
       outboxEvent: { findUnique: outboxFindUnique },
       repositoryProvisionJob: { findUnique: jobFindUnique },
       contribution: { groupBy: jest.fn().mockResolvedValue([]) },
-      githubRepositoryOutsiderContribution: {
-        findUnique: jest.fn().mockResolvedValue(null),
-      },
       $queryRaw: jest.fn().mockResolvedValue([]),
     };
     return {

@@ -113,9 +113,6 @@ it('collects new facts only on the replacement when an external application repo
       htmlUrl: 'https://example.invalid/commit/new-after-relink',
     },
   ]);
-  jest
-    .spyOn(client, 'countDefaultBranchCommitsBetween')
-    .mockResolvedValue(null);
   jest.spyOn(client, 'listNewPullRequests').mockResolvedValue({
     pullRequests: [],
     newFrontier: null,
@@ -291,9 +288,6 @@ function syntheticProvider() {
     jest
       .spyOn(client, 'listDefaultBranchCommitsByAuthor')
       .mockResolvedValue([]),
-    jest
-      .spyOn(client, 'countDefaultBranchCommitsBetween')
-      .mockResolvedValue(null),
     jest.spyOn(client, 'listNewPullRequests').mockResolvedValue({
       pullRequests: [],
       newFrontier: null,

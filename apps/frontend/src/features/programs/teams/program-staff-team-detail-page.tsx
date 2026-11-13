@@ -51,7 +51,6 @@ import { programHref } from '../program-paths';
 import { ProgramStaffRepositorySection } from './program-staff-repository-section';
 import { updateTeamRepositoryUrl } from './repository-url-api';
 import { TeamRepositoryPanel } from './team-repository-panel';
-import { OutsiderContributions } from './outsider-contributions';
 import { TeamDeleteDialog } from './team-delete-dialog';
 import { TeamNameDialog } from './team-name-dialog';
 import type { ApplicationStatus } from '../program-contract';
@@ -363,13 +362,6 @@ export function ProgramStaffTeamDetailPage({
           lockedHint="승인된 팀만 프로그램 종료 전까지 변경할 수 있습니다."
           saveRepositoryUrl={(repositoryUrl) =>
             updateTeamRepositoryUrl(programId, teamId, { repositoryUrl })
-          }
-          activityExtra={
-            detail.repositoryContributions?.outsiderContributions ? (
-              <OutsiderContributions
-                counts={detail.repositoryContributions.outsiderContributions}
-              />
-            ) : null
           }
         >
           <ProgramStaffRepositorySection

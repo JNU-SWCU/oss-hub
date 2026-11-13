@@ -208,7 +208,6 @@ it('projects current repository facts and URL audit history without reading or m
     },
   ]);
 
-  expect(detail?.repositoryContributions?.outsiderContributions).toBeNull();
   expect(detail?.repositoryUrlHistory.rows).toHaveLength(1);
   const view = await teamsService.getForStaff(programId, teamId);
   expect(view.repositoryUrlHistory.items).toHaveLength(1);
@@ -218,125 +217,6 @@ it('projects current repository facts and URL audit history without reading or m
   expect(
     (await repositoryContributionTotals(prisma, [oldRepositoryId])).commitCount,
   ).toBe(900);
-});
-
-it('shows the outsider totals only while they were counted for this program window', async () => {
-  const scope = `staff-evidence-outsider-${randomUUID()}`;
-  const memberGithubId = BigInt(
-    `0x${randomUUID().replaceAll('-', '').slice(0, 12)}`,
-  );
-  const scoped = {
-    member: `${scope}-member`,
-    program: `${scope}-program`,
-    team: `${scope}-team`,
-    repository: `${scope}-current`,
-  };
-  const startAt = new Date('2026-07-31T15:00:00Z');
-  const endAt = new Date('2026-08-31T14:59:59Z');
-  await prisma.user.create({
-    data: {
-      id: scoped.member,
-      githubId: memberGithubId,
-      nickname: 'synthetic-outsider-member',
-    },
-  });
-  await prisma.program.create({
-    data: {
-      id: scoped.program,
-      name: 'Synthetic program',
-      organizer: 'Synthetic',
-      category: 'BASIC',
-      applicationTemplateKey: 'synthetic',
-      applicationTemplateVersion: 1,
-      description: 'Synthetic',
-      applicationStartAt: new Date('2026-07-01Z'),
-      applicationEndAt: new Date('2026-07-31Z'),
-      startAt,
-      endAt,
-    },
-  });
-  await prisma.team.create({
-    data: {
-      id: scoped.team,
-      programId: scoped.program,
-      name: 'Synthetic team',
-      leaderId: scoped.member,
-      applicantId: scoped.member,
-      answers: { title: 'Synthetic team' },
-      applicationTemplateVersion: 1,
-    },
-  });
-  await prisma.teamMember.create({
-    data: {
-      teamId: scoped.team,
-      programId: scoped.program,
-      userId: scoped.member,
-    },
-  });
-  await prisma.team.update({
-    where: { id: scoped.team },
-    data: {
-      programId: scoped.program,
-      applicantId: scoped.member,
-      answers: {},
-      applicationTemplateVersion: 1,
-    },
-  });
-  await prisma.githubRepository.create({
-    data: {
-      id: scoped.repository,
-      githubRepositoryId: memberGithubId + 1n,
-      nameWithOwner: 'synthetic/outsider-current',
-      source: 'EXTERNAL_PUBLIC',
-      teamId: scoped.team,
-      lastSuccessAt: new Date('2026-09-01Z'),
-    },
-  });
-
-  await prisma.githubRepositoryOutsiderContribution.create({
-    data: {
-      repositoryId: scoped.repository,
-      teamId: scoped.team,
-      programId: scoped.program,
-      windowStartAt: startAt,
-      windowEndAt: endAt,
-      commitCount: 3,
-      pullRequestCount: 1,
-      issueCount: 2,
-      observedAt: new Date('2026-09-01T00:00:00Z'),
-    },
-  });
-  const teams = new TeamRepository(
-    prisma,
-    new ProgramTeamRepositoryEvidenceRepository(prisma),
-    new PlatformRepository(),
-    new TeamHistoryRepository(),
-  );
-  const detail = await teams.findStaffTeamDetail(scoped.program, scoped.team);
-
-  expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
-    commitCount: 3,
-    pullRequestCount: 1,
-    issueCount: 2,
-  });
-
-  await prisma.githubRepositoryOutsiderContribution.update({
-    where: { repositoryId: scoped.repository },
-    data: { teamId: `${scope}-previous-team` },
-  });
-  const moved = await teams.findStaffTeamDetail(scoped.program, scoped.team);
-  expect(moved?.repositoryContributions?.outsiderContributions).toBeNull();
-  await prisma.githubRepositoryOutsiderContribution.update({
-    where: { repositoryId: scoped.repository },
-    data: { teamId: scoped.team },
-  });
-
-  await prisma.program.update({
-    where: { id: scoped.program },
-    data: { startAt: new Date('2026-07-01T15:00:00Z') },
-  });
-  const edited = await teams.findStaffTeamDetail(scoped.program, scoped.team);
-  expect(edited?.repositoryContributions?.outsiderContributions).toBeNull();
 });
 
 it('reads contributions of a program that never set an end date', async () => {

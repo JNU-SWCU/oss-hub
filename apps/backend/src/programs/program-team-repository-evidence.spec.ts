@@ -1,6 +1,5 @@
 import { StudentRepositoryUrlService } from './team-application.service';
 import {
-  outsiderFindUnique,
   teamFindFirst,
   contributionQuery,
   historyQuery,
@@ -278,7 +277,6 @@ it('matches numeric GitHub identities and preserves members without observations
           hasObservations: false,
         },
       ],
-      outsiderContributions: null,
     },
   });
   expect(contributionQuery.mock.calls[0]?.slice(1)).toEqual([
@@ -315,44 +313,4 @@ it('does not query contributions or history for an absent or differently scoped 
   expect(detail).toBeNull();
   expect(contributionQuery).not.toHaveBeenCalled();
   expect(historyQuery).not.toHaveBeenCalled();
-});
-
-it('shows the outsider totals only while they were counted for this application, program and window', async () => {
-  const repository = givenRepository();
-  const counted = {
-    repositoryId: 'current-repo',
-    teamId: 'team',
-    programId: 'program',
-    windowStartAt: new Date('2026-07-31T15:00:00Z'),
-    windowEndAt: new Date('2026-08-31T14:59:59Z'),
-    commitCount: 4,
-    pullRequestCount: 1,
-    issueCount: 2,
-    observedAt: new Date('2026-08-31T00:00:00Z'),
-  };
-  outsiderFindUnique.mockResolvedValue(counted);
-
-  const detail = await repository.findStaffTeamDetail('program', 'team');
-
-  expect(outsiderFindUnique).toHaveBeenCalledWith({
-    where: { repositoryId: 'current-repo' },
-  });
-  expect(detail?.repositoryContributions?.outsiderContributions).toEqual({
-    commitCount: 4,
-    pullRequestCount: 1,
-    issueCount: 2,
-  });
-
-  for (const stale of [
-    { ...counted, teamId: 'previous-application' },
-    { ...counted, programId: 'other-program' },
-    { ...counted, windowStartAt: new Date('2026-07-01T15:00:00Z') },
-    { ...counted, windowEndAt: new Date('2026-12-31T14:59:59Z') },
-  ]) {
-    outsiderFindUnique.mockResolvedValue(stale);
-    const staleDetail = await repository.findStaffTeamDetail('program', 'team');
-    expect(
-      staleDetail?.repositoryContributions?.outsiderContributions,
-    ).toBeNull();
-  }
 });
