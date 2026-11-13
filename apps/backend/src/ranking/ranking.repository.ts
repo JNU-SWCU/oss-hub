@@ -219,7 +219,6 @@ export class RankingRepository {
               + INTERVAL '1 month') AT TIME ZONE 'Asia/Seoul' AS month_end
         ) AS month_bound
         WHERE observation.year = ${year}
-          AND observation.visibility = 'PUBLIC'::"ActivityVisibility"
           AND EXTRACT(
             YEAR FROM observation.observed_at AT TIME ZONE 'Asia/Seoul'
           ) = ${year}

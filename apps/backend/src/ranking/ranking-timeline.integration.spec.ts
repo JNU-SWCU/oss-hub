@@ -171,7 +171,22 @@ describe('월별 기록을 활동 이력으로 옮긴다', () => {
   };
   const BOUNDARY = { githubId: 9_126_004n, githubLogin: `${PREFIX}-boundary` };
   const ORPHAN = { githubId: 9_126_005n, githubLogin: `${PREFIX}-orphan` };
-  const BACKFILL_MEMBERS = [ALPHA, BETA, PRIVATE_MEMBER, BOUNDARY, ORPHAN];
+  const STALE = { githubId: 9_126_006n, githubLogin: `${PREFIX}-stale` };
+  const MIXED = { githubId: 9_126_007n, githubLogin: `${PREFIX}-mixed` };
+  const PRIVATE_ONLY = {
+    githubId: 9_126_008n,
+    githubLogin: `${PREFIX}-private-only`,
+  };
+  const BACKFILL_MEMBERS = [
+    ALPHA,
+    BETA,
+    PRIVATE_MEMBER,
+    BOUNDARY,
+    ORPHAN,
+    STALE,
+    MIXED,
+    PRIVATE_ONLY,
+  ];
   const NOW = new Date('2026-11-14T03:00:00.000Z');
   const migrationSql = readFileSync(
     resolve(
@@ -307,17 +322,29 @@ describe('월별 기록을 활동 이력으로 옮긴다', () => {
     await purge(BACKFILL_MEMBERS);
   });
 
-  it('이력이 없는 사용자의 월별 행이 있으면 아무것도 옮기지 않고 멈춘다', async () => {
-    await prisma.githubUserActivityMonthly.create({
-      data: monthly(ORPHAN, 1, 3),
+  it('11월 이후 공개 이력이 없는 사용자의 월별 행이 있으면 아무것도 옮기지 않고 멈춘다', async () => {
+    await prisma.githubUserActivityMonthly.createMany({
+      data: [monthly(ORPHAN, 1, 3), monthly(STALE, 1, 3)],
+    });
+    await prisma.githubUserActivityObservation.create({
+      data: history(
+        STALE,
+        ActivityVisibility.PUBLIC,
+        '2026-10-31T14:59:59.999Z',
+        3,
+      ),
     });
 
     await expect(withBackfill(() => Promise.resolve())).rejects.toThrow(
-      /orphan_keys=1/,
+      /orphan_keys=2/,
     );
 
+    const orphanIds = [ORPHAN.githubId, STALE.githubId];
     await prisma.githubUserActivityMonthly.deleteMany({
-      where: { githubId: ORPHAN.githubId },
+      where: { githubId: { in: orphanIds } },
+    });
+    await prisma.githubUserActivityObservation.deleteMany({
+      where: { githubId: { in: orphanIds } },
     });
   });
 
@@ -447,5 +474,34 @@ describe('월별 기록을 활동 이력으로 옮긴다', () => {
       { month: 11, commitCount: 1 },
       { month: 12, commitCount: 2 },
     ]);
+  });
+
+  it('비공개 값만 바뀐 달도 월 값을 남기고, 비공개 이력만 있는 사용자는 월 값이 없다', async () => {
+    await prisma.githubUserActivityObservation.createMany({
+      data: [
+        history(MIXED, ActivityVisibility.PUBLIC, '2026-01-10T00:00:00Z', 10),
+        history(MIXED, ActivityVisibility.PRIVATE, '2026-02-15T00:00:00Z', 5),
+        history(MIXED, ActivityVisibility.PUBLIC, '2026-03-03T00:00:00Z', 12),
+        history(
+          PRIVATE_ONLY,
+          ActivityVisibility.PRIVATE,
+          '2026-02-15T00:00:00Z',
+          5,
+        ),
+      ],
+    });
+    const repository = new RankingRepository(prisma);
+
+    expect(
+      (await snapshotsOf(repository, MIXED)).map(({ month, commitCount }) => ({
+        month,
+        commitCount,
+      })),
+    ).toEqual([
+      { month: 1, commitCount: 10 },
+      { month: 2, commitCount: 15 },
+      { month: 3, commitCount: 17 },
+    ]);
+    await expect(snapshotsOf(repository, PRIVATE_ONLY)).resolves.toEqual([]);
   });
 });

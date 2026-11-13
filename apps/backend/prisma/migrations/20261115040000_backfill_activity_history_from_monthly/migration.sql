@@ -30,6 +30,7 @@ BEGIN
       WHERE h.github_id = m."githubId"
         AND h.year = m.year
         AND h.visibility = 'PUBLIC'
+        AND h.observed_at >= TIMESTAMPTZ '2026-11-01 00:00:00+09'
     );
 
   IF colliding_rows <> 0 OR orphan_keys <> 0 THEN
