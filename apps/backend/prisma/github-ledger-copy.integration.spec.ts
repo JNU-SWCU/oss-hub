@@ -210,6 +210,11 @@ describe('github ledger shadow copy', () => {
           },
         },
       })) === 0 &&
+      (await prisma.repo.count({
+        where: {
+          githubRepoId: { notIn: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        },
+      })) === 0 &&
       (
         await prisma.$queryRaw<Array<{ count: bigint }>>`
           SELECT COUNT(*) AS count FROM "github_user_activity_history"
@@ -775,7 +780,23 @@ describe('github ledger shadow copy', () => {
     await copyLedger();
     expect(await ledgerRows()).toEqual(written);
     const report = await verifyLedger();
-    expect(report.filter((row) => row.actual !== row.expected)).toEqual([]);
+    expect(
+      report.filter(
+        (row) => row.check !== 'repo_count' && row.actual !== row.expected,
+      ),
+    ).toEqual([]);
+    await expect(
+      prisma.$queryRaw<Array<{ missing: bigint }>>`
+        SELECT COUNT(*) AS missing
+        FROM "GithubRepository" AS repository
+        WHERE repository."githubRepositoryId" IN (${Prisma.join(LEDGER_REPO_IDS)})
+          AND NOT EXISTS (
+            SELECT 1
+            FROM "repo"
+            WHERE "repo"."github_repo_id" = repository."githubRepositoryId"
+          )
+      `,
+    ).resolves.toEqual([{ missing: 0n }]);
     const drift = await prisma.$queryRaw<Array<{ drift: bigint }>>`
       SELECT COUNT(*) AS drift
       FROM "GithubRepository" AS repository
