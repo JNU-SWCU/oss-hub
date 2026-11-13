@@ -64,7 +64,6 @@ type RequestKind =
   | 'repository'
   | 'user-node'
   | 'commit-history'
-  | 'commit-count'
   | 'commit-probe'
   | 'commit-list'
   | 'pull-list'
@@ -83,7 +82,6 @@ const emptyByKind = (): Record<RequestKind, number> => ({
   repository: 0,
   'user-node': 0,
   'commit-history': 0,
-  'commit-count': 0,
   'commit-probe': 0,
   'commit-list': 0,
   'pull-list': 0,
@@ -221,29 +219,6 @@ export class SyntheticGithubProvider {
                     hasNextPage: end < authored.length,
                     endCursor: String(end),
                   },
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-    if (query.includes('CollectionDefaultBranchCommitCount')) {
-      this.record('commit-count', repoKey);
-      const since = Date.parse(String(variables.since));
-      const until = Date.parse(String(variables.until));
-      const inWindow = repo.commits.filter((commit) => {
-        const committedAt = Date.parse(commit.committedAt);
-        return committedAt >= since && committedAt <= until;
-      });
-      return this.json({
-        data: {
-          repository: {
-            ref: {
-              target: {
-                history: {
-                  totalCount: new Set(inWindow.map((commit) => commit.sha))
-                    .size,
                 },
               },
             },

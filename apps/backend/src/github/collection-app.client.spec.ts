@@ -1279,67 +1279,6 @@ describe('CollectionAppClient author-filtered commit history (GraphQL)', () => {
     ).rejects.toMatchObject({ kind: 'GRAPHQL_ERROR' });
   });
 
-  it('counts default-branch commits inside the program window without requesting any commit node', async () => {
-    const fetcher = fetchMock().mockResolvedValue(
-      json({
-        data: {
-          repository: { ref: { target: { history: { totalCount: 42 } } } },
-        },
-      }),
-    );
-    await expect(
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetcher,
-      ).countDefaultBranchCommitsBetween(
-        'JNU-SWCU',
-        'oss-hub',
-        'main',
-        '2026-07-09T15:00:00Z',
-        '2026-09-26T05:00:00Z',
-      ),
-    ).resolves.toEqual(42);
-    const payload = sentPayload(fetcher);
-    expect(payload.variables).toEqual({
-      owner: 'JNU-SWCU',
-      name: 'oss-hub',
-      branch: 'main',
-      since: '2026-07-09T15:00:00Z',
-      until: '2026-09-26T05:00:00Z',
-    });
-
-    expect(payload.query).toContain('history(since: $since, until: $until)');
-    expect(payload.query).toContain('totalCount');
-    expect(payload.query).not.toContain('nodes');
-    expect(payload.query).not.toContain('author');
-  });
-
-  it('reports a missing branch as null and rejects a malformed total', async () => {
-    const count = (body: unknown) =>
-      new CollectionAppClient(
-        graphqlConfig,
-        tokenProvider,
-        fetchMock().mockResolvedValue(json(body)),
-      ).countDefaultBranchCommitsBetween(
-        'o',
-        'r',
-        'main',
-        '2026-07-09T15:00:00Z',
-        '2026-09-26T05:00:00Z',
-      );
-    await expect(
-      count({ data: { repository: { ref: null } } }),
-    ).resolves.toBeNull();
-    await expect(
-      count({
-        data: {
-          repository: { ref: { target: { history: { totalCount: -1 } } } },
-        },
-      }),
-    ).rejects.toMatchObject({ kind: 'RESPONSE' });
-  });
-
   it('defaults the GraphQL endpoint when no override is configured', async () => {
     const fetcher = fetchMock().mockResolvedValue(
       json({ data: { user: { id: 'NODE' } } }),

@@ -217,7 +217,6 @@ type CollectionStoreClient = Pick<
   | 'collectionSyncCursor'
   | 'collectionSyncLease'
   | 'githubRepository'
-  | 'githubRepositoryOutsiderContribution'
   | 'teamMember'
   | 'user'
 >;
@@ -1028,86 +1027,6 @@ export class CollectionIncrementalStoreRepository {
       },
       errorCodes: failedGroups.map((group) => group.lastErrorCode).sort(),
     };
-  }
-
-  async findOutsiderCountingWindow(repositoryId: string): Promise<{
-    teamId: string;
-    programId: string;
-    startAt: Date;
-    endAt: Date;
-    countedThrough: Date | null;
-  } | null> {
-    const row = await this.db.githubRepository.findUnique({
-      where: { id: repositoryId },
-      select: {
-        teamId: true,
-        team: {
-          select: {
-            program: { select: { id: true, startAt: true, endAt: true } },
-          },
-        },
-        outsider: true,
-      },
-    });
-    if (!row || row.teamId === null || row.team === null) return null;
-    const counted = row.outsider;
-    const sameBasis =
-      counted !== null &&
-      counted.teamId === row.teamId &&
-      counted.programId === row.team.program.id &&
-      counted.windowStartAt.getTime() === row.team.program.startAt.getTime() &&
-      counted.windowEndAt.getTime() === row.team.program.endAt.getTime();
-    return {
-      teamId: row.teamId,
-      programId: row.team.program.id,
-      startAt: row.team.program.startAt,
-      endAt: row.team.program.endAt,
-      countedThrough: sameBasis ? counted.observedAt : null,
-    };
-  }
-
-  async countTeamCommitsBetween(
-    repositoryId: string,
-    memberGithubIds: readonly bigint[],
-    since: Date,
-    until: Date,
-  ): Promise<number> {
-    if (memberGithubIds.length === 0) return 0;
-    const rows = await this.db.$queryRaw<readonly { readonly count: number }[]>`
-      SELECT COUNT(*)::int AS count
-      FROM "contribution" AS event
-      JOIN "GithubRepository" AS repository
-        ON repository."githubRepositoryId" = event."repo_id"
-      WHERE repository."id" = ${repositoryId}
-        AND event."kind" = 'commit'::"contribution_kind"
-        AND event."author_github_id" = ANY(${[...memberGithubIds]})
-        AND event."occurred_at" >= ${since}
-        AND event."occurred_at" <= ${until}
-    `;
-    const row = rows[0];
-    if (row === undefined || !Number.isInteger(row.count)) {
-      throw new Error('team commit count was not an integer');
-    }
-    return row.count;
-  }
-
-  async saveOutsiderContribution(input: {
-    repositoryId: string;
-    teamId: string;
-    programId: string;
-    windowStartAt: Date;
-    windowEndAt: Date;
-    commitCount: number;
-    pullRequestCount: number;
-    issueCount: number;
-    observedAt: Date;
-  }): Promise<void> {
-    const { repositoryId, ...values } = input;
-    await this.db.githubRepositoryOutsiderContribution.upsert({
-      where: { repositoryId },
-      create: input,
-      update: values,
-    });
   }
 
   async listOrganizationRepositories(): Promise<CollectionRepositoryRow[]> {
