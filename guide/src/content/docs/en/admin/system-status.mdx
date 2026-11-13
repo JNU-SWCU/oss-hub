@@ -33,7 +33,7 @@ The badge is chosen by checking the table below from top to bottom. The first ma
 | `지연` (Delayed) | At least one repository last succeeded more than 2 hours ago. | Asks you to find the delayed repositories in `수집 대상 상세` (Collection target details) and, if they stay delayed after the next cycle, to check the collection app installation and permissions. |
 | `정상` (Normal) | None of the above applies. | None |
 
-A repository that fails is not held back; the next hourly collection simply tries it again. One failure therefore does not make it `지연` (Delayed); it takes more than one failure in a row.
+A repository that fails is not held back; the next hourly collection simply tries it again. After one failure it can show `지연` (Delayed) for a few minutes just before the next hourly collection, and it returns to `정상` (Normal) when that collection succeeds. If it fails again, it stays `지연` (Delayed).
 
 The screen does not describe how to escalate a lasting stall to the service operator or developer. <Verified status="policy" />
 
