@@ -1,4 +1,6 @@
-import { AccountStatus } from '@prisma/client';
+import { readFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+import { AccountStatus, ActivityVisibility, type Prisma } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -6,7 +8,10 @@ import {
   CollectionUserActivityRepository,
 } from '../github/repository-provision-job.repository';
 import { PrismaService } from '../platform/prisma.service';
-import { RankingRepository } from './ranking.repository';
+import {
+  RankingRepository,
+  type RankingMetricsQuery,
+} from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';
 import { RankingYearService } from './ranking-year.service';
 
@@ -42,8 +47,8 @@ const observe = (
     observedAt: new Date(Date.UTC(YEAR, month - 1, 20)),
   });
 
-async function purge(): Promise<void> {
-  const githubIds = MEMBERS.map((member) => member.githubId);
+async function purge(members: readonly (typeof CLIMBER)[]): Promise<void> {
+  const githubIds = members.map((member) => member.githubId);
   await prisma.githubUserActivityMonthly.deleteMany({
     where: { githubId: { in: githubIds } },
   });
@@ -53,10 +58,10 @@ async function purge(): Promise<void> {
   await prisma.user.deleteMany({ where: { githubId: { in: githubIds } } });
 }
 
-beforeAll(async () => {
-  await prisma.$connect();
-  await purge();
-  for (const member of MEMBERS) {
+async function createStudents(
+  members: readonly (typeof CLIMBER)[],
+): Promise<void> {
+  for (const member of members) {
     await prisma.user.create({
       data: {
         id: member.githubLogin,
@@ -74,10 +79,16 @@ beforeAll(async () => {
       },
     });
   }
+}
+
+beforeAll(async () => {
+  await prisma.$connect();
+  await purge(MEMBERS);
+  await createStudents(MEMBERS);
 });
 
 afterAll(async () => {
-  await purge();
+  await purge(MEMBERS);
   await prisma.$disconnect();
 });
 
@@ -140,4 +151,301 @@ it('월별 값은 공개 수집값에 그 시점의 비공개 건수를 더한�
       select: { commitCount: true, pullRequestCount: true },
     }),
   ).resolves.toEqual({ commitCount: 67, pullRequestCount: 1 });
+  const snapshots = await new RankingRepository(prisma).findMonthlySnapshots(
+    YEAR,
+  );
+  expect(
+    snapshots.find(
+      (row) => row.githubId === CLIMBER.githubId && row.month === 3,
+    ),
+  ).toMatchObject({ commitCount: 67, pullRequestCount: 1 });
+});
+
+describe('월별 기록을 활동 이력으로 옮긴다', () => {
+  const BACKFILL_YEAR = 2026;
+  const ALPHA = { githubId: 9_126_001n, githubLogin: `${PREFIX}-alpha` };
+  const BETA = { githubId: 9_126_002n, githubLogin: `${PREFIX}-beta` };
+  const PRIVATE_MEMBER = {
+    githubId: 9_126_003n,
+    githubLogin: `${PREFIX}-private`,
+  };
+  const BOUNDARY = { githubId: 9_126_004n, githubLogin: `${PREFIX}-boundary` };
+  const ORPHAN = { githubId: 9_126_005n, githubLogin: `${PREFIX}-orphan` };
+  const BACKFILL_MEMBERS = [ALPHA, BETA, PRIVATE_MEMBER, BOUNDARY, ORPHAN];
+  const NOW = new Date('2026-11-14T03:00:00.000Z');
+  const migrationSql = readFileSync(
+    resolve(
+      __dirname,
+      '../../prisma/migrations/20261115040000_backfill_activity_history_from_monthly/migration.sql',
+    ),
+    'utf8',
+  );
+  const backfillBlock = migrationSql.slice(
+    migrationSql.indexOf('DO $$'),
+    migrationSql.lastIndexOf('$$;') + 2,
+  );
+  const ROLLED_BACK = new Error('rolled back');
+  const withBackfill = async <T>(
+    read: (
+      repository: RankingRepository,
+      transaction: Prisma.TransactionClient,
+    ) => Promise<T>,
+  ): Promise<T> => {
+    let result: { readonly value: T } | undefined;
+    await prisma
+      .$transaction(
+        async (transaction) => {
+          await transaction.$executeRawUnsafe("SET LOCAL TIME ZONE 'UTC'");
+          await transaction.githubUserActivityMonthly.deleteMany({
+            where: {
+              year: BACKFILL_YEAR,
+              githubId: { notIn: BACKFILL_MEMBERS.map((row) => row.githubId) },
+            },
+          });
+          await transaction.$executeRawUnsafe(backfillBlock);
+          result = {
+            value: await read(
+              new RankingRepository(transaction as unknown as PrismaService),
+              transaction,
+            ),
+          };
+          throw ROLLED_BACK;
+        },
+        { timeout: 30_000 },
+      )
+      .catch((error: unknown) => {
+        if (error !== ROLLED_BACK) throw error;
+      });
+    if (result === undefined) throw new Error('Backfill did not run');
+    return result.value;
+  };
+  const seoulMonthEnd = (month: number): Date =>
+    new Date(Date.UTC(BACKFILL_YEAR, month, 1) - 9 * 60 * 60 * 1000 - 1);
+  const monthly = (
+    member: typeof ALPHA,
+    month: number,
+    commitCount: number,
+    starCount = 0,
+  ) => ({
+    githubId: member.githubId,
+    year: BACKFILL_YEAR,
+    month,
+    commitCount,
+    pullRequestCount: 1,
+    issueCount: 0,
+    repositoryCount: 1,
+    starCount,
+    observedAt: seoulMonthEnd(month),
+  });
+  const history = (
+    member: typeof ALPHA,
+    visibility: ActivityVisibility,
+    observedAt: string,
+    commitCount: number,
+    starCount = 0,
+  ) => ({
+    githubId: member.githubId,
+    year: BACKFILL_YEAR,
+    visibility,
+    commitCount,
+    pullRequestCount: 1,
+    issueCount: 0,
+    repositoryCount: 1,
+    starCount,
+    observedAt: new Date(observedAt),
+  });
+  const snapshotsOf = async (
+    repository: RankingRepository,
+    member: typeof ALPHA,
+  ) =>
+    (await repository.findMonthlySnapshots(BACKFILL_YEAR))
+      .filter((row) => row.githubId === member.githubId)
+      .sort((left, right) => left.month - right.month);
+  const isFixture = (row: { readonly githubId: bigint }): boolean =>
+    BACKFILL_MEMBERS.some((member) => member.githubId === row.githubId);
+  const timeline = (
+    repository: RankingRepository,
+    findMonthlySnapshots: RankingRepository['findMonthlySnapshots'],
+  ) =>
+    new RankingTimelineService(
+      {
+        findMetrics: async (query: RankingMetricsQuery) =>
+          (await repository.findMetrics(query)).filter(isFixture),
+        findMonthlySnapshots,
+      } as unknown as RankingRepository,
+      new RankingYearService(),
+    ).findTimeline(BACKFILL_YEAR, NOW);
+  const readMonthlyTable = (year: number) =>
+    prisma.githubUserActivityMonthly.findMany({
+      where: { year },
+      select: {
+        githubId: true,
+        month: true,
+        commitCount: true,
+        pullRequestCount: true,
+        issueCount: true,
+        repositoryCount: true,
+        starCount: true,
+      },
+    });
+  const previousRanks = async (repository: RankingRepository) =>
+    (
+      await repository.findPreviousCycleMetrics(
+        { currentYear: BACKFILL_YEAR },
+        NOW,
+      )
+    )
+      .filter(isFixture)
+      .sort((left, right) => Number(left.githubId - right.githubId));
+
+  beforeAll(async () => {
+    await purge(BACKFILL_MEMBERS);
+    await createStudents([ALPHA, BETA, PRIVATE_MEMBER]);
+  });
+
+  afterAll(async () => {
+    await purge(BACKFILL_MEMBERS);
+  });
+
+  it('이력이 없는 사용자의 월별 행이 있으면 아무것도 옮기지 않고 멈춘다', async () => {
+    await prisma.githubUserActivityMonthly.create({
+      data: monthly(ORPHAN, 1, 3),
+    });
+
+    await expect(withBackfill(() => Promise.resolve())).rejects.toThrow(
+      /orphan_keys=1/,
+    );
+
+    await prisma.githubUserActivityMonthly.deleteMany({
+      where: { githubId: ORPHAN.githubId },
+    });
+  });
+
+  it('1–10월을 공개 관측으로 옮기고 순위 변화와 이전 순위는 그대로다', async () => {
+    const months = Array.from({ length: 10 }, (_, index) => index + 1);
+    await prisma.githubUserActivityMonthly.createMany({
+      data: [
+        ...months.map((month) => monthly(ALPHA, month, month * 10 + 20, 4)),
+        ...months
+          .filter((month) => month !== 4)
+          .map((month) => monthly(BETA, month, month * 15, 2)),
+        ...months.map((month) => monthly(PRIVATE_MEMBER, month, month * 1000)),
+        { ...monthly(ALPHA, 11, 125, 4), observedAt: new Date(NOW) },
+      ],
+    });
+    await prisma.githubUserActivityObservation.createMany({
+      data: [
+        history(
+          ALPHA,
+          ActivityVisibility.PUBLIC,
+          '2026-11-05T00:00:00Z',
+          125,
+          4,
+        ),
+        history(
+          BETA,
+          ActivityVisibility.PUBLIC,
+          '2026-11-05T00:00:00Z',
+          160,
+          2,
+        ),
+        history(
+          PRIVATE_MEMBER,
+          ActivityVisibility.PRIVATE,
+          '2026-11-01T03:00:00Z',
+          7763,
+          99,
+        ),
+        history(
+          PRIVATE_MEMBER,
+          ActivityVisibility.PUBLIC,
+          '2026-11-10T00:00:00Z',
+          11690,
+          7,
+        ),
+      ],
+    });
+    const trunk = new RankingRepository(prisma);
+    const before = await timeline(trunk, readMonthlyTable);
+    const previousBefore = await previousRanks(trunk);
+
+    const after = await withBackfill(async (repository, transaction) => {
+      const backfilled = await transaction.githubUserActivityObservation.count({
+        where: {
+          githubId: { in: [ALPHA.githubId, BETA.githubId] },
+          observedAt: { lt: new Date('2026-10-31T15:00:00.000Z') },
+        },
+      });
+      await transaction.$executeRawUnsafe('SAVEPOINT rerun');
+      const rerun = await transaction.$executeRawUnsafe(backfillBlock).then(
+        () => 'applied twice',
+        (error: unknown) => String(error),
+      );
+      await transaction.$executeRawUnsafe('ROLLBACK TO SAVEPOINT rerun');
+      return {
+        backfilled,
+        rerun,
+        timeline: await timeline(repository, (year) =>
+          repository.findMonthlySnapshots(year),
+        ),
+        previous: await previousRanks(repository),
+        beta: await snapshotsOf(repository, BETA),
+        private: await snapshotsOf(repository, PRIVATE_MEMBER),
+      };
+    });
+
+    expect(after.backfilled).toBe(19);
+    expect(after.rerun).toMatch(/collisions=29/);
+    expect(before.months).toEqual([...months, 11]);
+    expect(
+      before.series.find((series) => series.githubLogin === ALPHA.githubLogin)
+        ?.ranks,
+    ).toEqual([2, 2, 2, 2, 3, 3, 3, 3, 3, 3, 3]);
+    expect(previousBefore).toHaveLength(3);
+    expect(after.timeline).toEqual(before);
+    expect(after.previous).toEqual(previousBefore);
+    expect(after.beta.map((row) => row.month)).toEqual([
+      1, 2, 3, 5, 6, 7, 8, 9, 10, 11,
+    ]);
+    expect(after.private.find((row) => row.month === 10)).toMatchObject({
+      commitCount: 10000,
+      starCount: 0,
+    });
+    expect(after.private.find((row) => row.month === 11)).toMatchObject({
+      commitCount: 19453,
+      pullRequestCount: 2,
+      starCount: 7,
+    });
+  });
+
+  it('11월 마지막 관측이 12월 1일(KST) 뒤에 기록되면 12월 값이 된다', async () => {
+    await prisma.githubUserActivityObservation.createMany({
+      data: [
+        history(
+          BOUNDARY,
+          ActivityVisibility.PUBLIC,
+          '2026-11-30T14:59:59.999Z',
+          1,
+        ),
+        history(
+          BOUNDARY,
+          ActivityVisibility.PUBLIC,
+          '2026-11-30T15:00:00.000Z',
+          2,
+        ),
+      ],
+    });
+
+    expect(
+      (await snapshotsOf(new RankingRepository(prisma), BOUNDARY)).map(
+        ({ month, commitCount }) => ({
+          month,
+          commitCount,
+        }),
+      ),
+    ).toEqual([
+      { month: 11, commitCount: 1 },
+      { month: 12, commitCount: 2 },
+    ]);
+  });
 });

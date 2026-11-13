@@ -189,18 +189,71 @@ export class RankingRepository {
   async findMonthlySnapshots(
     year: number,
   ): Promise<readonly RankingMonthlySnapshotRow[]> {
-    return this.prisma.githubUserActivityMonthly.findMany({
-      where: { year },
-      select: {
-        githubId: true,
-        month: true,
-        commitCount: true,
-        pullRequestCount: true,
-        issueCount: true,
-        repositoryCount: true,
-        starCount: true,
-      },
-    });
+    return this.prisma.$queryRaw<RankingMonthlySnapshotRow[]>`
+      SELECT
+        observed.github_id AS "githubId",
+        observed.month,
+        (public_row.commit_count + COALESCE(private_row.commit_count, 0))::int
+          AS "commitCount",
+        (public_row.pull_request_count
+          + COALESCE(private_row.pull_request_count, 0))::int
+          AS "pullRequestCount",
+        (public_row.issue_count + COALESCE(private_row.issue_count, 0))::int
+          AS "issueCount",
+        (public_row.repository_count
+          + COALESCE(private_row.repository_count, 0))::int
+          AS "repositoryCount",
+        public_row.star_count AS "starCount"
+      FROM (
+        SELECT DISTINCT
+          observation.github_id,
+          month_bound.month,
+          month_bound.month_end
+        FROM github_user_activity_history AS observation
+        CROSS JOIN LATERAL (
+          SELECT
+            EXTRACT(
+              MONTH FROM observation.observed_at AT TIME ZONE 'Asia/Seoul'
+            )::int AS month,
+            (date_trunc('month', observation.observed_at AT TIME ZONE 'Asia/Seoul')
+              + INTERVAL '1 month') AT TIME ZONE 'Asia/Seoul' AS month_end
+        ) AS month_bound
+        WHERE observation.year = ${year}
+          AND observation.visibility = 'PUBLIC'::"ActivityVisibility"
+          AND EXTRACT(
+            YEAR FROM observation.observed_at AT TIME ZONE 'Asia/Seoul'
+          ) = ${year}
+      ) AS observed
+      CROSS JOIN LATERAL (
+        SELECT
+          latest.commit_count,
+          latest.pull_request_count,
+          latest.issue_count,
+          latest.repository_count,
+          latest.star_count
+        FROM github_user_activity_history AS latest
+        WHERE latest.github_id = observed.github_id
+          AND latest.year = ${year}
+          AND latest.visibility = 'PUBLIC'::"ActivityVisibility"
+          AND latest.observed_at < observed.month_end
+        ORDER BY latest.observed_at DESC
+        LIMIT 1
+      ) AS public_row
+      LEFT JOIN LATERAL (
+        SELECT
+          latest.commit_count,
+          latest.pull_request_count,
+          latest.issue_count,
+          latest.repository_count
+        FROM github_user_activity_history AS latest
+        WHERE latest.github_id = observed.github_id
+          AND latest.year = ${year}
+          AND latest.visibility = 'PRIVATE'::"ActivityVisibility"
+          AND latest.observed_at < observed.month_end
+        ORDER BY latest.observed_at DESC
+        LIMIT 1
+      ) AS private_row ON true
+    `;
   }
 
   async findNamesByGithubIds(
