@@ -820,7 +820,6 @@ model GithubRepository {
   updatedAt DateTime @updatedAt
 
   streams       CollectionRepositoryStream[]
-  outsider      GithubRepositoryOutsiderContribution?
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
 
@@ -894,21 +893,6 @@ model CollectionRepositoryStream {
 
   @@unique([repositoryId, streamType])
   @@index([status])
-}
-
-model GithubRepositoryOutsiderContribution {
-  repositoryId  String           @id
-  repository    GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-  teamId        String
-  programId     String
-  windowStartAt DateTime
-  windowEndAt   DateTime
-
-  commitCount      Int
-  pullRequestCount Int
-  issueCount       Int
-
-  observedAt DateTime
 }
 
 model CollectionSyncCursor {
