@@ -14,9 +14,6 @@ const REPO_ID = 9_414_000_101n;
 const prisma = new PrismaClient();
 
 async function cleanFixtures(): Promise<void> {
-  await prisma.collectionRepositoryStream.deleteMany({
-    where: { repository: { githubOrganizationId: ORG_ID } },
-  });
   await prisma.githubRepository.deleteMany({
     where: { githubOrganizationId: ORG_ID },
   });
@@ -106,12 +103,22 @@ describe('collection incremental migration — DB invariants', () => {
     }
   });
 
+  it('stream·cursor 테이블과 stream enum은 물리적으로 존재하지 않는다', async () => {
+    await expect(tableExists('CollectionRepositoryStream')).resolves.toBe(
+      false,
+    );
+    await expect(tableExists('CollectionSyncCursor')).resolves.toBe(false);
+    await expect(
+      prisma.$queryRaw<Array<{ typname: string }>>`
+        SELECT typname FROM pg_type
+        WHERE typname IN ('CollectionStreamType', 'CollectionStreamStatus')
+      `,
+    ).resolves.toEqual([]);
+  });
+
   it('eligibility/frontier 인덱스가 모두 존재한다', async () => {
     await expect(
       indexExists('GithubRepository_visibility_presence_idx'),
-    ).resolves.toBe(true);
-    await expect(
-      indexExists('CollectionRepositoryStream_status_idx'),
     ).resolves.toBe(true);
   });
 

@@ -15,7 +15,6 @@ import {
   AccountStatus,
   ApplicationStatus,
   BoardPostCategory,
-  CollectionStreamType,
   SubmissionHistoryEvent,
   Prisma,
   FileLifecycle,
@@ -106,7 +105,6 @@ type Fixture = {
   readonly applicationOutboxEventId: string;
   readonly repositoryIssuanceHistoryId: string;
   readonly repositoryInvitationId: string;
-  readonly collectionStreamId: string;
   readonly publishedRepositoryId: string;
   readonly publishedGithubRepositoryId: bigint;
 };
@@ -573,15 +571,6 @@ async function seedFullChildGraph(
       processedAt: NOW,
     },
   });
-  const collectionStreamId = p('collection-stream');
-  await prisma.collectionRepositoryStream.create({
-    data: {
-      id: collectionStreamId,
-      repositoryId: provisionedRepositoryId,
-      streamType: CollectionStreamType.COMMIT,
-      lastRunAt: NOW,
-    },
-  });
   await seedDailyContributions(prisma, provisionedGithubRepositoryId, [
     {
       githubId: 9875100000n + ordinal,
@@ -829,7 +818,6 @@ async function seedFullChildGraph(
     applicationOutboxEventId,
     repositoryIssuanceHistoryId,
     repositoryInvitationId,
-    collectionStreamId,
     publishedRepositoryId,
     publishedGithubRepositoryId,
   };
@@ -1227,11 +1215,6 @@ describe('Program purge integration — full child graph, worker file deletion, 
     await expect(
       prisma.repositoryInvitation.findUnique({
         where: { id: fixture.repositoryInvitationId },
-      }),
-    ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
-    await expect(
-      prisma.collectionRepositoryStream.findUnique({
-        where: { id: fixture.collectionStreamId },
       }),
     ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
     await expect(

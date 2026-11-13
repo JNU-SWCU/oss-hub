@@ -87,10 +87,7 @@ describe('PROGRAM_PURGE_DELETION_ORDER', () => {
       (step) => step.operation === 'PRESERVE',
     ).flatMap((step) => step.covers);
     expect(preserved).toEqual(
-      expect.arrayContaining([
-        'GithubRepository->RepositoryInvitation',
-        'GithubRepository->CollectionRepositoryStream',
-      ]),
+      expect.arrayContaining(['GithubRepository->RepositoryInvitation']),
     );
 
     const nonPreserveCovers = PROGRAM_PURGE_DELETION_ORDER.filter(
@@ -200,10 +197,7 @@ describe('TEAM_PURGE_DELETION_ORDER', () => {
       (step) => step.operation === 'DELETE',
     ).flatMap((step) => step.covers);
     expect(deleted).toEqual(
-      expect.arrayContaining([
-        'GithubRepository->CollectionRepositoryStream',
-        'GithubRepository->RepositoryInvitation',
-      ]),
+      expect.arrayContaining(['GithubRepository->RepositoryInvitation']),
     );
     expect(
       TEAM_PURGE_DELETION_ORDER.filter((step) => step.operation === 'PRESERVE'),
