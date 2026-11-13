@@ -290,13 +290,18 @@ export class CollectionAppClient {
     );
     for (const kind of pending) {
       let page = first.get(kind);
-      const deadline = this.now() + this.config.deadlineMs;
       for (let pageIndex = 1; page !== undefined; pageIndex += 1) {
         collected[kind].push(...page.contributions);
         if (page.nextCursor === null) break;
         if (pageIndex >= this.config.maxPages)
           throw new CollectionAppClientError('PAGINATION');
-        page = (await read([kind], page.nextCursor, deadline)).get(kind);
+        page = (
+          await read(
+            [kind],
+            page.nextCursor,
+            this.now() + this.config.deadlineMs,
+          )
+        ).get(kind);
       }
     }
 

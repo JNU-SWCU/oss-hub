@@ -871,9 +871,35 @@ describe('CollectionAppClient collectRepositoryContributions', () => {
     expect(fetcher).toHaveBeenCalledTimes(3);
   });
 
-  it('마감 시간을 넘기면 DEADLINE으로 실패한다', async () => {
+  it('마감 시간은 페이지마다 따로 재서 여러 페이지를 끝까지 읽는다', async () => {
     let now = 0;
     const fetcher = fetchMock().mockImplementation(() => {
+      now += 20;
+      return Promise.resolve(
+        contributionsBody(
+          emptyRepository({
+            issues: page([], fetcher.mock.calls.length < 4 ? 'next' : null),
+          }),
+        ),
+      );
+    });
+
+    await new CollectionAppClient(
+      { ...config, deadlineMs: 30 },
+      tokenProvider,
+      fetcher,
+      () => now,
+    ).collectRepositoryContributions('JNU-SWCU', 'repo', 'main', since);
+    expect(fetcher).toHaveBeenCalledTimes(4);
+  });
+
+  it('한 페이지가 마감 시간을 넘기면 DEADLINE으로 실패한다', async () => {
+    let now = 0;
+    const fetcher = fetchMock().mockImplementation(() => {
+      if (fetcher.mock.calls.length > 1) {
+        now += 40;
+        return Promise.reject(new Error('aborted'));
+      }
       now += 20;
       return Promise.resolve(
         contributionsBody(emptyRepository({ issues: page([], 'next') })),
