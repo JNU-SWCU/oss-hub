@@ -2,7 +2,7 @@ import type { ReactElement, ReactNode } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import type {
-  CollectionStreamRepository,
+  CollectionRepositoryStatus,
   ExternalCollectionStatus,
   SystemStatus,
   TriggerNotice,
@@ -11,16 +11,8 @@ import { SystemStatusView } from './system-status-view';
 
 const normal: SystemStatus = {
   health: 'NORMAL',
-  dataAsOf: '2026-07-25T11:00:00.000Z',
   trackedRepositoryCount: 2,
-  readyStreamCount: 6,
-  backfillingStreamCount: 0,
-  partialStreamCount: 0,
-  retryPendingStreamCount: 0,
-  oldestReadyCheckpointAt: '2026-07-25T10:00:00.000Z',
-  oldestRetryPendingAt: null,
-  lastCycleStartedAt: '2026-07-25T10:55:00.000Z',
-  lastCycleCompletedAt: '2026-07-25T11:00:00.000Z',
+  staleRepositoryCount: 0,
   lastSuccessAt: '2026-07-25T11:00:00.000Z',
   nextCycleAt: null,
   currentRunStatus: 'IDLE',
@@ -38,7 +30,7 @@ type LooseViewState =
   | {
       readonly kind: 'success';
       readonly status: SystemStatus;
-      readonly collectionStreams?: readonly CollectionStreamRepository[];
+      readonly collectionRepositories?: readonly CollectionRepositoryStatus[];
       readonly externalCollection?: ExternalCollectionStatus;
     };
 
@@ -54,7 +46,7 @@ function render(
       ? {
           ...state,
           freshness: 'current' as const,
-          collectionStreams: state.collectionStreams ?? [],
+          collectionRepositories: state.collectionRepositories ?? [],
           externalCollection:
             state.externalCollection ?? emptyExternalCollection,
         }
@@ -115,11 +107,7 @@ describe('SystemStatusView', () => {
         ...normal,
         health: 'EMPTY',
         trackedRepositoryCount: 0,
-        readyStreamCount: 0,
-        oldestReadyCheckpointAt: null,
-        dataAsOf: null,
-        lastCycleStartedAt: null,
-        lastCycleCompletedAt: null,
+        lastSuccessAt: null,
         safeReason: 'NO_TRACKED_REPOSITORIES',
       },
     });
@@ -163,13 +151,13 @@ describe('SystemStatusView', () => {
     expect(html).not.toContain('synthetic transport failure');
   });
 
-  it('NORMAL 응답은 통합된 수집 상태 카드에 health, 사유, 사이클 시각을 표시한다', () => {
+  it('NORMAL 응답은 통합된 수집 상태 카드에 health, 사유, 추적·지연 저장소 수를 표시한다', () => {
     const html = render({ kind: 'success', status: normal });
     expect(html).toContain('정상');
     expect(html).toContain('데이터 수집이 정상적으로 운영되고 있습니다.');
-    expect(html).toContain('이번 전체 순회 시작');
-    expect(html).toContain('최근 전체 순회 완료');
-    expect(html).toContain('2026');
+    expect(html).toContain('추적 저장소');
+    expect(html).toContain('지연 저장소');
+    expect(html).not.toContain('전체 순회');
   });
 
   it('IDLE일 때는 run 상태 배지("수집 중")를 표시하지 않는다', () => {
@@ -187,61 +175,26 @@ describe('SystemStatusView', () => {
     expect(html).toContain('motion-reduce:before:animate-none');
   });
 
-  it.each([
-    [
-      'DELAYED',
-      'STALE_DATA',
-      '지연',
-      '최근 데이터 수집이 지연되고 있습니다.',
-      '아래 ‘데이터 기준 시각’이 얼마나 오래됐는지 먼저 확인하고, 지연이 이어지면 수집 연동 앱의 설치·권한 상태를 점검해 주세요.',
-    ],
-    [
-      'PARTIAL',
-      'RUN_INCOMPLETE',
-      '부분 진행',
-      '일부 저장소의 수집이 아직 완료되지 않았습니다.',
-      '아래 ‘활동 종류별 수집’에서 ‘부분·대기’ 수를 확인해 주세요. 다음 수집 주기 뒤에도 줄지 않으면 사업단 관리자에게 알려 주세요.',
-    ],
-    [
-      'FAILED',
-      'UPSTREAM_RATE_LIMITED',
-      '실패',
-      '재시도를 기다리는 수집 항목이 있습니다.',
-      'GitHub 호출 한도가 풀리면 다음 주기에 자동으로 다시 시도합니다.',
-    ],
-  ] as const)(
-    '%s 상태는 안전한 사유와 다음 행동을 함께 표시한다',
-    (health, safeReason, label, copy, nextAction) => {
-      const html = render({
-        kind: 'success',
-        status: { ...normal, health, safeReason },
-      });
-      expect(html).toContain(label);
-      expect(html).toContain(copy);
-
-      expect(html).toContain(nextAction);
-
-      expect(html).toContain('수집 앱 설치·권한 확인');
-      expect(html).not.toContain('token');
-      expect(html).not.toContain('githubId');
-    },
-  );
-
-  it('재시도 대기 checkpoint가 있으면 표시하고 없으면 생략한다', () => {
-    const withRetry = render({
+  it('DELAYED 상태는 지연 사유와 다음 행동을 함께 표시한다', () => {
+    const html = render({
       kind: 'success',
       status: {
         ...normal,
-        health: 'FAILED',
-        safeReason: 'UPSTREAM_RATE_LIMITED',
-        retryPendingStreamCount: 1,
-        oldestRetryPendingAt: '2026-07-24T00:00:00.000Z',
+        health: 'DELAYED',
+        staleRepositoryCount: 1,
+        safeReason: 'STALE_DATA',
       },
     });
-    expect(withRetry).toContain('가장 오래된 재시도 대기');
-
-    const withoutRetry = render({ kind: 'success', status: normal });
-    expect(withoutRetry).not.toContain('가장 오래된 재시도 대기');
+    expect(html).toContain('지연');
+    expect(html).toContain(
+      '마지막 수집 성공이 2시간보다 오래된 저장소가 있습니다.',
+    );
+    expect(html).toContain(
+      '아래 ‘수집 대상 상세’에서 지연된 저장소를 확인하고',
+    );
+    expect(html).toContain('수집 앱 설치·권한 확인');
+    expect(html).not.toContain('token');
+    expect(html).not.toContain('githubId');
   });
 
   it('다음 주기 예상 시각이 있으면 상대·절대 시각을 함께 표시하고, 없으면 생략한다', () => {
@@ -256,28 +209,39 @@ describe('SystemStatusView', () => {
     expect(withoutNextCycle).not.toContain('다음 주기 예상');
   });
 
-  it('요약 카드 아래에 「수집 대상 상세」 표 section을 렌더링한다', () => {
+  it('요약 카드 아래에 저장소별 마지막 수집 성공과 지연을 지연 먼저 보여준다', () => {
     const html = render({
       kind: 'success',
-      status: normal,
-      collectionStreams: [
+      status: { ...normal, health: 'DELAYED', staleRepositoryCount: 1 },
+      collectionRepositories: [
         {
-          repositoryName: 'jnu-oss/example',
+          repositoryName: 'jnu-oss/fresh',
+          programName: '오픈소스 입문 프로그램',
+          lastSuccessAt: '2026-07-25T10:59:00.000Z',
+          stale: false,
+        },
+        {
+          repositoryName: 'jnu-oss/late',
           programName: null,
-          streams: [
-            {
-              streamType: 'COMMIT',
-              bucket: 'READY',
-              lastSuccessAt: '2026-07-25T10:59:00.000Z',
-              lastErrorCode: null,
-              lastErrorAt: null,
-            },
-          ],
+          lastSuccessAt: '2026-07-25T07:00:00.000Z',
+          stale: true,
+        },
+        {
+          repositoryName: 'jnu-oss/new',
+          programName: null,
+          lastSuccessAt: null,
+          stale: false,
         },
       ],
     });
     expect(html).toContain('aria-label="수집 대상 상세"');
-    expect(html).toContain('jnu-oss/example');
+    expect(html).toContain('지연 1 / 전체 3');
+    expect(html.indexOf('jnu-oss/late')).toBeLessThan(
+      html.indexOf('jnu-oss/fresh'),
+    );
+    expect(html).toContain('수집 전');
+    expect(html).toContain('아직 성공한 수집 없음');
+    expect(html).not.toContain('Commit');
   });
 
   it('마지막 수집 성공 시각을 상대 나이와 함께 표시하고, 없으면 아직 없다고 표시한다', () => {
@@ -350,9 +314,7 @@ describe('SystemStatusView', () => {
         },
       });
 
-      expect(html).toContain(
-        '저장소 2개에서 Commit·PR·Release·Issue를 각각 수집합니다.',
-      );
+      expect(html).toMatch(/추적 저장소<\/dt><dd[^>]*>2(<!-- -->)?개/);
       expect(html).toContain('5개 추적 중');
     });
   });
@@ -439,62 +401,5 @@ describe('SystemStatusView', () => {
     expect(html).not.toContain('discover-external-github-login');
     expect(html).not.toContain('학생 GitHub 로그인');
     expect(html).not.toContain('지금 탐색 실행');
-  });
-
-  describe('Stream 진행 상황 진행률', () => {
-    it('완료율 0%: 모든 stream이 대기/backfill 상태면 0%로 표시하고 세그먼트 바를 채운다', () => {
-      const html = render({
-        kind: 'success',
-        status: {
-          ...normal,
-          readyStreamCount: 0,
-          backfillingStreamCount: 3,
-          partialStreamCount: 2,
-          retryPendingStreamCount: 1,
-        },
-      });
-      expect(html).toContain('완료 0 / 6개 (0%)');
-      expect(html).toContain(
-        '저장소 2개에서 Commit·PR·Release·Issue를 각각 수집합니다.',
-      );
-    });
-
-    it('완료율 100%: 모든 stream이 완료면 100%로 표시한다', () => {
-      const html = render({
-        kind: 'success',
-        status: {
-          ...normal,
-          readyStreamCount: 6,
-          backfillingStreamCount: 0,
-          partialStreamCount: 0,
-          retryPendingStreamCount: 0,
-        },
-      });
-      expect(html).toContain('완료 6 / 6개 (100%)');
-    });
-
-    it('혼합 진행률: 4구간이 섞여 있으면 반올림한 비율과 role="img" aria-label을 함께 표시한다', () => {
-      const html = render({
-        kind: 'success',
-        status: {
-          ...normal,
-          readyStreamCount: 3,
-          backfillingStreamCount: 2,
-          partialStreamCount: 1,
-          retryPendingStreamCount: 2,
-        },
-      });
-
-      expect(html).toContain('완료 3 / 8개 (38%)');
-      expect(html).toContain('role="img"');
-      expect(html).toContain(
-        'aria-label="전체 8개 수집 항목 중 완료 3개, 과거 활동 수집 중 2개, 부분·대기 1개, 재시도 대기 2개입니다."',
-      );
-
-      expect(html).toContain('완료');
-      expect(html).toContain('과거 활동 수집 중');
-      expect(html).toContain('부분·대기');
-      expect(html).toContain('재시도 대기');
-    });
   });
 });

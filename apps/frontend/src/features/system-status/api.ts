@@ -14,8 +14,7 @@ export async function fetchSystemStatus(): Promise<SystemStatusData> {
   const response = await apiClient<SystemStatusResponse>('system-status');
   return {
     status: response.collection,
-
-    collectionStreams: response.collectionStreams ?? [],
+    collectionRepositories: response.collectionRepositories,
 
     externalCollection:
       response.externalCollection ?? DEFAULT_EXTERNAL_COLLECTION,

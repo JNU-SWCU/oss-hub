@@ -1,12 +1,6 @@
 'use client';
 
-import {
-  Activity,
-  AlertCircle,
-  Database,
-  GitBranch,
-  PlayCircle,
-} from 'lucide-react';
+import { Activity, AlertCircle, Database, PlayCircle } from 'lucide-react';
 import {
   CardGrid,
   EmptyState,
@@ -18,7 +12,6 @@ import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 import { formatLastSuccess, formatRelativeTime } from '../format-relative-time';
 import type {
   CollectionHealth,
@@ -28,7 +21,7 @@ import type {
   SystemStatusViewState,
   TriggerNotice,
 } from '../types';
-import { CollectionStreamsTable } from './collection-streams-table';
+import { CollectionRepositoriesTable } from './collection-repositories-table';
 import { ExternalCollectionSection } from './external-collection-section';
 
 interface SystemStatusViewProps {
@@ -43,14 +36,9 @@ const HEALTH = {
   EMPTY: { label: '추적 대상 없음', variant: 'closed' },
   NORMAL: { label: '정상', variant: 'approved' },
   DELAYED: { label: '지연', variant: 'pending' },
-  PARTIAL: { label: '부분 진행', variant: 'recruiting' },
-  FAILED: { label: '실패', variant: 'rejected' },
 } as const satisfies Record<
   CollectionHealth,
-  {
-    label: string;
-    variant: 'approved' | 'pending' | 'rejected' | 'closed' | 'recruiting';
-  }
+  { label: string; variant: 'approved' | 'pending' | 'closed' }
 >;
 
 const RUN_STATUS = {
@@ -66,12 +54,8 @@ const NO_TRACKED_REPOSITORIES_ACTION =
 
 const SAFE_REASON_COPY = {
   NO_TRACKED_REPOSITORIES: `아직 추적 중인 저장소가 없습니다. ${NO_TRACKED_REPOSITORIES_ACTION}`,
-  UPSTREAM_RATE_LIMITED:
-    '재시도를 기다리는 수집 항목이 있습니다. GitHub 호출 한도가 풀리면 다음 주기에 자동으로 다시 시도합니다. 아래 ‘가장 오래된 재시도 대기’ 시각이 하루 넘게 그대로면 사업단 관리자에게 알려 주세요.',
-  RUN_INCOMPLETE:
-    '일부 저장소의 수집이 아직 완료되지 않았습니다. 아래 ‘활동 종류별 수집’에서 ‘부분·대기’ 수를 확인해 주세요. 다음 수집 주기 뒤에도 줄지 않으면 사업단 관리자에게 알려 주세요.',
   STALE_DATA:
-    '최근 데이터 수집이 지연되고 있습니다. 아래 ‘데이터 기준 시각’이 얼마나 오래됐는지 먼저 확인하고, 지연이 이어지면 수집 연동 앱의 설치·권한 상태를 점검해 주세요.',
+    '마지막 수집 성공이 2시간보다 오래된 저장소가 있습니다. 아래 ‘수집 대상 상세’에서 지연된 저장소를 확인하고, 다음 수집 주기 뒤에도 그대로면 수집 연동 앱의 설치·권한 상태를 점검해 주세요.',
 } as const satisfies Record<SystemStatusSafeReason, string>;
 
 const COLLECTION_APP_TITLE = '수집 앱 설치·권한 확인';
@@ -123,86 +107,6 @@ function ErrorState({ onRetry }: { readonly onRetry: () => void }) {
   );
 }
 
-const STREAM_SEGMENTS = [
-  { key: 'ready', label: '완료', colorClass: 'bg-primary' },
-  {
-    key: 'backfilling',
-    label: '과거 활동 수집 중',
-    colorClass: 'bg-primary/60',
-  },
-  {
-    key: 'partial',
-    label: '부분·대기',
-    colorClass: 'bg-muted-foreground/40',
-  },
-  {
-    key: 'retryPending',
-    label: '재시도 대기',
-    colorClass: 'bg-destructive/70',
-  },
-] as const;
-
-interface StreamProgressBarProps {
-  readonly ready: number;
-  readonly backfilling: number;
-  readonly partial: number;
-  readonly retryPending: number;
-  readonly total: number;
-}
-
-function StreamProgressBar({
-  ready,
-  backfilling,
-  partial,
-  retryPending,
-  total,
-}: StreamProgressBarProps) {
-  const counts = {
-    ready,
-    backfilling,
-    partial,
-    retryPending,
-  } satisfies Record<(typeof STREAM_SEGMENTS)[number]['key'], number>;
-
-  const summary = `전체 ${total}개 수집 항목 중 ${STREAM_SEGMENTS.map(
-    (segment) => `${segment.label} ${counts[segment.key]}개`,
-  ).join(', ')}입니다.`;
-
-  return (
-    <div className="flex flex-col gap-3">
-      <div
-        role="img"
-        aria-label={summary}
-        className="flex h-3 w-full overflow-hidden rounded-full bg-muted"
-      >
-        {STREAM_SEGMENTS.filter((segment) => counts[segment.key] > 0).map(
-          (segment) => (
-            <div
-              key={segment.key}
-              className={cn('h-full', segment.colorClass)}
-              style={{ width: `${(counts[segment.key] / total) * 100}%` }}
-            />
-          ),
-        )}
-      </div>
-      <ul className="flex flex-wrap gap-x-4 gap-y-2 text-sm">
-        {STREAM_SEGMENTS.map((segment) => (
-          <li key={segment.key} className="flex items-center gap-1.5">
-            <span
-              aria-hidden="true"
-              className={cn('size-2.5 rounded-full', segment.colorClass)}
-            />
-            <span className="text-muted-foreground">{segment.label}</span>
-            <span className="font-medium text-foreground">
-              {counts[segment.key]}
-            </span>
-          </li>
-        ))}
-      </ul>
-    </div>
-  );
-}
-
 function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
   const health = HEALTH[status.health];
   const run = RUN_STATUS[status.currentRunStatus];
@@ -236,15 +140,15 @@ function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
         </p>
         <dl className="grid grid-cols-2 gap-3 text-sm">
           <div>
-            <dt className="text-muted-foreground">이번 전체 순회 시작</dt>
+            <dt className="text-muted-foreground">추적 저장소</dt>
             <dd className="mt-1 font-medium">
-              {formatTimestamp(status.lastCycleStartedAt)}
+              {status.trackedRepositoryCount}개
             </dd>
           </div>
           <div>
-            <dt className="text-muted-foreground">최근 전체 순회 완료</dt>
+            <dt className="text-muted-foreground">지연 저장소</dt>
             <dd className="mt-1 font-medium">
-              {formatTimestamp(status.lastCycleCompletedAt)}
+              {status.staleRepositoryCount}개
             </dd>
           </div>
           {status.nextCycleAt ? (
@@ -262,45 +166,6 @@ function CollectionStatusCard({ status }: { readonly status: SystemStatus }) {
   );
 }
 
-function StreamProgressCard({ status }: { readonly status: SystemStatus }) {
-  const total =
-    status.readyStreamCount +
-    status.backfillingStreamCount +
-    status.partialStreamCount +
-    status.retryPendingStreamCount;
-  const pct =
-    total > 0 ? Math.round((status.readyStreamCount / total) * 100) : 0;
-
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <GitBranch aria-hidden="true" className="size-5" />
-          활동 종류별 수집
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="flex flex-col gap-4">
-        <div>
-          <p className="text-sm font-medium text-foreground">
-            완료 {status.readyStreamCount} / {total}개 ({pct}%)
-          </p>
-          <p className="mt-1 text-sm text-muted-foreground">
-            저장소 {status.trackedRepositoryCount}개에서
-            Commit·PR·Release·Issue를 각각 수집합니다.
-          </p>
-        </div>
-        <StreamProgressBar
-          ready={status.readyStreamCount}
-          backfilling={status.backfillingStreamCount}
-          partial={status.partialStreamCount}
-          retryPending={status.retryPendingStreamCount}
-          total={total}
-        />
-      </CardContent>
-    </Card>
-  );
-}
-
 function DataFreshnessCard({ status }: { readonly status: SystemStatus }) {
   return (
     <Card>
@@ -313,33 +178,11 @@ function DataFreshnessCard({ status }: { readonly status: SystemStatus }) {
       <CardContent>
         <dl className="grid gap-3 text-sm">
           <div>
-            <dt className="text-muted-foreground">데이터 기준 시각</dt>
-            <dd className="mt-1 font-medium">
-              {formatTimestamp(status.dataAsOf)}
-            </dd>
-          </div>
-          <div>
             <dt className="text-muted-foreground">마지막 수집 성공</dt>
             <dd className="mt-1 font-medium">
               {formatLastSuccess(status.lastSuccessAt)}
             </dd>
           </div>
-          <div>
-            <dt className="text-muted-foreground">
-              완료 항목 중 가장 오래된 실행 시각
-            </dt>
-            <dd className="mt-1 font-medium">
-              {formatTimestamp(status.oldestReadyCheckpointAt)}
-            </dd>
-          </div>
-          {status.oldestRetryPendingAt ? (
-            <div>
-              <dt className="text-muted-foreground">가장 오래된 재시도 대기</dt>
-              <dd className="mt-1 font-medium">
-                {formatTimestamp(status.oldestRetryPendingAt)}
-              </dd>
-            </div>
-          ) : null}
         </dl>
       </CardContent>
     </Card>
@@ -356,7 +199,7 @@ export function SystemStatusView({
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
-  const { status, collectionStreams, externalCollection } = state;
+  const { status, collectionRepositories, externalCollection } = state;
   const isEmpty = status.health === 'EMPTY';
 
   const triggerDisabled =
@@ -417,13 +260,12 @@ export function SystemStatusView({
       ) : (
         <>
           <section aria-label="시스템 상태 요약">
-            <CardGrid>
+            <CardGrid className="[grid-template-columns:repeat(auto-fit,minmax(min(20rem,100%),1fr))]">
               <CollectionStatusCard status={status} />
-              <StreamProgressCard status={status} />
               <DataFreshnessCard status={status} />
             </CardGrid>
           </section>
-          <CollectionStreamsTable repositories={collectionStreams} />
+          <CollectionRepositoriesTable repositories={collectionRepositories} />
         </>
       )}
 
