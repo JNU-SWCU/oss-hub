@@ -10,6 +10,10 @@ import {
 import { ProgramTeamRepositoryEvidenceRepository } from './program-team-repository-evidence.repository';
 import { randomUUID } from 'node:crypto';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import {
+  repositoryContributionTotals,
+  seedDailyContributions,
+} from '../../test/ledger-contribution.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import {
   ProgramActivityRepository,
@@ -130,36 +134,21 @@ it('projects current repository facts and URL audit history without reading or m
       },
     ],
   });
-  await prisma.contribution.createMany({
-    data: [
-      {
-        repositoryId: oldRepositoryId,
-        githubId,
-        date: new Date('2026-08-01Z'),
-        commitCount: 900,
-      },
-      {
-        repositoryId,
-        githubId,
-        date: new Date('2026-07-31Z'),
-        commitCount: 800,
-      },
-      { repositoryId, githubId, date: new Date('2026-08-01Z'), commitCount: 3 },
-      { repositoryId, githubId, date: new Date('2026-08-31Z'), commitCount: 4 },
-      {
-        repositoryId,
-        githubId,
-        date: new Date('2026-09-01Z'),
-        commitCount: 700,
-      },
-      {
-        repositoryId,
-        githubId: githubId + 99n,
-        date: new Date('2026-08-01Z'),
-        commitCount: 5,
-      },
+  await seedDailyContributions(prisma, githubId + 1n, [
+    { githubId, date: '2026-08-01', commitCount: 900 },
+  ]);
+  await seedDailyContributions(
+    prisma,
+    githubId + 2n,
+    [
+      { githubId, date: '2026-07-31', commitCount: 800 },
+      { githubId, date: '2026-08-01', commitCount: 3 },
+      { githubId, date: '2026-08-31', commitCount: 4 },
+      { githubId, date: '2026-09-01', commitCount: 700 },
+      { githubId: githubId + 99n, date: '2026-08-01', commitCount: 5 },
     ],
-  });
+    'EXTERNAL_PUBLIC',
+  );
   const metadata = {
     schemaVersion: 1,
     programId,
@@ -227,10 +216,8 @@ it('projects current repository facts and URL audit history without reading or m
     'actor-before-rename',
   );
   expect(
-    await prisma.contribution.count({
-      where: { repositoryId: oldRepositoryId },
-    }),
-  ).toBe(1);
+    (await repositoryContributionTotals(prisma, [oldRepositoryId])).commitCount,
+  ).toBe(900);
 });
 
 it('shows the outsider totals only while they were counted for this program window', async () => {
@@ -413,14 +400,12 @@ it('reads contributions of a program that never set an end date', async () => {
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
-  await prisma.contribution.create({
-    data: {
-      repositoryId: scopedRepositoryId,
-      githubId: base,
-      date: new Date('2026-08-01Z'),
-      commitCount: 3,
-    },
-  });
+  await seedDailyContributions(
+    prisma,
+    base + 1n,
+    [{ githubId: base, date: '2026-08-01', commitCount: 3 }],
+    'EXTERNAL_PUBLIC',
+  );
 
   const detail = await new TeamRepository(
     prisma,
@@ -437,19 +422,8 @@ it('reads contributions of a program that never set an end date', async () => {
 
 it('counts only the currently linked repository in program totals after a relink', async () => {
   const occurredAt = new Date('2026-08-05T00:00:00Z');
-  await prisma.repo.createMany({
-    data: [
-      {
-        githubRepoId: githubId + 1n,
-        ownerName: 'synthetic',
-        source: 'ORG_PROVISIONED',
-      },
-      {
-        githubRepoId: githubId + 2n,
-        ownerName: 'synthetic',
-        source: 'EXTERNAL_PUBLIC',
-      },
-    ],
+  await prisma.contributionEvent.deleteMany({
+    where: { repoId: { in: [githubId + 1n, githubId + 2n] } },
   });
   await prisma.contributionEvent.createMany({
     data: [
@@ -543,14 +517,16 @@ it('counts issues for team members, so an issue-only member has observations', a
       lastSuccessAt: new Date('2026-09-01Z'),
     },
   });
-  await prisma.contribution.createMany({
-    data: [
-      { githubId: base, date: new Date('2026-08-01Z'), commitCount: 2 },
-
-      { githubId: base, date: new Date('2026-08-02Z'), issueCount: 5 },
-      { githubId: base + 1n, date: new Date('2026-08-01Z'), issueCount: 1 },
-    ].map((row) => ({ ...row, repositoryId: scopedRepositoryId })),
-  });
+  await seedDailyContributions(
+    prisma,
+    base + 2n,
+    [
+      { githubId: base, date: '2026-08-01', commitCount: 2 },
+      { githubId: base, date: '2026-08-02', issueCount: 5 },
+      { githubId: base + 1n, date: '2026-08-01', issueCount: 1 },
+    ],
+    'EXTERNAL_PUBLIC',
+  );
 
   const detail = await new TeamRepository(
     prisma,

@@ -22,6 +22,10 @@ import {
   targetGithubId,
   input,
 } from './student-repository-url.integration.fixture';
+import {
+  repositoryContributionTotals,
+  seedDailyContributions,
+} from '../../test/ledger-contribution.fixture';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { TeamApplicationService } from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
@@ -102,8 +106,8 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toBeNull();
   expect(
-    await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
-  ).toEqual([]);
+    (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+  ).toBe(0);
   expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
   expect(
     await prisma.githubRepository.count({
@@ -184,8 +188,8 @@ it('rolls back binding and queue changes when the team history write fails', asy
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toMatchObject({ teamId });
   expect(
-    await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
-  ).toEqual([expect.objectContaining({ commitCount: 7 })]);
+    (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+  ).toBe(7);
   expect(
     await prisma.githubRepository.findUnique({ where: { id: targetId } }),
   ).toMatchObject({ teamId: null, presence: 'ABSENT', failureCount: 4 });
@@ -225,21 +229,16 @@ it('serializes duplicate edits into one team history entry', async () => {
 
 it('같은 URL을 다시 등록해도 레포와 수집 기록 및 감사 이력을 유지한다', async () => {
   await service.updateMine(githubId, programId, input);
-  await prisma.contribution.create({
-    data: {
-      repositoryId: targetId,
-      githubId,
-      date: new Date('2026-08-02T00:00:00Z'),
-      commitCount: 3,
-    },
-  });
+  await seedDailyContributions(prisma, targetGithubId, [
+    { githubId, date: '2026-08-02', commitCount: 3 },
+  ]);
 
   await service.updateMine(githubId, programId, input);
 
   expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
   expect(
-    await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
-  ).toEqual([expect.objectContaining({ commitCount: 3 })]);
+    (await repositoryContributionTotals(prisma, [targetId])).commitCount,
+  ).toBe(3);
   expect(
     await prisma.teamHistory.count({
       where: { teamId, event: 'REPOSITORY_URL_CHANGED' },
@@ -249,14 +248,9 @@ it('같은 URL을 다시 등록해도 레포와 수집 기록 및 감사 이력�
 
 it('같은 GitHub 레포의 이름이 바뀌어도 행과 수집 기록을 유지한다', async () => {
   await service.updateMine(githubId, programId, input);
-  await prisma.contribution.create({
-    data: {
-      repositoryId: targetId,
-      githubId,
-      date: new Date('2026-08-02T00:00:00Z'),
-      commitCount: 3,
-    },
-  });
+  await seedDailyContributions(prisma, targetGithubId, [
+    { githubId, date: '2026-08-02', commitCount: 3 },
+  ]);
   resolver.resolve.mockResolvedValue({
     kind: 'EXTERNAL',
     repository: {
@@ -278,8 +272,8 @@ it('같은 GitHub 레포의 이름이 바뀌어도 행과 수집 기록을 유�
   ).toMatchObject({ teamId, nameWithOwner: 'synthetic/renamed' });
   expect(await prisma.githubRepository.count({ where: { teamId } })).toBe(1);
   expect(
-    await prisma.contribution.findMany({ where: { repositoryId: targetId } }),
-  ).toEqual([expect.objectContaining({ commitCount: 3 })]);
+    (await repositoryContributionTotals(prisma, [targetId])).commitCount,
+  ).toBe(3);
 });
 it('projects a successful relink without an original provision outbox', async () => {
   await service.updateMine(githubId, programId, input);

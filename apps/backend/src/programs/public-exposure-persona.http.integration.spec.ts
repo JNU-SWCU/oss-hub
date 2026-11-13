@@ -18,6 +18,7 @@ import {
   ACCESS_AUDIT_ACTIONS,
   ACCESS_AUDIT_EVENT_KINDS,
 } from '../platform/history-metadata.config';
+import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 
 const historyMetadataService = new HistoryMetadataService();
@@ -242,18 +243,15 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
       },
     });
-    await harness.prisma.contribution.createMany({
-      data: [
-        {
-          repositoryId: published.repositoryId,
-          githubId: 8_950_000_000_001n,
-          date: new Date(Date.UTC(2026, 0, 2)),
-          commitCount: 5,
-          pullRequestCount: 2,
-          releaseCount: 1,
-        },
-      ],
-    });
+    await seedDailyContributions(harness.prisma, published.githubRepositoryId, [
+      {
+        githubId: 8_950_000_000_001n,
+        date: '2026-01-02',
+        commitCount: 5,
+        pullRequestCount: 2,
+        releaseCount: 1,
+      },
+    ]);
 
     await harness.prisma.user.update({
       where: { id: studentPersona.id },
@@ -264,11 +262,11 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         },
       },
     });
-    await harness.prisma.githubUserActivityHistory.createMany({
+    await harness.prisma.githubUserActivityObservation.createMany({
       data: [
         {
           githubId: studentPersona.githubId,
-          githubLogin: studentPersona.nickname ?? '',
+          visibility: 'PUBLIC',
           year: RANKING_FIXTURE_YEAR,
           commitCount: 10,
           pullRequestCount: 4,
@@ -279,7 +277,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         },
         {
           githubId: studentPersona.githubId,
-          githubLogin: studentPersona.nickname ?? '',
+          visibility: 'PUBLIC',
           year: RANKING_FIXTURE_YEAR - 1,
           commitCount: 1_000,
           pullRequestCount: 1_000,
@@ -305,10 +303,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
 
   afterAll(async () => {
     try {
-      await harness.prisma.contribution.deleteMany({
-        where: { repositoryId: { startsWith: `${PREFIX}-` } },
-      });
-      await harness.prisma.githubUserActivityHistory.deleteMany({
+      await harness.prisma.githubUserActivityObservation.deleteMany({
         where: { githubId: studentPersona.githubId },
       });
       await harness.prisma.repositoryProvisionJob.deleteMany({

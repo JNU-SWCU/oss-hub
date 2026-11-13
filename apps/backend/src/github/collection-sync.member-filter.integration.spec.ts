@@ -307,11 +307,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
           where: { repoId: GITHUB_REPOSITORY_ID, kind: 'PULL_REQUEST' },
         }),
       ).resolves.toBe(1);
-      await expect(
-        prisma.collectionPullRequestFact.count({
-          where: { repositoryId: REPOSITORY_ID },
-        }),
-      ).resolves.toBe(0);
     } finally {
       await prisma.githubRepository.deleteMany({
         where: { githubRepositoryId: unregisteredId },
@@ -403,21 +398,6 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
         where: { authorGithubId: BigInt(OUTSIDER_GITHUB_ID) },
       }),
     ).resolves.toBe(0);
-    await expect(
-      prisma.collectionPullRequestFact.count({
-        where: { repositoryId: collected.id },
-      }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.collectionReleaseFact.count({
-        where: { repositoryId: collected.id },
-      }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.githubIssueHistory.count({
-        where: { repositoryId: collected.id },
-      }),
-    ).resolves.toBe(0);
 
     const stream = await prisma.collectionRepositoryStream.findUniqueOrThrow({
       where: {
@@ -475,27 +455,10 @@ describe('CollectionSyncService — 가입자 기여 필터 (실 DB)', () => {
 
     await createService(client).run(OWNER_ID);
 
-    const collected = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
-      select: { id: true },
-    });
     await expect(
-      prisma.collectionCommitFact.count({
-        where: { repositoryId: collected.id },
+      prisma.contributionEvent.count({
+        where: { repoId: GITHUB_REPOSITORY_ID },
       }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.collectionPullRequestFact.count({
-        where: { repositoryId: collected.id },
-      }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.collectionReleaseFact.count({
-        where: { repositoryId: collected.id },
-      }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.contribution.count({ where: { repositoryId: collected.id } }),
     ).resolves.toBe(0);
   });
 

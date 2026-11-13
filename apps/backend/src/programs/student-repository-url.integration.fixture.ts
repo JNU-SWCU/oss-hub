@@ -12,6 +12,7 @@ import {
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { PrismaService } from '../platform/prisma.service';
+import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
 import { ApplicationsRepository } from './team.repository';
 import { StudentRepositoryUrlRepository } from './team.repository';
 import { StudentRepositoryUrlService } from './team-application.service';
@@ -168,14 +169,9 @@ beforeEach(async () => {
       nextRunAt: new Date('2099-01-01'),
     },
   });
-  await prisma.contribution.create({
-    data: {
-      repositoryId: oldId,
-      githubId,
-      date: new Date('2026-08-01'),
-      commitCount: 7,
-    },
-  });
+  await seedDailyContributions(prisma, targetGithubId + 1n, [
+    { githubId, date: '2026-08-01', commitCount: 7 },
+  ]);
 });
 afterEach(async () => {
   jest.restoreAllMocks();

@@ -106,12 +106,6 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     await prisma.githubUserActivityObservation.deleteMany({
       where: { githubId: { in: SEEDED_GITHUB_IDS } },
     });
-    await prisma.githubUserActivityCycleSnapshot.deleteMany({
-      where: { githubId: { in: SEEDED_GITHUB_IDS } },
-    });
-    await prisma.githubUserActivityHistory.deleteMany({
-      where: { githubId: { in: SEEDED_GITHUB_IDS } },
-    });
     await prisma.user.deleteMany({
       where: { githubId: { in: SEEDED_GITHUB_IDS } },
     });
@@ -214,19 +208,9 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
     );
   });
 
-  it('sweep는 옛 이력과 사이클 스냅샷을 쓰지 않고 원장과 월별 행을 남긴다', async () => {
+  it('sweep는 원장과 월별 행을 남긴다', async () => {
     await buildService().run();
     const activeIds = [ALPHA_GITHUB_ID, BRAVO_GITHUB_ID, CHARLIE_GITHUB_ID];
-    await expect(
-      prisma.githubUserActivityHistory.count({
-        where: { githubId: { in: activeIds } },
-      }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.githubUserActivityCycleSnapshot.count({
-        where: { githubId: { in: activeIds } },
-      }),
-    ).resolves.toBe(0);
     await expect(
       prisma.githubUserActivityMonthly.count({
         where: { githubId: { in: activeIds }, year: CURRENT_YEAR },
@@ -339,11 +323,6 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
         }),
       ]),
     );
-    await expect(
-      prisma.githubUserActivityHistory.count({
-        where: { githubId: ALPHA_GITHUB_ID },
-      }),
-    ).resolves.toBe(0);
   });
 
   it('PUBLIC 재수집은 PRIVATE 행의 수치와 관측 시각을 바꾸지 않는다', async () => {
@@ -506,17 +485,7 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
   });
 
   it('과거 연도는 새 원장의 공개 행만 건너뛰고 나머지는 원장에 적재한다', async () => {
-    const oldObservedAt = new Date('2026-01-02T00:00:00.000Z');
     const ledgerObservedAt = new Date('2026-02-02T00:00:00.000Z');
-    await prisma.githubUserActivityHistory.create({
-      data: {
-        githubId: ALPHA_GITHUB_ID,
-        githubLogin: `${SEED_PREFIX}-alpha`,
-        year: PAST_YEAR,
-        commitCount: 1234,
-        observedAt: oldObservedAt,
-      },
-    });
     await prisma.githubUserActivityObservation.create({
       data: {
         githubId: BRAVO_GITHUB_ID,
@@ -707,11 +676,6 @@ describe('사람 축 활동 수집 sweep (실 Postgres)', () => {
         },
       }),
     ).resolves.toBe(3);
-    await expect(
-      prisma.githubUserActivityHistory.count({
-        where: { githubId: { in: SEEDED_GITHUB_IDS } },
-      }),
-    ).resolves.toBe(0);
     await testingModule.close();
   });
 });

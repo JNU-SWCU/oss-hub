@@ -7,6 +7,7 @@ import {
   E2E_STUDENT_ID,
   E2E_STUDENT_GITHUB_ID,
 } from './e2e-program-authoring-fixture';
+import { seedDailyContributions } from '../ledger-contribution.fixture';
 
 export interface E2eRepositoryEvidence {
   readonly currentRepositoryId: string;
@@ -33,7 +34,7 @@ export async function seedE2eRepositoryEvidence(
         status: 'APPROVED',
       },
       select: {
-        repository: { select: { id: true } },
+        repository: { select: { id: true, githubRepositoryId: true } },
         program: { select: { startAt: true, endAt: true } },
       },
     });
@@ -46,48 +47,57 @@ export async function seedE2eRepositoryEvidence(
     );
     date.setUTCHours(0, 0, 0, 0);
     if (date > application.program.endAt) throw new E2eAdapterError(409);
-    for (const observation of [
-      {
-        githubId: E2E_STUDENT_GITHUB_ID,
-        commitCount: 7,
-        pullRequestCount: 2,
-        releaseCount: 1,
-      },
-      {
-        githubId: 8_199_999n,
-        commitCount: 5,
-        pullRequestCount: 1,
-        releaseCount: 0,
-      },
-    ]) {
-      await transaction.contribution.upsert({
-        where: {
-          repositoryId_githubId_date: {
-            repositoryId: currentRepositoryId,
-            githubId: observation.githubId,
-            date,
-          },
+    const day = date.toISOString().slice(0, 10);
+    await seedDailyContributions(
+      transaction,
+      application.repository.githubRepositoryId,
+      [
+        {
+          githubId: E2E_STUDENT_GITHUB_ID,
+          date: day,
+          commitCount: 7,
+          pullRequestCount: 2,
+          releaseCount: 1,
         },
-        create: { repositoryId: currentRepositoryId, date, ...observation },
-        update: observation,
-      });
-    }
+        {
+          githubId: 8_199_999n,
+          date: day,
+          commitCount: 5,
+          pullRequestCount: 1,
+          releaseCount: 0,
+        },
+      ],
+      'EXTERNAL_PUBLIC',
+    );
     await transaction.githubRepository.update({
       where: { id: currentRepositoryId },
       data: { lastSuccessAt: new Date(), failureCount: 0 },
     });
-    const facts = await transaction.contribution.findMany({
-      where: { repository: E2E_REPOSITORY_WHERE },
-      select: {
-        repositoryId: true,
-        githubId: true,
-        date: true,
-        commitCount: true,
-        pullRequestCount: true,
-        releaseCount: true,
-      },
-      orderBy: [{ repositoryId: 'asc' }, { githubId: 'asc' }, { date: 'asc' }],
+    const repositories = await transaction.githubRepository.findMany({
+      where: E2E_REPOSITORY_WHERE,
+      select: { id: true },
     });
+    const facts = await transaction.$queryRaw<
+      Array<{
+        repositoryId: string;
+        githubId: bigint;
+        date: Date;
+        commitCount: number;
+        pullRequestCount: number;
+        releaseCount: number;
+      }>
+    >`
+      SELECT
+        repository_id AS "repositoryId",
+        github_id AS "githubId",
+        activity_date AS "date",
+        commit_count AS "commitCount",
+        pull_request_count AS "pullRequestCount",
+        release_count AS "releaseCount"
+      FROM repo_contribution
+      WHERE repository_id = ANY(${repositories.map(({ id }) => id)})
+      ORDER BY repository_id, github_id, activity_date
+    `;
     return {
       currentRepositoryId,
       facts: facts.map((fact) => ({

@@ -45,7 +45,7 @@ afterAll(async () => {
   await prisma.$disconnect();
 });
 
-it('새 DB에 적용되면 ISSUE stream·issue 이력·issueCount가 스키마 선언대로 생긴다', async () => {
+it('새 DB에서 ISSUE stream이 스키마 선언대로 쓰인다', async () => {
   await expect(streamTypeLabels(prisma)).resolves.toEqual(STREAM_TYPES);
 
   const repository = await prisma.githubRepository.create({
@@ -58,31 +58,7 @@ it('새 DB에 적용되면 ISSUE stream·issue 이력·issueCount가 스키마 �
   await prisma.collectionRepositoryStream.create({
     data: { repositoryId: repository.id, streamType: 'ISSUE' },
   });
-  const issue = {
-    repositoryId: repository.id,
-    githubIssueId: 1n,
-    state: 'open',
-    createdAt: new Date('2026-09-01T00:00:00.000Z'),
-  };
-  await prisma.githubIssueHistory.create({ data: issue });
-  await expect(
-    prisma.githubIssueHistory.create({ data: issue }),
-  ).rejects.toMatchObject({ code: 'P2002' });
-  const contribution = await prisma.contribution.create({
-    data: {
-      repositoryId: repository.id,
-      githubId: 1n,
-      date: new Date('2026-09-01T00:00:00.000Z'),
-    },
-  });
-  expect(contribution.issueCount).toBe(0);
-
   await prisma.githubRepository.delete({ where: { id: repository.id } });
-  await expect(
-    prisma.githubIssueHistory.count({
-      where: { repositoryId: repository.id },
-    }),
-  ).resolves.toBe(0);
 });
 
 it('직전 마이그레이션까지 적용된 DB에 적용해도 기존 행을 보존하고 새 stream 값을 바로 쓴다', async () => {

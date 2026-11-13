@@ -14,6 +14,7 @@ import {
   targetId,
 } from './student-repository-url.integration.fixture';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { repositoryContributionTotals } from '../../test/ledger-contribution.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -159,8 +160,8 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       before.monthly.filter((row) => rankingIds.includes(row.githubId)),
     ).toHaveLength(2);
     expect(
-      await prisma.contribution.count({ where: { repositoryId: oldId } }),
-    ).toBe(1);
+      (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+    ).toBe(7);
 
     await service.updateMine(githubId, programId, input);
 
@@ -168,7 +169,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       await prisma.githubRepository.findUnique({ where: { id: oldId } }),
     ).toBeNull();
     expect(
-      await prisma.contribution.count({ where: { repositoryId: oldId } }),
+      (await repositoryContributionTotals(prisma, [oldId])).commitCount,
     ).toBe(0);
     expect(
       await prisma.githubRepository.findUnique({ where: { teamId } }),

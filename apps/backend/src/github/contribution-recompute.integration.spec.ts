@@ -55,10 +55,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
       where: { repoId: GITHUB_REPO_ID },
     });
     await prisma.repo.deleteMany({ where: { githubRepoId: GITHUB_REPO_ID } });
-    await prisma.contribution.deleteMany({ where: { repositoryId: REPO_ID } });
-    await prisma.collectionCommitFact.deleteMany({
-      where: { repositoryId: REPO_ID },
-    });
     await prisma.githubRepository.deleteMany({
       where: { githubRepositoryId: GITHUB_REPO_ID },
     });
@@ -114,12 +110,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     expect(rows[0]?.activityDate.toISOString().slice(0, 10)).toBe('2026-03-15');
     expect(rows[1]?.activityDate.toISOString().slice(0, 10)).toBe('2026-03-16');
     expect(rows.every((row) => row.commitCount === 1)).toBe(true);
-    await expect(
-      prisma.collectionCommitFact.count({ where: { repositoryId: REPO_ID } }),
-    ).resolves.toBe(0);
-    await expect(
-      prisma.contribution.count({ where: { repositoryId: REPO_ID } }),
-    ).resolves.toBe(0);
   });
 
   it('Issue도 KST 자정에서 날짜가 갈린다 — 14:59:59Z 는 그날, 15:00:00Z 는 다음 날이다', async () => {
@@ -266,9 +256,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
     const rows = await readDays();
     expect(rows).toHaveLength(1);
     expect(rows[0]?.commitCount).toBe(2);
-    await expect(
-      prisma.collectionCommitFact.count({ where: { repositoryId: REPO_ID } }),
-    ).resolves.toBe(0);
   });
 
   it('칸이 늘어도 질의 수가 늘지 않는다 — 트랜잭션 안 N+1 을 만들지 않는다', async () => {
@@ -303,9 +290,6 @@ describe('Contribution 재계산 (실 Postgres)', () => {
         where: { repoId: GITHUB_REPO_ID },
       }),
     ).toBe(60);
-    await expect(
-      prisma.contribution.count({ where: { repositoryId: REPO_ID } }),
-    ).resolves.toBe(0);
 
     const dataQueries = queries.filter(
       (query) => !/^(BEGIN|COMMIT|ROLLBACK|DEALLOCATE)/u.test(query.trim()),

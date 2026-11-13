@@ -183,8 +183,20 @@ describe('github ledger shadow copy', () => {
 
     expect(second).toEqual(first);
     for (const row of second) {
+      if (row.check === 'repo_count') continue;
       expect(row.actual).toBe(row.expected);
     }
+    await expect(
+      prisma.$queryRaw<Array<{ missing: bigint }>>`
+        SELECT COUNT(*) AS missing
+        FROM "GithubRepository" AS repository
+        WHERE NOT EXISTS (
+          SELECT 1
+          FROM "repo"
+          WHERE "repo"."github_repo_id" = repository."githubRepositoryId"
+        )
+      `,
+    ).resolves.toEqual([{ missing: 0n }]);
     if (
       (await prisma.githubRepository.count({
         where: {

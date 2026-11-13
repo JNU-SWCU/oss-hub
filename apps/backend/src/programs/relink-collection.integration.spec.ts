@@ -1,6 +1,10 @@
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
+  repositoryContributionTotals,
+  seedDailyContributions,
+} from '../../test/ledger-contribution.fixture';
+import {
   prisma,
   service,
   resolver,
@@ -150,26 +154,16 @@ it('collects new facts only on the replacement when an external application repo
   expect(result.status).toBe('COMPLETED');
   expect(metadata.mock.calls).toEqual([['synthetic', 'target']]);
   expect(
-    await prisma.collectionCommitFact.findMany({
-      where: { repositoryId: oldId },
-    }),
-  ).toEqual([]);
-  expect(
     await prisma.contributionEvent.findMany({
       where: { repoId: targetGithubId, kind: 'COMMIT' },
     }),
   ).toEqual([expect.objectContaining({ githubKey: 'new-after-relink' })]);
   expect(
-    await prisma.collectionCommitFact.count({
-      where: { repositoryId: targetId },
-    }),
-  ).toBe(0);
-  expect(
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toBeNull();
   expect(
-    await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
-  ).toEqual([]);
+    (await repositoryContributionTotals(prisma, [oldId])).commitCount,
+  ).toBe(0);
 });
 
 it('keeps a linked private or absent external repository eligible for recovery', async () => {
@@ -352,25 +346,26 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
         defaultBranch: 'main',
       },
     });
-    await prisma.collectionCommitFact.create({
-      data: {
-        repositoryId: oldId,
-        sha: 'retained-before-program-deletion',
-        committedAt: new Date('2026-08-01'),
-        authorGithubId: githubId,
-      },
+    await prisma.contributionEvent.deleteMany({
+      where: { repoId: targetGithubId + 1n },
     });
-    await prisma.githubUserActivityHistory.upsert({
+    await seedDailyContributions(
+      prisma,
+      targetGithubId + 1n,
+      [{ githubId, date: '2026-08-01', commitCount: 1 }],
+      source,
+    );
+    await prisma.githubUserActivityObservation.upsert({
       where: {
-        githubId_year_visibility: {
+        githubId_year_visibility_observedAt: {
           githubId,
           year: 2026,
           visibility: 'PUBLIC',
+          observedAt,
         },
       },
       create: {
         githubId,
-        githubLogin: 'synthetic-relink-user',
         year: 2026,
         visibility: 'PUBLIC',
         commitCount: 7,
@@ -410,12 +405,10 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
         expect.objectContaining({ githubId, commitCount: 7 }),
       ]),
     );
-    const beforeFacts = await prisma.collectionCommitFact.findMany({
-      where: { repositoryId: oldId },
-    });
-    const beforeContributions = await prisma.contribution.findMany({
-      where: { repositoryId: oldId },
-    });
+    const beforeContributions = await repositoryContributionTotals(prisma, [
+      oldId,
+    ]);
+    expect(beforeContributions.commitCount).toBe(1);
     await prisma.program.update({
       where: { id: programId },
       data: { lifecycle: 'DELETED' },
@@ -458,14 +451,9 @@ it.each(['ORG_PROVISIONED', 'EXTERNAL_PUBLIC'] as const)(
         ),
       ).toBe(false);
     }
-    expect(
-      await prisma.collectionCommitFact.findMany({
-        where: { repositoryId: oldId },
-      }),
-    ).toEqual(beforeFacts);
-    expect(
-      await prisma.contribution.findMany({ where: { repositoryId: oldId } }),
-    ).toEqual(beforeContributions);
+    expect(await repositoryContributionTotals(prisma, [oldId])).toEqual(
+      beforeContributions,
+    );
     expect(await ranking.findMetrics({ currentYear: 2026 })).toEqual(
       beforeRanking,
     );
@@ -529,11 +517,6 @@ it('collects a repository linked into an empty slot right after the team route s
     expect.objectContaining({ githubKey: 'collected-right-after-link' }),
   ]);
   expect(
-    await prisma.collectionCommitFact.count({
-      where: { repositoryId: targetId },
-    }),
-  ).toBe(0);
-  expect(
     await prisma.$queryRaw<{ commitCount: number }[]>`
       SELECT commit_count AS "commitCount"
       FROM repo_contribution
@@ -566,6 +549,6 @@ it('교체된 조직 저장소는 다음 조직 수집에서 되살아나지 않
     await prisma.githubRepository.findUnique({ where: { id: oldId } }),
   ).toBeNull();
   expect(
-    await prisma.contribution.count({ where: { repositoryId: oldId } }),
+    (await repositoryContributionTotals(prisma, [oldId])).commitCount,
   ).toBe(0);
 });

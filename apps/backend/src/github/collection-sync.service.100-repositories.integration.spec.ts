@@ -631,11 +631,6 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         where: { kind: 'ISSUE', repoId: { in: repoIds } },
       }),
     ).resolves.toBe(seeds.reduce((sum, s) => sum + issueCount(s), 0));
-    await expect(
-      prisma.collectionCommitFact.count({
-        where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
-      }),
-    ).resolves.toBe(0);
 
     const duplicateSeed = seeds.find((s) => s.name === DUPLICATE_COMMIT_NAME);
     if (!duplicateSeed)

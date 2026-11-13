@@ -39,6 +39,10 @@ import { S3ObjectStorageClient } from '../platform/s3-object-storage.client';
 import { FileCleanupService } from './file-cleanup.service';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import {
+  repositoryContributionTotals,
+  seedDailyContributions,
+} from '../../test/ledger-contribution.fixture';
 import { PublicProjectsRepository } from './public-projects.repository';
 import { ProgramErrorCode } from './programs.error';
 import { ProgramLifecycleService } from './programs.service';
@@ -103,10 +107,6 @@ type Fixture = {
   readonly repositoryIssuanceHistoryId: string;
   readonly repositoryInvitationId: string;
   readonly collectionStreamId: string;
-  readonly contributionRepositoryId: string;
-  readonly collectionCommitFactId: string;
-  readonly collectionPullRequestFactId: string;
-  readonly collectionReleaseFactId: string;
   readonly publishedRepositoryId: string;
   readonly publishedGithubRepositoryId: bigint;
 };
@@ -582,43 +582,15 @@ async function seedFullChildGraph(
       lastRunAt: NOW,
     },
   });
-  const contributionRepositoryId = provisionedRepositoryId;
-  await prisma.contribution.create({
-    data: {
-      repositoryId: contributionRepositoryId,
+  await seedDailyContributions(prisma, provisionedGithubRepositoryId, [
+    {
       githubId: 9875100000n + ordinal,
-      date: new Date('2026-08-06T00:00:00.000Z'),
+      date: '2026-08-06',
       commitCount: 1,
+      pullRequestCount: 1,
+      releaseCount: 1,
     },
-  });
-  const collectionCommitFactId = p('collection-commit-fact');
-  await prisma.collectionCommitFact.create({
-    data: {
-      id: collectionCommitFactId,
-      repositoryId: provisionedRepositoryId,
-      sha: `synthetic-purge7-sha-${label}`,
-      committedAt: NOW,
-    },
-  });
-  const collectionPullRequestFactId = p('collection-pull-request-fact');
-  await prisma.collectionPullRequestFact.create({
-    data: {
-      id: collectionPullRequestFactId,
-      repositoryId: provisionedRepositoryId,
-      githubPullRequestId: 9875600000n + ordinal,
-      state: 'MERGED',
-      createdAt: NOW,
-    },
-  });
-  const collectionReleaseFactId = p('collection-release-fact');
-  await prisma.collectionReleaseFact.create({
-    data: {
-      id: collectionReleaseFactId,
-      repositoryId: provisionedRepositoryId,
-      githubReleaseId: 9875700000n + ordinal,
-      publishedAt: NOW,
-    },
-  });
+  ]);
   await prisma.githubRepository.create({
     data: {
       id: externalRepositoryId,
@@ -858,10 +830,6 @@ async function seedFullChildGraph(
     repositoryIssuanceHistoryId,
     repositoryInvitationId,
     collectionStreamId,
-    contributionRepositoryId,
-    collectionCommitFactId,
-    collectionPullRequestFactId,
-    collectionReleaseFactId,
     publishedRepositoryId,
     publishedGithubRepositoryId,
   };
@@ -1185,21 +1153,15 @@ describe('Program purge integration — full child graph, worker file deletion, 
         where: { id: fixture.applicationDecisionAcknowledgedNotificationId },
       }),
     ).resolves.not.toBeNull();
-    await expect(
-      prisma.collectionCommitFact.findUnique({
-        where: { id: fixture.collectionCommitFactId },
-      }),
-    ).resolves.not.toBeNull();
-    await expect(
-      prisma.collectionPullRequestFact.findUnique({
-        where: { id: fixture.collectionPullRequestFactId },
-      }),
-    ).resolves.not.toBeNull();
-    await expect(
-      prisma.collectionReleaseFact.findUnique({
-        where: { id: fixture.collectionReleaseFactId },
-      }),
-    ).resolves.not.toBeNull();
+    const collectedBefore = await repositoryContributionTotals(prisma, [
+      fixture.provisionedRepositoryId,
+    ]);
+    expect(collectedBefore).toEqual({
+      commitCount: 1,
+      pullRequestCount: 1,
+      releaseCount: 1,
+      issueCount: 0,
+    });
     const beforePurgePage = await publicProjects.listPage(null, 50);
     expect(
       beforePurgePage.some((row) => row.id === fixture.publishedRepositoryId),
@@ -1273,25 +1235,8 @@ describe('Program purge integration — full child graph, worker file deletion, 
       }),
     ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
     await expect(
-      prisma.contribution.findFirst({
-        where: { repositoryId: fixture.contributionRepositoryId },
-      }),
-    ).resolves.not.toBeNull();
-    await expect(
-      prisma.collectionCommitFact.findUnique({
-        where: { id: fixture.collectionCommitFactId },
-      }),
-    ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
-    await expect(
-      prisma.collectionPullRequestFact.findUnique({
-        where: { id: fixture.collectionPullRequestFactId },
-      }),
-    ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
-    await expect(
-      prisma.collectionReleaseFact.findUnique({
-        where: { id: fixture.collectionReleaseFactId },
-      }),
-    ).resolves.toMatchObject({ repositoryId: fixture.provisionedRepositoryId });
+      repositoryContributionTotals(prisma, [fixture.provisionedRepositoryId]),
+    ).resolves.toEqual(collectedBefore);
     const orphanSubmissionFile = await prisma.file.findFirst({
       where: {
         kind: 'SUBMISSION',

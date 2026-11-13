@@ -10,6 +10,7 @@ import {
 } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
+import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -161,58 +162,44 @@ describe('PublicProjectsService.findProfile integration', () => {
       })),
     });
 
-    await prisma.contribution.createMany({
-      data: [
-        {
-          repositoryId: `${PREFIX}-repository-a`,
-          githubId: OWNER_GITHUB_ID,
-          date: new Date(Date.UTC(2026, 0, 2)),
-          commitCount: 3,
-          pullRequestCount: 1,
-          releaseCount: 0,
-        },
-        {
-          repositoryId: `${PREFIX}-repository-a`,
-          githubId: OTHER_CONTRIBUTOR_GITHUB_ID,
-          date: new Date(Date.UTC(2026, 0, 2)),
-          commitCount: 999,
-          pullRequestCount: 999,
-          releaseCount: 999,
-        },
-      ],
-    });
-
-    await prisma.contribution.create({
-      data: {
-        repositoryId: `${PREFIX}-repository-b`,
+    await seedDailyContributions(prisma, githubRepositoryIdByKey.a, [
+      {
         githubId: OWNER_GITHUB_ID,
-        date: new Date(Date.UTC(2026, 0, 2)),
+        date: '2026-01-02',
+        commitCount: 3,
+        pullRequestCount: 1,
+        releaseCount: 0,
+      },
+      {
+        githubId: OTHER_CONTRIBUTOR_GITHUB_ID,
+        date: '2026-01-02',
+        commitCount: 999,
+        pullRequestCount: 999,
+        releaseCount: 999,
+      },
+    ]);
+    await seedDailyContributions(prisma, githubRepositoryIdByKey.b, [
+      {
+        githubId: OWNER_GITHUB_ID,
+        date: '2026-01-02',
         commitCount: 4,
         pullRequestCount: 0,
         releaseCount: 2,
       },
-    });
-
-    await prisma.contribution.create({
-      data: {
-        repositoryId: `${PREFIX}-repository-d`,
+    ]);
+    await seedDailyContributions(prisma, githubRepositoryIdByKey.d, [
+      {
         githubId: OTHER_CONTRIBUTOR_GITHUB_ID,
-        date: new Date(Date.UTC(2026, 0, 2)),
+        date: '2026-01-02',
         commitCount: 10,
         pullRequestCount: 2,
         releaseCount: 1,
       },
-    });
+    ]);
   });
 
   afterAll(async () => {
     try {
-      await prisma.contribution.deleteMany({
-        where: {
-          repositoryId: { startsWith: `${PREFIX}-repository` },
-        },
-      });
-
       await prisma.githubRepository.deleteMany({
         where: { id: { startsWith: PREFIX } },
       });

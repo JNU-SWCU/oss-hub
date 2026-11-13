@@ -15,7 +15,6 @@ const prisma = new PrismaService();
 const GITHUB_ID = 8_970_000_000_001n;
 const CLOCK_ID = 8_970_000_000_021n;
 const AUTHOR_MATCH = 8_970_000_000_011n;
-const AUTHOR_DAILY = 8_970_000_000_012n;
 const AUTHOR_EVENTS = 8_970_000_000_013n;
 const AUTHOR_BOUNDARY = 8_970_000_000_014n;
 const REPOSITORY_ID = 'synthetic-read-views-repository';
@@ -36,7 +35,7 @@ describe('contributor standing and repo contribution views', () => {
     await prisma.$disconnect();
   });
 
-  it('uses the latest history row once when an older row and the old table disagree', async () => {
+  it('uses the latest history row once', async () => {
     await prisma.githubUserActivityObservation.createMany({
       data: [
         {
@@ -55,16 +54,6 @@ describe('contributor standing and repo contribution views', () => {
         },
       ],
     });
-    await prisma.githubUserActivityHistory.create({
-      data: {
-        githubId: GITHUB_ID,
-        githubLogin: 'synthetic-read-views',
-        year: YEAR,
-        visibility: 'PUBLIC',
-        commitCount: 4,
-        observedAt: new Date('2119-03-01T00:00:00.000Z'),
-      },
-    });
 
     const rows = await new ContributorReadRepository(prisma).readStandingRows({
       year: YEAR,
@@ -82,7 +71,7 @@ describe('contributor standing and repo contribution views', () => {
     ]);
   });
 
-  it('matches the old daily table when events exist and does not add the two sources', async () => {
+  it('counts events per author and Seoul day and skips a null author', async () => {
     await seedRepository();
     const day = new Date('2026-08-01T00:00:00.000Z');
     await prisma.contributionEvent.createMany({
@@ -93,22 +82,11 @@ describe('contributor standing and repo contribution views', () => {
         event('null-author', null, day),
       ],
     });
-    await prisma.contribution.createMany({
-      data: [
-        daily(AUTHOR_MATCH, day, 2),
-        daily(AUTHOR_DAILY, day, 5),
-        daily(AUTHOR_EVENTS, day, 9),
-      ],
-    });
 
     const rows = await readContribution();
     expect(countFor(rows, AUTHOR_MATCH, '2026-08-01')).toEqual({
       rows: 1,
       commitCount: 2,
-    });
-    expect(countFor(rows, AUTHOR_DAILY, '2026-08-01')).toEqual({
-      rows: 1,
-      commitCount: 5,
     });
     expect(countFor(rows, AUTHOR_EVENTS, '2026-08-01')).toEqual({
       rows: 1,
@@ -210,9 +188,7 @@ describe('contributor standing and repo contribution views', () => {
             'contributor_standing',
             'repo_contribution',
             'github_user_activity_history',
-            'GithubUserActivityHistory',
             'contribution',
-            'Contribution',
             'GithubRepository'
           )
       `;
@@ -242,24 +218,6 @@ function event(
     authorGithubId,
     occurredAt,
     firstSeenAt: occurredAt,
-  };
-}
-
-function daily(
-  githubId: bigint,
-  date: Date,
-  commitCount: number,
-): {
-  repositoryId: string;
-  githubId: bigint;
-  date: Date;
-  commitCount: number;
-} {
-  return {
-    repositoryId: REPOSITORY_ID,
-    githubId,
-    date,
-    commitCount,
   };
 }
 
@@ -318,16 +276,10 @@ async function purge(): Promise<void> {
   await prisma.contributionEvent.deleteMany({
     where: { repoId: GITHUB_REPOSITORY_ID },
   });
-  await prisma.contribution.deleteMany({
-    where: { repositoryId: REPOSITORY_ID },
-  });
   await prisma.githubUserActivityMonthly.deleteMany({
     where: { githubId: CLOCK_ID },
   });
   await prisma.githubUserActivityObservation.deleteMany({
-    where: { githubId: { in: [GITHUB_ID, CLOCK_ID] } },
-  });
-  await prisma.githubUserActivityHistory.deleteMany({
     where: { githubId: { in: [GITHUB_ID, CLOCK_ID] } },
   });
   await prisma.repo.deleteMany({

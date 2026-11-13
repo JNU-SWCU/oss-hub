@@ -67,9 +67,6 @@ function serviceWith(rows: readonly ActivityRow[]): RankingService {
       }
       return Promise.resolve(rows);
     }),
-    githubUserActivityCycleSnapshot: {
-      findMany: jest.fn().mockResolvedValue([]),
-    },
   } as unknown as PrismaService;
   return new RankingService(
     new RankingRepository(prisma),
