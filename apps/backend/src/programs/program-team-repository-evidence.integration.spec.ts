@@ -20,6 +20,13 @@ import {
   ProgramActivitySummaryRepository,
 } from './program-activity.repository';
 import { ProgramActivitySummaryService } from './program-activity-summary.service';
+import { ProgramActivityService } from './program-activity.service';
+import {
+  ProgramListStatusFilterRepository,
+  ProgramsRepository,
+} from './programs.repository';
+import { ProgramViewerService } from './program-viewer.service';
+import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { TeamMembershipService } from './team-membership.service';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
 import { RepositoryPublishService } from '../github/repository-publish.service';
@@ -443,5 +450,238 @@ it('counts issues for team members, so an issue-only member has observations', a
       issueCount: 1,
       hasObservations: true,
     },
+  ]);
+});
+
+it('counts only student authors in team, program and public totals', async () => {
+  const scope = `student-authors-${randomUUID()}`;
+  const base = BigInt(`0x${randomUUID().replaceAll('-', '').slice(0, 12)}`);
+  const people = {
+    member: { id: `${scope}-member`, githubId: base, type: 'STUDENT' },
+    left: { id: `${scope}-left`, githubId: base + 1n, type: 'STUDENT' },
+    peer: { id: `${scope}-peer`, githubId: base + 2n, type: 'STUDENT' },
+    staff: { id: `${scope}-staff`, githubId: base + 3n, type: 'STAFF' },
+    unselected: {
+      id: `${scope}-unselected`,
+      githubId: base + 4n,
+      type: 'UNSELECTED',
+    },
+  } as const;
+  const unregistered = base + 5n;
+  const scopedProgramId = `${scope}-program`;
+  const teams = {
+    mixed: {
+      id: `${scope}-mixed`,
+      repo: base + 10n,
+      leader: people.member,
+      members: [people.member],
+    },
+    authorless: {
+      id: `${scope}-authorless`,
+      repo: base + 11n,
+      leader: people.peer,
+      members: [],
+    },
+    staffOnly: {
+      id: `${scope}-staff-only`,
+      repo: base + 12n,
+      leader: people.peer,
+      members: [people.peer],
+    },
+  };
+  await prisma.user.createMany({
+    data: Object.entries(people).map(([key, person]) => ({
+      ...person,
+      nickname: `synthetic-${key}`,
+      approvalStatus: person.type === 'STAFF' ? 'APPROVED' : 'NOT_REQUIRED',
+    })),
+  });
+  await prisma.program.create({
+    data: {
+      id: scopedProgramId,
+      name: 'Synthetic program',
+      organizer: 'Synthetic',
+      category: 'BASIC',
+      applicationTemplateKey: 'synthetic',
+      applicationTemplateVersion: 1,
+      description: 'Synthetic',
+      applicationStartAt: new Date('2026-07-01Z'),
+      applicationEndAt: new Date('2026-07-31Z'),
+      startAt: new Date('2026-07-31T15:00:00Z'),
+      endAt: new Date('2026-08-31T14:59:59Z'),
+    },
+  });
+  for (const team of Object.values(teams)) {
+    await prisma.team.create({
+      data: {
+        id: team.id,
+        programId: scopedProgramId,
+        name: team.id,
+        leaderId: team.leader.id,
+        applicantId: team.leader.id,
+        status: 'APPROVED',
+        answers: {},
+        applicationTemplateVersion: 1,
+      },
+    });
+    await prisma.teamMember.createMany({
+      data: team.members.map((person) => ({
+        teamId: team.id,
+        programId: scopedProgramId,
+        userId: person.id,
+      })),
+    });
+    await prisma.githubRepository.create({
+      data: {
+        id: `${team.id}-repository`,
+        githubRepositoryId: team.repo,
+        nameWithOwner: `synthetic/${team.id}`,
+        source: 'EXTERNAL_PUBLIC',
+        visibility: 'PUBLIC',
+        teamId: team.id,
+        lastSuccessAt: new Date('2026-09-01Z'),
+        lastCompleteInventoryObservedAt: new Date('2026-09-01Z'),
+      },
+    });
+    await prisma.repo.create({
+      data: {
+        githubRepoId: team.repo,
+        ownerName: 'synthetic',
+        source: 'EXTERNAL_PUBLIC',
+      },
+    });
+  }
+  const events: readonly (readonly [
+    bigint,
+    'COMMIT' | 'PULL_REQUEST',
+    bigint | null,
+    string,
+  ])[] = [
+    [teams.mixed.repo, 'COMMIT', people.member.githubId, '2026-08-03'],
+    [teams.mixed.repo, 'COMMIT', people.member.githubId, '2026-08-04'],
+    [teams.mixed.repo, 'PULL_REQUEST', people.member.githubId, '2026-08-04'],
+    [teams.mixed.repo, 'COMMIT', people.left.githubId, '2026-08-05'],
+    [teams.mixed.repo, 'COMMIT', people.staff.githubId, '2026-08-20'],
+    [teams.mixed.repo, 'COMMIT', people.unselected.githubId, '2026-08-20'],
+    [teams.mixed.repo, 'COMMIT', unregistered, '2026-08-20'],
+    [teams.mixed.repo, 'COMMIT', null, '2026-08-20'],
+    [teams.authorless.repo, 'COMMIT', null, '2026-08-06'],
+    [teams.authorless.repo, 'COMMIT', null, '2026-08-07'],
+    [teams.staffOnly.repo, 'COMMIT', people.staff.githubId, '2026-08-08'],
+    [teams.staffOnly.repo, 'COMMIT', people.unselected.githubId, '2026-08-08'],
+    [teams.staffOnly.repo, 'COMMIT', unregistered, '2026-08-08'],
+  ];
+  await prisma.contributionEvent.createMany({
+    data: events.map(([repoId, kind, authorGithubId, day], index) => ({
+      repoId,
+      kind,
+      githubKey: String(index + 1),
+      authorGithubId,
+      occurredAt: new Date(`${day}T00:00:00Z`),
+      firstSeenAt: new Date(`${day}T00:00:00Z`),
+    })),
+  });
+  const platform = new PlatformRepository();
+  const activityRepository = new ProgramActivityRepository(prisma, platform);
+  const staffView = await new ProgramActivityService(
+    new ProgramsRepository(
+      prisma,
+      platform,
+      new ProgramListStatusFilterRepository(),
+    ),
+    activityRepository,
+    Object.create(ProgramViewerService.prototype) as ProgramViewerService,
+  ).activity(scopedProgramId, {
+    githubId: people.staff.githubId,
+    userId: people.staff.id,
+    role: 'STAFF',
+  });
+
+  const empty = { commitCount: 0, pullRequestCount: 0, releaseCount: 0 };
+  expect(staffView).toMatchObject([
+    {
+      teamId: teams.mixed.id,
+      commitCount: 3,
+      pullRequestCount: 1,
+      releaseCount: 0,
+      lastActivityAt: new Date('2026-08-05T00:00:00Z'),
+      collectionStatus: 'READY',
+      members: [
+        {
+          githubLogin: 'synthetic-member',
+          commitCount: 2,
+          pullRequestCount: 1,
+          releaseCount: 0,
+        },
+      ],
+      hasIncompleteContributions: true,
+    },
+    {
+      teamId: teams.authorless.id,
+      ...empty,
+      lastActivityAt: null,
+      collectionStatus: 'EMPTY',
+      members: [],
+      hasIncompleteContributions: false,
+    },
+    {
+      teamId: teams.staffOnly.id,
+      ...empty,
+      lastActivityAt: null,
+      collectionStatus: 'EMPTY',
+      members: [{ ...empty }],
+      hasIncompleteContributions: false,
+    },
+  ]);
+  await expect(
+    new ProgramActivitySummaryService(
+      new ProgramActivitySummaryRepository(prisma),
+      activityRepository,
+    ).summarize([scopedProgramId]),
+  ).resolves.toEqual([
+    {
+      programId: scopedProgramId,
+      repositoryCount: 3,
+      commitCount: 3,
+      pullRequestCount: 1,
+      releaseCount: 0,
+      lastActivityAt: '2026-08-05T00:00:00.000Z',
+      dataAsOf: '2026-09-01T00:00:00.000Z',
+    },
+  ]);
+
+  const publicMetrics = new PublicProjectMetricsRepository(prisma, platform);
+  const repositoryIds = Object.values(teams).map((team) => team.repo);
+  const contributors =
+    await publicMetrics.findContributorContributionRows(repositoryIds);
+  expect(new Set(contributors.map((row) => row.githubUserId))).toEqual(
+    new Set([people.member.githubId, people.left.githubId]),
+  );
+  const repositories =
+    await publicMetrics.findRepositoryContributionRows(repositoryIds);
+  expect(
+    repositories.map((repository) => ({
+      repositoryId: repository.repositoryId,
+      commitCount: repository.contributions.reduce(
+        (sum, row) => sum + row.commitCount,
+        0,
+      ),
+    })),
+  ).toEqual(
+    expect.arrayContaining([
+      { repositoryId: teams.mixed.repo, commitCount: 3 },
+      { repositoryId: teams.authorless.repo, commitCount: 0 },
+      { repositoryId: teams.staffOnly.repo, commitCount: 0 },
+    ]),
+  );
+
+  const detail = await new TeamRepository(
+    prisma,
+    new ProgramTeamRepositoryEvidenceRepository(prisma),
+    platform,
+    new TeamHistoryRepository(),
+  ).findStaffTeamDetail(scopedProgramId, teams.mixed.id);
+  expect(detail?.repositoryContributions?.members).toEqual([
+    expect.objectContaining({ userId: people.member.id, commitCount: 2 }),
   ]);
 });
