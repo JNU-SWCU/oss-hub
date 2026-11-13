@@ -1,4 +1,7 @@
-import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+} from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -8,6 +11,7 @@ import { PublicEligibilityRepository } from './public-eligibility.repository';
 import {
   ApplicationStatus,
   CollectionRepositoryPresence,
+  Prisma,
   ProgramCategory,
   RepositoryProvisionJobStatus,
   RepositorySource,
@@ -224,12 +228,12 @@ async function createScenario(params: {
       processedAt: now(),
     },
   });
-  const repositoryId = `${PREFIX}-${params.key}-repository`;
+  const rowId = `${PREFIX}-${params.key}-repository`;
   const githubRepositoryId = nextGithubRepositoryId();
   const nameWithOwner = `synthetic-org/${PREFIX}-${params.key}`;
   await prisma.githubRepository.create({
     data: {
-      id: repositoryId,
+      id: rowId,
       teamId,
       githubRepositoryId,
       nameWithOwner,
@@ -239,11 +243,13 @@ async function createScenario(params: {
       publishedAt: params.publishedAt,
     },
   });
+  await syncGithubRepositoryLedger(prisma, githubRepositoryId);
   await prisma.repositoryProvisionJob.create({
     data: {
       id: `${PREFIX}-${params.key}-job`,
       teamId,
-      repositoryId,
+      repositoryId: rowId,
+      repoId: githubRepositoryId,
       status: params.provisionStatus ?? RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: now(),
       startedAt: now(),
@@ -253,7 +259,7 @@ async function createScenario(params: {
   return {
     applicantId,
     teamId,
-    repositoryId,
+    repositoryId: githubRepositoryId.toString(),
     githubRepositoryId,
     nameWithOwner,
     repositoryName:
@@ -277,6 +283,7 @@ async function observeCollection(params: {
       lastCompleteInventoryObservedAt: params.observedAt,
     },
   });
+  await syncGithubRepositoryLedger(prisma, params.githubRepositoryId);
 }
 async function seedContributors(
   githubRepositoryId: bigint,
@@ -421,12 +428,13 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       observedAt: BEFORE_PUBLISH,
     });
     await prisma.githubRepository.update({
-      where: { id: outcome4.repositoryId },
+      where: { githubRepositoryId: outcome4.githubRepositoryId },
       data: {
         visibility: RepositoryVisibility.PUBLIC,
         publishedAt: PUBLISHED_AT,
       },
     });
+    await syncGithubRepositoryLedger(prisma, outcome4.githubRepositoryId);
     await seedContributors(
       outcome4.githubRepositoryId,
       GITHUB_ID_BASE + 900005n,
@@ -699,6 +707,75 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       });
     },
   );
+  it('보관된 팀의 저장소도 공개 판정과 기여 수치는 보관 전과 같다', async () => {
+    const teamIds = [outcome2.teamId, outcome5.teamId];
+    const archivedAt = new Date();
+    const gone = await prisma.repo.findUniqueOrThrow({
+      where: { githubRepoId: outcome5.githubRepositoryId },
+      select: { visibility: true, presence: true, goneAt: true },
+    });
+    try {
+      await prisma.repo.update({
+        where: { githubRepoId: outcome5.githubRepositoryId },
+        data: {
+          visibility: RepositoryVisibility.PUBLIC,
+          presence: CollectionRepositoryPresence.ABSENT,
+          goneAt: AFTER_PUBLISH,
+        },
+      });
+      await prisma.$transaction([
+        prisma.$executeRaw`
+          UPDATE "team_repo" SET "valid_to" = ${archivedAt}
+          WHERE "team_id" IN (${Prisma.join(teamIds)}) AND "valid_to" IS NULL
+        `,
+        prisma.team.updateMany({
+          where: { id: { in: teamIds } },
+          data: { archivedAt },
+        }),
+        prisma.githubRepository.updateMany({
+          where: { teamId: { in: teamIds } },
+          data: { teamId: null },
+        }),
+      ]);
+
+      const page = await publicProjectsService.findPage(undefined, 50);
+      const listed = page.items.map((item) => item.id);
+      expect(listed).toContain(outcome2.repositoryId);
+      expect(listed).not.toContain(outcome5.repositoryId);
+      const detail = await publicProjectsService.findDetail(
+        outcome2.githubRepositoryId.toString(),
+      );
+      expect(detail.contributors).toHaveLength(2);
+      await expect(
+        publicProjectsService.findDetail(
+          outcome5.githubRepositoryId.toString(),
+        ),
+      ).rejects.toMatchObject({
+        errorCode: { code: PublicProjectsErrorCode.PROJECT_NOT_FOUND },
+      });
+    } finally {
+      await prisma.repo.update({
+        where: { githubRepoId: outcome5.githubRepositoryId },
+        data: gone,
+      });
+      await prisma.$transaction([
+        prisma.team.updateMany({
+          where: { id: { in: teamIds } },
+          data: { archivedAt: null },
+        }),
+        prisma.$executeRaw`
+          UPDATE "team_repo" SET "valid_to" = NULL
+          WHERE "team_id" IN (${Prisma.join(teamIds)}) AND "valid_to" = ${archivedAt}
+        `,
+        ...[outcome2, outcome5].map((outcome) =>
+          prisma.githubRepository.updateMany({
+            where: { githubRepositoryId: outcome.githubRepositoryId },
+            data: { teamId: outcome.teamId },
+          }),
+        ),
+      ]);
+    }
+  });
   it(
     "outcome-6 [알려진 갭 — report-don't-fix]: 공개 계획이 OFF라 수동 공개가 " +
       'REPOSITORY_PUBLICATION_NOT_PLANNED로 막혀 platform Repository는 PRIVATE로 남지만, ' +
@@ -715,8 +792,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
           code: SubmissionReviewsErrorCode.REPOSITORY_PUBLICATION_NOT_PLANNED,
         },
       });
-      const persisted = await prisma.githubRepository.findUniqueOrThrow({
-        where: { id: outcome6.repositoryId },
+      const persisted = await prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: outcome6.githubRepositoryId },
       });
       expect(persisted.visibility).toBe(RepositoryVisibility.PRIVATE);
       expect(persisted.publishedAt).toBeNull();
@@ -753,8 +830,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       ).rejects.toMatchObject({
         errorCode: { code: SubmissionReviewsErrorCode.PROGRAM_NOT_ENDED },
       });
-      const persisted = await prisma.githubRepository.findUniqueOrThrow({
-        where: { id: outcome7.repositoryId },
+      const persisted = await prisma.repo.findUniqueOrThrow({
+        where: { githubRepoId: outcome7.githubRepositoryId },
       });
       expect(persisted.visibility).toBe(RepositoryVisibility.PRIVATE);
       const page = await publicProjectsService.findPage(undefined, 50);

@@ -3,6 +3,7 @@ import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { PrismaClient, type Prisma } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
+import { syncGithubRepositoryLedger } from '../test/repo-ledger.fixture';
 import { PlatformRepository } from '../src/platform/platform.repository';
 import { ProgramOverviewRepository } from '../src/programs/programs.repository';
 import { SubmissionMatrixRepository } from '../src/programs/submissions.repository';
@@ -197,11 +198,16 @@ async function seed(): Promise<void> {
             },
           },
         });
+        await syncGithubRepositoryLedger(
+          tx,
+          9_700_000_000_000_000n + BigInt(team),
+        );
         await tx.repositoryProvisionJob.create({
           data: {
             id: id(`job-${team}`),
             teamId,
             repositoryId,
+            repoId: 9_700_000_000_000_000n + BigInt(team),
             status: 'SUCCEEDED',
           },
         });
@@ -330,8 +336,8 @@ it('records four real repository read paths with twenty warm samples and SQL cou
     files: await prisma.file.count({
       where: { kind: 'SUBMISSION', id: { startsWith: prefix } },
     }),
-    repositories: await prisma.githubRepository.count({
-      where: { team: { programId } },
+    repositories: await prisma.teamRepo.count({
+      where: { validTo: null, team: { programId } },
     }),
     provisionJobs: await prisma.repositoryProvisionJob.count({
       where: { id: { startsWith: prefix } },

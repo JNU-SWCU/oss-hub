@@ -10,6 +10,11 @@ import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectsRepository } from './public-projects.repository';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+  syncGithubRepositoryLedgers,
+} from '../../test/repo-ledger.fixture';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -177,14 +182,13 @@ describe('PublicProjectsRepository integration', () => {
       ],
     });
 
-    await prisma.$executeRawUnsafe('VACUUM (ANALYZE) "GithubRepository"');
+    await syncGithubRepositoryLedgers(prisma, { id: { startsWith: PREFIX } });
+    await prisma.$executeRawUnsafe('VACUUM (ANALYZE) "repo"');
   });
 
   afterAll(async () => {
     try {
-      await prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: PREFIX } },
-      });
+      await deleteGithubRepositories(prisma, { id: { startsWith: PREFIX } });
       await prisma.teamMember.deleteMany({ where: { programId: PROGRAM_ID } });
       await prisma.team.deleteMany({ where: { programId: PROGRAM_ID } });
       await prisma.user.deleteMany({
@@ -205,7 +209,7 @@ describe('PublicProjectsRepository integration', () => {
       const isOrdered =
         previous.publishedAt.getTime() > current.publishedAt.getTime() ||
         (previous.publishedAt.getTime() === current.publishedAt.getTime() &&
-          previous.id > current.id);
+          BigInt(previous.id) > BigInt(current.id));
       expect(isOrdered).toBe(true);
     }
 
@@ -220,8 +224,8 @@ describe('PublicProjectsRepository integration', () => {
     }
 
     const allIds = new Set([...firstPage, ...secondPage].map((row) => row.id));
-    expect(allIds.has(`${PREFIX}-private-repository`)).toBe(false);
-    expect(allIds.has(`${PREFIX}-unpublished-repository`)).toBe(false);
+    expect(allIds.has('8700000099001')).toBe(false);
+    expect(allIds.has('8700000099002')).toBe(false);
   });
 
   it('findById는 private/unpublished/미존재 저장소 모두 동일하게 null을 반환한다', async () => {
@@ -313,6 +317,7 @@ describe('PublicProjectsRepository integration', () => {
           publishedAt: BASE_PUBLISHED_AT,
         },
       });
+      await syncGithubRepositoryLedger(prisma, contractGithubRepositoryId);
 
       try {
         const found = await repository.findById(
@@ -323,9 +328,7 @@ describe('PublicProjectsRepository integration', () => {
         expect(found?.projectId).toMatch(/^[A-Za-z0-9_-]+$/);
         expect(found?.nameWithOwner).toBe(contractNameWithOwner);
       } finally {
-        await prisma.githubRepository.delete({
-          where: { id: contractRepositoryId },
-        });
+        await deleteGithubRepositories(prisma, { id: contractRepositoryId });
         await prisma.teamMember.delete({
           where: {
             teamId_userId: {
@@ -342,17 +345,17 @@ describe('PublicProjectsRepository integration', () => {
 
   it(
     'EXPLAIN 증거 — 첫 페이지(cursor 없음)와 다음 페이지(keyset cursor) 조회 모두 ' +
-      'GithubRepository에 Seq Scan 없이 인덱스로 지원된다(특정 인덱스 이름은 단언하지 않는다)',
+      'repo에 Seq Scan 없이 공개 페이지 인덱스로 지원된다',
     async () => {
       const firstPagePlan = await explainFirstPage();
       const cursor = {
         publishedAt: new Date(BASE_PUBLISHED_AT.getTime() + 10 * 86_400_000),
-        id: `${PREFIX}-repository-0`,
+        id: 8700000000000n,
       };
       const cursoredPlan = await explainCursoredPage(cursor);
 
-      assertGithubRepositoryIndexScanNoSeqScan(queryPlanText(firstPagePlan));
-      assertGithubRepositoryIndexScanNoSeqScan(queryPlanText(cursoredPlan));
+      assertRepoIndexScanNoSeqScan(queryPlanText(firstPagePlan));
+      assertRepoIndexScanNoSeqScan(queryPlanText(cursoredPlan));
     },
   );
 
@@ -391,10 +394,10 @@ async function explainFirstPage(): Promise<readonly QueryPlanRow[]> {
     await transaction.$executeRaw`SET LOCAL enable_seqscan = off`;
     return transaction.$queryRaw<readonly QueryPlanRow[]>`
       EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
-      SELECT id, "publishedAt"
-      FROM "GithubRepository"
-      WHERE visibility = 'PUBLIC' AND "publishedAt" IS NOT NULL
-      ORDER BY "publishedAt" DESC, id DESC
+      SELECT github_repo_id, published_at
+      FROM "repo"
+      WHERE visibility = 'PUBLIC' AND published_at IS NOT NULL
+      ORDER BY published_at DESC, github_repo_id DESC
       LIMIT 10
     `;
   });
@@ -402,20 +405,20 @@ async function explainFirstPage(): Promise<readonly QueryPlanRow[]> {
 
 async function explainCursoredPage(cursor: {
   publishedAt: Date;
-  id: string;
+  id: bigint;
 }): Promise<readonly QueryPlanRow[]> {
   return prisma.$transaction(async (transaction) => {
     await transaction.$executeRaw`SET LOCAL enable_seqscan = off`;
     return transaction.$queryRaw<readonly QueryPlanRow[]>`
       EXPLAIN (ANALYZE, COSTS OFF, TIMING OFF)
-      SELECT id, "publishedAt"
-      FROM "GithubRepository"
-      WHERE visibility = 'PUBLIC' AND "publishedAt" IS NOT NULL
+      SELECT github_repo_id, published_at
+      FROM "repo"
+      WHERE visibility = 'PUBLIC' AND published_at IS NOT NULL
         AND (
-          "publishedAt" < ${cursor.publishedAt}
-          OR ("publishedAt" = ${cursor.publishedAt} AND id < ${cursor.id})
+          published_at < ${cursor.publishedAt}
+          OR (published_at = ${cursor.publishedAt} AND github_repo_id < ${cursor.id})
         )
-      ORDER BY "publishedAt" DESC, id DESC
+      ORDER BY published_at DESC, github_repo_id DESC
       LIMIT 10
     `;
   });
@@ -425,17 +428,9 @@ function queryPlanText(plan: readonly QueryPlanRow[]): string {
   return plan.map((row) => row['QUERY PLAN']).join('\n');
 }
 
-const ACCEPTABLE_GITHUB_REPOSITORY_INDEXES = [
-  'GithubRepository_visibility_publishedAt_id_idx',
-  'GithubRepository_visibility_presence_idx',
-] as const;
-
-function assertGithubRepositoryIndexScanNoSeqScan(planText: string): void {
-  expect(planText).not.toMatch(/Seq Scan on "?GithubRepository"?/);
-  const usesAcceptableIndex = ACCEPTABLE_GITHUB_REPOSITORY_INDEXES.some(
-    (indexName) => planText.includes(indexName),
-  );
-  expect(usesAcceptableIndex).toBe(true);
+function assertRepoIndexScanNoSeqScan(planText: string): void {
+  expect(planText).not.toMatch(/Seq Scan on "?repo"?/);
+  expect(planText).toContain('repo_visibility_published_at_github_repo_id_idx');
 }
 
 async function countRepositoryQueries<
@@ -445,7 +440,7 @@ async function countRepositoryQueries<
 >(client: Client, run: () => Promise<unknown>): Promise<number> {
   let count = 0;
   client.$on('query', (event) => {
-    if (event.query.includes('"GithubRepository"')) count += 1;
+    if (event.query.includes('"repo"')) count += 1;
   });
   await run();
   return count;

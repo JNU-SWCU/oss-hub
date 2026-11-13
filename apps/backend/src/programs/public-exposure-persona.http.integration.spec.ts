@@ -1,4 +1,7 @@
-import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+} from '../../test/repo-ledger.fixture';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -147,11 +150,11 @@ async function createRepositoryFixture(params: {
       processedAt: new Date(),
     },
   });
-  const repositoryId = `${PREFIX}-${params.key}-repository`;
+  const rowId = `${PREFIX}-${params.key}-repository`;
   const repositoryName = `${PREFIX}-${params.key}-repo`;
   await harness.prisma.githubRepository.create({
     data: {
-      id: repositoryId,
+      id: rowId,
       teamId,
       githubRepositoryId,
       nameWithOwner: `synthetic-org/${repositoryName}`,
@@ -160,18 +163,25 @@ async function createRepositoryFixture(params: {
       publishedAt: params.publishedAt,
     },
   });
+  await syncGithubRepositoryLedger(harness.prisma, githubRepositoryId);
   await harness.prisma.repositoryProvisionJob.create({
     data: {
       id: `${PREFIX}-${params.key}-job`,
       teamId,
-      repositoryId,
+      repositoryId: rowId,
+      repoId: githubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: new Date(),
       startedAt: new Date(),
       finishedAt: new Date(),
     },
   });
-  return { applicantId, repositoryId, githubRepositoryId, repositoryName };
+  return {
+    applicantId,
+    repositoryId: githubRepositoryId.toString(),
+    githubRepositoryId,
+    repositoryName,
+  };
 }
 
 function hashKey(key: string): number {
@@ -236,7 +246,7 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
     publicProject = published;
 
     await harness.prisma.githubRepository.update({
-      where: { id: published.repositoryId },
+      where: { githubRepositoryId: published.githubRepositoryId },
       data: {
         githubOrganizationId: 8900000000001n,
         defaultBranch: 'main',
@@ -244,6 +254,10 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
         lastCompleteInventoryObservedAt: new Date('2026-06-15T00:00:00.000Z'),
       },
     });
+    await syncGithubRepositoryLedger(
+      harness.prisma,
+      published.githubRepositoryId,
+    );
     await seedDailyContributions(harness.prisma, published.githubRepositoryId, [
       {
         githubId: 8_950_000_000_001n,

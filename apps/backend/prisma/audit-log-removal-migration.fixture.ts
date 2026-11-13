@@ -55,6 +55,7 @@ const SOURCE_STRUCTURE = `
   CREATE TABLE "Program" (id TEXT PRIMARY KEY, name TEXT NOT NULL);
   CREATE TABLE "Team" (id TEXT PRIMARY KEY, "programId" TEXT NOT NULL, name TEXT NOT NULL);
   CREATE TABLE "GithubRepository" (id TEXT PRIMARY KEY, "teamId" TEXT, "nameWithOwner" TEXT);
+  CREATE TABLE "repo" (github_repo_id BIGINT PRIMARY KEY, owner_name TEXT NOT NULL);
   CREATE TABLE "AuditLog" (
     id TEXT PRIMARY KEY, "actorId" TEXT NOT NULL, action TEXT NOT NULL, "targetType" TEXT NOT NULL,
     "targetId" TEXT NOT NULL, metadata JSONB NOT NULL, "occurredAt" TIMESTAMP(3) NOT NULL

@@ -39,6 +39,10 @@ import { FileCleanupService } from './file-cleanup.service';
 import { ObjectStorageConfig } from '../platform/object-storage.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+} from '../../test/repo-ledger.fixture';
+import {
   repositoryContributionTotals,
   seedDailyContributions,
 } from '../../test/ledger-contribution.fixture';
@@ -226,14 +230,20 @@ async function cleanup(): Promise<void> {
   await prisma.repositoryInvitation.deleteMany({
     where: { repository: { nameWithOwner: { startsWith: 'purge7-org/' } } },
   });
-  await prisma.githubRepository.deleteMany({
-    where: {
+  const purgeTeams = await prisma.team.findMany({
+    where: { programId: { startsWith: PREFIX } },
+    select: { id: true },
+  });
+  await deleteGithubRepositories(
+    prisma,
+    {
       OR: [
         { team: { is: { programId: { startsWith: PREFIX } } } },
         { nameWithOwner: { startsWith: 'purge7-org/' } },
       ],
     },
-  });
+    purgeTeams.map((team) => team.id),
+  );
   await prisma.boardComment.deleteMany({
     where: { post: { programId: { startsWith: PREFIX } } },
   });
@@ -536,11 +546,13 @@ async function seedFullChildGraph(
       visibility: RepositoryVisibility.PRIVATE,
     },
   });
+  await syncGithubRepositoryLedger(prisma, provisionedGithubRepositoryId);
   await prisma.repositoryProvisionJob.create({
     data: {
       id: p('provision-job'),
       teamId,
       repositoryId: provisionedRepositoryId,
+      repoId: provisionedGithubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: NOW,
       startedAt: NOW,
@@ -554,6 +566,7 @@ async function seedFullChildGraph(
       requestId: p('repository-issuance-request'),
       teamId,
       repositoryId: provisionedRepositoryId,
+      repoId: provisionedGithubRepositoryId,
       connectionMode: RepositoryConnectionMode.NEW,
       source: RepositorySource.ORG_PROVISIONED,
       outcome: RepositoryIssuanceOutcome.SUCCEEDED,
@@ -566,6 +579,7 @@ async function seedFullChildGraph(
     data: {
       id: repositoryInvitationId,
       repositoryId: provisionedRepositoryId,
+      repoId: provisionedGithubRepositoryId,
       githubLogin: `synthetic-purge7-invitee-${label}`,
       status: RepositoryInvitationStatus.SUCCEEDED,
       processedAt: NOW,
@@ -589,6 +603,7 @@ async function seedFullChildGraph(
       visibility: RepositoryVisibility.PUBLIC,
     },
   });
+  await syncGithubRepositoryLedger(prisma, externalGithubRepositoryId);
   await prisma.githubRepository.create({
     data: {
       id: publishedRepositoryId,
@@ -600,6 +615,7 @@ async function seedFullChildGraph(
       publishedAt: NOW,
     },
   });
+  await syncGithubRepositoryLedger(prisma, publishedGithubRepositoryId);
   await prisma.boardPost.create({
     data: {
       id: boardPostId,
@@ -1152,7 +1168,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
     });
     const beforePurgePage = await publicProjects.listPage(null, 50);
     expect(
-      beforePurgePage.some((row) => row.id === fixture.publishedRepositoryId),
+      beforePurgePage.some(
+        (row) => row.id === fixture.publishedGithubRepositoryId.toString(),
+      ),
     ).toBe(true);
     const expectedScope = await currentDeletionScopeCounts(fixture.programId);
     const result = await lifecycle.purge(
@@ -1298,7 +1316,9 @@ describe('Program purge integration — full child graph, worker file deletion, 
     expect(publishedRepositoryAfter).toMatchObject(publishedRepositoryBefore);
     const afterPurgePage = await publicProjects.listPage(null, 50);
     expect(
-      afterPurgePage.some((row) => row.id === fixture.publishedRepositoryId),
+      afterPurgePage.some(
+        (row) => row.id === fixture.publishedGithubRepositoryId.toString(),
+      ),
     ).toBe(false);
     const history = await prisma.programHistory.findFirst({
       where: { programId: fixture.programId },

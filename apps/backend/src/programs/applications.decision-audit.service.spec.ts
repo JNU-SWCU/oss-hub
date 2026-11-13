@@ -373,7 +373,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.PENDING,
-      repositoryId: null,
+      repoId: null,
     });
 
     const result = await service.decide(ACTOR, APPLICATION_ID, {
@@ -440,7 +440,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
       );
       findRepositoryProvisionJob.mockResolvedValue({
         status,
-        repositoryId: 'synthetic-repository',
+        repoId: 77n,
       });
 
       const result = await service.decide(ACTOR, APPLICATION_ID, {
@@ -469,7 +469,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.PENDING,
-      repositoryId: null,
+      repoId: null,
     });
 
     await service.decide(ACTOR, APPLICATION_ID, {
@@ -522,7 +522,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.PENDING,
-      repositoryId: null,
+      repoId: null,
     });
 
     await service.decide(ACTOR, APPLICATION_ID, {
@@ -542,7 +542,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
     });
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.PENDING,
-      repositoryId: null,
+      repoId: null,
     });
 
     const reapprove = await service.decide(ACTOR, APPLICATION_ID, {
@@ -621,7 +621,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.FAILED_RETRYABLE,
-      repositoryId: null,
+      repoId: null,
     });
 
     await expect(
@@ -650,7 +650,7 @@ describe('TeamApplicationService.decide — REVERT', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
-      repositoryId: 'synthetic-repository',
+      repoId: 77n,
     });
 
     await expect(
@@ -688,7 +688,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.PENDING,
-      repositoryId: null,
+      repoId: null,
     });
 
     const result = await service.decide(ACTOR, APPLICATION_ID, {
@@ -855,7 +855,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
       );
       findRepositoryProvisionJob.mockResolvedValue({
         status,
-        repositoryId: 'synthetic-repository',
+        repoId: 77n,
       });
 
       const result = await service.decide(ACTOR, APPLICATION_ID, {
@@ -888,7 +888,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.PROCESSING,
-      repositoryId: null,
+      repoId: null,
     });
 
     await service.decide(ACTOR, APPLICATION_ID, {
@@ -922,7 +922,7 @@ describe('TeamApplicationService.decide — #1272 반대 판정 직행', () => {
     );
     findRepositoryProvisionJob.mockResolvedValue({
       status: RepositoryProvisionJobStatus.SUCCEEDED,
-      repositoryId: 'synthetic-repository',
+      repoId: 77n,
     });
 
     await expect(

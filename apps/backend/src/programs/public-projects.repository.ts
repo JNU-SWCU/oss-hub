@@ -49,24 +49,35 @@ export interface PublicUserIdentity {
 }
 
 const PROJECT_ROW_SELECT = {
-  id: true,
-  githubRepositoryId: true,
-  nameWithOwner: true,
+  githubRepoId: true,
+  ownerName: true,
   publishedAt: true,
-  team: {
+  teamRepos: {
+    orderBy: { validFrom: 'desc' },
+    take: 1,
     select: {
-      programId: true,
-      name: true,
-      _count: { select: { members: true } },
-      program: { select: { name: true, trackType: true } },
-      applicant: { select: { nickname: true } },
+      team: {
+        select: {
+          programId: true,
+          name: true,
+          leaderId: true,
+          _count: { select: { members: true } },
+          members: { select: { userId: true } },
+          program: { select: { name: true, trackType: true, lifecycle: true } },
+          applicant: { select: { nickname: true } },
+        },
+      },
     },
   },
-} satisfies Prisma.GithubRepositorySelect;
+} satisfies Prisma.RepoSelect;
 
-type ProjectRowSelection = Prisma.GithubRepositoryGetPayload<{
+type ProjectRowSelection = Prisma.RepoGetPayload<{
   select: typeof PROJECT_ROW_SELECT;
 }>;
+
+const LIVE_PROGRAM_TEAM = {
+  program: { lifecycle: { not: 'DELETED' } },
+} satisfies Prisma.TeamWhereInput;
 
 function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
   return [
@@ -75,20 +86,32 @@ function seoulYearBoundsUtcForRead(year: number): readonly [Date, Date] {
   ];
 }
 
-function toProjectRow(row: ProjectRowSelection): PublicProjectRow | null {
-  if (row.team === null || row.publishedAt === null) return null;
+function toProjectRow(
+  row: ProjectRowSelection,
+  userId?: string,
+): PublicProjectRow | null {
+  const team = row.teamRepos[0]?.team;
+  if (
+    team === undefined ||
+    row.publishedAt === null ||
+    team.program.lifecycle === 'DELETED' ||
+    (userId !== undefined &&
+      team.leaderId !== userId &&
+      !team.members.some((member) => member.userId === userId))
+  )
+    return null;
   return {
-    id: row.id,
-    projectId: row.githubRepositoryId.toString(),
-    githubRepositoryId: row.githubRepositoryId,
-    nameWithOwner: row.nameWithOwner,
+    id: row.githubRepoId.toString(),
+    projectId: row.githubRepoId.toString(),
+    githubRepositoryId: row.githubRepoId,
+    nameWithOwner: row.ownerName,
     publishedAt: row.publishedAt,
-    programId: row.team.programId,
-    programName: row.team.program.name,
-    trackType: row.team.program.trackType,
-    teamName: row.team?.name ?? null,
-    teamMemberCount: row.team?._count?.members ?? 0,
-    applicantNickname: row.team.applicant.nickname,
+    programId: team.programId,
+    programName: team.program.name,
+    trackType: team.program.trackType,
+    teamName: team.name,
+    teamMemberCount: team._count.members,
+    applicantNickname: team.applicant.nickname,
   };
 }
 
@@ -109,21 +132,24 @@ export class PublicProjectsRepository {
             return { gte: yearStart, lt: yearEnd };
           })();
 
-    const rows = await this.prisma.githubRepository.findMany({
+    const rows = await this.prisma.repo.findMany({
       where: {
         visibility: 'PUBLIC',
-        team: { program: { lifecycle: { not: 'DELETED' } } },
+        teamRepos: { some: { team: LIVE_PROGRAM_TEAM } },
         publishedAt: publishedAtWhere,
         ...(cursor === null
           ? {}
           : {
               OR: [
                 { publishedAt: { lt: cursor.publishedAt } },
-                { publishedAt: cursor.publishedAt, id: { lt: cursor.id } },
+                {
+                  publishedAt: cursor.publishedAt,
+                  githubRepoId: { lt: BigInt(cursor.id) },
+                },
               ],
             }),
       },
-      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ publishedAt: 'desc' }, { githubRepoId: 'desc' }],
       take,
       select: PROJECT_ROW_SELECT,
     });
@@ -136,11 +162,11 @@ export class PublicProjectsRepository {
   async findById(projectId: string): Promise<PublicProjectRow | null> {
     if (!/^[0-9]+$/.test(projectId)) return null;
 
-    const row = await this.prisma.githubRepository.findFirst({
+    const row = await this.prisma.repo.findFirst({
       where: {
-        githubRepositoryId: BigInt(projectId),
+        githubRepoId: BigInt(projectId),
         visibility: 'PUBLIC',
-        team: { program: { lifecycle: { not: 'DELETED' } } },
+        teamRepos: { some: { team: LIVE_PROGRAM_TEAM } },
         publishedAt: { not: null },
       },
       select: PROJECT_ROW_SELECT,
@@ -149,21 +175,24 @@ export class PublicProjectsRepository {
   }
 
   async listForUser(userId: string): Promise<PublicProjectRow[]> {
-    const rows = await this.prisma.githubRepository.findMany({
+    const rows = await this.prisma.repo.findMany({
       where: {
         visibility: 'PUBLIC',
-        team: { program: { lifecycle: { not: 'DELETED' } } },
         publishedAt: { not: null },
-        OR: [
-          { team: { leaderId: userId } },
-          { team: { members: { some: { userId } } } },
-        ],
+        teamRepos: {
+          some: {
+            team: {
+              ...LIVE_PROGRAM_TEAM,
+              OR: [{ leaderId: userId }, { members: { some: { userId } } }],
+            },
+          },
+        },
       },
-      orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+      orderBy: [{ publishedAt: 'desc' }, { githubRepoId: 'desc' }],
       select: PROJECT_ROW_SELECT,
     });
     return rows.flatMap((row) => {
-      const project = toProjectRow(row);
+      const project = toProjectRow(row, userId);
       return project === null ? [] : [project];
     });
   }

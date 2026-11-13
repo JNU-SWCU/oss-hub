@@ -24,7 +24,6 @@ import { setSeedAdmin, upsertConsent, upsertSeedProfile } from './user';
 const PROGRAM_ID = seedId('oss-hub', 'program');
 const TEAM_ID = seedId('oss-hub', 'team');
 const APPLICATION_ID = seedId('oss-hub', 'team');
-const REPOSITORY_ID = seedId('oss-hub', 'repository');
 const PROVISION_JOB_ID = seedId('oss-hub', 'provision-job');
 const OSS_HUB_REPOSITORY_NAME_WITH_OWNER = 'JNU-SWCU/oss-hub';
 const PROGRAM_NAME = '오픈소스 플랫폼 구축';
@@ -35,7 +34,6 @@ const PROGRAM_DESCRIPTION =
 const PRACTICE_PROGRAM_ID = seedId('oss-hub-practice', 'program');
 const PRACTICE_TEAM_ID = seedId('oss-hub-practice', 'team');
 const PRACTICE_APPLICATION_ID = seedId('oss-hub-practice', 'team');
-const PRACTICE_REPOSITORY_ID = seedId('oss-hub-practice', 'repository');
 const PRACTICE_PROVISION_JOB_ID = seedId('oss-hub-practice', 'provision-job');
 const PRACTICE_PROGRAM_NAME = '오픈소스 실습 배포 퀘스트';
 const OSS_HUB_PRACTICE_REPOSITORY_URL =
@@ -554,27 +552,27 @@ export async function seedOssHub(
   );
   await upsertTracked(
     stats,
-    'GithubRepository',
-    () => prisma.githubRepository.findUnique({ where: { id: REPOSITORY_ID } }),
+    'Repo',
     () =>
-      prisma.githubRepository.upsert({
-        where: { id: REPOSITORY_ID },
-        update: {
-          githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
-          visibility: RepositoryVisibility.PUBLIC,
-        },
-        create: {
-          id: REPOSITORY_ID,
-          teamId: APPLICATION_ID,
-          githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
-          nameWithOwner: OSS_HUB_REPOSITORY_NAME_WITH_OWNER,
-          source: RepositorySource.ORG_PROVISIONED,
-          visibility: RepositoryVisibility.PUBLIC,
-          publishedAt: offsetDays(-30),
-        },
+      prisma.repo.findUnique({
+        where: { githubRepoId: OSS_HUB_GITHUB_REPOSITORY_ID },
       }),
+    async () => {
+      const ledger = new RepoLedgerRepository();
+      await ledger.claim(prisma, {
+        teamId: APPLICATION_ID,
+        githubRepositoryId: OSS_HUB_GITHUB_REPOSITORY_ID,
+        nameWithOwner: OSS_HUB_REPOSITORY_NAME_WITH_OWNER,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PRIVATE,
+      });
+      await ledger.publish(
+        prisma,
+        OSS_HUB_GITHUB_REPOSITORY_ID,
+        offsetDays(-30),
+      );
+    },
   );
-  await new RepoLedgerRepository().link(prisma, OSS_HUB_GITHUB_REPOSITORY_ID);
   await upsertTracked(
     stats,
     'RepositoryProvisionJob',
@@ -582,14 +580,18 @@ export async function seedOssHub(
       prisma.repositoryProvisionJob.findUnique({
         where: { id: PROVISION_JOB_ID },
       }),
-    () =>
+    async () =>
       prisma.repositoryProvisionJob.upsert({
         where: { id: PROVISION_JOB_ID },
         update: { status: RepositoryProvisionJobStatus.SUCCEEDED },
         create: {
           id: PROVISION_JOB_ID,
           teamId: APPLICATION_ID,
-          repositoryId: REPOSITORY_ID,
+          repositoryId: await new RepoLedgerRepository().rowId(
+            prisma,
+            OSS_HUB_GITHUB_REPOSITORY_ID,
+          ),
+          repoId: OSS_HUB_GITHUB_REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: offsetDays(-30),
           startedAt: offsetDays(-30),
@@ -711,32 +713,26 @@ export async function seedOssHub(
   );
   await upsertTracked(
     stats,
-    'GithubRepository',
+    'Repo',
     () =>
-      prisma.githubRepository.findUnique({
-        where: { id: PRACTICE_REPOSITORY_ID },
+      prisma.repo.findUnique({
+        where: { githubRepoId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID },
       }),
-    () =>
-      prisma.githubRepository.upsert({
-        where: { id: PRACTICE_REPOSITORY_ID },
-        update: {
-          githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
-          visibility: RepositoryVisibility.PUBLIC,
-        },
-        create: {
-          id: PRACTICE_REPOSITORY_ID,
-          teamId: PRACTICE_APPLICATION_ID,
-          githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
-          nameWithOwner: OSS_HUB_PRACTICE_NAME_WITH_OWNER,
-          source: RepositorySource.ORG_PROVISIONED,
-          visibility: RepositoryVisibility.PUBLIC,
-          publishedAt: OSS_HUB_PRACTICE_CREATED_AT,
-        },
-      }),
-  );
-  await new RepoLedgerRepository().link(
-    prisma,
-    OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+    async () => {
+      const ledger = new RepoLedgerRepository();
+      await ledger.claim(prisma, {
+        teamId: PRACTICE_APPLICATION_ID,
+        githubRepositoryId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+        nameWithOwner: OSS_HUB_PRACTICE_NAME_WITH_OWNER,
+        source: RepositorySource.ORG_PROVISIONED,
+        visibility: RepositoryVisibility.PRIVATE,
+      });
+      await ledger.publish(
+        prisma,
+        OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+        OSS_HUB_PRACTICE_CREATED_AT,
+      );
+    },
   );
   await upsertTracked(
     stats,
@@ -745,14 +741,18 @@ export async function seedOssHub(
       prisma.repositoryProvisionJob.findUnique({
         where: { id: PRACTICE_PROVISION_JOB_ID },
       }),
-    () =>
+    async () =>
       prisma.repositoryProvisionJob.upsert({
         where: { id: PRACTICE_PROVISION_JOB_ID },
         update: { status: RepositoryProvisionJobStatus.SUCCEEDED },
         create: {
           id: PRACTICE_PROVISION_JOB_ID,
           teamId: PRACTICE_APPLICATION_ID,
-          repositoryId: PRACTICE_REPOSITORY_ID,
+          repositoryId: await new RepoLedgerRepository().rowId(
+            prisma,
+            OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
+          ),
+          repoId: OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
           status: RepositoryProvisionJobStatus.SUCCEEDED,
           nextAttemptAt: OSS_HUB_PRACTICE_CREATED_AT,
           startedAt: OSS_HUB_PRACTICE_CREATED_AT,

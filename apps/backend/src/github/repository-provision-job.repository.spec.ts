@@ -9,7 +9,7 @@ const REQUEST_ID = 'synthetic-request-r1';
 type RawRow = {
   readonly teamId: string;
   readonly currentEventId: string | null;
-  readonly repositoryId: string | null;
+  readonly repoId: bigint | null;
   readonly status: RepositoryProvisionJobStatus;
   readonly lockedBy: string | null;
 };
@@ -24,7 +24,7 @@ function row(overrides: Partial<RawRow> = {}): RawRow {
   return {
     teamId: 'synthetic-application',
     currentEventId: REQUEST_ID,
-    repositoryId: 'synthetic-repository',
+    repoId: 77n,
     status: RepositoryProvisionJobStatus.PROCESSING,
     lockedBy: WORKER_ID,
     ...overrides,
@@ -42,7 +42,7 @@ describe('assertCurrentRequest', () => {
       ),
     ).resolves.toEqual({
       teamId: 'synthetic-application',
-      repositoryId: 'synthetic-repository',
+      repoId: 77n,
     });
   });
 

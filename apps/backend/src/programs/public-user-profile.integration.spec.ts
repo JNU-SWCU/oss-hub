@@ -11,6 +11,10 @@ import {
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedgers,
+} from '../../test/repo-ledger.fixture';
 import { PrismaService } from '../platform/prisma.service';
 import { PublicProjectMetricsRepository } from './public-project-metrics.repository';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
@@ -56,6 +60,13 @@ const OWNER_ID = `${PREFIX}-owner`;
 const OWNER_GITHUB_ID = 8_800_000_000_001n;
 const OTHER_CONTRIBUTOR_GITHUB_ID = 8_800_000_000_002n;
 const repoKeys = ['a', 'b', 'c', 'd', 'e'] as const;
+const githubRepositoryIdByKey: Record<(typeof repoKeys)[number], bigint> = {
+  a: 8_900_000_000_001n,
+  b: 8_900_000_000_002n,
+  c: 8_900_000_000_003n,
+  d: 8_900_000_000_004n,
+  e: 8_900_000_000_005n,
+};
 const PUBLISHED_AT = new Date('2026-06-01T00:00:00.000Z');
 
 describe('PublicProjectsService.findProfile integration', () => {
@@ -124,13 +135,6 @@ describe('PublicProjectsService.findProfile integration', () => {
         userId: key === 'c' ? `${PREFIX}-applicant-c` : OWNER_ID,
       })),
     });
-    const githubRepositoryIdByKey: Record<(typeof repoKeys)[number], bigint> = {
-      a: 8_900_000_000_001n,
-      b: 8_900_000_000_002n,
-      c: 8_900_000_000_003n,
-      d: 8_900_000_000_004n,
-      e: 8_900_000_000_005n,
-    };
 
     const observedKeys = ['a', 'b', 'd'] as const;
     const preSweepKeys = ['e'] as const;
@@ -161,6 +165,7 @@ describe('PublicProjectsService.findProfile integration', () => {
             : { presence: CollectionRepositoryPresence.ABSENT }),
       })),
     });
+    await syncGithubRepositoryLedgers(prisma, { id: { startsWith: PREFIX } });
 
     await seedDailyContributions(prisma, githubRepositoryIdByKey.a, [
       {
@@ -200,9 +205,7 @@ describe('PublicProjectsService.findProfile integration', () => {
 
   afterAll(async () => {
     try {
-      await prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: PREFIX } },
-      });
+      await deleteGithubRepositories(prisma, { id: { startsWith: PREFIX } });
       await prisma.teamMember.deleteMany({
         where: { programId: { startsWith: PROGRAM_ID } },
       });
@@ -233,11 +236,11 @@ describe('PublicProjectsService.findProfile integration', () => {
       const byKey = new Map(
         result.projects.map((project) => [project.row.id, project]),
       );
-      const repoA = byKey.get(`${PREFIX}-repository-a`);
-      const repoB = byKey.get(`${PREFIX}-repository-b`);
-      const repoC = byKey.get(`${PREFIX}-repository-c`);
-      const repoD = byKey.get(`${PREFIX}-repository-d`);
-      const repoE = byKey.get(`${PREFIX}-repository-e`);
+      const repoA = byKey.get(githubRepositoryIdByKey.a.toString());
+      const repoB = byKey.get(githubRepositoryIdByKey.b.toString());
+      const repoC = byKey.get(githubRepositoryIdByKey.c.toString());
+      const repoD = byKey.get(githubRepositoryIdByKey.d.toString());
+      const repoE = byKey.get(githubRepositoryIdByKey.e.toString());
 
       expect(repoA?.observed).toBe(true);
       expect(repoA?.hasCollectedData).toBe(true);
@@ -294,7 +297,7 @@ describe('PublicProjectsService.findProfile integration', () => {
     try {
       const result = await service.findProfile(OWNER_ID);
       const repoC = result.projects.find(
-        (project) => project.row.id === `${PREFIX}-repository-c`,
+        (project) => project.row.id === githubRepositoryIdByKey.c.toString(),
       );
 
       expect(repoC?.observed).toBe(false);

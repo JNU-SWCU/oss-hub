@@ -26,6 +26,9 @@ describe('PublicProjectsService.findDetail contributor 합산 (실제 metrics re
       updatedAt,
     });
     const prisma = {
+      repo: {
+        findMany: jest.fn().mockResolvedValue([{ githubRepoId: 101n }]),
+      },
       githubRepository: { findMany: jest.fn().mockResolvedValue([]) },
       $queryRaw: jest
         .fn()
@@ -45,7 +48,7 @@ describe('PublicProjectsService.findDetail contributor 합산 (실제 metrics re
     const service = new PublicProjectsService(
       {
         findById: jest.fn().mockResolvedValue({
-          id: 'synthetic-repository',
+          id: '101',
           projectId: '101',
           githubRepositoryId: 101n,
           nameWithOwner: 'synthetic/repo',
@@ -71,7 +74,7 @@ describe('PublicProjectsService.findDetail contributor 합산 (실제 metrics re
       new RepositoryUrlService(),
     );
 
-    const detail = await service.findDetail('synthetic-repository');
+    const detail = await service.findDetail('101');
 
     expect(detail.contributors).toEqual([
       {

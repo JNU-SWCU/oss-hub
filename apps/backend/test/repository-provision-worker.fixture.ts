@@ -21,7 +21,6 @@ const repositoryProvisionGithubService = new RepositoryProvisionGithubService(
 export const PROVISION_NOW = new Date('2026-07-22T00:00:00.000Z');
 
 export const PROVISION_REPOSITORY: ProvisionedRepository = {
-  id: 'synthetic-repository-id',
   teamId: 'synthetic-application-id',
   githubRepositoryId: 987654321n,
   name: 'synthetic-program-synthetic-student',
@@ -64,7 +63,6 @@ export const OWN_REPOSITORY_URL =
   'https://github.com/synthetic-student/synthetic-own-repo';
 
 export const OWN_PROVISION_REPOSITORY: ProvisionedRepository = {
-  id: 'synthetic-own-repository-id',
   teamId: 'synthetic-application-id',
   githubRepositoryId: 1_111_222_333n,
   name: 'synthetic-own-repo',
@@ -116,7 +114,7 @@ export function jobRepositoryMock(): jest.Mocked<
       id: 'synthetic-job-id',
       teamId: 'synthetic-application-id',
       requestId: 'synthetic-request-id',
-      repositoryId: null,
+      repoId: null,
       attemptCount: 1,
     }),
     claimNextReconciliation: jest.fn().mockResolvedValue(null),

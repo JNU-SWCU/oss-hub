@@ -48,7 +48,7 @@ function applicationRow(
       summary: '지원 동기와 계획',
     },
     isRepositoryPublicationPlanned: true,
-    repository: null,
+    teamRepos: [],
     program: { repositoryProvisioningEnabled: true },
     applicant: { id: 'synthetic-applicant', name: null, nickname: 'applicant' },
     name: '합성 팀',
@@ -278,10 +278,17 @@ describe('ApplicationsRepository.findApplicationForStaff', () => {
       applicationRow({
         status: ApplicationStatus.REJECTED,
         rejectionReason: '예산 항목이 비어 있습니다',
-        repository: {
-          nameWithOwner: 'synthetic-org/team-1',
-          visibility: RepositoryVisibility.PRIVATE,
-        },
+        teamRepos: [
+          {
+            repo: {
+              githubRepoId: 1n,
+              ownerName: 'synthetic-org/team-1',
+              visibility: RepositoryVisibility.PRIVATE,
+              source: 'ORG_PROVISIONED',
+              publishedAt: null,
+            },
+          },
+        ],
       }),
     );
     const { repository } = buildRepository(transaction);

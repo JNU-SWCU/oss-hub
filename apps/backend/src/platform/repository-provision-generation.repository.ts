@@ -7,6 +7,7 @@ import {
   type RepositoryConnectionMode,
 } from '@prisma/client';
 import { InvalidRepositoryProvisionHistoryEventError } from './repository-provision-generation.error';
+import { RepoLedgerRepository } from './repo-ledger.repository';
 
 interface RepositoryProvisionHistoryPayload {
   readonly teamId: string;
@@ -24,14 +25,14 @@ interface LockedProvisionGenerationRow {
 }
 
 interface SynchronousProvisionGenerationRow extends LockedProvisionGenerationRow {
-  readonly repositoryId: string | null;
+  readonly repoId: bigint | null;
   readonly status: RepositoryProvisionJobStatus;
 }
 
 interface RepositoryIssuanceHistoryInput {
   readonly requestId: string;
   readonly teamId: string;
-  readonly repositoryId: string | null;
+  readonly githubRepositoryId: bigint | null;
   readonly source: RepositorySource | null;
   readonly outcome: RepositoryIssuanceOutcome;
   readonly lastErrorCode?: string | null;
@@ -71,7 +72,14 @@ export class RepositoryProvisionGenerationRepository {
         {
           requestId: input.requestId,
           teamId: input.teamId,
-          repositoryId: input.repositoryId,
+          repositoryId:
+            input.githubRepositoryId === null
+              ? null
+              : await new RepoLedgerRepository().rowId(
+                  transaction,
+                  input.githubRepositoryId,
+                ),
+          repoId: input.githubRepositoryId,
           connectionMode: payload.repositoryConnectionMode,
           source: input.source,
           outcome: input.outcome,
@@ -114,7 +122,7 @@ export class RepositoryProvisionGenerationRepository {
         {
           requestId: existing.currentEventId,
           teamId: input.teamId,
-          repositoryId: null,
+          githubRepositoryId: null,
           source: null,
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: input.now,
@@ -141,6 +149,7 @@ export class RepositoryProvisionGenerationRepository {
       data: {
         currentEventId: input.newEventId,
         repositoryId: null,
+        repoId: null,
         status: RepositoryProvisionJobStatus.PENDING,
         nextAttemptAt: input.now,
         attemptCount: 0,
@@ -159,7 +168,7 @@ export class RepositoryProvisionGenerationRepository {
     transaction: Prisma.TransactionClient,
     input: {
       readonly teamId: string;
-      readonly repositoryId: string;
+      readonly githubRepositoryId: bigint;
       readonly now: Date;
     },
     parsePayload: RepositoryProvisionHistoryPayloadParser,
@@ -170,7 +179,7 @@ export class RepositoryProvisionGenerationRepository {
         SELECT
           job."id",
           job."currentEventId",
-          job."repositoryId",
+          job."repo_id" AS "repoId",
           job."status"
         FROM "RepositoryProvisionJob" AS job
         WHERE job."teamId" = ${input.teamId}
@@ -185,7 +194,7 @@ export class RepositoryProvisionGenerationRepository {
         {
           requestId: existing.currentEventId,
           teamId: input.teamId,
-          repositoryId: null,
+          githubRepositoryId: null,
           source: null,
           outcome: RepositoryIssuanceOutcome.SUPERSEDED,
           closedAt: input.now,
@@ -195,25 +204,32 @@ export class RepositoryProvisionGenerationRepository {
     }
     if (
       existing?.currentEventId === null &&
-      existing.repositoryId === input.repositoryId &&
+      existing.repoId === input.githubRepositoryId &&
       existing.status === RepositoryProvisionJobStatus.SUCCEEDED
     ) {
       return;
     }
 
+    const repository = {
+      repositoryId: await new RepoLedgerRepository().rowId(
+        transaction,
+        input.githubRepositoryId,
+      ),
+      repoId: input.githubRepositoryId,
+    };
     await transaction.repositoryProvisionJob.upsert({
       where: { teamId: input.teamId },
       create: {
         teamId: input.teamId,
         currentEventId: null,
-        repositoryId: input.repositoryId,
+        ...repository,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         nextAttemptAt: input.now,
         finishedAt: input.now,
       },
       update: {
         currentEventId: null,
-        repositoryId: input.repositoryId,
+        ...repository,
         status: RepositoryProvisionJobStatus.SUCCEEDED,
         nextAttemptAt: input.now,
         attemptCount: 0,

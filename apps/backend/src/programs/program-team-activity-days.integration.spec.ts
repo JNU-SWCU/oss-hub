@@ -14,7 +14,6 @@ const prisma = new PrismaService();
 const AUTHOR_MATCH = 8_970_000_000_011n;
 const AUTHOR_EVENTS = 8_970_000_000_013n;
 const AUTHOR_BOUNDARY = 8_970_000_000_014n;
-const REPOSITORY_ID = 'synthetic-read-views-repository';
 const GITHUB_REPOSITORY_ID = 8_970_000_100_001n;
 
 describe('team activity contribution days', () => {
@@ -99,14 +98,6 @@ function event(
 }
 
 async function seedRepository(): Promise<void> {
-  await prisma.githubRepository.create({
-    data: {
-      id: REPOSITORY_ID,
-      githubRepositoryId: GITHUB_REPOSITORY_ID,
-      nameWithOwner: 'synthetic/read-views',
-      source: 'ORG_PROVISIONED',
-    },
-  });
   await prisma.repo.create({
     data: {
       githubRepoId: GITHUB_REPOSITORY_ID,
@@ -134,7 +125,6 @@ async function readPoints(
       id: 'synthetic-read-views-application',
       status: 'APPROVED',
       repository: {
-        id: REPOSITORY_ID,
         nameWithOwner: 'synthetic/read-views',
         githubRepositoryId: GITHUB_REPOSITORY_ID,
       },
@@ -154,8 +144,5 @@ async function purge(): Promise<void> {
   });
   await prisma.repo.deleteMany({
     where: { githubRepoId: GITHUB_REPOSITORY_ID },
-  });
-  await prisma.githubRepository.deleteMany({
-    where: { id: REPOSITORY_ID },
   });
 }

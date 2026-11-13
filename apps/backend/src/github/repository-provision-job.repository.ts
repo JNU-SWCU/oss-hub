@@ -222,7 +222,7 @@ export interface ClaimedRepositoryProvisionJob {
   readonly id: string;
   readonly teamId: string;
   readonly requestId: string;
-  readonly repositoryId: string | null;
+  readonly repoId: bigint | null;
   readonly attemptCount: number;
 }
 
@@ -258,18 +258,18 @@ export class RepositoryProvisionJobRepository {
     expectedRequestId: string,
   ): Promise<{
     readonly teamId: string;
-    readonly repositoryId: string | null;
+    readonly repoId: bigint | null;
   }> {
     const rows = await transaction.$queryRaw<
       readonly {
         readonly teamId: string;
         readonly currentEventId: string | null;
-        readonly repositoryId: string | null;
+        readonly repoId: bigint | null;
         readonly status: RepositoryProvisionJobStatus;
         readonly lockedBy: string | null;
       }[]
     >(Prisma.sql`
-    SELECT "teamId", "currentEventId", "repositoryId", "status", "lockedBy"
+    SELECT "teamId", "currentEventId", "repo_id" AS "repoId", "status", "lockedBy"
     FROM "RepositoryProvisionJob"
     WHERE "id" = ${jobId}
     FOR UPDATE
@@ -289,7 +289,7 @@ export class RepositoryProvisionJobRepository {
     }
     return {
       teamId: row.teamId,
-      repositoryId: row.repositoryId,
+      repoId: row.repoId,
     };
   }
 
@@ -341,7 +341,7 @@ export class RepositoryProvisionJobRepository {
         job."id",
         job."teamId",
         job."currentEventId" AS "requestId",
-        job."repositoryId",
+        job."repo_id" AS "repoId",
         job."attemptCount"
     `);
     return jobs[0] ?? null;
@@ -362,10 +362,10 @@ export class RepositoryProvisionJobRepository {
             FROM "Team" AS application
             WHERE application."id" = job."teamId"
           )
-          JOIN "GithubRepository" AS repository ON repository."id" = job."repositoryId"
+          JOIN "repo" AS repository ON repository."github_repo_id" = job."repo_id"
           WHERE job."status" = CAST(${RepositoryProvisionJobStatus.SUCCEEDED} AS "RepositoryProvisionJobStatus")
             AND job."currentEventId" IS NOT NULL
-            AND job."repositoryId" IS NOT NULL
+            AND job."repo_id" IS NOT NULL
             AND job."nextAttemptAt" <= ${input.now}
             AND repository."source" = CAST(${RepositorySource.ORG_PROVISIONED} AS "RepositorySource")
             AND program."repositoryProvisioningEnabled" = TRUE
@@ -386,7 +386,7 @@ export class RepositoryProvisionJobRepository {
           job."id",
           job."teamId",
           job."currentEventId" AS "requestId",
-          job."repositoryId",
+          job."repo_id" AS "repoId",
           job."attemptCount"
       `,
     );

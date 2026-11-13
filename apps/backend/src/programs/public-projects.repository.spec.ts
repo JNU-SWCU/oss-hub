@@ -7,7 +7,7 @@ type FindFirstMock = jest.Mock<Promise<unknown>, [unknown]>;
 type FindUniqueMock = jest.Mock<Promise<unknown>, [unknown]>;
 
 interface MockPrismaClient {
-  githubRepository: { findMany: FindManyMock; findFirst: FindFirstMock };
+  repo: { findMany: FindManyMock; findFirst: FindFirstMock };
   user: { findUnique: FindUniqueMock };
   $queryRaw: jest.Mock;
 }
@@ -19,7 +19,7 @@ function repositoryWith(overrides: {
   queryRaw?: jest.Mock;
 }): { repository: PublicProjectsRepository; prisma: MockPrismaClient } {
   const prisma: MockPrismaClient = {
-    githubRepository: {
+    repo: {
       findMany: overrides.repositoryFindMany ?? jest.fn(),
       findFirst: overrides.repositoryFindFirst ?? jest.fn(),
     },
@@ -37,36 +37,53 @@ function repositoryWith(overrides: {
 }
 
 const PROJECT_ROW_SELECT = {
-  id: true,
-  githubRepositoryId: true,
-  nameWithOwner: true,
+  githubRepoId: true,
+  ownerName: true,
   publishedAt: true,
-  team: {
+  teamRepos: {
+    orderBy: { validFrom: 'desc' },
+    take: 1,
     select: {
-      programId: true,
-      name: true,
-      _count: { select: { members: true } },
-      program: { select: { name: true, trackType: true } },
-      applicant: { select: { nickname: true } },
+      team: {
+        select: {
+          programId: true,
+          name: true,
+          leaderId: true,
+          _count: { select: { members: true } },
+          members: { select: { userId: true } },
+          program: { select: { name: true, trackType: true, lifecycle: true } },
+          applicant: { select: { nickname: true } },
+        },
+      },
     },
   },
 };
 
+const LIVE_TEAM_REPOS = {
+  some: { team: { program: { lifecycle: { not: 'DELETED' } } } },
+};
+
 const RAW_ROW = {
-  id: 'synthetic-repository-1',
-  githubRepositoryId: 9001n,
-  nameWithOwner: 'synthetic-org/synthetic-repo',
+  githubRepoId: 9001n,
+  ownerName: 'synthetic-org/synthetic-repo',
   publishedAt: new Date('2026-07-20T00:00:00.000Z'),
-  team: {
-    programId: 'synthetic-program-1',
-    name: 'synthetic-team',
-    _count: { members: 1 },
-    program: {
-      name: 'synthetic-program',
-      trackType: 'CURRICULAR' as ProgramTrackType,
+  teamRepos: [
+    {
+      team: {
+        programId: 'synthetic-program-1',
+        name: 'synthetic-team',
+        leaderId: 'synthetic-user-1',
+        _count: { members: 1 },
+        members: [{ userId: 'synthetic-user-1' }],
+        program: {
+          name: 'synthetic-program',
+          trackType: 'CURRICULAR' as ProgramTrackType,
+          lifecycle: 'ACTIVE',
+        },
+        applicant: { nickname: 'synthetic-applicant' },
+      },
     },
-    applicant: { nickname: 'synthetic-applicant' },
-  },
+  ],
 };
 
 describe('PublicProjectsRepository', () => {
@@ -80,16 +97,16 @@ describe('PublicProjectsRepository', () => {
       expect(findMany).toHaveBeenCalledWith({
         where: {
           visibility: 'PUBLIC',
+          teamRepos: LIVE_TEAM_REPOS,
           publishedAt: { not: null },
-          team: { program: { lifecycle: { not: 'DELETED' } } },
         },
-        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ publishedAt: 'desc' }, { githubRepoId: 'desc' }],
         take: 21,
         select: PROJECT_ROW_SELECT,
       });
       expect(rows).toEqual([
         {
-          id: 'synthetic-repository-1',
+          id: '9001',
           projectId: '9001',
           githubRepositoryId: 9001n,
           nameWithOwner: 'synthetic-org/synthetic-repo',
@@ -109,7 +126,7 @@ describe('PublicProjectsRepository', () => {
       const { repository } = repositoryWith({ repositoryFindMany: findMany });
       const cursor = {
         publishedAt: new Date('2026-07-20T00:00:00.000Z'),
-        id: 'synthetic-repository-1',
+        id: '9001',
       };
 
       await repository.listPage(cursor, 6);
@@ -118,11 +135,11 @@ describe('PublicProjectsRepository', () => {
         expect.objectContaining({
           where: {
             visibility: 'PUBLIC',
-            team: { program: { lifecycle: { not: 'DELETED' } } },
+            teamRepos: LIVE_TEAM_REPOS,
             publishedAt: { not: null },
             OR: [
               { publishedAt: { lt: cursor.publishedAt } },
-              { publishedAt: cursor.publishedAt, id: { lt: cursor.id } },
+              { publishedAt: cursor.publishedAt, githubRepoId: { lt: 9001n } },
             ],
           },
           take: 6,
@@ -140,7 +157,7 @@ describe('PublicProjectsRepository', () => {
         expect.objectContaining({
           where: {
             visibility: 'PUBLIC',
-            team: { program: { lifecycle: { not: 'DELETED' } } },
+            teamRepos: LIVE_TEAM_REPOS,
             publishedAt: {
               gte: new Date('2025-12-31T15:00:00.000Z'),
               lt: new Date('2026-12-31T15:00:00.000Z'),
@@ -186,9 +203,9 @@ describe('PublicProjectsRepository', () => {
 
       expect(findFirst).toHaveBeenCalledWith({
         where: {
-          githubRepositoryId: 9001n,
+          githubRepoId: 9001n,
           visibility: 'PUBLIC',
-          team: { program: { lifecycle: { not: 'DELETED' } } },
+          teamRepos: LIVE_TEAM_REPOS,
           publishedAt: { not: null },
         },
         select: PROJECT_ROW_SELECT,
@@ -230,16 +247,53 @@ describe('PublicProjectsRepository', () => {
       expect(findMany).toHaveBeenCalledWith({
         where: {
           visibility: 'PUBLIC',
-          team: { program: { lifecycle: { not: 'DELETED' } } },
           publishedAt: { not: null },
-          OR: [
-            { team: { leaderId: 'synthetic-user-1' } },
-            { team: { members: { some: { userId: 'synthetic-user-1' } } } },
-          ],
+          teamRepos: {
+            some: {
+              team: {
+                program: { lifecycle: { not: 'DELETED' } },
+                OR: [
+                  { leaderId: 'synthetic-user-1' },
+                  { members: { some: { userId: 'synthetic-user-1' } } },
+                ],
+              },
+            },
+          },
         },
-        orderBy: [{ publishedAt: 'desc' }, { id: 'desc' }],
+        orderBy: [{ publishedAt: 'desc' }, { githubRepoId: 'desc' }],
         select: PROJECT_ROW_SELECT,
       });
+    });
+  });
+
+  describe('최신 team_repo 기간', () => {
+    it('최신 기간의 팀에 사용자가 없으면 과거 기간 소속만으로는 내보내지 않는다', async () => {
+      const findMany = jest.fn().mockResolvedValue([RAW_ROW]);
+      const { repository } = repositoryWith({ repositoryFindMany: findMany });
+
+      await expect(repository.listForUser('former-member')).resolves.toEqual(
+        [],
+      );
+    });
+
+    it('최신 기간의 팀 프로그램이 삭제됐으면 공개 목록에서 뺀다', async () => {
+      const [link] = RAW_ROW.teamRepos;
+      const findMany = jest.fn().mockResolvedValue([
+        {
+          ...RAW_ROW,
+          teamRepos: [
+            {
+              team: {
+                ...link!.team,
+                program: { ...link!.team.program, lifecycle: 'DELETED' },
+              },
+            },
+          ],
+        },
+      ]);
+      const { repository } = repositoryWith({ repositoryFindMany: findMany });
+
+      await expect(repository.listPage(null, 21)).resolves.toEqual([]);
     });
   });
 

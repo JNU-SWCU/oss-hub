@@ -458,14 +458,10 @@ describe('github ledger shadow copy', () => {
     await copyLedger();
     const teamId = `${PREFIX}team`;
     const replacementAt = new Date('2026-11-02T03:04:05.000Z');
-    const linked = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: REPO_GITHUB_ID },
-      select: { id: true },
-    });
     await prisma.$transaction((tx) =>
       new RepositoryDeletionRepository().deleteRepositoryWithFacts(
         tx,
-        linked.id,
+        REPO_GITHUB_ID,
       ),
     );
     await prisma.githubRepository.create({
@@ -666,8 +662,8 @@ describe('github ledger shadow copy', () => {
       },
     });
 
-    const connected = await prisma.$transaction(async (tx) => {
-      const created = await tx.githubRepository.create({
+    await prisma.$transaction(async (tx) => {
+      await tx.githubRepository.create({
         data: {
           githubRepositoryId: MOVE_REPO_GITHUB_ID,
           nameWithOwner: 'synthetic/connected',
@@ -675,10 +671,8 @@ describe('github ledger shadow copy', () => {
           visibility: 'PUBLIC',
           teamId: archivedTeamId,
         },
-        select: { id: true },
       });
       await ledger.link(tx, MOVE_REPO_GITHUB_ID);
-      return created;
     });
     await collection.refreshRepositoryObservation({
       source: 'ORG_PROVISIONED',
@@ -694,14 +688,10 @@ describe('github ledger shadow copy', () => {
       new Date('2026-11-14T01:00:00.000Z'),
     );
 
-    const replaced = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: REPO_GITHUB_ID },
-      select: { id: true },
-    });
     await prisma.$transaction(async (tx) => {
       await new RepositoryDeletionRepository().deleteRepositoryWithFacts(
         tx,
-        replaced.id,
+        REPO_GITHUB_ID,
       );
       await tx.githubRepository.create({
         data: {
@@ -722,7 +712,7 @@ describe('github ledger shadow copy', () => {
     await prisma.$transaction(async (tx) => {
       await new RepositoryDeletionRepository().deleteRepositoryWithFacts(
         tx,
-        connected.id,
+        MOVE_REPO_GITHUB_ID,
       );
       await new TeamArchiveRepository().run(
         tx,

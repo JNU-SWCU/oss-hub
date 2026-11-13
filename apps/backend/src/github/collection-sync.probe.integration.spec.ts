@@ -1,3 +1,5 @@
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
+import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { ProgramCategory, RepositorySource } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
@@ -174,13 +176,7 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
         source: RepositorySource.ORG_PROVISIONED,
       },
     });
-    await prisma.repo.create({
-      data: {
-        githubRepoId: GITHUB_REPOSITORY_ID,
-        ownerName: NAME_WITH_OWNER,
-        source: RepositorySource.ORG_PROVISIONED,
-      },
-    });
+    await syncGithubRepositoryLedger(prisma, GITHUB_REPOSITORY_ID);
   };
 
   beforeAll(() => prisma.$connect(), 60_000);
@@ -191,15 +187,7 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
   });
 
   afterEach(async () => {
-    await prisma.contributionEvent.deleteMany({
-      where: { repoId: GITHUB_REPOSITORY_ID },
-    });
-    await prisma.repo.deleteMany({
-      where: { githubRepoId: GITHUB_REPOSITORY_ID },
-    });
-    await prisma.githubRepository.deleteMany({
-      where: { githubRepositoryId: GITHUB_REPOSITORY_ID },
-    });
+    await new RepoLedgerRepository().remove(prisma, [GITHUB_REPOSITORY_ID]);
     await prisma.$executeRawUnsafe(
       'DELETE FROM "CollectionSyncLease" WHERE "appId" = $1',
       APP_ID,
@@ -340,6 +328,7 @@ describe('CollectionSyncService — probe/collect (실 DB)', () => {
       where: { id: REPOSITORY_ID },
       data: { teamId: null },
     });
+    await syncGithubRepositoryLedger(prisma, GITHUB_REPOSITORY_ID);
     const client = createClient([]);
 
     await createService(client).run(OWNER_ID);

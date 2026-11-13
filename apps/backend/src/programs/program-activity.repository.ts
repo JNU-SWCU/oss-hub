@@ -2,6 +2,7 @@ import { Inject, Injectable } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { STUDENT_GITHUB_IDS } from './program-activity.config';
 
 export interface ProgramRepositoryLink {
@@ -10,19 +11,20 @@ export interface ProgramRepositoryLink {
 }
 
 export interface ProgramActivitySummaryDataSource {
-  readonly githubRepository: {
+  readonly teamRepo: {
     findMany(args: {
       readonly where: {
+        readonly validTo: null;
         readonly team: { readonly programId: { readonly in: string[] } };
       };
       readonly select: {
         readonly team: { readonly select: { readonly programId: true } };
-        readonly githubRepositoryId: true;
+        readonly repoId: true;
       };
     }): Promise<
       readonly {
-        team: { programId: string } | null;
-        githubRepositoryId: bigint;
+        team: { programId: string };
+        repoId: bigint;
       }[]
     >;
   };
@@ -39,26 +41,21 @@ export class ProgramActivitySummaryRepository {
     programIds: readonly string[],
   ): Promise<readonly ProgramRepositoryLink[]> {
     if (programIds.length === 0) return [];
-    const rows = await this.prisma.githubRepository.findMany({
+    const rows = await this.prisma.teamRepo.findMany({
       where: {
+        validTo: null,
         team: { programId: { in: [...programIds] } },
       },
       select: {
         team: { select: { programId: true } },
-        githubRepositoryId: true,
+        repoId: true,
       },
     });
 
-    return rows.flatMap((row) =>
-      row.team === null
-        ? []
-        : [
-            {
-              programId: row.team.programId,
-              githubRepositoryId: row.githubRepositoryId,
-            },
-          ],
-    );
+    return rows.map((row) => ({
+      programId: row.team.programId,
+      githubRepositoryId: row.repoId,
+    }));
   }
 }
 
@@ -119,12 +116,8 @@ export class ProgramActivityRepository {
         AND: [
           {
             OR: [
-              {
-                repository: {
-                  is: this.platformRepository.linkedRepositoryFilter(),
-                },
-              },
-              { status: 'APPROVED', repository: null },
+              { teamRepos: { some: { validTo: null } } },
+              { status: 'APPROVED', teamRepos: { none: { validTo: null } } },
             ],
           },
           ...(studentUserId
@@ -144,42 +137,34 @@ export class ProgramActivityRepository {
           orderBy: [{ createdAt: 'asc' }, { userId: 'asc' }],
           select: { user: { select: { githubId: true, nickname: true } } },
         },
-        repository: {
-          select: { id: true, githubRepositoryId: true },
+        teamRepos: {
+          where: { validTo: null },
+          take: 1,
+          select: { repoId: true },
         },
       },
     });
-    const summaries = await readRepositorySummaries(
-      this.prisma,
-      applications.flatMap((application) =>
-        application.repository === null ? [] : [application.repository.id],
-      ),
+    const repositoryIds = applications.flatMap((application) =>
+      application.teamRepos.map((link) => link.repoId),
     );
+    const summaries = await readRepositorySummaries(this.prisma, repositoryIds);
     const ledger = await this.prisma.repo.findMany({
-      where: {
-        githubRepoId: {
-          in: applications.flatMap((application) =>
-            application.repository === null
-              ? []
-              : [application.repository.githubRepositoryId],
-          ),
-        },
-      },
+      where: { githubRepoId: { in: repositoryIds } },
       select: { githubRepoId: true, lastSuccessAt: true },
     });
     const lastSuccessAt = new Map(
       ledger.map((row) => [row.githubRepoId, row.lastSuccessAt]),
     );
-    return applications.map((application) => {
-      const repository = application.repository;
-      if (repository === null) return { ...application, repository: null };
-      const summary = summaries.get(repository.id);
+    return applications.map(({ teamRepos, ...application }) => {
+      const repositoryId = teamRepos[0]?.repoId;
+      if (repositoryId === undefined)
+        return { ...application, repository: null };
+      const summary = summaries.get(repositoryId);
       const lastActivityAt = summary?.lastActivityAt ?? null;
       return {
         ...application,
         repository: {
-          lastSuccessAt:
-            lastSuccessAt.get(repository.githubRepositoryId) ?? null,
+          lastSuccessAt: lastSuccessAt.get(repositoryId) ?? null,
           _count: {
             commits: summary?.commitCount ?? 0,
             pullRequests: summary?.pullRequestCount ?? 0,
@@ -200,30 +185,33 @@ export class ProgramActivityRepository {
   ): Promise<readonly ProgramRepositoryActivity[]> {
     if (query.repositoryIds.length === 0) return [];
 
-    const repositories = await this.prisma.githubRepository.findMany({
+    const repositories = await this.prisma.repo.findMany({
       where: {
-        githubRepositoryId: { in: [...query.repositoryIds] },
-        ...this.platformRepository.linkedRepositoryFilter(),
+        githubRepoId: { in: [...query.repositoryIds] },
+        ...this.platformRepository.linkedRepoWhere(),
       },
-      select: {
-        githubRepositoryId: true,
-        updatedAt: true,
-        lastCompleteInventoryObservedAt: true,
-      },
+      select: { githubRepoId: true },
     });
+    const collectionStates = await new RepoLedgerRepository().observations(
+      this.prisma,
+      repositories.map((repository) => repository.githubRepoId),
+    );
     const events = await readContributionEvents(
       this.prisma,
-      repositories.map((repository) => repository.githubRepositoryId),
+      repositories.map((repository) => repository.githubRepoId),
       query.authorGithubId,
     );
-    return repositories.map((repository) => {
+    return repositories.flatMap((repository) => {
+      const collectionState = collectionStates.get(repository.githubRepoId);
+      if (collectionState === undefined) return [];
       const matched = events.filter(
-        (event) => event.repositoryId === repository.githubRepositoryId,
+        (event) => event.repositoryId === repository.githubRepoId,
       );
       return {
-        repositoryId: repository.githubRepositoryId,
+        repositoryId: repository.githubRepoId,
         dataAsOf:
-          repository.lastCompleteInventoryObservedAt ?? repository.updatedAt,
+          collectionState.lastCompleteInventoryObservedAt ??
+          collectionState.updatedAt,
         commitDates: datesFor(matched, 'commit'),
         pullRequestDates: datesFor(matched, 'pull_request'),
         releaseDates: datesFor(matched, 'release'),
@@ -236,7 +224,7 @@ export class ProgramActivityRepository {
 type ContributionKind = 'commit' | 'pull_request' | 'release' | 'issue';
 
 interface AuthorContributionRow {
-  readonly repositoryId: string;
+  readonly repositoryId: bigint;
   readonly githubId: bigint;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -266,48 +254,44 @@ const isCount = (value: unknown): value is number => Number.isInteger(value);
 
 const readRepositorySummaries = async (
   prisma: PrismaService,
-  repositoryIds: readonly string[],
-): Promise<ReadonlyMap<string, RepositorySummary>> => {
+  repositoryIds: readonly bigint[],
+): Promise<ReadonlyMap<bigint, RepositorySummary>> => {
   if (repositoryIds.length === 0) return new Map();
   const rows = await prisma.$queryRaw<readonly AuthorContributionRow[]>`
     SELECT
-      repository.id AS "repositoryId",
+      event.repo_id AS "repositoryId",
       event.author_github_id AS "githubId",
       COUNT(*) FILTER (WHERE event.kind = 'commit')::int AS "commitCount",
       COUNT(*) FILTER (WHERE event.kind = 'pull_request')::int AS "pullRequestCount",
       COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount"
     FROM "contribution" AS event
-    JOIN "GithubRepository" AS repository
-      ON repository."githubRepositoryId" = event.repo_id
-    WHERE repository.id IN (${Prisma.join(repositoryIds)})
+    WHERE event.repo_id IN (${Prisma.join(repositoryIds)})
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
-    GROUP BY repository.id, event.author_github_id
+    GROUP BY event.repo_id, event.author_github_id
   `;
   const latest = await prisma.$queryRaw<
     readonly {
-      readonly repositoryId: string;
+      readonly repositoryId: bigint;
       readonly occurredAt: Date | null;
     }[]
   >`
     SELECT
-      repository.id AS "repositoryId",
+      event.repo_id AS "repositoryId",
       MAX(event.occurred_at) AS "occurredAt"
     FROM "contribution" AS event
-    JOIN "GithubRepository" AS repository
-      ON repository."githubRepositoryId" = event.repo_id
-    WHERE repository.id IN (${Prisma.join(repositoryIds)})
+    WHERE event.repo_id IN (${Prisma.join(repositoryIds)})
       AND event.kind IN (
         'commit'::"contribution_kind",
         'pull_request'::"contribution_kind",
         'release'::"contribution_kind"
       )
       AND event.author_github_id IN (${Prisma.raw(STUDENT_GITHUB_IDS)})
-    GROUP BY repository.id
+    GROUP BY event.repo_id
   `;
   const lastByRepository = new Map(
     latest.map((row) => [row.repositoryId, row.occurredAt]),
   );
-  const summaries = new Map<string, RepositorySummary>();
+  const summaries = new Map<bigint, RepositorySummary>();
   for (const row of rows) {
     if (
       typeof row.githubId !== 'bigint' ||

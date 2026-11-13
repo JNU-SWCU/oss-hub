@@ -2,6 +2,7 @@ import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { RepositoryProvisionGenerationRepository } from '../platform/repository-provision-generation.repository';
 import { randomUUID } from 'node:crypto';
 import {
@@ -70,6 +71,7 @@ const service = new SubmissionsService(
   new FileMetadataRepository(),
 );
 const publicProjects = new PublicProjectsRepository(prisma);
+const ledger = new RepoLedgerRepository();
 const PROGRAM_ID = seedId('milestones', 'program');
 const REPOSITORIES_PROGRAM_ID = seedId('repositories', 'program');
 const REVIEWER_ID = seedId('milestones', 'user', 'reviewer');
@@ -85,7 +87,6 @@ const CHANGES_REQUESTED_SUBMISSION_ID = seedId(
   'submission',
 );
 async function createFreshPrivateRepository(): Promise<{
-  readonly repositoryId: string;
   readonly githubRepositoryId: bigint;
   readonly nameWithOwner: string;
   readonly name: string;
@@ -133,35 +134,32 @@ async function createFreshPrivateRepository(): Promise<{
       processedAt: new Date(),
     },
   });
-  const repositoryId = seedId('repositories', scenarioId, 'repository');
   const githubRepositoryId = seedRepositoryId(scenarioId);
   const nameWithOwner = seedNameWithOwner(scenarioId);
   const name =
     repositoryUrlService.repositoryNameFromNameWithOwner(nameWithOwner);
   const url =
     repositoryUrlService.repositoryUrlFromNameWithOwner(nameWithOwner);
-  await prisma.githubRepository.create({
-    data: {
-      id: repositoryId,
-      teamId,
-      githubRepositoryId,
-      nameWithOwner,
-      source: RepositorySource.ORG_PROVISIONED,
-      visibility: RepositoryVisibility.PRIVATE,
-    },
+  await ledger.claim(prisma, {
+    teamId,
+    githubRepositoryId,
+    nameWithOwner,
+    source: RepositorySource.ORG_PROVISIONED,
+    visibility: RepositoryVisibility.PRIVATE,
   });
   await prisma.repositoryProvisionJob.create({
     data: {
       id: seedId('repositories', scenarioId, 'job'),
       teamId,
-      repositoryId,
+      repositoryId: await ledger.rowId(prisma, githubRepositoryId),
+      repoId: githubRepositoryId,
       status: RepositoryProvisionJobStatus.SUCCEEDED,
       nextAttemptAt: new Date(),
       startedAt: new Date(),
       finishedAt: new Date(),
     },
   });
-  return { repositoryId, githubRepositoryId, nameWithOwner, name, url };
+  return { githubRepositoryId, nameWithOwner, name, url };
 }
 describe('SubmissionReviewsService integration', () => {
   beforeAll(async () => {
@@ -274,26 +272,27 @@ describe('SubmissionReviewsService integration', () => {
   });
   it('provision 성공 seed 저장소를 공개하고 DB 상태를 갱신하며 정확히 1건의 typed audit을 남긴다', async () => {
     const scenarioId = 'repo-job-succeeded';
-    const repositoryId = seedId('repositories', scenarioId, 'repository');
-    const repository = await prisma.githubRepository.findUniqueOrThrow({
-      where: { id: repositoryId },
+    const githubRepositoryId = seedRepositoryId(scenarioId);
+    const repositoryId = githubRepositoryId.toString();
+    const repository = await prisma.repo.findUniqueOrThrow({
+      where: { githubRepoId: githubRepositoryId },
     });
     const repositoryName = repositoryUrlService.repositoryNameFromNameWithOwner(
-      repository.nameWithOwner,
+      repository.ownerName,
     );
     github.publishRepository.mockResolvedValue({
-      githubRepositoryId: repository.githubRepositoryId,
-      nameWithOwner: repository.nameWithOwner,
+      githubRepositoryId,
+      nameWithOwner: repository.ownerName,
       name: repositoryName,
       url: repositoryUrlService.repositoryUrlFromNameWithOwner(
-        repository.nameWithOwner,
+        repository.ownerName,
       ),
       visibility: RepositoryVisibility.PUBLIC,
       description: null,
     });
     await service.publishRepository(repositoryId, REVIEWER_GITHUB_ID);
-    const published = await prisma.githubRepository.findUniqueOrThrow({
-      where: { id: repositoryId },
+    const published = await prisma.repo.findUniqueOrThrow({
+      where: { githubRepoId: githubRepositoryId },
     });
     expect(published.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(published.publishedAt).toBeInstanceOf(Date);
@@ -305,18 +304,12 @@ describe('SubmissionReviewsService integration', () => {
       },
     });
     expect(historyRows).toHaveLength(1);
-    const publicRow = await publicProjects.findById(
-      repository.githubRepositoryId.toString(),
-    );
+    const publicRow = await publicProjects.findById(repositoryId);
     expect(publicRow).not.toBeNull();
     expect(publicRow?.publishedAt).toEqual(published.publishedAt);
   });
   it('provision job이 없는 repository-ready seed는 공개를 막고 GitHub를 호출하지 않으며 이력도 남기지 않는다', async () => {
-    const repositoryId = seedId(
-      'repositories',
-      'repository-ready',
-      'repository',
-    );
+    const repositoryId = seedRepositoryId('repository-ready').toString();
     await expect(
       service.publishRepository(repositoryId, REVIEWER_GITHUB_ID),
     ).rejects.toMatchObject({
@@ -333,19 +326,17 @@ describe('SubmissionReviewsService integration', () => {
   });
   it('이미 public인 seed 저장소는 반복 요청에도 외부 호출 없이 수렴한다', async () => {
     const target = await createFreshPrivateRepository();
-    await prisma.githubRepository.update({
-      where: { id: target.repositoryId },
-      data: {
-        visibility: RepositoryVisibility.PUBLIC,
-        publishedAt: new Date('2026-07-01T00:00:00.000Z'),
-      },
-    });
+    await ledger.publish(
+      prisma,
+      target.githubRepositoryId,
+      new Date('2026-07-01T00:00:00.000Z'),
+    );
     const first = await service.publishRepository(
-      target.repositoryId,
+      target.githubRepositoryId.toString(),
       REVIEWER_GITHUB_ID,
     );
     const second = await service.publishRepository(
-      target.repositoryId,
+      target.githubRepositoryId.toString(),
       REVIEWER_GITHUB_ID,
     );
     expect(first.visibility).toBe(RepositoryVisibility.PUBLIC);
@@ -378,12 +369,12 @@ describe('SubmissionReviewsService integration', () => {
     expect(beforePublish).toBeNull();
     const [first, second] = await Promise.all([
       concurrentRepositories.publish(
-        { repositoryId: target.repositoryId },
+        { githubRepositoryId: target.githubRepositoryId },
         REVIEWER_GITHUB_ID,
         publishedAt,
       ),
       concurrentRepositories.publish(
-        { repositoryId: target.repositoryId },
+        { githubRepositoryId: target.githubRepositoryId },
         REVIEWER_GITHUB_ID,
         publishedAt,
       ),
@@ -392,15 +383,18 @@ describe('SubmissionReviewsService integration', () => {
     expect(second.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(first.publishedAt).toEqual(publishedAt);
     expect(second.publishedAt).toEqual(publishedAt);
-    const finalRepository = await prisma.githubRepository.findUniqueOrThrow({
-      where: { id: target.repositoryId },
+    const finalRepository = await prisma.repo.findUniqueOrThrow({
+      where: { githubRepoId: target.githubRepositoryId },
     });
     expect(finalRepository.visibility).toBe(RepositoryVisibility.PUBLIC);
     expect(finalRepository.publishedAt).toEqual(publishedAt);
     const historyRows = await prisma.teamHistory.findMany({
       where: {
         event: TeamHistoryEvent.REPOSITORY_PUBLISHED,
-        data: { path: ['targetId'], equals: target.repositoryId },
+        data: {
+          path: ['targetId'],
+          equals: target.githubRepositoryId.toString(),
+        },
       },
     });
     expect(historyRows).toHaveLength(1);

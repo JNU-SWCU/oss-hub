@@ -96,7 +96,7 @@ describe('TeamMembershipService.getForStaff', () => {
             repository: null,
             updatedAt: new Date('2026-08-09T00:00:00Z'),
             job: {
-              repositoryId: null,
+              repoId: null,
               status,
               updatedAt: new Date('2026-08-09T00:00:00Z'),
               lastErrorCode: 'GITHUB_OPERATIONS_RATE_LIMITED',
@@ -167,7 +167,7 @@ describe('TeamMembershipService.getForStaff', () => {
           updatedAt: new Date('2026-08-01T00:00:00.000Z'),
           isRepositoryPublicationPlanned: true,
           repository: {
-            id: 'repository-1',
+            githubRepositoryId: 1n,
             nameWithOwner: 'org/repo',
             visibility: 'PUBLIC',
           },
@@ -182,7 +182,7 @@ describe('TeamMembershipService.getForStaff', () => {
             status: 'SUCCEEDED',
             updatedAt: new Date('2026-08-01T00:00:00.000Z'),
             lastErrorCode: null,
-            repositoryId: 'repository-1',
+            repoId: 1n,
           },
         },
       },
@@ -195,7 +195,7 @@ describe('TeamMembershipService.getForStaff', () => {
       status: 'APPROVED',
       repositoryConnectionMode: 'OWN',
       repository: {
-        id: 'repository-1',
+        id: '1',
         url: 'https://github.com/org/repo',
         visibility: 'PUBLIC',
         publishEligible: true,
@@ -343,7 +343,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
               updatedAt: new Date('2026-08-01'),
               repositoryConnectionMode: 'NEW',
               isRepositoryPublicationPlanned: false,
-              repository: null,
+              teamRepos: [],
               program: {
                 endAt: new Date('2099-01-01'),
                 repositoryProvisioningEnabled: false,
@@ -435,12 +435,15 @@ describe('TeamRepository.findStaffTeamDetail', () => {
         updatedAt: new Date('2026-08-12T00:00:00.000Z'),
         repositoryConnectionMode: 'NEW',
         isRepositoryPublicationPlanned: true,
-        repository: {
-          id: 'repository-1',
-          nameWithOwner: 'org/repo',
-          visibility: 'PRIVATE',
-          githubRepositoryId: 7001n,
-        },
+        teamRepos: [
+          {
+            repo: {
+              githubRepoId: 1n,
+              ownerName: 'org/repo',
+              visibility: 'PRIVATE',
+            },
+          },
+        ],
         program: {
           repositoryProvisioningEnabled: true,
           startAt: new Date('2026-08-01T00:00:00.000Z'),
@@ -464,7 +467,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
         status: 'SUCCEEDED',
         updatedAt: new Date('2026-08-12T01:00:00.000Z'),
         lastErrorCode: null,
-        repositoryId: 'repository-1',
+        repoId: 1n,
       },
     });
 
@@ -488,7 +491,7 @@ describe('TeamRepository.findStaffTeamDetail', () => {
         ),
       )['toTeamApplicationView'](result!.application!).repository,
     ).toMatchObject({
-      id: 'repository-1',
+      id: '1',
       publishEligible: true,
       blockedReasons: [],
     });

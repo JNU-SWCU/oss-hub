@@ -562,7 +562,7 @@ export class CollectionSyncService {
         await repo.assertSyncLeaseValid(lease, this.now());
         for (const kind of CONTRIBUTION_KINDS) {
           const recorded = await repo.recordContributions(
-            repository.id,
+            repository.githubRepositoryId,
             kind,
             result.contributions[kind],
           );

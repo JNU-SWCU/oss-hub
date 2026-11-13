@@ -161,12 +161,13 @@ export class AuditLogReadRepository {
           CASE event."targetType"
             WHEN 'PROGRAM' THEN program."name"
             WHEN 'APPLICATION' THEN program."name"
-            WHEN 'REPOSITORY' THEN repository."nameWithOwner" END AS "joinedTarget"
+            WHEN 'REPOSITORY' THEN repo."owner_name" END AS "joinedTarget"
         FROM events event
         LEFT JOIN "User" actor ON actor."id" = event."actorId"
         LEFT JOIN "Program" program ON program."id" = event."programId"
-        LEFT JOIN "GithubRepository" repository
-          ON event."targetType" = 'REPOSITORY' AND repository."id" = event."targetId"
+        LEFT JOIN "repo" repo
+          ON event."targetType" = 'REPOSITORY'
+          AND repo."github_repo_id"::text = event."targetId"
         ${where}
       )
       SELECT totals."total", page.*

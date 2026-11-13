@@ -226,7 +226,12 @@ export class SubmissionsService {
     if (current === undefined) {
       throw new SubmissionRevisionInvariantError();
     }
-    const repository = row.team.repository;
+    const repo = row.team.teamRepos[0]?.repo;
+    const repository = repo && {
+      githubRepositoryId: repo.githubRepoId,
+      nameWithOwner: repo.ownerName,
+      visibility: repo.visibility,
+    };
     const blockedReasons = repository
       ? this.repositoryPublishService.publishBlockedReasons(
           this.toPublishEligibility(row.team, repository),
@@ -277,7 +282,7 @@ export class SubmissionsService {
         })),
       repository: repository
         ? {
-            id: repository.id,
+            id: repository.githubRepositoryId.toString(),
             url: this.repositoryUrlService.repositoryUrlFromNameWithOwner(
               repository.nameWithOwner,
             ),
@@ -291,7 +296,7 @@ export class SubmissionsService {
   private toPublishEligibility(
     application: PublishEligibilitySource,
     repository: {
-      readonly id: string;
+      readonly githubRepositoryId: bigint;
       readonly visibility: RepositoryVisibility;
     },
   ): Omit<RepositoryPublishEligibility, 'repositoryId'> {
@@ -302,7 +307,8 @@ export class SubmissionsService {
     const job = application.provisionJob;
     return {
       visibility: repository.visibility,
-      provisionStatus: job?.repositoryId === repository.id ? job.status : null,
+      provisionStatus:
+        job?.repoId === repository.githubRepositoryId ? job.status : null,
       requiredMilestonesApproved:
         this.milestoneCompletionService.requiredMilestonesApproved(
           application.program.milestones,
@@ -401,8 +407,13 @@ export class SubmissionsService {
     actorGithubId: bigint,
     publishedAt = new Date(),
   ): Promise<RepositoryPublishResult> {
+    const githubRepositoryId = /^[1-9][0-9]*$/.test(repositoryId)
+      ? BigInt(repositoryId)
+      : null;
     const eligibilityRow =
-      await this.repository.findPublishEligibility(repositoryId);
+      githubRepositoryId === null
+        ? null
+        : await this.repository.findPublishEligibility(githubRepositoryId);
     if (eligibilityRow === null) {
       throw new DomainException(
         SUBMISSION_REVIEWS_ERROR_CODES[
@@ -424,7 +435,7 @@ export class SubmissionsService {
     let published: Awaited<ReturnType<RepositoriesService['publish']>>;
     try {
       published = await this.repositories.publish(
-        { repositoryId },
+        { githubRepositoryId: eligibilityRow.githubRepositoryId },
         actorGithubId,
         publishedAt,
       );
@@ -459,7 +470,7 @@ export class SubmissionsService {
       );
     }
     return {
-      repositoryId: published.id,
+      repositoryId: published.githubRepositoryId.toString(),
       visibility: published.visibility,
       publishedAt: published.publishedAt,
     };

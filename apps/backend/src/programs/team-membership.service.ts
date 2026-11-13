@@ -457,7 +457,7 @@ export class TeamMembershipService {
           {
             visibility: repository.visibility,
             provisionStatus:
-              job?.repositoryId === repository.id ? job.status : null,
+              job?.repoId === repository.githubRepositoryId ? job.status : null,
             requiredMilestonesApproved:
               this.milestoneCompletionService.requiredMilestonesApproved(
                 row.program.milestones,
@@ -482,7 +482,7 @@ export class TeamMembershipService {
       repository:
         repository && repositoryUrl
           ? {
-              id: repository.id,
+              id: repository.githubRepositoryId.toString(),
               url: repositoryUrl,
               visibility: repository.visibility,
               publishEligible: blockedReasons.length === 0,
@@ -492,7 +492,7 @@ export class TeamMembershipService {
       repositoryProvisioning:
         repository &&
         row.repositoryConnectionMode === RepositoryConnectionMode.OWN &&
-        job?.repositoryId === repository.id &&
+        job?.repoId === repository.githubRepositoryId &&
         job.status === RepositoryProvisionJobStatus.SUCCEEDED
           ? {
               enabled: row.program.repositoryProvisioningEnabled,

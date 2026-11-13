@@ -35,7 +35,7 @@ export type RepositoryProvisionResult =
   | {
       readonly kind: 'SUCCEEDED';
       readonly jobId: string;
-      readonly repositoryId: string;
+      readonly githubRepositoryId: bigint;
     }
   | {
       readonly kind: 'FAILED_RETRYABLE' | 'FAILED_FINAL';
@@ -160,14 +160,14 @@ export class RepositoryProvisionWorkerService {
           job.id,
           workerId,
           job.requestId,
-          repository.id,
+          repository.githubRepositoryId,
           completedAt,
         );
         this.logResult(context, job.id, job.attemptCount, 'SUCCEEDED');
         return {
           kind: 'SUCCEEDED',
           jobId: job.id,
-          repositoryId: repository.id,
+          githubRepositoryId: repository.githubRepositoryId,
         };
       }
 
@@ -175,14 +175,14 @@ export class RepositoryProvisionWorkerService {
         job.id,
         workerId,
         job.requestId,
-        repository.id,
+        repository.githubRepositoryId,
         context.currentMemberGithubLogins,
       );
       const invitations = await this.state.findInvitationWork(
         job.id,
         workerId,
         job.requestId,
-        repository.id,
+        repository.githubRepositoryId,
       );
       await this.processInvitations(
         invitations,
@@ -199,7 +199,7 @@ export class RepositoryProvisionWorkerService {
         job.id,
         workerId,
         job.requestId,
-        repository.id,
+        repository.githubRepositoryId,
         completedAt,
         new Date(
           completedAt.getTime() +
@@ -208,7 +208,11 @@ export class RepositoryProvisionWorkerService {
         context.membershipFingerprint,
       );
       this.logResult(context, job.id, job.attemptCount, 'SUCCEEDED');
-      return { kind: 'SUCCEEDED', jobId: job.id, repositoryId: repository.id };
+      return {
+        kind: 'SUCCEEDED',
+        jobId: job.id,
+        githubRepositoryId: repository.githubRepositoryId,
+      };
     } catch (error) {
       if (error instanceof RepositoryProvisionSupersededError) {
         const supersededAt = now();
@@ -328,7 +332,6 @@ export class RepositoryProvisionWorkerService {
     if (
       current === null ||
       reloaded.currentRepositorySource === null ||
-      current.id !== recorded.id ||
       current.githubRepositoryId !== recorded.githubRepositoryId ||
       current.teamId !== claimed.teamId
     ) {
@@ -421,7 +424,7 @@ export class RepositoryProvisionWorkerService {
           workerId,
           requestId,
           invitationId: invitation.id,
-          repositoryId: repository.id,
+          githubRepositoryId: repository.githubRepositoryId,
           expectedStatus: invitation.status,
           status: RepositoryInvitationStatus.REVOKED,
           now: now(),
@@ -464,7 +467,7 @@ export class RepositoryProvisionWorkerService {
           workerId,
           requestId,
           invitationId: invitation.id,
-          repositoryId: repository.id,
+          githubRepositoryId: repository.githubRepositoryId,
           expectedStatus: invitation.status,
           status:
             outcome === COLLABORATOR_OUTCOMES.SUCCEEDED
@@ -510,7 +513,7 @@ export class RepositoryProvisionWorkerService {
       workerId,
       requestId,
       invitationId: invitation.id,
-      repositoryId: repository.id,
+      githubRepositoryId: repository.githubRepositoryId,
       expectedStatus: invitation.status,
       intent: invitation.intent,
       final: !failure.retryable || attemptCount >= this.options.maxAttempts,

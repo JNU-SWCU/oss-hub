@@ -11,6 +11,10 @@ import {
 import { MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+} from '../../test/repo-ledger.fixture';
 import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { RepositoryProvisionLeaseLostError } from './repository-provision-state.error';
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
@@ -46,6 +50,12 @@ function repositoryIdFor(teamId: string): string {
   return `${teamId}-repository`;
 }
 
+function githubRepositoryIdFor(teamId: string): bigint {
+  return BigInt(
+    8300000000000 + APPLICATION_IDS.findIndex((id) => id === teamId),
+  );
+}
+
 function requestIdFor(teamId: string): string {
   return `${teamId}-provision-event`;
 }
@@ -74,8 +84,9 @@ describe('RepositoryProvisionJobRepository integration', () => {
     await prisma.repositoryInvitation.deleteMany({
       where: { repository: { teamId: { in: [...APPLICATION_IDS] } } },
     });
-    await prisma.githubRepository.deleteMany({
-      where: {
+    await deleteGithubRepositories(
+      prisma,
+      {
         OR: [
           {
             id: {
@@ -88,7 +99,8 @@ describe('RepositoryProvisionJobRepository integration', () => {
           { teamId: { in: [...APPLICATION_IDS] } },
         ],
       },
-    });
+      APPLICATION_IDS,
+    );
     await prisma.outboxEvent.deleteMany({
       where: { id: { in: APPLICATION_IDS.map(requestIdFor) } },
     });
@@ -203,12 +215,15 @@ describe('RepositoryProvisionJobRepository integration', () => {
         githubRepositoryId: 8133900001n,
         nameWithOwner: 'synthetic/relinked',
         source: 'ORG_PROVISIONED',
-        invitations: { create: { githubLogin: 'synthetic-invitee' } },
+        invitations: {
+          create: { githubLogin: 'synthetic-invitee', repoId: 8133900001n },
+        },
       },
     });
+    await syncGithubRepositoryLedger(prisma, current.githubRepositoryId);
     await prisma.repositoryProvisionJob.update({
       where: { teamId },
-      data: { repositoryId: current.id },
+      data: { repositoryId: current.id, repoId: current.githubRepositoryId },
     });
     await expect(
       repository.claimNextReconciliation({
@@ -218,7 +233,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       }),
     ).resolves.toMatchObject({
       teamId,
-      repositoryId: current.id,
+      repoId: current.githubRepositoryId,
     });
   });
 
@@ -422,7 +437,7 @@ describe('RepositoryProvisionJobRepository integration', () => {
       }),
     ).resolves.toMatchObject({
       teamId,
-      repositoryId: repositoryIdFor(teamId),
+      repoId: githubRepositoryIdFor(teamId),
     });
   });
 
@@ -565,9 +580,7 @@ async function createJob(
   await prisma.githubRepository.create({
     data: {
       id: repositoryId,
-      githubRepositoryId: BigInt(
-        8300000000000 + APPLICATION_IDS.findIndex((id) => id === teamId),
-      ),
+      githubRepositoryId: githubRepositoryIdFor(teamId),
       nameWithOwner: `synthetic-org/${teamId}`,
       source:
         options.source ??
@@ -577,8 +590,9 @@ async function createJob(
       teamId,
     },
   });
+  await syncGithubRepositoryLedger(prisma, githubRepositoryIdFor(teamId));
   await prisma.repositoryProvisionJob.update({
     where: { teamId },
-    data: { repositoryId },
+    data: { repositoryId, repoId: githubRepositoryIdFor(teamId) },
   });
 }

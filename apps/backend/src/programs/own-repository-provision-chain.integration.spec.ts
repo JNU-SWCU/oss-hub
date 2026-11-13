@@ -1,4 +1,7 @@
-import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
+import {
+  deleteGithubRepositories,
+  syncGithubRepositoryLedger,
+} from '../../test/repo-ledger.fixture';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -948,6 +951,7 @@ async function createOwnApplication(
         presence: 'PRESENT',
       },
     });
+    await syncGithubRepositoryLedger(prisma, repository.githubRepositoryId);
   }
 }
 

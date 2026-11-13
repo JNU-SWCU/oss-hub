@@ -119,7 +119,7 @@ describe('RepositoryProvisionWorkerService success', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: PROVISION_REPOSITORY.id,
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
     });
     expect(
       state.recordRepository.mock.invocationCallOrder[0] ?? 0,
@@ -140,7 +140,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       'synthetic-job-id',
       'worker-a',
       'synthetic-request-id',
-      PROVISION_REPOSITORY.id,
+      PROVISION_REPOSITORY.githubRepositoryId,
       [...CURRENT_MEMBER_GITHUB_LOGINS],
     ]);
     expect(
@@ -155,7 +155,7 @@ describe('RepositoryProvisionWorkerService success', () => {
         'synthetic-job-id',
         'worker-a',
         'synthetic-request-id',
-        PROVISION_REPOSITORY.id,
+        PROVISION_REPOSITORY.githubRepositoryId,
         PROVISION_NOW,
         new Date(
           PROVISION_NOW.getTime() +
@@ -248,7 +248,7 @@ describe('RepositoryProvisionWorkerService success', () => {
     expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
       requestId: 'synthetic-request-id',
       invitationId: 'synthetic-invitation-left',
-      repositoryId: PROVISION_REPOSITORY.id,
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
       expectedStatus: RepositoryInvitationStatus.REVOKE_REQUIRED,
       status: RepositoryInvitationStatus.REVOKED,
     });
@@ -445,7 +445,6 @@ describe('RepositoryProvisionWorkerService success', () => {
   it('현재 연결 저장소에만 초대를 보내고 이전 저장소의 성공 초대는 쓰지 않는다', async () => {
     const currentRepository = {
       ...PROVISION_REPOSITORY,
-      id: 'synthetic-current-repository-id',
       githubRepositoryId: 222_333_444n,
       name: 'synthetic-current-repo',
     };
@@ -482,14 +481,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: currentRepository.id,
+      githubRepositoryId: currentRepository.githubRepositoryId,
     });
     expect(state.prepareInvitations.mock.calls).toEqual([
       [
         'synthetic-job-id',
         'worker-current-link',
         'synthetic-request-id',
-        currentRepository.id,
+        currentRepository.githubRepositoryId,
         [...CURRENT_MEMBER_GITHUB_LOGINS],
       ],
     ]);
@@ -498,7 +497,7 @@ describe('RepositoryProvisionWorkerService success', () => {
         'synthetic-job-id',
         'worker-current-link',
         'synthetic-request-id',
-        currentRepository.id,
+        currentRepository.githubRepositoryId,
       ],
     ]);
     expect(github.ensureCollaborator.mock.calls).toEqual([
@@ -506,17 +505,19 @@ describe('RepositoryProvisionWorkerService success', () => {
     ]);
     expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
       invitationId: 'synthetic-current-invitation',
-      repositoryId: currentRepository.id,
+      githubRepositoryId: currentRepository.githubRepositoryId,
       status: RepositoryInvitationStatus.SUCCEEDED,
     });
-    expect(state.completeJob.mock.calls[0]?.[3]).toBe(currentRepository.id);
+    expect(state.completeJob.mock.calls[0]?.[3]).toBe(
+      currentRepository.githubRepositoryId,
+    );
     expect(github.createRepository.mock.calls).toHaveLength(0);
   });
 
   it('원래 NEW 이벤트여도 현재 행이 EXTERNAL_PUBLIC이면 관리형 초대를 건너뛴다', async () => {
     const currentRepository = {
       ...OWN_PROVISION_REPOSITORY,
-      id: 'synthetic-external-current-id',
+      githubRepositoryId: 333_444_555n,
     };
     const jobs = jobRepositoryMock();
     const state = provisionStateMock();
@@ -542,7 +543,7 @@ describe('RepositoryProvisionWorkerService success', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: currentRepository.id,
+      githubRepositoryId: currentRepository.githubRepositoryId,
     });
     expect(state.prepareInvitations.mock.calls).toHaveLength(0);
     expect(github.ensureCollaborator.mock.calls).toHaveLength(0);
@@ -554,7 +555,7 @@ describe('RepositoryProvisionWorkerService success', () => {
         'synthetic-job-id',
         'worker-new-external',
         'synthetic-request-id',
-        currentRepository.id,
+        currentRepository.githubRepositoryId,
         PROVISION_NOW,
       ],
     ]);
@@ -563,7 +564,7 @@ describe('RepositoryProvisionWorkerService success', () => {
   it('원래 OWN 이벤트여도 현재 행이 ORG_PROVISIONED이면 현재 저장소에 초대한다', async () => {
     const currentRepository = {
       ...PROVISION_REPOSITORY,
-      id: 'synthetic-managed-current-id',
+      githubRepositoryId: 444_555_666n,
       name: 'synthetic-managed-current',
     };
     const jobs = jobRepositoryMock();
@@ -599,14 +600,14 @@ describe('RepositoryProvisionWorkerService success', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: currentRepository.id,
+      githubRepositoryId: currentRepository.githubRepositoryId,
     });
     expect(state.prepareInvitations.mock.calls).toEqual([
       [
         'synthetic-job-id',
         'worker-own-managed',
         'synthetic-request-id',
-        currentRepository.id,
+        currentRepository.githubRepositoryId,
         [...CURRENT_MEMBER_GITHUB_LOGINS],
       ],
     ]);
@@ -619,7 +620,7 @@ describe('RepositoryProvisionWorkerService success', () => {
         'synthetic-job-id',
         'worker-own-managed',
         'synthetic-request-id',
-        currentRepository.id,
+        currentRepository.githubRepositoryId,
         PROVISION_NOW,
         new Date(
           PROVISION_NOW.getTime() +
@@ -680,7 +681,7 @@ describe('RepositoryProvisionWorkerService success', () => {
       id: 'synthetic-job-id',
       teamId: claimed.teamId,
       requestId: claimed.requestId,
-      repositoryId: null,
+      repoId: null,
       attemptCount: 1,
     });
     state.recordRepository.mockResolvedValue(repository);
@@ -715,7 +716,7 @@ describe('RepositoryProvisionWorkerService success', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: PROVISION_REPOSITORY.id,
+      githubRepositoryId: PROVISION_REPOSITORY.githubRepositoryId,
     });
   });
 });
@@ -775,7 +776,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: provisioned.id,
+      githubRepositoryId: provisioned.githubRepositoryId,
     });
     expect(github.findRepository).toHaveBeenCalledWith(provisioned.name);
     expect(github.findPublicRepository).not.toHaveBeenCalled();
@@ -789,7 +790,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         'synthetic-job-id',
         'worker-org-own',
         'synthetic-request-id',
-        provisioned.id,
+        provisioned.githubRepositoryId,
         [...CURRENT_MEMBER_GITHUB_LOGINS],
       ],
     ]);
@@ -798,7 +799,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     ]);
     expect(state.completeInvitation.mock.calls[0]?.[0]).toMatchObject({
       invitationId: 'synthetic-org-own-invitation',
-      repositoryId: provisioned.id,
+      githubRepositoryId: provisioned.githubRepositoryId,
       status: RepositoryInvitationStatus.PENDING,
     });
     expect(state.completeJob.mock.calls).toEqual([
@@ -806,7 +807,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         'synthetic-job-id',
         'worker-org-own',
         'synthetic-request-id',
-        provisioned.id,
+        provisioned.githubRepositoryId,
         PROVISION_NOW,
         new Date(
           PROVISION_NOW.getTime() +
@@ -919,7 +920,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     expect(result).toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: OWN_PROVISION_REPOSITORY.id,
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
     });
     expect(github.createRepository.mock.calls).toHaveLength(0);
     expect(github.findRepository.mock.calls).toHaveLength(0);
@@ -1000,7 +1001,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
         'synthetic-job-id',
         'worker-own-no-write',
         'synthetic-request-id',
-        OWN_PROVISION_REPOSITORY.id,
+        OWN_PROVISION_REPOSITORY.githubRepositoryId,
         PROVISION_NOW,
       ],
     ]);
@@ -1054,7 +1055,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     ).resolves.toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: OWN_PROVISION_REPOSITORY.id,
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
     });
 
     expect(state.recordRepository.mock.calls).toHaveLength(1);
@@ -1100,7 +1101,7 @@ describe('RepositoryProvisionWorkerService OWN connection', () => {
     ).resolves.toEqual({
       kind: 'SUCCEEDED',
       jobId: 'synthetic-job-id',
-      repositoryId: OWN_PROVISION_REPOSITORY.id,
+      githubRepositoryId: OWN_PROVISION_REPOSITORY.githubRepositoryId,
     });
 
     expect(github.findPublicRepository.mock.calls).toHaveLength(0);

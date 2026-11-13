@@ -185,9 +185,8 @@ export interface DeletedTeamView {
 interface ApplicationRepositorySource {
   readonly id: string;
   readonly repository: {
-    readonly id: string;
-    readonly nameWithOwner: string;
     readonly githubRepositoryId: bigint;
+    readonly nameWithOwner: string;
   } | null;
   readonly program: {
     readonly id: string;
@@ -256,9 +255,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
         COUNT(*) FILTER (WHERE event.kind = 'release')::int AS "releaseCount",
         COUNT(*) FILTER (WHERE event.kind = 'issue')::int AS "issueCount"
       FROM "contribution" AS event
-      JOIN "GithubRepository" AS repository
-        ON repository."githubRepositoryId" = event.repo_id
-      WHERE repository.id = ${repository.id}
+      WHERE event.repo_id = ${repository.githubRepositoryId}
         AND event.author_github_id IS NOT NULL
         AND (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date
           >= ${queryDate(bounds.gte)}::date
@@ -280,7 +277,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
       ]),
     );
     return {
-      repositoryId: repository.id,
+      repositoryId: repository.githubRepositoryId.toString(),
       nameWithOwner: repository.nameWithOwner,
       window,
       collectionStatus: collectionStatus(lastSuccessAt, new Date()),
@@ -332,9 +329,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
                 event.kind,
                 (event.occurred_at AT TIME ZONE 'Asia/Seoul')::date AS activity_date
               FROM "contribution" AS event
-              JOIN "GithubRepository" AS repository
-                ON repository."githubRepositoryId" = event.repo_id
-              WHERE repository.id = ${repository.id}
+              WHERE event.repo_id = ${repository.githubRepositoryId}
                 AND event.author_github_id IN (${Prisma.join(memberGithubIds)})
                 AND event.kind IN (
                   'commit'::"contribution_kind",
@@ -351,7 +346,7 @@ export class ProgramTeamRepositoryEvidenceRepository {
     return {
       teamId: team.application?.id ?? null,
       repository: repository && {
-        id: repository.id,
+        id: repository.githubRepositoryId.toString(),
         nameWithOwner: repository.nameWithOwner,
       },
       status: repository

@@ -58,9 +58,8 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
     {
       id: 'application',
       repository: {
-        id: 'current-repo',
+        githubRepositoryId: 4242n,
         nameWithOwner: 'synthetic/current',
-        githubRepositoryId: 7001n,
       },
       program: {
         id: 'program',
@@ -77,7 +76,7 @@ it('keeps the sentinel window but bounds the query by the last queryable day', a
     timeZone: 'Asia/Seoul',
   });
   expect(contributionQuery.mock.calls[0]?.slice(1)).toEqual([
-    'current-repo',
+    4242n,
     '0001-01-01',
     '9999-12-31',
   ]);
@@ -89,7 +88,7 @@ it('reports an explicit repository relink as succeeded without inventing a provi
     status: 'SUCCEEDED',
     updatedAt: new Date('2026-08-31Z'),
     lastErrorCode: null,
-    repositoryId: 'current-repo',
+    repoId: 4242n,
   });
 
   const detail = await repository.findStaffTeamDetail('program', 'team');
@@ -152,7 +151,7 @@ it('reads the application state from the same Team row', async () => {
   expect(detail).toMatchObject({
     application: { id: 'team', status: 'APPROVED' },
     repositoryContributions: {
-      repositoryId: 'current-repo',
+      repositoryId: '4242',
       collectionStatus: 'COLLECTED',
     },
     repositoryUrlHistory: { rows: [], hasMore: false },
@@ -259,7 +258,7 @@ it('matches numeric GitHub identities and preserves members without observations
 
   expect(detail).toMatchObject({
     repositoryContributions: {
-      repositoryId: 'current-repo',
+      repositoryId: '4242',
       nameWithOwner: 'synthetic/current',
       window: { from: '2026-08-01', to: '2026-08-31', timeZone: 'Asia/Seoul' },
       collectionStatus: 'COLLECTED',
@@ -286,7 +285,7 @@ it('matches numeric GitHub identities and preserves members without observations
     },
   });
   expect(contributionQuery.mock.calls[0]?.slice(1)).toEqual([
-    'current-repo',
+    4242n,
     '2026-08-01',
     '2026-08-31',
   ]);
@@ -312,7 +311,7 @@ it.each([
       },
     });
     expect(repoFindUnique).toHaveBeenCalledWith({
-      where: { githubRepoId: 7001n },
+      where: { githubRepoId: 4242n },
       select: { lastSuccessAt: true },
     });
   },

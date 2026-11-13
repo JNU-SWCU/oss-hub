@@ -8,13 +8,6 @@ import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from './repository-access-sync.conf
 
 @Injectable()
 export class PlatformRepository {
-  collectionTargetWhere() {
-    return {
-      teamId: { not: null },
-      team: { program: { lifecycle: { not: 'DELETED' } } },
-    } satisfies Prisma.GithubRepositoryWhereInput;
-  }
-
   programApplicationManagerWhere(userId: string) {
     return {
       leaderId: userId,
@@ -46,11 +39,21 @@ export class PlatformRepository {
     };
   }
 
-  linkedRepositoryFilter(): Prisma.GithubRepositoryWhereInput {
+  linkedRepoWhere() {
     return {
-      teamId: { not: null },
-      OR: [{ source: 'ORG_PROVISIONED' }, { source: 'EXTERNAL_PUBLIC' }],
-    };
+      teamRepos: { some: {} },
+    } satisfies Prisma.RepoWhereInput;
+  }
+
+  collectionTargetRepoWhere() {
+    return {
+      teamRepos: {
+        some: {
+          validTo: null,
+          team: { program: { lifecycle: { not: 'DELETED' } } },
+        },
+      },
+    } satisfies Prisma.RepoWhereInput;
   }
 
   repositoryAccessSyncTargetWhere(teamId: string): Prisma.TeamWhereInput {

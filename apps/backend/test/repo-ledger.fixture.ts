@@ -31,3 +31,45 @@ export async function deleteGithubRepositories(
   ]);
   await db.githubRepository.deleteMany({ where });
 }
+
+export async function syncGithubRepositoryLedger(
+  db: Pick<PrismaClient, '$executeRaw'>,
+  githubRepositoryId: bigint,
+): Promise<void> {
+  await db.$executeRaw`
+    UPDATE "team_repo" AS link
+    SET "valid_to" = GREATEST(
+      transaction_timestamp()::timestamptz(3),
+      link."valid_from" + interval '1 millisecond'
+    )
+    WHERE link."valid_to" IS NULL
+      AND (
+        link."repo_id" = ${githubRepositoryId}
+        OR link."team_id" IN (
+          SELECT repository."teamId"
+          FROM "GithubRepository" AS repository
+          WHERE repository."githubRepositoryId" = ${githubRepositoryId}
+        )
+      )
+      AND NOT EXISTS (
+        SELECT 1
+        FROM "GithubRepository" AS repository
+        WHERE repository."githubRepositoryId" = link."repo_id"
+          AND repository."teamId" = link."team_id"
+      )
+  `;
+  await new RepoLedgerRepository().link(db, githubRepositoryId);
+}
+
+export async function syncGithubRepositoryLedgers(
+  db: Pick<PrismaClient, '$executeRaw' | 'githubRepository'>,
+  where: Prisma.GithubRepositoryWhereInput,
+): Promise<void> {
+  const repositories = await db.githubRepository.findMany({
+    where,
+    select: { githubRepositoryId: true },
+    orderBy: { githubRepositoryId: 'asc' },
+  });
+  for (const { githubRepositoryId } of repositories)
+    await syncGithubRepositoryLedger(db, githubRepositoryId);
+}

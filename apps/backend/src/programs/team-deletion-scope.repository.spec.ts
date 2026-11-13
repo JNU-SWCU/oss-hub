@@ -98,6 +98,7 @@ describe('readTeamDeletionScopeCounts', () => {
     );
     const sql = capturedSql(queryRaw);
 
+    expect(sql).toContain('FROM team_repo AS link');
     for (const table of [
       'Team',
       'TeamMember',
@@ -106,7 +107,6 @@ describe('readTeamDeletionScopeCounts', () => {
       'SubmissionHistory',
       'File',
       'RepositoryProvisionJob',
-      'GithubRepository',
       'OutboxEvent',
       'Notification',
     ]) {
@@ -133,8 +133,9 @@ describe('readTeamDeletionScopeCounts', () => {
     );
     const sql = capturedSql(queryRaw);
 
-    expect(sql).toContain("'GithubRepository:'");
-    expect(sql).toContain('repository."teamId"');
+    expect(sql).toContain("'Repo:'");
+    expect(sql).toContain('repository.team_id');
+    expect(sql).toContain('later.valid_from > link.valid_from');
   });
 
   it('판정 알림은 payload.teamId 로 이 팀의 신청에만 묶는다', async () => {

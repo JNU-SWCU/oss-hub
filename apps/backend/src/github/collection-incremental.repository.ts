@@ -49,8 +49,6 @@ type CollectionRepositoryPresence = 'PRESENT' | 'ABSENT';
 type CollectionRepositoryVisibility = 'PRIVATE' | 'PUBLIC';
 
 export interface CollectionRepositoryRow {
-  id: string;
-  githubOrganizationId: bigint | null;
   githubRepositoryId: bigint;
   nameWithOwner: string;
   defaultBranch: string | null;
@@ -58,10 +56,7 @@ export interface CollectionRepositoryRow {
   visibility: CollectionRepositoryVisibility;
   presence: CollectionRepositoryPresence;
   source: RepositorySource;
-  lastCompleteInventoryObservedAt: Date | null;
-
-  teamId?: string | null;
-  programId?: string | null;
+  teamId: string | null;
 }
 
 export interface CollectionTarget extends CollectionRepositoryRow {
@@ -83,6 +78,34 @@ type CollectionStoreClient = Pick<
   | 'githubRepository'
   | 'repo'
 >;
+
+const COLLECTION_REPOSITORY_SELECT = {
+  githubRepoId: true,
+  ownerName: true,
+  defaultBranch: true,
+  archived: true,
+  visibility: true,
+  presence: true,
+  source: true,
+  teamRepos: {
+    where: { validTo: null },
+    take: 1,
+    select: { teamId: true },
+  },
+} satisfies Prisma.RepoSelect;
+
+const toCollectionRepositoryRow = (
+  row: Prisma.RepoGetPayload<{ select: typeof COLLECTION_REPOSITORY_SELECT }>,
+): CollectionRepositoryRow => ({
+  githubRepositoryId: row.githubRepoId,
+  nameWithOwner: row.ownerName,
+  defaultBranch: row.defaultBranch,
+  archived: row.archived,
+  visibility: row.visibility,
+  presence: row.presence,
+  source: row.source,
+  teamId: row.teamRepos[0]?.teamId ?? null,
+});
 
 interface ContributionInsertSummary {
   readonly candidates: number;
@@ -128,39 +151,33 @@ export class CollectionIncrementalStoreRepository {
     return client.$transaction((tx) => write(tx));
   }
 
-  async findRepositoryByLogicalKey(
-    githubRepositoryId: bigint,
-  ): Promise<CollectionRepositoryRow | null> {
-    return this.db.githubRepository.findUnique({
-      where: { githubRepositoryId },
-    });
-  }
-
   async findCollectionTargetByLogicalKey(
     githubRepositoryId: bigint,
   ): Promise<CollectionRepositoryRow | null> {
-    return this.db.githubRepository.findUnique({
+    const row = await this.db.repo.findFirst({
       where: {
-        githubRepositoryId,
-        AND: this.platform.collectionTargetWhere(),
+        githubRepoId: githubRepositoryId,
+        ...this.platform.collectionTargetRepoWhere(),
       },
+      select: COLLECTION_REPOSITORY_SELECT,
     });
+    return row === null ? null : toCollectionRepositoryRow(row);
   }
 
   async recordContributions(
-    repositoryId: string,
+    githubRepositoryId: bigint,
     kind: CollectionContributionKind,
     facts: readonly CollectionContribution[],
   ): Promise<RecordContributionsResult> {
     if (facts.length === 0) return { inserted: 0, authorFilled: 0 };
     return this.inSameTransaction((store) =>
-      this.insertContributions(store, repositoryId, kind, facts),
+      this.insertContributions(store, githubRepositoryId, kind, facts),
     );
   }
 
   private async insertContributions(
     store: CollectionStoreClient,
-    repositoryId: string,
+    githubRepositoryId: bigint,
     kind: CollectionContributionKind,
     facts: readonly CollectionContribution[],
   ): Promise<RecordContributionsResult> {
@@ -174,47 +191,19 @@ export class CollectionIncrementalStoreRepository {
       WITH incoming(github_key, author_github_id, occurred_at) AS (
         VALUES ${incoming}
       ),
-      repository_row AS (
-        SELECT ${repositoryId}::text AS repository_id
-      ),
-      ensured_repo AS (
-        INSERT INTO "repo" ("github_repo_id", "owner_name", "source", "gone_at")
-        SELECT
-          repository."githubRepositoryId",
-          repository."nameWithOwner",
-          repository."source",
-          CASE
-            WHEN repository."presence" = 'ABSENT' THEN repository."updatedAt"
-            ELSE NULL
-          END
-        FROM "GithubRepository" AS repository
-        JOIN repository_row AS row
-          ON repository."id" = row.repository_id
-        ON CONFLICT ("github_repo_id") DO NOTHING
-        RETURNING "github_repo_id"
-      ),
       present_repo AS (
-        SELECT ensured."github_repo_id"
-        FROM ensured_repo AS ensured
-        UNION
         SELECT existing."github_repo_id"
         FROM "repo" AS existing
-        JOIN "GithubRepository" AS repository
-          ON repository."githubRepositoryId" = existing."github_repo_id"
-        JOIN repository_row AS row
-          ON repository."id" = row.repository_id
+        WHERE existing."github_repo_id" = ${githubRepositoryId}::bigint
       ),
       candidates AS (
         SELECT
-          repository."githubRepositoryId" AS repo_id,
+          ${githubRepositoryId}::bigint AS repo_id,
           incoming.github_key,
           incoming.author_github_id,
           incoming.occurred_at,
           CURRENT_TIMESTAMP AS first_seen_at
         FROM incoming
-        CROSS JOIN repository_row AS row
-        JOIN "GithubRepository" AS repository
-          ON repository."id" = row.repository_id
       ),
       inserted AS (
         INSERT INTO "contribution" (
@@ -274,27 +263,18 @@ export class CollectionIncrementalStoreRepository {
     readonly archived: boolean;
     readonly observedAt: Date;
   }): Promise<boolean> {
-    const currentObservation = {
-      nameWithOwner: input.nameWithOwner,
-      defaultBranch: input.defaultBranch,
-      archived: input.archived,
-      visibility: 'PUBLIC' as const,
-      presence: 'PRESENT' as const,
-      lastCompleteInventoryObservedAt: input.observedAt,
-    };
-
-    return this.inSameTransaction(async (store) => {
-      const updated = await store.githubRepository.updateMany({
-        where: {
-          githubRepositoryId: input.githubRepositoryId,
-          source: 'EXTERNAL_PUBLIC',
-        },
-        data: currentObservation,
-      });
-      if (updated.count === 0) return false;
-      await new RepoLedgerRepository().write(store, input.githubRepositoryId);
-      return true;
-    });
+    return this.inSameTransaction((store) =>
+      new RepoLedgerRepository().observe(store, {
+        githubRepositoryId: input.githubRepositoryId,
+        source: 'EXTERNAL_PUBLIC',
+        observedAt: input.observedAt,
+        nameWithOwner: input.nameWithOwner,
+        defaultBranch: input.defaultBranch,
+        archived: input.archived,
+        visibility: 'PUBLIC',
+        presence: 'PRESENT',
+      }),
+    );
   }
 
   async refreshRepositoryObservation(input: {
@@ -306,27 +286,23 @@ export class CollectionIncrementalStoreRepository {
     readonly visibility: 'PRIVATE' | 'PUBLIC';
     readonly observedAt: Date;
   }): Promise<CollectionRepositoryRow | null> {
-    await this.inSameTransaction(async (store) => {
-      await store.githubRepository.updateMany({
-        where: {
-          githubRepositoryId: input.githubRepositoryId,
-          source: input.source,
-        },
-        data: {
-          nameWithOwner: input.nameWithOwner,
-          defaultBranch: input.defaultBranch,
-          archived: input.archived,
-          visibility: input.visibility,
-          presence: 'PRESENT',
-          lastCompleteInventoryObservedAt: input.observedAt,
-        },
-      });
-      await new RepoLedgerRepository().write(store, input.githubRepositoryId);
+    await this.inSameTransaction((store) =>
+      new RepoLedgerRepository().observe(store, {
+        githubRepositoryId: input.githubRepositoryId,
+        source: input.source,
+        observedAt: input.observedAt,
+        nameWithOwner: input.nameWithOwner,
+        defaultBranch: input.defaultBranch,
+        archived: input.archived,
+        visibility: input.visibility,
+        presence: 'PRESENT',
+      }),
+    );
+    const current = await this.db.repo.findFirst({
+      where: { githubRepoId: input.githubRepositoryId, source: input.source },
+      select: COLLECTION_REPOSITORY_SELECT,
     });
-    const current = await this.db.githubRepository.findUnique({
-      where: { githubRepositoryId: input.githubRepositoryId },
-    });
-    return current?.source === input.source ? current : null;
+    return current === null ? null : toCollectionRepositoryRow(current);
   }
 
   async markRepositoryGone(
@@ -334,16 +310,14 @@ export class CollectionIncrementalStoreRepository {
     observedAt: Date,
     source: RepositorySource,
   ): Promise<void> {
-    await this.inSameTransaction(async (store) => {
-      await store.githubRepository.updateMany({
-        where: { githubRepositoryId, source },
-        data: {
-          presence: 'ABSENT',
-          lastCompleteInventoryObservedAt: observedAt,
-        },
-      });
-      await new RepoLedgerRepository().write(store, githubRepositoryId);
-    });
+    await this.inSameTransaction((store) =>
+      new RepoLedgerRepository().observe(store, {
+        githubRepositoryId,
+        source,
+        observedAt,
+        presence: 'ABSENT',
+      }),
+    );
   }
 
   async recordRepositorySuccess(
@@ -361,29 +335,19 @@ export class CollectionIncrementalStoreRepository {
   async listCollectionTargets(
     source: RepositorySource,
   ): Promise<CollectionTarget[]> {
-    const repositories = await this.db.githubRepository.findMany({
+    const repositories = await this.db.repo.findMany({
       where: {
         source,
         presence: 'PRESENT',
         ...(source === 'EXTERNAL_PUBLIC' ? { visibility: 'PUBLIC' } : {}),
-        ...this.platform.collectionTargetWhere(),
+        ...this.platform.collectionTargetRepoWhere(),
       },
-      orderBy: { githubRepositoryId: 'asc' },
+      orderBy: { githubRepoId: 'asc' },
+      select: { ...COLLECTION_REPOSITORY_SELECT, lastSuccessAt: true },
     });
-    const ledger = await this.db.repo.findMany({
-      where: {
-        githubRepoId: {
-          in: repositories.map((repository) => repository.githubRepositoryId),
-        },
-      },
-      select: { githubRepoId: true, lastSuccessAt: true },
-    });
-    const lastSuccessAt = new Map(
-      ledger.map((row) => [row.githubRepoId, row.lastSuccessAt]),
-    );
     return repositories.map((repository) => ({
-      ...repository,
-      lastSuccessAt: lastSuccessAt.get(repository.githubRepositoryId) ?? null,
+      ...toCollectionRepositoryRow(repository),
+      lastSuccessAt: repository.lastSuccessAt,
     }));
   }
 

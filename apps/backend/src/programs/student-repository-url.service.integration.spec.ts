@@ -27,6 +27,7 @@ import {
   seedDailyContributions,
 } from '../../test/ledger-contribution.fixture';
 import { HistoryMetadataService } from '../platform/history-metadata.service';
+import { syncGithubRepositoryLedger } from '../../test/repo-ledger.fixture';
 import { TeamApplicationService } from './team-application.service';
 import { RepositoryUrlService } from '../github/repository-url.service';
 import { ApplicationAnswersService } from './team-application.service';
@@ -137,8 +138,11 @@ it('교체는 옛 레포와 수집 기록을 지우고 새 레포 하나와 삭�
       data: {
         metadata: {
           schemaVersion: 2,
-          before: { repositoryId: oldId },
-          after: { repositoryId: targetId, repositoryUrl: input.repositoryUrl },
+          before: { repositoryId: (targetGithubId + 1n).toString() },
+          after: {
+            repositoryId: targetGithubId.toString(),
+            repositoryUrl: input.repositoryUrl,
+          },
           deletedCounts: { repositories: 1, contributions: 1 },
         },
       },
@@ -203,6 +207,7 @@ it('rejects a processing provision job without detaching the current repository'
     data: {
       teamId,
       repositoryId: oldId,
+      repoId: targetGithubId + 1n,
       status: RepositoryProvisionJobStatus.PROCESSING,
     },
   });
@@ -298,6 +303,7 @@ it('keeps a relinked repository SUCCEEDED after GitHub renames it', async () => 
     where: { id: targetId },
     data: { nameWithOwner: 'synthetic/target-renamed' },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId);
 
   expect(
     await prisma.repositoryProvisionJob.findUnique({ where: { teamId } }),
@@ -493,7 +499,9 @@ it('serializes different targets into a continuous team history chain', async ()
     );
   });
   expect(history).toHaveLength(2);
-  const first = history.find((entry) => entry?.before.repositoryId === oldId);
+  const first = history.find(
+    (entry) => entry?.before.repositoryId === (targetGithubId + 1n).toString(),
+  );
   const second = history.find(
     (entry) => entry?.before.repositoryId === first?.after.repositoryId,
   );
@@ -501,7 +509,9 @@ it('serializes different targets into a continuous team history chain', async ()
   expect(second).toBeDefined();
   expect(
     await prisma.githubRepository.findUnique({ where: { teamId } }),
-  ).toMatchObject({ id: second?.after.repositoryId });
+  ).toMatchObject({
+    githubRepositoryId: BigInt(second?.after.repositoryId ?? '0'),
+  });
 });
 
 it('rejects a repository carrying another program history without detaching the current binding', async () => {
@@ -536,6 +546,7 @@ it('rejects a repository carrying another program history without detaching the 
     where: { id: targetId },
     data: { teamId: otherTeam.id },
   });
+  await syncGithubRepositoryLedger(prisma, targetGithubId);
   await expect(
     service.updateMine(githubId, programId, input),
   ).rejects.toMatchObject({ errorCode: { code: 'APP_029' } });
@@ -590,13 +601,14 @@ it('rejects another team history that lands on the target after it was read', as
     release = resolve;
   });
   const otherTeam = prisma.$transaction(async (transaction) => {
-    await transaction.$queryRaw`SELECT "id" FROM "GithubRepository" WHERE "id" = ${oldId} FOR UPDATE`;
+    await transaction.$queryRaw`SELECT github_repo_id FROM "repo" WHERE github_repo_id = ${targetGithubId + 1n} FOR UPDATE`;
     reportLocked();
     await released;
     await transaction.githubRepository.update({
       where: { id: targetId },
       data: { teamId: otherTeamId },
     });
+    await syncGithubRepositoryLedger(transaction, targetGithubId);
   });
   await locked;
 
@@ -635,7 +647,7 @@ async function waitForGithubRepositoryUpdateWaiter(): Promise<void> {
       FROM pg_stat_activity
       WHERE datname = current_database()
         AND wait_event_type = 'Lock'
-        AND query LIKE '%SELECT%"GithubRepository"%FOR UPDATE%'
+        AND query LIKE '%SELECT%"repo"%FOR UPDATE%'
     `;
     if ((rows[0]?.waiting ?? 0n) > 0n) return;
     await new Promise((resolve) => setTimeout(resolve, 20));
