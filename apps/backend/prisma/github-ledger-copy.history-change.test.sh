@@ -131,12 +131,12 @@ CREATE TABLE "CollectionReleaseFact" (
 CREATE TABLE "GithubUserActivityHistory" (
   "githubId" BIGINT, "year" INTEGER, "visibility" "ActivityVisibility",
   "commitCount" INTEGER, "pullRequestCount" INTEGER, "issueCount" INTEGER,
-  "repositoryCount" INTEGER, "starCount" INTEGER, "observedAt" TIMESTAMPTZ(3)
+  "repositoryCount" INTEGER, "starCount" INTEGER, "observedAt" TIMESTAMP(3)
 );
 CREATE TABLE "GithubUserActivityCycleSnapshot" (
   "githubId" BIGINT, "year" INTEGER, "visibility" "ActivityVisibility",
   "commitCount" INTEGER, "pullRequestCount" INTEGER, "issueCount" INTEGER,
-  "repositoryCount" INTEGER, "starCount" INTEGER, "observedAt" TIMESTAMPTZ(3)
+  "repositoryCount" INTEGER, "starCount" INTEGER, "observedAt" TIMESTAMP(3)
 );
 CREATE TABLE "github_user_activity_history" (
   "github_id" BIGINT NOT NULL,
@@ -238,6 +238,10 @@ history_count() {
 
 latest_commit() {
   psql_db -At -c 'SELECT "commit_count" FROM "github_user_activity_history" ORDER BY "observed_at" DESC LIMIT 1;'
+}
+
+observed_ats() {
+  psql_db -At -c "SELECT string_agg(\"star_count\" || '@' || to_char(\"observed_at\" AT TIME ZONE 'UTC', 'MM-DD HH24'), ',' ORDER BY \"observed_at\") FROM \"github_user_activity_history\";"
 }
 
 assert_eq() {
@@ -364,15 +368,11 @@ assert_eq pipeline_exit "$pipeline_status" 1
 echo "same_count_second_copy_ns=${same_count_ns}"
 
 reset_activity
-seed_legacy '2026-11-01 09:00:00+09' 7
+seed_legacy '2026-11-01 00:00:00' 7
 run_copy
+assert_eq legacy_utc_wall_clock "$(observed_ats)" '1@11-01 00'
 psql_db >/dev/null <<'SQL'
-UPDATE "GithubUserActivityHistory" SET "observedAt" = '2026-11-01 00:00:00+00';
-SQL
-run_copy
-assert_eq same_instant_other_zone "$(history_count)" 1
-psql_db >/dev/null <<'SQL'
-UPDATE "GithubUserActivityHistory" SET "observedAt" = '2026-11-02 00:00:00+09';
+UPDATE "GithubUserActivityHistory" SET "observedAt" = '2026-11-02 00:00:00';
 SQL
 run_copy
 assert_eq new_instant_same_counts "$(history_count)" 1
@@ -462,17 +462,13 @@ standing_star() {
   psql_db -At -c 'SELECT "star_count" FROM contributor_standing WHERE "github_id" = 42;'
 }
 
-observed_ats() {
-  psql_db -At -c "SELECT string_agg(\"star_count\" || '@' || to_char(\"observed_at\" AT TIME ZONE 'UTC', 'MM-DD'), ',' ORDER BY \"observed_at\") FROM \"github_user_activity_history\";"
-}
-
 seed_snapshot_case \
   "(5, '2026-10-20 00:00:00+00'), (4, '2026-11-20 00:00:00+00'), (5, '2026-12-01 00:00:00+00')" \
   "5, '2026-11-01 00:00:00+00'" \
   "5, '2026-11-01 00:00:00+00'"
 run_copy
 run_copy
-assert_eq snapshot_keeps_rows_after_intermediate_change "$(observed_ats)" '5@10-20,4@11-20,5@12-01'
+assert_eq snapshot_keeps_rows_after_intermediate_change "$(observed_ats)" '5@10-20 00,4@11-20 00,5@12-01 00'
 assert_eq snapshot_keeps_latest_after_intermediate_change "$(standing_star)" 5
 
 seed_snapshot_case \
@@ -480,7 +476,12 @@ seed_snapshot_case \
   "5, '2026-12-01 00:00:00+00'" \
   "5, '2026-11-01 00:00:00+00'"
 run_copy
-assert_eq snapshot_moves_unchanged_latest "$(observed_ats)" '5@11-01'
+assert_eq snapshot_moves_unchanged_latest "$(observed_ats)" '5@11-01 00'
+moved="$(psql_db -At -c 'SELECT string_agg(t::text, $$;$$ ORDER BY t.observed_at) FROM "github_user_activity_history" AS t;')"
+run_copy
+assert_eq snapshot_moves_unchanged_latest_again \
+  "$(psql_db -At -c 'SELECT string_agg(t::text, $$;$$ ORDER BY t.observed_at) FROM "github_user_activity_history" AS t;')" \
+  "$moved"
 
 seed_snapshot_case \
   "(4, '2026-10-25 00:00:00+00')" \
