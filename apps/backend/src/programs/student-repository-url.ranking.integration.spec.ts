@@ -53,12 +53,12 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       },
     ],
   });
-  await prisma.githubUserActivityHistory.createMany({
+  await prisma.githubUserActivityObservation.createMany({
     data: [
       {
         githubId,
-        githubLogin: actorLogin,
         year: 2026,
+        visibility: ActivityVisibility.PUBLIC,
         commitCount: 11,
         pullRequestCount: 3,
         issueCount: 2,
@@ -68,7 +68,6 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       },
       {
         githubId,
-        githubLogin: actorLogin,
         year: 2026,
         visibility: ActivityVisibility.PRIVATE,
         commitCount: 5,
@@ -79,8 +78,8 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       },
       {
         githubId,
-        githubLogin: actorLogin,
         year: 2025,
+        visibility: ActivityVisibility.PUBLIC,
         commitCount: 4,
         pullRequestCount: 1,
         repositoryCount: 1,
@@ -89,22 +88,12 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       },
       {
         githubId: peerGithubId,
-        githubLogin: `${teamId}-ranking-peer`,
         year: 2026,
+        visibility: ActivityVisibility.PUBLIC,
         commitCount: 40,
         observedAt,
       },
     ],
-  });
-  await prisma.githubUserActivityCycleSnapshot.createMany({
-    data: rankingIds.map((id, index) => ({
-      githubId: id,
-      githubLogin: index === 0 ? actorLogin : `${teamId}-ranking-peer`,
-      year: 2026,
-      commitCount: index === 0 ? 20 : 5,
-      observedAt,
-      snapshotAt: observedAt,
-    })),
   });
   await prisma.githubUserActivityMonthly.createMany({
     data: rankingIds.map((id, index) => ({
@@ -195,10 +184,7 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       unchanged: true,
     });
   } finally {
-    await prisma.githubUserActivityHistory.deleteMany({
-      where: { githubId: { in: rankingIds } },
-    });
-    await prisma.githubUserActivityCycleSnapshot.deleteMany({
+    await prisma.githubUserActivityObservation.deleteMany({
       where: { githubId: { in: rankingIds } },
     });
     await prisma.githubUserActivityMonthly.deleteMany({
