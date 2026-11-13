@@ -1,4 +1,5 @@
 import { PlatformRepository } from '../platform/platform.repository';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { CollectionScheduleService } from '../github/collection-schedule.service';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import {
@@ -7,6 +8,7 @@ import {
   githubId,
   programId,
   oldId,
+  targetGithubId,
   input,
 } from '../programs/student-repository-url.integration.fixture';
 import { SystemStatusRepository } from './system-status.repository';
@@ -90,7 +92,7 @@ it('drops an external repository from the tracked count once deletion clears its
   );
 });
 
-it('reports the newest success of tracked external repositories and drops it once the link clears', async () => {
+it('reports the newest repo ledger success of tracked external repositories and drops it once the link clears', async () => {
   const before = await status.getExternalCollectionStatus();
   const succeededAt = new Date(
     Math.max(
@@ -107,6 +109,11 @@ it('reports the newest success of tracked external repositories and drops it onc
       lastSuccessAt: succeededAt,
     },
   });
+
+  const unwritten = await status.getExternalCollectionStatus();
+  expect(unwritten.lastSuccessAt).not.toEqual(succeededAt);
+
+  await new RepoLedgerRepository().write(prisma, targetGithubId + 1n);
 
   const linked = await status.getExternalCollectionStatus();
   expect(linked.lastSuccessAt).toEqual(succeededAt);

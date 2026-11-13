@@ -18,7 +18,6 @@ const repositoryWith = (
   const prisma = {
     githubRepository: {
       count: jest.fn().mockResolvedValue(1),
-      aggregate: jest.fn().mockResolvedValue({ _max: { lastSuccessAt: null } }),
       findMany: jest.fn().mockResolvedValue([
         {
           githubRepositoryId: 1n,
@@ -32,6 +31,9 @@ const repositoryWith = (
           })),
         },
       ]),
+    },
+    repo: {
+      aggregate: jest.fn().mockResolvedValue({ _max: { lastSuccessAt: null } }),
     },
     collectionRepositoryStream: {
       groupBy: jest.fn().mockResolvedValue(statusGroups),

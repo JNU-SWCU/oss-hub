@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 
@@ -79,10 +80,7 @@ export class SystemStatusRepository {
         this.prisma.githubRepository.count({
           where: { ...presentRepository, failureCount: { gt: 0 } },
         }),
-        this.prisma.githubRepository.aggregate({
-          where: presentRepository,
-          _max: { lastSuccessAt: true },
-        }),
+        this.lastSuccessAt(presentRepository),
       ]);
 
     const streamGroups = await this.prisma.collectionRepositoryStream.groupBy({
@@ -142,7 +140,7 @@ export class SystemStatusRepository {
       lastCycleCompletedAt: cursor?.cycleCompletedAt ?? null,
       dueRepositoryCount,
       failingRepositoryCount,
-      lastRepositorySuccessAt: lastSuccess._max.lastSuccessAt ?? null,
+      lastRepositorySuccessAt: lastSuccess,
     };
   }
 
@@ -186,18 +184,30 @@ export class SystemStatusRepository {
       ...PRESENT_EXTERNAL_REPOSITORY,
       ...this.platform.collectionTargetWhere(),
     };
-    const [trackedRepositoryCount, lastSuccess] = await Promise.all([
+    const [trackedRepositoryCount, lastSuccessAt] = await Promise.all([
       this.prisma.githubRepository.count({ where }),
-      this.prisma.githubRepository.aggregate({
-        where,
-        _max: { lastSuccessAt: true },
-      }),
+      this.lastSuccessAt(where),
     ]);
 
-    return {
-      trackedRepositoryCount,
-      lastSuccessAt: lastSuccess._max.lastSuccessAt ?? null,
-    };
+    return { trackedRepositoryCount, lastSuccessAt };
+  }
+
+  private async lastSuccessAt(
+    where: Prisma.GithubRepositoryWhereInput,
+  ): Promise<Date | null> {
+    const repositories = await this.prisma.githubRepository.findMany({
+      where,
+      select: { githubRepositoryId: true },
+    });
+    const lastSuccess = await this.prisma.repo.aggregate({
+      where: {
+        githubRepoId: {
+          in: repositories.map((repository) => repository.githubRepositoryId),
+        },
+      },
+      _max: { lastSuccessAt: true },
+    });
+    return lastSuccess._max.lastSuccessAt ?? null;
   }
 
   private async resolveProgramNamesByRepositoryId(
