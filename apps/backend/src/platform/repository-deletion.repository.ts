@@ -50,9 +50,7 @@ export class RepositoryDeletionRepository {
           AND event.kind = 'issue'::"contribution_kind"
       ),
       'outsiders', (SELECT count(*) FROM "GithubRepositoryOutsiderContribution" WHERE "repositoryId" = ${repositoryId}),
-      'invitations', (SELECT count(*) FROM "RepositoryInvitation" WHERE "repositoryId" = ${repositoryId}),
-      'repositoryYearAggregates', (SELECT count(*) FROM "CollectionRepositoryYearAggregate" WHERE "repositoryId" = ${repositoryId}),
-      'contributorYearAggregates', (SELECT count(*) FROM "CollectionContributorYearAggregate" WHERE "repositoryId" = ${repositoryId})
+      'invitations', (SELECT count(*) FROM "RepositoryInvitation" WHERE "repositoryId" = ${repositoryId})
     ) AS counts
   `;
     await transaction.repositoryProvisionJob.updateMany({
