@@ -834,9 +834,6 @@ model GithubRepository {
   invitations   RepositoryInvitation[]
   provisionJobs RepositoryProvisionJob[]
 
-  repositoryYearAggregates  CollectionRepositoryYearAggregate[]  @ignore
-  contributorYearAggregates CollectionContributorYearAggregate[] @ignore
-
   @@index([source, visibility])
   @@index([visibility, presence])
   @@index([nextRunAt])
@@ -1022,42 +1019,6 @@ model CollectionReleaseFact {
   @@unique([repositoryId, githubReleaseId])
   @@index([repositoryId, publishedAt])
   @@index([authorGithubId])
-}
-
-/// No code reads or writes the year totals; 20261104130000 keeps the tables.
-/// Declared only so `prisma migrate diff` matches the database.
-model CollectionRepositoryYearAggregate {
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  year             Int
-  commitCount      Int      @default(0)
-  pullRequestCount Int      @default(0)
-  releaseCount     Int      @default(0)
-  updatedAt        DateTime
-
-  @@id([repositoryId, year])
-  @@index([year])
-  @@ignore
-}
-
-/// Same as CollectionRepositoryYearAggregate, per contributor.
-model CollectionContributorYearAggregate {
-  repositoryId String
-  repository   GithubRepository @relation(fields: [repositoryId], references: [id], onDelete: Cascade)
-
-  githubUserId     BigInt
-  githubLogin      String
-  year             Int
-  commitCount      Int      @default(0)
-  pullRequestCount Int      @default(0)
-  releaseCount     Int      @default(0)
-  updatedAt        DateTime
-
-  @@id([repositoryId, githubUserId, year])
-  @@index([repositoryId, year])
-  @@index([githubUserId, year])
-  @@ignore
 }
 
 model GithubIssueHistory {
