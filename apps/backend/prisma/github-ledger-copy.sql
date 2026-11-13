@@ -563,6 +563,14 @@ WHERE NOT EXISTS (
     AND observation."repository_count" = snapshot."repositoryCount"
     AND observation."star_count" = snapshot."starCount"
 )
+  AND EXISTS (
+    SELECT 1
+    FROM "github_user_activity_history" AS later
+    WHERE later."github_id" = snapshot."githubId"
+      AND later."year" = snapshot."year"
+      AND later."visibility" = snapshot."visibility"
+      AND later."observed_at" > snapshot."observedAt" AT TIME ZONE 'UTC'
+  )
 ON CONFLICT ("github_id", "year", "visibility", "observed_at") DO NOTHING;
 
 UPDATE "github_user_activity_history" AS observation
@@ -595,7 +603,8 @@ WHERE observation."github_id" = snapshot."githubId"
     WHERE existing."github_id" = observation."github_id"
       AND existing."year" = observation."year"
       AND existing."visibility" = observation."visibility"
-      AND existing."observed_at" = snapshot."observedAt" AT TIME ZONE 'UTC'
+      AND existing."observed_at" >= snapshot."observedAt" AT TIME ZONE 'UTC'
+      AND existing."observed_at" < observation."observed_at"
   );
 
 COMMIT;

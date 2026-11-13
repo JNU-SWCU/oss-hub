@@ -434,4 +434,59 @@ if printf '%s\n' "$seoul_out" | grep -qx 'verify_mismatch'; then
 fi
 echo 'PASS seoul_floor_report_only'
 
+seed_snapshot_case() {
+  local ledger_rows="$1" legacy="$2" snapshot="$3"
+  reset_activity
+  psql_db >/dev/null <<SQL
+INSERT INTO "github_user_activity_history" (
+  "github_id", "year", "visibility",
+  "commit_count", "pull_request_count", "issue_count", "repository_count", "star_count",
+  "observed_at"
+)
+SELECT 42, 2026, 'PUBLIC', 7, 3, 2, 4, row.star_count, row.observed_at::timestamptz
+FROM (VALUES ${ledger_rows}) AS row(star_count, observed_at);
+INSERT INTO "GithubUserActivityHistory" (
+  "githubId", "year", "visibility",
+  "commitCount", "pullRequestCount", "issueCount", "repositoryCount", "starCount",
+  "observedAt"
+) VALUES (42, 2026, 'PUBLIC', 7, 3, 2, 4, ${legacy});
+INSERT INTO "GithubUserActivityCycleSnapshot" (
+  "githubId", "year", "visibility",
+  "commitCount", "pullRequestCount", "issueCount", "repositoryCount", "starCount",
+  "observedAt"
+) VALUES (42, 2026, 'PUBLIC', 7, 3, 2, 4, ${snapshot});
+SQL
+}
+
+standing_star() {
+  psql_db -At -c 'SELECT "star_count" FROM contributor_standing WHERE "github_id" = 42;'
+}
+
+observed_ats() {
+  psql_db -At -c "SELECT string_agg(\"star_count\" || '@' || to_char(\"observed_at\" AT TIME ZONE 'UTC', 'MM-DD'), ',' ORDER BY \"observed_at\") FROM \"github_user_activity_history\";"
+}
+
+seed_snapshot_case \
+  "(5, '2026-10-20 00:00:00+00'), (4, '2026-11-20 00:00:00+00'), (5, '2026-12-01 00:00:00+00')" \
+  "5, '2026-11-01 00:00:00+00'" \
+  "5, '2026-11-01 00:00:00+00'"
+run_copy
+run_copy
+assert_eq snapshot_keeps_rows_after_intermediate_change "$(observed_ats)" '5@10-20,4@11-20,5@12-01'
+assert_eq snapshot_keeps_latest_after_intermediate_change "$(standing_star)" 5
+
+seed_snapshot_case \
+  "(5, '2026-12-01 00:00:00+00')" \
+  "5, '2026-12-01 00:00:00+00'" \
+  "5, '2026-11-01 00:00:00+00'"
+run_copy
+assert_eq snapshot_moves_unchanged_latest "$(observed_ats)" '5@11-01'
+
+seed_snapshot_case \
+  "(4, '2026-10-25 00:00:00+00')" \
+  "4, '2026-11-20 00:00:00+00'" \
+  "5, '2026-11-01 00:00:00+00'"
+run_copy
+assert_eq snapshot_insert_never_becomes_latest "$(standing_star)" 4
+
 echo "ledger history change: passed on Postgres ${version}"
