@@ -118,7 +118,6 @@ for (const width of [1440, 390]) {
                 repository,
                 repositoryProvisioning: provisioning,
               },
-              repositoryContributions: null,
               deletionScope: scope,
             }),
           [`GET /api/v1/teams/${teamId}`]: (route) =>

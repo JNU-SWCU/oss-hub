@@ -176,7 +176,6 @@ for (const width of [1440, 390]) {
           safeErrorClass: 'UNKNOWN',
         },
       },
-      repositoryContributions: null,
       deletionScope: {
         teams: 1,
         members: 1,

@@ -21,7 +21,6 @@ export const historyQuery = jest.fn<
   [TemplateStringsArray, ...unknown[]]
 >();
 export const provisionFindUnique = jest.fn();
-export const outsiderFindUnique = jest.fn();
 jest.mock('../platform/prisma.service', () => ({
   PrismaService: jest.fn().mockImplementation(() => ({
     team: {
@@ -41,7 +40,6 @@ jest.mock('../platform/prisma.service', () => ({
     },
     outboxEvent: { findUnique: jest.fn().mockResolvedValue(null) },
     repositoryProvisionJob: { findUnique: provisionFindUnique },
-    githubRepositoryOutsiderContribution: { findUnique: outsiderFindUnique },
   })),
 }));
 
@@ -105,7 +103,6 @@ export function givenRepository(
       issueCount: 2,
     },
   ]);
-  outsiderFindUnique.mockResolvedValue(null);
   const prisma = new PrismaService();
   return new TeamRepository(
     prisma,

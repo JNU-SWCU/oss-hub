@@ -176,7 +176,6 @@ const withApplication: StaffTeamDetail = {
       safeErrorClass: null,
     },
   },
-  repositoryContributions: null,
   deletionScope: {
     teams: 1,
     members: 2,
@@ -196,7 +195,6 @@ const withoutApplication: StaffTeamDetail = {
     { userId: 'user-c', name: '마바사', nickname: 'login-c', isLeader: true },
   ],
   application: null,
-  repositoryContributions: null,
   deletionScope: {
     teams: 0,
     members: 1,
@@ -593,67 +591,6 @@ describe('ProgramStaffTeamDetailPage', () => {
       lastSuccessAt: '2026-08-17T01:00:00.000Z',
     };
 
-    function outsiderLine(): HTMLParagraphElement | undefined {
-      return [...container.querySelectorAll<HTMLParagraphElement>('p')].find(
-        (line) => line.textContent?.startsWith('팀원이 아닌 사람의 기여'),
-      );
-    }
-
-    it('팀원이 아닌 사람의 기여를 활동 카드 안 한 줄에 수로만 보인다', async () => {
-      getStaffProgramTeamDetailMock.mockResolvedValue({
-        ...withApplication,
-        repositoryContributions: {
-          outsiderContributions: {
-            commitCount: 12,
-            pullRequestCount: 3,
-            issueCount: 5,
-          },
-        },
-      } satisfies StaffTeamDetail);
-      vi.mocked(getTeamActivity).mockResolvedValue(collected);
-      await render();
-
-      const line = outsiderLine();
-      expect(line?.textContent).toBe(
-        '팀원이 아닌 사람의 기여Commit 12 · PR 3 · Issue 5',
-      );
-      expect(
-        line?.closest('[role="region"]')?.querySelector('h2')?.textContent,
-      ).toBe('팀 활동');
-
-      expect(line?.closest('[role="region"]')?.textContent).not.toContain(
-        '웹 참여자와 연결되지 않음',
-      );
-    });
-
-    it('팀원이 아닌 사람의 기여가 없으면 「없음」이라고 말한다', async () => {
-      getStaffProgramTeamDetailMock.mockResolvedValue({
-        ...withApplication,
-        repositoryContributions: {
-          outsiderContributions: {
-            commitCount: 0,
-            pullRequestCount: 0,
-            issueCount: 0,
-          },
-        },
-      } satisfies StaffTeamDetail);
-      vi.mocked(getTeamActivity).mockResolvedValue(collected);
-      await render();
-
-      expect(outsiderLine()?.textContent).toBe('팀원이 아닌 사람의 기여없음');
-    });
-
-    it('아직 세지 않았으면 그 줄을 그리지 않는다', async () => {
-      getStaffProgramTeamDetailMock.mockResolvedValue({
-        ...withApplication,
-        repositoryContributions: { outsiderContributions: null },
-      } satisfies StaffTeamDetail);
-      vi.mocked(getTeamActivity).mockResolvedValue(collected);
-      await render();
-
-      expect(outsiderLine()).toBeUndefined();
-    });
-
     it('팀원을 빼면 목록과 함께 그래프도 새 명단으로 다시 읽는다', async () => {
       getStaffProgramTeamDetailMock
         .mockResolvedValueOnce(withApplication)
@@ -717,29 +654,14 @@ describe('ProgramStaffTeamDetailPage', () => {
       expect(getTeamActivity).toHaveBeenCalledTimes(2);
     });
 
-    it('첫 수집을 끝내기 전에는 그래프처럼 그 줄도 보이지 않는다', async () => {
-      getStaffProgramTeamDetailMock.mockResolvedValue({
-        ...withApplication,
-        repositoryContributions: {
-          outsiderContributions: {
-            commitCount: 1,
-            pullRequestCount: 0,
-            issueCount: 0,
-          },
-        },
-      } satisfies StaffTeamDetail);
-      vi.mocked(getTeamActivity).mockResolvedValue(connected);
-      await render();
-
-      expect(container.textContent).toContain('첫 수집을 기다리는 중입니다');
-      expect(outsiderLine()).toBeUndefined();
-    });
-
-    it('저장소가 없어 기여 요약이 없으면 그 줄을 그리지 않는다', async () => {
+    it('수집을 마친 활동 카드에 팀원이 아닌 사람의 기여 줄을 두지 않는다', async () => {
       getStaffProgramTeamDetailMock.mockResolvedValue(withApplication);
+      vi.mocked(getTeamActivity).mockResolvedValue(collected);
       await render();
 
-      expect(outsiderLine()).toBeUndefined();
+      const region = container.querySelector('[role="region"]');
+      expect(region?.querySelector('h2')?.textContent).toBe('팀 활동');
+      expect(region?.textContent).not.toContain('팀원이 아닌 사람의 기여');
     });
 
     it('연필로 바꾸면 팀 경로로 저장하고 상세를 조용히 다시 읽는다', async () => {

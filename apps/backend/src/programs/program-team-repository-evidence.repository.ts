@@ -30,14 +30,6 @@ export interface TeamRepositoryContributionsView {
     readonly userId: string;
     readonly hasObservations: boolean;
   })[];
-
-  readonly outsiderContributions: TeamOutsiderContributionsView | null;
-}
-
-export interface TeamOutsiderContributionsView {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
 }
 
 export interface RepositoryUrlHistoryView {
@@ -302,34 +294,6 @@ export class ProgramTeamRepositoryEvidenceRepository {
           issueCount: 0,
         }),
       })),
-      outsiderContributions: await this.outsiderContributions(
-        repository.id,
-        application,
-      ),
-    };
-  }
-
-  private async outsiderContributions(
-    repositoryId: string,
-    application: Pick<ApplicationRepositorySource, 'id' | 'program'>,
-  ): Promise<TeamOutsiderContributionsView | null> {
-    const { program } = application;
-    const row =
-      await this.prisma.githubRepositoryOutsiderContribution.findUnique({
-        where: { repositoryId },
-      });
-    if (
-      row === null ||
-      row.teamId !== application.id ||
-      row.programId !== program.id ||
-      row.windowStartAt.getTime() !== program.startAt.getTime() ||
-      row.windowEndAt.getTime() !== program.endAt.getTime()
-    )
-      return null;
-    return {
-      commitCount: row.commitCount,
-      pullRequestCount: row.pullRequestCount,
-      issueCount: row.issueCount,
     };
   }
 
