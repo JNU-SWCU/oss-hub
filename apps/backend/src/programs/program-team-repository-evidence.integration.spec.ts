@@ -436,15 +436,32 @@ it('reads contributions of a program that never set an end date', async () => {
 });
 
 it('counts only the currently linked repository in program totals after a relink', async () => {
-  await prisma.collectionCommitFact.createMany({
+  const occurredAt = new Date('2026-08-05T00:00:00Z');
+  await prisma.repo.createMany({
     data: [
-      { repositoryId: oldRepositoryId, sha: `${prefix}-old-1` },
-      { repositoryId, sha: `${prefix}-current-1` },
-      { repositoryId, sha: `${prefix}-current-2` },
-    ].map((fact) => ({
-      ...fact,
-      committedAt: new Date('2026-08-05T00:00:00Z'),
+      {
+        githubRepoId: githubId + 1n,
+        ownerName: 'synthetic',
+        source: 'ORG_PROVISIONED',
+      },
+      {
+        githubRepoId: githubId + 2n,
+        ownerName: 'synthetic',
+        source: 'EXTERNAL_PUBLIC',
+      },
+    ],
+  });
+  await prisma.contributionEvent.createMany({
+    data: [
+      { repoId: githubId + 1n, githubKey: `${prefix}-old-1` },
+      { repoId: githubId + 2n, githubKey: `${prefix}-current-1` },
+      { repoId: githubId + 2n, githubKey: `${prefix}-current-2` },
+    ].map((event) => ({
+      ...event,
+      kind: 'COMMIT' as const,
       authorGithubId: githubId,
+      occurredAt,
+      firstSeenAt: occurredAt,
     })),
   });
 

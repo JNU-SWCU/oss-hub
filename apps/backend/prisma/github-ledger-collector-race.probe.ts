@@ -1,5 +1,8 @@
 import { PrismaClient } from '@prisma/client';
-import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from '../src/github/repository-provision-job.repository';
 import { PrismaService } from '../src/platform/prisma.service';
 
 type ProbeMode = 'pkey' | 'same-count' | 'logical';
@@ -15,6 +18,7 @@ const readMode = (argv: readonly string[]): ProbeMode => {
 const prisma = new PrismaClient();
 const repository = new CollectionUserActivityRepository(
   prisma as unknown as PrismaService,
+  new CollectionCutoverRepository(prisma as unknown as PrismaService),
 );
 
 const githubId = 42n;

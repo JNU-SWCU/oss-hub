@@ -3,9 +3,16 @@ import { AccountStatus } from '@prisma/client';
 
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from './repository-provision-job.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
+
+const openCutover = {
+  isQuiesced: () => Promise.resolve(false),
+} as unknown as CollectionCutoverRepository;
 
 function deferred<T>(): {
   readonly promise: Promise<T>;
@@ -34,24 +41,32 @@ describe('CollectionUserActivityService', () => {
   const queryRaw = jest.fn();
   const upsert = jest.fn();
   const monthlyUpsert = jest.fn();
+  const executeRaw = jest.fn();
+  const transactionQueryRaw = jest.fn();
   const fetchUserActivityMetrics = jest.fn();
 
   const now = () => new Date('2026-08-19T00:00:00.000Z');
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
-      new CollectionUserActivityRepository({
-        user: { findMany },
-        githubUserActivityHistory: { findUnique, upsert },
-        githubUserActivityMonthly: { upsert: monthlyUpsert },
-        $queryRaw: queryRaw,
-        $transaction: (operation: (transaction: unknown) => Promise<unknown>) =>
-          operation({
-            githubUserActivityHistory: { findUnique, upsert },
-            githubUserActivityMonthly: { upsert: monthlyUpsert },
-            $executeRaw: jest.fn().mockResolvedValue(1),
-          }),
-      } as unknown as PrismaService),
+      new CollectionUserActivityRepository(
+        {
+          user: { findMany },
+          githubUserActivityHistory: { findUnique, upsert },
+          githubUserActivityMonthly: { upsert: monthlyUpsert },
+          $queryRaw: queryRaw,
+          $transaction: (
+            operation: (transaction: unknown) => Promise<unknown>,
+          ) =>
+            operation({
+              githubUserActivityHistory: { findUnique, upsert },
+              githubUserActivityMonthly: { upsert: monthlyUpsert },
+              $executeRaw: executeRaw,
+              $queryRaw: transactionQueryRaw,
+            }),
+        } as unknown as PrismaService,
+        openCutover,
+      ),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
     );
@@ -74,6 +89,10 @@ describe('CollectionUserActivityService', () => {
     upsert.mockResolvedValue(undefined);
     monthlyUpsert.mockReset();
     monthlyUpsert.mockResolvedValue(undefined);
+    executeRaw.mockReset();
+    executeRaw.mockResolvedValue(1);
+    transactionQueryRaw.mockReset();
+    transactionQueryRaw.mockResolvedValue([]);
     fetchUserActivityMetrics.mockReset();
   });
 
@@ -101,32 +120,12 @@ describe('CollectionUserActivityService', () => {
       '2025-12-31T15:00:00.000Z',
       '2026-08-19T00:00:00.000Z',
     );
-    expect(upsert).toHaveBeenCalledWith({
-      where: {
-        githubId_year_visibility: {
-          githubId: 4242n,
-          year: 2026,
-          visibility: 'PUBLIC',
-        },
-      },
-      create: expect.objectContaining({
-        githubId: 4242n,
-        year: 2026,
-        visibility: 'PUBLIC',
-        githubLogin: 'octocat',
-        commitCount: 10,
-        pullRequestCount: 2,
-        issueCount: 3,
-        repositoryCount: 4,
-        starCount: 5,
-      }) as unknown,
-      update: expect.objectContaining({
-        visibility: 'PUBLIC',
-        githubLogin: 'octocat',
-        commitCount: 10,
-        starCount: 5,
-      }) as unknown,
-    });
+    expect(upsert).not.toHaveBeenCalled();
+    expect(executeRaw).toHaveBeenCalledTimes(2);
+    const ledgerSql = (executeRaw.mock.calls[0] as readonly unknown[])[0];
+    expect(Array.isArray(ledgerSql) ? ledgerSql.join('') : '').toContain(
+      'INSERT INTO "github_user_activity_history"',
+    );
     expect(monthlyUpsert).toHaveBeenCalledWith({
       where: {
         githubId_year_month: { githubId: 4242n, year: 2026, month: 8 },
@@ -206,7 +205,8 @@ describe('CollectionUserActivityService', () => {
 
     const result = await buildService().run();
 
-    expect(upsert).toHaveBeenCalledTimes(2);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(executeRaw).toHaveBeenCalledTimes(4);
     expect(result).toEqual({
       observedUserCount: 3,
       upsertedRowCount: 2,
@@ -236,7 +236,8 @@ describe('CollectionUserActivityService', () => {
 
     expect(findMany).toHaveBeenCalledTimes(1);
     expect(fetchUserActivityMetrics).toHaveBeenCalledTimes(1);
-    expect(upsert).toHaveBeenCalledTimes(1);
+    expect(upsert).not.toHaveBeenCalled();
+    expect(executeRaw).toHaveBeenCalledTimes(2);
     expect(firstResult).toBe(secondResult);
   });
 
@@ -281,7 +282,8 @@ describe('CollectionUserActivityService', () => {
       });
       expect(findMany).toHaveBeenCalledTimes(2);
       expect(fetchUserActivityMetrics).toHaveBeenCalledTimes(2);
-      expect(upsert).toHaveBeenCalledTimes(1);
+      expect(upsert).not.toHaveBeenCalled();
+      expect(executeRaw).toHaveBeenCalledTimes(2);
     } finally {
       logger.mockRestore();
     }
@@ -316,11 +318,14 @@ describe('CollectionUserActivityService', () => {
   it('Contribution 저장소 축에는 아무것도 쓰지 않는다', async () => {
     const contribution = { create: jest.fn(), upsert: jest.fn() };
     const service = new CollectionUserActivityService(
-      new CollectionUserActivityRepository({
-        user: { findMany },
-        githubUserActivityHistory: { findUnique, upsert },
-        contribution,
-      } as unknown as PrismaService),
+      new CollectionUserActivityRepository(
+        {
+          user: { findMany },
+          githubUserActivityHistory: { findUnique, upsert },
+          contribution,
+        } as unknown as PrismaService,
+        openCutover,
+      ),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       now,
     );
@@ -353,7 +358,7 @@ describe('CollectionUserActivityRepository ledger history', () => {
   };
 
   const expectOneLedgerStatement = (executeRaw: jest.Mock): void => {
-    expect(executeRaw).toHaveBeenCalledTimes(1);
+    expect(executeRaw).toHaveBeenCalledTimes(2);
     const call = executeRaw.mock.calls[0] as readonly unknown[];
     const sql = sqlOf(call);
     expect(sql).toContain('INSERT INTO "github_user_activity_history"');
@@ -387,6 +392,7 @@ describe('CollectionUserActivityRepository ledger history', () => {
       },
       githubUserActivityMonthly: { upsert: jest.fn().mockResolvedValue({}) },
       $executeRaw: executeRaw,
+      $queryRaw: jest.fn().mockResolvedValue([]),
     };
     const db = {
       $transaction: (operation: (tx: typeof transaction) => Promise<void>) =>
@@ -395,13 +401,14 @@ describe('CollectionUserActivityRepository ledger history', () => {
     return {
       repository: new CollectionUserActivityRepository(
         db as unknown as PrismaService,
+        openCutover,
       ),
       historyUpsert,
       executeRaw,
     };
   };
 
-  it('공개 관측은 옛 이력 upsert와 같은 트랜잭션에서 원장 한 문장을 보낸다', async () => {
+  it('공개 관측은 옛 이력 upsert 없이 원장 한 문장과 월별 upsert를 보낸다', async () => {
     const { repository, historyUpsert, executeRaw } = buildRepository();
 
     await repository.upsertObservation({
@@ -413,7 +420,7 @@ describe('CollectionUserActivityRepository ledger history', () => {
       observedAt,
     });
 
-    expect(historyUpsert).toHaveBeenCalledTimes(1);
+    expect(historyUpsert).not.toHaveBeenCalled();
     expectOneLedgerStatement(executeRaw);
     const values = (executeRaw.mock.calls[0] as readonly unknown[]).slice(1);
     expect(values).toEqual(
@@ -435,7 +442,7 @@ describe('CollectionUserActivityRepository ledger history', () => {
       observedAt,
     });
 
-    expect(historyUpsert).toHaveBeenCalledTimes(1);
+    expect(historyUpsert).not.toHaveBeenCalled();
     expectOneLedgerStatement(executeRaw);
     const values = (executeRaw.mock.calls[0] as readonly unknown[]).slice(1);
     expect(values).toEqual(

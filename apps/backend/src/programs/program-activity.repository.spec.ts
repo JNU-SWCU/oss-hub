@@ -6,6 +6,16 @@ import {
 } from './program-activity.repository';
 import type { PrismaService } from '../platform/prisma.service';
 
+const stringifyWithBigint = (value: unknown): string => {
+  const text = JSON.stringify(value, (_key: string, item: unknown) =>
+    typeof item === 'bigint' ? item.toString() : item,
+  );
+  if (typeof text !== 'string') {
+    throw new Error('serialized query calls were empty');
+  }
+  return text;
+};
+
 describe('program-activity-summary.repository', () => {
   describe('ProgramActivitySummaryRepository', () => {
     it('returns currently linked repositories without applying an archived filter', async () => {
@@ -62,19 +72,22 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
         githubRepositoryId: 101n,
         updatedAt,
         lastCompleteInventoryObservedAt: null,
-        commits: [],
-        pullRequests: [],
-        releases: [],
-        issues: [{ createdAt: issueCreatedAt }],
+      },
+    ]);
+    const queryRaw = jest.fn().mockResolvedValue([
+      {
+        repositoryId: 101n,
+        kind: 'issue',
+        occurredAt: issueCreatedAt,
       },
     ]);
     const repository = new ProgramActivityRepository(
       {
         githubRepository: { findMany },
+        $queryRaw: queryRaw,
       } as unknown as PrismaService,
       new PlatformRepository(),
     );
-    const authorWhere = { authorGithubId: 11n };
 
     await expect(
       repository.findRepositoryActivity({
@@ -99,11 +112,10 @@ describe('ProgramActivityRepository.findRepositoryActivity', () => {
           teamId: { not: null },
           OR: [{ source: 'ORG_PROVISIONED' }, { source: 'EXTERNAL_PUBLIC' }],
         },
-        select: expect.objectContaining({
-          commits: { where: authorWhere, select: { committedAt: true } },
-          issues: { where: authorWhere, select: { createdAt: true } },
-        }) as unknown,
       }),
     );
+    const serialized = stringifyWithBigint(queryRaw.mock.calls);
+    expect(serialized).toContain('author_github_id');
+    expect(serialized).toContain('11');
   });
 });

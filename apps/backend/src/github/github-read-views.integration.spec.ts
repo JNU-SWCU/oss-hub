@@ -1,5 +1,8 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from './repository-provision-job.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
 
@@ -124,7 +127,10 @@ describe('contributor standing and repo contribution views', () => {
       repositoryCount: 0,
       starCount: 0,
     };
-    const repository = new CollectionUserActivityRepository(prisma);
+    const repository = new CollectionUserActivityRepository(
+      prisma,
+      new CollectionCutoverRepository(prisma),
+    );
     await repository.upsertObservation({
       githubId: CLOCK_ID,
       githubLogin: 'synthetic-read-views-clock',

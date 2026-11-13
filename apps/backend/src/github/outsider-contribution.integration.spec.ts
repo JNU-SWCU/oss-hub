@@ -75,6 +75,13 @@ beforeAll(async () => {
       applicationTemplateVersion: 1,
     },
   });
+  await prisma.repo.create({
+    data: {
+      githubRepoId: memberGithubId + 1n,
+      ownerName: 'synthetic',
+      source: 'EXTERNAL_PUBLIC',
+    },
+  });
   await prisma.githubRepository.createMany({
     data: [
       {
@@ -113,29 +120,34 @@ it('counts against the linked program window and not for a detached repository',
 });
 
 it('counts the team side of `outsiders = total − team` from current members inside the window', async () => {
-  await prisma.collectionCommitFact.createMany({
+  await prisma.contributionEvent.createMany({
     data: [
       {
-        sha: `${scope}-in-1`,
-        committedAt: new Date('2026-08-01T00:00:00Z'),
+        githubKey: `${scope}-in-1`,
+        occurredAt: new Date('2026-08-01T00:00:00Z'),
         authorGithubId: memberGithubId,
       },
       {
-        sha: `${scope}-in-2`,
-        committedAt: endAt,
+        githubKey: `${scope}-in-2`,
+        occurredAt: endAt,
         authorGithubId: memberGithubId,
       },
       {
-        sha: `${scope}-before`,
-        committedAt: new Date('2026-07-31T14:59:59Z'),
+        githubKey: `${scope}-before`,
+        occurredAt: new Date('2026-07-31T14:59:59Z'),
         authorGithubId: memberGithubId,
       },
       {
-        sha: `${scope}-outsider`,
-        committedAt: new Date('2026-08-02T00:00:00Z'),
+        githubKey: `${scope}-outsider`,
+        occurredAt: new Date('2026-08-02T00:00:00Z'),
         authorGithubId: memberGithubId + 99n,
       },
-    ].map((row) => ({ ...row, repositoryId: ids.linked })),
+    ].map((row) => ({
+      ...row,
+      repoId: memberGithubId + 1n,
+      kind: 'COMMIT' as const,
+      firstSeenAt: row.occurredAt,
+    })),
   });
   expect(
     await collection.countTeamCommitsBetween(

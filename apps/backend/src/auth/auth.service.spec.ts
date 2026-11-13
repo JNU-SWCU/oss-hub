@@ -13,7 +13,10 @@ import { DomainException } from '../platform/error-code.error';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { AuthErrorCode } from './auth-error-code.error';
 import { Logger } from '@nestjs/common';
-import { CollectionUserActivityRepository } from '../github/repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from '../github/repository-provision-job.repository';
 import { CollectionPublicTokenService } from '../github/collection-public-token.service';
 import { CollectionUserActivityService } from '../github/collection-user-activity.service';
 import { CollectionDiscoveryClient } from '../github/collection-discovery.client';
@@ -127,7 +130,10 @@ describe('AuthService', () => {
       new UserProfileService(),
       new AuthSessionService(),
       new CollectionUserActivityService(
-        new CollectionUserActivityRepository(activityDb),
+        new CollectionUserActivityRepository(
+          activityDb,
+          new CollectionCutoverRepository(activityDb),
+        ),
         new CollectionDiscoveryClient({}, publicTokens),
       ),
     );
@@ -255,7 +261,8 @@ describe('AuthService', () => {
     const token = 'synthetic-private-access-token';
     const observedAt = new Date('2026-12-31T15:00:01.000Z');
     let privateUpsert: jest.SpyInstance;
-    let databaseUpsert: jest.SpyInstance;
+    let databaseWrite: jest.Mock;
+    let leaseLookup: jest.SpyInstance;
     let warn: jest.SpyInstance;
     let otherLogs: jest.SpyInstance[];
     const flushPromises = () =>
@@ -300,7 +307,7 @@ describe('AuthService', () => {
         upsertUser.mock.calls,
         findByGithubId.mock.calls,
         privateUpsert.mock.calls,
-        databaseUpsert.mock.calls,
+        databaseWrite.mock.calls,
         warn.mock.calls,
         otherLogs.map((logger): unknown => logger.mock.calls),
       ];
@@ -318,29 +325,19 @@ describe('AuthService', () => {
         CollectionUserActivityRepository.prototype,
         'upsertPrivateObservation',
       );
-      databaseUpsert = jest
-        .spyOn(activityDb.githubUserActivityHistory, 'upsert')
-        .mockResolvedValue({
-          githubId: 424242n,
-          githubLogin: 'synthetic-login',
-          year: 2027,
-          visibility: ActivityVisibility.PRIVATE,
-          commitCount: 8539,
-          pullRequestCount: 28,
-          issueCount: 0,
-          repositoryCount: 5,
-          starCount: 0,
-          observedAt,
-        });
+      databaseWrite = jest.fn().mockResolvedValue(1);
+      leaseLookup = jest
+        .spyOn(activityDb, '$queryRawUnsafe')
+        .mockResolvedValue([{ quiesced: false }]);
       jest.spyOn(activityDb, '$transaction').mockImplementation((operation) => {
         if (typeof operation !== 'function') {
           return Promise.reject(new Error('expected a transaction callback'));
         }
         return operation({
           githubUserActivityHistory: {
-            upsert: databaseUpsert,
+            upsert: jest.fn(),
           },
-          $executeRaw: jest.fn().mockResolvedValue(1),
+          $executeRaw: databaseWrite,
         } as never);
       });
       jest
@@ -383,38 +380,26 @@ describe('AuthService', () => {
         starCount: 0,
         observedAt,
       });
-      expect(databaseUpsert).toHaveBeenCalledTimes(1);
-      expect(databaseUpsert).toHaveBeenCalledWith({
-        where: {
-          githubId_year_visibility: {
-            githubId: 424242n,
-            year: 2027,
-            visibility: ActivityVisibility.PRIVATE,
-          },
-        },
-        create: {
-          githubId: 424242n,
-          year: 2027,
-          githubLogin: 'synthetic-login',
-          visibility: ActivityVisibility.PRIVATE,
-          commitCount: 8539,
-          pullRequestCount: 28,
-          issueCount: 0,
-          repositoryCount: 5,
-          starCount: 0,
+      expect(databaseWrite).toHaveBeenCalledTimes(2);
+      const ledgerSql = (databaseWrite.mock.calls[0] as readonly unknown[])[0];
+      expect(Array.isArray(ledgerSql) ? ledgerSql.join('') : '').toContain(
+        'INSERT INTO "github_user_activity_history"',
+      );
+      expect(
+        (databaseWrite.mock.calls[0] as readonly unknown[]).slice(1),
+      ).toEqual(
+        expect.arrayContaining([
+          424242n,
+          2027,
+          ActivityVisibility.PRIVATE,
+          8539,
+          28,
+          0,
+          5,
+          0,
           observedAt,
-        },
-        update: {
-          githubLogin: 'synthetic-login',
-          visibility: ActivityVisibility.PRIVATE,
-          commitCount: 8539,
-          pullRequestCount: 28,
-          issueCount: 0,
-          repositoryCount: 5,
-          starCount: 0,
-          observedAt,
-        },
-      });
+        ]),
+      );
       const graphqlCalls = fetchMock.mock.calls.slice(3);
       expect(graphqlCalls).toHaveLength(2);
       for (const [url, init] of graphqlCalls) {
@@ -463,14 +448,35 @@ describe('AuthService', () => {
         expectNoTokenInRepositoriesOrLogs();
       },
     );
+    it.each([
+      [true, 0],
+      [false, 2],
+    ])(
+      '수집 중지 lease가 %s이면 로그인은 성공하고 원장 쓰기는 %i번이다',
+      async (quiesced, writes) => {
+        leaseLookup.mockResolvedValue([{ quiesced }]);
+        const input = prepareLogin();
+        fetchMock.mockResolvedValue(metricsResponse(true));
+        const login = await service.completeLogin(input);
+        await flushPromises();
+        expect(login).toEqual({ user: syntheticUser, isNew: true });
+        expect(privateUpsert).toHaveBeenCalledTimes(1);
+        expect(databaseWrite).toHaveBeenCalledTimes(writes);
+        expect(warn).not.toHaveBeenCalled();
+        expect(leaseLookup).toHaveBeenCalledWith(
+          expect.stringContaining('"CollectionCutoverLease"'),
+          observedAt,
+        );
+      },
+    );
     it('저장 실패도 로그인에 전파하지 않고 오류 내용을 로그에 남기지 않는다', async () => {
       const input = prepareLogin();
       fetchMock.mockResolvedValue(metricsResponse(true));
-      databaseUpsert.mockRejectedValue(new Error(`database failure ${token}`));
+      databaseWrite.mockRejectedValue(new Error(`database failure ${token}`));
       const login = await service.completeLogin(input);
       await flushPromises();
       expect(login.user).toEqual(syntheticUser);
-      expect(databaseUpsert).toHaveBeenCalledTimes(1);
+      expect(databaseWrite).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledTimes(1);
       expect(warn).toHaveBeenCalledWith({ kind: 'UNKNOWN' });
       expectNoTokenInRepositoriesOrLogs();

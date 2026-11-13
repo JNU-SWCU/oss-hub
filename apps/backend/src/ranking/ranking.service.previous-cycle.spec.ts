@@ -24,9 +24,10 @@ describe('RankingService — 직전 수집 대비 순위', () => {
       { githubLogin: 'beta', rank: 1, previousRank: 2 },
       { githubLogin: 'alpha', rank: 2, previousRank: 1 },
     ]);
-    expect(harness.findPreviousCycleMetrics).toHaveBeenCalledWith({
-      currentYear: 2026,
-    });
+    expect(harness.findPreviousCycleMetrics).toHaveBeenCalledWith(
+      { currentYear: 2026 },
+      expect.any(Date),
+    );
   });
 
   it('스냅샷이 아직 없으면 previousRank는 null이다', async () => {

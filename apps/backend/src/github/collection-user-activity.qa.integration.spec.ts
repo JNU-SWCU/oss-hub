@@ -12,7 +12,10 @@ import {
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import {
+  CollectionCutoverRepository,
+  CollectionUserActivityRepository,
+} from './repository-provision-job.repository';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
 
 assertIsolatedIntegrationDatabase({
@@ -68,7 +71,10 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
 
   const buildService = (): CollectionUserActivityService =>
     new CollectionUserActivityService(
-      new CollectionUserActivityRepository(prisma),
+      new CollectionUserActivityRepository(
+        prisma,
+        new CollectionCutoverRepository(prisma),
+      ),
       { fetchUserActivityMetrics } as unknown as CollectionDiscoveryClient,
       () => NOW,
     );
@@ -81,6 +87,9 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
   const OUTSIDER_LOGIN = `${QA_PREFIX}-outsider`;
 
   const cleanup = async (): Promise<void> => {
+    await prisma.githubUserActivityObservation.deleteMany({
+      where: { githubId: { in: seededIds } },
+    });
     await prisma.githubUserActivityHistory.deleteMany({
       where: { githubId: { in: seededIds } },
     });
@@ -129,14 +138,19 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
 
     const result = await buildService().run();
 
-    const rows = await prisma.githubUserActivityHistory.findMany({
-      where: { githubId: { in: seededIds } },
+    const rows = await prisma.githubUserActivityObservation.findMany({
+      where: { githubId: { in: seededIds }, visibility: 'PUBLIC' },
     });
 
     expect(result.observedUserCount).toBe(
       foreignActiveUserCount + ACTIVE_USER_COUNT,
     );
     expect(rows).toHaveLength(ACTIVE_USER_COUNT);
+    await expect(
+      prisma.githubUserActivityHistory.count({
+        where: { githubId: { in: seededIds } },
+      }),
+    ).resolves.toBe(0);
     expect(rows.every((row) => row.year === CURRENT_YEAR)).toBe(true);
 
     expect(seededQueriedLogins()).toHaveLength(ACTIVE_USER_COUNT);
@@ -151,17 +165,23 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
     rateLimitedLogin = null;
 
     await buildService().run();
-    const rows = await prisma.githubUserActivityHistory.count({
-      where: { githubId: { in: seededIds } },
+    const rows = await prisma.githubUserActivityObservation.findMany({
+      where: { githubId: { in: seededIds }, visibility: 'PUBLIC' },
     });
 
-    expect(rows).toBe(ACTIVE_USER_COUNT);
+    expect(new Set(rows.map((row) => row.githubId.toString())).size).toBe(
+      ACTIVE_USER_COUNT,
+    );
+    expect(rows).toHaveLength(ACTIVE_USER_COUNT);
 
     expect(seededQueriedLogins()).toHaveLength(ACTIVE_USER_COUNT);
     expect(rateLimitCost).toBe(foreignActiveUserCount + ACTIVE_USER_COUNT);
   });
 
   it('한 학생에 429를 주입해도 나머지 50명이 그대로 적재된다', async () => {
+    await prisma.githubUserActivityObservation.deleteMany({
+      where: { githubId: { in: seededIds } },
+    });
     await prisma.githubUserActivityHistory.deleteMany({
       where: { githubId: { in: seededIds } },
     });
@@ -169,8 +189,8 @@ describe('MANUAL QA — 사람 축 sweep 51명 규모 (실 Postgres)', () => {
     rateLimitedLogin = loginAt(24);
 
     const result = await buildService().run();
-    const rows = await prisma.githubUserActivityHistory.findMany({
-      where: { githubId: { in: seededIds } },
+    const rows = await prisma.githubUserActivityObservation.findMany({
+      where: { githubId: { in: seededIds }, visibility: 'PUBLIC' },
       select: { githubId: true },
     });
     const failedRowPresent = rows.some(

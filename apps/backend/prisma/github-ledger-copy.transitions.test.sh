@@ -167,6 +167,7 @@ CREATE TABLE "github_user_activity_history" (
   "repository_count" INTEGER NOT NULL,
   "star_count" INTEGER NOT NULL,
   "observed_at" TIMESTAMPTZ(3) NOT NULL,
+  "clock_at" TIMESTAMPTZ(3),
   PRIMARY KEY ("github_id", "year", "visibility", "observed_at")
 );
 SQL

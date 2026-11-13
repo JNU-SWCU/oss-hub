@@ -47,23 +47,16 @@ const RANKING_ELIGIBLE_MEMBER: Prisma.UserWhereInput = {
   type: UserType.STUDENT,
 };
 
-type ActivityRow = StandingRow;
+const SEOUL_OFFSET_MS = 9 * 60 * 60 * 1000;
+const DAY_MS = 24 * 60 * 60 * 1000;
 
-function activityArgs(query: RankingMetricsQuery) {
-  return {
-    where: query.currentYear === undefined ? {} : { year: query.currentYear },
-    select: {
-      githubId: true,
-      year: true,
-      visibility: true,
-      commitCount: true,
-      pullRequestCount: true,
-      issueCount: true,
-      repositoryCount: true,
-      starCount: true,
-    },
-  };
-}
+const seoulDayStart = (instant: Date): Date =>
+  new Date(
+    Math.floor((instant.getTime() + SEOUL_OFFSET_MS) / DAY_MS) * DAY_MS -
+      SEOUL_OFFSET_MS,
+  );
+
+type ActivityRow = StandingRow;
 
 @Injectable()
 export class RankingRepository {
@@ -110,9 +103,16 @@ export class RankingRepository {
 
   async findPreviousCycleMetrics(
     query: RankingMetricsQuery,
+    now: Date,
   ): Promise<readonly RankingMetricRow[]> {
-    const rows = await this.prisma.githubUserActivityCycleSnapshot.findMany(
-      activityArgs(query),
+    const rows = await new ContributorReadRepository(
+      this.prisma,
+    ).readRowsBefore(
+      {
+        year: query.currentYear === undefined ? null : query.currentYear,
+        visibility: null,
+      },
+      seoulDayStart(now),
     );
     return rows.length === 0 ? [] : this.foldMetrics(Promise.resolve(rows));
   }

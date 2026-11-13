@@ -404,6 +404,13 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
         source: 'ORG_PROVISIONED',
       })),
     });
+    await prisma.repo.createMany({
+      data: seeds.map((seed) => ({
+        githubRepoId: BigInt(seed.id),
+        ownerName: seed.owner,
+        source: 'ORG_PROVISIONED' as const,
+      })),
+    });
 
     const commitSpy = jest.spyOn(
       CollectionIncrementalStoreRepository.prototype,
@@ -506,6 +513,11 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       'DELETE FROM "CollectionSyncCursor" WHERE "appId" = $1',
       APP_ID,
     );
+    const repoIds = seeds.map((seed) => BigInt(seed.id));
+    await prisma.contributionEvent.deleteMany({
+      where: { repoId: { in: repoIds } },
+    });
+    await prisma.repo.deleteMany({ where: { githubRepoId: { in: repoIds } } });
     await prisma.$executeRawUnsafe(
       'DELETE FROM "GithubRepository" WHERE "githubOrganizationId" = $1',
       GITHUB_ORGANIZATION_ID,
@@ -592,15 +604,16 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0));
     expect(cursorAdvances).toEqual(sortedIds);
 
+    const repoIds = seeds.map((seed) => BigInt(seed.id));
     const [commitCount, pullRequestCount, releaseCount] = await Promise.all([
-      prisma.collectionCommitFact.count({
-        where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
+      prisma.contributionEvent.count({
+        where: { kind: 'COMMIT', repoId: { in: repoIds } },
       }),
-      prisma.collectionPullRequestFact.count({
-        where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
+      prisma.contributionEvent.count({
+        where: { kind: 'PULL_REQUEST', repoId: { in: repoIds } },
       }),
-      prisma.collectionReleaseFact.count({
-        where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
+      prisma.contributionEvent.count({
+        where: { kind: 'RELEASE', repoId: { in: repoIds } },
       }),
     ]);
     expect(commitCount).toBe(
@@ -614,10 +627,15 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     );
 
     await expect(
-      prisma.githubIssueHistory.count({
-        where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
+      prisma.contributionEvent.count({
+        where: { kind: 'ISSUE', repoId: { in: repoIds } },
       }),
     ).resolves.toBe(seeds.reduce((sum, s) => sum + issueCount(s), 0));
+    await expect(
+      prisma.collectionCommitFact.count({
+        where: { repository: { githubOrganizationId: GITHUB_ORGANIZATION_ID } },
+      }),
+    ).resolves.toBe(0);
 
     const duplicateSeed = seeds.find((s) => s.name === DUPLICATE_COMMIT_NAME);
     if (!duplicateSeed)
@@ -629,8 +647,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     );
     if (!duplicateRepoRow) throw new Error('duplicate-commit repo not synced');
     expect(
-      await prisma.collectionCommitFact.count({
-        where: { repositoryId: duplicateRepoRow.id },
+      await prisma.contributionEvent.count({
+        where: { kind: 'COMMIT', repoId: duplicateRepoRow.githubRepositoryId },
       }),
     ).toBe(5);
 
@@ -641,8 +659,11 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     );
     if (!tiesRepoRow) throw new Error('PR-ties repo not synced');
     expect(
-      await prisma.collectionPullRequestFact.count({
-        where: { repositoryId: tiesRepoRow.id },
+      await prisma.contributionEvent.count({
+        where: {
+          kind: 'PULL_REQUEST',
+          repoId: tiesRepoRow.githubRepositoryId,
+        },
       }),
     ).toBe(2);
 
@@ -735,8 +756,11 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     );
     if (!tiesRepoRow) throw new Error('PR-ties repo not synced');
     expect(
-      await prisma.collectionPullRequestFact.count({
-        where: { repositoryId: tiesRepoRow.id },
+      await prisma.contributionEvent.count({
+        where: {
+          kind: 'PULL_REQUEST',
+          repoId: tiesRepoRow.githubRepositoryId,
+        },
       }),
     ).toBe(2);
     expect(repoKindSnapshot(provider, tiesKey)['pull-list']).toBeGreaterThan(0);
@@ -770,8 +794,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     if (!repoRow) throw new Error('disconnected repo not synced');
 
     expect(
-      await prisma.collectionCommitFact.count({
-        where: { repositoryId: repoRow.id },
+      await prisma.contributionEvent.count({
+        where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
       }),
     ).toBe(6 + rewritten.length);
   }, 60_000);
@@ -801,8 +825,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     );
     if (!repoRow) throw new Error('release-changed repo not synced');
     expect(
-      await prisma.collectionReleaseFact.count({
-        where: { repositoryId: repoRow.id },
+      await prisma.contributionEvent.count({
+        where: { kind: 'RELEASE', repoId: repoRow.githubRepositoryId },
       }),
     ).toBe(2);
   }, 60_000);
@@ -814,8 +838,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       BigInt(seed.id),
     );
     if (!repoRow) throw new Error('stable contrast repo not synced');
-    const before = await prisma.collectionCommitFact.count({
-      where: { repositoryId: repoRow.id },
+    const before = await prisma.contributionEvent.count({
+      where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
     });
     expect(before).toBeGreaterThan(0);
 
@@ -841,8 +865,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     expect(first.insertedCount).toBe(0);
     expect(second.insertedCount).toBe(0);
     expect(
-      await prisma.collectionCommitFact.count({
-        where: { repositoryId: repoRow.id },
+      await prisma.contributionEvent.count({
+        where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
       }),
     ).toBe(before);
   });
@@ -882,8 +906,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
       BigInt(seed.id),
     );
     if (!repoRow) throw new Error('stable contrast repo not synced');
-    const before = await prisma.collectionCommitFact.count({
-      where: { repositoryId: repoRow.id },
+    const before = await prisma.contributionEvent.count({
+      where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
     });
 
     await expect(
@@ -905,8 +929,8 @@ describe('CollectionSyncService — 100-repository scale/idempotency suite (publ
     ).rejects.toThrow('lease is stale');
 
     expect(
-      await prisma.collectionCommitFact.count({
-        where: { repositoryId: repoRow.id },
+      await prisma.contributionEvent.count({
+        where: { kind: 'COMMIT', repoId: repoRow.githubRepositoryId },
       }),
     ).toBe(before);
 

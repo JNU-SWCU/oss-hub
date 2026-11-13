@@ -4,6 +4,16 @@ import { StaleSyncEpochError } from './collection-incremental.error';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import type { PrismaService } from '../platform/prisma.service';
 
+const stringifyWithBigint = (value: unknown): string => {
+  const text = JSON.stringify(value, (_key: string, item: unknown) =>
+    typeof item === 'bigint' ? item.toString() : item,
+  );
+  if (typeof text !== 'string') {
+    throw new Error('serialized query calls were empty');
+  }
+  return text;
+};
+
 interface MockDb {
   githubRepository: {
     upsert: jest.Mock;
@@ -84,7 +94,11 @@ const createDb = (): MockDb => {
 
     contribution: { deleteMany: jest.fn().mockResolvedValue({ count: 0 }) },
     $executeRaw: jest.fn().mockResolvedValue(1),
-    $queryRaw: jest.fn().mockResolvedValue([{ missing_repo: 0, inserted: 0 }]),
+    $queryRaw: jest
+      .fn()
+      .mockResolvedValue([
+        { candidates: 1000000, missing_repo: 0, inserted: 0 },
+      ]),
 
     user: {
       findMany: jest.fn(
@@ -131,26 +145,27 @@ const executeRawSql = (call: readonly unknown[]): string => {
 const queryTexts = (calls: readonly (readonly unknown[])[]): string[] =>
   calls.map((call) => executeRawSql(call));
 
-const expectLedgerAndRebuild = (db: MockDb): void => {
+const expectLedgerInsert = (db: MockDb): void => {
   const ledger = queryTexts(db.$queryRaw.mock.calls as (readonly unknown[])[]);
-  const rebuild = queryTexts(
-    db.$executeRaw.mock.calls as (readonly unknown[])[],
-  );
   expect(
     ledger.filter(
       (sql) =>
         sql.includes('INSERT INTO "contribution"') &&
-        sql.includes('JOIN "repo"') &&
-        sql.includes(`AT TIME ZONE 'UTC' AS occurred_at`) &&
-        sql.includes(`fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at`) &&
-        sql.includes('ON CONFLICT'),
+        sql.includes('INSERT INTO "repo"') &&
+        sql.includes('ON CONFLICT ("github_repo_id") DO NOTHING') &&
+        sql.includes('CURRENT_TIMESTAMP AS first_seen_at') &&
+        sql.includes('ON CONFLICT ("repo_id", "kind", "github_key")') &&
+        !sql.includes('CollectionCommitFact') &&
+        !sql.includes('INSERT INTO "Contribution"'),
     ),
   ).toHaveLength(1);
-  expect(
-    rebuild.filter((sql) => sql.includes('INSERT INTO "Contribution"')),
-  ).toHaveLength(1);
   expect(db.$queryRaw).toHaveBeenCalledTimes(1);
-  expect(db.$executeRaw).toHaveBeenCalledTimes(1);
+  expect(db.$executeRaw).not.toHaveBeenCalled();
+  expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
+  expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
+  expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
+  expect(db.githubIssueHistory.createMany).not.toHaveBeenCalled();
+  expect(db.contribution.deleteMany).not.toHaveBeenCalled();
 };
 const DEFAULT_REGISTERED_GITHUB_IDS = new Set([1n, 2n, 42n, 99n]);
 
@@ -288,9 +303,11 @@ describe('CollectionIncrementalRepository — repository identity', () => {
 });
 
 describe('CollectionIncrementalRepository — commit facts (deterministic rebuild)', () => {
-  it('createMany(skipDuplicates)로 삽입하고 실제 삽입 개수를 반환한다', async () => {
+  it('contribution에 넣고 실제 삽입 개수를 반환한다', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
 
     const result = await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -306,21 +323,11 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     );
 
     expect(result.insertedCount).toBe(1);
-    expect(db.collectionCommitFact.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          repositoryId: 'repo-1',
-          sha: 'abc',
-          committedAt: new Date('2026-03-01T00:00:00.000Z'),
-          authorGithubId: 99n,
-          authorGithubLogin: 'octocat',
-        },
-      ],
-      skipDuplicates: true,
-    });
+    expectLedgerInsert(db);
+    expect(stringifyWithBigint(db.$queryRaw.mock.calls)).toContain('commit');
   });
 
-  it('Contribution 재계산은 run snapshot을 다시 live User JOIN으로 바꾸지 않는다', async () => {
+  it('옛 사실 테이블과 일별 Contribution은 다시 쓰지 않는다', async () => {
     const db = createDb();
 
     await repositoryFor(db).recordCommitFacts(
@@ -335,11 +342,12 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       new Set([99n]),
     );
 
-    const rebuildSql = db.$executeRaw.mock.calls
-      .map((call: readonly unknown[]) => executeRawSql(call))
-      .find((sql) => sql.includes('INSERT INTO "Contribution"'));
-    expect(rebuildSql).toEqual(expect.stringContaining('f."githubId" = ANY('));
-    expect(rebuildSql).toEqual(expect.not.stringContaining('JOIN "User"'));
+    expectLedgerInsert(db);
+    const ledger = queryTexts(
+      db.$queryRaw.mock.calls as (readonly unknown[])[],
+    ).join('\n');
+    expect(ledger).not.toContain('JOIN "User"');
+    expect(ledger).not.toContain('"CollectionCommitFact"');
   });
 
   it('빈 배열은 DB를 건드리지 않고 0을 반환한다', async () => {
@@ -357,11 +365,8 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     expect(db.$queryRaw).not.toHaveBeenCalled();
   });
 
-  it('rebuild는 createMany 삽입 개수가 아니라 facts 테이블 실제 COUNT로 집계를 덮어쓴다 — 중복 재시도에도 불변', async () => {
+  it('원장 INSERT는 옛 사실 COUNT에 기대지 않는다', async () => {
     const db = createDb();
-
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
-    db.collectionCommitFact.count.mockResolvedValue(5);
 
     await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -375,27 +380,11 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    expectLedgerAndRebuild(db);
+    expectLedgerInsert(db);
   });
 
   it('두 명의 기여자가 같은 배치에 섞여도 각자의 contributor 집계로 분리된다', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 2 });
-    db.collectionCommitFact.count.mockImplementation(
-      ({ where }: { where: { authorGithubId?: bigint } }) => {
-        if (where.authorGithubId === 1n) return Promise.resolve(1);
-        if (where.authorGithubId === 2n) return Promise.resolve(1);
-        return Promise.resolve(2);
-      },
-    );
-    db.collectionCommitFact.findFirst.mockImplementation(
-      ({ where }: { where: { authorGithubId?: bigint } }) =>
-        Promise.resolve(
-          where.authorGithubId === 1n
-            ? { authorGithubLogin: 'alice', committedAt: new Date() }
-            : { authorGithubLogin: 'bob', committedAt: new Date() },
-        ),
-    );
 
     await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -416,13 +405,11 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    expectLedgerAndRebuild(db);
+    expectLedgerInsert(db);
   });
 
   it('author가 null인 fact 는 어떤 행도 만들지 않는다 — 귀속을 모르는 기여는 적재하지 않는다', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
-    db.collectionCommitFact.count.mockResolvedValue(1);
 
     await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -437,9 +424,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
 
   it('날짜 경계를 넘나드는 배치는 각 날짜의 칸을 따로 재계산한다(Asia/Seoul 기준)', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 2 });
-
-    db.collectionCommitFact.count.mockResolvedValue(1);
 
     await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -459,10 +443,10 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    expectLedgerAndRebuild(db);
+    expectLedgerInsert(db);
   });
 
-  it('같은 커밋을 다시 적어도 contribution SQL은 ON CONFLICT이며 repo는 쓰지 않는다', async () => {
+  it('같은 커밋을 다시 적어도 contribution은 ON CONFLICT이고 repo 행은 만든다', async () => {
     const db = createDb();
     const facts = [
       {
@@ -489,21 +473,21 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
     ).filter((sql) => sql.includes('INSERT INTO "contribution"'));
     expect(ledger).toHaveLength(2);
     for (const sql of ledger) {
-      expect(sql).toContain('JOIN "repo"');
+      expect(sql).toContain('INSERT INTO "repo"');
+      expect(sql).toContain('ON CONFLICT ("github_repo_id") DO NOTHING');
       expect(sql).toContain('ON CONFLICT ("repo_id", "kind", "github_key")');
-      expect(sql).toContain(
-        `fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at`,
-      );
-      expect(sql).toContain(`AT TIME ZONE 'UTC' AS occurred_at`);
-      expect(sql).not.toContain('INSERT INTO "repo"');
+      expect(sql).toContain('CURRENT_TIMESTAMP AS first_seen_at');
+      expect(sql).not.toContain('"CollectionCommitFact"');
       expect(sql).not.toContain('team_repo');
     }
   });
 
-  it('repo 행이 없으면 contribution을 넣지 않고 오류 없이 빠뜨린 개수를 남긴다', async () => {
+  it('저장소 행을 만들 수 없으면 contribution 트랜잭션을 되돌린다', async () => {
     const db = createDb();
     db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
-    db.$queryRaw.mockResolvedValue([{ missing_repo: 1, inserted: 0 }]);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 0, missing_repo: 1, inserted: 0 },
+    ]);
     const debugLines: string[] = [];
     const debug = jest
       .spyOn(process.stderr, 'write')
@@ -512,36 +496,34 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
         return true;
       });
 
-    const result = await repositoryFor(db).recordCommitFacts(
-      'repo-1',
-      [
-        {
-          sha: 'missing-repo',
-          committedAt: new Date('2026-03-01T00:00:00.000Z'),
-          authorGithubId: 99n,
-          authorGithubLogin: 'octocat',
-        },
-      ],
-      DEFAULT_REGISTERED_GITHUB_IDS,
-    );
-
-    expect(result).toEqual({ acceptedCount: 1, insertedCount: 1 });
+    await expect(
+      repositoryFor(db).recordCommitFacts(
+        'repo-1',
+        [
+          {
+            sha: 'missing-repo',
+            committedAt: new Date('2026-03-01T00:00:00.000Z'),
+            authorGithubId: 99n,
+            authorGithubLogin: 'octocat',
+          },
+        ],
+        DEFAULT_REGISTERED_GITHUB_IDS,
+      ),
+    ).rejects.toThrow('contribution repository row is missing');
     const ledger = queryTexts(
       db.$queryRaw.mock.calls as (readonly unknown[])[],
     ).filter((sql) => sql.includes('INSERT INTO "contribution"'));
     expect(ledger).toHaveLength(1);
-    expect(ledger[0]).toContain('JOIN "repo"');
-    expect(ledger[0]).toContain(
-      `fact."observedAt" AT TIME ZONE 'UTC' AS first_seen_at`,
-    );
-    expect(ledger[0]).toContain(`AT TIME ZONE 'UTC' AS occurred_at`);
-    expect(ledger[0]).not.toContain('INSERT INTO "repo"');
+    expect(ledger[0]).toContain('INSERT INTO "repo"');
+    expect(ledger[0]).toContain('CURRENT_TIMESTAMP AS first_seen_at');
+    expect(ledger[0]).not.toContain('"CollectionCommitFact"');
     expect(debugLines).toContain(
       `${JSON.stringify({
         level: 'debug',
         event: 'collection.ledger.contribution_skipped_missing_repo',
         kind: 'commit',
         missingRepoCount: 1,
+        candidateCount: 0,
       })}\n`,
     );
     debug.mockRestore();
@@ -550,7 +532,6 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
   it('이미 열린 트랜잭션 안에서는 사실과 contribution을 그 클라이언트에 쓴다', async () => {
     const db = createDb();
     db.$transaction = undefined as unknown as jest.Mock;
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 1 });
 
     await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -564,16 +545,17 @@ describe('CollectionIncrementalRepository — commit facts (deterministic rebuil
       DEFAULT_REGISTERED_GITHUB_IDS,
     );
 
-    expect(db.collectionCommitFact.createMany).toHaveBeenCalledTimes(1);
+    expect(db.collectionCommitFact.createMany).not.toHaveBeenCalled();
     expect(db.$queryRaw).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('CollectionIncrementalRepository — pull request facts (parity)', () => {
-  it('createMany(skipDuplicates)로 삽입하고 rebuild로 집계를 덮어쓴다', async () => {
+  it('pull request는 contribution에만 넣고 옛 사실 테이블은 쓰지 않는다', async () => {
     const db = createDb();
-    db.collectionPullRequestFact.createMany.mockResolvedValue({ count: 1 });
-    db.collectionPullRequestFact.count.mockResolvedValue(3);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
 
     const result = await repositoryFor(db).recordPullRequestFacts(
       'repo-1',
@@ -590,21 +572,7 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
     );
 
     expect(result.insertedCount).toBe(1);
-    expect(db.collectionPullRequestFact.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          repositoryId: 'repo-1',
-          githubPullRequestId: 7n,
-          state: 'MERGED',
-          createdAt: new Date('2026-05-01T00:00:00.000Z'),
-          authorGithubId: 42n,
-          authorGithubLogin: 'octocat',
-        },
-      ],
-      skipDuplicates: true,
-    });
-
-    expectLedgerAndRebuild(db);
+    expectLedgerInsert(db);
   });
 
   it('빈 배열은 DB를 건드리지 않는다', async () => {
@@ -624,10 +592,11 @@ describe('CollectionIncrementalRepository — pull request facts (parity)', () =
 });
 
 describe('CollectionIncrementalRepository — release facts (parity)', () => {
-  it('createMany(skipDuplicates)로 삽입하고 rebuild로 집계를 덮어쓴다', async () => {
+  it('release는 contribution에만 넣고 옛 사실 테이블은 쓰지 않는다', async () => {
     const db = createDb();
-    db.collectionReleaseFact.createMany.mockResolvedValue({ count: 1 });
-    db.collectionReleaseFact.count.mockResolvedValue(2);
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
 
     const result = await repositoryFor(db).recordReleaseFacts(
       'repo-1',
@@ -643,20 +612,7 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
     );
 
     expect(result.insertedCount).toBe(1);
-    expect(db.collectionReleaseFact.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          repositoryId: 'repo-1',
-          githubReleaseId: 9n,
-          publishedAt: new Date('2026-06-01T00:00:00.000Z'),
-          authorGithubId: 42n,
-          authorGithubLogin: 'octocat',
-        },
-      ],
-      skipDuplicates: true,
-    });
-
-    expectLedgerAndRebuild(db);
+    expectLedgerInsert(db);
   });
 
   it('빈 배열은 DB를 건드리지 않는다', async () => {
@@ -676,9 +632,11 @@ describe('CollectionIncrementalRepository — release facts (parity)', () => {
 });
 
 describe('CollectionIncrementalRepository — issue facts (parity)', () => {
-  it('가입자 issue만 createMany(skipDuplicates)로 넣고 rebuild로 집계를 덮어쓴다', async () => {
+  it('가입자 issue만 contribution에 넣고 옛 이력은 쓰지 않는다', async () => {
     const db = createDb();
-    db.githubIssueHistory.createMany.mockResolvedValue({ count: 1 });
+    db.$queryRaw.mockResolvedValue([
+      { candidates: 1000000, missing_repo: 0, inserted: 1 },
+    ]);
     const createdAt = new Date('2026-05-01T00:00:00.000Z');
 
     const result = await repositoryFor(db).recordIssueFacts(
@@ -698,20 +656,7 @@ describe('CollectionIncrementalRepository — issue facts (parity)', () => {
     );
 
     expect(result).toEqual({ acceptedCount: 1, insertedCount: 1 });
-    expect(db.githubIssueHistory.createMany).toHaveBeenCalledWith({
-      data: [
-        {
-          repositoryId: 'repo-1',
-          githubIssueId: 11n,
-          state: 'open',
-          createdAt,
-          authorGithubId: 42n,
-          authorGithubLogin: 'octocat',
-        },
-      ],
-      skipDuplicates: true,
-    });
-    expectLedgerAndRebuild(db);
+    expectLedgerInsert(db);
   });
 });
 
@@ -1501,16 +1446,11 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       registeredGithubIds,
     );
 
-    expectLedgerAndRebuild(db);
-    expect(db.collectionCommitFact.createMany).toHaveBeenCalledWith({
-      data: [
-        expect.objectContaining({
-          sha: 'by-member',
-          authorGithubId: 1n,
-        }),
-      ],
-      skipDuplicates: true,
-    });
+    expectLedgerInsert(db);
+    const serialized = stringifyWithBigint(db.$queryRaw.mock.calls);
+    expect(serialized).toContain('by-member');
+    expect(serialized).not.toContain('by-stranger');
+    expect(serialized).not.toContain('by-unknown');
   });
 
   it('external PR·release 원본도 가입자 작성분만 적재한다', async () => {
@@ -1552,14 +1492,12 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       registeredGithubIds,
     );
 
-    expect(db.collectionPullRequestFact.createMany).toHaveBeenCalledWith({
-      data: [expect.objectContaining({ githubPullRequestId: 10n })],
-      skipDuplicates: true,
-    });
-    expect(db.collectionReleaseFact.createMany).toHaveBeenCalledWith({
-      data: [expect.objectContaining({ githubReleaseId: 20n })],
-      skipDuplicates: true,
-    });
+    expect(db.collectionPullRequestFact.createMany).not.toHaveBeenCalled();
+    expect(db.collectionReleaseFact.createMany).not.toHaveBeenCalled();
+    expect(db.$queryRaw).toHaveBeenCalledTimes(2);
+    const serialized = stringifyWithBigint(db.$queryRaw.mock.calls);
+    expect(serialized).toContain('pull_request');
+    expect(serialized).toContain('release');
   });
 
   it('미가입자만 있는 배치는 fact와 집계를 모두 건드리지 않는다', async () => {
@@ -1586,11 +1524,8 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
     expect(db.contribution.deleteMany).not.toHaveBeenCalled();
   });
 
-  it('상류에서 사라진 기여는 행도 사라진다 — 비운 뒤 채우지 않으면 그대로 없다', async () => {
+  it('일별 Contribution은 더 이상 지우고 다시 채우지 않는다', async () => {
     const db = createDb();
-    db.collectionCommitFact.createMany.mockResolvedValue({ count: 0 });
-
-    db.collectionCommitFact.count.mockResolvedValue(0);
 
     await repositoryFor(db).recordCommitFacts(
       'repo-1',
@@ -1604,7 +1539,6 @@ describe('CollectionIncrementalRepository — 가입자만 적재한다', () => 
       new Set([1n]),
     );
 
-    expectLedgerAndRebuild(db);
-    expect(db.contribution.deleteMany).toHaveBeenCalledTimes(1);
+    expectLedgerInsert(db);
   });
 });

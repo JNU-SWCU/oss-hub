@@ -128,6 +128,50 @@ it('counts only current linked activity and never substitutes detached or unrela
       authorGithubId: githubId,
     },
   });
+  await prisma.repo.create({
+    data: {
+      githubRepoId: githubId + 1n,
+      ownerName: 'synthetic',
+      source: 'EXTERNAL_PUBLIC',
+    },
+  });
+  const seenAt = new Date('2026-08-03T00:00:00Z');
+  await prisma.contributionEvent.createMany({
+    data: [
+      {
+        repoId: githubId + 1n,
+        kind: 'ISSUE',
+        githubKey: '1',
+        authorGithubId: githubId,
+        occurredAt: new Date('2026-07-31T14:59:59Z'),
+        firstSeenAt: seenAt,
+      },
+      {
+        repoId: githubId + 1n,
+        kind: 'ISSUE',
+        githubKey: '2',
+        authorGithubId: githubId,
+        occurredAt: new Date('2026-07-31T15:00:00Z'),
+        firstSeenAt: seenAt,
+      },
+      {
+        repoId: githubId + 1n,
+        kind: 'ISSUE',
+        githubKey: '3',
+        authorGithubId: githubId + 99n,
+        occurredAt: new Date('2026-08-02T00:00:00Z'),
+        firstSeenAt: seenAt,
+      },
+      {
+        repoId: githubId + 1n,
+        kind: 'COMMIT',
+        githubKey: `${prefix}-commit`,
+        authorGithubId: githubId,
+        occurredAt: new Date('2026-08-03T00:00:00Z'),
+        firstSeenAt: seenAt,
+      },
+    ],
+  });
 
   const service = new ProgramActivityService(
     new ProgramsRepository(
@@ -190,6 +234,9 @@ it('counts only current linked activity and never substitutes detached or unrela
   await prisma.githubRepository.update({
     where: { id: linkedRepositoryId },
     data: { teamId },
+  });
+  await prisma.contributionEvent.deleteMany({
+    where: { repoId: githubId + 1n },
   });
   await prisma.collectionCommitFact.deleteMany({
     where: { repositoryId: linkedRepositoryId },
