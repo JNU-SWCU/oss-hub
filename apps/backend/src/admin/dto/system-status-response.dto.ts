@@ -1,7 +1,4 @@
-import type {
-  SystemStatusResult,
-  SystemStatusCollectionActivityResult,
-} from '../system-status.service';
+import type { SystemStatusResult } from '../system-status.service';
 
 export type CollectionHealthResponseDto =
   'EMPTY' | 'NORMAL' | 'DELAYED' | 'PARTIAL' | 'FAILED';
@@ -26,6 +23,7 @@ export class CollectionSystemStatusResponseDto {
   declare readonly oldestRetryPendingAt: string | null;
   declare readonly lastCycleStartedAt: string | null;
   declare readonly lastCycleCompletedAt: string | null;
+  declare readonly lastSuccessAt: string | null;
   declare readonly nextCycleAt: string | null;
   declare readonly currentRunStatus: CurrentRunStatusResponseDto;
   declare readonly safeReason: SystemStatusSafeReasonResponseDto | null;
@@ -48,6 +46,7 @@ export class CollectionSystemStatusResponseDto {
       lastCycleStartedAt: collection.lastCycleStartedAt?.toISOString() ?? null,
       lastCycleCompletedAt:
         collection.lastCycleCompletedAt?.toISOString() ?? null,
+      lastSuccessAt: collection.lastSuccessAt?.toISOString() ?? null,
       nextCycleAt: collection.nextCycleAt?.toISOString() ?? null,
       currentRunStatus: collection.currentRunStatus,
       safeReason: collection.safeReason,
@@ -109,62 +108,16 @@ export class SystemStatusCollectionStreamsResponseDto {
   }
 }
 
-export class SystemStatusCollectionActivityResponseDto {
-  declare readonly sweepFinishedAt: string;
-  declare readonly cycleStartedAt: string | null;
-  declare readonly scope: string;
-  declare readonly kind: 'SWEEP' | 'REPOSITORY_LINK';
-  declare readonly insertedCommitCount: number;
-  declare readonly insertedPullRequestCount: number;
-  declare readonly insertedReleaseCount: number;
-  declare readonly insertedIssueCount: number;
-  declare readonly attemptedRepositoryCount: number;
-  declare readonly processedRepositoryCount: number;
-  declare readonly failedRepositoryCount: number;
-  declare readonly cycleCompleted: boolean;
-  declare readonly stoppedForBudget: boolean;
-
-  static from(
-    sweep: SystemStatusCollectionActivityResult,
-  ): SystemStatusCollectionActivityResponseDto {
-    return {
-      sweepFinishedAt: sweep.sweepFinishedAt.toISOString(),
-      cycleStartedAt: sweep.cycleStartedAt?.toISOString() ?? null,
-      scope: sweep.scope,
-      kind: sweep.kind,
-      insertedCommitCount: sweep.insertedCommitCount,
-      insertedPullRequestCount: sweep.insertedPullRequestCount,
-      insertedReleaseCount: sweep.insertedReleaseCount,
-      insertedIssueCount: sweep.insertedIssueCount,
-      attemptedRepositoryCount: sweep.attemptedRepositoryCount,
-      processedRepositoryCount: sweep.processedRepositoryCount,
-      failedRepositoryCount: sweep.failedRepositoryCount,
-      cycleCompleted: sweep.cycleCompleted,
-      stoppedForBudget: sweep.stoppedForBudget,
-    };
-  }
-}
-
 export class SystemStatusExternalCollectionResponseDto {
   declare readonly trackedRepositoryCount: number;
-  declare readonly lastSweep: SystemStatusCollectionActivityResponseDto | null;
-  declare readonly cumulativeCommitCount: number;
-  declare readonly cumulativePullRequestCount: number;
-  declare readonly cumulativeReleaseCount: number;
-  declare readonly cumulativeIssueCount: number;
+  declare readonly lastSuccessAt: string | null;
 
   static from(
     external: SystemStatusResult['externalCollection'],
   ): SystemStatusExternalCollectionResponseDto {
     return {
       trackedRepositoryCount: external.trackedRepositoryCount,
-      lastSweep: external.lastSweep
-        ? SystemStatusCollectionActivityResponseDto.from(external.lastSweep)
-        : null,
-      cumulativeCommitCount: external.cumulativeCommitCount,
-      cumulativePullRequestCount: external.cumulativePullRequestCount,
-      cumulativeReleaseCount: external.cumulativeReleaseCount,
-      cumulativeIssueCount: external.cumulativeIssueCount,
+      lastSuccessAt: external.lastSuccessAt?.toISOString() ?? null,
     };
   }
 }
@@ -173,7 +126,6 @@ export class SystemStatusResponseDto {
   declare readonly collection: CollectionSystemStatusResponseDto;
   declare readonly repositoryProvisioning: RepositoryProvisioningSystemStatusResponseDto;
   declare readonly collectionStreams: readonly SystemStatusCollectionStreamsResponseDto[];
-  declare readonly collectionActivity: readonly SystemStatusCollectionActivityResponseDto[];
   declare readonly externalCollection: SystemStatusExternalCollectionResponseDto;
 
   static from(result: SystemStatusResult): SystemStatusResponseDto {
@@ -185,9 +137,6 @@ export class SystemStatusResponseDto {
         ),
       collectionStreams: result.collectionStreams.map((repository) =>
         SystemStatusCollectionStreamsResponseDto.from(repository),
-      ),
-      collectionActivity: result.collectionActivity.map((sweep) =>
-        SystemStatusCollectionActivityResponseDto.from(sweep),
       ),
       externalCollection: SystemStatusExternalCollectionResponseDto.from(
         result.externalCollection,

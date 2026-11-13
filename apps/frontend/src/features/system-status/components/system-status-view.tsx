@@ -19,7 +19,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Skeleton, SkeletonBlock } from '@/components/ui/skeleton';
 import { cn } from '@/lib/utils';
-import { formatRelativeTime } from '../format-relative-time';
+import { formatLastSuccess, formatRelativeTime } from '../format-relative-time';
 import type {
   CollectionHealth,
   CurrentRunStatus,
@@ -28,7 +28,6 @@ import type {
   SystemStatusViewState,
   TriggerNotice,
 } from '../types';
-import { CollectionActivityFeed } from './collection-activity-feed';
 import { CollectionStreamsTable } from './collection-streams-table';
 import { ExternalCollectionSection } from './external-collection-section';
 
@@ -320,6 +319,12 @@ function DataFreshnessCard({ status }: { readonly status: SystemStatus }) {
             </dd>
           </div>
           <div>
+            <dt className="text-muted-foreground">마지막 수집 성공</dt>
+            <dd className="mt-1 font-medium">
+              {formatLastSuccess(status.lastSuccessAt)}
+            </dd>
+          </div>
+          <div>
             <dt className="text-muted-foreground">
               완료 항목 중 가장 오래된 실행 시각
             </dt>
@@ -351,8 +356,7 @@ export function SystemStatusView({
   if (state.kind === 'loading') return <LoadingState />;
   if (state.kind === 'error') return <ErrorState onRetry={onRetry} />;
 
-  const { status, collectionStreams, collectionActivity, externalCollection } =
-    state;
+  const { status, collectionStreams, externalCollection } = state;
   const isEmpty = status.health === 'EMPTY';
 
   const triggerDisabled =
@@ -420,7 +424,6 @@ export function SystemStatusView({
             </CardGrid>
           </section>
           <CollectionStreamsTable repositories={collectionStreams} />
-          <CollectionActivityFeed entries={collectionActivity} />
         </>
       )}
 

@@ -90,69 +90,32 @@ it('drops an external repository from the tracked count once deletion clears its
   );
 });
 
-it('adds link-time collections and issues to the external totals while the last run stays a full sweep', async () => {
+it('reports the newest success of tracked external repositories and drops it once the link clears', async () => {
   const before = await status.getExternalCollectionStatus();
-  const newest = await prisma.collectionSweepHistory.aggregate({
-    _max: { sweepFinishedAt: true },
-  });
-  const sweepAt = new Date(
-    Math.max(newest._max.sweepFinishedAt?.getTime() ?? 0, Date.now()) + 60_000,
+  const succeededAt = new Date(
+    Math.max(
+      before.lastSuccessAt?.getTime() ?? 0,
+      Date.parse('2099-01-01T00:00:00.000Z'),
+    ) + 60_000,
   );
-  const base = {
-    appId: 1n,
-    scope: 'external',
-    cycleStartedAt: null,
-    failedRepositoryCount: 0,
-    stoppedForBudget: false,
-  };
-  const sweep = await prisma.collectionSweepHistory.create({
+  await prisma.githubRepository.update({
+    where: { id: oldId },
     data: {
-      ...base,
-      kind: 'SWEEP',
-      sweepFinishedAt: sweepAt,
-      insertedCommitCount: 1,
-      insertedPullRequestCount: 0,
-      insertedReleaseCount: 0,
-      insertedIssueCount: 2,
-      attemptedRepositoryCount: 3,
-      processedRepositoryCount: 3,
-      cycleCompleted: true,
+      source: 'EXTERNAL_PUBLIC',
+      presence: 'PRESENT',
+      visibility: 'PUBLIC',
+      lastSuccessAt: succeededAt,
     },
   });
-  const link = await prisma.collectionSweepHistory.create({
-    data: {
-      ...base,
-      kind: 'REPOSITORY_LINK',
-      sweepFinishedAt: new Date(sweepAt.getTime() + 30 * 60_000),
-      insertedCommitCount: 141,
-      insertedPullRequestCount: 13,
-      insertedReleaseCount: 0,
-      insertedIssueCount: 0,
-      attemptedRepositoryCount: 1,
-      processedRepositoryCount: 1,
-      cycleCompleted: false,
-    },
+
+  const linked = await status.getExternalCollectionStatus();
+  expect(linked.lastSuccessAt).toEqual(succeededAt);
+
+  await prisma.githubRepository.update({
+    where: { id: oldId },
+    data: { teamId: null },
   });
-  try {
-    const after = await status.getExternalCollectionStatus();
-    const recent = await status.getRecentSweepActivity(2);
 
-    expect(after.cumulativeCommitCount - before.cumulativeCommitCount).toBe(
-      142,
-    );
-    expect(
-      after.cumulativePullRequestCount - before.cumulativePullRequestCount,
-    ).toBe(13);
-    expect(after.cumulativeIssueCount - before.cumulativeIssueCount).toBe(2);
-
-    expect(after.lastSweep).toMatchObject({
-      kind: 'SWEEP',
-      attemptedRepositoryCount: 3,
-    });
-    expect(recent.map((row) => row.kind)).toEqual(['REPOSITORY_LINK', 'SWEEP']);
-  } finally {
-    await prisma.collectionSweepHistory.deleteMany({
-      where: { id: { in: [sweep.id, link.id] } },
-    });
-  }
+  const cleared = await status.getExternalCollectionStatus();
+  expect(cleared.lastSuccessAt).not.toEqual(succeededAt);
 });

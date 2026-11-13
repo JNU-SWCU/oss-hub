@@ -50,11 +50,6 @@ const repositoryWith = (
       }),
     },
     repositoryProvisionJob: { count: jest.fn().mockResolvedValue(0) },
-    collectionSweepHistory: {
-      findMany: jest.fn().mockResolvedValue([]),
-      findFirst: jest.fn().mockResolvedValue(null),
-      aggregate: jest.fn().mockResolvedValue({ _sum: {} }),
-    },
   };
   return new SystemStatusRepository(
     prisma as unknown as PrismaService,

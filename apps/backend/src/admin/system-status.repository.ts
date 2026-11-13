@@ -1,5 +1,4 @@
 import { Injectable } from '@nestjs/common';
-import { type CollectionRunKind } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 
@@ -34,30 +33,9 @@ export interface CollectionRepositoryStreamsDto {
   readonly streams: readonly CollectionRepositoryStreamRow[];
 }
 
-export interface CollectionSweepActivityDto {
-  readonly sweepFinishedAt: Date;
-  readonly cycleStartedAt: Date | null;
-  readonly scope: string;
-
-  readonly kind: CollectionRunKind;
-  readonly insertedCommitCount: number;
-  readonly insertedPullRequestCount: number;
-  readonly insertedReleaseCount: number;
-  readonly insertedIssueCount: number;
-  readonly attemptedRepositoryCount: number;
-  readonly processedRepositoryCount: number;
-  readonly failedRepositoryCount: number;
-  readonly cycleCompleted: boolean;
-  readonly stoppedForBudget: boolean;
-}
-
 export interface CollectionExternalCollectionStatusDto {
   readonly trackedRepositoryCount: number;
-  readonly lastSweep: CollectionSweepActivityDto | null;
-  readonly cumulativeCommitCount: number;
-  readonly cumulativePullRequestCount: number;
-  readonly cumulativeReleaseCount: number;
-  readonly cumulativeIssueCount: number;
+  readonly lastSuccessAt: Date | null;
 }
 
 const PRESENT_REPOSITORY = {
@@ -69,40 +47,6 @@ const PRESENT_EXTERNAL_REPOSITORY = {
   presence: 'PRESENT',
   source: 'EXTERNAL_PUBLIC',
 } as const;
-
-const EXTERNAL_SWEEP_SCOPE = 'external';
-
-function toSweepActivity(row: {
-  sweepFinishedAt: Date;
-  cycleStartedAt: Date | null;
-  scope: string;
-  kind: CollectionRunKind;
-  insertedCommitCount: number;
-  insertedPullRequestCount: number;
-  insertedReleaseCount: number;
-  insertedIssueCount: number;
-  attemptedRepositoryCount: number;
-  processedRepositoryCount: number;
-  failedRepositoryCount: number;
-  cycleCompleted: boolean;
-  stoppedForBudget: boolean;
-}): CollectionSweepActivityDto {
-  return {
-    sweepFinishedAt: row.sweepFinishedAt,
-    cycleStartedAt: row.cycleStartedAt,
-    scope: row.scope,
-    kind: row.kind,
-    insertedCommitCount: row.insertedCommitCount,
-    insertedPullRequestCount: row.insertedPullRequestCount,
-    insertedReleaseCount: row.insertedReleaseCount,
-    insertedIssueCount: row.insertedIssueCount,
-    attemptedRepositoryCount: row.attemptedRepositoryCount,
-    processedRepositoryCount: row.processedRepositoryCount,
-    failedRepositoryCount: row.failedRepositoryCount,
-    cycleCompleted: row.cycleCompleted,
-    stoppedForBudget: row.stoppedForBudget,
-  };
-}
 
 @Injectable()
 export class SystemStatusRepository {
@@ -237,50 +181,22 @@ export class SystemStatusRepository {
     }));
   }
 
-  async getRecentSweepActivity(
-    limit: number,
-  ): Promise<readonly CollectionSweepActivityDto[]> {
-    const rows = await this.prisma.collectionSweepHistory.findMany({
-      orderBy: { sweepFinishedAt: 'desc' },
-      take: limit,
-    });
-    return rows.map((row) => toSweepActivity(row));
-  }
-
   async getExternalCollectionStatus(): Promise<CollectionExternalCollectionStatusDto> {
-    const [trackedRepositoryCount, lastSweepRow, sweepTotals] =
-      await Promise.all([
-        this.prisma.githubRepository.count({
-          where: {
-            ...PRESENT_EXTERNAL_REPOSITORY,
-            ...this.platform.collectionTargetWhere(),
-          },
-        }),
-
-        this.prisma.collectionSweepHistory.findFirst({
-          where: { scope: EXTERNAL_SWEEP_SCOPE, kind: 'SWEEP' },
-          orderBy: { sweepFinishedAt: 'desc' },
-        }),
-
-        this.prisma.collectionSweepHistory.aggregate({
-          where: { scope: EXTERNAL_SWEEP_SCOPE },
-          _sum: {
-            insertedCommitCount: true,
-            insertedPullRequestCount: true,
-            insertedReleaseCount: true,
-            insertedIssueCount: true,
-          },
-        }),
-      ]);
+    const where = {
+      ...PRESENT_EXTERNAL_REPOSITORY,
+      ...this.platform.collectionTargetWhere(),
+    };
+    const [trackedRepositoryCount, lastSuccess] = await Promise.all([
+      this.prisma.githubRepository.count({ where }),
+      this.prisma.githubRepository.aggregate({
+        where,
+        _max: { lastSuccessAt: true },
+      }),
+    ]);
 
     return {
       trackedRepositoryCount,
-      lastSweep: lastSweepRow ? toSweepActivity(lastSweepRow) : null,
-      cumulativeCommitCount: sweepTotals._sum.insertedCommitCount ?? 0,
-      cumulativePullRequestCount:
-        sweepTotals._sum.insertedPullRequestCount ?? 0,
-      cumulativeReleaseCount: sweepTotals._sum.insertedReleaseCount ?? 0,
-      cumulativeIssueCount: sweepTotals._sum.insertedIssueCount ?? 0,
+      lastSuccessAt: lastSuccess._max.lastSuccessAt ?? null,
     };
   }
 

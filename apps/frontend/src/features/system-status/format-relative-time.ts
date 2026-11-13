@@ -29,3 +29,13 @@ export function formatRelativeTime(value: string, now: Date): string {
   }
   return relativeTimeFormatter.format(Math.round(diffSeconds / 60), 'minute');
 }
+
+const DATE_TIME_FORMAT = new Intl.DateTimeFormat('ko-KR', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+});
+
+export function formatLastSuccess(value: string | null): string {
+  if (value === null) return '아직 성공한 수집 없음';
+  return `${formatRelativeTime(value, new Date())} (${DATE_TIME_FORMAT.format(new Date(value))})`;
+}
