@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { UserPolicyRepository } from '../users/user-policy.repository';
@@ -39,14 +40,8 @@ describe('external repository enrollment integration', () => {
   });
 
   afterEach(async () => {
-    await prisma.contributionEvent.deleteMany({
-      where: { repoId: { in: [...REPOSITORY_IDS] } },
-    });
-    await prisma.repo.deleteMany({
-      where: { githubRepoId: { in: [...REPOSITORY_IDS] } },
-    });
-    await prisma.githubRepository.deleteMany({
-      where: { githubRepositoryId: { in: [...REPOSITORY_IDS] } },
+    await deleteGithubRepositories(prisma, {
+      githubRepositoryId: { in: [...REPOSITORY_IDS] },
     });
     await prisma.userPolicy.deleteMany({
       where: { userId: { in: [MEMBER_USER_ID, CONSENT_USER_ID] } },

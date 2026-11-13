@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -201,8 +202,8 @@ describe('SubmissionReviewsService integration', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { team: { programId: REPOSITORIES_PROGRAM_ID } },
     });
-    await prisma.githubRepository.deleteMany({
-      where: { team: { programId: REPOSITORIES_PROGRAM_ID } },
+    await deleteGithubRepositories(prisma, {
+      team: { programId: REPOSITORIES_PROGRAM_ID },
     });
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { startsWith: seedId('repositories') } },

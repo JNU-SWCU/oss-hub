@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { ApprovalStatus, DepartmentType } from '@prisma/client';
@@ -212,24 +213,24 @@ describe('RepositoryProvisionWorkerService integration', () => {
     await prisma.repositoryProvisionJob.deleteMany({
       where: { teamId: { in: [...APPLICATION_IDS] } },
     });
-    await prisma.githubRepository.deleteMany({
-      where: { teamId: { in: [...APPLICATION_IDS] } },
-    });
+    await deleteGithubRepositories(
+      prisma,
+      { teamId: { in: [...APPLICATION_IDS] } },
+      APPLICATION_IDS,
+    );
     await prisma.outboxEvent.deleteMany({
       where: { aggregateId: { in: [...APPLICATION_IDS] } },
     });
-    await prisma.githubRepository.deleteMany({
-      where: {
-        githubRepositoryId: {
-          in: [
-            OWN_GITHUB_REPOSITORY_ID,
-            PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
-            CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
-            NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
-            OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
-            OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
-          ],
-        },
+    await deleteGithubRepositories(prisma, {
+      githubRepositoryId: {
+        in: [
+          OWN_GITHUB_REPOSITORY_ID,
+          PREVIOUS_MANAGED_GITHUB_REPOSITORY_ID,
+          CURRENT_MANAGED_GITHUB_REPOSITORY_ID,
+          NEW_EXTERNAL_CURRENT_GITHUB_REPOSITORY_ID,
+          OWN_MANAGED_CURRENT_GITHUB_REPOSITORY_ID,
+          OWN_ORG_CREATE_GITHUB_REPOSITORY_ID,
+        ],
       },
     });
     await prisma.teamMember.deleteMany({

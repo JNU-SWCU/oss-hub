@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import {
   AccountStatus,
   ApplicationStatus,
@@ -309,8 +310,8 @@ describe('public/admin exposure — HTTP 4-페르소나 매트릭스 (todo 23)',
       await harness.prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await harness.prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
+      await deleteGithubRepositories(harness.prisma, {
+        id: { startsWith: `${PREFIX}-` },
       });
       await harness.prisma.teamMember.deleteMany({
         where: { teamId: { startsWith: `${PREFIX}-` } },

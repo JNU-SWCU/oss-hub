@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
 import { StudentRepositoryUrlContextRepository } from './team.repository';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -285,8 +286,9 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
         ],
       },
     });
-    await prisma.githubRepository.deleteMany({
-      where: {
+    await deleteGithubRepositories(
+      prisma,
+      {
         OR: [
           { teamId: { in: [...APPLICATION_IDS] } },
           {
@@ -302,7 +304,8 @@ describe('OWN 저장소 연결·생성 사슬 통합', () => {
           },
         ],
       },
-    });
+      APPLICATION_IDS,
+    );
     await prisma.repositoryProvisionJob.deleteMany({
       where: { teamId: { in: [...APPLICATION_IDS] } },
     });
