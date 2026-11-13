@@ -244,8 +244,7 @@ apps/
     └── prisma/          # Data model, migrations, seeds
 docs/
 ├── assets/              # README images
-├── design-tokens/       # Design tokens
-└── translations/        # English PR and ticket templates
+└── design-tokens/       # Design tokens
 skills/                  # Agent procedures for this repository
 guide/                   # User guide site (GitHub Pages)
 deploy/                  # Deployment tools, nginx configuration, checks
@@ -270,7 +269,7 @@ compose.yml              # Production runtime
 
 Agree on scope and done criteria in an issue first. Set up with [Getting started locally](#getting-started-locally), then record the checks you actually ran in the PR. Run `bash .github/check-public-safe.sh` and make it pass before you open a PR.
 
-See the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md). These are in Korean, and the Korean text is authoritative. English PR and QA procedures are linked in the documentation map below; `docs/translations/` contains English templates.
+See the [contributing guide](CONTRIBUTING.md), [code of conduct](CODE_OF_CONDUCT.md), and [security policy](SECURITY.md). These are in Korean, and the Korean text is authoritative.
 
 <details>
 <summary><b>Development and test commands</b></summary>
@@ -309,7 +308,7 @@ Run `git config core.hooksPath .githooks` to turn on the repository's Git hooks.
 | Database and seeds | [Prisma notes](apps/backend/prisma/README.md) (Korean) |
 | Frontend feature structure | [Features notes](apps/frontend/src/features/README.md) (Korean) |
 | Design tokens and Figma | [Figma plugin notes](apps/frontend/figma-plugin/README.md) (Korean) |
-| PR and issue templates | [PR template](docs/translations/pull-request-template.en.md), [work ticket](docs/translations/work-ticket.en.md) |
+| PR and issue templates | [PR template](.github/pull_request_template.md), [issue forms](.github/ISSUE_TEMPLATE/) (Korean) |
 
 ## License
 

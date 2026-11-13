@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: 보안 취약점 신고
+    url: https://github.com/JNU-SWCU/oss-hub/security/advisories/new
+    about: 보안 문제는 이슈로 공개하지 말고 비공개 취약점 신고를 쓴다

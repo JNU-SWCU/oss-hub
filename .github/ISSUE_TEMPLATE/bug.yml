@@ -1,0 +1,35 @@
+name: 버그
+description: 의도와 다르게 동작하는 기능을 알린다
+labels: [bug]
+body:
+  - type: textarea
+    id: symptom
+    attributes:
+      label: 현상
+      description: 무엇이 잘못됐는지. 오류 메시지가 있으면 그대로 붙인다.
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: 재현
+      description: 누구나 따라 할 수 있는 단계
+      placeholder: |
+        1. 학생 계정으로 로그인
+        2. /...로 이동
+        3. ...을 누른다
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대 동작
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: 환경
+      description: 역할(학생·교직원·관리자), 브라우저, 배포 버전이나 커밋
+    validations:
+      required: false

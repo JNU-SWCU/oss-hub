@@ -234,8 +234,7 @@ apps/
     └── prisma/          # 데이터 모델·마이그레이션·시드
 docs/
 ├── assets/              # README 이미지
-├── design-tokens/       # 디자인 토큰
-└── translations/        # PR·티켓 템플릿 영어판
+└── design-tokens/       # 디자인 토큰
 skills/                  # 저장소 전용 에이전트 작업 절차
 guide/                   # 사용자 가이드 사이트(GitHub Pages)
 deploy/                  # 배포 도구·nginx 설정·검증
@@ -299,7 +298,7 @@ BACKEND_ORIGIN=https://backend.example.test pnpm build
 | 데이터베이스와 시드 | [Prisma 안내](apps/backend/prisma/README.md) |
 | 프런트엔드 기능 구조 | [features 안내](apps/frontend/src/features/README.md) |
 | 디자인 토큰과 Figma 연동 | [Figma 플러그인 안내](apps/frontend/figma-plugin/README.md) |
-| PR과 이슈 양식 | [PR 템플릿](.github/pull_request_template.md), [작업 티켓](.github/ISSUE_TEMPLATE/work-ticket.md) |
+| PR과 이슈 양식 | [PR 템플릿](.github/pull_request_template.md), [이슈 양식](.github/ISSUE_TEMPLATE/) |
 
 ## 라이선스
 
