@@ -50,7 +50,6 @@ export class RepositoryDeletionRepository {
         WHERE repository.id = ${repositoryId}
           AND event.kind = 'issue'::"contribution_kind"
       ),
-      'outsiders', (SELECT count(*) FROM "GithubRepositoryOutsiderContribution" WHERE "repositoryId" = ${repositoryId}),
       'invitations', (SELECT count(*) FROM "RepositoryInvitation" WHERE "repositoryId" = ${repositoryId})
     ) AS counts
   `;
