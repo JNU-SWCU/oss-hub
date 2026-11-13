@@ -367,11 +367,7 @@ function makeFacade(box: { store: Store }, control: FailureControl): unknown {
       },
     },
 
-    $executeRaw: (query: TemplateStringsArray): number => {
-      void query;
-      box.store.recomputeCalls += 1;
-      return 1;
-    },
+    $executeRaw: (): number => 1,
     $queryRaw: (
       strings: TemplateStringsArray,
       ...values: readonly unknown[]

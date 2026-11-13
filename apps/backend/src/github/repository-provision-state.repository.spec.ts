@@ -1016,6 +1016,7 @@ describe('RepositoryProvisionStateService.recordRepository 저장소 식별 비�
     const update = jest.fn().mockResolvedValue({});
     Object.assign(db.githubRepository, { create });
     Object.assign(db.team, { update });
+    Object.assign(db, { $executeRaw: jest.fn().mockResolvedValue(1) });
     return db;
   }
 

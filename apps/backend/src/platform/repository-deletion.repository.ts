@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import type { Prisma } from '@prisma/client';
 import type { RepositoryDeletionCounts } from './repository-audit-metadata.config';
+import { RepoLedgerRepository } from './repo-ledger.repository';
 
 @Injectable()
 export class RepositoryDeletionRepository {
@@ -60,7 +61,13 @@ export class RepositoryDeletionRepository {
     await transaction.repositoryInvitation.deleteMany({
       where: { repositoryId },
     });
-    await transaction.githubRepository.delete({ where: { id: repositoryId } });
+    const deleted = await transaction.githubRepository.delete({
+      where: { id: repositoryId },
+      select: { githubRepositoryId: true },
+    });
+    await new RepoLedgerRepository().remove(transaction, [
+      deleted.githubRepositoryId,
+    ]);
     return row.counts;
   }
 }
