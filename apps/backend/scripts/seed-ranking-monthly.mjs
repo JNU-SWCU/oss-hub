@@ -51,14 +51,14 @@ async function main() {
     const observed = await prisma.$queryRaw`
       SELECT DISTINCT ON (observation.github_id)
         observation.github_id AS "githubId",
-        account.nickname AS "githubLogin",
+        account.login AS "githubLogin",
         observation.star_count AS "starCount"
       FROM github_user_activity_history AS observation
       JOIN "User" AS account
         ON account."githubId" = observation.github_id
       WHERE observation.year = ${year}
         AND observation.visibility = 'PUBLIC'::"ActivityVisibility"
-        AND account.nickname IS NOT NULL
+        AND account.login IS NOT NULL
       ORDER BY observation.github_id, observation.observed_at DESC
     `;
     for (const user of observed) {
