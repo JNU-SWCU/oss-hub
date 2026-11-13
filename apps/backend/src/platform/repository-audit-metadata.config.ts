@@ -8,8 +8,6 @@ export type RepositoryDeletionCounts = {
   readonly issues: number;
   readonly outsiders: number;
   readonly invitations: number;
-  readonly repositoryYearAggregates: number;
-  readonly contributorYearAggregates: number;
 };
 
 type ApplicationRepositoryUrlAuditMetadata = {
