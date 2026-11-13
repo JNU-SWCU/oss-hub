@@ -1,5 +1,10 @@
 -- Copy the ledger back into the tables v0.24.78 reads.
--- Run this by hand after that image is restored and before its next collection.
+-- Run this by hand while the current release is still live, in this order:
+-- 1. Pause collection: insert a "CollectionCutoverLease" row whose "expiresAt" is in the
+--    future, then wait until no running collection is left.
+-- 2. Run this script.
+-- 3. Redeploy v0.24.78 through Jenkins. Its copy and verify steps pass only after step 2.
+-- 4. Delete the lease row once v0.24.78 is live.
 -- Jenkins does not run this script.
 
 BEGIN;
@@ -158,7 +163,7 @@ SELECT
   latest.issue_count,
   latest.repository_count,
   latest.star_count,
-  latest.observed_at AT TIME ZONE 'UTC'
+  GREATEST(latest.observed_at, latest.clock_at) AT TIME ZONE 'UTC'
 FROM (
   SELECT DISTINCT ON (
     observation.github_id,
@@ -173,7 +178,8 @@ FROM (
     observation.issue_count,
     observation.repository_count,
     observation.star_count,
-    observation.observed_at
+    observation.observed_at,
+    observation.clock_at
   FROM "github_user_activity_history" AS observation
   ORDER BY
     observation.github_id,
@@ -190,7 +196,10 @@ SET
   "issueCount" = EXCLUDED."issueCount",
   "repositoryCount" = EXCLUDED."repositoryCount",
   "starCount" = EXCLUDED."starCount",
-  "observedAt" = EXCLUDED."observedAt";
+  "observedAt" = GREATEST(
+    "GithubUserActivityHistory"."observedAt",
+    EXCLUDED."observedAt"
+  );
 
 DELETE FROM "GithubUserActivityCycleSnapshot" AS snapshot
 WHERE NOT EXISTS (

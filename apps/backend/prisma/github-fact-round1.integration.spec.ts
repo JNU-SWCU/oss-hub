@@ -734,6 +734,55 @@ describe('github fact round 1', () => {
     );
   });
 
+  it('restores the later of the ledger and legacy observation times', async () => {
+    const year = YEAR - 1;
+    const changedAt = new Date('2098-03-01T00:00:00.000Z');
+    const seenAt = new Date('2098-04-01T00:00:00.000Z');
+    const legacySeenAt = new Date('2098-05-01T00:00:00.000Z');
+    await prisma.githubUserActivityObservation.createMany({
+      data: [
+        {
+          githubId: GAMMA_ID,
+          year,
+          visibility: 'PUBLIC',
+          commitCount: 7,
+          observedAt: changedAt,
+          clockAt: seenAt,
+        },
+        {
+          githubId: ALPHA_ID,
+          year,
+          visibility: 'PUBLIC',
+          commitCount: 7,
+          observedAt: changedAt,
+        },
+      ],
+    });
+    await prisma.githubUserActivityHistory.create({
+      data: {
+        githubId: ALPHA_ID,
+        githubLogin: `${PREFIX}alpha`,
+        year,
+        visibility: 'PUBLIC',
+        commitCount: 7,
+        observedAt: legacySeenAt,
+      },
+    });
+
+    await runScript(REVERSE_SQL);
+
+    await expect(
+      prisma.githubUserActivityHistory.findMany({
+        where: { year },
+        orderBy: { githubId: 'asc' },
+        select: { githubId: true, observedAt: true },
+      }),
+    ).resolves.toEqual([
+      { githubId: GAMMA_ID, observedAt: seenAt },
+      { githubId: ALPHA_ID, observedAt: legacySeenAt },
+    ]);
+  });
+
   it('fails ledger verify when the standing view drifts from the ledger', async () => {
     const verifySql = VERIFY_SQL.trim().replace(/;\s*$/, '');
     try {
