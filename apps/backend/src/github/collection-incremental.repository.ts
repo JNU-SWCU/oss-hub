@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PlatformRepository } from '../platform/platform.repository';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../platform/prisma.service';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { StaleSyncEpochError } from './collection-incremental.error';
 import type {
   CollectionAppClientTokenProvider,
@@ -227,6 +228,7 @@ const emptyStreamSummary = (): CollectionSyncStreamSummary => ({
 
 type CollectionStoreClient = Pick<
   Prisma.TransactionClient,
+  | '$executeRaw'
   | '$executeRawUnsafe'
   | '$queryRaw'
   | '$queryRawUnsafe'
@@ -634,19 +636,22 @@ export class CollectionIncrementalStoreRepository {
       lastCompleteInventoryObservedAt: input.observedAt,
     };
 
-    const updated = await this.db.githubRepository.updateMany({
-      where: {
-        githubRepositoryId: input.githubRepositoryId,
-        source: 'EXTERNAL_PUBLIC',
-      },
-      data: {
-        ...currentObservation,
-        nextRunAt: input.observedAt,
-        failureCount: 0,
-      },
+    return this.inSameTransaction(async (store) => {
+      const updated = await store.githubRepository.updateMany({
+        where: {
+          githubRepositoryId: input.githubRepositoryId,
+          source: 'EXTERNAL_PUBLIC',
+        },
+        data: {
+          ...currentObservation,
+          nextRunAt: input.observedAt,
+          failureCount: 0,
+        },
+      });
+      if (updated.count === 0) return false;
+      await new RepoLedgerRepository().write(store, input.githubRepositoryId);
+      return true;
     });
-    if (updated.count === 0) return false;
-    return true;
   }
 
   async refreshRepositoryObservation(input: {
@@ -658,19 +663,22 @@ export class CollectionIncrementalStoreRepository {
     readonly visibility: 'PRIVATE' | 'PUBLIC';
     readonly observedAt: Date;
   }): Promise<CollectionRepositoryRow | null> {
-    await this.db.githubRepository.updateMany({
-      where: {
-        githubRepositoryId: input.githubRepositoryId,
-        source: input.source,
-      },
-      data: {
-        nameWithOwner: input.nameWithOwner,
-        defaultBranch: input.defaultBranch,
-        archived: input.archived,
-        visibility: input.visibility,
-        presence: 'PRESENT',
-        lastCompleteInventoryObservedAt: input.observedAt,
-      },
+    await this.inSameTransaction(async (store) => {
+      await store.githubRepository.updateMany({
+        where: {
+          githubRepositoryId: input.githubRepositoryId,
+          source: input.source,
+        },
+        data: {
+          nameWithOwner: input.nameWithOwner,
+          defaultBranch: input.defaultBranch,
+          archived: input.archived,
+          visibility: input.visibility,
+          presence: 'PRESENT',
+          lastCompleteInventoryObservedAt: input.observedAt,
+        },
+      });
+      await new RepoLedgerRepository().write(store, input.githubRepositoryId);
     });
     const current = await this.db.githubRepository.findUnique({
       where: { githubRepositoryId: input.githubRepositoryId },
@@ -684,14 +692,17 @@ export class CollectionIncrementalStoreRepository {
     observedAt: Date,
     source: RepositorySource,
   ): Promise<void> {
-    await this.db.githubRepository.updateMany({
-      where: { githubRepositoryId, source },
-      data: {
-        ...(unavailable === 'ABSENT'
-          ? { presence: 'ABSENT' as const }
-          : { visibility: 'PRIVATE' as const }),
-        lastCompleteInventoryObservedAt: observedAt,
-      },
+    await this.inSameTransaction(async (store) => {
+      await store.githubRepository.updateMany({
+        where: { githubRepositoryId, source },
+        data: {
+          ...(unavailable === 'ABSENT'
+            ? { presence: 'ABSENT' as const }
+            : { visibility: 'PRIVATE' as const }),
+          lastCompleteInventoryObservedAt: observedAt,
+        },
+      });
+      await new RepoLedgerRepository().write(store, githubRepositoryId);
     });
   }
 
@@ -704,12 +715,15 @@ export class CollectionIncrementalStoreRepository {
       select: { failureCount: true },
     });
     const failureCount = (current?.failureCount ?? 0) + 1;
-    await this.db.githubRepository.updateMany({
-      where: { githubRepositoryId },
-      data: {
-        failureCount,
-        nextRunAt: nextRunAtAfter(failureCount),
-      },
+    await this.inSameTransaction(async (store) => {
+      await store.githubRepository.updateMany({
+        where: { githubRepositoryId },
+        data: {
+          failureCount,
+          nextRunAt: nextRunAtAfter(failureCount),
+        },
+      });
+      await new RepoLedgerRepository().write(store, githubRepositoryId);
     });
   }
 
@@ -717,9 +731,12 @@ export class CollectionIncrementalStoreRepository {
     githubRepositoryId: bigint,
     now: Date,
   ): Promise<void> {
-    await this.db.githubRepository.updateMany({
-      where: { githubRepositoryId },
-      data: { failureCount: 0, lastSuccessAt: now, nextRunAt: now },
+    await this.inSameTransaction(async (store) => {
+      await store.githubRepository.updateMany({
+        where: { githubRepositoryId },
+        data: { failureCount: 0, lastSuccessAt: now, nextRunAt: now },
+      });
+      await new RepoLedgerRepository().write(store, githubRepositoryId);
     });
   }
 

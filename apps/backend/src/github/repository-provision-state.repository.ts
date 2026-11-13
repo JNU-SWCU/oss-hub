@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import {
   CollectionRepositoryPresence,
   Prisma,
@@ -358,6 +359,10 @@ export class RepositoryProvisionStateRepository {
         select: this.repositorySelection,
       });
     }
+    await new RepoLedgerRepository().link(
+      transaction,
+      input.metadata.githubRepositoryId,
+    );
 
     await transaction.team.update({
       where: { id: input.teamId },

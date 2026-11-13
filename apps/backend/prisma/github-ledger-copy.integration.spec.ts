@@ -1,9 +1,13 @@
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { PrismaClient } from '@prisma/client';
+import { Prisma, PrismaClient } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import { RepositoryDeletionRepository } from '../src/platform/repository-deletion.repository';
 import { TeamArchiveRepository } from '../src/programs/team.repository';
+import { RepoLedgerRepository } from '../src/platform/repo-ledger.repository';
+import { CollectionIncrementalRepository } from '../src/github/collection-incremental.repository';
+import { PlatformRepository } from '../src/platform/platform.repository';
+import type { PrismaService } from '../src/platform/prisma.service';
 
 assertIsolatedIntegrationDatabase({
   databaseUrl: process.env.DATABASE_URL,
@@ -182,10 +186,11 @@ describe('github ledger shadow copy', () => {
     const second = await verifyLedger();
 
     expect(second).toEqual(first);
-    for (const row of second) {
-      if (row.check === 'repo_count') continue;
-      expect(row.actual).toBe(row.expected);
-    }
+    expect(
+      second.filter(
+        (row) => row.check !== 'repo_count' && row.actual !== row.expected,
+      ),
+    ).toEqual([]);
     await expect(
       prisma.$queryRaw<Array<{ missing: bigint }>>`
         SELECT COUNT(*) AS missing
@@ -204,7 +209,18 @@ describe('github ledger shadow copy', () => {
             notIn: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID],
           },
         },
-      })) === 0
+      })) === 0 &&
+      (await prisma.repo.count({
+        where: {
+          githubRepoId: { notIn: [REPO_GITHUB_ID, ABSENT_REPO_GITHUB_ID] },
+        },
+      })) === 0 &&
+      (
+        await prisma.$queryRaw<Array<{ count: bigint }>>`
+          SELECT COUNT(*) AS count FROM "github_user_activity_history"
+          WHERE "github_id" <> ${GITHUB_ID}
+        `
+      )[0]?.count === 0n
     ) {
       expect(second).toEqual([
         { check: 'repo_count', expected: 2n, actual: 2n },
@@ -446,12 +462,11 @@ describe('github ledger shadow copy', () => {
     expect(successor[0]?.open).toBe(1n);
   });
 
-  it('closes a deleted source period, opens the replacement, and repeats the same ledger', async () => {
+  it('removes a deleted repository from the ledger, opens the replacement, and repeats the same ledger', async () => {
     await clean();
     await seed();
     await copyLedger();
     const teamId = `${PREFIX}team`;
-    const openedAt = new Date('2026-10-01T00:00:00.000Z');
     const replacementAt = new Date('2026-11-02T03:04:05.000Z');
     const linked = await prisma.githubRepository.findUniqueOrThrow({
       where: { githubRepositoryId: REPO_GITHUB_ID },
@@ -499,20 +514,18 @@ describe('github ledger shadow copy', () => {
     const kept = await repos();
     expect(first).toEqual([
       {
-        repo_id: REPO_GITHUB_ID,
-        valid_from: openedAt,
-        valid_to: replacementAt,
-      },
-      {
         repo_id: MOVE_REPO_GITHUB_ID,
         valid_from: replacementAt,
         valid_to: null,
       },
     ]);
-    expect(kept).toEqual([
-      { github_repo_id: REPO_GITHUB_ID },
-      { github_repo_id: MOVE_REPO_GITHUB_ID },
-    ]);
+    expect(kept).toEqual([{ github_repo_id: MOVE_REPO_GITHUB_ID }]);
+    expect(
+      await prisma.$queryRaw<Array<{ count: bigint }>>`
+        SELECT COUNT(*) AS count FROM "contribution"
+        WHERE "repo_id" = ${REPO_GITHUB_ID}
+      `,
+    ).toEqual([{ count: 0n }]);
     expect(
       await prisma.githubRepository.findUnique({
         where: { githubRepositoryId: REPO_GITHUB_ID },
@@ -531,16 +544,11 @@ describe('github ledger shadow copy', () => {
     const teamId = `${PREFIX}team`;
     const openedAt = new Date('2026-10-01T00:00:00.000Z');
     const claimAt = new Date('2026-11-05T04:06:07.000Z');
-    const linked = await prisma.githubRepository.findUniqueOrThrow({
-      where: { githubRepositoryId: REPO_GITHUB_ID },
-      select: { id: true },
-    });
-    await prisma.$transaction((tx) =>
-      new RepositoryDeletionRepository().deleteRepositoryWithFacts(
-        tx,
-        linked.id,
-      ),
-    );
+    await prisma.$executeRaw`
+      UPDATE "GithubRepository"
+      SET "teamId" = NULL
+      WHERE "githubRepositoryId" = ${REPO_GITHUB_ID}
+    `;
     await prisma.githubRepository.create({
       data: {
         githubRepositoryId: MOVE_REPO_GITHUB_ID,
@@ -643,6 +651,176 @@ describe('github ledger shadow copy', () => {
         ORDER BY "valid_from", "repo_id"
       `,
     ).toEqual(links);
+  });
+
+  it('keeps the copy and the verify clean after the app connects, reconnects, archives, and deletes', async () => {
+    await clean();
+    await seed();
+    await copyLedger();
+    const teamId = `${PREFIX}team`;
+    const archivedTeamId = `${PREFIX}team-archived`;
+    const ledger = new RepoLedgerRepository();
+    const collection = new CollectionIncrementalRepository(
+      prisma as PrismaService,
+      new PlatformRepository(),
+    );
+    await prisma.team.create({
+      data: {
+        id: archivedTeamId,
+        programId: `${PREFIX}program`,
+        name: archivedTeamId,
+        leaderId: `${PREFIX}user`,
+        applicantId: `${PREFIX}user`,
+        answers: { title: archivedTeamId },
+        applicationTemplateVersion: 1,
+      },
+    });
+
+    const connected = await prisma.$transaction(async (tx) => {
+      const created = await tx.githubRepository.create({
+        data: {
+          githubRepositoryId: MOVE_REPO_GITHUB_ID,
+          nameWithOwner: 'synthetic/connected',
+          source: 'ORG_PROVISIONED',
+          visibility: 'PUBLIC',
+          teamId: archivedTeamId,
+        },
+        select: { id: true },
+      });
+      await ledger.link(tx, MOVE_REPO_GITHUB_ID);
+      return created;
+    });
+    await collection.refreshRepositoryObservation({
+      source: 'ORG_PROVISIONED',
+      githubRepositoryId: MOVE_REPO_GITHUB_ID,
+      nameWithOwner: 'synthetic/renamed',
+      defaultBranch: 'main',
+      archived: false,
+      visibility: 'PUBLIC',
+      observedAt: new Date('2026-11-14T00:00:00.000Z'),
+    });
+    await collection.recordRepositorySuccess(
+      MOVE_REPO_GITHUB_ID,
+      new Date('2026-11-14T01:00:00.000Z'),
+    );
+
+    const replaced = await prisma.githubRepository.findUniqueOrThrow({
+      where: { githubRepositoryId: REPO_GITHUB_ID },
+      select: { id: true },
+    });
+    await prisma.$transaction(async (tx) => {
+      await new RepositoryDeletionRepository().deleteRepositoryWithFacts(
+        tx,
+        replaced.id,
+      );
+      await tx.githubRepository.create({
+        data: {
+          githubRepositoryId: VIOLATION_REPO_GITHUB_ID,
+          nameWithOwner: 'synthetic/reconnected',
+          source: 'EXTERNAL_PUBLIC',
+          teamId,
+        },
+      });
+      await ledger.link(tx, VIOLATION_REPO_GITHUB_ID);
+    });
+    await collection.markRepositoryUnavailable(
+      ABSENT_REPO_GITHUB_ID,
+      'ABSENT',
+      new Date('2026-11-14T02:00:00.000Z'),
+      'EXTERNAL_PUBLIC',
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await new RepositoryDeletionRepository().deleteRepositoryWithFacts(
+        tx,
+        connected.id,
+      );
+      await new TeamArchiveRepository().run(
+        tx,
+        archivedTeamId,
+        new Date('2026-11-14T03:00:00.000Z'),
+      );
+    });
+
+    const ledgerRows = async () => ({
+      repos: await prisma.$queryRaw<Array<Record<string, unknown>>>`
+        SELECT * FROM "repo"
+        WHERE "github_repo_id" IN (${Prisma.join(LEDGER_REPO_IDS)})
+        ORDER BY "github_repo_id"
+      `,
+      links: await prisma.$queryRaw<
+        Array<{
+          team_id: string;
+          repo_id: bigint;
+          valid_from: Date;
+          valid_to: Date | null;
+        }>
+      >`
+        SELECT "team_id", "repo_id", "valid_from", "valid_to"
+        FROM "team_repo"
+        WHERE "team_id" IN (${teamId}, ${archivedTeamId})
+        ORDER BY "team_id", "valid_from"
+      `,
+    });
+    const written = await ledgerRows();
+    expect(written.repos.map((row) => row.github_repo_id)).toEqual([
+      ABSENT_REPO_GITHUB_ID,
+      VIOLATION_REPO_GITHUB_ID,
+    ]);
+    expect(
+      written.links.map(({ team_id, repo_id, valid_to }) => ({
+        team_id,
+        repo_id,
+        open: valid_to === null,
+      })),
+    ).toEqual([
+      { team_id: teamId, repo_id: VIOLATION_REPO_GITHUB_ID, open: true },
+    ]);
+
+    await copyLedger();
+    expect(await ledgerRows()).toEqual(written);
+    const report = await verifyLedger();
+    expect(
+      report.filter(
+        (row) => row.check !== 'repo_count' && row.actual !== row.expected,
+      ),
+    ).toEqual([]);
+    await expect(
+      prisma.$queryRaw<Array<{ missing: bigint }>>`
+        SELECT COUNT(*) AS missing
+        FROM "GithubRepository" AS repository
+        WHERE repository."githubRepositoryId" IN (${Prisma.join(LEDGER_REPO_IDS)})
+          AND NOT EXISTS (
+            SELECT 1
+            FROM "repo"
+            WHERE "repo"."github_repo_id" = repository."githubRepositoryId"
+          )
+      `,
+    ).resolves.toEqual([{ missing: 0n }]);
+    const drift = await prisma.$queryRaw<Array<{ drift: bigint }>>`
+      SELECT COUNT(*) AS drift
+      FROM "GithubRepository" AS repository
+      JOIN "repo" ON "repo"."github_repo_id" = repository."githubRepositoryId"
+      WHERE repository."githubRepositoryId" IN (${Prisma.join(LEDGER_REPO_IDS)})
+        AND (
+          repository."nameWithOwner",
+          repository."defaultBranch",
+          repository."archived",
+          repository."visibility"::text,
+          repository."presence"::text,
+          repository."lastSuccessAt" AT TIME ZONE 'UTC',
+          repository."publishedAt" AT TIME ZONE 'UTC'
+        ) IS DISTINCT FROM (
+          "repo"."owner_name",
+          "repo"."default_branch",
+          "repo"."archived",
+          "repo"."visibility"::text,
+          "repo"."presence"::text,
+          "repo"."last_success_at",
+          "repo"."published_at"
+        )
+    `;
+    expect(drift).toEqual([{ drift: 0n }]);
   });
 });
 

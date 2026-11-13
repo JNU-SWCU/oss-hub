@@ -10,6 +10,7 @@ import {
   type User,
 } from '@prisma/client';
 import { AUTH_SCENARIOS } from './auth';
+import { RepoLedgerRepository } from '../../src/platform/repo-ledger.repository';
 import {
   applicationTemplateKey,
   offsetDays,
@@ -573,6 +574,7 @@ export async function seedOssHub(
         },
       }),
   );
+  await new RepoLedgerRepository().link(prisma, OSS_HUB_GITHUB_REPOSITORY_ID);
   await upsertTracked(
     stats,
     'RepositoryProvisionJob',
@@ -731,6 +733,10 @@ export async function seedOssHub(
           publishedAt: OSS_HUB_PRACTICE_CREATED_AT,
         },
       }),
+  );
+  await new RepoLedgerRepository().link(
+    prisma,
+    OSS_HUB_PRACTICE_GITHUB_REPOSITORY_ID,
   );
   await upsertTracked(
     stats,

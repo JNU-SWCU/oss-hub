@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../test/repo-ledger.fixture';
 import { assertIsolatedIntegrationDatabase } from '../test/integration-database.guard';
 import {
   AccountStatus,
@@ -360,7 +361,7 @@ async function deleteAllSeeded(): Promise<void> {
   await prisma.repositoryProvisionJob.deleteMany({ where: seedIdFilter });
   await prisma.repositoryInvitation.deleteMany({ where: seedIdFilter });
   await prisma.outboxEvent.deleteMany({ where: seedIdFilter });
-  await prisma.githubRepository.deleteMany({ where: seedIdFilter });
+  await deleteGithubRepositories(prisma, seedIdFilter);
   await prisma.submission.deleteMany({ where: seedIdFilter });
   await prisma.file.deleteMany({ where: seedIdFilter });
   await prisma.requirement.deleteMany({ where: seedIdFilter });

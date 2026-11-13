@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { PlatformRepository } from '../platform/platform.repository';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
 import { PrismaService } from '../platform/prisma.service';
@@ -26,9 +27,7 @@ const observation = {
 
 describe('registered repository observation', () => {
   beforeAll(() => prisma.$connect());
-  afterEach(() =>
-    prisma.githubRepository.deleteMany({ where: { githubRepositoryId } }),
-  );
+  afterEach(() => deleteGithubRepositories(prisma, { githubRepositoryId }));
   afterAll(() => prisma.$disconnect());
 
   it('미등록 레포의 메타데이터 관찰은 레포를 생성하지 않는다', async () => {

@@ -999,6 +999,13 @@ model Repo {
   source       RepositorySource
   goneAt       DateTime?        @map("gone_at") @db.Timestamptz(3)
 
+  defaultBranch String?                      @map("default_branch")
+  archived      Boolean                      @default(false)
+  visibility    RepositoryVisibility         @default(PRIVATE)
+  presence      CollectionRepositoryPresence @default(PRESENT)
+  publishedAt   DateTime?                    @map("published_at") @db.Timestamptz(3)
+  lastSuccessAt DateTime?                    @map("last_success_at") @db.Timestamptz(3)
+
   teamRepos     TeamRepo[]
   contributions ContributionEvent[]
 

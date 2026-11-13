@@ -18,6 +18,7 @@ import {
   upsertTracked,
 } from './helpers';
 import { upsertSeedUser } from './user';
+import { RepoLedgerRepository } from '../../src/platform/repo-ledger.repository';
 
 const PROGRAM_ID = seedId('repositories', 'program');
 
@@ -186,6 +187,7 @@ async function seedRepoJobSucceeded(stats: SeedStats): Promise<void> {
         },
       }),
   );
+  await new RepoLedgerRepository().link(prisma, seedRepositoryId(scenarioId));
 
   const jobId = seedId('repositories', scenarioId, 'job');
   await upsertTracked(
@@ -261,6 +263,7 @@ async function seedRepositoryReady(stats: SeedStats): Promise<void> {
         },
       }),
   );
+  await new RepoLedgerRepository().link(prisma, seedRepositoryId(scenarioId));
 
   const invitationId = seedId('repositories', scenarioId, 'invitation');
   const invitedUser = await prisma.user.findUnique({
@@ -311,6 +314,7 @@ async function seedRepositoryPublic(stats: SeedStats): Promise<void> {
         },
       }),
   );
+  await new RepoLedgerRepository().link(prisma, seedRepositoryId(scenarioId));
 }
 
 export async function seedRepositories(stats: SeedStats): Promise<void> {

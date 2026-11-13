@@ -17,6 +17,7 @@ import {
 import { REPOSITORY_PROVISION_EVENT_TYPE } from './repository-provision-event.config';
 
 import { PrismaService } from '../platform/prisma.service';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import { REPOSITORY_ACCESS_SYNC_EVENT_TYPE } from '../platform/repository-access-sync.config';
 import { InvalidRepositoryProvisionEventError } from './repositories.error';
 
@@ -275,6 +276,7 @@ export class RepositoriesRepository {
         publishedAt: now,
       },
     });
+    await new RepoLedgerRepository().write(transaction, githubRepositoryId);
     return updated.count === 1;
   }
 

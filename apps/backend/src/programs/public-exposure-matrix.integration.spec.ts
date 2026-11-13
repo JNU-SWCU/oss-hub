@@ -1,3 +1,4 @@
+import { deleteGithubRepositories } from '../../test/repo-ledger.fixture';
 import { FileMetadataRepository } from './files.repository';
 import { SubmissionFileAdmissionService } from './files.service';
 import { PlatformRepository } from '../platform/platform.repository';
@@ -501,8 +502,8 @@ describe('public/admin exposure matrix (todo 23) — outcome 1–9', () => {
       await prisma.repositoryProvisionJob.deleteMany({
         where: { id: { startsWith: `${PREFIX}-` } },
       });
-      await prisma.githubRepository.deleteMany({
-        where: { id: { startsWith: `${PREFIX}-` } },
+      await deleteGithubRepositories(prisma, {
+        id: { startsWith: `${PREFIX}-` },
       });
       await prisma.teamMember.deleteMany({
         where: { teamId: { startsWith: `${PREFIX}-` } },

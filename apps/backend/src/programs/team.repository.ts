@@ -85,6 +85,7 @@ import { type SubmissionCompletionTargetRow } from './submission-completion.conf
 import { PrismaSerializationRetryRepository } from '../platform/prisma-serialization-retry.repository';
 import type { OwnGithubRepositoryResolution } from '../github/own-repository-resolution.types';
 import { RepositoryDeletionRepository } from '../platform/repository-deletion.repository';
+import { RepoLedgerRepository } from '../platform/repo-ledger.repository';
 import type { RepositoryDeletionCounts } from '../platform/repository-audit-metadata.config';
 
 type DeletionScopeCountsRow = Readonly<{
@@ -3154,9 +3155,17 @@ async function deleteTeamTree(
   await tx.repositoryInvitation.deleteMany({
     where: { repository: repositoryScope },
   });
+  const detached = await tx.githubRepository.findMany({
+    where: repositoryScope,
+    select: { githubRepositoryId: true },
+  });
   const githubRepositoriesDeleted = await tx.githubRepository.deleteMany({
     where: repositoryScope,
   });
+  await new RepoLedgerRepository().remove(
+    tx,
+    detached.map((repository) => repository.githubRepositoryId),
+  );
 
   const fileScope = {
     OR: [
@@ -3407,6 +3416,7 @@ export class StudentRepositoryUrlTransactionRepository {
       });
       repositoryId = created.id;
     }
+    await new RepoLedgerRepository().link(tx, metadata.githubRepositoryId);
 
     await tx.team.update({
       where: { id: context.id },

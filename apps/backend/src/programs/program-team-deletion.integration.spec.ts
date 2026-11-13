@@ -25,10 +25,7 @@ import {
   SubmissionStatus,
 } from '@prisma/client';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import {
-  repositoryContributionTotals,
-  seedDailyContributions,
-} from '../../test/ledger-contribution.fixture';
+import { seedDailyContributions } from '../../test/ledger-contribution.fixture';
 import { DomainException } from '../platform/error-code.error';
 import { PrismaService } from '../platform/prisma.service';
 import { canonicalUserCreateFromLabel } from '../users/canonical-user-fixture';
@@ -111,6 +108,7 @@ interface SeededTeam {
   readonly reviewHistoryId: string;
   readonly fileId: string;
   readonly repositoryId: string;
+  readonly githubRepositoryId: bigint;
   readonly decisionNotificationId: string;
   readonly acknowledgedNotificationId: string;
   readonly outboxEventId: string;
@@ -334,10 +332,11 @@ async function seedApprovedTeam(
     });
   }
 
+  const githubRepositoryId = BigInt(940000000 + teamSequence);
   await prisma.githubRepository.create({
     data: {
       id: repositoryId,
-      githubRepositoryId: BigInt(940000000 + teamSequence),
+      githubRepositoryId,
       nameWithOwner: `synthetic-org/team-${teamSequence}`,
       source: RepositorySource.ORG_PROVISIONED,
       visibility: RepositoryVisibility.PUBLIC,
@@ -346,7 +345,7 @@ async function seedApprovedTeam(
     },
   });
 
-  await seedDailyContributions(prisma, BigInt(940000000 + teamSequence), [
+  await seedDailyContributions(prisma, githubRepositoryId, [
     { githubId: LEADER_GITHUB_ID, date: '2026-08-21', commitCount: 3 },
   ]);
   await prisma.repositoryProvisionJob.create({
@@ -404,6 +403,7 @@ async function seedApprovedTeam(
     reviewHistoryId,
     fileId: `${teamId}:file`,
     repositoryId,
+    githubRepositoryId,
     decisionNotificationId: decisionNotification.id,
     acknowledgedNotificationId: acknowledged.id,
     outboxEventId: outboxEvent.id,
@@ -646,10 +646,14 @@ it('팀 삭제는 연결 레포와 수집 기록 및 레포 초대를 함께 지
   await expect(
     prisma.githubRepository.findUnique({ where: { id: fixture.repositoryId } }),
   ).resolves.toBeNull();
-  expect(
-    (await repositoryContributionTotals(prisma, [fixture.repositoryId]))
-      .commitCount,
-  ).toBe(0);
+  await expect(
+    prisma.contributionEvent.count({
+      where: { repoId: fixture.githubRepositoryId },
+    }),
+  ).resolves.toBe(0);
+  await expect(
+    prisma.repo.count({ where: { githubRepoId: fixture.githubRepositoryId } }),
+  ).resolves.toBe(0);
   await expect(
     prisma.repositoryInvitation.count({
       where: { repositoryId: fixture.repositoryId },
