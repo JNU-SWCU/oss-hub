@@ -8,58 +8,6 @@ FROM (
     (SELECT COUNT(*) FROM "GithubRepository" WHERE "teamId" IS NOT NULL),
     (SELECT COUNT(*) FROM "team_repo" WHERE "valid_to" IS NULL)
   UNION ALL
-  SELECT 'commit_count', uncovered.commits, 0
-  FROM (
-    SELECT COUNT(*) AS commits
-    FROM "CollectionCommitFact" AS fact
-    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
-    WHERE NOT EXISTS (
-      SELECT 1 FROM "contribution" AS event
-      WHERE event.repo_id = repository."githubRepositoryId"
-        AND event.kind = 'commit'
-        AND event.github_key = fact.sha
-    )
-  ) AS uncovered
-  UNION ALL
-  SELECT 'pull_request_count', uncovered.pull_requests, 0
-  FROM (
-    SELECT COUNT(*) AS pull_requests
-    FROM "CollectionPullRequestFact" AS fact
-    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
-    WHERE NOT EXISTS (
-      SELECT 1 FROM "contribution" AS event
-      WHERE event.repo_id = repository."githubRepositoryId"
-        AND event.kind = 'pull_request'
-        AND event.github_key = fact."githubPullRequestId"::text
-    )
-  ) AS uncovered
-  UNION ALL
-  SELECT 'issue_count', uncovered.issues, 0
-  FROM (
-    SELECT COUNT(*) AS issues
-    FROM "GithubIssueHistory" AS fact
-    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
-    WHERE NOT EXISTS (
-      SELECT 1 FROM "contribution" AS event
-      WHERE event.repo_id = repository."githubRepositoryId"
-        AND event.kind = 'issue'
-        AND event.github_key = fact."githubIssueId"::text
-    )
-  ) AS uncovered
-  UNION ALL
-  SELECT 'release_count', uncovered.releases, 0
-  FROM (
-    SELECT COUNT(*) AS releases
-    FROM "CollectionReleaseFact" AS fact
-    JOIN "GithubRepository" AS repository ON repository.id = fact."repositoryId"
-    WHERE NOT EXISTS (
-      SELECT 1 FROM "contribution" AS event
-      WHERE event.repo_id = repository."githubRepositoryId"
-        AND event.kind = 'release'
-        AND event.github_key = fact."githubReleaseId"::text
-    )
-  ) AS uncovered
-  UNION ALL
   SELECT 'latest_commit_sum',
     COALESCE((
       SELECT SUM(standing.commit_count)
@@ -143,19 +91,6 @@ FROM (
         ORDER BY github_id, year, visibility, observed_at DESC
       ) AS latest
     ), 0)
-  UNION ALL
-  SELECT 'legacy_history_uncovered', uncovered.rows, 0
-  FROM (
-    SELECT COUNT(*) AS rows
-    FROM "GithubUserActivityHistory" AS history
-    WHERE NOT EXISTS (
-      SELECT 1
-      FROM github_user_activity_history AS observation
-      WHERE observation.github_id = history."githubId"
-        AND observation.year = history.year
-        AND observation.visibility = history.visibility
-    )
-  ) AS uncovered
   UNION ALL
   SELECT 'history_consecutive_same_value', same_value.rows, same_value.rows
   FROM (
