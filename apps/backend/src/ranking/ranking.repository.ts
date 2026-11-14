@@ -1,4 +1,3 @@
-import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { Injectable } from '@nestjs/common';
 import {
   AccountStatus,
@@ -12,6 +11,7 @@ import {
 } from '../platform/contributor-read.repository';
 import { PrismaService } from '../platform/prisma.service';
 import {
+  USER_AUTHORITY_SELECT,
   USER_PROFILE_DEPARTMENT_SELECT,
   USER_PROFILE_NAME_SELECT,
 } from '../platform/user-profile-read.config';
@@ -56,11 +56,13 @@ const seoulDayStart = (instant: Date): Date =>
       SEOUL_OFFSET_MS,
   );
 
-type ActivityRow = StandingRow;
-
 @Injectable()
 export class RankingRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly contributors: ContributorReadRepository;
+
+  constructor(private readonly prisma: PrismaService) {
+    this.contributors = new ContributorReadRepository(prisma);
+  }
 
   async findViewerClass(
     githubId: bigint | null,
@@ -94,7 +96,7 @@ export class RankingRepository {
     query: RankingMetricsQuery,
   ): Promise<readonly RankingMetricRow[]> {
     return this.foldMetrics(
-      new ContributorReadRepository(this.prisma).readStandingRows({
+      this.contributors.readStandingRows({
         year: query.currentYear ?? null,
         visibility: null,
       }),
@@ -105,11 +107,9 @@ export class RankingRepository {
     query: RankingMetricsQuery,
     now: Date,
   ): Promise<readonly RankingMetricRow[]> {
-    const rows = await new ContributorReadRepository(
-      this.prisma,
-    ).readRowsBefore(
+    const rows = await this.contributors.readRowsBefore(
       {
-        year: query.currentYear === undefined ? null : query.currentYear,
+        year: query.currentYear ?? null,
         visibility: null,
       },
       seoulDayStart(now),
@@ -118,7 +118,7 @@ export class RankingRepository {
   }
 
   private async foldMetrics(
-    activity: Promise<readonly ActivityRow[]>,
+    activity: Promise<readonly StandingRow[]>,
   ): Promise<readonly RankingMetricRow[]> {
     const [users, activityRows] = await Promise.all([
       this.prisma.user.findMany({
@@ -273,14 +273,14 @@ export class RankingRepository {
   }
 
   async listYears(): Promise<readonly number[]> {
-    return new ContributorReadRepository(this.prisma).readStandingYears({
+    return this.contributors.readStandingYears({
       year: null,
       visibility: null,
     });
   }
 
   async findDataAsOf(): Promise<Date | null> {
-    return new ContributorReadRepository(this.prisma).readStandingObservedAt({
+    return this.contributors.readStandingObservedAt({
       year: null,
       visibility: null,
     });
