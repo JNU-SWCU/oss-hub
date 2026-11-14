@@ -4,10 +4,8 @@ import { APPLICATION_SCHEDULE_MODULE } from './maintenance.config';
 import { PlatformModule } from '../platform/platform.module';
 import { UsersModule } from '../users/users.module';
 import { CollectionAdminService } from './collection-admin.service';
-import {
-  CollectionUserActivityRepository,
-  RepositoryProvisionJobRepository,
-} from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './collection-user-activity.repository';
+import { RepositoryProvisionJobRepository } from './repository-provision-job.repository';
 import { CollectionIncrementalRepository } from './collection-incremental.repository';
 import { COLLECTION_PROVIDERS } from './collection-public-token.service';
 import { CollectionTriggerService } from './collection-trigger.service';

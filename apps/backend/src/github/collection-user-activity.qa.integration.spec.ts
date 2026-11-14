@@ -12,7 +12,7 @@ import {
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
 import { CollectionUserActivityService } from './collection-user-activity.service';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
 
 assertIsolatedIntegrationDatabase({

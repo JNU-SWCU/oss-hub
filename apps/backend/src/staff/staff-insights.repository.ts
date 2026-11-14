@@ -34,7 +34,11 @@ export interface StaffInsightsActivityQuery {
 
 @Injectable()
 export class StaffInsightsRepository {
-  constructor(private readonly prisma: PrismaService) {}
+  private readonly contributors: ContributorReadRepository;
+
+  constructor(private readonly prisma: PrismaService) {
+    this.contributors = new ContributorReadRepository(prisma);
+  }
 
   async listStudents(): Promise<readonly StaffInsightsStudentRecord[]> {
     const rows = await this.prisma.user.findMany({
@@ -77,9 +81,7 @@ export class StaffInsightsRepository {
   async listActivityTotals(
     query: StaffInsightsActivityQuery,
   ): Promise<readonly StaffInsightsActivityRecord[]> {
-    const activityRows = await new ContributorReadRepository(
-      this.prisma,
-    ).readStandingRows({
+    const activityRows = await this.contributors.readStandingRows({
       year: query.currentYear ?? null,
       visibility: ActivityVisibility.PUBLIC,
     });
@@ -132,14 +134,14 @@ export class StaffInsightsRepository {
   }
 
   async listActivityYears(): Promise<readonly number[]> {
-    return new ContributorReadRepository(this.prisma).readStandingYears({
+    return this.contributors.readStandingYears({
       year: null,
       visibility: ActivityVisibility.PUBLIC,
     });
   }
 
   async findActivityDataAsOf(): Promise<Date | null> {
-    return new ContributorReadRepository(this.prisma).readStandingObservedAt({
+    return this.contributors.readStandingObservedAt({
       year: null,
       visibility: ActivityVisibility.PUBLIC,
     });

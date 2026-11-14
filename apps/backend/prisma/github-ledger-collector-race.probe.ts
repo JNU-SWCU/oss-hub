@@ -1,5 +1,5 @@
 import { PrismaClient } from '@prisma/client';
-import { CollectionUserActivityRepository } from '../src/github/repository-provision-job.repository';
+import { CollectionUserActivityRepository } from '../src/github/collection-user-activity.repository';
 import { PrismaService } from '../src/platform/prisma.service';
 
 type ProbeMode = 'pkey' | 'same-count' | 'logical';

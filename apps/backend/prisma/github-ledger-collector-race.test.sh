@@ -3,7 +3,7 @@ set -euo pipefail
 
 root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 backend="$root/apps/backend"
-activity_ts="$backend/src/github/repository-provision-job.repository.ts"
+activity_ts="$backend/src/github/collection-user-activity.repository.ts"
 fact_ts="$backend/src/github/collection-incremental.repository.ts"
 db="ledger_collector_race_$$"
 container=""

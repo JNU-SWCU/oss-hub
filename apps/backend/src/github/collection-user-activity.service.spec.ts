@@ -3,7 +3,7 @@ import { AccountStatus } from '@prisma/client';
 
 import { PrismaService } from '../platform/prisma.service';
 import { CollectionDiscoveryClient } from './collection-discovery.client';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionDiscoveryClientError } from './collection-discovery.error';
 

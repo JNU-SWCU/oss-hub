@@ -13,7 +13,7 @@ import {
   type CollectionSyncRuntime,
   type CollectionSyncRuntimeFactory,
 } from './collection-incremental.repository';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { CollectionUserActivityService } from './collection-user-activity.service';
 import { CollectionSyncService } from './collection-sync.service';
 import { ProviderRequestQueueClient } from './provider-request-queue.client';

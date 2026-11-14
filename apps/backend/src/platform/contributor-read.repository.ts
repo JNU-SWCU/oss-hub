@@ -120,39 +120,12 @@ export class ContributorReadRepository {
   async readStandingRows(
     filter: StandingFilter,
   ): Promise<readonly StandingRow[]> {
-    const rows = await this.queryStandingRows(filter);
-    return rows.map(standingRow);
-  }
-
-  private queryStandingRows(
-    filter: StandingFilter,
-  ): Promise<readonly StandingSqlRow[]> {
-    if (filter.year !== null && filter.visibility !== null) {
-      return this.prisma.$queryRaw<StandingSqlRow[]>`
-        SELECT ${STANDING_COLUMNS}
-        FROM ${STANDING}
-        WHERE year = ${filter.year}
-          AND visibility = ${filter.visibility}::"ActivityVisibility"
-      `;
-    }
-    if (filter.year !== null) {
-      return this.prisma.$queryRaw<StandingSqlRow[]>`
-        SELECT ${STANDING_COLUMNS}
-        FROM ${STANDING}
-        WHERE year = ${filter.year}
-      `;
-    }
-    if (filter.visibility !== null) {
-      return this.prisma.$queryRaw<StandingSqlRow[]>`
-        SELECT ${STANDING_COLUMNS}
-        FROM ${STANDING}
-        WHERE visibility = ${filter.visibility}::"ActivityVisibility"
-      `;
-    }
-    return this.prisma.$queryRaw<StandingSqlRow[]>`
+    const rows = await this.prisma.$queryRaw<StandingSqlRow[]>`
       SELECT ${STANDING_COLUMNS}
       FROM ${STANDING}
+      ${standingWhere(filter)}
     `;
+    return rows.map(standingRow);
   }
 
   async readRowsBefore(
