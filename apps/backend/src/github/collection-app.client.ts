@@ -190,7 +190,7 @@ export class CollectionAppClient {
         ).toString(),
         { headers: { 'X-GitHub-Api-Version': API_VERSION } },
         this.now() + this.config.deadlineMs,
-        true,
+        { notFound: true },
       ),
     );
   }
@@ -472,7 +472,7 @@ export class CollectionAppClient {
       readonly body?: string;
     },
     deadline: number,
-    notFound: boolean,
+    { notFound }: { readonly notFound: boolean },
   ): Promise<unknown> {
     for (let attempt = 0; attempt < 2; attempt += 1) {
       const remaining = deadline - this.now();
@@ -549,7 +549,7 @@ export class CollectionAppClient {
           body: JSON.stringify(payload),
         },
         deadline,
-        false,
+        { notFound: false },
       ),
     );
     if (Array.isArray(body.errors) && body.errors.length > 0) {

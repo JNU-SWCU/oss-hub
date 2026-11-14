@@ -6,7 +6,7 @@ import { join } from 'node:path';
 import { MODULE_METADATA } from '@nestjs/common/constants';
 import { ConsentsService } from '../users/consents.service';
 import { ScheduleModule } from '@nestjs/schedule';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { RUNTIME_CONFIG } from '../platform/runtime-config-instance.config';
 import { loadRuntimeConfig } from '../platform/runtime-config.config';
 import { CollectionAdminService } from './collection-admin.service';

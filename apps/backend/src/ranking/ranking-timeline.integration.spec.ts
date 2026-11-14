@@ -1,7 +1,7 @@
 import { AccountStatus, ActivityVisibility } from '@prisma/client';
 import { DepartmentType, MemberKind } from '../users/user-contract.config';
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { CollectionUserActivityRepository } from '../github/repository-provision-job.repository';
+import { CollectionUserActivityRepository } from '../github/collection-user-activity.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { RankingRepository } from './ranking.repository';
 import { RankingTimelineService } from './ranking-timeline.service';

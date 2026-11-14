@@ -1,5 +1,5 @@
 import { assertIsolatedIntegrationDatabase } from '../../test/integration-database.guard';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { PrismaService } from '../platform/prisma.service';
 import { ContributorReadRepository } from '../platform/contributor-read.repository';
 

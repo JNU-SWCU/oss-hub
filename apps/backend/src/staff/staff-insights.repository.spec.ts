@@ -26,10 +26,11 @@ describe('StaffInsightsRepository standing read', () => {
     if (!Array.isArray(strings)) {
       throw new Error('Standing query was not recorded');
     }
-    expect(call.slice(1)).toEqual(
+    const query = Prisma.sql(strings, ...(call.slice(1) as Prisma.Sql[]));
+    expect(query.values).toEqual(
       expect.arrayContaining([2026, ActivityVisibility.PUBLIC]),
     );
-    const sql = Prisma.sql(strings, ...(call.slice(1) as Prisma.Sql[])).sql;
+    const sql = query.sql;
     expect(sql).toContain('DISTINCT ON');
     expect(sql).toContain('github_user_activity_history');
   });

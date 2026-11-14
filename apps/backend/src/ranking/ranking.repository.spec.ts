@@ -12,10 +12,8 @@ function standingCall(queryRaw: jest.Mock): {
   if (!Array.isArray(strings)) {
     throw new Error('Standing query was not recorded');
   }
-  return {
-    sql: Prisma.sql(strings, ...(call.slice(1) as Prisma.Sql[])).sql,
-    values: call.slice(1),
-  };
+  const query = Prisma.sql(strings, ...(call.slice(1) as Prisma.Sql[]));
+  return { sql: query.sql, values: query.values };
 }
 
 describe('RankingRepository standing read', () => {

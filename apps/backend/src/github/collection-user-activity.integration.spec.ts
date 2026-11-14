@@ -13,7 +13,7 @@ import {
   CollectionDiscoveryClient,
   type CollectionUserActivityMetrics,
 } from './collection-discovery.client';
-import { CollectionUserActivityRepository } from './repository-provision-job.repository';
+import { CollectionUserActivityRepository } from './collection-user-activity.repository';
 import { CollectionTriggerService } from './collection-trigger.service';
 import { CollectionSyncService } from './collection-sync.service';
 import { CollectionUserActivityService } from './collection-user-activity.service';
