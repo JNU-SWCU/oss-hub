@@ -15,10 +15,7 @@ import {
   PROGRAM_LIST_QUERY_SORTS,
   PROGRAM_LIST_QUERY_DIRECTIONS,
 } from './program-list.config';
-import {
-  USER_AUTHORITY_SELECT,
-  USER_PROFILE_NAME_SELECT,
-} from '../platform/user-profile-read.config';
+import { USER_AUTHORITY_SELECT } from '../platform/user-profile-read.config';
 import { PrismaService } from '../platform/prisma.service';
 import { PlatformRepository } from '../platform/platform.repository';
 import {
@@ -525,71 +522,6 @@ export class ProgramsRepository {
     }
     return counts;
   }
-  async findProgramRepositories(
-    programId: string,
-    studentUserId: string | null,
-  ) {
-    const links = await this.prisma.$queryRaw<
-      readonly { readonly repoId: bigint; readonly teamId: string }[]
-    >`
-      SELECT link.repo_id AS "repoId", link.team_id AS "teamId"
-      FROM team_repo AS link
-      JOIN "Team" AS team ON team.id = link.team_id
-      WHERE team."programId" = ${programId}
-        AND NOT EXISTS (
-          SELECT 1
-          FROM team_repo AS later
-          WHERE later.repo_id = link.repo_id
-            AND later.valid_from > link.valid_from
-        )
-    `;
-    const teams = new Map(
-      (
-        await this.prisma.team.findMany({
-          where: {
-            id: { in: links.map((link) => link.teamId) },
-            ...(studentUserId
-              ? this.platformRepository.programApplicationParticipantWhere(
-                  studentUserId,
-                )
-              : {}),
-          },
-          select: {
-            id: true,
-            applicant: {
-              select: {
-                githubId: true,
-                nickname: true,
-                ...USER_PROFILE_NAME_SELECT,
-              },
-            },
-            name: true,
-            leader: { select: { githubId: true } },
-            members: { select: { user: { select: { githubId: true } } } },
-          },
-        })
-      ).map((team) => [team.id, team]),
-    );
-
-    return links.flatMap((link) => {
-      const team = teams.get(link.teamId);
-      if (team === undefined) return [];
-      return [
-        {
-          githubRepositoryId: link.repoId,
-          application: {
-            id: team.id,
-            applicant: team.applicant,
-            team: {
-              name: team.name,
-              leader: team.leader,
-              members: team.members,
-            },
-          },
-        },
-      ];
-    });
-  }
   async findStudentActivityApplications(userId: string) {
     return this.prisma.team
       .findMany({
@@ -599,12 +531,6 @@ export class ProgramsRepository {
           ...this.platformRepository.programApplicationParticipantWhere(userId),
         },
         select: {
-          id: true,
-          applicant: { select: { githubId: true } },
-          leader: { select: { githubId: true } },
-          members: {
-            select: { user: { select: { githubId: true } } },
-          },
           program: {
             select: { id: true, name: true, applicationStartAt: true },
           },

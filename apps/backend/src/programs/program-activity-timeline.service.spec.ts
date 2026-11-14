@@ -95,7 +95,6 @@ describe('ProgramActivityService canonical activity', () => {
       }),
     ]);
     const repository = {
-      findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
     } satisfies ProgramActivityProgramStore;
 
@@ -144,7 +143,6 @@ describe('ProgramActivityService canonical activity', () => {
       }),
     ]);
     const repository = {
-      findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
     } satisfies ProgramActivityProgramStore;
 
@@ -174,7 +172,6 @@ describe('ProgramActivityService canonical activity', () => {
     >();
     findRepositoryActivity.mockResolvedValue([]);
     const repository = {
-      findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
     } satisfies ProgramActivityProgramStore;
 
@@ -202,7 +199,6 @@ describe('ProgramActivityService canonical activity', () => {
       }),
     ]);
     const repository = {
-      findProgramRepositories: () => Promise.resolve([]),
       findStudentActivityApplications: () => Promise.resolve([application]),
     } satisfies ProgramActivityProgramStore;
 

@@ -42,7 +42,9 @@ export class ProgramActivitySummaryService {
     const activityRows = await this.activity.findRepositoryActivity({
       repositoryIds,
     });
-    const activityByRepository = latestActivityByRepository(activityRows);
+    const activityByRepository = new Map(
+      activityRows.map((activity) => [activity.repositoryId, activity]),
+    );
     const byProgram = new Map<string, ProgramActivitySummary>(
       programIds.map((programId) => [
         programId,
@@ -95,22 +97,6 @@ export class ProgramActivitySummaryService {
 
     return [...byProgram.values()];
   }
-}
-
-function latestActivityByRepository(
-  activityRows: readonly ProgramRepositoryActivity[],
-): ReadonlyMap<bigint, ProgramRepositoryActivity> {
-  const byRepository = new Map<bigint, ProgramRepositoryActivity>();
-  for (const activity of activityRows) {
-    const current = byRepository.get(activity.repositoryId);
-    if (
-      !current ||
-      (current.dataAsOf?.getTime() ?? 0) < (activity.dataAsOf?.getTime() ?? 0)
-    ) {
-      byRepository.set(activity.repositoryId, activity);
-    }
-  }
-  return byRepository;
 }
 
 function newestActivityDate(activity: ProgramRepositoryActivity): Date | null {
