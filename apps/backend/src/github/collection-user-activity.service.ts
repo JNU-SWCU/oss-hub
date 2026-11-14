@@ -23,9 +23,6 @@ export interface CollectionUserActivitySweepResult {
 const seoulYearStart = (year: number): Date =>
   new Date(Date.UTC(year, 0, 1) - ASIA_SEOUL_OFFSET_MS);
 
-const seoulMonthOf = (instant: Date): number =>
-  new Date(instant.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCMonth() + 1;
-
 const seoulYearOf = (instant: Date): number =>
   new Date(instant.getTime() + ASIA_SEOUL_OFFSET_MS).getUTCFullYear();
 
@@ -67,24 +64,23 @@ export class CollectionUserActivityService {
         this.discoveryClient.fetchUserActivityMetrics(githubLogin, from, to),
       ]);
       accessToken = '';
-      const observation: Omit<CollectionUserActivityObservationInput, 'month'> =
-        {
-          githubId,
-          githubLogin,
-          year,
-          commitCount: Math.max(0, user.commitCount - service.commitCount),
-          pullRequestCount: Math.max(
-            0,
-            user.pullRequestCount - service.pullRequestCount,
-          ),
-          issueCount: Math.max(0, user.issueCount - service.issueCount),
-          repositoryCount: Math.max(
-            0,
-            user.repositoryCount - service.repositoryCount,
-          ),
-          starCount: 0,
-          observedAt: this.now(),
-        };
+      const observation: CollectionUserActivityObservationInput = {
+        githubId,
+        githubLogin,
+        year,
+        commitCount: Math.max(0, user.commitCount - service.commitCount),
+        pullRequestCount: Math.max(
+          0,
+          user.pullRequestCount - service.pullRequestCount,
+        ),
+        issueCount: Math.max(0, user.issueCount - service.issueCount),
+        repositoryCount: Math.max(
+          0,
+          user.repositoryCount - service.repositoryCount,
+        ),
+        starCount: 0,
+        observedAt: this.now(),
+      };
       await this.repository.upsertPrivateObservation(observation);
     } catch (error) {
       this.logger.warn({
@@ -182,7 +178,6 @@ export class CollectionUserActivityService {
     const observation: CollectionUserActivityObservationInput = {
       githubId: user.githubId,
       year,
-      month: year === currentYear ? seoulMonthOf(startedAt) : 12,
       githubLogin: user.nickname,
       commitCount: metrics.commitCount,
       pullRequestCount: metrics.pullRequestCount,

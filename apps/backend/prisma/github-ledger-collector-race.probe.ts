@@ -36,7 +36,6 @@ const writeObservation = async (
   await repository.upsertObservation({
     githubId,
     year: 2026,
-    month: 4,
     githubLogin: 'octocat',
     commitCount,
     ...sharedCounts,

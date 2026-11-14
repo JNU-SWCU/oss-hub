@@ -113,7 +113,6 @@ describe('contributor standing and repo contribution views', () => {
       githubId: CLOCK_ID,
       githubLogin: 'synthetic-read-views-clock',
       year: 2122,
-      month: 4,
       ...counts,
       observedAt: first,
     });
@@ -121,7 +120,6 @@ describe('contributor standing and repo contribution views', () => {
       githubId: CLOCK_ID,
       githubLogin: 'synthetic-read-views-clock',
       year: 2122,
-      month: 4,
       ...counts,
       observedAt: second,
     });
@@ -275,9 +273,6 @@ function countFor(
 async function purge(): Promise<void> {
   await prisma.contributionEvent.deleteMany({
     where: { repoId: GITHUB_REPOSITORY_ID },
-  });
-  await prisma.githubUserActivityMonthly.deleteMany({
-    where: { githubId: CLOCK_ID },
   });
   await prisma.githubUserActivityObservation.deleteMany({
     where: { githubId: { in: [GITHUB_ID, CLOCK_ID] } },

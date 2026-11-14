@@ -888,15 +888,6 @@ async function seed(): Promise<void> {
       ${new Date('2026-10-25T02:00:00.000Z')}
     )
   `;
-  await prisma.githubUserActivityMonthly.create({
-    data: {
-      githubId: GITHUB_ID,
-      year: 2026,
-      month: 10,
-      commitCount: 999,
-      observedAt: new Date('2026-10-31T00:00:00.000Z'),
-    },
-  });
   await prisma.collectionRepositoryStream.create({
     data: { repositoryId: linked.id, streamType: 'COMMIT' },
   });
@@ -929,9 +920,6 @@ async function clean(): Promise<void> {
         githubRepositoryId: { in: [...LEDGER_REPO_IDS] },
       },
     },
-  });
-  await prisma.githubUserActivityMonthly.deleteMany({
-    where: { githubId: GITHUB_ID },
   });
   await prisma.githubRepository.deleteMany({
     where: {

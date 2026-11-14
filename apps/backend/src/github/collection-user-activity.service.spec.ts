@@ -38,9 +38,7 @@ function deferred<T>(): {
 describe('CollectionUserActivityService', () => {
   const findMany = jest.fn();
   const queryRaw = jest.fn();
-  const monthlyUpsert = jest.fn();
   const executeRaw = jest.fn();
-  const transactionQueryRaw = jest.fn();
   const fetchUserActivityMetrics = jest.fn();
 
   const now = () => new Date('2026-08-19T00:00:00.000Z');
@@ -50,15 +48,12 @@ describe('CollectionUserActivityService', () => {
       new CollectionUserActivityRepository(
         {
           user: { findMany },
-          githubUserActivityMonthly: { upsert: monthlyUpsert },
           $queryRaw: queryRaw,
           $transaction: (
             operation: (transaction: unknown) => Promise<unknown>,
           ) =>
             operation({
-              githubUserActivityMonthly: { upsert: monthlyUpsert },
               $executeRaw: executeRaw,
-              $queryRaw: transactionQueryRaw,
             }),
         } as unknown as PrismaService,
         openCutover,
@@ -79,12 +74,8 @@ describe('CollectionUserActivityService', () => {
     findMany.mockReset();
     queryRaw.mockReset();
     queryRaw.mockResolvedValue([{ present: false }]);
-    monthlyUpsert.mockReset();
-    monthlyUpsert.mockResolvedValue(undefined);
     executeRaw.mockReset();
     executeRaw.mockResolvedValue(1);
-    transactionQueryRaw.mockReset();
-    transactionQueryRaw.mockResolvedValue([]);
     fetchUserActivityMetrics.mockReset();
   });
 
@@ -117,19 +108,6 @@ describe('CollectionUserActivityService', () => {
     expect(Array.isArray(ledgerSql) ? ledgerSql.join('') : '').toContain(
       'INSERT INTO "github_user_activity_history"',
     );
-    expect(monthlyUpsert).toHaveBeenCalledWith({
-      where: {
-        githubId_year_month: { githubId: 4242n, year: 2026, month: 8 },
-      },
-      create: expect.objectContaining({
-        githubId: 4242n,
-        year: 2026,
-        month: 8,
-        commitCount: 10,
-        starCount: 5,
-      }) as unknown,
-      update: expect.objectContaining({ commitCount: 10 }) as unknown,
-    });
     expect(result).toEqual({
       observedUserCount: 1,
       upsertedRowCount: 1,
@@ -347,9 +325,7 @@ describe('CollectionUserActivityRepository ledger history', () => {
   } => {
     const executeRaw = jest.fn().mockResolvedValue(1);
     const transaction = {
-      githubUserActivityMonthly: { upsert: jest.fn().mockResolvedValue({}) },
       $executeRaw: executeRaw,
-      $queryRaw: jest.fn().mockResolvedValue([]),
     };
     const db = {
       $transaction: (operation: (tx: typeof transaction) => Promise<void>) =>
@@ -364,13 +340,12 @@ describe('CollectionUserActivityRepository ledger history', () => {
     };
   };
 
-  it('공개 관측은 원장 한 문장과 월별 upsert를 보낸다', async () => {
+  it('공개 관측은 원장 한 문장만 보낸다', async () => {
     const { repository, executeRaw } = buildRepository();
 
     await repository.upsertObservation({
       githubId: 4242n,
       year: 2026,
-      month: 8,
       githubLogin: 'octocat',
       ...counts,
       observedAt,

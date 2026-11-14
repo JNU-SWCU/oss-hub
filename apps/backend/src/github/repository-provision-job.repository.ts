@@ -33,7 +33,6 @@ export interface CollectionActivityUserRow {
 export interface CollectionUserActivityObservationInput {
   readonly githubId: bigint;
   readonly year: number;
-  readonly month: number;
   readonly githubLogin: string;
   readonly commitCount: number;
   readonly pullRequestCount: number;
@@ -57,59 +56,6 @@ interface ActivityLedgerRow extends ActivityCountSnapshot {
   readonly visibility: ActivityVisibility;
   readonly observedAt: Date;
 }
-
-interface PrivateActivityCounts {
-  readonly commitCount: number;
-  readonly pullRequestCount: number;
-  readonly issueCount: number;
-  readonly repositoryCount: number;
-}
-
-const EMPTY_PRIVATE_COUNTS: PrivateActivityCounts = {
-  commitCount: 0,
-  pullRequestCount: 0,
-  issueCount: 0,
-  repositoryCount: 0,
-};
-
-const isPrivateActivityCounts = (
-  value: unknown,
-): value is PrivateActivityCounts => {
-  if (value === null || typeof value !== 'object') return false;
-  const row = value as Partial<PrivateActivityCounts>;
-  return (
-    Number.isInteger(row.commitCount) &&
-    Number.isInteger(row.pullRequestCount) &&
-    Number.isInteger(row.issueCount) &&
-    Number.isInteger(row.repositoryCount)
-  );
-};
-
-const latestPrivateCounts = async (
-  transaction: Prisma.TransactionClient,
-  githubId: bigint,
-  year: number,
-): Promise<PrivateActivityCounts> => {
-  const rows = await transaction.$queryRaw<readonly unknown[]>`
-    SELECT
-      commit_count AS "commitCount",
-      pull_request_count AS "pullRequestCount",
-      issue_count AS "issueCount",
-      repository_count AS "repositoryCount"
-    FROM "github_user_activity_history"
-    WHERE "github_id" = ${githubId}
-      AND "year" = ${year}
-      AND visibility = 'PRIVATE'::"ActivityVisibility"
-    ORDER BY "observed_at" DESC
-    LIMIT 1
-  `;
-  const row = rows[0];
-  if (row === undefined) return EMPTY_PRIVATE_COUNTS;
-  if (!isPrivateActivityCounts(row)) {
-    throw new Error('Private activity counts were not integers');
-  }
-  return row;
-};
 
 const writeActivityLedgerRow = async (
   transaction: Prisma.TransactionClient,
@@ -240,50 +186,23 @@ export class CollectionUserActivityRepository {
   async upsertObservation(
     observation: CollectionUserActivityObservationInput,
   ): Promise<void> {
-    const { githubId, year, month } = observation;
-    const visibility = ActivityVisibility.PUBLIC;
-    const publicCounts = {
-      commitCount: observation.commitCount,
-      pullRequestCount: observation.pullRequestCount,
-      issueCount: observation.issueCount,
-      repositoryCount: observation.repositoryCount,
-      starCount: observation.starCount,
-      observedAt: observation.observedAt,
-    };
-    await this.record(async (transaction) => {
-      await writeActivityLedgerRow(transaction, {
-        githubId,
-        year,
-        visibility,
-        ...publicCounts,
-      });
-      const privateCounts = await latestPrivateCounts(
-        transaction,
-        githubId,
-        year,
-      );
-      const monthly = {
-        ...publicCounts,
-        commitCount: publicCounts.commitCount + privateCounts.commitCount,
-        pullRequestCount:
-          publicCounts.pullRequestCount + privateCounts.pullRequestCount,
-        issueCount: publicCounts.issueCount + privateCounts.issueCount,
-        repositoryCount:
-          publicCounts.repositoryCount + privateCounts.repositoryCount,
-      };
-      await transaction.githubUserActivityMonthly.upsert({
-        where: { githubId_year_month: { githubId, year, month } },
-        create: { githubId, year, month, ...monthly },
-        update: monthly,
-      });
-    });
+    await this.record((transaction) =>
+      writeActivityLedgerRow(transaction, {
+        githubId: observation.githubId,
+        year: observation.year,
+        visibility: ActivityVisibility.PUBLIC,
+        commitCount: observation.commitCount,
+        pullRequestCount: observation.pullRequestCount,
+        issueCount: observation.issueCount,
+        repositoryCount: observation.repositoryCount,
+        starCount: observation.starCount,
+        observedAt: observation.observedAt,
+      }),
+    );
   }
 
   async upsertPrivateObservation(
-    observation: Omit<
-      CollectionUserActivityObservationInput,
-      'starCount' | 'month'
-    >,
+    observation: Omit<CollectionUserActivityObservationInput, 'starCount'>,
   ): Promise<void> {
     const { githubId, year, ...row } = observation;
     const visibility = ActivityVisibility.PRIVATE;

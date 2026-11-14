@@ -96,15 +96,6 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
       },
     ],
   });
-  await prisma.githubUserActivityMonthly.createMany({
-    data: rankingIds.map((id, index) => ({
-      githubId: id,
-      year: 2026,
-      month: 8,
-      commitCount: index === 0 ? 16 : 40,
-      observedAt,
-    })),
-  });
   const rankingRepository = new RankingRepository(prisma);
   const ranking = new RankingService(
     rankingRepository,
@@ -186,9 +177,6 @@ it('URL 교체로 옛 레포와 fact가 삭제돼도 공개·회원·교직원 �
     });
   } finally {
     await prisma.githubUserActivityObservation.deleteMany({
-      where: { githubId: { in: rankingIds } },
-    });
-    await prisma.githubUserActivityMonthly.deleteMany({
       where: { githubId: { in: rankingIds } },
     });
     await prisma.user.deleteMany({
